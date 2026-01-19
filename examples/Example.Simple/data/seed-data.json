@@ -1,0 +1,298 @@
+{
+  "SingleTableExample": [
+    {
+      "PutRequest": {
+        "Item": {
+          "PK": {
+            "S": "CUSTOMER#1"
+          },
+          "SK": {
+            "S": "METADATA"
+          },
+          "EntityType": {
+            "S": "Customer"
+          },
+          "CustomerId": {
+            "N": "1"
+          },
+          "Email": {
+            "S": "john.doe@example.com"
+          },
+          "Name": {
+            "S": "John Doe"
+          },
+          "CreatedAt": {
+            "S": "2025-01-01T10:00:00Z"
+          }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "PK": {
+            "S": "CUSTOMER#2"
+          },
+          "SK": {
+            "S": "METADATA"
+          },
+          "EntityType": {
+            "S": "Customer"
+          },
+          "CustomerId": {
+            "N": "2"
+          },
+          "Email": {
+            "S": "jane.smith@example.com"
+          },
+          "Name": {
+            "S": "Jane Smith"
+          },
+          "CreatedAt": {
+            "S": "2025-01-02T14:30:00Z"
+          }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "PK": {
+            "S": "CUSTOMER#1"
+          },
+          "SK": {
+            "S": "ORDER#101"
+          },
+          "EntityType": {
+            "S": "Order"
+          },
+          "OrderId": {
+            "N": "101"
+          },
+          "CustomerId": {
+            "N": "1"
+          },
+          "OrderDate": {
+            "S": "2025-01-10T15:30:00Z"
+          },
+          "Status": {
+            "S": "Shipped"
+          },
+          "TotalAmount": {
+            "N": "149.99"
+          },
+          "GSI1PK": {
+            "S": "ORDER"
+          },
+          "GSI1SK": {
+            "S": "2025-01-10T15:30:00Z"
+          }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "PK": {
+            "S": "ORDER#101"
+          },
+          "SK": {
+            "S": "ORDERITEM#1"
+          },
+          "EntityType": {
+            "S": "OrderItem"
+          },
+          "OrderItemId": {
+            "N": "1"
+          },
+          "OrderId": {
+            "N": "101"
+          },
+          "ProductSKU": {
+            "S": "WIDGET-001"
+          },
+          "ProductName": {
+            "S": "Premium Widget"
+          },
+          "Quantity": {
+            "N": "2"
+          },
+          "Price": {
+            "N": "49.99"
+          }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "PK": {
+            "S": "ORDER#101"
+          },
+          "SK": {
+            "S": "ORDERITEM#2"
+          },
+          "EntityType": {
+            "S": "OrderItem"
+          },
+          "OrderItemId": {
+            "N": "2"
+          },
+          "OrderId": {
+            "N": "101"
+          },
+          "ProductSKU": {
+            "S": "GADGET-200"
+          },
+          "ProductName": {
+            "S": "Smart Gadget"
+          },
+          "Quantity": {
+            "N": "1"
+          },
+          "Price": {
+            "N": "50.01"
+          }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "PK": {
+            "S": "CUSTOMER#1"
+          },
+          "SK": {
+            "S": "ORDER#102"
+          },
+          "EntityType": {
+            "S": "Order"
+          },
+          "OrderId": {
+            "N": "102"
+          },
+          "CustomerId": {
+            "N": "1"
+          },
+          "OrderDate": {
+            "S": "2025-01-15T09:00:00Z"
+          },
+          "Status": {
+            "S": "Processing"
+          },
+          "TotalAmount": {
+            "N": "299.99"
+          },
+          "GSI1PK": {
+            "S": "ORDER"
+          },
+          "GSI1SK": {
+            "S": "2025-01-15T09:00:00Z"
+          }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "PK": {
+            "S": "ORDER#102"
+          },
+          "SK": {
+            "S": "ORDERITEM#3"
+          },
+          "EntityType": {
+            "S": "OrderItem"
+          },
+          "OrderItemId": {
+            "N": "3"
+          },
+          "OrderId": {
+            "N": "102"
+          },
+          "ProductSKU": {
+            "S": "DEVICE-300"
+          },
+          "ProductName": {
+            "S": "Ultimate Device"
+          },
+          "Quantity": {
+            "N": "1"
+          },
+          "Price": {
+            "N": "299.99"
+          }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "PK": {
+            "S": "CUSTOMER#2"
+          },
+          "SK": {
+            "S": "ORDER#103"
+          },
+          "EntityType": {
+            "S": "Order"
+          },
+          "OrderId": {
+            "N": "103"
+          },
+          "CustomerId": {
+            "N": "2"
+          },
+          "OrderDate": {
+            "S": "2025-01-18T11:45:00Z"
+          },
+          "Status": {
+            "S": "Delivered"
+          },
+          "TotalAmount": {
+            "N": "79.98"
+          },
+          "GSI1PK": {
+            "S": "ORDER"
+          },
+          "GSI1SK": {
+            "S": "2025-01-18T11:45:00Z"
+          }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "PK": {
+            "S": "ORDER#103"
+          },
+          "SK": {
+            "S": "ORDERITEM#4"
+          },
+          "EntityType": {
+            "S": "OrderItem"
+          },
+          "OrderItemId": {
+            "N": "4"
+          },
+          "OrderId": {
+            "N": "103"
+          },
+          "ProductSKU": {
+            "S": "WIDGET-001"
+          },
+          "ProductName": {
+            "S": "Premium Widget"
+          },
+          "Quantity": {
+            "N": "1"
+          },
+          "Price": {
+            "N": "79.98"
+          }
+        }
+      }
+    }
+  ]
+}

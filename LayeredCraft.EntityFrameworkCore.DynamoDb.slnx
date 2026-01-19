@@ -1,0 +1,16 @@
+<Solution>
+  <Folder Name="/examples/">
+    <Project Path="examples/Example.Simple/Example.Simple.csproj" />
+  </Folder>
+  <Folder Name="/Solution Items/">
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Packages.props" />
+    <File Path="README.md" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/LayeredCraft.EntityFrameworkCore.DynamoDb/LayeredCraft.EntityFrameworkCore.DynamoDb.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="LayeredCraft.EntityFrameworkCore.DynamoDb.Tests/LayeredCraft.EntityFrameworkCore.DynamoDb.Tests.csproj" />
+  </Folder>
+</Solution>
