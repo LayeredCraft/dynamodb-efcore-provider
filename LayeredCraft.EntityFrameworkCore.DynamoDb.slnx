@@ -1,1 +1,8 @@
-<Solution/>
+<Solution>
+  <Folder Name="/examples/" />
+  <Folder Name="/Solution Items/" />
+  <Folder Name="/src/">
+    <Project Path="src/LayeredCraft.EntityFrameworkCore.DynamoDb/LayeredCraft.EntityFrameworkCore.DynamoDb.csproj" />
+  </Folder>
+  <Folder Name="/tests/" />
+</Solution>
