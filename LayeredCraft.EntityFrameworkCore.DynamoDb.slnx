@@ -10,5 +10,7 @@
   <Folder Name="/src/">
     <Project Path="src/LayeredCraft.EntityFrameworkCore.DynamoDb/LayeredCraft.EntityFrameworkCore.DynamoDb.csproj" />
   </Folder>
-  <Folder Name="/tests/" />
+  <Folder Name="/tests/">
+    <Project Path="LayeredCraft.EntityFrameworkCore.DynamoDb.Tests/LayeredCraft.EntityFrameworkCore.DynamoDb.Tests.csproj" />
+  </Folder>
 </Solution>
