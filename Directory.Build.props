@@ -23,6 +23,7 @@
     <GeneratePackageOnBuild>False</GeneratePackageOnBuild>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <IsPackable>false</IsPackable>
   </PropertyGroup>
   <PropertyGroup>
     <PackageReadmeFile>README.md</PackageReadmeFile>
