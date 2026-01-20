@@ -1,6 +1,10 @@
+using LayeredCraft.EntityFrameworkCore.DynamoDb.Diagnostics.Internal;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Infrastructure.Internal;
+using LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Storage;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -13,8 +17,19 @@ public static class DynamoServiceCollectionExtensions
         public IServiceCollection AddEntityFrameworkDynamo()
         {
             var builder = new EntityFrameworkServicesBuilder(serviceCollection)
+                .TryAdd<LoggingDefinitions, DynamoLoggingDefinition>()
                 .TryAdd<IDatabaseProvider, DatabaseProvider<DynamoOptionsExtension>>()
-                .TryAdd<IDatabase, DynamoDatabaseWrapper>();
+                .TryAdd<IDatabase, DynamoDatabaseWrapper>()
+                .TryAdd<IQueryContextFactory, DynamoQueryContextFactory>()
+                .TryAdd<ITypeMappingSource, DynamoTypeMappingSource>()
+                .TryAdd<
+                    IQueryableMethodTranslatingExpressionVisitorFactory,
+                    DynamoQueryableMethodTranslatingExpressionVisitorFactory
+                >()
+                .TryAdd<
+                    IShapedQueryCompilingExpressionVisitorFactory,
+                    DynamoShapedQueryCompilingExpressionVisitorFactory
+                >();
 
             builder.TryAddCoreServices();
 
