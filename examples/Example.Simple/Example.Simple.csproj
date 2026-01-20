@@ -6,4 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\LayeredCraft.EntityFrameworkCore.DynamoDb\LayeredCraft.EntityFrameworkCore.DynamoDb.csproj" />
+  </ItemGroup>
 </Project>

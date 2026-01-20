@@ -64,4 +64,54 @@ else
   echo "Data seeding completed successfully!"
 fi
 
-echo "Setup complete. Table $TABLE_NAME is ready to use."
+# ===================================
+# Create SimpleItems table (simple hello world example)
+# ===================================
+SIMPLE_TABLE_NAME="SimpleItems"
+
+# Check if SimpleItems table already exists
+if aws dynamodb describe-table --table-name $SIMPLE_TABLE_NAME --endpoint-url $DYNAMODB_ENDPOINT --region $REGION > /dev/null 2>&1; then
+  echo "Table $SIMPLE_TABLE_NAME already exists. Skipping table creation."
+else
+  echo "Creating table $SIMPLE_TABLE_NAME..."
+  aws dynamodb create-table \
+    --table-name $SIMPLE_TABLE_NAME \
+    --attribute-definitions \
+      AttributeName=Id,AttributeType=S \
+    --key-schema \
+      AttributeName=Id,KeyType=HASH \
+    --provisioned-throughput \
+      ReadCapacityUnits=5,WriteCapacityUnits=5 \
+    --endpoint-url $DYNAMODB_ENDPOINT \
+    --region $REGION
+
+  echo "Waiting for table to become active..."
+  aws dynamodb wait table-exists \
+    --table-name $SIMPLE_TABLE_NAME \
+    --endpoint-url $DYNAMODB_ENDPOINT \
+    --region $REGION
+
+  echo "Table $SIMPLE_TABLE_NAME created successfully!"
+fi
+
+# Check if data already exists in SimpleItems table
+SIMPLE_ITEM_COUNT=$(aws dynamodb scan \
+  --table-name $SIMPLE_TABLE_NAME \
+  --select COUNT \
+  --endpoint-url $DYNAMODB_ENDPOINT \
+  --region $REGION \
+  --output json | grep -o '"Count": [0-9]*' | grep -o '[0-9]*')
+
+if [ "$SIMPLE_ITEM_COUNT" -gt 0 ]; then
+  echo "Table $SIMPLE_TABLE_NAME already contains $SIMPLE_ITEM_COUNT items. Skipping data seeding."
+else
+  echo "Seeding data from /data/simple-seed-data.json..."
+  aws dynamodb batch-write-item \
+    --request-items file:///data/simple-seed-data.json \
+    --endpoint-url $DYNAMODB_ENDPOINT \
+    --region $REGION
+
+  echo "Data seeding for $SIMPLE_TABLE_NAME completed successfully!"
+fi
+
+echo "Setup complete. Tables $TABLE_NAME and $SIMPLE_TABLE_NAME are ready to use."
