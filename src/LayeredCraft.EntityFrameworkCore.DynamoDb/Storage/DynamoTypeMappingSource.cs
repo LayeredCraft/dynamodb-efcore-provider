@@ -4,23 +4,18 @@ using Microsoft.EntityFrameworkCore.Storage;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Storage;
 
-public class DynamoTypeMappingSource : ITypeMappingSource
+public class DynamoTypeMappingSource : TypeMappingSource
 {
-    public CoreTypeMapping? FindMapping(IProperty property) => throw new NotImplementedException();
+    public DynamoTypeMappingSource(TypeMappingSourceDependencies dependencies)
+        : base(dependencies) { }
 
-    public CoreTypeMapping? FindMapping(IElementType elementType) =>
-        throw new NotImplementedException();
+    protected override CoreTypeMapping? FindMapping(in TypeMappingInfo mappingInfo)
+    {
+        if (mappingInfo.ClrType == typeof(string))
+        {
+            return new DynamoTypeMapping(mappingInfo.ClrType);
+        }
 
-    public CoreTypeMapping? FindMapping(MemberInfo member) => throw new NotImplementedException();
-
-    public CoreTypeMapping? FindMapping(MemberInfo member, IModel model, bool useAttributes) =>
-        throw new NotImplementedException();
-
-    public CoreTypeMapping? FindMapping(Type type) => throw new NotImplementedException();
-
-    public CoreTypeMapping? FindMapping(
-        Type type,
-        IModel model,
-        CoreTypeMapping? elementMapping = null
-    ) => throw new NotImplementedException();
+        return null;
+    }
 }

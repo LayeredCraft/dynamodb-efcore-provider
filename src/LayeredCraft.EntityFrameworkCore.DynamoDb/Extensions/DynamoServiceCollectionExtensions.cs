@@ -1,5 +1,6 @@
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Diagnostics.Internal;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Infrastructure.Internal;
+using LayeredCraft.EntityFrameworkCore.DynamoDb.Query;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Storage;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -29,7 +30,8 @@ public static class DynamoServiceCollectionExtensions
                 .TryAdd<
                     IShapedQueryCompilingExpressionVisitorFactory,
                     DynamoShapedQueryCompilingExpressionVisitorFactory
-                >();
+                >()
+                .TryAdd<IQueryCompilationContextFactory, DynamoQueryCompilationContextFactory>();
 
             builder.TryAddCoreServices();
 
