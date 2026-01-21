@@ -57,3 +57,4 @@ nunit-*.xml
 # Docker
 docker-compose.override.yml
 .docker/
+**/*DotSettings.user
