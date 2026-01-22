@@ -10,6 +10,7 @@ services.AddDbContext<DynamoDbContext>();
 
 await using var provider = services.BuildServiceProvider();
 await using var scope = provider.CreateAsyncScope();
+
 var context = scope.ServiceProvider.GetRequiredService<DynamoDbContext>();
 
 await context.Items.ToListAsync();
@@ -20,10 +21,8 @@ internal class DynamoDbContext : DbContext
 {
     public DbSet<Item> Items { get; init; }
 
-    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-    {
-        optionsBuilder.UseDynamo();
-    }
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) =>
+        optionsBuilder.UseDynamo(options => options.ServiceUrl("http://localhost:8000"));
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

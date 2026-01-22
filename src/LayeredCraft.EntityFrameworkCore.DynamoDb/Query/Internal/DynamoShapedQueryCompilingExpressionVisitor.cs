@@ -5,8 +5,8 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
 
 public class DynamoShapedQueryCompilingExpressionVisitor(
     ShapedQueryCompilingExpressionVisitorDependencies dependencies,
-    DynamoQueryCompilationContext dynamoQueryCompilationContext
-) : ShapedQueryCompilingExpressionVisitor(dependencies, dynamoQueryCompilationContext)
+    DynamoQueryCompilationContext dynamoQueryCompilationContext)
+    : ShapedQueryCompilingExpressionVisitor(dependencies, dynamoQueryCompilationContext)
 {
     protected override Expression VisitShapedQuery(ShapedQueryExpression shapedQueryExpression)
     {

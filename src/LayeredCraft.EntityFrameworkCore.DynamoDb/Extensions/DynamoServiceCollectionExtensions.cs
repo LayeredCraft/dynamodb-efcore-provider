@@ -19,19 +19,17 @@ public static class DynamoServiceCollectionExtensions
         {
             var builder = new EntityFrameworkServicesBuilder(serviceCollection)
                 .TryAdd<LoggingDefinitions, DynamoLoggingDefinition>()
-                .TryAdd<IDatabaseProvider, DatabaseProvider<DynamoOptionsExtension>>()
+                .TryAdd<IDatabaseProvider, DatabaseProvider<DynamoDbOptionsExtension>>()
                 .TryAdd<IDatabase, DynamoDatabaseWrapper>()
                 .TryAdd<IQueryContextFactory, DynamoQueryContextFactory>()
                 .TryAdd<ITypeMappingSource, DynamoTypeMappingSource>()
-                .TryAdd<
-                    IQueryableMethodTranslatingExpressionVisitorFactory,
-                    DynamoQueryableMethodTranslatingExpressionVisitorFactory
-                >()
-                .TryAdd<
-                    IShapedQueryCompilingExpressionVisitorFactory,
-                    DynamoShapedQueryCompilingExpressionVisitorFactory
-                >()
-                .TryAdd<IQueryCompilationContextFactory, DynamoQueryCompilationContextFactory>();
+                .TryAdd<IQueryableMethodTranslatingExpressionVisitorFactory,
+                    DynamoQueryableMethodTranslatingExpressionVisitorFactory>()
+                .TryAdd<IShapedQueryCompilingExpressionVisitorFactory,
+                    DynamoShapedQueryCompilingExpressionVisitorFactory>()
+                .TryAdd<IQueryCompilationContextFactory, DynamoQueryCompilationContextFactory>()
+                .TryAddProviderSpecificServices(services =>
+                    services.TryAddSingleton<IDynamoClientWrapper, DynamoClientWrapper>());
 
             builder.TryAddCoreServices();
 
