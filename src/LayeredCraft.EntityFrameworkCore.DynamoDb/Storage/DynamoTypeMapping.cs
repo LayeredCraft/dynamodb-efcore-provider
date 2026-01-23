@@ -10,12 +10,10 @@ public class DynamoTypeMapping : CoreTypeMapping
     public DynamoTypeMapping(
         Type clrType,
         ValueComparer? comparer = null,
-        ValueComparer? keyComparer = null
-    )
-        : base(new CoreTypeMappingParameters(clrType, converter: null, comparer, keyComparer)) { }
+        ValueComparer? keyComparer = null) : base(
+        new CoreTypeMappingParameters(clrType, null, comparer, keyComparer)) { }
 
-    protected DynamoTypeMapping(CoreTypeMappingParameters parameters)
-        : base(parameters) { }
+    protected DynamoTypeMapping(CoreTypeMappingParameters parameters) : base(parameters) { }
 
     protected override CoreTypeMapping Clone(CoreTypeMappingParameters parameters) =>
         throw new NotImplementedException();
@@ -25,6 +23,6 @@ public class DynamoTypeMapping : CoreTypeMapping
         ValueComparer? comparer = null,
         ValueComparer? keyComparer = null,
         CoreTypeMapping? elementMapping = null,
-        JsonValueReaderWriter? jsonValueReaderWriter = null
-    ) => throw new NotImplementedException();
+        JsonValueReaderWriter? jsonValueReaderWriter = null) =>
+        throw new NotImplementedException();
 }

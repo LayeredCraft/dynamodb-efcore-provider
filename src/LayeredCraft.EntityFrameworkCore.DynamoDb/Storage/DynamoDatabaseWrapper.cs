@@ -10,6 +10,6 @@ public class DynamoDatabaseWrapper(DatabaseDependencies dependencies) : Database
 
     public override Task<int> SaveChangesAsync(
         IList<IUpdateEntry> entries,
-        CancellationToken cancellationToken = new CancellationToken()) =>
+        CancellationToken cancellationToken = new()) =>
         throw new NotImplementedException();
 }

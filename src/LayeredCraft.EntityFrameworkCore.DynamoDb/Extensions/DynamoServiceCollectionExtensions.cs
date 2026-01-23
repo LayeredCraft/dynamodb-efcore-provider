@@ -29,7 +29,7 @@ public static class DynamoServiceCollectionExtensions
                     DynamoShapedQueryCompilingExpressionVisitorFactory>()
                 .TryAdd<IQueryCompilationContextFactory, DynamoQueryCompilationContextFactory>()
                 .TryAddProviderSpecificServices(services =>
-                    services.TryAddSingleton<IDynamoClientWrapper, DynamoClientWrapper>());
+                    services.TryAddScoped<IDynamoClientWrapper, DynamoClientWrapper>());
 
             builder.TryAddCoreServices();
 

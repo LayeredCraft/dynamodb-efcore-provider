@@ -19,13 +19,11 @@ internal static class Check
 {
     [return: NotNull]
     public static T NotNull<T>(
-        [AllowNull, NotNull] T value,
+        [AllowNull] [NotNull] T value,
         [CallerArgumentExpression(nameof(value))] string parameterName = "")
     {
         if (value is null)
-        {
             ThrowArgumentNull(parameterName);
-        }
 
         return value;
     }
@@ -37,9 +35,7 @@ internal static class Check
         NotNull(value, parameterName);
 
         if (value.Count == 0)
-        {
             ThrowNotEmpty(parameterName);
-        }
 
         return value;
     }
@@ -51,23 +47,19 @@ internal static class Check
         NotNull(value, parameterName);
 
         if (value.AsSpan().Trim().Length == 0)
-        {
             ThrowStringArgumentEmpty(parameterName);
-        }
 
         return value;
     }
 
-    public static string? NullButNotEmpty(
+    public static string NullButNotEmpty(
         string? value,
         [CallerArgumentExpression(nameof(value))] string parameterName = "")
     {
         if (value is not null && value.Length == 0)
-        {
             ThrowStringArgumentEmpty(parameterName);
-        }
 
-        return value;
+        return value!;
     }
 
     public static IReadOnlyList<T> HasNoNulls<T>(
@@ -78,12 +70,8 @@ internal static class Check
 
         // ReSharper disable once ForCanBeConvertedToForeach
         for (var i = 0; i < value.Count; i++)
-        {
             if (value[i] is null)
-            {
                 ThrowArgumentException(parameterName, parameterName);
-            }
-        }
 
         return value;
     }
@@ -95,12 +83,8 @@ internal static class Check
         NotNull(value, parameterName);
 
         for (var i = 0; i < value.Count; i++)
-        {
             if (string.IsNullOrWhiteSpace(value[i]))
-            {
                 ThrowCollectionHasEmptyElements(parameterName);
-            }
-        }
 
         return value;
     }
@@ -111,12 +95,11 @@ internal static class Check
         [CallerArgumentExpression(nameof(condition))] string message = "")
     {
         if (!condition)
-        {
             throw new UnreachableException($"Check.DebugAssert failed: {message}");
-        }
     }
 
-    [Conditional("DEBUG"), DoesNotReturn]
+    [Conditional("DEBUG")]
+    [DoesNotReturn]
     public static void DebugFail(string message) =>
         throw new UnreachableException($"Check.DebugFail failed: {message}");
 

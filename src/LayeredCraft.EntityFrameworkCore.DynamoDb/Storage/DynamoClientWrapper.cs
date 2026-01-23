@@ -7,26 +7,26 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Storage;
 
 public class DynamoClientWrapper : IDynamoClientWrapper
 {
-    private readonly AmazonDynamoDBConfig _amazonDynamoDbConfig = new AmazonDynamoDBConfig();
+    private readonly AmazonDynamoDBConfig _amazonDynamoDbConfig = new();
 
     public DynamoClientWrapper(IDbContextOptions dbContextOptions)
     {
+        ArgumentNullException.ThrowIfNull(dbContextOptions);
+
         var options = dbContextOptions.FindExtension<DynamoDbOptionsExtension>();
 
         if (options?.AuthenticationRegion is not null)
             _amazonDynamoDbConfig.AuthenticationRegion = options.AuthenticationRegion;
 
-        if (options?.ServiceUrl is not null) _amazonDynamoDbConfig.ServiceURL = options.ServiceUrl;
+        if (options?.ServiceUrl is not null)
+            _amazonDynamoDbConfig.ServiceURL = options.ServiceUrl;
     }
 
     public IAmazonDynamoDB Client
     {
         get
         {
-            field ??= _amazonDynamoDbConfig is null
-                ? new AmazonDynamoDBClient()
-                : new AmazonDynamoDBClient(_amazonDynamoDbConfig);
-
+            field ??= new AmazonDynamoDBClient(_amazonDynamoDbConfig);
             return field;
         }
     }

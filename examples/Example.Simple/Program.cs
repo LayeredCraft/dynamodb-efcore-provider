@@ -13,7 +13,10 @@ await using var scope = provider.CreateAsyncScope();
 
 var context = scope.ServiceProvider.GetRequiredService<DynamoDbContext>();
 
-await context.Items.ToListAsync();
+var items = await context.Items.ToListAsync();
+
+foreach (var item in items)
+    Console.WriteLine($"Item: {item.Id}, {item.Name}, {item.Desciption}");
 
 Console.WriteLine("DONE");
 
@@ -24,10 +27,8 @@ internal class DynamoDbContext : DbContext
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) =>
         optionsBuilder.UseDynamo(options => options.ServiceUrl("http://localhost:8000"));
 
-    protected override void OnModelCreating(ModelBuilder modelBuilder)
-    {
-        modelBuilder.Entity<Item>().HasKey(x => x.Id);
-    }
+    protected override void OnModelCreating(ModelBuilder modelBuilder) =>
+        modelBuilder.Entity<Item>().ToTable("SimpleItems").HasKey(x => x.Id);
 }
 
 public class Item

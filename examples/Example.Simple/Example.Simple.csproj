@@ -5,8 +5,9 @@
     <LangVersion>latest</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <NoWarn>CS1591</NoWarn>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\LayeredCraft.EntityFrameworkCore.DynamoDb\LayeredCraft.EntityFrameworkCore.DynamoDb.csproj" />
+    <ProjectReference Include="..\..\src\LayeredCraft.EntityFrameworkCore.DynamoDb\LayeredCraft.EntityFrameworkCore.DynamoDb.csproj"/>
   </ItemGroup>
 </Project>

@@ -23,7 +23,7 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
         var queryExpression = new DynamoQueryExpression();
         return new ShapedQueryExpression(
             queryExpression,
-            shaperExpression: new StructuralTypeShaperExpression(
+            new StructuralTypeShaperExpression(
                 entityType,
                 new ProjectionBindingExpression(
                     queryExpression,

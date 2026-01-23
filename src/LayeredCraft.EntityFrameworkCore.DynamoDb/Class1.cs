@@ -1,5 +1,3 @@
 ﻿namespace LayeredCraft.EntityFrameworkCore.DynamoDb;
 
-public class Class1
-{
-}
+public class Class1 { }
