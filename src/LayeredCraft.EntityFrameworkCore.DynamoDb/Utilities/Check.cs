@@ -19,7 +19,7 @@ internal static class Check
 {
     [return: NotNull]
     public static T NotNull<T>(
-        [AllowNull] [NotNull] T value,
+        [AllowNull] [NotNull] this T value,
         [CallerArgumentExpression(nameof(value))] string parameterName = "")
     {
         if (value is null)
@@ -29,7 +29,7 @@ internal static class Check
     }
 
     public static IReadOnlyList<T> NotEmpty<T>(
-        [NotNull] IReadOnlyList<T>? value,
+        [NotNull] this IReadOnlyList<T>? value,
         [CallerArgumentExpression(nameof(value))] string parameterName = "")
     {
         NotNull(value, parameterName);
@@ -41,7 +41,7 @@ internal static class Check
     }
 
     public static string NotEmpty(
-        [NotNull] string? value,
+        [NotNull] this string? value,
         [CallerArgumentExpression(nameof(value))] string parameterName = "")
     {
         NotNull(value, parameterName);
@@ -53,7 +53,7 @@ internal static class Check
     }
 
     public static string NullButNotEmpty(
-        string? value,
+        this string? value,
         [CallerArgumentExpression(nameof(value))] string parameterName = "")
     {
         if (value is not null && value.Length == 0)
@@ -63,13 +63,14 @@ internal static class Check
     }
 
     public static IReadOnlyList<T> HasNoNulls<T>(
-        [NotNull] IReadOnlyList<T>? value,
+        [NotNull] this IReadOnlyList<T>? value,
         [CallerArgumentExpression(nameof(value))] string parameterName = "") where T : class
     {
-        NotNull(value, parameterName);
+        value.NotNull(parameterName);
 
         // ReSharper disable once ForCanBeConvertedToForeach
         for (var i = 0; i < value.Count; i++)
+            // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
             if (value[i] is null)
                 ThrowArgumentException(parameterName, parameterName);
 
@@ -77,10 +78,10 @@ internal static class Check
     }
 
     public static IReadOnlyList<string> HasNoEmptyElements(
-        [NotNull] IReadOnlyList<string>? value,
+        [NotNull] this IReadOnlyList<string>? value,
         [CallerArgumentExpression(nameof(value))] string parameterName = "")
     {
-        NotNull(value, parameterName);
+        value.NotNull(parameterName);
 
         for (var i = 0; i < value.Count; i++)
             if (string.IsNullOrWhiteSpace(value[i]))
