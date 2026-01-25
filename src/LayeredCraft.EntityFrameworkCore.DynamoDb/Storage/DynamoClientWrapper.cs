@@ -1,6 +1,7 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Infrastructure.Internal;
+using LayeredCraft.EntityFrameworkCore.DynamoDb.Utilities;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Storage;
@@ -11,9 +12,7 @@ public class DynamoClientWrapper : IDynamoClientWrapper
 
     public DynamoClientWrapper(IDbContextOptions dbContextOptions)
     {
-        ArgumentNullException.ThrowIfNull(dbContextOptions);
-
-        var options = dbContextOptions.FindExtension<DynamoDbOptionsExtension>();
+        var options = dbContextOptions.NotNull().FindExtension<DynamoDbOptionsExtension>();
 
         if (options?.AuthenticationRegion is not null)
             _amazonDynamoDbConfig.AuthenticationRegion = options.AuthenticationRegion;
