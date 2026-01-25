@@ -15,8 +15,6 @@
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <CheckEolTargetFramework>false</CheckEolTargetFramework>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-  </PropertyGroup>
-  <PropertyGroup>
     <DebugType>embedded</DebugType>
     <NoPackageAnalysis>true</NoPackageAnalysis>
     <LangVersion>latest</LangVersion>
@@ -24,9 +22,8 @@
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <IsPackable>false</IsPackable>
-  </PropertyGroup>
-  <PropertyGroup>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
   <ItemGroup>
     <None Include="..\..\icon.png" Pack="true" PackagePath="" Visible="False"/>
