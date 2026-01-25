@@ -13,7 +13,7 @@ await using var scope = provider.CreateAsyncScope();
 
 var context = scope.ServiceProvider.GetRequiredService<DynamoDbContext>();
 
-var items = await context.Items.ToListAsync();
+var items = await context.Items.Where(i => i.Id == "item-4").ToListAsync();
 
 foreach (var item in items)
     Console.WriteLine($"Item: {item.Id}, {item.Name}, {item.Desciption}");
