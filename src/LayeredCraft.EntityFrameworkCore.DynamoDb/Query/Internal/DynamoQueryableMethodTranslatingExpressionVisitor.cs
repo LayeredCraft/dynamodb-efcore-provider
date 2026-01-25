@@ -5,31 +5,27 @@ using Microsoft.EntityFrameworkCore.Storage;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
 
-public class DynamoQueryableMethodTranslatingExpressionVisitor
-    : QueryableMethodTranslatingExpressionVisitor
+public class DynamoQueryableMethodTranslatingExpressionVisitor(
+    QueryableMethodTranslatingExpressionVisitorDependencies dependencies,
+    QueryCompilationContext queryCompilationContext)
+    : QueryableMethodTranslatingExpressionVisitor(dependencies, queryCompilationContext, false)
 {
-    public DynamoQueryableMethodTranslatingExpressionVisitor(
-        QueryableMethodTranslatingExpressionVisitorDependencies dependencies,
-        QueryCompilationContext queryCompilationContext) : base(
-        dependencies,
-        queryCompilationContext,
-        false) { }
-
     protected override QueryableMethodTranslatingExpressionVisitor CreateSubqueryVisitor()
         => throw new NotImplementedException();
 
     protected override ShapedQueryExpression? CreateShapedQueryExpression(IEntityType entityType)
     {
         var queryExpression = new DynamoQueryExpression();
-        return new ShapedQueryExpression(
+
+        var projectionBindingExpression = new ProjectionBindingExpression(
             queryExpression,
-            new StructuralTypeShaperExpression(
-                entityType,
-                new ProjectionBindingExpression(
-                    queryExpression,
-                    new ProjectionMember(),
-                    typeof(ValueBuffer)),
-                false));
+            new ProjectionMember(),
+            typeof(ValueBuffer));
+
+        var structuralTypeShaperExpression =
+            new StructuralTypeShaperExpression(entityType, projectionBindingExpression, false);
+
+        return new ShapedQueryExpression(queryExpression, structuralTypeShaperExpression);
     }
 
     protected override ShapedQueryExpression? TranslateAll(
