@@ -69,7 +69,7 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
 
             public T Current { get; private set; } = default!;
 
-            object IEnumerator.Current => Current;
+            object IEnumerator.Current => Current!;
 
             public bool MoveNext()
             {

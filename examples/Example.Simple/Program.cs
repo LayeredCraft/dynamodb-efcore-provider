@@ -33,7 +33,7 @@ internal class DynamoDbContext : DbContext
 
 public class Item
 {
-    public string Id { get; set; }
-    public string Name { get; set; }
-    public string Desciption { get; set; }
+    public required string Id { get; set; }
+    public required string Name { get; set; }
+    public required string Desciption { get; set; }
 }
