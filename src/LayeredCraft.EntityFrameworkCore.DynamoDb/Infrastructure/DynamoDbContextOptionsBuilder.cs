@@ -15,11 +15,11 @@ public class DynamoDbContextOptionsBuilder(DbContextOptionsBuilder optionsBuilde
 {
     public DbContextOptionsBuilder OptionsBuilder { get; } = optionsBuilder;
 
-    public virtual DynamoDbContextOptionsBuilder AuthenticationRegion(string region) =>
-        WithOption(e => e.WithAuthenticationRegion(Check.NotNull(region)));
+    public virtual DynamoDbContextOptionsBuilder AuthenticationRegion(string region)
+        => WithOption(e => e.WithAuthenticationRegion(Check.NotNull(region)));
 
-    public virtual DynamoDbContextOptionsBuilder ServiceUrl(string serviceUrl) =>
-        WithOption(e => e.WithServiceUrl(Check.NotNull(serviceUrl)));
+    public virtual DynamoDbContextOptionsBuilder ServiceUrl(string serviceUrl)
+        => WithOption(e => e.WithServiceUrl(Check.NotNull(serviceUrl)));
 
     protected virtual DynamoDbContextOptionsBuilder WithOption(
         Func<DynamoDbOptionsExtension, DynamoDbOptionsExtension> setAction)

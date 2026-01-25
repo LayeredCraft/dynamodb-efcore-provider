@@ -15,14 +15,14 @@ public class DynamoTypeMapping : CoreTypeMapping
 
     protected DynamoTypeMapping(CoreTypeMappingParameters parameters) : base(parameters) { }
 
-    protected override CoreTypeMapping Clone(CoreTypeMappingParameters parameters) =>
-        throw new NotImplementedException();
+    protected override CoreTypeMapping Clone(CoreTypeMappingParameters parameters)
+        => throw new NotImplementedException();
 
     public override CoreTypeMapping WithComposedConverter(
         ValueConverter? converter,
         ValueComparer? comparer = null,
         ValueComparer? keyComparer = null,
         CoreTypeMapping? elementMapping = null,
-        JsonValueReaderWriter? jsonValueReaderWriter = null) =>
-        throw new NotImplementedException();
+        JsonValueReaderWriter? jsonValueReaderWriter = null)
+        => throw new NotImplementedException();
 }

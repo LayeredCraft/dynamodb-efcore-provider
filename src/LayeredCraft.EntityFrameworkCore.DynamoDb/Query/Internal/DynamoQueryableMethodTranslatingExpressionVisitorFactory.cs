@@ -10,8 +10,8 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitorFactory(
         dependencies;
 
     public QueryableMethodTranslatingExpressionVisitor Create(
-        QueryCompilationContext queryCompilationContext) =>
-        new DynamoQueryableMethodTranslatingExpressionVisitor(
+        QueryCompilationContext queryCompilationContext)
+        => new DynamoQueryableMethodTranslatingExpressionVisitor(
             Dependencies,
             queryCompilationContext);
 }

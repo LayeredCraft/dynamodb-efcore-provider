@@ -34,7 +34,7 @@ public static class DynamoEntityTypeBuilderExtensions
         /// <param name="entityTypeBuilder">The builder for the entity type being configured.</param>
         /// <param name="name">The name of the container.</param>
         /// <returns>The same builder instance so that multiple calls can be chained.</returns>
-        public EntityTypeBuilder<TEntity> ToTable(string? name) =>
-            (EntityTypeBuilder<TEntity>)((EntityTypeBuilder)entityTypeBuilder).ToTable(name);
+        public EntityTypeBuilder<TEntity> ToTable(string? name)
+            => (EntityTypeBuilder<TEntity>)((EntityTypeBuilder)entityTypeBuilder).ToTable(name);
     }
 }

@@ -9,8 +9,8 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
     public string? AuthenticationRegion { get; private set; }
     public string? ServiceUrl { get; private set; }
 
-    public virtual void ApplyServices(IServiceCollection services) =>
-        services.AddEntityFrameworkDynamo();
+    public virtual void ApplyServices(IServiceCollection services)
+        => services.AddEntityFrameworkDynamo();
 
     public void Validate(IDbContextOptions options) { }
 
@@ -65,10 +65,10 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
             return _serviceProviderHash.Value;
         }
 
-        public override bool ShouldUseSameServiceProvider(DbContextOptionsExtensionInfo other) =>
-            other is DynamoOptionsExtensionInfo otherInfo
-            && Extension.AuthenticationRegion == otherInfo.Extension.AuthenticationRegion
-            && Extension.ServiceUrl == otherInfo.Extension.ServiceUrl;
+        public override bool ShouldUseSameServiceProvider(DbContextOptionsExtensionInfo other)
+            => other is DynamoOptionsExtensionInfo otherInfo
+               && Extension.AuthenticationRegion == otherInfo.Extension.AuthenticationRegion
+               && Extension.ServiceUrl == otherInfo.Extension.ServiceUrl;
 
         public override void PopulateDebugInfo(IDictionary<string, string> debugInfo) { }
 

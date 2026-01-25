@@ -10,8 +10,8 @@ public static class DynamoEntityTypeExtensions
 {
     extension(IMutableEntityType entityType)
     {
-        public void SetTableName(string name) =>
-            entityType.SetOrRemoveAnnotation(
+        public void SetTableName(string name)
+            => entityType.SetOrRemoveAnnotation(
                 DynamoAnnotationNames.TableName,
                 Check.NullButNotEmpty(name));
     }

@@ -7,8 +7,8 @@ public class DynamoShapedQueryCompilingExpressionVisitorFactory(
     : IShapedQueryCompilingExpressionVisitorFactory
 {
     public ShapedQueryCompilingExpressionVisitor Create(
-        QueryCompilationContext queryCompilationContext) =>
-        new DynamoShapedQueryCompilingExpressionVisitor(
+        QueryCompilationContext queryCompilationContext)
+        => new DynamoShapedQueryCompilingExpressionVisitor(
             dependencies,
             (DynamoQueryCompilationContext)queryCompilationContext);
 }

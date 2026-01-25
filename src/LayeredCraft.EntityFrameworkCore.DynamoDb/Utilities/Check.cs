@@ -101,28 +101,30 @@ internal static class Check
 
     [Conditional("DEBUG")]
     [DoesNotReturn]
-    public static void DebugFail(string message) =>
-        throw new UnreachableException($"Check.DebugFail failed: {message}");
+    public static void DebugFail(string message)
+        => throw new UnreachableException($"Check.DebugFail failed: {message}");
 
     [DoesNotReturn]
-    private static void ThrowArgumentNull(string parameterName) =>
-        throw new ArgumentNullException(parameterName);
+    private static void ThrowArgumentNull(string parameterName)
+        => throw new ArgumentNullException(parameterName);
 
     [DoesNotReturn]
-    private static void ThrowNotEmpty(string parameterName) =>
-        throw new ArgumentException(AbstractionsStrings.CollectionArgumentIsEmpty, parameterName);
+    private static void ThrowNotEmpty(string parameterName)
+        => throw new ArgumentException(
+            AbstractionsStrings.CollectionArgumentIsEmpty,
+            parameterName);
 
     [DoesNotReturn]
-    private static void ThrowStringArgumentEmpty(string parameterName) =>
-        throw new ArgumentException(AbstractionsStrings.ArgumentIsEmpty, parameterName);
+    private static void ThrowStringArgumentEmpty(string parameterName)
+        => throw new ArgumentException(AbstractionsStrings.ArgumentIsEmpty, parameterName);
 
     [DoesNotReturn]
-    private static void ThrowCollectionHasEmptyElements(string parameterName) =>
-        throw new ArgumentException(
+    private static void ThrowCollectionHasEmptyElements(string parameterName)
+        => throw new ArgumentException(
             AbstractionsStrings.CollectionArgumentHasEmptyElements,
             parameterName);
 
     [DoesNotReturn]
-    private static void ThrowArgumentException(string message, string parameterName) =>
-        throw new ArgumentException(message, parameterName);
+    private static void ThrowArgumentException(string message, string parameterName)
+        => throw new ArgumentException(message, parameterName);
 }
