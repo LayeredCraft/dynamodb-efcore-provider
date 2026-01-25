@@ -13,8 +13,9 @@ public static class DynamoDbContextOptionsExtensions
         {
             ArgumentNullException.ThrowIfNull(optionsBuilder);
 
-            var extension = optionsBuilder.Options.FindExtension<DynamoDbOptionsExtension>() ??
-                            new DynamoDbOptionsExtension();
+            var extension =
+                optionsBuilder.Options.FindExtension<DynamoDbOptionsExtension>()
+                ?? new DynamoDbOptionsExtension();
 
             ConfigureWarnings(optionsBuilder);
 
@@ -29,8 +30,9 @@ public static class DynamoDbContextOptionsExtensions
             ArgumentNullException.ThrowIfNull(optionsBuilder);
             ArgumentNullException.ThrowIfNull(configure);
 
-            var extension = optionsBuilder.Options.FindExtension<DynamoDbOptionsExtension>() ??
-                            new DynamoDbOptionsExtension();
+            var extension =
+                optionsBuilder.Options.FindExtension<DynamoDbOptionsExtension>()
+                ?? new DynamoDbOptionsExtension();
 
             ConfigureWarnings(optionsBuilder);
 
@@ -45,8 +47,9 @@ public static class DynamoDbContextOptionsExtensions
 
     private static void ConfigureWarnings(DbContextOptionsBuilder optionsBuilder)
     {
-        var coreOptionsExtension = optionsBuilder.Options.FindExtension<CoreOptionsExtension>() ??
-                                   new CoreOptionsExtension();
+        var coreOptionsExtension =
+            optionsBuilder.Options.FindExtension<CoreOptionsExtension>()
+            ?? new CoreOptionsExtension();
 
         // coreOptionsExtension = coreOptionsExtension.WithWarningsConfiguration(
         //     coreOptionsExtension.WarningsConfiguration.TryWithExplicit(

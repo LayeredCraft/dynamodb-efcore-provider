@@ -33,8 +33,8 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
                 "Dynamo MVP only supports entity queries with a structural shaper.");
 
         var tableName =
-            entityType.FindAnnotation(DynamoAnnotationNames.TableName)?.Value as string ??
-            entityType.ClrType.Name;
+            entityType.FindAnnotation(DynamoAnnotationNames.TableName)?.Value as string
+            ?? entityType.ClrType.Name;
 
         var partiQl = $"SELECT * FROM {tableName}";
         var parameters = Array.Empty<AttributeValue>();
@@ -45,8 +45,9 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
 
         var shaperDelegate = CreateMaterializerDelegate(shaperExpression.Type);
 
-        var standAloneStateManager = _dynamoQueryCompilationContext.QueryTrackingBehavior ==
-                                     QueryTrackingBehavior.NoTrackingWithIdentityResolution;
+        var standAloneStateManager =
+            _dynamoQueryCompilationContext.QueryTrackingBehavior
+            == QueryTrackingBehavior.NoTrackingWithIdentityResolution;
 
         var methodInfo = _dynamoQueryCompilationContext.IsAsync
             ? TranslateAndExecuteQueryAsyncMethodInfo
@@ -65,11 +66,13 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
     }
 
     private static readonly MethodInfo TranslateAndExecuteQueryMethodInfo =
-        typeof(DynamoShapedQueryCompilingExpressionVisitor).GetTypeInfo()
+        typeof(DynamoShapedQueryCompilingExpressionVisitor)
+            .GetTypeInfo()
             .DeclaredMethods.Single(m => m.Name == nameof(TranslateAndExecuteQuery));
 
     private static readonly MethodInfo TranslateAndExecuteQueryAsyncMethodInfo =
-        typeof(DynamoShapedQueryCompilingExpressionVisitor).GetTypeInfo()
+        typeof(DynamoShapedQueryCompilingExpressionVisitor)
+            .GetTypeInfo()
             .DeclaredMethods.Single(m => m.Name == nameof(TranslateAndExecuteQueryAsync));
 
     private static LambdaExpression CreateMaterializerDelegate(Type entityClrType)
@@ -132,7 +135,8 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
     }
 
     private static readonly MethodInfo MaterializeMethodInfo =
-        typeof(DynamoShapedQueryCompilingExpressionVisitor).GetTypeInfo()
+        typeof(DynamoShapedQueryCompilingExpressionVisitor)
+            .GetTypeInfo()
             .DeclaredMethods.Single(m => m.Name == nameof(Materialize));
 
     private static T Materialize<T>(Dictionary<string, AttributeValue> item)
@@ -152,9 +156,9 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
                 continue;
 
             var converted = ConvertAttributeValue(value, property.PropertyType);
-            if (converted == null &&
-                property.PropertyType.IsValueType &&
-                Nullable.GetUnderlyingType(property.PropertyType) == null)
+            if (converted == null
+                && property.PropertyType.IsValueType
+                && Nullable.GetUnderlyingType(property.PropertyType) == null)
                 continue;
 
             property.SetValue(entity, converted);
@@ -176,28 +180,32 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
         if (nonNullableType == typeof(bool))
             return value.BOOL;
 
-        if (nonNullableType == typeof(int) &&
-            int.TryParse(value.N, NumberStyles.Any, CultureInfo.InvariantCulture, out var intValue))
+        if (nonNullableType == typeof(int)
+            && int.TryParse(
+                value.N,
+                NumberStyles.Any,
+                CultureInfo.InvariantCulture,
+                out var intValue))
             return intValue;
 
-        if (nonNullableType == typeof(long) &&
-            long.TryParse(
+        if (nonNullableType == typeof(long)
+            && long.TryParse(
                 value.N,
                 NumberStyles.Any,
                 CultureInfo.InvariantCulture,
                 out var longValue))
             return longValue;
 
-        if (nonNullableType == typeof(double) &&
-            double.TryParse(
+        if (nonNullableType == typeof(double)
+            && double.TryParse(
                 value.N,
                 NumberStyles.Any,
                 CultureInfo.InvariantCulture,
                 out var doubleValue))
             return doubleValue;
 
-        if (nonNullableType == typeof(decimal) &&
-            decimal.TryParse(
+        if (nonNullableType == typeof(decimal)
+            && decimal.TryParse(
                 value.N,
                 NumberStyles.Any,
                 CultureInfo.InvariantCulture,
@@ -207,8 +215,8 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
         if (nonNullableType == typeof(Guid) && Guid.TryParse(value.S, out var guidValue))
             return guidValue;
 
-        if (nonNullableType == typeof(DateTime) &&
-            DateTime.TryParse(
+        if (nonNullableType == typeof(DateTime)
+            && DateTime.TryParse(
                 value.S,
                 CultureInfo.InvariantCulture,
                 DateTimeStyles.RoundtripKind,

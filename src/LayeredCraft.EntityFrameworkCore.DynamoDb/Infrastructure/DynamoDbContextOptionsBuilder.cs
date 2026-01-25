@@ -26,8 +26,8 @@ public class DynamoDbContextOptionsBuilder(DbContextOptionsBuilder optionsBuilde
     {
         ((IDbContextOptionsBuilderInfrastructure)OptionsBuilder).AddOrUpdateExtension(
             setAction(
-                OptionsBuilder.Options.FindExtension<DynamoDbOptionsExtension>() ??
-                new DynamoDbOptionsExtension()));
+                OptionsBuilder.Options.FindExtension<DynamoDbOptionsExtension>()
+                ?? new DynamoDbOptionsExtension()));
 
         return this;
     }

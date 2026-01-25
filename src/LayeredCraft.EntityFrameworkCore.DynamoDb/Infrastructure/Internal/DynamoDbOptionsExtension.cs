@@ -66,9 +66,9 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
         }
 
         public override bool ShouldUseSameServiceProvider(DbContextOptionsExtensionInfo other) =>
-            other is DynamoOptionsExtensionInfo otherInfo &&
-            Extension.AuthenticationRegion == otherInfo.Extension.AuthenticationRegion &&
-            Extension.ServiceUrl == otherInfo.Extension.ServiceUrl;
+            other is DynamoOptionsExtensionInfo otherInfo
+            && Extension.AuthenticationRegion == otherInfo.Extension.AuthenticationRegion
+            && Extension.ServiceUrl == otherInfo.Extension.ServiceUrl;
 
         public override void PopulateDebugInfo(IDictionary<string, string> debugInfo) { }
 

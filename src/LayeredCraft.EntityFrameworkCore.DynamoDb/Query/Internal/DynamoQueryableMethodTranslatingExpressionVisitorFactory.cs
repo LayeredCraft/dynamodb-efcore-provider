@@ -2,13 +2,16 @@ using Microsoft.EntityFrameworkCore.Query;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
 
-public class DynamoQueryableMethodTranslatingExpressionVisitorFactory(
+public sealed class DynamoQueryableMethodTranslatingExpressionVisitorFactory(
     QueryableMethodTranslatingExpressionVisitorDependencies dependencies)
     : IQueryableMethodTranslatingExpressionVisitorFactory
 {
+    private QueryableMethodTranslatingExpressionVisitorDependencies Dependencies { get; } =
+        dependencies;
+
     public QueryableMethodTranslatingExpressionVisitor Create(
         QueryCompilationContext queryCompilationContext) =>
         new DynamoQueryableMethodTranslatingExpressionVisitor(
-            dependencies,
+            Dependencies,
             queryCompilationContext);
 }
