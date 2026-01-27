@@ -7,5 +7,6 @@ public interface IDynamoClientWrapper
 {
     IAmazonDynamoDB Client { get; }
 
-    Task<List<Dictionary<string, AttributeValue>>> ExecutePartiQl<T>(PartiQlQuery query);
+    IAsyncEnumerable<Dictionary<string, AttributeValue>> ExecutePartiQl(
+        ExecuteStatementRequest statementRequest);
 }

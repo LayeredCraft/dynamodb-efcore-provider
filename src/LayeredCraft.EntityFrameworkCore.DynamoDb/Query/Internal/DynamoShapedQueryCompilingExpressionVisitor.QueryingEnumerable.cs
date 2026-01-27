@@ -2,6 +2,7 @@ using System.Collections;
 using Amazon.DynamoDBv2.Model;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Storage;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Query;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
 
@@ -14,7 +15,7 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
         IReadOnlyList<AttributeValue> parameters,
         Func<DynamoQueryContext, Dictionary<string, AttributeValue>, T> shaper,
         bool standAloneStateManager,
-        bool threadSafetyChecksEnabled) : IEnumerable<T>, IAsyncEnumerable<T>
+        bool threadSafetyChecksEnabled) : IEnumerable<T>, IAsyncEnumerable<T>, IQueryingEnumerable
     {
         private readonly IDynamoClientWrapper _client = client;
         private readonly IReadOnlyList<AttributeValue> _parameters = parameters;
@@ -28,107 +29,39 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
         private readonly bool _threadSafetyChecksEnabled = threadSafetyChecksEnabled;
 
         public IAsyncEnumerator<T> GetAsyncEnumerator(CancellationToken cancellationToken = default)
-        {
-            _queryContext.CancellationToken = cancellationToken;
-            return new AsyncEnumerator(this);
-        }
+            => new AsyncEnumerator(this, cancellationToken);
 
-        public IEnumerator<T> GetEnumerator() => new Enumerator(this);
+        public IEnumerator<T> GetEnumerator()
+            => throw new InvalidOperationException(
+                "Sync enumerating is not supported for DynamoDB.");
 
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
-        private sealed class Enumerator : IEnumerator<T>
-        {
-            private readonly IDynamoClientWrapper _client;
-
-            private readonly IConcurrencyDetector? _concurrencyDetector;
-            private readonly IReadOnlyList<AttributeValue> _parameters;
-            private readonly string _partiQl;
-            private readonly DynamoQueryContext _queryContext;
-
-            private readonly Func<DynamoQueryContext, Dictionary<string, AttributeValue>, T>
-                _shaper;
-
-            private readonly bool _standAloneStateManager;
-            private int _index = -1;
-
-            private List<Dictionary<string, AttributeValue>>? _items;
-
-            public Enumerator(QueryingEnumerable<T> enumerable)
-            {
-                _queryContext = enumerable._queryContext;
-                _client = enumerable._client;
-                _partiQl = enumerable._partiQl;
-                _parameters = enumerable._parameters;
-                _shaper = enumerable._shaper;
-                _standAloneStateManager = enumerable._standAloneStateManager;
-                _concurrencyDetector = enumerable._threadSafetyChecksEnabled
-                    ? _queryContext.ConcurrencyDetector
-                    : null;
-            }
-
-            public T Current { get; private set; } = default!;
-
-            object IEnumerator.Current => Current!;
-
-            public bool MoveNext()
-            {
-                using var _ = _concurrencyDetector?.EnterCriticalSection();
-
-                if (_items == null)
-                    _queryContext.ExecutionStrategy.Execute(
-                        this,
-                        (_, _) => InitializeItems(),
-                        null);
-
-                _index++;
-                if (_items != null && _index < _items.Count)
-                {
-                    Current = _shaper(_queryContext, _items[_index]);
-                    return true;
-                }
-
-                return false;
-            }
-
-            public void Dispose() { }
-
-            public void Reset() => throw new NotSupportedException();
-
-            private bool InitializeItems()
-            {
-                var query = new PartiQlQuery(_partiQl, _parameters.ToList());
-                _items = _client.ExecutePartiQl<T>(query).GetAwaiter().GetResult();
-                _queryContext.InitializeStateManager(_standAloneStateManager);
-                return false;
-            }
-        }
+        public string ToQueryString() => throw new NotImplementedException();
 
         private sealed class AsyncEnumerator : IAsyncEnumerator<T>
         {
-            private readonly IDynamoClientWrapper _client;
-
+            private readonly QueryingEnumerable<T> _queryingEnumerable;
             private readonly IConcurrencyDetector? _concurrencyDetector;
-            private readonly IReadOnlyList<AttributeValue> _parameters;
-            private readonly string _partiQl;
             private readonly DynamoQueryContext _queryContext;
+            private readonly bool _standAloneStateManager;
 
             private readonly Func<DynamoQueryContext, Dictionary<string, AttributeValue>, T>
                 _shaper;
 
-            private readonly bool _standAloneStateManager;
-            private int _index = -1;
+            private readonly CancellationToken _cancellationToken;
 
-            private List<Dictionary<string, AttributeValue>>? _items;
+            private IAsyncEnumerator<Dictionary<string, AttributeValue>>? _dataEnumerator;
 
-            public AsyncEnumerator(QueryingEnumerable<T> enumerable)
+            public AsyncEnumerator(
+                QueryingEnumerable<T> enumerable,
+                CancellationToken cancellationToken)
             {
+                _queryingEnumerable = enumerable;
                 _queryContext = enumerable._queryContext;
-                _client = enumerable._client;
-                _partiQl = enumerable._partiQl;
-                _parameters = enumerable._parameters;
                 _shaper = enumerable._shaper;
                 _standAloneStateManager = enumerable._standAloneStateManager;
+                _cancellationToken = cancellationToken;
                 _concurrencyDetector = enumerable._threadSafetyChecksEnabled
                     ? _queryContext.ConcurrencyDetector
                     : null;
@@ -140,31 +73,34 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
             {
                 using var _ = _concurrencyDetector?.EnterCriticalSection();
 
-                if (_items == null)
-                    await _queryContext.ExecutionStrategy.ExecuteAsync(
-                        this,
-                        (_, _, ct) => InitializeItemsAsync(ct),
-                        null,
-                        _queryContext.CancellationToken);
-
-                _index++;
-                if (_items != null && _index < _items.Count)
+                if (_dataEnumerator == null)
                 {
-                    Current = _shaper(_queryContext, _items[_index]);
-                    return true;
+                    var asyncEnumerable = _queryingEnumerable._client.ExecutePartiQl(
+                        new ExecuteStatementRequest
+                        {
+                            Statement = _queryingEnumerable._partiQl,
+                            Parameters = _queryingEnumerable._parameters.ToList(),
+                        });
+
+                    _dataEnumerator = asyncEnumerable.GetAsyncEnumerator(_cancellationToken);
+                    _queryContext.InitializeStateManager(_standAloneStateManager);
                 }
 
-                return false;
+                var hasNext = await _dataEnumerator.MoveNextAsync().ConfigureAwait(false);
+
+                Current = hasNext ? _shaper(_queryContext, _dataEnumerator.Current) : default!;
+
+                return hasNext;
             }
 
-            public ValueTask DisposeAsync() => default;
-
-            private async Task<bool> InitializeItemsAsync(CancellationToken cancellationToken)
+            public ValueTask DisposeAsync()
             {
-                var query = new PartiQlQuery(_partiQl, _parameters.ToList());
-                _items = await _client.ExecutePartiQl<T>(query).ConfigureAwait(false);
-                _queryContext.InitializeStateManager(_standAloneStateManager);
-                return false;
+                var enumerator = _dataEnumerator;
+                if (enumerator == null)
+                    return default;
+
+                _dataEnumerator = null;
+                return enumerator.DisposeAsync();
             }
         }
     }

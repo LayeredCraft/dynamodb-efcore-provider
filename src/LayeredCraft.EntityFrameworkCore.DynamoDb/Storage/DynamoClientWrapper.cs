@@ -3,14 +3,18 @@ using Amazon.DynamoDBv2.Model;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Infrastructure.Internal;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Utilities;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Storage;
 
 public class DynamoClientWrapper : IDynamoClientWrapper
 {
     private readonly AmazonDynamoDBConfig _amazonDynamoDbConfig = new();
+    private readonly IExecutionStrategy _executionStrategy;
 
-    public DynamoClientWrapper(IDbContextOptions dbContextOptions)
+    public DynamoClientWrapper(
+        IDbContextOptions dbContextOptions,
+        IExecutionStrategy executionStrategy)
     {
         var options = dbContextOptions.NotNull().FindExtension<DynamoDbOptionsExtension>();
 
@@ -19,6 +23,8 @@ public class DynamoClientWrapper : IDynamoClientWrapper
 
         if (options?.ServiceUrl is not null)
             _amazonDynamoDbConfig.ServiceURL = options.ServiceUrl;
+
+        _executionStrategy = executionStrategy.NotNull();
     }
 
     public IAmazonDynamoDB Client
@@ -30,16 +36,100 @@ public class DynamoClientWrapper : IDynamoClientWrapper
         }
     }
 
-    public async Task<List<Dictionary<string, AttributeValue>>> ExecutePartiQl<T>(
-        PartiQlQuery query)
+    public IAsyncEnumerable<Dictionary<string, AttributeValue>> ExecutePartiQl(
+        ExecuteStatementRequest statementRequest)
+        => new DynamoAsyncEnumerable(this, statementRequest);
+
+    private sealed class DynamoAsyncEnumerable(
+        DynamoClientWrapper dynamoClientWrapper,
+        ExecuteStatementRequest statementRequest)
+        : IAsyncEnumerable<Dictionary<string, AttributeValue>>
     {
-        var request = new ExecuteStatementRequest
+        private readonly DynamoClientWrapper _dynamoClientWrapper = dynamoClientWrapper;
+        private readonly ExecuteStatementRequest _statementRequest = statementRequest;
+
+        public IAsyncEnumerator<Dictionary<string, AttributeValue>> GetAsyncEnumerator(
+            CancellationToken cancellationToken = default)
+            => new AsyncEnumerator(this, cancellationToken);
+
+        private sealed class AsyncEnumerator(
+            DynamoAsyncEnumerable dynamoEnumerable,
+            CancellationToken cancellationToken)
+            : IAsyncEnumerator<Dictionary<string, AttributeValue>>
         {
-            Statement = query.Statement, Parameters = query.Parameters,
-        };
+            private List<Dictionary<string, AttributeValue>>? _currentItems;
+            private int _currentIndex = -1;
+            private string? _nextToken;
+            private bool _hasMorePages = true;
 
-        var response = await Client.ExecuteStatementAsync(request);
+            public Dictionary<string, AttributeValue> Current
+            {
+                get
+                {
+                    if (_currentItems is null
+                        || _currentIndex < 0
+                        || _currentIndex >= _currentItems.Count)
+                        throw new InvalidOperationException(
+                            "Enumeration has not started or has already finished.");
 
-        return response.Items;
+                    return _currentItems[_currentIndex];
+                }
+            }
+
+            public async ValueTask<bool> MoveNextAsync()
+            {
+                // If we have items in the current batch, try to move to the next one
+                if (_currentItems is not null && _currentIndex + 1 < _currentItems.Count)
+                {
+                    _currentIndex++;
+                    return true;
+                }
+
+                // If we don't have more pages, we're done
+                if (!_hasMorePages)
+                    return false;
+
+                // Fetch the next page
+                await dynamoEnumerable
+                    ._dynamoClientWrapper._executionStrategy.ExecuteAsync(
+                        this,
+                        static (_, enumerator, ct) => enumerator.FetchPageAsync(ct),
+                        null,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+
+                // If no items in this response, we're done
+                if (_currentItems is null || _currentItems.Count == 0)
+                    return false;
+
+                // Reset to first item in the new batch
+                _currentIndex = 0;
+                return true;
+            }
+
+            private async Task<bool> FetchPageAsync(CancellationToken ct)
+            {
+                var request = dynamoEnumerable._statementRequest;
+                if (_nextToken is not null)
+                    request.NextToken = _nextToken;
+
+                var response =
+                    await dynamoEnumerable
+                        ._dynamoClientWrapper.Client.ExecuteStatementAsync(request, ct)
+                        .ConfigureAwait(false);
+
+                _currentItems = response.Items;
+                _nextToken = response.NextToken;
+                _hasMorePages = !string.IsNullOrEmpty(_nextToken);
+
+                return true;
+            }
+
+            public ValueTask DisposeAsync()
+            {
+                _currentItems = null;
+                return default;
+            }
+        }
     }
 }
