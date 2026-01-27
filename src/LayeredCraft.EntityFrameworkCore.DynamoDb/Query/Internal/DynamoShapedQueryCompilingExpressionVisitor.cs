@@ -24,9 +24,9 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
 
     protected override Expression VisitShapedQuery(ShapedQueryExpression shapedQueryExpression)
     {
-        var shaperExpression = shapedQueryExpression.ShaperExpression;
+        var shaperBody = shapedQueryExpression.ShaperExpression;
         var entityType =
-            (shaperExpression as StructuralTypeShaperExpression)?.StructuralType as IEntityType;
+            (shaperBody as StructuralTypeShaperExpression)?.StructuralType as IEntityType;
 
         if (entityType == null)
             throw new InvalidOperationException(
@@ -36,14 +36,34 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
             entityType.FindAnnotation(DynamoAnnotationNames.TableName)?.Value as string
             ?? entityType.ClrType.Name;
 
+        // create shaper
+        var itemParameter =
+            Expression.Parameter(typeof(Dictionary<string, AttributeValue>), "item");
+
+        // Step 1: Inject Dictionary<string, AttributeValue> variable handling
+        // This adds null-checking and prepares the expression tree for materialization
+        shaperBody = new DynamoInjectingExpressionVisitor(itemParameter).Visit(shaperBody);
+
+        // Step 2: Inject EF Core's standard structural type materializers
+        // This adds entity construction and property assignment logic
+        shaperBody = InjectStructuralTypeMaterializers(shaperBody);
+
+        // Step 3: Remove projection bindings and replace with actual dictionary access
+        // This converts abstract ProjectionBindingExpression to concrete property access
+        shaperBody =
+            new DynamoProjectionBindingRemovingExpressionVisitor(itemParameter).Visit(shaperBody);
+
+        var shaperLambda = Expression.Lambda(
+            shaperBody,
+            QueryCompilationContext.QueryContextParameter,
+            itemParameter);
+
         var partiQl = $"SELECT * FROM {tableName}";
         var parameters = Array.Empty<AttributeValue>();
 
         var queryContextParameter = Expression.Convert(
             QueryCompilationContext.QueryContextParameter,
             typeof(DynamoQueryContext));
-
-        var shaperDelegate = CreateMaterializerDelegate(shaperExpression.Type);
 
         var standAloneStateManager =
             _dynamoQueryCompilationContext.QueryTrackingBehavior
@@ -54,11 +74,11 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
             : TranslateAndExecuteQueryMethodInfo;
 
         var call = Expression.Call(
-            methodInfo.MakeGenericMethod(shaperExpression.Type),
+            methodInfo.MakeGenericMethod(shaperBody.Type),
             queryContextParameter,
             Expression.Constant(partiQl),
             Expression.Constant(parameters, typeof(IReadOnlyList<AttributeValue>)),
-            shaperDelegate,
+            shaperLambda,
             Expression.Constant(standAloneStateManager),
             Expression.Constant(_dependencies.CoreSingletonOptions.AreThreadSafetyChecksEnabled));
 
@@ -74,27 +94,6 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
         typeof(DynamoShapedQueryCompilingExpressionVisitor)
             .GetTypeInfo()
             .DeclaredMethods.Single(m => m.Name == nameof(TranslateAndExecuteQueryAsync));
-
-    private static LambdaExpression CreateMaterializerDelegate(Type entityClrType)
-    {
-        var queryContextParameter = Expression.Parameter(
-            typeof(DynamoQueryContext),
-            "queryContext");
-        var itemParameter = Expression.Parameter(
-            typeof(Dictionary<string, AttributeValue>),
-            "item");
-
-        var body = Expression.Call(
-            MaterializeMethodInfo.MakeGenericMethod(entityClrType),
-            itemParameter);
-
-        var funcType = typeof(Func<,,>).MakeGenericType(
-            typeof(DynamoQueryContext),
-            typeof(Dictionary<string, AttributeValue>),
-            entityClrType);
-
-        return Expression.Lambda(funcType, body, queryContextParameter, itemParameter);
-    }
 
     private static IEnumerable<T> TranslateAndExecuteQuery<T>(
         DynamoQueryContext queryContext,
@@ -132,97 +131,5 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
             shaper,
             standAloneStateManager,
             threadSafetyChecksEnabled);
-    }
-
-    private static readonly MethodInfo MaterializeMethodInfo =
-        typeof(DynamoShapedQueryCompilingExpressionVisitor)
-            .GetTypeInfo()
-            .DeclaredMethods.Single(m => m.Name == nameof(Materialize));
-
-    private static T Materialize<T>(Dictionary<string, AttributeValue> item)
-    {
-        var entity = Activator.CreateInstance<T>();
-        if (entity == null)
-            return default!;
-
-        var entityType = typeof(T);
-        foreach (var property in entityType.GetProperties(
-                     BindingFlags.Public | BindingFlags.Instance))
-        {
-            if (!property.CanWrite)
-                continue;
-
-            if (!item.TryGetValue(property.Name, out var value))
-                continue;
-
-            var converted = ConvertAttributeValue(value, property.PropertyType);
-            if (converted == null
-                && property.PropertyType.IsValueType
-                && Nullable.GetUnderlyingType(property.PropertyType) == null)
-                continue;
-
-            property.SetValue(entity, converted);
-        }
-
-        return entity;
-    }
-
-    private static object? ConvertAttributeValue(AttributeValue value, Type targetType)
-    {
-        if (value.NULL == true)
-            return null;
-
-        var nonNullableType = Nullable.GetUnderlyingType(targetType) ?? targetType;
-
-        if (nonNullableType == typeof(string))
-            return value.S;
-
-        if (nonNullableType == typeof(bool))
-            return value.BOOL;
-
-        if (nonNullableType == typeof(int)
-            && int.TryParse(
-                value.N,
-                NumberStyles.Any,
-                CultureInfo.InvariantCulture,
-                out var intValue))
-            return intValue;
-
-        if (nonNullableType == typeof(long)
-            && long.TryParse(
-                value.N,
-                NumberStyles.Any,
-                CultureInfo.InvariantCulture,
-                out var longValue))
-            return longValue;
-
-        if (nonNullableType == typeof(double)
-            && double.TryParse(
-                value.N,
-                NumberStyles.Any,
-                CultureInfo.InvariantCulture,
-                out var doubleValue))
-            return doubleValue;
-
-        if (nonNullableType == typeof(decimal)
-            && decimal.TryParse(
-                value.N,
-                NumberStyles.Any,
-                CultureInfo.InvariantCulture,
-                out var decimalValue))
-            return decimalValue;
-
-        if (nonNullableType == typeof(Guid) && Guid.TryParse(value.S, out var guidValue))
-            return guidValue;
-
-        if (nonNullableType == typeof(DateTime)
-            && DateTime.TryParse(
-                value.S,
-                CultureInfo.InvariantCulture,
-                DateTimeStyles.RoundtripKind,
-                out var dateValue))
-            return dateValue;
-
-        return null;
     }
 }
