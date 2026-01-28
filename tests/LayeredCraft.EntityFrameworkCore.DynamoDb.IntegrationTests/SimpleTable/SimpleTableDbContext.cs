@@ -12,9 +12,6 @@ internal class SimpleTableDbContext(DbContextOptions options) : DbContext(option
                     => options.ServiceUrl(serviceUrl))
                 .Options);
 
-    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-        => optionsBuilder.UseDynamo(options => options.ServiceUrl("http://localhost:8002"));
-
     protected override void OnModelCreating(ModelBuilder modelBuilder)
         => modelBuilder.Entity<SimpleItem>().ToTable("SimpleItems").HasKey(x => x.Pk);
 }

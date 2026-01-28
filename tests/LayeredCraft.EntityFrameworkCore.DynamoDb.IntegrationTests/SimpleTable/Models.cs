@@ -7,29 +7,29 @@ using System;
 public sealed class SimpleItem
 {
     // Partition key
-    public string Pk { get; init; } = null!;
+    public string Pk { get; set; }
 
     // Boolean
-    public bool BoolValue { get; init; }
+    public bool BoolValue { get; set; }
 
     // Integral numerics
-    public byte ByteValue { get; init; }
-    public short ShortValue { get; init; }
-    public int IntValue { get; init; }
-    public long LongValue { get; init; }
+    public byte ByteValue { get; set; }
+    public short ShortValue { get; set; }
+    public int IntValue { get; set; }
+    public long LongValue { get; set; }
 
     // Floating point / decimal
-    public float FloatValue { get; init; }
-    public double DoubleValue { get; init; }
-    public decimal DecimalValue { get; init; }
+    public float FloatValue { get; set; }
+    public double DoubleValue { get; set; }
+    public decimal DecimalValue { get; set; }
 
     // String-like
-    public string StringValue { get; init; } = null!;
-    public Guid GuidValue { get; init; }
+    public string StringValue { get; set; } = null!;
+    public Guid GuidValue { get; set; }
 
     // Temporal
-    public DateTime DateTimeValue { get; init; }
-    public DateTimeOffset DateTimeOffsetValue { get; init; }
+    public DateTime DateTimeValue { get; set; }
+    public DateTimeOffset DateTimeOffsetValue { get; set; }
 }
 
 public static class SimpleItemExtensions
