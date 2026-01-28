@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/examples/">
+    <File Path="examples\Directory.Build.props"/>
     <Project Path="examples/Example.Simple/Example.Simple.csproj"/>
   </Folder>
   <Folder Name="/Solution Items/">
@@ -10,10 +11,12 @@
     <File Path="README.md"/>
   </Folder>
   <Folder Name="/src/">
+    <File Path="src\Directory.Build.props"/>
     <Project
       Path="src/LayeredCraft.EntityFrameworkCore.DynamoDb/LayeredCraft.EntityFrameworkCore.DynamoDb.csproj"/>
   </Folder>
   <Folder Name="/tests/">
+    <File Path="tests\Directory.Build.props"/>
     <Project
       Path="tests/LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests/LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.csproj"/>
     <Project
