@@ -1,10 +1,11 @@
-using LayeredCraft.EntityFrameworkCore.DynamoDb.Storage.ValueConversion;
-using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Storage;
-using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Storage;
 
+/// <summary>
+/// Type mapping source for DynamoDB that maps only CLR wire primitives.
+/// Returns null for non-primitive types, allowing EF Core to compose converters automatically.
+/// </summary>
 public class DynamoTypeMappingSource : TypeMappingSource
 {
     public DynamoTypeMappingSource(TypeMappingSourceDependencies dependencies) :
@@ -16,35 +17,34 @@ public class DynamoTypeMappingSource : TypeMappingSource
         if (clrType == null)
             return null;
 
-        // Handle nullable types by unwrapping
         var nonNullableType = Nullable.GetUnderlyingType(clrType) ?? clrType;
 
-        // Create converter for supported primitive types
-        var converter = CreateConverter(nonNullableType);
-        if (converter != null)
-            return new DynamoTypeMapping(clrType).WithComposedConverter(converter);
+        // Map ONLY wire primitives that AttributeValue directly supports
+        // EF Core will automatically compose converters for non-primitive types:
+        // - int, short, byte → long (via EF Core converter)
+        // - float → double (via EF Core converter)
+        // - DateTime, DateTimeOffset → string (via EF Core converter)
+        // - Guid → string (via EF Core converter)
+        // - Enums → int/long/string (via EF Core converter)
+        if (IsPrimitiveType(nonNullableType))
+        {
+            var jsonReaderWriter =
+                Dependencies.JsonValueReaderWriterSource.FindReaderWriter(clrType);
+            return new DynamoTypeMapping(clrType, jsonValueReaderWriter: jsonReaderWriter);
+        }
 
+        // Return null for all other types - EF Core will compose converters
         return null;
     }
 
-    private static ValueConverter? CreateConverter(Type type)
-        =>
-            // Map each CLR type to its corresponding AttributeValue converter
-            type switch
-            {
-                not null when type == typeof(string) => new AttributeValueToStringConverter(),
-                not null when type == typeof(bool) => new AttributeValueToBoolConverter(),
-                not null when type == typeof(int) => new AttributeValueToIntConverter(),
-                not null when type == typeof(long) => new AttributeValueToLongConverter(),
-                not null when type == typeof(short) => new AttributeValueToShortConverter(),
-                not null when type == typeof(byte) => new AttributeValueToByteConverter(),
-                not null when type == typeof(double) => new AttributeValueToDoubleConverter(),
-                not null when type == typeof(float) => new AttributeValueToFloatConverter(),
-                not null when type == typeof(decimal) => new AttributeValueToDecimalConverter(),
-                not null when type == typeof(Guid) => new AttributeValueToGuidConverter(),
-                not null when type == typeof(DateTime) => new AttributeValueToDateTimeConverter(),
-                not null when type == typeof(DateTimeOffset) =>
-                    new AttributeValueToDateTimeOffsetConverter(),
-                _ => null,
-            };
+    /// <summary>
+    /// Determines if a type is a wire primitive that DynamoDB's AttributeValue natively supports.
+    /// </summary>
+    private static bool IsPrimitiveType(Type type)
+        => type == typeof(string) // AttributeValue.S
+           || type == typeof(bool) // AttributeValue.BOOL
+           || type == typeof(long) // AttributeValue.N (primary integer wire type)
+           || type == typeof(double) // AttributeValue.N (floating point wire type)
+           || type == typeof(decimal) // AttributeValue.N (high precision wire type)
+           || type == typeof(byte[]); // AttributeValue.B (binary wire type)
 }

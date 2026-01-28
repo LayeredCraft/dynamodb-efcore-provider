@@ -98,10 +98,9 @@ public class DynamoProjectionBindingRemovingExpressionVisitor : ExpressionVisito
     /// using EF Core's type mapping and value converter system.
     ///
     /// <para>
-    /// This method leverages the registered AttributeValue-based converters from
-    /// <see cref="DynamoTypeMappingSource"/> to perform type conversion. All conversion
-    /// logic is centralized in the converter classes, eliminating the need for manual
-    /// type checking.
+    /// This method separates concerns:
+    /// 1. AttributeValue deserialization (provider responsibility) - converts wire format to CLR primitives
+    /// 2. Type conversion (EF Core responsibility) - converts CLR primitives to model types via converters
     /// </para>
     ///
     /// <para>
@@ -110,9 +109,9 @@ public class DynamoProjectionBindingRemovingExpressionVisitor : ExpressionVisito
     /// <code>
     /// modelBuilder.Entity&lt;MyEntity&gt;()
     ///     .Property(e => e.CreatedAt)
-    ///     .HasConversion(new ValueConverter&lt;DateTime, AttributeValue&gt;(
-    ///         dt => new AttributeValue { S = dt.ToString("your-format") },
-    ///         av => DateTime.ParseExact(av.S, "your-format", yourCulture)));
+    ///     .HasConversion(new ValueConverter&lt;DateTime, string&gt;(
+    ///         dt => dt.ToString("your-format"),
+    ///         s => DateTime.ParseExact(s, "your-format", yourCulture)));
     /// </code>
     /// </para>
     /// </summary>
@@ -128,21 +127,70 @@ public class DynamoProjectionBindingRemovingExpressionVisitor : ExpressionVisito
         if (attributeValue.NULL == true)
             return default;
 
-        // Get the type mapping which contains the AttributeValue converter
         var typeMapping = property.GetTypeMapping();
         var converter = typeMapping.Converter;
 
-        if (converter == null)
-            throw new InvalidOperationException(
-                $"No value converter registered for property '{property.Name}' of type '{typeof(T)}'. "
-                + "Ensure that DynamoTypeMappingSource has registered a converter for this type.");
+        // Step 1: Convert AttributeValue → wire primitive (provider CLR type)
+        // This is the provider's responsibility - handle DynamoDB's wire format
+        var wirePrimitive = ConvertAttributeValueToPrimitive(
+            attributeValue,
+            converter?.ProviderClrType ?? typeof(T));
 
-        if (converter is ValueConverter<T, AttributeValue> typedConverter)
-            return typedConverter.ConvertFromProviderTyped(attributeValue); // NO BOXING!
+        // Step 2: Apply EF Core converter if present (wire primitive → model type)
+        // This is EF Core's responsibility - handle type conversions
+        if (converter != null)
+        {
+            // Use typed converter if possible to avoid boxing
+            if (converter is ValueConverter<T, object> typedConverter)
+                return typedConverter.ConvertFromProviderTyped(wirePrimitive!);
 
-        // Use the converter to transform AttributeValue → CLR type
-        // The converter handles all parsing logic (culture info, date formats, etc.)
-        var convertedValue = converter.ConvertFromProvider(attributeValue);
-        return (T)convertedValue!;
+            return (T)converter.ConvertFromProvider(wirePrimitive!)!;
+        }
+
+        // No converter: wire primitive IS the model type
+        return (T)wirePrimitive!;
+    }
+
+    /// <summary>
+    /// Converts DynamoDB's AttributeValue wire format to CLR wire primitives.
+    /// This handles only the provider's responsibility: deserializing the wire format.
+    /// </summary>
+    private static object? ConvertAttributeValueToPrimitive(
+        AttributeValue attributeValue,
+        Type targetPrimitiveType)
+    {
+        // Map AttributeValue properties to CLR wire primitives
+        if (targetPrimitiveType == typeof(string))
+            return attributeValue.S;
+
+        if (targetPrimitiveType == typeof(bool))
+            return attributeValue.BOOL ?? false;
+
+        if (targetPrimitiveType == typeof(byte[]))
+            return attributeValue.B?.ToArray();
+
+        // Numeric types from AttributeValue.N (stored as string in DynamoDB)
+        if (!string.IsNullOrEmpty(attributeValue.N))
+        {
+            if (targetPrimitiveType == typeof(long))
+                return long.Parse(
+                    attributeValue.N,
+                    System.Globalization.CultureInfo.InvariantCulture);
+
+            if (targetPrimitiveType == typeof(double))
+                return double.Parse(
+                    attributeValue.N,
+                    System.Globalization.CultureInfo.InvariantCulture);
+
+            if (targetPrimitiveType == typeof(decimal))
+                return decimal.Parse(
+                    attributeValue.N,
+                    System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        throw new InvalidOperationException(
+            $"Cannot convert AttributeValue to primitive type '{targetPrimitiveType.Name}'. "
+            + $"AttributeValue state: S={attributeValue.S}, N={attributeValue.N}, BOOL={attributeValue.BOOL}, B={attributeValue.B?.Length ?? 0} bytes. "
+            + $"Supported wire primitives: string, bool, long, double, decimal, byte[]");
     }
 }
