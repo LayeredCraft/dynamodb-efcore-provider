@@ -16,7 +16,7 @@ public class DynamoTypeMapping : CoreTypeMapping
     protected DynamoTypeMapping(CoreTypeMappingParameters parameters) : base(parameters) { }
 
     protected override CoreTypeMapping Clone(CoreTypeMappingParameters parameters)
-        => throw new NotImplementedException();
+        => new DynamoTypeMapping(parameters);
 
     public override CoreTypeMapping WithComposedConverter(
         ValueConverter? converter,
@@ -24,5 +24,11 @@ public class DynamoTypeMapping : CoreTypeMapping
         ValueComparer? keyComparer = null,
         CoreTypeMapping? elementMapping = null,
         JsonValueReaderWriter? jsonValueReaderWriter = null)
-        => throw new NotImplementedException();
+        => new DynamoTypeMapping(
+            Parameters.WithComposedConverter(
+                converter,
+                comparer,
+                keyComparer,
+                elementMapping,
+                jsonValueReaderWriter));
 }

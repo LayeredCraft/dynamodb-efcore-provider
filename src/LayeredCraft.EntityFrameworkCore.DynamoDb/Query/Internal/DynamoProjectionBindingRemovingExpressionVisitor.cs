@@ -1,7 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
-using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using Amazon.DynamoDBv2.Model;
@@ -68,9 +66,7 @@ public class DynamoProjectionBindingRemovingExpressionVisitor : ExpressionVisito
 
                 // If the method returns object, use the property's actual CLR type
                 if (targetType == typeof(object))
-                {
                     targetType = property.ClrType;
-                }
 
                 // Replace ValueBuffer.TryReadValue<T>(...) with GetValue<T>(dictionary, property)
                 // Always use _itemParameter (our Dictionary<string, AttributeValue>)
@@ -81,9 +77,7 @@ public class DynamoProjectionBindingRemovingExpressionVisitor : ExpressionVisito
 
                 // If the original method expected a different type (e.g., object), add a conversion
                 if (getValueCall.Type != methodCallExpression.Type)
-                {
                     return Expression.Convert(getValueCall, methodCallExpression.Type);
-                }
 
                 return getValueCall;
             }
@@ -99,7 +93,26 @@ public class DynamoProjectionBindingRemovingExpressionVisitor : ExpressionVisito
 
     /// <summary>
     /// Helper method to extract a value from Dictionary&lt;string, AttributeValue&gt;
-    /// using EF Core's type mapping and value converter system
+    /// using EF Core's type mapping and value converter system.
+    ///
+    /// <para>
+    /// This method leverages the registered AttributeValue-based converters from
+    /// <see cref="DynamoTypeMappingSource"/> to perform type conversion. All conversion
+    /// logic is centralized in the converter classes, eliminating the need for manual
+    /// type checking.
+    /// </para>
+    ///
+    /// <para>
+    /// To customize parsing formats (e.g., DateTime formats, culture info), users can
+    /// provide their own ValueConverter when configuring entities:
+    /// <code>
+    /// modelBuilder.Entity&lt;MyEntity&gt;()
+    ///     .Property(e => e.CreatedAt)
+    ///     .HasConversion(new ValueConverter&lt;DateTime, AttributeValue&gt;(
+    ///         dt => new AttributeValue { S = dt.ToString("your-format") },
+    ///         av => DateTime.ParseExact(av.S, "your-format", yourCulture)));
+    /// </code>
+    /// </para>
     /// </summary>
     internal static T? GetValue<T>(
         Dictionary<string, AttributeValue> item,
@@ -113,98 +126,18 @@ public class DynamoProjectionBindingRemovingExpressionVisitor : ExpressionVisito
         if (attributeValue.NULL == true)
             return default;
 
-        // Convert from DynamoDB AttributeValue to store/provider type
-        var storeValue = ConvertAttributeValueToStoreType(attributeValue, property.ClrType);
-
-        if (storeValue == null)
-            return default;
-
-        // Apply value converter if one exists
+        // Get the type mapping which contains the AttributeValue converter
         var typeMapping = property.GetTypeMapping();
-        if (typeMapping.Converter != null)
-        {
-            var convertedValue = typeMapping.Converter.ConvertFromProvider(storeValue);
-            return (T)convertedValue!;
-        }
+        var converter = typeMapping.Converter;
 
-        return (T)storeValue;
-    }
+        if (converter == null)
+            throw new InvalidOperationException(
+                $"No value converter registered for property '{property.Name}' of type '{typeof(T)}'. "
+                + "Ensure that DynamoTypeMappingSource has registered a converter for this type.");
 
-    /// <summary>
-    /// Converts DynamoDB AttributeValue to the appropriate CLR type
-    /// </summary>
-    private static object? ConvertAttributeValueToStoreType(
-        AttributeValue attributeValue,
-        Type clrType)
-    {
-        var nonNullableType = Nullable.GetUnderlyingType(clrType) ?? clrType;
-
-        // String type
-        if (nonNullableType == typeof(string))
-            return attributeValue.S;
-
-        // Boolean type
-        if (nonNullableType == typeof(bool))
-            return attributeValue.BOOL;
-
-        // Numeric types - DynamoDB stores all numbers as strings in the N property
-        if (!string.IsNullOrEmpty(attributeValue.N))
-        {
-            if (nonNullableType == typeof(int))
-                return int.Parse(attributeValue.N, CultureInfo.InvariantCulture);
-
-            if (nonNullableType == typeof(long))
-                return long.Parse(attributeValue.N, CultureInfo.InvariantCulture);
-
-            if (nonNullableType == typeof(short))
-                return short.Parse(attributeValue.N, CultureInfo.InvariantCulture);
-
-            if (nonNullableType == typeof(byte))
-                return byte.Parse(attributeValue.N, CultureInfo.InvariantCulture);
-
-            if (nonNullableType == typeof(double))
-                return double.Parse(attributeValue.N, CultureInfo.InvariantCulture);
-
-            if (nonNullableType == typeof(float))
-                return float.Parse(attributeValue.N, CultureInfo.InvariantCulture);
-
-            if (nonNullableType == typeof(decimal))
-                return decimal.Parse(attributeValue.N, CultureInfo.InvariantCulture);
-        }
-
-        // Guid - typically stored as string
-        if (nonNullableType == typeof(Guid) && !string.IsNullOrEmpty(attributeValue.S))
-            return Guid.Parse(attributeValue.S);
-
-        // DateTime - typically stored as string ISO8601 or as number (Unix timestamp)
-        if (nonNullableType == typeof(DateTime))
-        {
-            if (!string.IsNullOrEmpty(attributeValue.S))
-                return DateTime.Parse(
-                    attributeValue.S,
-                    CultureInfo.InvariantCulture,
-                    DateTimeStyles.RoundtripKind);
-
-            if (!string.IsNullOrEmpty(attributeValue.N))
-                return DateTimeOffset
-                    .FromUnixTimeSeconds(long.Parse(attributeValue.N, CultureInfo.InvariantCulture))
-                    .DateTime;
-        }
-
-        // DateTimeOffset
-        if (nonNullableType == typeof(DateTimeOffset))
-        {
-            if (!string.IsNullOrEmpty(attributeValue.S))
-                return DateTimeOffset.Parse(
-                    attributeValue.S,
-                    CultureInfo.InvariantCulture,
-                    DateTimeStyles.RoundtripKind);
-
-            if (!string.IsNullOrEmpty(attributeValue.N))
-                return DateTimeOffset.FromUnixTimeSeconds(
-                    long.Parse(attributeValue.N, CultureInfo.InvariantCulture));
-        }
-
-        return null;
+        // Use the converter to transform AttributeValue → CLR type
+        // The converter handles all parsing logic (culture info, date formats, etc.)
+        var convertedValue = converter.ConvertFromProvider(attributeValue);
+        return (T)convertedValue!;
     }
 }
