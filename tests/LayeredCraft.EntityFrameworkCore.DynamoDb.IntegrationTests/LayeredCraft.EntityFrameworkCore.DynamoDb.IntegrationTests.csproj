@@ -24,4 +24,11 @@
     <Using Include="AwesomeAssertions"/>
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\LayeredCraft.EntityFrameworkCore.DynamoDb\LayeredCraft.EntityFrameworkCore.DynamoDb.csproj"/>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest"/>
+  </ItemGroup>
 </Project>
