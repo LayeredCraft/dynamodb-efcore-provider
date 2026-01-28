@@ -3,10 +3,12 @@ using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Reflection;
 using Amazon.DynamoDBv2.Model;
+using LayeredCraft.EntityFrameworkCore.DynamoDb.Storage;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
 
@@ -134,6 +136,9 @@ public class DynamoProjectionBindingRemovingExpressionVisitor : ExpressionVisito
             throw new InvalidOperationException(
                 $"No value converter registered for property '{property.Name}' of type '{typeof(T)}'. "
                 + "Ensure that DynamoTypeMappingSource has registered a converter for this type.");
+
+        if (converter is ValueConverter<T, AttributeValue> typedConverter)
+            return typedConverter.ConvertFromProviderTyped(attributeValue); // NO BOXING!
 
         // Use the converter to transform AttributeValue → CLR type
         // The converter handles all parsing logic (culture info, date formats, etc.)
