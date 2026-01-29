@@ -28,9 +28,7 @@ public class DynamoTypeMappingSource : TypeMappingSource
         // - Enums → int/long/string (via EF Core converter)
         if (IsPrimitiveType(nonNullableType))
         {
-            var jsonReaderWriter =
-                Dependencies.JsonValueReaderWriterSource.FindReaderWriter(clrType);
-            return new DynamoTypeMapping(clrType, jsonValueReaderWriter: jsonReaderWriter);
+            return new DynamoTypeMapping(clrType);
         }
 
         // Return null for all other types - EF Core will compose converters

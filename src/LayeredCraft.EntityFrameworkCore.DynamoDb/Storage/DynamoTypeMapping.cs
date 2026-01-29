@@ -10,16 +10,8 @@ public class DynamoTypeMapping : CoreTypeMapping
     public DynamoTypeMapping(
         Type clrType,
         ValueComparer? comparer = null,
-        ValueComparer? keyComparer = null,
-        CoreTypeMapping? elementMapping = null,
-        JsonValueReaderWriter? jsonValueReaderWriter = null) : base(
-        new CoreTypeMappingParameters(
-            clrType,
-            null,
-            comparer,
-            keyComparer,
-            elementMapping: elementMapping,
-            jsonValueReaderWriter: jsonValueReaderWriter)) { }
+        ValueComparer? keyComparer = null) : base(
+        new CoreTypeMappingParameters(clrType, null, comparer, keyComparer)) { }
 
     protected DynamoTypeMapping(CoreTypeMappingParameters parameters) : base(parameters) { }
 
