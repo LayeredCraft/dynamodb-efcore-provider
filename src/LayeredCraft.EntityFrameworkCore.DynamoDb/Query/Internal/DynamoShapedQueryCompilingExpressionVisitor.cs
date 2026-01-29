@@ -4,6 +4,7 @@ using System.Linq.Expressions;
 using System.Reflection;
 using Amazon.DynamoDBv2.Model;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata.Internal;
+using LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -14,13 +15,13 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
 
 public partial class DynamoShapedQueryCompilingExpressionVisitor(
     ShapedQueryCompilingExpressionVisitorDependencies dependencies,
-    DynamoQueryCompilationContext dynamoQueryCompilationContext)
-    : ShapedQueryCompilingExpressionVisitor(dependencies, dynamoQueryCompilationContext)
+    DynamoQueryCompilationContext dynamoQueryCompilationContext,
+    DynamoQuerySqlGenerator sqlGenerator,
+    ISqlExpressionFactory sqlExpressionFactory) : ShapedQueryCompilingExpressionVisitor(
+    dependencies,
+    dynamoQueryCompilationContext)
 {
     private readonly ShapedQueryCompilingExpressionVisitorDependencies _dependencies = dependencies;
-
-    private readonly DynamoQueryCompilationContext _dynamoQueryCompilationContext =
-        dynamoQueryCompilationContext;
 
     protected override Expression VisitShapedQuery(ShapedQueryExpression shapedQueryExpression)
     {
@@ -31,10 +32,6 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
         if (entityType == null)
             throw new InvalidOperationException(
                 "Dynamo MVP only supports entity queries with a structural shaper.");
-
-        var tableName =
-            entityType.FindAnnotation(DynamoAnnotationNames.TableName)?.Value as string
-            ?? entityType.ClrType.Name;
 
         // create shaper
         var itemParameter =
@@ -58,26 +55,27 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
             QueryCompilationContext.QueryContextParameter,
             itemParameter);
 
-        var partiQl = $"SELECT * FROM {tableName}";
-        var parameters = Array.Empty<AttributeValue>();
+        // Pass SelectExpression to QueryingEnumerable for runtime SQL generation
+        // This allows parameter inlining to happen at runtime when parameter values are available
+        var selectExpression = (SelectExpression)shapedQueryExpression.QueryExpression;
 
         var queryContextParameter = Expression.Convert(
             QueryCompilationContext.QueryContextParameter,
             typeof(DynamoQueryContext));
 
-        var standAloneStateManager =
-            _dynamoQueryCompilationContext.QueryTrackingBehavior
-            == QueryTrackingBehavior.NoTrackingWithIdentityResolution;
+        var standAloneStateManager = dynamoQueryCompilationContext.QueryTrackingBehavior
+                                     == QueryTrackingBehavior.NoTrackingWithIdentityResolution;
 
-        var methodInfo = _dynamoQueryCompilationContext.IsAsync
+        var methodInfo = dynamoQueryCompilationContext.IsAsync
             ? TranslateAndExecuteQueryAsyncMethodInfo
             : TranslateAndExecuteQueryMethodInfo;
 
         var call = Expression.Call(
             methodInfo.MakeGenericMethod(shaperBody.Type),
             queryContextParameter,
-            Expression.Constant(partiQl),
-            Expression.Constant(parameters, typeof(IReadOnlyList<AttributeValue>)),
+            Expression.Constant(selectExpression),
+            Expression.Constant(sqlGenerator),
+            Expression.Constant(sqlExpressionFactory),
             shaperLambda,
             Expression.Constant(standAloneStateManager),
             Expression.Constant(_dependencies.CoreSingletonOptions.AreThreadSafetyChecksEnabled));
@@ -95,10 +93,11 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
             .GetTypeInfo()
             .DeclaredMethods.Single(m => m.Name == nameof(TranslateAndExecuteQueryAsync));
 
-    private static IEnumerable<T> TranslateAndExecuteQuery<T>(
+    private static QueryingEnumerable<T> TranslateAndExecuteQuery<T>(
         DynamoQueryContext queryContext,
-        string partiQl,
-        IReadOnlyList<AttributeValue> parameters,
+        SelectExpression selectExpression,
+        DynamoQuerySqlGenerator sqlGenerator,
+        ISqlExpressionFactory sqlExpressionFactory,
         Func<DynamoQueryContext, Dictionary<string, AttributeValue>, T> shaper,
         bool standAloneStateManager,
         bool threadSafetyChecksEnabled)
@@ -107,8 +106,9 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
         return new QueryingEnumerable<T>(
             queryContext,
             client,
-            partiQl,
-            parameters,
+            selectExpression,
+            sqlGenerator,
+            sqlExpressionFactory,
             shaper,
             standAloneStateManager,
             threadSafetyChecksEnabled);
@@ -116,8 +116,9 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
 
     private static IAsyncEnumerable<T> TranslateAndExecuteQueryAsync<T>(
         DynamoQueryContext queryContext,
-        string partiQl,
-        IReadOnlyList<AttributeValue> parameters,
+        SelectExpression selectExpression,
+        DynamoQuerySqlGenerator sqlGenerator,
+        ISqlExpressionFactory sqlExpressionFactory,
         Func<DynamoQueryContext, Dictionary<string, AttributeValue>, T> shaper,
         bool standAloneStateManager,
         bool threadSafetyChecksEnabled)
@@ -126,8 +127,9 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
         return new QueryingEnumerable<T>(
             queryContext,
             client,
-            partiQl,
-            parameters,
+            selectExpression,
+            sqlGenerator,
+            sqlExpressionFactory,
             shaper,
             standAloneStateManager,
             threadSafetyChecksEnabled);

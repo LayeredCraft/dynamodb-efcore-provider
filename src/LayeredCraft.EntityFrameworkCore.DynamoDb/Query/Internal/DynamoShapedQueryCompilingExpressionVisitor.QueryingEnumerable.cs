@@ -1,5 +1,6 @@
 using System.Collections;
 using Amazon.DynamoDBv2.Model;
+using LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Storage;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Query;
@@ -11,15 +12,17 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
     private sealed class QueryingEnumerable<T>(
         DynamoQueryContext queryContext,
         IDynamoClientWrapper client,
-        string partiQl,
-        IReadOnlyList<AttributeValue> parameters,
+        SelectExpression selectExpression,
+        DynamoQuerySqlGenerator sqlGenerator,
+        ISqlExpressionFactory sqlExpressionFactory,
         Func<DynamoQueryContext, Dictionary<string, AttributeValue>, T> shaper,
         bool standAloneStateManager,
         bool threadSafetyChecksEnabled) : IEnumerable<T>, IAsyncEnumerable<T>, IQueryingEnumerable
     {
         private readonly IDynamoClientWrapper _client = client;
-        private readonly IReadOnlyList<AttributeValue> _parameters = parameters;
-        private readonly string _partiQl = partiQl;
+        private readonly SelectExpression _selectExpression = selectExpression;
+        private readonly DynamoQuerySqlGenerator _sqlGenerator = sqlGenerator;
+        private readonly ISqlExpressionFactory _sqlExpressionFactory = sqlExpressionFactory;
         private readonly DynamoQueryContext _queryContext = queryContext;
 
         private readonly Func<DynamoQueryContext, Dictionary<string, AttributeValue>, T> _shaper =
@@ -38,6 +41,20 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
         public string ToQueryString() => throw new NotImplementedException();
+
+        /// <summary>
+        /// Generates the PartiQL query at runtime, inlining parameter values.
+        /// </summary>
+        private DynamoPartiQlQuery GenerateQuery()
+        {
+            // Inline parameters before SQL generation
+            var inlinedSelectExpression = (SelectExpression)new ParameterInliner(
+                _sqlExpressionFactory,
+                _queryContext.Parameters).Visit(_selectExpression);
+
+            // Generate SQL from the inlined expression
+            return _sqlGenerator.Generate(inlinedSelectExpression, _queryContext.Parameters);
+        }
 
         private sealed class AsyncEnumerator : IAsyncEnumerator<T>
         {
@@ -75,11 +92,13 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
 
                 if (_dataEnumerator == null)
                 {
+                    // Generate query at runtime with parameter values inlined
+                    var sqlQuery = _queryingEnumerable.GenerateQuery();
+
                     var asyncEnumerable = _queryingEnumerable._client.ExecutePartiQl(
                         new ExecuteStatementRequest
                         {
-                            Statement = _queryingEnumerable._partiQl,
-                            Parameters = _queryingEnumerable._parameters.ToList(),
+                            Statement = sqlQuery.Sql, Parameters = sqlQuery.Parameters.ToList(),
                         });
 
                     _dataEnumerator = asyncEnumerable.GetAsyncEnumerator(_cancellationToken);

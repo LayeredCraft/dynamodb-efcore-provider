@@ -11,11 +11,8 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
 /// by adding null-checking and casting for structural types.
 /// Similar to JObjectInjectingExpressionVisitor (Cosmos) and BsonDocumentInjectingExpressionVisitor (MongoDB).
 /// </summary>
-public class DynamoInjectingExpressionVisitor : ExpressionVisitor
+public class DynamoInjectingExpressionVisitor(ParameterExpression itemParameter) : ExpressionVisitor
 {
-    private readonly ParameterExpression _itemParameter;
+    private readonly ParameterExpression _itemParameter = itemParameter;
     private int _currentEntityIndex;
-
-    public DynamoInjectingExpressionVisitor(ParameterExpression itemParameter)
-        => _itemParameter = itemParameter;
 }

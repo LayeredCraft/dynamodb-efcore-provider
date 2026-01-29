@@ -12,7 +12,16 @@ When handling questions around how to work with native Microsoft technologies, s
 
 This is an Entity Framework Core database provider for AWS DynamoDB. It translates LINQ queries to PartiQL statements and executes them against DynamoDB using the AWS SDK.
 
-**Current Status:** MVP (Minimal Viable Product) - Only supports basic `SELECT *` queries with entity materialization. Most LINQ operations (Where, Select, OrderBy, etc.) throw `NotImplementedException`.
+**Current Status:** MVP (Minimal Viable Product) - Supports basic query operations with WHERE, ORDER BY, and explicit column projections. See [FEATURES.md](FEATURES.md) for complete feature support matrix.
+
+**Key Features:**
+- ✅ `.Where()` with parameter inlining (comparison, AND, OR)
+- ✅ `.OrderBy()` / `.ThenBy()` (ascending/descending)
+- ✅ Explicit column projections (auto-generated)
+- ✅ Async query execution only
+- ❌ No `.Select()` custom projections yet
+- ❌ No CRUD operations (query-only)
+- ❌ No aggregate functions (COUNT, SUM, etc.)
 
 ## Build and Test Commands
 
@@ -92,20 +101,27 @@ The provider follows Entity Framework Core's standard query pipeline with Dynamo
 
 **Stage 1: LINQ Method Translation**
 - **Component:** `DynamoQueryableMethodTranslatingExpressionVisitor`
-- **Purpose:** Converts LINQ method calls (Where, Select, etc.) to `ShapedQueryExpression` objects
-- **Current State:** Returns `NotImplementedException` for all advanced operations; only basic entity queries supported
+- **Purpose:** Converts LINQ method calls (Where, OrderBy, etc.) to `ShapedQueryExpression` objects
+- **Supported Methods:** `Where()`, `OrderBy()`, `OrderByDescending()`, `ThenBy()`, `ThenByDescending()`
+- **Auto-generated Projections:** All entity properties are automatically projected in `CreateShapedQueryExpression()`
+- **SQL Translation:** `DynamoSqlTranslatingExpressionVisitor` converts C# expressions to `SqlExpression` trees
 
 **Stage 2: Shaped Query Compilation**
 - **Component:** `DynamoShapedQueryCompilingExpressionVisitor`
 - **Purpose:** Compiles abstract query shapes into executable code
-- **Three-step transformation:**
+- **Key Innovation:** Defers SQL generation to runtime for parameter inlining
+- **Shaper Transformation (3 steps):**
   1. **Injection** (`DynamoInjectingExpressionVisitor`) - Prepares `Dictionary<string, AttributeValue>` parameter handling
   2. **Materialization** - Adds entity construction logic via `InjectStructuralTypeMaterializers()`
   3. **Binding Removal** (`DynamoProjectionBindingRemovingExpressionVisitor`) - Replaces abstract bindings with concrete dictionary access
 
-**Stage 3: Query Execution**
+**Stage 3: Query Execution (Runtime)**
 - **Component:** `QueryingEnumerable<T>` and `DynamoClientWrapper`
 - **Purpose:** Executes PartiQL against DynamoDB and materializes results
+- **Runtime SQL Generation:**
+  1. **Parameter Inlining** (`ParameterInliner`) - Replaces `SqlParameterExpression` with `SqlConstantExpression` using runtime values
+  2. **SQL Generation** (`DynamoQuerySqlGenerator`) - Converts SQL expression tree to PartiQL string
+  3. **Execution** - Sends PartiQL + AttributeValue parameters to DynamoDB
 - **Key Characteristics:**
   - Async-only execution (sync enumeration throws `NotImplementedException`)
   - Handles pagination via NextToken
@@ -113,9 +129,21 @@ The provider follows Entity Framework Core's standard query pipeline with Dynamo
 
 ### PartiQL Query Generation
 
-**File:** `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Storage/PartiQlQuery.cs`
+**Files:**
+- `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Query/Internal/DynamoQuerySqlGenerator.cs` - SQL generation
+- `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Storage/DynamoPartiQlQuery.cs` - Query wrapper
 
-Currently minimal: Generates `SELECT * FROM {tableName}` queries only. No WHERE clauses, ORDER BY, JOINs, or aggregations are supported yet.
+**Capabilities:**
+- ✅ Explicit column projections: `SELECT col1, col2, ... FROM table`
+- ✅ WHERE clauses with binary operators: `=`, `<>`, `<`, `>`, `<=`, `>=`
+- ✅ Logical operators: `AND`, `OR`
+- ✅ Arithmetic operators: `+`, `-` (PartiQL doesn't support `*`, `/`, `%`)
+- ✅ ORDER BY with multiple columns: `ASC`, `DESC`
+- ✅ Parameter inlining: All runtime parameters converted to AttributeValue constants
+- ✅ Reserved word quoting: ~10 common keywords (should expand to 573-word list)
+- ❌ SELECT * explicitly disabled (throws exception)
+- ❌ No functions (SIZE, EXISTS, BEGINS_WITH, etc.)
+- ❌ No IN, BETWEEN, NOT, IS NULL, IS MISSING
 
 ### Type Conversion
 
@@ -130,9 +158,50 @@ The `GetValue<T>()` method handles conversion from DynamoDB's `AttributeValue` f
 
 Applies EF Core value converters via `typeMapping.Converter.ConvertFromProvider()`.
 
+### SQL Expression Infrastructure
+
+The provider uses a custom SQL expression tree to represent DynamoDB PartiQL queries:
+
+**Expression Types** (`Query/Internal/Expressions/`):
+- `SqlExpression` - Base class for all SQL expressions
+- `SqlBinaryExpression` - Binary operators (=, <, >, AND, OR, +, -)
+- `SqlConstantExpression` - Constant values with type mappings
+- `SqlParameterExpression` - Runtime parameters (inlined before SQL generation)
+- `SqlPropertyExpression` - Column/property references
+- `ProjectionExpression` - Projected columns in SELECT clause
+- `SelectExpression` - Complete SELECT query (table, projections, predicate, orderings)
+- `OrderingExpression` - ORDER BY clause component
+
+**Expression Factory** (`ISqlExpressionFactory`, `SqlExpressionFactory`):
+- Creates SQL expressions with proper type mappings
+- `Binary()` - Creates binary expressions with type inference
+- `Constant()` - Creates constants with type mappings
+- `Parameter()` - Creates parameters with type mappings
+- `Property()` - Creates property references
+- `ApplyTypeMapping()` - Applies type mappings to existing expressions
+
+**Type Mapping** (`DynamoTypeMappingSource`):
+- Maps CLR types to DynamoDB AttributeValue types
+- Supports: string, bool, numeric types, Guid, DateTime, DateTimeOffset
+- Applies value converters when configured
+
 ### Expression Visitors (Critical Pattern)
 
 This provider uses multiple expression visitors to transform EF Core's abstract query model into executable code:
+
+**DynamoSqlTranslatingExpressionVisitor**
+- Translates C# expression trees to SQL expression trees
+- Handles `VisitBinary()`: Converts binary operators to `SqlBinaryExpression`
+- Handles `VisitConstant()`: Creates `SqlConstantExpression`
+- Handles `VisitMember()`: Converts property access to `SqlPropertyExpression`
+- Handles `VisitParameter()`: Creates `SqlParameterExpression`
+
+**ParameterInliner** (nested in `DynamoShapedQueryCompilingExpressionVisitor`)
+- Extends `SqlExpressionVisitor`
+- Replaces `SqlParameterExpression` with `SqlConstantExpression` at runtime
+- Looks up actual parameter values from `QueryContext.Parameters`
+- Applies type mappings via `ISqlExpressionFactory`
+- **Critical:** Prevents NULL placeholders by using actual runtime values
 
 **DynamoInjectingExpressionVisitor**
 - Adds `Dictionary<string, AttributeValue>` parameter handling
@@ -142,6 +211,13 @@ This provider uses multiple expression visitors to transform EF Core's abstract 
 - Replaces `ProjectionBindingExpression` with concrete dictionary access
 - Intercepts `ValueBufferTryReadValue<T>()` calls
 - Bridges EF Core's abstract model and DynamoDB's data format
+
+**DynamoQuerySqlGenerator**
+- Extends `SqlExpressionVisitor`
+- Visits SQL expression tree and generates PartiQL string
+- Handles all SQL expression types: Binary, Constant, Property, Projection, Select
+- Converts `SqlExpression` → PartiQL string
+- Builds `AttributeValue` parameter list
 
 ### AWS Client Integration
 
@@ -166,6 +242,10 @@ optionsBuilder.UseDynamo(options =>
 
 ## Key Files and Directories
 
+### Documentation
+- **[FEATURES.md](FEATURES.md)** - Complete feature support matrix (EF Core LINQ methods, PartiQL features, type mappings, limitations)
+- **[CLAUDE.md](CLAUDE.md)** - This file; architecture and development guide
+
 ### Core Provider Implementation
 - `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Query/Internal/` - Query compilation pipeline
 - `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Storage/` - AWS client wrapper and PartiQL generation
@@ -178,11 +258,26 @@ optionsBuilder.UseDynamo(options =>
 
 ## Current Limitations (MVP Phase)
 
-- **Query Translation:** Only `SELECT *` is supported; all LINQ methods (Where, Select, OrderBy, GroupBy, Join, etc.) throw `NotImplementedException`
-- **Save Changes:** Not implemented
-- **Type Mapping:** Only string explicitly mapped; other types use default EF Core behavior
-- **Database Operations:** Query-only (no Create, Update, Delete)
-- **Synchronous Operations:** All sync enumeration throws exceptions; must use async methods
+**See [FEATURES.md](FEATURES.md) for complete feature support matrix.**
+
+### ✅ Implemented
+- WHERE clauses with comparison and logical operators
+- ORDER BY with multiple columns (ASC/DESC)
+- Explicit column projections (auto-generated)
+- Parameter inlining with runtime values
+- All numeric, string, boolean, DateTime, Guid types
+
+### ❌ Not Yet Implemented
+- **Custom `.Select()` projections:** All entity properties always projected
+- **CRUD operations:** Query-only (no Insert, Update, Delete)
+- **Aggregate functions:** COUNT, SUM, AVG, etc. (PartiQL limitation)
+- **Advanced operators:** IN, BETWEEN, NOT, IS NULL, IS MISSING
+- **Functions:** SIZE, EXISTS, BEGINS_WITH, CONTAINS
+- **JOINs:** Not supported by PartiQL
+- **GROUP BY:** Not supported by PartiQL
+- **DISTINCT:** Not supported by PartiQL
+- **SKIP/TAKE:** Not supported by PartiQL (use NextToken pagination)
+- **Synchronous queries:** Must use async methods
 
 ## Development Patterns
 

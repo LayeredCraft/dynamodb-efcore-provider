@@ -6,11 +6,9 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Storage;
 /// Type mapping source for DynamoDB that maps only CLR wire primitives.
 /// Returns null for non-primitive types, allowing EF Core to compose converters automatically.
 /// </summary>
-public class DynamoTypeMappingSource : TypeMappingSource
+public class DynamoTypeMappingSource(TypeMappingSourceDependencies dependencies)
+    : TypeMappingSource(dependencies)
 {
-    public DynamoTypeMappingSource(TypeMappingSourceDependencies dependencies) :
-        base(dependencies) { }
-
     protected override CoreTypeMapping? FindMapping(in TypeMappingInfo mappingInfo)
     {
         var clrType = mappingInfo.ClrType;
@@ -27,9 +25,7 @@ public class DynamoTypeMappingSource : TypeMappingSource
         // - Guid → string (via EF Core converter)
         // - Enums → int/long/string (via EF Core converter)
         if (IsPrimitiveType(nonNullableType))
-        {
             return new DynamoTypeMapping(clrType);
-        }
 
         // Return null for all other types - EF Core will compose converters
         return null;

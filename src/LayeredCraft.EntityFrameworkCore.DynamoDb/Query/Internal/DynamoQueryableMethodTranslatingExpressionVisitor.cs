@@ -1,4 +1,6 @@
 using System.Linq.Expressions;
+using LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata.Internal;
+using LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -7,15 +9,33 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
 
 public class DynamoQueryableMethodTranslatingExpressionVisitor(
     QueryableMethodTranslatingExpressionVisitorDependencies dependencies,
-    QueryCompilationContext queryCompilationContext)
+    QueryCompilationContext queryCompilationContext,
+    ISqlExpressionFactory sqlExpressionFactory)
     : QueryableMethodTranslatingExpressionVisitor(dependencies, queryCompilationContext, false)
 {
+    private readonly DynamoSqlTranslatingExpressionVisitor _sqlTranslator =
+        new(sqlExpressionFactory);
+
     protected override QueryableMethodTranslatingExpressionVisitor CreateSubqueryVisitor()
         => throw new NotImplementedException();
 
     protected override ShapedQueryExpression? CreateShapedQueryExpression(IEntityType entityType)
     {
-        var queryExpression = new DynamoQueryExpression();
+        // Get the table name from entity metadata
+        var tableName = entityType.FindAnnotation(DynamoAnnotationNames.TableName)?.Value as string
+                        ?? entityType.ClrType.Name;
+
+        var queryExpression = new SelectExpression(tableName);
+
+        // Add projections for all entity properties
+        // This ensures SELECT column1, column2, ... instead of SELECT *
+        foreach (var property in entityType.GetProperties())
+        {
+            var propertyName = property.Name; // Use CLR property name
+            var sqlProperty = sqlExpressionFactory.Property(propertyName, property.ClrType);
+            var projection = new ProjectionExpression(sqlProperty, propertyName);
+            queryExpression.AddToProjection(projection);
+        }
 
         var projectionBindingExpression = new ProjectionBindingExpression(
             queryExpression,
@@ -167,7 +187,16 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor(
         ShapedQueryExpression source,
         LambdaExpression keySelector,
         bool ascending)
-        => throw new NotImplementedException();
+    {
+        var selectExpression = (SelectExpression)source.QueryExpression;
+        var translation = TranslateLambdaExpression(source, keySelector);
+
+        if (translation == null)
+            return null;
+
+        selectExpression.ApplyOrdering(new OrderingExpression(translation, ascending));
+        return source;
+    }
 
     protected override ShapedQueryExpression? TranslateReverse(ShapedQueryExpression source)
         => throw new NotImplementedException();
@@ -225,7 +254,16 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor(
         ShapedQueryExpression source,
         LambdaExpression keySelector,
         bool ascending)
-        => throw new NotImplementedException();
+    {
+        var selectExpression = (SelectExpression)source.QueryExpression;
+        var translation = TranslateLambdaExpression(source, keySelector);
+
+        if (translation == null)
+            return null;
+
+        selectExpression.AppendOrdering(new OrderingExpression(translation, ascending));
+        return source;
+    }
 
     protected override ShapedQueryExpression? TranslateUnion(
         ShapedQueryExpression source1,
@@ -235,5 +273,25 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor(
     protected override ShapedQueryExpression? TranslateWhere(
         ShapedQueryExpression source,
         LambdaExpression predicate)
-        => throw new NotImplementedException();
+    {
+        var selectExpression = (SelectExpression)source.QueryExpression;
+        var translation = TranslateLambdaExpression(source, predicate);
+
+        if (translation == null)
+            return null;
+
+        selectExpression.ApplyPredicate(translation);
+        return source;
+    }
+
+    /// <summary>
+    /// Translates a lambda expression by translating its body.
+    /// </summary>
+    private SqlExpression? TranslateLambdaExpression(
+            ShapedQueryExpression shapedQueryExpression,
+            LambdaExpression lambdaExpression)
+        // The lambda parameter represents the entity being queried (e.g., x in x => x.Pk == "test")
+        // The SQL translator will recognize parameter.Property accesses and convert them to
+        // SqlPropertyExpression
+        => _sqlTranslator.Translate(lambdaExpression.Body);
 }
