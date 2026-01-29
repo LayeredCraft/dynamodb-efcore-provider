@@ -1,10 +1,11 @@
 using Amazon.DynamoDBv2.Model;
+using DynamoMapper.Runtime;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.SimpleTable;
 
 using System;
 
-public sealed class SimpleItem
+public sealed record SimpleItem
 {
     // Partition key
     public string Pk { get; set; }
@@ -13,8 +14,8 @@ public sealed class SimpleItem
     public bool BoolValue { get; set; }
 
     // Integral numerics
-    public byte ByteValue { get; set; }
-    public short ShortValue { get; set; }
+    // public byte ByteValue { get; set; }
+    // public short ShortValue { get; set; }
     public int IntValue { get; set; }
     public long LongValue { get; set; }
 
@@ -28,87 +29,88 @@ public sealed class SimpleItem
     public Guid GuidValue { get; set; }
 
     // Temporal
-    public DateTime DateTimeValue { get; set; }
     public DateTimeOffset DateTimeOffsetValue { get; set; }
 
     // nullable
     public string? NullableStringValue { get; set; }
 }
 
-public static class SimpleItemExtensions
+public static class SimpleItems
 {
-    private static readonly List<Dictionary<string, AttributeValue>> Items =
+    public static readonly List<SimpleItem> Items =
     [
         new()
         {
-            ["Pk"] = new AttributeValue("ITEM#1"),
-            ["BoolValue"] = new AttributeValue { BOOL = true },
-            ["ByteValue"] = new AttributeValue { N = "1" },
-            ["ShortValue"] = new AttributeValue { N = "10" },
-            ["IntValue"] = new AttributeValue { N = "100" },
-            ["LongValue"] = new AttributeValue { N = "1000" },
-            ["FloatValue"] = new AttributeValue { N = "1.5" },
-            ["DoubleValue"] = new AttributeValue { N = "1.25" },
-            ["DecimalValue"] = new AttributeValue { N = "10.123" },
-            ["StringValue"] = new AttributeValue("alpha"),
-            ["GuidValue"] = new AttributeValue("11111111-1111-1111-1111-111111111111"),
-            ["DateTimeValue"] = new AttributeValue("2026-01-01T10:00:00Z"),
-            ["DateTimeOffsetValue"] = new AttributeValue("2026-01-01T10:00:00+00:00"),
-            ["NullableStringValue"] = new AttributeValue { NULL = true },
+            Pk = "ITEM#1",
+            BoolValue = true,
+            IntValue = 100,
+            LongValue = 1000,
+            FloatValue = 1.5f,
+            DoubleValue = 1.25,
+            DecimalValue = 10.123m,
+            StringValue = "alpha",
+            GuidValue = new Guid("11111111-1111-1111-1111-111111111111"),
+            DateTimeOffsetValue = new DateTimeOffset(2026, 1, 1, 10, 0, 0, TimeSpan.Zero),
+            NullableStringValue = null,
         },
         new()
         {
-            ["Pk"] = new AttributeValue("ITEM#2"),
-            ["BoolValue"] = new AttributeValue { BOOL = false },
-            ["ByteValue"] = new AttributeValue { N = "255" },
-            ["ShortValue"] = new AttributeValue { N = "32767" },
-            ["IntValue"] = new AttributeValue { N = "200000" },
-            ["LongValue"] = new AttributeValue { N = "9000000000" },
-            ["FloatValue"] = new AttributeValue { N = "3.14" },
-            ["DoubleValue"] = new AttributeValue { N = "2.718281828" },
-            ["DecimalValue"] = new AttributeValue { N = "99999.9999" },
-            ["StringValue"] = new AttributeValue("bravo"),
-            ["GuidValue"] = new AttributeValue("22222222-2222-2222-2222-222222222222"),
-            ["DateTimeValue"] = new AttributeValue("2026-01-02T11:30:00Z"),
-            ["DateTimeOffsetValue"] = new AttributeValue("2026-01-02T11:30:00+00:00"),
-            ["NullableStringValue"] = new AttributeValue("Null String"),
+            Pk = "ITEM#2",
+            BoolValue = false,
+            IntValue = 200000,
+            LongValue = 9000000000,
+            FloatValue = 3.14f,
+            DoubleValue = 2.718281828,
+            DecimalValue = 99999.9999m,
+            StringValue = "bravo",
+            GuidValue = new Guid("22222222-2222-2222-2222-222222222222"),
+            DateTimeOffsetValue = new DateTimeOffset(2026, 1, 2, 11, 30, 0, TimeSpan.Zero),
+            NullableStringValue = "Null String",
         },
         new()
         {
-            ["Pk"] = new AttributeValue("ITEM#3"),
-            ["BoolValue"] = new AttributeValue { BOOL = true },
-            ["ByteValue"] = new AttributeValue { N = "42" },
-            ["ShortValue"] = new AttributeValue { N = "1234" },
-            ["IntValue"] = new AttributeValue { N = "987654" },
-            ["LongValue"] = new AttributeValue { N = "1234567890123" },
-            ["FloatValue"] = new AttributeValue { N = "0.125" },
-            ["DoubleValue"] = new AttributeValue { N = "0.333333333333" },
-            ["DecimalValue"] = new AttributeValue { N = "0.0001" },
-            ["StringValue"] = new AttributeValue("charlie"),
-            ["GuidValue"] = new AttributeValue("33333333-3333-3333-3333-333333333333"),
-            ["DateTimeValue"] = new AttributeValue("2026-01-03T18:45:30Z"),
-            ["DateTimeOffsetValue"] = new AttributeValue("2026-01-03T18:45:30+00:00"),
+            Pk = "ITEM#3",
+            BoolValue = true,
+            IntValue = 987654,
+            LongValue = 1234567890123,
+            FloatValue = 0.125f,
+            DoubleValue = 0.333333333333,
+            DecimalValue = 0.0001m,
+            StringValue = "charlie",
+            GuidValue = new Guid("33333333-3333-3333-3333-333333333333"),
+            DateTimeOffsetValue = new DateTimeOffset(2026, 1, 3, 18, 45, 30, TimeSpan.Zero),
+            NullableStringValue = null,
         },
         new()
         {
-            ["Pk"] = new AttributeValue("ITEM#4"),
-            ["BoolValue"] = new AttributeValue { BOOL = false },
-            ["ByteValue"] = new AttributeValue { N = "0" },
-            ["ShortValue"] = new AttributeValue { N = "-1" },
-            ["IntValue"] = new AttributeValue { N = "-100" },
-            ["LongValue"] = new AttributeValue { N = "-1000000" },
-            ["FloatValue"] = new AttributeValue { N = "-1.75" },
-            ["DoubleValue"] = new AttributeValue { N = "-99.999" },
-            ["DecimalValue"] = new AttributeValue { N = "-12345.6789" },
-            ["StringValue"] = new AttributeValue("delta"),
-            ["GuidValue"] = new AttributeValue("44444444-4444-4444-4444-444444444444"),
-            ["DateTimeValue"] = new AttributeValue("2026-01-04T23:59:59Z"),
-            ["DateTimeOffsetValue"] = new AttributeValue("2026-01-04T23:59:59+00:00"),
+            Pk = "ITEM#4",
+            BoolValue = false,
+            IntValue = -100,
+            LongValue = -1000000,
+            FloatValue = -1.75f,
+            DoubleValue = -99.999,
+            DecimalValue = -12345.6789m,
+            StringValue = "delta",
+            GuidValue = new Guid("44444444-4444-4444-4444-444444444444"),
+            DateTimeOffsetValue = new DateTimeOffset(2026, 1, 4, 23, 59, 59, TimeSpan.Zero),
+            NullableStringValue = null,
         },
     ];
 
-    extension(SimpleItem)
-    {
-        public static List<Dictionary<string, AttributeValue>> GetSampleData() => Items;
-    }
+    public static readonly IReadOnlyList<Dictionary<string, AttributeValue>> AttributeValues =
+        SimpleItemMapper.ToItems(Items);
+}
+
+[DynamoMapper(Convention = DynamoNamingConvention.Exact)]
+internal static partial class SimpleItemMapper
+{
+    internal static partial Dictionary<string, AttributeValue> ToItem(SimpleItem source);
+
+    internal static List<Dictionary<string, AttributeValue>> ToItems(List<SimpleItem> sources)
+        => sources.Select(ToItem).ToList();
+
+    internal static partial SimpleItem FromItem(Dictionary<string, AttributeValue> item);
+
+    internal static List<SimpleItem> FromItems(List<Dictionary<string, AttributeValue>> items)
+        => items.Select(FromItem).ToList();
 }

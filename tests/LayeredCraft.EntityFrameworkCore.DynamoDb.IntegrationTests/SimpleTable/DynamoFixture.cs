@@ -65,10 +65,8 @@ public class SimpleTableDynamoFixture : DynamoFixture
             {
                 RequestItems = new Dictionary<string, List<WriteRequest>>
                 {
-                    [TableName] =
-                        SimpleItem
-                            .GetSampleData()
-                            .Select(item => new WriteRequest
+                    [TableName] = SimpleItems
+                        .AttributeValues.Select(item => new WriteRequest
                             {
                                 PutRequest = new PutRequest { Item = item },
                             })

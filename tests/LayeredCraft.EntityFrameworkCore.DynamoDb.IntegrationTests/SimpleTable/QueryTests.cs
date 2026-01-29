@@ -10,7 +10,10 @@ public class QueryTests(SimpleTableDynamoFixture fixture) : IClassFixture<Simple
     [Fact]
     public async Task ToListAsync_ReturnsAllItems()
     {
-        var items = await _dbContext.SimpleItems.ToListAsync(TestContext.Current.CancellationToken);
-        items.Should().NotBeEmpty();
+        var resultItems =
+            await _dbContext.SimpleItems.ToListAsync(TestContext.Current.CancellationToken);
+        var originalItems = SimpleItems.Items;
+        var attributeValues = SimpleItems.AttributeValues;
+        resultItems.Should().BeEquivalentTo(SimpleItems.Items);
     }
 }
