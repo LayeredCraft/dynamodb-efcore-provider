@@ -23,15 +23,40 @@ dotnet build
 
 ### Running Tests
 ```bash
-# Run all tests
-dotnet test
+# Set these for whatever test project/framework you're running
+TEST_PROJECT="tests/<YourTestProject>/<YourTestProject>.csproj"
+TFM="net10.0"
 
-# Run tests for specific project
-dotnet test tests/LayeredCraft.EntityFrameworkCore.DynamoDb.Tests/
+# list tests (copy fully-qualified name)
+DOTNET_NOLOGO=1 dotnet test \
+  --project "$TEST_PROJECT" \
+  -f "$TFM" -v q \
+  --list-tests --no-progress --no-ansi
 
-# Run with specific configuration
-dotnet test --configuration Release
+# run one test method
+DOTNET_NOLOGO=1 dotnet test \
+  --project "$TEST_PROJECT" \
+  -f "$TFM" -v q \
+  --filter-method "MyNamespace.MyTestClass.MyTestMethod" \
+  --minimum-expected-tests 1 \
+  --no-progress --no-ansi
+
+# handy filters
+DOTNET_NOLOGO=1 dotnet test \
+  --project "$TEST_PROJECT" \
+  -f "$TFM" -v q \
+  --filter-class "MyNamespace.MyTestClass" \
+  --minimum-expected-tests 1 \
+  --no-progress --no-ansi
+
+DOTNET_NOLOGO=1 dotnet test \
+  --project "$TEST_PROJECT" \
+  -f "$TFM" -v q \
+  --filter-namespace "MyNamespace.Tests" \
+  --minimum-expected-tests 1 \
+  --no-progress --no-ansi
 ```
+
 
 Note: This project uses Microsoft.Testing.Platform (configured in `global.json`), not VSTest.
 

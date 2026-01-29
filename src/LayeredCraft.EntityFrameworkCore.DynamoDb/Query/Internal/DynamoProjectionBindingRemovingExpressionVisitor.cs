@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using Amazon.DynamoDBv2.Model;
@@ -8,18 +10,65 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Storage;
-using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using static System.Linq.Expressions.Expression;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
 
 /// <summary>
 /// Removes ProjectionBindingExpression nodes and replaces them with concrete expressions
 /// that access Dictionary&lt;string, AttributeValue&gt; to extract property values.
-/// This is the critical bridge between EF Core's abstract query model and DynamoDB's data format.
+///
+/// <para>
+/// This visitor builds expression trees at query compilation time (not runtime) to eliminate
+/// boxing/unboxing of value types. It inlines EF Core converter expression trees directly
+/// into the final compiled query, following the same pattern as the Cosmos provider.
+/// </para>
+///
+/// <para>
+/// Performance: Expression trees are compiled once per query shape, then executed many times.
+/// By inlining converters, we avoid runtime method calls and boxing operations.
+/// </para>
 /// </summary>
 public class DynamoProjectionBindingRemovingExpressionVisitor : ExpressionVisitor
 {
     private readonly ParameterExpression _itemParameter;
+
+    // Reflection cache for AttributeValue properties
+    private static readonly PropertyInfo AttributeValueSProperty =
+        typeof(AttributeValue).GetProperty(nameof(AttributeValue.S))!;
+
+    private static readonly PropertyInfo AttributeValueBoolProperty =
+        typeof(AttributeValue).GetProperty(nameof(AttributeValue.BOOL))!;
+
+    private static readonly PropertyInfo AttributeValueNProperty =
+        typeof(AttributeValue).GetProperty(nameof(AttributeValue.N))!;
+
+    private static readonly PropertyInfo AttributeValueBProperty =
+        typeof(AttributeValue).GetProperty(nameof(AttributeValue.B))!;
+
+    private static readonly PropertyInfo AttributeValueNullProperty =
+        typeof(AttributeValue).GetProperty(nameof(AttributeValue.NULL))!;
+
+    private static readonly MethodInfo DictionaryTryGetValueMethod =
+        typeof(Dictionary<string, AttributeValue>).GetMethod(
+            nameof(Dictionary<string, AttributeValue>.TryGetValue))!;
+
+    private static readonly MethodInfo LongParseMethod =
+        typeof(long).GetMethod(nameof(long.Parse), [typeof(string), typeof(IFormatProvider)])!;
+
+    private static readonly MethodInfo DoubleParseMethod =
+        typeof(double).GetMethod(nameof(double.Parse), [typeof(string), typeof(IFormatProvider)])!;
+
+    private static readonly MethodInfo DecimalParseMethod =
+        typeof(decimal).GetMethod(
+            nameof(decimal.Parse),
+            [typeof(string), typeof(IFormatProvider)])!;
+
+    private static readonly MethodInfo MemoryStreamToArrayMethod =
+        typeof(MemoryStream).GetMethod(nameof(MemoryStream.ToArray))!;
+
+    private static readonly MethodInfo StringIsNullOrEmptyMethod =
+        typeof(string).GetMethod(nameof(string.IsNullOrEmpty), [typeof(string)])!;
 
     public DynamoProjectionBindingRemovingExpressionVisitor(ParameterExpression itemParameter)
         => _itemParameter = itemParameter;
@@ -32,8 +81,7 @@ public class DynamoProjectionBindingRemovingExpressionVisitor : ExpressionVisito
         {
             // Replace ProjectionBindingExpression with ValueBuffer.Empty
             // This satisfies the constructor signature without actually using the buffer
-            var newArguments = new List<Expression>(node.Arguments.Count);
-            newArguments.Add(Expression.Constant(ValueBuffer.Empty));
+            List<Expression> newArguments = [Constant(ValueBuffer.Empty)];
 
             // Visit the remaining arguments
             for (var i = 1; i < node.Arguments.Count; i++)
@@ -48,7 +96,8 @@ public class DynamoProjectionBindingRemovingExpressionVisitor : ExpressionVisito
     protected override Expression VisitMethodCall(MethodCallExpression methodCallExpression)
     {
         // Intercept ValueBufferTryReadValue calls created by InjectStructuralTypeMaterializers
-        // and replace them with Dictionary<string, AttributeValue> property access
+        // and replace them with inline expression trees for Dictionary<string, AttributeValue>
+        // access
         if (methodCallExpression.Method.IsGenericMethod)
         {
             var genericMethod = methodCallExpression.Method.GetGenericMethodDefinition();
@@ -56,51 +105,47 @@ public class DynamoProjectionBindingRemovingExpressionVisitor : ExpressionVisito
             if (genericMethod == ExpressionExtensions.ValueBufferTryReadValueMethod)
             {
                 // ValueBufferTryReadValue<T>(valueBuffer, index, property)
-                // Replace with: GetValue<T>(dictionary, property)
+                // Replace with inline expression tree: no runtime method call, no boxing!
 
                 var property =
                     (IProperty)((ConstantExpression)methodCallExpression.Arguments[2]).Value!;
 
-                // Use property.ClrType as the target type since methodCallExpression.Type might be
-                // 'object'
-                // This ensures we deserialize to the correct type before any conversions
                 var targetType = methodCallExpression.Type;
 
                 // If the method returns object, use the property's actual CLR type
                 if (targetType == typeof(object))
                     targetType = property.ClrType;
 
-                // Replace ValueBuffer.TryReadValue<T>(...) with GetValue<T>(dictionary, property)
-                // Always use _itemParameter (our Dictionary<string, AttributeValue>)
-                var getValueCall = Expression.Call(
-                    GetValueMethod.MakeGenericMethod(targetType),
-                    _itemParameter,
-                    Expression.Constant(property, typeof(IReadOnlyProperty)));
+                // Build expression tree for value extraction (compiled once, executed many times)
+                var valueExpression =
+                    CreateGetValueExpression(_itemParameter, property, targetType);
 
                 // If the original method expected a different type (e.g., object), add a conversion
-                if (getValueCall.Type != methodCallExpression.Type)
-                    return Expression.Convert(getValueCall, methodCallExpression.Type);
+                if (valueExpression.Type != methodCallExpression.Type)
+                    return Convert(valueExpression, methodCallExpression.Type);
 
-                return getValueCall;
+                return valueExpression;
             }
         }
 
         return base.VisitMethodCall(methodCallExpression);
     }
 
-    private static readonly MethodInfo GetValueMethod =
-        typeof(DynamoProjectionBindingRemovingExpressionVisitor).GetMethod(
-            nameof(GetValue),
-            BindingFlags.NonPublic | BindingFlags.Static)!;
-
     /// <summary>
-    /// Helper method to extract a value from Dictionary&lt;string, AttributeValue&gt;
-    /// using EF Core's type mapping and value converter system.
+    /// Creates an expression tree that extracts a value from Dictionary&lt;string, AttributeValue&gt;.
     ///
     /// <para>
-    /// This method separates concerns:
-    /// 1. AttributeValue deserialization (provider responsibility) - converts wire format to CLR primitives
-    /// 2. Type conversion (EF Core responsibility) - converts CLR primitives to model types via converters
+    /// This method builds expression trees at query compilation time (not runtime).
+    /// The resulting expression is compiled once per query shape, then executed many times.
+    /// </para>
+    ///
+    /// <para>
+    /// Expression tree structure:
+    /// 1. Dictionary.TryGetValue(propertyName, out attributeValue)
+    /// 2. Check attributeValue.NULL
+    /// 3. Extract wire primitive (attributeValue.S, .N, .BOOL, etc.)
+    /// 4. Inline EF Core converter expression tree (if present)
+    /// 5. Return typed value (NO BOXING!)
     /// </para>
     ///
     /// <para>
@@ -115,82 +160,116 @@ public class DynamoProjectionBindingRemovingExpressionVisitor : ExpressionVisito
     /// </code>
     /// </para>
     /// </summary>
-    internal static T? GetValue<T>(
-        Dictionary<string, AttributeValue> item,
-        IReadOnlyProperty property)
+    private static BlockExpression CreateGetValueExpression(
+        ParameterExpression itemParameter,
+        IProperty property,
+        Type type)
     {
         var propertyName = property.Name;
-
-        if (!item.TryGetValue(propertyName, out var attributeValue))
-            return default;
-
-        if (attributeValue.NULL == true)
-            return default;
-
         var typeMapping = property.GetTypeMapping();
         var converter = typeMapping.Converter;
 
-        // Step 1: Convert AttributeValue → wire primitive (provider CLR type)
-        // This is the provider's responsibility - handle DynamoDB's wire format
-        var wirePrimitive = ConvertAttributeValueToPrimitive(
-            attributeValue,
-            converter?.ProviderClrType ?? typeof(T));
+        // Variable to hold the AttributeValue from dictionary lookup
+        var attributeValueVariable = Variable(typeof(AttributeValue), "attributeValue");
 
-        // Step 2: Apply EF Core converter if present (wire primitive → model type)
-        // This is EF Core's responsibility - handle type conversions
+        // Expression: item.TryGetValue(propertyName, out attributeValue)
+        var tryGetValueExpression = Call(
+            itemParameter,
+            DictionaryTryGetValueMethod,
+            Constant(propertyName),
+            attributeValueVariable);
+
+        // Expression: attributeValue.NULL == true
+        var isNullExpression = Equal(
+            Property(attributeValueVariable, AttributeValueNullProperty),
+            Constant(true, typeof(bool?)));
+
+        // Build expression for extracting wire primitive from AttributeValue
+        var primitiveType = converter?.ProviderClrType ?? type;
+        var primitiveExpression = CreateAttributeValueToPrimitiveExpression(
+            attributeValueVariable,
+            primitiveType);
+
+        // Inline EF Core converter's expression tree (like Cosmos does!)
+        var valueExpression = primitiveExpression;
         if (converter != null)
-        {
-            // Use typed converter if possible to avoid boxing
-            if (converter is ValueConverter<T, object> typedConverter)
-                return typedConverter.ConvertFromProviderTyped(wirePrimitive!);
+            // Take the converter's expression tree and inline it directly
+            // This eliminates runtime method calls and boxing!
+            valueExpression = ReplacingExpressionVisitor.Replace(
+                converter.ConvertFromProviderExpression.Parameters.Single(),
+                primitiveExpression,
+                converter.ConvertFromProviderExpression.Body);
 
-            return (T)converter.ConvertFromProvider(wirePrimitive!)!;
-        }
+        // Convert to target type if needed
+        if (valueExpression.Type != type)
+            valueExpression = Convert(valueExpression, type);
 
-        // No converter: wire primitive IS the model type
-        return (T)wirePrimitive!;
+        // Build the complete expression with null handling:
+        // tryGetValue ? (attributeValue.NULL ? default : value) : default
+        var completeExpression = Condition(
+            tryGetValueExpression,
+            Condition(isNullExpression, Default(type), valueExpression),
+            Default(type));
+
+        // Wrap in block with attributeValue variable
+        return Block([attributeValueVariable], completeExpression);
     }
 
     /// <summary>
-    /// Converts DynamoDB's AttributeValue wire format to CLR wire primitives.
-    /// This handles only the provider's responsibility: deserializing the wire format.
+    /// Creates an expression tree that converts AttributeValue to a CLR wire primitive.
+    ///
+    /// <para>
+    /// This builds expression trees like:
+    /// - string: attributeValue.S
+    /// - bool: attributeValue.BOOL ?? false
+    /// - long: long.Parse(attributeValue.N, CultureInfo.InvariantCulture)
+    /// - etc.
+    /// </para>
+    ///
+    /// <para>
+    /// These expressions are inlined into the final compiled query, eliminating
+    /// runtime method calls and boxing operations.
+    /// </para>
     /// </summary>
-    private static object? ConvertAttributeValueToPrimitive(
-        AttributeValue attributeValue,
-        Type targetPrimitiveType)
+    private static Expression CreateAttributeValueToPrimitiveExpression(
+        Expression attributeValueExpression,
+        Type primitiveType)
     {
-        // Map AttributeValue properties to CLR wire primitives
-        if (targetPrimitiveType == typeof(string))
-            return attributeValue.S;
+        // String: attributeValue.S
+        if (primitiveType == typeof(string))
+            return Property(attributeValueExpression, AttributeValueSProperty);
 
-        if (targetPrimitiveType == typeof(bool))
-            return attributeValue.BOOL ?? false;
+        // Bool: attributeValue.BOOL ?? false
+        if (primitiveType == typeof(bool))
+            return Coalesce(
+                Property(attributeValueExpression, AttributeValueBoolProperty),
+                Constant(false));
 
-        if (targetPrimitiveType == typeof(byte[]))
-            return attributeValue.B?.ToArray();
-
-        // Numeric types from AttributeValue.N (stored as string in DynamoDB)
-        if (!string.IsNullOrEmpty(attributeValue.N))
+        // Byte array: attributeValue.B?.ToArray()
+        if (primitiveType == typeof(byte[]))
         {
-            if (targetPrimitiveType == typeof(long))
-                return long.Parse(
-                    attributeValue.N,
-                    System.Globalization.CultureInfo.InvariantCulture);
-
-            if (targetPrimitiveType == typeof(double))
-                return double.Parse(
-                    attributeValue.N,
-                    System.Globalization.CultureInfo.InvariantCulture);
-
-            if (targetPrimitiveType == typeof(decimal))
-                return decimal.Parse(
-                    attributeValue.N,
-                    System.Globalization.CultureInfo.InvariantCulture);
+            var bProperty = Property(attributeValueExpression, AttributeValueBProperty);
+            return Condition(
+                Equal(bProperty, Constant(null, typeof(MemoryStream))),
+                Constant(null, typeof(byte[])),
+                Call(bProperty, MemoryStreamToArrayMethod));
         }
 
+        // Numeric types: parse from attributeValue.N
+        var nProperty = Property(attributeValueExpression, AttributeValueNProperty);
+        var cultureInfo = Constant(CultureInfo.InvariantCulture);
+
+        if (primitiveType == typeof(long))
+            return Call(LongParseMethod, nProperty, cultureInfo);
+
+        if (primitiveType == typeof(double))
+            return Call(DoubleParseMethod, nProperty, cultureInfo);
+
+        if (primitiveType == typeof(decimal))
+            return Call(DecimalParseMethod, nProperty, cultureInfo);
+
         throw new InvalidOperationException(
-            $"Cannot convert AttributeValue to primitive type '{targetPrimitiveType.Name}'. "
-            + $"AttributeValue state: S={attributeValue.S}, N={attributeValue.N}, BOOL={attributeValue.BOOL}, B={attributeValue.B?.Length ?? 0} bytes. "
+            $"Cannot create expression for AttributeValue to primitive type '{primitiveType.Name}'. "
             + $"Supported wire primitives: string, bool, long, double, decimal, byte[]");
     }
 }

@@ -30,6 +30,9 @@ public sealed class SimpleItem
     // Temporal
     public DateTime DateTimeValue { get; set; }
     public DateTimeOffset DateTimeOffsetValue { get; set; }
+
+    // nullable
+    public string? NullableStringValue { get; set; }
 }
 
 public static class SimpleItemExtensions
@@ -51,6 +54,7 @@ public static class SimpleItemExtensions
             ["GuidValue"] = new AttributeValue("11111111-1111-1111-1111-111111111111"),
             ["DateTimeValue"] = new AttributeValue("2026-01-01T10:00:00Z"),
             ["DateTimeOffsetValue"] = new AttributeValue("2026-01-01T10:00:00+00:00"),
+            ["NullableStringValue"] = new AttributeValue { NULL = true },
         },
         new()
         {
@@ -67,6 +71,7 @@ public static class SimpleItemExtensions
             ["GuidValue"] = new AttributeValue("22222222-2222-2222-2222-222222222222"),
             ["DateTimeValue"] = new AttributeValue("2026-01-02T11:30:00Z"),
             ["DateTimeOffsetValue"] = new AttributeValue("2026-01-02T11:30:00+00:00"),
+            ["NullableStringValue"] = new AttributeValue("Null String"),
         },
         new()
         {
