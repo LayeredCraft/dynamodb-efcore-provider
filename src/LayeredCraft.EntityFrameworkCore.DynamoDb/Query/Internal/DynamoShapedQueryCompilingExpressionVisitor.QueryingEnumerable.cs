@@ -1,7 +1,10 @@
 using System.Collections;
 using Amazon.DynamoDBv2.Model;
+using LayeredCraft.EntityFrameworkCore.DynamoDb.Diagnostics.Internal;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Storage;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Query;
 
@@ -11,19 +14,20 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
 {
     private sealed class QueryingEnumerable<T>(
         DynamoQueryContext queryContext,
-        IDynamoClientWrapper client,
         SelectExpression selectExpression,
         DynamoQuerySqlGenerator sqlGenerator,
-        ISqlExpressionFactory sqlExpressionFactory,
         Func<DynamoQueryContext, Dictionary<string, AttributeValue>, T> shaper,
         bool standAloneStateManager,
         bool threadSafetyChecksEnabled) : IEnumerable<T>, IAsyncEnumerable<T>, IQueryingEnumerable
     {
-        private readonly IDynamoClientWrapper _client = client;
-        private readonly SelectExpression _selectExpression = selectExpression;
-        private readonly DynamoQuerySqlGenerator _sqlGenerator = sqlGenerator;
-        private readonly ISqlExpressionFactory _sqlExpressionFactory = sqlExpressionFactory;
+        private readonly IDynamoClientWrapper _client = queryContext.Client;
+
+        private readonly IDiagnosticsLogger<DbLoggerCategory.Database.Command> _commandLogger =
+            queryContext.CommandDiagnosticsLogger;
+
         private readonly DynamoQueryContext _queryContext = queryContext;
+
+        private readonly SelectExpression _selectExpression = selectExpression;
 
         private readonly Func<DynamoQueryContext, Dictionary<string, AttributeValue>, T> _shaper =
             shaper;
@@ -42,24 +46,21 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
 
         public string ToQueryString() => throw new NotImplementedException();
 
-        /// <summary>
-        /// Generates the PartiQL query at runtime with parameter values.
-        /// </summary>
-        private DynamoPartiQlQuery GenerateQuery() =>
-            // Generate SQL directly - SQL generator handles parameter lookup
-            _sqlGenerator.Generate(_selectExpression, _queryContext.Parameters);
+        /// <summary>Generates the PartiQL query at runtime with parameter values.</summary>
+        private DynamoPartiQlQuery GenerateQuery()
+            => sqlGenerator.Generate(_selectExpression, _queryContext.Parameters);
 
         private sealed class AsyncEnumerator : IAsyncEnumerator<T>
         {
-            private readonly QueryingEnumerable<T> _queryingEnumerable;
+            private readonly CancellationToken _cancellationToken;
             private readonly IConcurrencyDetector? _concurrencyDetector;
             private readonly DynamoQueryContext _queryContext;
-            private readonly bool _standAloneStateManager;
+            private readonly QueryingEnumerable<T> _queryingEnumerable;
 
             private readonly Func<DynamoQueryContext, Dictionary<string, AttributeValue>, T>
                 _shaper;
 
-            private readonly CancellationToken _cancellationToken;
+            private readonly bool _standAloneStateManager;
 
             private IAsyncEnumerator<Dictionary<string, AttributeValue>>? _dataEnumerator;
 
@@ -87,6 +88,11 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
                 {
                     // Generate query at runtime with parameter values inlined
                     var sqlQuery = _queryingEnumerable.GenerateQuery();
+
+                    _queryingEnumerable._commandLogger.ExecutingPartiQlQuery(
+                        _queryingEnumerable._selectExpression.TableName,
+                        sqlQuery.Sql,
+                        sqlQuery.Parameters);
 
                     var asyncEnumerable = _queryingEnumerable._client.ExecutePartiQl(
                         new ExecuteStatementRequest

@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.SimpleTable;
 
-internal class SimpleTableDbContext(DbContextOptions options) : DbContext(options)
+public class SimpleTableDbContext(DbContextOptions options) : DbContext(options)
 {
     public DbSet<SimpleItem> SimpleItems { get; set; }
 

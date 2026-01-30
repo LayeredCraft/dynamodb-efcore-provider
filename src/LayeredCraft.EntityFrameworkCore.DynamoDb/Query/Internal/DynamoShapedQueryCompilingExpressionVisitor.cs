@@ -1,13 +1,8 @@
-using System.Collections.Generic;
-using System.Globalization;
 using System.Linq.Expressions;
-using System.Reflection;
 using Amazon.DynamoDBv2.Model;
-using LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
-using LayeredCraft.EntityFrameworkCore.DynamoDb.Storage;
+using System.Reflection;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Query;
 
@@ -66,72 +61,21 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
         var standAloneStateManager = dynamoQueryCompilationContext.QueryTrackingBehavior
                                      == QueryTrackingBehavior.NoTrackingWithIdentityResolution;
 
-        var methodInfo = dynamoQueryCompilationContext.IsAsync
-            ? TranslateAndExecuteQueryAsyncMethodInfo
-            : TranslateAndExecuteQueryMethodInfo;
+        if (!dynamoQueryCompilationContext.IsAsync)
+            throw new InvalidOperationException(
+                "Synchronous query execution is not supported for DynamoDB. Use async methods (e.g. ToListAsync). ");
 
-        var call = Expression.Call(
-            methodInfo.MakeGenericMethod(shaperBody.Type),
+        return Expression.New(
+            typeof(QueryingEnumerable<>)
+                .MakeGenericType(shaperBody.Type)
+                .GetConstructors(
+                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+                .Single(c => c.GetParameters().Length == 6),
             queryContextParameter,
             Expression.Constant(selectExpression),
             Expression.Constant(sqlGenerator),
-            Expression.Constant(sqlExpressionFactory),
             shaperLambda,
             Expression.Constant(standAloneStateManager),
             Expression.Constant(_dependencies.CoreSingletonOptions.AreThreadSafetyChecksEnabled));
-
-        return call;
-    }
-
-    private static readonly MethodInfo TranslateAndExecuteQueryMethodInfo =
-        typeof(DynamoShapedQueryCompilingExpressionVisitor)
-            .GetTypeInfo()
-            .DeclaredMethods.Single(m => m.Name == nameof(TranslateAndExecuteQuery));
-
-    private static readonly MethodInfo TranslateAndExecuteQueryAsyncMethodInfo =
-        typeof(DynamoShapedQueryCompilingExpressionVisitor)
-            .GetTypeInfo()
-            .DeclaredMethods.Single(m => m.Name == nameof(TranslateAndExecuteQueryAsync));
-
-    private static QueryingEnumerable<T> TranslateAndExecuteQuery<T>(
-        DynamoQueryContext queryContext,
-        SelectExpression selectExpression,
-        DynamoQuerySqlGenerator sqlGenerator,
-        ISqlExpressionFactory sqlExpressionFactory,
-        Func<DynamoQueryContext, Dictionary<string, AttributeValue>, T> shaper,
-        bool standAloneStateManager,
-        bool threadSafetyChecksEnabled)
-    {
-        var client = queryContext.Context.GetService<IDynamoClientWrapper>();
-        return new QueryingEnumerable<T>(
-            queryContext,
-            client,
-            selectExpression,
-            sqlGenerator,
-            sqlExpressionFactory,
-            shaper,
-            standAloneStateManager,
-            threadSafetyChecksEnabled);
-    }
-
-    private static IAsyncEnumerable<T> TranslateAndExecuteQueryAsync<T>(
-        DynamoQueryContext queryContext,
-        SelectExpression selectExpression,
-        DynamoQuerySqlGenerator sqlGenerator,
-        ISqlExpressionFactory sqlExpressionFactory,
-        Func<DynamoQueryContext, Dictionary<string, AttributeValue>, T> shaper,
-        bool standAloneStateManager,
-        bool threadSafetyChecksEnabled)
-    {
-        var client = queryContext.Context.GetService<IDynamoClientWrapper>();
-        return new QueryingEnumerable<T>(
-            queryContext,
-            client,
-            selectExpression,
-            sqlGenerator,
-            sqlExpressionFactory,
-            shaper,
-            standAloneStateManager,
-            threadSafetyChecksEnabled);
     }
 }
