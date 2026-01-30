@@ -3,7 +3,6 @@ using Amazon.DynamoDBv2.Model;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using System.Reflection;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Query;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
@@ -11,8 +10,7 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
 public partial class DynamoShapedQueryCompilingExpressionVisitor(
     ShapedQueryCompilingExpressionVisitorDependencies dependencies,
     DynamoQueryCompilationContext dynamoQueryCompilationContext,
-    DynamoQuerySqlGenerator sqlGenerator,
-    ISqlExpressionFactory sqlExpressionFactory) : ShapedQueryCompilingExpressionVisitor(
+    DynamoQuerySqlGenerator sqlGenerator) : ShapedQueryCompilingExpressionVisitor(
     dependencies,
     dynamoQueryCompilationContext)
 {
@@ -21,10 +19,8 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
     protected override Expression VisitShapedQuery(ShapedQueryExpression shapedQueryExpression)
     {
         var shaperBody = shapedQueryExpression.ShaperExpression;
-        var entityType =
-            (shaperBody as StructuralTypeShaperExpression)?.StructuralType as IEntityType;
 
-        if (entityType == null)
+        if (shaperBody is not StructuralTypeShaperExpression)
             throw new InvalidOperationException(
                 "Dynamo MVP only supports entity queries with a structural shaper.");
 
