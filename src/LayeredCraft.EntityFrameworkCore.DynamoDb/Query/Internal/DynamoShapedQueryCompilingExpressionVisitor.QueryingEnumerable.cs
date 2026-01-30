@@ -91,8 +91,7 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
 
                     _queryingEnumerable._commandLogger.ExecutingPartiQlQuery(
                         _queryingEnumerable._selectExpression.TableName,
-                        sqlQuery.Sql,
-                        sqlQuery.Parameters);
+                        sqlQuery.Sql);
 
                     var asyncEnumerable = _queryingEnumerable._client.ExecutePartiQl(
                         new ExecuteStatementRequest

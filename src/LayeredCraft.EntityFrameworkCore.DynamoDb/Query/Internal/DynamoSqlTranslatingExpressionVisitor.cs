@@ -7,12 +7,8 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
 /// <summary>
 /// Translates C# expression trees to SQL expression trees.
 /// </summary>
-#pragma warning disable IDE0060 // queryCompilationContext is required for API compatibility but
-// NotTranslatedExpression is static
-public class DynamoSqlTranslatingExpressionVisitor(
-    ISqlExpressionFactory sqlExpressionFactory,
-    QueryCompilationContext queryCompilationContext) : ExpressionVisitor
-#pragma warning restore IDE0060
+public class DynamoSqlTranslatingExpressionVisitor(ISqlExpressionFactory sqlExpressionFactory)
+    : ExpressionVisitor
 {
     /// <summary>
     /// Translates a C# expression to a SQL expression.

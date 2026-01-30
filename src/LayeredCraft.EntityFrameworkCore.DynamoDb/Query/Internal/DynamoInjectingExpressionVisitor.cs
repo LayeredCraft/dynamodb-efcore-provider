@@ -14,5 +14,4 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
 public class DynamoInjectingExpressionVisitor(ParameterExpression itemParameter) : ExpressionVisitor
 {
     private readonly ParameterExpression _itemParameter = itemParameter;
-    private int _currentEntityIndex;
 }

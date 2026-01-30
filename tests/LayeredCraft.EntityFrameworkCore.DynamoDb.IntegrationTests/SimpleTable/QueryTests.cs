@@ -50,8 +50,6 @@ public class QueryTests(SimpleTableDynamoFixture fixture)
 
         AssertSql(
             """
-            p0=?
-
             SELECT Pk, BoolValue, DateTimeOffsetValue, DecimalValue, DoubleValue, FloatValue, GuidValue, IntValue, LongValue, NullableStringValue, StringValue
             FROM SimpleItems
             WHERE ((((IntValue >= 0) AND (LongValue > ?)) AND (StringValue <> 'delta')) AND ((BoolValue = TRUE) OR (DoubleValue < 0)))
@@ -65,9 +63,9 @@ public class QueryTests(SimpleTableDynamoFixture fixture)
 
         // Use multiple Where calls so the provider has to combine predicates.
         var query = db
-                .SimpleItems.Where(item => item.IntValue != 200000)
-                .Where(item => item.IntValue > -200)
-                .Where(item => item.LongValue <= 1000 || item.BoolValue == true);
+            .SimpleItems.Where(item => item.IntValue != 200000)
+            .Where(item => item.IntValue > -200)
+            .Where(item => item.LongValue <= 1000 || item.BoolValue == true);
 
         var resultItems = await query.ToListAsync(CancellationToken);
 
@@ -95,10 +93,10 @@ public class QueryTests(SimpleTableDynamoFixture fixture)
         // DynamoDB PartiQL requires a hash-key condition when using ORDER BY.
         // We keep ORDER BY strictly on the primary key, but make the predicate non-trivial.
         var query = db
-                .SimpleItems
-                .Where(item => item.Pk == "ITEM#3" || item.Pk == "ITEM#1" || item.Pk == "ITEM#4")
-                .OrderBy(item => item.Pk)
-                .ThenBy(item => item.Pk);
+            .SimpleItems
+            .Where(item => item.Pk == "ITEM#3" || item.Pk == "ITEM#1" || item.Pk == "ITEM#4")
+            .OrderBy(item => item.Pk)
+            .ThenBy(item => item.Pk);
 
         var resultItems = await query.ToListAsync(CancellationToken);
 
@@ -130,12 +128,12 @@ public class QueryTests(SimpleTableDynamoFixture fixture)
         await using var db = CreateContext();
 
         var query = db
-                .SimpleItems
-                .Where(item
-                    => (item.Pk == "ITEM#1" || item.Pk == "ITEM#2" || item.Pk == "ITEM#3")
-                       && (item.IntValue >= 100 || item.BoolValue == false))
-                .OrderByDescending(item => item.Pk)
-                .ThenByDescending(item => item.Pk);
+            .SimpleItems
+            .Where(item
+                => (item.Pk == "ITEM#1" || item.Pk == "ITEM#2" || item.Pk == "ITEM#3")
+                   && (item.IntValue >= 100 || item.BoolValue == false))
+            .OrderByDescending(item => item.Pk)
+            .ThenByDescending(item => item.Pk);
 
         var resultItems = await query.ToListAsync(CancellationToken);
 
@@ -181,21 +179,8 @@ public class QueryTests(SimpleTableDynamoFixture fixture)
 
         resultItems.Should().BeEquivalentTo(expected);
 
-        await AssertSqlSensitiveAsync(
-            async context =>
-            {
-                _ = await context
-                    .SimpleItems.Where(item
-                        => item.IntValue >= minInt
-                           && item.LongValue <= maxLong
-                           && item.StringValue != excludeString)
-                    .ToListAsync(CancellationToken);
-            },
+        AssertSql(
             """
-            p0=100
-            p1=1000
-            p2='delta'
-
             SELECT Pk, BoolValue, DateTimeOffsetValue, DecimalValue, DoubleValue, FloatValue, GuidValue, IntValue, LongValue, NullableStringValue, StringValue
             FROM SimpleItems
             WHERE (((IntValue >= ?) AND (LongValue <= ?)) AND (StringValue <> ?))

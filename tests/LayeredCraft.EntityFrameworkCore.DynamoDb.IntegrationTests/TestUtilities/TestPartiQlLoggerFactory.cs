@@ -7,8 +7,6 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.TestUtiliti
 
 public sealed class TestPartiQlLoggerFactory : ILoggerFactory
 {
-    private static readonly string Eol = Environment.NewLine;
-
     private readonly TestPartiQlLogger _logger = new();
     private bool _disposed;
 
@@ -85,12 +83,6 @@ public sealed class TestPartiQlLoggerFactory : ILoggerFactory
             if (eventId.Id == DynamoEventId.ExecutingPartiQlQuery.Id
                 && state is IReadOnlyList<KeyValuePair<string, object?>> structure)
             {
-                var parameters =
-                    structure
-                        .Where(i => i.Key == "parameters")
-                        .Select(i => (string?)i.Value)
-                        .FirstOrDefault()
-                    ?? string.Empty;
                 var commandText =
                     structure
                         .Where(i => i.Key == "commandText")
@@ -98,13 +90,7 @@ public sealed class TestPartiQlLoggerFactory : ILoggerFactory
                         .FirstOrDefault()
                     ?? string.Empty;
 
-                if (!string.IsNullOrWhiteSpace(parameters))
-                    parameters =
-                        parameters.Replace(", ", Eol, StringComparison.Ordinal) + Eol + Eol;
-                else
-                    parameters = string.Empty;
-
-                PartiQlStatements.Add(parameters + commandText);
+                PartiQlStatements.Add(commandText);
             }
         }
     }
