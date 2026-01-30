@@ -98,13 +98,35 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
     /// <inheritdoc />
     protected override Expression VisitSqlBinary(SqlBinaryExpression sqlBinaryExpression)
     {
-        _sql.Append('(');
+        // Check if left operand needs parentheses
+        var leftRequiresParentheses = RequiresParentheses(
+            sqlBinaryExpression,
+            sqlBinaryExpression.Left);
+
+        if (leftRequiresParentheses)
+            _sql.Append('(');
+
         Visit(sqlBinaryExpression.Left);
+
+        if (leftRequiresParentheses)
+            _sql.Append(')');
+
         _sql.Append(' ');
         _sql.Append(GetOperatorString(sqlBinaryExpression.OperatorType));
         _sql.Append(' ');
+
+        // Check if right operand needs parentheses
+        var rightRequiresParentheses = RequiresParentheses(
+            sqlBinaryExpression,
+            sqlBinaryExpression.Right);
+
+        if (rightRequiresParentheses)
+            _sql.Append('(');
+
         Visit(sqlBinaryExpression.Right);
-        _sql.Append(')');
+
+        if (rightRequiresParentheses)
+            _sql.Append(')');
 
         return sqlBinaryExpression;
     }
@@ -160,6 +182,89 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
         // Visit the projected expression
         Visit(projectionExpression.Expression);
         return projectionExpression;
+    }
+
+    /// <summary>
+    /// Gets the precedence and associativity for an operator expression.
+    /// Based on standard SQL operator precedence.
+    /// </summary>
+    protected virtual bool TryGetOperatorInfo(
+        SqlExpression expression,
+        out int precedence,
+        out bool isAssociative)
+    {
+        (precedence, isAssociative) = expression switch
+        {
+            SqlBinaryExpression binary => binary.OperatorType switch
+            {
+                ExpressionType.Multiply => (900, true),
+                ExpressionType.Divide => (900, false),
+                ExpressionType.Add => (700, true),
+                ExpressionType.Subtract => (700, false),
+                ExpressionType.Equal => (500, false),
+                ExpressionType.NotEqual => (500, false),
+                ExpressionType.LessThan => (500, false),
+                ExpressionType.LessThanOrEqual => (500, false),
+                ExpressionType.GreaterThan => (500, false),
+                ExpressionType.GreaterThanOrEqual => (500, false),
+                ExpressionType.AndAlso => (200, true),
+                ExpressionType.OrElse => (100, true),
+                _ => default,
+            },
+            _ => default,
+        };
+
+        return precedence != default;
+    }
+
+    /// <summary>
+    /// Determines if an inner expression needs parentheses when nested inside an outer expression.
+    /// </summary>
+    protected virtual bool RequiresParentheses(
+        SqlExpression outerExpression,
+        SqlExpression innerExpression)
+    {
+        // Non-binary expressions never need parentheses
+        if (innerExpression is not SqlBinaryExpression)
+            return false;
+
+        // If outer is not binary, no parentheses needed
+        if (outerExpression is not SqlBinaryExpression outerBinary)
+            return false;
+
+        // Get precedence info for both expressions
+        if (!TryGetOperatorInfo(outerExpression, out var outerPrecedence, out _))
+            return true; // Conservative: add parentheses if precedence unknown
+
+        if (!TryGetOperatorInfo(
+                innerExpression,
+                out var innerPrecedence,
+                out var innerIsAssociative))
+            return true; // Conservative: add parentheses if precedence unknown
+
+        var innerBinary = (SqlBinaryExpression)innerExpression;
+
+        // If outer has higher precedence, inner needs parentheses
+        if (outerPrecedence > innerPrecedence)
+            return true;
+
+        // If outer has lower precedence, no parentheses needed
+        if (outerPrecedence < innerPrecedence)
+            return false;
+
+        // Same precedence: check if same operator and associative
+        if (outerBinary.OperatorType == innerBinary.OperatorType && innerIsAssociative)
+            return false;
+
+        // Special case: AND inside OR should have parentheses for readability
+        // (a OR b) AND c doesn't need inner parens (AND is tighter)
+        // a AND (b OR c) needs inner parens (OR is looser)
+        if (outerBinary.OperatorType == ExpressionType.AndAlso
+            && innerBinary.OperatorType == ExpressionType.OrElse)
+            return true;
+
+        // Same precedence, different operators: needs parentheses
+        return true;
     }
 
     private static bool NeedsQuoting(string identifier)

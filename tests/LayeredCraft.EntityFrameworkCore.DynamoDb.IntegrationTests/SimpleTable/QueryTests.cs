@@ -52,7 +52,7 @@ public class QueryTests(SimpleTableDynamoFixture fixture)
             """
             SELECT Pk, BoolValue, DateTimeOffsetValue, DecimalValue, DoubleValue, FloatValue, GuidValue, IntValue, LongValue, NullableStringValue, StringValue
             FROM SimpleItems
-            WHERE ((((IntValue >= 0) AND (LongValue > ?)) AND (StringValue <> 'delta')) AND ((BoolValue = TRUE) OR (DoubleValue < 0)))
+            WHERE IntValue >= 0 AND LongValue > ? AND StringValue <> 'delta' AND (BoolValue = TRUE OR DoubleValue < 0)
             """);
     }
 
@@ -81,7 +81,7 @@ public class QueryTests(SimpleTableDynamoFixture fixture)
             """
             SELECT Pk, BoolValue, DateTimeOffsetValue, DecimalValue, DoubleValue, FloatValue, GuidValue, IntValue, LongValue, NullableStringValue, StringValue
             FROM SimpleItems
-            WHERE (((IntValue <> 200000) AND (IntValue > -200)) AND ((LongValue <= 1000) OR (BoolValue = TRUE)))
+            WHERE IntValue <> 200000 AND IntValue > -200 AND (LongValue <= 1000 OR BoolValue = TRUE)
             """);
     }
 
@@ -116,7 +116,7 @@ public class QueryTests(SimpleTableDynamoFixture fixture)
             """
             SELECT Pk, BoolValue, DateTimeOffsetValue, DecimalValue, DoubleValue, FloatValue, GuidValue, IntValue, LongValue, NullableStringValue, StringValue
             FROM SimpleItems
-            WHERE (((Pk = 'ITEM#3') OR (Pk = 'ITEM#1')) OR (Pk = 'ITEM#4'))
+            WHERE Pk = 'ITEM#3' OR Pk = 'ITEM#1' OR Pk = 'ITEM#4'
             ORDER BY Pk ASC, Pk ASC
             """);
     }
@@ -152,7 +152,7 @@ public class QueryTests(SimpleTableDynamoFixture fixture)
             """
             SELECT Pk, BoolValue, DateTimeOffsetValue, DecimalValue, DoubleValue, FloatValue, GuidValue, IntValue, LongValue, NullableStringValue, StringValue
             FROM SimpleItems
-            WHERE ((((Pk = 'ITEM#1') OR (Pk = 'ITEM#2')) OR (Pk = 'ITEM#3')) AND ((IntValue >= 100) OR (BoolValue = FALSE)))
+            WHERE (Pk = 'ITEM#1' OR Pk = 'ITEM#2' OR Pk = 'ITEM#3') AND (IntValue >= 100 OR BoolValue = FALSE)
             ORDER BY Pk DESC, Pk DESC
             """);
     }
@@ -183,7 +183,7 @@ public class QueryTests(SimpleTableDynamoFixture fixture)
             """
             SELECT Pk, BoolValue, DateTimeOffsetValue, DecimalValue, DoubleValue, FloatValue, GuidValue, IntValue, LongValue, NullableStringValue, StringValue
             FROM SimpleItems
-            WHERE (((IntValue >= ?) AND (LongValue <= ?)) AND (StringValue <> ?))
+            WHERE IntValue >= ? AND LongValue <= ? AND StringValue <> ?
             """);
     }
 }
