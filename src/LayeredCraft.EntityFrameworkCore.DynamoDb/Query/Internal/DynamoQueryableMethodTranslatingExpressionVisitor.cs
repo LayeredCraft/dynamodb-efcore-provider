@@ -14,7 +14,7 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor(
     : QueryableMethodTranslatingExpressionVisitor(dependencies, queryCompilationContext, false)
 {
     private readonly DynamoSqlTranslatingExpressionVisitor _sqlTranslator =
-        new(sqlExpressionFactory);
+        new(sqlExpressionFactory, queryCompilationContext);
 
     protected override QueryableMethodTranslatingExpressionVisitor CreateSubqueryVisitor()
         => throw new NotImplementedException();

@@ -2,6 +2,7 @@ using System.Linq.Expressions;
 using System.Text;
 using Amazon.DynamoDBv2.Model;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
+using LayeredCraft.EntityFrameworkCore.DynamoDb.Storage;
 using Microsoft.EntityFrameworkCore.Storage;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
@@ -13,22 +14,33 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
 {
     private readonly StringBuilder _sql = new();
     private readonly List<AttributeValue> _parameters = [];
+    private readonly List<(string Name, CoreTypeMapping? TypeMapping)> _parameterNames = [];
 
     /// <summary>
     /// Generates a PartiQL query from a SelectExpression.
+    /// Tracks parameter names during SQL generation, then converts values to AttributeValues.
     /// </summary>
-    /// <remarks>
-    /// All SqlParameterExpression nodes should be inlined to SqlConstantExpression
-    /// before calling this method using the ParameterInliner visitor.
-    /// </remarks>
     public DynamoPartiQlQuery Generate(
         SelectExpression selectExpression,
         IReadOnlyDictionary<string, object?> parameterValues)
     {
         _sql.Clear();
         _parameters.Clear();
+        _parameterNames.Clear();
 
+        // Generate SQL with ? placeholders (doesn't need parameter values)
         VisitSelect(selectExpression);
+
+        // After SQL generation, convert parameter values to AttributeValues
+        foreach (var (name, typeMapping) in _parameterNames)
+        {
+            if (!parameterValues.TryGetValue(name, out var value))
+                throw new InvalidOperationException(
+                    $"Parameter '{name}' not found in parameter values.");
+
+            var attributeValue = ConvertToAttributeValue(value, typeMapping);
+            _parameters.Add(attributeValue);
+        }
 
         return new DynamoPartiQlQuery(_sql.ToString(), _parameters);
     }
@@ -100,23 +112,28 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
     /// <inheritdoc />
     protected override Expression VisitSqlConstant(SqlConstantExpression sqlConstantExpression)
     {
-        // Always parameterize constant values
-        var attributeValue = ConvertToAttributeValue(
-            sqlConstantExpression.Value,
-            sqlConstantExpression.TypeMapping);
-        _parameters.Add(attributeValue);
-        _sql.Append('?');
+        // Inline constant values directly into SQL using type mapping
+        if (sqlConstantExpression.TypeMapping is DynamoTypeMapping dynamoTypeMapping)
+            _sql.Append(dynamoTypeMapping.GenerateConstant(sqlConstantExpression.Value));
+        else
+            // Fallback for cases without type mapping (shouldn't happen in normal usage)
+            throw new InvalidOperationException(
+                $"SqlConstantExpression requires a DynamoTypeMapping. Got: {sqlConstantExpression.TypeMapping?.GetType().Name ?? "null"}");
 
         return sqlConstantExpression;
     }
 
     /// <inheritdoc />
     protected override Expression VisitSqlParameter(SqlParameterExpression sqlParameterExpression)
-        => throw
-            // Parameters should have been inlined by ParameterInliner before SQL generation
-            new InvalidOperationException(
-                $"Encountered parameter '{sqlParameterExpression.Name}' during SQL generation. "
-                + "All parameters should have been inlined before this point.");
+    {
+        // Track parameter name and type mapping (but don't look up value yet)
+        _parameterNames.Add((sqlParameterExpression.Name, sqlParameterExpression.TypeMapping));
+
+        // Write ? placeholder
+        _sql.Append('?');
+
+        return sqlParameterExpression;
+    }
 
     /// <inheritdoc />
     protected override Expression VisitSqlProperty(SqlPropertyExpression sqlPropertyExpression)

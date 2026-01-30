@@ -1,13 +1,18 @@
 using System.Linq.Expressions;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
+using Microsoft.EntityFrameworkCore.Query;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
 
 /// <summary>
 /// Translates C# expression trees to SQL expression trees.
 /// </summary>
-public class DynamoSqlTranslatingExpressionVisitor(ISqlExpressionFactory sqlExpressionFactory)
-    : ExpressionVisitor
+#pragma warning disable IDE0060 // queryCompilationContext is required for API compatibility but
+// NotTranslatedExpression is static
+public class DynamoSqlTranslatingExpressionVisitor(
+    ISqlExpressionFactory sqlExpressionFactory,
+    QueryCompilationContext queryCompilationContext) : ExpressionVisitor
+#pragma warning restore IDE0060
 {
     /// <summary>
     /// Translates a C# expression to a SQL expression.
@@ -38,45 +43,36 @@ public class DynamoSqlTranslatingExpressionVisitor(ISqlExpressionFactory sqlExpr
 
     /// <inheritdoc />
     protected override Expression VisitParameter(ParameterExpression node)
-        => sqlExpressionFactory.Parameter(node.Name ?? "p", node.Type);
+        => QueryCompilationContext.NotTranslatedExpression;
 
     /// <inheritdoc />
     protected override Expression VisitMember(MemberExpression node)
     {
-        // Handle property access on the entity parameter
+        // Handle property access on the entity parameter (e.g., item.IntValue)
         if (node.Expression is ParameterExpression)
             return sqlExpressionFactory.Property(node.Member.Name, node.Type);
 
-        // Handle closure access (e.g., local variables captured in lambda)
-        if (node.Expression is ConstantExpression constantExpression)
-        {
-            // Evaluate the member access to get the actual value
-            var value = GetMemberValue(constantExpression.Value, node.Member);
-            return sqlExpressionFactory.Constant(value, node.Type);
-        }
-
-        // Handle nested member access for closures
-        if (node.Expression is MemberExpression nestedMember)
-        {
-            var parent = Visit(nestedMember);
-            if (parent is SqlConstantExpression constantParent)
-            {
-                var value = GetMemberValue(constantParent.Value, node.Member);
-                return sqlExpressionFactory.Constant(value, node.Type);
-            }
-        }
-
+        // Don't handle closure access here - let EF Core's funcletizer convert
+        // captured variables to QueryParameterExpression, which we handle in VisitExtension
         return base.VisitMember(node);
     }
 
-    private static object? GetMemberValue(object? instance, System.Reflection.MemberInfo member)
-        => member switch
+    /// <inheritdoc />
+    protected override Expression VisitExtension(Expression extensionExpression)
+    {
+        switch (extensionExpression)
         {
-            System.Reflection.FieldInfo field => field.GetValue(instance),
-            System.Reflection.PropertyInfo property => property.GetValue(instance),
-            _ => throw new NotSupportedException(
-                $"Member type {member.MemberType} is not supported"),
-        };
+            case SqlExpression sqlExpression:
+                return sqlExpression;
+
+            case QueryParameterExpression queryParameter:
+                // Captured variables become parameters (runtime lookup)
+                return sqlExpressionFactory.Parameter(queryParameter.Name, queryParameter.Type);
+
+            default:
+                return base.VisitExtension(extensionExpression);
+        }
+    }
 
     /// <inheritdoc />
     protected override Expression VisitUnary(UnaryExpression node)

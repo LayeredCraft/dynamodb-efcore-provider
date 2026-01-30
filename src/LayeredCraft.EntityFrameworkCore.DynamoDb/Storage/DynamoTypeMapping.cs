@@ -31,4 +31,35 @@ public class DynamoTypeMapping : CoreTypeMapping
                 keyComparer,
                 elementMapping,
                 jsonValueReaderWriter));
+
+    /// <summary>
+    /// Generates a SQL literal for a constant value in PartiQL.
+    /// </summary>
+    public virtual string GenerateConstant(object? value)
+    {
+        // Apply value converter if present
+        if (Converter != null && value != null)
+            value = Converter.ConvertToProvider(value);
+
+        if (value == null)
+            return "NULL";
+
+        return value switch
+        {
+            string s => $"'{s.Replace("'", "''")}'", // Escape single quotes
+            bool b => b ? "TRUE" : "FALSE",
+            int i => i.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            long l => l.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            short sh => sh.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            byte by => by.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            double d => d.ToString("R", System.Globalization.CultureInfo.InvariantCulture),
+            float f => f.ToString("R", System.Globalization.CultureInfo.InvariantCulture),
+            decimal dec => dec.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            Guid g => $"'{g}'",
+            DateTime dt => $"'{dt:O}'",
+            DateTimeOffset dto => $"'{dto:O}'",
+            _ => throw new NotSupportedException(
+                $"Type {value.GetType()} is not supported for SQL constant generation"),
+        };
+    }
 }

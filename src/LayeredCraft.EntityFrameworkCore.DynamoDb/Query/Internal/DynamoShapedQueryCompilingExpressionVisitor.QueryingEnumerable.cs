@@ -43,18 +43,11 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
         public string ToQueryString() => throw new NotImplementedException();
 
         /// <summary>
-        /// Generates the PartiQL query at runtime, inlining parameter values.
+        /// Generates the PartiQL query at runtime with parameter values.
         /// </summary>
-        private DynamoPartiQlQuery GenerateQuery()
-        {
-            // Inline parameters before SQL generation
-            var inlinedSelectExpression = (SelectExpression)new ParameterInliner(
-                _sqlExpressionFactory,
-                _queryContext.Parameters).Visit(_selectExpression);
-
-            // Generate SQL from the inlined expression
-            return _sqlGenerator.Generate(inlinedSelectExpression, _queryContext.Parameters);
-        }
+        private DynamoPartiQlQuery GenerateQuery() =>
+            // Generate SQL directly - SQL generator handles parameter lookup
+            _sqlGenerator.Generate(_selectExpression, _queryContext.Parameters);
 
         private sealed class AsyncEnumerator : IAsyncEnumerator<T>
         {

@@ -39,9 +39,10 @@ public class QueryTests(SimpleTableDynamoFixture fixture) : IClassFixture<Simple
     {
         // Intentionally mixes comparison operators and boolean logic.
         // Goal: exercise predicate translation and parameterization.
+        var x = 500;
         var query = _dbContext.SimpleItems.Where(item
             => item.IntValue >= 0
-               && item.LongValue > 500
+               && item.LongValue > x
                && item.StringValue != "delta"
                && (item.BoolValue == true || item.DoubleValue < 0));
 
@@ -57,9 +58,13 @@ public class QueryTests(SimpleTableDynamoFixture fixture) : IClassFixture<Simple
 
         CapturingClient.LastStatement.Should().NotBeNull();
         CapturingClient.LastStatement!.Should().Contain("WHERE");
-        CapturingClient.LastStatement!.Should().Contain("IntValue >= ?");
+        // Literal constants are inlined directly
+        CapturingClient.LastStatement!.Should().Contain("IntValue >= 0");
+        CapturingClient.LastStatement!.Should().Contain("StringValue <> 'delta'");
+        CapturingClient.LastStatement!.Should().Contain("BoolValue = TRUE");
+        CapturingClient.LastStatement!.Should().Contain("DoubleValue < 0");
+        // Captured variable uses parameter
         CapturingClient.LastStatement!.Should().Contain("LongValue > ?");
-        CapturingClient.LastStatement!.Should().Contain("StringValue <> ?");
         CapturingClient.LastStatement!.Should().Contain("AND");
         CapturingClient.LastStatement!.Should().Contain("OR");
     }
@@ -86,9 +91,11 @@ public class QueryTests(SimpleTableDynamoFixture fixture) : IClassFixture<Simple
 
         CapturingClient.LastStatement.Should().NotBeNull();
         CapturingClient.LastStatement!.Should().Contain("WHERE");
-        CapturingClient.LastStatement!.Should().Contain("IntValue <> ?");
-        CapturingClient.LastStatement!.Should().Contain("IntValue > ?");
-        CapturingClient.LastStatement!.Should().Contain("LongValue <= ?");
+        // All literal constants are inlined
+        CapturingClient.LastStatement!.Should().Contain("IntValue <> 200000");
+        CapturingClient.LastStatement!.Should().Contain("IntValue > -200");
+        CapturingClient.LastStatement!.Should().Contain("LongValue <= 1000");
+        CapturingClient.LastStatement!.Should().Contain("BoolValue = TRUE");
         CapturingClient.LastStatement!.Should().Contain("OR");
     }
 
@@ -159,9 +166,15 @@ public class QueryTests(SimpleTableDynamoFixture fixture) : IClassFixture<Simple
     [Fact]
     public async Task Where_WithCapturedVariables_InlinesParametersCorrectly()
     {
-        // Use inline constants first to ensure basic test works
+        // Use captured variables to test parameter handling
+        var minInt = 100;
+        var maxLong = 1000L;
+        var excludeString = "delta";
+
         var query = _dbContext.SimpleItems.Where(item
-            => item.IntValue >= 100 && item.LongValue <= 1000 && item.StringValue != "delta");
+            => item.IntValue >= minInt
+               && item.LongValue <= maxLong
+               && item.StringValue != excludeString);
 
         var resultItems = await query.ToListAsync(TestContext.Current.CancellationToken);
 
@@ -183,13 +196,13 @@ public class QueryTests(SimpleTableDynamoFixture fixture) : IClassFixture<Simple
 
         // Verify actual parameter values are populated (not NULL AttributeValues)
         // Before the fix, these would all be { NULL = true }
-        CapturingClient.LastParameters![0].N.Should().Be("100"); // IntValue >= 100
+        CapturingClient.LastParameters![0].N.Should().Be("100"); // IntValue >= minInt
         CapturingClient.LastParameters![0].NULL.Should().NotBe(true); // Should not be NULL type
 
-        CapturingClient.LastParameters![1].N.Should().Be("1000"); // LongValue <= 1000
+        CapturingClient.LastParameters![1].N.Should().Be("1000"); // LongValue <= maxLong
         CapturingClient.LastParameters![1].NULL.Should().NotBe(true); // Should not be NULL type
 
-        CapturingClient.LastParameters![2].S.Should().Be("delta"); // StringValue != "delta"
+        CapturingClient.LastParameters![2].S.Should().Be("delta"); // StringValue != excludeString
         CapturingClient.LastParameters![2].NULL.Should().NotBe(true); // Should not be NULL type
     }
 
