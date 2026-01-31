@@ -1,0 +1,64 @@
+{
+  "SimpleItems": [
+    {
+      "PutRequest": {
+        "Item": {
+          "Id": {
+            "S": "item-1"
+          },
+          "Name": {
+            "S": "Hello World"
+          },
+          "Description": {
+            "S": "First test item"
+          }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "Id": {
+            "S": "item-2"
+          },
+          "Name": {
+            "S": "Foo"
+          },
+          "Description": {
+            "S": "Second test item"
+          }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "Id": {
+            "S": "item-3"
+          },
+          "Name": {
+            "S": "Bar"
+          },
+          "Description": {
+            "S": "Third test item"
+          }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "Id": {
+            "S": "item-4"
+          },
+          "Name": {
+            "S": "Baz"
+          },
+          "Description": {
+            "S": "Fourth test item"
+          }
+        }
+      }
+    }
+  ]
+}

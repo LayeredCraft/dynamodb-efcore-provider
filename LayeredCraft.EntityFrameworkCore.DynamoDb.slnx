@@ -1,16 +1,25 @@
 <Solution>
   <Folder Name="/examples/">
-    <Project Path="examples/Example.Simple/Example.Simple.csproj" />
+    <File Path="examples\Directory.Build.props"/>
+    <Project Path="examples/Example.Simple/Example.Simple.csproj"/>
   </Folder>
   <Folder Name="/Solution Items/">
-    <File Path="Directory.Build.props" />
-    <File Path="Directory.Packages.props" />
-    <File Path="README.md" />
+    <File Path="Directory.Build.props"/>
+    <File Path="Directory.Packages.props"/>
+    <File Path="global.json"/>
+    <File Path="LayeredCraft.EntityFrameworkCore.DynamoDb.sln.DotSettings"/>
+    <File Path="README.md"/>
   </Folder>
   <Folder Name="/src/">
-    <Project Path="src/LayeredCraft.EntityFrameworkCore.DynamoDb/LayeredCraft.EntityFrameworkCore.DynamoDb.csproj" />
+    <File Path="src\Directory.Build.props"/>
+    <Project
+      Path="src/LayeredCraft.EntityFrameworkCore.DynamoDb/LayeredCraft.EntityFrameworkCore.DynamoDb.csproj"/>
   </Folder>
   <Folder Name="/tests/">
-    <Project Path="LayeredCraft.EntityFrameworkCore.DynamoDb.Tests/LayeredCraft.EntityFrameworkCore.DynamoDb.Tests.csproj" />
+    <File Path="tests\Directory.Build.props"/>
+    <Project
+      Path="tests/LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests/LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.csproj"/>
+    <Project
+      Path="tests/LayeredCraft.EntityFrameworkCore.DynamoDb.Tests/LayeredCraft.EntityFrameworkCore.DynamoDb.Tests.csproj"/>
   </Folder>
 </Solution>
