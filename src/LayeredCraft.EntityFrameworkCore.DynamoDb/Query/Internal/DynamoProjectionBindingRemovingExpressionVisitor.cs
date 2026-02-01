@@ -265,9 +265,6 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
         var cultureInfo = Constant(CultureInfo.InvariantCulture);
 
         // Numeric types: parse as long/double and convert to target type
-        if (primitiveType == typeof(int))
-            return Convert(Call(LongParseMethod, nProperty, cultureInfo), typeof(int));
-
         if (primitiveType == typeof(short))
             return Convert(Call(LongParseMethod, nProperty, cultureInfo), typeof(short));
 
