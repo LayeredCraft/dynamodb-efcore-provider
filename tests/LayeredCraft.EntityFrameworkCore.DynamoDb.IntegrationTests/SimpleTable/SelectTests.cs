@@ -24,6 +24,67 @@ public class SelectTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase
     }
 
     [Fact]
+    public async Task Select_NestedAnonymousObjectProjection_NonCollection()
+    {
+        var results =
+            await Db
+                .SimpleItems.Select(item
+                    => new { item.IntValue, Sub = new { item.Pk, item.BoolValue } })
+                .ToListAsync(CancellationToken);
+
+        var expected =
+            SimpleItems
+                .Items.Select(item => new { item.IntValue, Sub = new { item.Pk, item.BoolValue } })
+                .ToList();
+
+        results.Should().BeEquivalentTo(expected);
+
+        AssertSql(
+            """
+            SELECT IntValue, Pk, BoolValue
+            FROM SimpleItems
+            """);
+    }
+
+    [Fact]
+    public async Task Select_NestedClassProjection_NonCollection()
+    {
+        var results =
+            await Db
+                .SimpleItems.Select(item
+                    => new NestedProjection
+                    {
+                        IntValue = item.IntValue,
+                        Sub = new NestedSubProjection
+                        {
+                            Pk = item.Pk, BoolValue = item.BoolValue,
+                        },
+                    })
+                .ToListAsync(CancellationToken);
+
+        var expected =
+            SimpleItems
+                .Items.Select(item
+                    => new NestedProjection
+                    {
+                        IntValue = item.IntValue,
+                        Sub = new NestedSubProjection
+                        {
+                            Pk = item.Pk, BoolValue = item.BoolValue,
+                        },
+                    })
+                .ToList();
+
+        results.Should().BeEquivalentTo(expected);
+
+        AssertSql(
+            """
+            SELECT IntValue, Pk, BoolValue
+            FROM SimpleItems
+            """);
+    }
+
+    [Fact]
     public async Task Select_DtoProjection()
     {
         var results =
@@ -68,8 +129,8 @@ public class SelectTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase
     {
         var results = await Db
             .SimpleItems.Where(item => item.IntValue > 100)
-                .Select(item => new { item.Pk, item.IntValue })
-                .ToListAsync(CancellationToken);
+            .Select(item => new { item.Pk, item.IntValue })
+            .ToListAsync(CancellationToken);
 
         var expected =
             SimpleItems
@@ -447,5 +508,19 @@ public class SelectTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase
         public required string Pk { get; set; }
 
         public int IntValue { get; set; }
+    }
+
+    private sealed class NestedProjection
+    {
+        public int IntValue { get; set; }
+
+        public required NestedSubProjection Sub { get; set; }
+    }
+
+    private sealed class NestedSubProjection
+    {
+        public required string Pk { get; set; }
+
+        public bool BoolValue { get; set; }
     }
 }
