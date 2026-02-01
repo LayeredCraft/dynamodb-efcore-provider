@@ -1,3 +1,4 @@
+using AwesomeAssertions.Execution;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -32,21 +33,23 @@ public sealed class TestPartiQlLoggerFactory : ILoggerFactory
     {
         try
         {
-            if (PartiQlStatements.Count != expected.Length)
-                throw new InvalidOperationException(
-                    $"Expected {expected.Length} PartiQL statement(s) but captured {PartiQlStatements.Count}."
-                    + Environment.NewLine
-                    + BuildActualBaseline());
+            using var scope = new AssertionScope();
 
-            for (var i = 0; i < expected.Length; i++)
+            var expectedNormalized = expected.Select(s => s.ReplaceLineEndings()).ToArray();
+            var actualNormalized = PartiQlStatements.Select(s => s.ReplaceLineEndings()).ToArray();
+
+            actualNormalized
+                .Should()
+                .HaveSameCount(
+                    expectedNormalized,
+                    $"Expected {expectedNormalized.Length} PartiQL statement(s) but captured {actualNormalized.Length}.");
+
+            var compareCount = Math.Min(expectedNormalized.Length, actualNormalized.Length);
+            for (var i = 0; i < compareCount; i++)
             {
-                var expectedNormalized = expected[i].ReplaceLineEndings();
-                var actualNormalized = PartiQlStatements[i].ReplaceLineEndings();
-                if (!string.Equals(expectedNormalized, actualNormalized, StringComparison.Ordinal))
-                    throw new InvalidOperationException(
-                        $"PartiQL baseline mismatch at index {i}."
-                        + Environment.NewLine
-                        + BuildActualBaseline());
+                actualNormalized[i]
+                    .Should()
+                    .Be(expectedNormalized[i], $"PartiQL baseline mismatch at index {i}.");
             }
         }
         finally
@@ -57,11 +60,11 @@ public sealed class TestPartiQlLoggerFactory : ILoggerFactory
 
     private string BuildActualBaseline()
         => "Actual PartiQL baseline:"
-           + Environment.NewLine
-           + string.Join(
-               Environment.NewLine + Environment.NewLine,
-               PartiQlStatements.Select(s
-                   => "\"\"\"" + Environment.NewLine + s + Environment.NewLine + "\"\"\""));
+            + Environment.NewLine
+            + string.Join(
+                Environment.NewLine + Environment.NewLine,
+                PartiQlStatements.Select(s
+                    => "\"\"\"" + Environment.NewLine + s + Environment.NewLine + "\"\"\""));
 
     private sealed class TestPartiQlLogger : ILogger
     {
