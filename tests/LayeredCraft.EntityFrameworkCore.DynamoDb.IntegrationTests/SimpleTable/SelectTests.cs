@@ -331,6 +331,32 @@ public class SelectTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase
             """);
     }
 
+    [Fact]
+    public async Task Select_NullablePrimitiveProperties()
+    {
+        var results =
+            await Db
+                .SimpleItems.Select(item => new
+                {
+                    item.Pk, item.NullableBoolValue, item.NullableIntValue,
+                })
+                .ToListAsync(CancellationToken);
+
+        var expected =
+            SimpleItems
+                .Items.Select(item
+                    => new { item.Pk, item.NullableBoolValue, item.NullableIntValue })
+                .ToList();
+
+        results.Should().BeEquivalentTo(expected);
+
+        AssertSql(
+            """
+            SELECT Pk, NullableBoolValue, NullableIntValue
+            FROM SimpleItems
+            """);
+    }
+
     // Identity Projection Test
     [Fact]
     public async Task Select_IdentityProjection()
@@ -343,7 +369,7 @@ public class SelectTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase
 
         AssertSql(
             """
-            SELECT Pk, BoolValue, DateTimeOffsetValue, DecimalValue, DoubleValue, FloatValue, GuidValue, IntValue, LongValue, NullableStringValue, StringValue
+            SELECT Pk, BoolValue, DateTimeOffsetValue, DecimalValue, DoubleValue, FloatValue, GuidValue, IntValue, LongValue, NullableBoolValue, NullableIntValue, NullableStringValue, StringValue
             FROM SimpleItems
             """);
     }
@@ -391,6 +417,8 @@ public class SelectTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase
                         item.StringValue,
                         item.GuidValue,
                         item.DateTimeOffsetValue,
+                        item.NullableBoolValue,
+                        item.NullableIntValue,
                         item.NullableStringValue,
                     })
                 .ToListAsync(CancellationToken);
@@ -409,6 +437,8 @@ public class SelectTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase
                     item.StringValue,
                     item.GuidValue,
                     item.DateTimeOffsetValue,
+                    item.NullableBoolValue,
+                    item.NullableIntValue,
                     item.NullableStringValue,
                 })
                 .ToList();
@@ -417,7 +447,7 @@ public class SelectTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase
 
         AssertSql(
             """
-            SELECT Pk, BoolValue, IntValue, LongValue, FloatValue, DoubleValue, DecimalValue, StringValue, GuidValue, DateTimeOffsetValue, NullableStringValue
+            SELECT Pk, BoolValue, IntValue, LongValue, FloatValue, DoubleValue, DecimalValue, StringValue, GuidValue, DateTimeOffsetValue, NullableBoolValue, NullableIntValue, NullableStringValue
             FROM SimpleItems
             """);
     }
