@@ -111,19 +111,10 @@ public static class SimpleItems
         CreateAttributeValues();
 
     private static IReadOnlyList<Dictionary<string, AttributeValue>> CreateAttributeValues()
-    {
-        var items = SimpleItemMapper.ToItems(Items);
-        if (items.Count > 3)
-        {
-            items[3][nameof(SimpleItem.NullableBoolValue)] = new AttributeValue { NULL = true };
-            items[3][nameof(SimpleItem.NullableIntValue)] = new AttributeValue { NULL = true };
-        }
-
-        return items;
-    }
+        => SimpleItemMapper.ToItems(Items);
 }
 
-[DynamoMapper(Convention = DynamoNamingConvention.Exact)]
+[DynamoMapper(Convention = DynamoNamingConvention.Exact, OmitNullStrings = false)]
 internal static partial class SimpleItemMapper
 {
     internal static partial Dictionary<string, AttributeValue> ToItem(SimpleItem source);
