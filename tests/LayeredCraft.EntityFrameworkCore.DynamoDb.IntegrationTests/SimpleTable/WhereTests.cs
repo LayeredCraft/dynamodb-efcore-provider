@@ -13,7 +13,7 @@ public class WhereTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase(
 
         AssertSql(
             """
-            SELECT Pk, BoolValue, DateTimeOffsetValue, DecimalValue, DoubleValue, FloatValue, GuidValue, IntValue, LongValue, NullableStringValue, StringValue
+            SELECT Pk, BoolValue, DateTimeOffsetValue, DecimalValue, DoubleValue, FloatValue, GuidValue, IntValue, LongValue, NullableBoolValue, NullableIntValue, NullableStringValue, StringValue
             FROM SimpleItems
             """);
     }
@@ -28,22 +28,22 @@ public class WhereTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase(
             await Db
                 .SimpleItems.Where(item
                     => item.IntValue >= 0
-                       && item.LongValue > x
-                       && item.StringValue != "delta"
-                       && (item.BoolValue == true || item.DoubleValue < 0))
+                    && item.LongValue > x
+                    && item.StringValue != "delta"
+                    && (item.BoolValue == true || item.DoubleValue < 0))
                 .ToListAsync(CancellationToken);
 
         var expected = SimpleItems.Items.Where(item
             => item.IntValue >= 0
-               && item.LongValue > 500
-               && item.StringValue != "delta"
-               && (item.BoolValue || item.DoubleValue < 0));
+            && item.LongValue > 500
+            && item.StringValue != "delta"
+            && (item.BoolValue || item.DoubleValue < 0));
 
         resultItems.Should().BeEquivalentTo(expected);
 
         AssertSql(
             """
-            SELECT Pk, BoolValue, DateTimeOffsetValue, DecimalValue, DoubleValue, FloatValue, GuidValue, IntValue, LongValue, NullableStringValue, StringValue
+            SELECT Pk, BoolValue, DateTimeOffsetValue, DecimalValue, DoubleValue, FloatValue, GuidValue, IntValue, LongValue, NullableBoolValue, NullableIntValue, NullableStringValue, StringValue
             FROM SimpleItems
             WHERE IntValue >= 0 AND LongValue > ? AND StringValue <> 'delta' AND (BoolValue = TRUE OR DoubleValue < 0)
             """);
@@ -69,7 +69,7 @@ public class WhereTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase(
 
         AssertSql(
             """
-            SELECT Pk, BoolValue, DateTimeOffsetValue, DecimalValue, DoubleValue, FloatValue, GuidValue, IntValue, LongValue, NullableStringValue, StringValue
+            SELECT Pk, BoolValue, DateTimeOffsetValue, DecimalValue, DoubleValue, FloatValue, GuidValue, IntValue, LongValue, NullableBoolValue, NullableIntValue, NullableStringValue, StringValue
             FROM SimpleItems
             WHERE IntValue <> 200000 AND IntValue > -200 AND (LongValue <= 1000 OR BoolValue = TRUE)
             """);
@@ -101,7 +101,7 @@ public class WhereTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase(
 
         AssertSql(
             """
-            SELECT Pk, BoolValue, DateTimeOffsetValue, DecimalValue, DoubleValue, FloatValue, GuidValue, IntValue, LongValue, NullableStringValue, StringValue
+            SELECT Pk, BoolValue, DateTimeOffsetValue, DecimalValue, DoubleValue, FloatValue, GuidValue, IntValue, LongValue, NullableBoolValue, NullableIntValue, NullableStringValue, StringValue
             FROM SimpleItems
             WHERE Pk = 'ITEM#3' OR Pk = 'ITEM#1' OR Pk = 'ITEM#4'
             ORDER BY Pk ASC, Pk ASC
@@ -116,7 +116,7 @@ public class WhereTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase(
             .SimpleItems
             .Where(item
                 => (item.Pk == "ITEM#1" || item.Pk == "ITEM#2" || item.Pk == "ITEM#3")
-                   && (item.IntValue >= 100 || item.BoolValue == false))
+                && (item.IntValue >= 100 || item.BoolValue == false))
             .OrderByDescending(item => item.Pk)
             .ThenByDescending(item => item.Pk)
             .ToListAsync(CancellationToken);
@@ -125,7 +125,7 @@ public class WhereTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase(
             SimpleItems
                 .Items.Where(item
                     => (item.Pk == "ITEM#1" || item.Pk == "ITEM#2" || item.Pk == "ITEM#3")
-                       && (item.IntValue >= 100 || !item.BoolValue))
+                    && (item.IntValue >= 100 || !item.BoolValue))
                 .OrderByDescending(item => item.Pk)
                 .ThenByDescending(item => item.Pk)
                 .ToList();
@@ -134,7 +134,7 @@ public class WhereTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase(
 
         AssertSql(
             """
-            SELECT Pk, BoolValue, DateTimeOffsetValue, DecimalValue, DoubleValue, FloatValue, GuidValue, IntValue, LongValue, NullableStringValue, StringValue
+            SELECT Pk, BoolValue, DateTimeOffsetValue, DecimalValue, DoubleValue, FloatValue, GuidValue, IntValue, LongValue, NullableBoolValue, NullableIntValue, NullableStringValue, StringValue
             FROM SimpleItems
             WHERE (Pk = 'ITEM#1' OR Pk = 'ITEM#2' OR Pk = 'ITEM#3') AND (IntValue >= 100 OR BoolValue = FALSE)
             ORDER BY Pk DESC, Pk DESC
@@ -153,8 +153,8 @@ public class WhereTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase(
             await Db
                 .SimpleItems.Where(item
                     => item.IntValue >= minInt
-                       && item.LongValue <= maxLong
-                       && item.StringValue != excludeString)
+                    && item.LongValue <= maxLong
+                    && item.StringValue != excludeString)
                 .ToListAsync(CancellationToken);
 
         var expected = SimpleItems.Items.Where(item
@@ -164,7 +164,7 @@ public class WhereTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase(
 
         AssertSql(
             """
-            SELECT Pk, BoolValue, DateTimeOffsetValue, DecimalValue, DoubleValue, FloatValue, GuidValue, IntValue, LongValue, NullableStringValue, StringValue
+            SELECT Pk, BoolValue, DateTimeOffsetValue, DecimalValue, DoubleValue, FloatValue, GuidValue, IntValue, LongValue, NullableBoolValue, NullableIntValue, NullableStringValue, StringValue
             FROM SimpleItems
             WHERE IntValue >= ? AND LongValue <= ? AND StringValue <> ?
             """);
