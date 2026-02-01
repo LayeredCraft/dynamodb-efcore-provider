@@ -24,6 +24,25 @@ public class SelectTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase
     }
 
     [Fact]
+    public async Task Select_AnonymousObjectProjection_WithAlias()
+    {
+        var results =
+            await Db
+                .SimpleItems.Select(item => new { Foo = item.StringValue })
+                .ToListAsync(CancellationToken);
+
+        var expected = SimpleItems.Items.Select(item => new { Foo = item.StringValue }).ToList();
+
+        results.Should().BeEquivalentTo(expected);
+
+        AssertSql(
+            """
+            SELECT StringValue
+            FROM SimpleItems
+            """);
+    }
+
+    [Fact]
     public async Task Select_NestedAnonymousObjectProjection_NonCollection()
     {
         var results =
