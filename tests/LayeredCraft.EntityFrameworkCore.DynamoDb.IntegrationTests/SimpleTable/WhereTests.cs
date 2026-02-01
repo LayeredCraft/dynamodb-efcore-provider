@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.SimpleTable;
 
-public class QueryTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase(fixture)
+public class WhereTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase(fixture)
 {
     [Fact]
     public async Task ToListAsync_ReturnsAllItems()
