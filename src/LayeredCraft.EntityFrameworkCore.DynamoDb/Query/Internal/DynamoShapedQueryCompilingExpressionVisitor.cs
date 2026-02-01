@@ -18,11 +18,12 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
 
     protected override Expression VisitShapedQuery(ShapedQueryExpression shapedQueryExpression)
     {
-        var shaperBody = shapedQueryExpression.ShaperExpression;
+        var selectExpression = (SelectExpression)shapedQueryExpression.QueryExpression;
 
-        if (shaperBody is not StructuralTypeShaperExpression)
-            throw new InvalidOperationException(
-                "Dynamo MVP only supports entity queries with a structural shaper.");
+        // Finalize projection mapping → concrete projection list
+        selectExpression.ApplyProjection();
+
+        var shaperBody = shapedQueryExpression.ShaperExpression;
 
         // create shaper
         var itemParameter =
@@ -38,24 +39,21 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
 
         // Step 3: Remove projection bindings and replace with actual dictionary access
         // This converts abstract ProjectionBindingExpression to concrete property access
-        shaperBody =
-            new DynamoProjectionBindingRemovingExpressionVisitor(itemParameter).Visit(shaperBody);
+        shaperBody = new DynamoProjectionBindingRemovingExpressionVisitor(
+            itemParameter,
+            selectExpression).Visit(shaperBody);
 
         var shaperLambda = Expression.Lambda(
             shaperBody,
             QueryCompilationContext.QueryContextParameter,
             itemParameter);
 
-        // Pass SelectExpression to QueryingEnumerable for runtime SQL generation
-        // This allows parameter inlining to happen at runtime when parameter values are available
-        var selectExpression = (SelectExpression)shapedQueryExpression.QueryExpression;
-
         var queryContextParameter = Expression.Convert(
             QueryCompilationContext.QueryContextParameter,
             typeof(DynamoQueryContext));
 
         var standAloneStateManager = dynamoQueryCompilationContext.QueryTrackingBehavior
-                                     == QueryTrackingBehavior.NoTrackingWithIdentityResolution;
+            == QueryTrackingBehavior.NoTrackingWithIdentityResolution;
 
         if (!dynamoQueryCompilationContext.IsAsync)
             throw new InvalidOperationException(
