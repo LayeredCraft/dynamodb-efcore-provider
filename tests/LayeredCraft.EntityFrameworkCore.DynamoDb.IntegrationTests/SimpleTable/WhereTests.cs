@@ -1,19 +1,13 @@
-using LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.SimpleTable;
 
-public class QueryTests(SimpleTableDynamoFixture fixture)
-    : DynamoDbQueryTestBase<SimpleTableDynamoFixture, SimpleTableDbContext>(
-        fixture,
-        fixture.Container.GetConnectionString())
+public class WhereTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase(fixture)
 {
     [Fact]
     public async Task ToListAsync_ReturnsAllItems()
     {
-        await using var db = CreateContext();
-
-        var resultItems = await db.SimpleItems.ToListAsync(CancellationToken);
+        var resultItems = await Db.SimpleItems.ToListAsync(CancellationToken);
 
         resultItems.Should().BeEquivalentTo(SimpleItems.Items);
 
@@ -27,18 +21,17 @@ public class QueryTests(SimpleTableDynamoFixture fixture)
     [Fact]
     public async Task Where_ComplexPredicate_ReturnsFilteredItems()
     {
-        await using var db = CreateContext();
-
         // Intentionally mixes comparison operators and boolean logic.
         // Goal: exercise predicate translation and parameterization.
         var x = 500;
-        var query = db.SimpleItems.Where(item
-            => item.IntValue >= 0
-               && item.LongValue > x
-               && item.StringValue != "delta"
-               && (item.BoolValue == true || item.DoubleValue < 0));
-
-        var resultItems = await query.ToListAsync(CancellationToken);
+        var resultItems =
+            await Db
+                .SimpleItems.Where(item
+                    => item.IntValue >= 0
+                       && item.LongValue > x
+                       && item.StringValue != "delta"
+                       && (item.BoolValue == true || item.DoubleValue < 0))
+                .ToListAsync(CancellationToken);
 
         var expected = SimpleItems.Items.Where(item
             => item.IntValue >= 0
@@ -59,15 +52,12 @@ public class QueryTests(SimpleTableDynamoFixture fixture)
     [Fact]
     public async Task Where_MultipleWhereCalls_CombinePredicates()
     {
-        await using var db = CreateContext();
-
         // Use multiple Where calls so the provider has to combine predicates.
-        var query = db
+        var resultItems = await Db
             .SimpleItems.Where(item => item.IntValue != 200000)
             .Where(item => item.IntValue > -200)
-            .Where(item => item.LongValue <= 1000 || item.BoolValue == true);
-
-        var resultItems = await query.ToListAsync(CancellationToken);
+            .Where(item => item.LongValue <= 1000 || item.BoolValue == true)
+            .ToListAsync(CancellationToken);
 
         var expected =
             SimpleItems
@@ -88,17 +78,14 @@ public class QueryTests(SimpleTableDynamoFixture fixture)
     [Fact]
     public async Task OrderBy_ThenBy_WithOrPredicate_ReturnsItemsInAscendingOrder()
     {
-        await using var db = CreateContext();
-
         // DynamoDB PartiQL requires a hash-key condition when using ORDER BY.
         // We keep ORDER BY strictly on the primary key, but make the predicate non-trivial.
-        var query = db
+        var resultItems = await Db
             .SimpleItems
             .Where(item => item.Pk == "ITEM#3" || item.Pk == "ITEM#1" || item.Pk == "ITEM#4")
             .OrderBy(item => item.Pk)
-            .ThenBy(item => item.Pk);
-
-        var resultItems = await query.ToListAsync(CancellationToken);
+            .ThenBy(item => item.Pk)
+            .ToListAsync(CancellationToken);
 
         var expected =
             SimpleItems
@@ -125,17 +112,14 @@ public class QueryTests(SimpleTableDynamoFixture fixture)
     public async Task
         OrderByDescending_ThenByDescending_WithAndOrPredicate_ReturnsItemsInExpectedOrder()
     {
-        await using var db = CreateContext();
-
-        var query = db
+        var resultItems = await Db
             .SimpleItems
             .Where(item
                 => (item.Pk == "ITEM#1" || item.Pk == "ITEM#2" || item.Pk == "ITEM#3")
                    && (item.IntValue >= 100 || item.BoolValue == false))
             .OrderByDescending(item => item.Pk)
-            .ThenByDescending(item => item.Pk);
-
-        var resultItems = await query.ToListAsync(CancellationToken);
+            .ThenByDescending(item => item.Pk)
+            .ToListAsync(CancellationToken);
 
         var expected =
             SimpleItems
@@ -160,19 +144,18 @@ public class QueryTests(SimpleTableDynamoFixture fixture)
     [Fact]
     public async Task Where_WithCapturedVariables_InlinesParametersCorrectly()
     {
-        await using var db = CreateContext();
-
         // Use captured variables to test parameter handling
         var minInt = 100;
         var maxLong = 1000L;
         var excludeString = "delta";
 
-        var query = db.SimpleItems.Where(item
-            => item.IntValue >= minInt
-               && item.LongValue <= maxLong
-               && item.StringValue != excludeString);
-
-        var resultItems = await query.ToListAsync(CancellationToken);
+        var resultItems =
+            await Db
+                .SimpleItems.Where(item
+                    => item.IntValue >= minInt
+                       && item.LongValue <= maxLong
+                       && item.StringValue != excludeString)
+                .ToListAsync(CancellationToken);
 
         var expected = SimpleItems.Items.Where(item
             => item.IntValue >= 100 && item.LongValue <= 1000 && item.StringValue != "delta");

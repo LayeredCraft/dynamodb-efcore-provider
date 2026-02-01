@@ -8,7 +8,7 @@ using System;
 public sealed record SimpleItem
 {
     // Partition key
-    public string Pk { get; set; }
+    public string Pk { get; set; } = null!;
 
     // Boolean
     public bool BoolValue { get; set; }

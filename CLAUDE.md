@@ -12,7 +12,7 @@ When handling questions around how to work with native Microsoft technologies, s
 
 This is an Entity Framework Core database provider for AWS DynamoDB. It translates LINQ queries to PartiQL statements and executes them against DynamoDB using the AWS SDK.
 
-**Current Status:** MVP (Minimal Viable Product) - Supports basic query operations with WHERE, ORDER BY, and explicit column projections. See [FEATURES.md](FEATURES.md) for complete feature support matrix.
+**Current Status:** MVP (Minimal Viable Product) - Supports basic query operations with WHERE, ORDER BY, and explicit column projections. See [FEATURES.md](.claude/do_not_commit/FEATURES.md) for complete feature support matrix.
 
 **Key Features:**
 - ✅ `.Where()` with parameter inlining (comparison, AND, OR)
@@ -22,6 +22,12 @@ This is an Entity Framework Core database provider for AWS DynamoDB. It translat
 - ❌ No `.Select()` custom projections yet
 - ❌ No CRUD operations (query-only)
 - ❌ No aggregate functions (COUNT, SUM, etc.)
+
+## Implementation Stories
+
+Implementation stories are in `.claude/do_not_commit/stories/` organized by epic (01-core-linq, 02-partiql-translation, 03-query-execution, 04-data-modification, 05-type-mapping, 06-configuration-options, 07-naming-conventions, 08-single-table-design, 09-index-support, 10-observability, 11-performance, 12-resilience, 99-not-supported).
+
+Each story includes acceptance criteria, implementation approach, files to modify, and testing requirements. See `.claude/do_not_commit/stories/README.md` for the full index.
 
 ## Build and Test Commands
 
@@ -66,7 +72,6 @@ DOTNET_NOLOGO=1 dotnet test \
   --no-progress --no-ansi
 ```
 
-
 Note: This project uses Microsoft.Testing.Platform (configured in `global.json`), not VSTest.
 
 ### Running the Example
@@ -85,6 +90,7 @@ docker-compose down
 ```
 
 The example connects to DynamoDB Local on `http://localhost:8002` and queries a `SimpleItems` table.
+
 
 ## Project Configuration
 
@@ -141,9 +147,14 @@ The provider follows Entity Framework Core's standard query pipeline with Dynamo
 - ✅ ORDER BY with multiple columns: `ASC`, `DESC`
 - ✅ Parameter inlining: All runtime parameters converted to AttributeValue constants
 - ✅ Reserved word quoting: ~10 common keywords (should expand to 573-word list)
+- ✅ Operator precedence: Correct parenthesization based on operator precedence
 - ❌ SELECT * explicitly disabled (throws exception)
 - ❌ No functions (SIZE, EXISTS, BEGINS_WITH, etc.)
 - ❌ No IN, BETWEEN, NOT, IS NULL, IS MISSING
+
+### Parameter Inlining System
+
+DynamoDB requires parameters as `AttributeValue` objects. The provider uses deferred inlining: `SqlParameterExpression` (compilation) → `SqlConstantExpression` (runtime via `ParameterInliner`) → `AttributeValue` (SQL generation). This prevents NULL placeholders and ensures correct type mapping. **Critical:** Never skip `ParameterInliner` before `DynamoQuerySqlGenerator`.
 
 ### Type Conversion
 
@@ -172,9 +183,11 @@ The provider uses a custom SQL expression tree to represent DynamoDB PartiQL que
 - `SelectExpression` - Complete SELECT query (table, projections, predicate, orderings)
 - `OrderingExpression` - ORDER BY clause component
 
+**Operator Precedence:** `SqlBinaryExpression` tracks precedence levels (comparison < AND < OR < arithmetic) to ensure correct parenthesization in generated PartiQL.
+
 **Expression Factory** (`ISqlExpressionFactory`, `SqlExpressionFactory`):
 - Creates SQL expressions with proper type mappings
-- `Binary()` - Creates binary expressions with type inference
+- `Binary()` - Creates binary expressions with type inference and precedence tracking
 - `Constant()` - Creates constants with type mappings
 - `Parameter()` - Creates parameters with type mappings
 - `Property()` - Creates property references
@@ -243,8 +256,13 @@ optionsBuilder.UseDynamo(options =>
 ## Key Files and Directories
 
 ### Documentation
-- **[FEATURES.md](FEATURES.md)** - Complete feature support matrix (EF Core LINQ methods, PartiQL features, type mappings, limitations)
+- **[FEATURES.md](.claude/do_not_commit/FEATURES.md)** - Complete feature support matrix (EF Core LINQ methods, PartiQL features, type mappings, limitations)
 - **[CLAUDE.md](CLAUDE.md)** - This file; architecture and development guide
+- **[Stories](.claude/do_not_commit/stories/README.md)** - Implementation stories organized by epic
+
+### Reference Documentation
+
+Analysis docs in `.claude/do_not_commit/`: DynamoDbProviderWalkthrough.md, InMemoryProviderNotes.md, CosmosSqlGeneration.md, FEATURES.md
 
 ### Core Provider Implementation
 - `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Query/Internal/` - Query compilation pipeline
@@ -256,15 +274,21 @@ optionsBuilder.UseDynamo(options =>
 - `tests/LayeredCraft.EntityFrameworkCore.DynamoDb.Tests/` - Unit and integration tests
 - `examples/Example.Simple/` - Simple console app demonstrating basic usage with DynamoDB Local
 
+### External References
+- **EF Core Repository:** `/Users/jonasha/Repos/CSharp/efcore/` - Reference for standard EF Core patterns
+- **Cosmos Provider:** `/Users/jonasha/Repos/CSharp/efcore/src/EFCore.Cosmos/` - Similar NoSQL provider implementation
+- **Mongo Provider:** `/Users/jonasha/Repos/CSharp/mongo-efcore-provider/` - Another document database provider
+
 ## Current Limitations (MVP Phase)
 
-**See [FEATURES.md](FEATURES.md) for complete feature support matrix.**
+**See [FEATURES.md](.claude/do_not_commit/FEATURES.md) for complete feature support matrix.**
 
 ### ✅ Implemented
 - WHERE clauses with comparison and logical operators
 - ORDER BY with multiple columns (ASC/DESC)
 - Explicit column projections (auto-generated)
 - Parameter inlining with runtime values
+- Operator precedence validation
 - All numeric, string, boolean, DateTime, Guid types
 
 ### ❌ Not Yet Implemented
@@ -279,6 +303,15 @@ optionsBuilder.UseDynamo(options =>
 - **SKIP/TAKE:** Not supported by PartiQL (use NextToken pagination)
 - **Synchronous queries:** Must use async methods
 
+## Development Workflow
+
+1. **Review story** in `.claude/do_not_commit/stories/` for acceptance criteria and dependencies
+2. **Validate PartiQL support** in [AWS docs](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ql-reference.html)
+3. **Reference EF Core patterns**: Cosmos provider (NoSQL), InMemory provider (simple patterns), SQL Server (complex features)
+4. **Extend components**: `DynamoSqlTranslatingExpressionVisitor` (query translation), `DynamoQuerySqlGenerator` (SQL generation), `DynamoTypeMappingSource` (type mapping)
+5. **Write tests**: Unit (expression translation), integration (DynamoDB Local), baseline (PartiQL output)
+6. **Update docs**: FEATURES.md, CLAUDE.md (if architecture changes), XML comments
+
 ## Development Patterns
 
 ### Expression Tree Transformation
@@ -287,17 +320,41 @@ When modifying query compilation logic, follow the three-stage pattern:
 2. Add materialization logic
 3. Remove abstract bindings and replace with concrete data access
 
+### Visitor Pattern Guide
+
+**DynamoSqlTranslatingExpressionVisitor** - Override `VisitBinary` (operators), `VisitMethodCall` (functions), `VisitUnary` (NOT, negation)
+**DynamoQuerySqlGenerator** - Override `VisitExtension` for new SQL expression types, add visitor methods for PartiQL generation
+**DynamoProjectionBindingRemovingExpressionVisitor** - Modify `GetValue<T>()` for new type mappings (CLR ↔ AttributeValue)
+**ParameterInliner** - Rarely extended; handles automatic parameter → constant conversion
+
+### Adding New SQL Expression Types
+
+For PartiQL functions/operators (e.g., `BEGINS_WITH`, `IN`, `BETWEEN`):
+
+1. **Create expression class** in `Query/Internal/Expressions/` extending `SqlExpression` with operand properties, `VisitChildren()`, and `Update()` methods
+2. **Update SQL translator** in `DynamoSqlTranslatingExpressionVisitor.VisitMethodCall()` or `VisitBinary()` to return new expression type
+3. **Update SQL generator** in `DynamoQuerySqlGenerator.VisitExtension()` to handle new expression type and emit PartiQL
+4. **Add tests** for C# → SQL expression, SQL → PartiQL, and end-to-end execution
+
+See existing `SqlBinaryExpression` and `DynamoQuerySqlGenerator` for patterns.
+
 ### Adding LINQ Method Support
-To add support for a new LINQ method (e.g., `Where`):
-1. Implement the method in `DynamoQueryableMethodTranslatingExpressionVisitor`
-2. Update `PartiQlQuery` generation to handle the new query structure
-3. Test with DynamoDB Local using the example project
+
+Override `Translate*` methods in `DynamoQueryableMethodTranslatingExpressionVisitor`, return `ShapedQueryExpression`, handle terminating methods (First, Single) with client-side evaluation if needed. Test with DynamoDB Local.
 
 ### Type Mapping
-To add support for a new type:
-1. Add mapping in `DynamoTypeMappingSource`
-2. Add conversion logic in `DynamoProjectionBindingRemovingExpressionVisitor.GetValue<T>()`
-3. Handle both read and write scenarios
+
+1. Add mapping in `DynamoTypeMappingSource` (CLR → AttributeValue type)
+2. Add read logic in `DynamoProjectionBindingRemovingExpressionVisitor.GetValue<T>()`
+3. Add write logic in `DynamoQuerySqlGenerator` for constants (if needed)
+4. Test read and write scenarios
+
+### Error Handling
+
+- Throw `NotSupportedException` for PartiQL limitations (GROUP BY, DISTINCT, etc.)
+- Throw `InvalidOperationException` for provider design constraints (sync queries)
+- Include helpful messages explaining why and suggesting alternatives
+- Add tests for error cases and document in FEATURES.md
 
 ## Testing with DynamoDB Local
 
