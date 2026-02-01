@@ -1,17 +1,20 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
+using LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.TestUtilities;
 using Testcontainers.DynamoDb;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.SimpleTable;
 
-public class DynamoFixture : IAsyncLifetime
+public class DynamoFixture : IAsyncLifetime, IDynamoDbTestFixture
 {
+    public string ServiceUrl => Container.GetConnectionString();
+
     public IAmazonDynamoDB Client
     {
         get
         {
             field ??= new AmazonDynamoDBClient(
-                new AmazonDynamoDBConfig { ServiceURL = Container.GetConnectionString() });
+                new AmazonDynamoDBConfig { ServiceURL = ServiceUrl });
             return field;
         }
     }
@@ -35,49 +38,4 @@ public class DynamoFixture : IAsyncLifetime
 public class SimpleTableDynamoFixture : DynamoFixture
 {
     public const string TableName = "SimpleItems";
-
-    public override async ValueTask InitializeAsync()
-    {
-        await base.InitializeAsync();
-
-        // create table
-        await Client.CreateTableAsync(
-            new CreateTableRequest
-            {
-                TableName = TableName,
-                AttributeDefinitions =
-                [
-                    new AttributeDefinition
-                    {
-                        AttributeName = "Pk", AttributeType = ScalarAttributeType.S,
-                    },
-                ],
-                KeySchema =
-                [
-                    new KeySchemaElement { AttributeName = "Pk", KeyType = KeyType.HASH },
-                ],
-                BillingMode = BillingMode.PAY_PER_REQUEST,
-            });
-
-        // seed data
-        await Client.BatchWriteItemAsync(
-            new BatchWriteItemRequest
-            {
-                RequestItems = new Dictionary<string, List<WriteRequest>>
-                {
-                    [TableName] = SimpleItems
-                        .AttributeValues.Select(item => new WriteRequest
-                            {
-                                PutRequest = new PutRequest { Item = item },
-                            })
-                            .ToList(),
-                },
-            });
-    }
-
-    public override async ValueTask DisposeAsync()
-    {
-        await Client.DeleteTableAsync(TableName);
-        await base.DisposeAsync();
-    }
 }
