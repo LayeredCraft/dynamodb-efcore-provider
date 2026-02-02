@@ -58,3 +58,5 @@ nunit-*.xml
 docker-compose.override.yml
 .docker/
 **/*DotSettings.user
+**/AGENTS.local.md
+**/.DS_Store

@@ -32,6 +32,8 @@ public sealed record SimpleItem
     public DateTimeOffset DateTimeOffsetValue { get; set; }
 
     // nullable
+    public bool? NullableBoolValue { get; set; }
+    public int? NullableIntValue { get; set; }
     public string? NullableStringValue { get; set; }
 }
 
@@ -51,6 +53,8 @@ public static class SimpleItems
             StringValue = "alpha",
             GuidValue = new Guid("11111111-1111-1111-1111-111111111111"),
             DateTimeOffsetValue = new DateTimeOffset(2026, 1, 1, 10, 0, 0, TimeSpan.Zero),
+            NullableBoolValue = null,
+            NullableIntValue = null,
             NullableStringValue = null,
         },
         new()
@@ -65,6 +69,8 @@ public static class SimpleItems
             StringValue = "bravo",
             GuidValue = new Guid("22222222-2222-2222-2222-222222222222"),
             DateTimeOffsetValue = new DateTimeOffset(2026, 1, 2, 11, 30, 0, TimeSpan.Zero),
+            NullableBoolValue = true,
+            NullableIntValue = 42,
             NullableStringValue = "Null String",
         },
         new()
@@ -79,6 +85,8 @@ public static class SimpleItems
             StringValue = "charlie",
             GuidValue = new Guid("33333333-3333-3333-3333-333333333333"),
             DateTimeOffsetValue = new DateTimeOffset(2026, 1, 3, 18, 45, 30, TimeSpan.Zero),
+            NullableBoolValue = false,
+            NullableIntValue = -1,
             NullableStringValue = null,
         },
         new()
@@ -93,15 +101,20 @@ public static class SimpleItems
             StringValue = "delta",
             GuidValue = new Guid("44444444-4444-4444-4444-444444444444"),
             DateTimeOffsetValue = new DateTimeOffset(2026, 1, 4, 23, 59, 59, TimeSpan.Zero),
+            NullableBoolValue = null,
+            NullableIntValue = null,
             NullableStringValue = null,
         },
     ];
 
     public static readonly IReadOnlyList<Dictionary<string, AttributeValue>> AttributeValues =
-        SimpleItemMapper.ToItems(Items);
+        CreateAttributeValues();
+
+    private static IReadOnlyList<Dictionary<string, AttributeValue>> CreateAttributeValues()
+        => SimpleItemMapper.ToItems(Items);
 }
 
-[DynamoMapper(Convention = DynamoNamingConvention.Exact)]
+[DynamoMapper(Convention = DynamoNamingConvention.Exact, OmitNullStrings = false)]
 internal static partial class SimpleItemMapper
 {
     internal static partial Dictionary<string, AttributeValue> ToItem(SimpleItem source);

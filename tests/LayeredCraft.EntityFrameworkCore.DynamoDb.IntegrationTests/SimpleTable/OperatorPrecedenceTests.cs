@@ -30,7 +30,7 @@ public class OperatorPrecedenceTests(SimpleTableDynamoFixture fixture)
 
         AssertSql(
             """
-            SELECT Pk, BoolValue, DateTimeOffsetValue, DecimalValue, DoubleValue, FloatValue, GuidValue, IntValue, LongValue, NullableStringValue, StringValue
+            SELECT Pk, BoolValue, DateTimeOffsetValue, DecimalValue, DoubleValue, FloatValue, GuidValue, IntValue, LongValue, NullableBoolValue, NullableIntValue, NullableStringValue, StringValue
             FROM SimpleItems
             WHERE IntValue = 100 OR IntValue = 200 AND BoolValue = TRUE
             """);
@@ -54,7 +54,7 @@ public class OperatorPrecedenceTests(SimpleTableDynamoFixture fixture)
 
         AssertSql(
             """
-            SELECT Pk, BoolValue, DateTimeOffsetValue, DecimalValue, DoubleValue, FloatValue, GuidValue, IntValue, LongValue, NullableStringValue, StringValue
+            SELECT Pk, BoolValue, DateTimeOffsetValue, DecimalValue, DoubleValue, FloatValue, GuidValue, IntValue, LongValue, NullableBoolValue, NullableIntValue, NullableStringValue, StringValue
             FROM SimpleItems
             WHERE (IntValue = 100 OR IntValue = 200) AND BoolValue = TRUE
             """);
@@ -75,7 +75,7 @@ public class OperatorPrecedenceTests(SimpleTableDynamoFixture fixture)
 
         AssertSql(
             """
-            SELECT Pk, BoolValue, DateTimeOffsetValue, DecimalValue, DoubleValue, FloatValue, GuidValue, IntValue, LongValue, NullableStringValue, StringValue
+            SELECT Pk, BoolValue, DateTimeOffsetValue, DecimalValue, DoubleValue, FloatValue, GuidValue, IntValue, LongValue, NullableBoolValue, NullableIntValue, NullableStringValue, StringValue
             FROM SimpleItems
             WHERE IntValue > 100 AND LongValue < 500
             """);
@@ -89,9 +89,9 @@ public class OperatorPrecedenceTests(SimpleTableDynamoFixture fixture)
             await Db
                 .SimpleItems.Where(item
                     => item.IntValue > 0
-                       && item.LongValue > 0
-                       && item.DoubleValue > 0
-                       && item.BoolValue == true)
+                    && item.LongValue > 0
+                    && item.DoubleValue > 0
+                    && item.BoolValue == true)
                 .ToListAsync(CancellationToken);
 
         var expected = SimpleItems.Items.Where(item
@@ -101,7 +101,7 @@ public class OperatorPrecedenceTests(SimpleTableDynamoFixture fixture)
 
         AssertSql(
             """
-            SELECT Pk, BoolValue, DateTimeOffsetValue, DecimalValue, DoubleValue, FloatValue, GuidValue, IntValue, LongValue, NullableStringValue, StringValue
+            SELECT Pk, BoolValue, DateTimeOffsetValue, DecimalValue, DoubleValue, FloatValue, GuidValue, IntValue, LongValue, NullableBoolValue, NullableIntValue, NullableStringValue, StringValue
             FROM SimpleItems
             WHERE IntValue > 0 AND LongValue > 0 AND DoubleValue > 0 AND BoolValue = TRUE
             """);
@@ -115,22 +115,22 @@ public class OperatorPrecedenceTests(SimpleTableDynamoFixture fixture)
             await Db
                 .SimpleItems.Where(item
                     => item.IntValue == 100
-                       || item.IntValue == 200
-                       || item.IntValue == 300
-                       || item.IntValue == 400)
+                    || item.IntValue == 200
+                    || item.IntValue == 300
+                    || item.IntValue == 400)
                 .ToListAsync(CancellationToken);
 
         var expected = SimpleItems.Items.Where(item
             => item.IntValue == 100
-               || item.IntValue == 200
-               || item.IntValue == 300
-               || item.IntValue == 400);
+            || item.IntValue == 200
+            || item.IntValue == 300
+            || item.IntValue == 400);
 
         results.Should().BeEquivalentTo(expected);
 
         AssertSql(
             """
-            SELECT Pk, BoolValue, DateTimeOffsetValue, DecimalValue, DoubleValue, FloatValue, GuidValue, IntValue, LongValue, NullableStringValue, StringValue
+            SELECT Pk, BoolValue, DateTimeOffsetValue, DecimalValue, DoubleValue, FloatValue, GuidValue, IntValue, LongValue, NullableBoolValue, NullableIntValue, NullableStringValue, StringValue
             FROM SimpleItems
             WHERE IntValue = 100 OR IntValue = 200 OR IntValue = 300 OR IntValue = 400
             """);
@@ -145,20 +145,20 @@ public class OperatorPrecedenceTests(SimpleTableDynamoFixture fixture)
             await Db
                 .SimpleItems.Where(item
                     => (item.IntValue == 100 || item.IntValue == 200)
-                       && (item.LongValue < 500 || item.LongValue > 1000)
-                       && item.BoolValue == true)
+                    && (item.LongValue < 500 || item.LongValue > 1000)
+                    && item.BoolValue == true)
                 .ToListAsync(CancellationToken);
 
         var expected = SimpleItems.Items.Where(item
             => (item.IntValue == 100 || item.IntValue == 200)
-               && (item.LongValue < 500 || item.LongValue > 1000)
-               && item.BoolValue);
+            && (item.LongValue < 500 || item.LongValue > 1000)
+            && item.BoolValue);
 
         results.Should().BeEquivalentTo(expected);
 
         AssertSql(
             """
-            SELECT Pk, BoolValue, DateTimeOffsetValue, DecimalValue, DoubleValue, FloatValue, GuidValue, IntValue, LongValue, NullableStringValue, StringValue
+            SELECT Pk, BoolValue, DateTimeOffsetValue, DecimalValue, DoubleValue, FloatValue, GuidValue, IntValue, LongValue, NullableBoolValue, NullableIntValue, NullableStringValue, StringValue
             FROM SimpleItems
             WHERE (IntValue = 100 OR IntValue = 200) AND (LongValue < 500 OR LongValue > 1000) AND BoolValue = TRUE
             """);
@@ -173,22 +173,22 @@ public class OperatorPrecedenceTests(SimpleTableDynamoFixture fixture)
             await Db
                 .SimpleItems.Where(item
                     => item.IntValue > 100
-                       && item.StringValue != "test"
-                       && (item.BoolValue == true || item.DoubleValue < 0)
-                       && item.LongValue < 1000)
+                    && item.StringValue != "test"
+                    && (item.BoolValue == true || item.DoubleValue < 0)
+                    && item.LongValue < 1000)
                 .ToListAsync(CancellationToken);
 
         var expected = SimpleItems.Items.Where(item
             => item.IntValue > 100
-               && item.StringValue != "test"
-               && (item.BoolValue || item.DoubleValue < 0)
-               && item.LongValue < 1000);
+            && item.StringValue != "test"
+            && (item.BoolValue || item.DoubleValue < 0)
+            && item.LongValue < 1000);
 
         results.Should().BeEquivalentTo(expected);
 
         AssertSql(
             """
-            SELECT Pk, BoolValue, DateTimeOffsetValue, DecimalValue, DoubleValue, FloatValue, GuidValue, IntValue, LongValue, NullableStringValue, StringValue
+            SELECT Pk, BoolValue, DateTimeOffsetValue, DecimalValue, DoubleValue, FloatValue, GuidValue, IntValue, LongValue, NullableBoolValue, NullableIntValue, NullableStringValue, StringValue
             FROM SimpleItems
             WHERE IntValue > 100 AND StringValue <> 'test' AND (BoolValue = TRUE OR DoubleValue < 0) AND LongValue < 1000
             """);
@@ -203,22 +203,22 @@ public class OperatorPrecedenceTests(SimpleTableDynamoFixture fixture)
             await Db
                 .SimpleItems.Where(item
                     => item.IntValue >= 100
-                       && item.IntValue <= 500
-                       && item.LongValue != 0
-                       && item.DoubleValue < 100)
+                    && item.IntValue <= 500
+                    && item.LongValue != 0
+                    && item.DoubleValue < 100)
                 .ToListAsync(CancellationToken);
 
         var expected = SimpleItems.Items.Where(item
             => item.IntValue >= 100
-               && item.IntValue <= 500
-               && item.LongValue != 0
-               && item.DoubleValue < 100);
+            && item.IntValue <= 500
+            && item.LongValue != 0
+            && item.DoubleValue < 100);
 
         results.Should().BeEquivalentTo(expected);
 
         AssertSql(
             """
-            SELECT Pk, BoolValue, DateTimeOffsetValue, DecimalValue, DoubleValue, FloatValue, GuidValue, IntValue, LongValue, NullableStringValue, StringValue
+            SELECT Pk, BoolValue, DateTimeOffsetValue, DecimalValue, DoubleValue, FloatValue, GuidValue, IntValue, LongValue, NullableBoolValue, NullableIntValue, NullableStringValue, StringValue
             FROM SimpleItems
             WHERE IntValue >= 100 AND IntValue <= 500 AND LongValue <> 0 AND DoubleValue < 100
             """);

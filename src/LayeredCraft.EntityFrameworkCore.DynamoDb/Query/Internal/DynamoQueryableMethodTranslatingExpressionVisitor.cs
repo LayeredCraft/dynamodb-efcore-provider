@@ -1,4 +1,5 @@
 using System.Linq.Expressions;
+using System.Reflection;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using Microsoft.EntityFrameworkCore.Metadata;
@@ -7,14 +8,27 @@ using Microsoft.EntityFrameworkCore.Storage;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
 
-public class DynamoQueryableMethodTranslatingExpressionVisitor(
-    QueryableMethodTranslatingExpressionVisitorDependencies dependencies,
-    QueryCompilationContext queryCompilationContext,
-    ISqlExpressionFactory sqlExpressionFactory)
-    : QueryableMethodTranslatingExpressionVisitor(dependencies, queryCompilationContext, false)
+public class DynamoQueryableMethodTranslatingExpressionVisitor
+    : QueryableMethodTranslatingExpressionVisitor
 {
-    private readonly DynamoSqlTranslatingExpressionVisitor _sqlTranslator =
-        new(sqlExpressionFactory);
+    private readonly DynamoSqlTranslatingExpressionVisitor _sqlTranslator;
+    private readonly DynamoProjectionBindingExpressionVisitor _projectionBindingExpressionVisitor;
+    private readonly ISqlExpressionFactory _sqlExpressionFactory;
+
+    public DynamoQueryableMethodTranslatingExpressionVisitor(
+        QueryableMethodTranslatingExpressionVisitorDependencies dependencies,
+        QueryCompilationContext queryCompilationContext,
+        ISqlExpressionFactory sqlExpressionFactory) : base(
+        dependencies,
+        queryCompilationContext,
+        false)
+    {
+        _sqlExpressionFactory = sqlExpressionFactory;
+        _sqlTranslator = new DynamoSqlTranslatingExpressionVisitor(sqlExpressionFactory);
+        _projectionBindingExpressionVisitor = new DynamoProjectionBindingExpressionVisitor(
+            _sqlTranslator,
+            sqlExpressionFactory);
+    }
 
     protected override QueryableMethodTranslatingExpressionVisitor CreateSubqueryVisitor()
         => throw new NotImplementedException();
@@ -23,19 +37,21 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor(
     {
         // Get the table name from entity metadata
         var tableName = entityType.FindAnnotation(DynamoAnnotationNames.TableName)?.Value as string
-                        ?? entityType.ClrType.Name;
+            ?? entityType.ClrType.Name;
 
         var queryExpression = new SelectExpression(tableName);
 
-        // Add projections for all entity properties
-        // This ensures SELECT column1, column2, ... instead of SELECT *
-        foreach (var property in entityType.GetProperties())
+        // Create entity projection expression as single source of truth for property mapping
+        var entityProjection =
+            new DynamoEntityProjectionExpression(entityType, _sqlExpressionFactory);
+
+        // Store entity projection in projection mapping under root ProjectionMember
+        var projectionMapping = new Dictionary<ProjectionMember, Expression>
         {
-            var propertyName = property.Name; // Use CLR property name
-            var sqlProperty = sqlExpressionFactory.Property(propertyName, property.ClrType);
-            var projection = new ProjectionExpression(sqlProperty, propertyName);
-            queryExpression.AddToProjection(projection);
-        }
+            [new ProjectionMember()] = entityProjection,
+        };
+
+        queryExpression.ReplaceProjectionMapping(projectionMapping);
 
         var projectionBindingExpression = new ProjectionBindingExpression(
             queryExpression,
@@ -204,7 +220,26 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor(
     protected override ShapedQueryExpression TranslateSelect(
         ShapedQueryExpression source,
         LambdaExpression selector)
-        => throw new NotImplementedException();
+    {
+        // Optimization: identity projection x => x
+        if (selector.Body == selector.Parameters[0])
+            return source;
+
+        var selectExpression = (SelectExpression)source.QueryExpression;
+
+        // Remap lambda body: replace parameter with current shaper
+        var newSelectorBody = ReplacingExpressionVisitor.Replace(
+            selector.Parameters[0],
+            source.ShaperExpression,
+            selector.Body);
+
+        // Delegate to projection binding visitor
+        var newShaper = _projectionBindingExpressionVisitor.Translate(
+            selectExpression,
+            newSelectorBody);
+
+        return source.UpdateShaperExpression(newShaper);
+    }
 
     protected override ShapedQueryExpression? TranslateSelectMany(
         ShapedQueryExpression source,
