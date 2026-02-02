@@ -481,6 +481,28 @@ public class SelectTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase
             .WithMessage("*DynamoDB PartiQL does not support*method call*");
     }
 
+    [Fact]
+    public async Task Select_ConstructorDtoProjection()
+    {
+        var results =
+            await Db
+                .SimpleItems.Select(item => new ConstructorItemDto(item.Pk, item.IntValue))
+                .ToListAsync(CancellationToken);
+
+        var expected =
+            SimpleItems
+                .Items.Select(item => new ConstructorItemDto(item.Pk, item.IntValue))
+                .ToList();
+
+        results.Should().BeEquivalentTo(expected);
+
+        AssertSql(
+            """
+            SELECT Pk, IntValue
+            FROM SimpleItems
+            """);
+    }
+
     // Scalar Variations Tests
     [Fact]
     public async Task Select_ScalarInt()
@@ -571,5 +593,18 @@ public class SelectTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase
         public required string Pk { get; set; }
 
         public bool BoolValue { get; set; }
+    }
+
+    private sealed class ConstructorItemDto
+    {
+        public ConstructorItemDto(string pk, int intValue)
+        {
+            Pk = pk;
+            IntValue = intValue;
+        }
+
+        public string Pk { get; }
+
+        public int IntValue { get; }
     }
 }
