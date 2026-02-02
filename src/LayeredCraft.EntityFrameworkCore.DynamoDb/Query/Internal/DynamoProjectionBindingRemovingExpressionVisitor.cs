@@ -89,11 +89,12 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
 
     /// <summary>
     ///     Handles ProjectionBindingExpression for custom Select projections. Converts member-based
-    ///     bindings to indexed dictionary access.
+    ///     bindings to indexed dictionary access and supports index-based bindings.
     /// </summary>
     protected override Expression VisitExtension(Expression node)
     {
         if (node is ProjectionBindingExpression projectionBinding)
+        {
             // After ApplyProjection(), mapping contains Constant(index)
             if (projectionBinding.ProjectionMember != null)
             {
@@ -125,6 +126,28 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
                     required,
                     null);
             }
+
+            if (projectionBinding.Index != null)
+            {
+                var index = projectionBinding.Index.Value;
+
+                var projection = selectExpression.Projection[index];
+                var propertyName = projection.Expression is SqlPropertyExpression propertyExpression
+                    ? propertyExpression.PropertyName
+                    : projection.Alias;
+
+                var typeMapping = projection.Expression.TypeMapping;
+                var required = IsNonNullableValueType(projectionBinding.Type);
+
+                return CreateGetValueExpression(
+                    itemParameter,
+                    propertyName,
+                    projectionBinding.Type,
+                    typeMapping,
+                    required,
+                    null);
+            }
+        }
 
         return base.VisitExtension(node);
     }

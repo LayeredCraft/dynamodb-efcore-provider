@@ -3,9 +3,7 @@ using Microsoft.EntityFrameworkCore.Query;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 
-/// <summary>
-/// Represents a SELECT query expression for DynamoDB PartiQL.
-/// </summary>
+/// <summary>Represents a SELECT query expression for DynamoDB PartiQL.</summary>
 public class SelectExpression(string tableName) : Expression
 {
     private readonly List<OrderingExpression> _orderings = [];
@@ -14,30 +12,28 @@ public class SelectExpression(string tableName) : Expression
     private IDictionary<ProjectionMember, Expression> _projectionMapping =
         new Dictionary<ProjectionMember, Expression>();
 
-    /// <summary>
-    /// The name of the DynamoDB table to query.
-    /// </summary>
-    public string TableName { get; } = tableName;
+    /// <inheritdoc />
+    public override ExpressionType NodeType => ExpressionType.Extension;
 
-    /// <summary>
-    /// The WHERE clause predicate, or null if no filtering is applied.
-    /// </summary>
+    /// <summary>The ORDER BY clauses.</summary>
+    public IReadOnlyList<OrderingExpression> Orderings => _orderings;
+
+    /// <summary>The WHERE clause predicate, or null if no filtering is applied.</summary>
     public SqlExpression? Predicate { get; private set; }
 
     /// <summary>
-    /// The ORDER BY clauses.
-    /// </summary>
-    public IReadOnlyList<OrderingExpression> Orderings => _orderings;
-
-    /// <summary>
-    /// The list of projected columns for the SELECT clause.
-    /// Must have at least one projection - SELECT * is not supported.
+    ///     The list of projected columns for the SELECT clause. Must have at least one projection -
+    ///     SELECT * is not supported.
     /// </summary>
     public IReadOnlyList<ProjectionExpression> Projection => _projection;
 
-    /// <summary>
-    /// Applies or combines a WHERE predicate.
-    /// </summary>
+    /// <summary>The name of the DynamoDB table to query.</summary>
+    public string TableName { get; } = tableName;
+
+    /// <inheritdoc />
+    public override Type Type => typeof(object);
+
+    /// <summary>Applies or combines a WHERE predicate.</summary>
     public void ApplyPredicate(SqlExpression predicate)
         => Predicate =
             Predicate == null
@@ -49,34 +45,33 @@ public class SelectExpression(string tableName) : Expression
                     typeof(bool),
                     null);
 
-    /// <summary>
-    /// Replaces all orderings with a single ordering.
-    /// </summary>
+    /// <summary>Replaces all orderings with a single ordering.</summary>
     public void ApplyOrdering(OrderingExpression ordering)
     {
         _orderings.Clear();
         _orderings.Add(ordering);
     }
 
-    /// <summary>
-    /// Appends an additional ordering (for ThenBy).
-    /// </summary>
+    /// <summary>Appends an additional ordering (for ThenBy).</summary>
     public void AppendOrdering(OrderingExpression ordering) => _orderings.Add(ordering);
 
-    /// <summary>
-    /// Adds a projection to the SELECT clause.
-    /// </summary>
+    /// <summary>Adds a projection to the SELECT clause.</summary>
     public void AddToProjection(ProjectionExpression projectionExpression)
         => _projection.Add(projectionExpression);
 
     /// <summary>
-    /// Clears all projections.
+    ///     Adds a SQL expression to the projection list if it doesn't already exist. Returns the
+    ///     index of the projection (existing or newly added).
     /// </summary>
+    public int AddToProjection(SqlExpression sqlExpression, string alias)
+        => AddProjectionIfNotExists(sqlExpression, alias);
+
+    /// <summary>Clears all projections.</summary>
     public void ClearProjection() => _projection.Clear();
 
     /// <summary>
-    /// Replaces the projection mapping with a new mapping.
-    /// Used by TranslateSelect to set custom projections.
+    ///     Replaces the projection mapping with a new mapping. Used by TranslateSelect to set custom
+    ///     projections.
     /// </summary>
     public void ReplaceProjectionMapping(
         IDictionary<ProjectionMember, Expression> projectionMapping)
@@ -87,15 +82,15 @@ public class SelectExpression(string tableName) : Expression
     }
 
     /// <summary>
-    /// Gets the mapped expression for a projection member.
-    /// After ApplyProjection(), returns Constant(index).
+    ///     Gets the mapped expression for a projection member. After ApplyProjection(), returns
+    ///     Constant(index).
     /// </summary>
     public Expression GetMappedProjection(ProjectionMember member) => _projectionMapping[member];
 
     /// <summary>
-    /// Converts abstract projection mapping to concrete projection list.
-    /// Replaces SqlExpression values with Constant(index) references.
-    /// Expands DynamoEntityProjectionExpression into individual property projections.
+    ///     Converts abstract projection mapping to concrete projection list. Replaces SqlExpression
+    ///     values with Constant(index) references. Expands DynamoEntityProjectionExpression into
+    ///     individual property projections.
     /// </summary>
     public void ApplyProjection()
     {
@@ -134,8 +129,8 @@ public class SelectExpression(string tableName) : Expression
     }
 
     /// <summary>
-    /// Adds a SQL expression to the projection list if it doesn't already exist.
-    /// Returns the index of the projection (existing or newly added).
+    ///     Adds a SQL expression to the projection list if it doesn't already exist. Returns the
+    ///     index of the projection (existing or newly added).
     /// </summary>
     private int AddProjectionIfNotExists(SqlExpression sqlExpression, string alias)
     {
@@ -150,12 +145,6 @@ public class SelectExpression(string tableName) : Expression
         _projection.Add(projection);
         return index;
     }
-
-    /// <inheritdoc />
-    public override ExpressionType NodeType => ExpressionType.Extension;
-
-    /// <inheritdoc />
-    public override Type Type => typeof(object);
 
     /// <inheritdoc />
     protected override Expression VisitChildren(ExpressionVisitor visitor)

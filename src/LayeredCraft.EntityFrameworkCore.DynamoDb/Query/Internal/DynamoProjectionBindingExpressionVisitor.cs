@@ -18,6 +18,7 @@ public class DynamoProjectionBindingExpressionVisitor(
 {
     private readonly Dictionary<ProjectionMember, Expression> _projectionMapping = new();
     private readonly Stack<ProjectionMember> _projectionMembers = new();
+    private bool _indexBasedBinding;
     private SelectExpression _selectExpression = null!;
 
     /// <summary>Translates a Select lambda body into a projection mapping and returns a shaper expression.</summary>
@@ -29,14 +30,33 @@ public class DynamoProjectionBindingExpressionVisitor(
         // Clear any existing concrete projections - we're rebuilding from scratch
         _selectExpression.ClearProjection();
 
+        _indexBasedBinding = false;
         var result = Visit(expression);
+
+        if (result == QueryCompilationContext.NotTranslatedExpression)
+        {
+            _projectionMapping.Clear();
+            _projectionMembers.Clear();
+            _projectionMembers.Push(new ProjectionMember());
+            _selectExpression.ClearProjection();
+            _indexBasedBinding = true;
+            result = Visit(expression);
+        }
+
         if (result == null)
             throw new InvalidOperationException("Failed to translate Select projection.");
 
-        _selectExpression.ReplaceProjectionMapping(_projectionMapping);
+        if (result == QueryCompilationContext.NotTranslatedExpression)
+            throw new InvalidOperationException(
+                "Failed to translate Select projection to client evaluation.");
+
+        if (!_indexBasedBinding)
+            _selectExpression.ReplaceProjectionMapping(_projectionMapping);
+
         _projectionMapping.Clear();
         _selectExpression = null!;
         _projectionMembers.Clear();
+        _indexBasedBinding = false;
 
         return result;
     }
@@ -49,13 +69,29 @@ public class DynamoProjectionBindingExpressionVisitor(
             return node;
 
         // Anonymous types must have members, but constructor DTO projections (new Dto(x.Prop, ...))
-        // arrive without members. For these, infer members from constructor parameter names.
+        // arrive without members. For these, use index-based client projection.
         var members = node.Members ?? TryInferMembers(node);
 
-        if (members == null)
-            throw new InvalidOperationException(
-                $"DynamoDB provider does not support projection to type '{node.Type.Name}' without member assignments. "
-                + "Use anonymous types (new { x.Prop }) or DTOs with MemberInitExpression.");
+        switch (members)
+        {
+            case null when !_indexBasedBinding:
+                return QueryCompilationContext.NotTranslatedExpression;
+            case null:
+            {
+                var constructorArguments = new Expression[node.Arguments.Count];
+                for (var i = 0; i < constructorArguments.Length; i++)
+                {
+                    var visitedArgument = Visit(node.Arguments[i]);
+                    if (visitedArgument == QueryCompilationContext.NotTranslatedExpression)
+                        return visitedArgument;
+                    if (visitedArgument == null)
+                        return QueryCompilationContext.NotTranslatedExpression;
+                    constructorArguments[i] = visitedArgument;
+                }
+
+                return node.Update(constructorArguments);
+            }
+        }
 
         var newArguments = new Expression[node.Arguments.Count];
         for (var i = 0; i < newArguments.Length; i++)
@@ -69,11 +105,10 @@ public class DynamoProjectionBindingExpressionVisitor(
             var visitedArgument = Visit(argument);
 
             // Check if translation failed
+            if (visitedArgument == QueryCompilationContext.NotTranslatedExpression)
+                return visitedArgument;
             if (visitedArgument == null)
-                throw new InvalidOperationException(
-                    $"Failed to translate projection argument: {argument}. "
-                    + "DynamoDB PartiQL does not support computed expressions in SELECT clause. "
-                    + "Only direct property access is supported.");
+                return QueryCompilationContext.NotTranslatedExpression;
 
             _projectionMembers.Pop();
 
@@ -130,16 +165,16 @@ public class DynamoProjectionBindingExpressionVisitor(
     protected override Expression VisitMemberInit(MemberInitExpression node)
     {
         var newExpression = Visit(node.NewExpression);
+        if (newExpression == QueryCompilationContext.NotTranslatedExpression)
+            return newExpression;
         if (newExpression == null)
-            throw new InvalidOperationException("Failed to visit NewExpression in MemberInit.");
+            return QueryCompilationContext.NotTranslatedExpression;
 
         var newBindings = new MemberBinding[node.Bindings.Count];
         for (var i = 0; i < newBindings.Length; i++)
         {
             if (node.Bindings[i].BindingType != MemberBindingType.Assignment)
-                throw new InvalidOperationException(
-                    "DynamoDB provider only supports MemberAssignment bindings in MemberInitExpression. "
-                    + $"Binding type '{node.Bindings[i].BindingType}' is not supported.");
+                return QueryCompilationContext.NotTranslatedExpression;
 
             var memberAssignment = (MemberAssignment)node.Bindings[i];
 
@@ -149,10 +184,10 @@ public class DynamoProjectionBindingExpressionVisitor(
 
             var visitedExpression = Visit(memberAssignment.Expression);
 
+            if (visitedExpression == QueryCompilationContext.NotTranslatedExpression)
+                return visitedExpression;
             if (visitedExpression == null)
-                throw new InvalidOperationException(
-                    $"Failed to translate member assignment for '{memberAssignment.Member.Name}'. "
-                    + "DynamoDB PartiQL does not support computed expressions in SELECT clause.");
+                return QueryCompilationContext.NotTranslatedExpression;
 
             _projectionMembers.Pop();
 
@@ -165,8 +200,30 @@ public class DynamoProjectionBindingExpressionVisitor(
     /// <summary>Handles StructuralTypeShaperExpression (entity shapers from previous query stage).</summary>
     protected override Expression VisitExtension(Expression node)
     {
+        if (node is QueryParameterExpression)
+            return node;
+
         if (node is not StructuralTypeShaperExpression entityShaperExpression)
             return base.VisitExtension(node);
+
+        if (_indexBasedBinding)
+        {
+            var indexEntityType = entityShaperExpression.StructuralType as IEntityType;
+            if (indexEntityType == null)
+                throw new InvalidOperationException(
+                    $"Expected IEntityType but got {entityShaperExpression.StructuralType.GetType().Name}");
+
+            var indexEntityProjection =
+                new DynamoEntityProjectionExpression(indexEntityType, sqlExpressionFactory);
+
+            foreach (var property in indexEntityType.GetProperties())
+            {
+                var sqlProperty = indexEntityProjection.BindProperty(property);
+                _selectExpression.AddToProjection(sqlProperty, property.Name);
+            }
+
+            return entityShaperExpression;
+        }
 
         var projectionBindingExpression =
             (ProjectionBindingExpression)entityShaperExpression.ValueBufferExpression;
@@ -219,6 +276,12 @@ public class DynamoProjectionBindingExpressionVisitor(
             var propertyName = node.Member.Name;
             var sqlProperty = sqlExpressionFactory.Property(propertyName, node.Type);
 
+            if (_indexBasedBinding)
+            {
+                var index = _selectExpression.AddToProjection(sqlProperty, propertyName);
+                return new ProjectionBindingExpression(_selectExpression, index, node.Type);
+            }
+
             // Store mapping: ProjectionMember → SqlExpression
             _projectionMapping[_projectionMembers.Peek()] = sqlProperty;
 
@@ -229,19 +292,116 @@ public class DynamoProjectionBindingExpressionVisitor(
                 node.Type);
         }
 
-        // For other member accesses, try SQL translation
-        var translation = sqlTranslator.Translate(node);
+        if (!_indexBasedBinding)
+        {
+            // For other member accesses, try SQL translation
+            var translation = sqlTranslator.Translate(node);
+            if (translation is not SqlPropertyExpression)
+                return QueryCompilationContext.NotTranslatedExpression;
 
-        _projectionMapping[_projectionMembers.Peek()] = translation
-            ?? throw new InvalidOperationException(
-                $"Failed to translate member access to SQL: {node}. "
-                + "DynamoDB PartiQL does not support computed expressions or method calls in SELECT clause. "
-                + "Only direct property access is supported (e.g., x.Name, not x.Name.ToUpper()).");
+            _projectionMapping[_projectionMembers.Peek()] = translation;
 
-        return new ProjectionBindingExpression(
-            _selectExpression,
-            _projectionMembers.Peek(),
-            node.Type);
+            return new ProjectionBindingExpression(
+                _selectExpression,
+                _projectionMembers.Peek(),
+                node.Type);
+        }
+
+        if (node.Expression == null)
+            return node;
+
+        var instance = Visit(node.Expression);
+        if (instance == QueryCompilationContext.NotTranslatedExpression)
+            return instance;
+        if (instance == null)
+            return QueryCompilationContext.NotTranslatedExpression;
+
+        return node.Update(instance);
+    }
+
+    protected override Expression VisitMethodCall(MethodCallExpression node)
+    {
+        if (!_indexBasedBinding)
+            return QueryCompilationContext.NotTranslatedExpression;
+
+        var instance = node.Object == null ? null : Visit(node.Object);
+        if (instance == QueryCompilationContext.NotTranslatedExpression)
+            return instance;
+
+        var arguments = new Expression[node.Arguments.Count];
+        for (var i = 0; i < arguments.Length; i++)
+        {
+            var visitedArgument = Visit(node.Arguments[i]);
+            if (visitedArgument == QueryCompilationContext.NotTranslatedExpression)
+                return visitedArgument;
+            if (visitedArgument == null)
+                return QueryCompilationContext.NotTranslatedExpression;
+            arguments[i] = visitedArgument;
+        }
+
+        return node.Update(instance, arguments);
+    }
+
+    /// <summary>Builds client-side computed projections (e.g. arithmetic, concat).</summary>
+    protected override Expression VisitBinary(BinaryExpression node)
+    {
+        if (!_indexBasedBinding)
+            return QueryCompilationContext.NotTranslatedExpression;
+
+        var left = Visit(node.Left);
+        if (left == QueryCompilationContext.NotTranslatedExpression || left == null)
+            return QueryCompilationContext.NotTranslatedExpression;
+
+        var right = Visit(node.Right);
+        if (right == QueryCompilationContext.NotTranslatedExpression || right == null)
+            return QueryCompilationContext.NotTranslatedExpression;
+
+        LambdaExpression? conversion = null;
+        if (node.Conversion != null)
+        {
+            var visitedConversion = Visit(node.Conversion);
+            if (visitedConversion == QueryCompilationContext.NotTranslatedExpression
+                || visitedConversion == null)
+                return QueryCompilationContext.NotTranslatedExpression;
+
+            conversion = (LambdaExpression)visitedConversion;
+        }
+
+        return node.Update(left, conversion, right);
+    }
+
+    /// <summary>Builds client-side unary projections (e.g. conversions).</summary>
+    protected override Expression VisitUnary(UnaryExpression node)
+    {
+        if (!_indexBasedBinding)
+            return QueryCompilationContext.NotTranslatedExpression;
+
+        var operand = Visit(node.Operand);
+        if (operand == QueryCompilationContext.NotTranslatedExpression || operand == null)
+            return QueryCompilationContext.NotTranslatedExpression;
+
+        return node.Update(operand);
+    }
+
+    /// <summary>Builds client-side conditional projections.</summary>
+    protected override Expression VisitConditional(ConditionalExpression node)
+    {
+        if (!_indexBasedBinding)
+            return QueryCompilationContext.NotTranslatedExpression;
+
+        var test = Visit(node.Test);
+        if (test == QueryCompilationContext.NotTranslatedExpression || test == null)
+            return QueryCompilationContext.NotTranslatedExpression;
+
+        var ifTrue = Visit(node.IfTrue);
+        if (ifTrue == QueryCompilationContext.NotTranslatedExpression || ifTrue == null)
+            return QueryCompilationContext.NotTranslatedExpression;
+
+        var ifFalse = Visit(node.IfFalse);
+        if (ifFalse == QueryCompilationContext.NotTranslatedExpression || ifFalse == null)
+            return QueryCompilationContext.NotTranslatedExpression;
+
+        return node.Update(test, ifTrue, ifFalse);
     }
 
     /// <summary>Default visitor for all other expressions - attempts SQL translation.</summary>
@@ -249,6 +409,9 @@ public class DynamoProjectionBindingExpressionVisitor(
     {
         if (node == null)
             return null;
+
+        if (_indexBasedBinding)
+            return base.Visit(node);
 
         // Let specific visitor methods handle these
         if (node is NewExpression
@@ -260,12 +423,11 @@ public class DynamoProjectionBindingExpressionVisitor(
         // Try to translate to SQL
         var translation = sqlTranslator.Translate(node);
 
+        if (translation is not SqlPropertyExpression)
+            return QueryCompilationContext.NotTranslatedExpression;
+
         // Store mapping: ProjectionMember → SqlExpression
-        _projectionMapping[_projectionMembers.Peek()] = translation
-            ?? throw new InvalidOperationException(
-                $"Failed to translate expression to SQL: {node}. "
-                + "DynamoDB PartiQL does not support computed expressions or method calls in SELECT clause. "
-                + "Only direct property access is supported (e.g., x.Name, not x.Name.ToUpper()).");
+        _projectionMapping[_projectionMembers.Peek()] = translation;
 
         // Return ProjectionBindingExpression as placeholder
         return new ProjectionBindingExpression(

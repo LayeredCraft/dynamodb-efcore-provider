@@ -1,7 +1,7 @@
 using System.Linq.Expressions;
+using System.Reflection;
 using Amazon.DynamoDBv2.Model;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
-using System.Reflection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 
@@ -31,7 +31,7 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
 
         // Step 1: Inject Dictionary<string, AttributeValue> variable handling
         // This adds null-checking and prepares the expression tree for materialization
-        shaperBody = new DynamoInjectingExpressionVisitor(itemParameter).Visit(shaperBody);
+        shaperBody = new DynamoInjectingExpressionVisitor().Visit(shaperBody);
 
         // Step 2: Inject EF Core's standard structural type materializers
         // This adds entity construction and property assignment logic
