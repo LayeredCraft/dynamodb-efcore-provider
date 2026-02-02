@@ -454,31 +454,155 @@ public class SelectTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase
 
     // Error Cases Tests
     [Fact]
-    public async Task Select_ComputedExpression_ThrowsInvalidOperationException()
+    public async Task Select_ComputedExpression_ProjectsAttributeOnly()
     {
-        var act = async ()
-            => await Db
+        var results = await Db
                 .SimpleItems.Select(item => new { item.Pk, Doubled = item.IntValue * 2 })
                 .ToListAsync(CancellationToken);
 
-        await act
-            .Should()
-            .ThrowAsync<InvalidOperationException>()
-            .WithMessage("*DynamoDB PartiQL does not support computed expressions*");
+        var expected =
+            SimpleItems.Items.Select(item => new { item.Pk, Doubled = item.IntValue * 2 }).ToList();
+
+        results.Should().BeEquivalentTo(expected);
+
+        AssertSql(
+            """
+            SELECT Pk, IntValue
+            FROM SimpleItems
+            """);
     }
 
     [Fact]
-    public async Task Select_MethodCall_ThrowsInvalidOperationException()
+    public async Task Select_MethodCall_ProjectsAttributeOnly()
     {
-        var act = async ()
-            => await Db
+        var results =
+            await Db
                 .SimpleItems.Select(item => new { item.Pk, Upper = item.StringValue.ToUpper() })
                 .ToListAsync(CancellationToken);
 
-        await act
-            .Should()
-            .ThrowAsync<InvalidOperationException>()
-            .WithMessage("*DynamoDB PartiQL does not support*method call*");
+        var expected =
+            SimpleItems
+                .Items.Select(item => new { item.Pk, Upper = item.StringValue.ToUpper() })
+                .ToList();
+
+        results.Should().BeEquivalentTo(expected);
+
+        AssertSql(
+            """
+            SELECT Pk, StringValue
+            FROM SimpleItems
+            """);
+    }
+
+    [Fact]
+    public async Task Select_MethodCallChain_NullReceiver_ThrowsNullReferenceException()
+    {
+        var act = async ()
+            => await Db
+                .SimpleItems.Select(item
+                    => new
+                    {
+                        item.Pk,
+                        Normalized = item.NullableStringValue!.Trim().ToUpperInvariant(),
+                    })
+                .ToListAsync(CancellationToken);
+
+        await act.Should().ThrowAsync<NullReferenceException>();
+    }
+
+    [Fact]
+    public async Task Select_MethodCall_NullReceiver_ThrowsNullReferenceException()
+    {
+        var act = async ()
+            => await Db
+                .SimpleItems.Select(item => item.NullableStringValue!.Length)
+                .ToListAsync(CancellationToken);
+
+        await act.Should().ThrowAsync<NullReferenceException>();
+    }
+
+    [Fact]
+    public async Task Select_StringConcat_ProjectsAttributeOnly()
+    {
+        var results =
+            await Db
+                .SimpleItems.Select(item
+                    => new { item.Pk, Combined = item.Pk + ":" + item.StringValue })
+                .ToListAsync(CancellationToken);
+
+        var expected =
+            SimpleItems
+                .Items.Select(item => new { item.Pk, Combined = item.Pk + ":" + item.StringValue })
+                .ToList();
+
+        results.Should().BeEquivalentTo(expected);
+
+        AssertSql(
+            """
+            SELECT Pk, StringValue
+            FROM SimpleItems
+            """);
+    }
+
+    [Fact]
+    public async Task Select_DtoProjection_WithComputedArgument()
+    {
+        var results =
+            await Db
+                .SimpleItems.Select(item => new ConstructorItemDto(item.Pk, item.IntValue * 2))
+                .ToListAsync(CancellationToken);
+
+        var expected =
+            SimpleItems
+                .Items.Select(item => new ConstructorItemDto(item.Pk, item.IntValue * 2))
+                .ToList();
+
+        results.Should().BeEquivalentTo(expected);
+
+        AssertSql(
+            """
+            SELECT Pk, IntValue
+            FROM SimpleItems
+            """);
+    }
+
+    [Fact]
+    public async Task Select_CapturedVariable_ComputedProjection()
+    {
+        var factor = 2;
+        var results =
+            await Db
+                .SimpleItems.Select(item => item.IntValue * factor)
+                .ToListAsync(CancellationToken);
+
+        var expected = SimpleItems.Items.Select(item => item.IntValue * factor).ToList();
+
+        results.Should().BeEquivalentTo(expected);
+
+        AssertSql(
+            """
+            SELECT IntValue
+            FROM SimpleItems
+            """);
+    }
+
+    [Fact]
+    public async Task Select_ProjectionDeduplicatesLeafs()
+    {
+        var results =
+            await Db
+                .SimpleItems.Select(item => new { A = item.Pk, B = item.Pk })
+                .ToListAsync(CancellationToken);
+
+        var expected = SimpleItems.Items.Select(item => new { A = item.Pk, B = item.Pk }).ToList();
+
+        results.Should().BeEquivalentTo(expected);
+
+        AssertSql(
+            """
+            SELECT Pk
+            FROM SimpleItems
+            """);
     }
 
     [Fact]
@@ -599,9 +723,8 @@ public class SelectTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase
 
     private sealed class SimpleItemDto
     {
-        public required string Pk { get; set; }
-
         public int IntValue { get; set; }
+        public required string Pk { get; set; }
     }
 
     private sealed class NestedProjection
@@ -613,21 +736,20 @@ public class SelectTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase
 
     private sealed class NestedSubProjection
     {
-        public required string Pk { get; set; }
-
         public bool BoolValue { get; set; }
+        public required string Pk { get; set; }
     }
 
     private sealed class ConstructorItemDto
     {
         public ConstructorItemDto(string pk, int intValue)
         {
-            Pk = pk;
-            IntValue = intValue;
+            Pk = pk + 1;
+            IntValue = intValue + 1;
         }
 
-        public string Pk { get; }
-
         public int IntValue { get; }
+
+        public string Pk { get; }
     }
 }

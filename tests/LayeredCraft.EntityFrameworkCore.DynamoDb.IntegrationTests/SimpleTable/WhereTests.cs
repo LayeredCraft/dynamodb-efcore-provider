@@ -169,4 +169,44 @@ public class WhereTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase(
             WHERE IntValue >= ? AND LongValue <= ? AND StringValue <> ?
             """);
     }
+
+    [Fact]
+    public async Task Where_MethodCall_StillThrowsInvalidOperationException()
+    {
+        var act = async ()
+            => await Db
+                .SimpleItems.Where(item => item.StringValue.ToUpper() == "ALPHA")
+                .Select(item => item.Pk)
+                .ToListAsync(CancellationToken);
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+    }
+
+    [Fact]
+    public async Task Where_CustomMethodCall_StillThrowsInvalidOperationException()
+    {
+        var act = async ()
+            => await Db
+                .SimpleItems.Where(item => NormalizeString(item.StringValue) == "ALPHA")
+                .Select(item => item.Pk)
+                .ToListAsync(CancellationToken);
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+    }
+
+    [Fact]
+    public async Task Where_DelegateInvocation_StillThrowsInvalidOperationException()
+    {
+        var normalize = NormalizeString;
+
+        var act = async ()
+            => await Db
+                .SimpleItems.Where(item => normalize(item.StringValue) == "ALPHA")
+                .Select(item => item.Pk)
+                .ToListAsync(CancellationToken);
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+    }
+
+    private static string NormalizeString(string value) => value.Trim().ToUpperInvariant();
 }
