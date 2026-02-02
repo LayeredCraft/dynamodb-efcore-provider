@@ -5,11 +5,10 @@ using Microsoft.EntityFrameworkCore.Query;
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
 
 /// <summary>
-///     Injects Dictionary&lt;string, AttributeValue&gt; parameter handling into the expression
-///     tree. This visitor runs BEFORE InjectStructuralTypeMaterializers to prepare the expression tree
-///     by adding null-checking and casting for structural types. Similar to
-///     JObjectInjectingExpressionVisitor (Cosmos) and BsonDocumentInjectingExpressionVisitor
-///     (MongoDB).
+///     Rewrites QueryParameterExpression nodes to read runtime values from the query context.
+///     This visitor runs BEFORE InjectStructuralTypeMaterializers to prepare the expression tree
+///     with parameter access expressions. Similar to JObjectInjectingExpressionVisitor (Cosmos)
+///     and BsonDocumentInjectingExpressionVisitor (MongoDB).
 /// </summary>
 public class DynamoInjectingExpressionVisitor : ExpressionVisitor
 {
