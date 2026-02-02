@@ -503,6 +503,29 @@ public class SelectTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase
             """);
     }
 
+    [Fact]
+    public async Task Select_ConstructorDtoProjection_WithNamedArguments()
+    {
+        var results =
+            await Db
+                .SimpleItems.Select(item
+                    => new ConstructorItemDto(pk: item.Pk, intValue: item.IntValue))
+                .ToListAsync(CancellationToken);
+
+        var expected =
+            SimpleItems
+                .Items.Select(item => new ConstructorItemDto(item.Pk, item.IntValue))
+                .ToList();
+
+        results.Should().BeEquivalentTo(expected);
+
+        AssertSql(
+            """
+            SELECT Pk, IntValue
+            FROM SimpleItems
+            """);
+    }
+
     // Scalar Variations Tests
     [Fact]
     public async Task Select_ScalarInt()

@@ -12,13 +12,13 @@ using static System.Linq.Expressions.Expression;
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
 
 /// <summary>
-///     Replaces EF Core's abstract ProjectionBindingExpression nodes with concrete expression trees
-///     that extract property values from Dictionary&lt;string, AttributeValue&gt;.
+///     Replaces EF Core's abstract ProjectionBindingExpression nodes with concrete expression
+///     trees that extract property values from Dictionary&lt;string, AttributeValue&gt;.
 /// </summary>
 /// <remarks>
-///     Builds expression trees at query compilation time, inlining all type conversions to eliminate
-///     runtime boxing. The compiled query executes AttributeValue deserialization and EF Core value
-///     conversions as pure IL with zero boxing overhead.
+///     Builds expression trees at query compilation time, inlining all type conversions to
+///     eliminate runtime boxing. The compiled query executes AttributeValue deserialization and EF
+///     Core value conversions as pure IL with zero boxing overhead.
 /// </remarks>
 public class DynamoProjectionBindingRemovingExpressionVisitor(
     ParameterExpression itemParameter,
@@ -40,6 +40,9 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
     private static readonly PropertyInfo AttributeValueNullProperty =
         typeof(AttributeValue).GetProperty(nameof(AttributeValue.NULL))!;
 
+    private static readonly ConstructorInfo InvalidOperationExceptionCtor =
+        typeof(InvalidOperationException).GetConstructor([typeof(string)])!;
+
     private static readonly MethodInfo DictionaryTryGetValueMethod =
         typeof(Dictionary<string, AttributeValue>).GetMethod(nameof(Dictionary<,>.TryGetValue))!;
 
@@ -59,8 +62,8 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
 
     /// <summary>
     ///     Intercepts MaterializationContext constructor calls to replace ProjectionBindingExpression
-    ///     with ValueBuffer.Empty placeholder (actual data comes from Dictionary access).
-    ///     For anonymous types and DTOs, visits all arguments normally.
+    ///     with ValueBuffer.Empty placeholder (actual data comes from Dictionary access). For anonymous
+    ///     types and DTOs, visits all arguments normally.
     /// </summary>
     protected override Expression VisitNew(NewExpression node)
     {
@@ -85,8 +88,8 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
     }
 
     /// <summary>
-    ///     Handles ProjectionBindingExpression for custom Select projections.
-    ///     Converts member-based bindings to indexed dictionary access.
+    ///     Handles ProjectionBindingExpression for custom Select projections. Converts member-based
+    ///     bindings to indexed dictionary access.
     /// </summary>
     protected override Expression VisitExtension(Expression node)
     {
@@ -107,12 +110,20 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
                 // Get type mapping from SQL expression for converter support
                 var typeMapping = projection.Expression.TypeMapping;
 
+                // For custom projections, we only have the CLR type, not IProperty metadata.
+                // Enforce strict requiredness for non-nullable value types to align with
+                // relational-style
+                // materialization semantics.
+                var required = IsNonNullableValueType(projectionBinding.Type);
+
                 // Use unified code path with converter support
                 return CreateGetValueExpression(
                     itemParameter,
                     propertyName,
                     projectionBinding.Type,
-                    typeMapping);
+                    typeMapping,
+                    required,
+                    null);
             }
 
         return base.VisitExtension(node);
@@ -136,12 +147,18 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
                 // Get type mapping for converter support
                 var typeMapping = property.GetTypeMapping();
 
+                // Strict requiredness, aligned with relational and Mongo providers.
+                var required = !property.IsNullable;
+                var entityTypeDisplayName = property.DeclaringType.DisplayName();
+
                 // Build inline expression: item.TryGetValue(...) ? value : default
                 var valueExpression = CreateGetValueExpression(
                     itemParameter,
                     property.Name,
                     targetType,
-                    typeMapping);
+                    typeMapping,
+                    required,
+                    entityTypeDisplayName);
 
                 return valueExpression.Type != node.Type
                     ? Convert(valueExpression, node.Type)
@@ -153,8 +170,9 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
     }
 
     /// <summary>
-    ///     Builds an expression tree that extracts a typed value from Dictionary&lt;string, AttributeValue&gt;
-    ///     with null handling, wire primitive extraction, and inlined EF Core converter application.
+    ///     Builds an expression tree that extracts a typed value from Dictionary&lt;string,
+    ///     AttributeValue&gt; with null handling, wire primitive extraction, and inlined EF Core converter
+    ///     application.
     /// </summary>
     /// <remarks>
     ///     Expression structure:
@@ -170,7 +188,9 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
         ParameterExpression itemParameter,
         string propertyName,
         Type type,
-        CoreTypeMapping? typeMapping)
+        CoreTypeMapping? typeMapping,
+        bool required,
+        string? entityTypeDisplayName)
     {
         var converter = typeMapping?.Converter;
 
@@ -183,10 +203,29 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
             Constant(propertyName),
             attributeValueVariable);
 
-        // attributeValue.NULL == true
-        var isNullExpression = Equal(
+        var propertyPath = string.IsNullOrWhiteSpace(entityTypeDisplayName)
+            ? propertyName
+            : $"{entityTypeDisplayName}.{propertyName}";
+
+        var missingReturnExpression = required
+            ? CreateThrow(
+                $"Required property '{propertyPath}' was not present in the DynamoDB item.")
+            : Default(type);
+
+        var nullReturnExpression = required
+            ? CreateThrow($"Required property '{propertyPath}' was set to DynamoDB NULL.")
+            : Default(type);
+
+        // attributeValue is null OR attributeValue.NULL == true
+        var isAttributeValueNullExpression = Equal(
+            attributeValueVariable,
+            Constant(null, typeof(AttributeValue)));
+
+        var isNullFlagExpression = Equal(
             Property(attributeValueVariable, AttributeValueNullProperty),
             Constant(true, typeof(bool?)));
+
+        var isDynamoNullExpression = OrElse(isAttributeValueNullExpression, isNullFlagExpression);
 
         // Extract wire primitive: attributeValue.S, long.Parse(attributeValue.N), etc.
         var primitiveType = converter?.ProviderClrType ?? type;
@@ -211,17 +250,41 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
         if (valueExpression.Type != type)
             valueExpression = Convert(valueExpression, type);
 
-        // item.TryGetValue(...) ? (attributeValue.NULL ? default : value) : default
+        var expectedWireMember = GetExpectedWireMemberName(wireType);
+        var missingWireValueReturnExpression = required
+            ? CreateThrow(
+                $"Required property '{propertyPath}' did not contain a value for expected DynamoDB wire member '{expectedWireMember}'.")
+            : Default(type);
+
+        // Ensure we never parse/convert when the expected wire member isn't present (e.g. N ==
+        // null).
+        // This also makes explicit DynamoDB NULL behave like store null and prevents
+        // long.Parse(null).
+        if (TryCreateHasWireValueExpression(
+            attributeValueVariable,
+            wireType,
+            out var hasWireValueExpression))
+            valueExpression = Condition(
+                hasWireValueExpression,
+                valueExpression,
+                missingWireValueReturnExpression);
+
+        // item.TryGetValue(...) ? (isDynamoNull ? (required?throw:default) : value) :
+        // (required?throw:default)
         var completeExpression = Condition(
             tryGetValueExpression,
-            Condition(isNullExpression, Default(type), valueExpression),
-            Default(type));
+            Condition(isDynamoNullExpression, nullReturnExpression, valueExpression),
+            missingReturnExpression);
 
         return Block([attributeValueVariable], completeExpression);
+
+        Expression CreateThrow(string message)
+            => Throw(New(InvalidOperationExceptionCtor, Constant(message)), type);
     }
 
     /// <summary>
-    ///     Builds an expression tree that deserializes AttributeValue wire format to a CLR primitive type.
+    ///     Builds an expression tree that deserializes AttributeValue wire format to a CLR primitive
+    ///     type.
     /// </summary>
     /// <remarks>
     ///     Maps AttributeValue properties to wire primitive CLR types:
@@ -233,7 +296,8 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
     ///         <item>decimal → decimal.Parse(attributeValue.N)</item>
     ///         <item>byte[] → attributeValue.B?.ToArray()</item>
     ///     </list>
-    ///     Non-primitive types (Guid, DateTimeOffset, etc.) are handled by EF Core value converters.
+    ///     Non-primitive types (Guid,
+    ///     DateTimeOffset, etc.) are handled by EF Core value converters.
     /// </remarks>
     private static Expression CreateAttributeValueToPrimitiveExpression(
         Expression attributeValueExpression,
@@ -286,5 +350,49 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
         throw new InvalidOperationException(
             $"Cannot create expression for AttributeValue to primitive type '{primitiveType.Name}'. "
             + $"Supported types: string, bool, numeric types (int, long, float, double, decimal, etc.), byte[]");
+    }
+
+    private static bool IsNonNullableValueType(Type type)
+        => type.IsValueType && Nullable.GetUnderlyingType(type) == null;
+
+    private static string GetExpectedWireMemberName(Type wireType)
+        => wireType == typeof(string) ? nameof(AttributeValue.S) :
+            wireType == typeof(bool) ? nameof(AttributeValue.BOOL) :
+            wireType == typeof(byte[]) ? nameof(AttributeValue.B) : nameof(AttributeValue.N);
+
+    private static bool TryCreateHasWireValueExpression(
+        Expression attributeValueExpression,
+        Type wireType,
+        out Expression hasWireValueExpression)
+    {
+        if (wireType == typeof(string))
+        {
+            hasWireValueExpression = NotEqual(
+                Property(attributeValueExpression, AttributeValueSProperty),
+                Constant(null, typeof(string)));
+            return true;
+        }
+
+        if (wireType == typeof(bool))
+        {
+            hasWireValueExpression = NotEqual(
+                Property(attributeValueExpression, AttributeValueBoolProperty),
+                Constant(null, typeof(bool?)));
+            return true;
+        }
+
+        if (wireType == typeof(byte[]))
+        {
+            hasWireValueExpression = NotEqual(
+                Property(attributeValueExpression, AttributeValueBProperty),
+                Constant(null, typeof(MemoryStream)));
+            return true;
+        }
+
+        // All numeric wire primitives use AttributeValue.N (string)
+        hasWireValueExpression = NotEqual(
+            Property(attributeValueExpression, AttributeValueNProperty),
+            Constant(null, typeof(string)));
+        return true;
     }
 }

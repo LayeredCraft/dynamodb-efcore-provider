@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Linq.Expressions;
 using System.Reflection;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
@@ -8,20 +9,18 @@ using Microsoft.EntityFrameworkCore.Storage;
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
 
 /// <summary>
-///     Translates Select lambda bodies into projection mappings (ProjectionMember → SqlExpression).
-///     Supports anonymous types, DTOs, and scalar projections.
+///     Translates Select lambda bodies into projection mappings (ProjectionMember →
+///     SqlExpression). Supports anonymous types, DTOs, and scalar projections.
 /// </summary>
 public class DynamoProjectionBindingExpressionVisitor(
     DynamoSqlTranslatingExpressionVisitor sqlTranslator,
     ISqlExpressionFactory sqlExpressionFactory) : ExpressionVisitor
 {
-    private SelectExpression _selectExpression = null!;
     private readonly Dictionary<ProjectionMember, Expression> _projectionMapping = new();
     private readonly Stack<ProjectionMember> _projectionMembers = new();
+    private SelectExpression _selectExpression = null!;
 
-    /// <summary>
-    ///     Translates a Select lambda body into a projection mapping and returns a shaper expression.
-    /// </summary>
+    /// <summary>Translates a Select lambda body into a projection mapping and returns a shaper expression.</summary>
     public Expression Translate(SelectExpression selectExpression, Expression expression)
     {
         _selectExpression = selectExpression;
@@ -42,20 +41,21 @@ public class DynamoProjectionBindingExpressionVisitor(
         return result;
     }
 
-    /// <summary>
-    ///     Handles anonymous type projections: new { x.Id, x.Name }
-    /// </summary>
+    /// <summary>Handles anonymous type projections: new { x.Id, x.Name }</summary>
     protected override Expression VisitNew(NewExpression node)
     {
         // Parameterless constructors (e.g., new object())
         if (node.Arguments.Count == 0)
             return node;
 
-        // Anonymous types must have members
-        if (node.Members == null)
+        // Anonymous types must have members, but constructor DTO projections (new Dto(x.Prop, ...))
+        // arrive without members. For these, infer members from constructor parameter names.
+        var members = node.Members ?? TryInferMembers(node);
+
+        if (members == null)
             throw new InvalidOperationException(
                 $"DynamoDB provider does not support projection to type '{node.Type.Name}' without member assignments. "
-                + "Use anonymous types (new {{ x.Prop }}) or DTOs with MemberInitExpression.");
+                + "Use anonymous types (new { x.Prop }) or DTOs with MemberInitExpression.");
 
         var newArguments = new Expression[node.Arguments.Count];
         for (var i = 0; i < newArguments.Length; i++)
@@ -63,7 +63,7 @@ public class DynamoProjectionBindingExpressionVisitor(
             var argument = node.Arguments[i];
 
             // Push member onto stack for hierarchical tracking
-            var projectionMember = _projectionMembers.Peek().Append(node.Members[i]);
+            var projectionMember = _projectionMembers.Peek().Append(members[i]);
             _projectionMembers.Push(projectionMember);
 
             var visitedArgument = Visit(argument);
@@ -80,12 +80,53 @@ public class DynamoProjectionBindingExpressionVisitor(
             newArguments[i] = visitedArgument;
         }
 
-        return node.Update(newArguments);
+        // For inferred constructor projections, we must preserve the inferred member list.
+        return node.Members == null
+            ? Expression.New(node.Constructor!, newArguments, members)
+            : node.Update(newArguments);
     }
 
-    /// <summary>
-    ///     Handles DTO projections: new ItemDto { Id = x.Id, Name = x.Name }
-    /// </summary>
+    private static ReadOnlyCollection<MemberInfo>? TryInferMembers(NewExpression node)
+    {
+        if (node.Constructor == null)
+            return null;
+
+        var parameters = node.Constructor.GetParameters();
+        if (parameters.Length != node.Arguments.Count)
+            return null;
+
+        var members = new MemberInfo[parameters.Length];
+
+        for (var i = 0; i < parameters.Length; i++)
+        {
+            var parameterName = parameters[i].Name;
+            if (string.IsNullOrWhiteSpace(parameterName))
+                return null;
+
+            var property = node.Type.GetProperty(
+                parameterName,
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.IgnoreCase);
+
+            if (property != null)
+            {
+                members[i] = property;
+                continue;
+            }
+
+            var field = node.Type.GetField(
+                parameterName,
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.IgnoreCase);
+
+            if (field == null)
+                return null;
+
+            members[i] = field;
+        }
+
+        return new ReadOnlyCollection<MemberInfo>(members);
+    }
+
+    /// <summary>Handles DTO projections: new ItemDto { Id = x.Id, Name = x.Name }</summary>
     protected override Expression VisitMemberInit(MemberInitExpression node)
     {
         var newExpression = Visit(node.NewExpression);
@@ -121,9 +162,7 @@ public class DynamoProjectionBindingExpressionVisitor(
         return node.Update((NewExpression)newExpression, newBindings);
     }
 
-    /// <summary>
-    ///     Handles StructuralTypeShaperExpression (entity shapers from previous query stage).
-    /// </summary>
+    /// <summary>Handles StructuralTypeShaperExpression (entity shapers from previous query stage).</summary>
     protected override Expression VisitExtension(Expression node)
     {
         if (node is not StructuralTypeShaperExpression entityShaperExpression)
@@ -170,9 +209,7 @@ public class DynamoProjectionBindingExpressionVisitor(
             typeof(ValueBuffer));
     }
 
-    /// <summary>
-    ///     Handles property access expressions (e.g., item.Pk, item.Name).
-    /// </summary>
+    /// <summary>Handles property access expressions (e.g., item.Pk, item.Name).</summary>
     protected override Expression VisitMember(MemberExpression node)
     {
         // If it's accessing a property on an entity shaper, translate to SQL property
@@ -207,9 +244,7 @@ public class DynamoProjectionBindingExpressionVisitor(
             node.Type);
     }
 
-    /// <summary>
-    ///     Default visitor for all other expressions - attempts SQL translation.
-    /// </summary>
+    /// <summary>Default visitor for all other expressions - attempts SQL translation.</summary>
     public override Expression? Visit(Expression? node)
     {
         if (node == null)
