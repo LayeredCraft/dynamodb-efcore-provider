@@ -1,5 +1,4 @@
 using System.Linq.Expressions;
-using System.Reflection;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using Microsoft.EntityFrameworkCore.Metadata;
@@ -328,12 +327,7 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
         if (translation == null)
             return null;
 
-        if (translation is SqlPropertyExpression propertyExpression
-            && propertyExpression.Type == typeof(bool))
-            translation = _sqlExpressionFactory.Binary(
-                ExpressionType.Equal,
-                propertyExpression,
-                _sqlExpressionFactory.Constant(true, typeof(bool)));
+        translation = NormalizePredicate(translation);
 
         selectExpression.ApplyPredicate(translation);
         return source;
@@ -349,4 +343,78 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
         // The SQL translator will recognize parameter.Property accesses and convert them to
         // SqlPropertyExpression
         => _sqlTranslator.Translate(lambdaExpression.Body);
+
+    /// <summary>Normalizes boolean predicates into explicit comparisons for PartiQL.</summary>
+    private SqlExpression NormalizePredicate(SqlExpression expression)
+        => NormalizePredicate(expression, _sqlExpressionFactory, true);
+
+    /// <summary>Normalizes search-condition terms while preserving normal comparisons.</summary>
+    private static SqlExpression NormalizePredicate(
+        SqlExpression expression,
+        ISqlExpressionFactory sqlExpressionFactory,
+        bool inSearchCondition)
+        => expression switch
+        {
+            SqlBinaryExpression binaryExpression => NormalizeBinary(
+                binaryExpression,
+                sqlExpressionFactory),
+            SqlPropertyExpression propertyExpression when inSearchCondition
+                && IsBooleanType(propertyExpression.Type) => WrapBooleanPredicate(
+                    propertyExpression,
+                    sqlExpressionFactory),
+            SqlParameterExpression parameterExpression when inSearchCondition
+                && IsBooleanType(parameterExpression.Type) => WrapBooleanPredicate(
+                    parameterExpression,
+                    sqlExpressionFactory),
+            _ => expression,
+        };
+
+    /// <summary>Recursively normalizes logical predicates while preserving comparisons.</summary>
+    private static SqlBinaryExpression NormalizeBinary(
+        SqlBinaryExpression binaryExpression,
+        ISqlExpressionFactory sqlExpressionFactory)
+    {
+        // Search conditions only exist at AND/OR boundaries.
+        if (binaryExpression.OperatorType is ExpressionType.AndAlso or ExpressionType.OrElse)
+        {
+            var left = NormalizePredicate(binaryExpression.Left, sqlExpressionFactory, true);
+            var right = NormalizePredicate(binaryExpression.Right, sqlExpressionFactory, true);
+            return binaryExpression.Update(left, right);
+        }
+
+        // Avoid rewriting operands inside explicit comparisons.
+        if (IsComparisonOperator(binaryExpression.OperatorType))
+        {
+            var left = NormalizePredicate(binaryExpression.Left, sqlExpressionFactory, false);
+            var right = NormalizePredicate(binaryExpression.Right, sqlExpressionFactory, false);
+            return binaryExpression.Update(left, right);
+        }
+
+        var normalizedLeft = NormalizePredicate(binaryExpression.Left, sqlExpressionFactory, false);
+        var normalizedRight = NormalizePredicate(
+            binaryExpression.Right,
+            sqlExpressionFactory,
+            false);
+        return binaryExpression.Update(normalizedLeft, normalizedRight);
+    }
+
+    /// <summary>Wraps a boolean column/parameter into an explicit comparison.</summary>
+    private static SqlExpression WrapBooleanPredicate(
+        SqlExpression expression,
+        ISqlExpressionFactory sqlExpressionFactory)
+        => sqlExpressionFactory.Binary(
+                ExpressionType.Equal,
+                expression,
+                sqlExpressionFactory.Constant(true, typeof(bool)))
+            ?? expression;
+
+    private static bool IsBooleanType(Type type) => type == typeof(bool) || type == typeof(bool?);
+
+    private static bool IsComparisonOperator(ExpressionType operatorType)
+        => operatorType is ExpressionType.Equal
+            or ExpressionType.NotEqual
+            or ExpressionType.LessThan
+            or ExpressionType.LessThanOrEqual
+            or ExpressionType.GreaterThan
+            or ExpressionType.GreaterThanOrEqual;
 }

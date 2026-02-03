@@ -76,6 +76,64 @@ public class WhereTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase(
     }
 
     [Fact]
+    public async Task Where_BoolColumnPredicate_RendersEqualsTrue()
+    {
+        var resultItems = await Db
+            .SimpleItems.Where(item => item.BoolValue)
+            .ToListAsync(CancellationToken);
+
+        var expected = SimpleItems.Items.Where(item => item.BoolValue);
+
+        resultItems.Should().BeEquivalentTo(expected);
+
+        AssertSql(
+            """
+            SELECT Pk, BoolValue, DateTimeOffsetValue, DecimalValue, DoubleValue, FloatValue, GuidValue, IntValue, LongValue, NullableBoolValue, NullableIntValue, NullableStringValue, StringValue
+            FROM SimpleItems
+            WHERE BoolValue = TRUE
+            """);
+    }
+
+    [Fact]
+    public async Task Where_BoolColumnPredicate_WithAnd_RendersEqualsTrue()
+    {
+        var resultItems = await Db
+            .SimpleItems.Where(item => item.Pk == "ITEM#1" && item.BoolValue)
+            .ToListAsync(CancellationToken);
+
+        var expected = SimpleItems.Items.Where(item => item.Pk == "ITEM#1" && item.BoolValue);
+
+        resultItems.Should().BeEquivalentTo(expected);
+
+        AssertSql(
+            """
+            SELECT Pk, BoolValue, DateTimeOffsetValue, DecimalValue, DoubleValue, FloatValue, GuidValue, IntValue, LongValue, NullableBoolValue, NullableIntValue, NullableStringValue, StringValue
+            FROM SimpleItems
+            WHERE Pk = 'ITEM#1' AND BoolValue = TRUE
+            """);
+    }
+
+    [Fact]
+    public async Task Where_BoolColumn_EqualsCapturedBoolParameter_RendersColumnEqualsParameter()
+    {
+        var enabled = true;
+        var resultItems = await Db
+            .SimpleItems.Where(item => item.BoolValue == enabled)
+            .ToListAsync(CancellationToken);
+
+        var expected = SimpleItems.Items.Where(item => item.BoolValue == enabled);
+
+        resultItems.Should().BeEquivalentTo(expected);
+
+        AssertSql(
+            """
+            SELECT Pk, BoolValue, DateTimeOffsetValue, DecimalValue, DoubleValue, FloatValue, GuidValue, IntValue, LongValue, NullableBoolValue, NullableIntValue, NullableStringValue, StringValue
+            FROM SimpleItems
+            WHERE BoolValue = ?
+            """);
+    }
+
+    [Fact]
     public async Task OrderBy_ThenBy_WithOrPredicate_ReturnsItemsInAscendingOrder()
     {
         // DynamoDB PartiQL requires a hash-key condition when using ORDER BY.
