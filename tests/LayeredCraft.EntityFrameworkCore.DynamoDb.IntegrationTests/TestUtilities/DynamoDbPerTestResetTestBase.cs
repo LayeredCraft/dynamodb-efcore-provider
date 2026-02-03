@@ -11,13 +11,14 @@ public abstract class DynamoDbPerTestResetTestBase<TFixture, TContext>(TFixture 
 
     protected TContext Db
         => _db
-           ?? throw new InvalidOperationException(
-               "DbContext is not initialized. Ensure the test class implements xUnit async lifetime correctly.");
+            ?? throw new InvalidOperationException(
+                "DbContext is not initialized. Ensure the test class implements xUnit async lifetime correctly.");
 
-    protected void AssertSql(params string[] expected)
-        => (_loggerFactory
-            ?? throw new InvalidOperationException("Logger factory is not initialized."))
-            .AssertBaseline(expected);
+    protected TestPartiQlLoggerFactory LoggerFactory
+        => _loggerFactory
+            ?? throw new InvalidOperationException("Logger factory is not initialized.");
+
+    protected void AssertSql(params string[] expected) => LoggerFactory.AssertBaseline(expected);
 
     protected abstract Task CreateTablesAsync(CancellationToken cancellationToken);
 
