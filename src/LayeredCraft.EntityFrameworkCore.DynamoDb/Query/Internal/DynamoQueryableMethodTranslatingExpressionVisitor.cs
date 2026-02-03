@@ -328,6 +328,13 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
         if (translation == null)
             return null;
 
+        if (translation is SqlPropertyExpression propertyExpression
+            && propertyExpression.Type == typeof(bool))
+            translation = _sqlExpressionFactory.Binary(
+                ExpressionType.Equal,
+                propertyExpression,
+                _sqlExpressionFactory.Constant(true, typeof(bool)));
+
         selectExpression.ApplyPredicate(translation);
         return source;
     }

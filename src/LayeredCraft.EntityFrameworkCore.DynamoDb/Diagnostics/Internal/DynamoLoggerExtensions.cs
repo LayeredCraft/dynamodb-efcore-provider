@@ -13,6 +13,18 @@ public static class DynamoLoggerExtensions
             DynamoEventId.ExecutingPartiQlQuery,
             "Executing DynamoDB PartiQL query for table '{tableName}'{newLine}{commandText}");
 
+    private static readonly Action<ILogger, int?, bool, Exception?> LogExecutingExecuteStatement =
+        LoggerMessage.Define<int?, bool>(
+            LogLevel.Information,
+            DynamoEventId.ExecutingExecuteStatement,
+            "Executing DynamoDB ExecuteStatement request (limit: {limit}, nextTokenPresent: {nextTokenPresent})");
+
+    private static readonly Action<ILogger, int, bool, Exception?> LogExecutedExecuteStatement =
+        LoggerMessage.Define<int, bool>(
+            LogLevel.Information,
+            DynamoEventId.ExecutedExecuteStatement,
+            "Executed DynamoDB ExecuteStatement request (itemsCount: {itemsCount}, nextTokenPresent: {nextTokenPresent})");
+
     public static void ExecutingPartiQlQuery(
         this IDiagnosticsLogger<DbLoggerCategory.Database.Command> diagnostics,
         string tableName,
@@ -27,5 +39,27 @@ public static class DynamoLoggerExtensions
             Environment.NewLine,
             commandText,
             null);
+    }
+
+    public static void ExecutingExecuteStatement(
+        this IDiagnosticsLogger<DbLoggerCategory.Database.Command> diagnostics,
+        int? limit,
+        bool nextTokenPresent)
+    {
+        if (!diagnostics.Logger.IsEnabled(LogLevel.Information))
+            return;
+
+        LogExecutingExecuteStatement(diagnostics.Logger, limit, nextTokenPresent, null);
+    }
+
+    public static void ExecutedExecuteStatement(
+        this IDiagnosticsLogger<DbLoggerCategory.Database.Command> diagnostics,
+        int itemsCount,
+        bool nextTokenPresent)
+    {
+        if (!diagnostics.Logger.IsEnabled(LogLevel.Information))
+            return;
+
+        LogExecutedExecuteStatement(diagnostics.Logger, itemsCount, nextTokenPresent, null);
     }
 }

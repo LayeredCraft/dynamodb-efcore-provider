@@ -1,9 +1,12 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Infrastructure.Internal;
+using LayeredCraft.EntityFrameworkCore.DynamoDb.Diagnostics.Internal;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Utilities;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Storage;
 
@@ -11,10 +14,12 @@ public class DynamoClientWrapper : IDynamoClientWrapper
 {
     private readonly AmazonDynamoDBConfig _amazonDynamoDbConfig = new();
     private readonly IExecutionStrategy _executionStrategy;
+    private readonly IDiagnosticsLogger<DbLoggerCategory.Database.Command> _commandLogger;
 
     public DynamoClientWrapper(
         IDbContextOptions dbContextOptions,
-        IExecutionStrategy executionStrategy)
+        IExecutionStrategy executionStrategy,
+        IDiagnosticsLogger<DbLoggerCategory.Database.Command> commandLogger)
     {
         var options = dbContextOptions.NotNull().FindExtension<DynamoDbOptionsExtension>();
 
@@ -25,9 +30,10 @@ public class DynamoClientWrapper : IDynamoClientWrapper
             _amazonDynamoDbConfig.ServiceURL = options.ServiceUrl;
 
         _executionStrategy = executionStrategy.NotNull();
+        _commandLogger = commandLogger.NotNull();
     }
 
-    public IAmazonDynamoDB Client
+    public virtual IAmazonDynamoDB Client
     {
         get
         {
@@ -117,10 +123,18 @@ public class DynamoClientWrapper : IDynamoClientWrapper
                 if (_nextToken is not null)
                     request.NextToken = _nextToken;
 
+                dynamoEnumerable._dynamoClientWrapper._commandLogger.ExecutingExecuteStatement(
+                    request.Limit,
+                    request.NextToken is not null);
+
                 var response =
                     await dynamoEnumerable
                         ._dynamoClientWrapper.Client.ExecuteStatementAsync(request, ct)
                         .ConfigureAwait(false);
+
+                dynamoEnumerable._dynamoClientWrapper._commandLogger.ExecutedExecuteStatement(
+                    response.Items?.Count ?? 0,
+                    response.NextToken is not null);
 
                 _currentItems = response.Items;
                 _nextToken = response.NextToken;
