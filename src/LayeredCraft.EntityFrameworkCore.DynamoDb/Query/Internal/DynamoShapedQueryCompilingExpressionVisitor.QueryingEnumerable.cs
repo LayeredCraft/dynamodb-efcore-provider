@@ -61,6 +61,8 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
                 _shaper;
 
             private readonly bool _standAloneStateManager;
+            private readonly int? _resultLimit;
+            private int _returnedCount;
 
             private IAsyncEnumerator<Dictionary<string, AttributeValue>>? _dataEnumerator;
 
@@ -73,6 +75,7 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
                 _shaper = enumerable._shaper;
                 _standAloneStateManager = enumerable._standAloneStateManager;
                 _cancellationToken = cancellationToken;
+                _resultLimit = enumerable._selectExpression.Limit;
                 _concurrencyDetector = enumerable._threadSafetyChecksEnabled
                     ? _queryContext.ConcurrencyDetector
                     : null;
@@ -83,6 +86,9 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
             public async ValueTask<bool> MoveNextAsync()
             {
                 using var _ = _concurrencyDetector?.EnterCriticalSection();
+
+                if (_returnedCount >= _resultLimit)
+                    return false;
 
                 if (_dataEnumerator == null)
                 {
@@ -96,7 +102,10 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
                     var asyncEnumerable = _queryingEnumerable._client.ExecutePartiQl(
                         new ExecuteStatementRequest
                         {
-                            Statement = sqlQuery.Sql, Parameters = sqlQuery.Parameters.ToList(),
+                            Statement =
+                                sqlQuery.Sql,
+                            Parameters = sqlQuery.Parameters.ToList(),
+                            Limit = _queryingEnumerable._selectExpression.Limit,
                         });
 
                     _dataEnumerator = asyncEnumerable.GetAsyncEnumerator(_cancellationToken);
@@ -105,9 +114,16 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
 
                 var hasNext = await _dataEnumerator.MoveNextAsync().ConfigureAwait(false);
 
-                Current = hasNext ? _shaper(_queryContext, _dataEnumerator.Current) : default!;
+                if (!hasNext)
+                {
+                    Current = default!;
+                    return false;
+                }
 
-                return hasNext;
+                Current = _shaper(_queryContext, _dataEnumerator.Current);
+                _returnedCount++;
+
+                return true;
             }
 
             public ValueTask DisposeAsync()

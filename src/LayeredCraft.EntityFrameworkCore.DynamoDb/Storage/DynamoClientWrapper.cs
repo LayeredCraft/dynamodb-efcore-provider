@@ -78,33 +78,37 @@ public class DynamoClientWrapper : IDynamoClientWrapper
 
             public async ValueTask<bool> MoveNextAsync()
             {
-                // If we have items in the current batch, try to move to the next one
-                if (_currentItems is not null && _currentIndex + 1 < _currentItems.Count)
+                while (true)
                 {
-                    _currentIndex++;
-                    return true;
+                    // If we have items in the current batch, try to move to the next one
+                    if (_currentItems is not null && _currentIndex + 1 < _currentItems.Count)
+                    {
+                        _currentIndex++;
+                        return true;
+                    }
+
+                    // If we don't have more pages, we're done
+                    if (!_hasMorePages)
+                        return false;
+
+                    // Fetch the next page
+                    await dynamoEnumerable
+                        ._dynamoClientWrapper._executionStrategy.ExecuteAsync(
+                            this,
+                            static (_, enumerator, ct) => enumerator.FetchPageAsync(ct),
+                            null,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+
+                    if (_currentItems is not null && _currentItems.Count > 0)
+                    {
+                        _currentIndex = 0;
+                        return true;
+                    }
+
+                    if (!_hasMorePages)
+                        return false;
                 }
-
-                // If we don't have more pages, we're done
-                if (!_hasMorePages)
-                    return false;
-
-                // Fetch the next page
-                await dynamoEnumerable
-                    ._dynamoClientWrapper._executionStrategy.ExecuteAsync(
-                        this,
-                        static (_, enumerator, ct) => enumerator.FetchPageAsync(ct),
-                        null,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-
-                // If no items in this response, we're done
-                if (_currentItems is null || _currentItems.Count == 0)
-                    return false;
-
-                // Reset to first item in the new batch
-                _currentIndex = 0;
-                return true;
             }
 
             private async Task<bool> FetchPageAsync(CancellationToken ct)

@@ -124,7 +124,20 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
         LambdaExpression? predicate,
         Type returnType,
         bool returnDefault)
-        => throw new NotImplementedException();
+    {
+        if (predicate != null)
+        {
+            if (TranslateWhere(source, predicate) is not { } translatedSource)
+                return null;
+
+            source = translatedSource;
+        }
+
+        var selectExpression = (SelectExpression)source.QueryExpression;
+        selectExpression.ApplyLimit(1);
+
+        return source;
+    }
 
     protected override ShapedQueryExpression? TranslateGroupBy(
         ShapedQueryExpression source,

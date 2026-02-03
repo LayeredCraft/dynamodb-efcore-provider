@@ -21,6 +21,9 @@ public class SelectExpression(string tableName) : Expression
     /// <summary>The WHERE clause predicate, or null if no filtering is applied.</summary>
     public SqlExpression? Predicate { get; private set; }
 
+    /// <summary>The maximum number of items to evaluate per request.</summary>
+    public int? Limit { get; private set; }
+
     /// <summary>
     ///     The list of projected columns for the SELECT clause. Must have at least one projection -
     ///     SELECT * is not supported.
@@ -54,6 +57,9 @@ public class SelectExpression(string tableName) : Expression
 
     /// <summary>Appends an additional ordering (for ThenBy).</summary>
     public void AppendOrdering(OrderingExpression ordering) => _orderings.Add(ordering);
+
+    /// <summary>Sets the maximum number of items to evaluate per request.</summary>
+    public void ApplyLimit(int? limit) => Limit = limit;
 
     /// <summary>Adds a projection to the SELECT clause.</summary>
     public void AddToProjection(ProjectionExpression projectionExpression)
