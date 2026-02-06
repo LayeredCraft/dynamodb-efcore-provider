@@ -65,7 +65,7 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
             """
             SELECT Pk, Sk, Category, IsTarget
             FROM PkSkItems
-            WHERE Pk = 'P#1' AND IsTarget = TRUE
+            WHERE Pk = 'P#1' AND IsTarget = TRUEe
             """);
     }
 
