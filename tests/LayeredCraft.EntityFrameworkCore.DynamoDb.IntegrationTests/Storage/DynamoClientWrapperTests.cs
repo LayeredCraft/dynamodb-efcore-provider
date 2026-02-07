@@ -36,11 +36,11 @@ public class DynamoClientWrapperTests
                     return Task.FromResult(
                         new ExecuteStatementResponse
                         {
-                            Items = new List<Dictionary<string, AttributeValue>>
-                            {
+                            Items =
+                            [
                                 new() { ["id"] = new AttributeValue { S = "A" } },
                                 new() { ["id"] = new AttributeValue { S = "B" } },
-                            },
+                            ],
                             NextToken = "t1",
                         });
 
@@ -48,18 +48,18 @@ public class DynamoClientWrapperTests
                     return Task.FromResult(
                         new ExecuteStatementResponse
                         {
-                            Items = new List<Dictionary<string, AttributeValue>>
-                            {
-                                new() { ["id"] = new AttributeValue { S = "C" } },
-                            },
+                            Items =
+                            [
+                                new Dictionary<string, AttributeValue>
+                                {
+                                    ["id"] = new() { S = "C" },
+                                },
+                            ],
                             NextToken = null,
                         });
 
                 return Task.FromResult(
-                    new ExecuteStatementResponse
-                    {
-                        Items = new List<Dictionary<string, AttributeValue>>(), NextToken = null,
-                    });
+                    new ExecuteStatementResponse { Items = [], NextToken = null });
             });
 
         var wrapper = new TestDynamoClientWrapper(
@@ -70,7 +70,7 @@ public class DynamoClientWrapperTests
 
         var requestPrototype = new ExecuteStatementRequest
         {
-            Statement = "SELECT * FROM Test", Parameters = new List<AttributeValue>(),
+            Statement = "SELECT * FROM Test", Parameters = [],
         };
 
         var enumerable = wrapper.ExecutePartiQl(requestPrototype, false);

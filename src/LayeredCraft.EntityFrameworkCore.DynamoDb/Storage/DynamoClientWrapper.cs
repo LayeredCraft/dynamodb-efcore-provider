@@ -170,7 +170,7 @@ public class DynamoClientWrapper : IDynamoClientWrapper
             Statement = prototype.Statement,
             Parameters =
                 cloneParameters && prototype.Parameters is not null
-                    ? new List<AttributeValue>(prototype.Parameters)
+                    ? [..prototype.Parameters]
                     : prototype.Parameters,
             Limit = prototype.Limit,
             ConsistentRead = prototype.ConsistentRead,
