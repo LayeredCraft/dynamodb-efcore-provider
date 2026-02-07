@@ -53,7 +53,7 @@ public class DynamoClientWrapper : IDynamoClientWrapper
         bool singlePageOnly) : IAsyncEnumerable<Dictionary<string, AttributeValue>>
     {
         private readonly DynamoClientWrapper _dynamoClientWrapper = dynamoClientWrapper;
-        private readonly ExecuteStatementRequest _statementRequest = statementRequest;
+        private readonly ExecuteStatementRequest _statementRequestPrototype = statementRequest;
         private readonly bool _singlePageOnly = singlePageOnly;
 
         public IAsyncEnumerator<Dictionary<string, AttributeValue>> GetAsyncEnumerator(
@@ -66,10 +66,15 @@ public class DynamoClientWrapper : IDynamoClientWrapper
             : IAsyncEnumerator<Dictionary<string, AttributeValue>>
         {
             private readonly bool _singlePageOnly = dynamoEnumerable._singlePageOnly;
+
+            private readonly ExecuteStatementRequest _request = CloneExecuteStatementRequest(
+                dynamoEnumerable._statementRequestPrototype,
+                true);
+
             private bool _hasExecutedRequest;
             private List<Dictionary<string, AttributeValue>>? _currentItems;
             private int _currentIndex = -1;
-            private string? _nextToken;
+            private string? _nextToken = dynamoEnumerable._statementRequestPrototype.NextToken;
             private bool _hasMorePages = true;
 
             public Dictionary<string, AttributeValue> Current
@@ -127,17 +132,15 @@ public class DynamoClientWrapper : IDynamoClientWrapper
 
             private async Task<bool> FetchPageAsync(CancellationToken ct)
             {
-                var request = dynamoEnumerable._statementRequest;
-                if (_nextToken is not null)
-                    request.NextToken = _nextToken;
+                _request.NextToken = _nextToken;
 
                 dynamoEnumerable._dynamoClientWrapper._commandLogger.ExecutingExecuteStatement(
-                    request.Limit,
-                    request.NextToken is not null);
+                    _request.Limit,
+                    _request.NextToken is not null);
 
                 var response =
                     await dynamoEnumerable
-                        ._dynamoClientWrapper.Client.ExecuteStatementAsync(request, ct)
+                        ._dynamoClientWrapper.Client.ExecuteStatementAsync(_request, ct)
                         .ConfigureAwait(false);
 
                 dynamoEnumerable._dynamoClientWrapper._commandLogger.ExecutedExecuteStatement(
@@ -159,4 +162,19 @@ public class DynamoClientWrapper : IDynamoClientWrapper
             }
         }
     }
+
+    private static ExecuteStatementRequest
+        CloneExecuteStatementRequest(ExecuteStatementRequest prototype, bool cloneParameters)
+        => new()
+        {
+            Statement = prototype.Statement,
+            Parameters =
+                cloneParameters && prototype.Parameters is not null
+                    ? new List<AttributeValue>(prototype.Parameters)
+                    : prototype.Parameters,
+            Limit = prototype.Limit,
+            ConsistentRead = prototype.ConsistentRead,
+            ReturnConsumedCapacity = prototype.ReturnConsumedCapacity,
+            ReturnValuesOnConditionCheckFailure = prototype.ReturnValuesOnConditionCheckFailure,
+        };
 }
