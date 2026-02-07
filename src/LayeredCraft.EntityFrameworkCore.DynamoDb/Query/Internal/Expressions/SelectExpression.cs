@@ -21,8 +21,39 @@ public class SelectExpression(string tableName) : Expression
     /// <summary>The WHERE clause predicate, or null if no filtering is applied.</summary>
     public SqlExpression? Predicate { get; private set; }
 
-    /// <summary>The maximum number of items to evaluate per request.</summary>
-    public int? Limit { get; private set; }
+    /// <summary>
+    ///     The maximum number of results to return to the caller (e.g., 1 for First, N for Take(N)).
+    ///     Controls when the query stops returning items. Null means unlimited results.
+    /// </summary>
+    public int? ResultLimit { get; private set; }
+
+    /// <summary>
+    ///     The expression for the result limit (handles parameterized Take count). If set, this takes
+    ///     precedence over ResultLimit during query execution.
+    /// </summary>
+    public Expression? ResultLimitExpression { get; private set; }
+
+    /// <summary>
+    ///     The maximum number of items DynamoDB should evaluate per request. Maps to
+    ///     ExecuteStatementRequest.Limit. Null means no limit (DynamoDB default of 1MB).
+    /// </summary>
+    public int? PageSize { get; private set; }
+
+    /// <summary>
+    ///     The expression for the page size (handles parameterized WithPageSize). If set, this takes
+    ///     precedence over PageSize during query execution.
+    /// </summary>
+    public Expression? PageSizeExpression { get; private set; }
+
+    /// <summary>
+    ///     The maximum number of items to evaluate per request. For backward compatibility -
+    ///     redirects to PageSize.
+    /// </summary>
+    public int? Limit
+    {
+        get => PageSize;
+        private set => PageSize = value;
+    }
 
     /// <summary>
     ///     The list of projected columns for the SELECT clause. Must have at least one projection -
@@ -58,8 +89,32 @@ public class SelectExpression(string tableName) : Expression
     /// <summary>Appends an additional ordering (for ThenBy).</summary>
     public void AppendOrdering(OrderingExpression ordering) => _orderings.Add(ordering);
 
-    /// <summary>Sets the maximum number of items to evaluate per request.</summary>
-    public void ApplyLimit(int? limit) => Limit = limit;
+    /// <summary>Sets the maximum number of results to return to the caller.</summary>
+    public void ApplyResultLimit(int? limit) => ResultLimit = limit;
+
+    /// <summary>Sets the result limit expression (for parameterized Take).</summary>
+    public void ApplyResultLimitExpression(Expression limitExpression)
+        => ResultLimitExpression = limitExpression;
+
+    /// <summary>Sets the maximum number of items DynamoDB should evaluate per request.</summary>
+    public void ApplyPageSize(int? pageSize)
+    {
+        PageSize = pageSize;
+        PageSizeExpression = null;
+    }
+
+    /// <summary>Sets the page size expression (for parameterized WithPageSize).</summary>
+    public void ApplyPageSizeExpression(Expression pageSizeExpression)
+    {
+        PageSizeExpression = pageSizeExpression;
+        PageSize = null;
+    }
+
+    /// <summary>
+    ///     Sets the maximum number of items to evaluate per request. For backward compatibility -
+    ///     redirects to ApplyPageSize.
+    /// </summary>
+    public void ApplyLimit(int? limit) => ApplyPageSize(limit);
 
     /// <summary>Adds a projection to the SELECT clause.</summary>
     public void AddToProjection(ProjectionExpression projectionExpression)

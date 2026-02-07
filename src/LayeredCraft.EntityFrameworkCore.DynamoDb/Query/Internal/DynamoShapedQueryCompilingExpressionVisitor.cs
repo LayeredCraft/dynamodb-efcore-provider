@@ -1,6 +1,7 @@
 using System.Linq.Expressions;
 using System.Reflection;
 using Amazon.DynamoDBv2.Model;
+using LayeredCraft.EntityFrameworkCore.DynamoDb.Infrastructure.Internal;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
@@ -22,6 +23,27 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
 
         // Finalize projection mapping → concrete projection list
         selectExpression.ApplyProjection();
+
+        if (selectExpression.PageSize is null && selectExpression.PageSizeExpression is null)
+        {
+            if (dynamoQueryCompilationContext.PageSizeOverrideExpression is not null)
+            {
+                selectExpression.ApplyPageSizeExpression(
+                    dynamoQueryCompilationContext.PageSizeOverrideExpression);
+            }
+            else if (dynamoQueryCompilationContext.PageSizeOverride.HasValue)
+            {
+                selectExpression.ApplyPageSize(
+                    dynamoQueryCompilationContext.PageSizeOverride.Value);
+            }
+            else
+            {
+                var options = dynamoQueryCompilationContext.ContextOptions
+                    .FindExtension<DynamoDbOptionsExtension>();
+                if (options?.DefaultPageSize is not null)
+                    selectExpression.ApplyPageSize(options.DefaultPageSize);
+            }
+        }
 
         var shaperBody = shapedQueryExpression.ShaperExpression;
 
@@ -64,12 +86,13 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
                 .MakeGenericType(shaperBody.Type)
                 .GetConstructors(
                     BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
-                .Single(c => c.GetParameters().Length == 6),
+                .Single(c => c.GetParameters().Length == 7),
             queryContextParameter,
             Expression.Constant(selectExpression),
             Expression.Constant(sqlGenerator),
             shaperLambda,
             Expression.Constant(standAloneStateManager),
-            Expression.Constant(_dependencies.CoreSingletonOptions.AreThreadSafetyChecksEnabled));
+            Expression.Constant(_dependencies.CoreSingletonOptions.AreThreadSafetyChecksEnabled),
+            Expression.Constant(dynamoQueryCompilationContext.PaginationDisabled));
     }
 }

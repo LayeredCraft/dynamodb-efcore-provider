@@ -29,7 +29,11 @@ public static class PkSkItems
         },
         new()
         {
-            Pk = "P#2", Sk = "0001", IsTarget = false, Category = "delta",
+            Pk = "P#1", Sk = "0004", IsTarget = true, Category = "delta",
+        },
+        new()
+        {
+            Pk = "P#2", Sk = "0001", IsTarget = false, Category = "echo",
         },
     ];
 

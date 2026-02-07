@@ -1,6 +1,8 @@
 using System.Linq.Expressions;
+using LayeredCraft.EntityFrameworkCore.DynamoDb.Infrastructure.Internal;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -31,6 +33,44 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
 
     protected override QueryableMethodTranslatingExpressionVisitor CreateSubqueryVisitor()
         => throw new NotImplementedException();
+
+    protected override Expression VisitMethodCall(MethodCallExpression methodCallExpression)
+    {
+        var method = methodCallExpression.Method;
+
+        // Check for DynamoDB-specific extension methods
+        if (method.DeclaringType == typeof(DynamoDbQueryableExtensions))
+        {
+            if (method.Name == nameof(DynamoDbQueryableExtensions.WithPageSize))
+            {
+                var context = (DynamoQueryCompilationContext)QueryCompilationContext;
+                if (context.PageSizeOverrideExpression == null)
+                {
+                    context.PageSizeOverrideExpression = methodCallExpression.Arguments[1];
+                    if (methodCallExpression.Arguments[1] is ConstantExpression
+                        {
+                            Value: int pageSize,
+                        })
+                        context.PageSizeOverride = pageSize;
+                }
+
+                // Continue visiting the source (prune this extension from the tree)
+                return Visit(methodCallExpression.Arguments[0]);
+            }
+
+            if (method.Name == nameof(DynamoDbQueryableExtensions.WithoutPagination))
+            {
+                var context = (DynamoQueryCompilationContext)QueryCompilationContext;
+                if (!context.PaginationDisabled)
+                    context.PaginationDisabled = true;
+
+                // Continue visiting the source (prune this extension from the tree)
+                return Visit(methodCallExpression.Arguments[0]);
+            }
+        }
+
+        return base.VisitMethodCall(methodCallExpression);
+    }
 
     protected override ShapedQueryExpression? CreateShapedQueryExpression(IEntityType entityType)
     {
@@ -133,7 +173,12 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
         }
 
         var selectExpression = (SelectExpression)source.QueryExpression;
-        selectExpression.ApplyLimit(1);
+
+        // Set result limit (how many to return to caller)
+        selectExpression.ApplyResultLimit(1);
+
+        var context = (DynamoQueryCompilationContext)QueryCompilationContext;
+        ApplyPageSize(selectExpression, context);
 
         return source;
     }
@@ -290,7 +335,52 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
     protected override ShapedQueryExpression? TranslateTake(
         ShapedQueryExpression source,
         Expression count)
-        => throw new NotImplementedException();
+    {
+        var selectExpression = (SelectExpression)source.QueryExpression;
+
+        // Store the expression for later evaluation (handles both constants and parameters)
+        // If it's a constant, also set ResultLimit for backward compatibility
+        if (count is ConstantExpression { Value: int constantValue })
+            selectExpression.ApplyResultLimit(constantValue);
+
+        // Always store the expression - will be evaluated during query execution
+        selectExpression.ApplyResultLimitExpression(count);
+
+        var context = (DynamoQueryCompilationContext)QueryCompilationContext;
+        ApplyPageSize(selectExpression, context);
+
+        return source;
+    }
+
+    /// <summary>
+    ///     Determines the page size to use based on configuration hierarchy: per-query override →
+    ///     global default → null (DynamoDB default of 1MB).
+    /// </summary>
+    private void ApplyPageSize(
+        SelectExpression selectExpression,
+        DynamoQueryCompilationContext context)
+    {
+        if (context.PageSizeOverrideExpression is not null)
+        {
+            selectExpression.ApplyPageSizeExpression(context.PageSizeOverrideExpression);
+            return;
+        }
+
+        if (context.PageSizeOverride.HasValue)
+        {
+            selectExpression.ApplyPageSize(context.PageSizeOverride.Value);
+            return;
+        }
+
+        selectExpression.ApplyPageSize(DetermineDefaultPageSize(context));
+    }
+
+    /// <summary>Determines the default page size to use when no per-query override is set.</summary>
+    private int? DetermineDefaultPageSize(DynamoQueryCompilationContext context)
+    {
+        var options = context.ContextOptions.FindExtension<DynamoDbOptionsExtension>();
+        return options?.DefaultPageSize;
+    }
 
     protected override ShapedQueryExpression? TranslateTakeWhile(
         ShapedQueryExpression source,

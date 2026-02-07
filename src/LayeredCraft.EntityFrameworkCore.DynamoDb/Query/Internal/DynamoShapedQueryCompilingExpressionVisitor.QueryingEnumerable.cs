@@ -18,7 +18,8 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
         DynamoQuerySqlGenerator sqlGenerator,
         Func<DynamoQueryContext, Dictionary<string, AttributeValue>, T> shaper,
         bool standAloneStateManager,
-        bool threadSafetyChecksEnabled) : IEnumerable<T>, IAsyncEnumerable<T>, IQueryingEnumerable
+        bool threadSafetyChecksEnabled,
+        bool paginationDisabled) : IEnumerable<T>, IAsyncEnumerable<T>, IQueryingEnumerable
     {
         private readonly IDynamoClientWrapper _client = queryContext.Client;
 
@@ -34,6 +35,7 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
 
         private readonly bool _standAloneStateManager = standAloneStateManager;
         private readonly bool _threadSafetyChecksEnabled = threadSafetyChecksEnabled;
+        private readonly bool _paginationDisabled = paginationDisabled;
 
         public IAsyncEnumerator<T> GetAsyncEnumerator(CancellationToken cancellationToken = default)
             => new AsyncEnumerator(this, cancellationToken);
@@ -62,6 +64,8 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
 
             private readonly bool _standAloneStateManager;
             private readonly int? _resultLimit;
+            private readonly int? _pageSize;
+            private readonly bool _paginationDisabled;
             private int _returnedCount;
 
             private IAsyncEnumerator<Dictionary<string, AttributeValue>>? _dataEnumerator;
@@ -75,7 +79,28 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
                 _shaper = enumerable._shaper;
                 _standAloneStateManager = enumerable._standAloneStateManager;
                 _cancellationToken = cancellationToken;
-                _resultLimit = enumerable._selectExpression.Limit;
+
+                // Separate result limit (how many to return) from page size (how many to scan)
+                // Evaluate ResultLimitExpression if set (handles parameterized Take)
+                if (enumerable._selectExpression.ResultLimitExpression != null)
+                    // Evaluate the expression with parameter values from QueryContext
+                    _resultLimit = ParameterExpressionEvaluator.EvaluateInt(
+                        enumerable._selectExpression.ResultLimitExpression,
+                        _queryContext.Parameters);
+                else
+                    _resultLimit = enumerable._selectExpression.ResultLimit;
+
+                _pageSize = enumerable._selectExpression.PageSizeExpression is not null
+                    ? ParameterExpressionEvaluator.EvaluateInt(
+                        enumerable._selectExpression.PageSizeExpression,
+                        _queryContext.Parameters)
+                    : enumerable._selectExpression.PageSize;
+
+                if (_pageSize is <= 0)
+                    throw new InvalidOperationException(
+                        "WithPageSize must evaluate to a positive integer.");
+                _paginationDisabled = enumerable._paginationDisabled;
+
                 _concurrencyDetector = enumerable._threadSafetyChecksEnabled
                     ? _queryContext.ConcurrencyDetector
                     : null;
@@ -87,7 +112,7 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
             {
                 using var _ = _concurrencyDetector?.EnterCriticalSection();
 
-                if (_returnedCount >= _resultLimit)
+                if (_resultLimit.HasValue && _returnedCount >= _resultLimit.Value)
                     return false;
 
                 if (_dataEnumerator == null)
@@ -105,8 +130,9 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
                             Statement =
                                 sqlQuery.Sql,
                             Parameters = sqlQuery.Parameters.ToList(),
-                            Limit = _queryingEnumerable._selectExpression.Limit,
-                        });
+                            Limit = _pageSize, // Use page size for DynamoDB scan limit
+                        },
+                        _paginationDisabled);
 
                     _dataEnumerator = asyncEnumerable.GetAsyncEnumerator(_cancellationToken);
                     _queryContext.InitializeStateManager(_standAloneStateManager);

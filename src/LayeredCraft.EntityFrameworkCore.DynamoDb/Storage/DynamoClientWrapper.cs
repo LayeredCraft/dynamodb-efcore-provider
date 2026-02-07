@@ -1,12 +1,12 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
-using LayeredCraft.EntityFrameworkCore.DynamoDb.Infrastructure.Internal;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Diagnostics.Internal;
+using LayeredCraft.EntityFrameworkCore.DynamoDb.Infrastructure.Internal;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Utilities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
-using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Storage;
 
@@ -43,16 +43,18 @@ public class DynamoClientWrapper : IDynamoClientWrapper
     }
 
     public IAsyncEnumerable<Dictionary<string, AttributeValue>> ExecutePartiQl(
-        ExecuteStatementRequest statementRequest)
-        => new DynamoAsyncEnumerable(this, statementRequest);
+        ExecuteStatementRequest statementRequest,
+        bool singlePageOnly = false)
+        => new DynamoAsyncEnumerable(this, statementRequest, singlePageOnly);
 
     private sealed class DynamoAsyncEnumerable(
         DynamoClientWrapper dynamoClientWrapper,
-        ExecuteStatementRequest statementRequest)
-        : IAsyncEnumerable<Dictionary<string, AttributeValue>>
+        ExecuteStatementRequest statementRequest,
+        bool singlePageOnly) : IAsyncEnumerable<Dictionary<string, AttributeValue>>
     {
         private readonly DynamoClientWrapper _dynamoClientWrapper = dynamoClientWrapper;
         private readonly ExecuteStatementRequest _statementRequest = statementRequest;
+        private readonly bool _singlePageOnly = singlePageOnly;
 
         public IAsyncEnumerator<Dictionary<string, AttributeValue>> GetAsyncEnumerator(
             CancellationToken cancellationToken = default)
@@ -63,6 +65,8 @@ public class DynamoClientWrapper : IDynamoClientWrapper
             CancellationToken cancellationToken)
             : IAsyncEnumerator<Dictionary<string, AttributeValue>>
         {
+            private readonly bool _singlePageOnly = dynamoEnumerable._singlePageOnly;
+            private bool _hasExecutedRequest;
             private List<Dictionary<string, AttributeValue>>? _currentItems;
             private int _currentIndex = -1;
             private string? _nextToken;
@@ -92,6 +96,10 @@ public class DynamoClientWrapper : IDynamoClientWrapper
                         _currentIndex++;
                         return true;
                     }
+
+                    // If single page mode and we've already executed, stop
+                    if (_singlePageOnly && _hasExecutedRequest)
+                        return false;
 
                     // If we don't have more pages, we're done
                     if (!_hasMorePages)
@@ -136,6 +144,7 @@ public class DynamoClientWrapper : IDynamoClientWrapper
                     response.Items?.Count ?? 0,
                     response.NextToken is not null);
 
+                _hasExecutedRequest = true;
                 _currentItems = response.Items;
                 _nextToken = response.NextToken;
                 _hasMorePages = !string.IsNullOrEmpty(_nextToken);

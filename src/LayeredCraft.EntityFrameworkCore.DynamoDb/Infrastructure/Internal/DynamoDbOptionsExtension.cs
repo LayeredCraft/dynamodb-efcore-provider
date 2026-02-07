@@ -9,6 +9,18 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
     public string? AuthenticationRegion { get; private set; }
     public string? ServiceUrl { get; private set; }
 
+    /// <summary>
+    ///     Controls how pagination behaves for queries with result limits. Default is Auto (smart
+    ///     defaults based on query type).
+    /// </summary>
+    public DynamoPaginationMode PaginationMode { get; private set; } = DynamoPaginationMode.Auto;
+
+    /// <summary>
+    ///     The default number of items DynamoDB should evaluate per request. Null means no limit
+    ///     (DynamoDB scans up to 1MB per request).
+    /// </summary>
+    public int? DefaultPageSize { get; private set; }
+
     public virtual void ApplyServices(IServiceCollection services)
         => services.AddEntityFrameworkDynamo();
 
@@ -41,7 +53,35 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
         return clone;
     }
 
-    protected virtual DynamoDbOptionsExtension Clone() => new();
+    public virtual DynamoDbOptionsExtension WithPaginationMode(DynamoPaginationMode mode)
+    {
+        var clone = Clone();
+
+        clone.PaginationMode = mode;
+
+        return clone;
+    }
+
+    public virtual DynamoDbOptionsExtension WithDefaultPageSize(int? pageSize)
+    {
+        if (pageSize is <= 0)
+            throw new ArgumentOutOfRangeException(nameof(pageSize), "Page size must be positive.");
+
+        var clone = Clone();
+
+        clone.DefaultPageSize = pageSize;
+
+        return clone;
+    }
+
+    protected virtual DynamoDbOptionsExtension Clone()
+        => new()
+        {
+            AuthenticationRegion = AuthenticationRegion,
+            ServiceUrl = ServiceUrl,
+            PaginationMode = PaginationMode,
+            DefaultPageSize = DefaultPageSize,
+        };
 
     public class DynamoOptionsExtensionInfo(IDbContextOptionsExtension extension)
         : DbContextOptionsExtensionInfo(extension)
@@ -58,6 +98,8 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
 
                 hashCode.Add(Extension.AuthenticationRegion);
                 hashCode.Add(Extension.ServiceUrl);
+                hashCode.Add(Extension.PaginationMode);
+                hashCode.Add(Extension.DefaultPageSize);
 
                 _serviceProviderHash = hashCode.ToHashCode();
             }
@@ -67,8 +109,10 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
 
         public override bool ShouldUseSameServiceProvider(DbContextOptionsExtensionInfo other)
             => other is DynamoOptionsExtensionInfo otherInfo
-               && Extension.AuthenticationRegion == otherInfo.Extension.AuthenticationRegion
-               && Extension.ServiceUrl == otherInfo.Extension.ServiceUrl;
+                && Extension.AuthenticationRegion == otherInfo.Extension.AuthenticationRegion
+                && Extension.ServiceUrl == otherInfo.Extension.ServiceUrl
+                && Extension.PaginationMode == otherInfo.Extension.PaginationMode
+                && Extension.DefaultPageSize == otherInfo.Extension.DefaultPageSize;
 
         public override void PopulateDebugInfo(IDictionary<string, string> debugInfo) { }
 

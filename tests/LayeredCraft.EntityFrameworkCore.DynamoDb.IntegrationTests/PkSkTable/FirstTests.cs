@@ -56,10 +56,10 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
         result.Sk.Should().Be("0002");
 
         calls.Should().NotBeEmpty();
-        calls.Should().OnlyContain(call => call.Limit == 1);
 
-        if (calls.Any(call => call.ItemsCount == 0 && call.ResponseNextTokenPresent == true))
-            calls.Count.Should().BeGreaterThan(1);
+        // With Phase 4 changes: page size is null by default (DynamoDB scans up to 1MB)
+        // This is more efficient than scanning 1 item at a time
+        calls.Should().OnlyContain(call => call.Limit == null);
 
         AssertSql(
             """
@@ -140,6 +140,109 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
             SELECT Pk, Sk, Category, IsTarget
             FROM PkSkItems
             WHERE Pk = 'P#1' AND Sk = '0001'
+            """);
+    }
+
+    [Fact]
+    public async Task FirstAsync_WithPageSize_UsesCustomPageSize()
+    {
+        LoggerFactory.Clear();
+
+        var result =
+            await Db
+                .Items.Where(item => item.Pk == "P#1")
+                .WithPageSize(10)
+                .FirstAsync(CancellationToken);
+
+        var calls = LoggerFactory.ExecuteStatementCalls.ToList();
+
+        result.Should().NotBeNull();
+        result.Pk.Should().Be("P#1");
+
+        calls.Should().NotBeEmpty();
+        calls.Should().OnlyContain(call => call.Limit == 10);
+
+        AssertSql(
+            """
+            SELECT Pk, Sk, Category, IsTarget
+            FROM PkSkItems
+            WHERE Pk = 'P#1'
+            """);
+    }
+
+    [Fact]
+    public async Task FirstAsync_WithoutPagination_StopsSinglePage()
+    {
+        LoggerFactory.Clear();
+
+        var result =
+            await Db
+                .Items.Where(item => item.Pk == "P#1" && item.IsTarget)
+                .WithoutPagination()
+                .FirstOrDefaultAsync(CancellationToken);
+
+        var calls = LoggerFactory.ExecuteStatementCalls.ToList();
+
+        // With WithoutPagination, may or may not find result depending on first page
+        // The key assertion is that only ONE request is made
+        calls.Should().HaveCount(1);
+
+        AssertSql(
+            """
+            SELECT Pk, Sk, Category, IsTarget
+            FROM PkSkItems
+            WHERE Pk = 'P#1' AND IsTarget = TRUE
+            """);
+    }
+
+    [Fact]
+    public async Task Take_WithSelectiveFilter_ContinuesPaging()
+    {
+        LoggerFactory.Clear();
+
+        var results =
+            await Db
+                .Items.Where(item => item.Pk == "P#1" && item.IsTarget)
+                .Take(2)
+                .ToListAsync(CancellationToken);
+
+        results.Should().HaveCount(2);
+
+        // Should continue paging to get 2 results
+        var calls = LoggerFactory.ExecuteStatementCalls.ToList();
+        calls.Should().NotBeEmpty();
+
+        AssertSql(
+            """
+            SELECT Pk, Sk, Category, IsTarget
+            FROM PkSkItems
+            WHERE Pk = 'P#1' AND IsTarget = TRUE
+            """);
+    }
+
+    [Fact]
+    public async Task Take_WithPageSize_UsesCustomPageSize()
+    {
+        LoggerFactory.Clear();
+
+        var results =
+            await Db
+                .Items.Where(item => item.Pk == "P#1")
+                .WithPageSize(5)
+                .Take(3)
+                .ToListAsync(CancellationToken);
+
+        results.Should().HaveCount(3);
+
+        var calls = LoggerFactory.ExecuteStatementCalls.ToList();
+        calls.Should().NotBeEmpty();
+        calls.Should().OnlyContain(call => call.Limit == 5);
+
+        AssertSql(
+            """
+            SELECT Pk, Sk, Category, IsTarget
+            FROM PkSkItems
+            WHERE Pk = 'P#1'
             """);
     }
 }
