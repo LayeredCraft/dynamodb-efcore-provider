@@ -1,13 +1,5 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "agent": {
-    "plan": {
-      "model": "openai/gpt-5.2"
-    },
-    "build": {
-      "model": "openai/gpt-5.2-codex"
-    }
-  },
   "instructions": [
     "CLAUDE.local.md"
   ]

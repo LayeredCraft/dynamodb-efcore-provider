@@ -32,3 +32,5 @@ This repo is an Entity Framework Core provider for AWS DynamoDB. It translates E
 - Do not commit anything under `.claude/do_not_commit/`.
 - Keep docs repo-relative (avoid machine-specific absolute paths).
 
+## Code Style
+- Prefer pattern matching over chained logical comparisons where possible.
