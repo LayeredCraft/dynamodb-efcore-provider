@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Linq.Expressions;
 using Amazon.DynamoDBv2.Model;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Diagnostics.Internal;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
@@ -81,20 +82,15 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
                 _cancellationToken = cancellationToken;
 
                 // Separate result limit (how many to return) from page size (how many to scan)
-                // Evaluate ResultLimitExpression if set (handles parameterized Take)
-                if (enumerable._selectExpression.ResultLimitExpression != null)
-                    // Evaluate the expression with parameter values from QueryContext
-                    _resultLimit = ParameterExpressionEvaluator.EvaluateInt(
-                        enumerable._selectExpression.ResultLimitExpression,
-                        _queryContext.Parameters);
-                else
-                    _resultLimit = enumerable._selectExpression.ResultLimit;
+                _resultLimit = ResolveIntExpression(
+                    enumerable._selectExpression.ResultLimitExpression,
+                    enumerable._selectExpression.ResultLimit,
+                    _queryContext);
 
-                _pageSize = enumerable._selectExpression.PageSizeExpression is not null
-                    ? ParameterExpressionEvaluator.EvaluateInt(
-                        enumerable._selectExpression.PageSizeExpression,
-                        _queryContext.Parameters)
-                    : enumerable._selectExpression.PageSize;
+                _pageSize = ResolveIntExpression(
+                    enumerable._selectExpression.PageSizeExpression,
+                    enumerable._selectExpression.PageSize,
+                    _queryContext);
 
                 if (_pageSize is <= 0)
                     throw new InvalidOperationException(
@@ -160,6 +156,24 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
 
                 _dataEnumerator = null;
                 return enumerator.DisposeAsync();
+            }
+
+            private static int? ResolveIntExpression(
+                Expression? expression,
+                int? fallback,
+                DynamoQueryContext queryContext)
+            {
+                if (expression is null)
+                    return fallback;
+
+                if (expression is ConstantExpression { Value: int constantValue })
+                    return constantValue;
+
+                if (expression is QueryParameterExpression parameterExpression)
+                    return Convert.ToInt32(queryContext.Parameters[parameterExpression.Name]);
+
+                throw new InvalidOperationException(
+                    "Limit expression must be normalized before execution.");
             }
         }
     }
