@@ -20,6 +20,21 @@ public class PaginationTests(SimpleTableDynamoFixture fixture) : SimpleTableTest
     }
 
     [Fact]
+    public async Task Take_WithoutPageSize_UsesDefault()
+    {
+        LoggerFactory.Clear();
+
+        var results = await Db.SimpleItems.Take(3).ToListAsync(CancellationToken);
+
+        results.Should().HaveCount(3);
+
+        var calls = LoggerFactory.ExecuteStatementCalls.ToList();
+        calls.Should().NotBeEmpty();
+        // Default page size is null (DynamoDB scans up to 1MB)
+        calls.Should().OnlyContain(call => call.Limit == null);
+    }
+
+    [Fact]
     public async Task FirstAsync_WithPageSize_UsesCustomPageSize()
     {
         LoggerFactory.Clear();

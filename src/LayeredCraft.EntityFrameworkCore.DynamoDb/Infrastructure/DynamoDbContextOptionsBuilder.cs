@@ -21,12 +21,6 @@ public class DynamoDbContextOptionsBuilder(DbContextOptionsBuilder optionsBuilde
     public virtual DynamoDbContextOptionsBuilder ServiceUrl(string serviceUrl)
         => WithOption(e => e.WithServiceUrl(Check.NotNull(serviceUrl)));
 
-    /// <summary>Configures how pagination behaves for queries with result limits (First, Take, etc.).</summary>
-    /// <param name="mode">The pagination mode to use.</param>
-    /// <returns>The builder for chaining.</returns>
-    public virtual DynamoDbContextOptionsBuilder PaginationMode(DynamoPaginationMode mode)
-        => WithOption(e => e.WithPaginationMode(mode));
-
     /// <summary>
     ///     Sets the default number of items DynamoDB should evaluate per request. Null means no limit
     ///     (DynamoDB scans up to 1MB per request).
