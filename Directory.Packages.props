@@ -17,7 +17,6 @@
     <PackageVersion Include="JetBrains.Annotations" Version="2025.2.4"/>
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.0.1"/>
     <PackageVersion Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.0.4"/>
-    <PackageVersion Include="Microsoft.Testing.Extensions.TrxReport.Abstractions" Version="2.1.0"/>
     <PackageVersion Include="NSubstitute" Version="5.3.0"/>
     <PackageVersion Include="NSubstitute.Analyzers.CSharp" Version="1.0.17"/>
     <PackageVersion Include="Testcontainers.DynamoDb" Version="4.10.0"/>
