@@ -51,6 +51,7 @@ should keep in mind. Add to these sections as support expands.
 **Translation**
 - Sets a result limit of `n` and stops after returning `n` items.
 - Page size comes from `.WithPageSize(...)` or `DefaultPageSize` if configured.
+- Composes with other `Take`/`First*` operators using the minimum effective limit.
 
 **Limitations / DynamoDB quirks**
 - `n` does not imply DynamoDB request `Limit` is `n`.
@@ -63,6 +64,7 @@ should keep in mind. Add to these sections as support expands.
 **Translation**
 - Sets a result limit of `1` and stops after returning the first item.
 - Page size comes from `.WithPageSize(...)` or `DefaultPageSize` if configured.
+- If a prior `Take(n)` is applied, the effective result limit is still `1`.
 
 **Limitations / DynamoDB quirks**
 - An empty page does not prove absence if `NextToken` is present.
@@ -74,6 +76,7 @@ should keep in mind. Add to these sections as support expands.
 **Translation**
 - Sets a result limit of `1` and stops after returning the first item.
 - Page size comes from `.WithPageSize(...)` or `DefaultPageSize` if configured.
+- If a prior `Take(n)` is applied, the effective result limit is still `1`.
 
 **Limitations / DynamoDB quirks**
 - An empty page does not prove absence if `NextToken` is present.

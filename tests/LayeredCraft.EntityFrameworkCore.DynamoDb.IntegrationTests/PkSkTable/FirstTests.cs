@@ -245,4 +245,93 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
             WHERE Pk = 'P#1'
             """);
     }
+
+    [Fact]
+    public async Task Take_FirstAsync_UsesMinimumResultLimit()
+    {
+        var result =
+            await Db
+                .Items.Where(item => item.Pk == "P#1")
+                .OrderBy(item => item.Sk)
+                .Take(2)
+                .FirstAsync(CancellationToken);
+
+        result.Sk.Should().Be("0001");
+
+        AssertSql(
+            """
+            SELECT Pk, Sk, Category, IsTarget
+            FROM PkSkItems
+            WHERE Pk = 'P#1'
+            ORDER BY Sk ASC
+            """);
+    }
+
+    [Fact]
+    public async Task Take_FirstOrDefaultAsync_UsesMinimumResultLimit()
+    {
+        var limit = 2;
+
+        var result =
+            await Db
+                .Items.Where(item => item.Pk == "P#1")
+                .OrderBy(item => item.Sk)
+                .Take(limit)
+                .FirstOrDefaultAsync(CancellationToken);
+
+        result.Should().NotBeNull();
+        result!.Sk.Should().Be("0001");
+
+        AssertSql(
+            """
+            SELECT Pk, Sk, Category, IsTarget
+            FROM PkSkItems
+            WHERE Pk = 'P#1'
+            ORDER BY Sk ASC
+            """);
+    }
+
+    [Fact]
+    public async Task Take_Take_UsesMinimumResultLimit()
+    {
+        var results =
+            await Db
+                .Items.Where(item => item.Pk == "P#1")
+                .OrderBy(item => item.Sk)
+                .Take(3)
+                .Take(5)
+                .ToListAsync(CancellationToken);
+
+        results.Should().HaveCount(3);
+
+        AssertSql(
+            """
+            SELECT Pk, Sk, Category, IsTarget
+            FROM PkSkItems
+            WHERE Pk = 'P#1'
+            ORDER BY Sk ASC
+            """);
+    }
+
+    [Fact]
+    public async Task Take_Take_UsesMinimumResultLimit_WhenReversed()
+    {
+        var results =
+            await Db
+                .Items.Where(item => item.Pk == "P#1")
+                .OrderBy(item => item.Sk)
+                .Take(5)
+                .Take(3)
+                .ToListAsync(CancellationToken);
+
+        results.Should().HaveCount(3);
+
+        AssertSql(
+            """
+            SELECT Pk, Sk, Category, IsTarget
+            FROM PkSkItems
+            WHERE Pk = 'P#1'
+            ORDER BY Sk ASC
+            """);
+    }
 }

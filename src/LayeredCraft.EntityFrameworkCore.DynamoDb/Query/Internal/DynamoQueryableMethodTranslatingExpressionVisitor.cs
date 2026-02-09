@@ -175,7 +175,7 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
         var selectExpression = (SelectExpression)source.QueryExpression;
 
         // Set result limit (how many to return to caller)
-        selectExpression.ApplyResultLimit(1);
+        selectExpression.ApplyOrCombineResultLimitExpression(Expression.Constant(1));
 
         var context = (DynamoQueryCompilationContext)QueryCompilationContext;
         ApplyPageSize(selectExpression, context);
@@ -339,12 +339,7 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
         var selectExpression = (SelectExpression)source.QueryExpression;
 
         // Store the expression for later evaluation (handles both constants and parameters)
-        // If it's a constant, also set ResultLimit for backward compatibility
-        if (count is ConstantExpression { Value: int constantValue })
-            selectExpression.ApplyResultLimit(constantValue);
-
-        // Always store the expression - will be evaluated during query execution
-        selectExpression.ApplyResultLimitExpression(count);
+        selectExpression.ApplyOrCombineResultLimitExpression(count);
 
         var context = (DynamoQueryCompilationContext)QueryCompilationContext;
         ApplyPageSize(selectExpression, context);
