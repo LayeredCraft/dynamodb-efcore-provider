@@ -18,6 +18,13 @@
     <PackageReference Include="JetBrains.Annotations"/>
     <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage"/>
     <PackageReference Include="AwesomeAssertions"/>
+    <PackageReference Include="NSubstitute"/>
+    <PackageReference Include="NSubstitute.Analyzers.CSharp">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="AutoFixture.AutoNSubstitute"/>
+    <PackageReference Include="AutoFixture.Xunit3"/>
   </ItemGroup>
 
   <ItemGroup>

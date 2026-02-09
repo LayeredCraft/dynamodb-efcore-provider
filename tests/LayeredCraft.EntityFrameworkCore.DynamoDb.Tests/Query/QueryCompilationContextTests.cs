@@ -1,26 +1,41 @@
+using System.Diagnostics.CodeAnalysis;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Query;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Query;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Tests.Query;
 
+[SuppressMessage("Usage", "EF1001:Internal EF Core API usage.")]
 public class QueryCompilationContextTests
 {
+    private sealed class TestDbContext : DbContext
+    {
+        public TestDbContext(DbContextOptions<TestDbContext> options) : base(options) { }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<TestEntity>().HasKey(x => x.Id);
+    }
+
+    private sealed class TestEntity
+    {
+        public int Id { get; set; }
+    }
+
+    private static QueryCompilationContextDependencies CreateDependencies()
+    {
+        var dbContextOptionsBuilder = new DbContextOptionsBuilder<TestDbContext>();
+        dbContextOptionsBuilder.UseDynamo();
+        var dbContextOptions = dbContextOptionsBuilder.Options;
+
+        var dbContext = new TestDbContext(dbContextOptions);
+        return dbContext.GetService<QueryCompilationContextDependencies>();
+    }
+
     [Fact]
     public void DefaultValues_AreCorrect()
     {
-        var dependencies = new QueryCompilationContextDependencies(
-            null!,
-            null!,
-            null!,
-            null!,
-            null!,
-            null!,
-            null!,
-            null!,
-            null!,
-            null!,
-            null!,
-            null!);
+        var dependencies = CreateDependencies();
 
         var context = new DynamoQueryCompilationContext(dependencies, true);
 
@@ -31,19 +46,7 @@ public class QueryCompilationContextTests
     [Fact]
     public void PageSizeOverride_CanBeSet()
     {
-        var dependencies = new QueryCompilationContextDependencies(
-            null!,
-            null!,
-            null!,
-            null!,
-            null!,
-            null!,
-            null!,
-            null!,
-            null!,
-            null!,
-            null!,
-            null!);
+        var dependencies = CreateDependencies();
 
         var context =
             new DynamoQueryCompilationContext(dependencies, true) { PageSizeOverride = 100 };
@@ -54,19 +57,7 @@ public class QueryCompilationContextTests
     [Fact]
     public void PaginationDisabled_CanBeSet()
     {
-        var dependencies = new QueryCompilationContextDependencies(
-            null!,
-            null!,
-            null!,
-            null!,
-            null!,
-            null!,
-            null!,
-            null!,
-            null!,
-            null!,
-            null!,
-            null!);
+        var dependencies = CreateDependencies();
 
         var context =
             new DynamoQueryCompilationContext(dependencies, true) { PaginationDisabled = true };
@@ -77,19 +68,7 @@ public class QueryCompilationContextTests
     [Fact]
     public void BothProperties_CanBeSetIndependently()
     {
-        var dependencies = new QueryCompilationContextDependencies(
-            null!,
-            null!,
-            null!,
-            null!,
-            null!,
-            null!,
-            null!,
-            null!,
-            null!,
-            null!,
-            null!,
-            null!);
+        var dependencies = CreateDependencies();
 
         var context = new DynamoQueryCompilationContext(dependencies, true)
         {
