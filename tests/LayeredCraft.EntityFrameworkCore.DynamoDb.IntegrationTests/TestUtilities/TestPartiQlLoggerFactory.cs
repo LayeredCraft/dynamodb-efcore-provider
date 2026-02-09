@@ -13,6 +13,11 @@ public sealed class TestPartiQlLoggerFactory : ILoggerFactory
 
     public IReadOnlyList<string> PartiQlStatements => _logger.PartiQlStatements;
 
+    public IReadOnlyList<ExecuteStatementCall> ExecuteStatementCalls
+        => _logger.ExecuteStatementCalls;
+
+    public IReadOnlyList<int> RowLimitingWarnings => _logger.RowLimitingWarnings;
+
     public void Clear() => _logger.Clear();
 
     public ILogger CreateLogger(string categoryName)
@@ -69,8 +74,15 @@ public sealed class TestPartiQlLoggerFactory : ILoggerFactory
     private sealed class TestPartiQlLogger : ILogger
     {
         public List<string> PartiQlStatements { get; } = [];
+        public List<ExecuteStatementCall> ExecuteStatementCalls { get; } = [];
+        public List<int> RowLimitingWarnings { get; } = [];
 
-        public void Clear() => PartiQlStatements.Clear();
+        public void Clear()
+        {
+            PartiQlStatements.Clear();
+            ExecuteStatementCalls.Clear();
+            RowLimitingWarnings.Clear();
+        }
 
         public bool IsEnabled(LogLevel logLevel) => true;
 
@@ -95,6 +107,79 @@ public sealed class TestPartiQlLoggerFactory : ILoggerFactory
 
                 PartiQlStatements.Add(commandText);
             }
+
+            if (eventId.Id == DynamoEventId.ExecutingExecuteStatement.Id
+                && state is IReadOnlyList<KeyValuePair<string, object?>> executingStructure)
+            {
+                var limit =
+                    executingStructure
+                        .Where(i => i.Key == "limit")
+                        .Select(i => ToNullableInt(i.Value))
+                        .FirstOrDefault();
+
+                var nextTokenPresent =
+                    executingStructure
+                        .Where(i => i.Key == "nextTokenPresent")
+                        .Select(i => (bool?)i.Value)
+                        .FirstOrDefault()
+                    ?? false;
+
+                ExecuteStatementCalls.Add(
+                    new ExecuteStatementCall(limit, nextTokenPresent, null, null));
+            }
+
+            if (eventId.Id == DynamoEventId.ExecutedExecuteStatement.Id
+                && state is IReadOnlyList<KeyValuePair<string, object?>> executedStructure)
+            {
+                var itemsCount =
+                    executedStructure
+                        .Where(i => i.Key == "itemsCount")
+                        .Select(i => ToNullableInt(i.Value))
+                        .FirstOrDefault();
+
+                var nextTokenPresent =
+                    executedStructure
+                        .Where(i => i.Key == "nextTokenPresent")
+                        .Select(i => (bool?)i.Value)
+                        .FirstOrDefault();
+
+                if (ExecuteStatementCalls.Count > 0)
+                {
+                    var lastIndex = ExecuteStatementCalls.Count - 1;
+                    var existing = ExecuteStatementCalls[lastIndex];
+                    ExecuteStatementCalls[lastIndex] = existing with
+                    {
+                        ItemsCount = itemsCount, ResponseNextTokenPresent = nextTokenPresent,
+                    };
+                }
+            }
+
+            if (eventId.Id == DynamoEventId.RowLimitingQueryWithoutPageSize.Id
+                && state is IReadOnlyList<KeyValuePair<string, object?>> rowLimitingStructure)
+            {
+                var resultLimit =
+                    rowLimitingStructure
+                        .Where(i => i.Key == "resultLimit")
+                        .Select(i => ToNullableInt(i.Value))
+                        .FirstOrDefault();
+
+                if (resultLimit.HasValue)
+                    RowLimitingWarnings.Add(resultLimit.Value);
+            }
+        }
+
+        private static int? ToNullableInt(object? value)
+        {
+            if (value is int intValue)
+                return intValue;
+
+            return null;
         }
     }
+
+    public sealed record ExecuteStatementCall(
+        int? Limit,
+        bool RequestNextTokenPresent,
+        int? ItemsCount,
+        bool? ResponseNextTokenPresent);
 }

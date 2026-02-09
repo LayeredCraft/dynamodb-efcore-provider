@@ -6,6 +6,9 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="LayeredCraft.EntityFrameworkCore.DynamoDb.Tests"/>
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="AWSSDK.DynamoDBv2"/>
     <PackageReference Include="Microsoft.EntityFrameworkCore" PrivateAssets="none"/>
   </ItemGroup>

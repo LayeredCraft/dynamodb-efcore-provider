@@ -1,6 +1,7 @@
 using System.Linq.Expressions;
 using System.Reflection;
 using Amazon.DynamoDBv2.Model;
+using LayeredCraft.EntityFrameworkCore.DynamoDb.Infrastructure.Internal;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
@@ -15,6 +16,12 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
     dynamoQueryCompilationContext)
 {
     private readonly ShapedQueryCompilingExpressionVisitorDependencies _dependencies = dependencies;
+    private int _runtimeParameterIndex;
+
+    private static readonly MethodInfo EnsurePositivePageSizeMethodInfo =
+        typeof(DynamoShapedQueryCompilingExpressionVisitor)
+            .GetTypeInfo()
+            .GetDeclaredMethod(nameof(EnsurePositivePageSize))!;
 
     protected override Expression VisitShapedQuery(ShapedQueryExpression shapedQueryExpression)
     {
@@ -22,6 +29,41 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
 
         // Finalize projection mapping → concrete projection list
         selectExpression.ApplyProjection();
+
+        if (selectExpression.PageSize is null && selectExpression.PageSizeExpression is null)
+        {
+            if (dynamoQueryCompilationContext.PageSizeOverrideExpression is not null)
+            {
+                selectExpression.ApplyPageSizeExpression(
+                    dynamoQueryCompilationContext.PageSizeOverrideExpression);
+            }
+            else if (dynamoQueryCompilationContext.PageSizeOverride.HasValue)
+            {
+                selectExpression.ApplyPageSize(
+                    dynamoQueryCompilationContext.PageSizeOverride.Value);
+            }
+            else
+            {
+                var options = dynamoQueryCompilationContext.ContextOptions
+                    .FindExtension<DynamoDbOptionsExtension>();
+                if (options?.DefaultPageSize is not null)
+                    selectExpression.ApplyPageSize(options.DefaultPageSize);
+            }
+        }
+
+        if (selectExpression.ResultLimitExpression is not null)
+            selectExpression.ApplyResultLimitExpression(
+                NormalizeRuntimeIntExpression(
+                    selectExpression.ResultLimitExpression,
+                    "resultLimit",
+                    false));
+
+        if (selectExpression.PageSizeExpression is not null)
+            selectExpression.ApplyPageSizeExpression(
+                NormalizeRuntimeIntExpression(
+                    selectExpression.PageSizeExpression,
+                    "pageSize",
+                    true));
 
         var shaperBody = shapedQueryExpression.ShaperExpression;
 
@@ -64,12 +106,48 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
                 .MakeGenericType(shaperBody.Type)
                 .GetConstructors(
                     BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
-                .Single(c => c.GetParameters().Length == 6),
+                .Single(c => c.GetParameters().Length == 7),
             queryContextParameter,
             Expression.Constant(selectExpression),
             Expression.Constant(sqlGenerator),
             shaperLambda,
             Expression.Constant(standAloneStateManager),
-            Expression.Constant(_dependencies.CoreSingletonOptions.AreThreadSafetyChecksEnabled));
+            Expression.Constant(_dependencies.CoreSingletonOptions.AreThreadSafetyChecksEnabled),
+            Expression.Constant(dynamoQueryCompilationContext.PaginationDisabled));
+    }
+
+    private Expression NormalizeRuntimeIntExpression(
+        Expression expression,
+        string parameterNamePrefix,
+        bool requirePositive)
+    {
+        if (expression is ConstantExpression { Value: int })
+            return expression;
+
+        if (expression is QueryParameterExpression)
+            return expression;
+
+        var parameterName = $"__dynamo_{parameterNamePrefix}_{_runtimeParameterIndex++}";
+        var injectedExpression = new DynamoInjectingExpressionVisitor().Visit(expression)
+            ?? throw new InvalidOperationException(
+                $"Unable to normalize {parameterNamePrefix} expression.");
+
+        var convertedExpression = Expression.Convert(injectedExpression, typeof(int));
+        Expression body = convertedExpression;
+        if (requirePositive)
+            body = Expression.Call(EnsurePositivePageSizeMethodInfo, convertedExpression);
+
+        var valueExtractor = Expression.Lambda(body, QueryCompilationContext.QueryContextParameter);
+
+        return QueryCompilationContext.RegisterRuntimeParameter(parameterName, valueExtractor);
+    }
+
+    private static int EnsurePositivePageSize(int value)
+    {
+        if (value <= 0)
+            throw new InvalidOperationException(
+                "WithPageSize must evaluate to a positive integer.");
+
+        return value;
     }
 }

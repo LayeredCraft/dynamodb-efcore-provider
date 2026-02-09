@@ -8,5 +8,6 @@ public interface IDynamoClientWrapper
     IAmazonDynamoDB Client { get; }
 
     IAsyncEnumerable<Dictionary<string, AttributeValue>> ExecutePartiQl(
-        ExecuteStatementRequest statementRequest);
+        ExecuteStatementRequest statementRequest,
+        bool singlePageOnly = false);
 }

@@ -21,6 +21,20 @@ public class DynamoDbContextOptionsBuilder(DbContextOptionsBuilder optionsBuilde
     public virtual DynamoDbContextOptionsBuilder ServiceUrl(string serviceUrl)
         => WithOption(e => e.WithServiceUrl(Check.NotNull(serviceUrl)));
 
+    /// <summary>
+    ///     Sets the default number of items DynamoDB should evaluate per request. Null means no limit
+    ///     (DynamoDB scans up to 1MB per request).
+    /// </summary>
+    /// <param name="pageSize">The default page size. Must be positive if specified.</param>
+    /// <returns>The builder for chaining.</returns>
+    public virtual DynamoDbContextOptionsBuilder DefaultPageSize(int pageSize)
+    {
+        if (pageSize <= 0)
+            throw new ArgumentOutOfRangeException(nameof(pageSize), "Page size must be positive.");
+
+        return WithOption(e => e.WithDefaultPageSize(pageSize));
+    }
+
     protected virtual DynamoDbContextOptionsBuilder WithOption(
         Func<DynamoDbOptionsExtension, DynamoDbOptionsExtension> setAction)
     {

@@ -9,6 +9,12 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
     public string? AuthenticationRegion { get; private set; }
     public string? ServiceUrl { get; private set; }
 
+    /// <summary>
+    ///     The default number of items DynamoDB should evaluate per request. Null means no limit
+    ///     (DynamoDB scans up to 1MB per request).
+    /// </summary>
+    public int? DefaultPageSize { get; private set; }
+
     public virtual void ApplyServices(IServiceCollection services)
         => services.AddEntityFrameworkDynamo();
 
@@ -41,7 +47,25 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
         return clone;
     }
 
-    protected virtual DynamoDbOptionsExtension Clone() => new();
+    public virtual DynamoDbOptionsExtension WithDefaultPageSize(int? pageSize)
+    {
+        if (pageSize is <= 0)
+            throw new ArgumentOutOfRangeException(nameof(pageSize), "Page size must be positive.");
+
+        var clone = Clone();
+
+        clone.DefaultPageSize = pageSize;
+
+        return clone;
+    }
+
+    protected virtual DynamoDbOptionsExtension Clone()
+        => new()
+        {
+            AuthenticationRegion = AuthenticationRegion,
+            ServiceUrl = ServiceUrl,
+            DefaultPageSize = DefaultPageSize,
+        };
 
     public class DynamoOptionsExtensionInfo(IDbContextOptionsExtension extension)
         : DbContextOptionsExtensionInfo(extension)
@@ -58,6 +82,7 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
 
                 hashCode.Add(Extension.AuthenticationRegion);
                 hashCode.Add(Extension.ServiceUrl);
+                hashCode.Add(Extension.DefaultPageSize);
 
                 _serviceProviderHash = hashCode.ToHashCode();
             }
@@ -67,8 +92,9 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
 
         public override bool ShouldUseSameServiceProvider(DbContextOptionsExtensionInfo other)
             => other is DynamoOptionsExtensionInfo otherInfo
-               && Extension.AuthenticationRegion == otherInfo.Extension.AuthenticationRegion
-               && Extension.ServiceUrl == otherInfo.Extension.ServiceUrl;
+                && Extension.AuthenticationRegion == otherInfo.Extension.AuthenticationRegion
+                && Extension.ServiceUrl == otherInfo.Extension.ServiceUrl
+                && Extension.DefaultPageSize == otherInfo.Extension.DefaultPageSize;
 
         public override void PopulateDebugInfo(IDictionary<string, string> debugInfo) { }
 

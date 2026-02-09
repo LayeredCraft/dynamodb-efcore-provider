@@ -1,7 +1,8 @@
 using System.Linq.Expressions;
-using System.Reflection;
+using LayeredCraft.EntityFrameworkCore.DynamoDb.Infrastructure.Internal;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -32,6 +33,46 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
 
     protected override QueryableMethodTranslatingExpressionVisitor CreateSubqueryVisitor()
         => throw new NotImplementedException();
+
+    protected override Expression VisitMethodCall(MethodCallExpression methodCallExpression)
+    {
+        var method = methodCallExpression.Method;
+
+        // Check for DynamoDB-specific extension methods
+        if (method.DeclaringType == typeof(DynamoDbQueryableExtensions))
+        {
+            if (method.Name == nameof(DynamoDbQueryableExtensions.WithPageSize))
+            {
+                var context = (DynamoQueryCompilationContext)QueryCompilationContext;
+                // The outermost call is the last chained call, so capture once to keep last-wins
+                // semantics.
+                if (context.PageSizeOverrideExpression == null)
+                {
+                    context.PageSizeOverrideExpression = methodCallExpression.Arguments[1];
+                    if (methodCallExpression.Arguments[1] is ConstantExpression
+                        {
+                            Value: int pageSize,
+                        })
+                        context.PageSizeOverride = pageSize;
+                }
+
+                // Continue visiting the source (prune this extension from the tree)
+                return Visit(methodCallExpression.Arguments[0]);
+            }
+
+            if (method.Name == nameof(DynamoDbQueryableExtensions.WithoutPagination))
+            {
+                var context = (DynamoQueryCompilationContext)QueryCompilationContext;
+                if (!context.PaginationDisabled)
+                    context.PaginationDisabled = true;
+
+                // Continue visiting the source (prune this extension from the tree)
+                return Visit(methodCallExpression.Arguments[0]);
+            }
+        }
+
+        return base.VisitMethodCall(methodCallExpression);
+    }
 
     protected override ShapedQueryExpression? CreateShapedQueryExpression(IEntityType entityType)
     {
@@ -124,7 +165,25 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
         LambdaExpression? predicate,
         Type returnType,
         bool returnDefault)
-        => throw new NotImplementedException();
+    {
+        if (predicate != null)
+        {
+            if (TranslateWhere(source, predicate) is not { } translatedSource)
+                return null;
+
+            source = translatedSource;
+        }
+
+        var selectExpression = (SelectExpression)source.QueryExpression;
+
+        // Set result limit (how many to return to caller)
+        selectExpression.ApplyOrCombineResultLimitExpression(Expression.Constant(1));
+
+        var context = (DynamoQueryCompilationContext)QueryCompilationContext;
+        ApplyPageSize(selectExpression, context);
+
+        return source;
+    }
 
     protected override ShapedQueryExpression? TranslateGroupBy(
         ShapedQueryExpression source,
@@ -278,7 +337,47 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
     protected override ShapedQueryExpression? TranslateTake(
         ShapedQueryExpression source,
         Expression count)
-        => throw new NotImplementedException();
+    {
+        var selectExpression = (SelectExpression)source.QueryExpression;
+
+        // Store the expression for later evaluation (handles both constants and parameters)
+        selectExpression.ApplyOrCombineResultLimitExpression(count);
+
+        var context = (DynamoQueryCompilationContext)QueryCompilationContext;
+        ApplyPageSize(selectExpression, context);
+
+        return source;
+    }
+
+    /// <summary>
+    ///     Determines the page size to use based on configuration hierarchy: per-query override →
+    ///     global default → null (DynamoDB default of 1MB).
+    /// </summary>
+    private void ApplyPageSize(
+        SelectExpression selectExpression,
+        DynamoQueryCompilationContext context)
+    {
+        if (context.PageSizeOverrideExpression is not null)
+        {
+            selectExpression.ApplyPageSizeExpression(context.PageSizeOverrideExpression);
+            return;
+        }
+
+        if (context.PageSizeOverride.HasValue)
+        {
+            selectExpression.ApplyPageSize(context.PageSizeOverride.Value);
+            return;
+        }
+
+        selectExpression.ApplyPageSize(DetermineDefaultPageSize(context));
+    }
+
+    /// <summary>Determines the default page size to use when no per-query override is set.</summary>
+    private int? DetermineDefaultPageSize(DynamoQueryCompilationContext context)
+    {
+        var options = context.ContextOptions.FindExtension<DynamoDbOptionsExtension>();
+        return options?.DefaultPageSize;
+    }
 
     protected override ShapedQueryExpression? TranslateTakeWhile(
         ShapedQueryExpression source,
@@ -315,6 +414,8 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
         if (translation == null)
             return null;
 
+        translation = NormalizePredicate(translation);
+
         selectExpression.ApplyPredicate(translation);
         return source;
     }
@@ -329,4 +430,78 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
         // The SQL translator will recognize parameter.Property accesses and convert them to
         // SqlPropertyExpression
         => _sqlTranslator.Translate(lambdaExpression.Body);
+
+    /// <summary>Normalizes boolean predicates into explicit comparisons for PartiQL.</summary>
+    private SqlExpression NormalizePredicate(SqlExpression expression)
+        => NormalizePredicate(expression, _sqlExpressionFactory, true);
+
+    /// <summary>Normalizes search-condition terms while preserving normal comparisons.</summary>
+    private static SqlExpression NormalizePredicate(
+        SqlExpression expression,
+        ISqlExpressionFactory sqlExpressionFactory,
+        bool inSearchCondition)
+        => expression switch
+        {
+            SqlBinaryExpression binaryExpression => NormalizeBinary(
+                binaryExpression,
+                sqlExpressionFactory),
+            SqlPropertyExpression propertyExpression when inSearchCondition
+                && IsBooleanType(propertyExpression.Type) => WrapBooleanPredicate(
+                    propertyExpression,
+                    sqlExpressionFactory),
+            SqlParameterExpression parameterExpression when inSearchCondition
+                && IsBooleanType(parameterExpression.Type) => WrapBooleanPredicate(
+                    parameterExpression,
+                    sqlExpressionFactory),
+            _ => expression,
+        };
+
+    /// <summary>Recursively normalizes logical predicates while preserving comparisons.</summary>
+    private static SqlBinaryExpression NormalizeBinary(
+        SqlBinaryExpression binaryExpression,
+        ISqlExpressionFactory sqlExpressionFactory)
+    {
+        // Search conditions only exist at AND/OR boundaries.
+        if (binaryExpression.OperatorType is ExpressionType.AndAlso or ExpressionType.OrElse)
+        {
+            var left = NormalizePredicate(binaryExpression.Left, sqlExpressionFactory, true);
+            var right = NormalizePredicate(binaryExpression.Right, sqlExpressionFactory, true);
+            return binaryExpression.Update(left, right);
+        }
+
+        // Avoid rewriting operands inside explicit comparisons.
+        if (IsComparisonOperator(binaryExpression.OperatorType))
+        {
+            var left = NormalizePredicate(binaryExpression.Left, sqlExpressionFactory, false);
+            var right = NormalizePredicate(binaryExpression.Right, sqlExpressionFactory, false);
+            return binaryExpression.Update(left, right);
+        }
+
+        var normalizedLeft = NormalizePredicate(binaryExpression.Left, sqlExpressionFactory, false);
+        var normalizedRight = NormalizePredicate(
+            binaryExpression.Right,
+            sqlExpressionFactory,
+            false);
+        return binaryExpression.Update(normalizedLeft, normalizedRight);
+    }
+
+    /// <summary>Wraps a boolean column/parameter into an explicit comparison.</summary>
+    private static SqlExpression WrapBooleanPredicate(
+        SqlExpression expression,
+        ISqlExpressionFactory sqlExpressionFactory)
+        => sqlExpressionFactory.Binary(
+                ExpressionType.Equal,
+                expression,
+                sqlExpressionFactory.Constant(true, typeof(bool)))
+            ?? expression;
+
+    private static bool IsBooleanType(Type type) => type == typeof(bool) || type == typeof(bool?);
+
+    private static bool IsComparisonOperator(ExpressionType operatorType)
+        => operatorType is ExpressionType.Equal
+            or ExpressionType.NotEqual
+            or ExpressionType.LessThan
+            or ExpressionType.LessThanOrEqual
+            or ExpressionType.GreaterThan
+            or ExpressionType.GreaterThanOrEqual;
 }

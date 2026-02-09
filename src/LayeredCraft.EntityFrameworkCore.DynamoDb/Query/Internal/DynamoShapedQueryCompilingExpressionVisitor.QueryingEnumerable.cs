@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Linq.Expressions;
 using Amazon.DynamoDBv2.Model;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Diagnostics.Internal;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
@@ -18,7 +19,8 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
         DynamoQuerySqlGenerator sqlGenerator,
         Func<DynamoQueryContext, Dictionary<string, AttributeValue>, T> shaper,
         bool standAloneStateManager,
-        bool threadSafetyChecksEnabled) : IEnumerable<T>, IAsyncEnumerable<T>, IQueryingEnumerable
+        bool threadSafetyChecksEnabled,
+        bool paginationDisabled) : IEnumerable<T>, IAsyncEnumerable<T>, IQueryingEnumerable
     {
         private readonly IDynamoClientWrapper _client = queryContext.Client;
 
@@ -34,6 +36,7 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
 
         private readonly bool _standAloneStateManager = standAloneStateManager;
         private readonly bool _threadSafetyChecksEnabled = threadSafetyChecksEnabled;
+        private readonly bool _paginationDisabled = paginationDisabled;
 
         public IAsyncEnumerator<T> GetAsyncEnumerator(CancellationToken cancellationToken = default)
             => new AsyncEnumerator(this, cancellationToken);
@@ -61,6 +64,10 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
                 _shaper;
 
             private readonly bool _standAloneStateManager;
+            private readonly int? _resultLimit;
+            private readonly int? _pageSize;
+            private readonly bool _paginationDisabled;
+            private int _returnedCount;
 
             private IAsyncEnumerator<Dictionary<string, AttributeValue>>? _dataEnumerator;
 
@@ -73,6 +80,23 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
                 _shaper = enumerable._shaper;
                 _standAloneStateManager = enumerable._standAloneStateManager;
                 _cancellationToken = cancellationToken;
+
+                // Separate result limit (how many to return) from page size (how many to scan)
+                _resultLimit = ResolveIntExpression(
+                    enumerable._selectExpression.ResultLimitExpression,
+                    enumerable._selectExpression.ResultLimit,
+                    _queryContext);
+
+                _pageSize = ResolveIntExpression(
+                    enumerable._selectExpression.PageSizeExpression,
+                    enumerable._selectExpression.PageSize,
+                    _queryContext);
+
+                if (_pageSize is <= 0)
+                    throw new InvalidOperationException(
+                        "WithPageSize must evaluate to a positive integer.");
+                _paginationDisabled = enumerable._paginationDisabled;
+
                 _concurrencyDetector = enumerable._threadSafetyChecksEnabled
                     ? _queryContext.ConcurrencyDetector
                     : null;
@@ -84,10 +108,17 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
             {
                 using var _ = _concurrencyDetector?.EnterCriticalSection();
 
+                if (_resultLimit.HasValue && _returnedCount >= _resultLimit.Value)
+                    return false;
+
                 if (_dataEnumerator == null)
                 {
                     // Generate query at runtime with parameter values inlined
                     var sqlQuery = _queryingEnumerable.GenerateQuery();
+
+                    if (_resultLimit is { } resultLimit && _pageSize is null)
+                        _queryingEnumerable._commandLogger.RowLimitingQueryWithoutPageSize(
+                            resultLimit);
 
                     _queryingEnumerable._commandLogger.ExecutingPartiQlQuery(
                         _queryingEnumerable._selectExpression.TableName,
@@ -96,8 +127,12 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
                     var asyncEnumerable = _queryingEnumerable._client.ExecutePartiQl(
                         new ExecuteStatementRequest
                         {
-                            Statement = sqlQuery.Sql, Parameters = sqlQuery.Parameters.ToList(),
-                        });
+                            Statement =
+                                sqlQuery.Sql,
+                            Parameters = sqlQuery.Parameters.ToList(),
+                            Limit = _pageSize, // Use page size for DynamoDB scan limit
+                        },
+                        _paginationDisabled);
 
                     _dataEnumerator = asyncEnumerable.GetAsyncEnumerator(_cancellationToken);
                     _queryContext.InitializeStateManager(_standAloneStateManager);
@@ -105,9 +140,16 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
 
                 var hasNext = await _dataEnumerator.MoveNextAsync().ConfigureAwait(false);
 
-                Current = hasNext ? _shaper(_queryContext, _dataEnumerator.Current) : default!;
+                if (!hasNext)
+                {
+                    Current = default!;
+                    return false;
+                }
 
-                return hasNext;
+                Current = _shaper(_queryContext, _dataEnumerator.Current);
+                _returnedCount++;
+
+                return true;
             }
 
             public ValueTask DisposeAsync()
@@ -118,6 +160,24 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
 
                 _dataEnumerator = null;
                 return enumerator.DisposeAsync();
+            }
+
+            private static int? ResolveIntExpression(
+                Expression? expression,
+                int? fallback,
+                DynamoQueryContext queryContext)
+            {
+                if (expression is null)
+                    return fallback;
+
+                if (expression is ConstantExpression { Value: int constantValue })
+                    return constantValue;
+
+                if (expression is QueryParameterExpression parameterExpression)
+                    return Convert.ToInt32(queryContext.Parameters[parameterExpression.Name]);
+
+                throw new InvalidOperationException(
+                    "Limit expression must be normalized before execution.");
             }
         }
     }
