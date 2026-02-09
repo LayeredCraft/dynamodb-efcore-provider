@@ -171,6 +171,34 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
     }
 
     [Fact]
+    public async Task FirstOrDefaultAsync_WithPageSizeOverload_UsesCustomPageSize()
+    {
+        LoggerFactory.Clear();
+
+        var result =
+            await Db
+                .Items.Where(item => item.Pk == "P#1" && item.IsTarget)
+                .FirstOrDefaultAsync(25, CancellationToken);
+
+        var calls = LoggerFactory.ExecuteStatementCalls.ToList();
+
+        result.Should().NotBeNull();
+        result!.Pk.Should().Be("P#1");
+        result.Sk.Should().Be("0002");
+
+        calls.Should().NotBeEmpty();
+        calls.Should().OnlyContain(call => call.Limit == 25);
+        LoggerFactory.RowLimitingWarnings.Should().BeEmpty();
+
+        AssertSql(
+            """
+            SELECT Pk, Sk, Category, IsTarget
+            FROM PkSkItems
+            WHERE Pk = 'P#1' AND IsTarget = TRUE
+            """);
+    }
+
+    [Fact]
     public async Task FirstAsync_WithoutPagination_StopsSinglePage()
     {
         LoggerFactory.Clear();

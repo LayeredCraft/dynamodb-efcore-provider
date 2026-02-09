@@ -56,6 +56,36 @@ public class PaginationTests(SimpleTableDynamoFixture fixture) : SimpleTableTest
     }
 
     [Fact]
+    public async Task FirstAsync_WithPageSizeOverload_UsesCustomPageSize()
+    {
+        LoggerFactory.Clear();
+
+        var result = await Db.SimpleItems.FirstAsync(6, CancellationToken);
+
+        result.Should().NotBeNull();
+
+        var calls = LoggerFactory.ExecuteStatementCalls.ToList();
+        calls.Should().NotBeEmpty();
+        calls.Should().OnlyContain(call => call.Limit == 6);
+        LoggerFactory.RowLimitingWarnings.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task FirstOrDefaultAsync_WithPageSizeOverload_UsesCustomPageSize()
+    {
+        LoggerFactory.Clear();
+
+        var result = await Db.SimpleItems.FirstOrDefaultAsync(8, CancellationToken);
+
+        result.Should().NotBeNull();
+
+        var calls = LoggerFactory.ExecuteStatementCalls.ToList();
+        calls.Should().NotBeEmpty();
+        calls.Should().OnlyContain(call => call.Limit == 8);
+        LoggerFactory.RowLimitingWarnings.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task Take_WithPageSize_UsesCustomPageSize()
     {
         LoggerFactory.Clear();

@@ -28,7 +28,7 @@ public static class DynamoLoggerExtensions
         LoggerMessage.Define<int>(
             LogLevel.Warning,
             DynamoEventId.RowLimitingQueryWithoutPageSize,
-            "Executing a row-limiting query (resultLimit: {resultLimit}) without a configured page size. Configure DefaultPageSize or use WithPageSize(...) to control per-request evaluated items.");
+            "Executing a row-limiting query (resultLimit: {resultLimit}) without a configured page size. Configure DefaultPageSize or use WithPageSize(...) to control per-request evaluated items. Consider using FirstAsync(pageSize, ...) or FirstOrDefaultAsync(pageSize, ...).");
 
     public static void ExecutingPartiQlQuery(
         this IDiagnosticsLogger<DbLoggerCategory.Database.Command> diagnostics,

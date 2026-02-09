@@ -7,6 +7,74 @@ namespace Microsoft.EntityFrameworkCore;
 public static class DynamoDbQueryableExtensions
 {
     /// <summary>
+    ///     Returns the first element of a sequence and configures the DynamoDB page size for this
+    ///     query.
+    /// </summary>
+    /// <typeparam name="TEntity">The type of entity being queried.</typeparam>
+    /// <param name="source">The source query.</param>
+    /// <param name="pageSize">Maximum items to evaluate per request. Must be positive.</param>
+    /// <param name="cancellationToken">A cancellation token to observe while awaiting the task.</param>
+    /// <returns>A task that represents the asynchronous operation.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when pageSize is not positive.</exception>
+    public static Task<TEntity> FirstAsync<TEntity>(
+        this IQueryable<TEntity> source,
+        int pageSize,
+        CancellationToken cancellationToken = default) where TEntity : class
+        => source.WithPageSize(pageSize).FirstAsync(cancellationToken);
+
+    /// <summary>
+    ///     Returns the first element of a sequence that satisfies a specified condition and
+    ///     configures the DynamoDB page size for this query.
+    /// </summary>
+    /// <typeparam name="TEntity">The type of entity being queried.</typeparam>
+    /// <param name="source">The source query.</param>
+    /// <param name="predicate">A function to test each element for a condition.</param>
+    /// <param name="pageSize">Maximum items to evaluate per request. Must be positive.</param>
+    /// <param name="cancellationToken">A cancellation token to observe while awaiting the task.</param>
+    /// <returns>A task that represents the asynchronous operation.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when pageSize is not positive.</exception>
+    public static Task<TEntity> FirstAsync<TEntity>(
+        this IQueryable<TEntity> source,
+        Expression<Func<TEntity, bool>> predicate,
+        int pageSize,
+        CancellationToken cancellationToken = default) where TEntity : class
+        => source.WithPageSize(pageSize).FirstAsync(predicate, cancellationToken);
+
+    /// <summary>
+    ///     Returns the first element of a sequence, or a default value if the sequence contains no
+    ///     elements, and configures the DynamoDB page size for this query.
+    /// </summary>
+    /// <typeparam name="TEntity">The type of entity being queried.</typeparam>
+    /// <param name="source">The source query.</param>
+    /// <param name="pageSize">Maximum items to evaluate per request. Must be positive.</param>
+    /// <param name="cancellationToken">A cancellation token to observe while awaiting the task.</param>
+    /// <returns>A task that represents the asynchronous operation.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when pageSize is not positive.</exception>
+    public static Task<TEntity?> FirstOrDefaultAsync<TEntity>(
+        this IQueryable<TEntity> source,
+        int pageSize,
+        CancellationToken cancellationToken = default) where TEntity : class
+        => source.WithPageSize(pageSize).FirstOrDefaultAsync(cancellationToken);
+
+    /// <summary>
+    ///     Returns the first element of a sequence that satisfies a specified condition, or a default
+    ///     value if no such element is found, and configures the DynamoDB page size for this query.
+    /// </summary>
+    /// <typeparam name="TEntity">The type of entity being queried.</typeparam>
+    /// <param name="source">The source query.</param>
+    /// <param name="predicate">A function to test each element for a condition.</param>
+    /// <param name="pageSize">Maximum items to evaluate per request. Must be positive.</param>
+    /// <param name="cancellationToken">A cancellation token to observe while awaiting the task.</param>
+    /// <returns>A task that represents the asynchronous operation.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when pageSize is not positive.</exception>
+    public static Task<TEntity?> FirstOrDefaultAsync<TEntity>(
+        this IQueryable<TEntity> source,
+        Expression<Func<TEntity, bool>> predicate,
+        int pageSize,
+        CancellationToken cancellationToken = default) where TEntity : class
+        => source.WithPageSize(pageSize).FirstOrDefaultAsync(predicate, cancellationToken);
+
+    /// <summary>
     ///     Sets the maximum number of items DynamoDB should evaluate per request for this query.
     ///     Allows per-query override of the global default page size.
     /// </summary>
