@@ -10,6 +10,11 @@ public static class DynamoDbQueryableExtensions
     ///     Returns the first element of a sequence and configures the DynamoDB page size for this
     ///     query.
     /// </summary>
+    /// <remarks>
+    ///     Equivalent to <c>source.WithPageSize(pageSize).FirstAsync(...)</c>. Use this overload when
+    ///     you want page-size tuning at the terminal operation. The page size controls items evaluated
+    ///     per request (DynamoDB Limit), not the number of results returned.
+    /// </remarks>
     /// <typeparam name="TEntity">The type of entity being queried.</typeparam>
     /// <param name="source">The source query.</param>
     /// <param name="pageSize">Maximum items to evaluate per request. Must be positive.</param>
@@ -26,6 +31,11 @@ public static class DynamoDbQueryableExtensions
     ///     Returns the first element of a sequence that satisfies a specified condition and
     ///     configures the DynamoDB page size for this query.
     /// </summary>
+    /// <remarks>
+    ///     Equivalent to <c>source.WithPageSize(pageSize).FirstAsync(predicate, ...)</c>. Use this
+    ///     overload when you want page-size tuning at the terminal operation. The page size controls
+    ///     items evaluated per request (DynamoDB Limit), not the number of results returned.
+    /// </remarks>
     /// <typeparam name="TEntity">The type of entity being queried.</typeparam>
     /// <param name="source">The source query.</param>
     /// <param name="predicate">A function to test each element for a condition.</param>
@@ -44,6 +54,11 @@ public static class DynamoDbQueryableExtensions
     ///     Returns the first element of a sequence, or a default value if the sequence contains no
     ///     elements, and configures the DynamoDB page size for this query.
     /// </summary>
+    /// <remarks>
+    ///     Equivalent to <c>source.WithPageSize(pageSize).FirstOrDefaultAsync(...)</c>. Use this
+    ///     overload when you want page-size tuning at the terminal operation while keeping normal EF
+    ///     pagination continuation semantics.
+    /// </remarks>
     /// <typeparam name="TEntity">The type of entity being queried.</typeparam>
     /// <param name="source">The source query.</param>
     /// <param name="pageSize">Maximum items to evaluate per request. Must be positive.</param>
@@ -60,6 +75,11 @@ public static class DynamoDbQueryableExtensions
     ///     Returns the first element of a sequence that satisfies a specified condition, or a default
     ///     value if no such element is found, and configures the DynamoDB page size for this query.
     /// </summary>
+    /// <remarks>
+    ///     Equivalent to <c>source.WithPageSize(pageSize).FirstOrDefaultAsync(predicate, ...)</c>. Use
+    ///     this overload when you want page-size tuning at the terminal operation while keeping normal
+    ///     EF pagination continuation semantics.
+    /// </remarks>
     /// <typeparam name="TEntity">The type of entity being queried.</typeparam>
     /// <param name="source">The source query.</param>
     /// <param name="predicate">A function to test each element for a condition.</param>
