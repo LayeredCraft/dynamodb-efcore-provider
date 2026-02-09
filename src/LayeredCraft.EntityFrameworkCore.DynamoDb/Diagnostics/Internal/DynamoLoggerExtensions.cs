@@ -1,4 +1,3 @@
-using LayeredCraft.EntityFrameworkCore.DynamoDb.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Logging;
@@ -24,6 +23,12 @@ public static class DynamoLoggerExtensions
             LogLevel.Information,
             DynamoEventId.ExecutedExecuteStatement,
             "Executed DynamoDB ExecuteStatement request (itemsCount: {itemsCount}, nextTokenPresent: {nextTokenPresent})");
+
+    private static readonly Action<ILogger, int, Exception?> LogRowLimitingQueryWithoutPageSize =
+        LoggerMessage.Define<int>(
+            LogLevel.Warning,
+            DynamoEventId.RowLimitingQueryWithoutPageSize,
+            "Executing a row-limiting query (resultLimit: {resultLimit}) without a configured page size. Configure DefaultPageSize or use WithPageSize(...) to control per-request evaluated items.");
 
     public static void ExecutingPartiQlQuery(
         this IDiagnosticsLogger<DbLoggerCategory.Database.Command> diagnostics,
@@ -61,5 +66,15 @@ public static class DynamoLoggerExtensions
             return;
 
         LogExecutedExecuteStatement(diagnostics.Logger, itemsCount, nextTokenPresent, null);
+    }
+
+    public static void RowLimitingQueryWithoutPageSize(
+        this IDiagnosticsLogger<DbLoggerCategory.Database.Command> diagnostics,
+        int resultLimit)
+    {
+        if (!diagnostics.Logger.IsEnabled(LogLevel.Warning))
+            return;
+
+        LogRowLimitingQueryWithoutPageSize(diagnostics.Logger, resultLimit, null);
     }
 }

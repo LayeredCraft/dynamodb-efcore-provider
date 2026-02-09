@@ -12,6 +12,8 @@ should keep in mind. Add to these sections as support expands.
 - Responses are capped at ~1MB; paging may be required even with small limits.
 - The provider does not emit SQL `LIMIT`; it stops after enough results are returned while request
   `Limit` is used as page size.
+- The provider logs a warning when a row-limiting query (`First*`, `Take`) runs without a configured
+  page size (`WithPageSize` or `DefaultPageSize`).
 
 ## Where
 **Purpose**
@@ -56,6 +58,7 @@ should keep in mind. Add to these sections as support expands.
 **Limitations / DynamoDB quirks**
 - `n` does not imply DynamoDB request `Limit` is `n`.
 - If filters are present, multiple pages may be needed to collect `n` matches.
+- Without a configured page size, DynamoDB may return a large first page and the provider will log a warning.
 
 ## First
 **Purpose**
@@ -68,6 +71,7 @@ should keep in mind. Add to these sections as support expands.
 
 **Limitations / DynamoDB quirks**
 - An empty page does not prove absence if `NextToken` is present.
+- Without a configured page size, DynamoDB may return a large first page and the provider will log a warning.
 
 ## FirstOrDefault
 **Purpose**
@@ -80,6 +84,7 @@ should keep in mind. Add to these sections as support expands.
 
 **Limitations / DynamoDB quirks**
 - An empty page does not prove absence if `NextToken` is present.
+- Without a configured page size, DynamoDB may return a large first page and the provider will log a warning.
 
 ## WithPageSize(int)
 **Purpose**

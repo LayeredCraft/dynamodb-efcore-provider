@@ -16,6 +16,8 @@ public sealed class TestPartiQlLoggerFactory : ILoggerFactory
     public IReadOnlyList<ExecuteStatementCall> ExecuteStatementCalls
         => _logger.ExecuteStatementCalls;
 
+    public IReadOnlyList<int> RowLimitingWarnings => _logger.RowLimitingWarnings;
+
     public void Clear() => _logger.Clear();
 
     public ILogger CreateLogger(string categoryName)
@@ -73,11 +75,13 @@ public sealed class TestPartiQlLoggerFactory : ILoggerFactory
     {
         public List<string> PartiQlStatements { get; } = [];
         public List<ExecuteStatementCall> ExecuteStatementCalls { get; } = [];
+        public List<int> RowLimitingWarnings { get; } = [];
 
         public void Clear()
         {
             PartiQlStatements.Clear();
             ExecuteStatementCalls.Clear();
+            RowLimitingWarnings.Clear();
         }
 
         public bool IsEnabled(LogLevel logLevel) => true;
@@ -148,6 +152,19 @@ public sealed class TestPartiQlLoggerFactory : ILoggerFactory
                         ItemsCount = itemsCount, ResponseNextTokenPresent = nextTokenPresent,
                     };
                 }
+            }
+
+            if (eventId.Id == DynamoEventId.RowLimitingQueryWithoutPageSize.Id
+                && state is IReadOnlyList<KeyValuePair<string, object?>> rowLimitingStructure)
+            {
+                var resultLimit =
+                    rowLimitingStructure
+                        .Where(i => i.Key == "resultLimit")
+                        .Select(i => ToNullableInt(i.Value))
+                        .FirstOrDefault();
+
+                if (resultLimit.HasValue)
+                    RowLimitingWarnings.Add(resultLimit.Value);
             }
         }
 

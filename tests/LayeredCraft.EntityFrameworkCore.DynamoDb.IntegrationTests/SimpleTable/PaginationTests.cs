@@ -17,6 +17,7 @@ public class PaginationTests(SimpleTableDynamoFixture fixture) : SimpleTableTest
         calls.Should().NotBeEmpty();
         // Default page size is null (DynamoDB scans up to 1MB)
         calls.Should().OnlyContain(call => call.Limit == null);
+        LoggerFactory.RowLimitingWarnings.Should().ContainSingle().Which.Should().Be(1);
     }
 
     [Fact]
@@ -32,6 +33,7 @@ public class PaginationTests(SimpleTableDynamoFixture fixture) : SimpleTableTest
         calls.Should().NotBeEmpty();
         // Default page size is null (DynamoDB scans up to 1MB)
         calls.Should().OnlyContain(call => call.Limit == null);
+        LoggerFactory.RowLimitingWarnings.Should().ContainSingle().Which.Should().Be(3);
     }
 
     [Fact]
@@ -50,6 +52,7 @@ public class PaginationTests(SimpleTableDynamoFixture fixture) : SimpleTableTest
         var calls = LoggerFactory.ExecuteStatementCalls.ToList();
         calls.Should().NotBeEmpty();
         calls.Should().OnlyContain(call => call.Limit == 5);
+        LoggerFactory.RowLimitingWarnings.Should().BeEmpty();
     }
 
     [Fact]
@@ -78,6 +81,18 @@ public class PaginationTests(SimpleTableDynamoFixture fixture) : SimpleTableTest
         var calls = LoggerFactory.ExecuteStatementCalls.ToList();
         calls.Should().NotBeEmpty();
         calls.Should().OnlyContain(call => call.Limit == 7);
+        LoggerFactory.RowLimitingWarnings.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ToListAsync_WithoutPageSize_DoesNotEmitRowLimitingWarning()
+    {
+        LoggerFactory.Clear();
+
+        var results = await Db.SimpleItems.ToListAsync(CancellationToken);
+
+        results.Should().NotBeEmpty();
+        LoggerFactory.RowLimitingWarnings.Should().BeEmpty();
     }
 
     [Fact]

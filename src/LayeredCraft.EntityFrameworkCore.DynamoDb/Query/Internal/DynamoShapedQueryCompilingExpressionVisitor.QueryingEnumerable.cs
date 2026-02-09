@@ -116,6 +116,10 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
                     // Generate query at runtime with parameter values inlined
                     var sqlQuery = _queryingEnumerable.GenerateQuery();
 
+                    if (_resultLimit is { } resultLimit && _pageSize is null)
+                        _queryingEnumerable._commandLogger.RowLimitingQueryWithoutPageSize(
+                            resultLimit);
+
                     _queryingEnumerable._commandLogger.ExecutingPartiQlQuery(
                         _queryingEnumerable._selectExpression.TableName,
                         sqlQuery.Sql);

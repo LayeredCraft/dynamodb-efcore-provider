@@ -1,5 +1,5 @@
-using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Logging;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Diagnostics;
@@ -16,6 +16,7 @@ public static class DynamoEventId
         ExecutingPartiQlQuery = CoreEventId.ProviderBaseId + 100,
         ExecutingExecuteStatement = CoreEventId.ProviderBaseId + 101,
         ExecutedExecuteStatement = CoreEventId.ProviderBaseId + 102,
+        RowLimitingQueryWithoutPageSize = CoreEventId.ProviderBaseId + 103,
     }
 
     private static readonly string CommandPrefix = DbLoggerCategory.Database.Command.Name + ".";
@@ -49,4 +50,10 @@ public static class DynamoEventId
     public static readonly EventId ExecutedExecuteStatement = new(
         (int)Id.ExecutedExecuteStatement,
         CommandPrefix + Id.ExecutedExecuteStatement);
+
+    /// <summary>A row-limiting query is executing without a configured page size.</summary>
+    /// <remarks>This event is in the <see cref="DbLoggerCategory.Database.Command" /> category.</remarks>
+    public static readonly EventId RowLimitingQueryWithoutPageSize = new(
+        (int)Id.RowLimitingQueryWithoutPageSize,
+        CommandPrefix + Id.RowLimitingQueryWithoutPageSize);
 }
