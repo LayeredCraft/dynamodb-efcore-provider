@@ -87,6 +87,17 @@ should keep in mind. Add to these sections as support expands.
 
 **Translation**
 - Sets DynamoDB request `Limit` (items evaluated per request).
+- If `WithPageSize` is chained multiple times, the last call wins.
+
+**Example**
+```csharp
+var results = await db.Items
+    .WithPageSize(10)
+    .Where(item => item.IsActive)
+    .WithPageSize(25)
+    .ToListAsync();
+// Effective page size: 25
+```
 
 **Limitations / DynamoDB quirks**
 - Smaller page sizes can increase round trips under filtering.

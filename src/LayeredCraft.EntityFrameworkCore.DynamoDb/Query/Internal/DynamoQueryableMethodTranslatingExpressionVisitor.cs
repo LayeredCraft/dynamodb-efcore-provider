@@ -44,6 +44,8 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
             if (method.Name == nameof(DynamoDbQueryableExtensions.WithPageSize))
             {
                 var context = (DynamoQueryCompilationContext)QueryCompilationContext;
+                // The outermost call is the last chained call, so capture once to keep last-wins
+                // semantics.
                 if (context.PageSizeOverrideExpression == null)
                 {
                     context.PageSizeOverrideExpression = methodCallExpression.Arguments[1];

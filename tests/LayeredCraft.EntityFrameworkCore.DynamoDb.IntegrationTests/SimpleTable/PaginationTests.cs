@@ -124,4 +124,23 @@ public class PaginationTests(SimpleTableDynamoFixture fixture) : SimpleTableTest
         // Last WithPageSize should win
         calls.Should().OnlyContain(call => call.Limit == 20);
     }
+
+    [Fact]
+    public async Task MultipleExtensions_LastOneWins_WithOperatorsBetween()
+    {
+        LoggerFactory.Clear();
+
+        var results =
+            await Db
+                .SimpleItems.WithPageSize(10)
+                .Take(3)
+                .WithPageSize(20)
+                .ToListAsync(CancellationToken);
+
+        results.Should().HaveCount(3);
+
+        var calls = LoggerFactory.ExecuteStatementCalls.ToList();
+        calls.Should().NotBeEmpty();
+        calls.Should().OnlyContain(call => call.Limit == 20);
+    }
 }
