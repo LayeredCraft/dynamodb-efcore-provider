@@ -16,12 +16,6 @@ theme:
     - navigation.footer
     - content.action.edit
     - content.action.view
-  icon:
-    repo: fontawesome/brands/github
-    edit: material/pencil
-    view: material/eye
-    previous: fontawesome/solid/angle-left
-    next: fontawesome/solid/angle-right
 
 extra:
   homepage: https://github.com/LayeredCraft/dynamodb-efcore-provider
