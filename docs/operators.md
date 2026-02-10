@@ -4,6 +4,9 @@ This document is a living reference for how LINQ operators behave in this provid
 section includes how it translates today and the DynamoDB or provider-specific limitations you
 should keep in mind. Add to these sections as support expands.
 
+## How to maintain this page
+When an operator behavior changes, update this page in the same story as the code and tests.
+
 ## At a glance
 
 ### Supported today
@@ -23,6 +26,18 @@ should keep in mind. Add to these sections as support expands.
 - `GroupBy`
 - `Join` / `GroupJoin` / `SelectMany`
 - Complex method-call translation in predicates (for example `ToUpper()` in `Where`)
+
+## Operator matrix (current contract)
+
+| Operator | Server translation | Client behavior | Notes |
+| --- | --- | --- | --- |
+| `Where` | PartiQL `WHERE` | N/A | Boolean members normalize to `= TRUE` |
+| `Select` | Explicit projection list | Some computed expressions run client-side | No `SELECT *` |
+| `OrderBy` / `ThenBy` | PartiQL `ORDER BY` | N/A | Precedence and parentheses preserved |
+| `Take(n)` | Sets result limit expression | Stops after `n` results | Does not emit SQL `LIMIT` |
+| `First*` | Sets result limit `1` | Stops after first result | May scan multiple pages unless pagination disabled |
+| `WithPageSize(n)` | Sets request `Limit` | N/A | Last call wins |
+| `WithoutPagination()` | Single request only | Stops after first page | Can return incomplete results |
 
 ## General paging model
 - Result limit (how many results are returned) is separate from page size (how many items DynamoDB
@@ -136,3 +151,17 @@ var results = await db.Items
 
 **Limitations / DynamoDB quirks**
 - Best-effort mode: may return incomplete results when more matches exist on later pages.
+
+## Tests that cover this
+- `tests/LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests/SimpleTable/WhereTests.cs`
+- `tests/LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests/SimpleTable/OperatorPrecedenceTests.cs`
+- `tests/LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests/SimpleTable/SelectTests.cs`
+- `tests/LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests/SimpleTable/PaginationTests.cs`
+- `tests/LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests/PkSkTable/FirstTests.cs`
+
+## Implementation anchors
+- `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Query/Internal/DynamoQueryableMethodTranslatingExpressionVisitor.cs`
+- `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Query/Internal/DynamoSqlTranslatingExpressionVisitor.cs`
+- `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Query/Internal/Expressions/SelectExpression.cs`
+- `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Query/Internal/DynamoQuerySqlGenerator.cs`
+- `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Query/Internal/DynamoShapedQueryCompilingExpressionVisitor.QueryingEnumerable.cs`
