@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Globalization;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -8,6 +9,7 @@ using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Storage;
 using static System.Linq.Expressions.Expression;
+using Convert = System.Convert;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
 
@@ -59,6 +61,11 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
 
     private static readonly MethodInfo MemoryStreamToArrayMethod =
         typeof(MemoryStream).GetMethod(nameof(MemoryStream.ToArray))!;
+
+    private static readonly MethodInfo ConvertAttributeValueToClrValueMethod =
+        typeof(DynamoProjectionBindingRemovingExpressionVisitor).GetMethod(
+            nameof(ConvertAttributeValueToClrValue),
+            BindingFlags.NonPublic | BindingFlags.Static)!;
 
     /// <summary>
     ///     Intercepts MaterializationContext constructor calls to replace ProjectionBindingExpression
@@ -250,6 +257,26 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
 
         var isDynamoNullExpression = OrElse(isAttributeValueNullExpression, isNullFlagExpression);
 
+        if (IsCollectionType(type))
+        {
+            var collectionValueExpression = Convert(
+                Call(
+                    ConvertAttributeValueToClrValueMethod,
+                    attributeValueVariable,
+                    Constant(type, typeof(Type)),
+                    Constant(typeMapping, typeof(CoreTypeMapping)),
+                    Constant(propertyPath),
+                    Constant(required)),
+                type);
+
+            var completeCollectionExpression = Condition(
+                tryGetValueExpression,
+                Condition(isDynamoNullExpression, nullReturnExpression, collectionValueExpression),
+                missingReturnExpression);
+
+            return Block([attributeValueVariable], completeCollectionExpression);
+        }
+
         // Extract wire primitive: attributeValue.S, long.Parse(attributeValue.N), etc.
         var primitiveType = converter?.ProviderClrType ?? type;
         var isNullablePrimitive = Nullable.GetUnderlyingType(primitiveType) != null;
@@ -416,6 +443,332 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
         hasWireValueExpression = NotEqual(
             Property(attributeValueExpression, AttributeValueNProperty),
             Constant(null, typeof(string)));
+        return true;
+    }
+
+    private static bool IsCollectionType(Type type)
+    {
+        if (type == typeof(string) || type == typeof(byte[]))
+            return false;
+
+        if (type.IsArray)
+            return true;
+
+        if (!type.IsGenericType)
+            return false;
+
+        var definition = type.GetGenericTypeDefinition();
+        return definition == typeof(List<>)
+            || definition == typeof(IList<>)
+            || definition == typeof(IReadOnlyList<>)
+            || definition == typeof(Dictionary<,>)
+            || definition == typeof(IDictionary<,>)
+            || definition == typeof(IReadOnlyDictionary<,>)
+            || definition == typeof(HashSet<>)
+            || definition == typeof(ISet<>);
+    }
+
+    private static object? ConvertAttributeValueToClrValue(
+        AttributeValue attributeValue,
+        Type targetType,
+        CoreTypeMapping? typeMapping,
+        string propertyPath,
+        bool required)
+    {
+        if (attributeValue == null || attributeValue.NULL == true)
+        {
+            if (required)
+                throw new InvalidOperationException(
+                    $"Required property '{propertyPath}' was set to DynamoDB NULL.");
+
+            return targetType.IsValueType ? Activator.CreateInstance(targetType) : null;
+        }
+
+        if (TryGetDictionaryValueType(targetType, out var valueType))
+        {
+            if (attributeValue.M == null)
+                return HandleMissingWireValue(
+                    targetType,
+                    propertyPath,
+                    required,
+                    nameof(AttributeValue.M));
+
+            var valueMapping = typeMapping?.ElementTypeMapping;
+            var dictionaryType = typeof(Dictionary<,>).MakeGenericType(typeof(string), valueType);
+            var dictionary = (IDictionary)Activator.CreateInstance(dictionaryType)!;
+
+            foreach (var (key, mapValue) in attributeValue.M)
+                dictionary[key] = ConvertAttributeValueToClrValue(
+                    mapValue,
+                    valueType,
+                    valueMapping,
+                    $"{propertyPath}.{key}",
+                    false)!;
+
+            return dictionary;
+        }
+
+        if (TryGetListElementType(targetType, out var elementType))
+        {
+            if (attributeValue.L == null)
+                return HandleMissingWireValue(
+                    targetType,
+                    propertyPath,
+                    required,
+                    nameof(AttributeValue.L));
+
+            var elementMapping = typeMapping?.ElementTypeMapping;
+            var listType = typeof(List<>).MakeGenericType(elementType);
+            var list = (IList)Activator.CreateInstance(listType)!;
+
+            foreach (var listElement in attributeValue.L)
+                list.Add(
+                    ConvertAttributeValueToClrValue(
+                        listElement,
+                        elementType,
+                        elementMapping,
+                        propertyPath,
+                        false));
+
+            if (targetType.IsArray)
+            {
+                var array = Array.CreateInstance(elementType, list.Count);
+                list.CopyTo(array, 0);
+                return array;
+            }
+
+            return list;
+        }
+
+        if (TryGetSetElementType(targetType, out var setElementType))
+        {
+            var elementMapping = typeMapping?.ElementTypeMapping;
+            var set = Activator.CreateInstance(typeof(HashSet<>).MakeGenericType(setElementType))!;
+            var addMethod = set.GetType().GetMethod(nameof(HashSet<int>.Add))!;
+
+            if (attributeValue.SS != null)
+            {
+                foreach (var setElement in attributeValue.SS)
+                    addMethod.Invoke(
+                        set,
+                        [
+                            ConvertProviderValueToModelValue(
+                                setElement,
+                                setElementType,
+                                elementMapping),
+                        ]);
+
+                return set;
+            }
+
+            if (attributeValue.NS != null)
+            {
+                foreach (var setElement in attributeValue.NS)
+                {
+                    var providerType = GetProviderType(setElementType, elementMapping);
+                    var parsed = ParseNumericString(setElement, providerType);
+                    addMethod.Invoke(
+                        set,
+                        [ConvertProviderValueToModelValue(parsed, setElementType, elementMapping)]);
+                }
+
+                return set;
+            }
+
+            if (attributeValue.BS != null)
+            {
+                foreach (var setElement in attributeValue.BS)
+                    addMethod.Invoke(
+                        set,
+                        [
+                            ConvertProviderValueToModelValue(
+                                setElement?.ToArray(),
+                                setElementType,
+                                elementMapping),
+                        ]);
+
+                return set;
+            }
+
+            return HandleMissingWireValue(targetType, propertyPath, required, "SS/NS/BS");
+        }
+
+        return ConvertScalarAttributeValue(
+            attributeValue,
+            targetType,
+            typeMapping,
+            propertyPath,
+            required);
+    }
+
+    private static object? ConvertScalarAttributeValue(
+        AttributeValue attributeValue,
+        Type targetType,
+        CoreTypeMapping? typeMapping,
+        string propertyPath,
+        bool required)
+    {
+        var converter = typeMapping?.Converter;
+        var providerType = GetProviderType(targetType, typeMapping);
+
+        var providerValue =
+            providerType == typeof(string) ? attributeValue.S :
+            providerType == typeof(bool) ? attributeValue.BOOL :
+            providerType == typeof(byte[]) ? attributeValue.B?.ToArray() :
+            ParseNumericString(attributeValue.N, providerType);
+
+        if (providerValue == null)
+            return HandleMissingWireValue(
+                targetType,
+                propertyPath,
+                required,
+                GetExpectedWireMemberName(providerType));
+
+        var modelValue = converter == null
+            ? providerValue
+            : converter.ConvertFromProvider(providerValue);
+
+        if (modelValue == null)
+            return required ? throw new InvalidOperationException(
+                    $"Required property '{propertyPath}' did not contain a value for expected DynamoDB wire member '{GetExpectedWireMemberName(providerType)}'.") :
+                targetType.IsValueType ? Activator.CreateInstance(targetType) : null;
+
+        var nonNullableTargetType = Nullable.GetUnderlyingType(targetType) ?? targetType;
+        if (nonNullableTargetType.IsAssignableFrom(modelValue.GetType()))
+            return modelValue;
+
+        return Convert.ChangeType(modelValue, nonNullableTargetType, CultureInfo.InvariantCulture);
+    }
+
+    private static Type GetProviderType(Type targetType, CoreTypeMapping? typeMapping)
+    {
+        var providerType = typeMapping?.Converter?.ProviderClrType ?? targetType;
+        return Nullable.GetUnderlyingType(providerType) ?? providerType;
+    }
+
+    private static object? HandleMissingWireValue(
+        Type targetType,
+        string propertyPath,
+        bool required,
+        string wireMemberName)
+    {
+        if (required)
+            throw new InvalidOperationException(
+                $"Required property '{propertyPath}' did not contain a value for expected DynamoDB wire member '{wireMemberName}'.");
+
+        return targetType.IsValueType ? Activator.CreateInstance(targetType) : null;
+    }
+
+    private static object? ConvertProviderValueToModelValue(
+        object? providerValue,
+        Type targetType,
+        CoreTypeMapping? typeMapping)
+    {
+        var converter = typeMapping?.Converter;
+        if (converter != null)
+            return converter.ConvertFromProvider(providerValue);
+
+        if (providerValue == null)
+            return null;
+
+        var nonNullableTargetType = Nullable.GetUnderlyingType(targetType) ?? targetType;
+        return nonNullableTargetType.IsAssignableFrom(providerValue.GetType())
+            ? providerValue
+            : Convert.ChangeType(
+                providerValue,
+                nonNullableTargetType,
+                CultureInfo.InvariantCulture);
+    }
+
+    private static object ParseNumericString(string? value, Type numericType)
+    {
+        if (value == null)
+            throw new InvalidOperationException("Numeric DynamoDB wire value was missing.");
+
+        if (numericType == typeof(byte))
+            return byte.Parse(value, CultureInfo.InvariantCulture);
+
+        if (numericType == typeof(short))
+            return short.Parse(value, CultureInfo.InvariantCulture);
+
+        if (numericType == typeof(int))
+            return int.Parse(value, CultureInfo.InvariantCulture);
+
+        if (numericType == typeof(long))
+            return long.Parse(value, CultureInfo.InvariantCulture);
+
+        if (numericType == typeof(float))
+            return float.Parse(value, CultureInfo.InvariantCulture);
+
+        if (numericType == typeof(double))
+            return double.Parse(value, CultureInfo.InvariantCulture);
+
+        if (numericType == typeof(decimal))
+            return decimal.Parse(value, CultureInfo.InvariantCulture);
+
+        throw new InvalidOperationException($"Unsupported numeric provider type '{numericType}'.");
+    }
+
+    private static bool TryGetListElementType(Type clrType, out Type elementType)
+    {
+        elementType = null!;
+        if (clrType == typeof(byte[]))
+            return false;
+
+        if (clrType.IsArray)
+        {
+            var arrayElementType = clrType.GetElementType();
+            if (arrayElementType == null)
+                return false;
+
+            elementType = arrayElementType;
+            return true;
+        }
+
+        if (!clrType.IsGenericType)
+            return false;
+
+        var genericTypeDefinition = clrType.GetGenericTypeDefinition();
+        if (genericTypeDefinition != typeof(List<>)
+            && genericTypeDefinition != typeof(IList<>)
+            && genericTypeDefinition != typeof(IReadOnlyList<>))
+            return false;
+
+        elementType = clrType.GetGenericArguments()[0];
+        return true;
+    }
+
+    private static bool TryGetDictionaryValueType(Type clrType, out Type valueType)
+    {
+        valueType = null!;
+        if (!clrType.IsGenericType)
+            return false;
+
+        var genericTypeDefinition = clrType.GetGenericTypeDefinition();
+        if (genericTypeDefinition != typeof(Dictionary<,>)
+            && genericTypeDefinition != typeof(IDictionary<,>)
+            && genericTypeDefinition != typeof(IReadOnlyDictionary<,>))
+            return false;
+
+        var genericArguments = clrType.GetGenericArguments();
+        if (genericArguments[0] != typeof(string))
+            return false;
+
+        valueType = genericArguments[1];
+        return true;
+    }
+
+    private static bool TryGetSetElementType(Type clrType, out Type elementType)
+    {
+        elementType = null!;
+        if (!clrType.IsGenericType)
+            return false;
+
+        var genericTypeDefinition = clrType.GetGenericTypeDefinition();
+        if (genericTypeDefinition != typeof(HashSet<>) && genericTypeDefinition != typeof(ISet<>))
+            return false;
+
+        elementType = clrType.GetGenericArguments()[0];
         return true;
     }
 }
