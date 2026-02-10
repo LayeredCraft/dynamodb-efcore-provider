@@ -4,6 +4,26 @@ This document is a living reference for how LINQ operators behave in this provid
 section includes how it translates today and the DynamoDB or provider-specific limitations you
 should keep in mind. Add to these sections as support expands.
 
+## At a glance
+
+### Supported today
+- `Where`
+- `Select`
+- `OrderBy` / `OrderByDescending`
+- `ThenBy` / `ThenByDescending`
+- `Take`
+- `First` / `FirstOrDefault`
+- `WithPageSize`
+- `WithoutPagination`
+
+### Not supported today
+- `Single` / `SingleOrDefault`
+- `Any`, `All`, `Count`, `LongCount`
+- `Skip`
+- `GroupBy`
+- `Join` / `GroupJoin` / `SelectMany`
+- Complex method-call translation in predicates (for example `ToUpper()` in `Where`)
+
 ## General paging model
 - Result limit (how many results are returned) is separate from page size (how many items DynamoDB
   evaluates per request).
