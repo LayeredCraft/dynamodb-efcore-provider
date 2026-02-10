@@ -8,6 +8,10 @@ icon: lucide/table
 - Entity projections (`Select(x => x)`).
 - Scalar projections (`Select(x => x.Property)`).
 - DTO and anonymous type projections.
+- Primitive collection properties on entities:
+  - lists/arrays (`L`),
+  - string-keyed dictionaries/maps (`M`),
+  - sets (`SS`, `NS`, `BS`).
 
 ## Behavior
 - The provider emits explicit projection columns.
@@ -52,10 +56,26 @@ var rows = await db.SimpleItems
 
 ## Provider materialization coverage (today)
 - Direct reads are implemented for `S`, `N`, `BOOL`, `NULL`, and `B`.
+- Collection reads are implemented for `L`, `M`, `SS`, `NS`, and `BS`.
 - Primitive CLR mappings are direct for `string`, `bool`, `byte[]`, and numeric types
   `byte`, `short`, `int`, `long`, `float`, `double`, `decimal`.
+- Primitive collection CLR mappings include:
+  - `List<T>`, `IList<T>`, `IReadOnlyList<T>`, and arrays (`T[]`),
+  - `Dictionary<string, TValue>`, `IDictionary<string, TValue>`, `IReadOnlyDictionary<string, TValue>`,
+  - `ReadOnlyDictionary<string, TValue>`,
+  - `HashSet<T>` and `ISet<T>`.
+- `ReadOnlyMemory<byte>` is supported and stored as DynamoDB binary (`B`) via a value converter.
 - Additional CLR types (for example `Guid`, `DateTimeOffset`) are supported through EF Core value
   converters.
+
+## Collection semantics and constraints
+- Dictionary/map keys must be `string`.
+- Set element provider types must map to DynamoDB set wire types:
+  - `string` -> `SS`,
+  - numeric types -> `NS`,
+  - `byte[]` -> `BS`.
+- Set equality in change tracking is order-insensitive.
+- `ReadOnlyDictionary<string, TValue>` uses snapshot optimization (no deep-copy snapshot).
 
 ## Notes
 - Client-side computed projections follow normal .NET null behavior.

@@ -27,6 +27,7 @@ should keep in mind. Add to these sections as support expands.
 - `GroupBy`
 - `Join` / `GroupJoin` / `SelectMany`
 - Complex method-call translation in predicates (for example `ToUpper()` in `Where`)
+- Collection predicate translation (for example `List.Contains(...)`, `Set.Contains(...)`, `Dictionary.ContainsKey(...)`)
 
 ## Operator matrix (current contract)
 
@@ -39,6 +40,14 @@ should keep in mind. Add to these sections as support expands.
 | `First*` | Sets result limit `1` | Stops after first result | May scan multiple pages unless pagination disabled |
 | `WithPageSize(n)` | Sets request `Limit` | N/A | Last call wins |
 | `WithoutPagination()` | Single request only | Stops after first page | Can return incomplete results |
+
+## Primitive collection support (mapping/materialization)
+- The provider supports primitive collection *property types* for entity materialization and change tracking:
+  - list/array shapes mapped to DynamoDB `L`,
+  - string-keyed dictionary/map shapes mapped to DynamoDB `M`,
+  - set shapes mapped to DynamoDB `SS` / `NS` / `BS`.
+- This support is currently about type mapping and materialization, not collection-specific server predicate translation.
+- Collection predicates remain unsupported for now; see the "Not supported today" section above.
 
 ## General paging model
 - Result limit (how many results are returned) is separate from page size (how many items DynamoDB
