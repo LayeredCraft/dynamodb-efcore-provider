@@ -46,17 +46,5 @@ protected override void OnModelCreating(ModelBuilder modelBuilder)
 ## Not configurable yet
 - `ConsistentRead` is not currently exposed as a provider option.
 
-## Tests that cover this
-- `tests/LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests/SimpleTable/SimpleTableDbContext.cs`
-- `tests/LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests/PkSkTable/PkSkTableDbContext.cs`
-- `tests/LayeredCraft.EntityFrameworkCore.DynamoDb.Tests/Query/PaginationConfigurationTests.cs`
-
-## Implementation anchors
-- `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Extensions/DynamoDbContextOptionsExtensions.cs`
-- `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Infrastructure/DynamoDbContextOptionsBuilder.cs`
-- `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Infrastructure/Internal/DynamoDbOptionsExtension.cs`
-- `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Extensions/DynamoEntityTypeBuilderExtensions.cs`
-- `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Metadata/Internal/DynamoAnnotationNames.cs`
-
 ## External references
 - DynamoDB PartiQL SELECT: <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ql-reference.select.html>

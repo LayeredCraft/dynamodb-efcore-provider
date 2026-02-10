@@ -49,16 +49,5 @@ var items = await db.SimpleItems
 - Effective result limit is `3`.
 - Effective request page size is `25`.
 
-## Tests that cover this
-- `tests/LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests/SimpleTable/PaginationTests.cs`
-- `tests/LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests/SimpleTable/CompiledQueryPaginationTests.cs`
-- `tests/LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests/PkSkTable/FirstTests.cs`
-
-## Implementation anchors
-- `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Query/Internal/DynamoQueryableMethodTranslatingExpressionVisitor.cs`
-- `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Query/Internal/Expressions/SelectExpression.cs`
-- `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Query/Internal/DynamoShapedQueryCompilingExpressionVisitor.QueryingEnumerable.cs`
-- `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Storage/DynamoClientWrapper.cs`
-
 ## External references
 - AWS ExecuteStatement API: <https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_ExecuteStatement.html>

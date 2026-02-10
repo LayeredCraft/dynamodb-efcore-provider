@@ -4,9 +4,6 @@ This document is a living reference for how LINQ operators behave in this provid
 section includes how it translates today and the DynamoDB or provider-specific limitations you
 should keep in mind. Add to these sections as support expands.
 
-## How to maintain this page
-When an operator behavior changes, update this page in the same story as the code and tests.
-
 ## At a glance
 
 ### Supported today
@@ -165,32 +162,8 @@ var results = await db.Items
 **Limitations / DynamoDB quirks**
 - Best-effort mode: may return incomplete results when more matches exist on later pages.
 
-## Tests that cover this
-- `tests/LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests/SimpleTable/WhereTests.cs`
-- `tests/LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests/SimpleTable/OperatorPrecedenceTests.cs`
-- `tests/LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests/SimpleTable/SelectTests.cs`
-- `tests/LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests/SimpleTable/PaginationTests.cs`
-- `tests/LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests/PkSkTable/FirstTests.cs`
-
-## Implementation anchors
-- `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Query/Internal/DynamoQueryableMethodTranslatingExpressionVisitor.cs`
-- `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Query/Internal/DynamoSqlTranslatingExpressionVisitor.cs`
-- `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Query/Internal/Expressions/SelectExpression.cs`
-- `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Query/Internal/DynamoQuerySqlGenerator.cs`
-- `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Query/Internal/DynamoShapedQueryCompilingExpressionVisitor.QueryingEnumerable.cs`
-
 ## External references
 - AWS ExecuteStatement API: <https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_ExecuteStatement.html>
 - DynamoDB PartiQL SELECT: <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ql-reference.select.html>
 - DynamoDB PartiQL operators: <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ql-operators.html>
 - PartiQL identifiers: <https://partiql.org/concepts/identifiers.html>
-
-## Story docs checklist
-Use this checklist in every story that changes query behavior.
-
-- [ ] Add or update tests that prove the behavior.
-- [ ] Update this page (`operators.md`) for supported/unsupported status and operator notes.
-- [ ] Update the relevant topical page (`pagination.md`, `projections.md`, `diagnostics.md`, `limitations.md`, or `configuration.md`).
-- [ ] Add or adjust implementation anchors when entry points change.
-- [ ] Verify examples only use currently supported translation patterns.
-- [ ] Run `uv run zensical build`.

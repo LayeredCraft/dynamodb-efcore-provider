@@ -7,13 +7,6 @@
 4. Provider executes PartiQL via DynamoDB `ExecuteStatement`.
 5. Provider materializes rows from `Dictionary<string, AttributeValue>` into projection/entity results.
 
-## Core pipeline entry points
-- LINQ translation: `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Query/Internal/DynamoQueryableMethodTranslatingExpressionVisitor.cs`
-- Query compilation: `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Query/Internal/DynamoShapedQueryCompilingExpressionVisitor.cs`
-- PartiQL generation: `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Query/Internal/DynamoQuerySqlGenerator.cs`
-- Execution wrapper: `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Storage/DynamoClientWrapper.cs`
-- Type mapping: `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Storage/DynamoTypeMappingSource.cs`
-
 ## Core semantics captured by this architecture
 - Query execution is async-only.
 - Paging uses DynamoDB continuation tokens via `ExecuteStatement` unless disabled.
@@ -27,12 +20,6 @@
   `First*`) control how many rows are returned to EF.
 - DynamoDB can stop responses at request `Limit` or at the 1 MB processed-data cap, so continuation
   may be required for selective queries.
-
-## Tests that exercise the pipeline
-- `tests/LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests/SimpleTable/WhereTests.cs`
-- `tests/LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests/SimpleTable/SelectTests.cs`
-- `tests/LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests/SimpleTable/PaginationTests.cs`
-- `tests/LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests/PkSkTable/FirstTests.cs`
 
 ## External references
 - AWS ExecuteStatement API: <https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_ExecuteStatement.html>

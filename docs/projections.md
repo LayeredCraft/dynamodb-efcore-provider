@@ -51,15 +51,6 @@ var rows = await db.SimpleItems
 - Additional CLR types (for example `Guid`, `DateTimeOffset`) are supported through EF Core value
   converters.
 
-## Tests that cover this
-- `tests/LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests/SimpleTable/SelectTests.cs`
-- `tests/LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests/SimpleTable/RequiredPropertyNullHandlingTests.cs`
-
-## Implementation anchors
-- `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Query/Internal/DynamoProjectionBindingExpressionVisitor.cs`
-- `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Query/Internal/Expressions/SelectExpression.cs`
-- `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Query/Internal/DynamoProjectionBindingRemovingExpressionVisitor.cs`
-
 ## Notes
 - Client-side computed projections follow normal .NET null behavior.
 
