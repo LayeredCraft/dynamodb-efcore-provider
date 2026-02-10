@@ -1,19 +1,68 @@
+---
+icon: lucide/function-square
+---
+
 # Query Operators and DynamoDB Behavior
 
 This document is a living reference for how LINQ operators behave in this provider. Each operator
 section includes how it translates today and the DynamoDB or provider-specific limitations you
 should keep in mind. Add to these sections as support expands.
 
+## At a glance
+
+### Supported today
+- `Where`
+- `Select`
+- `OrderBy` / `OrderByDescending`
+- `ThenBy` / `ThenByDescending`
+- `Take`
+- `First` / `FirstOrDefault`
+- `WithPageSize`
+- `WithoutPagination`
+
+### Not supported today
+- `Single` / `SingleOrDefault`
+- `Any`, `All`, `Count`, `LongCount`
+- `Skip`
+- `GroupBy`
+- `Join` / `GroupJoin` / `SelectMany`
+- Complex method-call translation in predicates (for example `ToUpper()` in `Where`)
+
+## Operator matrix (current contract)
+
+| Operator | Server translation | Client behavior | Notes |
+| --- | --- | --- | --- |
+| `Where` | PartiQL `WHERE` | N/A | Boolean members normalize to `= TRUE` |
+| `Select` | Explicit projection list | Some computed expressions run client-side | No `SELECT *` |
+| `OrderBy` / `ThenBy` | PartiQL `ORDER BY` | N/A | Precedence and parentheses preserved |
+| `Take(n)` | Sets result limit expression | Stops after `n` results | Does not emit SQL `LIMIT` |
+| `First*` | Sets result limit `1` | Stops after first result | May scan multiple pages unless pagination disabled |
+| `WithPageSize(n)` | Sets request `Limit` | N/A | Last call wins |
+| `WithoutPagination()` | Single request only | Stops after first page | Can return incomplete results |
+
 ## General paging model
 - Result limit (how many results are returned) is separate from page size (how many items DynamoDB
   evaluates per request).
 - DynamoDB `Limit` controls evaluation, not returned matches. A page can return zero matches and
   still include `NextToken` if more items could match.
-- Responses are capped at ~1MB; paging may be required even with small limits.
+- DynamoDB read responses can stop at the request `Limit` or at the 1 MB processed-data cap,
+  whichever is reached first.
 - The provider does not emit SQL `LIMIT`; it stops after enough results are returned while request
   `Limit` is used as page size.
 - The provider logs a warning when a row-limiting query (`First*`, `Take`) runs without a configured
   page size (`WithPageSize` or `DefaultPageSize`).
+
+## DynamoDB PartiQL context (background)
+- PartiQL `SELECT` can behave like a scan unless the `WHERE` clause uses partition-key equality or
+  partition-key `IN`.
+- DynamoDB PartiQL supports operators such as `BETWEEN` (inclusive) and `IN`, but provider
+  translation support is narrower than the full DynamoDB operator surface.
+- DynamoDB documents `IN` limits as up to 50 hash-key values or up to 100 non-key values.
+
+## Identifier quoting notes
+- This provider quotes property identifiers when needed (for example reserved words and spaces).
+- Quoted identifiers in PartiQL are case-sensitive.
+- Reserved-word handling in the generator is intentionally small today and can expand over time.
 
 ## Where
 **Purpose**
@@ -116,3 +165,9 @@ var results = await db.Items
 
 **Limitations / DynamoDB quirks**
 - Best-effort mode: may return incomplete results when more matches exist on later pages.
+
+## External references
+- AWS ExecuteStatement API: <https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_ExecuteStatement.html>
+- DynamoDB PartiQL SELECT: <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ql-reference.select.html>
+- DynamoDB PartiQL operators: <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ql-operators.html>
+- PartiQL identifiers: <https://partiql.org/concepts/identifiers.html>

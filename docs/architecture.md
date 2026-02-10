@@ -1,0 +1,30 @@
+---
+icon: lucide/git-branch
+---
+
+# Architecture
+
+## End-to-end flow
+1. LINQ query is translated into provider expressions.
+2. Provider builds a `SelectExpression` query model.
+3. Provider generates PartiQL SQL text and positional parameters.
+4. Provider executes PartiQL via DynamoDB `ExecuteStatement`.
+5. Provider materializes rows from `Dictionary<string, AttributeValue>` into projection/entity results.
+
+## Core semantics captured by this architecture
+- Query execution is async-only.
+- Paging uses DynamoDB continuation tokens via `ExecuteStatement` unless disabled.
+- Result limit and page size are separate concepts.
+- Materialization enforces strict required-property behavior for missing/null/wrong-typed data.
+
+## DynamoDB ExecuteStatement model
+- SQL text is generated with positional `?` placeholders and a separate positional `AttributeValue`
+  parameter list.
+- Request `Limit` controls items evaluated per request, while provider result limits (`Take`,
+  `First*`) control how many rows are returned to EF.
+- DynamoDB can stop responses at request `Limit` or at the 1 MB processed-data cap, so continuation
+  may be required for selective queries.
+
+## External references
+- AWS ExecuteStatement API: <https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_ExecuteStatement.html>
+- AWS AttributeValue model: <https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_AttributeValue.html>

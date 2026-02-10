@@ -60,3 +60,6 @@ docker-compose.override.yml
 **/*DotSettings.user
 **/AGENTS.local.md
 **/.DS_Store
+.venv/
+site/
+__pycache__/
