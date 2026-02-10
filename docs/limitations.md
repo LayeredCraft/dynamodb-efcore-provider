@@ -5,6 +5,8 @@
 - Synchronous query enumeration.
 - `ToQueryString()` support for the custom querying enumerable.
 - Large parts of LINQ translation surface (see `operators.md`).
+- Method calls in `Where` predicates (for example `StartsWith`, `ToUpper`).
+- Provider option for `ConsistentRead`.
 
 ## What this means in practice
 - The provider is currently query-only.

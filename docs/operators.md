@@ -44,11 +44,24 @@ When an operator behavior changes, update this page in the same story as the cod
   evaluates per request).
 - DynamoDB `Limit` controls evaluation, not returned matches. A page can return zero matches and
   still include `NextToken` if more items could match.
-- Responses are capped at ~1MB; paging may be required even with small limits.
+- DynamoDB read responses can stop at the request `Limit` or at the 1 MB processed-data cap,
+  whichever is reached first.
 - The provider does not emit SQL `LIMIT`; it stops after enough results are returned while request
   `Limit` is used as page size.
 - The provider logs a warning when a row-limiting query (`First*`, `Take`) runs without a configured
   page size (`WithPageSize` or `DefaultPageSize`).
+
+## DynamoDB PartiQL context (background)
+- PartiQL `SELECT` can behave like a scan unless the `WHERE` clause uses partition-key equality or
+  partition-key `IN`.
+- DynamoDB PartiQL supports operators such as `BETWEEN` (inclusive) and `IN`, but provider
+  translation support is narrower than the full DynamoDB operator surface.
+- DynamoDB documents `IN` limits as up to 50 hash-key values or up to 100 non-key values.
+
+## Identifier quoting notes
+- This provider quotes property identifiers when needed (for example reserved words and spaces).
+- Quoted identifiers in PartiQL are case-sensitive.
+- Reserved-word handling in the generator is intentionally small today and can expand over time.
 
 ## Where
 **Purpose**
@@ -165,3 +178,19 @@ var results = await db.Items
 - `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Query/Internal/Expressions/SelectExpression.cs`
 - `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Query/Internal/DynamoQuerySqlGenerator.cs`
 - `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Query/Internal/DynamoShapedQueryCompilingExpressionVisitor.QueryingEnumerable.cs`
+
+## External references
+- AWS ExecuteStatement API: <https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_ExecuteStatement.html>
+- DynamoDB PartiQL SELECT: <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ql-reference.select.html>
+- DynamoDB PartiQL operators: <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ql-operators.html>
+- PartiQL identifiers: <https://partiql.org/concepts/identifiers.html>
+
+## Story docs checklist
+Use this checklist in every story that changes query behavior.
+
+- [ ] Add or update tests that prove the behavior.
+- [ ] Update this page (`operators.md`) for supported/unsupported status and operator notes.
+- [ ] Update the relevant topical page (`pagination.md`, `projections.md`, `diagnostics.md`, `limitations.md`, or `configuration.md`).
+- [ ] Add or adjust implementation anchors when entry points change.
+- [ ] Verify examples only use currently supported translation patterns.
+- [ ] Run `uv run zensical build`.

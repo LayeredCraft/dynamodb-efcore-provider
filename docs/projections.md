@@ -41,6 +41,16 @@ var rows = await db.SimpleItems
 - DTO constructor and object-initializer projections are supported.
 - Projection deduplication avoids selecting the same attribute multiple times.
 
+## AttributeValue model context
+- DynamoDB request parameters and response values use `AttributeValue` wire types such as `S`, `N`,
+  `BOOL`, `NULL`, `B`, `M`, `L`, and set types.
+- Numeric values are transferred as strings on the wire (`N`, `NS`).
+
+## Provider materialization coverage (today)
+- Direct reads are implemented for `S`, `N`, `BOOL`, `NULL`, and `B`.
+- Additional CLR types (for example `Guid`, `DateTimeOffset`) are supported through EF Core value
+  converters.
+
 ## Tests that cover this
 - `tests/LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests/SimpleTable/SelectTests.cs`
 - `tests/LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests/SimpleTable/RequiredPropertyNullHandlingTests.cs`
@@ -52,3 +62,6 @@ var rows = await db.SimpleItems
 
 ## Notes
 - Client-side computed projections follow normal .NET null behavior.
+
+## External references
+- AWS AttributeValue model: <https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_AttributeValue.html>

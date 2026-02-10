@@ -37,6 +37,15 @@ protected override void OnModelCreating(ModelBuilder modelBuilder)
 - Table mapping uses a Dynamo-specific annotation (`Dynamo:TableName`).
 - Composite keys are supported at the model level (for example `{ Pk, Sk }`).
 
+## Access patterns and scans
+- DynamoDB PartiQL `SELECT` can trigger a full table scan unless predicates include partition-key
+  equality or partition-key `IN` conditions.
+- Key-based predicates are important for predictable latency and cost.
+- The provider currently does not add scan-denial guards; query shape is controlled by your LINQ.
+
+## Not configurable yet
+- `ConsistentRead` is not currently exposed as a provider option.
+
 ## Tests that cover this
 - `tests/LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests/SimpleTable/SimpleTableDbContext.cs`
 - `tests/LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests/PkSkTable/PkSkTableDbContext.cs`
@@ -48,3 +57,6 @@ protected override void OnModelCreating(ModelBuilder modelBuilder)
 - `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Infrastructure/Internal/DynamoDbOptionsExtension.cs`
 - `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Extensions/DynamoEntityTypeBuilderExtensions.cs`
 - `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Metadata/Internal/DynamoAnnotationNames.cs`
+
+## External references
+- DynamoDB PartiQL SELECT: <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ql-reference.select.html>

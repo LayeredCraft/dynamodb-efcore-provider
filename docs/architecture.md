@@ -16,12 +16,24 @@
 
 ## Core semantics captured by this architecture
 - Query execution is async-only.
-- Paging uses DynamoDB `NextToken` continuation unless disabled.
+- Paging uses DynamoDB continuation tokens via `ExecuteStatement` unless disabled.
 - Result limit and page size are separate concepts.
 - Materialization enforces strict required-property behavior for missing/null/wrong-typed data.
+
+## DynamoDB ExecuteStatement model
+- SQL text is generated with positional `?` placeholders and a separate positional `AttributeValue`
+  parameter list.
+- Request `Limit` controls items evaluated per request, while provider result limits (`Take`,
+  `First*`) control how many rows are returned to EF.
+- DynamoDB can stop responses at request `Limit` or at the 1 MB processed-data cap, so continuation
+  may be required for selective queries.
 
 ## Tests that exercise the pipeline
 - `tests/LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests/SimpleTable/WhereTests.cs`
 - `tests/LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests/SimpleTable/SelectTests.cs`
 - `tests/LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests/SimpleTable/PaginationTests.cs`
 - `tests/LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests/PkSkTable/FirstTests.cs`
+
+## External references
+- AWS ExecuteStatement API: <https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_ExecuteStatement.html>
+- AWS AttributeValue model: <https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_AttributeValue.html>
