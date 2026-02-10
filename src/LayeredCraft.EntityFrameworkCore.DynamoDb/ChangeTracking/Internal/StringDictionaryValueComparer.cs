@@ -2,12 +2,13 @@ using Microsoft.EntityFrameworkCore.ChangeTracking;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.ChangeTracking.Internal;
 
-internal sealed class
-    StringDictionaryValueComparer<TDictionary, TValue>(ValueComparer elementComparer)
+internal sealed class StringDictionaryValueComparer<TDictionary, TValue>(
+    ValueComparer elementComparer,
+    bool readOnly)
     : ValueComparer<TDictionary>(
         (left, right) => Compare(left, right, (ValueComparer<TValue>)elementComparer),
         source => GetHashCode(source, (ValueComparer<TValue>)elementComparer),
-        source => (TDictionary)(object)Snapshot(source, (ValueComparer<TValue>)elementComparer))
+        source => (TDictionary)Snapshot(source, (ValueComparer<TValue>)elementComparer, readOnly))
     where TDictionary : class, IEnumerable<KeyValuePair<string, TValue>>
 {
     private static bool Compare(
@@ -48,18 +49,22 @@ internal sealed class
         return hashCode.ToHashCode();
     }
 
-    private static Dictionary<string, TValue> Snapshot(
+    private static TDictionary Snapshot(
         TDictionary source,
-        ValueComparer<TValue> elementComparer)
+        ValueComparer<TValue> elementComparer,
+        bool readOnly)
     {
         if (source is not IReadOnlyDictionary<string, TValue> dictionary)
             throw new InvalidOperationException(
                 $"Dictionary comparer requires IReadOnlyDictionary<string, {typeof(TValue).Name}>.");
 
+        if (readOnly)
+            return source;
+
         var snapshot = new Dictionary<string, TValue>(dictionary.Count, StringComparer.Ordinal);
         foreach (var (key, value) in dictionary)
             snapshot[key] = value is null ? value! : elementComparer.Snapshot(value);
 
-        return snapshot;
+        return (TDictionary)(object)snapshot;
     }
 }

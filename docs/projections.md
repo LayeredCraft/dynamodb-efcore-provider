@@ -52,6 +52,8 @@ var rows = await db.SimpleItems
 
 ## Provider materialization coverage (today)
 - Direct reads are implemented for `S`, `N`, `BOOL`, `NULL`, and `B`.
+- Primitive CLR mappings are direct for `string`, `bool`, `byte[]`, and numeric types
+  `byte`, `short`, `int`, `long`, `float`, `double`, `decimal`.
 - Additional CLR types (for example `Guid`, `DateTimeOffset`) are supported through EF Core value
   converters.
 

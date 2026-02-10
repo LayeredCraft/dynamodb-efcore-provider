@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -385,6 +386,9 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
         if (primitiveType == typeof(byte))
             return Convert(Call(LongParseMethod, nProperty, cultureInfo), typeof(byte));
 
+        if (primitiveType == typeof(int))
+            return Convert(Call(LongParseMethod, nProperty, cultureInfo), typeof(int));
+
         if (primitiveType == typeof(long))
             return Call(LongParseMethod, nProperty, cultureInfo);
 
@@ -464,6 +468,7 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
             || definition == typeof(Dictionary<,>)
             || definition == typeof(IDictionary<,>)
             || definition == typeof(IReadOnlyDictionary<,>)
+            || definition == typeof(ReadOnlyDictionary<,>)
             || definition == typeof(HashSet<>)
             || definition == typeof(ISet<>);
     }
@@ -484,7 +489,7 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
             return targetType.IsValueType ? Activator.CreateInstance(targetType) : null;
         }
 
-        if (TryGetDictionaryValueType(targetType, out var valueType))
+        if (TryGetDictionaryValueType(targetType, out var valueType, out var isReadOnlyDictionary))
         {
             if (attributeValue.M == null)
                 return HandleMissingWireValue(
@@ -505,7 +510,12 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
                     $"{propertyPath}.{key}",
                     false)!;
 
-            return dictionary;
+            if (!isReadOnlyDictionary)
+                return dictionary;
+
+            var readOnlyDictionaryType =
+                typeof(ReadOnlyDictionary<,>).MakeGenericType(typeof(string), valueType);
+            return Activator.CreateInstance(readOnlyDictionaryType, dictionary)!;
         }
 
         if (TryGetListElementType(targetType, out var elementType))
@@ -738,16 +748,21 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
         return true;
     }
 
-    private static bool TryGetDictionaryValueType(Type clrType, out Type valueType)
+    private static bool TryGetDictionaryValueType(
+        Type clrType,
+        out Type valueType,
+        out bool isReadOnlyDictionary)
     {
         valueType = null!;
+        isReadOnlyDictionary = false;
         if (!clrType.IsGenericType)
             return false;
 
         var genericTypeDefinition = clrType.GetGenericTypeDefinition();
         if (genericTypeDefinition != typeof(Dictionary<,>)
             && genericTypeDefinition != typeof(IDictionary<,>)
-            && genericTypeDefinition != typeof(IReadOnlyDictionary<,>))
+            && genericTypeDefinition != typeof(IReadOnlyDictionary<,>)
+            && genericTypeDefinition != typeof(ReadOnlyDictionary<,>))
             return false;
 
         var genericArguments = clrType.GetGenericArguments();
@@ -755,6 +770,7 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
             return false;
 
         valueType = genericArguments[1];
+        isReadOnlyDictionary = genericTypeDefinition == typeof(ReadOnlyDictionary<,>);
         return true;
     }
 

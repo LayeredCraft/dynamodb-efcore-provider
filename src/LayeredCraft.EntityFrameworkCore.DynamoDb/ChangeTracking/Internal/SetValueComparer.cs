@@ -17,29 +17,15 @@ internal sealed class SetValueComparer<TSet, TElement>(ValueComparer elementComp
         if (left is null || right is null)
             return false;
 
-        var leftList = left.ToList();
-        var rightList = right.ToList();
-
-        if (leftList.Count != rightList.Count)
-            return false;
-
-        foreach (var leftElement in leftList)
+        var rightSet =
+            new HashSet<TElement>(right, new ValueComparerEqualityComparer(elementComparer));
+        foreach (var leftElement in left)
         {
-            var matchFound = false;
-            foreach (var rightElement in rightList)
-            {
-                if (!elementComparer.Equals(leftElement, rightElement))
-                    continue;
-
-                matchFound = true;
-                break;
-            }
-
-            if (!matchFound)
+            if (!rightSet.Remove(leftElement))
                 return false;
         }
 
-        return true;
+        return rightSet.Count == 0;
     }
 
     private static int GetHashCode(TSet source, ValueComparer<TElement> elementComparer)
@@ -53,10 +39,22 @@ internal sealed class SetValueComparer<TSet, TElement>(ValueComparer elementComp
 
     private static HashSet<TElement> Snapshot(TSet source, ValueComparer<TElement> elementComparer)
     {
-        var snapshot = new HashSet<TElement>();
+        var snapshot =
+            source is HashSet<TElement> sourceHashSet
+                ? new HashSet<TElement>(sourceHashSet.Comparer)
+                : new HashSet<TElement>();
+
         foreach (var element in source)
             snapshot.Add(element is null ? element! : elementComparer.Snapshot(element));
 
         return snapshot;
+    }
+
+    private sealed class ValueComparerEqualityComparer(ValueComparer<TElement> comparer)
+        : IEqualityComparer<TElement>
+    {
+        public bool Equals(TElement? x, TElement? y) => comparer.Equals(x, y);
+
+        public int GetHashCode(TElement obj) => obj is null ? 0 : comparer.GetHashCode(obj);
     }
 }

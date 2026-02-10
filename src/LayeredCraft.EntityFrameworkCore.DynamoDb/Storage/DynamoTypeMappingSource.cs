@@ -1,7 +1,9 @@
+using System.Collections.ObjectModel;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.ChangeTracking.Internal;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Storage;
 
@@ -13,6 +15,13 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Storage;
 public class DynamoTypeMappingSource(TypeMappingSourceDependencies dependencies)
     : TypeMappingSource(dependencies)
 {
+    private static readonly ValueConverter<ReadOnlyMemory<byte>, byte[]>
+        ReadOnlyMemoryByteConverter =
+            new(value => value.ToArray(), value => new ReadOnlyMemory<byte>(value));
+
+    private static readonly ValueComparer<ReadOnlyMemory<byte>> ReadOnlyMemoryByteComparer =
+        new ReadOnlyMemoryByteValueComparer();
+
     /// <summary>
     ///     Resolves mapping for a property and propagates element mapping metadata for collection
     ///     properties.
@@ -60,6 +69,11 @@ public class DynamoTypeMappingSource(TypeMappingSourceDependencies dependencies)
 
         var nonNullableType = Nullable.GetUnderlyingType(clrType) ?? clrType;
 
+        if (clrType == typeof(ReadOnlyMemory<byte>))
+            return new DynamoTypeMapping(clrType, ReadOnlyMemoryByteComparer).WithComposedConverter(
+                ReadOnlyMemoryByteConverter,
+                ReadOnlyMemoryByteComparer);
+
         // Map ONLY wire primitives that AttributeValue directly supports
         // EF Core will automatically compose converters for non-primitive types:
         // - int, short, byte → long (via EF Core converter)
@@ -98,15 +112,21 @@ public class DynamoTypeMappingSource(TypeMappingSourceDependencies dependencies)
     {
         mapping = null;
 
-        if (TryGetDictionaryValueType(clrType, out var dictionaryValueType))
+        if (TryGetDictionaryValueType(
+            clrType,
+            out var dictionaryValueType,
+            out var isReadOnlyDictionary))
         {
             var valueMapping =
                 mappingInfo.ElementTypeMapping ?? FindElementMapping(dictionaryValueType);
             if (valueMapping == null)
                 return false;
 
-            var comparer =
-                CreateDictionaryComparer(clrType, dictionaryValueType, valueMapping.Comparer);
+            var comparer = CreateDictionaryComparer(
+                clrType,
+                dictionaryValueType,
+                valueMapping.Comparer,
+                isReadOnlyDictionary);
             mapping = new DynamoTypeMapping(clrType, comparer).WithComposedConverter(
                 null,
                 comparer,
@@ -208,16 +228,21 @@ public class DynamoTypeMappingSource(TypeMappingSourceDependencies dependencies)
     ///     <see langword="true" /> when the type is a supported dictionary; otherwise
     ///     <see langword="false" />.
     /// </returns>
-    private static bool TryGetDictionaryValueType(Type clrType, out Type valueType)
+    private static bool TryGetDictionaryValueType(
+        Type clrType,
+        out Type valueType,
+        out bool isReadOnlyDictionary)
     {
         valueType = null!;
+        isReadOnlyDictionary = false;
         if (!clrType.IsGenericType)
             return false;
 
         var genericTypeDefinition = clrType.GetGenericTypeDefinition();
         if (genericTypeDefinition != typeof(Dictionary<,>)
             && genericTypeDefinition != typeof(IDictionary<,>)
-            && genericTypeDefinition != typeof(IReadOnlyDictionary<,>))
+            && genericTypeDefinition != typeof(IReadOnlyDictionary<,>)
+            && genericTypeDefinition != typeof(ReadOnlyDictionary<,>))
             return false;
 
         var genericArguments = clrType.GetGenericArguments();
@@ -226,6 +251,7 @@ public class DynamoTypeMappingSource(TypeMappingSourceDependencies dependencies)
                 $"DynamoDB dictionary mapping requires string keys, but '{clrType}' uses '{genericArguments[0]}'.");
 
         valueType = genericArguments[1];
+        isReadOnlyDictionary = genericTypeDefinition == typeof(ReadOnlyDictionary<,>);
         return true;
     }
 
@@ -330,10 +356,12 @@ public class DynamoTypeMappingSource(TypeMappingSourceDependencies dependencies)
     private static ValueComparer CreateDictionaryComparer(
         Type dictionaryType,
         Type valueType,
-        ValueComparer valueComparer)
+        ValueComparer valueComparer,
+        bool readOnly)
         => (ValueComparer)Activator.CreateInstance(
             typeof(StringDictionaryValueComparer<,>).MakeGenericType(dictionaryType, valueType),
-            valueComparer)!;
+            valueComparer,
+            readOnly)!;
 
     /// <summary>Creates a value comparer for set types.</summary>
     /// <param name="setType">The CLR set type.</param>
@@ -347,4 +375,25 @@ public class DynamoTypeMappingSource(TypeMappingSourceDependencies dependencies)
         => (ValueComparer)Activator.CreateInstance(
             typeof(SetValueComparer<,>).MakeGenericType(setType, elementType),
             elementComparer)!;
+
+    private sealed class ReadOnlyMemoryByteValueComparer() : ValueComparer<ReadOnlyMemory<byte>>(
+        (left, right) => Compare(left, right),
+        value => ComputeHash(value),
+        value => SnapshotMemory(value))
+    {
+        private static bool Compare(ReadOnlyMemory<byte> left, ReadOnlyMemory<byte> right)
+            => left.Span.SequenceEqual(right.Span);
+
+        private static int ComputeHash(ReadOnlyMemory<byte> value)
+        {
+            var hashCode = new HashCode();
+            foreach (var b in value.Span)
+                hashCode.Add(b);
+
+            return hashCode.ToHashCode();
+        }
+
+        private static ReadOnlyMemory<byte> SnapshotMemory(ReadOnlyMemory<byte> value)
+            => new(value.ToArray());
+    }
 }
