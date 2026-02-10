@@ -22,6 +22,10 @@ nav = [
   { "Limitations" = "limitations.md" }
 ]
 
+[project.markdown_extensions.attr_list]
+
+[project.markdown_extensions.pymdownx.emoji]
+
 [project.theme]
 logo = "images/icon.png"
 favicon = "images/icon.png"

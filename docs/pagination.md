@@ -1,3 +1,7 @@
+---
+icon: lucide/file-stack
+---
+
 # Pagination
 
 ## Core model

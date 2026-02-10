@@ -1,3 +1,7 @@
+---
+icon: lucide/stethoscope
+---
+
 # Diagnostics
 
 ## Logging

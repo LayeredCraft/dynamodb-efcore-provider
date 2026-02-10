@@ -1,3 +1,7 @@
+---
+icon: lucide/function-square
+---
+
 # Query Operators and DynamoDB Behavior
 
 This document is a living reference for how LINQ operators behave in this provider. Each operator

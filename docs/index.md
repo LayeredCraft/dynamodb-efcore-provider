@@ -1,3 +1,7 @@
+---
+icon: lucide/house
+---
+
 # LayeredCraft.EntityFrameworkCore.DynamoDb
 
 Entity Framework Core provider for AWS DynamoDB.

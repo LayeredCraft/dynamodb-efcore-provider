@@ -1,3 +1,7 @@
+---
+icon: lucide/git-branch
+---
+
 # Architecture
 
 ## End-to-end flow

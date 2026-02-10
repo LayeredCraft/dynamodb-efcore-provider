@@ -1,3 +1,7 @@
+---
+icon: lucide/triangle-alert
+---
+
 # Limitations
 
 ## Not supported yet
