@@ -42,6 +42,7 @@ When a story changes query behavior, update the docs in the same story so inform
 - Keep docs user-facing and minimal; avoid internal test/code links in published docs.
 - Ensure all LINQ examples reflect currently supported translation (e.g., no method calls in `Where` unless supported).
 - Where DynamoDB/PartiQL semantics matter, include an AWS reference link (ExecuteStatement, PartiQL SELECT/operators, AttributeValue).
+- Docs site config is in `zensical.toml` (not `mkdocs.yml`); keep Zensical-related changes there.
 - Verify docs build: `uv run zensical build` (or `task docs:build`).
 
 ## Repo Hygiene

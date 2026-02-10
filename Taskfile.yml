@@ -4,9 +4,9 @@ tasks:
   docs:serve:
     desc: Serve docs locally with Zensical
     cmds:
-      - uv run zensical serve
+      - uv run zensical serve -f zensical.toml
 
   docs:build:
     desc: Build docs site with Zensical
     cmds:
-      - uv run zensical build
+      - uv run zensical build -f zensical.toml
