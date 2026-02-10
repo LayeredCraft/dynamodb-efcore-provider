@@ -1,5 +1,35 @@
-site_name: LayeredCraft.EntityFrameworkCore.DynamoDb
+site_name: LayeredCraft DynamoDB EF Core Provider
+site_description: Entity Framework Core provider for AWS DynamoDB.
+site_author: LayeredCraft
+site_url: https://layeredcraft.github.io/dynamodb-efcore-provider/
+repo_url: https://github.com/LayeredCraft/dynamodb-efcore-provider
+repo_name: LayeredCraft/dynamodb-efcore-provider
+edit_uri: edit/main/docs/
+copyright: Copyright &copy; 2026 LayeredCraft
+
 docs_dir: docs
+
+theme:
+  logo: images/icon.png
+  favicon: images/icon.png
+  features:
+    - navigation.footer
+    - content.action.edit
+    - content.action.view
+  icon:
+    repo: fontawesome/brands/github
+    edit: material/pencil
+    view: material/eye
+    previous: fontawesome/solid/angle-left
+    next: fontawesome/solid/angle-right
+
+extra:
+  homepage: https://github.com/LayeredCraft/dynamodb-efcore-provider
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/LayeredCraft/dynamodb-efcore-provider
+      name: LayeredCraft on GitHub
+
 nav:
   - Home: index.md
   - Configuration: configuration.md
