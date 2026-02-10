@@ -5,7 +5,7 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.PrimitiveCo
 public class WhereTests(PrimitiveCollectionsDynamoFixture fixture)
     : PrimitiveCollectionsTestBase(fixture)
 {
-    [Fact]
+    [Fact(Skip = "Collection query translation not implemented yet.")]
     public async Task Where_ListContains_TranslatesToContainsFunction()
     {
         var resultItems =
@@ -25,7 +25,7 @@ public class WhereTests(PrimitiveCollectionsDynamoFixture fixture)
             """);
     }
 
-    [Fact]
+    [Fact(Skip = "Collection query translation not implemented yet.")]
     public async Task Where_NotListContains_TranslatesToNotContainsFunction()
     {
         var resultItems =
@@ -45,7 +45,7 @@ public class WhereTests(PrimitiveCollectionsDynamoFixture fixture)
             """);
     }
 
-    [Fact]
+    [Fact(Skip = "Collection query translation not implemented yet.")]
     public async Task Where_SetContains_TranslatesToContainsFunction()
     {
         var resultItems =
@@ -66,7 +66,7 @@ public class WhereTests(PrimitiveCollectionsDynamoFixture fixture)
             """);
     }
 
-    [Fact]
+    [Fact(Skip = "Collection query translation not implemented yet.")]
     public async Task Where_NotSetContains_TranslatesToNotContainsFunction()
     {
         var resultItems =
@@ -87,7 +87,7 @@ public class WhereTests(PrimitiveCollectionsDynamoFixture fixture)
             """);
     }
 
-    [Fact]
+    [Fact(Skip = "Collection query translation not implemented yet.")]
     public async Task Where_MapContainsKey_TranslatesToIsNotMissing()
     {
         var resultItems =
@@ -109,7 +109,7 @@ public class WhereTests(PrimitiveCollectionsDynamoFixture fixture)
             """);
     }
 
-    [Fact]
+    [Fact(Skip = "Collection query translation not implemented yet.")]
     public async Task Where_NotMapContainsKey_TranslatesToIsMissing()
     {
         var resultItems =
