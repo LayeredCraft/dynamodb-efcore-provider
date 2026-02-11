@@ -40,4 +40,28 @@ public class SelectTests(PrimitiveCollectionsDynamoFixture fixture)
             FROM PrimitiveCollectionsItems
             """);
     }
+
+    [Fact]
+    public async Task Select_AnonymousProjection_WithCollectionProperties_WithAlias()
+    {
+        var results =
+            await Db
+                .Items.Select(item
+                    => new { Key = item.Pk, MyTags = item.Tags, Labels = item.LabelSet })
+                .ToListAsync(CancellationToken);
+
+        var expected =
+            PrimitiveCollectionsItems
+                .Items.Select(item
+                    => new { Key = item.Pk, MyTags = item.Tags, Labels = item.LabelSet })
+                .ToList();
+
+        results.Should().BeEquivalentTo(expected);
+
+        AssertSql(
+            """
+            SELECT Pk, Tags, LabelSet
+            FROM PrimitiveCollectionsItems
+            """);
+    }
 }

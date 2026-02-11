@@ -179,6 +179,16 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
     /// </summary>
     protected override Expression VisitMethodCall(MethodCallExpression node)
     {
+        if (node.TryGetEFPropertyArguments(out _, out var propertyName)
+            && !string.IsNullOrEmpty(propertyName))
+            return CreateGetValueExpression(
+                itemParameter,
+                propertyName!,
+                node.Type,
+                null,
+                false,
+                null);
+
         if (node.Method.IsGenericMethod)
         {
             var genericMethod = node.Method.GetGenericMethodDefinition();

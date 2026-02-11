@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Linq.Expressions;
 using System.Reflection;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -322,7 +323,21 @@ public class DynamoProjectionBindingExpressionVisitor(
     protected override Expression VisitMethodCall(MethodCallExpression node)
     {
         if (!_indexBasedBinding)
+        {
+            if (node.TryGetEFPropertyArguments(out _, out var propertyName)
+                && !string.IsNullOrEmpty(propertyName))
+            {
+                var sqlProperty = sqlExpressionFactory.Property(propertyName!, node.Type);
+                _projectionMapping[_projectionMembers.Peek()] = sqlProperty;
+
+                return new ProjectionBindingExpression(
+                    _selectExpression,
+                    _projectionMembers.Peek(),
+                    node.Type);
+            }
+
             return QueryCompilationContext.NotTranslatedExpression;
+        }
 
         var instance = node.Object == null ? null : Visit(node.Object);
         if (instance == QueryCompilationContext.NotTranslatedExpression)
@@ -417,7 +432,8 @@ public class DynamoProjectionBindingExpressionVisitor(
         if (node is NewExpression
             or MemberInitExpression
             or StructuralTypeShaperExpression
-            or MemberExpression)
+            or MemberExpression
+            or MethodCallExpression)
             return base.Visit(node);
 
         // Try to translate to SQL
