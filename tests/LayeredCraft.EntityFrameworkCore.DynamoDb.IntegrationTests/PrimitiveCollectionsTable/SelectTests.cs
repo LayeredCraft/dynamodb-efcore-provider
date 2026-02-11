@@ -19,7 +19,7 @@ public class SelectTests(PrimitiveCollectionsDynamoFixture fixture)
             """);
     }
 
-    [Fact(Skip = "Collection projection rewriting for anonymous types is not implemented yet.")]
+    [Fact]
     public async Task Select_AnonymousProjection_WithCollectionProperties()
     {
         var results =

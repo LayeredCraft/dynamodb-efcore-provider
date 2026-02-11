@@ -1,6 +1,8 @@
+using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.ChangeTracking.Internal;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.EntityFrameworkCore.ChangeTracking.Internal;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
@@ -15,6 +17,30 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Storage;
 public class DynamoTypeMappingSource(TypeMappingSourceDependencies dependencies)
     : TypeMappingSource(dependencies)
 {
+    private static readonly Type[] SupportedListInterfaces =
+    [
+        typeof(IList<>), typeof(IReadOnlyList<>), typeof(IEnumerable<>),
+    ];
+
+    private static readonly Type[] SupportedDictionaryInterfaces =
+    [
+        typeof(IDictionary<,>), typeof(IReadOnlyDictionary<,>),
+    ];
+
+    private static readonly Type[]
+        SupportedSetInterfaces = [typeof(ISet<>), typeof(IReadOnlySet<>)];
+
+    private static readonly
+        ConcurrentDictionary<(Type collectionType, Type elementType), ValueComparer>
+        ListComparerCache = new();
+
+    private static readonly ConcurrentDictionary<
+            (Type dictionaryType, Type valueType, bool readOnly), ValueComparer>
+        DictionaryComparerCache = new();
+
+    private static readonly ConcurrentDictionary<(Type setType, Type elementType), ValueComparer>
+        SetComparerCache = new();
+
     private static readonly ValueConverter<ReadOnlyMemory<byte>, byte[]>
         ReadOnlyMemoryByteConverter =
             new(value => value.ToArray(), value => new ReadOnlyMemory<byte>(value));
@@ -117,8 +143,7 @@ public class DynamoTypeMappingSource(TypeMappingSourceDependencies dependencies)
             out var dictionaryValueType,
             out var isReadOnlyDictionary))
         {
-            var valueMapping =
-                mappingInfo.ElementTypeMapping ?? FindElementMapping(dictionaryValueType);
+            var valueMapping = FindElementMapping(dictionaryValueType);
             if (valueMapping == null)
                 return false;
 
@@ -177,13 +202,7 @@ public class DynamoTypeMappingSource(TypeMappingSourceDependencies dependencies)
     private static bool IsPrimitiveType(Type type)
         => type == typeof(string) // AttributeValue.S
             || type == typeof(bool) // AttributeValue.BOOL
-            || type == typeof(int) // AttributeValue.N
-            || type == typeof(short) // AttributeValue.N
-            || type == typeof(byte) // AttributeValue.N
-            || type == typeof(long) // AttributeValue.N (primary integer wire type)
-            || type == typeof(float) // AttributeValue.N
-            || type == typeof(double) // AttributeValue.N (floating point wire type)
-            || type == typeof(decimal) // AttributeValue.N (high precision wire type)
+            || IsNumericType(type) // AttributeValue.N
             || type == typeof(byte[]); // AttributeValue.B (binary wire type)
 
     /// <summary>Detects list-like CLR types and returns their element type.</summary>
@@ -193,6 +212,9 @@ public class DynamoTypeMappingSource(TypeMappingSourceDependencies dependencies)
     private static bool TryGetListElementType(Type clrType, out Type elementType)
     {
         elementType = null!;
+        if (clrType == typeof(string))
+            return false;
+
         if (clrType == typeof(byte[]))
             return false;
 
@@ -206,19 +228,12 @@ public class DynamoTypeMappingSource(TypeMappingSourceDependencies dependencies)
             return true;
         }
 
-        if (!clrType.IsGenericType)
+        var listInterface = TryGetGenericTypeFromSelfOrInterfaces(clrType, SupportedListInterfaces);
+        if (listInterface == null)
             return false;
 
-        var genericTypeDefinition = clrType.GetGenericTypeDefinition();
-        if (genericTypeDefinition == typeof(List<>)
-            || genericTypeDefinition == typeof(IList<>)
-            || genericTypeDefinition == typeof(IReadOnlyList<>))
-        {
-            elementType = clrType.GetGenericArguments()[0];
-            return true;
-        }
-
-        return false;
+        elementType = listInterface.GetGenericArguments()[0];
+        return true;
     }
 
     /// <summary>Detects dictionary CLR types with string keys and returns their value type.</summary>
@@ -235,23 +250,23 @@ public class DynamoTypeMappingSource(TypeMappingSourceDependencies dependencies)
     {
         valueType = null!;
         isReadOnlyDictionary = false;
-        if (!clrType.IsGenericType)
+        var dictionaryType = clrType;
+        if (dictionaryType.IsGenericType
+            && dictionaryType.GetGenericTypeDefinition() == typeof(ReadOnlyDictionary<,>))
+            isReadOnlyDictionary = true;
+
+        var dictionaryInterface =
+            TryGetGenericTypeFromSelfOrInterfaces(dictionaryType, SupportedDictionaryInterfaces);
+
+        if (dictionaryInterface == null)
             return false;
 
-        var genericTypeDefinition = clrType.GetGenericTypeDefinition();
-        if (genericTypeDefinition != typeof(Dictionary<,>)
-            && genericTypeDefinition != typeof(IDictionary<,>)
-            && genericTypeDefinition != typeof(IReadOnlyDictionary<,>)
-            && genericTypeDefinition != typeof(ReadOnlyDictionary<,>))
-            return false;
-
-        var genericArguments = clrType.GetGenericArguments();
+        var genericArguments = dictionaryInterface.GetGenericArguments();
         if (genericArguments[0] != typeof(string))
             throw new InvalidOperationException(
-                $"DynamoDB dictionary mapping requires string keys, but '{clrType}' uses '{genericArguments[0]}'.");
+                $"DynamoDB dictionary mapping requires string keys, but '{dictionaryType}' uses '{genericArguments[0]}'.");
 
         valueType = genericArguments[1];
-        isReadOnlyDictionary = genericTypeDefinition == typeof(ReadOnlyDictionary<,>);
         return true;
     }
 
@@ -265,15 +280,38 @@ public class DynamoTypeMappingSource(TypeMappingSourceDependencies dependencies)
     private static bool TryGetSetElementType(Type clrType, out Type elementType)
     {
         elementType = null!;
-        if (!clrType.IsGenericType)
+        var setInterface = TryGetGenericTypeFromSelfOrInterfaces(clrType, SupportedSetInterfaces);
+        if (setInterface == null)
             return false;
 
-        var genericTypeDefinition = clrType.GetGenericTypeDefinition();
-        if (genericTypeDefinition != typeof(HashSet<>) && genericTypeDefinition != typeof(ISet<>))
-            return false;
-
-        elementType = clrType.GetGenericArguments()[0];
+        elementType = setInterface.GetGenericArguments()[0];
         return true;
+    }
+
+    private static Type? TryGetGenericTypeFromSelfOrInterfaces(
+        Type clrType,
+        IReadOnlyList<Type> supportedOpenGenericTypes)
+    {
+        if (clrType.IsGenericType)
+        {
+            var genericTypeDefinition = clrType.GetGenericTypeDefinition();
+            foreach (var openGenericType in supportedOpenGenericTypes)
+                if (genericTypeDefinition == openGenericType)
+                    return clrType;
+        }
+
+        foreach (var implementedInterface in clrType.GetInterfaces())
+        {
+            if (!implementedInterface.IsGenericType)
+                continue;
+
+            var implementedDefinition = implementedInterface.GetGenericTypeDefinition();
+            foreach (var openGenericType in supportedOpenGenericTypes)
+                if (implementedDefinition == openGenericType)
+                    return implementedInterface;
+        }
+
+        return null;
     }
 
     /// <summary>Validates that a set element maps to a DynamoDB-supported provider type.</summary>
@@ -311,26 +349,36 @@ public class DynamoTypeMappingSource(TypeMappingSourceDependencies dependencies)
         Type collectionType,
         Type elementType,
         ValueComparer elementComparer)
-    {
-        var typeToInstantiate = FindCollectionTypeToInstantiate(collectionType, elementType);
-        var nullableUnderlyingType = Nullable.GetUnderlyingType(elementType);
-        var isNullableValueType = nullableUnderlyingType != null;
-        var comparerType =
-            isNullableValueType
-                ?
-                typeof(ListOfNullableValueTypesComparer<,>).MakeGenericType(
-                    typeToInstantiate,
-                    nullableUnderlyingType!)
-                : elementType.IsValueType
-                    ? typeof(ListOfValueTypesComparer<,>).MakeGenericType(
-                        typeToInstantiate,
-                        elementType)
-                    : typeof(ListOfReferenceTypesComparer<,>).MakeGenericType(
-                        typeToInstantiate,
-                        elementType);
+        => ListComparerCache.GetOrAdd(
+            (collectionType, elementType),
+            _ =>
+            {
+                var typeToInstantiate =
+                    FindCollectionTypeToInstantiate(collectionType, elementType);
+                var nullableUnderlyingType = Nullable.GetUnderlyingType(elementType);
+                var isNullableValueType = nullableUnderlyingType != null;
+                var comparerType =
+                    isNullableValueType
+                        ?
+                        typeof(ListOfNullableValueTypesComparer<,>).MakeGenericType(
+                            typeToInstantiate,
+                            nullableUnderlyingType!)
+                        : elementType.IsValueType
+                            ? typeof(ListOfValueTypesComparer<,>).MakeGenericType(
+                                typeToInstantiate,
+                                elementType)
+                            : typeof(ListOfReferenceTypesComparer<,>).MakeGenericType(
+                                typeToInstantiate,
+                                elementType);
 
-        return (ValueComparer)Activator.CreateInstance(comparerType, elementComparer)!;
-    }
+#pragma warning disable EF1001
+                var nullableElementComparer = elementComparer.ToNullableComparer(elementType)!;
+#pragma warning restore EF1001
+
+                return (ValueComparer)Activator.CreateInstance(
+                    comparerType,
+                    nullableElementComparer)!;
+            });
 
     private static Type FindCollectionTypeToInstantiate(Type collectionType, Type elementType)
     {
@@ -358,10 +406,24 @@ public class DynamoTypeMappingSource(TypeMappingSourceDependencies dependencies)
         Type valueType,
         ValueComparer valueComparer,
         bool readOnly)
-        => (ValueComparer)Activator.CreateInstance(
-            typeof(StringDictionaryValueComparer<,>).MakeGenericType(dictionaryType, valueType),
-            valueComparer,
-            readOnly)!;
+        => DictionaryComparerCache.GetOrAdd(
+            (dictionaryType, valueType, readOnly),
+            _ =>
+            {
+                var nullableUnderlyingType = Nullable.GetUnderlyingType(valueType);
+                var comparerType = nullableUnderlyingType == null
+                    ? typeof(StringDictionaryValueComparer<,>).MakeGenericType(
+                        dictionaryType,
+                        valueType)
+                    : typeof(NullableStringDictionaryValueComparer<,>).MakeGenericType(
+                        dictionaryType,
+                        nullableUnderlyingType);
+
+                return (ValueComparer)Activator.CreateInstance(
+                    comparerType,
+                    valueComparer,
+                    readOnly)!;
+            });
 
     /// <summary>Creates a value comparer for set types.</summary>
     /// <param name="setType">The CLR set type.</param>
@@ -372,9 +434,11 @@ public class DynamoTypeMappingSource(TypeMappingSourceDependencies dependencies)
         Type setType,
         Type elementType,
         ValueComparer elementComparer)
-        => (ValueComparer)Activator.CreateInstance(
-            typeof(SetValueComparer<,>).MakeGenericType(setType, elementType),
-            elementComparer)!;
+        => SetComparerCache.GetOrAdd(
+            (setType, elementType),
+            _ => (ValueComparer)Activator.CreateInstance(
+                typeof(SetValueComparer<,>).MakeGenericType(setType, elementType),
+                elementComparer)!);
 
     private sealed class ReadOnlyMemoryByteValueComparer() : ValueComparer<ReadOnlyMemory<byte>>(
         (left, right) => Compare(left, right),

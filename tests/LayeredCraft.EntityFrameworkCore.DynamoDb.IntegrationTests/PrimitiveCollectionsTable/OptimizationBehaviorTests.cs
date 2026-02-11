@@ -85,6 +85,41 @@ public class OptimizationBehaviorTests(PrimitiveCollectionsDynamoFixture fixture
         snapshot.ToArray().Should().Equal(4, 5, 6);
     }
 
+    [Fact(Skip = "EF primitive collection model validation rejects custom dictionary CLR shapes.")]
+    public async Task DerivedCollectionTypes_Materialize_FromSupportedInterfaces()
+    {
+        var optionsBuilder = new DbContextOptionsBuilder<DerivedCollectionDbContext>();
+        optionsBuilder.UseDynamo(options => options.ServiceUrl(ServiceUrl));
+
+        await using var db = new DerivedCollectionDbContext(optionsBuilder.Options);
+        var item = await db.Items.FirstAsync(x => x.Pk == "ITEM#A", CancellationToken);
+
+        item.Tags.Should().BeOfType<MyList>();
+        item.ScoresByCategory.Should().BeOfType<MyDict>();
+
+        item.Tags.Should().Contain("alpha");
+        item.ScoresByCategory["math"].Should().Be(10);
+        item.LabelSet.Should().Contain("common");
+    }
+
+    [Fact]
+    public void NullableDictionaryValues_ComparerHandlesNulls()
+    {
+        var optionsBuilder = new DbContextOptionsBuilder<NullableDictionaryDbContext>();
+        optionsBuilder.UseDynamo(options => options.ServiceUrl(ServiceUrl));
+
+        using var db = new NullableDictionaryDbContext(optionsBuilder.Options);
+
+        var property =
+            db.Model.FindEntityType(typeof(NullableDictionaryItem))!.FindProperty(
+                nameof(NullableDictionaryItem.ScoresNullable))!;
+        var comparer = property.GetValueComparer()!;
+
+        var left = new Dictionary<string, int?> { ["a"] = 1, ["b"] = null };
+        var right = new Dictionary<string, int?> { ["b"] = null, ["a"] = 1 };
+        comparer.Equals(left, right).Should().BeTrue();
+    }
+
     private sealed class ReadOnlyDictionaryDbContext(
         DbContextOptions<ReadOnlyDictionaryDbContext> options) : DbContext(options)
     {
@@ -122,5 +157,51 @@ public class OptimizationBehaviorTests(PrimitiveCollectionsDynamoFixture fixture
         public string Pk { get; set; } = null!;
 
         public ReadOnlyMemory<byte> Payload { get; set; }
+    }
+
+    private sealed class DerivedCollectionDbContext(
+        DbContextOptions<DerivedCollectionDbContext> options) : DbContext(options)
+    {
+        public DbSet<DerivedCollectionItem> Items => Set<DerivedCollectionItem>();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder
+                .Entity<DerivedCollectionItem>()
+                .ToTable(PrimitiveCollectionsDynamoFixture.TableName)
+                .HasKey(x => x.Pk);
+    }
+
+    private sealed class DerivedCollectionItem
+    {
+        public string Pk { get; set; } = null!;
+
+        public MyList Tags { get; set; } = [];
+
+        public MyDict ScoresByCategory { get; set; } = [];
+
+        public HashSet<string> LabelSet { get; set; } = [];
+    }
+
+    private sealed class MyList : List<string>;
+
+    private sealed class MyDict : Dictionary<string, int>;
+
+    private sealed class NullableDictionaryDbContext(
+        DbContextOptions<NullableDictionaryDbContext> options) : DbContext(options)
+    {
+        public DbSet<NullableDictionaryItem> Items => Set<NullableDictionaryItem>();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder
+                .Entity<NullableDictionaryItem>()
+                .ToTable(PrimitiveCollectionsDynamoFixture.TableName)
+                .HasKey(x => x.Pk);
+    }
+
+    private sealed class NullableDictionaryItem
+    {
+        public string Pk { get; set; } = null!;
+
+        public Dictionary<string, int?> ScoresNullable { get; set; } = new();
     }
 }

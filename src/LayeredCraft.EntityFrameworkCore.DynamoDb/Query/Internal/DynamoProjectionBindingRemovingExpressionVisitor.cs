@@ -68,6 +68,19 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
             nameof(ConvertAttributeValueToClrValue),
             BindingFlags.NonPublic | BindingFlags.Static)!;
 
+    private static readonly Type[] SupportedListInterfaces =
+    [
+        typeof(IList<>), typeof(IReadOnlyList<>), typeof(IEnumerable<>),
+    ];
+
+    private static readonly Type[] SupportedDictionaryInterfaces =
+    [
+        typeof(IDictionary<,>), typeof(IReadOnlyDictionary<,>),
+    ];
+
+    private static readonly Type[]
+        SupportedSetInterfaces = [typeof(ISet<>), typeof(IReadOnlySet<>)];
+
     /// <summary>
     ///     Intercepts MaterializationContext constructor calls to replace ProjectionBindingExpression
     ///     with ValueBuffer.Empty placeholder (actual data comes from Dictionary access). For anonymous
@@ -499,8 +512,8 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
                     nameof(AttributeValue.M));
 
             var valueMapping = typeMapping?.ElementTypeMapping;
-            var dictionaryType = typeof(Dictionary<,>).MakeGenericType(typeof(string), valueType);
-            var dictionary = (IDictionary)Activator.CreateInstance(dictionaryType)!;
+            var dictionary =
+                CreateMutableDictionaryInstance(targetType, valueType, attributeValue.M.Count);
 
             foreach (var (key, mapValue) in attributeValue.M)
                 dictionary[key] = ConvertAttributeValueToClrValue(
@@ -518,42 +531,10 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
             return Activator.CreateInstance(readOnlyDictionaryType, dictionary)!;
         }
 
-        if (TryGetListElementType(targetType, out var elementType))
-        {
-            if (attributeValue.L == null)
-                return HandleMissingWireValue(
-                    targetType,
-                    propertyPath,
-                    required,
-                    nameof(AttributeValue.L));
-
-            var elementMapping = typeMapping?.ElementTypeMapping;
-            var listType = typeof(List<>).MakeGenericType(elementType);
-            var list = (IList)Activator.CreateInstance(listType)!;
-
-            foreach (var listElement in attributeValue.L)
-                list.Add(
-                    ConvertAttributeValueToClrValue(
-                        listElement,
-                        elementType,
-                        elementMapping,
-                        propertyPath,
-                        false));
-
-            if (targetType.IsArray)
-            {
-                var array = Array.CreateInstance(elementType, list.Count);
-                list.CopyTo(array, 0);
-                return array;
-            }
-
-            return list;
-        }
-
         if (TryGetSetElementType(targetType, out var setElementType))
         {
             var elementMapping = typeMapping?.ElementTypeMapping;
-            var set = Activator.CreateInstance(typeof(HashSet<>).MakeGenericType(setElementType))!;
+            var set = CreateSetInstance(targetType, setElementType);
             var addMethod = set.GetType().GetMethod(nameof(HashSet<int>.Add))!;
 
             if (attributeValue.SS != null)
@@ -601,6 +582,37 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
             }
 
             return HandleMissingWireValue(targetType, propertyPath, required, "SS/NS/BS");
+        }
+
+        if (TryGetListElementType(targetType, out var elementType))
+        {
+            if (attributeValue.L == null)
+                return HandleMissingWireValue(
+                    targetType,
+                    propertyPath,
+                    required,
+                    nameof(AttributeValue.L));
+
+            var elementMapping = typeMapping?.ElementTypeMapping;
+            var list = CreateListInstance(targetType, elementType, attributeValue.L.Count);
+
+            foreach (var listElement in attributeValue.L)
+                list.Add(
+                    ConvertAttributeValueToClrValue(
+                        listElement,
+                        elementType,
+                        elementMapping,
+                        propertyPath,
+                        false));
+
+            if (targetType.IsArray)
+            {
+                var array = Array.CreateInstance(elementType, list.Count);
+                list.CopyTo(array, 0);
+                return array;
+            }
+
+            return list;
         }
 
         return ConvertScalarAttributeValue(
@@ -722,6 +734,9 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
     private static bool TryGetListElementType(Type clrType, out Type elementType)
     {
         elementType = null!;
+        if (clrType == typeof(string))
+            return false;
+
         if (clrType == typeof(byte[]))
             return false;
 
@@ -735,16 +750,11 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
             return true;
         }
 
-        if (!clrType.IsGenericType)
+        var listInterface = TryGetGenericTypeFromSelfOrInterfaces(clrType, SupportedListInterfaces);
+        if (listInterface == null)
             return false;
 
-        var genericTypeDefinition = clrType.GetGenericTypeDefinition();
-        if (genericTypeDefinition != typeof(List<>)
-            && genericTypeDefinition != typeof(IList<>)
-            && genericTypeDefinition != typeof(IReadOnlyList<>))
-            return false;
-
-        elementType = clrType.GetGenericArguments()[0];
+        elementType = listInterface.GetGenericArguments()[0];
         return true;
     }
 
@@ -755,36 +765,106 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
     {
         valueType = null!;
         isReadOnlyDictionary = false;
-        if (!clrType.IsGenericType)
+        if (clrType.IsGenericType
+            && clrType.GetGenericTypeDefinition() == typeof(ReadOnlyDictionary<,>))
+            isReadOnlyDictionary = true;
+
+        var dictionaryInterface =
+            TryGetGenericTypeFromSelfOrInterfaces(clrType, SupportedDictionaryInterfaces);
+
+        if (dictionaryInterface == null)
             return false;
 
-        var genericTypeDefinition = clrType.GetGenericTypeDefinition();
-        if (genericTypeDefinition != typeof(Dictionary<,>)
-            && genericTypeDefinition != typeof(IDictionary<,>)
-            && genericTypeDefinition != typeof(IReadOnlyDictionary<,>)
-            && genericTypeDefinition != typeof(ReadOnlyDictionary<,>))
-            return false;
-
-        var genericArguments = clrType.GetGenericArguments();
+        var genericArguments = dictionaryInterface.GetGenericArguments();
         if (genericArguments[0] != typeof(string))
             return false;
 
         valueType = genericArguments[1];
-        isReadOnlyDictionary = genericTypeDefinition == typeof(ReadOnlyDictionary<,>);
         return true;
     }
 
     private static bool TryGetSetElementType(Type clrType, out Type elementType)
     {
         elementType = null!;
-        if (!clrType.IsGenericType)
+        var setInterface = TryGetGenericTypeFromSelfOrInterfaces(clrType, SupportedSetInterfaces);
+        if (setInterface == null)
             return false;
 
-        var genericTypeDefinition = clrType.GetGenericTypeDefinition();
-        if (genericTypeDefinition != typeof(HashSet<>) && genericTypeDefinition != typeof(ISet<>))
-            return false;
-
-        elementType = clrType.GetGenericArguments()[0];
+        elementType = setInterface.GetGenericArguments()[0];
         return true;
+    }
+
+    private static Type? TryGetGenericTypeFromSelfOrInterfaces(
+        Type clrType,
+        IReadOnlyList<Type> supportedOpenGenericTypes)
+    {
+        if (clrType.IsGenericType)
+        {
+            var genericTypeDefinition = clrType.GetGenericTypeDefinition();
+            foreach (var openGenericType in supportedOpenGenericTypes)
+                if (genericTypeDefinition == openGenericType)
+                    return clrType;
+        }
+
+        foreach (var implementedInterface in clrType.GetInterfaces())
+        {
+            if (!implementedInterface.IsGenericType)
+                continue;
+
+            var interfaceDefinition = implementedInterface.GetGenericTypeDefinition();
+            foreach (var openGenericType in supportedOpenGenericTypes)
+                if (interfaceDefinition == openGenericType)
+                    return implementedInterface;
+        }
+
+        return null;
+    }
+
+    private static IDictionary CreateMutableDictionaryInstance(
+        Type targetType,
+        Type valueType,
+        int capacity)
+    {
+        if (!targetType.IsAbstract
+            && !targetType.IsInterface
+            && ImplementsGenericInterface(targetType, typeof(IDictionary<,>))
+            && targetType.GetConstructor(Type.EmptyTypes) is { IsPublic: true })
+            return (IDictionary)Activator.CreateInstance(targetType)!;
+
+        var dictionaryType = typeof(Dictionary<,>).MakeGenericType(typeof(string), valueType);
+        return (IDictionary)Activator.CreateInstance(dictionaryType, capacity)!;
+    }
+
+    private static IList CreateListInstance(Type targetType, Type elementType, int capacity)
+    {
+        if (!targetType.IsAbstract
+            && !targetType.IsInterface
+            && ImplementsGenericInterface(targetType, typeof(IList<>))
+            && targetType.GetConstructor(Type.EmptyTypes) is { IsPublic: true })
+            return (IList)Activator.CreateInstance(targetType)!;
+
+        var listType = typeof(List<>).MakeGenericType(elementType);
+        return (IList)Activator.CreateInstance(listType, capacity)!;
+    }
+
+    private static object CreateSetInstance(Type targetType, Type elementType)
+    {
+        if (!targetType.IsAbstract
+            && !targetType.IsInterface
+            && ImplementsGenericInterface(targetType, typeof(ISet<>))
+            && targetType.GetConstructor(Type.EmptyTypes) is { IsPublic: true })
+            return Activator.CreateInstance(targetType)!;
+
+        return Activator.CreateInstance(typeof(HashSet<>).MakeGenericType(elementType))!;
+    }
+
+    private static bool ImplementsGenericInterface(Type type, Type openGenericInterface)
+    {
+        foreach (var implementedInterface in type.GetInterfaces())
+            if (implementedInterface.IsGenericType
+                && implementedInterface.GetGenericTypeDefinition() == openGenericInterface)
+                return true;
+
+        return false;
     }
 }

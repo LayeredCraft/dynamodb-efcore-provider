@@ -8,7 +8,7 @@ internal sealed class StringDictionaryValueComparer<TDictionary, TValue>(
     : ValueComparer<TDictionary>(
         (left, right) => Compare(left, right, (ValueComparer<TValue>)elementComparer),
         source => GetHashCode(source, (ValueComparer<TValue>)elementComparer),
-        source => (TDictionary)Snapshot(source, (ValueComparer<TValue>)elementComparer, readOnly))
+        source => Snapshot(source, (ValueComparer<TValue>)elementComparer, readOnly))
     where TDictionary : class, IEnumerable<KeyValuePair<string, TValue>>
 {
     private static bool Compare(
@@ -61,10 +61,25 @@ internal sealed class StringDictionaryValueComparer<TDictionary, TValue>(
         if (readOnly)
             return source;
 
-        var snapshot = new Dictionary<string, TValue>(dictionary.Count, StringComparer.Ordinal);
+        var snapshot = CreateMutableDictionary(source, dictionary.Count);
         foreach (var (key, value) in dictionary)
             snapshot[key] = value is null ? value! : elementComparer.Snapshot(value);
 
-        return (TDictionary)(object)snapshot;
+        return (TDictionary)snapshot;
+    }
+
+    private static IDictionary<string, TValue> CreateMutableDictionary(
+        TDictionary source,
+        int capacity)
+    {
+        if (source is IDictionary<string, TValue> typedDictionary)
+        {
+            var runtimeType = typedDictionary.GetType();
+            if (!runtimeType.IsAbstract
+                && runtimeType.GetConstructor(Type.EmptyTypes) is { IsPublic: true })
+                return (IDictionary<string, TValue>)Activator.CreateInstance(runtimeType)!;
+        }
+
+        return new Dictionary<string, TValue>(capacity, StringComparer.Ordinal);
     }
 }
