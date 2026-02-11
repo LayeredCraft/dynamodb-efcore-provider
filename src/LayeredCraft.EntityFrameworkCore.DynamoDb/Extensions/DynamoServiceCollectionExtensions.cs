@@ -21,6 +21,7 @@ public static class DynamoServiceCollectionExtensions
                 .TryAdd<LoggingDefinitions, DynamoLoggingDefinition>()
                 .TryAdd<IDatabaseProvider, DatabaseProvider<DynamoDbOptionsExtension>>()
                 .TryAdd<IDatabase, DynamoDatabaseWrapper>()
+                .TryAdd<IModelValidator, DynamoModelValidator>()
                 .TryAdd<IQueryContextFactory, DynamoQueryContextFactory>()
                 .TryAdd<ITypeMappingSource, DynamoTypeMappingSource>()
                 .TryAdd<IQueryableMethodTranslatingExpressionVisitorFactory,

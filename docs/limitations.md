@@ -17,6 +17,7 @@ icon: lucide/triangle-alert
 - Primitive collection property mapping/materialization is supported for lists/arrays (`L`), maps (`M`), and sets (`SS`/`NS`/`BS`).
 - Supported list/array CLR shapes include `List<T>`, `IList<T>`, `IReadOnlyList<T>`, `IEnumerable<T>`, and arrays (`T[]`).
 - Supported set CLR shapes include `HashSet<T>`, `ISet<T>`, and `IReadOnlySet<T>`.
+- Custom concrete collection types are supported when they implement the matching collection interface (`ICollection<T>` for lists/sets and `IDictionary<string, TValue>` for maps).
 - Dictionary/map keys must be `string`.
 - Set element provider types must map to DynamoDB set types (`string`, numeric, or `byte[]`).
 

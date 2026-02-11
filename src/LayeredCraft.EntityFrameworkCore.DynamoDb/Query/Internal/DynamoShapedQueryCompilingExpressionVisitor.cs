@@ -79,6 +79,12 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
         // This adds entity construction and property assignment logic
         shaperBody = InjectStructuralTypeMaterializers(shaperBody);
 
+        // Step 2.5: Rewrite primitive collection population for non-IList collection targets
+        // (e.g. HashSet<T>, IDictionary<TKey, TValue>) so materialization can populate via
+        // ICollection<T> without invalid IList casts.
+        shaperBody =
+            new DynamoPrimitiveCollectionMaterializationFixupExpressionVisitor().Visit(shaperBody);
+
         // Step 3: Remove projection bindings and replace with actual dictionary access
         // This converts abstract ProjectionBindingExpression to concrete property access
         shaperBody = new DynamoProjectionBindingRemovingExpressionVisitor(

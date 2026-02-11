@@ -64,6 +64,7 @@ var rows = await db.SimpleItems
   - `Dictionary<string, TValue>`, `IDictionary<string, TValue>`, `IReadOnlyDictionary<string, TValue>`,
   - `ReadOnlyDictionary<string, TValue>`,
   - `HashSet<T>`, `ISet<T>`, and `IReadOnlySet<T>`.
+- Custom concrete collection types are supported when they implement the matching collection interface (`ICollection<T>` for lists/sets, `IDictionary<string, TValue>` for maps).
 - `ReadOnlyMemory<byte>` is supported and stored as DynamoDB binary (`B`) via a value converter.
 - Additional CLR types (for example `Guid`, `DateTimeOffset`) are supported through EF Core value
   converters.

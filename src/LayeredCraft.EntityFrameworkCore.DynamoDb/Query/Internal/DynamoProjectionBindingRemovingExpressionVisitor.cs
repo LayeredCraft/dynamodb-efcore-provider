@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.ObjectModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -63,9 +64,10 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
     private static readonly MethodInfo MemoryStreamToArrayMethod =
         typeof(MemoryStream).GetMethod(nameof(MemoryStream.ToArray))!;
 
-    private static readonly MethodInfo ConvertAttributeValueToClrValueMethod =
+    [DynamicDependency(nameof(ConvertAttributeValueToClrValueGeneric))]
+    private static readonly MethodInfo ConvertAttributeValueToClrValueGenericMethod =
         typeof(DynamoProjectionBindingRemovingExpressionVisitor).GetMethod(
-            nameof(ConvertAttributeValueToClrValue),
+            nameof(ConvertAttributeValueToClrValueGeneric),
             BindingFlags.NonPublic | BindingFlags.Static)!;
 
     private static readonly Type[] SupportedListInterfaces =
@@ -251,6 +253,11 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
     ///         <item>Return typed value with zero boxing</item>
     ///     </list>
     /// </remarks>
+    [UnconditionalSuppressMessage(
+        "Trimming",
+        "IL2060",
+        Justification =
+            "Generic argument is the mapped property CLR type from model metadata; converter helper method is provider-owned and does not require additional trimmed members.")]
     private static BlockExpression CreateGetValueExpression(
         ParameterExpression itemParameter,
         string propertyName,
@@ -296,15 +303,12 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
 
         if (IsCollectionType(type))
         {
-            var collectionValueExpression = Convert(
-                Call(
-                    ConvertAttributeValueToClrValueMethod,
-                    attributeValueVariable,
-                    Constant(type, typeof(Type)),
-                    Constant(typeMapping, typeof(CoreTypeMapping)),
-                    Constant(propertyPath),
-                    Constant(required)),
-                type);
+            var collectionValueExpression = Call(
+                ConvertAttributeValueToClrValueGenericMethod.MakeGenericMethod(type),
+                attributeValueVariable,
+                Constant(typeMapping, typeof(CoreTypeMapping)),
+                Constant(propertyPath),
+                Constant(required));
 
             var completeCollectionExpression = Condition(
                 tryGetValueExpression,
@@ -496,7 +500,23 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
             || TryGetSetElementType(type, out _);
     }
 
-    private static object? ConvertAttributeValueToClrValue(
+    private static T? ConvertAttributeValueToClrValueGeneric<T>(
+        AttributeValue attributeValue,
+        CoreTypeMapping? typeMapping,
+        string propertyPath,
+        bool required)
+    {
+        var convertedValue = ConvertAttributeValueToClrValueCore(
+            attributeValue,
+            typeof(T),
+            typeMapping,
+            propertyPath,
+            required);
+
+        return convertedValue == null ? default : (T)convertedValue;
+    }
+
+    private static object? ConvertAttributeValueToClrValueCore(
         AttributeValue attributeValue,
         Type targetType,
         CoreTypeMapping? typeMapping,
@@ -527,7 +547,7 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
             var valueRequired = IsNonNullableValueType(valueType);
 
             foreach (var (key, mapValue) in attributeValue.M)
-                dictionary[key] = ConvertAttributeValueToClrValue(
+                dictionary[key] = ConvertAttributeValueToClrValueCore(
                     mapValue,
                     valueType,
                     valueMapping,
@@ -610,7 +630,7 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
 
             foreach (var listElement in attributeValue.L)
                 list.Add(
-                    ConvertAttributeValueToClrValue(
+                    ConvertAttributeValueToClrValueCore(
                         listElement,
                         elementType,
                         elementMapping,
