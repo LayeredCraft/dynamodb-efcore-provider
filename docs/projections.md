@@ -51,9 +51,22 @@ var rows = await db.SimpleItems
 - Numeric values are transferred as strings on the wire (`N`, `NS`).
 
 ## Provider materialization coverage (today)
-- Direct reads are implemented for `S`, `N`, `BOOL`, `NULL`, and `B`.
+- Direct reads are implemented for `S`, `N`, `BOOL`, `NULL`, `B`, `M`, `L`, `SS`, `NS`, and `BS`.
 - Additional CLR types (for example `Guid`, `DateTimeOffset`) are supported through EF Core value
   converters.
+
+## Primitive collection materialization
+- Supported property CLR shapes:
+  - lists: `T[]`, `List<T>`, `IList<T>`, `IReadOnlyList<T>`
+  - sets: `HashSet<T>`, `ISet<T>`, `IReadOnlySet<T>`
+  - dictionaries with string keys: `Dictionary<string,TValue>`, `IDictionary<string,TValue>`,
+    `IReadOnlyDictionary<string,TValue>`, `ReadOnlyDictionary<string,TValue>`
+- Materialization uses provider concrete instances:
+  - lists materialize as `List<T>` (or `T[]` for array properties)
+  - sets materialize as `HashSet<T>`
+  - dictionaries materialize as `Dictionary<string,TValue>` (or `ReadOnlyDictionary<string,TValue>`
+    when property type is read-only dictionary)
+- Interface-typed properties receive assignable concrete values (`Dictionary`/`HashSet`/`List`).
 
 ## Notes
 - Client-side computed projections follow normal .NET null behavior.
