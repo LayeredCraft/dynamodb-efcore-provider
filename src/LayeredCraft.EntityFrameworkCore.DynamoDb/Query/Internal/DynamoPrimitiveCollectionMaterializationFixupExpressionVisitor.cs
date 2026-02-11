@@ -40,31 +40,45 @@ internal sealed class DynamoPrimitiveCollectionMaterializationFixupExpressionVis
     protected override Expression VisitMethodCall(MethodCallExpression node)
     {
         var visitedNode = (MethodCallExpression)base.VisitMethodCall(node);
-        if (visitedNode.Arguments.Count < 2)
-            return visitedNode;
 
-        var targetExpression = UnwrapConvert(visitedNode.Arguments[1]);
+        return TryRewritePopulateListToPopulateCollection(visitedNode, out var rewritten)
+            ? rewritten
+            : visitedNode;
+    }
+
+    /// <summary>
+    ///     Rewrites EF Core primitive-collection <c>PopulateList&lt;T&gt;</c> calls to
+    ///     <see cref="PopulateCollection{T}" /> when the target is collection-shaped but not list-shaped.
+    /// </summary>
+    /// <param name="node">The visited method-call expression.</param>
+    /// <param name="rewritten">The rewritten expression when a rewrite is applied.</param>
+    /// <returns><see langword="true" /> when a rewrite is applied; otherwise <see langword="false" />.</returns>
+    private static bool TryRewritePopulateListToPopulateCollection(
+        MethodCallExpression node,
+        out Expression rewritten)
+    {
+        rewritten = node;
+
+        if (!TryGetPopulateTarget(node, out var targetExpression))
+            return false;
 
         if (IsIListType(targetExpression.Type))
             // List targets already follow EF Core's PopulateList path.
-            return visitedNode;
+            return false;
 
-        if (!TryGetPopulateListElementType(visitedNode.Method, out var elementType))
-            return visitedNode;
-
-        var listType = typeof(IList<>).MakeGenericType(elementType);
-        if (listType.IsAssignableFrom(targetExpression.Type))
-            // Keep EF Core's original PopulateList path for true list targets.
-            return visitedNode;
+        if (!TryGetPopulateListElementType(node.Method, out var elementType))
+            return false;
 
         var collectionType = typeof(ICollection<>).MakeGenericType(elementType);
         if (!collectionType.IsAssignableFrom(targetExpression.Type))
-            return visitedNode;
+            return false;
 
-        return Call(
+        rewritten = Call(
             PopulateCollectionMethodInfo.MakeGenericMethod(elementType),
-            visitedNode.Arguments[0],
+            node.Arguments[0],
             Convert(targetExpression, collectionType));
+
+        return true;
     }
 
     /// <summary>
@@ -109,6 +123,20 @@ internal sealed class DynamoPrimitiveCollectionMaterializationFixupExpressionVis
             return false;
 
         elementType = genericArguments[0];
+        return true;
+    }
+
+    /// <summary>Extracts the populate target expression from an EF Core populate call.</summary>
+    /// <param name="node">The method-call expression to inspect.</param>
+    /// <param name="target">The target collection expression when available.</param>
+    /// <returns><see langword="true" /> when a target argument exists; otherwise <see langword="false" />.</returns>
+    private static bool TryGetPopulateTarget(MethodCallExpression node, out Expression target)
+    {
+        target = null!;
+        if (node.Arguments.Count < 2)
+            return false;
+
+        target = UnwrapConvert(node.Arguments[1]);
         return true;
     }
 
