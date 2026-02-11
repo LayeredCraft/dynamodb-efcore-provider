@@ -43,9 +43,9 @@ should keep in mind. Add to these sections as support expands.
 
 ## Primitive collection support (mapping/materialization)
 - The provider supports primitive collection *property types* for entity materialization and change tracking:
-  - list/array shapes mapped to DynamoDB `L`,
+  - list/array shapes mapped to DynamoDB `L` (`List<T>`, `IList<T>`, `IReadOnlyList<T>`, `IEnumerable<T>`, `T[]`),
   - string-keyed dictionary/map shapes mapped to DynamoDB `M`,
-  - set shapes mapped to DynamoDB `SS` / `NS` / `BS`.
+  - set shapes mapped to DynamoDB `SS` / `NS` / `BS` (`HashSet<T>`, `ISet<T>`, `IReadOnlySet<T>`).
 - This support is currently about type mapping and materialization, not collection-specific server predicate translation.
 - Collection predicates remain unsupported for now; see the "Not supported today" section above.
 
@@ -90,6 +90,7 @@ should keep in mind. Add to these sections as support expands.
 
 **Translation**
 - Translated to explicit `SELECT <projection>`; no `SELECT *` is emitted.
+- `EF.Property(...)` scalar projections are translated to direct attribute selection.
 
 **Limitations / DynamoDB quirks**
 - Projection is explicit to keep attribute reads predictable and aligned with type mapping.

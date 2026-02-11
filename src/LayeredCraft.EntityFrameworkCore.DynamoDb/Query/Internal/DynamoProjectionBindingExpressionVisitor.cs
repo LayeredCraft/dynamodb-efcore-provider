@@ -324,10 +324,17 @@ public class DynamoProjectionBindingExpressionVisitor(
     {
         if (!_indexBasedBinding)
         {
-            if (node.TryGetEFPropertyArguments(out _, out var propertyName)
+            if (node.TryGetEFPropertyArguments(out var entityExpression, out var propertyName)
                 && !string.IsNullOrEmpty(propertyName))
             {
-                var sqlProperty = sqlExpressionFactory.Property(propertyName!, node.Type);
+                var property = TryResolveEntityProperty(entityExpression, propertyName!);
+                var sqlProperty = property == null
+                    ? sqlExpressionFactory.Property(propertyName!, node.Type)
+                    : new SqlPropertyExpression(
+                        property.Name,
+                        property.ClrType,
+                        property.GetTypeMapping());
+
                 _projectionMapping[_projectionMembers.Peek()] = sqlProperty;
 
                 return new ProjectionBindingExpression(
@@ -450,5 +457,25 @@ public class DynamoProjectionBindingExpressionVisitor(
             _selectExpression,
             _projectionMembers.Peek(),
             node.Type);
+    }
+
+    private static IProperty? TryResolveEntityProperty(
+        Expression? entityExpression,
+        string propertyName)
+    {
+        var expression = entityExpression;
+        while (expression is UnaryExpression
+            {
+                NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked,
+            } unaryExpression)
+            expression = unaryExpression.Operand;
+
+        if (expression is not StructuralTypeShaperExpression
+            {
+                StructuralType: IEntityType entityType,
+            })
+            return null;
+
+        return entityType.FindProperty(propertyName);
     }
 }

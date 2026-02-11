@@ -457,8 +457,8 @@ public class SelectTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase
     public async Task Select_ComputedExpression_ProjectsAttributeOnly()
     {
         var results = await Db
-                .SimpleItems.Select(item => new { item.Pk, Doubled = item.IntValue * 2 })
-                .ToListAsync(CancellationToken);
+            .SimpleItems.Select(item => new { item.Pk, Doubled = item.IntValue * 2 })
+            .ToListAsync(CancellationToken);
 
         var expected =
             SimpleItems.Items.Select(item => new { item.Pk, Doubled = item.IntValue * 2 }).ToList();
@@ -703,11 +703,49 @@ public class SelectTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase
     }
 
     [Fact]
+    public async Task Select_ScalarGuid_WithEfProperty()
+    {
+        var results =
+            await Db
+                .SimpleItems.Select(item => EF.Property<Guid>(item, nameof(SimpleItem.GuidValue)))
+                .ToListAsync(CancellationToken);
+
+        var expected = SimpleItems.Items.Select(item => item.GuidValue).ToList();
+
+        results.Should().BeEquivalentTo(expected);
+
+        AssertSql(
+            """
+            SELECT GuidValue
+            FROM SimpleItems
+            """);
+    }
+
+    [Fact]
     public async Task Select_ScalarDateTime()
     {
         var results =
             await Db
                 .SimpleItems.Select(item => item.DateTimeOffsetValue)
+                .ToListAsync(CancellationToken);
+
+        var expected = SimpleItems.Items.Select(item => item.DateTimeOffsetValue).ToList();
+
+        results.Should().BeEquivalentTo(expected);
+
+        AssertSql(
+            """
+            SELECT DateTimeOffsetValue
+            FROM SimpleItems
+            """);
+    }
+
+    [Fact]
+    public async Task Select_ScalarDateTime_WithEfProperty()
+    {
+        var results = await Db
+            .SimpleItems.Select(item
+                => EF.Property<DateTimeOffset>(item, nameof(SimpleItem.DateTimeOffsetValue)))
                 .ToListAsync(CancellationToken);
 
         var expected = SimpleItems.Items.Select(item => item.DateTimeOffsetValue).ToList();

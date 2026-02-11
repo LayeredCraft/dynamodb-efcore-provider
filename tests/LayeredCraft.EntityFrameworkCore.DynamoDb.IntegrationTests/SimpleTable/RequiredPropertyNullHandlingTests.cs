@@ -1,6 +1,5 @@
 using Amazon.DynamoDBv2.Model;
 using Microsoft.EntityFrameworkCore;
-using Xunit;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.SimpleTable;
 
@@ -139,6 +138,21 @@ public class RequiredPropertyNullHandlingTests(SimpleTableDynamoFixture fixture)
             .WithMessage("*BoolValue*")
             .WithMessage("*wire member*")
             .WithMessage("*'BOOL'*");
+    }
+
+    [Fact]
+    public async Task Materialization_ReturnsNull_WhenNullableNumericWireMemberIsMissing()
+    {
+        var item = CreateValidTemplateItem("ITEM#OPTIONAL-WIRE-MISSING-N");
+        item["NullableIntValue"] = new AttributeValue { S = "123" };
+
+        await PutItemAsync(item);
+
+        var result = await Db.SimpleItems.FirstAsync(
+            x => x.Pk == "ITEM#OPTIONAL-WIRE-MISSING-N",
+            CancellationToken);
+
+        result.NullableIntValue.Should().BeNull();
     }
 
     [Fact]

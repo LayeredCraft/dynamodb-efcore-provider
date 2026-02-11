@@ -179,15 +179,28 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
     /// </summary>
     protected override Expression VisitMethodCall(MethodCallExpression node)
     {
-        if (node.TryGetEFPropertyArguments(out _, out var propertyName)
+        if (node.TryGetEFPropertyArguments(out var entityExpression, out var propertyName)
             && !string.IsNullOrEmpty(propertyName))
-            return CreateGetValueExpression(
+        {
+            var property = TryResolveEntityProperty(entityExpression, propertyName!);
+            var targetType =
+                property != null && node.Type == typeof(object) ? property.ClrType : node.Type;
+            var typeMapping = property?.GetTypeMapping();
+            var required = property?.IsNullable == false || IsNonNullableValueType(targetType);
+            var entityTypeDisplayName = property?.DeclaringType.DisplayName();
+
+            var valueExpression = CreateGetValueExpression(
                 itemParameter,
                 propertyName!,
-                node.Type,
-                null,
-                false,
-                null);
+                targetType,
+                typeMapping,
+                required,
+                entityTypeDisplayName);
+
+            return valueExpression.Type != node.Type
+                ? Convert(valueExpression, node.Type)
+                : valueExpression;
+        }
 
         if (node.Method.IsGenericMethod)
         {
@@ -478,22 +491,9 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
         if (type == typeof(string) || type == typeof(byte[]))
             return false;
 
-        if (type.IsArray)
-            return true;
-
-        if (!type.IsGenericType)
-            return false;
-
-        var definition = type.GetGenericTypeDefinition();
-        return definition == typeof(List<>)
-            || definition == typeof(IList<>)
-            || definition == typeof(IReadOnlyList<>)
-            || definition == typeof(Dictionary<,>)
-            || definition == typeof(IDictionary<,>)
-            || definition == typeof(IReadOnlyDictionary<,>)
-            || definition == typeof(ReadOnlyDictionary<,>)
-            || definition == typeof(HashSet<>)
-            || definition == typeof(ISet<>);
+        return TryGetListElementType(type, out _)
+            || TryGetDictionaryValueType(type, out _, out _)
+            || TryGetSetElementType(type, out _);
     }
 
     private static object? ConvertAttributeValueToClrValue(
@@ -524,6 +524,7 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
             var valueMapping = typeMapping?.ElementTypeMapping;
             var dictionary =
                 CreateMutableDictionaryInstance(targetType, valueType, attributeValue.M.Count);
+            var valueRequired = IsNonNullableValueType(valueType);
 
             foreach (var (key, mapValue) in attributeValue.M)
                 dictionary[key] = ConvertAttributeValueToClrValue(
@@ -531,7 +532,7 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
                     valueType,
                     valueMapping,
                     $"{propertyPath}.{key}",
-                    false)!;
+                    valueRequired)!;
 
             if (!isReadOnlyDictionary)
                 return dictionary;
@@ -605,6 +606,7 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
 
             var elementMapping = typeMapping?.ElementTypeMapping;
             var list = CreateListInstance(targetType, elementType, attributeValue.L.Count);
+            var elementRequired = IsNonNullableValueType(elementType);
 
             foreach (var listElement in attributeValue.L)
                 list.Add(
@@ -613,7 +615,7 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
                         elementType,
                         elementMapping,
                         propertyPath,
-                        false));
+                        elementRequired));
 
             if (targetType.IsArray)
             {
@@ -643,11 +645,17 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
         var converter = typeMapping?.Converter;
         var providerType = GetProviderType(targetType, typeMapping);
 
-        var providerValue =
-            providerType == typeof(string) ? attributeValue.S :
-            providerType == typeof(bool) ? attributeValue.BOOL :
-            providerType == typeof(byte[]) ? attributeValue.B?.ToArray() :
-            ParseNumericString(attributeValue.N, providerType);
+        object? providerValue;
+        if (providerType == typeof(string))
+            providerValue = attributeValue.S;
+        else if (providerType == typeof(bool))
+            providerValue = attributeValue.BOOL;
+        else if (providerType == typeof(byte[]))
+            providerValue = attributeValue.B?.ToArray();
+        else if (attributeValue.N != null)
+            providerValue = ParseNumericString(attributeValue.N, providerType);
+        else
+            providerValue = null;
 
         if (providerValue == null)
             return HandleMissingWireValue(
@@ -876,5 +884,25 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
                 return true;
 
         return false;
+    }
+
+    private static IProperty? TryResolveEntityProperty(
+        Expression? entityExpression,
+        string propertyName)
+    {
+        var expression = entityExpression;
+        while (expression is UnaryExpression
+            {
+                NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked,
+            } unaryExpression)
+            expression = unaryExpression.Operand;
+
+        if (expression is not StructuralTypeShaperExpression
+            {
+                StructuralType: IEntityType entityType,
+            })
+            return null;
+
+        return entityType.FindProperty(propertyName);
     }
 }

@@ -85,7 +85,7 @@ public class OptimizationBehaviorTests(PrimitiveCollectionsDynamoFixture fixture
         snapshot.ToArray().Should().Equal(4, 5, 6);
     }
 
-    [Fact(Skip = "EF primitive collection model validation rejects custom dictionary CLR shapes.")]
+    [Fact]
     public async Task DerivedCollectionTypes_Materialize_FromSupportedInterfaces()
     {
         var optionsBuilder = new DbContextOptionsBuilder<DerivedCollectionDbContext>();
@@ -118,6 +118,21 @@ public class OptimizationBehaviorTests(PrimitiveCollectionsDynamoFixture fixture
         var left = new Dictionary<string, int?> { ["a"] = 1, ["b"] = null };
         var right = new Dictionary<string, int?> { ["b"] = null, ["a"] = 1 };
         comparer.Equals(left, right).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task InterfaceCollectionProperties_Materialize_FromSupportedInterfaces()
+    {
+        var optionsBuilder = new DbContextOptionsBuilder<InterfaceCollectionsDbContext>();
+        optionsBuilder.UseDynamo(options => options.ServiceUrl(ServiceUrl));
+
+        await using var db = new InterfaceCollectionsDbContext(optionsBuilder.Options);
+        var item = await db.Items.FirstAsync(x => x.Pk == "ITEM#A", CancellationToken);
+
+        item.Tags.Should().Contain("alpha");
+        item.Tags.Should().Contain("beta");
+        item.RatingSet.Should().Contain(1);
+        item.RatingSet.Should().Contain(2);
     }
 
     private sealed class ReadOnlyDictionaryDbContext(
@@ -203,5 +218,26 @@ public class OptimizationBehaviorTests(PrimitiveCollectionsDynamoFixture fixture
         public string Pk { get; set; } = null!;
 
         public Dictionary<string, int?> ScoresNullable { get; set; } = new();
+    }
+
+    private sealed class InterfaceCollectionsDbContext(
+        DbContextOptions<InterfaceCollectionsDbContext> options) : DbContext(options)
+    {
+        public DbSet<InterfaceCollectionsItem> Items => Set<InterfaceCollectionsItem>();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder
+                .Entity<InterfaceCollectionsItem>()
+                .ToTable(PrimitiveCollectionsDynamoFixture.TableName)
+                .HasKey(x => x.Pk);
+    }
+
+    private sealed class InterfaceCollectionsItem
+    {
+        public string Pk { get; set; } = null!;
+
+        public IEnumerable<string> Tags { get; set; } = [];
+
+        public IReadOnlySet<int> RatingSet { get; set; } = new HashSet<int>();
     }
 }

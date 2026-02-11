@@ -60,13 +60,15 @@ var rows = await db.SimpleItems
 - Primitive CLR mappings are direct for `string`, `bool`, `byte[]`, and numeric types
   `byte`, `short`, `int`, `long`, `float`, `double`, `decimal`.
 - Primitive collection CLR mappings include:
-  - `List<T>`, `IList<T>`, `IReadOnlyList<T>`, and arrays (`T[]`),
+  - `List<T>`, `IList<T>`, `IReadOnlyList<T>`, `IEnumerable<T>`, and arrays (`T[]`),
   - `Dictionary<string, TValue>`, `IDictionary<string, TValue>`, `IReadOnlyDictionary<string, TValue>`,
   - `ReadOnlyDictionary<string, TValue>`,
-  - `HashSet<T>` and `ISet<T>`.
+  - `HashSet<T>`, `ISet<T>`, and `IReadOnlySet<T>`.
 - `ReadOnlyMemory<byte>` is supported and stored as DynamoDB binary (`B`) via a value converter.
 - Additional CLR types (for example `Guid`, `DateTimeOffset`) are supported through EF Core value
   converters.
+- `EF.Property(...)` scalar projections are supported, including converter-backed types such as
+  `Guid` and `DateTimeOffset`.
 
 ## Collection semantics and constraints
 - Dictionary/map keys must be `string`.
