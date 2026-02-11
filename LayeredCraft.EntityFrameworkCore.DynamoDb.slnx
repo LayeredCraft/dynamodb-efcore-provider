@@ -4,6 +4,7 @@
     <Project Path="examples/Example.Simple/Example.Simple.csproj"/>
   </Folder>
   <Folder Name="/Solution Items/">
+    <File Path="CLAUDE.md"/>
     <File Path="Directory.Build.props"/>
     <File Path="Directory.Packages.props"/>
     <File Path="global.json"/>
