@@ -51,3 +51,9 @@ When a story changes query behavior, update the docs in the same story so inform
 
 ## Code Style
 - Prefer pattern matching over chained logical comparisons where possible.
+- Always add XML comments when writing or modifying methods (both public and non-public):
+  - Use `<summary>` for all methods - keep it to one or two sentences maximum
+  - Add `<param>` and `<returns>` only when the purpose isn't obvious from naming
+  - Focus on *why* or *what*, not *how* (code shows how)
+  - Use `<remarks>` only when absolutely necessary for critical context that doesn't fit in summary
+  - Example: `/// <summary>Translates LINQ Select expressions to PartiQL projections.</summary>`
