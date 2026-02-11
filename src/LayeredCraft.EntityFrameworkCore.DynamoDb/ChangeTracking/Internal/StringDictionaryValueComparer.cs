@@ -22,14 +22,14 @@ internal sealed class StringDictionaryValueComparer<TDictionary, TValue>(
         if (left is null || right is null)
             return false;
 
-        if (left is not IReadOnlyDictionary<string, TValue> leftDictionary
-            || right is not IReadOnlyDictionary<string, TValue> rightDictionary)
+        if (!TryGetDictionaryAccess(left, out var leftDictionary)
+            || !TryGetDictionaryAccess(right, out var rightDictionary))
             return false;
 
         if (leftDictionary.Count != rightDictionary.Count)
             return false;
 
-        foreach (var (key, leftValue) in leftDictionary)
+        foreach (var (key, leftValue) in leftDictionary.Entries)
             if (!rightDictionary.TryGetValue(key, out var rightValue)
                 || !elementComparer.Equals(leftValue, rightValue))
                 return false;
@@ -39,14 +39,14 @@ internal sealed class StringDictionaryValueComparer<TDictionary, TValue>(
 
     private static int GetHashCode(TDictionary source, ValueComparer<TValue> elementComparer)
     {
-        var hashCode = new HashCode();
-        foreach (var (key, value) in source)
-        {
-            hashCode.Add(key);
-            hashCode.Add(value is null ? 0 : elementComparer.GetHashCode(value));
-        }
+        if (!TryGetDictionaryAccess(source, out var dictionary))
+            return 0;
 
-        return hashCode.ToHashCode();
+        var hash = dictionary.Count;
+        foreach (var (key, value) in dictionary.Entries)
+            hash ^= HashCode.Combine(key, value is null ? 0 : elementComparer.GetHashCode(value));
+
+        return hash;
     }
 
     private static TDictionary Snapshot(
@@ -54,15 +54,16 @@ internal sealed class StringDictionaryValueComparer<TDictionary, TValue>(
         ValueComparer<TValue> elementComparer,
         bool readOnly)
     {
-        if (source is not IReadOnlyDictionary<string, TValue> dictionary)
+        if (!TryGetDictionaryAccess(source, out var dictionary))
             throw new InvalidOperationException(
-                $"Dictionary comparer requires IReadOnlyDictionary<string, {typeof(TValue).Name}>.");
+                $"Dictionary comparer requires IDictionary<string, {typeof(TValue).Name}> "
+                + $"or IReadOnlyDictionary<string, {typeof(TValue).Name}>.");
 
         if (readOnly)
             return source;
 
         var snapshot = CreateMutableDictionary(source, dictionary.Count);
-        foreach (var (key, value) in dictionary)
+        foreach (var (key, value) in dictionary.Entries)
             snapshot[key] = value is null ? value! : elementComparer.Snapshot(value);
 
         return (TDictionary)snapshot;
@@ -81,5 +82,41 @@ internal sealed class StringDictionaryValueComparer<TDictionary, TValue>(
         }
 
         return new Dictionary<string, TValue>(capacity, StringComparer.Ordinal);
+    }
+
+    private static bool TryGetDictionaryAccess(TDictionary source, out DictionaryAccess dictionary)
+    {
+        if (source is IReadOnlyDictionary<string, TValue> readOnlyDictionary)
+        {
+            dictionary = new DictionaryAccess(readOnlyDictionary, null);
+            return true;
+        }
+
+        if (source is IDictionary<string, TValue> mutableDictionary)
+        {
+            dictionary = new DictionaryAccess(null, mutableDictionary);
+            return true;
+        }
+
+        dictionary = default;
+        return false;
+    }
+
+    private readonly record struct DictionaryAccess(
+        IReadOnlyDictionary<string, TValue>? ReadOnly,
+        IDictionary<string, TValue>? Mutable)
+    {
+        public int Count => ReadOnly?.Count ?? Mutable!.Count;
+
+        public IEnumerable<KeyValuePair<string, TValue>> Entries
+            => ReadOnly ?? (IEnumerable<KeyValuePair<string, TValue>>)Mutable!;
+
+        public bool TryGetValue(string key, out TValue value)
+        {
+            if (ReadOnly is not null)
+                return ReadOnly.TryGetValue(key, out value!);
+
+            return Mutable!.TryGetValue(key, out value!);
+        }
     }
 }

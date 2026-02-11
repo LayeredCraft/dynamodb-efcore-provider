@@ -6,7 +6,7 @@ internal sealed class SetValueComparer<TSet, TElement>(ValueComparer elementComp
     : ValueComparer<TSet>(
         (left, right) => Compare(left, right, (ValueComparer<TElement>)elementComparer),
         source => GetHashCode(source, (ValueComparer<TElement>)elementComparer),
-        source => (TSet)(object)Snapshot(source, (ValueComparer<TElement>)elementComparer))
+        source => Snapshot(source, (ValueComparer<TElement>)elementComparer))
     where TSet : class, IEnumerable<TElement>
 {
     private static bool Compare(TSet? left, TSet? right, ValueComparer<TElement> elementComparer)
@@ -37,17 +37,36 @@ internal sealed class SetValueComparer<TSet, TElement>(ValueComparer elementComp
         return hash;
     }
 
-    private static HashSet<TElement> Snapshot(TSet source, ValueComparer<TElement> elementComparer)
+    private static TSet Snapshot(TSet source, ValueComparer<TElement> elementComparer)
     {
-        var snapshot =
-            source is HashSet<TElement> sourceHashSet
-                ? new HashSet<TElement>(sourceHashSet.Comparer)
-                : new HashSet<TElement>();
+        var snapshot = CreateMutableSet(source);
 
         foreach (var element in source)
             snapshot.Add(element is null ? element! : elementComparer.Snapshot(element));
 
-        return snapshot;
+        if (snapshot is TSet typedSnapshot)
+            return typedSnapshot;
+
+        throw new InvalidOperationException(
+            $"Unable to snapshot set type '{typeof(TSet)}'. "
+            + "Ensure the type is assignable from HashSet<T> or provides a public parameterless constructor.");
+    }
+
+    private static ISet<TElement> CreateMutableSet(TSet source)
+    {
+        if (source is HashSet<TElement> sourceHashSet
+            && sourceHashSet.GetType() == typeof(HashSet<TElement>))
+            return new HashSet<TElement>(sourceHashSet.Comparer);
+
+        if (source is ISet<TElement> typedSet)
+        {
+            var runtimeType = typedSet.GetType();
+            if (!runtimeType.IsAbstract
+                && runtimeType.GetConstructor(Type.EmptyTypes) is { IsPublic: true })
+                return (ISet<TElement>)Activator.CreateInstance(runtimeType)!;
+        }
+
+        return new HashSet<TElement>();
     }
 
     private sealed class ValueComparerEqualityComparer(ValueComparer<TElement> comparer)
