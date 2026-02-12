@@ -16,14 +16,6 @@ public class DynamoDbContextOptionsBuilder(DbContextOptionsBuilder optionsBuilde
 {
     public DbContextOptionsBuilder OptionsBuilder { get; } = optionsBuilder;
 
-    /// <summary>Sets the AWS authentication region used by the DynamoDB client.</summary>
-    public virtual DynamoDbContextOptionsBuilder AuthenticationRegion(string region)
-        => WithOption(e => e.WithAuthenticationRegion(Check.NotNull(region)));
-
-    /// <summary>Sets the DynamoDB service endpoint URL for the SDK client.</summary>
-    public virtual DynamoDbContextOptionsBuilder ServiceUrl(string serviceUrl)
-        => WithOption(e => e.WithServiceUrl(Check.NotNull(serviceUrl)));
-
     /// <summary>Uses a preconfigured DynamoDB client instance for all provider operations.</summary>
     /// <param name="client">The DynamoDB client instance.</param>
     /// <returns>The builder for chaining.</returns>

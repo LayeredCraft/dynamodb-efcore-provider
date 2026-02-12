@@ -53,15 +53,11 @@ public class DynamoClientWrapper : IDynamoClientWrapper
     /// <summary>Builds the effective SDK configuration from extension options in precedence order.</summary>
     private static AmazonDynamoDBConfig BuildAmazonDynamoDbConfig(DynamoDbOptionsExtension? options)
     {
-        var config = options?.DynamoDbClientConfig ?? new AmazonDynamoDBConfig();
+        if (options?.DynamoDbClientConfig is not null)
+            return options.DynamoDbClientConfig;
 
+        var config = new AmazonDynamoDBConfig();
         options?.DynamoDbClientConfigAction?.Invoke(config);
-
-        if (options?.AuthenticationRegion is not null)
-            config.AuthenticationRegion = options.AuthenticationRegion;
-
-        if (options?.ServiceUrl is not null)
-            config.ServiceURL = options.ServiceUrl;
 
         return config;
     }

@@ -86,10 +86,8 @@ public class PaginationConfigurationTests
     {
         var client = Substitute.For<IAmazonDynamoDB>();
         var config = new AmazonDynamoDBConfig { ServiceURL = "http://localhost:8000" };
-        Action<AmazonDynamoDBConfig> callback = c => c.AuthenticationRegion = "us-west-2";
+        Action<AmazonDynamoDBConfig> callback = c => c.UseHttp = true;
         var original = new DynamoDbOptionsExtension()
-            .WithAuthenticationRegion("us-west-2")
-            .WithServiceUrl("http://localhost:8000")
             .WithDynamoDbClient(client)
             .WithDynamoDbClientConfig(config)
             .WithDynamoDbClientConfigAction(callback)
@@ -98,8 +96,6 @@ public class PaginationConfigurationTests
         // Clone is protected, so we use one of the With methods which calls Clone
         var cloned = original.WithDefaultPageSize(75);
 
-        cloned.AuthenticationRegion.Should().Be("us-west-2");
-        cloned.ServiceUrl.Should().Be("http://localhost:8000");
         cloned.DynamoDbClient.Should().BeSameAs(client);
         cloned.DynamoDbClientConfig.Should().BeSameAs(config);
         cloned.DynamoDbClientConfigAction.Should().BeSameAs(callback);

@@ -1,5 +1,4 @@
 using Amazon.DynamoDBv2;
-using Amazon.DynamoDBv2.Model;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.TestUtilities;
 using Testcontainers.DynamoDb;
 
@@ -7,14 +6,12 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.SimpleTable
 
 public class DynamoFixture : IAsyncLifetime, IDynamoDbTestFixture
 {
-    public string ServiceUrl => Container.GetConnectionString();
-
     public IAmazonDynamoDB Client
     {
         get
         {
             field ??= new AmazonDynamoDBClient(
-                new AmazonDynamoDBConfig { ServiceURL = ServiceUrl });
+                new AmazonDynamoDBConfig { ServiceURL = Container.GetConnectionString() });
             return field;
         }
     }

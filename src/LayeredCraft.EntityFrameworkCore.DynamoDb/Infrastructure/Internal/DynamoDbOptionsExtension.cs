@@ -7,8 +7,6 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Infrastructure.Internal;
 
 public class DynamoDbOptionsExtension : IDbContextOptionsExtension
 {
-    public string? AuthenticationRegion { get; private set; }
-    public string? ServiceUrl { get; private set; }
     public IAmazonDynamoDB? DynamoDbClient { get; private set; }
     public AmazonDynamoDBConfig? DynamoDbClientConfig { get; private set; }
     public Action<AmazonDynamoDBConfig>? DynamoDbClientConfigAction { get; private set; }
@@ -33,26 +31,6 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
             field ??= new DynamoOptionsExtensionInfo(this);
             return field;
         }
-    }
-
-    /// <summary>Sets the AWS authentication region used by the DynamoDB SDK client.</summary>
-    public virtual DynamoDbOptionsExtension WithAuthenticationRegion(string? region)
-    {
-        var clone = Clone();
-
-        clone.AuthenticationRegion = region;
-
-        return clone;
-    }
-
-    /// <summary>Sets the DynamoDB service endpoint URL used by the SDK client.</summary>
-    public virtual DynamoDbOptionsExtension WithServiceUrl(string? serviceUrl)
-    {
-        var clone = Clone();
-
-        clone.ServiceUrl = serviceUrl;
-
-        return clone;
     }
 
     /// <summary>Sets a preconfigured DynamoDB client instance for provider operations.</summary>
@@ -103,8 +81,6 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
     protected virtual DynamoDbOptionsExtension Clone()
         => new()
         {
-            AuthenticationRegion = AuthenticationRegion,
-            ServiceUrl = ServiceUrl,
             DynamoDbClient = DynamoDbClient,
             DynamoDbClientConfig = DynamoDbClientConfig,
             DynamoDbClientConfigAction = DynamoDbClientConfigAction,
@@ -124,8 +100,6 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
             {
                 var hashCode = new HashCode();
 
-                hashCode.Add(Extension.AuthenticationRegion);
-                hashCode.Add(Extension.ServiceUrl);
                 hashCode.Add(Extension.DynamoDbClient);
                 hashCode.Add(Extension.DynamoDbClientConfig);
                 hashCode.Add(Extension.DynamoDbClientConfigAction);
@@ -139,8 +113,6 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
 
         public override bool ShouldUseSameServiceProvider(DbContextOptionsExtensionInfo other)
             => other is DynamoOptionsExtensionInfo otherInfo
-                && Extension.AuthenticationRegion == otherInfo.Extension.AuthenticationRegion
-                && Extension.ServiceUrl == otherInfo.Extension.ServiceUrl
                 && ReferenceEquals(Extension.DynamoDbClient, otherInfo.Extension.DynamoDbClient)
                 && ReferenceEquals(
                     Extension.DynamoDbClientConfig,
@@ -158,9 +130,7 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
         {
             get
             {
-                field ??= $"ServiceUrl={Extension.ServiceUrl is not null},"
-                    + $"AuthenticationRegion={Extension.AuthenticationRegion is not null},"
-                    + $"DefaultPageSize={Extension.DefaultPageSize?.ToString() ?? "null"},"
+                field ??= $"DefaultPageSize={Extension.DefaultPageSize?.ToString() ?? "null"},"
                     + $"DynamoDbClient={Extension.DynamoDbClient is not null},"
                     + $"DynamoDbClientConfig={Extension.DynamoDbClientConfig is not null},"
                     + $"DynamoDbClientConfigAction={Extension.DynamoDbClientConfigAction is not null}";

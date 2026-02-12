@@ -10,8 +10,6 @@ public abstract class DynamoDbTestBase<TFixture, TContext> : IClassFixture<TFixt
 
     protected TFixture Fixture { get; }
 
-    protected string ServiceUrl => Fixture.ServiceUrl;
-
     protected IAmazonDynamoDB Client => Fixture.Client;
 
     protected CancellationToken CancellationToken => TestContext.Current.CancellationToken;

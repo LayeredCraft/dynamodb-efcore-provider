@@ -4,7 +4,5 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.TestUtiliti
 
 public interface IDynamoDbTestFixture
 {
-    string ServiceUrl { get; }
-
     IAmazonDynamoDB Client { get; }
 }

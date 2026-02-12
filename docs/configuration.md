@@ -6,20 +6,22 @@ icon: lucide/settings
 
 ## DbContext setup
 - Configure the provider with `UseDynamo()` or `UseDynamo(options => ...)`.
-- For local development and integration tests, set `ServiceUrl` to DynamoDB Local.
+- For local development and integration tests, pass a configured `IAmazonDynamoDB` client.
 
 ```csharp
 optionsBuilder.UseDynamo(options =>
 {
-    options.ServiceUrl("http://localhost:8000");
-    options.AuthenticationRegion("us-east-1");
+    options.ConfigureDynamoDbClientConfig(config =>
+    {
+        config.ServiceURL = "http://localhost:8000";
+        config.AuthenticationRegion = "us-east-1";
+        config.UseHttp = true;
+    });
     options.DefaultPageSize(100);
 });
 ```
 
 ## Options
-- `ServiceUrl`: target DynamoDB Local or a custom endpoint.
-- `AuthenticationRegion`: AWS region used by the SDK client.
 - `DefaultPageSize`: default request page size (`ExecuteStatementRequest.Limit`) for queries when no per-query override is present.
 - `DynamoDbClient`: use a preconfigured `IAmazonDynamoDB` instance.
 - `DynamoDbClientConfig`: use a preconfigured `AmazonDynamoDBConfig` when creating the SDK client.
@@ -31,7 +33,6 @@ optionsBuilder.UseDynamo(options =>
   1. `DynamoDbClient(...)` (explicit client instance)
   2. `DynamoDbClientConfig(...)` (base SDK config)
   3. `ConfigureDynamoDbClientConfig(...)` (callback adjustments)
-  4. `AuthenticationRegion(...)` and `ServiceUrl(...)` (applied last as final overrides)
 
 ```csharp
 var sharedClient = new AmazonDynamoDBClient(new AmazonDynamoDBConfig
@@ -49,20 +50,12 @@ optionsBuilder.UseDynamo(options =>
 ```csharp
 optionsBuilder.UseDynamo(options =>
 {
-    options.DynamoDbClientConfig(new AmazonDynamoDBConfig
-    {
-        ServiceURL = "http://localhost:7001",
-    });
-
     options.ConfigureDynamoDbClientConfig(config =>
     {
+        config.ServiceURL = "http://localhost:7001";
         config.AuthenticationRegion = "us-west-2";
         config.UseHttp = true;
     });
-
-    // Final provider-level overrides
-    options.ServiceUrl("http://localhost:8000");
-    options.AuthenticationRegion("us-east-1");
 });
 ```
 

@@ -109,7 +109,7 @@ public class DynamoClientWrapperTests
     }
 
     [Fact]
-    public void Client_WhenOnlyConfigProvided_UsesConfiguredServiceUrl()
+    public void Client_WhenOnlyConfigProvided_UsesConfiguredValues()
     {
         var diagnosticsLogger =
             Substitute.For<IDiagnosticsLogger<DbLoggerCategory.Database.Command>>();
@@ -118,17 +118,23 @@ public class DynamoClientWrapperTests
         var executionStrategy = new TestExecutionStrategy();
         var dbContextOptions = new DbContextOptionsBuilder<DbContext>().UseDynamo(options
                 => options.DynamoDbClientConfig(
-                    new AmazonDynamoDBConfig { ServiceURL = "http://localhost:7001" }))
+                    new AmazonDynamoDBConfig
+                    {
+                        ServiceURL =
+                            "http://localhost:7001",
+                        AuthenticationRegion = "us-east-1",
+                    }))
             .Options;
 
         var wrapper =
             new DynamoClientWrapper(dbContextOptions, executionStrategy, diagnosticsLogger);
 
         wrapper.Client.Config.ServiceURL.Should().StartWith("http://localhost:7001");
+        wrapper.Client.Config.AuthenticationRegion.Should().Be("us-east-1");
     }
 
     [Fact]
-    public void Client_WhenConfigAndBuilderOverridesProvided_UsesBuilderOverridesLast()
+    public void Client_WhenConfigAndCallbackProvided_UsesConfigOnly()
     {
         var diagnosticsLogger =
             Substitute.For<IDiagnosticsLogger<DbLoggerCategory.Database.Command>>();
@@ -142,20 +148,23 @@ public class DynamoClientWrapperTests
                     {
                         ServiceURL = "http://localhost:7001", AuthenticationRegion = "us-west-1",
                     });
-                options.ServiceUrl("http://localhost:8000");
-                options.AuthenticationRegion("us-east-1");
+                options.ConfigureDynamoDbClientConfig(config =>
+                {
+                    config.ServiceURL = "http://localhost:8000";
+                    config.AuthenticationRegion = "us-east-1";
+                });
             })
             .Options;
 
         var wrapper =
             new DynamoClientWrapper(dbContextOptions, executionStrategy, diagnosticsLogger);
 
-        wrapper.Client.Config.ServiceURL.Should().StartWith("http://localhost:8000");
-        wrapper.Client.Config.AuthenticationRegion.Should().Be("us-east-1");
+        wrapper.Client.Config.ServiceURL.Should().StartWith("http://localhost:7001");
+        wrapper.Client.Config.AuthenticationRegion.Should().Be("us-west-1");
     }
 
     [Fact]
-    public void Client_WhenConfigCallbackProvided_InvokesCallbackBeforeBuilderOverrides()
+    public void Client_WhenConfigCallbackProvided_InvokesCallback()
     {
         var diagnosticsLogger =
             Substitute.For<IDiagnosticsLogger<DbLoggerCategory.Database.Command>>();
@@ -170,14 +179,13 @@ public class DynamoClientWrapperTests
                     config.AuthenticationRegion = "us-west-2";
                     config.UseHttp = true;
                 });
-                options.ServiceUrl("http://localhost:8000");
             })
             .Options;
 
         var wrapper =
             new DynamoClientWrapper(dbContextOptions, executionStrategy, diagnosticsLogger);
 
-        wrapper.Client.Config.ServiceURL.Should().StartWith("http://localhost:8000");
+        wrapper.Client.Config.ServiceURL.Should().StartWith("http://localhost:7001");
         wrapper.Client.Config.AuthenticationRegion.Should().Be("us-west-2");
         wrapper.Client.Config.UseHttp.Should().BeTrue();
     }
