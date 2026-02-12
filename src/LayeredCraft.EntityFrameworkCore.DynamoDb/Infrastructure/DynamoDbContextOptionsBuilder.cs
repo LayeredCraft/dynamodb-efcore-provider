@@ -1,3 +1,4 @@
+using Amazon.DynamoDBv2;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Infrastructure.Internal;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Utilities;
 using Microsoft.EntityFrameworkCore;
@@ -15,11 +16,27 @@ public class DynamoDbContextOptionsBuilder(DbContextOptionsBuilder optionsBuilde
 {
     public DbContextOptionsBuilder OptionsBuilder { get; } = optionsBuilder;
 
-    public virtual DynamoDbContextOptionsBuilder AuthenticationRegion(string region)
-        => WithOption(e => e.WithAuthenticationRegion(Check.NotNull(region)));
+    /// <summary>Uses a preconfigured DynamoDB client instance for all provider operations.</summary>
+    /// <param name="client">The DynamoDB client instance.</param>
+    /// <returns>The builder for chaining.</returns>
+    public virtual DynamoDbContextOptionsBuilder DynamoDbClient(IAmazonDynamoDB client)
+        => WithOption(e => e.WithDynamoDbClient(client.NotNull()));
 
-    public virtual DynamoDbContextOptionsBuilder ServiceUrl(string serviceUrl)
-        => WithOption(e => e.WithServiceUrl(Check.NotNull(serviceUrl)));
+    /// <summary>Uses the provided DynamoDB client configuration when creating the SDK client.</summary>
+    /// <param name="config">The DynamoDB client configuration.</param>
+    /// <returns>The builder for chaining.</returns>
+    public virtual DynamoDbContextOptionsBuilder DynamoDbClientConfig(AmazonDynamoDBConfig config)
+        => WithOption(e => e.WithDynamoDbClientConfig(config.NotNull()));
+
+    /// <summary>
+    ///     Applies additional configuration to the DynamoDB client configuration before client
+    ///     creation.
+    /// </summary>
+    /// <param name="configure">The callback used to configure the client configuration.</param>
+    /// <returns>The builder for chaining.</returns>
+    public virtual DynamoDbContextOptionsBuilder ConfigureDynamoDbClientConfig(
+        Action<AmazonDynamoDBConfig> configure)
+        => WithOption(e => e.WithDynamoDbClientConfigAction(configure.NotNull()));
 
     /// <summary>
     ///     Sets the default number of items DynamoDB should evaluate per request. Null means no limit
@@ -35,6 +52,7 @@ public class DynamoDbContextOptionsBuilder(DbContextOptionsBuilder optionsBuilde
         return WithOption(e => e.WithDefaultPageSize(pageSize));
     }
 
+    /// <summary>Updates the provider options extension with the supplied mutation action.</summary>
     protected virtual DynamoDbContextOptionsBuilder WithOption(
         Func<DynamoDbOptionsExtension, DynamoDbOptionsExtension> setAction)
     {

@@ -10,8 +10,6 @@ public abstract class DynamoDbTestBase<TFixture, TContext> : IClassFixture<TFixt
 
     protected TFixture Fixture { get; }
 
-    protected string ServiceUrl => Fixture.ServiceUrl;
-
     protected IAmazonDynamoDB Client => Fixture.Client;
 
     protected CancellationToken CancellationToken => TestContext.Current.CancellationToken;
@@ -20,7 +18,7 @@ public abstract class DynamoDbTestBase<TFixture, TContext> : IClassFixture<TFixt
         TestPartiQlLoggerFactory loggerFactory)
     {
         var builder = new DbContextOptionsBuilder<TContext>();
-        builder.UseDynamo(options => options.ServiceUrl(ServiceUrl));
+        builder.UseDynamo(options => options.DynamoDbClient(Client));
         builder.UseLoggerFactory(loggerFactory);
 
         return builder.Options;

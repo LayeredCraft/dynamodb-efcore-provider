@@ -12,40 +12,71 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Storage;
 
 public class DynamoClientWrapper : IDynamoClientWrapper
 {
-    private readonly AmazonDynamoDBConfig _amazonDynamoDbConfig = new();
-    private readonly IExecutionStrategy _executionStrategy;
+    private readonly AmazonDynamoDBConfig? _amazonDynamoDbConfig;
     private readonly IDiagnosticsLogger<DbLoggerCategory.Database.Command> _commandLogger;
+    private readonly IExecutionStrategy _executionStrategy;
 
+    /// <summary>Creates a client wrapper using provider options and EF Core execution services.</summary>
     public DynamoClientWrapper(
         IDbContextOptions dbContextOptions,
         IExecutionStrategy executionStrategy,
         IDiagnosticsLogger<DbLoggerCategory.Database.Command> commandLogger)
     {
-        var options = dbContextOptions.NotNull().FindExtension<DynamoDbOptionsExtension>();
+        var options =
+            dbContextOptions.NotNull().FindExtension<DynamoDbOptionsExtension>().NotNull();
 
-        if (options?.AuthenticationRegion is not null)
-            _amazonDynamoDbConfig.AuthenticationRegion = options.AuthenticationRegion;
-
-        if (options?.ServiceUrl is not null)
-            _amazonDynamoDbConfig.ServiceURL = options.ServiceUrl;
+        if (options.DynamoDbClient is not null)
+            Client = options.DynamoDbClient;
+        else
+            _amazonDynamoDbConfig = BuildAmazonDynamoDbConfig(options);
 
         _executionStrategy = executionStrategy.NotNull();
         _commandLogger = commandLogger.NotNull();
     }
 
+    /// <summary>Gets the resolved DynamoDB client, preferring an explicitly configured client instance.</summary>
     public virtual IAmazonDynamoDB Client
     {
         get
         {
-            field ??= new AmazonDynamoDBClient(_amazonDynamoDbConfig);
+            field ??= new AmazonDynamoDBClient(_amazonDynamoDbConfig.NotNull());
             return field;
         }
     }
 
+    /// <summary>Creates a reusable async enumerable over PartiQL result pages.</summary>
     public IAsyncEnumerable<Dictionary<string, AttributeValue>> ExecutePartiQl(
         ExecuteStatementRequest statementRequest,
         bool singlePageOnly = false)
         => new DynamoAsyncEnumerable(this, statementRequest, singlePageOnly);
+
+    /// <summary>Builds the effective SDK configuration from extension options in precedence order.</summary>
+    private static AmazonDynamoDBConfig BuildAmazonDynamoDbConfig(DynamoDbOptionsExtension? options)
+    {
+        if (options?.DynamoDbClientConfig is not null)
+            return options.DynamoDbClientConfig;
+
+        var config = new AmazonDynamoDBConfig();
+        options?.DynamoDbClientConfigAction?.Invoke(config);
+
+        return config;
+    }
+
+    /// <summary>Clones a statement request so enumeration can mutate paging state safely.</summary>
+    private static ExecuteStatementRequest
+        CloneExecuteStatementRequest(ExecuteStatementRequest prototype, bool cloneParameters)
+        => new()
+        {
+            Statement = prototype.Statement,
+            Parameters =
+                cloneParameters && prototype.Parameters is not null
+                    ? [..prototype.Parameters]
+                    : prototype.Parameters,
+            Limit = prototype.Limit,
+            ConsistentRead = prototype.ConsistentRead,
+            ReturnConsumedCapacity = prototype.ReturnConsumedCapacity,
+            ReturnValuesOnConditionCheckFailure = prototype.ReturnValuesOnConditionCheckFailure,
+        };
 
     private sealed class DynamoAsyncEnumerable(
         DynamoClientWrapper dynamoClientWrapper,
@@ -53,8 +84,8 @@ public class DynamoClientWrapper : IDynamoClientWrapper
         bool singlePageOnly) : IAsyncEnumerable<Dictionary<string, AttributeValue>>
     {
         private readonly DynamoClientWrapper _dynamoClientWrapper = dynamoClientWrapper;
-        private readonly ExecuteStatementRequest _statementRequestPrototype = statementRequest;
         private readonly bool _singlePageOnly = singlePageOnly;
+        private readonly ExecuteStatementRequest _statementRequestPrototype = statementRequest;
 
         public IAsyncEnumerator<Dictionary<string, AttributeValue>> GetAsyncEnumerator(
             CancellationToken cancellationToken = default)
@@ -65,17 +96,17 @@ public class DynamoClientWrapper : IDynamoClientWrapper
             CancellationToken cancellationToken)
             : IAsyncEnumerator<Dictionary<string, AttributeValue>>
         {
-            private readonly bool _singlePageOnly = dynamoEnumerable._singlePageOnly;
-
             private readonly ExecuteStatementRequest _request = CloneExecuteStatementRequest(
                 dynamoEnumerable._statementRequestPrototype,
                 true);
 
-            private bool _hasExecutedRequest;
-            private List<Dictionary<string, AttributeValue>>? _currentItems;
+            private readonly bool _singlePageOnly = dynamoEnumerable._singlePageOnly;
             private int _currentIndex = -1;
-            private string? _nextToken = dynamoEnumerable._statementRequestPrototype.NextToken;
+            private List<Dictionary<string, AttributeValue>>? _currentItems;
+
+            private bool _hasExecutedRequest;
             private bool _hasMorePages = true;
+            private string? _nextToken = dynamoEnumerable._statementRequestPrototype.NextToken;
 
             public Dictionary<string, AttributeValue> Current
             {
@@ -130,6 +161,12 @@ public class DynamoClientWrapper : IDynamoClientWrapper
                 }
             }
 
+            public ValueTask DisposeAsync()
+            {
+                _currentItems = null;
+                return default;
+            }
+
             private async Task<bool> FetchPageAsync(CancellationToken ct)
             {
                 _request.NextToken = _nextToken;
@@ -154,27 +191,6 @@ public class DynamoClientWrapper : IDynamoClientWrapper
 
                 return true;
             }
-
-            public ValueTask DisposeAsync()
-            {
-                _currentItems = null;
-                return default;
-            }
         }
     }
-
-    private static ExecuteStatementRequest
-        CloneExecuteStatementRequest(ExecuteStatementRequest prototype, bool cloneParameters)
-        => new()
-        {
-            Statement = prototype.Statement,
-            Parameters =
-                cloneParameters && prototype.Parameters is not null
-                    ? [..prototype.Parameters]
-                    : prototype.Parameters,
-            Limit = prototype.Limit,
-            ConsistentRead = prototype.ConsistentRead,
-            ReturnConsumedCapacity = prototype.ReturnConsumedCapacity,
-            ReturnValuesOnConditionCheckFailure = prototype.ReturnValuesOnConditionCheckFailure,
-        };
 }

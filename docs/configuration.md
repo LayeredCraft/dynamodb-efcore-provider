@@ -6,22 +6,58 @@ icon: lucide/settings
 
 ## DbContext setup
 - Configure the provider with `UseDynamo()` or `UseDynamo(options => ...)`.
-- For local development and integration tests, set `ServiceUrl` to DynamoDB Local.
+- For local development and integration tests, pass a configured `IAmazonDynamoDB` client.
 
 ```csharp
 optionsBuilder.UseDynamo(options =>
 {
-    options.ServiceUrl("http://localhost:8000");
-    options.AuthenticationRegion("us-east-1");
+    options.ConfigureDynamoDbClientConfig(config =>
+    {
+        config.ServiceURL = "http://localhost:8000";
+        config.AuthenticationRegion = "us-east-1";
+        config.UseHttp = true;
+    });
     options.DefaultPageSize(100);
 });
 ```
 
 ## Options
-- `ServiceUrl`: target DynamoDB Local or a custom endpoint.
-- `AuthenticationRegion`: AWS region used by the SDK client.
 - `DefaultPageSize`: default request page size (`ExecuteStatementRequest.Limit`) for queries when no per-query override is present.
+- `DynamoDbClient`: use a preconfigured `IAmazonDynamoDB` instance.
+- `DynamoDbClientConfig`: use a preconfigured `AmazonDynamoDBConfig` when creating the SDK client.
+- `ConfigureDynamoDbClientConfig`: apply a callback to configure `AmazonDynamoDBConfig` before client creation.
 - `DefaultPageSize` must be greater than zero.
+
+## Client configuration precedence
+- The provider resolves client settings in this order:
+  1. `DynamoDbClient(...)` (explicit client instance)
+  2. `DynamoDbClientConfig(...)` (base SDK config)
+  3. `ConfigureDynamoDbClientConfig(...)` (callback adjustments)
+
+```csharp
+var sharedClient = new AmazonDynamoDBClient(new AmazonDynamoDBConfig
+{
+    ServiceURL = "http://localhost:8000",
+    AuthenticationRegion = "us-east-1",
+});
+
+optionsBuilder.UseDynamo(options =>
+{
+    options.DynamoDbClient(sharedClient);
+});
+```
+
+```csharp
+optionsBuilder.UseDynamo(options =>
+{
+    options.ConfigureDynamoDbClientConfig(config =>
+    {
+        config.ServiceURL = "http://localhost:7001";
+        config.AuthenticationRegion = "us-west-2";
+        config.UseHttp = true;
+    });
+});
+```
 
 ## Table mapping
 - Use `ToTable("TableName")` to map an entity to a DynamoDB table.

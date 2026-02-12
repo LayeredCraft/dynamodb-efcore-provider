@@ -39,7 +39,7 @@ public class StrictShapeValidationTests : IClassFixture<PrimitiveCollectionsDyna
     private DbContextOptions<TContext> CreateOptions<TContext>() where TContext : DbContext
     {
         var builder = new DbContextOptionsBuilder<TContext>();
-        builder.UseDynamo(options => options.ServiceUrl(_fixture.ServiceUrl));
+        builder.UseDynamo(options => options.DynamoDbClient(_fixture.Client));
         return builder.Options;
     }
 

@@ -236,7 +236,7 @@ public class NullHandlingTests(PrimitiveCollectionsDynamoFixture fixture)
     private DbContextOptions<OptionalCollectionsContext> CreateOptionalCollectionsOptions()
     {
         var builder = new DbContextOptionsBuilder<OptionalCollectionsContext>();
-        builder.UseDynamo(options => options.ServiceUrl(ServiceUrl));
+        builder.UseDynamo(options => options.DynamoDbClient(Client));
         return builder.Options;
     }
 

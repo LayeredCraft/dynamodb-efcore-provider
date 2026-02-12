@@ -20,7 +20,7 @@ public class DynamoClientWrapperTests
         diagnosticsLogger.Logger.Returns(NullLogger.Instance);
 
         var executionStrategy = new TestExecutionStrategy();
-        var dbContextOptions = new DbContextOptionsBuilder<DbContext>().Options;
+        var dbContextOptions = new DbContextOptionsBuilder<DbContext>().UseDynamo().Options;
 
         var client = Substitute.For<IAmazonDynamoDB>();
         var nextTokens = new List<string?>();
@@ -87,6 +87,107 @@ public class DynamoClientWrapperTests
         nextTokens[1].Should().Be("t1");
         nextTokens[2].Should().BeNull();
         nextTokens[3].Should().Be("t1");
+    }
+
+    [Fact]
+    public void Client_WhenConfiguredClientProvided_UsesConfiguredClient()
+    {
+        var diagnosticsLogger =
+            Substitute.For<IDiagnosticsLogger<DbLoggerCategory.Database.Command>>();
+        diagnosticsLogger.Logger.Returns(NullLogger.Instance);
+
+        var executionStrategy = new TestExecutionStrategy();
+        var configuredClient = Substitute.For<IAmazonDynamoDB>();
+        var dbContextOptions = new DbContextOptionsBuilder<DbContext>()
+            .UseDynamo(options => options.DynamoDbClient(configuredClient))
+            .Options;
+
+        var wrapper =
+            new DynamoClientWrapper(dbContextOptions, executionStrategy, diagnosticsLogger);
+
+        wrapper.Client.Should().BeSameAs(configuredClient);
+    }
+
+    [Fact]
+    public void Client_WhenOnlyConfigProvided_UsesConfiguredValues()
+    {
+        var diagnosticsLogger =
+            Substitute.For<IDiagnosticsLogger<DbLoggerCategory.Database.Command>>();
+        diagnosticsLogger.Logger.Returns(NullLogger.Instance);
+
+        var executionStrategy = new TestExecutionStrategy();
+        var dbContextOptions = new DbContextOptionsBuilder<DbContext>().UseDynamo(options
+                => options.DynamoDbClientConfig(
+                    new AmazonDynamoDBConfig
+                    {
+                        ServiceURL =
+                            "http://localhost:7001",
+                        AuthenticationRegion = "us-east-1",
+                    }))
+            .Options;
+
+        var wrapper =
+            new DynamoClientWrapper(dbContextOptions, executionStrategy, diagnosticsLogger);
+
+        wrapper.Client.Config.ServiceURL.Should().StartWith("http://localhost:7001");
+        wrapper.Client.Config.AuthenticationRegion.Should().Be("us-east-1");
+    }
+
+    [Fact]
+    public void Client_WhenConfigAndCallbackProvided_UsesConfigOnly()
+    {
+        var diagnosticsLogger =
+            Substitute.For<IDiagnosticsLogger<DbLoggerCategory.Database.Command>>();
+        diagnosticsLogger.Logger.Returns(NullLogger.Instance);
+
+        var executionStrategy = new TestExecutionStrategy();
+        var dbContextOptions = new DbContextOptionsBuilder<DbContext>().UseDynamo(options =>
+            {
+                options.DynamoDbClientConfig(
+                    new AmazonDynamoDBConfig
+                    {
+                        ServiceURL = "http://localhost:7001", AuthenticationRegion = "us-west-1",
+                    });
+                options.ConfigureDynamoDbClientConfig(config =>
+                {
+                    config.ServiceURL = "http://localhost:8000";
+                    config.AuthenticationRegion = "us-east-1";
+                });
+            })
+            .Options;
+
+        var wrapper =
+            new DynamoClientWrapper(dbContextOptions, executionStrategy, diagnosticsLogger);
+
+        wrapper.Client.Config.ServiceURL.Should().StartWith("http://localhost:7001");
+        wrapper.Client.Config.AuthenticationRegion.Should().Be("us-west-1");
+    }
+
+    [Fact]
+    public void Client_WhenConfigCallbackProvided_InvokesCallback()
+    {
+        var diagnosticsLogger =
+            Substitute.For<IDiagnosticsLogger<DbLoggerCategory.Database.Command>>();
+        diagnosticsLogger.Logger.Returns(NullLogger.Instance);
+
+        var executionStrategy = new TestExecutionStrategy();
+        var dbContextOptions = new DbContextOptionsBuilder<DbContext>().UseDynamo(options =>
+            {
+                options.ConfigureDynamoDbClientConfig(config =>
+                {
+                    config.ServiceURL = "http://localhost:7001";
+                    config.AuthenticationRegion = "us-west-2";
+                    config.UseHttp = true;
+                });
+            })
+            .Options;
+
+        var wrapper =
+            new DynamoClientWrapper(dbContextOptions, executionStrategy, diagnosticsLogger);
+
+        wrapper.Client.Config.ServiceURL.Should().StartWith("http://localhost:7001");
+        wrapper.Client.Config.AuthenticationRegion.Should().Be("us-west-2");
+        wrapper.Client.Config.UseHttp.Should().BeTrue();
     }
 
     private static async Task<List<Dictionary<string, AttributeValue>>> EnumerateAsync(
