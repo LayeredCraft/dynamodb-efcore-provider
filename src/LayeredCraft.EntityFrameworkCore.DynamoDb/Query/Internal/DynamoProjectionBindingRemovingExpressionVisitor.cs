@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq.Expressions;
@@ -72,6 +73,8 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
 
     private static readonly ConstantExpression FloatNumberStylesExpression =
         Constant(NumberStyles.Float, typeof(NumberStyles));
+
+    private static readonly ConcurrentDictionary<Type, MethodInfo> NumericParseMethodCache = new();
 
     private static readonly MethodInfo MemoryStreamToArrayMethod =
         typeof(MemoryStream).GetMethod(nameof(MemoryStream.ToArray))!;
@@ -896,16 +899,7 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
         Expression numericStringExpression,
         Type numericType)
     {
-        var parseMethod = numericType.GetMethod(
-            nameof(int.Parse),
-            BindingFlags.Public | BindingFlags.Static,
-            null,
-            [typeof(string), typeof(NumberStyles), typeof(IFormatProvider)],
-            null);
-
-        if (parseMethod == null)
-            throw new InvalidOperationException(
-                $"Cannot parse DynamoDB numeric string for provider type '{numericType.Name}'.");
+        var parseMethod = GetNumericParseMethod(numericType);
 
         var numberStyles =
             numericType == typeof(float)
@@ -916,6 +910,19 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
 
         return Call(parseMethod, numericStringExpression, numberStyles, InvariantCultureExpression);
     }
+
+    /// <summary>Gets and caches the numeric Parse(string, NumberStyles, IFormatProvider) method.</summary>
+    private static MethodInfo GetNumericParseMethod(Type numericType)
+        => NumericParseMethodCache.GetOrAdd(
+            numericType,
+            static type => type.GetMethod(
+                    nameof(int.Parse),
+                    BindingFlags.Public | BindingFlags.Static,
+                    null,
+                    [typeof(string), typeof(NumberStyles), typeof(IFormatProvider)],
+                    null)
+                ?? throw new InvalidOperationException(
+                    $"Cannot parse DynamoDB numeric string for provider type '{type.Name}'."));
 
     /// <summary>Determines whether collection elements should be treated as required.</summary>
     private static bool IsRequiredCollectionElement(IProperty? property, Type elementType)
