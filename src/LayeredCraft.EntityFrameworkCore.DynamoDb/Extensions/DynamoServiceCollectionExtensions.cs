@@ -15,6 +15,7 @@ public static class DynamoServiceCollectionExtensions
 {
     extension(IServiceCollection serviceCollection)
     {
+        /// <summary>Registers Entity Framework Core DynamoDB provider services.</summary>
         public IServiceCollection AddEntityFrameworkDynamo()
         {
             var builder = new EntityFrameworkServicesBuilder(serviceCollection)
@@ -22,6 +23,7 @@ public static class DynamoServiceCollectionExtensions
                 .TryAdd<IDatabaseProvider, DatabaseProvider<DynamoDbOptionsExtension>>()
                 .TryAdd<IDatabase, DynamoDatabaseWrapper>()
                 .TryAdd<IQueryContextFactory, DynamoQueryContextFactory>()
+                .TryAdd<IModelValidator, DynamoModelValidator>()
                 .TryAdd<ITypeMappingSource, DynamoTypeMappingSource>()
                 .TryAdd<IQueryableMethodTranslatingExpressionVisitorFactory,
                     DynamoQueryableMethodTranslatingExpressionVisitorFactory>()

@@ -1,8 +1,12 @@
+using System.Collections;
+using System.Collections.Concurrent;
+using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq.Expressions;
 using System.Reflection;
 using Amazon.DynamoDBv2.Model;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
+using LayeredCraft.EntityFrameworkCore.DynamoDb.Storage;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Query;
@@ -40,22 +44,37 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
     private static readonly PropertyInfo AttributeValueNullProperty =
         typeof(AttributeValue).GetProperty(nameof(AttributeValue.NULL))!;
 
+    private static readonly PropertyInfo AttributeValueMProperty =
+        typeof(AttributeValue).GetProperty(nameof(AttributeValue.M))!;
+
+    private static readonly PropertyInfo AttributeValueLProperty =
+        typeof(AttributeValue).GetProperty(nameof(AttributeValue.L))!;
+
+    private static readonly PropertyInfo AttributeValueSsProperty =
+        typeof(AttributeValue).GetProperty(nameof(AttributeValue.SS))!;
+
+    private static readonly PropertyInfo AttributeValueNsProperty =
+        typeof(AttributeValue).GetProperty(nameof(AttributeValue.NS))!;
+
+    private static readonly PropertyInfo AttributeValueBsProperty =
+        typeof(AttributeValue).GetProperty(nameof(AttributeValue.BS))!;
+
     private static readonly ConstructorInfo InvalidOperationExceptionCtor =
         typeof(InvalidOperationException).GetConstructor([typeof(string)])!;
 
     private static readonly MethodInfo DictionaryTryGetValueMethod =
         typeof(Dictionary<string, AttributeValue>).GetMethod(nameof(Dictionary<,>.TryGetValue))!;
 
-    private static readonly MethodInfo LongParseMethod =
-        typeof(long).GetMethod(nameof(long.Parse), [typeof(string), typeof(IFormatProvider)])!;
+    private static readonly ConstantExpression InvariantCultureExpression =
+        Constant(CultureInfo.InvariantCulture, typeof(IFormatProvider));
 
-    private static readonly MethodInfo DoubleParseMethod =
-        typeof(double).GetMethod(nameof(double.Parse), [typeof(string), typeof(IFormatProvider)])!;
+    private static readonly ConstantExpression IntegerNumberStylesExpression =
+        Constant(NumberStyles.Integer, typeof(NumberStyles));
 
-    private static readonly MethodInfo DecimalParseMethod =
-        typeof(decimal).GetMethod(
-            nameof(decimal.Parse),
-            [typeof(string), typeof(IFormatProvider)])!;
+    private static readonly ConstantExpression FloatNumberStylesExpression =
+        Constant(NumberStyles.Float, typeof(NumberStyles));
+
+    private static readonly ConcurrentDictionary<Type, MethodInfo> NumericParseMethodCache = new();
 
     private static readonly MethodInfo MemoryStreamToArrayMethod =
         typeof(MemoryStream).GetMethod(nameof(MemoryStream.ToArray))!;
@@ -124,6 +143,7 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
                     projectionBinding.Type,
                     typeMapping,
                     required,
+                    null,
                     null);
             }
 
@@ -145,6 +165,7 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
                     projectionBinding.Type,
                     typeMapping,
                     required,
+                    null,
                     null);
             }
         }
@@ -181,7 +202,8 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
                     targetType,
                     typeMapping,
                     required,
-                    entityTypeDisplayName);
+                    entityTypeDisplayName,
+                    property);
 
                 return valueExpression.Type != node.Type
                     ? Convert(valueExpression, node.Type)
@@ -213,7 +235,8 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
         Type type,
         CoreTypeMapping? typeMapping,
         bool required,
-        string? entityTypeDisplayName)
+        string? entityTypeDisplayName,
+        IProperty? property)
     {
         var converter = typeMapping?.Converter;
 
@@ -250,47 +273,63 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
 
         var isDynamoNullExpression = OrElse(isAttributeValueNullExpression, isNullFlagExpression);
 
-        // Extract wire primitive: attributeValue.S, long.Parse(attributeValue.N), etc.
-        var primitiveType = converter?.ProviderClrType ?? type;
-        var isNullablePrimitive = Nullable.GetUnderlyingType(primitiveType) != null;
-        var wireType = Nullable.GetUnderlyingType(primitiveType) ?? primitiveType;
-        var primitiveExpression = CreateAttributeValueToPrimitiveExpression(
-            attributeValueVariable,
-            wireType,
-            isNullablePrimitive);
+        Expression valueExpression;
+        var isCollectionType = DynamoTypeMappingSource.TryGetDictionaryValueType(type, out _, out _)
+            || DynamoTypeMappingSource.TryGetSetElementType(type, out _)
+            || DynamoTypeMappingSource.TryGetListElementType(type, out _);
 
-        if (primitiveExpression.Type != primitiveType)
-            primitiveExpression = Convert(primitiveExpression, primitiveType);
+        if (isCollectionType)
+            valueExpression = CreateCollectionValueExpression(
+                attributeValueVariable,
+                type,
+                typeMapping,
+                propertyPath,
+                required,
+                property);
+        else
+        {
+            // Extract wire primitive: attributeValue.S, long.Parse(attributeValue.N), etc.
+            var primitiveType = converter?.ProviderClrType ?? type;
+            var isNullablePrimitive = Nullable.GetUnderlyingType(primitiveType) != null;
+            var wireType = Nullable.GetUnderlyingType(primitiveType) ?? primitiveType;
+            var primitiveExpression = CreateAttributeValueToPrimitiveExpression(
+                attributeValueVariable,
+                wireType,
+                isNullablePrimitive);
 
-        // Inline converter: DateTime.Parse(...), Guid.Parse(...), (int)long.Parse(...), etc.
-        var valueExpression = primitiveExpression;
-        if (converter != null)
-            valueExpression = ReplacingExpressionVisitor.Replace(
-                converter.ConvertFromProviderExpression.Parameters.Single(),
-                primitiveExpression,
-                converter.ConvertFromProviderExpression.Body);
+            if (primitiveExpression.Type != primitiveType)
+                primitiveExpression = Convert(primitiveExpression, primitiveType);
 
-        if (valueExpression.Type != type)
-            valueExpression = Convert(valueExpression, type);
+            // Inline converter: DateTime.Parse(...), Guid.Parse(...), (int)long.Parse(...), etc.
+            valueExpression = primitiveExpression;
+            if (converter != null)
+                valueExpression = ReplacingExpressionVisitor.Replace(
+                    converter.ConvertFromProviderExpression.Parameters.Single(),
+                    primitiveExpression,
+                    converter.ConvertFromProviderExpression.Body);
 
-        var expectedWireMember = GetExpectedWireMemberName(wireType);
-        var missingWireValueReturnExpression = required
-            ? CreateThrow(
-                $"Required property '{propertyPath}' did not contain a value for expected DynamoDB wire member '{expectedWireMember}'.")
-            : Default(type);
+            if (valueExpression.Type != type)
+                valueExpression = Convert(valueExpression, type);
 
-        // Ensure we never parse/convert when the expected wire member isn't present (e.g. N ==
-        // null).
-        // This also makes explicit DynamoDB NULL behave like store null and prevents
-        // long.Parse(null).
-        if (TryCreateHasWireValueExpression(
-            attributeValueVariable,
-            wireType,
-            out var hasWireValueExpression))
-            valueExpression = Condition(
-                hasWireValueExpression,
-                valueExpression,
-                missingWireValueReturnExpression);
+            var expectedWireMember = GetExpectedWireMemberName(wireType);
+            var missingWireValueReturnExpression = required
+                ? CreateThrow(
+                    $"Required property '{propertyPath}' did not contain a value for expected DynamoDB wire member '{expectedWireMember}'.")
+                : Default(type);
+
+            // Ensure we never parse/convert when the expected wire member isn't present (e.g. N ==
+            // null).
+            // This also makes explicit DynamoDB NULL behave like store null and prevents
+            // long.Parse(null).
+            if (TryCreateHasWireValueExpression(
+                attributeValueVariable,
+                wireType,
+                out var hasWireValueExpression))
+                valueExpression = Condition(
+                    hasWireValueExpression,
+                    valueExpression,
+                    missingWireValueReturnExpression);
+        }
 
         // item.TryGetValue(...) ? (isDynamoNull ? (required?throw:default) : value) :
         // (required?throw:default)
@@ -349,40 +388,39 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
         }
 
         var nProperty = Property(attributeValueExpression, AttributeValueNProperty);
-        var cultureInfo = Constant(CultureInfo.InvariantCulture);
 
-        // Numeric types: parse as long/double and convert to target type
-        if (primitiveType == typeof(short))
-            return Convert(Call(LongParseMethod, nProperty, cultureInfo), typeof(short));
-
-        if (primitiveType == typeof(byte))
-            return Convert(Call(LongParseMethod, nProperty, cultureInfo), typeof(byte));
-
-        if (primitiveType == typeof(long))
-            return Call(LongParseMethod, nProperty, cultureInfo);
-
-        if (primitiveType == typeof(float))
-            return Convert(Call(DoubleParseMethod, nProperty, cultureInfo), typeof(float));
-
-        if (primitiveType == typeof(double))
-            return Call(DoubleParseMethod, nProperty, cultureInfo);
-
-        if (primitiveType == typeof(decimal))
-            return Call(DecimalParseMethod, nProperty, cultureInfo);
+        if (primitiveType == typeof(short)
+            || primitiveType == typeof(ushort)
+            || primitiveType == typeof(sbyte)
+            || primitiveType == typeof(byte)
+            || primitiveType == typeof(int)
+            || primitiveType == typeof(uint)
+            || primitiveType == typeof(long)
+            || primitiveType == typeof(ulong)
+            || primitiveType == typeof(float)
+            || primitiveType == typeof(double)
+            || primitiveType == typeof(decimal))
+            return CreateNumericStringParseExpression(nProperty, primitiveType);
 
         throw new InvalidOperationException(
             $"Cannot create expression for AttributeValue to primitive type '{primitiveType.Name}'. "
             + $"Supported types: string, bool, numeric types (int, long, float, double, decimal, etc.), byte[]");
     }
 
+    /// <summary>Checks whether a CLR type is a non-nullable value type.</summary>
     private static bool IsNonNullableValueType(Type type)
         => type.IsValueType && Nullable.GetUnderlyingType(type) == null;
 
+    /// <summary>
+    ///     Returns the expected primitive <see cref="AttributeValue" /> wire member for a wire CLR
+    ///     type.
+    /// </summary>
     private static string GetExpectedWireMemberName(Type wireType)
         => wireType == typeof(string) ? nameof(AttributeValue.S) :
             wireType == typeof(bool) ? nameof(AttributeValue.BOOL) :
             wireType == typeof(byte[]) ? nameof(AttributeValue.B) : nameof(AttributeValue.N);
 
+    /// <summary>Builds an expression that checks whether the expected primitive wire member is present.</summary>
     private static bool TryCreateHasWireValueExpression(
         Expression attributeValueExpression,
         Type wireType,
@@ -418,4 +456,480 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
             Constant(null, typeof(string)));
         return true;
     }
+
+    /// <summary>
+    ///     Builds a typed collection materialization expression for strict list/set/dictionary
+    ///     shapes.
+    /// </summary>
+    private static Expression CreateCollectionValueExpression(
+        Expression attributeValueExpression,
+        Type targetType,
+        CoreTypeMapping? typeMapping,
+        string propertyPath,
+        bool required,
+        IProperty? property)
+    {
+        if (DynamoTypeMappingSource.TryGetDictionaryValueType(
+            targetType,
+            out var valueType,
+            out var readOnly))
+            return CreateDictionaryMaterializationExpression(
+                attributeValueExpression,
+                targetType,
+                valueType,
+                readOnly,
+                typeMapping?.ElementTypeMapping,
+                propertyPath,
+                required,
+                property);
+
+        if (DynamoTypeMappingSource.TryGetSetElementType(targetType, out var setElementType))
+            return CreateSetMaterializationExpression(
+                attributeValueExpression,
+                targetType,
+                setElementType,
+                typeMapping?.ElementTypeMapping,
+                propertyPath,
+                required,
+                property);
+
+        if (DynamoTypeMappingSource.TryGetListElementType(targetType, out var listElementType))
+            return CreateListMaterializationExpression(
+                attributeValueExpression,
+                targetType,
+                listElementType,
+                typeMapping?.ElementTypeMapping,
+                propertyPath,
+                required,
+                property);
+
+        return Default(targetType);
+    }
+
+    /// <summary>
+    ///     Builds a typed conversion expression from <see cref="AttributeValue" /> to a model CLR
+    ///     value.
+    /// </summary>
+    private static Expression CreateTypedValueExpressionFromAttributeValue(
+        Expression attributeValueExpression,
+        Type modelType,
+        CoreTypeMapping? typeMapping,
+        string propertyPath,
+        bool required)
+    {
+        var converter = typeMapping?.Converter;
+        var providerType = converter?.ProviderClrType ?? modelType;
+        var wireType = Nullable.GetUnderlyingType(providerType) ?? providerType;
+        var allowNullBool = Nullable.GetUnderlyingType(providerType) != null;
+
+        var providerValueExpression = CreateAttributeValueToPrimitiveExpression(
+            attributeValueExpression,
+            wireType,
+            allowNullBool);
+
+        if (providerValueExpression.Type != providerType)
+            providerValueExpression = Convert(providerValueExpression, providerType);
+
+        var modelValueExpression = providerValueExpression;
+        if (converter != null)
+            modelValueExpression = ReplacingExpressionVisitor.Replace(
+                converter.ConvertFromProviderExpression.Parameters.Single(),
+                providerValueExpression,
+                converter.ConvertFromProviderExpression.Body);
+
+        if (modelValueExpression.Type != modelType)
+            modelValueExpression = Convert(modelValueExpression, modelType);
+
+        Expression missingWireValueExpression = required
+            ? Throw(
+                New(
+                    InvalidOperationExceptionCtor,
+                    Constant(
+                        $"Required property '{propertyPath}' did not contain a value for expected DynamoDB wire member '{GetExpectedWireMemberName(wireType)}'.")),
+                modelType)
+            : Default(modelType);
+
+        if (TryCreateHasWireValueExpression(
+            attributeValueExpression,
+            wireType,
+            out var hasWireValueExpression))
+            modelValueExpression = Condition(
+                hasWireValueExpression,
+                modelValueExpression,
+                missingWireValueExpression);
+
+        var isAttributeValueNullExpression = Equal(
+            attributeValueExpression,
+            Constant(null, typeof(AttributeValue)));
+        var isNullFlagExpression = Equal(
+            Property(attributeValueExpression, AttributeValueNullProperty),
+            Constant(true, typeof(bool?)));
+        var isDynamoNullExpression = OrElse(isAttributeValueNullExpression, isNullFlagExpression);
+
+        Expression nullReturnExpression = required
+            ? Throw(
+                New(
+                    InvalidOperationExceptionCtor,
+                    Constant($"Required property '{propertyPath}' was set to DynamoDB NULL.")),
+                modelType)
+            : Default(modelType);
+
+        return Condition(isDynamoNullExpression, nullReturnExpression, modelValueExpression);
+    }
+
+    /// <summary>
+    ///     Builds a typed conversion expression from provider value to model value with inlined
+    ///     converter.
+    /// </summary>
+    private static Expression CreateTypedValueExpressionFromProvider(
+        Expression providerValueExpression,
+        Type modelType,
+        CoreTypeMapping? typeMapping)
+    {
+        var converter = typeMapping?.Converter;
+        var providerType = converter?.ProviderClrType ?? modelType;
+
+        if (providerValueExpression.Type != providerType)
+            providerValueExpression = Convert(providerValueExpression, providerType);
+
+        var modelValueExpression = providerValueExpression;
+        if (converter != null)
+            modelValueExpression = ReplacingExpressionVisitor.Replace(
+                converter.ConvertFromProviderExpression.Parameters.Single(),
+                providerValueExpression,
+                converter.ConvertFromProviderExpression.Body);
+
+        return modelValueExpression.Type != modelType
+            ? Convert(modelValueExpression, modelType)
+            : modelValueExpression;
+    }
+
+    /// <summary>Builds typed list materialization for <c>AttributeValue.L</c> without boxing.</summary>
+    private static Expression CreateListMaterializationExpression(
+        Expression attributeValueExpression,
+        Type targetType,
+        Type elementType,
+        CoreTypeMapping? elementMapping,
+        string propertyPath,
+        bool required,
+        IProperty? property)
+    {
+        var wireListVariable = Variable(typeof(List<AttributeValue>), "wireList");
+        var resultListType = typeof(List<>).MakeGenericType(elementType);
+        var resultVariable = Variable(resultListType, "result");
+        var indexVariable = Variable(typeof(int), "index");
+        var countVariable = Variable(typeof(int), "count");
+
+        var assignWireList = Assign(
+            wireListVariable,
+            Property(attributeValueExpression, AttributeValueLProperty));
+        Expression missingWireExpression = required
+            ? Throw(
+                New(
+                    InvalidOperationExceptionCtor,
+                    Constant(
+                        $"Required property '{propertyPath}' did not contain a value for expected DynamoDB wire member '{nameof(AttributeValue.L)}'.")),
+                targetType)
+            : Default(targetType);
+
+        var ctor = resultListType.GetConstructor([typeof(int)])!;
+        var addMethod = resultListType.GetMethod(nameof(List<int>.Add), [elementType])!;
+        var toArrayMethod = resultListType.GetMethod(nameof(List<int>.ToArray), Type.EmptyTypes)!;
+
+        var assignResult = Assign(
+            resultVariable,
+            New(ctor, Property(wireListVariable, nameof(List<AttributeValue>.Count))));
+        var assignCount = Assign(
+            countVariable,
+            Property(wireListVariable, nameof(List<AttributeValue>.Count)));
+        var assignIndex = Assign(indexVariable, Constant(0));
+
+        var elementAttributeValueExpression = Property(wireListVariable, "Item", indexVariable);
+        var elementRequired = IsRequiredCollectionElement(property, elementType);
+        var elementExpression = CreateTypedValueExpressionFromAttributeValue(
+            elementAttributeValueExpression,
+            elementType,
+            elementMapping,
+            propertyPath,
+            elementRequired);
+
+        var loopBreak = Label("ListLoopBreak");
+        var loop = Loop(
+            IfThenElse(
+                LessThan(indexVariable, countVariable),
+                Block(
+                    Call(resultVariable, addMethod, elementExpression),
+                    PostIncrementAssign(indexVariable)),
+                Break(loopBreak)),
+            loopBreak);
+
+        Expression resultExpression = targetType.IsArray
+            ? Call(resultVariable, toArrayMethod)
+            : resultVariable;
+
+        if (resultExpression.Type != targetType)
+            resultExpression = Convert(resultExpression, targetType);
+
+        var populateBlock = Block(
+            [resultVariable, indexVariable, countVariable],
+            assignResult,
+            assignCount,
+            assignIndex,
+            loop,
+            resultExpression);
+
+        return Block(
+            [wireListVariable],
+            assignWireList,
+            Condition(
+                Equal(wireListVariable, Constant(null, typeof(List<AttributeValue>))),
+                missingWireExpression,
+                populateBlock));
+    }
+
+    /// <summary>Builds typed dictionary materialization for <c>AttributeValue.M</c> without boxing.</summary>
+    private static Expression CreateDictionaryMaterializationExpression(
+        Expression attributeValueExpression,
+        Type targetType,
+        Type valueType,
+        bool readOnly,
+        CoreTypeMapping? valueMapping,
+        string propertyPath,
+        bool required,
+        IProperty? property)
+    {
+        var wireMapType = typeof(Dictionary<string, AttributeValue>);
+        var wireMapVariable = Variable(wireMapType, "wireMap");
+        var resultType = typeof(Dictionary<,>).MakeGenericType(typeof(string), valueType);
+        var resultVariable = Variable(resultType, "result");
+        var enumeratorType =
+            wireMapType.GetMethod(nameof(Dictionary<string, AttributeValue>.GetEnumerator))!
+                .ReturnType;
+        var enumeratorVariable = Variable(enumeratorType, "enumerator");
+        var currentType = typeof(KeyValuePair<string, AttributeValue>);
+        var currentVariable = Variable(currentType, "current");
+
+        var assignWireMap = Assign(
+            wireMapVariable,
+            Property(attributeValueExpression, AttributeValueMProperty));
+        Expression missingWireExpression = required
+            ? Throw(
+                New(
+                    InvalidOperationExceptionCtor,
+                    Constant(
+                        $"Required property '{propertyPath}' did not contain a value for expected DynamoDB wire member '{nameof(AttributeValue.M)}'.")),
+                targetType)
+            : Default(targetType);
+
+        var ctor = resultType.GetConstructor([typeof(int), typeof(IEqualityComparer<string>)])!;
+        var addMethod = resultType.GetMethod(
+            nameof(Dictionary<string, int>.Add),
+            [typeof(string), valueType])!;
+        var assignResult = Assign(
+            resultVariable,
+            New(
+                ctor,
+                Property(wireMapVariable, nameof(Dictionary<string, AttributeValue>.Count)),
+                Constant(StringComparer.Ordinal, typeof(IEqualityComparer<string>))));
+
+        var assignEnumerator = Assign(
+            enumeratorVariable,
+            Call(
+                wireMapVariable,
+                wireMapType.GetMethod(nameof(Dictionary<string, AttributeValue>.GetEnumerator))!));
+
+        var valueRequired = IsRequiredCollectionElement(property, valueType);
+        var valueExpression = CreateTypedValueExpressionFromAttributeValue(
+            Property(currentVariable, nameof(KeyValuePair<string, AttributeValue>.Value)),
+            valueType,
+            valueMapping,
+            propertyPath,
+            valueRequired);
+
+        var loopBreak = Label("DictionaryLoopBreak");
+        var loop = Loop(
+            IfThenElse(
+                Call(enumeratorVariable, enumeratorType.GetMethod(nameof(IEnumerator.MoveNext))!),
+                Block(
+                    Assign(
+                        currentVariable,
+                        Property(
+                            enumeratorVariable,
+                            nameof(IEnumerator<KeyValuePair<string, AttributeValue>>.Current))),
+                    Call(
+                        resultVariable,
+                        addMethod,
+                        Property(currentVariable, nameof(KeyValuePair<string, AttributeValue>.Key)),
+                        valueExpression)),
+                Break(loopBreak)),
+            loopBreak);
+
+        Expression dictionaryResultExpression = resultVariable;
+        if (readOnly)
+        {
+            var readOnlyType =
+                typeof(ReadOnlyDictionary<,>).MakeGenericType(typeof(string), valueType);
+            var readOnlyCtor =
+                readOnlyType.GetConstructor(
+                    [typeof(IDictionary<,>).MakeGenericType(typeof(string), valueType)])!;
+            dictionaryResultExpression = New(
+                readOnlyCtor,
+                Convert(
+                    resultVariable,
+                    typeof(IDictionary<,>).MakeGenericType(typeof(string), valueType)));
+        }
+
+        if (dictionaryResultExpression.Type != targetType)
+            dictionaryResultExpression = Convert(dictionaryResultExpression, targetType);
+
+        var populateBlock = Block(
+            [resultVariable, enumeratorVariable, currentVariable],
+            assignResult,
+            assignEnumerator,
+            loop,
+            dictionaryResultExpression);
+
+        return Block(
+            [wireMapVariable],
+            assignWireMap,
+            Condition(
+                Equal(wireMapVariable, Constant(null, wireMapType)),
+                missingWireExpression,
+                populateBlock));
+    }
+
+    /// <summary>Builds typed set materialization for <c>AttributeValue.SS</c>, <c>NS</c>, and <c>BS</c>.</summary>
+    private static Expression CreateSetMaterializationExpression(
+        Expression attributeValueExpression,
+        Type targetType,
+        Type elementType,
+        CoreTypeMapping? elementMapping,
+        string propertyPath,
+        bool required,
+        IProperty? property)
+    {
+        var providerType = elementMapping?.Converter?.ProviderClrType ?? elementType;
+        var nonNullableProviderType = Nullable.GetUnderlyingType(providerType) ?? providerType;
+        var wireProperty =
+            nonNullableProviderType == typeof(string) ? AttributeValueSsProperty :
+            nonNullableProviderType == typeof(byte[]) ? AttributeValueBsProperty :
+            AttributeValueNsProperty;
+
+        var wireListType = nonNullableProviderType == typeof(byte[])
+            ? typeof(List<MemoryStream>)
+            : typeof(List<string>);
+
+        var wireListVariable = Variable(wireListType, "wireSet");
+        var setType = typeof(HashSet<>).MakeGenericType(elementType);
+        var setVariable = Variable(setType, "result");
+        var indexVariable = Variable(typeof(int), "index");
+        var countVariable = Variable(typeof(int), "count");
+
+        var assignWireSet =
+            Assign(wireListVariable, Property(attributeValueExpression, wireProperty));
+        Expression missingWireExpression = required
+            ? Throw(
+                New(
+                    InvalidOperationExceptionCtor,
+                    Constant(
+                        $"Required property '{propertyPath}' did not contain a value for expected DynamoDB wire member '{GetExpectedSetWireMemberName(nonNullableProviderType)}'.")),
+                targetType)
+            : Default(targetType);
+
+        var setCtor = setType.GetConstructor(Type.EmptyTypes)!;
+        var addMethod = setType.GetMethod(nameof(HashSet<int>.Add), [elementType])!;
+        var assignSet = Assign(setVariable, New(setCtor));
+        var assignCount = Assign(countVariable, Property(wireListVariable, "Count"));
+        var assignIndex = Assign(indexVariable, Constant(0));
+
+        Expression providerValueExpression;
+        if (nonNullableProviderType == typeof(byte[]))
+        {
+            var memoryStreamExpression = Property(wireListVariable, "Item", indexVariable);
+            providerValueExpression = Condition(
+                Equal(memoryStreamExpression, Constant(null, typeof(MemoryStream))),
+                Constant(null, typeof(byte[])),
+                Call(memoryStreamExpression, MemoryStreamToArrayMethod));
+        }
+        else if (nonNullableProviderType == typeof(string))
+            providerValueExpression = Property(wireListVariable, "Item", indexVariable);
+        else
+            providerValueExpression = CreateNumericStringParseExpression(
+                Property(wireListVariable, "Item", indexVariable),
+                nonNullableProviderType);
+
+        var elementExpression = CreateTypedValueExpressionFromProvider(
+            providerValueExpression,
+            elementType,
+            elementMapping);
+
+        var loopBreak = Label("SetLoopBreak");
+        var loop = Loop(
+            IfThenElse(
+                LessThan(indexVariable, countVariable),
+                Block(
+                    Call(setVariable, addMethod, elementExpression),
+                    PostIncrementAssign(indexVariable)),
+                Break(loopBreak)),
+            loopBreak);
+
+        Expression resultExpression = setVariable;
+        if (resultExpression.Type != targetType)
+            resultExpression = Convert(resultExpression, targetType);
+
+        var populateBlock = Block(
+            [setVariable, indexVariable, countVariable],
+            assignSet,
+            assignCount,
+            assignIndex,
+            loop,
+            resultExpression);
+
+        return Block(
+            [wireListVariable],
+            assignWireSet,
+            Condition(
+                Equal(wireListVariable, Constant(null, wireListType)),
+                missingWireExpression,
+                populateBlock));
+    }
+
+    /// <summary>Parses a DynamoDB numeric string into the requested CLR numeric provider type.</summary>
+    private static Expression CreateNumericStringParseExpression(
+        Expression numericStringExpression,
+        Type numericType)
+    {
+        var parseMethod = GetNumericParseMethod(numericType);
+
+        var numberStyles =
+            numericType == typeof(float)
+            || numericType == typeof(double)
+            || numericType == typeof(decimal)
+                ? FloatNumberStylesExpression
+                : IntegerNumberStylesExpression;
+
+        return Call(parseMethod, numericStringExpression, numberStyles, InvariantCultureExpression);
+    }
+
+    /// <summary>Gets and caches the numeric Parse(string, NumberStyles, IFormatProvider) method.</summary>
+    private static MethodInfo GetNumericParseMethod(Type numericType)
+        => NumericParseMethodCache.GetOrAdd(
+            numericType,
+            static type => type.GetMethod(
+                    nameof(int.Parse),
+                    BindingFlags.Public | BindingFlags.Static,
+                    null,
+                    [typeof(string), typeof(NumberStyles), typeof(IFormatProvider)],
+                    null)
+                ?? throw new InvalidOperationException(
+                    $"Cannot parse DynamoDB numeric string for provider type '{type.Name}'."));
+
+    /// <summary>Determines whether collection elements should be treated as required.</summary>
+    private static bool IsRequiredCollectionElement(IProperty? property, Type elementType)
+        => property?.GetElementType()?.IsNullable == false || IsNonNullableValueType(elementType);
+
+    /// <summary>Returns the expected set wire member name for a provider element type.</summary>
+    private static string GetExpectedSetWireMemberName(Type providerType)
+        => providerType == typeof(string) ? nameof(AttributeValue.SS) :
+            providerType == typeof(byte[]) ? nameof(AttributeValue.BS) : nameof(AttributeValue.NS);
 }

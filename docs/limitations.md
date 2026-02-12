@@ -19,3 +19,12 @@ icon: lucide/triangle-alert
 
 ## Operator-specific status
 - Use `operators.md` as the canonical source for supported and unsupported operators.
+
+## Primitive collection CLR shape limits
+- Primitive collections are supported only for specific CLR shapes.
+- Custom or derived concrete collection types are rejected during model validation.
+- Supported list shapes: `T[]`, `List<T>`, `IList<T>`, `IReadOnlyList<T>`.
+- Supported set shapes: `HashSet<T>`, `ISet<T>`, `IReadOnlySet<T>`.
+- Supported dictionary shapes (string keys only): `Dictionary<string,TValue>`,
+  `IDictionary<string,TValue>`, `IReadOnlyDictionary<string,TValue>`, and
+  `ReadOnlyDictionary<string,TValue>`.
