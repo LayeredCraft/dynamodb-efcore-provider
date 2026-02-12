@@ -89,6 +89,99 @@ public class DynamoClientWrapperTests
         nextTokens[3].Should().Be("t1");
     }
 
+    [Fact]
+    public void Client_WhenConfiguredClientProvided_UsesConfiguredClient()
+    {
+        var diagnosticsLogger =
+            Substitute.For<IDiagnosticsLogger<DbLoggerCategory.Database.Command>>();
+        diagnosticsLogger.Logger.Returns(NullLogger.Instance);
+
+        var executionStrategy = new TestExecutionStrategy();
+        var configuredClient = Substitute.For<IAmazonDynamoDB>();
+        var dbContextOptions = new DbContextOptionsBuilder<DbContext>()
+            .UseDynamo(options => options.DynamoDbClient(configuredClient))
+            .Options;
+
+        var wrapper =
+            new DynamoClientWrapper(dbContextOptions, executionStrategy, diagnosticsLogger);
+
+        wrapper.Client.Should().BeSameAs(configuredClient);
+    }
+
+    [Fact]
+    public void Client_WhenOnlyConfigProvided_UsesConfiguredServiceUrl()
+    {
+        var diagnosticsLogger =
+            Substitute.For<IDiagnosticsLogger<DbLoggerCategory.Database.Command>>();
+        diagnosticsLogger.Logger.Returns(NullLogger.Instance);
+
+        var executionStrategy = new TestExecutionStrategy();
+        var dbContextOptions = new DbContextOptionsBuilder<DbContext>().UseDynamo(options
+                => options.DynamoDbClientConfig(
+                    new AmazonDynamoDBConfig { ServiceURL = "http://localhost:7001" }))
+            .Options;
+
+        var wrapper =
+            new DynamoClientWrapper(dbContextOptions, executionStrategy, diagnosticsLogger);
+
+        wrapper.Client.Config.ServiceURL.Should().StartWith("http://localhost:7001");
+    }
+
+    [Fact]
+    public void Client_WhenConfigAndBuilderOverridesProvided_UsesBuilderOverridesLast()
+    {
+        var diagnosticsLogger =
+            Substitute.For<IDiagnosticsLogger<DbLoggerCategory.Database.Command>>();
+        diagnosticsLogger.Logger.Returns(NullLogger.Instance);
+
+        var executionStrategy = new TestExecutionStrategy();
+        var dbContextOptions = new DbContextOptionsBuilder<DbContext>().UseDynamo(options =>
+            {
+                options.DynamoDbClientConfig(
+                    new AmazonDynamoDBConfig
+                    {
+                        ServiceURL = "http://localhost:7001", AuthenticationRegion = "us-west-1",
+                    });
+                options.ServiceUrl("http://localhost:8000");
+                options.AuthenticationRegion("us-east-1");
+            })
+            .Options;
+
+        var wrapper =
+            new DynamoClientWrapper(dbContextOptions, executionStrategy, diagnosticsLogger);
+
+        wrapper.Client.Config.ServiceURL.Should().StartWith("http://localhost:8000");
+        wrapper.Client.Config.AuthenticationRegion.Should().Be("us-east-1");
+    }
+
+    [Fact]
+    public void Client_WhenConfigCallbackProvided_InvokesCallbackBeforeBuilderOverrides()
+    {
+        var diagnosticsLogger =
+            Substitute.For<IDiagnosticsLogger<DbLoggerCategory.Database.Command>>();
+        diagnosticsLogger.Logger.Returns(NullLogger.Instance);
+
+        var executionStrategy = new TestExecutionStrategy();
+        var dbContextOptions = new DbContextOptionsBuilder<DbContext>().UseDynamo(options =>
+            {
+                options.ConfigureDynamoDbClientConfig(config =>
+                {
+                    config.ServiceURL = "http://localhost:7001";
+                    config.AuthenticationRegion = "us-west-2";
+                    config.UseHttp = true;
+                });
+                options.ServiceUrl("http://localhost:8000");
+            })
+            .Options;
+
+        var wrapper =
+            new DynamoClientWrapper(dbContextOptions, executionStrategy, diagnosticsLogger);
+
+        wrapper.Client.Config.ServiceURL.Should().StartWith("http://localhost:8000");
+        wrapper.Client.Config.AuthenticationRegion.Should().Be("us-west-2");
+        wrapper.Client.Config.UseHttp.Should().BeTrue();
+    }
+
     private static async Task<List<Dictionary<string, AttributeValue>>> EnumerateAsync(
         IAsyncEnumerable<Dictionary<string, AttributeValue>> enumerable)
     {

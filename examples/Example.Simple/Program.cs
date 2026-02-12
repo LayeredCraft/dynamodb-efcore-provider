@@ -54,7 +54,9 @@ internal class DynamoDbContext : DbContext
     public DbSet<Item> Items { get; init; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-        => optionsBuilder.UseDynamo(options => options.ServiceUrl("http://localhost:8002"));
+        => optionsBuilder.UseDynamo(options
+            => options.ConfigureDynamoDbClientConfig(config
+                => config.ServiceURL = "http://localhost:8002"));
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
         => modelBuilder.Entity<Item>().ToTable("SimpleItems").HasKey(x => x.Id);

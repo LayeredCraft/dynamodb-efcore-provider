@@ -21,7 +21,50 @@ optionsBuilder.UseDynamo(options =>
 - `ServiceUrl`: target DynamoDB Local or a custom endpoint.
 - `AuthenticationRegion`: AWS region used by the SDK client.
 - `DefaultPageSize`: default request page size (`ExecuteStatementRequest.Limit`) for queries when no per-query override is present.
+- `DynamoDbClient`: use a preconfigured `IAmazonDynamoDB` instance.
+- `DynamoDbClientConfig`: use a preconfigured `AmazonDynamoDBConfig` when creating the SDK client.
+- `ConfigureDynamoDbClientConfig`: apply a callback to configure `AmazonDynamoDBConfig` before client creation.
 - `DefaultPageSize` must be greater than zero.
+
+## Client configuration precedence
+- The provider resolves client settings in this order:
+  1. `DynamoDbClient(...)` (explicit client instance)
+  2. `DynamoDbClientConfig(...)` (base SDK config)
+  3. `ConfigureDynamoDbClientConfig(...)` (callback adjustments)
+  4. `AuthenticationRegion(...)` and `ServiceUrl(...)` (applied last as final overrides)
+
+```csharp
+var sharedClient = new AmazonDynamoDBClient(new AmazonDynamoDBConfig
+{
+    ServiceURL = "http://localhost:8000",
+    AuthenticationRegion = "us-east-1",
+});
+
+optionsBuilder.UseDynamo(options =>
+{
+    options.DynamoDbClient(sharedClient);
+});
+```
+
+```csharp
+optionsBuilder.UseDynamo(options =>
+{
+    options.DynamoDbClientConfig(new AmazonDynamoDBConfig
+    {
+        ServiceURL = "http://localhost:7001",
+    });
+
+    options.ConfigureDynamoDbClientConfig(config =>
+    {
+        config.AuthenticationRegion = "us-west-2";
+        config.UseHttp = true;
+    });
+
+    // Final provider-level overrides
+    options.ServiceUrl("http://localhost:8000");
+    options.AuthenticationRegion("us-east-1");
+});
+```
 
 ## Table mapping
 - Use `ToTable("TableName")` to map an entity to a DynamoDB table.
