@@ -64,16 +64,14 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
     private static readonly MethodInfo DictionaryTryGetValueMethod =
         typeof(Dictionary<string, AttributeValue>).GetMethod(nameof(Dictionary<,>.TryGetValue))!;
 
-    private static readonly MethodInfo LongParseMethod =
-        typeof(long).GetMethod(nameof(long.Parse), [typeof(string), typeof(IFormatProvider)])!;
+    private static readonly ConstantExpression InvariantCultureExpression =
+        Constant(CultureInfo.InvariantCulture, typeof(IFormatProvider));
 
-    private static readonly MethodInfo DoubleParseMethod =
-        typeof(double).GetMethod(nameof(double.Parse), [typeof(string), typeof(IFormatProvider)])!;
+    private static readonly ConstantExpression IntegerNumberStylesExpression =
+        Constant(NumberStyles.Integer, typeof(NumberStyles));
 
-    private static readonly MethodInfo DecimalParseMethod =
-        typeof(decimal).GetMethod(
-            nameof(decimal.Parse),
-            [typeof(string), typeof(IFormatProvider)])!;
+    private static readonly ConstantExpression FloatNumberStylesExpression =
+        Constant(NumberStyles.Float, typeof(NumberStyles));
 
     private static readonly MethodInfo MemoryStreamToArrayMethod =
         typeof(MemoryStream).GetMethod(nameof(MemoryStream.ToArray))!;
@@ -387,41 +385,19 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
         }
 
         var nProperty = Property(attributeValueExpression, AttributeValueNProperty);
-        var cultureInfo = Constant(CultureInfo.InvariantCulture);
 
-        // Numeric types: parse as long/double and convert to target type
-        if (primitiveType == typeof(short))
-            return Convert(Call(LongParseMethod, nProperty, cultureInfo), typeof(short));
-
-        if (primitiveType == typeof(ushort))
-            return Convert(Call(LongParseMethod, nProperty, cultureInfo), typeof(ushort));
-
-        if (primitiveType == typeof(sbyte))
-            return Convert(Call(LongParseMethod, nProperty, cultureInfo), typeof(sbyte));
-
-        if (primitiveType == typeof(byte))
-            return Convert(Call(LongParseMethod, nProperty, cultureInfo), typeof(byte));
-
-        if (primitiveType == typeof(int))
-            return Convert(Call(LongParseMethod, nProperty, cultureInfo), typeof(int));
-
-        if (primitiveType == typeof(uint))
-            return Convert(Call(LongParseMethod, nProperty, cultureInfo), typeof(uint));
-
-        if (primitiveType == typeof(long))
-            return Call(LongParseMethod, nProperty, cultureInfo);
-
-        if (primitiveType == typeof(ulong))
-            return Convert(Call(DecimalParseMethod, nProperty, cultureInfo), typeof(ulong));
-
-        if (primitiveType == typeof(float))
-            return Convert(Call(DoubleParseMethod, nProperty, cultureInfo), typeof(float));
-
-        if (primitiveType == typeof(double))
-            return Call(DoubleParseMethod, nProperty, cultureInfo);
-
-        if (primitiveType == typeof(decimal))
-            return Call(DecimalParseMethod, nProperty, cultureInfo);
+        if (primitiveType == typeof(short)
+            || primitiveType == typeof(ushort)
+            || primitiveType == typeof(sbyte)
+            || primitiveType == typeof(byte)
+            || primitiveType == typeof(int)
+            || primitiveType == typeof(uint)
+            || primitiveType == typeof(long)
+            || primitiveType == typeof(ulong)
+            || primitiveType == typeof(float)
+            || primitiveType == typeof(double)
+            || primitiveType == typeof(decimal))
+            return CreateNumericStringParseExpression(nProperty, primitiveType);
 
         throw new InvalidOperationException(
             $"Cannot create expression for AttributeValue to primitive type '{primitiveType.Name}'. "
@@ -920,59 +896,25 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
         Expression numericStringExpression,
         Type numericType)
     {
-        var cultureInfoExpression = Constant(CultureInfo.InvariantCulture);
+        var parseMethod = numericType.GetMethod(
+            nameof(int.Parse),
+            BindingFlags.Public | BindingFlags.Static,
+            null,
+            [typeof(string), typeof(NumberStyles), typeof(IFormatProvider)],
+            null);
 
-        if (numericType == typeof(short))
-            return Convert(
-                Call(LongParseMethod, numericStringExpression, cultureInfoExpression),
-                typeof(short));
+        if (parseMethod == null)
+            throw new InvalidOperationException(
+                $"Cannot parse DynamoDB numeric string for provider type '{numericType.Name}'.");
 
-        if (numericType == typeof(ushort))
-            return Convert(
-                Call(LongParseMethod, numericStringExpression, cultureInfoExpression),
-                typeof(ushort));
+        var numberStyles =
+            numericType == typeof(float)
+            || numericType == typeof(double)
+            || numericType == typeof(decimal)
+                ? FloatNumberStylesExpression
+                : IntegerNumberStylesExpression;
 
-        if (numericType == typeof(sbyte))
-            return Convert(
-                Call(LongParseMethod, numericStringExpression, cultureInfoExpression),
-                typeof(sbyte));
-
-        if (numericType == typeof(byte))
-            return Convert(
-                Call(LongParseMethod, numericStringExpression, cultureInfoExpression),
-                typeof(byte));
-
-        if (numericType == typeof(int))
-            return Convert(
-                Call(LongParseMethod, numericStringExpression, cultureInfoExpression),
-                typeof(int));
-
-        if (numericType == typeof(uint))
-            return Convert(
-                Call(LongParseMethod, numericStringExpression, cultureInfoExpression),
-                typeof(uint));
-
-        if (numericType == typeof(long))
-            return Call(LongParseMethod, numericStringExpression, cultureInfoExpression);
-
-        if (numericType == typeof(ulong))
-            return Convert(
-                Call(DecimalParseMethod, numericStringExpression, cultureInfoExpression),
-                typeof(ulong));
-
-        if (numericType == typeof(float))
-            return Convert(
-                Call(DoubleParseMethod, numericStringExpression, cultureInfoExpression),
-                typeof(float));
-
-        if (numericType == typeof(double))
-            return Call(DoubleParseMethod, numericStringExpression, cultureInfoExpression);
-
-        if (numericType == typeof(decimal))
-            return Call(DecimalParseMethod, numericStringExpression, cultureInfoExpression);
-
-        throw new InvalidOperationException(
-            $"Cannot parse DynamoDB numeric string for provider type '{numericType.Name}'.");
+        return Call(parseMethod, numericStringExpression, numberStyles, InvariantCultureExpression);
     }
 
     /// <summary>Determines whether collection elements should be treated as required.</summary>
