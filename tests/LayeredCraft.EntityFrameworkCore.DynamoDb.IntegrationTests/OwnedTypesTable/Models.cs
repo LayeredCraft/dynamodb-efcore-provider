@@ -20,8 +20,6 @@ public sealed record OwnedShapeItem
 
     public List<int> Ratings { get; set; } = [];
 
-    public Dictionary<string, string> Metadata { get; set; } = [];
-
     public Profile? Profile { get; set; }
 
     public List<Order> Orders { get; set; } = [];
@@ -130,7 +128,6 @@ public static class OwnedTypesItems
             CreatedAt = new DateTimeOffset(2026, 01, 01, 8, 30, 0, TimeSpan.Zero),
             Tags = ["featured", "vip"],
             Ratings = [5, 4, 5],
-            Metadata = { ["source"] = "seed", ["tier"] = "gold" },
             Profile = new Profile
             {
                 DisplayName = "Ada",
@@ -194,7 +191,6 @@ public static class OwnedTypesItems
             CreatedAt = new DateTimeOffset(2026, 01, 05, 9, 15, 0, TimeSpan.Zero),
             Tags = ["new"],
             Ratings = [],
-            Metadata = { ["source"] = "seed" },
             Profile = null,
             Orders = [],
             OrderSnapshots = [],
@@ -216,7 +212,6 @@ public static class OwnedTypesItems
             CreatedAt = new DateTimeOffset(2026, 01, 09, 18, 45, 0, TimeSpan.Zero),
             Tags = [],
             Ratings = [1, 2, 3],
-            Metadata = [],
             Profile = new Profile
             {
                 DisplayName = "Gina", Age = null, Address = null,
@@ -287,7 +282,6 @@ public static class OwnedTypesItems
             CreatedAt = new DateTimeOffset(2026, 01, 12, 5, 0, 0, TimeSpan.Zero),
             Tags = ["edge", "nulls"],
             Ratings = [0],
-            Metadata = { ["source"] = "edge", ["note"] = "null-profile" },
             Profile = null,
             Orders =
             [
