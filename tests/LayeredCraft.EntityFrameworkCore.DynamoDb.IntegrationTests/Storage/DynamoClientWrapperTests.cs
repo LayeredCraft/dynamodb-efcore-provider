@@ -20,7 +20,7 @@ public class DynamoClientWrapperTests
         diagnosticsLogger.Logger.Returns(NullLogger.Instance);
 
         var executionStrategy = new TestExecutionStrategy();
-        var dbContextOptions = new DbContextOptionsBuilder<DbContext>().Options;
+        var dbContextOptions = new DbContextOptionsBuilder<DbContext>().UseDynamo().Options;
 
         var client = Substitute.For<IAmazonDynamoDB>();
         var nextTokens = new List<string?>();
