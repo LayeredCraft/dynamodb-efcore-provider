@@ -48,9 +48,11 @@ public class DynamoSqlTranslatingExpressionVisitor(ISqlExpressionFactory sqlExpr
         if (node.Expression is ParameterExpression)
             return sqlExpressionFactory.Property(node.Member.Name, node.Type);
 
-        // Don't handle closure access here - let EF Core's funcletizer convert
-        // captured variables to QueryParameterExpression, which we handle in VisitExtension
-        return base.VisitMember(node);
+        // For non-parameter member access, don't recurse with base visitor because EF may
+        // surface object-typed query expressions here, and ExpressionVisitor reconstruction
+        // can throw when re-binding members on System.Object.
+        // Let the projection pipeline fall back to index-based client projection.
+        return QueryCompilationContext.NotTranslatedExpression;
     }
 
     /// <inheritdoc />
@@ -69,6 +71,10 @@ public class DynamoSqlTranslatingExpressionVisitor(ISqlExpressionFactory sqlExpr
                 return QueryCompilationContext.NotTranslatedExpression;
         }
     }
+
+    /// <inheritdoc />
+    protected override Expression VisitMethodCall(MethodCallExpression node)
+        => QueryCompilationContext.NotTranslatedExpression;
 
     /// <inheritdoc />
     protected override Expression VisitUnary(UnaryExpression node)
