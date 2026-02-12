@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Linq.Expressions;
 using System.Reflection;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -203,6 +204,23 @@ public class DynamoProjectionBindingExpressionVisitor(
         if (node is QueryParameterExpression)
             return node;
 
+        if (node is MaterializeCollectionNavigationExpression
+            materializeCollectionNavigationExpression)
+        {
+            if (!_indexBasedBinding)
+                return QueryCompilationContext.NotTranslatedExpression;
+
+            return base.VisitExtension(materializeCollectionNavigationExpression);
+        }
+
+        if (node is IncludeExpression includeExpression)
+        {
+            if (!_indexBasedBinding)
+                return QueryCompilationContext.NotTranslatedExpression;
+
+            return base.VisitExtension(includeExpression);
+        }
+
         if (node is not StructuralTypeShaperExpression entityShaperExpression)
             return base.VisitExtension(node);
 
@@ -321,6 +339,26 @@ public class DynamoProjectionBindingExpressionVisitor(
 
     protected override Expression VisitMethodCall(MethodCallExpression node)
     {
+        if (node.Method.DeclaringType == typeof(EF)
+            && node.Method.Name == nameof(EF.Property)
+            && node.Arguments.Count == 2
+            && node.Arguments[1] is ConstantExpression { Value: string propertyName })
+        {
+            var sqlProperty = sqlExpressionFactory.Property(propertyName, node.Type);
+
+            if (_indexBasedBinding)
+            {
+                var index = _selectExpression.AddToProjection(sqlProperty, propertyName);
+                return new ProjectionBindingExpression(_selectExpression, index, node.Type);
+            }
+
+            _projectionMapping[_projectionMembers.Peek()] = sqlProperty;
+            return new ProjectionBindingExpression(
+                _selectExpression,
+                _projectionMembers.Peek(),
+                node.Type);
+        }
+
         if (!_indexBasedBinding)
             return QueryCompilationContext.NotTranslatedExpression;
 

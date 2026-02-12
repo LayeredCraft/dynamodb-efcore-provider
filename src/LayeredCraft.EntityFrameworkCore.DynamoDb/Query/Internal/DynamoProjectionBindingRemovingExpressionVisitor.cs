@@ -4,13 +4,16 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Text.Json;
 using Amazon.DynamoDBv2.Model;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Storage;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Storage;
+using DynamoDocument = Amazon.DynamoDBv2.DocumentModel.Document;
 using static System.Linq.Expressions.Expression;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
@@ -79,6 +82,23 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
     private static readonly MethodInfo MemoryStreamToArrayMethod =
         typeof(MemoryStream).GetMethod(nameof(MemoryStream.ToArray))!;
 
+    private static readonly MethodInfo EnumerableToListMethodDefinition = typeof(Enumerable)
+        .GetMethods(BindingFlags.Public | BindingFlags.Static)
+        .Single(method => method.Name == nameof(Enumerable.ToList)
+            && method.IsGenericMethodDefinition
+            && method.GetParameters().Length == 1);
+
+    private static readonly MethodInfo EnumerableToArrayMethodDefinition = typeof(Enumerable)
+        .GetMethods(BindingFlags.Public | BindingFlags.Static)
+        .Single(method => method.Name == nameof(Enumerable.ToArray)
+            && method.IsGenericMethodDefinition
+            && method.GetParameters().Length == 1);
+
+    private static readonly MethodInfo DeserializeComplexAttributeValueMethod =
+        typeof(DynamoProjectionBindingRemovingExpressionVisitor).GetMethod(
+            nameof(DeserializeComplexAttributeValue),
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+
     /// <summary>
     ///     Intercepts MaterializationContext constructor calls to replace ProjectionBindingExpression
     ///     with ValueBuffer.Empty placeholder (actual data comes from Dictionary access). For anonymous
@@ -112,6 +132,64 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
     /// </summary>
     protected override Expression VisitExtension(Expression node)
     {
+        if (node is MaterializeCollectionNavigationExpression
+            materializeCollectionNavigationExpression)
+        {
+            var navigation = materializeCollectionNavigationExpression.Navigation;
+            var navigationExpression = CreateGetValueExpression(
+                itemParameter,
+                navigation.Name,
+                navigation.ClrType,
+                null,
+                false,
+                navigation.DeclaringEntityType.DisplayName(),
+                null);
+
+            return ConvertCollectionMaterialization(navigationExpression, navigation.ClrType);
+        }
+
+        if (node is IncludeExpression includeExpression)
+        {
+            var entityExpression = Visit(includeExpression.EntityExpression);
+            if (entityExpression == QueryCompilationContext.NotTranslatedExpression
+                || entityExpression == null)
+                return QueryCompilationContext.NotTranslatedExpression;
+
+            if (includeExpression.Navigation is not INavigation navigation
+                || navigation.DeclaringEntityType.IsOwned()
+                || navigation.PropertyInfo is null
+                || !navigation.PropertyInfo.CanWrite)
+                return entityExpression;
+
+            var entityVariable = Variable(entityExpression.Type, "includedEntity");
+            var assignEntity = Assign(entityVariable, entityExpression);
+            var navigationExpression = CreateGetValueExpression(
+                itemParameter,
+                navigation.Name,
+                navigation.ClrType,
+                null,
+                false,
+                navigation.DeclaringEntityType.DisplayName(),
+                null);
+
+            var navigationAssignment = Assign(
+                Property(entityVariable, navigation.PropertyInfo),
+                ConvertCollectionMaterialization(navigationExpression, navigation.ClrType));
+
+            var includeBody = Block(navigationAssignment, entityVariable);
+
+            if (!entityExpression.Type.IsValueType)
+                return Block(
+                    [entityVariable],
+                    assignEntity,
+                    Condition(
+                        Equal(entityVariable, Constant(null, entityExpression.Type)),
+                        Constant(null, entityExpression.Type),
+                        includeBody));
+
+            return Block([entityVariable], assignEntity, includeBody);
+        }
+
         if (node is ProjectionBindingExpression projectionBinding)
         {
             // After ApplyProjection(), mapping contains Constant(index)
@@ -173,12 +251,70 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
         return base.VisitExtension(node);
     }
 
+    /// <summary>Converts navigation materialization expressions to the requested collection CLR shape.</summary>
+    private static Expression ConvertCollectionMaterialization(
+        Expression expression,
+        Type targetType)
+    {
+        if (expression.Type == targetType)
+            return expression;
+
+        if (!DynamoTypeMappingSource.TryGetListElementType(targetType, out var elementType))
+            return expression.Type != targetType ? Convert(expression, targetType) : expression;
+
+        var enumerableType = typeof(IEnumerable<>).MakeGenericType(elementType);
+        var enumerableExpression = expression;
+        if (!enumerableType.IsAssignableFrom(enumerableExpression.Type))
+            enumerableExpression = Convert(enumerableExpression, enumerableType);
+
+        if (targetType.IsArray)
+        {
+            var toArrayMethod = EnumerableToArrayMethodDefinition.MakeGenericMethod(elementType);
+            var arrayExpression = Call(toArrayMethod, enumerableExpression);
+            return arrayExpression.Type == targetType
+                ? arrayExpression
+                : Convert(arrayExpression, targetType);
+        }
+
+        var toListMethod = EnumerableToListMethodDefinition.MakeGenericMethod(elementType);
+        var listExpression = Call(toListMethod, enumerableExpression);
+        return listExpression.Type == targetType
+            ? listExpression
+            : Convert(listExpression, targetType);
+    }
+
     /// <summary>
     ///     Intercepts ValueBufferTryReadValue calls and replaces them with inline expression trees
     ///     that extract values from Dictionary&lt;string, AttributeValue&gt; with zero boxing overhead.
     /// </summary>
     protected override Expression VisitMethodCall(MethodCallExpression node)
     {
+        if (node.Method.DeclaringType == typeof(EF)
+            && node.Method.Name == nameof(EF.Property)
+            && node.Arguments.Count == 2
+            && node.Arguments[1] is ConstantExpression { Value: string propertyName })
+        {
+            var instanceExpression = Visit(node.Arguments[0]);
+            if (instanceExpression == QueryCompilationContext.NotTranslatedExpression
+                || instanceExpression == null)
+                return QueryCompilationContext.NotTranslatedExpression;
+
+            var memberExpression =
+                instanceExpression.Type.GetProperty(propertyName) is not null
+                    ?
+                    Property(instanceExpression, propertyName)
+                    : instanceExpression.Type.GetField(propertyName) is not null
+                        ? Field(instanceExpression, propertyName)
+                        : QueryCompilationContext.NotTranslatedExpression;
+
+            if (memberExpression == QueryCompilationContext.NotTranslatedExpression)
+                return QueryCompilationContext.NotTranslatedExpression;
+
+            return memberExpression.Type != node.Type
+                ? Convert(memberExpression, node.Type)
+                : memberExpression;
+        }
+
         if (node.Method.IsGenericMethod)
         {
             var genericMethod = node.Method.GetGenericMethodDefinition();
@@ -278,57 +414,66 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
             || DynamoTypeMappingSource.TryGetSetElementType(type, out _)
             || DynamoTypeMappingSource.TryGetListElementType(type, out _);
 
-        if (isCollectionType)
-            valueExpression = CreateCollectionValueExpression(
-                attributeValueVariable,
-                type,
-                typeMapping,
-                propertyPath,
-                required,
-                property);
+        if (ShouldUseComplexDeserialization(type, typeMapping, property))
+        {
+            valueExpression = CreateComplexDeserializationExpression(attributeValueVariable, type);
+        }
         else
         {
-            // Extract wire primitive: attributeValue.S, long.Parse(attributeValue.N), etc.
-            var primitiveType = converter?.ProviderClrType ?? type;
-            var isNullablePrimitive = Nullable.GetUnderlyingType(primitiveType) != null;
-            var wireType = Nullable.GetUnderlyingType(primitiveType) ?? primitiveType;
-            var primitiveExpression = CreateAttributeValueToPrimitiveExpression(
-                attributeValueVariable,
-                wireType,
-                isNullablePrimitive);
+            if (isCollectionType)
+                valueExpression = CreateCollectionValueExpression(
+                    attributeValueVariable,
+                    type,
+                    typeMapping,
+                    propertyPath,
+                    required,
+                    property);
+            else
+            {
+                // Extract wire primitive: attributeValue.S, long.Parse(attributeValue.N), etc.
+                var primitiveType = converter?.ProviderClrType ?? type;
+                var isNullablePrimitive = Nullable.GetUnderlyingType(primitiveType) != null;
+                var wireType = Nullable.GetUnderlyingType(primitiveType) ?? primitiveType;
+                var primitiveExpression = CreateAttributeValueToPrimitiveExpression(
+                    attributeValueVariable,
+                    wireType,
+                    isNullablePrimitive);
 
-            if (primitiveExpression.Type != primitiveType)
-                primitiveExpression = Convert(primitiveExpression, primitiveType);
+                if (primitiveExpression.Type != primitiveType)
+                    primitiveExpression = Convert(primitiveExpression, primitiveType);
 
-            // Inline converter: DateTime.Parse(...), Guid.Parse(...), (int)long.Parse(...), etc.
-            valueExpression = primitiveExpression;
-            if (converter != null)
-                valueExpression = ReplacingExpressionVisitor.Replace(
-                    converter.ConvertFromProviderExpression.Parameters.Single(),
-                    primitiveExpression,
-                    converter.ConvertFromProviderExpression.Body);
+                // Inline converter: DateTime.Parse(...), Guid.Parse(...), (int)long.Parse(...),
+                // etc.
+                valueExpression = primitiveExpression;
+                if (converter != null)
+                    valueExpression = ReplacingExpressionVisitor.Replace(
+                        converter.ConvertFromProviderExpression.Parameters.Single(),
+                        primitiveExpression,
+                        converter.ConvertFromProviderExpression.Body);
 
-            if (valueExpression.Type != type)
-                valueExpression = Convert(valueExpression, type);
+                if (valueExpression.Type != type)
+                    valueExpression = Convert(valueExpression, type);
 
-            var expectedWireMember = GetExpectedWireMemberName(wireType);
-            var missingWireValueReturnExpression = required
-                ? CreateThrow(
-                    $"Required property '{propertyPath}' did not contain a value for expected DynamoDB wire member '{expectedWireMember}'.")
-                : Default(type);
+                var expectedWireMember = GetExpectedWireMemberName(wireType);
+                var missingWireValueReturnExpression = required
+                    ? CreateThrow(
+                        $"Required property '{propertyPath}' did not contain a value for expected DynamoDB wire member '{expectedWireMember}'.")
+                    : Default(type);
 
-            // Ensure we never parse/convert when the expected wire member isn't present (e.g. N ==
-            // null).
-            // This also makes explicit DynamoDB NULL behave like store null and prevents
-            // long.Parse(null).
-            if (TryCreateHasWireValueExpression(
-                attributeValueVariable,
-                wireType,
-                out var hasWireValueExpression))
-                valueExpression = Condition(
-                    hasWireValueExpression,
-                    valueExpression,
-                    missingWireValueReturnExpression);
+                // Ensure we never parse/convert when the expected wire member isn't present (e.g. N
+                // ==
+                // null).
+                // This also makes explicit DynamoDB NULL behave like store null and prevents
+                // long.Parse(null).
+                if (TryCreateHasWireValueExpression(
+                    attributeValueVariable,
+                    wireType,
+                    out var hasWireValueExpression))
+                    valueExpression = Condition(
+                        hasWireValueExpression,
+                        valueExpression,
+                        missingWireValueReturnExpression);
+            }
         }
 
         // item.TryGetValue(...) ? (isDynamoNull ? (required?throw:default) : value) :
@@ -342,6 +487,91 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
 
         Expression CreateThrow(string message)
             => Throw(New(InvalidOperationExceptionCtor, Constant(message)), type);
+    }
+
+    /// <summary>Returns true when the value should be materialized as a complex embedded document/list.</summary>
+    private static bool ShouldUseComplexDeserialization(
+        Type targetType,
+        CoreTypeMapping? typeMapping,
+        IProperty? property)
+    {
+        if (typeMapping != null)
+            return false;
+
+        if (DynamoTypeMappingSource.TryGetListElementType(targetType, out var listElementType))
+        {
+            var elementMapping = property?.GetElementType()?.GetTypeMapping();
+            return elementMapping == null && !IsWirePrimitiveType(listElementType);
+        }
+
+        if (DynamoTypeMappingSource.TryGetSetElementType(targetType, out var setElementType))
+        {
+            var elementMapping = property?.GetElementType()?.GetTypeMapping();
+            return elementMapping == null && !IsWirePrimitiveType(setElementType);
+        }
+
+        if (DynamoTypeMappingSource.TryGetDictionaryValueType(targetType, out var valueType, out _))
+        {
+            var valueMapping = property?.GetElementType()?.GetTypeMapping();
+            return valueMapping == null && !IsWirePrimitiveType(valueType);
+        }
+
+        return !IsWirePrimitiveType(targetType);
+    }
+
+    /// <summary>Determines whether a type is directly read from DynamoDB primitive wire members.</summary>
+    private static bool IsWirePrimitiveType(Type type)
+    {
+        var nonNullableType = Nullable.GetUnderlyingType(type) ?? type;
+
+        return nonNullableType == typeof(string)
+            || nonNullableType == typeof(bool)
+            || nonNullableType == typeof(byte[])
+            || nonNullableType == typeof(short)
+            || nonNullableType == typeof(ushort)
+            || nonNullableType == typeof(sbyte)
+            || nonNullableType == typeof(byte)
+            || nonNullableType == typeof(int)
+            || nonNullableType == typeof(uint)
+            || nonNullableType == typeof(long)
+            || nonNullableType == typeof(ulong)
+            || nonNullableType == typeof(float)
+            || nonNullableType == typeof(double)
+            || nonNullableType == typeof(decimal);
+    }
+
+    /// <summary>Builds expression that deserializes a complex value from an AttributeValue tree via JSON.</summary>
+    private static Expression CreateComplexDeserializationExpression(
+        Expression attributeValueExpression,
+        Type targetType)
+    {
+        var deserializeCall = Call(
+            DeserializeComplexAttributeValueMethod,
+            attributeValueExpression,
+            Constant(targetType, typeof(Type)));
+
+        return targetType.IsValueType
+            ? Unbox(deserializeCall, targetType)
+            : Convert(deserializeCall, targetType);
+    }
+
+    /// <summary>Deserializes an AttributeValue map/list tree into the requested CLR type.</summary>
+    private static object? DeserializeComplexAttributeValue(
+        AttributeValue attributeValue,
+        Type targetType)
+    {
+        var wrapper =
+            new Dictionary<string, AttributeValue>(StringComparer.Ordinal)
+            {
+                ["value"] = attributeValue,
+            };
+
+        var document = DynamoDocument.FromAttributeMap(wrapper);
+        using var jsonDocument = JsonDocument.Parse(document.ToJson());
+        if (!jsonDocument.RootElement.TryGetProperty("value", out var valueElement))
+            return null;
+
+        return JsonSerializer.Deserialize(valueElement.GetRawText(), targetType);
     }
 
     /// <summary>

@@ -29,8 +29,8 @@ public class DynamoSqlTranslatingExpressionVisitor(ISqlExpressionFactory sqlExpr
             return node;
 
         return sqlExpressionFactory.Binary(node.NodeType, left, right)
-               ?? throw new InvalidOperationException(
-                   $"Binary operator {node.NodeType} is not supported");
+            ?? throw new InvalidOperationException(
+                $"Binary operator {node.NodeType} is not supported");
     }
 
     /// <inheritdoc />
@@ -66,7 +66,7 @@ public class DynamoSqlTranslatingExpressionVisitor(ISqlExpressionFactory sqlExpr
                 return sqlExpressionFactory.Parameter(queryParameter.Name, queryParameter.Type);
 
             default:
-                return base.VisitExtension(extensionExpression);
+                return QueryCompilationContext.NotTranslatedExpression;
         }
     }
 
@@ -78,11 +78,16 @@ public class DynamoSqlTranslatingExpressionVisitor(ISqlExpressionFactory sqlExpr
             || node.NodeType == ExpressionType.ConvertChecked)
         {
             var operand = Visit(node.Operand);
+            if (operand == QueryCompilationContext.NotTranslatedExpression)
+                return QueryCompilationContext.NotTranslatedExpression;
+
             if (operand is SqlExpression sqlOperand)
                 // Apply type mapping for the conversion
                 return sqlExpressionFactory.ApplyTypeMapping(sqlOperand, node.Type);
+
+            return QueryCompilationContext.NotTranslatedExpression;
         }
 
-        return base.VisitUnary(node);
+        return QueryCompilationContext.NotTranslatedExpression;
     }
 }
