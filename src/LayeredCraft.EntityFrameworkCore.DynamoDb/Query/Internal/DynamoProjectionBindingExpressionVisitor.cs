@@ -567,4 +567,5 @@ public class DynamoProjectionBindingExpressionVisitor(
             _projectionMembers.Peek(),
             node.Type);
     }
+
 }

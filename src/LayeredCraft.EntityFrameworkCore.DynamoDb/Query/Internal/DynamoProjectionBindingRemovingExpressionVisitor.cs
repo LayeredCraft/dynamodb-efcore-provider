@@ -4,7 +4,6 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq.Expressions;
 using System.Reflection;
-using System.Text.Json;
 using Amazon.DynamoDBv2.Model;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Storage;
@@ -13,7 +12,6 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Storage;
-using DynamoDocument = Amazon.DynamoDBv2.DocumentModel.Document;
 using static System.Linq.Expressions.Expression;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
@@ -29,8 +27,16 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
 /// </remarks>
 public class DynamoProjectionBindingRemovingExpressionVisitor(
     ParameterExpression itemParameter,
-    SelectExpression selectExpression) : ExpressionVisitor
+    SelectExpression selectExpression,
+    IModel model) : ExpressionVisitor
 {
+    private readonly HashSet<Type> _ownedClrTypes =
+        model
+            .GetEntityTypes()
+            .Where(entityType => entityType.IsOwned())
+            .Select(entityType => entityType.ClrType)
+            .ToHashSet();
+
     // Reflection cache for efficient expression tree construction
     private static readonly PropertyInfo AttributeValueSProperty =
         typeof(AttributeValue).GetProperty(nameof(AttributeValue.S))!;
@@ -93,11 +99,6 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
         .Single(method => method.Name == nameof(Enumerable.ToArray)
             && method.IsGenericMethodDefinition
             && method.GetParameters().Length == 1);
-
-    private static readonly MethodInfo DeserializeComplexAttributeValueMethod =
-        typeof(DynamoProjectionBindingRemovingExpressionVisitor).GetMethod(
-            nameof(DeserializeComplexAttributeValue),
-            BindingFlags.Static | BindingFlags.NonPublic)!;
 
     private static readonly MethodInfo PopulateCollectionMethodInfo =
         typeof(DynamoProjectionBindingRemovingExpressionVisitor).GetMethod(
@@ -183,13 +184,18 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
 
             var entityVariable = Variable(entityExpression.Type, "includedEntity");
             var assignEntity = Assign(entityVariable, entityExpression);
-            var navigationExpression = CreateGetValueExpression(
-                navigation.Name,
-                navigation.ClrType,
-                null,
-                false,
-                navigation.DeclaringEntityType.DisplayName(),
-                null);
+            var navigationExpression =
+                navigation.TargetEntityType.IsOwned() && navigation.IsEmbedded()
+                    ? navigation.IsCollection
+                        ? CreateOwnedCollectionMaterializationExpression(navigation, entityVariable)
+                        : CreateOwnedReferenceMaterializationExpression(navigation)
+                    : CreateGetValueExpression(
+                        navigation.Name,
+                        navigation.ClrType,
+                        null,
+                        false,
+                        navigation.DeclaringEntityType.DisplayName(),
+                        null);
 
             var navigationAssignment = Assign(
                 Property(entityVariable, navigation.PropertyInfo),
@@ -233,6 +239,13 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
                 // materialization semantics.
                 var required = IsNonNullableValueType(projectionBinding.Type);
 
+                if (typeMapping == null
+                    && TryResolveOwnedEmbeddedReferenceNavigation(
+                        propertyName,
+                        projectionBinding.Type,
+                        out var ownedNavigation))
+                    return CreateOwnedReferenceMaterializationExpression(ownedNavigation);
+
                 // Use unified code path with converter support
                 return CreateGetValueExpression(
                     propertyName,
@@ -255,6 +268,13 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
                 var typeMapping = projection.Expression.TypeMapping;
                 var required = IsNonNullableValueType(projectionBinding.Type);
 
+                if (typeMapping == null
+                    && TryResolveOwnedEmbeddedReferenceNavigation(
+                        propertyName,
+                        projectionBinding.Type,
+                        out var ownedNavigation))
+                    return CreateOwnedReferenceMaterializationExpression(ownedNavigation);
+
                 return CreateGetValueExpression(
                     propertyName,
                     projectionBinding.Type,
@@ -266,6 +286,28 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
         }
 
         return base.VisitExtension(node);
+    }
+
+    /// <summary>Adds null-propagation for member access over owned-reference instances.</summary>
+    protected override Expression VisitMember(MemberExpression node)
+    {
+        if (node.Expression == null)
+            return base.VisitMember(node);
+
+        var instanceExpression = Visit(node.Expression);
+        if (instanceExpression == QueryCompilationContext.NotTranslatedExpression
+            || instanceExpression == null)
+            return QueryCompilationContext.NotTranslatedExpression;
+
+        var memberExpression = node.Update(instanceExpression);
+        if (instanceExpression.Type.IsValueType
+            || !_ownedClrTypes.Contains(instanceExpression.Type))
+            return memberExpression;
+
+        return Condition(
+            Equal(instanceExpression, Constant(null, instanceExpression.Type)),
+            Default(node.Type),
+            memberExpression);
     }
 
     /// <summary>
@@ -311,6 +353,43 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
                 Equal(ownedMapVariable, Constant(null, ownedMapVariable.Type)),
                 Constant(null, shaperExpression.Type),
                 visitedOwnedShaper));
+    }
+
+    /// <summary>Resolves a projected member to an embedded owned reference navigation when unambiguous.</summary>
+    private bool TryResolveOwnedEmbeddedReferenceNavigation(
+        string propertyName,
+        Type projectedType,
+        out INavigation navigation)
+    {
+        navigation = null!;
+        INavigation? match = null;
+
+        foreach (var entityType in model.GetEntityTypes())
+        {
+            foreach (var candidate in entityType.GetNavigations())
+            {
+                if (candidate.Name != propertyName
+                    || candidate.IsCollection
+                    || !candidate.IsEmbedded()
+                    || !candidate.TargetEntityType.IsOwned())
+                    continue;
+
+                if (candidate.ClrType != projectedType
+                    && candidate.TargetEntityType.ClrType != projectedType)
+                    continue;
+
+                if (match != null)
+                    return false;
+
+                match = candidate;
+            }
+        }
+
+        if (match == null)
+            return false;
+
+        navigation = match;
+        return true;
     }
 
     /// <summary>
@@ -835,31 +914,6 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
     }
 
     /// <summary>
-    ///     Rewrites member access with owned-complex null-propagation when the receiver is complex
-    ///     materialization.
-    /// </summary>
-    protected override Expression VisitMember(MemberExpression node)
-    {
-        if (node.Expression == null)
-            return base.VisitMember(node);
-
-        var instanceExpression = Visit(node.Expression);
-        if (instanceExpression == QueryCompilationContext.NotTranslatedExpression
-            || instanceExpression == null)
-            return QueryCompilationContext.NotTranslatedExpression;
-
-        var memberExpression = node.Update(instanceExpression);
-        if (instanceExpression.Type.IsValueType
-            || !ContainsMethodCall(instanceExpression, DeserializeComplexAttributeValueMethod))
-            return memberExpression;
-
-        return Condition(
-            Equal(instanceExpression, Constant(null, instanceExpression.Type)),
-            Default(node.Type),
-            memberExpression);
-    }
-
-    /// <summary>
     ///     Builds an expression tree that extracts a typed value from Dictionary&lt;string,
     ///     AttributeValue&gt; with null handling, wire primitive extraction, and inlined EF Core converter
     ///     application.
@@ -923,68 +977,67 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
             || DynamoTypeMappingSource.TryGetSetElementType(type, out _)
             || DynamoTypeMappingSource.TryGetListElementType(type, out _);
 
-        if (ShouldUseComplexDeserialization(type, typeMapping, property))
+        if (isCollectionType)
         {
-            valueExpression = CreateComplexDeserializationExpression(attributeValueVariable, type);
+            valueExpression = CreateCollectionValueExpression(
+                attributeValueVariable,
+                type,
+                typeMapping,
+                propertyPath,
+                required,
+                property);
         }
         else
         {
-            if (isCollectionType)
-            {
-                valueExpression = CreateCollectionValueExpression(
-                    attributeValueVariable,
-                    type,
-                    typeMapping,
-                    propertyPath,
-                    required,
-                    property);
-            }
-            else
-            {
-                // Extract wire primitive: attributeValue.S, long.Parse(attributeValue.N), etc.
-                var primitiveType = converter?.ProviderClrType ?? type;
-                var isNullablePrimitive = Nullable.GetUnderlyingType(primitiveType) != null;
-                var wireType = Nullable.GetUnderlyingType(primitiveType) ?? primitiveType;
-                var primitiveExpression = CreateAttributeValueToPrimitiveExpression(
-                    attributeValueVariable,
-                    wireType,
-                    isNullablePrimitive);
+            // Extract wire primitive: attributeValue.S, long.Parse(attributeValue.N), etc.
+            var primitiveType = converter?.ProviderClrType ?? type;
+            var isNullablePrimitive = Nullable.GetUnderlyingType(primitiveType) != null;
+            var wireType = Nullable.GetUnderlyingType(primitiveType) ?? primitiveType;
+            if (!IsWirePrimitiveType(wireType))
+                throw new InvalidOperationException(
+                    $"Cannot materialize property '{propertyPath}' as CLR type '{type.FullName ?? type.Name}'. "
+                    + $"The effective wire type '{wireType.FullName ?? wireType.Name}' is not a supported DynamoDB primitive. "
+                    + $"Required={required}, HasTypeMapping={typeMapping != null}. "
+                    + "Use an owned entity type for embedded complex objects, or configure a value converter/type mapping to a supported DynamoDB primitive wire type.");
 
-                if (primitiveExpression.Type != primitiveType)
-                    primitiveExpression = Convert(primitiveExpression, primitiveType);
+            var primitiveExpression = CreateAttributeValueToPrimitiveExpression(
+                attributeValueVariable,
+                wireType,
+                isNullablePrimitive);
 
-                // Inline converter: DateTime.Parse(...), Guid.Parse(...), (int)long.Parse(...),
-                // etc.
-                valueExpression = primitiveExpression;
-                if (converter != null)
-                    valueExpression = ReplacingExpressionVisitor.Replace(
-                        converter.ConvertFromProviderExpression.Parameters.Single(),
-                        primitiveExpression,
-                        converter.ConvertFromProviderExpression.Body);
+            if (primitiveExpression.Type != primitiveType)
+                primitiveExpression = Convert(primitiveExpression, primitiveType);
 
-                if (valueExpression.Type != type)
-                    valueExpression = Convert(valueExpression, type);
+            // Inline converter: DateTime.Parse(...), Guid.Parse(...), (int)long.Parse(...),
+            // etc.
+            valueExpression = primitiveExpression;
+            if (converter != null)
+                valueExpression = ReplacingExpressionVisitor.Replace(
+                    converter.ConvertFromProviderExpression.Parameters.Single(),
+                    primitiveExpression,
+                    converter.ConvertFromProviderExpression.Body);
 
-                var expectedWireMember = GetExpectedWireMemberName(wireType);
-                var missingWireValueReturnExpression = required
-                    ? CreateThrow(
-                        $"Required property '{propertyPath}' did not contain a value for expected DynamoDB wire member '{expectedWireMember}'.")
-                    : Default(type);
+            if (valueExpression.Type != type)
+                valueExpression = Convert(valueExpression, type);
 
-                // Ensure we never parse/convert when the expected wire member isn't present (e.g. N
-                // ==
-                // null).
-                // This also makes explicit DynamoDB NULL behave like store null and prevents
-                // long.Parse(null).
-                if (TryCreateHasWireValueExpression(
-                    attributeValueVariable,
-                    wireType,
-                    out var hasWireValueExpression))
-                    valueExpression = Condition(
-                        hasWireValueExpression,
-                        valueExpression,
-                        missingWireValueReturnExpression);
-            }
+            var expectedWireMember = GetExpectedWireMemberName(wireType);
+            var missingWireValueReturnExpression = required
+                ? CreateThrow(
+                    $"Required property '{propertyPath}' did not contain a value for expected DynamoDB wire member '{expectedWireMember}'.")
+                : Default(type);
+
+            // Ensure we never parse/convert when the expected wire member isn't present (e.g. N ==
+            // null).
+            // This also makes explicit DynamoDB NULL behave like store null and prevents
+            // long.Parse(null).
+            if (TryCreateHasWireValueExpression(
+                attributeValueVariable,
+                wireType,
+                out var hasWireValueExpression))
+                valueExpression = Condition(
+                    hasWireValueExpression,
+                    valueExpression,
+                    missingWireValueReturnExpression);
         }
 
         // item.TryGetValue(...) ? (isDynamoNull ? (required?throw:default) : value) :
@@ -998,36 +1051,6 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
 
         Expression CreateThrow(string message)
             => Throw(New(InvalidOperationExceptionCtor, Constant(message)), type);
-    }
-
-    /// <summary>Returns true when the value should be materialized as a complex embedded document/list.</summary>
-    private static bool ShouldUseComplexDeserialization(
-        Type targetType,
-        CoreTypeMapping? typeMapping,
-        IProperty? property)
-    {
-        if (typeMapping != null)
-            return false;
-
-        if (DynamoTypeMappingSource.TryGetListElementType(targetType, out var listElementType))
-        {
-            var elementMapping = property?.GetElementType()?.GetTypeMapping();
-            return elementMapping == null && !IsWirePrimitiveType(listElementType);
-        }
-
-        if (DynamoTypeMappingSource.TryGetSetElementType(targetType, out var setElementType))
-        {
-            var elementMapping = property?.GetElementType()?.GetTypeMapping();
-            return elementMapping == null && !IsWirePrimitiveType(setElementType);
-        }
-
-        if (DynamoTypeMappingSource.TryGetDictionaryValueType(targetType, out var valueType, out _))
-        {
-            var valueMapping = property?.GetElementType()?.GetTypeMapping();
-            return valueMapping == null && !IsWirePrimitiveType(valueType);
-        }
-
-        return !IsWirePrimitiveType(targetType);
     }
 
     /// <summary>Determines whether a type is directly read from DynamoDB primitive wire members.</summary>
@@ -1049,40 +1072,6 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
             || nonNullableType == typeof(float)
             || nonNullableType == typeof(double)
             || nonNullableType == typeof(decimal);
-    }
-
-    /// <summary>Builds expression that deserializes a complex value from an AttributeValue tree via JSON.</summary>
-    private static Expression CreateComplexDeserializationExpression(
-        Expression attributeValueExpression,
-        Type targetType)
-    {
-        var deserializeCall = Call(
-            DeserializeComplexAttributeValueMethod,
-            attributeValueExpression,
-            Constant(targetType, typeof(Type)));
-
-        return targetType.IsValueType
-            ? Unbox(deserializeCall, targetType)
-            : Convert(deserializeCall, targetType);
-    }
-
-    /// <summary>Deserializes an AttributeValue map/list tree into the requested CLR type.</summary>
-    private static object? DeserializeComplexAttributeValue(
-        AttributeValue attributeValue,
-        Type targetType)
-    {
-        var wrapper =
-            new Dictionary<string, AttributeValue>(StringComparer.Ordinal)
-            {
-                ["value"] = attributeValue,
-            };
-
-        var document = DynamoDocument.FromAttributeMap(wrapper);
-        using var jsonDocument = JsonDocument.Parse(document.ToJson());
-        if (!jsonDocument.RootElement.TryGetProperty("value", out var valueElement))
-            return null;
-
-        return JsonSerializer.Deserialize(valueElement.GetRawText(), targetType);
     }
 
     /// <summary>
@@ -1678,79 +1667,4 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
         => providerType == typeof(string) ? nameof(AttributeValue.SS) :
             providerType == typeof(byte[]) ? nameof(AttributeValue.BS) : nameof(AttributeValue.NS);
 
-    /// <summary>Determines whether an expression tree contains a call to a specific method.</summary>
-    private static bool ContainsMethodCall(Expression expression, MethodInfo methodInfo)
-    {
-        switch (expression)
-        {
-            case MethodCallExpression methodCall:
-                if (methodCall.Method == methodInfo)
-                    return true;
-
-                if (methodCall.Object != null && ContainsMethodCall(methodCall.Object, methodInfo))
-                    return true;
-
-                foreach (var argument in methodCall.Arguments)
-                    if (ContainsMethodCall(argument, methodInfo))
-                        return true;
-
-                return false;
-
-            case BlockExpression blockExpression:
-                foreach (var blockSubExpression in blockExpression.Expressions)
-                    if (ContainsMethodCall(blockSubExpression, methodInfo))
-                        return true;
-
-                return false;
-
-            case ConditionalExpression conditionalExpression:
-                return ContainsMethodCall(conditionalExpression.Test, methodInfo)
-                    || ContainsMethodCall(conditionalExpression.IfTrue, methodInfo)
-                    || ContainsMethodCall(conditionalExpression.IfFalse, methodInfo);
-
-            case BinaryExpression binaryExpression:
-                return ContainsMethodCall(binaryExpression.Left, methodInfo)
-                    || ContainsMethodCall(binaryExpression.Right, methodInfo)
-                    || (binaryExpression.Conversion != null
-                        && ContainsMethodCall(binaryExpression.Conversion, methodInfo));
-
-            case UnaryExpression unaryExpression:
-                return ContainsMethodCall(unaryExpression.Operand, methodInfo);
-
-            case MemberExpression memberExpression:
-                return memberExpression.Expression != null
-                    && ContainsMethodCall(memberExpression.Expression, methodInfo);
-
-            case NewExpression newExpression:
-                foreach (var argument in newExpression.Arguments)
-                    if (ContainsMethodCall(argument, methodInfo))
-                        return true;
-
-                return false;
-
-            case NewArrayExpression newArrayExpression:
-                foreach (var newArraySubExpression in newArrayExpression.Expressions)
-                    if (ContainsMethodCall(newArraySubExpression, methodInfo))
-                        return true;
-
-                return false;
-
-            case MemberInitExpression memberInitExpression:
-                if (ContainsMethodCall(memberInitExpression.NewExpression, methodInfo))
-                    return true;
-
-                foreach (var binding in memberInitExpression.Bindings)
-                    if (binding is MemberAssignment memberAssignment
-                        && ContainsMethodCall(memberAssignment.Expression, methodInfo))
-                        return true;
-
-                return false;
-
-            case LambdaExpression lambdaExpression:
-                return ContainsMethodCall(lambdaExpression.Body, methodInfo);
-
-            default:
-                return false;
-        }
-    }
 }

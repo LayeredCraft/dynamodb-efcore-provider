@@ -83,7 +83,8 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
         // This converts abstract ProjectionBindingExpression to concrete property access
         shaperBody = new DynamoProjectionBindingRemovingExpressionVisitor(
             itemParameter,
-            selectExpression).Visit(shaperBody);
+            selectExpression,
+            QueryCompilationContext.Model).Visit(shaperBody);
 
         var shaperLambda = Expression.Lambda(
             shaperBody,
