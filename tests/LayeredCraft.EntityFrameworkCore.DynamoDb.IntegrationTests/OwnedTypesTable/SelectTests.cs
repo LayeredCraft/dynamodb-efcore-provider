@@ -57,4 +57,28 @@ public class SelectTests(OwnedTypesTableDynamoFixture fixture) : OwnedTypesTable
 
         results.Should().BeEquivalentTo(expected);
     }
+
+    [Fact]
+    public async Task OwnedCollectionElements_HaveOrdinalKeys()
+    {
+        var item =
+            (await Db.Items.Where(x => x.Pk == "OWNED#3").ToListAsync(CancellationToken)).Single();
+
+        Db.ChangeTracker.QueryTrackingBehavior.Should().Be(QueryTrackingBehavior.TrackAll);
+        Db.Entry(item).State.Should().NotBe(EntityState.Detached);
+
+        item.Orders.Should().NotBeNull();
+        item.Orders.Should().NotBeEmpty();
+
+        for (var i = 0; i < item.Orders.Count; i++)
+        {
+            var orderEntry = Db.Entry(item.Orders[i]);
+            orderEntry.State.Should().NotBe(EntityState.Detached);
+            var ordinalProperty =
+                orderEntry.Metadata.GetProperties().Single(p => p.IsOwnedOrdinalKeyProperty());
+
+            orderEntry.Metadata.FindPrimaryKey()!.Properties.Should().Contain(ordinalProperty);
+            orderEntry.Property(ordinalProperty.Name).CurrentValue.Should().Be(i + 1);
+        }
+    }
 }

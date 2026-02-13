@@ -6,47 +6,44 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.OwnedTypesT
 
 public sealed record OwnedShapeItem
 {
-    public string Pk { get; set; } = null!;
-
-    public int IntValue { get; set; }
-
-    public string StringValue { get; set; } = null!;
+    public DateTimeOffset CreatedAt { get; set; }
 
     public Guid GuidValue { get; set; }
 
-    public DateTimeOffset CreatedAt { get; set; }
-
-    public List<string> Tags { get; set; } = [];
-
-    public List<int> Ratings { get; set; } = [];
-
-    public Profile? Profile { get; set; }
+    public int IntValue { get; set; }
 
     public List<Order> Orders { get; set; } = [];
 
-    public OrderSnapshot[] OrderSnapshots { get; set; } = [];
+    public List<OrderSnapshot> OrderSnapshots { get; set; } = [];
+    public string Pk { get; set; } = null!;
+
+    public Profile? Profile { get; set; }
+
+    public List<int> Ratings { get; set; } = [];
+
+    public string StringValue { get; set; } = null!;
+
+    public List<string> Tags { get; set; } = [];
 
     // public Dictionary<string, ContactMethod> ContactsByType { get; set; } = [];
 }
 
 public sealed record Profile
 {
-    public string DisplayName { get; set; } = null!;
+    public Address? Address { get; set; }
 
     public int? Age { get; set; }
-
-    public Address? Address { get; set; }
+    public string DisplayName { get; set; } = null!;
 
     // public Dictionary<string, Preference> PreferencesByKey { get; set; } = [];
 }
 
 public sealed record Address
 {
-    public string Line1 { get; set; } = null!;
-
     public string City { get; set; } = null!;
 
     public Geo? Geo { get; set; }
+    public string Line1 { get; set; } = null!;
 }
 
 public sealed record Geo
@@ -58,36 +55,32 @@ public sealed record Geo
 
 public sealed record Order
 {
+    public List<OrderLine> Lines { get; set; } = [];
     public string OrderNumber { get; set; } = null!;
-
-    public decimal Total { get; set; }
 
     public Payment? Payment { get; set; }
 
-    public List<OrderLine> Lines { get; set; } = [];
+    public decimal Total { get; set; }
 }
 
 public sealed record Payment
 {
-    public string Provider { get; set; } = null!;
-
     public Card? Card { get; set; }
+    public string Provider { get; set; } = null!;
 }
 
 public sealed record Card
 {
-    public string Last4 { get; set; } = null!;
-
     public int ExpMonth { get; set; }
 
     public int ExpYear { get; set; }
+    public string Last4 { get; set; } = null!;
 }
 
 public sealed record OrderLine
 {
-    public string Sku { get; set; } = null!;
-
     public int Quantity { get; set; }
+    public string Sku { get; set; } = null!;
 }
 
 public sealed record OrderSnapshot

@@ -1,10 +1,12 @@
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Diagnostics.Internal;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Infrastructure.Internal;
+using LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata.Conventions;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Query;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Storage;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.DependencyInjection;
@@ -23,6 +25,7 @@ public static class DynamoServiceCollectionExtensions
                 .TryAdd<IDatabaseProvider, DatabaseProvider<DynamoDbOptionsExtension>>()
                 .TryAdd<IDatabase, DynamoDatabaseWrapper>()
                 .TryAdd<IQueryContextFactory, DynamoQueryContextFactory>()
+                .TryAdd<IProviderConventionSetBuilder, DynamoConventionSetBuilder>()
                 .TryAdd<IModelValidator, DynamoModelValidator>()
                 .TryAdd<ITypeMappingSource, DynamoTypeMappingSource>()
                 .TryAdd<IQueryableMethodTranslatingExpressionVisitorFactory,

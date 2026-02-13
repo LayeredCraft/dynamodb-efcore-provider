@@ -31,8 +31,6 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
     ParameterExpression itemParameter,
     SelectExpression selectExpression) : ExpressionVisitor
 {
-    private readonly Stack<ParameterExpression> _attributeContextStack = new([itemParameter]);
-
     // Reflection cache for efficient expression tree construction
     private static readonly PropertyInfo AttributeValueSProperty =
         typeof(AttributeValue).GetProperty(nameof(AttributeValue.S))!;
@@ -110,6 +108,8 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
         typeof(DynamoProjectionBindingRemovingExpressionVisitor).GetMethod(
             nameof(PopulateCollectionOnOwner),
             BindingFlags.Static | BindingFlags.NonPublic)!;
+
+    private readonly Stack<ParameterExpression> _attributeContextStack = new([itemParameter]);
 
     /// <summary>
     ///     Intercepts MaterializationContext constructor calls to replace ProjectionBindingExpression
@@ -733,9 +733,7 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
             : Convert(listExpression, targetType);
     }
 
-    /// <summary>
-    ///     Creates and populates a navigation collection instance via EF Core's collection accessor.
-    /// </summary>
+    /// <summary>Creates and populates a navigation collection instance via EF Core's collection accessor.</summary>
     private static TCollection PopulateCollection<TEntity, TCollection>(
         IClrCollectionAccessor accessor,
         IEnumerable<TEntity> entities)
@@ -756,8 +754,7 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
         object owner,
         IEnumerable<TEntity> entities)
     {
-        var collection =
-            (ICollection<TEntity>)accessor.GetOrCreate(owner, forMaterialization: true);
+        var collection = (ICollection<TEntity>)accessor.GetOrCreate(owner, true);
         collection.Clear();
         foreach (var entity in entities)
             collection.Add(entity);
@@ -933,6 +930,7 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
         else
         {
             if (isCollectionType)
+            {
                 valueExpression = CreateCollectionValueExpression(
                     attributeValueVariable,
                     type,
@@ -940,6 +938,7 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
                     propertyPath,
                     required,
                     property);
+            }
             else
             {
                 // Extract wire primitive: attributeValue.S, long.Parse(attributeValue.N), etc.
@@ -1594,11 +1593,15 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
                 Call(memoryStreamExpression, MemoryStreamToArrayMethod));
         }
         else if (nonNullableProviderType == typeof(string))
+        {
             providerValueExpression = Property(wireListVariable, "Item", indexVariable);
+        }
         else
+        {
             providerValueExpression = CreateNumericStringParseExpression(
                 Property(wireListVariable, "Item", indexVariable),
                 nonNullableProviderType);
+        }
 
         var elementExpression = CreateTypedValueExpressionFromProvider(
             providerValueExpression,
