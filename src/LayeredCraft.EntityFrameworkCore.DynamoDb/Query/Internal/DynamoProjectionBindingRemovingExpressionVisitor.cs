@@ -101,6 +101,16 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
             nameof(DeserializeComplexAttributeValue),
             BindingFlags.Static | BindingFlags.NonPublic)!;
 
+    private static readonly MethodInfo PopulateCollectionMethodInfo =
+        typeof(DynamoProjectionBindingRemovingExpressionVisitor).GetMethod(
+            nameof(PopulateCollection),
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+
+    private static readonly MethodInfo PopulateCollectionOnOwnerMethodInfo =
+        typeof(DynamoProjectionBindingRemovingExpressionVisitor).GetMethod(
+            nameof(PopulateCollectionOnOwner),
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+
     /// <summary>
     ///     Intercepts MaterializationContext constructor calls to replace ProjectionBindingExpression
     ///     with ValueBuffer.Empty placeholder (actual data comes from Dictionary access). For anonymous
@@ -370,11 +380,18 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
     ///     Builds typed materialization for an owned collection navigation without object casts or
     ///     reflection assignment.
     /// </summary>
-    private Expression CreateOwnedCollectionMaterializationExpression(INavigation navigation)
+    private Expression CreateOwnedCollectionMaterializationExpression(
+        INavigation navigation,
+        Expression? ownerEntityExpression = null)
     {
         if (!DynamoTypeMappingSource.TryGetListElementType(navigation.ClrType, out var elementType))
             throw new InvalidOperationException(
                 $"Owned collection '{navigation.DeclaringEntityType.DisplayName()}.{navigation.Name}' CLR type '{navigation.ClrType.Name}' is not a supported collection type.");
+
+        // EF Core does not expose collection accessors for array navigations.
+        var collectionAccessor = navigation.ClrType.IsArray
+            ? null
+            : navigation.GetCollectionAccessor();
 
         var containingAttributeName =
             navigation.TargetEntityType.GetContainingAttributeName() ?? navigation.Name;
@@ -458,11 +475,47 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
                 Break(loopBreak)),
             loopBreak);
 
-        var emptyResultExpression = ConvertCollectionMaterialization(
-            New(resultListType),
-            navigation.ClrType);
-        var populatedResultExpression =
-            ConvertCollectionMaterialization(resultVariable, navigation.ClrType);
+        Expression emptyResultExpression;
+        Expression populatedResultExpression;
+
+        if (collectionAccessor == null)
+        {
+            emptyResultExpression =
+                ConvertCollectionMaterialization(New(resultListType), navigation.ClrType);
+            populatedResultExpression =
+                ConvertCollectionMaterialization(resultVariable, navigation.ClrType);
+        }
+        else
+        {
+            var populateCollectionMethod = ownerEntityExpression == null
+                ? PopulateCollectionMethodInfo.MakeGenericMethod(elementType, navigation.ClrType)
+                : PopulateCollectionOnOwnerMethodInfo.MakeGenericMethod(
+                    elementType,
+                    navigation.ClrType);
+            var collectionAccessorExpression =
+                Constant(collectionAccessor, typeof(IClrCollectionAccessor));
+            var ownerExpression = ownerEntityExpression == null
+                ? null
+                : Convert(ownerEntityExpression, typeof(object));
+
+            // Keep optional/missing owned collection semantics as empty collection while still
+            // routing
+            // final collection construction through IClrCollectionAccessor when available.
+            emptyResultExpression = ownerExpression == null
+                ? Call(populateCollectionMethod, collectionAccessorExpression, New(resultListType))
+                : Call(
+                    populateCollectionMethod,
+                    collectionAccessorExpression,
+                    ownerExpression,
+                    New(resultListType));
+            populatedResultExpression = ownerExpression == null
+                ? Call(populateCollectionMethod, collectionAccessorExpression, resultVariable)
+                : Call(
+                    populateCollectionMethod,
+                    collectionAccessorExpression,
+                    ownerExpression,
+                    resultVariable);
+        }
 
         return Block(
             [
@@ -579,7 +632,7 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
                 continue;
 
             var navigationValueExpression = navigation.IsCollection
-                ? CreateOwnedCollectionMaterializationExpression(navigation)
+                ? CreateOwnedCollectionMaterializationExpression(navigation, instanceVariable)
                 : CreateOwnedReferenceMaterializationExpression(navigation);
 
             var memberExpression = Property(instanceVariable, navigation.PropertyInfo);
@@ -678,6 +731,38 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
         return listExpression.Type == targetType
             ? listExpression
             : Convert(listExpression, targetType);
+    }
+
+    /// <summary>
+    ///     Creates and populates a navigation collection instance via EF Core's collection accessor.
+    /// </summary>
+    private static TCollection PopulateCollection<TEntity, TCollection>(
+        IClrCollectionAccessor accessor,
+        IEnumerable<TEntity> entities)
+    {
+        var collection = (ICollection<TEntity>)accessor.Create();
+        foreach (var entity in entities)
+            collection.Add(entity);
+
+        return (TCollection)collection;
+    }
+
+    /// <summary>
+    ///     Populates an existing owner collection instance (or creates one) via EF Core's collection
+    ///     accessor.
+    /// </summary>
+    private static TCollection PopulateCollectionOnOwner<TEntity, TCollection>(
+        IClrCollectionAccessor accessor,
+        object owner,
+        IEnumerable<TEntity> entities)
+    {
+        var collection =
+            (ICollection<TEntity>)accessor.GetOrCreate(owner, forMaterialization: true);
+        collection.Clear();
+        foreach (var entity in entities)
+            collection.Add(entity);
+
+        return (TCollection)collection;
     }
 
     /// <summary>
