@@ -224,6 +224,17 @@ public class DynamoProjectionBindingExpressionVisitor(
         if (node is not StructuralTypeShaperExpression entityShaperExpression)
             return base.VisitExtension(node);
 
+        var shaperEntityType = entityShaperExpression.StructuralType as IEntityType;
+        var isOwnedShaper = shaperEntityType?.IsOwned() == true;
+
+        if (isOwnedShaper)
+        {
+            if (!_indexBasedBinding)
+                return QueryCompilationContext.NotTranslatedExpression;
+
+            return entityShaperExpression;
+        }
+
         if (_indexBasedBinding)
         {
             var indexEntityType = entityShaperExpression.StructuralType as IEntityType;
@@ -289,8 +300,29 @@ public class DynamoProjectionBindingExpressionVisitor(
     {
         // If it's accessing a property on an entity shaper, translate to SQL property
         // Do NOT visit the inner expression to avoid expanding all entity properties
-        if (node.Expression is StructuralTypeShaperExpression)
+        if (node.Expression is StructuralTypeShaperExpression shaperExpression)
         {
+            var shaperEntityType = shaperExpression.StructuralType as IEntityType;
+            if (shaperEntityType?.IsOwned() == true)
+            {
+                if (!_indexBasedBinding)
+                    return QueryCompilationContext.NotTranslatedExpression;
+
+                var ownedInstance = Visit(node.Expression);
+                if (ownedInstance == QueryCompilationContext.NotTranslatedExpression
+                    || ownedInstance == null)
+                    return QueryCompilationContext.NotTranslatedExpression;
+
+                var ownedAccess = node.Update(ownedInstance);
+                if (ownedInstance.Type.IsValueType)
+                    return ownedAccess;
+
+                return Expression.Condition(
+                    Expression.Equal(ownedInstance, Expression.Constant(null, ownedInstance.Type)),
+                    Expression.Default(node.Type),
+                    ownedAccess);
+            }
+
             var propertyName = node.Member.Name;
             var sqlProperty = sqlExpressionFactory.Property(propertyName, node.Type);
 
@@ -334,7 +366,32 @@ public class DynamoProjectionBindingExpressionVisitor(
         if (instance == null)
             return QueryCompilationContext.NotTranslatedExpression;
 
-        return node.Update(instance);
+        var memberAccess = node.Update(instance);
+        if (!instance.Type.IsValueType && IsOwnedNavigationAccess(node.Expression))
+            return Expression.Condition(
+                Expression.Equal(instance, Expression.Constant(null, instance.Type)),
+                Expression.Default(node.Type),
+                memberAccess);
+
+        return memberAccess;
+    }
+
+    /// <summary>Determines whether a member-access chain originates from an owned navigation.</summary>
+    private static bool IsOwnedNavigationAccess(Expression expression)
+    {
+        if (expression is not MemberExpression memberExpression)
+            return false;
+
+        if (memberExpression.Expression is StructuralTypeShaperExpression shaperExpression
+            && shaperExpression.StructuralType is IEntityType entityType)
+            return entityType
+                    .FindNavigation(memberExpression.Member.Name)
+                    ?.TargetEntityType
+                    .IsOwned()
+                == true;
+
+        return memberExpression.Expression != null
+            && IsOwnedNavigationAccess(memberExpression.Expression);
     }
 
     protected override Expression VisitMethodCall(MethodCallExpression node)
@@ -344,6 +401,43 @@ public class DynamoProjectionBindingExpressionVisitor(
             && node.Arguments.Count == 2
             && node.Arguments[1] is ConstantExpression { Value: string propertyName })
         {
+            if (node.Arguments[0] is StructuralTypeShaperExpression shaperExpression
+                && shaperExpression.StructuralType is IEntityType entityType
+                && entityType.IsOwned())
+            {
+                if (!_indexBasedBinding)
+                    return QueryCompilationContext.NotTranslatedExpression;
+
+                var ownedInstance = Visit(node.Arguments[0]);
+                if (ownedInstance == QueryCompilationContext.NotTranslatedExpression
+                    || ownedInstance == null)
+                    return QueryCompilationContext.NotTranslatedExpression;
+
+                var ownedMember =
+                    ownedInstance.Type.GetProperty(propertyName) is not null
+                        ?
+                        Expression.Property(ownedInstance, propertyName)
+                        : ownedInstance.Type.GetField(propertyName) is not null
+                            ? Expression.Field(ownedInstance, propertyName)
+                            : QueryCompilationContext.NotTranslatedExpression;
+
+                if (ownedMember == QueryCompilationContext.NotTranslatedExpression)
+                    return QueryCompilationContext.NotTranslatedExpression;
+
+                var ownedValue = ownedMember;
+                if (!ownedInstance.Type.IsValueType)
+                    ownedValue = Expression.Condition(
+                        Expression.Equal(
+                            ownedInstance,
+                            Expression.Constant(null, ownedInstance.Type)),
+                        Expression.Default(ownedMember.Type),
+                        ownedMember);
+
+                return ownedValue.Type != node.Type
+                    ? Expression.Convert(ownedValue, node.Type)
+                    : ownedValue;
+            }
+
             var sqlProperty = sqlExpressionFactory.Property(propertyName, node.Type);
 
             if (_indexBasedBinding)

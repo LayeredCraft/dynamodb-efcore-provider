@@ -37,4 +37,32 @@ public static class DynamoEntityTypeBuilderExtensions
         public EntityTypeBuilder<TEntity> ToTable(string? name)
             => (EntityTypeBuilder<TEntity>)((EntityTypeBuilder)entityTypeBuilder).ToTable(name);
     }
+
+    extension(OwnedNavigationBuilder ownedNavigationBuilder)
+    {
+        /// <summary>Configures the top-level DynamoDB attribute name used to store this owned navigation.</summary>
+        /// <param name="ownedNavigationBuilder">The owned navigation builder being configured.</param>
+        /// <param name="name">The top-level attribute name.</param>
+        /// <returns>The same builder instance so that multiple calls can be chained.</returns>
+        public OwnedNavigationBuilder HasAttributeName(string? name)
+        {
+            ownedNavigationBuilder.OwnedEntityType.SetContainingAttributeName(name);
+            return ownedNavigationBuilder;
+        }
+    }
+
+    extension<TOwnerEntity, TDependentEntity>(
+        OwnedNavigationBuilder<TOwnerEntity, TDependentEntity> ownedNavigationBuilder)
+        where TOwnerEntity : class where TDependentEntity : class
+    {
+        /// <summary>Configures the top-level DynamoDB attribute name used to store this owned navigation.</summary>
+        /// <typeparam name="TOwnerEntity">The owner CLR type.</typeparam>
+        /// <typeparam name="TDependentEntity">The dependent CLR type.</typeparam>
+        /// <param name="ownedNavigationBuilder">The owned navigation builder being configured.</param>
+        /// <param name="name">The top-level attribute name.</param>
+        /// <returns>The same builder instance so that multiple calls can be chained.</returns>
+        public OwnedNavigationBuilder<TOwnerEntity, TDependentEntity> HasAttributeName(string? name)
+            => (OwnedNavigationBuilder<TOwnerEntity, TDependentEntity>)
+                ((OwnedNavigationBuilder)ownedNavigationBuilder).HasAttributeName(name);
+    }
 }

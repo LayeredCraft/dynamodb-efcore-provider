@@ -310,6 +310,12 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
             if (memberExpression == QueryCompilationContext.NotTranslatedExpression)
                 return QueryCompilationContext.NotTranslatedExpression;
 
+            if (!instanceExpression.Type.IsValueType)
+                memberExpression = Condition(
+                    Equal(instanceExpression, Constant(null, instanceExpression.Type)),
+                    Default(memberExpression.Type),
+                    memberExpression);
+
             return memberExpression.Type != node.Type
                 ? Convert(memberExpression, node.Type)
                 : memberExpression;
@@ -348,6 +354,31 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
         }
 
         return base.VisitMethodCall(node);
+    }
+
+    /// <summary>
+    ///     Rewrites member access with owned-complex null-propagation when the receiver is complex
+    ///     materialization.
+    /// </summary>
+    protected override Expression VisitMember(MemberExpression node)
+    {
+        if (node.Expression == null)
+            return base.VisitMember(node);
+
+        var instanceExpression = Visit(node.Expression);
+        if (instanceExpression == QueryCompilationContext.NotTranslatedExpression
+            || instanceExpression == null)
+            return QueryCompilationContext.NotTranslatedExpression;
+
+        var memberExpression = node.Update(instanceExpression);
+        if (instanceExpression.Type.IsValueType
+            || !ContainsMethodCall(instanceExpression, DeserializeComplexAttributeValueMethod))
+            return memberExpression;
+
+        return Condition(
+            Equal(instanceExpression, Constant(null, instanceExpression.Type)),
+            Default(node.Type),
+            memberExpression);
     }
 
     /// <summary>
@@ -1162,4 +1193,80 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
     private static string GetExpectedSetWireMemberName(Type providerType)
         => providerType == typeof(string) ? nameof(AttributeValue.SS) :
             providerType == typeof(byte[]) ? nameof(AttributeValue.BS) : nameof(AttributeValue.NS);
+
+    /// <summary>Determines whether an expression tree contains a call to a specific method.</summary>
+    private static bool ContainsMethodCall(Expression expression, MethodInfo methodInfo)
+    {
+        switch (expression)
+        {
+            case MethodCallExpression methodCall:
+                if (methodCall.Method == methodInfo)
+                    return true;
+
+                if (methodCall.Object != null && ContainsMethodCall(methodCall.Object, methodInfo))
+                    return true;
+
+                foreach (var argument in methodCall.Arguments)
+                    if (ContainsMethodCall(argument, methodInfo))
+                        return true;
+
+                return false;
+
+            case BlockExpression blockExpression:
+                foreach (var blockSubExpression in blockExpression.Expressions)
+                    if (ContainsMethodCall(blockSubExpression, methodInfo))
+                        return true;
+
+                return false;
+
+            case ConditionalExpression conditionalExpression:
+                return ContainsMethodCall(conditionalExpression.Test, methodInfo)
+                    || ContainsMethodCall(conditionalExpression.IfTrue, methodInfo)
+                    || ContainsMethodCall(conditionalExpression.IfFalse, methodInfo);
+
+            case BinaryExpression binaryExpression:
+                return ContainsMethodCall(binaryExpression.Left, methodInfo)
+                    || ContainsMethodCall(binaryExpression.Right, methodInfo)
+                    || (binaryExpression.Conversion != null
+                        && ContainsMethodCall(binaryExpression.Conversion, methodInfo));
+
+            case UnaryExpression unaryExpression:
+                return ContainsMethodCall(unaryExpression.Operand, methodInfo);
+
+            case MemberExpression memberExpression:
+                return memberExpression.Expression != null
+                    && ContainsMethodCall(memberExpression.Expression, methodInfo);
+
+            case NewExpression newExpression:
+                foreach (var argument in newExpression.Arguments)
+                    if (ContainsMethodCall(argument, methodInfo))
+                        return true;
+
+                return false;
+
+            case NewArrayExpression newArrayExpression:
+                foreach (var newArraySubExpression in newArrayExpression.Expressions)
+                    if (ContainsMethodCall(newArraySubExpression, methodInfo))
+                        return true;
+
+                return false;
+
+            case MemberInitExpression memberInitExpression:
+                if (ContainsMethodCall(memberInitExpression.NewExpression, methodInfo))
+                    return true;
+
+                foreach (var binding in memberInitExpression.Bindings)
+                    if (binding is MemberAssignment memberAssignment
+                        && ContainsMethodCall(memberAssignment.Expression, methodInfo))
+                        return true;
+
+                return false;
+
+            case LambdaExpression lambdaExpression:
+                return ContainsMethodCall(lambdaExpression.Body, methodInfo);
+
+            default:
+                return false;
+        }
+    }
 }
