@@ -68,6 +68,48 @@ var rows = await db.SimpleItems
     when property type is read-only dictionary)
 - Interface-typed properties receive assignable concrete values (`Dictionary`/`HashSet`/`List`).
 
+## Owned types
+
+The provider supports EF Core owned entity types (`OwnsOne`, `OwnsMany`) for embedding complex object
+graphs within a single DynamoDB item.
+
+### Storage model
+- **Owned references** (`OwnsOne`): stored as `AttributeValue.M` (nested map)
+- **Owned collections** (`OwnsMany`): stored as `AttributeValue.L` (list of maps)
+- Nested ownership is supported recursively (owned types can contain other owned types)
+
+### Query behavior
+Due to DynamoDB PartiQL limitations, the provider **always projects top-level attributes only** and
+extracts nested owned values client-side during materialization.
+
+Example:
+```csharp
+var query = context.Items
+    .Select(x => new { x.Pk, x.Profile.Address.City });
+```
+
+Generated PartiQL:
+```sql
+SELECT Pk, Profile
+FROM Items
+```
+
+The `Profile` attribute (an `AttributeValue.M`) is projected as a whole, then `Address.City` is
+extracted during client-side materialization.
+
+### Null handling
+- Missing owned navigation attribute: materializes as `null` (for optional owned) or throws (for
+  required owned)
+- Explicit DynamoDB NULL (`AttributeValue.NULL == true`): same behavior as missing
+- Optional owned navigation chains null-propagate: `x.Profile.Address.City` returns `null` if
+  `Profile` is null
+
+### Limitations
+- Nested path queries not supported in `WHERE`/`ORDER BY` (e.g.,
+  `.Where(x => x.Profile.Address.City == "Seattle")`)
+- Owned types cannot be queried directly; must query via root entity
+- See [Limitations](limitations.md) for details
+
 ## Notes
 - Client-side computed projections follow normal .NET null behavior.
 
