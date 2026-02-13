@@ -15,7 +15,6 @@ using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Storage;
 using DynamoDocument = Amazon.DynamoDBv2.DocumentModel.Document;
 using static System.Linq.Expressions.Expression;
-using Convert = System.Convert;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
 
@@ -102,11 +101,6 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
             nameof(DeserializeComplexAttributeValue),
             BindingFlags.Static | BindingFlags.NonPublic)!;
 
-    private static readonly MethodInfo MaterializeOwnedCollectionNavigationMethod =
-        typeof(DynamoProjectionBindingRemovingExpressionVisitor).GetMethod(
-            nameof(MaterializeOwnedCollectionNavigation),
-            BindingFlags.Static | BindingFlags.NonPublic)!;
-
     /// <summary>
     ///     Intercepts MaterializationContext constructor calls to replace ProjectionBindingExpression
     ///     with ValueBuffer.Empty placeholder (actual data comes from Dictionary access). For anonymous
@@ -151,16 +145,7 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
             var navigation = materializeCollectionNavigationExpression.Navigation;
 
             if (navigation is INavigation embeddedNavigation && embeddedNavigation.IsEmbedded())
-            {
-                var ownedCollectionExpression = Call(
-                    MaterializeOwnedCollectionNavigationMethod,
-                    _attributeContextStack.Peek(),
-                    Constant(embeddedNavigation, typeof(INavigation)));
-
-                return ConvertCollectionMaterialization(
-                    Convert(ownedCollectionExpression, navigation.ClrType),
-                    navigation.ClrType);
-            }
+                return CreateOwnedCollectionMaterializationExpression(embeddedNavigation);
 
             var navigationExpression = CreateGetValueExpression(
                 navigation.Name,
@@ -380,6 +365,288 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
     private static string? GetOwnedContainingAttributeName(IEntityType entityType)
         => entityType.GetContainingAttributeName()
             ?? entityType.FindOwnership()?.PrincipalToDependent?.Name;
+
+    /// <summary>
+    ///     Builds typed materialization for an owned collection navigation without object casts or
+    ///     reflection assignment.
+    /// </summary>
+    private Expression CreateOwnedCollectionMaterializationExpression(INavigation navigation)
+    {
+        if (!DynamoTypeMappingSource.TryGetListElementType(navigation.ClrType, out var elementType))
+            throw new InvalidOperationException(
+                $"Owned collection '{navigation.DeclaringEntityType.DisplayName()}.{navigation.Name}' CLR type '{navigation.ClrType.Name}' is not a supported collection type.");
+
+        var containingAttributeName =
+            navigation.TargetEntityType.GetContainingAttributeName() ?? navigation.Name;
+        var navigationPath = $"{navigation.DeclaringEntityType.DisplayName()}.{navigation.Name}";
+        var required = navigation.ForeignKey.IsRequiredDependent;
+
+        var wireListVariable = Variable(typeof(List<AttributeValue>), "ownedWireList");
+        var elementAttributeValueVariable = Variable(typeof(AttributeValue), "ownedElementAv");
+        var elementMapVariable =
+            Variable(typeof(Dictionary<string, AttributeValue>), "ownedElementMap");
+        var indexVariable = Variable(typeof(int), "ownedIndex");
+        var countVariable = Variable(typeof(int), "ownedCount");
+        var resultListType = typeof(List<>).MakeGenericType(elementType);
+        var resultVariable = Variable(resultListType, "ownedResult");
+
+        var assignWireList = Assign(
+            wireListVariable,
+            CreateReadOwnedListExpression(
+                _attributeContextStack.Peek(),
+                containingAttributeName,
+                required,
+                navigationPath));
+
+        var assignCount = Assign(
+            countVariable,
+            Property(wireListVariable, nameof(List<AttributeValue>.Count)));
+        var assignIndex = Assign(indexVariable, Constant(0));
+        var resultCtor = resultListType.GetConstructor([typeof(int)])!;
+        var assignResult = Assign(resultVariable, New(resultCtor, countVariable));
+        var addMethod = resultListType.GetMethod(nameof(List<int>.Add), [elementType])!;
+
+        var assignElementAttributeValue = Assign(
+            elementAttributeValueVariable,
+            Property(wireListVariable, "Item", indexVariable));
+        var assignElementMap = Assign(
+            elementMapVariable,
+            Property(elementAttributeValueVariable, AttributeValueMProperty));
+
+        var elementIsNullExpression = OrElse(
+            Equal(elementAttributeValueVariable, Constant(null, typeof(AttributeValue))),
+            Equal(
+                Property(elementAttributeValueVariable, AttributeValueNullProperty),
+                Constant(true, typeof(bool?))));
+
+        var nullElementThrowExpression = Throw(
+            New(
+                InvalidOperationExceptionCtor,
+                Constant(
+                    $"Owned collection '{navigationPath}' contains NULL element. Elements must be map (M) values.")));
+
+        var nonMapElementThrowExpression = Throw(
+            New(
+                InvalidOperationExceptionCtor,
+                Constant(
+                    $"Owned collection '{navigationPath}' contains an element that is not a map (M).")));
+
+        // The element map becomes the active context so all owned scalar property reads continue to
+        // flow through CreateGetValueExpression.
+        _attributeContextStack.Push(elementMapVariable);
+        var elementMaterializationExpression = CreateOwnedEntityMaterializationExpression(
+            navigation.TargetEntityType,
+            navigationPath,
+            Add(indexVariable, Constant(1)));
+        _attributeContextStack.Pop();
+
+        var loopBreak = Label("OwnedCollectionLoopBreak");
+        var loop = Loop(
+            IfThenElse(
+                LessThan(indexVariable, countVariable),
+                Block(
+                    assignElementAttributeValue,
+                    IfThen(elementIsNullExpression, nullElementThrowExpression),
+                    assignElementMap,
+                    IfThen(
+                        Equal(
+                            elementMapVariable,
+                            Constant(null, typeof(Dictionary<string, AttributeValue>))),
+                        nonMapElementThrowExpression),
+                    Call(resultVariable, addMethod, elementMaterializationExpression),
+                    PostIncrementAssign(indexVariable)),
+                Break(loopBreak)),
+            loopBreak);
+
+        var emptyResultExpression = ConvertCollectionMaterialization(
+            New(resultListType),
+            navigation.ClrType);
+        var populatedResultExpression =
+            ConvertCollectionMaterialization(resultVariable, navigation.ClrType);
+
+        return Block(
+            [
+                wireListVariable,
+                elementAttributeValueVariable,
+                elementMapVariable,
+                indexVariable,
+                countVariable,
+                resultVariable,
+            ],
+            assignWireList,
+            Condition(
+                Equal(wireListVariable, Constant(null, typeof(List<AttributeValue>))),
+                emptyResultExpression,
+                Block(assignCount, assignIndex, assignResult, loop, populatedResultExpression)));
+    }
+
+    /// <summary>
+    ///     Builds typed materialization for an owned reference navigation by switching to the owned
+    ///     map context.
+    /// </summary>
+    private Expression CreateOwnedReferenceMaterializationExpression(INavigation navigation)
+    {
+        var containingAttributeName =
+            navigation.TargetEntityType.GetContainingAttributeName() ?? navigation.Name;
+        var required = navigation.ForeignKey.IsRequiredDependent;
+        var navigationPath = $"{navigation.DeclaringEntityType.DisplayName()}.{navigation.Name}";
+
+        var ownedMapVariable = Variable(
+            typeof(Dictionary<string, AttributeValue>),
+            $"owned_{containingAttributeName}_map");
+
+        var assignOwnedMap = Assign(
+            ownedMapVariable,
+            CreateReadOwnedMapExpression(
+                _attributeContextStack.Peek(),
+                containingAttributeName,
+                required,
+                navigationPath));
+
+        _attributeContextStack.Push(ownedMapVariable);
+        var ownedEntityExpression = CreateOwnedEntityMaterializationExpression(
+            navigation.TargetEntityType,
+            navigationPath,
+            null);
+        _attributeContextStack.Pop();
+
+        return Block(
+            [ownedMapVariable],
+            assignOwnedMap,
+            Condition(
+                Equal(ownedMapVariable, Constant(null, ownedMapVariable.Type)),
+                Constant(null, navigation.ClrType),
+                Convert(ownedEntityExpression, navigation.ClrType)));
+    }
+
+    /// <summary>
+    ///     Builds typed owned entity materialization using the current attribute-map context and the
+    ///     existing scalar value pipeline.
+    /// </summary>
+    private Expression CreateOwnedEntityMaterializationExpression(
+        IEntityType entityType,
+        string navigationPath,
+        Expression? ordinalExpression)
+    {
+        var constructor = entityType.ClrType.GetConstructor(Type.EmptyTypes);
+        if (constructor == null)
+            throw new InvalidOperationException(
+                $"Could not construct owned CLR type '{entityType.ClrType.Name}'.");
+
+        var instanceVariable = Variable(entityType.ClrType, $"owned_{entityType.ClrType.Name}");
+        List<Expression> expressions = [Assign(instanceVariable, New(constructor))];
+
+        foreach (var property in entityType.GetProperties())
+        {
+            if (property.IsShadowProperty())
+                continue;
+
+            var memberInfo = property.PropertyInfo as MemberInfo ?? property.FieldInfo;
+            if (memberInfo == null)
+                continue;
+
+            var memberType = memberInfo is PropertyInfo propertyInfo
+                ? propertyInfo.PropertyType
+                : ((FieldInfo)memberInfo).FieldType;
+
+            Expression? valueExpression;
+            if (property.IsOwnedOrdinalKeyProperty())
+                valueExpression = ordinalExpression;
+            else
+                valueExpression = CreateGetValueExpression(
+                    property.Name,
+                    property.ClrType,
+                    property.GetTypeMapping(),
+                    !property.IsNullable,
+                    entityType.DisplayName(),
+                    property);
+
+            if (valueExpression == null)
+                continue;
+
+            if (valueExpression.Type != memberType)
+                valueExpression = Convert(valueExpression, memberType);
+
+            expressions.Add(
+                Assign(MakeMemberAccess(instanceVariable, memberInfo), valueExpression));
+        }
+
+        foreach (var navigation in entityType.GetNavigations())
+        {
+            if (!navigation.TargetEntityType.IsOwned()
+                || navigation.PropertyInfo is null
+                || !navigation.PropertyInfo.CanWrite)
+                continue;
+
+            var navigationValueExpression = navigation.IsCollection
+                ? CreateOwnedCollectionMaterializationExpression(navigation)
+                : CreateOwnedReferenceMaterializationExpression(navigation);
+
+            var memberExpression = Property(instanceVariable, navigation.PropertyInfo);
+            if (navigationValueExpression.Type != memberExpression.Type)
+                navigationValueExpression =
+                    Convert(navigationValueExpression, memberExpression.Type);
+
+            expressions.Add(Assign(memberExpression, navigationValueExpression));
+        }
+
+        expressions.Add(instanceVariable);
+        return Block([instanceVariable], expressions);
+    }
+
+    /// <summary>
+    ///     Builds an expression that reads an owned collection from a list attribute (
+    ///     <see cref="AttributeValue.L" />) and validates null/missing shape semantics.
+    /// </summary>
+    private static Expression CreateReadOwnedListExpression(
+        Expression parentMapExpression,
+        string containingAttributeName,
+        bool required,
+        string navigationPath)
+    {
+        var attributeValueVariable = Variable(typeof(AttributeValue), "ownedCollectionAv");
+
+        var tryGetValueExpression = Call(
+            parentMapExpression,
+            DictionaryTryGetValueMethod,
+            Constant(containingAttributeName),
+            attributeValueVariable);
+
+        var isNullExpression = OrElse(
+            Equal(attributeValueVariable, Constant(null, typeof(AttributeValue))),
+            Equal(
+                Property(attributeValueVariable, AttributeValueNullProperty),
+                Constant(true, typeof(bool?))));
+
+        var listExpression = Property(attributeValueVariable, AttributeValueLProperty);
+
+        Expression missingExpression = required
+            ? Throw(
+                New(
+                    InvalidOperationExceptionCtor,
+                    Constant($"Required owned collection '{navigationPath}' is missing or NULL.")),
+                typeof(List<AttributeValue>))
+            : Constant(null, typeof(List<AttributeValue>));
+
+        Expression wrongShapeExpression = Throw(
+            New(
+                InvalidOperationExceptionCtor,
+                Constant($"Owned collection '{navigationPath}' attribute is not a list (L).")),
+            typeof(List<AttributeValue>));
+
+        var resultExpression = Condition(
+            Not(tryGetValueExpression),
+            missingExpression,
+            Condition(
+                isNullExpression,
+                missingExpression,
+                Condition(
+                    Equal(listExpression, Constant(null, typeof(List<AttributeValue>))),
+                    wrongShapeExpression,
+                    listExpression)));
+
+        return Block([attributeValueVariable], resultExpression);
+    }
 
     /// <summary>Converts navigation materialization expressions to the requested collection CLR shape.</summary>
     private static Expression ConvertCollectionMaterialization(
@@ -1317,339 +1584,6 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
     /// <summary>Determines whether collection elements should be treated as required.</summary>
     private static bool IsRequiredCollectionElement(IProperty? property, Type elementType)
         => property?.GetElementType()?.IsNullable == false || IsNonNullableValueType(elementType);
-
-    /// <summary>
-    ///     Materializes an owned collection navigation from the current attribute map without using
-    ///     JSON fallback deserialization.
-    /// </summary>
-    private static object MaterializeOwnedCollectionNavigation(
-        Dictionary<string, AttributeValue> parentMap,
-        INavigation navigation)
-    {
-        var containingAttributeName =
-            navigation.TargetEntityType.GetContainingAttributeName() ?? navigation.Name;
-        var navigationPath = $"{navigation.DeclaringEntityType.DisplayName()}.{navigation.Name}";
-        var required = navigation.ForeignKey.IsRequiredDependent;
-
-        if (!parentMap.TryGetValue(containingAttributeName, out var collectionAttributeValue)
-            || collectionAttributeValue == null
-            || collectionAttributeValue.NULL == true)
-        {
-            if (required)
-                throw new InvalidOperationException(
-                    $"Required owned collection '{navigationPath}' is missing or NULL.");
-
-            return CreateEmptyCollectionInstance(navigation.ClrType);
-        }
-
-        var wireList = collectionAttributeValue.L;
-        if (wireList == null)
-            throw new InvalidOperationException(
-                $"Owned collection '{navigationPath}' attribute is not a list (L).");
-
-        if (!DynamoTypeMappingSource.TryGetListElementType(navigation.ClrType, out var elementType))
-            throw new InvalidOperationException(
-                $"Owned collection '{navigationPath}' CLR type '{navigation.ClrType.Name}' is not a supported collection type.");
-
-        var listType = typeof(List<>).MakeGenericType(elementType);
-        var materializedList = (IList)Activator.CreateInstance(listType, wireList.Count)!;
-
-        for (var index = 0; index < wireList.Count; index++)
-        {
-            var elementAttributeValue = wireList[index];
-            if (elementAttributeValue == null || elementAttributeValue.NULL == true)
-                throw new InvalidOperationException(
-                    $"Owned collection '{navigationPath}' contains NULL element at position {index}."
-                    + " Elements must be map (M) values.");
-
-            var elementMap = elementAttributeValue.M;
-            if (elementMap == null)
-                throw new InvalidOperationException(
-                    $"Owned collection '{navigationPath}' element at position {index} is not a map (M).");
-
-            var element = MaterializeOwnedEntity(
-                elementMap,
-                navigation.TargetEntityType,
-                index + 1,
-                navigationPath);
-            materializedList.Add(element);
-        }
-
-        return ConvertOwnedCollectionShape(materializedList, navigation.ClrType, elementType);
-    }
-
-    /// <summary>
-    ///     Materializes an owned reference navigation from the current attribute map without using
-    ///     JSON fallback deserialization.
-    /// </summary>
-    private static object? MaterializeOwnedReferenceNavigation(
-        Dictionary<string, AttributeValue> parentMap,
-        INavigation navigation)
-    {
-        var containingAttributeName =
-            navigation.TargetEntityType.GetContainingAttributeName() ?? navigation.Name;
-        var navigationPath = $"{navigation.DeclaringEntityType.DisplayName()}.{navigation.Name}";
-        var required = navigation.ForeignKey.IsRequiredDependent;
-
-        if (!parentMap.TryGetValue(containingAttributeName, out var referenceAttributeValue)
-            || referenceAttributeValue == null
-            || referenceAttributeValue.NULL == true)
-        {
-            if (required)
-                throw new InvalidOperationException(
-                    $"Required owned navigation '{navigationPath}' is missing or NULL.");
-
-            return null;
-        }
-
-        var referenceMap = referenceAttributeValue.M;
-        if (referenceMap == null)
-            throw new InvalidOperationException(
-                $"Owned navigation '{navigationPath}' attribute is not a map (M).");
-
-        return MaterializeOwnedEntity(
-            referenceMap,
-            navigation.TargetEntityType,
-            null,
-            navigationPath);
-    }
-
-    /// <summary>
-    ///     Materializes an owned entity instance using metadata-driven property reads from an
-    ///     attribute map.
-    /// </summary>
-    private static object MaterializeOwnedEntity(
-        Dictionary<string, AttributeValue> attributeMap,
-        IEntityType entityType,
-        int? ordinal,
-        string navigationPath)
-    {
-        var instance = Activator.CreateInstance(entityType.ClrType)
-            ?? throw new InvalidOperationException(
-                $"Could not construct owned CLR type '{entityType.ClrType.Name}'.");
-
-        foreach (var property in entityType.GetProperties())
-        {
-            if (property.IsShadowProperty())
-                continue;
-
-            if (property.IsOwnedOrdinalKeyProperty())
-            {
-                if (ordinal.HasValue)
-                    AssignMemberValue(instance, property, ordinal.Value);
-
-                continue;
-            }
-
-            var value = ReadOwnedPropertyValue(attributeMap, property, entityType.DisplayName());
-            AssignMemberValue(instance, property, value);
-        }
-
-        foreach (var navigation in entityType.GetNavigations())
-        {
-            if (!navigation.TargetEntityType.IsOwned()
-                || navigation.PropertyInfo is null
-                || !navigation.PropertyInfo.CanWrite)
-                continue;
-
-            var value = navigation.IsCollection
-                ? MaterializeOwnedCollectionNavigation(attributeMap, navigation)
-                : MaterializeOwnedReferenceNavigation(attributeMap, navigation);
-
-            navigation.PropertyInfo.SetValue(instance, value);
-        }
-
-        return instance;
-    }
-
-    /// <summary>Reads and converts a scalar owned property value from an attribute map.</summary>
-    private static object? ReadOwnedPropertyValue(
-        Dictionary<string, AttributeValue> attributeMap,
-        IProperty property,
-        string entityDisplayName)
-    {
-        var required = !property.IsNullable;
-        var propertyPath = $"{entityDisplayName}.{property.Name}";
-
-        if (!attributeMap.TryGetValue(property.Name, out var attributeValue)
-            || attributeValue == null)
-        {
-            if (required)
-                throw new InvalidOperationException(
-                    $"Required property '{propertyPath}' was not present in the DynamoDB item.");
-
-            return GetDefaultValue(property.ClrType);
-        }
-
-        if (attributeValue.NULL == true)
-        {
-            if (required)
-                throw new InvalidOperationException(
-                    $"Required property '{propertyPath}' was set to DynamoDB NULL.");
-
-            return GetDefaultValue(property.ClrType);
-        }
-
-        var typeMapping = property.GetTypeMapping();
-        var converter = typeMapping.Converter;
-        var providerType = converter?.ProviderClrType ?? property.ClrType;
-        var nonNullableProviderType = Nullable.GetUnderlyingType(providerType) ?? providerType;
-
-        object? providerValue;
-        if (nonNullableProviderType == typeof(string))
-            providerValue = attributeValue.S;
-        else if (nonNullableProviderType == typeof(bool))
-            providerValue = attributeValue.BOOL;
-        else if (nonNullableProviderType == typeof(byte[]))
-            providerValue = attributeValue.B?.ToArray();
-        else if (IsWirePrimitiveType(nonNullableProviderType))
-            providerValue =
-                ParseNumericValue(attributeValue.N, nonNullableProviderType, propertyPath);
-        else
-            throw new InvalidOperationException(
-                $"Owned property '{propertyPath}' has unsupported type '{property.ClrType.Name}'. "
-                + "Only primitive types and converter-mapped primitives are supported.");
-
-        if (providerValue == null)
-        {
-            if (required)
-                throw new InvalidOperationException(
-                    $"Required property '{propertyPath}' did not contain the expected DynamoDB wire value.");
-
-            return GetDefaultValue(property.ClrType);
-        }
-
-        if (converter == null)
-            return ChangeType(providerValue, property.ClrType);
-
-        var modelValue = converter.ConvertFromProvider(providerValue);
-        return modelValue ?? GetDefaultValue(property.ClrType);
-    }
-
-    /// <summary>Parses a numeric DynamoDB <c>N</c> value to the requested CLR numeric type.</summary>
-    private static object ParseNumericValue(
-        string? numberText,
-        Type numericType,
-        string propertyPath)
-    {
-        if (numberText == null)
-            throw new InvalidOperationException(
-                $"Required property '{propertyPath}' did not contain a numeric wire value (N).");
-
-        return numericType == typeof(short)
-            ?
-            short.Parse(numberText, NumberStyles.Integer, CultureInfo.InvariantCulture)
-            : numericType == typeof(ushort)
-                ? ushort.Parse(numberText, NumberStyles.Integer, CultureInfo.InvariantCulture)
-                : numericType == typeof(sbyte)
-                    ? sbyte.Parse(numberText, NumberStyles.Integer, CultureInfo.InvariantCulture)
-                    : numericType == typeof(byte)
-                        ? byte.Parse(numberText, NumberStyles.Integer, CultureInfo.InvariantCulture)
-                        : numericType == typeof(int)
-                            ? int.Parse(
-                                numberText,
-                                NumberStyles.Integer,
-                                CultureInfo.InvariantCulture)
-                            : numericType == typeof(uint)
-                                ? uint.Parse(
-                                    numberText,
-                                    NumberStyles.Integer,
-                                    CultureInfo.InvariantCulture)
-                                : numericType == typeof(long)
-                                    ? long.Parse(
-                                        numberText,
-                                        NumberStyles.Integer,
-                                        CultureInfo.InvariantCulture)
-                                    : numericType == typeof(ulong)
-                                        ? ulong.Parse(
-                                            numberText,
-                                            NumberStyles.Integer,
-                                            CultureInfo.InvariantCulture)
-                                        : numericType == typeof(float)
-                                            ? float.Parse(
-                                                numberText,
-                                                NumberStyles.Float,
-                                                CultureInfo.InvariantCulture)
-                                            : numericType == typeof(double)
-                                                ? double.Parse(
-                                                    numberText,
-                                                    NumberStyles.Float,
-                                                    CultureInfo.InvariantCulture)
-                                                : numericType == typeof(decimal)
-                                                    ? decimal.Parse(
-                                                        numberText,
-                                                        NumberStyles.Float,
-                                                        CultureInfo.InvariantCulture)
-                                                    : throw new InvalidOperationException(
-                                                        $"Numeric type '{numericType.Name}' is not supported for owned property materialization.");
-    }
-
-    /// <summary>Assigns a mapped property value to its CLR property or backing field.</summary>
-    private static void AssignMemberValue(object instance, IProperty property, object? value)
-    {
-        if (property.PropertyInfo is { CanWrite: true } propertyInfo)
-        {
-            propertyInfo.SetValue(instance, value);
-            return;
-        }
-
-        if (property.FieldInfo != null)
-            property.FieldInfo.SetValue(instance, value);
-    }
-
-    /// <summary>Converts a materialized list into the target collection CLR shape.</summary>
-    private static object ConvertOwnedCollectionShape(
-        IList values,
-        Type targetType,
-        Type elementType)
-    {
-        if (targetType.IsArray)
-        {
-            var array = Array.CreateInstance(elementType, values.Count);
-            values.CopyTo(array, 0);
-            return array;
-        }
-
-        if (targetType.IsInstanceOfType(values))
-            return values;
-
-        var enumerableType = typeof(IEnumerable<>).MakeGenericType(elementType);
-        if (targetType.IsAssignableFrom(values.GetType()))
-            return values;
-
-        var constructor = targetType.GetConstructor([enumerableType]);
-        if (constructor != null)
-            return constructor.Invoke([values]);
-
-        return values;
-    }
-
-    /// <summary>Creates an empty collection instance compatible with the target collection CLR type.</summary>
-    private static object CreateEmptyCollectionInstance(Type targetType)
-    {
-        if (!DynamoTypeMappingSource.TryGetListElementType(targetType, out var elementType))
-            return GetDefaultValue(targetType)!;
-
-        var emptyListType = typeof(List<>).MakeGenericType(elementType);
-        var emptyList = (IList)Activator.CreateInstance(emptyListType)!;
-        return ConvertOwnedCollectionShape(emptyList, targetType, elementType);
-    }
-
-    /// <summary>Returns the CLR default value for a type.</summary>
-    private static object? GetDefaultValue(Type type)
-        => !type.IsValueType || Nullable.GetUnderlyingType(type) != null
-            ? null
-            : Activator.CreateInstance(type);
-
-    /// <summary>Converts a provider value to the target CLR type when no converter is configured.</summary>
-    private static object? ChangeType(object value, Type targetType)
-    {
-        if (targetType.IsInstanceOfType(value))
-            return value;
-
-        var nonNullableTargetType = Nullable.GetUnderlyingType(targetType) ?? targetType;
-        return Convert.ChangeType(value, nonNullableTargetType, CultureInfo.InvariantCulture);
-    }
 
     /// <summary>Returns the expected set wire member name for a provider element type.</summary>
     private static string GetExpectedSetWireMemberName(Type providerType)
