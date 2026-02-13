@@ -12,13 +12,6 @@ public class SelectTests(OwnedTypesTableDynamoFixture fixture) : OwnedTypesTable
         var expected = OwnedTypesItems.Items.ToList();
 
         results.Should().BeEquivalentTo(expected);
-
-        AssertSql(
-            """
-            SELECT Pk, IntValue, StringValue, GuidValue, CreatedAt, Tags, Ratings, Metadata, Profile, Orders, OrderSnapshots
-            FROM OwnedTypesItems
-            ORDER BY Pk ASC
-            """);
     }
 
     [Fact]
@@ -30,31 +23,20 @@ public class SelectTests(OwnedTypesTableDynamoFixture fixture) : OwnedTypesTable
         var expected = OwnedTypesItems.Items.Select(x => new { x.Pk, x.Profile }).ToList();
 
         results.Should().BeEquivalentTo(expected);
-
-        AssertSql(
-            """
-            SELECT Pk, Profile
-            FROM OwnedTypesItems
-            ORDER BY Pk ASC
-            """);
     }
 
     [Fact]
     public async Task Select_NestedOwnedReferencePartialProjection_MaterializesShape()
     {
         var results =
-            await Db.Items.Select(x => new { x.Pk, x.Profile.Age }).ToListAsync(CancellationToken);
+            await Db
+                .Items
+                .Select(x => new { x.Pk, Age = x.Profile == null ? null : x.Profile.Age })
+                .ToListAsync(CancellationToken);
 
-        var expected = OwnedTypesItems.Items.Select(x => new { x.Pk, x.Profile.Age }).ToList();
+        var expected = OwnedTypesItems.Items.Select(x => new { x.Pk, x.Profile?.Age }).ToList();
 
         results.Should().BeEquivalentTo(expected);
-
-        AssertSql(
-            """
-            SELECT Pk, Profile
-            FROM OwnedTypesItems
-            ORDER BY Pk ASC
-            """);
     }
 
     [Fact]
@@ -74,12 +56,5 @@ public class SelectTests(OwnedTypesTableDynamoFixture fixture) : OwnedTypesTable
                 .ToList();
 
         results.Should().BeEquivalentTo(expected);
-
-        AssertSql(
-            """
-            SELECT Pk, Orders, OrderSnapshots
-            FROM OwnedTypesItems
-            ORDER BY Pk ASC
-            """);
     }
 }

@@ -320,11 +320,4 @@ internal static partial class OwnedTypesItemMapper
     /// <summary>Maps CLR test items to DynamoDB item payloads.</summary>
     internal static List<Dictionary<string, AttributeValue>> ToItems(List<OwnedShapeItem> sources)
         => sources.Select(ToItem).ToList();
-
-    /// <summary>Maps a DynamoDB item payload back to a CLR test item.</summary>
-    internal static partial OwnedShapeItem FromItem(Dictionary<string, AttributeValue> item);
-
-    /// <summary>Maps DynamoDB item payloads back to CLR test items.</summary>
-    internal static List<OwnedShapeItem> FromItems(List<Dictionary<string, AttributeValue>> items)
-        => items.Select(FromItem).ToList();
 }
