@@ -12,6 +12,12 @@ public class SelectTests(OwnedTypesTableDynamoFixture fixture) : OwnedTypesTable
         var expected = OwnedTypesItems.Items.ToList();
 
         results.Should().BeEquivalentTo(expected);
+
+        AssertSql(
+            """
+            SELECT Pk, CreatedAt, GuidValue, IntValue, Ratings, StringValue, Tags, Orders, OrderSnapshots, Profile
+            FROM OwnedTypesItems
+            """);
     }
 
     [Fact]
@@ -23,6 +29,12 @@ public class SelectTests(OwnedTypesTableDynamoFixture fixture) : OwnedTypesTable
         var expected = OwnedTypesItems.Items.Select(x => new { x.Pk, x.Profile }).ToList();
 
         results.Should().BeEquivalentTo(expected);
+
+        AssertSql(
+            """
+            SELECT Pk, Profile
+            FROM OwnedTypesItems
+            """);
     }
 
     [Fact]
@@ -37,6 +49,12 @@ public class SelectTests(OwnedTypesTableDynamoFixture fixture) : OwnedTypesTable
         var expected = OwnedTypesItems.Items.Select(x => new { x.Pk, x.Profile?.Age }).ToList();
 
         results.Should().BeEquivalentTo(expected);
+
+        AssertSql(
+            """
+            SELECT Pk, Profile
+            FROM OwnedTypesItems
+            """);
     }
 
     [Fact]
@@ -56,6 +74,12 @@ public class SelectTests(OwnedTypesTableDynamoFixture fixture) : OwnedTypesTable
                 .ToList();
 
         results.Should().BeEquivalentTo(expected);
+
+        AssertSql(
+            """
+            SELECT Pk, Orders, OrderSnapshots
+            FROM OwnedTypesItems
+            """);
     }
 
     [Fact]
@@ -80,5 +104,12 @@ public class SelectTests(OwnedTypesTableDynamoFixture fixture) : OwnedTypesTable
             orderEntry.Metadata.FindPrimaryKey()!.Properties.Should().Contain(ordinalProperty);
             orderEntry.Property(ordinalProperty.Name).CurrentValue.Should().Be(i + 1);
         }
+
+        AssertSql(
+            """
+            SELECT Pk, CreatedAt, GuidValue, IntValue, Ratings, StringValue, Tags, Orders, OrderSnapshots, Profile
+            FROM OwnedTypesItems
+            WHERE Pk = 'OWNED#3'
+            """);
     }
 }
