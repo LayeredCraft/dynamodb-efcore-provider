@@ -15,10 +15,17 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
 /// </summary>
 public class DynamoProjectionBindingExpressionVisitor(
     DynamoSqlTranslatingExpressionVisitor sqlTranslator,
-    ISqlExpressionFactory sqlExpressionFactory) : ExpressionVisitor
+    ISqlExpressionFactory sqlExpressionFactory,
+    IModel model) : ExpressionVisitor
 {
     private readonly Dictionary<ProjectionMember, Expression> _projectionMapping = new();
     private readonly Stack<ProjectionMember> _projectionMembers = new();
+
+    private readonly Dictionary<IEntityType, HashSet<string>> _topLevelOwnedContainerNameCache =
+        new();
+
+    private readonly Dictionary<IEntityType, HashSet<string>>
+        _nestedOwnedContainerNameCache = new();
     private bool _indexBasedBinding;
     private SelectExpression _selectExpression = null!;
 
@@ -244,9 +251,17 @@ public class DynamoProjectionBindingExpressionVisitor(
 
             var indexEntityProjection =
                 new DynamoEntityProjectionExpression(indexEntityType, sqlExpressionFactory);
+            var topLevelOwnedContainingAttributeNames =
+                GetTopLevelOwnedContainingAttributeNames(indexEntityType);
 
             foreach (var property in indexEntityType.GetProperties())
             {
+                if (!OwnedProjectionMetadata.ShouldProjectTopLevelProperty(
+                    indexEntityType,
+                    property,
+                    topLevelOwnedContainingAttributeNames))
+                    continue;
+
                 var sqlProperty = indexEntityProjection.BindProperty(property);
                 _selectExpression.AddToProjection(sqlProperty, property.Name);
             }
@@ -280,8 +295,16 @@ public class DynamoProjectionBindingExpressionVisitor(
                 $"Expected IEntityType but got {entityShaperExpression.StructuralType.GetType().Name}");
 
         // Use entity projection to bind each property (single source of truth)
+        var mappingTopLevelOwnedContainingAttributeNames =
+            GetTopLevelOwnedContainingAttributeNames(entityType);
         foreach (var property in entityType.GetProperties())
         {
+            if (!OwnedProjectionMetadata.ShouldProjectTopLevelProperty(
+                entityType,
+                property,
+                mappingTopLevelOwnedContainingAttributeNames))
+                continue;
+
             var sqlProperty = dynamoEntityProjection.BindProperty(property);
             var memberInfo = DynamoEntityProjectionExpression.GetMemberInfo(property);
             var projectionMember = _projectionMembers.Peek().Append(memberInfo);
@@ -324,6 +347,12 @@ public class DynamoProjectionBindingExpressionVisitor(
             }
 
             var propertyName = node.Member.Name;
+            if (shaperEntityType != null
+                && IsNestedOwnedContainingAttributeName(shaperEntityType, propertyName))
+                throw new InvalidOperationException(
+                    $"Cannot project nested owned container '{propertyName}' from entity '{shaperEntityType.DisplayName()}' as a top-level attribute. "
+                    + "Project the top-level owned container and access nested members via dot notation.");
+
             var sqlProperty = sqlExpressionFactory.Property(propertyName, node.Type);
 
             if (_indexBasedBinding)
@@ -401,9 +430,12 @@ public class DynamoProjectionBindingExpressionVisitor(
             && node.Arguments.Count == 2
             && node.Arguments[1] is ConstantExpression { Value: string propertyName })
         {
-            if (node.Arguments[0] is StructuralTypeShaperExpression shaperExpression
-                && shaperExpression.StructuralType is IEntityType entityType
-                && entityType.IsOwned())
+            var ownerEntityType =
+                (node.Arguments[0] as StructuralTypeShaperExpression)
+                ?.StructuralType as IEntityType;
+            ownerEntityType ??= model.FindEntityType(node.Arguments[0].Type);
+
+            if (ownerEntityType is { } ownedEntityType && ownedEntityType.IsOwned())
             {
                 if (!_indexBasedBinding)
                     return QueryCompilationContext.NotTranslatedExpression;
@@ -439,6 +471,11 @@ public class DynamoProjectionBindingExpressionVisitor(
             }
 
             var sqlProperty = sqlExpressionFactory.Property(propertyName, node.Type);
+            if (ownerEntityType != null
+                && IsNestedOwnedContainingAttributeName(ownerEntityType, propertyName))
+                throw new InvalidOperationException(
+                    $"Cannot project nested owned container '{propertyName}' from entity '{ownerEntityType.DisplayName()}' as a top-level attribute. "
+                    + "Project the top-level owned container and access nested members via dot notation.");
 
             if (_indexBasedBinding)
             {
@@ -566,6 +603,40 @@ public class DynamoProjectionBindingExpressionVisitor(
             _selectExpression,
             _projectionMembers.Peek(),
             node.Type);
+    }
+
+    /// <summary>Gets top-level owned containing-attribute names for a root entity, using a local cache.</summary>
+    private HashSet<string> GetTopLevelOwnedContainingAttributeNames(IEntityType entityType)
+    {
+        if (_topLevelOwnedContainerNameCache.TryGetValue(entityType, out var cached))
+            return cached;
+
+        var topLevelNames =
+            OwnedProjectionMetadata.GetTopLevelOwnedContainingAttributeNames(entityType);
+
+        _topLevelOwnedContainerNameCache[entityType] = topLevelNames;
+        return topLevelNames;
+    }
+
+    /// <summary>Gets nested owned containing-attribute names for a root entity, using a local cache.</summary>
+    private HashSet<string> GetNestedOwnedContainingAttributeNames(IEntityType entityType)
+    {
+        if (_nestedOwnedContainerNameCache.TryGetValue(entityType, out var cached))
+            return cached;
+
+        var nestedNames =
+            OwnedProjectionMetadata.GetNestedOwnedContainingAttributeNames(entityType);
+
+        _nestedOwnedContainerNameCache[entityType] = nestedNames;
+        return nestedNames;
+    }
+
+    /// <summary>Determines whether a property name is a nested owned containing attribute for an entity.</summary>
+    private bool IsNestedOwnedContainingAttributeName(IEntityType entityType, string propertyName)
+    {
+        var nestedOwnedContainingAttributeNames =
+            GetNestedOwnedContainingAttributeNames(entityType);
+        return nestedOwnedContainingAttributeNames.Contains(propertyName);
     }
 
 }

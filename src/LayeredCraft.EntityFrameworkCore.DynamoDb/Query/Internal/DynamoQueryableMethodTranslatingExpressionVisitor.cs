@@ -28,7 +28,8 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
         _sqlTranslator = new DynamoSqlTranslatingExpressionVisitor(sqlExpressionFactory);
         _projectionBindingExpressionVisitor = new DynamoProjectionBindingExpressionVisitor(
             _sqlTranslator,
-            sqlExpressionFactory);
+            sqlExpressionFactory,
+            queryCompilationContext.Model);
     }
 
     protected override QueryableMethodTranslatingExpressionVisitor CreateSubqueryVisitor()
