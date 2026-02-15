@@ -72,6 +72,16 @@ protected override void OnModelCreating(ModelBuilder modelBuilder)
 }
 ```
 
+## Owned and embedded types
+- Complex navigation types are discovered as owned by convention.
+- Primitive properties and supported primitive collection shapes remain scalar properties.
+- Supported primitive collection shapes are:
+  - lists: `T[]`, `List<T>`, `IList<T>`, `IReadOnlyList<T>`
+  - sets: `HashSet<T>`, `ISet<T>`, `IReadOnlySet<T>`
+  - dictionaries with string keys: `Dictionary<string,TValue>`, `IDictionary<string,TValue>`,
+    `IReadOnlyDictionary<string,TValue>`, `ReadOnlyDictionary<string,TValue>`
+- You can still configure ownership explicitly with `OwnsOne`/`OwnsMany` when needed.
+
 ## What works today
 - `UseDynamo` registers provider services and query pipeline components.
 - Table mapping uses a Dynamo-specific annotation (`Dynamo:TableName`).

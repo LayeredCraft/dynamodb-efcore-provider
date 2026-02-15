@@ -70,8 +70,11 @@ var rows = await db.SimpleItems
 
 ## Owned types
 
-The provider supports EF Core owned entity types (`OwnsOne`, `OwnsMany`) for embedding complex object
-graphs within a single DynamoDB item.
+The provider supports EF Core owned entity types for embedding complex object graphs within a single
+DynamoDB item.
+
+- Owned navigations are discovered automatically by convention for complex CLR types.
+- Explicit `OwnsOne`/`OwnsMany` configuration is still supported when you need to override defaults.
 
 ### Storage model
 - **Owned references** (`OwnsOne`): stored as `AttributeValue.M` (nested map)
