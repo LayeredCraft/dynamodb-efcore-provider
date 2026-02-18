@@ -70,4 +70,12 @@ public abstract class OwnedTypesTableTestBase(OwnedTypesTableDynamoFixture fixtu
             request.RequestItems = response.UnprocessedItems;
         }
     }
+
+    /// <summary>Writes a single DynamoDB item for scenario-specific test setup.</summary>
+    protected Task PutItemAsync(
+        Dictionary<string, AttributeValue> item,
+        CancellationToken cancellationToken)
+        => Client.PutItemAsync(
+            new PutItemRequest { TableName = OwnedTypesTableDynamoFixture.TableName, Item = item },
+            cancellationToken);
 }

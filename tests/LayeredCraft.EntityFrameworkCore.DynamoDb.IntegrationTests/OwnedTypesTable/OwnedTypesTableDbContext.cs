@@ -21,32 +21,6 @@ public class OwnedTypesTableDbContext(DbContextOptions options) : DbContext(opti
             builder.ToTable(OwnedTypesTableDynamoFixture.TableName);
             builder.HasKey(x => x.Pk);
 
-            // builder.OwnsOne(
-            //     x => x.Profile,
-            //     profileBuilder =>
-            //     {
-            //         profileBuilder.OwnsOne(
-            //             x => x.Address,
-            //             addressBuilder =>
-            //             {
-            //                 addressBuilder.OwnsOne(x => x.Geo);
-            //             });
-            //     });
-            //
-            // builder.OwnsMany(
-            //     x => x.Orders,
-            //     orderBuilder =>
-            //     {
-            //         orderBuilder.OwnsOne(
-            //             x => x.Payment,
-            //             paymentBuilder =>
-            //             {
-            //                 paymentBuilder.OwnsOne(x => x.Card);
-            //             });
-            //
-            //         orderBuilder.OwnsMany(x => x.Lines);
-            //     });
-            //
-            // builder.OwnsMany(x => x.OrderSnapshots);
+            // Intentionally rely on EF Core convention-based owned type discovery in this suite.
         });
 }
