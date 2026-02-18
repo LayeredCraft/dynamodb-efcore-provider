@@ -63,6 +63,7 @@ public class SelectTests(OwnedTypesTableDynamoFixture fixture) : OwnedTypesTable
         var results =
             await Db
                 .Items
+                .AsNoTracking()
                 .Select(x => new { x.Pk, x.Orders, x.OrderSnapshots })
                 .ToListAsync(CancellationToken);
 
