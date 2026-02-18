@@ -229,4 +229,27 @@ public class SelectTests(OwnedTypesTableDynamoFixture fixture) : OwnedTypesTable
             WHERE Pk = 'OWNED#3'
             """);
     }
+
+    [Fact]
+    public async Task ToListAsync_AsNoTracking_OwnedCollections_MaterializeCorrectly()
+    {
+        var item =
+            await Db
+                .Items
+                .AsNoTracking()
+                .Where(x => x.Pk == "OWNED#3")
+                .AsAsyncEnumerable()
+                .SingleAsync(CancellationToken);
+
+        item.Orders.Should().HaveCount(2);
+        item.Orders.Single(x => x.OrderNumber == "G-500").Lines.Should().HaveCount(1);
+        item.Orders.Single(x => x.OrderNumber == "G-501").Lines.Should().HaveCount(2);
+
+        AssertSql(
+            """
+            SELECT Pk, CreatedAt, GuidValue, IntValue, Ratings, StringValue, Tags, Orders, OrderSnapshots, Profile
+            FROM OwnedTypesItems
+            WHERE Pk = 'OWNED#3'
+            """);
+    }
 }
