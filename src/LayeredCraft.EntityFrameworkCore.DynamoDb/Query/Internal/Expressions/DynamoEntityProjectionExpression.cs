@@ -1,5 +1,6 @@
 using System.Linq.Expressions;
 using System.Reflection;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Storage;
 
@@ -49,7 +50,7 @@ public class DynamoEntityProjectionExpression : SqlExpression
         if (!_propertyExpressionsMap.TryGetValue(property, out var expression))
         {
             // Create SQL property expression on-demand
-            var propertyName = property.Name;
+            var propertyName = property.GetAttributeName();
             expression = _sqlExpressionFactory.Property(propertyName, property.ClrType);
             _propertyExpressionsMap[property] = expression;
         }
