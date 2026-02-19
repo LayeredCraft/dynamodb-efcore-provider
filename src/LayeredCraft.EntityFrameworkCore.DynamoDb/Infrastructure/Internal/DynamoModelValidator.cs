@@ -170,7 +170,9 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
         {
             foreach (var navigation in entityType.GetDeclaredNavigations())
             {
-                if (!navigation.IsCollection || !navigation.IsEmbedded())
+                if (!navigation.IsCollection
+                    || !navigation.IsEmbedded()
+                    || !navigation.TargetEntityType.IsOwned())
                     continue;
 
                 if (DynamoTypeMappingSource.TryGetListElementType(navigation.ClrType, out _))

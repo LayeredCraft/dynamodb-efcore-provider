@@ -7,6 +7,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 using NSubstitute;
 
+// ReSharper disable AutoPropertyCanBeMadeGetOnly.Local
+
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Tests.Query;
 
 /// <summary>
@@ -15,84 +17,6 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Tests.Query;
 /// </summary>
 public class OwnedReferenceProjectionTests
 {
-    // Shared owned CLR type used by both root entities to trigger the ambiguity scenario.
-    private sealed record SharedProfile
-    {
-        public string DisplayName { get; } = null!;
-        public int? Age { get; set; }
-    }
-
-    private sealed record EntityA
-    {
-        public string Pk { get; set; } = null!;
-        public SharedProfile? Profile { get; set; }
-    }
-
-    private sealed record EntityB
-    {
-        public string Pk { get; set; } = null!;
-        public SharedProfile? Profile { get; set; }
-    }
-
-    private sealed record RequiredEntity
-    {
-        public string Pk { get; set; } = null!;
-        public SharedProfile Profile { get; set; } = null!;
-    }
-
-    // DbContext that registers both EntityA and EntityB, both owning SharedProfile.
-    // This creates the ambiguous model: two navigations named "Profile" targeting the same CLR
-    // type.
-    private sealed class AmbiguousModelDbContext(DbContextOptions options) : DbContext(options)
-    {
-        public DbSet<EntityA> EntityAs { get; set; }
-        public DbSet<EntityB> EntityBs { get; set; }
-
-        protected override void OnModelCreating(ModelBuilder modelBuilder)
-        {
-            modelBuilder.Entity<EntityA>(b =>
-            {
-                b.ToTable("EntityATable");
-                b.HasKey(x => x.Pk);
-                b.OwnsOne(x => x.Profile);
-            });
-
-            modelBuilder.Entity<EntityB>(b =>
-            {
-                b.ToTable("EntityBTable");
-                b.HasKey(x => x.Pk);
-                b.OwnsOne(x => x.Profile);
-            });
-        }
-
-        public static AmbiguousModelDbContext Create(IAmazonDynamoDB client)
-            => new(
-                new DbContextOptionsBuilder<AmbiguousModelDbContext>()
-                    .UseDynamo(o => o.DynamoDbClient(client))
-                    .Options);
-    }
-
-    /// <summary>DbContext with a required owned-reference navigation used to validate requiredness errors.</summary>
-    private sealed class RequiredOwnedDbContext(DbContextOptions options) : DbContext(options)
-    {
-        public DbSet<RequiredEntity> RequiredEntities { get; set; }
-
-        protected override void OnModelCreating(ModelBuilder modelBuilder)
-            => modelBuilder.Entity<RequiredEntity>(b =>
-            {
-                b.ToTable("RequiredEntityTable");
-                b.HasKey(x => x.Pk);
-                b.OwnsOne(x => x.Profile);
-                b.Navigation(x => x.Profile).IsRequired();
-            });
-
-        public static RequiredOwnedDbContext Create(IAmazonDynamoDB client)
-            => new(
-                new DbContextOptionsBuilder<RequiredOwnedDbContext>()
-                    .UseDynamo(o => o.DynamoDbClient(client))
-                    .Options);
-    }
-
     private static IAmazonDynamoDB CreateMockClientReturning(
         Dictionary<string, AttributeValue> item)
     {
@@ -391,5 +315,83 @@ public class OwnedReferenceProjectionTests
             .Should()
             .Throw<InvalidOperationException>()
             .WithMessage("*without navigation metadata*DynamoObjectAccessExpression*");
+    }
+
+    // Shared owned CLR type used by both root entities to trigger the ambiguity scenario.
+    private sealed record SharedProfile
+    {
+        public int? Age { get; set; }
+        public string DisplayName { get; set; } = null!;
+    }
+
+    private sealed record EntityA
+    {
+        public string Pk { get; set; } = null!;
+        public SharedProfile? Profile { get; set; }
+    }
+
+    private sealed record EntityB
+    {
+        public string Pk { get; set; } = null!;
+        public SharedProfile? Profile { get; set; }
+    }
+
+    private sealed record RequiredEntity
+    {
+        public string Pk { get; set; } = null!;
+        public SharedProfile Profile { get; set; } = null!;
+    }
+
+    // DbContext that registers both EntityA and EntityB, both owning SharedProfile.
+    // This creates the ambiguous model: two navigations named "Profile" targeting the same CLR
+    // type.
+    private sealed class AmbiguousModelDbContext(DbContextOptions options) : DbContext(options)
+    {
+        public DbSet<EntityA> EntityAs { get; set; }
+        public DbSet<EntityB> EntityBs { get; set; }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<EntityA>(b =>
+            {
+                b.ToTable("EntityATable");
+                b.HasKey(x => x.Pk);
+                b.OwnsOne(x => x.Profile);
+            });
+
+            modelBuilder.Entity<EntityB>(b =>
+            {
+                b.ToTable("EntityBTable");
+                b.HasKey(x => x.Pk);
+                b.OwnsOne(x => x.Profile);
+            });
+        }
+
+        public static AmbiguousModelDbContext Create(IAmazonDynamoDB client)
+            => new(
+                new DbContextOptionsBuilder<AmbiguousModelDbContext>()
+                    .UseDynamo(o => o.DynamoDbClient(client))
+                    .Options);
+    }
+
+    /// <summary>DbContext with a required owned-reference navigation used to validate requiredness errors.</summary>
+    private sealed class RequiredOwnedDbContext(DbContextOptions options) : DbContext(options)
+    {
+        public DbSet<RequiredEntity> RequiredEntities { get; set; }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<RequiredEntity>(b =>
+            {
+                b.ToTable("RequiredEntityTable");
+                b.HasKey(x => x.Pk);
+                b.OwnsOne(x => x.Profile);
+                b.Navigation(x => x.Profile).IsRequired();
+            });
+
+        public static RequiredOwnedDbContext Create(IAmazonDynamoDB client)
+            => new(
+                new DbContextOptionsBuilder<RequiredOwnedDbContext>()
+                    .UseDynamo(o => o.DynamoDbClient(client))
+                    .Options);
     }
 }
