@@ -43,11 +43,11 @@ context.Items.Where(x => x.Profile.Address.City == "Seattle")
 context.Items.OrderBy(x => x.Profile.Age)
 ```
 
-**Workaround:** Use `AsEnumerable()` to switch to client-side evaluation:
+**Workaround:** Use `AsAsyncEnumerable()` to switch to client-side evaluation:
 ```csharp
 // ✅ Supported: client-side filter after materialization
 var filtered = await context.Items
-    .AsEnumerable()
+    .AsAsyncEnumerable()
     .Where(x => x.Profile?.Address?.City == "Seattle")
     .ToListAsync();
 ```
@@ -60,11 +60,11 @@ You cannot query an owned collection directly:
 context.Items.SelectMany(x => x.Orders).Where(o => o.Total > 100)
 ```
 
-**Workaround:** Use `AsEnumerable()` to switch to LINQ-to-objects:
+**Workaround:** Use `AsAsyncEnumerable()` to switch to LINQ-to-objects:
 ```csharp
 // ✅ Supported
 var orders = await context.Items
-    .AsEnumerable()
+    .AsAsyncEnumerable()
     .SelectMany(x => x.Orders)
     .Where(o => o.Total > 100)
     .ToListAsync();
@@ -73,3 +73,5 @@ var orders = await context.Items
 ### Owned types and Include (not applicable)
 Owned types are always included in the root entity query; explicit `.Include()` is not needed
 (and will be ignored).
+
+For complete owned type behavior and examples, see [Owned Types](owned-types.md).

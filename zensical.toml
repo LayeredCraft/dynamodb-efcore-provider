@@ -16,7 +16,8 @@ nav = [
   { "Querying" = [
     { "Operators" = "operators.md" },
     { "Pagination" = "pagination.md" },
-    { "Projections" = "projections.md" }
+    { "Projections" = "projections.md" },
+    { "Owned Types" = "owned-types.md" }
   ] },
   { "Diagnostics" = "diagnostics.md" },
   { "Limitations" = "limitations.md" }

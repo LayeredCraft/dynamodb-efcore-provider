@@ -74,44 +74,20 @@ The provider supports EF Core owned entity types for embedding complex object gr
 DynamoDB item.
 
 - Owned navigations are discovered automatically by convention for complex CLR types.
+- By convention, navigation target types that are not DynamoDB primitive-mapped CLR types and not
+  supported primitive collection shapes are registered as owned during model discovery.
 - Explicit `OwnsOne`/`OwnsMany` configuration is still supported when you need to override defaults.
+- For owned collections discovered this way, the provider adds a synthetic ordinal key at model
+  finalization for stable identity and change tracking.
+- Owned references materialize from `AttributeValue.M`; owned collections materialize from
+  `AttributeValue.L`.
+- Query translation still projects top-level attributes only, then extracts nested owned members
+  client-side during shaping.
+- Dictionary-valued owned navigations (for example `Dictionary<string, OwnedType>`) are not
+  translated/materialized yet; use `OwnsMany` collections for now.
 
-### Storage model
-- **Owned references** (`OwnsOne`): stored as `AttributeValue.M` (nested map)
-- **Owned collections** (`OwnsMany`): stored as `AttributeValue.L` (list of maps)
-- Nested ownership is supported recursively (owned types can contain other owned types)
-
-### Query behavior
-Due to DynamoDB PartiQL limitations, the provider **always projects top-level attributes only** and
-extracts nested owned values client-side during materialization.
-
-Example:
-```csharp
-var query = context.Items
-    .Select(x => new { x.Pk, x.Profile.Address.City });
-```
-
-Generated PartiQL:
-```sql
-SELECT Pk, Profile
-FROM Items
-```
-
-The `Profile` attribute (an `AttributeValue.M`) is projected as a whole, then `Address.City` is
-extracted during client-side materialization.
-
-### Null handling
-- Missing owned navigation attribute: materializes as `null` (for optional owned) or throws (for
-  required owned)
-- Explicit DynamoDB NULL (`AttributeValue.NULL == true`): same behavior as missing
-- Optional owned navigation chains null-propagate: `x.Profile.Address.City` returns `null` if
-  `Profile` is null
-
-### Limitations
-- Nested path queries not supported in `WHERE`/`ORDER BY` (e.g.,
-  `.Where(x => x.Profile.Address.City == "Seattle")`)
-- Owned types cannot be queried directly; must query via root entity
-- See [Limitations](limitations.md) for details
+For full configuration, null behavior, storage examples, and limitations, see
+[Owned Types](owned-types.md).
 
 ## Notes
 - Client-side computed projections follow normal .NET null behavior.
