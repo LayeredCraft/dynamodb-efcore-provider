@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Linq.Expressions;
 using System.Reflection;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
+using LayeredCraft.EntityFrameworkCore.DynamoDb.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Query;
@@ -217,6 +218,45 @@ public class DynamoProjectionBindingExpressionVisitor(
             if (!_indexBasedBinding)
                 return QueryCompilationContext.NotTranslatedExpression;
 
+            if (materializeCollectionNavigationExpression.Navigation is INavigation
+                    embeddedNavigation
+                && embeddedNavigation.IsEmbedded())
+            {
+                // Embedded collections are projected as their containing DynamoDB list attribute.
+                // We retain the best available element shaper so downstream materialization can
+                // still populate owned members and shadow state consistently.
+                var elementShaperExpression =
+                    TryExtractCollectionNavigationElementShaperExpression(
+                        materializeCollectionNavigationExpression.Subquery,
+                        embeddedNavigation)
+                    ?? TryExtractElementShaperExpression(
+                        materializeCollectionNavigationExpression.Subquery,
+                        embeddedNavigation.TargetEntityType);
+                elementShaperExpression ??= new StructuralTypeShaperExpression(
+                    embeddedNavigation.TargetEntityType,
+                    Expression.Constant(ValueBuffer.Empty),
+                    true);
+
+                var elementType =
+                    DynamoTypeMappingSource.TryGetListElementType(
+                        embeddedNavigation.ClrType,
+                        out var resolvedElementType)
+                        ? resolvedElementType
+                        : embeddedNavigation.TargetEntityType.ClrType;
+
+                var attributeName =
+                    embeddedNavigation.TargetEntityType.GetContainingAttributeName()
+                    ?? embeddedNavigation.Name;
+
+                _selectExpression.AddEmbeddedAttributeToProjection(attributeName);
+
+                return new DynamoCollectionShaperExpression(
+                    new DynamoObjectArrayProjectionExpression(embeddedNavigation, attributeName),
+                    elementShaperExpression,
+                    embeddedNavigation,
+                    elementType);
+            }
+
             return base.VisitExtension(materializeCollectionNavigationExpression);
         }
 
@@ -265,6 +305,9 @@ public class DynamoProjectionBindingExpressionVisitor(
                 var sqlProperty = indexEntityProjection.BindProperty(property);
                 _selectExpression.AddToProjection(sqlProperty, property.Name);
             }
+
+            foreach (var containingAttributeName in topLevelOwnedContainingAttributeNames)
+                _selectExpression.AddEmbeddedAttributeToProjection(containingAttributeName);
 
             return entityShaperExpression;
         }
@@ -637,6 +680,160 @@ public class DynamoProjectionBindingExpressionVisitor(
         var nestedOwnedContainingAttributeNames =
             GetNestedOwnedContainingAttributeNames(entityType);
         return nestedOwnedContainingAttributeNames.Contains(propertyName);
+    }
+
+    /// <summary>Finds an owned-collection element shaper expression within an expression tree.</summary>
+    private static Expression? TryExtractElementShaperExpression(
+        Expression expression,
+        IEntityType targetEntityType)
+    {
+        if (expression is ShapedQueryExpression shapedQueryExpression)
+            return TryExtractElementShaperExpression(
+                shapedQueryExpression.ShaperExpression,
+                targetEntityType);
+
+        if (IsTargetShaper(expression, targetEntityType))
+            return expression;
+
+        var finder = new ElementShaperExpressionFinder(targetEntityType);
+        finder.Visit(expression);
+        return finder.Result;
+    }
+
+    /// <summary>Finds an owned collection element shaper expression for a specific collection navigation.</summary>
+    private static Expression? TryExtractCollectionNavigationElementShaperExpression(
+        Expression expression,
+        INavigation navigation)
+    {
+        var finder = new NavigationCollectionShaperFinder(navigation);
+        finder.Visit(expression);
+        return finder.Result;
+    }
+
+    /// <summary>
+    ///     Determines whether an expression represents a structural shaper for the target entity
+    ///     type.
+    /// </summary>
+    private static bool IsTargetShaper(Expression expression, IEntityType targetEntityType)
+        => expression is StructuralTypeShaperExpression
+            {
+                StructuralType: IEntityType { ClrType: var clrType },
+            }
+            && clrType == targetEntityType.ClrType;
+
+    /// <summary>Traverses an expression tree to locate a nested collection element shaper.</summary>
+    /// <remarks>
+    ///     A copy of this class also lives in
+    ///     <see cref="DynamoProjectionBindingRemovingExpressionVisitor" />; the duplication is deliberate
+    ///     to avoid cross-visitor coupling.
+    /// </remarks>
+    private sealed class ElementShaperExpressionFinder : ExpressionVisitor
+    {
+        private readonly IEntityType _targetEntityType;
+
+        /// <summary>Creates a finder scoped to a specific target entity type.</summary>
+        public ElementShaperExpressionFinder(IEntityType targetEntityType)
+            => _targetEntityType = targetEntityType;
+
+        /// <summary>Gets the first element shaper expression found during traversal.</summary>
+        public Expression? Result { get; private set; }
+
+        /// <summary>Visits expressions until a shaped query expression is discovered.</summary>
+        public override Expression? Visit(Expression? node)
+        {
+            if (node == null || Result != null)
+                return node;
+
+            if (node is ShapedQueryExpression shapedQueryExpression)
+                return Visit(shapedQueryExpression.ShaperExpression);
+
+            if (node is StructuralTypeShaperExpression
+                {
+                    StructuralType: IEntityType { ClrType: var clrType },
+                } structuralTypeShaperExpression
+                && clrType == _targetEntityType.ClrType)
+            {
+                Result = structuralTypeShaperExpression;
+                return node;
+            }
+
+            return base.Visit(node);
+        }
+    }
+
+    /// <summary>Finds whether a target structural shaper exists within a tree.</summary>
+    /// <remarks>
+    ///     A copy of this class also lives in
+    ///     <see cref="DynamoProjectionBindingRemovingExpressionVisitor" />; the duplication is deliberate
+    ///     to avoid cross-visitor coupling.
+    /// </remarks>
+    private sealed class TargetShaperPresenceFinder(IEntityType targetEntityType)
+        : ExpressionVisitor
+    {
+        /// <summary>Gets whether a target structural shaper has been found.</summary>
+        public bool Found { get; private set; }
+
+        /// <summary>Visits nodes until a matching structural shaper is found.</summary>
+        public override Expression? Visit(Expression? node)
+        {
+            if (node == null || Found)
+                return node;
+
+            if (IsTargetShaper(node, targetEntityType))
+            {
+                Found = true;
+                return node;
+            }
+
+            return base.Visit(node);
+        }
+    }
+
+    /// <summary>Finds a nested collection element shaper for a specific collection navigation.</summary>
+    private sealed class NavigationCollectionShaperFinder(INavigation navigation)
+        : ExpressionVisitor
+    {
+        /// <summary>Gets the first matching element shaper expression found during traversal.</summary>
+        public Expression? Result { get; private set; }
+
+        /// <summary>Visits nodes until a matching collection-shaper expression is discovered.</summary>
+        public override Expression? Visit(Expression? node)
+        {
+            if (node == null || Result != null)
+                return node;
+
+            // In the projection-binding phase the full ShapedQueryExpression.ShaperExpression is
+            // returned. Callers (TryExtractCollectionNavigationElementShaperExpression) pass this
+            // on to DynamoCollectionShaperExpression construction; the removing visitor receives it
+            // as InnerShaper and drills deeper at that stage via its own finder.
+            if (node is MaterializeCollectionNavigationExpression
+                {
+                    Navigation: INavigation candidateNavigation,
+                    Subquery: ShapedQueryExpression { ShaperExpression: var shaperExpression },
+                }
+                && candidateNavigation.Name == navigation.Name
+                && candidateNavigation.TargetEntityType.ClrType
+                == navigation.TargetEntityType.ClrType)
+            {
+                Result = shaperExpression;
+                return node;
+            }
+
+            if (node is DynamoCollectionShaperExpression
+                {
+                    Navigation: INavigation candidateDynamoNavigation,
+                    InnerShaper: var dynamoShaperExpression,
+                }
+                && candidateDynamoNavigation.Name == navigation.Name
+                && candidateDynamoNavigation.TargetEntityType.ClrType
+                == navigation.TargetEntityType.ClrType)
+            {
+                Result = dynamoShaperExpression;
+                return node;
+            }
+
+            return base.Visit(node);
+        }
     }
 
 }

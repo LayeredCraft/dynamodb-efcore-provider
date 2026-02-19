@@ -187,6 +187,15 @@ public class SelectExpression(string tableName) : Expression
     public int AddToProjection(SqlExpression sqlExpression, string alias)
         => AddProjectionIfNotExists(sqlExpression, alias);
 
+    /// <summary>
+    ///     Adds an embedded collection attribute to the SELECT projection by name. Used for owned
+    ///     collection attributes where no scalar type mapping is needed.
+    /// </summary>
+    public void AddEmbeddedAttributeToProjection(string attributeName)
+        => AddProjectionIfNotExists(
+            new SqlPropertyExpression(attributeName, typeof(object), null),
+            attributeName);
+
     /// <summary>Clears all projections.</summary>
     public void ClearProjection() => _projection.Clear();
 
@@ -248,6 +257,11 @@ public class SelectExpression(string tableName) : Expression
                     var index = AddProjectionIfNotExists(sqlExpr, memberInfo.Name);
                     result[propertyMember] = Constant(index);
                 }
+
+                foreach (var containingAttributeName in topLevelOwnedContainingAttributeNames)
+                    AddProjectionIfNotExists(
+                        new SqlPropertyExpression(containingAttributeName, typeof(object), null),
+                        containingAttributeName);
             }
             else
             {
@@ -259,6 +273,9 @@ public class SelectExpression(string tableName) : Expression
 
                 if (!string.IsNullOrEmpty(alias)
                     && nestedOwnedContainingAttributeNames.Contains(alias))
+                    // Root entity expansion already projects nested-owned containers; adding them
+                    // again from scalar projection paths would duplicate columns and shift
+                    // ordinals.
                     continue;
 
                 var index = AddProjectionIfNotExists(sqlExpr, alias ?? "");
@@ -274,7 +291,8 @@ public class SelectExpression(string tableName) : Expression
     /// </summary>
     private int AddProjectionIfNotExists(SqlExpression sqlExpression, string alias)
     {
-        // Check if we already have this expression in the projection list (deduplicate)
+        // Prefer alias deduplication first so independently-built equivalent SQL expressions still
+        // resolve to a stable projection ordinal for the same logical column.
         for (var i = 0; i < _projection.Count; i++)
             if (string.Equals(_projection[i].Alias, alias, StringComparison.Ordinal))
                 return i;
