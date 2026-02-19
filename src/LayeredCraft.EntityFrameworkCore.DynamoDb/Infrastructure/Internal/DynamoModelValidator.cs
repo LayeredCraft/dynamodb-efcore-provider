@@ -24,6 +24,8 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
 
             ValidateOwnedEntityType(entityType);
         }
+
+        ValidateEmbeddedOwnedCollectionNavigationShapes(model);
     }
 
     /// <summary>Validates primitive collection properties against DynamoDB provider shape constraints.</summary>
@@ -159,6 +161,27 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
             $"Owned collection element entity type '{entityType.DisplayName()}' does not have an ordinal "
             + "key property. Owned collection elements require a synthetic ordinal key for stable "
             + "identity and change tracking.");
+    }
+
+    /// <summary>Validates embedded owned collection navigations use provider-supported list CLR shapes.</summary>
+    private static void ValidateEmbeddedOwnedCollectionNavigationShapes(IModel model)
+    {
+        foreach (var entityType in model.GetEntityTypes())
+        {
+            foreach (var navigation in entityType.GetDeclaredNavigations())
+            {
+                if (!navigation.IsCollection || !navigation.IsEmbedded())
+                    continue;
+
+                if (DynamoTypeMappingSource.TryGetListElementType(navigation.ClrType, out _))
+                    continue;
+
+                throw new InvalidOperationException(
+                    $"Embedded owned collection navigation '{entityType.DisplayName()}.{navigation.Name}' uses CLR type "
+                    + $"'{navigation.ClrType.Name}', which is not supported by the DynamoDB provider. "
+                    + "Supported list shapes: T[], List<T>, IList<T>, IReadOnlyList<T>.");
+            }
+        }
     }
 
     /// <summary>Gets the DynamoDB table name annotation configured for an entity type.</summary>

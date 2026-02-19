@@ -55,6 +55,20 @@ public class OwnedTypesModelValidationTests : IClassFixture<OwnedTypesTableDynam
             .WithMessage("*containing attribute name*collides with owned navigation*");
     }
 
+    [Fact]
+    public void EmbeddedOwnedCollectionWithUnsupportedClrShape_ThrowsModelValidationError()
+    {
+        using var context = new UnsupportedOwnedCollectionShapeContext(
+            CreateOptions<UnsupportedOwnedCollectionShapeContext>());
+
+        var act = () => _ = context.Model;
+
+        act
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage("*Embedded owned collection navigation*Supported list shapes*");
+    }
+
     private DbContextOptions<TContext> CreateOptions<TContext>() where TContext : DbContext
     {
         var builder = new DbContextOptionsBuilder<TContext>();
@@ -138,6 +152,28 @@ public class OwnedTypesModelValidationTests : IClassFixture<OwnedTypesTableDynam
         public Profile PrimaryProfile { get; set; } = new();
 
         public Profile SecondaryProfile { get; set; } = new();
+    }
+
+    private sealed class UnsupportedOwnedCollectionShapeContext(
+        DbContextOptions<UnsupportedOwnedCollectionShapeContext> options) : DbContext(options)
+    {
+        public DbSet<OwnerWithUnsupportedCollectionShape> Items
+            => Set<OwnerWithUnsupportedCollectionShape>();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<OwnerWithUnsupportedCollectionShape>(entity =>
+            {
+                entity.ToTable(OwnedTypesTableDynamoFixture.TableName);
+                entity.HasKey(x => x.Pk);
+                entity.OwnsMany(x => x.Profiles);
+            });
+    }
+
+    private sealed class OwnerWithUnsupportedCollectionShape
+    {
+        public string Pk { get; set; } = string.Empty;
+
+        public ICollection<Profile> Profiles { get; set; } = new List<Profile>();
     }
 
     private sealed class Profile
