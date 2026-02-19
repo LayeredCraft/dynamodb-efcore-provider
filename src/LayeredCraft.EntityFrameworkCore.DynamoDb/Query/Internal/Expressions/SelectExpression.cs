@@ -270,9 +270,12 @@ public class SelectExpression(string tableName) : Expression
                 var alias = projectionMember.Last?.Name;
                 if (string.IsNullOrEmpty(alias) && sqlExpr is SqlPropertyExpression propExpr)
                     alias = propExpr.PropertyName;
+                if (string.IsNullOrEmpty(alias)
+                    && sqlExpr is DynamoObjectAccessExpression objAccessExpr)
+                    alias = objAccessExpr.PropertyName;
 
                 if (!string.IsNullOrEmpty(alias)
-                    && nestedOwnedContainingAttributeNames.Contains(alias))
+                        && nestedOwnedContainingAttributeNames.Contains(alias))
                     // Root entity expansion already projects nested-owned containers; adding them
                     // again from scalar projection paths would duplicate columns and shift
                     // ordinals.
@@ -295,7 +298,21 @@ public class SelectExpression(string tableName) : Expression
         // resolve to a stable projection ordinal for the same logical column.
         for (var i = 0; i < _projection.Count; i++)
             if (string.Equals(_projection[i].Alias, alias, StringComparison.Ordinal))
+            {
+                // When a typed DynamoObjectAccessExpression replaces a placeholder
+                // SqlPropertyExpression(typeof(object), null) that was added by
+                // AddEmbeddedAttributeToProjection, upgrade the slot in-place so the
+                // removing visitor's short-circuit on DynamoObjectAccessExpression fires.
+                if (sqlExpression is DynamoObjectAccessExpression
+                    && _projection[i].Expression is SqlPropertyExpression
+                    {
+                        TypeMapping: null,
+                    } placeholder
+                    && placeholder.Type == typeof(object))
+                    _projection[i] = new ProjectionExpression(sqlExpression, alias);
+
                 return i;
+            }
 
         for (var i = 0; i < _projection.Count; i++)
             if (_projection[i].Expression.Equals(sqlExpression))

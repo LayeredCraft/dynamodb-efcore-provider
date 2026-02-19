@@ -274,25 +274,30 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
 
                 // Get projection at this index
                 var projection = selectExpression.Projection[index];
+
+                // Primary path: owned reference navigation with INavigation preserved in the
+                // expression.
+                // This avoids the model-wide scan and is unambiguous even when multiple entities
+                // share the same navigation name and CLR type.
+                if (projection.Expression is DynamoObjectAccessExpression objectAccess)
+                    return CreateOwnedReferenceMaterializationExpression(objectAccess.Navigation);
+
                 var propertyName = projection.Expression is SqlPropertyExpression propertyExpression
                     ? propertyExpression.PropertyName
                     : projection.Alias;
 
                 // Get type mapping from SQL expression for converter support
                 var typeMapping = projection.Expression.TypeMapping;
+                EnsureOwnedProjectionHasNavigationMetadata(
+                    propertyName,
+                    projectionBinding.Type,
+                    typeMapping);
 
                 // For custom projections, we only have the CLR type, not IProperty metadata.
                 // Enforce strict requiredness for non-nullable value types to align with
                 // relational-style
                 // materialization semantics.
                 var required = IsNonNullableValueType(projectionBinding.Type);
-
-                if (typeMapping == null
-                    && TryResolveOwnedEmbeddedReferenceNavigation(
-                        propertyName,
-                        projectionBinding.Type,
-                        out var ownedNavigation))
-                    return CreateOwnedReferenceMaterializationExpression(ownedNavigation);
 
                 // Use unified code path with converter support
                 return CreateGetValueExpression(
@@ -309,19 +314,22 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
                 var index = projectionBinding.Index.Value;
 
                 var projection = selectExpression.Projection[index];
+
+                // Primary path: owned reference navigation with INavigation preserved in the
+                // expression.
+                if (projection.Expression is DynamoObjectAccessExpression objectAccess)
+                    return CreateOwnedReferenceMaterializationExpression(objectAccess.Navigation);
+
                 var propertyName = projection.Expression is SqlPropertyExpression propertyExpression
                     ? propertyExpression.PropertyName
                     : projection.Alias;
 
                 var typeMapping = projection.Expression.TypeMapping;
+                EnsureOwnedProjectionHasNavigationMetadata(
+                    propertyName,
+                    projectionBinding.Type,
+                    typeMapping);
                 var required = IsNonNullableValueType(projectionBinding.Type);
-
-                if (typeMapping == null
-                    && TryResolveOwnedEmbeddedReferenceNavigation(
-                        propertyName,
-                        projectionBinding.Type,
-                        out var ownedNavigation))
-                    return CreateOwnedReferenceMaterializationExpression(ownedNavigation);
 
                 return CreateGetValueExpression(
                     propertyName,
@@ -337,6 +345,23 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
             return node;
 
         return base.VisitExtension(node);
+    }
+
+    /// <summary>
+    ///     Enforces that owned-reference projections carry navigation metadata via
+    ///     <see cref="DynamoObjectAccessExpression" />.
+    /// </summary>
+    private void EnsureOwnedProjectionHasNavigationMetadata(
+        string propertyName,
+        Type projectionType,
+        CoreTypeMapping? typeMapping)
+    {
+        if (typeMapping != null || !_ownedClrTypes.Contains(projectionType))
+            return;
+
+        throw new InvalidOperationException(
+            $"Owned reference projection '{propertyName}' for CLR type '{projectionType.Name}' "
+            + $"reached materialization without navigation metadata. Ensure translation emits '{nameof(DynamoObjectAccessExpression)}' for owned embedded references.");
     }
 
     /// <summary>Adds null-propagation for member access over owned-reference instances.</summary>
@@ -415,43 +440,6 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
                 Equal(ownedMapVariable, Constant(null, ownedMapVariable.Type)),
                 Constant(null, shaperExpression.Type),
                 visitedOwnedShaper));
-    }
-
-    /// <summary>Resolves a projected member to an embedded owned reference navigation when unambiguous.</summary>
-    private bool TryResolveOwnedEmbeddedReferenceNavigation(
-        string propertyName,
-        Type projectedType,
-        out INavigation navigation)
-    {
-        navigation = null!;
-        INavigation? match = null;
-
-        foreach (var entityType in model.GetEntityTypes())
-        {
-            foreach (var candidate in entityType.GetNavigations())
-            {
-                if (candidate.Name != propertyName
-                    || candidate.IsCollection
-                    || !candidate.IsEmbedded()
-                    || !candidate.TargetEntityType.IsOwned())
-                    continue;
-
-                if (candidate.ClrType != projectedType
-                    && candidate.TargetEntityType.ClrType != projectedType)
-                    continue;
-
-                if (match != null)
-                    return false;
-
-                match = candidate;
-            }
-        }
-
-        if (match == null)
-            return false;
-
-        navigation = match;
-        return true;
     }
 
     /// <summary>

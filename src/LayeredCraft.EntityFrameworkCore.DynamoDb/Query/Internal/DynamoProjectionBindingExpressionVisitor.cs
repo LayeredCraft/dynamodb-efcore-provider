@@ -27,6 +27,7 @@ public class DynamoProjectionBindingExpressionVisitor(
 
     private readonly Dictionary<IEntityType, HashSet<string>>
         _nestedOwnedContainerNameCache = new();
+
     private bool _indexBasedBinding;
     private SelectExpression _selectExpression = null!;
 
@@ -396,6 +397,31 @@ public class DynamoProjectionBindingExpressionVisitor(
                     $"Cannot project nested owned container '{propertyName}' from entity '{shaperEntityType.DisplayName()}' as a top-level attribute. "
                     + "Project the top-level owned container and access nested members via dot notation.");
 
+            // Detect owned embedded reference navigations and preserve INavigation so the
+            // projection-binding removal visitor can materialise them without a model-wide scan.
+            if (shaperEntityType != null)
+            {
+                var nav = shaperEntityType.FindNavigation(propertyName);
+                if (nav != null
+                    && !nav.IsCollection
+                    && nav.IsEmbedded()
+                    && nav.TargetEntityType.IsOwned())
+                {
+                    var objectAccess = new DynamoObjectAccessExpression(nav);
+                    if (_indexBasedBinding)
+                    {
+                        var idx = _selectExpression.AddToProjection(objectAccess, propertyName);
+                        return new ProjectionBindingExpression(_selectExpression, idx, node.Type);
+                    }
+
+                    _projectionMapping[_projectionMembers.Peek()] = objectAccess;
+                    return new ProjectionBindingExpression(
+                        _selectExpression,
+                        _projectionMembers.Peek(),
+                        node.Type);
+                }
+            }
+
             var sqlProperty = sqlExpressionFactory.Property(propertyName, node.Type);
 
             if (_indexBasedBinding)
@@ -511,6 +537,31 @@ public class DynamoProjectionBindingExpressionVisitor(
                 return ownedValue.Type != node.Type
                     ? Expression.Convert(ownedValue, node.Type)
                     : ownedValue;
+            }
+
+            // When NEEV reduces OwnedNavigationReference → EF.Property(shaper, "Profile"),
+            // preserve INavigation so the removing visitor can materialise unambiguously.
+            if (ownerEntityType != null)
+            {
+                var nav = ownerEntityType.FindNavigation(propertyName);
+                if (nav != null
+                    && !nav.IsCollection
+                    && nav.IsEmbedded()
+                    && nav.TargetEntityType.IsOwned())
+                {
+                    var objectAccess = new DynamoObjectAccessExpression(nav);
+                    if (_indexBasedBinding)
+                    {
+                        var idx = _selectExpression.AddToProjection(objectAccess, propertyName);
+                        return new ProjectionBindingExpression(_selectExpression, idx, node.Type);
+                    }
+
+                    _projectionMapping[_projectionMembers.Peek()] = objectAccess;
+                    return new ProjectionBindingExpression(
+                        _selectExpression,
+                        _projectionMembers.Peek(),
+                        node.Type);
+                }
             }
 
             var sqlProperty = sqlExpressionFactory.Property(propertyName, node.Type);
@@ -835,5 +886,4 @@ public class DynamoProjectionBindingExpressionVisitor(
             return base.Visit(node);
         }
     }
-
 }
