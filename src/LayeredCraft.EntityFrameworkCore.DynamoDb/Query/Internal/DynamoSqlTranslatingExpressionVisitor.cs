@@ -29,8 +29,8 @@ public class DynamoSqlTranslatingExpressionVisitor(ISqlExpressionFactory sqlExpr
             return node;
 
         return sqlExpressionFactory.Binary(node.NodeType, left, right)
-               ?? throw new InvalidOperationException(
-                   $"Binary operator {node.NodeType} is not supported");
+            ?? throw new InvalidOperationException(
+                $"Binary operator {node.NodeType} is not supported");
     }
 
     /// <inheritdoc />
@@ -48,9 +48,11 @@ public class DynamoSqlTranslatingExpressionVisitor(ISqlExpressionFactory sqlExpr
         if (node.Expression is ParameterExpression)
             return sqlExpressionFactory.Property(node.Member.Name, node.Type);
 
-        // Don't handle closure access here - let EF Core's funcletizer convert
-        // captured variables to QueryParameterExpression, which we handle in VisitExtension
-        return base.VisitMember(node);
+        // For non-parameter member access, don't recurse with base visitor because EF may
+        // surface object-typed query expressions here, and ExpressionVisitor reconstruction
+        // can throw when re-binding members on System.Object.
+        // Let the projection pipeline fall back to index-based client projection.
+        return QueryCompilationContext.NotTranslatedExpression;
     }
 
     /// <inheritdoc />
@@ -66,9 +68,13 @@ public class DynamoSqlTranslatingExpressionVisitor(ISqlExpressionFactory sqlExpr
                 return sqlExpressionFactory.Parameter(queryParameter.Name, queryParameter.Type);
 
             default:
-                return base.VisitExtension(extensionExpression);
+                return QueryCompilationContext.NotTranslatedExpression;
         }
     }
+
+    /// <inheritdoc />
+    protected override Expression VisitMethodCall(MethodCallExpression node)
+        => QueryCompilationContext.NotTranslatedExpression;
 
     /// <inheritdoc />
     protected override Expression VisitUnary(UnaryExpression node)
@@ -78,11 +84,16 @@ public class DynamoSqlTranslatingExpressionVisitor(ISqlExpressionFactory sqlExpr
             || node.NodeType == ExpressionType.ConvertChecked)
         {
             var operand = Visit(node.Operand);
+            if (operand == QueryCompilationContext.NotTranslatedExpression)
+                return QueryCompilationContext.NotTranslatedExpression;
+
             if (operand is SqlExpression sqlOperand)
                 // Apply type mapping for the conversion
                 return sqlExpressionFactory.ApplyTypeMapping(sqlOperand, node.Type);
+
+            return QueryCompilationContext.NotTranslatedExpression;
         }
 
-        return base.VisitUnary(node);
+        return QueryCompilationContext.NotTranslatedExpression;
     }
 }

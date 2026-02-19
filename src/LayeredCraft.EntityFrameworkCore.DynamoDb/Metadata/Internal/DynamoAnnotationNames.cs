@@ -5,4 +5,6 @@ public static class DynamoAnnotationNames
     private const string Prefix = "Dynamo:";
 
     public const string TableName = Prefix + "TableName";
+
+    public const string ContainingAttributeName = Prefix + "ContainingAttributeName";
 }

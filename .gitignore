@@ -63,3 +63,5 @@ docker-compose.override.yml
 .venv/
 site/
 __pycache__/
+tasks.md
+TODO.md

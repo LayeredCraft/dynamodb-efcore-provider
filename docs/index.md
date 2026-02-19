@@ -15,6 +15,7 @@ This provider translates LINQ queries to PartiQL and executes them with the AWS 
 - [Operators](operators.md)
 - [Pagination](pagination.md)
 - [Projections](projections.md)
+- [Owned Types](owned-types.md)
 - [Diagnostics](diagnostics.md)
 - [Limitations](limitations.md)
 - [Repository README](https://github.com/LayeredCraft/dynamodb-efcore-provider#readme)

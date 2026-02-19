@@ -184,6 +184,29 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
         return projectionExpression;
     }
 
+    /// <summary>Emits <see cref="DynamoObjectAccessExpression" /> as a bare attribute name.</summary>
+    protected override Expression VisitExtension(Expression node)
+    {
+        if (node is DynamoObjectAccessExpression objectAccess)
+        {
+            var name = objectAccess.PropertyName;
+            if (NeedsQuoting(name))
+            {
+                _sql.Append('"');
+                _sql.Append(name);
+                _sql.Append('"');
+            }
+            else
+            {
+                _sql.Append(name);
+            }
+
+            return objectAccess;
+        }
+
+        return base.VisitExtension(node);
+    }
+
     /// <summary>
     /// Gets the precedence and associativity for an operator expression.
     /// Based on standard SQL operator precedence.

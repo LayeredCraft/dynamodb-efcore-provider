@@ -83,7 +83,9 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
         // This converts abstract ProjectionBindingExpression to concrete property access
         shaperBody = new DynamoProjectionBindingRemovingExpressionVisitor(
             itemParameter,
-            selectExpression).Visit(shaperBody);
+            selectExpression,
+            QueryCompilationContext.Model,
+            InjectStructuralTypeMaterializers).Visit(shaperBody);
 
         var shaperLambda = Expression.Lambda(
             shaperBody,
@@ -132,6 +134,8 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
             ?? throw new InvalidOperationException(
                 $"Unable to normalize {parameterNamePrefix} expression.");
 
+        // Runtime parameters must be int-valued before registration so EF can cache and bind
+        // query delegates consistently across executions.
         var convertedExpression = Expression.Convert(injectedExpression, typeof(int));
         Expression body = convertedExpression;
         if (requirePositive)
@@ -150,4 +154,5 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
 
         return value;
     }
+
 }

@@ -266,7 +266,7 @@ public class DynamoTypeMappingSource(TypeMappingSourceDependencies dependencies)
     /// <summary>
     /// Checks whether the type is a provider-level primitive wire mapping candidate.
     /// </summary>
-    private static bool IsPrimitiveType(Type type)
+    internal static bool IsPrimitiveType(Type type)
         => type == typeof(string)
             || type == typeof(bool)
             || type == typeof(byte)

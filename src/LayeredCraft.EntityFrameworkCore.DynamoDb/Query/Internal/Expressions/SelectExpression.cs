@@ -1,5 +1,6 @@
 using System.Linq.Expressions;
 using System.Reflection;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Query;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
@@ -186,6 +187,15 @@ public class SelectExpression(string tableName) : Expression
     public int AddToProjection(SqlExpression sqlExpression, string alias)
         => AddProjectionIfNotExists(sqlExpression, alias);
 
+    /// <summary>
+    ///     Adds an embedded collection attribute to the SELECT projection by name. Used for owned
+    ///     collection attributes where no scalar type mapping is needed.
+    /// </summary>
+    public void AddEmbeddedAttributeToProjection(string attributeName)
+        => AddProjectionIfNotExists(
+            new SqlPropertyExpression(attributeName, typeof(object), null),
+            attributeName);
+
     /// <summary>Clears all projections.</summary>
     public void ClearProjection() => _projection.Clear();
 
@@ -219,12 +229,27 @@ public class SelectExpression(string tableName) : Expression
             return;
 
         var result = new Dictionary<ProjectionMember, Expression>();
+        var topLevelOwnedNameCache = new Dictionary<IEntityType, HashSet<string>>();
+        var nestedOwnedNameCache = new Dictionary<IEntityType, HashSet<string>>();
+        var nestedOwnedContainingAttributeNames =
+            GetNestedOwnedContainingAttributeNamesFromEntityProjections(nestedOwnedNameCache);
         foreach (var (projectionMember, expression) in _projectionMapping)
             // Handle entity projections specially - expand into individual properties
             if (expression is DynamoEntityProjectionExpression entityProjection)
             {
+                var topLevelOwnedContainingAttributeNames =
+                    GetTopLevelOwnedContainingAttributeNames(
+                        entityProjection.EntityType,
+                        topLevelOwnedNameCache);
+
                 foreach (var property in entityProjection.EntityType.GetProperties())
                 {
+                    if (!OwnedProjectionMetadata.ShouldProjectTopLevelProperty(
+                        entityProjection.EntityType,
+                        property,
+                        topLevelOwnedContainingAttributeNames))
+                        continue;
+
                     var sqlExpr = entityProjection.BindProperty(property);
                     var memberInfo = DynamoEntityProjectionExpression.GetMemberInfo(property);
                     var propertyMember = projectionMember.Append(memberInfo);
@@ -232,6 +257,11 @@ public class SelectExpression(string tableName) : Expression
                     var index = AddProjectionIfNotExists(sqlExpr, memberInfo.Name);
                     result[propertyMember] = Constant(index);
                 }
+
+                foreach (var containingAttributeName in topLevelOwnedContainingAttributeNames)
+                    AddProjectionIfNotExists(
+                        new SqlPropertyExpression(containingAttributeName, typeof(object), null),
+                        containingAttributeName);
             }
             else
             {
@@ -240,6 +270,16 @@ public class SelectExpression(string tableName) : Expression
                 var alias = projectionMember.Last?.Name;
                 if (string.IsNullOrEmpty(alias) && sqlExpr is SqlPropertyExpression propExpr)
                     alias = propExpr.PropertyName;
+                if (string.IsNullOrEmpty(alias)
+                    && sqlExpr is DynamoObjectAccessExpression objAccessExpr)
+                    alias = objAccessExpr.PropertyName;
+
+                if (!string.IsNullOrEmpty(alias)
+                        && nestedOwnedContainingAttributeNames.Contains(alias))
+                    // Root entity expansion already projects nested-owned containers; adding them
+                    // again from scalar projection paths would duplicate columns and shift
+                    // ordinals.
+                    continue;
 
                 var index = AddProjectionIfNotExists(sqlExpr, alias ?? "");
                 result[projectionMember] = Constant(index);
@@ -254,7 +294,26 @@ public class SelectExpression(string tableName) : Expression
     /// </summary>
     private int AddProjectionIfNotExists(SqlExpression sqlExpression, string alias)
     {
-        // Check if we already have this expression in the projection list (deduplicate)
+        // Prefer alias deduplication first so independently-built equivalent SQL expressions still
+        // resolve to a stable projection ordinal for the same logical column.
+        for (var i = 0; i < _projection.Count; i++)
+            if (string.Equals(_projection[i].Alias, alias, StringComparison.Ordinal))
+            {
+                // When a typed DynamoObjectAccessExpression replaces a placeholder
+                // SqlPropertyExpression(typeof(object), null) that was added by
+                // AddEmbeddedAttributeToProjection, upgrade the slot in-place so the
+                // removing visitor's short-circuit on DynamoObjectAccessExpression fires.
+                if (sqlExpression is DynamoObjectAccessExpression
+                    && _projection[i].Expression is SqlPropertyExpression
+                    {
+                        TypeMapping: null,
+                    } placeholder
+                    && placeholder.Type == typeof(object))
+                    _projection[i] = new ProjectionExpression(sqlExpression, alias);
+
+                return i;
+            }
+
         for (var i = 0; i < _projection.Count; i++)
             if (_projection[i].Expression.Equals(sqlExpression))
                 return i;
@@ -264,6 +323,46 @@ public class SelectExpression(string tableName) : Expression
         var index = _projection.Count;
         _projection.Add(projection);
         return index;
+    }
+
+    /// <summary>Gets top-level owned containing-attribute names for a root entity with per-query caching.</summary>
+    private static HashSet<string> GetTopLevelOwnedContainingAttributeNames(
+        IEntityType entityType,
+        Dictionary<IEntityType, HashSet<string>> cache)
+    {
+        if (cache.TryGetValue(entityType, out var names))
+            return names;
+
+        names = OwnedProjectionMetadata.GetTopLevelOwnedContainingAttributeNames(entityType);
+        cache[entityType] = names;
+        return names;
+    }
+
+    /// <summary>Gets nested owned containing attribute names from entity projections in the mapping.</summary>
+    private HashSet<string> GetNestedOwnedContainingAttributeNamesFromEntityProjections(
+        Dictionary<IEntityType, HashSet<string>> cache)
+    {
+        HashSet<string> nestedOwnedContainingAttributeNames = new(StringComparer.Ordinal);
+
+        foreach (var entityProjection in _projectionMapping.Values
+            .OfType<DynamoEntityProjectionExpression>())
+        {
+            if (entityProjection.EntityType.IsOwned())
+                continue;
+
+            if (!cache.TryGetValue(entityProjection.EntityType, out var nestedOwnedNames))
+            {
+                nestedOwnedNames =
+                    OwnedProjectionMetadata.GetNestedOwnedContainingAttributeNames(
+                        entityProjection.EntityType);
+                cache[entityProjection.EntityType] = nestedOwnedNames;
+            }
+
+            foreach (var nestedOwnedName in nestedOwnedNames)
+                nestedOwnedContainingAttributeNames.Add(nestedOwnedName);
+        }
+
+        return nestedOwnedContainingAttributeNames;
     }
 
     /// <inheritdoc />
