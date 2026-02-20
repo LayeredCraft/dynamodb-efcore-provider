@@ -16,6 +16,6 @@ trim_trailing_whitespace = true
 indent_size = 4
 max_line_length = 120
 
-[*HostFactoryResolver.cs]
+[docs/]
 ij_formatter_enabled = false
 resharper_disable_formatter = true

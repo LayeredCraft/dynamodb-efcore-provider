@@ -72,6 +72,92 @@ protected override void OnModelCreating(ModelBuilder modelBuilder)
 }
 ```
 
+## Key configuration
+
+DynamoDB tables have a partition key and an optional sort key. The provider needs to know which
+EF properties map to those keys so it can build correct key expressions.
+
+### Convention-based discovery
+
+Properties named `PK` or `PartitionKey` are automatically designated as the DynamoDB partition
+key. Properties named `SK` or `SortKey` are automatically designated as the sort key. The
+comparison is case-sensitive and ordinal.
+
+```csharp
+public class Order
+{
+    public string PK { get; set; }   // auto-discovered as partition key
+    public string SK { get; set; }   // auto-discovered as sort key
+    public string Description { get; set; }
+}
+```
+
+When the convention fires, the EF primary key is automatically set to `[PK]` or `[PK, SK]` —
+no explicit `HasKey` call is needed.
+
+If a type has both `PK` and `PartitionKey` properties (or both `SK` and `SortKey`) and no explicit
+override is configured, the provider throws `InvalidOperationException` during model finalization.
+Use `HasPartitionKey` or `HasSortKey` to resolve the ambiguity.
+
+### Explicit configuration
+
+Use `HasPartitionKey` and `HasSortKey` to designate key properties explicitly. This is required
+when the key property names do not follow the conventions above, and also overrides convention
+discovery when both are present.
+
+```csharp
+modelBuilder.Entity<Order>(b =>
+{
+    b.ToTable("Orders");
+    b.HasPartitionKey(x => x.CustomerId);
+    b.HasSortKey(x => x.OrderId);
+    // EF primary key is automatically set to [CustomerId, OrderId]
+});
+```
+
+When `HasPartitionKey` and/or `HasSortKey` are set without an explicit `HasKey` call, the provider
+automatically configures the EF primary key to match. An explicit `HasKey` call always takes
+precedence over convention.
+
+### String-based overload
+
+```csharp
+b.HasPartitionKey("CustomerId");
+b.HasSortKey("OrderId");
+```
+
+## Attribute names
+
+By default, a property is stored in DynamoDB under its CLR property name. Use `HasAttributeName`
+to override the store-level DynamoDB attribute name for a scalar property.
+
+```csharp
+modelBuilder.Entity<Order>(b =>
+{
+    b.ToTable("Orders");
+    b.HasPartitionKey(x => x.CustomerId);
+    b.Property(x => x.CustomerId).HasAttributeName("PK");
+    b.Property(x => x.OrderId).HasAttributeName("SK");
+});
+```
+
+The DynamoDB partition key attribute name is derived from `GetAttributeName()` on the partition
+key property (falling back to the CLR property name). The same applies to the sort key.
+
+For owned navigation attribute names (the containing map key in DynamoDB), see
+[Owned Types](owned-types.md).
+
+## Model validation
+
+The provider validates the key configuration during model finalization and raises
+`InvalidOperationException` for:
+
+- A partition or sort key property that does not exist on the entity type.
+- A partition or sort key property that is not a member of the EF primary key.
+- Entity types sharing a DynamoDB table that disagree on the partition key attribute name or
+  sort key attribute name.
+- A sort key configured with no resolvable partition key.
+
 ## Owned and embedded types
 - Complex navigation types are discovered as owned by convention.
 - Primitive properties and supported primitive collection shapes remain scalar properties.
@@ -86,6 +172,9 @@ protected override void OnModelCreating(ModelBuilder modelBuilder)
 - `UseDynamo` registers provider services and query pipeline components.
 - Table mapping uses a Dynamo-specific annotation (`Dynamo:TableName`).
 - Composite keys are supported at the model level (for example `{ Pk, Sk }`).
+- Convention-based partition/sort key discovery from property names (`PK`, `PartitionKey`, `SK`, `SortKey`).
+- Explicit `HasPartitionKey`/`HasSortKey` fluent API with automatic EF primary key alignment.
+- `HasAttributeName` on scalar properties to control the DynamoDB store attribute name.
 
 ## Access patterns and scans
 - DynamoDB PartiQL `SELECT` can trigger a full table scan unless predicates include partition-key
