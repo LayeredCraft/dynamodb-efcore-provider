@@ -6,17 +6,20 @@ using Microsoft.EntityFrameworkCore.Metadata.Conventions;
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata.Conventions;
 
 /// <summary>
-///     A model-finalizing convention that sets DynamoDB partition/sort key annotations from
-///     conventional property names and validates that no ambiguous name mappings remain.
+///     A model-finalizing convention that finalizes DynamoDB entity key-mapping annotations.
 /// </summary>
 /// <remarks>
-///     Runs after key discovery so that the EF primary key is already established when annotations are
-///     written. Separation of concerns: <see cref="DynamoKeyDiscoveryConvention" /> owns key list
-///     manipulation; this convention owns annotation state and conflict validation.
+///     Runs after key discovery so that EF primary key metadata is available for fallback inference.
+///     Annotation precedence is:
+///     <list type="number">
+///         <item>Explicit/DataAnnotation key-mapping annotations already present on the entity.</item>
+///         <item>Explicit/DataAnnotation EF primary key (<c>HasKey(...)</c>).</item>
+///         <item>Conventional property names (<c>PK</c>/<c>PartitionKey</c>, <c>SK</c>/<c>SortKey</c>).</item>
+///         <item>Convention-discovered EF primary key with one or two properties.</item>
+///     </list>
 ///     <para>
-///         Annotation-setting uses <see cref="ConfigurationSource.Convention" /> so that explicit
-///         <c>HasPartitionKey</c> / <c>HasSortKey</c> calls (which write at
-///         <see cref="ConfigurationSource.Explicit" />) always win.
+///         This keeps explicit <c>HasKey(...)</c> aligned with entity key mapping while preserving
+///         conventional PK/SK discovery when no explicit key shape is configured.
 ///     </para>
 ///     <para>
 ///         If an entity type has multiple properties whose names match the same role (e.g., both
@@ -28,8 +31,8 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata.Conventions;
 public sealed class DynamoKeyAnnotationConvention : IModelFinalizingConvention
 {
     /// <summary>
-    ///     Sets partition/sort key annotations from conventional property names and validates that no
-    ///     unresolved ambiguities exist.
+    ///     Finalizes partition/sort key annotations by applying configured mappings, EF-primary-key
+    ///     fallback, and conventional property-name fallback in precedence order.
     /// </summary>
     /// <param name="modelBuilder">The convention model builder.</param>
     /// <param name="context">The convention context.</param>
@@ -39,7 +42,15 @@ public sealed class DynamoKeyAnnotationConvention : IModelFinalizingConvention
     {
         foreach (var entityType in modelBuilder.Metadata.GetEntityTypes())
         {
-            if (entityType.IsOwned() || entityType.FindOwnership() != null)
+            if (entityType.IsOwned()
+                || entityType.FindOwnership() != null
+                || entityType.BaseType != null)
+                continue;
+
+            if (HasNonConventionKeyMapping(entityType))
+                continue;
+
+            if (TrySetAnnotationsFromPrimaryKey(entityType, true))
                 continue;
 
             SetAnnotationFromConventionalName(
@@ -55,7 +66,63 @@ public sealed class DynamoKeyAnnotationConvention : IModelFinalizingConvention
                 DynamoKeyDiscoveryConvention.IsSortKeyName,
                 "sort key",
                 "HasSortKey");
+
+            if (entityType[DynamoAnnotationNames.PartitionKeyPropertyName] is string)
+                continue;
+
+            _ = TrySetAnnotationsFromPrimaryKey(entityType, false);
         }
+    }
+
+    /// <summary>
+    ///     Returns <see langword="true" /> when partition or sort key mapping has already been
+    ///     configured using explicit or data-annotation source.
+    /// </summary>
+    private static bool HasNonConventionKeyMapping(IConventionEntityType entityType)
+        => entityType
+                    .FindAnnotation(DynamoAnnotationNames.PartitionKeyPropertyName)
+                    ?.GetConfigurationSource() is
+                ConfigurationSource.Explicit or ConfigurationSource.DataAnnotation
+            || entityType
+                    .FindAnnotation(DynamoAnnotationNames.SortKeyPropertyName)
+                    ?.GetConfigurationSource() is ConfigurationSource.Explicit
+                or ConfigurationSource.DataAnnotation;
+
+    /// <summary>Attempts to infer partition/sort key annotations from the EF primary key.</summary>
+    /// <param name="entityType">The entity type to update.</param>
+    /// <param name="onlyWhenPrimaryKeyIsNonConvention">
+    ///     When <see langword="true" />, only
+    ///     explicit/data-annotation EF primary keys are considered.
+    /// </param>
+    /// <returns>
+    ///     <see langword="true" /> when key annotations were inferred; otherwise
+    ///     <see langword="false" />.
+    /// </returns>
+    private static bool TrySetAnnotationsFromPrimaryKey(
+        IConventionEntityType entityType,
+        bool onlyWhenPrimaryKeyIsNonConvention)
+    {
+        var primaryKey = entityType.FindPrimaryKey();
+        if (primaryKey == null)
+            return false;
+
+        if (onlyWhenPrimaryKeyIsNonConvention
+            && primaryKey.GetConfigurationSource() is not (ConfigurationSource.Explicit
+                or ConfigurationSource.DataAnnotation))
+            return false;
+
+        if (primaryKey.Properties.Count is < 1 or > 2)
+            return false;
+
+        entityType.SetOrRemoveAnnotation(
+            DynamoAnnotationNames.PartitionKeyPropertyName,
+            primaryKey.Properties[0].Name);
+
+        entityType.SetOrRemoveAnnotation(
+            DynamoAnnotationNames.SortKeyPropertyName,
+            primaryKey.Properties.Count == 2 ? primaryKey.Properties[1].Name : null);
+
+        return true;
     }
 
     /// <summary>

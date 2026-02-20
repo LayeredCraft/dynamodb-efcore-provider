@@ -209,6 +209,15 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
             if (entityType[DynamoAnnotationNames.PartitionKeyPropertyName] is string)
                 continue;
 
+            var primaryKey = entityType.FindPrimaryKey();
+            if (primaryKey?.Properties.Count > 2)
+                throw new InvalidOperationException(
+                    $"No DynamoDB partition key is configured for entity type '{entityType.DisplayName()}'. "
+                    + $"The EF primary key has {primaryKey.Properties.Count} properties, but the DynamoDB "
+                    + "provider supports only one- or two-part keys (partition key with optional sort key). "
+                    + "Configure HasKey(...) with one or two properties and/or call HasPartitionKey(...) "
+                    + "and HasSortKey(...) to map the key explicitly.");
+
             throw new InvalidOperationException(
                 $"No DynamoDB partition key is configured for entity type '{entityType.DisplayName()}'. "
                 + "Use a conventional property name ('PK' or 'PartitionKey') or call "
