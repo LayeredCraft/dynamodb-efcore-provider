@@ -1,6 +1,7 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using NSubstitute;
 
 // ReSharper disable AutoPropertyCanBeMadeGetOnly.Local
@@ -13,33 +14,6 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Tests.Query;
 /// </summary>
 public class AttributeNameOverrideTests
 {
-    private sealed record RenameEntity
-    {
-        public string Id { get; set; } = null!;
-
-        /// <summary>CLR name is FullName; DynamoDB attribute is "display_name".</summary>
-        public string? FullName { get; set; }
-    }
-
-    private sealed class RenameDbContext(DbContextOptions options) : DbContext(options)
-    {
-        public DbSet<RenameEntity> Entities { get; set; }
-
-        protected override void OnModelCreating(ModelBuilder modelBuilder)
-            => modelBuilder.Entity<RenameEntity>(b =>
-            {
-                b.ToTable("RenameTestTable");
-                b.HasKey(x => x.Id);
-                b.Property(x => x.FullName).HasAttributeName("display_name");
-            });
-
-        public static RenameDbContext Create(IAmazonDynamoDB client)
-            => new(
-                new DbContextOptionsBuilder<RenameDbContext>()
-                    .UseDynamo(o => o.DynamoDbClient(client))
-                    .Options);
-    }
-
     [Fact]
     public async Task PartiQL_UsesAttributeName_NotClrPropertyName()
     {
@@ -121,5 +95,34 @@ public class AttributeNameOverrideTests
         // Assert: the CLR-named key is not recognized; property stays null.
         results.Should().HaveCount(1);
         results[0].FullName.Should().BeNull();
+    }
+
+    private sealed record RenameEntity
+    {
+        /// <summary>CLR name is FullName; DynamoDB attribute is "display_name".</summary>
+        public string? FullName { get; set; }
+
+        public string Id { get; set; } = null!;
+    }
+
+    private sealed class RenameDbContext(DbContextOptions options) : DbContext(options)
+    {
+        public DbSet<RenameEntity> Entities { get; set; }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<RenameEntity>(b =>
+            {
+                b.ToTable("RenameTestTable");
+                b.HasKey(x => x.Id);
+                b.Property(x => x.FullName).HasAttributeName("display_name");
+            });
+
+        public static RenameDbContext Create(IAmazonDynamoDB client)
+            => new(
+                new DbContextOptionsBuilder<RenameDbContext>()
+                    .UseDynamo(o => o.DynamoDbClient(client))
+                    .ConfigureWarnings(w
+                        => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                    .Options);
     }
 }

@@ -4,6 +4,7 @@ using Amazon.DynamoDBv2.Model;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Query;
 using NSubstitute;
 
@@ -371,6 +372,8 @@ public class OwnedReferenceProjectionTests
             => new(
                 new DbContextOptionsBuilder<AmbiguousModelDbContext>()
                     .UseDynamo(o => o.DynamoDbClient(client))
+                    .ConfigureWarnings(w
+                        => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
                     .Options);
     }
 
@@ -392,6 +395,8 @@ public class OwnedReferenceProjectionTests
             => new(
                 new DbContextOptionsBuilder<RequiredOwnedDbContext>()
                     .UseDynamo(o => o.DynamoDbClient(client))
+                    .ConfigureWarnings(w
+                        => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
                     .Options);
     }
 }

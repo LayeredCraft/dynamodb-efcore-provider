@@ -26,6 +26,8 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
         }
 
         ValidateEmbeddedOwnedCollectionNavigationShapes(model);
+        ValidateKeyPropertyNames(model);
+        ValidateTableKeySchemaConsistency(model);
     }
 
     /// <summary>Validates primitive collection properties against DynamoDB provider shape constraints.</summary>
@@ -183,6 +185,102 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
                     + $"'{navigation.ClrType.Name}', which is not supported by the DynamoDB provider. "
                     + "Supported list shapes: T[], List<T>, IList<T>, IReadOnlyList<T>.");
             }
+        }
+    }
+
+    /// <summary>
+    ///     Validates that any explicitly configured partition/sort key properties exist on the entity
+    ///     type and are members of its EF primary key, ensuring EF identity and DynamoDB identity stay
+    ///     aligned.
+    /// </summary>
+    private static void ValidateKeyPropertyNames(IModel model)
+    {
+        foreach (var entityType in model.GetEntityTypes())
+        {
+            if (entityType.IsOwned() || entityType.FindOwnership() != null)
+                continue;
+
+            var primaryKey = entityType.FindPrimaryKey();
+            var primaryKeyPropertyNames = primaryKey?.Properties.Select(p => p.Name).ToHashSet()
+                ?? [];
+
+            if (entityType[DynamoAnnotationNames.PartitionKeyPropertyName] is string pkName)
+            {
+                if (entityType.FindProperty(pkName) == null)
+                    throw new InvalidOperationException(
+                        $"The partition key property '{pkName}' configured on entity type "
+                        + $"'{entityType.DisplayName()}' does not exist.");
+
+                if (!primaryKeyPropertyNames.Contains(pkName))
+                    throw new InvalidOperationException(
+                        $"The partition key property '{pkName}' on entity type "
+                        + $"'{entityType.DisplayName()}' is not part of the EF primary key. "
+                        + "DynamoDB key properties must be declared as EF primary key members "
+                        + "so that change tracking can correctly identify entities.");
+            }
+
+            if (entityType[DynamoAnnotationNames.SortKeyPropertyName] is string skName)
+            {
+                if (entityType.FindProperty(skName) == null)
+                    throw new InvalidOperationException(
+                        $"The sort key property '{skName}' configured on entity type "
+                        + $"'{entityType.DisplayName()}' does not exist.");
+
+                if (!primaryKeyPropertyNames.Contains(skName))
+                    throw new InvalidOperationException(
+                        $"The sort key property '{skName}' on entity type "
+                        + $"'{entityType.DisplayName()}' is not part of the EF primary key. "
+                        + "DynamoDB key properties must be declared as EF primary key members "
+                        + "so that change tracking can correctly identify entities.");
+            }
+        }
+    }
+
+    /// <summary>Validates all root entity types sharing the same DynamoDB table agree on key schema.</summary>
+    private static void ValidateTableKeySchemaConsistency(IModel model)
+    {
+        var tableGroups = new Dictionary<string, List<IEntityType>>(StringComparer.Ordinal);
+        foreach (var entityType in model.GetEntityTypes())
+        {
+            if (entityType.IsOwned() || entityType.FindOwnership() != null)
+                continue;
+            var tableName =
+                entityType[DynamoAnnotationNames.TableName] as string ?? entityType.ClrType.Name;
+            if (!tableGroups.TryGetValue(tableName, out var group))
+                tableGroups[tableName] = group = [];
+            group.Add(entityType);
+        }
+
+        foreach (var (tableName, entityTypes) in tableGroups)
+        {
+            if (entityTypes.Count <= 1)
+                continue;
+            ValidateTableKeySchemaGroup(tableName, entityTypes);
+        }
+    }
+
+    /// <summary>Validates PK/SK name consistency within a single table group.</summary>
+    private static void ValidateTableKeySchemaGroup(string tableName, List<IEntityType> entityTypes)
+    {
+        var first = entityTypes[0];
+        var expectedPk = first.GetPartitionKeyProperty()?.GetAttributeName();
+        var expectedSk = first.GetSortKeyProperty()?.GetAttributeName();
+        for (var i = 1; i < entityTypes.Count; i++)
+        {
+            var et = entityTypes[i];
+            var pk = et.GetPartitionKeyProperty()?.GetAttributeName();
+            var sk = et.GetSortKeyProperty()?.GetAttributeName();
+            if (!string.Equals(pk, expectedPk, StringComparison.Ordinal))
+                throw new InvalidOperationException(
+                    $"Entity types '{first.DisplayName()}' and '{et.DisplayName()}' are both mapped to table "
+                    + $"'{tableName}' but have different partition key attribute names ('{expectedPk ?? "<none>"}' vs '{pk ?? "<none>"}'). "
+                    + "All entity types sharing a DynamoDB table must use the same partition key attribute name.");
+            if (!string.Equals(sk, expectedSk, StringComparison.Ordinal))
+                throw new InvalidOperationException(
+                    $"Entity types '{first.DisplayName()}' and '{et.DisplayName()}' are both mapped to table "
+                    + $"'{tableName}' but have inconsistent sort key attribute names "
+                    + $"('{expectedSk ?? "<none>"}' vs '{sk ?? "<none>"}')."
+                    + " All entity types sharing a DynamoDB table must agree on the sort key attribute name.");
         }
     }
 
