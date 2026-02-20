@@ -357,6 +357,7 @@ public class OwnedReferenceProjectionTests
             {
                 b.ToTable("EntityATable");
                 b.HasKey(x => x.Pk);
+                b.HasPartitionKey(x => x.Pk);
                 b.OwnsOne(x => x.Profile);
             });
 
@@ -364,6 +365,7 @@ public class OwnedReferenceProjectionTests
             {
                 b.ToTable("EntityBTable");
                 b.HasKey(x => x.Pk);
+                b.HasPartitionKey(x => x.Pk);
                 b.OwnsOne(x => x.Profile);
             });
         }
@@ -387,6 +389,7 @@ public class OwnedReferenceProjectionTests
             {
                 b.ToTable("RequiredEntityTable");
                 b.HasKey(x => x.Pk);
+                b.HasPartitionKey(x => x.Pk);
                 b.OwnsOne(x => x.Profile);
                 b.Navigation(x => x.Profile).IsRequired();
             });

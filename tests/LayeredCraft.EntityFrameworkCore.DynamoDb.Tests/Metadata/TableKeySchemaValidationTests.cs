@@ -21,6 +21,112 @@ public class TableKeySchemaValidationTests
             .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
             .Options;
 
+    [Fact]
+    public void SharedTable_ConflictingPartitionKeyNames_Throws()
+    {
+        var ctx = ConflictingPkContext.Create(MockClient());
+        var act = () => ctx.Model;
+        act
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage("*partition key attribute names*");
+    }
+
+    [Fact]
+    public void SharedTable_OneHasSortKeyOtherDoesNot_Throws()
+    {
+        var ctx = MixedSkContext.Create(MockClient());
+        var act = () => ctx.Model;
+        act.Should().Throw<InvalidOperationException>().WithMessage("*sort key attribute names*");
+    }
+
+    [Fact]
+    public void SharedTable_ConflictingSortKeyNames_Throws()
+    {
+        var ctx = ConflictingSkContext.Create(MockClient());
+        var act = () => ctx.Model;
+        act.Should().Throw<InvalidOperationException>().WithMessage("*sort key attribute names*");
+    }
+
+    [Fact]
+    public void SharedTable_ConsistentPkOnly_DoesNotThrow()
+    {
+        var ctx = ConsistentPkOnlyContext.Create(MockClient());
+        var act = () => ctx.Model;
+        act.Should().NotThrow();
+    }
+
+    [Fact]
+    public void SharedTable_ConsistentPkSk_DoesNotThrow()
+    {
+        var ctx = ConsistentPkSkContext.Create(MockClient());
+        var act = () => ctx.Model;
+        act.Should().NotThrow();
+    }
+
+    [Fact]
+    public void DifferentTables_DifferentKeySchemas_DoesNotThrow()
+    {
+        var ctx = DifferentTablesContext.Create(MockClient());
+        var act = () => ctx.Model;
+        act.Should().NotThrow();
+    }
+
+    [Fact]
+    public void HasPartitionKey_NonExistentProperty_ThrowsOnValidation()
+    {
+        var ctx = GhostPartitionKeyContext.Create(MockClient());
+        var act = () => ctx.Model;
+        act
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage("*partition key property 'Ghost'*does not exist*");
+    }
+
+    [Fact]
+    public void HasSortKey_NonExistentProperty_ThrowsOnValidation()
+    {
+        var ctx = GhostSortKeyContext.Create(MockClient());
+        var act = () => ctx.Model;
+        act
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage("*sort key property 'Ghost'*does not exist*");
+    }
+
+    [Fact]
+    public void HasPartitionKey_PropertyNotInEfKey_ThrowsOnValidation()
+    {
+        var ctx = PartitionKeyNotInEfKeyContext.Create(MockClient());
+        var act = () => ctx.Model;
+        act
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage("*has EF primary key*but the DynamoDB table key is*SomeProp*");
+    }
+
+    [Fact]
+    public void HasSortKey_PropertyNotInEfKey_ThrowsOnValidation()
+    {
+        var ctx = SortKeyNotInEfKeyContext.Create(MockClient());
+        var act = () => ctx.Model;
+        act
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage("*has EF primary key*but the DynamoDB table key is*Id, SomeProp*");
+    }
+
+    [Fact]
+    public void HasSortKey_WithNoResolvablePartitionKey_ThrowsDynamoSpecificError()
+    {
+        var ctx = SortKeyWithNoResolvablePkContext.Create(MockClient());
+        var act = () => ctx.Model;
+        act
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage("*No DynamoDB partition key is configured*");
+    }
+
     // -------------------------------------------------------------------
     // Conflicting partition key names on the same table
     // -------------------------------------------------------------------
@@ -46,29 +152,20 @@ public class TableKeySchemaValidationTests
             {
                 b.ToTable("SharedTable");
                 b.HasKey(x => x.Id);
+                b.HasPartitionKey(x => x.Id);
                 b.Property(x => x.Id).HasAttributeName("PK1");
             });
             modelBuilder.Entity<EntityB>(b =>
             {
                 b.ToTable("SharedTable");
                 b.HasKey(x => x.Id);
+                b.HasPartitionKey(x => x.Id);
                 b.Property(x => x.Id).HasAttributeName("PK2");
             });
         }
 
         public static ConflictingPkContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<ConflictingPkContext>(client));
-    }
-
-    [Fact]
-    public void SharedTable_ConflictingPartitionKeyNames_Throws()
-    {
-        var ctx = ConflictingPkContext.Create(MockClient());
-        var act = () => ctx.Model;
-        act
-            .Should()
-            .Throw<InvalidOperationException>()
-            .WithMessage("*partition key attribute names*");
     }
 
     // -------------------------------------------------------------------
@@ -97,6 +194,7 @@ public class TableKeySchemaValidationTests
             {
                 b.ToTable("SharedTable2");
                 b.HasKey(x => x.Id);
+                b.HasPartitionKey(x => x.Id);
                 // Map to "PK" so both entities share the same partition key attribute name
                 b.Property(x => x.Id).HasAttributeName("PK");
                 // single-part key → no sort key detected
@@ -105,6 +203,8 @@ public class TableKeySchemaValidationTests
             {
                 b.ToTable("SharedTable2");
                 b.HasKey(x => new { x.PartId, x.SortId });
+                b.HasPartitionKey(x => x.PartId);
+                b.HasSortKey(x => x.SortId);
                 // Map first PK property to "PK" so partition key names match
                 b.Property(x => x.PartId).HasAttributeName("PK");
                 // two-part key → sort key "SortId" detected
@@ -113,14 +213,6 @@ public class TableKeySchemaValidationTests
 
         public static MixedSkContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<MixedSkContext>(client));
-    }
-
-    [Fact]
-    public void SharedTable_OneHasSortKeyOtherDoesNot_Throws()
-    {
-        var ctx = MixedSkContext.Create(MockClient());
-        var act = () => ctx.Model;
-        act.Should().Throw<InvalidOperationException>().WithMessage("*sort key attribute names*");
     }
 
     // -------------------------------------------------------------------
@@ -150,6 +242,8 @@ public class TableKeySchemaValidationTests
             {
                 b.ToTable("SharedTable3");
                 b.HasKey(x => new { x.PartId, x.SortId });
+                b.HasPartitionKey(x => x.PartId);
+                b.HasSortKey(x => x.SortId);
                 // Both share same PK attribute name; differ on SK
                 b.Property(x => x.SortId).HasAttributeName("SK1");
             });
@@ -157,20 +251,14 @@ public class TableKeySchemaValidationTests
             {
                 b.ToTable("SharedTable3");
                 b.HasKey(x => new { x.PartId, x.SortId });
+                b.HasPartitionKey(x => x.PartId);
+                b.HasSortKey(x => x.SortId);
                 b.Property(x => x.SortId).HasAttributeName("SK2");
             });
         }
 
         public static ConflictingSkContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<ConflictingSkContext>(client));
-    }
-
-    [Fact]
-    public void SharedTable_ConflictingSortKeyNames_Throws()
-    {
-        var ctx = ConflictingSkContext.Create(MockClient());
-        var act = () => ctx.Model;
-        act.Should().Throw<InvalidOperationException>().WithMessage("*sort key attribute names*");
     }
 
     // -------------------------------------------------------------------
@@ -198,25 +286,19 @@ public class TableKeySchemaValidationTests
             {
                 b.ToTable("SharedTable4");
                 b.HasKey(x => x.Id);
+                b.HasPartitionKey(x => x.Id);
                 // Both auto-detect "Id" as the PK attribute name (same CLR property name)
             });
             modelBuilder.Entity<EntityH>(b =>
             {
                 b.ToTable("SharedTable4");
                 b.HasKey(x => x.Id);
+                b.HasPartitionKey(x => x.Id);
             });
         }
 
         public static ConsistentPkOnlyContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<ConsistentPkOnlyContext>(client));
-    }
-
-    [Fact]
-    public void SharedTable_ConsistentPkOnly_DoesNotThrow()
-    {
-        var ctx = ConsistentPkOnlyContext.Create(MockClient());
-        var act = () => ctx.Model;
-        act.Should().NotThrow();
     }
 
     // -------------------------------------------------------------------
@@ -246,25 +328,21 @@ public class TableKeySchemaValidationTests
             {
                 b.ToTable("SharedTable5");
                 b.HasKey(x => new { x.PartId, x.SortId });
+                b.HasPartitionKey(x => x.PartId);
+                b.HasSortKey(x => x.SortId);
                 // Both auto-detect "PartId"/"SortId" as PK/SK attribute names
             });
             modelBuilder.Entity<EntityJ>(b =>
             {
                 b.ToTable("SharedTable5");
                 b.HasKey(x => new { x.PartId, x.SortId });
+                b.HasPartitionKey(x => x.PartId);
+                b.HasSortKey(x => x.SortId);
             });
         }
 
         public static ConsistentPkSkContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<ConsistentPkSkContext>(client));
-    }
-
-    [Fact]
-    public void SharedTable_ConsistentPkSk_DoesNotThrow()
-    {
-        var ctx = ConsistentPkSkContext.Create(MockClient());
-        var act = () => ctx.Model;
-        act.Should().NotThrow();
     }
 
     // -------------------------------------------------------------------
@@ -293,12 +371,15 @@ public class TableKeySchemaValidationTests
             {
                 b.ToTable("TableAlpha");
                 b.HasKey(x => x.Id);
+                b.HasPartitionKey(x => x.Id);
                 b.Property(x => x.Id).HasAttributeName("MY_PK");
             });
             modelBuilder.Entity<EntityL>(b =>
             {
                 b.ToTable("TableBeta");
                 b.HasKey(x => new { x.PartId, x.SortId });
+                b.HasPartitionKey(x => x.PartId);
+                b.HasSortKey(x => x.SortId);
                 b.Property(x => x.PartId).HasAttributeName("HASH");
                 b.Property(x => x.SortId).HasAttributeName("RANGE");
             });
@@ -306,14 +387,6 @@ public class TableKeySchemaValidationTests
 
         public static DifferentTablesContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<DifferentTablesContext>(client));
-    }
-
-    [Fact]
-    public void DifferentTables_DifferentKeySchemas_DoesNotThrow()
-    {
-        var ctx = DifferentTablesContext.Create(MockClient());
-        var act = () => ctx.Model;
-        act.Should().NotThrow();
     }
 
     // -------------------------------------------------------------------
@@ -341,17 +414,6 @@ public class TableKeySchemaValidationTests
             => new(BuildOptions<GhostPartitionKeyContext>(client));
     }
 
-    [Fact]
-    public void HasPartitionKey_NonExistentProperty_ThrowsOnValidation()
-    {
-        var ctx = GhostPartitionKeyContext.Create(MockClient());
-        var act = () => ctx.Model;
-        act
-            .Should()
-            .Throw<InvalidOperationException>()
-            .WithMessage("*partition key property 'Ghost'*does not exist*");
-    }
-
     private sealed class GhostSortKeyContext(DbContextOptions options) : DbContext(options)
     {
         public DbSet<GhostPropEntity> Entities { get; set; } = null!;
@@ -361,22 +423,12 @@ public class TableKeySchemaValidationTests
             {
                 b.ToTable("GhostSkTable");
                 b.HasKey(x => x.Id);
+                b.HasPartitionKey(x => x.Id);
                 b.HasSortKey("Ghost");
             });
 
         public static GhostSortKeyContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<GhostSortKeyContext>(client));
-    }
-
-    [Fact]
-    public void HasSortKey_NonExistentProperty_ThrowsOnValidation()
-    {
-        var ctx = GhostSortKeyContext.Create(MockClient());
-        var act = () => ctx.Model;
-        act
-            .Should()
-            .Throw<InvalidOperationException>()
-            .WithMessage("*sort key property 'Ghost'*does not exist*");
     }
 
     // -------------------------------------------------------------------
@@ -407,17 +459,6 @@ public class TableKeySchemaValidationTests
             => new(BuildOptions<PartitionKeyNotInEfKeyContext>(client));
     }
 
-    [Fact]
-    public void HasPartitionKey_PropertyNotInEfKey_ThrowsOnValidation()
-    {
-        var ctx = PartitionKeyNotInEfKeyContext.Create(MockClient());
-        var act = () => ctx.Model;
-        act
-            .Should()
-            .Throw<InvalidOperationException>()
-            .WithMessage("*partition key property 'SomeProp'*not part of the EF primary key*");
-    }
-
     private sealed class SortKeyNotInEfKeyContext(DbContextOptions options) : DbContext(options)
     {
         public DbSet<KeyMismatchEntity> Entities { get; set; } = null!;
@@ -427,23 +468,13 @@ public class TableKeySchemaValidationTests
             {
                 b.ToTable("MismatchSkTable");
                 b.HasKey(x => x.Id);
+                b.HasPartitionKey(x => x.Id);
                 // SomeProp exists but is NOT in the EF primary key
                 b.HasSortKey(x => x.SomeProp);
             });
 
         public static SortKeyNotInEfKeyContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<SortKeyNotInEfKeyContext>(client));
-    }
-
-    [Fact]
-    public void HasSortKey_PropertyNotInEfKey_ThrowsOnValidation()
-    {
-        var ctx = SortKeyNotInEfKeyContext.Create(MockClient());
-        var act = () => ctx.Model;
-        act
-            .Should()
-            .Throw<InvalidOperationException>()
-            .WithMessage("*sort key property 'SomeProp'*not part of the EF primary key*");
     }
 
     // -------------------------------------------------------------------
@@ -453,9 +484,11 @@ public class TableKeySchemaValidationTests
 
     private sealed record NoDiscoverablePkEntity
     {
-        // Properties are not named 'Id' / '<EntityName>Id', so EF will not auto-discover a PK.
-        public string PartitionKey { get; set; } = null!;
-        public string SortKey { get; set; } = null!;
+        // Properties are not named 'Id', '<EntityName>Id', 'PK', or 'PartitionKey', so neither
+        // EF Core key discovery nor the DynamoDB key discovery convention will find a partition
+        // key.
+        public string HashAttr { get; set; } = null!;
+        public string RangeAttr { get; set; } = null!;
     }
 
     private sealed class SortKeyWithNoResolvablePkContext(DbContextOptions options) : DbContext(
@@ -468,21 +501,10 @@ public class TableKeySchemaValidationTests
             {
                 b.ToTable("SortKeyOnlyTable");
                 // HasSortKey set, but no HasPartitionKey and no auto-discoverable PK property.
-                b.HasSortKey(x => x.SortKey);
+                b.HasSortKey(x => x.RangeAttr);
             });
 
         public static SortKeyWithNoResolvablePkContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<SortKeyWithNoResolvablePkContext>(client));
-    }
-
-    [Fact]
-    public void HasSortKey_WithNoResolvablePartitionKey_ThrowsDynamoSpecificError()
-    {
-        var ctx = SortKeyWithNoResolvablePkContext.Create(MockClient());
-        var act = () => ctx.Model;
-        act
-            .Should()
-            .Throw<InvalidOperationException>()
-            .WithMessage("*Sort key property 'SortKey'*no partition key can be determined*");
     }
 }

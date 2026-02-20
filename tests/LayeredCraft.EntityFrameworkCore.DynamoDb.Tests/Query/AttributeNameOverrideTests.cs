@@ -114,6 +114,7 @@ public class AttributeNameOverrideTests
             {
                 b.ToTable("RenameTestTable");
                 b.HasKey(x => x.Id);
+                b.HasPartitionKey(x => x.Id);
                 b.Property(x => x.FullName).HasAttributeName("display_name");
             });
 

@@ -23,7 +23,7 @@ public class TableKeySchemaTests
             .Options;
 
     // -------------------------------------------------------------------
-    // Single-part EF primary key — auto-detection from first PK property
+    // Single-part key with explicit Dynamo partition key mapping
     // -------------------------------------------------------------------
 
     private sealed record SingleKeyEntity
@@ -41,6 +41,7 @@ public class TableKeySchemaTests
             {
                 b.ToTable("SingleKeyTable");
                 b.HasKey(x => x.Id);
+                b.HasPartitionKey(x => x.Id);
             });
 
         public static SingleKeyContext Create(IAmazonDynamoDB client)
@@ -48,7 +49,7 @@ public class TableKeySchemaTests
     }
 
     [Fact]
-    public void GetPartitionKeyPropertyName_SingleEfKey_ReturnsClrPropertyName()
+    public void GetPartitionKeyPropertyName_SingleKey_ReturnsConfiguredPropertyName()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
         using var ctx = SingleKeyContext.Create(client);
@@ -59,7 +60,7 @@ public class TableKeySchemaTests
     }
 
     [Fact]
-    public void GetPartitionKeyProperty_SingleEfKey_ReturnsPkProperty()
+    public void GetPartitionKeyProperty_SingleKey_ReturnsConfiguredProperty()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
         using var ctx = SingleKeyContext.Create(client);
@@ -69,7 +70,7 @@ public class TableKeySchemaTests
     }
 
     [Fact]
-    public void GetSortKeyPropertyName_SingleEfKey_ReturnsNull()
+    public void GetSortKeyPropertyName_SingleKey_ReturnsNull()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
         using var ctx = SingleKeyContext.Create(client);
@@ -79,7 +80,7 @@ public class TableKeySchemaTests
     }
 
     [Fact]
-    public void GetSortKeyProperty_SingleEfKey_ReturnsNull()
+    public void GetSortKeyProperty_SingleKey_ReturnsNull()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
         using var ctx = SingleKeyContext.Create(client);
@@ -89,8 +90,7 @@ public class TableKeySchemaTests
     }
 
     // -------------------------------------------------------------------
-    // Single-part EF primary key with HasAttributeName → attribute name is separate from property
-    // name
+    // Single-part key with HasAttributeName on the partition key property
     // -------------------------------------------------------------------
 
     private sealed record SingleKeyWithAttributeEntity
@@ -108,6 +108,7 @@ public class TableKeySchemaTests
             {
                 b.ToTable("SingleKeyAttributeTable");
                 b.HasKey(x => x.Id);
+                b.HasPartitionKey(x => x.Id);
                 b.Property(x => x.Id).HasAttributeName("PK");
             });
 
@@ -116,8 +117,7 @@ public class TableKeySchemaTests
     }
 
     [Fact]
-    public void
-        GetPartitionKeyPropertyName_SingleEfKey_WithHasAttributeName_ReturnsClrPropertyName()
+    public void GetPartitionKeyPropertyName_SingleKey_WithHasAttributeName_ReturnsClrPropertyName()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
         using var ctx = SingleKeyWithAttributeContext.Create(client);
@@ -128,7 +128,7 @@ public class TableKeySchemaTests
     }
 
     [Fact]
-    public void GetPartitionKeyProperty_SingleEfKey_WithHasAttributeName_ReturnsPkProperty()
+    public void GetPartitionKeyProperty_SingleKey_WithHasAttributeName_ReturnsPkProperty()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
         using var ctx = SingleKeyWithAttributeContext.Create(client);
@@ -140,7 +140,7 @@ public class TableKeySchemaTests
     }
 
     // -------------------------------------------------------------------
-    // Two-part EF primary key — auto-detection from first and second PK properties
+    // Two-part key with explicit Dynamo partition/sort key mapping
     // -------------------------------------------------------------------
 
     private sealed record TwoPartKeyEntity
@@ -159,6 +159,8 @@ public class TableKeySchemaTests
             {
                 b.ToTable("TwoPartKeyTable");
                 b.HasKey(x => new { x.PartitionId, x.SortId });
+                b.HasPartitionKey(x => x.PartitionId);
+                b.HasSortKey(x => x.SortId);
             });
 
         public static TwoPartKeyContext Create(IAmazonDynamoDB client)
@@ -166,7 +168,7 @@ public class TableKeySchemaTests
     }
 
     [Fact]
-    public void GetPartitionKeyPropertyName_TwoPartEfKey_ReturnsFirstPropertyName()
+    public void GetPartitionKeyPropertyName_TwoPartKey_ReturnsPartitionPropertyName()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
         using var ctx = TwoPartKeyContext.Create(client);
@@ -176,7 +178,7 @@ public class TableKeySchemaTests
     }
 
     [Fact]
-    public void GetPartitionKeyProperty_TwoPartEfKey_ReturnsFirstPkProperty()
+    public void GetPartitionKeyProperty_TwoPartKey_ReturnsPartitionProperty()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
         using var ctx = TwoPartKeyContext.Create(client);
@@ -189,7 +191,7 @@ public class TableKeySchemaTests
     }
 
     [Fact]
-    public void GetSortKeyPropertyName_TwoPartEfKey_ReturnsSecondPropertyName()
+    public void GetSortKeyPropertyName_TwoPartKey_ReturnsSortPropertyName()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
         using var ctx = TwoPartKeyContext.Create(client);
@@ -199,7 +201,7 @@ public class TableKeySchemaTests
     }
 
     [Fact]
-    public void GetSortKeyProperty_TwoPartEfKey_ReturnsSecondPkProperty()
+    public void GetSortKeyProperty_TwoPartKey_ReturnsSortProperty()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
         using var ctx = TwoPartKeyContext.Create(client);
@@ -227,7 +229,6 @@ public class TableKeySchemaTests
             => modelBuilder.Entity<MultiPropEntity>(b =>
             {
                 b.ToTable("HasPartitionKeyTable");
-                b.HasKey(x => new { x.Id, x.OtherId });
                 b.HasPartitionKey(x => x.OtherId);
             });
 
@@ -254,7 +255,7 @@ public class TableKeySchemaTests
             => modelBuilder.Entity<MultiPropEntity>(b =>
             {
                 b.ToTable("HasSortKeyTable");
-                b.HasKey(x => new { x.Id, x.OtherId });
+                b.HasPartitionKey(x => x.OtherId);
                 b.HasSortKey(x => x.Id);
             });
 
@@ -335,6 +336,7 @@ public class TableKeySchemaTests
             {
                 b.ToTable("OwnedTable");
                 b.HasKey(x => x.Id);
+                b.HasPartitionKey(x => x.Id);
                 b.OwnsOne(x => x.Detail);
             });
 
@@ -355,7 +357,7 @@ public class TableKeySchemaTests
     }
 
     // -------------------------------------------------------------------
-    // Two-part EF primary key + HasAttributeName on second property
+    // Two-part key + HasAttributeName on sort key property
     // -------------------------------------------------------------------
 
     private sealed record TwoPartKeyWithSkAttributeEntity
@@ -374,6 +376,8 @@ public class TableKeySchemaTests
             {
                 b.ToTable("TwoPartKeySkAttributeTable");
                 b.HasKey(x => new { x.PartitionId, x.SortId });
+                b.HasPartitionKey(x => x.PartitionId);
+                b.HasSortKey(x => x.SortId);
                 b.Property(x => x.SortId).HasAttributeName("SK");
             });
 
@@ -382,7 +386,7 @@ public class TableKeySchemaTests
     }
 
     [Fact]
-    public void GetSortKeyProperty_TwoPartEfKey_WithHasAttributeName_ReturnsMappedProperty()
+    public void GetSortKeyProperty_TwoPartKey_WithHasAttributeName_ReturnsMappedProperty()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
         using var ctx = TwoPartKeyWithSkAttributeContext.Create(client);
@@ -411,7 +415,6 @@ public class TableKeySchemaTests
             => modelBuilder.Entity<StringOverridePkEntity>(b =>
             {
                 b.ToTable("PkStringNoAttrTable");
-                b.HasKey(x => new { x.Id, x.OtherId });
                 b.HasPartitionKey("OtherId");
             });
 
@@ -439,7 +442,6 @@ public class TableKeySchemaTests
             => modelBuilder.Entity<StringOverridePkEntity>(b =>
             {
                 b.ToTable("PkStringWithAttrTable");
-                b.HasKey(x => new { x.Id, x.OtherId });
                 b.HasPartitionKey("Id");
                 b.Property(x => x.Id).HasAttributeName("HASH");
             });
@@ -478,7 +480,7 @@ public class TableKeySchemaTests
             => modelBuilder.Entity<SortKeyLambdaAttributeEntity>(b =>
             {
                 b.ToTable("SkLambdaWithAttrTable");
-                b.HasKey(x => new { x.Id, x.OtherId });
+                b.HasPartitionKey(x => x.Id);
                 b.HasSortKey(x => x.OtherId);
                 b.Property(x => x.OtherId).HasAttributeName("RANGE");
             });
@@ -517,7 +519,7 @@ public class TableKeySchemaTests
             => modelBuilder.Entity<StringOverrideSkEntity>(b =>
             {
                 b.ToTable("SkStringNoAttrTable");
-                b.HasKey(x => new { x.Id, x.OtherId });
+                b.HasPartitionKey("OtherId");
                 b.HasSortKey("Id");
             });
 
@@ -545,7 +547,7 @@ public class TableKeySchemaTests
             => modelBuilder.Entity<StringOverrideSkEntity>(b =>
             {
                 b.ToTable("SkStringWithAttrTable");
-                b.HasKey(x => new { x.Id, x.OtherId });
+                b.HasPartitionKey("Id");
                 b.HasSortKey("OtherId");
                 b.Property(x => x.OtherId).HasAttributeName("RANGE");
             });
@@ -591,7 +593,6 @@ public class TableKeySchemaTests
             modelBuilder.Entity<ConfigSourceEntity>(b =>
             {
                 b.ToTable("FluentApiPkTable");
-                b.HasKey(x => new { x.Id, x.OtherId });
                 b.HasPartitionKey(x => x.Id);
             });
 
@@ -625,7 +626,7 @@ public class TableKeySchemaTests
             modelBuilder.Entity<ConfigSourceEntity>(b =>
             {
                 b.ToTable("FluentApiSkTable");
-                b.HasKey(x => new { x.Id, x.OtherId });
+                b.HasPartitionKey(x => x.Id);
                 b.HasSortKey(x => x.OtherId);
             });
 
@@ -648,47 +649,54 @@ public class TableKeySchemaTests
         ctx.CapturedSkConfigSource.Should().Be(ConfigurationSource.Explicit);
     }
 
-    private sealed class NoExplicitKeyConfigSourceContext(DbContextOptions options) : DbContext(
+    private sealed record ConventionConfigSourceEntity
+    {
+        public string PK { get; set; } = null!;
+        public string SK { get; set; } = null!;
+    }
+
+    private sealed class ConventionKeyConfigSourceContext(DbContextOptions options) : DbContext(
         options)
     {
         public ConfigurationSource? CapturedPkConfigSource { get; private set; }
         public ConfigurationSource? CapturedSkConfigSource { get; private set; }
-        public DbSet<ConfigSourceEntity> Entities { get; set; } = null!;
+        public DbSet<ConventionConfigSourceEntity> Entities { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            modelBuilder.Entity<ConfigSourceEntity>(b =>
+            modelBuilder.Entity<ConventionConfigSourceEntity>(b =>
             {
-                b.ToTable("NoExplicitKeyTable");
-                b.HasKey(x => new { x.Id, x.OtherId });
-                // no HasPartitionKey / HasSortKey calls
+                b.ToTable("ConventionKeyTable");
+                // no HasPartitionKey / HasSortKey calls; convention should set both.
             });
 
             var conventionModel = (IConventionModel)modelBuilder.Model;
-            var et = conventionModel.FindEntityType(typeof(ConfigSourceEntity))!;
+            var et = conventionModel.FindEntityType(typeof(ConventionConfigSourceEntity))!;
             CapturedPkConfigSource = et.GetPartitionKeyPropertyNameConfigurationSource();
             CapturedSkConfigSource = et.GetSortKeyPropertyNameConfigurationSource();
         }
 
-        public static NoExplicitKeyConfigSourceContext Create(IAmazonDynamoDB client)
-            => new(BuildOptions<NoExplicitKeyConfigSourceContext>(client));
+        public static ConventionKeyConfigSourceContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<ConventionKeyConfigSourceContext>(client));
     }
 
     [Fact]
-    public void GetPartitionKeyPropertyNameConfigurationSource_NoAnnotation_ReturnsNull()
+    public void
+        GetPartitionKeyPropertyNameConfigurationSource_Convention_IsNotAvailableDuringOnModelCreating()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
-        using var ctx = NoExplicitKeyConfigSourceContext.Create(client);
+        using var ctx = ConventionKeyConfigSourceContext.Create(client);
         _ = ctx.Model; // trigger OnModelCreating
 
         ctx.CapturedPkConfigSource.Should().BeNull();
     }
 
     [Fact]
-    public void GetSortKeyPropertyNameConfigurationSource_NoAnnotation_ReturnsNull()
+    public void
+        GetSortKeyPropertyNameConfigurationSource_Convention_IsNotAvailableDuringOnModelCreating()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
-        using var ctx = NoExplicitKeyConfigSourceContext.Create(client);
+        using var ctx = ConventionKeyConfigSourceContext.Create(client);
         _ = ctx.Model; // trigger OnModelCreating
 
         ctx.CapturedSkConfigSource.Should().BeNull();

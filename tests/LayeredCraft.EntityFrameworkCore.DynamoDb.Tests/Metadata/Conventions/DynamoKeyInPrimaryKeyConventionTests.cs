@@ -106,8 +106,7 @@ public class DynamoKeyInPrimaryKeyConventionTests
     }
 
     // -------------------------------------------------------------------
-    // HasSortKey only — EF auto-discovers 'Id' as partition key; convention
-    // extends the EF PK to include the sort key
+    // HasSortKey only — validation fails because partition key is required
     // -------------------------------------------------------------------
 
     private sealed record SortKeyWithAutoDiscoveredPkEntity
@@ -134,20 +133,17 @@ public class DynamoKeyInPrimaryKeyConventionTests
     }
 
     [Fact]
-    public void HasSortKey_WithAutoDiscoveredPartitionKey_ExtendsPrimaryKeyWithSortKey()
+    public void HasSortKey_WithoutPartitionKey_ThrowsValidationError()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
-        using var ctx = SortKeyWithAutoDiscoveredPkContext.Create(client);
+        var ctx = SortKeyWithAutoDiscoveredPkContext.Create(client);
 
-        var entityType = ctx.Model.FindEntityType(typeof(SortKeyWithAutoDiscoveredPkEntity))!;
-        var primaryKey = entityType.FindPrimaryKey()!;
+        var act = () => ctx.Model;
 
-        primaryKey.Properties.Should().HaveCount(2);
-        primaryKey.Properties[0].Name.Should().Be("Id");
-        primaryKey.Properties[1].Name.Should().Be("Category");
-        // PK derived from fallback (EF PK first property), SK from annotation
-        entityType.GetPartitionKeyPropertyName().Should().Be("Id");
-        entityType.GetSortKeyPropertyName().Should().Be("Category");
+        act
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage("*No DynamoDB partition key is configured*");
     }
 
     // -------------------------------------------------------------------

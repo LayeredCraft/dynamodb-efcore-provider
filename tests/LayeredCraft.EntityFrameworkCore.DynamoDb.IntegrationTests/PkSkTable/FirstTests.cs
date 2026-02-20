@@ -5,6 +5,19 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.PkSkTable;
 public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixture)
 {
     [Fact]
+    public void PkAndSkProperlyConfiguredAsKeys()
+    {
+        var entityType = Db.Model.FindEntityType(typeof(PkSkItem))!;
+        var pkName = entityType.GetPartitionKeyPropertyName();
+        var skName = entityType.GetSortKeyPropertyName();
+        var efPrimaryKey = entityType.FindPrimaryKey()!.Properties.Select(p => p.Name).ToArray();
+
+        pkName.Should().Be("Pk");
+        skName.Should().Be("Sk");
+        efPrimaryKey.Should().Equal("Pk", "Sk");
+    }
+
+    [Fact]
     public async Task ToListAsync_ReturnsAllItems()
     {
         var results = await Db.Items.ToListAsync(CancellationToken);
@@ -23,7 +36,8 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
     {
         var result =
             await Db
-                .Items.Where(item => item.Pk == "P#1")
+                .Items
+                .Where(item => item.Pk == "P#1")
                 .OrderBy(item => item.Sk)
                 .FirstAsync(CancellationToken);
 
@@ -46,7 +60,8 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
 
         var result =
             await Db
-                .Items.Where(item => item.Pk == "P#1" && item.IsTarget)
+                .Items
+                .Where(item => item.Pk == "P#1" && item.IsTarget)
                 .FirstOrDefaultAsync(CancellationToken);
 
         var calls = LoggerFactory.ExecuteStatementCalls.ToList();
@@ -74,7 +89,8 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
     {
         var result =
             await Db
-                .Items.Where(item => item.Pk == "P#1" && item.Sk == "0002")
+                .Items
+                .Where(item => item.Pk == "P#1" && item.Sk == "0002")
                 .FirstAsync(CancellationToken);
 
         result.Pk.Should().Be("P#1");
@@ -93,7 +109,8 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
     {
         var act = async ()
             => await Db
-                .Items.Where(item => item.Pk == "P#2" && item.IsTarget)
+                .Items
+                .Where(item => item.Pk == "P#2" && item.IsTarget)
                 .FirstAsync(CancellationToken);
 
         await act.Should().ThrowAsync<InvalidOperationException>();
@@ -111,7 +128,8 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
     {
         var result =
             await Db
-                .Items.Where(item => item.Pk == "P#2" && item.IsTarget)
+                .Items
+                .Where(item => item.Pk == "P#2" && item.IsTarget)
                 .FirstOrDefaultAsync(CancellationToken);
 
         result.Should().BeNull();
@@ -129,7 +147,8 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
     {
         var result =
             await Db
-                .Items.Where(item => item.Pk == "P#1" && item.Sk == "0001")
+                .Items
+                .Where(item => item.Pk == "P#1" && item.Sk == "0001")
                 .FirstAsync(CancellationToken);
 
         result.Pk.Should().Be("P#1");
@@ -150,7 +169,8 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
 
         var result =
             await Db
-                .Items.Where(item => item.Pk == "P#1")
+                .Items
+                .Where(item => item.Pk == "P#1")
                 .WithPageSize(10)
                 .FirstAsync(CancellationToken);
 
@@ -177,7 +197,8 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
 
         var result =
             await Db
-                .Items.Where(item => item.Pk == "P#1" && item.IsTarget)
+                .Items
+                .Where(item => item.Pk == "P#1" && item.IsTarget)
                 .FirstOrDefaultAsync(25, CancellationToken);
 
         var calls = LoggerFactory.ExecuteStatementCalls.ToList();
@@ -205,7 +226,8 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
 
         var result =
             await Db
-                .Items.Where(item => item.Pk == "P#1" && item.IsTarget)
+                .Items
+                .Where(item => item.Pk == "P#1" && item.IsTarget)
                 .WithoutPagination()
                 .FirstOrDefaultAsync(CancellationToken);
 
@@ -230,7 +252,8 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
 
         var results =
             await Db
-                .Items.Where(item => item.Pk == "P#1" && item.IsTarget)
+                .Items
+                .Where(item => item.Pk == "P#1" && item.IsTarget)
                 .Take(2)
                 .ToListAsync(CancellationToken);
 
@@ -255,7 +278,8 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
 
         var results =
             await Db
-                .Items.Where(item => item.Pk == "P#1")
+                .Items
+                .Where(item => item.Pk == "P#1")
                 .WithPageSize(5)
                 .Take(3)
                 .ToListAsync(CancellationToken);
@@ -279,7 +303,8 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
     {
         var result =
             await Db
-                .Items.Where(item => item.Pk == "P#1")
+                .Items
+                .Where(item => item.Pk == "P#1")
                 .OrderBy(item => item.Sk)
                 .Take(2)
                 .FirstAsync(CancellationToken);
@@ -302,7 +327,8 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
 
         var result =
             await Db
-                .Items.Where(item => item.Pk == "P#1")
+                .Items
+                .Where(item => item.Pk == "P#1")
                 .OrderBy(item => item.Sk)
                 .Take(limit)
                 .FirstOrDefaultAsync(CancellationToken);
@@ -324,7 +350,8 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
     {
         var results =
             await Db
-                .Items.Where(item => item.Pk == "P#1")
+                .Items
+                .Where(item => item.Pk == "P#1")
                 .OrderBy(item => item.Sk)
                 .Take(3)
                 .Take(5)
@@ -346,7 +373,8 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
     {
         var results =
             await Db
-                .Items.Where(item => item.Pk == "P#1")
+                .Items
+                .Where(item => item.Pk == "P#1")
                 .OrderBy(item => item.Sk)
                 .Take(5)
                 .Take(3)

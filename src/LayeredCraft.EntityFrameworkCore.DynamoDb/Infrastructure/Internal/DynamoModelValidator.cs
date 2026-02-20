@@ -17,6 +17,7 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
     {
         // Run DynamoDB-specific pre-flight checks before EF base validation so that
         // provider-specific error messages take precedence over EF's generic errors.
+        ValidateRootEntityHasPartitionKey(model);
         ValidateSortKeyHasResolvablePartitionKey(model);
 
         base.Validate(model, logger);
@@ -193,76 +194,103 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
     }
 
     /// <summary>
-    ///     Ensures that every root entity type with an explicit sort key annotation has a
-    ///     determinable partition key — either via <c>HasPartitionKey</c> or auto-discovery from the EF
-    ///     primary key. This runs before EF base validation so that a DynamoDB-specific error is emitted
-    ///     instead of EF's generic "no primary key defined" message.
+    ///     Ensures each root entity type has a configured partition key annotation before EF base
+    ///     validation runs.
+    /// </summary>
+    private static void ValidateRootEntityHasPartitionKey(IModel model)
+    {
+        foreach (var entityType in model.GetEntityTypes())
+        {
+            if (entityType.IsOwned()
+                || entityType.FindOwnership() != null
+                || entityType.BaseType != null)
+                continue;
+
+            if (entityType[DynamoAnnotationNames.PartitionKeyPropertyName] is string)
+                continue;
+
+            throw new InvalidOperationException(
+                $"No DynamoDB partition key is configured for entity type '{entityType.DisplayName()}'. "
+                + "Use a conventional property name ('PK' or 'PartitionKey') or call "
+                + "HasPartitionKey(...). The DynamoDB provider does not infer table keys from "
+                + "EF Core's Id/[Key] conventions.");
+        }
+    }
+
+    /// <summary>
+    ///     Ensures that every root entity type with an explicit sort key annotation also has an
+    ///     explicit partition key annotation.
     /// </summary>
     private static void ValidateSortKeyHasResolvablePartitionKey(IModel model)
     {
         foreach (var entityType in model.GetEntityTypes())
         {
-            if (entityType.IsOwned() || entityType.FindOwnership() != null)
+            if (entityType.IsOwned()
+                || entityType.FindOwnership() != null
+                || entityType.BaseType != null)
                 continue;
 
             if (entityType[DynamoAnnotationNames.SortKeyPropertyName] is not string skName)
                 continue;
 
-            if (entityType.GetPartitionKeyPropertyName() is null)
+            if (entityType[DynamoAnnotationNames.PartitionKeyPropertyName] is not string)
                 throw new InvalidOperationException(
                     $"Sort key property '{skName}' is configured on entity type "
                     + $"'{entityType.DisplayName()}' but no partition key can be determined. "
-                    + "Call HasPartitionKey(...) to designate a partition key property, or ensure "
-                    + "the entity type has a primary key property discoverable by EF Core "
-                    + "(for example, a property named 'Id' or decorated with [Key]).");
+                    + "Call HasPartitionKey(...) or add a conventional partition key property name "
+                    + "('PK' or 'PartitionKey').");
         }
     }
 
     /// <summary>
-    ///     Validates that any explicitly configured partition/sort key properties exist on the entity
-    ///     type and are members of its EF primary key, ensuring EF identity and DynamoDB identity stay
-    ///     aligned.
+    ///     Validates that configured partition/sort key properties exist and that the EF primary key
+    ///     matches exactly [PK] or [PK, SK].
     /// </summary>
     private static void ValidateKeyPropertyNames(IModel model)
     {
         foreach (var entityType in model.GetEntityTypes())
         {
-            if (entityType.IsOwned() || entityType.FindOwnership() != null)
+            if (entityType.IsOwned()
+                || entityType.FindOwnership() != null
+                || entityType.BaseType != null)
                 continue;
 
-            var primaryKey = entityType.FindPrimaryKey();
-            var primaryKeyPropertyNames = primaryKey?.Properties.Select(p => p.Name).ToHashSet()
-                ?? [];
+            if (entityType[DynamoAnnotationNames.PartitionKeyPropertyName] is not string pkName)
+                continue;
 
-            if (entityType[DynamoAnnotationNames.PartitionKeyPropertyName] is string pkName)
-            {
-                if (entityType.FindProperty(pkName) == null)
-                    throw new InvalidOperationException(
-                        $"The partition key property '{pkName}' configured on entity type "
-                        + $"'{entityType.DisplayName()}' does not exist.");
+            var pkProperty = entityType.FindProperty(pkName)
+                ?? throw new InvalidOperationException(
+                    $"The partition key property '{pkName}' configured on entity type "
+                    + $"'{entityType.DisplayName()}' does not exist.");
 
-                if (!primaryKeyPropertyNames.Contains(pkName))
-                    throw new InvalidOperationException(
-                        $"The partition key property '{pkName}' on entity type "
-                        + $"'{entityType.DisplayName()}' is not part of the EF primary key. "
-                        + "DynamoDB key properties must be declared as EF primary key members "
-                        + "so that change tracking can correctly identify entities.");
-            }
-
+            IProperty? skProperty = null;
             if (entityType[DynamoAnnotationNames.SortKeyPropertyName] is string skName)
             {
-                if (entityType.FindProperty(skName) == null)
-                    throw new InvalidOperationException(
+                skProperty = entityType.FindProperty(skName)
+                    ?? throw new InvalidOperationException(
                         $"The sort key property '{skName}' configured on entity type "
                         + $"'{entityType.DisplayName()}' does not exist.");
-
-                if (!primaryKeyPropertyNames.Contains(skName))
-                    throw new InvalidOperationException(
-                        $"The sort key property '{skName}' on entity type "
-                        + $"'{entityType.DisplayName()}' is not part of the EF primary key. "
-                        + "DynamoDB key properties must be declared as EF primary key members "
-                        + "so that change tracking can correctly identify entities.");
             }
+
+            var expectedPrimaryKey = new List<IProperty> { pkProperty };
+            if (skProperty != null && skProperty != pkProperty)
+                expectedPrimaryKey.Add(skProperty);
+
+            var primaryKey = entityType.FindPrimaryKey();
+            if (primaryKey == null)
+                throw new InvalidOperationException(
+                    $"Entity type '{entityType.DisplayName()}' must define an EF primary key that "
+                    + "matches the DynamoDB table key.");
+
+            if (primaryKey.Properties.SequenceEqual(expectedPrimaryKey))
+                continue;
+
+            var expectedDisplay = string.Join(", ", expectedPrimaryKey.Select(static p => p.Name));
+            var actualDisplay = string.Join(", ", primaryKey.Properties.Select(static p => p.Name));
+            throw new InvalidOperationException(
+                $"Entity type '{entityType.DisplayName()}' has EF primary key [{actualDisplay}] but "
+                + $"the DynamoDB table key is [{expectedDisplay}]. Configure HasKey(...) to match "
+                + "the DynamoDB partition/sort key order.");
         }
     }
 
@@ -272,7 +300,9 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
         var tableGroups = new Dictionary<string, List<IEntityType>>(StringComparer.Ordinal);
         foreach (var entityType in model.GetEntityTypes())
         {
-            if (entityType.IsOwned() || entityType.FindOwnership() != null)
+            if (entityType.IsOwned()
+                || entityType.FindOwnership() != null
+                || entityType.BaseType != null)
                 continue;
             var tableName =
                 entityType[DynamoAnnotationNames.TableName] as string ?? entityType.ClrType.Name;

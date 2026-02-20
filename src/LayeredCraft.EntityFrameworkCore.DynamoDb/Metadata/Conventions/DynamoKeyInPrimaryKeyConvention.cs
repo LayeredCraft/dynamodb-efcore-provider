@@ -21,17 +21,11 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata.Conventions;
 ///             If <c>HasPartitionKey</c> is set (and optionally <c>HasSortKey</c>), the EF primary
 ///             key is rebuilt as <c>[pkProperty]</c> or <c>[pkProperty, skProperty]</c>.
 ///         </item>
-///         <item>
-///             If only <c>HasSortKey</c> is set and the entity type has an auto-discovered EF
-///             primary key, the first property of that key is used as the implicit partition key and
-///             the sort key is appended, forming a composite <c>[pkProperty, skProperty]</c>.
-///         </item>
 ///     </list>
 ///     The convention only modifies primary keys that were set by convention (auto-discovered by EF).
 ///     Explicit <c>HasKey</c> calls take precedence; this convention stands down when the primary key
 ///     has an explicit or data-annotation configuration source. Ordering is always
-///     <c>[partitionKeyProperty, sortKeyProperty]</c>, consistent with the fallback derivation in
-///     <see cref="Microsoft.EntityFrameworkCore.DynamoEntityTypeExtensions" />.
+///     <c>[partitionKeyProperty, sortKeyProperty]</c>.
 /// </remarks>
 public sealed class DynamoKeyInPrimaryKeyConvention(
     ProviderConventionSetBuilderDependencies dependencies) : IEntityTypeAnnotationChangedConvention
@@ -77,27 +71,13 @@ public sealed class DynamoKeyInPrimaryKeyConvention(
         var pkPropertyName = entityType[DynamoAnnotationNames.PartitionKeyPropertyName] as string;
         var skPropertyName = entityType[DynamoAnnotationNames.SortKeyPropertyName] as string;
 
-        // Neither annotation is set — nothing to do; leave EF key discovery alone.
-        if (pkPropertyName == null && skPropertyName == null)
+        // Partition key annotation is required for key synthesis.
+        if (pkPropertyName == null)
             return;
 
-        // Resolve the partition key property.
-        //   1. Explicit HasPartitionKey annotation, if set.
-        //   2. Fall back to the first property of the currently-discovered EF primary key
-        //      (handles HasSortKey-only when a PK was auto-discovered from property naming).
-        IConventionProperty? pkProperty;
-        if (pkPropertyName != null)
-        {
-            pkProperty = entityType.FindProperty(pkPropertyName);
-            if (pkProperty == null)
-                return; // Property not yet registered; validator will catch this.
-        }
-        else
-        {
-            pkProperty = primaryKey?.Properties.FirstOrDefault();
-            if (pkProperty == null)
-                return; // No EF PK yet; convention cannot act. Validator will catch this.
-        }
+        var pkProperty = entityType.FindProperty(pkPropertyName);
+        if (pkProperty == null)
+            return; // Property not yet registered; validator will catch this.
 
         var keyProperties = new List<IConventionProperty> { pkProperty };
 

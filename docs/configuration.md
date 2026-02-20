@@ -81,7 +81,7 @@ EF properties map to those keys so it can build correct key expressions.
 
 Properties named `PK` or `PartitionKey` are automatically designated as the DynamoDB partition
 key. Properties named `SK` or `SortKey` are automatically designated as the sort key. The
-comparison is case-sensitive and ordinal.
+comparison is case-insensitive (ordinal ignore-case).
 
 ```csharp
 public class Order
@@ -98,6 +98,7 @@ no explicit `HasKey` call is needed.
 If a type has both `PK` and `PartitionKey` properties (or both `SK` and `SortKey`) and no explicit
 override is configured, the provider throws `InvalidOperationException` during model finalization.
 Use `HasPartitionKey` or `HasSortKey` to resolve the ambiguity.
+This ambiguity check uses the same case-insensitive matching as key discovery.
 
 ### Explicit configuration
 

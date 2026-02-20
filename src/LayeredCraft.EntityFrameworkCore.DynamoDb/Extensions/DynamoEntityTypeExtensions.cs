@@ -28,12 +28,10 @@ public static class DynamoEntityTypeExtensions
                 name.NullButNotEmpty());
 
         /// <summary>
-        ///     Sets the EF property name whose <c>HasAttributeName</c> mapping determines the DynamoDB
-        ///     partition key attribute name.
+        ///     Sets the EF property name designated as the DynamoDB partition key.
         /// </summary>
         /// <param name="name">
-        ///     The EF property name, or <see langword="null" /> to clear the override and
-        ///     revert to auto-detection from the first EF primary key property.
+        ///     The EF property name, or <see langword="null" /> to clear the explicit override.
         /// </param>
         public void SetPartitionKeyPropertyName(string? name)
             => entityType.SetOrRemoveAnnotation(
@@ -41,12 +39,10 @@ public static class DynamoEntityTypeExtensions
                 name.NullButNotEmpty());
 
         /// <summary>
-        ///     Sets the EF property name whose <c>HasAttributeName</c> mapping determines the DynamoDB
-        ///     sort key attribute name.
+        ///     Sets the EF property name designated as the DynamoDB sort key.
         /// </summary>
         /// <param name="name">
-        ///     The EF property name, or <see langword="null" /> to clear the override and
-        ///     revert to auto-detection from the second EF primary key property.
+        ///     The EF property name, or <see langword="null" /> to clear the explicit override.
         /// </param>
         public void SetSortKeyPropertyName(string? name)
             => entityType.SetOrRemoveAnnotation(
@@ -73,25 +69,23 @@ public static class DynamoEntityTypeExtensions
 
         /// <summary>Gets the name of the EF property that maps to the DynamoDB partition key.</summary>
         /// <remarks>
-        ///     Derivation order: explicit <c>HasPartitionKey</c> annotation → first EF primary key
-        ///     property name → <see langword="null" />.
+        ///     Returns the configured partition key property annotation when present.
         /// </remarks>
-        /// <returns>The EF property name, or <see langword="null" /> if no primary key is defined.</returns>
+        /// <returns>The EF property name, or <see langword="null" /> when no partition key is configured.</returns>
         public string? GetPartitionKeyPropertyName()
         {
             if (entityType[DynamoAnnotationNames.PartitionKeyPropertyName] is string annotated)
                 return annotated;
-            return entityType.FindPrimaryKey()?.Properties[0].Name;
+            return null;
         }
 
         /// <summary>Gets the EF property that maps to the DynamoDB partition key.</summary>
         /// <remarks>
-        ///     Derivation order: explicit <c>HasPartitionKey</c> annotation → first EF primary key
-        ///     property → <see langword="null" />.
+        ///     Resolves the property from <see cref="GetPartitionKeyPropertyName()" />.
         /// </remarks>
         /// <returns>
-        ///     The partition key <see cref="IReadOnlyProperty" />, or <see langword="null" /> if no
-        ///     primary key is defined.
+        ///     The partition key <see cref="IReadOnlyProperty" />, or <see langword="null" /> when no
+        ///     partition key is configured.
         /// </returns>
         public IReadOnlyProperty? GetPartitionKeyProperty()
         {
@@ -101,23 +95,19 @@ public static class DynamoEntityTypeExtensions
 
         /// <summary>Gets the name of the EF property that maps to the DynamoDB sort key.</summary>
         /// <remarks>
-        ///     Derivation order: explicit <c>HasSortKey</c> annotation → second EF primary key property
-        ///     name → <see langword="null" />. Returns <see langword="null" /> when the EF primary key has
-        ///     fewer than two properties.
+        ///     Returns the configured sort key property annotation when present.
         /// </remarks>
         /// <returns>The EF property name, or <see langword="null" /> if the table has no sort key.</returns>
         public string? GetSortKeyPropertyName()
         {
             if (entityType[DynamoAnnotationNames.SortKeyPropertyName] is string annotated)
                 return annotated;
-            var pk = entityType.FindPrimaryKey();
-            return pk is { Properties.Count: >= 2 } ? pk.Properties[1].Name : null;
+            return null;
         }
 
         /// <summary>Gets the EF property that maps to the DynamoDB sort key.</summary>
         /// <remarks>
-        ///     Derivation order: explicit <c>HasSortKey</c> annotation → second EF primary key property →
-        ///     <see langword="null" />.
+        ///     Resolves the property from <see cref="GetSortKeyPropertyName()" />.
         /// </remarks>
         /// <returns>
         ///     The sort key <see cref="IReadOnlyProperty" />, or <see langword="null" /> if the table has
@@ -134,12 +124,11 @@ public static class DynamoEntityTypeExtensions
     {
         /// <summary>Gets the EF property that maps to the DynamoDB partition key.</summary>
         /// <remarks>
-        ///     Derivation order: explicit <c>HasPartitionKey</c> annotation → first EF primary key
-        ///     property → <see langword="null" />.
+        ///     Resolves the property from <see cref="GetPartitionKeyPropertyName()" />.
         /// </remarks>
         /// <returns>
-        ///     The partition key <see cref="IProperty" />, or <see langword="null" /> if no primary key
-        ///     is defined.
+        ///     The partition key <see cref="IProperty" />, or <see langword="null" /> when no partition key
+        ///     is configured.
         /// </returns>
         public IProperty? GetPartitionKeyProperty()
         {
@@ -149,8 +138,7 @@ public static class DynamoEntityTypeExtensions
 
         /// <summary>Gets the EF property that maps to the DynamoDB sort key.</summary>
         /// <remarks>
-        ///     Derivation order: explicit <c>HasSortKey</c> annotation → second EF primary key property →
-        ///     <see langword="null" />.
+        ///     Resolves the property from <see cref="GetSortKeyPropertyName()" />.
         /// </remarks>
         /// <returns>
         ///     The sort key <see cref="IProperty" />, or <see langword="null" /> if the table has no sort
@@ -166,8 +154,8 @@ public static class DynamoEntityTypeExtensions
     extension(IConventionEntityType entityType)
     {
         /// <summary>
-        ///     Sets the EF property name whose attribute name determines the DynamoDB partition key at
-        ///     the given configuration source.
+        ///     Sets the EF property name designated as the DynamoDB partition key at the given
+        ///     configuration source.
         /// </summary>
         /// <param name="name">The EF property name, or <see langword="null" /> to clear the override.</param>
         /// <param name="fromDataAnnotation">
@@ -186,8 +174,8 @@ public static class DynamoEntityTypeExtensions
                 ?.Value;
 
         /// <summary>
-        ///     Sets the EF property name whose attribute name determines the DynamoDB sort key at the
-        ///     given configuration source.
+        ///     Sets the EF property name designated as the DynamoDB sort key at the given
+        ///     configuration source.
         /// </summary>
         /// <param name="name">The EF property name, or <see langword="null" /> to clear the override.</param>
         /// <param name="fromDataAnnotation">

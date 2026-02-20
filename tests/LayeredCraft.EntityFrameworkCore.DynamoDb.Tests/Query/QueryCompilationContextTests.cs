@@ -14,12 +14,15 @@ public class QueryCompilationContextTests
         public TestDbContext(DbContextOptions<TestDbContext> options) : base(options) { }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
-            => modelBuilder.Entity<TestEntity>().HasKey(x => x.Id);
+            => modelBuilder.Entity<TestEntity>(b =>
+            {
+                b.HasKey(x => x.PK);
+            });
     }
 
     private sealed class TestEntity
     {
-        public int Id { get; set; }
+        public int PK { get; set; }
     }
 
     private static QueryCompilationContextDependencies CreateDependencies()
