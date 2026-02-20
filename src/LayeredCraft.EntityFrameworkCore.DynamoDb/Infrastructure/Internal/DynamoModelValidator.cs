@@ -15,6 +15,10 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
         IModel model,
         IDiagnosticsLogger<DbLoggerCategory.Model.Validation> logger)
     {
+        // Run DynamoDB-specific pre-flight checks before EF base validation so that
+        // provider-specific error messages take precedence over EF's generic errors.
+        ValidateSortKeyHasResolvablePartitionKey(model);
+
         base.Validate(model, logger);
 
         foreach (var entityType in model.GetEntityTypes())
@@ -185,6 +189,32 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
                     + $"'{navigation.ClrType.Name}', which is not supported by the DynamoDB provider. "
                     + "Supported list shapes: T[], List<T>, IList<T>, IReadOnlyList<T>.");
             }
+        }
+    }
+
+    /// <summary>
+    ///     Ensures that every root entity type with an explicit sort key annotation has a
+    ///     determinable partition key — either via <c>HasPartitionKey</c> or auto-discovery from the EF
+    ///     primary key. This runs before EF base validation so that a DynamoDB-specific error is emitted
+    ///     instead of EF's generic "no primary key defined" message.
+    /// </summary>
+    private static void ValidateSortKeyHasResolvablePartitionKey(IModel model)
+    {
+        foreach (var entityType in model.GetEntityTypes())
+        {
+            if (entityType.IsOwned() || entityType.FindOwnership() != null)
+                continue;
+
+            if (entityType[DynamoAnnotationNames.SortKeyPropertyName] is not string skName)
+                continue;
+
+            if (entityType.GetPartitionKeyPropertyName() is null)
+                throw new InvalidOperationException(
+                    $"Sort key property '{skName}' is configured on entity type "
+                    + $"'{entityType.DisplayName()}' but no partition key can be determined. "
+                    + "Call HasPartitionKey(...) to designate a partition key property, or ensure "
+                    + "the entity type has a primary key property discoverable by EF Core "
+                    + "(for example, a property named 'Id' or decorated with [Key]).");
         }
     }
 

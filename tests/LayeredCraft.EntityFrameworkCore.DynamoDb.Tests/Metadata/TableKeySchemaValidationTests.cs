@@ -445,4 +445,44 @@ public class TableKeySchemaValidationTests
             .Throw<InvalidOperationException>()
             .WithMessage("*sort key property 'SomeProp'*not part of the EF primary key*");
     }
+
+    // -------------------------------------------------------------------
+    // HasSortKey with no resolvable partition key — no HasPartitionKey, no
+    // auto-discoverable PK property — must produce a DynamoDB-specific error
+    // -------------------------------------------------------------------
+
+    private sealed record NoDiscoverablePkEntity
+    {
+        // Properties are not named 'Id' / '<EntityName>Id', so EF will not auto-discover a PK.
+        public string PartitionKey { get; set; } = null!;
+        public string SortKey { get; set; } = null!;
+    }
+
+    private sealed class SortKeyWithNoResolvablePkContext(DbContextOptions options) : DbContext(
+        options)
+    {
+        public DbSet<NoDiscoverablePkEntity> Entities { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<NoDiscoverablePkEntity>(b =>
+            {
+                b.ToTable("SortKeyOnlyTable");
+                // HasSortKey set, but no HasPartitionKey and no auto-discoverable PK property.
+                b.HasSortKey(x => x.SortKey);
+            });
+
+        public static SortKeyWithNoResolvablePkContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<SortKeyWithNoResolvablePkContext>(client));
+    }
+
+    [Fact]
+    public void HasSortKey_WithNoResolvablePartitionKey_ThrowsDynamoSpecificError()
+    {
+        var ctx = SortKeyWithNoResolvablePkContext.Create(MockClient());
+        var act = () => ctx.Model;
+        act
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage("*Sort key property 'SortKey'*no partition key can be determined*");
+    }
 }
