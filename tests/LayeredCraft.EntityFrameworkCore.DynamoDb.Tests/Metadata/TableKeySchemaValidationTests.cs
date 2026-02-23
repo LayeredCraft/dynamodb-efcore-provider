@@ -127,6 +127,41 @@ public class TableKeySchemaValidationTests
             .WithMessage("*No DynamoDB partition key is configured*");
     }
 
+    [Fact]
+    public void HasPartitionKey_ShadowProperty_DoesNotThrow()
+    {
+        var ctx = ShadowPartitionKeyContext.Create(MockClient());
+        var act = () => ctx.Model;
+        act.Should().NotThrow();
+    }
+
+    [Fact]
+    public void HasPartitionKeyAndSortKey_ShadowProperties_DoesNotThrow()
+    {
+        var ctx = ShadowPartitionAndSortKeyContext.Create(MockClient());
+        var act = () => ctx.Model;
+        act.Should().NotThrow();
+    }
+
+    [Fact]
+    public void SharedTable_ShadowKeyProperties_WithMatchingAttributeNames_DoesNotThrow()
+    {
+        var ctx = SharedTableShadowKeyConsistentContext.Create(MockClient());
+        var act = () => ctx.Model;
+        act.Should().NotThrow();
+    }
+
+    [Fact]
+    public void SharedTable_ShadowKeyProperties_WithConflictingPartitionAttributeNames_Throws()
+    {
+        var ctx = SharedTableShadowKeyConflictingPkContext.Create(MockClient());
+        var act = () => ctx.Model;
+        act
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage("*partition key attribute names*");
+    }
+
     // -------------------------------------------------------------------
     // Conflicting partition key names on the same table
     // -------------------------------------------------------------------
@@ -506,5 +541,118 @@ public class TableKeySchemaValidationTests
 
         public static SortKeyWithNoResolvablePkContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<SortKeyWithNoResolvablePkContext>(client));
+    }
+
+    // -------------------------------------------------------------------
+    // Shadow key properties
+    // -------------------------------------------------------------------
+
+    private sealed record ShadowKeyEntity;
+
+    private sealed class ShadowPartitionKeyContext(DbContextOptions options) : DbContext(options)
+    {
+        public DbSet<ShadowKeyEntity> Entities { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<ShadowKeyEntity>(b =>
+            {
+                b.ToTable("ShadowPkTable");
+                b.Property<string>("PK");
+                b.HasPartitionKey("PK");
+                b.HasKey("PK");
+            });
+
+        public static ShadowPartitionKeyContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<ShadowPartitionKeyContext>(client));
+    }
+
+    private sealed class ShadowPartitionAndSortKeyContext(DbContextOptions options) : DbContext(
+        options)
+    {
+        public DbSet<ShadowKeyEntity> Entities { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<ShadowKeyEntity>(b =>
+            {
+                b.ToTable("ShadowPkSkTable");
+                b.Property<string>("PK");
+                b.Property<string>("SK");
+                b.HasPartitionKey("PK");
+                b.HasSortKey("SK");
+                b.HasKey("PK", "SK");
+            });
+
+        public static ShadowPartitionAndSortKeyContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<ShadowPartitionAndSortKeyContext>(client));
+    }
+
+    private sealed record SharedShadowEntityA;
+
+    private sealed record SharedShadowEntityB;
+
+    private sealed class SharedTableShadowKeyConsistentContext(DbContextOptions options)
+        : DbContext(options)
+    {
+        public DbSet<SharedShadowEntityA> EntitiesA { get; set; } = null!;
+        public DbSet<SharedShadowEntityB> EntitiesB { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<SharedShadowEntityA>(b =>
+            {
+                b.ToTable("SharedShadowTable");
+                b.Property<string>("InternalPK").HasAttributeName("PK");
+                b.Property<string>("InternalSK").HasAttributeName("SK");
+                b.HasPartitionKey("InternalPK");
+                b.HasSortKey("InternalSK");
+                b.HasKey("InternalPK", "InternalSK");
+            });
+
+            modelBuilder.Entity<SharedShadowEntityB>(b =>
+            {
+                b.ToTable("SharedShadowTable");
+                b.Property<string>("OtherPk").HasAttributeName("PK");
+                b.Property<string>("OtherSk").HasAttributeName("SK");
+                b.HasPartitionKey("OtherPk");
+                b.HasSortKey("OtherSk");
+                b.HasKey("OtherPk", "OtherSk");
+            });
+        }
+
+        public static SharedTableShadowKeyConsistentContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<SharedTableShadowKeyConsistentContext>(client));
+    }
+
+    private sealed class SharedTableShadowKeyConflictingPkContext(DbContextOptions options)
+        : DbContext(options)
+    {
+        public DbSet<SharedShadowEntityA> EntitiesA { get; set; } = null!;
+        public DbSet<SharedShadowEntityB> EntitiesB { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<SharedShadowEntityA>(b =>
+            {
+                b.ToTable("SharedShadowConflictTable");
+                b.Property<string>("InternalPK").HasAttributeName("PK");
+                b.Property<string>("InternalSK").HasAttributeName("SK");
+                b.HasPartitionKey("InternalPK");
+                b.HasSortKey("InternalSK");
+                b.HasKey("InternalPK", "InternalSK");
+            });
+
+            modelBuilder.Entity<SharedShadowEntityB>(b =>
+            {
+                b.ToTable("SharedShadowConflictTable");
+                b.Property<string>("OtherPk").HasAttributeName("PK2");
+                b.Property<string>("OtherSk").HasAttributeName("SK");
+                b.HasPartitionKey("OtherPk");
+                b.HasSortKey("OtherSk");
+                b.HasKey("OtherPk", "OtherSk");
+            });
+        }
+
+        public static SharedTableShadowKeyConflictingPkContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<SharedTableShadowKeyConflictingPkContext>(client));
     }
 }
