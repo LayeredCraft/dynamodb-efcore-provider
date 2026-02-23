@@ -1,6 +1,7 @@
 using Amazon.DynamoDBv2;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NSubstitute;
 
 // ReSharper disable AutoPropertyCanBeMadeGetOnly.Local
@@ -37,7 +38,7 @@ public class TableKeySchemaValidationTests
     {
         var ctx = MixedSkContext.Create(MockClient());
         var act = () => ctx.Model;
-        act.Should().Throw<InvalidOperationException>().WithMessage("*sort key attribute names*");
+        act.Should().Throw<InvalidOperationException>().WithMessage("*mixed key shapes*");
     }
 
     [Fact]
@@ -160,6 +161,77 @@ public class TableKeySchemaValidationTests
             .Should()
             .Throw<InvalidOperationException>()
             .WithMessage("*partition key attribute names*");
+    }
+
+    [Fact]
+    public void HasPartitionKey_BoolType_ThrowsOnValidation()
+    {
+        var ctx = BoolPartitionKeyContext.Create(MockClient());
+        var act = () => ctx.Model;
+        act
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage("*partition key*must be string, number, or binary*");
+    }
+
+    [Fact]
+    public void HasSortKey_BoolType_ThrowsOnValidation()
+    {
+        var ctx = BoolSortKeyContext.Create(MockClient());
+        var act = () => ctx.Model;
+        act
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage("*sort key*must be string, number, or binary*");
+    }
+
+    [Fact]
+    public void HasPartitionKey_GuidWithoutConverter_DoesNotThrow()
+    {
+        var ctx = GuidPartitionKeyWithoutConverterContext.Create(MockClient());
+        var act = () => ctx.Model;
+        act.Should().NotThrow();
+    }
+
+    [Fact]
+    public void HasPartitionKey_GuidWithStringConverter_DoesNotThrow()
+    {
+        var ctx = GuidPartitionKeyWithConverterContext.Create(MockClient());
+        var act = () => ctx.Model;
+        act.Should().NotThrow();
+    }
+
+    [Fact]
+    public void HasPartitionKey_ConverterWithNullableProviderType_ThrowsOnValidation()
+    {
+        var ctx = NullableProviderPartitionKeyContext.Create(MockClient());
+        var act = () => ctx.Model;
+        act
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage("*effective provider type 'int?' is nullable*");
+    }
+
+    [Fact]
+    public void SharedTable_PartitionKeyTypeCategoryMismatch_Throws()
+    {
+        var ctx = SharedTablePartitionTypeMismatchContext.Create(MockClient());
+        var act = () => ctx.Model;
+        act
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage("*partition key attribute 'PK'*different key type categories*");
+    }
+
+    [Fact]
+    public void SharedTable_SortKeyTypeCategoryMismatch_Throws()
+    {
+        var ctx = SharedTableSortTypeMismatchContext.Create(MockClient());
+        var act = () => ctx.Model;
+        act
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage("*sort key attribute 'SK'*different key type categories*");
     }
 
     // -------------------------------------------------------------------
@@ -654,5 +726,214 @@ public class TableKeySchemaValidationTests
 
         public static SharedTableShadowKeyConflictingPkContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<SharedTableShadowKeyConflictingPkContext>(client));
+    }
+
+    // -------------------------------------------------------------------
+    // Key provider type validation
+    // -------------------------------------------------------------------
+
+    private sealed record BoolPartitionKeyEntity
+    {
+        public bool Id { get; set; }
+    }
+
+    private sealed class BoolPartitionKeyContext(DbContextOptions options) : DbContext(options)
+    {
+        public DbSet<BoolPartitionKeyEntity> Entities { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<BoolPartitionKeyEntity>(b =>
+            {
+                b.ToTable("BoolPkTable");
+                b.HasKey(x => x.Id);
+                b.HasPartitionKey(x => x.Id);
+            });
+
+        public static BoolPartitionKeyContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<BoolPartitionKeyContext>(client));
+    }
+
+    private sealed record BoolSortKeyEntity
+    {
+        public string PK { get; set; } = null!;
+        public bool SK { get; set; }
+    }
+
+    private sealed class BoolSortKeyContext(DbContextOptions options) : DbContext(options)
+    {
+        public DbSet<BoolSortKeyEntity> Entities { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<BoolSortKeyEntity>(b =>
+            {
+                b.ToTable("BoolSkTable");
+                b.HasKey(x => new { x.PK, x.SK });
+                b.HasPartitionKey(x => x.PK);
+                b.HasSortKey(x => x.SK);
+            });
+
+        public static BoolSortKeyContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<BoolSortKeyContext>(client));
+    }
+
+    private sealed record GuidPartitionKeyEntity
+    {
+        public Guid Id { get; set; }
+    }
+
+    private sealed class GuidPartitionKeyWithoutConverterContext(DbContextOptions options)
+        : DbContext(options)
+    {
+        public DbSet<GuidPartitionKeyEntity> Entities { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<GuidPartitionKeyEntity>(b =>
+            {
+                b.ToTable("GuidPkNoConverter");
+                b.HasKey(x => x.Id);
+                b.HasPartitionKey(x => x.Id);
+            });
+
+        public static GuidPartitionKeyWithoutConverterContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<GuidPartitionKeyWithoutConverterContext>(client));
+    }
+
+    private sealed class GuidPartitionKeyWithConverterContext(DbContextOptions options) : DbContext(
+        options)
+    {
+        public DbSet<GuidPartitionKeyEntity> Entities { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<GuidPartitionKeyEntity>(b =>
+            {
+                b.ToTable("GuidPkWithConverter");
+                b.HasKey(x => x.Id);
+                b.HasPartitionKey(x => x.Id);
+                b
+                    .Property(x => x.Id)
+                    .HasConversion(
+                        new ValueConverter<Guid, string>(
+                            static value => value.ToString("N"),
+                            static value => Guid.Parse(value)));
+            });
+
+        public static GuidPartitionKeyWithConverterContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<GuidPartitionKeyWithConverterContext>(client));
+    }
+
+    private sealed record NullableProviderPartitionKeyEntity
+    {
+        public int Id { get; set; }
+    }
+
+    private sealed class NullableProviderPartitionKeyContext(DbContextOptions options) : DbContext(
+        options)
+    {
+        public DbSet<NullableProviderPartitionKeyEntity> Entities { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<NullableProviderPartitionKeyEntity>(b =>
+            {
+                b.ToTable("NullableProviderPkTable");
+                b.HasKey(x => x.Id);
+                b.HasPartitionKey(x => x.Id);
+                b
+                    .Property(x => x.Id)
+                    .HasConversion(
+                        new ValueConverter<int, int?>(
+                            static value => value,
+                            static value => value ?? 0));
+            });
+
+        public static NullableProviderPartitionKeyContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<NullableProviderPartitionKeyContext>(client));
+    }
+
+    // -------------------------------------------------------------------
+    // Shared-table key type category consistency
+    // -------------------------------------------------------------------
+
+    private sealed record SharedPartitionTypeEntityA
+    {
+        public string Id { get; set; } = null!;
+    }
+
+    private sealed record SharedPartitionTypeEntityB
+    {
+        public int Id { get; set; }
+    }
+
+    private sealed class SharedTablePartitionTypeMismatchContext(DbContextOptions options)
+        : DbContext(options)
+    {
+        public DbSet<SharedPartitionTypeEntityA> EntitiesA { get; set; } = null!;
+        public DbSet<SharedPartitionTypeEntityB> EntitiesB { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<SharedPartitionTypeEntityA>(b =>
+            {
+                b.ToTable("SharedPartitionTypeMismatchTable");
+                b.HasKey(x => x.Id);
+                b.HasPartitionKey(x => x.Id);
+                b.Property(x => x.Id).HasAttributeName("PK");
+            });
+
+            modelBuilder.Entity<SharedPartitionTypeEntityB>(b =>
+            {
+                b.ToTable("SharedPartitionTypeMismatchTable");
+                b.HasKey(x => x.Id);
+                b.HasPartitionKey(x => x.Id);
+                b.Property(x => x.Id).HasAttributeName("PK");
+            });
+        }
+
+        public static SharedTablePartitionTypeMismatchContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<SharedTablePartitionTypeMismatchContext>(client));
+    }
+
+    private sealed record SharedSortTypeEntityA
+    {
+        public string PartId { get; set; } = null!;
+        public string SortId { get; set; } = null!;
+    }
+
+    private sealed record SharedSortTypeEntityB
+    {
+        public string PartId { get; set; } = null!;
+        public int SortId { get; set; }
+    }
+
+    private sealed class SharedTableSortTypeMismatchContext(DbContextOptions options) : DbContext(
+        options)
+    {
+        public DbSet<SharedSortTypeEntityA> EntitiesA { get; set; } = null!;
+        public DbSet<SharedSortTypeEntityB> EntitiesB { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<SharedSortTypeEntityA>(b =>
+            {
+                b.ToTable("SharedSortTypeMismatchTable");
+                b.HasKey(x => new { x.PartId, x.SortId });
+                b.HasPartitionKey(x => x.PartId);
+                b.HasSortKey(x => x.SortId);
+                b.Property(x => x.PartId).HasAttributeName("PK");
+                b.Property(x => x.SortId).HasAttributeName("SK");
+            });
+
+            modelBuilder.Entity<SharedSortTypeEntityB>(b =>
+            {
+                b.ToTable("SharedSortTypeMismatchTable");
+                b.HasKey(x => new { x.PartId, x.SortId });
+                b.HasPartitionKey(x => x.PartId);
+                b.HasSortKey(x => x.SortId);
+                b.Property(x => x.PartId).HasAttributeName("PK");
+                b.Property(x => x.SortId).HasAttributeName("SK");
+            });
+        }
+
+        public static SharedTableSortTypeMismatchContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<SharedTableSortTypeMismatchContext>(client));
     }
 }

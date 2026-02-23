@@ -18,6 +18,13 @@ icon: lucide/stethoscope
 ## Warnings
 - Row-limiting query without configured page size logs a warning.
 
+## Model validation errors (startup)
+- Shared-table key mappings fail model validation when entity types mapped to the same table disagree on key shape (PK-only vs PK+SK).
+- Shared-table key mappings fail model validation when PK/SK attribute names differ across mapped entity types.
+- Shared-table key mappings fail model validation when key type categories differ for the same PK/SK attribute (string vs number vs binary).
+- Key properties fail model validation when they are nullable or resolve to nullable converter provider types.
+- Key properties fail model validation when provider types are not DynamoDB key-compatible (`string`, number, `byte[]`), including `bool`.
+
 ## How to interpret pagination logs
 - Request log entries show configured `Limit` and whether a continuation token is present.
 - Response log entries show returned item count and whether continuation is still required.

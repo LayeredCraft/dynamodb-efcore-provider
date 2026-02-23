@@ -32,6 +32,8 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
 
         ValidateEmbeddedOwnedCollectionNavigationShapes(model);
         ValidateKeyPropertyNames(model);
+        ValidateKeyPropertyTypes(model);
+        ValidateKeyPropertyNullability(model);
         ValidateTableKeySchemaConsistency(model);
     }
 
@@ -199,13 +201,8 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
     /// </summary>
     private static void ValidateRootEntityHasPartitionKey(IModel model)
     {
-        foreach (var entityType in model.GetEntityTypes())
+        foreach (var entityType in EnumerateRootEntityTypes(model))
         {
-            if (entityType.IsOwned()
-                || entityType.FindOwnership() != null
-                || entityType.BaseType != null)
-                continue;
-
             if (entityType[DynamoAnnotationNames.PartitionKeyPropertyName] is string)
                 continue;
 
@@ -232,13 +229,8 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
     /// </summary>
     private static void ValidateSortKeyHasResolvablePartitionKey(IModel model)
     {
-        foreach (var entityType in model.GetEntityTypes())
+        foreach (var entityType in EnumerateRootEntityTypes(model))
         {
-            if (entityType.IsOwned()
-                || entityType.FindOwnership() != null
-                || entityType.BaseType != null)
-                continue;
-
             if (entityType[DynamoAnnotationNames.SortKeyPropertyName] is not string skName)
                 continue;
 
@@ -257,13 +249,8 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
     /// </summary>
     private static void ValidateKeyPropertyNames(IModel model)
     {
-        foreach (var entityType in model.GetEntityTypes())
+        foreach (var entityType in EnumerateRootEntityTypes(model))
         {
-            if (entityType.IsOwned()
-                || entityType.FindOwnership() != null
-                || entityType.BaseType != null)
-                continue;
-
             if (entityType[DynamoAnnotationNames.PartitionKeyPropertyName] is not string pkName)
                 continue;
 
@@ -303,16 +290,84 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
         }
     }
 
+    /// <summary>Validates that configured partition/sort key properties map to DynamoDB-compatible key provider types (string, number, or binary).</summary>
+    private static void ValidateKeyPropertyTypes(IModel model)
+    {
+        foreach (var entityType in EnumerateRootEntityTypes(model))
+        {
+            var partitionKeyProperty = entityType.GetPartitionKeyProperty();
+            if (partitionKeyProperty != null)
+                ValidateSingleKeyPropertyType(entityType, partitionKeyProperty, "partition key");
+
+            var sortKeyProperty = entityType.GetSortKeyProperty();
+            if (sortKeyProperty != null)
+                ValidateSingleKeyPropertyType(entityType, sortKeyProperty, "sort key");
+        }
+    }
+
+    /// <summary>Validates a single DynamoDB key property has an allowed provider type category.</summary>
+    private static void ValidateSingleKeyPropertyType(
+        IEntityType entityType,
+        IProperty keyProperty,
+        string keyRole)
+    {
+        var effectiveProviderType = GetEffectiveProviderClrType(keyProperty);
+        var typeCategory = GetKeyTypeCategory(effectiveProviderType);
+        if (typeCategory is not DynamoKeyTypeCategory.Unsupported)
+            return;
+
+        throw new InvalidOperationException(
+            $"Entity type '{entityType.DisplayName()}' maps property '{keyProperty.Name}' as DynamoDB {keyRole}, "
+            + $"but the effective provider type '{effectiveProviderType.ShortDisplayName()}' is not supported. "
+            + "DynamoDB partition and sort keys must be string, number, or binary (byte[]). "
+            + "Configure a ValueConverter when the CLR key type differs from the stored key type.");
+    }
+
+    /// <summary>Validates that configured partition/sort key properties are required and cannot resolve to nullable provider types.</summary>
+    private static void ValidateKeyPropertyNullability(IModel model)
+    {
+        foreach (var entityType in EnumerateRootEntityTypes(model))
+        {
+            var partitionKeyProperty = entityType.GetPartitionKeyProperty();
+            if (partitionKeyProperty != null)
+                ValidateSingleKeyPropertyNullability(
+                    entityType,
+                    partitionKeyProperty,
+                    "partition key");
+
+            var sortKeyProperty = entityType.GetSortKeyProperty();
+            if (sortKeyProperty != null)
+                ValidateSingleKeyPropertyNullability(entityType, sortKeyProperty, "sort key");
+        }
+    }
+
+    /// <summary>Validates a single DynamoDB key property is non-nullable in CLR and provider form.</summary>
+    private static void ValidateSingleKeyPropertyNullability(
+        IEntityType entityType,
+        IProperty keyProperty,
+        string keyRole)
+    {
+        if (keyProperty.IsNullable)
+            throw new InvalidOperationException(
+                $"Entity type '{entityType.DisplayName()}' maps property '{keyProperty.Name}' as DynamoDB {keyRole}, "
+                + "but the property is nullable. DynamoDB key properties must be required and non-nullable.");
+
+        var effectiveProviderType = GetEffectiveProviderClrTypeIncludingNullable(keyProperty);
+        if (Nullable.GetUnderlyingType(effectiveProviderType) == null)
+            return;
+
+        throw new InvalidOperationException(
+            $"Entity type '{entityType.DisplayName()}' maps property '{keyProperty.Name}' as DynamoDB {keyRole}, "
+            + $"but the effective provider type '{effectiveProviderType.ShortDisplayName()}' is nullable. "
+            + "DynamoDB key provider types must be non-nullable.");
+    }
+
     /// <summary>Validates all root entity types sharing the same DynamoDB table agree on key schema.</summary>
     private static void ValidateTableKeySchemaConsistency(IModel model)
     {
         var tableGroups = new Dictionary<string, List<IEntityType>>(StringComparer.Ordinal);
-        foreach (var entityType in model.GetEntityTypes())
+        foreach (var entityType in EnumerateRootEntityTypes(model))
         {
-            if (entityType.IsOwned()
-                || entityType.FindOwnership() != null
-                || entityType.BaseType != null)
-                continue;
             var tableName =
                 entityType[DynamoAnnotationNames.TableName] as string ?? entityType.ClrType.Name;
             if (!tableGroups.TryGetValue(tableName, out var group))
@@ -332,25 +387,114 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
     private static void ValidateTableKeySchemaGroup(string tableName, List<IEntityType> entityTypes)
     {
         var first = entityTypes[0];
-        var expectedPk = first.GetPartitionKeyProperty()?.GetAttributeName();
-        var expectedSk = first.GetSortKeyProperty()?.GetAttributeName();
+        var expectedPkProperty = first.GetPartitionKeyProperty();
+        var expectedSkProperty = first.GetSortKeyProperty();
+        var expectedPk = expectedPkProperty?.GetAttributeName();
+        var expectedSk = expectedSkProperty?.GetAttributeName();
+        var expectedPkTypeCategory =
+            GetKeyTypeCategory(GetEffectiveProviderClrType(expectedPkProperty!));
+        var expectedSkTypeCategory = expectedSkProperty == null
+            ? DynamoKeyTypeCategory.Unsupported
+            : GetKeyTypeCategory(GetEffectiveProviderClrType(expectedSkProperty));
+
         for (var i = 1; i < entityTypes.Count; i++)
         {
             var et = entityTypes[i];
-            var pk = et.GetPartitionKeyProperty()?.GetAttributeName();
-            var sk = et.GetSortKeyProperty()?.GetAttributeName();
+            var pkProperty = et.GetPartitionKeyProperty();
+            var skProperty = et.GetSortKeyProperty();
+            var pk = pkProperty?.GetAttributeName();
+            var sk = skProperty?.GetAttributeName();
+
             if (!string.Equals(pk, expectedPk, StringComparison.Ordinal))
                 throw new InvalidOperationException(
                     $"Entity types '{first.DisplayName()}' and '{et.DisplayName()}' are both mapped to table "
                     + $"'{tableName}' but have different partition key attribute names ('{expectedPk ?? "<none>"}' vs '{pk ?? "<none>"}'). "
                     + "All entity types sharing a DynamoDB table must use the same partition key attribute name.");
+
+            if (expectedSk == null != (sk == null))
+                throw new InvalidOperationException(
+                    $"Entity types '{first.DisplayName()}' and '{et.DisplayName()}' are both mapped to table "
+                    + $"'{tableName}' but use mixed key shapes (one is PK-only and the other is PK+SK). "
+                    + "All entity types sharing a DynamoDB table must agree on key shape.");
+
             if (!string.Equals(sk, expectedSk, StringComparison.Ordinal))
                 throw new InvalidOperationException(
                     $"Entity types '{first.DisplayName()}' and '{et.DisplayName()}' are both mapped to table "
                     + $"'{tableName}' but have inconsistent sort key attribute names "
                     + $"('{expectedSk ?? "<none>"}' vs '{sk ?? "<none>"}')."
                     + " All entity types sharing a DynamoDB table must agree on the sort key attribute name.");
+
+            var pkTypeCategory = GetKeyTypeCategory(GetEffectiveProviderClrType(pkProperty!));
+            if (pkTypeCategory != expectedPkTypeCategory)
+                throw new InvalidOperationException(
+                    $"Entity types '{first.DisplayName()}' and '{et.DisplayName()}' are both mapped to table "
+                    + $"'{tableName}' and partition key attribute '{expectedPk ?? "<none>"}', but use different key type categories "
+                    + $"('{expectedPkTypeCategory}' vs '{pkTypeCategory}'). All entity types sharing a DynamoDB table "
+                    + "must use the same key type category for the same partition key attribute.");
+
+            if (expectedSkProperty == null || skProperty == null)
+                continue;
+
+            var skTypeCategory = GetKeyTypeCategory(GetEffectiveProviderClrType(skProperty));
+            if (skTypeCategory == expectedSkTypeCategory)
+                continue;
+
+            throw new InvalidOperationException(
+                $"Entity types '{first.DisplayName()}' and '{et.DisplayName()}' are both mapped to table "
+                + $"'{tableName}' and sort key attribute '{expectedSk ?? "<none>"}', but use different key type categories "
+                + $"('{expectedSkTypeCategory}' vs '{skTypeCategory}'). All entity types sharing a DynamoDB table "
+                + "must use the same key type category for the same sort key attribute.");
         }
+    }
+
+    /// <summary>Returns root entity types that participate in top-level DynamoDB table mappings.</summary>
+    private static IEnumerable<IEntityType> EnumerateRootEntityTypes(IModel model)
+        => model
+            .GetEntityTypes()
+            .Where(static entityType
+                => !entityType.IsOwned()
+                && entityType.FindOwnership() == null
+                && entityType.BaseType == null);
+
+    /// <summary>Returns the effective provider CLR type with nullable wrappers removed.</summary>
+    private static Type GetEffectiveProviderClrType(IProperty property)
+    {
+        var providerType = GetEffectiveProviderClrTypeIncludingNullable(property);
+        return Nullable.GetUnderlyingType(providerType) ?? providerType;
+    }
+
+    /// <summary>Returns the effective provider CLR type and preserves nullable wrappers.</summary>
+    private static Type GetEffectiveProviderClrTypeIncludingNullable(IProperty property)
+        => property.GetTypeMapping().Converter?.ProviderClrType ?? property.ClrType;
+
+    /// <summary>Maps a CLR type to the DynamoDB key type categories used in validation.</summary>
+    private static DynamoKeyTypeCategory GetKeyTypeCategory(Type clrType)
+        => clrType == typeof(string) ? DynamoKeyTypeCategory.String :
+            clrType == typeof(byte[]) ? DynamoKeyTypeCategory.Binary :
+            IsNumericType(clrType) ? DynamoKeyTypeCategory.Number :
+            DynamoKeyTypeCategory.Unsupported;
+
+    /// <summary>Determines whether a CLR type is treated as a DynamoDB numeric key type.</summary>
+    private static bool IsNumericType(Type clrType)
+        => Type.GetTypeCode(clrType) is TypeCode.Byte
+            or TypeCode.SByte
+            or TypeCode.Int16
+            or TypeCode.UInt16
+            or TypeCode.Int32
+            or TypeCode.UInt32
+            or TypeCode.Int64
+            or TypeCode.UInt64
+            or TypeCode.Single
+            or TypeCode.Double
+            or TypeCode.Decimal;
+
+    /// <summary>Represents supported DynamoDB key type categories for model validation.</summary>
+    private enum DynamoKeyTypeCategory
+    {
+        Unsupported,
+        String,
+        Number,
+        Binary,
     }
 
     /// <summary>Gets the DynamoDB table name annotation configured for an entity type.</summary>

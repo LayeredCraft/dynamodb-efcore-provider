@@ -29,6 +29,15 @@ icon: lucide/triangle-alert
   `IDictionary<string,TValue>`, `IReadOnlyDictionary<string,TValue>`, and
   `ReadOnlyDictionary<string,TValue>`.
 
+## Key mapping validation limits
+- Shared-table mappings must agree on key shape: all entity types mapped to the same table must be either PK-only or PK+SK.
+- Shared-table mappings must use consistent physical PK/SK attribute names across entity types.
+- Key properties must resolve to DynamoDB key-compatible provider types: string, number, or binary (`byte[]`).
+- `bool` key mappings are rejected.
+- Converter-backed key mappings are validated against the converter provider CLR type.
+- Key properties must be required/non-nullable, and converter provider types for keys must also be non-nullable.
+- PK-only tables may host multiple entity types in this phase; discriminator behavior is tracked separately.
+
 ## Owned types query limitations
 
 ### Nested path queries (not supported)
