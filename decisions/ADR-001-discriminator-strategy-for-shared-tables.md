@@ -32,10 +32,16 @@ when caller-provided key predicates target the wrong keyspace.
 DynamoDB/PartiQL constraints relevant to this decision:
 
 - PartiQL `SELECT` can behave like a scan unless `WHERE` includes partition-key equality or `IN`.
-- `ExecuteStatement` applies DynamoDB semantics (request limits and 1 MB processing bounds), and
-  filtering does not guarantee key-efficient access patterns.
+- DynamoDB evaluates predicates in two stages (even when PartiQL appears as one `WHERE`):
+  - **Item selection (key-selective):** key predicates determine which items are read/evaluated.
+  - **Filtering (post-read):** remaining predicates discard items after read but before return.
+- Filtering reduces returned items but does **not** reduce consumed read capacity for items already
+  read/evaluated.
+- A dedicated attribute discriminator is therefore always enforceable as a filter predicate, while
+  SK-based discrimination is key-selective only when the effective SK predicate includes the
+  discriminator keyspace.
 - Relying only on sort-key-based discrimination makes correctness depend on caller SK predicates,
-  which is hard to prove in a general LINQ pipeline.
+  unless the provider performs strict compatibility checks or rejects unsupported query shapes.
 
 ## Decision Drivers
 
@@ -52,6 +58,9 @@ DynamoDB/PartiQL constraints relevant to this decision:
 Use a dedicated non-key attribute discriminator (default name `__type`, configurable), and enforce
 it in query translation and materialization.
 
+In DynamoDB terms, this discriminator predicate is a filter: it enforces type correctness, but it
+does not participate in key-based item selection.
+
 **Pros:**
 - Preserves EF Core typed-query semantics across shared tables.
 - Does not compete with user-provided sort-key predicates.
@@ -61,6 +70,7 @@ it in query translation and materialization.
 **Cons:**
 - Requires storing an additional attribute in each item.
 - Introduces model configuration requirements for shared-table mappings.
+- Can still be expensive when many non-matching items are read and then filtered out.
 
 ### Option B: Discriminator encoded in SK only
 
@@ -69,11 +79,14 @@ Treat sort-key predicates (prefix/range/equality shapes) as the sole discriminat
 **Pros:**
 - No additional discriminator attribute required.
 - Matches common single-table key-encoding practices.
+- Can reduce consumed read capacity when discriminator is part of the effective SK selection.
 
 **Cons:**
 - Correctness competes with caller SK predicates; hard to guarantee generally.
 - Requires strict predicate compatibility checks or many unsupported query paths.
 - Increases risk of runtime mismatches and ambiguous behavior.
+- If caller SK predicates do not imply the discriminator keyspace, provider must reject or risk
+  returning unmappable items.
 
 ## Decision
 
@@ -85,6 +98,10 @@ Option A best satisfies correctness and predictability. It gives a clear, provid
 contract: shared-table typed queries are always discriminator-filtered, independent of caller SK
 conditions. This avoids making correctness contingent on sort-key predicate composition and avoids
 complex query-shape-specific SK logic.
+
+This choice accepts DynamoDB's cost trade-off: non-key discriminator filtering does not lower read
+capacity for items already read/evaluated. We accept that for this phase to keep typed semantics
+robust under arbitrary caller SK predicates.
 
 Option B remains attractive for pure key-encoding designs, but as a sole discrimination mechanism it
 pushes too much complexity and ambiguity into translation and runtime validation. For this provider
@@ -113,4 +130,5 @@ phase, we prioritize robust typed semantics over SK-only discrimination.
 - AWS ExecuteStatement API: <https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_ExecuteStatement.html>
 - DynamoDB PartiQL SELECT: <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ql-reference.select.html>
 - DynamoDB PartiQL overview: <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ql-reference.html>
+- DynamoDB Query filter expressions: <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Query.FilterExpression.html>
 - Repository docs: `docs/operators.md`, `docs/configuration.md`, `docs/limitations.md`
