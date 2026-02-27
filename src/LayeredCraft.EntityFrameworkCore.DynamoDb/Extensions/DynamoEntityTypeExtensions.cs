@@ -1,5 +1,6 @@
 // ReSharper disable CheckNamespace
 
+using LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Utilities;
 using Microsoft.EntityFrameworkCore.Metadata;
@@ -48,6 +49,16 @@ public static class DynamoEntityTypeExtensions
             => entityType.SetOrRemoveAnnotation(
                 DynamoAnnotationNames.SortKeyPropertyName,
                 name.NullButNotEmpty());
+
+        /// <summary>Sets the discriminator strategy used for DynamoDB shared-table mappings.</summary>
+        /// <param name="strategy">
+        ///     The strategy to apply, or <see langword="null" /> to clear the explicit
+        ///     setting.
+        /// </param>
+        public void SetDiscriminatorStrategy(DynamoDiscriminatorStrategy? strategy)
+            => entityType.SetOrRemoveAnnotation(
+                DynamoAnnotationNames.DiscriminatorStrategy,
+                strategy?.ToString());
     }
 
     extension(IReadOnlyEntityType entityType)
@@ -118,6 +129,20 @@ public static class DynamoEntityTypeExtensions
             var name = entityType.GetSortKeyPropertyName();
             return name is not null ? entityType.FindProperty(name) : null;
         }
+
+        /// <summary>Gets the configured discriminator strategy for DynamoDB shared-table mappings.</summary>
+        /// <returns>
+        ///     The configured strategy when present; otherwise
+        ///     <see cref="DynamoDiscriminatorStrategy.Attribute" />.
+        /// </returns>
+        public DynamoDiscriminatorStrategy GetDiscriminatorStrategy()
+        {
+            if (entityType[DynamoAnnotationNames.DiscriminatorStrategy] is string strategyName
+                && Enum.TryParse<DynamoDiscriminatorStrategy>(strategyName, out var strategy))
+                return strategy;
+
+            return DynamoDiscriminatorStrategy.Attribute;
+        }
     }
 
     extension(IEntityType entityType)
@@ -149,6 +174,14 @@ public static class DynamoEntityTypeExtensions
             var name = entityType.GetSortKeyPropertyName();
             return name is not null ? entityType.FindProperty(name) : null;
         }
+
+        /// <summary>Gets the configured discriminator strategy for DynamoDB shared-table mappings.</summary>
+        /// <returns>
+        ///     The configured strategy when present; otherwise
+        ///     <see cref="DynamoDiscriminatorStrategy.Attribute" />.
+        /// </returns>
+        public DynamoDiscriminatorStrategy GetDiscriminatorStrategy()
+            => ((IReadOnlyEntityType)entityType).GetDiscriminatorStrategy();
     }
 
     extension(IConventionEntityType entityType)
@@ -212,5 +245,62 @@ public static class DynamoEntityTypeExtensions
             => entityType
                 .FindAnnotation(DynamoAnnotationNames.SortKeyPropertyName)
                 ?.GetConfigurationSource();
+
+        /// <summary>
+        ///     Sets the discriminator strategy used for DynamoDB shared-table mappings at the given
+        ///     configuration source.
+        /// </summary>
+        /// <param name="strategy">
+        ///     The strategy to set, or <see langword="null" /> to clear the explicit
+        ///     setting.
+        /// </param>
+        /// <param name="fromDataAnnotation">
+        ///     <see langword="true" /> if configured via a data annotation;
+        ///     <see langword="false" /> for the fluent API.
+        /// </param>
+        /// <returns>The applied strategy when configuration succeeded; otherwise <see langword="null" />.</returns>
+        public DynamoDiscriminatorStrategy? SetDiscriminatorStrategy(
+            DynamoDiscriminatorStrategy? strategy,
+            bool fromDataAnnotation = false)
+            => Enum.TryParse<DynamoDiscriminatorStrategy>(
+                (string?)entityType.SetOrRemoveAnnotation(
+                        DynamoAnnotationNames.DiscriminatorStrategy,
+                        strategy?.ToString(),
+                        fromDataAnnotation)
+                    ?.Value,
+                out var parsed)
+                ? parsed
+                : null;
+
+        /// <summary>Returns the configuration source for the discriminator strategy annotation.</summary>
+        /// <returns>
+        ///     The <see cref="ConfigurationSource" /> of the annotation, or <see langword="null" /> if no
+        ///     explicit strategy has been configured.
+        /// </returns>
+        public ConfigurationSource? GetDiscriminatorStrategyConfigurationSource()
+            => entityType
+                .FindAnnotation(DynamoAnnotationNames.DiscriminatorStrategy)
+                ?.GetConfigurationSource();
+
+        /// <summary>Returns whether the discriminator strategy can be set from the given configuration source.</summary>
+        /// <param name="strategy">The strategy to test.</param>
+        /// <param name="fromDataAnnotation">
+        ///     <see langword="true" /> if configured via a data annotation;
+        ///     <see langword="false" /> for the fluent API.
+        /// </param>
+        /// <returns>
+        ///     <see langword="true" /> when the new value can be applied; otherwise
+        ///     <see langword="false" />.
+        /// </returns>
+        public bool CanSetDiscriminatorStrategy(
+            DynamoDiscriminatorStrategy? strategy,
+            bool fromDataAnnotation = false)
+            => fromDataAnnotation
+                ? ConfigurationSource.DataAnnotation.Overrides(
+                    entityType.GetDiscriminatorStrategyConfigurationSource())
+                || entityType.GetDiscriminatorStrategy() == strategy
+                : ConfigurationSource.Convention.Overrides(
+                    entityType.GetDiscriminatorStrategyConfigurationSource())
+                || entityType.GetDiscriminatorStrategy() == strategy;
     }
 }
