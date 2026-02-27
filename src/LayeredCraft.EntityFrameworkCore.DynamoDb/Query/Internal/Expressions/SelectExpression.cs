@@ -1,5 +1,6 @@
 using System.Linq.Expressions;
 using System.Reflection;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Query;
 
@@ -12,6 +13,7 @@ public class SelectExpression(string tableName) : Expression
 
     private readonly List<OrderingExpression> _orderings = [];
     private readonly List<ProjectionExpression> _projection = [];
+    private SqlExpression? _deferredDiscriminatorPredicate;
 
     private IDictionary<ProjectionMember, Expression> _projectionMapping =
         new Dictionary<ProjectionMember, Expression>();
@@ -64,6 +66,20 @@ public class SelectExpression(string tableName) : Expression
     ///     SELECT * is not supported.
     /// </summary>
     public IReadOnlyList<ProjectionExpression> Projection => _projection;
+
+    /// <summary>Stores discriminator filtering to be applied after query composition is complete.</summary>
+    public void SetDeferredDiscriminatorPredicate(SqlExpression predicate)
+        => _deferredDiscriminatorPredicate = predicate;
+
+    /// <summary>Applies the deferred discriminator predicate, if present.</summary>
+    public void ApplyDeferredDiscriminatorPredicate()
+    {
+        if (_deferredDiscriminatorPredicate is null)
+            return;
+
+        ApplyPredicate(_deferredDiscriminatorPredicate);
+        _deferredDiscriminatorPredicate = null;
+    }
 
     /// <summary>The name of the DynamoDB table to query.</summary>
     public string TableName { get; } = tableName;
@@ -262,6 +278,8 @@ public class SelectExpression(string tableName) : Expression
                     AddProjectionIfNotExists(
                         new SqlPropertyExpression(containingAttributeName, typeof(object), null),
                         containingAttributeName);
+
+                AddDiscriminatorToProjection(entityProjection);
             }
             else
             {
@@ -286,6 +304,22 @@ public class SelectExpression(string tableName) : Expression
             }
 
         _projectionMapping = result;
+    }
+
+    /// <summary>Adds the discriminator attribute to projection when configured for the entity type.</summary>
+    /// <remarks>
+    ///     The discriminator is often a shadow property and has no CLR member, so it cannot flow
+    ///     through the normal projection-member path.
+    /// </remarks>
+    private void AddDiscriminatorToProjection(DynamoEntityProjectionExpression entityProjection)
+    {
+        var discriminatorProperty = entityProjection.EntityType.FindDiscriminatorProperty();
+        if (discriminatorProperty is null)
+            return;
+
+        AddProjectionIfNotExists(
+            entityProjection.BindProperty(discriminatorProperty),
+            discriminatorProperty.GetAttributeName());
     }
 
     /// <summary>

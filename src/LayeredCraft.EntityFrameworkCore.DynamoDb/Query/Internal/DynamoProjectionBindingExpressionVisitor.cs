@@ -310,6 +310,17 @@ public class DynamoProjectionBindingExpressionVisitor(
             foreach (var containingAttributeName in topLevelOwnedContainingAttributeNames)
                 _selectExpression.AddEmbeddedAttributeToProjection(containingAttributeName);
 
+            var discriminatorProperty = indexEntityType.FindDiscriminatorProperty();
+            if (discriminatorProperty is not null)
+            {
+                var discriminatorAttributeName = discriminatorProperty.GetAttributeName();
+                var discriminatorPropertyExpression =
+                    indexEntityProjection.BindProperty(discriminatorProperty);
+                _selectExpression.AddToProjection(
+                    discriminatorPropertyExpression,
+                    discriminatorAttributeName);
+            }
+
             return entityShaperExpression;
         }
 
