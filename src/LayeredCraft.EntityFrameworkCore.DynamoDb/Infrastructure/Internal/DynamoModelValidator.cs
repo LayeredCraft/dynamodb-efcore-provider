@@ -35,6 +35,7 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
         ValidateKeyPropertyTypes(model);
         ValidateKeyPropertyNullability(model);
         ValidateTableKeySchemaConsistency(model);
+        ValidateDiscriminatorMappings(model);
     }
 
     /// <summary>Validates primitive collection properties against DynamoDB provider shape constraints.</summary>
@@ -380,6 +381,131 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
             if (entityTypes.Count <= 1)
                 continue;
             ValidateTableKeySchemaGroup(tableName, entityTypes);
+        }
+    }
+
+    /// <summary>Validates discriminator mapping consistency for shared DynamoDB table groups.</summary>
+    private static void ValidateDiscriminatorMappings(IModel model)
+    {
+        var tableGroups = new Dictionary<string, List<IEntityType>>(StringComparer.Ordinal);
+        foreach (var entityType in EnumerateRootEntityTypes(model))
+        {
+            var tableName = GetTableName(entityType) ?? entityType.ClrType.Name;
+            if (!tableGroups.TryGetValue(tableName, out var group))
+                tableGroups[tableName] = group = [];
+            group.Add(entityType);
+        }
+
+        foreach (var (tableName, rootEntityTypes) in tableGroups)
+            ValidateDiscriminatorMappingGroup(tableName, rootEntityTypes);
+    }
+
+    /// <summary>Validates discriminator requirements and collisions for a single shared-table group.</summary>
+    private static void ValidateDiscriminatorMappingGroup(
+        string tableName,
+        List<IEntityType> rootEntityTypes)
+    {
+        HashSet<IEntityType> concreteTypes = [];
+        foreach (var rootEntityType in rootEntityTypes)
+        {
+            foreach (var concreteType in rootEntityType.GetConcreteDerivedTypesInclusive())
+            {
+                if (concreteType.IsOwned() || concreteType.FindOwnership() is not null)
+                    continue;
+
+                if (concreteType.ClrType.IsAbstract)
+                    continue;
+
+                concreteTypes.Add(concreteType);
+            }
+        }
+
+        if (concreteTypes.Count <= 1)
+            return;
+
+        var first = concreteTypes.First();
+        var expectedDiscriminatorProperty = first.FindDiscriminatorProperty()
+            ?? throw new InvalidOperationException(
+                $"Entity type '{first.DisplayName()}' is mapped to shared DynamoDB table '{tableName}' but does not define a discriminator property. "
+                + "Shared-table mappings with multiple entity types require a discriminator property.");
+
+        var expectedDiscriminatorValue = first.GetDiscriminatorValue()
+            ?? throw new InvalidOperationException(
+                $"Entity type '{first.DisplayName()}' is mapped to shared DynamoDB table '{tableName}' but does not define a discriminator value. "
+                + "Shared-table mappings with multiple entity types require a discriminator value.");
+
+        var expectedDiscriminatorAttributeName = expectedDiscriminatorProperty.GetAttributeName();
+
+        var valuesByEntityType = new Dictionary<object, IEntityType>(
+            expectedDiscriminatorProperty.GetKeyValueComparer());
+        valuesByEntityType[expectedDiscriminatorValue] = first;
+
+        foreach (var entityType in concreteTypes.Skip(1))
+        {
+            var discriminatorProperty = entityType.FindDiscriminatorProperty()
+                ?? throw new InvalidOperationException(
+                    $"Entity type '{entityType.DisplayName()}' is mapped to shared DynamoDB table '{tableName}' but does not define a discriminator property. "
+                    + "Shared-table mappings with multiple entity types require a discriminator property.");
+
+            var discriminatorAttributeName = discriminatorProperty.GetAttributeName();
+            if (!string.Equals(
+                discriminatorAttributeName,
+                expectedDiscriminatorAttributeName,
+                StringComparison.Ordinal))
+                throw new InvalidOperationException(
+                    $"Entity types '{first.DisplayName()}' and '{entityType.DisplayName()}' are both mapped to shared DynamoDB table '{tableName}' "
+                    + $"but use different discriminator attribute names ('{expectedDiscriminatorAttributeName}' vs '{discriminatorAttributeName}'). "
+                    + "All entity types sharing a table must use the same discriminator attribute name.");
+
+            var discriminatorValue = entityType.GetDiscriminatorValue()
+                ?? throw new InvalidOperationException(
+                    $"Entity type '{entityType.DisplayName()}' is mapped to shared DynamoDB table '{tableName}' but does not define a discriminator value. "
+                    + "Shared-table mappings with multiple entity types require a discriminator value.");
+
+            if (!valuesByEntityType.TryAdd(discriminatorValue, entityType))
+            {
+                var existingEntityType = valuesByEntityType[discriminatorValue];
+                throw new InvalidOperationException(
+                    $"Entity types '{existingEntityType.DisplayName()}' and '{entityType.DisplayName()}' are both mapped to shared DynamoDB table '{tableName}' "
+                    + $"and use duplicate discriminator value '{discriminatorValue}'. Discriminator values must be unique within a shared table.");
+            }
+        }
+
+        ValidateDiscriminatorKeyNameCollisions(
+            tableName,
+            rootEntityTypes,
+            expectedDiscriminatorAttributeName);
+    }
+
+    /// <summary>
+    ///     Validates that the shared-table discriminator attribute does not collide with PK/SK
+    ///     attributes.
+    /// </summary>
+    private static void ValidateDiscriminatorKeyNameCollisions(
+        string tableName,
+        IEnumerable<IEntityType> rootEntityTypes,
+        string discriminatorAttributeName)
+    {
+        foreach (var entityType in rootEntityTypes)
+        {
+            var partitionKeyAttributeName =
+                entityType.GetPartitionKeyProperty()?.GetAttributeName();
+            if (string.Equals(
+                partitionKeyAttributeName,
+                discriminatorAttributeName,
+                StringComparison.Ordinal))
+                throw new InvalidOperationException(
+                    $"Entity type '{entityType.DisplayName()}' is mapped to shared DynamoDB table '{tableName}' and uses discriminator attribute name '{discriminatorAttributeName}', "
+                    + "which collides with the partition key attribute name. Discriminator attributes must not reuse PK attribute names.");
+
+            var sortKeyAttributeName = entityType.GetSortKeyProperty()?.GetAttributeName();
+            if (string.Equals(
+                sortKeyAttributeName,
+                discriminatorAttributeName,
+                StringComparison.Ordinal))
+                throw new InvalidOperationException(
+                    $"Entity type '{entityType.DisplayName()}' is mapped to shared DynamoDB table '{tableName}' and uses discriminator attribute name '{discriminatorAttributeName}', "
+                    + "which collides with the sort key attribute name. Discriminator attributes must not reuse SK attribute names.");
         }
     }
 
