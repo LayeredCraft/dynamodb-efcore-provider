@@ -81,6 +81,78 @@ public class DiscriminatorMetadataTests
             => new(BuildOptions<SharedTableCustomDiscriminatorNameContext>(client));
     }
 
+    private sealed class SharedTableLateDiscriminatorNameOverrideContext(DbContextOptions options)
+        : DbContext(options)
+    {
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<UserEntity>(b =>
+            {
+                b.ToTable("App");
+                b.HasKey(x => x.Id);
+            });
+
+            modelBuilder.Entity<OrderEntity>(b =>
+            {
+                b.ToTable("App");
+                b.HasKey(x => x.Id);
+            });
+
+            modelBuilder.HasEmbeddedDiscriminatorName("$kind");
+        }
+
+        public static SharedTableLateDiscriminatorNameOverrideContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<SharedTableLateDiscriminatorNameOverrideContext>(client));
+    }
+
+    private sealed class SharedTableThenSplitContext(DbContextOptions options) : DbContext(options)
+    {
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<UserEntity>(b =>
+            {
+                b.ToTable("App");
+                b.HasKey(x => x.Id);
+            });
+
+            modelBuilder.Entity<OrderEntity>(b =>
+            {
+                b.ToTable("App");
+                b.HasKey(x => x.Id);
+            });
+
+            // Last-wins table mapping should be respected by model-finalizing conventions.
+            modelBuilder.Entity<OrderEntity>().ToTable("Orders");
+        }
+
+        public static SharedTableThenSplitContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<SharedTableThenSplitContext>(client));
+    }
+
+    private sealed class SplitThenSharedTableContext(DbContextOptions options) : DbContext(options)
+    {
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<UserEntity>(b =>
+            {
+                b.ToTable("Users");
+                b.HasKey(x => x.Id);
+            });
+
+            modelBuilder.Entity<OrderEntity>(b =>
+            {
+                b.ToTable("Orders");
+                b.HasKey(x => x.Id);
+            });
+
+            // Last-wins table mapping should be respected by model-finalizing conventions.
+            modelBuilder.Entity<OrderEntity>().ToTable("Users");
+        }
+
+        public static SplitThenSharedTableContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<SplitThenSharedTableContext>(client));
+    }
+
     [Fact]
     public void SingleTableSingleType_DoesNotConfigureDiscriminatorByConvention()
     {
@@ -117,5 +189,44 @@ public class DiscriminatorMetadataTests
 
         userEntityType.FindDiscriminatorProperty()!.Name.Should().Be("$kind");
         orderEntityType.FindDiscriminatorProperty()!.Name.Should().Be("$kind");
+    }
+
+    [Fact]
+    public void SharedTableMultipleTypes_UsesLateEmbeddedDiscriminatorNameOverride()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var context = SharedTableLateDiscriminatorNameOverrideContext.Create(client);
+
+        var userEntityType = context.Model.FindEntityType(typeof(UserEntity))!;
+        var orderEntityType = context.Model.FindEntityType(typeof(OrderEntity))!;
+
+        userEntityType.FindDiscriminatorProperty()!.Name.Should().Be("$kind");
+        orderEntityType.FindDiscriminatorProperty()!.Name.Should().Be("$kind");
+    }
+
+    [Fact]
+    public void SharedTableThenSplit_DoesNotConfigureDiscriminatorFromStaleIntermediateState()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var context = SharedTableThenSplitContext.Create(client);
+
+        var userEntityType = context.Model.FindEntityType(typeof(UserEntity))!;
+        var orderEntityType = context.Model.FindEntityType(typeof(OrderEntity))!;
+
+        userEntityType.FindDiscriminatorProperty().Should().BeNull();
+        orderEntityType.FindDiscriminatorProperty().Should().BeNull();
+    }
+
+    [Fact]
+    public void SplitThenSharedTable_ConfiguresDiscriminatorFromFinalTableMapping()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var context = SplitThenSharedTableContext.Create(client);
+
+        var userEntityType = context.Model.FindEntityType(typeof(UserEntity))!;
+        var orderEntityType = context.Model.FindEntityType(typeof(OrderEntity))!;
+
+        userEntityType.FindDiscriminatorProperty()!.Name.Should().Be("$type");
+        orderEntityType.FindDiscriminatorProperty()!.Name.Should().Be("$type");
     }
 }
