@@ -175,6 +175,18 @@ Discriminator filtering is applied to shared-table root queries on supported ope
 DynamoDB this is a non-key predicate, so it can reduce returned items without necessarily reducing
 items read/evaluated.
 
+### Inheritance behavior
+
+When a mapped hierarchy uses a shared table, discriminator filtering follows EF Core inheritance
+semantics:
+
+- Querying `DbSet<BaseType>` includes all concrete discriminator values in that hierarchy.
+- Querying `DbSet<DerivedType>` includes concrete values in that derived subtree.
+- Abstract entity types are not materialized.
+
+To support correct derived-type materialization for base queries, the provider projects hierarchy
+attributes needed by concrete derived types.
+
 ## Model validation
 
 The provider validates the key configuration during model finalization and raises

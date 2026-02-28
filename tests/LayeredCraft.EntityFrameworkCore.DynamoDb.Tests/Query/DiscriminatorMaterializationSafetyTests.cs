@@ -25,6 +25,59 @@ public class DiscriminatorMaterializationSafetyTests
         return client;
     }
 
+    private static IAmazonDynamoDB CreateProjectionRespectingMockClient(
+        IReadOnlyList<Dictionary<string, AttributeValue>> items)
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        client
+            .ExecuteStatementAsync(Arg.Any<ExecuteStatementRequest>(), Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                var request = callInfo.Arg<ExecuteStatementRequest>();
+                var selectedAttributes = ParseSelectedAttributes(request.Statement);
+
+                List<Dictionary<string, AttributeValue>> projectedItems = [];
+                foreach (var item in items)
+                {
+                    Dictionary<string, AttributeValue> projectedItem = [];
+                    foreach (var selectedAttribute in selectedAttributes)
+                        if (item.TryGetValue(selectedAttribute, out var value))
+                            projectedItem[selectedAttribute] = value;
+
+                    projectedItems.Add(projectedItem);
+                }
+
+                return new ExecuteStatementResponse { Items = projectedItems };
+            });
+
+        return client;
+    }
+
+    /// <summary>Parses SELECT list identifiers from a generated PartiQL statement.</summary>
+    private static HashSet<string> ParseSelectedAttributes(string statement)
+    {
+        var selectIndex = statement.IndexOf("SELECT", StringComparison.OrdinalIgnoreCase);
+        var fromIndex = statement.IndexOf("FROM", StringComparison.OrdinalIgnoreCase);
+        if (selectIndex < 0 || fromIndex <= selectIndex)
+            return [];
+
+        var projectionSegment = statement[(selectIndex + "SELECT".Length)..fromIndex];
+        HashSet<string> attributes = new(StringComparer.Ordinal);
+        foreach (var segment in projectionSegment.Split(','))
+        {
+            var identifier = segment.Trim();
+            if (identifier.Length == 0)
+                continue;
+
+            if (identifier.StartsWith('"') && identifier.EndsWith('"'))
+                identifier = identifier[1..^1];
+
+            attributes.Add(identifier);
+        }
+
+        return attributes;
+    }
+
     private sealed record UserEntity
     {
         public string PK { get; set; } = null!;
@@ -66,6 +119,59 @@ public class DiscriminatorMaterializationSafetyTests
 
         public static SharedTableContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<SharedTableContext>(client));
+    }
+
+    private abstract record PersonEntity
+    {
+        public string PK { get; set; } = null!;
+
+        public string SK { get; set; } = null!;
+
+        public string Name { get; set; } = null!;
+    }
+
+    private sealed record EmployeeEntity : PersonEntity
+    {
+        public string Department { get; set; } = null!;
+    }
+
+    private sealed record ManagerEntity : PersonEntity
+    {
+        public int Level { get; set; }
+    }
+
+    private sealed class SharedTableInheritanceContext(DbContextOptions options) : DbContext(
+        options)
+    {
+        public DbSet<PersonEntity> People => Set<PersonEntity>();
+
+        public DbSet<EmployeeEntity> Employees => Set<EmployeeEntity>();
+
+        public DbSet<ManagerEntity> Managers => Set<ManagerEntity>();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<PersonEntity>(b =>
+            {
+                b.ToTable("app-table");
+                b.HasKey(x => new { x.PK, x.SK });
+            });
+
+            modelBuilder.Entity<EmployeeEntity>(b =>
+            {
+                b.ToTable("app-table");
+                b.HasBaseType<PersonEntity>();
+            });
+
+            modelBuilder.Entity<ManagerEntity>(b =>
+            {
+                b.ToTable("app-table");
+                b.HasBaseType<PersonEntity>();
+            });
+        }
+
+        public static SharedTableInheritanceContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<SharedTableInheritanceContext>(client));
     }
 
     [Fact]
@@ -118,5 +224,47 @@ public class DiscriminatorMaterializationSafetyTests
                 .ToListAsync(TestContext.Current.CancellationToken);
 
         await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*discriminat*");
+    }
+
+    [Fact]
+    public async Task
+        SharedTableInheritanceQuery_ProjectsHierarchyAttributes_ForDerivedMaterialization()
+    {
+        var client = CreateProjectionRespectingMockClient(
+        [
+            new Dictionary<string, AttributeValue>
+            {
+                ["PK"] = new() { S = "TENANT#H" },
+                ["SK"] = new() { S = "PERSON#EMP-1" },
+                ["Name"] = new() { S = "Eve" },
+                ["Department"] = new() { S = "Engineering" },
+                ["$type"] = new() { S = "EmployeeEntity" },
+            },
+            new Dictionary<string, AttributeValue>
+            {
+                ["PK"] = new() { S = "TENANT#H" },
+                ["SK"] = new() { S = "PERSON#MGR-1" },
+                ["Name"] = new() { S = "Max" },
+                ["Level"] = new() { N = "7" },
+                ["$type"] = new() { S = "ManagerEntity" },
+            },
+        ]);
+
+        await using var context = SharedTableInheritanceContext.Create(client);
+
+        var results = await context
+            .People
+            .AsAsyncEnumerable()
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        results.Should().HaveCount(2);
+        results.Should().ContainSingle(person => person is EmployeeEntity);
+        results.Should().ContainSingle(person => person is ManagerEntity);
+
+        var employee = results.OfType<EmployeeEntity>().Single();
+        employee.Department.Should().Be("Engineering");
+
+        var manager = results.OfType<ManagerEntity>().Single();
+        manager.Level.Should().Be(7);
     }
 }

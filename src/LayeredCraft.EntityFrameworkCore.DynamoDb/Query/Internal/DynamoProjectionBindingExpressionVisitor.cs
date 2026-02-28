@@ -295,7 +295,8 @@ public class DynamoProjectionBindingExpressionVisitor(
             var topLevelOwnedContainingAttributeNames =
                 GetTopLevelOwnedContainingAttributeNames(indexEntityType);
 
-            foreach (var property in indexEntityType.GetProperties())
+            foreach (var property in OwnedProjectionMetadata.GetTopLevelProjectionProperties(
+                indexEntityType))
             {
                 if (!OwnedProjectionMetadata.ShouldProjectTopLevelProperty(
                     indexEntityType,
@@ -352,7 +353,8 @@ public class DynamoProjectionBindingExpressionVisitor(
         // Use entity projection to bind each property (single source of truth)
         var mappingTopLevelOwnedContainingAttributeNames =
             GetTopLevelOwnedContainingAttributeNames(entityType);
-        foreach (var property in entityType.GetProperties())
+        foreach (var property in
+            OwnedProjectionMetadata.GetTopLevelProjectionProperties(entityType))
         {
             if (!OwnedProjectionMetadata.ShouldProjectTopLevelProperty(
                 entityType,

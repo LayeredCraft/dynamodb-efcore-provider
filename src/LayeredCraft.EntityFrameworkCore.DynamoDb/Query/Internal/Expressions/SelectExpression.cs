@@ -258,7 +258,8 @@ public class SelectExpression(string tableName) : Expression
                         entityProjection.EntityType,
                         topLevelOwnedNameCache);
 
-                foreach (var property in entityProjection.EntityType.GetProperties())
+                foreach (var property in OwnedProjectionMetadata.GetTopLevelProjectionProperties(
+                    entityProjection.EntityType))
                 {
                     if (!OwnedProjectionMetadata.ShouldProjectTopLevelProperty(
                         entityProjection.EntityType,

@@ -48,6 +48,11 @@ icon: lucide/triangle-alert
 - Discriminator attribute names must be consistent across all entity types in a shared table group.
 - Discriminator attribute names must not collide with resolved PK/SK attribute names.
 - Missing or unknown discriminator values in returned items throw during materialization.
+- Inheritance queries follow EF Core discriminator semantics:
+  - `DbSet<BaseType>` materializes concrete types in that hierarchy.
+  - `DbSet<DerivedType>` materializes the derived subtree.
+  - Abstract types are never materialized.
+- Base-type hierarchy queries project hierarchy attributes needed for derived-type materialization.
 
 ## Owned types query limitations
 

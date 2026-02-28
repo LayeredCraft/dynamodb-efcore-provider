@@ -82,3 +82,27 @@ public class DiscriminatorQuerySingleTypeTests(SharedTableDynamoFixture fixture)
             """);
     }
 }
+
+public class DiscriminatorInheritanceQueryTests(SharedTableDynamoFixture fixture)
+    : SharedTableTestBase<SharedTableInheritanceDbContext>(fixture)
+{
+    [Fact]
+    public async Task DerivedQuery_UsesDerivedDiscriminatorPredicate()
+    {
+        var results =
+            await Db
+                .Employees
+                .Where(employee => employee.Pk == "TENANT#H")
+                .ToListAsync(CancellationToken);
+
+        results.Should().HaveCount(1);
+        results[0].Department.Should().Be("Engineering");
+
+        AssertSql(
+            """
+            SELECT Pk, Sk, Name, Department, "$type"
+            FROM "app-table"
+            WHERE Pk = 'TENANT#H' AND "$type" = 'EmployeeEntity'
+            """);
+    }
+}
