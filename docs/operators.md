@@ -21,19 +21,27 @@ should keep in mind. Add to these sections as support expands.
 - `WithoutPagination`
 
 ### Not supported today
+- `Any` / `All`
 - `Single` / `SingleOrDefault`
-- `Any`, `All`, `Count`, `LongCount`
+- `Count`, `LongCount`, `Sum`, `Average`, `Min`, `Max`
 - `Skip`
 - `GroupBy`
-- `Join` / `GroupJoin` / `SelectMany`
+- `Join` / `GroupJoin` / `SelectMany` / `LeftJoin` / `RightJoin`
+- `Union` / `Concat` / `Except` / `Intersect`
+- `Distinct`, `Reverse`, `Last` / `LastOrDefault`
 - Complex method-call translation in predicates (for example `ToUpper()` in `Where`)
+
+### Server-side only policy
+- This provider only supports query shapes that can be translated to DynamoDB PartiQL.
+- Unsupported operators fail translation with a detailed `InvalidOperationException` message.
+- The provider does not silently switch unsupported LINQ operators to client-side evaluation.
 
 ## Operator matrix (current contract)
 
 | Operator | Server translation | Client behavior | Notes |
 | --- | --- | --- | --- |
 | `Where` | PartiQL `WHERE` | N/A | Boolean members normalize to `= TRUE` |
-| `Select` | Explicit projection list | Some computed expressions run client-side | No `SELECT *` |
+| `Select` | Explicit projection list | N/A | No `SELECT *` |
 | `OrderBy` / `ThenBy` | PartiQL `ORDER BY` | N/A | Precedence and parentheses preserved |
 | `Take(n)` | Sets result limit expression | Stops after `n` results | Does not emit SQL `LIMIT` |
 | `First*` | Sets result limit `1` | Stops after first result | May scan multiple pages unless pagination disabled |
@@ -199,4 +207,5 @@ var results = await db.Items
 - AWS ExecuteStatement API: <https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_ExecuteStatement.html>
 - DynamoDB PartiQL SELECT: <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ql-reference.select.html>
 - DynamoDB PartiQL operators: <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ql-operators.html>
+- DynamoDB PartiQL functions: <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ql-functions.html>
 - PartiQL identifiers: <https://partiql.org/concepts/identifiers.html>

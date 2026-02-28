@@ -18,6 +18,12 @@ icon: lucide/stethoscope
 ## Warnings
 - Row-limiting query without configured page size logs a warning.
 
+## Translation failures
+- Unsupported LINQ operators fail with `InvalidOperationException` during query translation.
+- Messages include provider-specific details for the unsupported shape (for example unsupported
+  aggregates, joins, set operations, and offset-style operators).
+- Translation failures occur before DynamoDB requests are executed.
+
 ## Model validation errors (startup)
 - Shared-table key mappings fail model validation when entity types mapped to the same table disagree on key shape (PK-only vs PK+SK).
 - Shared-table key mappings fail model validation when PK/SK attribute names differ across mapped entity types.

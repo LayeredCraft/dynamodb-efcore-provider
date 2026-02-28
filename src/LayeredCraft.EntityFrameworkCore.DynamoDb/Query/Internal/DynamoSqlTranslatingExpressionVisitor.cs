@@ -10,14 +10,25 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
 public class DynamoSqlTranslatingExpressionVisitor(ISqlExpressionFactory sqlExpressionFactory)
     : ExpressionVisitor
 {
+    /// <summary>Gets the latest translation error details captured for the current translation attempt.</summary>
+    public string? TranslationErrorDetails { get; private set; }
+
     /// <summary>
     /// Translates a C# expression to a SQL expression.
     /// </summary>
     public SqlExpression? Translate(Expression expression)
     {
+        TranslationErrorDetails = null;
         var result = Visit(expression);
         return result as SqlExpression;
     }
+
+    /// <summary>Adds a translation error detail message for the current translation attempt.</summary>
+    protected virtual void AddTranslationErrorDetails(string details)
+        => TranslationErrorDetails =
+            TranslationErrorDetails == null
+                ? details
+                : TranslationErrorDetails + Environment.NewLine + details;
 
     /// <inheritdoc />
     protected override Expression VisitBinary(BinaryExpression node)
@@ -26,11 +37,14 @@ public class DynamoSqlTranslatingExpressionVisitor(ISqlExpressionFactory sqlExpr
         var right = Translate(node.Right);
 
         if (left == null || right == null)
-            return node;
+            return QueryCompilationContext.NotTranslatedExpression;
 
-        return sqlExpressionFactory.Binary(node.NodeType, left, right)
-            ?? throw new InvalidOperationException(
-                $"Binary operator {node.NodeType} is not supported");
+        var sqlBinaryExpression = sqlExpressionFactory.Binary(node.NodeType, left, right);
+        if (sqlBinaryExpression != null)
+            return sqlBinaryExpression;
+
+        AddTranslationErrorDetails(DynamoStrings.UnsupportedBinaryOperator(node.NodeType));
+        return QueryCompilationContext.NotTranslatedExpression;
     }
 
     /// <inheritdoc />
@@ -52,6 +66,7 @@ public class DynamoSqlTranslatingExpressionVisitor(ISqlExpressionFactory sqlExpr
         // surface object-typed query expressions here, and ExpressionVisitor reconstruction
         // can throw when re-binding members on System.Object.
         // Let the projection pipeline fall back to index-based client projection.
+        AddTranslationErrorDetails(DynamoStrings.MemberAccessNotSupported);
         return QueryCompilationContext.NotTranslatedExpression;
     }
 
@@ -74,7 +89,10 @@ public class DynamoSqlTranslatingExpressionVisitor(ISqlExpressionFactory sqlExpr
 
     /// <inheritdoc />
     protected override Expression VisitMethodCall(MethodCallExpression node)
-        => QueryCompilationContext.NotTranslatedExpression;
+    {
+        AddTranslationErrorDetails(DynamoStrings.MethodCallInPredicateNotSupported);
+        return QueryCompilationContext.NotTranslatedExpression;
+    }
 
     /// <inheritdoc />
     protected override Expression VisitUnary(UnaryExpression node)
@@ -94,6 +112,7 @@ public class DynamoSqlTranslatingExpressionVisitor(ISqlExpressionFactory sqlExpr
             return QueryCompilationContext.NotTranslatedExpression;
         }
 
+        AddTranslationErrorDetails(DynamoStrings.UnaryOperatorNotSupported);
         return QueryCompilationContext.NotTranslatedExpression;
     }
 }
