@@ -77,9 +77,8 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
 
     protected override ShapedQueryExpression? CreateShapedQueryExpression(IEntityType entityType)
     {
-        // Get the table name from entity metadata
-        var tableName = entityType.FindAnnotation(DynamoAnnotationNames.TableName)?.Value as string
-            ?? entityType.ClrType.Name;
+        // Get the table name from entity metadata.
+        var tableName = GetTableGroupName(entityType);
 
         var queryExpression = new SelectExpression(tableName);
 
@@ -187,9 +186,34 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
     }
 
     /// <summary>Gets the effective table-group name for an entity type.</summary>
+    /// <remarks>
+    ///     When the current type has no explicit table-name annotation, this resolves against the
+    ///     nearest mapped base type so derived queries inherit the root table mapping.
+    /// </remarks>
     private static string GetTableGroupName(IReadOnlyEntityType entityType)
-        => entityType.FindAnnotation(DynamoAnnotationNames.TableName)?.Value as string
-            ?? entityType.ClrType.Name;
+    {
+        var mappedEntityType = ResolveTableMappedEntityType(entityType);
+
+        return mappedEntityType.FindAnnotation(DynamoAnnotationNames.TableName)?.Value as string
+            ?? mappedEntityType.ClrType.Name;
+    }
+
+    /// <summary>Resolves the entity type that owns table-name metadata for table-group comparisons.</summary>
+    private static IReadOnlyEntityType ResolveTableMappedEntityType(IReadOnlyEntityType entityType)
+    {
+        if (entityType.FindAnnotation(DynamoAnnotationNames.TableName)?.Value is string)
+            return entityType;
+
+        var current = entityType;
+        while (current.BaseType is { } baseType)
+        {
+            current = baseType;
+            if (current.FindAnnotation(DynamoAnnotationNames.TableName)?.Value is string)
+                return current;
+        }
+
+        return current;
+    }
 
     protected override ShapedQueryExpression? TranslateAll(
         ShapedQueryExpression source,

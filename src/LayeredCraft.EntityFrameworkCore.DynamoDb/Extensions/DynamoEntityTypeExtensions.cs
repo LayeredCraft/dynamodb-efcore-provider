@@ -12,8 +12,10 @@ public static class DynamoEntityTypeExtensions
     extension(IMutableEntityType entityType)
     {
         /// <summary>Sets the DynamoDB table name for the root entity type.</summary>
-        /// <param name="name">The DynamoDB table name. Must be non-empty if provided.</param>
-        public void SetTableName(string name)
+        /// <param name="name">
+        ///     The DynamoDB table name. Pass <see langword="null" /> to clear the explicit mapping.
+        /// </param>
+        public void SetTableName(string? name)
             => entityType.SetOrRemoveAnnotation(
                 DynamoAnnotationNames.TableName,
                 name.NullButNotEmpty());

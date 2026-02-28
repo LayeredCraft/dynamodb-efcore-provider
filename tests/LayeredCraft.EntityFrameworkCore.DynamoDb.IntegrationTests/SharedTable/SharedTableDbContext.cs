@@ -93,3 +93,26 @@ public class SharedTableInheritanceDbContext(
         });
     }
 }
+
+public class SharedTableInheritanceBaseOnlyToTableDbContext(
+    DbContextOptions<SharedTableInheritanceBaseOnlyToTableDbContext> options) : DbContext(options)
+{
+    public DbSet<PersonEntity> People => Set<PersonEntity>();
+
+    public DbSet<EmployeeEntity> Employees => Set<EmployeeEntity>();
+
+    public DbSet<ManagerEntity> Managers => Set<ManagerEntity>();
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<PersonEntity>(builder =>
+        {
+            builder.ToTable(SharedTableDynamoFixture.TableName);
+            builder.HasKey(x => new { x.Pk, x.Sk });
+        });
+
+        modelBuilder.Entity<EmployeeEntity>(builder => builder.HasBaseType<PersonEntity>());
+
+        modelBuilder.Entity<ManagerEntity>(builder => builder.HasBaseType<PersonEntity>());
+    }
+}

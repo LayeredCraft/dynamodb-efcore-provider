@@ -97,6 +97,55 @@ public class AttributeNameOverrideTests
         results[0].FullName.Should().BeNull();
     }
 
+    [Fact]
+    public async Task ScalarProjection_PartiQL_UsesAttributeName_NotClrPropertyName()
+    {
+        ExecuteStatementRequest? capturedRequest = null;
+
+        var client = Substitute.For<IAmazonDynamoDB>();
+        client
+            .ExecuteStatementAsync(
+                Arg.Do<ExecuteStatementRequest>(r => capturedRequest = r),
+                Arg.Any<CancellationToken>())
+            .Returns(new ExecuteStatementResponse { Items = [] });
+
+        await using var ctx = RenameDbContext.Create(client);
+
+        _ = await ctx
+            .Entities
+            .Select(entity => entity.FullName)
+            .AsAsyncEnumerable()
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        capturedRequest.Should().NotBeNull();
+        capturedRequest!.Statement.Should().Contain("display_name");
+        capturedRequest.Statement.Should().NotContain("SELECT FullName");
+    }
+
+    [Fact]
+    public async Task ScalarProjection_Materialization_ReadsFromAttributeName()
+    {
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["display_name"] = new() { S = "Ada Lovelace" },
+        };
+
+        var client = Substitute.For<IAmazonDynamoDB>();
+        client
+            .ExecuteStatementAsync(Arg.Any<ExecuteStatementRequest>(), Arg.Any<CancellationToken>())
+            .Returns(new ExecuteStatementResponse { Items = [item] });
+
+        await using var ctx = RenameDbContext.Create(client);
+
+        var results = await ctx
+            .Entities
+            .Select(entity => entity.FullName)
+            .AsAsyncEnumerable()
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        results.Should().Equal("Ada Lovelace");
+    }
+
     private sealed record RenameEntity
     {
         /// <summary>CLR name is FullName; DynamoDB attribute is "display_name".</summary>

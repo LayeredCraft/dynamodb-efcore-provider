@@ -435,22 +435,35 @@ public class DynamoProjectionBindingExpressionVisitor(
                 }
             }
 
-            var sqlProperty = sqlExpressionFactory.Property(propertyName, node.Type);
+            var sqlProperty =
+                ResolveScalarPropertyExpression(shaperEntityType, propertyName)
+                ?? sqlExpressionFactory.Property(propertyName, node.Type);
 
             if (_indexBasedBinding)
             {
                 var index = _selectExpression.AddToProjection(sqlProperty, propertyName);
-                return new ProjectionBindingExpression(_selectExpression, index, node.Type);
+                var projectionBinding = new ProjectionBindingExpression(
+                    _selectExpression,
+                    index,
+                    sqlProperty.Type);
+
+                return projectionBinding.Type == node.Type
+                    ? projectionBinding
+                    : Expression.Convert(projectionBinding, node.Type);
             }
 
             // Store mapping: ProjectionMember → SqlExpression
             _projectionMapping[_projectionMembers.Peek()] = sqlProperty;
 
             // Return ProjectionBindingExpression as placeholder
-            return new ProjectionBindingExpression(
+            var memberProjectionBinding = new ProjectionBindingExpression(
                 _selectExpression,
                 _projectionMembers.Peek(),
-                node.Type);
+                sqlProperty.Type);
+
+            return memberProjectionBinding.Type == node.Type
+                ? memberProjectionBinding
+                : Expression.Convert(memberProjectionBinding, node.Type);
         }
 
         if (!_indexBasedBinding)
@@ -577,7 +590,9 @@ public class DynamoProjectionBindingExpressionVisitor(
                 }
             }
 
-            var sqlProperty = sqlExpressionFactory.Property(propertyName, node.Type);
+            var sqlProperty =
+                ResolveScalarPropertyExpression(ownerEntityType, propertyName)
+                ?? sqlExpressionFactory.Property(propertyName, node.Type);
             if (ownerEntityType != null
                 && IsNestedOwnedContainingAttributeName(ownerEntityType, propertyName))
                 throw new InvalidOperationException(
@@ -587,14 +602,25 @@ public class DynamoProjectionBindingExpressionVisitor(
             if (_indexBasedBinding)
             {
                 var index = _selectExpression.AddToProjection(sqlProperty, propertyName);
-                return new ProjectionBindingExpression(_selectExpression, index, node.Type);
+                var projectionBinding = new ProjectionBindingExpression(
+                    _selectExpression,
+                    index,
+                    sqlProperty.Type);
+
+                return projectionBinding.Type == node.Type
+                    ? projectionBinding
+                    : Expression.Convert(projectionBinding, node.Type);
             }
 
             _projectionMapping[_projectionMembers.Peek()] = sqlProperty;
-            return new ProjectionBindingExpression(
+            var methodProjectionBinding = new ProjectionBindingExpression(
                 _selectExpression,
                 _projectionMembers.Peek(),
-                node.Type);
+                sqlProperty.Type);
+
+            return methodProjectionBinding.Type == node.Type
+                ? methodProjectionBinding
+                : Expression.Convert(methodProjectionBinding, node.Type);
         }
 
         if (!_indexBasedBinding)
@@ -744,6 +770,29 @@ public class DynamoProjectionBindingExpressionVisitor(
         var nestedOwnedContainingAttributeNames =
             GetNestedOwnedContainingAttributeNames(entityType);
         return nestedOwnedContainingAttributeNames.Contains(propertyName);
+    }
+
+    /// <summary>
+    ///     Resolves a scalar projection to a metadata-backed SQL property expression when the member
+    ///     maps to an EF property.
+    /// </summary>
+    /// <remarks>
+    ///     Uses <see cref="DynamoPropertyExtensions.GetAttributeName" /> so scalar projections honor
+    ///     <c>HasAttributeName</c>, and applies the property type mapping so converter-backed projections
+    ///     materialize with the correct wire conversion.
+    /// </remarks>
+    private SqlPropertyExpression? ResolveScalarPropertyExpression(
+        IEntityType? entityType,
+        string propertyName)
+    {
+        var property = entityType?.FindProperty(propertyName);
+        if (property == null)
+            return null;
+
+        var sqlProperty =
+            sqlExpressionFactory.Property(property.GetAttributeName(), property.ClrType);
+
+        return sqlProperty.ApplyTypeMapping(property.GetTypeMapping());
     }
 
     /// <summary>Finds an owned-collection element shaper expression within an expression tree.</summary>

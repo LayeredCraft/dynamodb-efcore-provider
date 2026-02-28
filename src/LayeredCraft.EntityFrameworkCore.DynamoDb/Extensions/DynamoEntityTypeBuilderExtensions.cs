@@ -12,13 +12,16 @@ public static class DynamoEntityTypeBuilderExtensions
     {
         /// <summary>Configures the table that the entity type maps to when targeting AWS DynamoDB.</summary>
         /// <param name="entityTypeBuilder">The builder for the entity type being configured.</param>
-        /// <param name="name">The name of the table.</param>
+        /// <param name="name">
+        ///     The table name. Pass <see langword="null" /> to clear the explicit table mapping and
+        ///     fall back to convention behavior.
+        /// </param>
         /// <returns>The same builder instance so that multiple calls can be chained.</returns>
         public EntityTypeBuilder ToTable(string? name)
         {
             name.NullButNotEmpty();
 
-            entityTypeBuilder.Metadata.SetTableName(name!);
+            entityTypeBuilder.Metadata.SetTableName(name);
 
             return entityTypeBuilder;
         }
@@ -68,7 +71,10 @@ public static class DynamoEntityTypeBuilderExtensions
         /// <summary>Configures the table that the entity type maps to when targeting AWS DynamoDB.</summary>
         /// <typeparam name="TEntity">The entity type being configured.</typeparam>
         /// <param name="entityTypeBuilder">The builder for the entity type being configured.</param>
-        /// <param name="name">The name of the container.</param>
+        /// <param name="name">
+        ///     The table name. Pass <see langword="null" /> to clear the explicit table mapping and
+        ///     fall back to convention behavior.
+        /// </param>
         /// <returns>The same builder instance so that multiple calls can be chained.</returns>
         public EntityTypeBuilder<TEntity> ToTable(string? name)
             => (EntityTypeBuilder<TEntity>)((EntityTypeBuilder)entityTypeBuilder).ToTable(name);

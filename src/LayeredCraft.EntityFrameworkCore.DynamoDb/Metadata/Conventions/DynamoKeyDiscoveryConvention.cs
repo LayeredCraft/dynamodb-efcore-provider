@@ -9,7 +9,7 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata.Conventions;
 ///     Inherits <see cref="KeyDiscoveryConvention" /> so that all standard EF Core key-discovery
 ///     triggers (entity type added, property added, key removed, foreign key ownership changes, etc.)
 ///     are handled by a single replacement convention rather than running alongside the base. The
-///     following property names are recognised (case-sensitive, ordinal comparison):
+///     following property names are recognised (case-insensitive, ordinal comparison):
 ///     <list type="bullet">
 ///         <item>
 ///             <c>PK</c> or <c>PartitionKey</c> — designated as the DynamoDB partition key and
