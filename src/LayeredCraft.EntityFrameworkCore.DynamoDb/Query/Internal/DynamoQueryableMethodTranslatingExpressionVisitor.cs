@@ -19,10 +19,11 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
     public DynamoQueryableMethodTranslatingExpressionVisitor(
         QueryableMethodTranslatingExpressionVisitorDependencies dependencies,
         QueryCompilationContext queryCompilationContext,
-        ISqlExpressionFactory sqlExpressionFactory) : base(
+        ISqlExpressionFactory sqlExpressionFactory,
+        bool subquery = false) : base(
         dependencies,
         queryCompilationContext,
-        false)
+        subquery)
     {
         _sqlExpressionFactory = sqlExpressionFactory;
         _sqlTranslator = new DynamoSqlTranslatingExpressionVisitor(sqlExpressionFactory);
@@ -32,8 +33,13 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
             queryCompilationContext.Model);
     }
 
+    /// <summary>Creates a translation visitor for subquery pipelines.</summary>
     protected override QueryableMethodTranslatingExpressionVisitor CreateSubqueryVisitor()
-        => throw new NotImplementedException();
+        => new DynamoQueryableMethodTranslatingExpressionVisitor(
+            Dependencies,
+            QueryCompilationContext,
+            _sqlExpressionFactory,
+            true);
 
     protected override Expression VisitMethodCall(MethodCallExpression methodCallExpression)
     {
@@ -223,57 +229,67 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
     protected override ShapedQueryExpression? TranslateAll(
         ShapedQueryExpression source,
         LambdaExpression predicate)
-        => throw new NotImplementedException();
+        => UnsupportedOperator(
+            nameof(Queryable.All),
+            DynamoStrings.ProviderOperatorNotSupportedYet(nameof(Queryable.All)));
 
     protected override ShapedQueryExpression? TranslateAny(
         ShapedQueryExpression source,
         LambdaExpression? predicate)
-        => throw new NotImplementedException();
+        => UnsupportedOperator(
+            nameof(Queryable.Any),
+            DynamoStrings.ProviderOperatorNotSupportedYet(nameof(Queryable.Any)));
 
     protected override ShapedQueryExpression? TranslateAverage(
         ShapedQueryExpression source,
         LambdaExpression? selector,
         Type resultType)
-        => throw new NotImplementedException();
+        => UnsupportedOperator(
+            nameof(Queryable.Average),
+            DynamoStrings.AggregatesNotSupported(nameof(Queryable.Average)));
 
     protected override ShapedQueryExpression? TranslateCast(
         ShapedQueryExpression source,
         Type castType)
-        => throw new NotImplementedException();
+        => UnsupportedOperator(nameof(Queryable.Cast), DynamoStrings.CastNotSupported);
 
     protected override ShapedQueryExpression? TranslateConcat(
         ShapedQueryExpression source1,
         ShapedQueryExpression source2)
-        => throw new NotImplementedException();
+        => UnsupportedOperator(nameof(Queryable.Concat), DynamoStrings.SetOperationsNotSupported);
 
     protected override ShapedQueryExpression? TranslateContains(
         ShapedQueryExpression source,
         Expression item)
-        => throw new NotImplementedException();
+        => UnsupportedOperator(nameof(Queryable.Contains), DynamoStrings.ContainsNotSupportedYet);
 
     protected override ShapedQueryExpression? TranslateCount(
         ShapedQueryExpression source,
         LambdaExpression? predicate)
-        => throw new NotImplementedException();
+        => UnsupportedOperator(
+            nameof(Queryable.Count),
+            DynamoStrings.AggregatesNotSupported(nameof(Queryable.Count)));
 
     protected override ShapedQueryExpression? TranslateDefaultIfEmpty(
         ShapedQueryExpression source,
         Expression? defaultValue)
-        => throw new NotImplementedException();
+        => UnsupportedOperator(nameof(Queryable.DefaultIfEmpty), DynamoStrings.JoinsNotSupported);
 
     protected override ShapedQueryExpression? TranslateDistinct(ShapedQueryExpression source)
-        => throw new NotImplementedException();
+        => UnsupportedOperator(nameof(Queryable.Distinct), DynamoStrings.DistinctNotSupported);
 
     protected override ShapedQueryExpression? TranslateElementAtOrDefault(
         ShapedQueryExpression source,
         Expression index,
         bool returnDefault)
-        => throw new NotImplementedException();
+        => UnsupportedOperator(
+            returnDefault ? nameof(Queryable.ElementAtOrDefault) : nameof(Queryable.ElementAt),
+            DynamoStrings.OffsetOperatorsNotSupported);
 
     protected override ShapedQueryExpression? TranslateExcept(
         ShapedQueryExpression source1,
         ShapedQueryExpression source2)
-        => throw new NotImplementedException();
+        => UnsupportedOperator(nameof(Queryable.Except), DynamoStrings.SetOperationsNotSupported);
 
     protected override ShapedQueryExpression? TranslateFirstOrDefault(
         ShapedQueryExpression source,
@@ -305,7 +321,7 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
         LambdaExpression keySelector,
         LambdaExpression? elementSelector,
         LambdaExpression? resultSelector)
-        => throw new NotImplementedException();
+        => UnsupportedOperator(nameof(Queryable.GroupBy), DynamoStrings.GroupByNotSupported);
 
     protected override ShapedQueryExpression? TranslateGroupJoin(
         ShapedQueryExpression outer,
@@ -313,12 +329,14 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
         LambdaExpression outerKeySelector,
         LambdaExpression innerKeySelector,
         LambdaExpression resultSelector)
-        => throw new NotImplementedException();
+        => UnsupportedOperator(nameof(Queryable.GroupJoin), DynamoStrings.JoinsNotSupported);
 
     protected override ShapedQueryExpression? TranslateIntersect(
         ShapedQueryExpression source1,
         ShapedQueryExpression source2)
-        => throw new NotImplementedException();
+        => UnsupportedOperator(
+            nameof(Queryable.Intersect),
+            DynamoStrings.SetOperationsNotSupported);
 
     protected override ShapedQueryExpression? TranslateJoin(
         ShapedQueryExpression outer,
@@ -326,7 +344,7 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
         LambdaExpression outerKeySelector,
         LambdaExpression innerKeySelector,
         LambdaExpression resultSelector)
-        => throw new NotImplementedException();
+        => UnsupportedOperator(nameof(Queryable.Join), DynamoStrings.JoinsNotSupported);
 
     protected override ShapedQueryExpression? TranslateLeftJoin(
         ShapedQueryExpression outer,
@@ -334,7 +352,7 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
         LambdaExpression outerKeySelector,
         LambdaExpression innerKeySelector,
         LambdaExpression resultSelector)
-        => throw new NotImplementedException();
+        => UnsupportedOperator("LeftJoin", DynamoStrings.JoinsNotSupported);
 
     protected override ShapedQueryExpression? TranslateRightJoin(
         ShapedQueryExpression outer,
@@ -342,36 +360,44 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
         LambdaExpression outerKeySelector,
         LambdaExpression innerKeySelector,
         LambdaExpression resultSelector)
-        => throw new NotImplementedException();
+        => UnsupportedOperator("RightJoin", DynamoStrings.JoinsNotSupported);
 
     protected override ShapedQueryExpression? TranslateLastOrDefault(
         ShapedQueryExpression source,
         LambdaExpression? predicate,
         Type returnType,
         bool returnDefault)
-        => throw new NotImplementedException();
+        => UnsupportedOperator(
+            returnDefault ? nameof(Queryable.LastOrDefault) : nameof(Queryable.Last),
+            DynamoStrings.LastNotSupported);
 
     protected override ShapedQueryExpression? TranslateLongCount(
         ShapedQueryExpression source,
         LambdaExpression? predicate)
-        => throw new NotImplementedException();
+        => UnsupportedOperator(
+            nameof(Queryable.LongCount),
+            DynamoStrings.AggregatesNotSupported(nameof(Queryable.LongCount)));
 
     protected override ShapedQueryExpression? TranslateMax(
         ShapedQueryExpression source,
         LambdaExpression? selector,
         Type resultType)
-        => throw new NotImplementedException();
+        => UnsupportedOperator(
+            nameof(Queryable.Max),
+            DynamoStrings.AggregatesNotSupported(nameof(Queryable.Max)));
 
     protected override ShapedQueryExpression? TranslateMin(
         ShapedQueryExpression source,
         LambdaExpression? selector,
         Type resultType)
-        => throw new NotImplementedException();
+        => UnsupportedOperator(
+            nameof(Queryable.Min),
+            DynamoStrings.AggregatesNotSupported(nameof(Queryable.Min)));
 
     protected override ShapedQueryExpression? TranslateOfType(
         ShapedQueryExpression source,
         Type resultType)
-        => throw new NotImplementedException();
+        => UnsupportedOperator(nameof(Queryable.OfType), DynamoStrings.OfTypeNotSupportedYet);
 
     protected override ShapedQueryExpression? TranslateOrderBy(
         ShapedQueryExpression source,
@@ -389,7 +415,7 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
     }
 
     protected override ShapedQueryExpression? TranslateReverse(ShapedQueryExpression source)
-        => throw new NotImplementedException();
+        => UnsupportedOperator(nameof(Queryable.Reverse), DynamoStrings.ReverseNotSupported);
 
     protected override ShapedQueryExpression TranslateSelect(
         ShapedQueryExpression source,
@@ -419,35 +445,43 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
         ShapedQueryExpression source,
         LambdaExpression collectionSelector,
         LambdaExpression resultSelector)
-        => throw new NotImplementedException();
+        => UnsupportedOperator(nameof(Queryable.SelectMany), DynamoStrings.JoinsNotSupported);
 
     protected override ShapedQueryExpression? TranslateSelectMany(
         ShapedQueryExpression source,
         LambdaExpression selector)
-        => throw new NotImplementedException();
+        => UnsupportedOperator(nameof(Queryable.SelectMany), DynamoStrings.JoinsNotSupported);
 
     protected override ShapedQueryExpression? TranslateSingleOrDefault(
         ShapedQueryExpression source,
         LambdaExpression? predicate,
         Type returnType,
         bool returnDefault)
-        => throw new NotImplementedException();
+    {
+        var operatorName =
+            returnDefault ? nameof(Queryable.SingleOrDefault) : nameof(Queryable.Single);
+        return UnsupportedOperator(
+            operatorName,
+            DynamoStrings.ProviderOperatorNotSupportedYet(operatorName));
+    }
 
     protected override ShapedQueryExpression? TranslateSkip(
         ShapedQueryExpression source,
         Expression count)
-        => throw new NotImplementedException();
+        => UnsupportedOperator(nameof(Queryable.Skip), DynamoStrings.OffsetOperatorsNotSupported);
 
     protected override ShapedQueryExpression? TranslateSkipWhile(
         ShapedQueryExpression source,
         LambdaExpression predicate)
-        => throw new NotImplementedException();
+        => UnsupportedOperator(nameof(Queryable.SkipWhile), DynamoStrings.SkipWhileNotSupported);
 
     protected override ShapedQueryExpression? TranslateSum(
         ShapedQueryExpression source,
         LambdaExpression? selector,
         Type resultType)
-        => throw new NotImplementedException();
+        => UnsupportedOperator(
+            nameof(Queryable.Sum),
+            DynamoStrings.AggregatesNotSupported(nameof(Queryable.Sum)));
 
     protected override ShapedQueryExpression? TranslateTake(
         ShapedQueryExpression source,
@@ -497,7 +531,7 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
     protected override ShapedQueryExpression? TranslateTakeWhile(
         ShapedQueryExpression source,
         LambdaExpression predicate)
-        => throw new NotImplementedException();
+        => UnsupportedOperator(nameof(Queryable.TakeWhile), DynamoStrings.TakeWhileNotSupported);
 
     protected override ShapedQueryExpression? TranslateThenBy(
         ShapedQueryExpression source,
@@ -517,7 +551,7 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
     protected override ShapedQueryExpression? TranslateUnion(
         ShapedQueryExpression source1,
         ShapedQueryExpression source2)
-        => throw new NotImplementedException();
+        => UnsupportedOperator(nameof(Queryable.Union), DynamoStrings.SetOperationsNotSupported);
 
     protected override ShapedQueryExpression? TranslateWhere(
         ShapedQueryExpression source,
@@ -544,7 +578,26 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
         // The lambda parameter represents the entity being queried (e.g., x in x => x.Pk == "test")
         // The SQL translator will recognize parameter.Property accesses and convert them to
         // SqlPropertyExpression
-        => _sqlTranslator.Translate(lambdaExpression.Body);
+    {
+        _ = shapedQueryExpression;
+        var translation = _sqlTranslator.Translate(lambdaExpression.Body);
+        if (translation != null)
+            return translation;
+
+        AddTranslationErrorDetails(
+            _sqlTranslator.TranslationErrorDetails ?? DynamoStrings.PredicateNotTranslatable);
+        return null;
+    }
+
+    /// <summary>
+    ///     Registers translation details for an unsupported operator and returns an untranslated
+    ///     marker.
+    /// </summary>
+    private ShapedQueryExpression? UnsupportedOperator(string operatorName, string reason)
+    {
+        AddTranslationErrorDetails(DynamoStrings.UnsupportedOperator(operatorName, reason));
+        return null;
+    }
 
     /// <summary>Normalizes boolean predicates into explicit comparisons for PartiQL.</summary>
     private SqlExpression NormalizePredicate(SqlExpression expression)

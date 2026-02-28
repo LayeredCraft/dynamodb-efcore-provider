@@ -16,7 +16,7 @@ icon: lucide/triangle-alert
 
 ## What this means in practice
 - The provider is currently query-only.
-- Unsupported LINQ shapes typically fail during translation with `InvalidOperationException` or `NotImplementedException`.
+- Unsupported LINQ shapes fail during translation with `InvalidOperationException` including provider-specific details.
 - `WithoutPagination()` is best-effort mode and can return incomplete results.
 - Discriminator guardrails for unsupported query shapes are deferred; support is limited to the
   current operator surface in `operators.md`.
