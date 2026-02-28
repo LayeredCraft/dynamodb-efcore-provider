@@ -24,6 +24,19 @@ icon: lucide/stethoscope
 - Shared-table key mappings fail model validation when key type categories differ for the same PK/SK attribute (string vs number vs binary).
 - Key properties fail model validation when they are nullable or resolve to nullable converter provider types.
 - Key properties fail model validation when provider types are not DynamoDB key-compatible (`string`, number, `byte[]`), including `bool`.
+- Shared-table discriminator mappings fail model validation when discriminator values are duplicated.
+- Shared-table discriminator mappings fail model validation when discriminator attribute names differ across entity types mapped to the same table.
+- Shared-table discriminator mappings fail model validation when discriminator attribute name collides with PK or SK attribute names.
+
+## Discriminator troubleshooting
+- **Missing discriminator in results**: if returned items omit the configured discriminator attribute
+  (default `$type`), materialization throws. Ensure stored items include the discriminator attribute.
+- **Unknown discriminator value**: if returned discriminator value does not map to a concrete type in
+  the model, materialization throws. Ensure discriminator values match configured model values.
+- **Duplicate values in shared table**: assign unique discriminator values per entity type in a
+  shared table group.
+- **Name collision with keys**: do not reuse the discriminator attribute name for PK/SK attributes;
+  change key attribute name overrides or discriminator name (`HasEmbeddedDiscriminatorName`).
 
 ## How to interpret pagination logs
 - Request log entries show configured `Limit` and whether a continuation token is present.

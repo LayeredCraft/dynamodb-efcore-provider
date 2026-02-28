@@ -148,6 +148,33 @@ key property (falling back to the CLR property name). The same applies to the so
 For owned navigation attribute names (the containing map key in DynamoDB), see
 [Owned Types](owned-types.md).
 
+## Shared-table discriminator (`$type`)
+
+When multiple instantiable concrete entity types map to the same DynamoDB table, the provider
+configures and validates a discriminator automatically.
+
+- Default discriminator attribute name: `$type`.
+- Default discriminator value: EF Core type short name (for example `UserEntity`).
+- Discriminator values must be unique within a shared table group.
+- Discriminator attribute names must be consistent within a shared table group.
+- Discriminator attribute name must not collide with resolved PK/SK attribute names.
+
+Use EF Core to override the discriminator attribute name:
+
+```csharp
+protected override void OnModelCreating(ModelBuilder modelBuilder)
+{
+    modelBuilder.HasEmbeddedDiscriminatorName("$kind");
+
+    modelBuilder.Entity<UserEntity>().ToTable("App");
+    modelBuilder.Entity<OrderEntity>().ToTable("App");
+}
+```
+
+Discriminator filtering is applied to shared-table root queries on supported operator shapes. In
+DynamoDB this is a non-key predicate, so it can reduce returned items without necessarily reducing
+items read/evaluated.
+
 ## Model validation
 
 The provider validates the key configuration during model finalization and raises

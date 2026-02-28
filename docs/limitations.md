@@ -16,6 +16,8 @@ icon: lucide/triangle-alert
 - The provider is currently query-only.
 - Unsupported LINQ shapes typically fail during translation with `InvalidOperationException` or `NotImplementedException`.
 - `WithoutPagination()` is best-effort mode and can return incomplete results.
+- Discriminator guardrails for unsupported query shapes are deferred; support is limited to the
+  current operator surface in `operators.md`.
 
 ## Operator-specific status
 - Use `operators.md` as the canonical source for supported and unsupported operators.
@@ -36,7 +38,16 @@ icon: lucide/triangle-alert
 - `bool` key mappings are rejected.
 - Converter-backed key mappings are validated against the converter provider CLR type.
 - Key properties must be required/non-nullable, and converter provider types for keys must also be non-nullable.
-- PK-only tables may host multiple entity types in this phase; discriminator behavior is tracked separately.
+
+## Shared-table discriminator limits
+- Shared-table mappings with multiple concrete entity types require a discriminator.
+- The default discriminator attribute name is `$type` (configurable via EF Core
+  `HasEmbeddedDiscriminatorName`).
+- Default discriminator values are EF Core type short names (for example `UserEntity`).
+- Discriminator values must be unique within a shared table group.
+- Discriminator attribute names must be consistent across all entity types in a shared table group.
+- Discriminator attribute names must not collide with resolved PK/SK attribute names.
+- Missing or unknown discriminator values in returned items throw during materialization.
 
 ## Owned types query limitations
 
