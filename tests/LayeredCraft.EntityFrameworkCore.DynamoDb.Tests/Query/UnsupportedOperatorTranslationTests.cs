@@ -62,6 +62,27 @@ public class UnsupportedOperatorTranslationTests
         await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
     }
 
+    [Fact]
+    public async Task SingleAsync_UsesSingleOperatorNameInFailureDetails()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        await using var context = UnsupportedOperatorDbContext.Create(client);
+
+        var act = async () => await context.Items.SingleAsync(
+            i => i.Pk == "ITEM#1",
+            TestContext.Current.CancellationToken);
+
+        var exceptionAssertion = await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*LINQ operator 'Single'*")
+            .WithMessage("*not currently supported*");
+
+        exceptionAssertion.Which.Message.Should().NotContain("SingleOrDefault");
+
+        await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
     private sealed record UnsupportedOperatorEntity
     {
         public string Pk { get; set; } = null!;
