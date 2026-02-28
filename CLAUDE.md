@@ -79,3 +79,6 @@ When a story changes query behavior, update the docs in the same story so inform
   - Focus on *why* or *what*, not *how* (code shows how)
   - Use `<remarks>` only when absolutely necessary for critical context that doesn't fit in summary
   - Example: `/// <summary>Translates LINQ Select expressions to PartiQL projections.</summary>`
+  - Public facing methods should contain a full doc string that documents parameters and return
+    value as well as any exceptions that may be thrown, and summary. Remarks may be included but
+    should be concise.

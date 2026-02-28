@@ -10,15 +10,29 @@ icon: lucide/triangle-alert
 - `ToQueryString()` support for the custom querying enumerable.
 - Large parts of LINQ translation surface (see `operators.md`).
 - Method calls in `Where` predicates (for example `StartsWith`, `ToUpper`).
+- Global secondary index (GSI) and local secondary index (LSI) mapping.
+- Provider-side key encoding helpers (prefix/suffix composition).
 - Provider option for `ConsistentRead`.
 
 ## What this means in practice
 - The provider is currently query-only.
 - Unsupported LINQ shapes typically fail during translation with `InvalidOperationException` or `NotImplementedException`.
 - `WithoutPagination()` is best-effort mode and can return incomplete results.
+- Discriminator guardrails for unsupported query shapes are deferred; support is limited to the
+  current operator surface in `operators.md`.
 
 ## Operator-specific status
 - Use `operators.md` as the canonical source for supported and unsupported operators.
+
+## Single-table mapping constraints
+- A "table group" is the set of entity types mapped to the same DynamoDB table name.
+- Only the table primary key (partition key and optional sort key) is modeled today.
+- Secondary indexes (GSI/LSI) are not modeled or queryable through provider metadata yet.
+- Key encoding is not implemented as a provider feature; construct PK/SK values in your domain model.
+- For table groups containing multiple concrete entity types, a discriminator is required and is
+  validated at startup.
+- For inheritance hierarchies, querying a base type can materialize derived CLR types; base-type
+  hierarchy queries project hierarchy attributes needed for derived-type materialization.
 
 ## Primitive collection CLR shape limits
 - Primitive collections are supported only for specific CLR shapes.
@@ -28,6 +42,29 @@ icon: lucide/triangle-alert
 - Supported dictionary shapes (string keys only): `Dictionary<string,TValue>`,
   `IDictionary<string,TValue>`, `IReadOnlyDictionary<string,TValue>`, and
   `ReadOnlyDictionary<string,TValue>`.
+
+## Key mapping validation limits
+- Shared-table mappings must agree on key shape: all entity types mapped to the same table must be either PK-only or PK+SK.
+- Shared-table mappings must use consistent physical PK/SK attribute names across entity types.
+- Key properties must resolve to DynamoDB key-compatible provider types: string, number, or binary (`byte[]`).
+- `bool` key mappings are rejected.
+- Converter-backed key mappings are validated against the converter provider CLR type.
+- Key properties must be required/non-nullable, and converter provider types for keys must also be non-nullable.
+
+## Shared-table discriminator limits
+- Shared-table mappings with multiple concrete entity types require a discriminator.
+- The default discriminator attribute name is `$type` (configurable via EF Core
+  `HasEmbeddedDiscriminatorName`).
+- Default discriminator values are EF Core type short names (for example `UserEntity`).
+- Discriminator values must be unique within a shared table group.
+- Discriminator attribute names must be consistent across all entity types in a shared table group.
+- Discriminator attribute names must not collide with resolved PK/SK attribute names.
+- Missing or unknown discriminator values in returned items throw during materialization.
+- Inheritance queries follow EF Core discriminator semantics:
+  - `DbSet<BaseType>` materializes concrete types in that hierarchy.
+  - `DbSet<DerivedType>` materializes the derived subtree.
+  - Abstract types are never materialized.
+- Base-type hierarchy queries project hierarchy attributes needed for derived-type materialization.
 
 ## Owned types query limitations
 

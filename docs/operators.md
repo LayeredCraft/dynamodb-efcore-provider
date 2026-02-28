@@ -60,9 +60,38 @@ should keep in mind. Add to these sections as support expands.
 - DynamoDB documents `IN` limits as up to 50 hash-key values or up to 100 non-key values.
 
 ## Identifier quoting notes
-- This provider quotes property identifiers when needed (for example reserved words and spaces).
+- This provider quotes identifiers when needed (for example reserved words and non-simple names such
+  as `$type` or `app-table`).
 - Quoted identifiers in PartiQL are case-sensitive.
-- Reserved-word handling in the generator is intentionally small today and can expand over time.
+
+## Shared-table discriminator behavior
+- For shared-table mappings (multiple concrete entity types in one table group), root `DbSet<T>`
+  queries include discriminator filtering.
+- The discriminator filter is injected at query-root creation and composes with user predicates
+  using `AND`.
+- For inheritance hierarchies, querying a base type includes all concrete discriminator values in
+  that hierarchy.
+- For the currently supported operator surface, discriminator filtering therefore applies to:
+  `Where`, `Select`, `OrderBy`/`ThenBy`, `Take`, `First`/`FirstOrDefault`, `WithPageSize`, and
+  `WithoutPagination`.
+- Unsupported operators (joins, groupings, set operations, skip, aggregates, single-result
+  operators) are outside the discriminator coverage contract.
+
+Conceptual example for `DbSet<UserEntity>` against a shared table:
+
+```sql
+SELECT Pk, Sk, Name, "$type"
+FROM "app-table"
+WHERE Pk = 'TENANT#U' AND "$type" = 'UserEntity'
+```
+
+Conceptual example for `DbSet<PersonEntity>` (base type) in a hierarchy:
+
+```sql
+SELECT Pk, Sk, Name, Department, Level, "$type"
+FROM "app-table"
+WHERE Pk = 'TENANT#H' AND ("$type" = 'EmployeeEntity' OR "$type" = 'ManagerEntity')
+```
 
 ## Where
 **Purpose**

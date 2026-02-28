@@ -17,7 +17,8 @@ internal static class OwnedProjectionMetadata
         if (!IsRootEntity(entityType))
             return topLevelNames;
 
-        foreach (var navigation in entityType.GetNavigations())
+        foreach (var projectionEntityType in GetProjectionEntityTypes(entityType))
+            foreach (var navigation in projectionEntityType.GetDeclaredNavigations())
         {
             if (!navigation.IsEmbedded() || !navigation.TargetEntityType.IsOwned())
                 continue;
@@ -37,7 +38,8 @@ internal static class OwnedProjectionMetadata
         if (!IsRootEntity(entityType))
             return nestedNames;
 
-        foreach (var navigation in entityType.GetNavigations())
+        foreach (var projectionEntityType in GetProjectionEntityTypes(entityType))
+            foreach (var navigation in projectionEntityType.GetDeclaredNavigations())
         {
             if (!navigation.IsEmbedded() || !navigation.TargetEntityType.IsOwned())
                 continue;
@@ -60,13 +62,63 @@ internal static class OwnedProjectionMetadata
         if (property.IsOwnedOrdinalKeyProperty())
             return false;
 
-        if (!Equals(property.DeclaringType, entityType))
-            return topLevelOwnedContainingAttributeNames.Contains(property.Name);
-
         if (!property.IsShadowProperty())
             return property.GetTypeMapping() != null;
 
         return topLevelOwnedContainingAttributeNames.Contains(property.Name);
+    }
+
+    /// <summary>Gets the scalar properties that should be considered for top-level projection expansion.</summary>
+    /// <remarks>
+    ///     For inheritance roots that can materialize multiple concrete types, this returns declared
+    ///     properties across the relevant hierarchy so derived-type materialization has access to derived
+    ///     attributes.
+    /// </remarks>
+    internal static IEnumerable<IProperty> GetTopLevelProjectionProperties(IEntityType entityType)
+    {
+        if (!ShouldProjectHierarchyProperties(entityType))
+            return entityType.GetProperties();
+
+        HashSet<IProperty> seen = [];
+        List<IProperty> properties = [];
+
+        foreach (var projectionEntityType in GetProjectionEntityTypes(entityType))
+            foreach (var property in projectionEntityType.GetDeclaredProperties())
+                if (seen.Add(property))
+                    properties.Add(property);
+
+        return properties;
+    }
+
+    /// <summary>Determines whether hierarchy-wide projection is required for inheritance materialization.</summary>
+    private static bool ShouldProjectHierarchyProperties(IEntityType entityType)
+        => IsRootEntity(entityType) && entityType.GetConcreteDerivedTypesInclusive().Count() > 1;
+
+    /// <summary>Gets ordered entity types participating in projection for an inheritance root query.</summary>
+    private static IEnumerable<IEntityType> GetProjectionEntityTypes(IEntityType entityType)
+    {
+        if (!ShouldProjectHierarchyProperties(entityType))
+            return [entityType];
+
+        HashSet<IEntityType> seen = [];
+        List<IEntityType> ordered = [];
+
+        foreach (var baseType in entityType.GetAllBaseTypes().Reverse())
+            if (seen.Add(baseType))
+                ordered.Add(baseType);
+
+        if (seen.Add(entityType))
+            ordered.Add(entityType);
+
+        foreach (var derivedType in entityType
+            .GetDerivedTypesInclusive()
+            .Where(static type => !type.IsAbstract())
+            .Where(type => !Equals(type, entityType))
+            .OrderBy(static type => type.Name, StringComparer.Ordinal))
+            if (seen.Add(derivedType))
+                ordered.Add(derivedType);
+
+        return ordered;
     }
 
     /// <summary>Collects containing-attribute names for nested owned navigations under an owned entity.</summary>

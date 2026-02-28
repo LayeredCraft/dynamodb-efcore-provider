@@ -77,15 +77,18 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
 
     protected override ShapedQueryExpression? CreateShapedQueryExpression(IEntityType entityType)
     {
-        // Get the table name from entity metadata
-        var tableName = entityType.FindAnnotation(DynamoAnnotationNames.TableName)?.Value as string
-            ?? entityType.ClrType.Name;
+        // Get the table name from entity metadata.
+        var tableName = GetTableGroupName(entityType);
 
         var queryExpression = new SelectExpression(tableName);
 
         // Create entity projection expression as single source of truth for property mapping
         var entityProjection =
             new DynamoEntityProjectionExpression(entityType, _sqlExpressionFactory);
+
+        var discriminatorPredicate = CreateDiscriminatorPredicate(entityType, entityProjection);
+        if (discriminatorPredicate is not null)
+            queryExpression.SetDeferredDiscriminatorPredicate(discriminatorPredicate);
 
         // Store entity projection in projection mapping under root ProjectionMember
         var projectionMapping = new Dictionary<ProjectionMember, Expression>
@@ -104,6 +107,117 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
             new StructuralTypeShaperExpression(entityType, projectionBindingExpression, false);
 
         return new ShapedQueryExpression(queryExpression, structuralTypeShaperExpression);
+    }
+
+    /// <summary>
+    ///     Creates a discriminator predicate for root queries when the table group contains multiple
+    ///     concrete entity types.
+    /// </summary>
+    private SqlExpression? CreateDiscriminatorPredicate(
+        IEntityType entityType,
+        DynamoEntityProjectionExpression entityProjection)
+    {
+        if (!RequiresDiscriminatorPredicate(entityType))
+            return null;
+
+        var discriminatorProperty = entityType.FindDiscriminatorProperty();
+        if (discriminatorProperty is null)
+            return null;
+
+        var discriminatorColumn = entityProjection.BindProperty(discriminatorProperty);
+
+        SqlExpression? predicate = null;
+        foreach (var concreteType in entityType.GetConcreteDerivedTypesInclusive())
+        {
+            if (concreteType.IsOwned() || concreteType.ClrType.IsAbstract)
+                continue;
+
+            var discriminatorValue = concreteType.GetDiscriminatorValue();
+            if (discriminatorValue is null)
+                continue;
+
+            var equals = _sqlExpressionFactory.Binary(
+                ExpressionType.Equal,
+                discriminatorColumn,
+                _sqlExpressionFactory.Constant(discriminatorValue, discriminatorProperty.ClrType));
+
+            if (equals is null)
+                throw new InvalidOperationException(
+                    $"Failed to create discriminator predicate for entity type '{entityType.DisplayName()}'.");
+
+            predicate = predicate is null
+                ? equals
+                : _sqlExpressionFactory.Binary(ExpressionType.OrElse, predicate, equals)
+                ?? throw new InvalidOperationException(
+                    $"Failed to compose discriminator predicate for entity type '{entityType.DisplayName()}'.");
+        }
+
+        return predicate switch
+        {
+            SqlBinaryExpression { OperatorType: ExpressionType.OrElse } =>
+                new SqlParenthesizedExpression(predicate),
+            _ => predicate,
+        };
+    }
+
+    /// <summary>
+    ///     Determines whether discriminator filtering is required for the root entity type's table
+    ///     group.
+    /// </summary>
+    private bool RequiresDiscriminatorPredicate(IEntityType entityType)
+    {
+        var tableGroupName = GetTableGroupName(entityType);
+
+        HashSet<IEntityType> concreteTypes = [];
+        foreach (var rootEntityType in QueryCompilationContext
+            .Model
+            .GetEntityTypes()
+            .Where(static t => !t.IsOwned() && t.FindOwnership() is null && t.BaseType is null)
+            .Where(t => string.Equals(
+                GetTableGroupName(t),
+                tableGroupName,
+                StringComparison.Ordinal)))
+        {
+            foreach (var concreteType in rootEntityType.GetConcreteDerivedTypesInclusive())
+            {
+                if (concreteType.IsOwned() || concreteType.ClrType.IsAbstract)
+                    continue;
+
+                concreteTypes.Add(concreteType);
+            }
+        }
+
+        return concreteTypes.Count > 1;
+    }
+
+    /// <summary>Gets the effective table-group name for an entity type.</summary>
+    /// <remarks>
+    ///     When the current type has no explicit table-name annotation, this resolves against the
+    ///     nearest mapped base type so derived queries inherit the root table mapping.
+    /// </remarks>
+    private static string GetTableGroupName(IReadOnlyEntityType entityType)
+    {
+        var mappedEntityType = ResolveTableMappedEntityType(entityType);
+
+        return mappedEntityType.FindAnnotation(DynamoAnnotationNames.TableName)?.Value as string
+            ?? mappedEntityType.ClrType.Name;
+    }
+
+    /// <summary>Resolves the entity type that owns table-name metadata for table-group comparisons.</summary>
+    private static IReadOnlyEntityType ResolveTableMappedEntityType(IReadOnlyEntityType entityType)
+    {
+        if (entityType.FindAnnotation(DynamoAnnotationNames.TableName)?.Value is string)
+            return entityType;
+
+        var current = entityType;
+        while (current.BaseType is { } baseType)
+        {
+            current = baseType;
+            if (current.FindAnnotation(DynamoAnnotationNames.TableName)?.Value is string)
+                return current;
+        }
+
+        return current;
     }
 
     protected override ShapedQueryExpression? TranslateAll(

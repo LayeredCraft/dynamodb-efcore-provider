@@ -1,5 +1,6 @@
 // ReSharper disable CheckNamespace
 
+using LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using Microsoft.EntityFrameworkCore.Metadata;
 
 namespace Microsoft.EntityFrameworkCore;
@@ -24,5 +25,30 @@ public static class DynamoPropertyExtensions
             var fkProperties = ownership.Properties;
             return !fkProperties.Contains(property);
         }
+
+        /// <summary>
+        ///     Returns the DynamoDB attribute name for this property, falling back to the CLR property
+        ///     name.
+        /// </summary>
+        public string GetAttributeName()
+            => (string?)property[DynamoAnnotationNames.AttributeName] ?? property.Name;
+    }
+
+    extension(IMutableProperty property)
+    {
+        /// <summary>Sets or clears the DynamoDB attribute name override for this property.</summary>
+        public void SetAttributeName(string? name)
+            => property.SetOrRemoveAnnotation(DynamoAnnotationNames.AttributeName, name);
+    }
+
+    extension(IConventionProperty property)
+    {
+        /// <summary>Sets the DynamoDB attribute name override, recording the configuration source.</summary>
+        public string? SetAttributeName(string? name, bool fromDataAnnotation = false)
+            => (string?)property.SetOrRemoveAnnotation(
+                    DynamoAnnotationNames.AttributeName,
+                    name,
+                    fromDataAnnotation)
+                ?.Value;
     }
 }

@@ -4,6 +4,7 @@ using Amazon.DynamoDBv2.Model;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Query;
 using NSubstitute;
 
@@ -356,6 +357,7 @@ public class OwnedReferenceProjectionTests
             {
                 b.ToTable("EntityATable");
                 b.HasKey(x => x.Pk);
+                b.HasPartitionKey(x => x.Pk);
                 b.OwnsOne(x => x.Profile);
             });
 
@@ -363,6 +365,7 @@ public class OwnedReferenceProjectionTests
             {
                 b.ToTable("EntityBTable");
                 b.HasKey(x => x.Pk);
+                b.HasPartitionKey(x => x.Pk);
                 b.OwnsOne(x => x.Profile);
             });
         }
@@ -371,6 +374,8 @@ public class OwnedReferenceProjectionTests
             => new(
                 new DbContextOptionsBuilder<AmbiguousModelDbContext>()
                     .UseDynamo(o => o.DynamoDbClient(client))
+                    .ConfigureWarnings(w
+                        => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
                     .Options);
     }
 
@@ -384,6 +389,7 @@ public class OwnedReferenceProjectionTests
             {
                 b.ToTable("RequiredEntityTable");
                 b.HasKey(x => x.Pk);
+                b.HasPartitionKey(x => x.Pk);
                 b.OwnsOne(x => x.Profile);
                 b.Navigation(x => x.Profile).IsRequired();
             });
@@ -392,6 +398,8 @@ public class OwnedReferenceProjectionTests
             => new(
                 new DbContextOptionsBuilder<RequiredOwnedDbContext>()
                     .UseDynamo(o => o.DynamoDbClient(client))
+                    .ConfigureWarnings(w
+                        => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
                     .Options);
     }
 }

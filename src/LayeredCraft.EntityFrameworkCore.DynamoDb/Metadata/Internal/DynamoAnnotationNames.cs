@@ -7,4 +7,12 @@ public static class DynamoAnnotationNames
     public const string TableName = Prefix + "TableName";
 
     public const string ContainingAttributeName = Prefix + "ContainingAttributeName";
+
+    public const string AttributeName = Prefix + "AttributeName";
+
+    public const string PartitionKeyPropertyName = Prefix + "PartitionKeyPropertyName";
+
+    public const string SortKeyPropertyName = Prefix + "SortKeyPropertyName";
+
+    public const string DiscriminatorStrategy = Prefix + "DiscriminatorStrategy";
 }

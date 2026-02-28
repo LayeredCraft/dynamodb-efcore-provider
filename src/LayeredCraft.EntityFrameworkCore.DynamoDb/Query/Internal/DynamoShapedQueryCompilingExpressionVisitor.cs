@@ -27,6 +27,10 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
     {
         var selectExpression = (SelectExpression)shapedQueryExpression.QueryExpression;
 
+        // Apply deferred discriminator filtering after query composition so user predicates remain
+        // first in generated SQL and discriminator clauses are appended.
+        selectExpression.ApplyDeferredDiscriminatorPredicate();
+
         // Finalize projection mapping → concrete projection list
         selectExpression.ApplyProjection();
 

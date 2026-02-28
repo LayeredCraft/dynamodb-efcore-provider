@@ -16,6 +16,12 @@ public sealed class DynamoConventionSetBuilder(
         conventionSet.Remove(typeof(ForeignKeyIndexConvention));
         conventionSet.Replace<RelationshipDiscoveryConvention>(
             new DynamoRelationshipDiscoveryConvention(Dependencies));
+        conventionSet.Replace<KeyDiscoveryConvention>(
+            new DynamoKeyDiscoveryConvention(Dependencies));
+        conventionSet.ModelFinalizingConventions.Add(new DynamoDiscriminatorConvention());
+        conventionSet.ModelFinalizingConventions.Add(new DynamoKeyAnnotationConvention());
+        conventionSet.EntityTypeAnnotationChangedConventions.Add(
+            new DynamoKeyInPrimaryKeyConvention(Dependencies));
         conventionSet.ModelFinalizingConventions.Add(new OwnedTypePrimaryKeyConvention());
 
         return conventionSet;

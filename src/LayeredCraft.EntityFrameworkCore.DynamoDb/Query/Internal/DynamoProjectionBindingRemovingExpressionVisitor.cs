@@ -829,7 +829,7 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
                 valueExpression = ordinalExpression;
             else
                 valueExpression = CreateGetValueExpression(
-                    property.Name,
+                    property.GetAttributeName(),
                     property.ClrType,
                     property.GetTypeMapping(),
                     !property.IsNullable,
@@ -1043,7 +1043,7 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
 
                 // Build inline expression: item.TryGetValue(...) ? value : default
                 var valueExpression = CreateGetValueExpression(
-                    property.Name,
+                    property.GetAttributeName(),
                     targetType,
                     typeMapping,
                     required,
