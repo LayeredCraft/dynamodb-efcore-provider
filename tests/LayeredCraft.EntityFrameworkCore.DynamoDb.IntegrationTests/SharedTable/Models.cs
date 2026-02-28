@@ -83,7 +83,7 @@ public static class SharedTableItems
             ["Pk"] = new AttributeValue { S = "TENANT#H" },
             ["Sk"] = new AttributeValue { S = "PERSON#MGR-1" },
             ["Name"] = new AttributeValue { S = "Max" },
-            ["Level"] = new AttributeValue { N = "7" },
+            ["ManagerLevel"] = new AttributeValue { N = "7" },
             ["$type"] = new AttributeValue { S = "ManagerEntity" },
             ["$kind"] = new AttributeValue { S = "ManagerEntity" },
         },

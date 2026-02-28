@@ -13,6 +13,8 @@ public abstract class SqlExpressionVisitor : ExpressionVisitor
         => node switch
         {
             SqlBinaryExpression sqlBinaryExpression => VisitSqlBinary(sqlBinaryExpression),
+            SqlParenthesizedExpression sqlParenthesizedExpression => VisitSqlParenthesized(
+                sqlParenthesizedExpression),
             SqlConstantExpression sqlConstantExpression => VisitSqlConstant(sqlConstantExpression),
             SqlParameterExpression sqlParameterExpression => VisitSqlParameter(
                 sqlParameterExpression),
@@ -26,6 +28,10 @@ public abstract class SqlExpressionVisitor : ExpressionVisitor
     /// Visits a SQL binary expression.
     /// </summary>
     protected abstract Expression VisitSqlBinary(SqlBinaryExpression sqlBinaryExpression);
+
+    /// <summary>Visits a SQL parenthesized expression.</summary>
+    protected abstract Expression VisitSqlParenthesized(
+        SqlParenthesizedExpression sqlParenthesizedExpression);
 
     /// <summary>
     /// Visits a SQL constant expression.

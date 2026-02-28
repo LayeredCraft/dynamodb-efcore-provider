@@ -153,6 +153,17 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
     }
 
     /// <inheritdoc />
+    protected override Expression VisitSqlParenthesized(
+        SqlParenthesizedExpression sqlParenthesizedExpression)
+    {
+        _sql.Append('(');
+        Visit(sqlParenthesizedExpression.Operand);
+        _sql.Append(')');
+
+        return sqlParenthesizedExpression;
+    }
+
+    /// <inheritdoc />
     protected override Expression VisitSqlConstant(SqlConstantExpression sqlConstantExpression)
     {
         // Inline constant values directly into SQL using type mapping

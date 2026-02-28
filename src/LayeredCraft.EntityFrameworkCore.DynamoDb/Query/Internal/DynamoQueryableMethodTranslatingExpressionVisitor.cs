@@ -152,7 +152,12 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
                     $"Failed to compose discriminator predicate for entity type '{entityType.DisplayName()}'.");
         }
 
-        return predicate;
+        return predicate switch
+        {
+            SqlBinaryExpression { OperatorType: ExpressionType.OrElse } =>
+                new SqlParenthesizedExpression(predicate),
+            _ => predicate,
+        };
     }
 
     /// <summary>

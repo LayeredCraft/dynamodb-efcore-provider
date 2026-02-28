@@ -86,6 +86,53 @@ public class DiscriminatorQuerySingleTypeTests(SharedTableDynamoFixture fixture)
 public class DiscriminatorInheritanceQueryTests(SharedTableDynamoFixture fixture)
     : SharedTableTestBase<SharedTableInheritanceDbContext>(fixture)
 {
+    /// <summary>Verifies a base-type query materializes all concrete hierarchy types.</summary>
+    [Fact]
+    public async Task BaseQuery_MaterializesConcreteHierarchyTypes()
+    {
+        var results =
+            await Db.People.Where(person => person.Pk == "TENANT#H").ToListAsync(CancellationToken);
+
+        results.Should().HaveCount(2);
+
+        var employee = results.OfType<EmployeeEntity>().Single();
+        employee.Name.Should().Be("Eve");
+        employee.Department.Should().Be("Engineering");
+
+        var manager = results.OfType<ManagerEntity>().Single();
+        manager.Name.Should().Be("Max");
+        manager.Level.Should().Be(7);
+
+        AssertSql(
+            """
+            SELECT Pk, Sk, Name, Department, ManagerLevel, "$type"
+            FROM "app-table"
+            WHERE Pk = 'TENANT#H' AND ("$type" = 'EmployeeEntity' OR "$type" = 'ManagerEntity')
+            """);
+    }
+
+    /// <summary>Verifies discriminator OR conditions remain grouped when additional filters are combined.</summary>
+    [Fact]
+    public async Task BaseQuery_WithAdditionalFilter_UsesGroupedDiscriminatorPredicate()
+    {
+        var results = await Db
+            .People
+            .Where(person => person.Pk == "TENANT#H")
+            .Where(person => person.Name == "Eve")
+            .ToListAsync(CancellationToken);
+
+        results.Should().HaveCount(1);
+        results[0].Should().BeOfType<EmployeeEntity>();
+
+        AssertSql(
+            """
+            SELECT Pk, Sk, Name, Department, ManagerLevel, "$type"
+            FROM "app-table"
+            WHERE Pk = 'TENANT#H' AND Name = 'Eve' AND ("$type" = 'EmployeeEntity' OR "$type" = 'ManagerEntity')
+            """);
+    }
+
+    /// <summary>Verifies a derived-type query applies a derived discriminator predicate.</summary>
     [Fact]
     public async Task DerivedQuery_UsesDerivedDiscriminatorPredicate()
     {
@@ -110,6 +157,38 @@ public class DiscriminatorInheritanceQueryTests(SharedTableDynamoFixture fixture
 public class DiscriminatorInheritanceBaseOnlyToTableQueryTests(SharedTableDynamoFixture fixture)
     : SharedTableTestBase<SharedTableInheritanceBaseOnlyToTableDbContext>(fixture)
 {
+    /// <summary>
+    ///     Verifies a base-type query materializes all concrete hierarchy types when only the base
+    ///     entity configures table mapping.
+    /// </summary>
+    [Fact]
+    public async Task BaseQuery_MaterializesConcreteHierarchyTypes_WhenOnlyBaseConfiguresTable()
+    {
+        var results =
+            await Db.People.Where(person => person.Pk == "TENANT#H").ToListAsync(CancellationToken);
+
+        results.Should().HaveCount(2);
+
+        var employee = results.OfType<EmployeeEntity>().Single();
+        employee.Name.Should().Be("Eve");
+        employee.Department.Should().Be("Engineering");
+
+        var manager = results.OfType<ManagerEntity>().Single();
+        manager.Name.Should().Be("Max");
+        manager.Level.Should().Be(7);
+
+        AssertSql(
+            """
+            SELECT Pk, Sk, Name, Department, ManagerLevel, "$type"
+            FROM "app-table"
+            WHERE Pk = 'TENANT#H' AND ("$type" = 'EmployeeEntity' OR "$type" = 'ManagerEntity')
+            """);
+    }
+
+    /// <summary>
+    ///     Verifies a derived query uses the root table mapping when only the base type configures
+    ///     the table.
+    /// </summary>
     [Fact]
     public async Task DerivedQuery_UsesRootTableMapping_WhenOnlyBaseConfiguresTable()
     {

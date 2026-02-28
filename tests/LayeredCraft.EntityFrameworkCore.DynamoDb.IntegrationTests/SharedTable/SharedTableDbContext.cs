@@ -90,6 +90,7 @@ public class SharedTableInheritanceDbContext(
         {
             builder.ToTable(SharedTableDynamoFixture.TableName);
             builder.HasBaseType<PersonEntity>();
+            builder.Property(x => x.Level).HasAttributeName("ManagerLevel");
         });
     }
 }
@@ -113,6 +114,10 @@ public class SharedTableInheritanceBaseOnlyToTableDbContext(
 
         modelBuilder.Entity<EmployeeEntity>(builder => builder.HasBaseType<PersonEntity>());
 
-        modelBuilder.Entity<ManagerEntity>(builder => builder.HasBaseType<PersonEntity>());
+        modelBuilder.Entity<ManagerEntity>(builder =>
+        {
+            builder.HasBaseType<PersonEntity>();
+            builder.Property(x => x.Level).HasAttributeName("ManagerLevel");
+        });
     }
 }
