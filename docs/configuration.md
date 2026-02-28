@@ -224,6 +224,8 @@ The provider validates the key configuration during model finalization and raise
 
 ## Not configurable yet
 - `ConsistentRead` is not currently exposed as a provider option.
+- Global secondary index (GSI) and local secondary index (LSI) mapping.
+- Provider-side key encoding helpers.
 
 ## External references
 - DynamoDB PartiQL SELECT: <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ql-reference.select.html>

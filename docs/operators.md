@@ -69,6 +69,8 @@ should keep in mind. Add to these sections as support expands.
   queries include discriminator filtering.
 - The discriminator filter is injected at query-root creation and composes with user predicates
   using `AND`.
+- For inheritance hierarchies, querying a base type includes all concrete discriminator values in
+  that hierarchy.
 - For the currently supported operator surface, discriminator filtering therefore applies to:
   `Where`, `Select`, `OrderBy`/`ThenBy`, `Take`, `First`/`FirstOrDefault`, `WithPageSize`, and
   `WithoutPagination`.
@@ -81,6 +83,14 @@ Conceptual example for `DbSet<UserEntity>` against a shared table:
 SELECT Pk, Sk, Name, "$type"
 FROM "app-table"
 WHERE Pk = 'TENANT#U' AND "$type" = 'UserEntity'
+```
+
+Conceptual example for `DbSet<PersonEntity>` (base type) in a hierarchy:
+
+```sql
+SELECT Pk, Sk, Name, Department, Level, "$type"
+FROM "app-table"
+WHERE Pk = 'TENANT#H' AND ("$type" = 'EmployeeEntity' OR "$type" = 'ManagerEntity')
 ```
 
 ## Where

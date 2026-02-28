@@ -37,6 +37,8 @@ icon: lucide/stethoscope
   shared table group.
 - **Name collision with keys**: do not reuse the discriminator attribute name for PK/SK attributes;
   change key attribute name overrides or discriminator name (`HasEmbeddedDiscriminatorName`).
+- **Inheritance queries**: querying a base type can materialize derived CLR types. If derived
+  properties are required/non-nullable and missing from stored items, materialization throws.
 
 ## How to interpret pagination logs
 - Request log entries show configured `Limit` and whether a continuation token is present.

@@ -10,6 +10,8 @@ icon: lucide/triangle-alert
 - `ToQueryString()` support for the custom querying enumerable.
 - Large parts of LINQ translation surface (see `operators.md`).
 - Method calls in `Where` predicates (for example `StartsWith`, `ToUpper`).
+- Global secondary index (GSI) and local secondary index (LSI) mapping.
+- Provider-side key encoding helpers (prefix/suffix composition).
 - Provider option for `ConsistentRead`.
 
 ## What this means in practice
@@ -21,6 +23,16 @@ icon: lucide/triangle-alert
 
 ## Operator-specific status
 - Use `operators.md` as the canonical source for supported and unsupported operators.
+
+## Single-table mapping constraints
+- A "table group" is the set of entity types mapped to the same DynamoDB table name.
+- Only the table primary key (partition key and optional sort key) is modeled today.
+- Secondary indexes (GSI/LSI) are not modeled or queryable through provider metadata yet.
+- Key encoding is not implemented as a provider feature; construct PK/SK values in your domain model.
+- For table groups containing multiple concrete entity types, a discriminator is required and is
+  validated at startup.
+- For inheritance hierarchies, querying a base type can materialize derived CLR types; base-type
+  hierarchy queries project hierarchy attributes needed for derived-type materialization.
 
 ## Primitive collection CLR shape limits
 - Primitive collections are supported only for specific CLR shapes.
