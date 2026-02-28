@@ -19,9 +19,12 @@ public class DynamoSqlTranslatingExpressionVisitor(ISqlExpressionFactory sqlExpr
     public SqlExpression? Translate(Expression expression)
     {
         TranslationErrorDetails = null;
-        var result = Visit(expression);
-        return result as SqlExpression;
+        return TranslateInternal(expression);
     }
+
+    /// <summary>Translates an expression without resetting translation error details.</summary>
+    private SqlExpression? TranslateInternal(Expression expression)
+        => Visit(expression) as SqlExpression;
 
     /// <summary>Adds a translation error detail message for the current translation attempt.</summary>
     protected virtual void AddTranslationErrorDetails(string details)
@@ -33,8 +36,8 @@ public class DynamoSqlTranslatingExpressionVisitor(ISqlExpressionFactory sqlExpr
     /// <inheritdoc />
     protected override Expression VisitBinary(BinaryExpression node)
     {
-        var left = Translate(node.Left);
-        var right = Translate(node.Right);
+        var left = TranslateInternal(node.Left);
+        var right = TranslateInternal(node.Right);
 
         if (left == null || right == null)
             return QueryCompilationContext.NotTranslatedExpression;

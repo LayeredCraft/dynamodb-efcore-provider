@@ -35,13 +35,14 @@ should keep in mind. Add to these sections as support expands.
 - This provider only supports query shapes that can be translated to DynamoDB PartiQL.
 - Unsupported operators fail translation with a detailed `InvalidOperationException` message.
 - The provider does not silently switch unsupported LINQ operators to client-side evaluation.
+- Some projection shaping in `Select` may still execute client-side after server-side query results are returned.
 
 ## Operator matrix (current contract)
 
 | Operator | Server translation | Client behavior | Notes |
 | --- | --- | --- | --- |
 | `Where` | PartiQL `WHERE` | N/A | Boolean members normalize to `= TRUE` |
-| `Select` | Explicit projection list | N/A | No `SELECT *` |
+| `Select` | Explicit projection list | Some computed projections can run client-side | No `SELECT *` |
 | `OrderBy` / `ThenBy` | PartiQL `ORDER BY` | N/A | Precedence and parentheses preserved |
 | `Take(n)` | Sets result limit expression | Stops after `n` results | Does not emit SQL `LIMIT` |
 | `First*` | Sets result limit `1` | Stops after first result | May scan multiple pages unless pagination disabled |

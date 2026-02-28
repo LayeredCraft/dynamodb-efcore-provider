@@ -457,9 +457,13 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
         LambdaExpression? predicate,
         Type returnType,
         bool returnDefault)
-        => UnsupportedOperator(
-            returnDefault ? nameof(Queryable.SingleOrDefault) : nameof(Queryable.Single),
-            DynamoStrings.ProviderOperatorNotSupportedYet(nameof(Queryable.SingleOrDefault)));
+    {
+        var operatorName =
+            returnDefault ? nameof(Queryable.SingleOrDefault) : nameof(Queryable.Single);
+        return UnsupportedOperator(
+            operatorName,
+            DynamoStrings.ProviderOperatorNotSupportedYet(operatorName));
+    }
 
     protected override ShapedQueryExpression? TranslateSkip(
         ShapedQueryExpression source,
