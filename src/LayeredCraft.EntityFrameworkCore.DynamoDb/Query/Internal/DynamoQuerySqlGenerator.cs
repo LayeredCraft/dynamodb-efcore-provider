@@ -378,6 +378,9 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
             return sqlInExpression;
         }
 
+        var maxValues = sqlInExpression.IsPartitionKeyComparison ? 50 : 100;
+        ValidateInValueCount(values.Count, maxValues, sqlInExpression.IsPartitionKeyComparison);
+
         Visit(sqlInExpression.Item);
         _sql.Append(" IN [");
 
