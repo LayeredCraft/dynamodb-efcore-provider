@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Linq.Expressions;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -35,11 +36,11 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
 
     private readonly StringBuilder _sql = new();
     private readonly List<AttributeValue> _parameters = [];
-    private readonly List<(string Name, CoreTypeMapping? TypeMapping)> _parameterNames = [];
+    private IReadOnlyDictionary<string, object?>? _parameterValues;
 
     /// <summary>
     /// Generates a PartiQL query from a SelectExpression.
-    /// Tracks parameter names during SQL generation, then converts values to AttributeValues.
+    /// Uses runtime parameter values during SQL generation to support dynamic IN expansion.
     /// </summary>
     public DynamoPartiQlQuery Generate(
         SelectExpression selectExpression,
@@ -47,23 +48,17 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
     {
         _sql.Clear();
         _parameters.Clear();
-        _parameterNames.Clear();
+        _parameterValues = parameterValues;
 
-        // Generate SQL with ? placeholders (doesn't need parameter values)
-        VisitSelect(selectExpression);
-
-        // After SQL generation, convert parameter values to AttributeValues
-        foreach (var (name, typeMapping) in _parameterNames)
+        try
         {
-            if (!parameterValues.TryGetValue(name, out var value))
-                throw new InvalidOperationException(
-                    $"Parameter '{name}' not found in parameter values.");
-
-            var attributeValue = ConvertToAttributeValue(value, typeMapping);
-            _parameters.Add(attributeValue);
+            VisitSelect(selectExpression);
+            return new DynamoPartiQlQuery(_sql.ToString(), _parameters);
         }
-
-        return new DynamoPartiQlQuery(_sql.ToString(), _parameters);
+        finally
+        {
+            _parameterValues = null;
+        }
     }
 
     /// <inheritdoc />
@@ -180,13 +175,44 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
     /// <inheritdoc />
     protected override Expression VisitSqlParameter(SqlParameterExpression sqlParameterExpression)
     {
-        // Track parameter name and type mapping (but don't look up value yet)
-        _parameterNames.Add((sqlParameterExpression.Name, sqlParameterExpression.TypeMapping));
+        if (_parameterValues == null)
+            throw new InvalidOperationException(
+                "Parameter values are unavailable during SQL generation.");
 
-        // Write ? placeholder
-        _sql.Append('?');
+        if (!_parameterValues.TryGetValue(sqlParameterExpression.Name, out var value))
+            throw new InvalidOperationException(
+                $"Parameter '{sqlParameterExpression.Name}' not found in parameter values.");
+
+        AppendParameter(value, sqlParameterExpression.TypeMapping);
 
         return sqlParameterExpression;
+    }
+
+    /// <inheritdoc />
+    protected override Expression VisitSqlIn(SqlInExpression sqlInExpression)
+    {
+        if (sqlInExpression.Values != null)
+            return VisitInlineIn(sqlInExpression);
+
+        return VisitParameterizedIn(sqlInExpression);
+    }
+
+    /// <inheritdoc />
+    protected override Expression VisitSqlFunction(SqlFunctionExpression sqlFunctionExpression)
+    {
+        _sql.Append(sqlFunctionExpression.Name);
+        _sql.Append('(');
+
+        for (var i = 0; i < sqlFunctionExpression.Arguments.Count; i++)
+        {
+            if (i > 0)
+                _sql.Append(", ");
+
+            Visit(sqlFunctionExpression.Arguments[i]);
+        }
+
+        _sql.Append(')');
+        return sqlFunctionExpression;
     }
 
     /// <inheritdoc />
@@ -341,6 +367,138 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
             ExpressionType.Divide => "/",
             _ => throw new NotSupportedException($"Operator type {operatorType} is not supported"),
         };
+
+    /// <summary>Emits an IN predicate using inline SQL values.</summary>
+    private Expression VisitInlineIn(SqlInExpression sqlInExpression)
+    {
+        var values = sqlInExpression.Values!;
+        if (values.Count == 0)
+        {
+            AppendAlwaysFalsePredicate();
+            return sqlInExpression;
+        }
+
+        var maxValues = sqlInExpression.IsPartitionKeyComparison ? 50 : 100;
+        ValidateInValueCount(values.Count, maxValues, sqlInExpression.IsPartitionKeyComparison);
+
+        Visit(sqlInExpression.Item);
+        _sql.Append(" IN [");
+
+        for (var i = 0; i < values.Count; i++)
+        {
+            if (i > 0)
+                _sql.Append(", ");
+
+            Visit(values[i]);
+        }
+
+        _sql.Append(']');
+        return sqlInExpression;
+    }
+
+    /// <summary>Emits an IN predicate using runtime parameter expansion.</summary>
+    private Expression VisitParameterizedIn(SqlInExpression sqlInExpression)
+    {
+        if (_parameterValues == null)
+            throw new InvalidOperationException(
+                "Parameter values are unavailable during SQL generation.");
+
+        var valuesParameter = sqlInExpression.ValuesParameter
+            ?? throw new InvalidOperationException("IN expression parameter values are required.");
+
+        if (!_parameterValues.TryGetValue(valuesParameter.Name, out var parameterValue))
+            throw new InvalidOperationException(
+                $"Parameter '{valuesParameter.Name}' not found in parameter values.");
+
+        var maxValues = sqlInExpression.IsPartitionKeyComparison ? 50 : 100;
+
+        if (parameterValue is null)
+        {
+            AppendAlwaysFalsePredicate();
+            return sqlInExpression;
+        }
+
+        if (parameterValue is string || parameterValue is not IEnumerable enumerable)
+            throw new InvalidOperationException(
+                DynamoStrings.ContainsCollectionParameterMustBeEnumerable);
+
+        var enforceLimitDuringEnumeration = true;
+        if (parameterValue is ICollection collection)
+        {
+            if (collection.Count == 0)
+            {
+                AppendAlwaysFalsePredicate();
+                return sqlInExpression;
+            }
+
+            ValidateInValueCount(
+                collection.Count,
+                maxValues,
+                sqlInExpression.IsPartitionKeyComparison);
+            enforceLimitDuringEnumeration = false;
+        }
+
+        var sqlLengthBeforePredicate = _sql.Length;
+        var parameterCountBeforePredicate = _parameters.Count;
+
+        Visit(sqlInExpression.Item);
+        _sql.Append(" IN [");
+
+        var count = 0;
+
+        foreach (var value in enumerable)
+        {
+            if (enforceLimitDuringEnumeration)
+                ValidateInValueCount(
+                    count + 1,
+                    maxValues,
+                    sqlInExpression.IsPartitionKeyComparison);
+
+            if (count > 0)
+                _sql.Append(", ");
+
+            AppendParameter(value, sqlInExpression.Item.TypeMapping);
+            count++;
+        }
+
+        if (count == 0)
+        {
+            _sql.Length = sqlLengthBeforePredicate;
+
+            if (_parameters.Count > parameterCountBeforePredicate)
+                _parameters.RemoveRange(
+                    parameterCountBeforePredicate,
+                    _parameters.Count - parameterCountBeforePredicate);
+
+            AppendAlwaysFalsePredicate();
+            return sqlInExpression;
+        }
+
+        _sql.Append(']');
+        return sqlInExpression;
+    }
+
+    /// <summary>Validates IN-list value count against DynamoDB limits.</summary>
+    private static void ValidateInValueCount(
+        int count,
+        int maxValues,
+        bool isPartitionKeyComparison)
+    {
+        if (count > maxValues)
+            // TODO: Consider supporting chunked IN execution or BatchGetItem optimization.
+            throw new InvalidOperationException(
+                DynamoStrings.InListTooLarge(maxValues, isPartitionKeyComparison));
+    }
+
+    /// <summary>Appends a parameter placeholder and converted AttributeValue in lockstep.</summary>
+    private void AppendParameter(object? value, CoreTypeMapping? typeMapping)
+    {
+        _sql.Append('?');
+        _parameters.Add(ConvertToAttributeValue(value, typeMapping));
+    }
+
+    /// <summary>Appends a predicate that is guaranteed to evaluate to false.</summary>
+    private void AppendAlwaysFalsePredicate() => _sql.Append("1 = 0");
 
     /// <summary>
     /// Converts a CLR value to a DynamoDB AttributeValue.

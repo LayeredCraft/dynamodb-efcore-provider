@@ -4,12 +4,14 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
 
 public class DynamoShapedQueryCompilingExpressionVisitorFactory(
     ShapedQueryCompilingExpressionVisitorDependencies dependencies,
-    DynamoQuerySqlGenerator sqlGenerator) : IShapedQueryCompilingExpressionVisitorFactory
+    IDynamoQuerySqlGeneratorFactory sqlGeneratorFactory)
+    : IShapedQueryCompilingExpressionVisitorFactory
 {
+    /// <summary>Creates a shaped query compiling visitor for DynamoDB queries.</summary>
     public ShapedQueryCompilingExpressionVisitor Create(
         QueryCompilationContext queryCompilationContext)
         => new DynamoShapedQueryCompilingExpressionVisitor(
             dependencies,
             (DynamoQueryCompilationContext)queryCompilationContext,
-            sqlGenerator);
+            sqlGeneratorFactory);
 }

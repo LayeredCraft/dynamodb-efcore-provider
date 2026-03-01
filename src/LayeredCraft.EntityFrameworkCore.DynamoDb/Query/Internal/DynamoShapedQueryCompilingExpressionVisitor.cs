@@ -11,7 +11,7 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
 public partial class DynamoShapedQueryCompilingExpressionVisitor(
     ShapedQueryCompilingExpressionVisitorDependencies dependencies,
     DynamoQueryCompilationContext dynamoQueryCompilationContext,
-    DynamoQuerySqlGenerator sqlGenerator) : ShapedQueryCompilingExpressionVisitor(
+    IDynamoQuerySqlGeneratorFactory sqlGeneratorFactory) : ShapedQueryCompilingExpressionVisitor(
     dependencies,
     dynamoQueryCompilationContext)
 {
@@ -23,6 +23,7 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
             .GetTypeInfo()
             .GetDeclaredMethod(nameof(EnsurePositivePageSize))!;
 
+    /// <summary>Builds the runtime querying enumerable and shaper for a translated DynamoDB query.</summary>
     protected override Expression VisitShapedQuery(ShapedQueryExpression shapedQueryExpression)
     {
         var selectExpression = (SelectExpression)shapedQueryExpression.QueryExpression;
@@ -115,7 +116,7 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
                 .Single(c => c.GetParameters().Length == 7),
             queryContextParameter,
             Expression.Constant(selectExpression),
-            Expression.Constant(sqlGenerator),
+            Expression.Constant(sqlGeneratorFactory),
             shaperLambda,
             Expression.Constant(standAloneStateManager),
             Expression.Constant(_dependencies.CoreSingletonOptions.AreThreadSafetyChecksEnabled),

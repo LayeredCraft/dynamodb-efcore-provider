@@ -48,6 +48,15 @@ internal static class DynamoStrings
     public const string MethodCallInPredicateNotSupported =
         "Method calls are not supported in server-side DynamoDB predicate translation.";
 
+    public const string StringContainsOverloadNotSupported =
+        "Only string.Contains(string) is supported in server-side DynamoDB predicate translation; char and StringComparison overloads are not translated.";
+
+    public const string ContainsCollectionShapeNotSupported =
+        "Contains translation supports in-memory collection membership only (for example, ids.Contains(entity.Id)).";
+
+    public const string ContainsCollectionParameterMustBeEnumerable =
+        "Contains translation requires the collection parameter to implement IEnumerable.";
+
     public const string MemberAccessNotSupported =
         "Only direct entity member access is supported for server-side DynamoDB translation.";
 
@@ -65,4 +74,9 @@ internal static class DynamoStrings
 
     public static string UnsupportedBinaryOperator(ExpressionType operatorType)
         => $"Binary operator '{operatorType}' is not supported by server-side DynamoDB translation.";
+
+    public static string InListTooLarge(int maxValues, bool isPartitionKeyComparison)
+        => isPartitionKeyComparison
+            ? $"Contains translation exceeded DynamoDB IN limit of {maxValues} values for partition key comparisons."
+            : $"Contains translation exceeded DynamoDB IN limit of {maxValues} values for non-key comparisons.";
 }
