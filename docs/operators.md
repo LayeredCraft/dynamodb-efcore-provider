@@ -15,6 +15,7 @@ should keep in mind. Add to these sections as support expands.
 - `Select`
 - `OrderBy` / `OrderByDescending`
 - `ThenBy` / `ThenByDescending`
+- `Contains` (supported shapes only)
 - `Take`
 - `First` / `FirstOrDefault`
 - `WithPageSize`
@@ -29,7 +30,7 @@ should keep in mind. Add to these sections as support expands.
 - `Join` / `GroupJoin` / `SelectMany` / `LeftJoin` / `RightJoin`
 - `Union` / `Concat` / `Except` / `Intersect`
 - `Distinct`, `Reverse`, `Last` / `LastOrDefault`
-- Complex method-call translation in predicates (for example `ToUpper()` in `Where`)
+- Method calls in predicates except supported `Contains` patterns
 
 ### Server-side only policy
 - This provider only supports query shapes that can be translated to DynamoDB PartiQL.
@@ -42,6 +43,7 @@ should keep in mind. Add to these sections as support expands.
 | Operator | Server translation | Client behavior | Notes |
 | --- | --- | --- | --- |
 | `Where` | PartiQL `WHERE` | N/A | Boolean members normalize to `= TRUE` |
+| `Contains` | PartiQL `contains(...)` or `IN [ ... ]` | N/A | Only `string.Contains(string)` and in-memory collection membership are supported |
 | `Select` | Explicit projection list | Some computed projections can run client-side | No `SELECT *` |
 | `OrderBy` / `ThenBy` | PartiQL `ORDER BY` | N/A | Precedence and parentheses preserved |
 | `Take(n)` | Sets result limit expression | Stops after `n` results | Does not emit SQL `LIMIT` |
@@ -112,6 +114,23 @@ WHERE Pk = 'TENANT#H' AND ("$type" = 'EmployeeEntity' OR "$type" = 'ManagerEntit
 
 **Limitations / DynamoDB quirks**
 - Filters may return zero matches on a page even when more matches exist on later pages.
+
+## Contains
+**Purpose**
+- Check string substring membership or in-memory collection membership.
+
+**Translation**
+- `entity.Name.Contains("Ada")` translates to `contains(Name, ?)`.
+- `ids.Contains(entity.Id)` translates to `Id IN [?, ?, ...]`.
+- Collection membership placeholders are expanded at runtime based on collection size.
+
+**Limitations / DynamoDB quirks**
+- Only `string.Contains(string)` is supported; overloads such as `StringComparison` are not translated.
+- Only in-memory collection membership is supported (for example `ids.Contains(entity.Id)`).
+- Collection attribute containment (for example `entity.Tags.Contains("x")`) is not supported.
+- Empty collections translate to a constant-false predicate (`1 = 0`).
+- DynamoDB `IN` limits apply: up to 50 partition-key values or up to 100 non-key values.
+- `NULL` collection elements are passed through as DynamoDB `NULL`; DynamoDB evaluation semantics apply.
 
 ## Select
 **Purpose**

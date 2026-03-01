@@ -20,10 +20,7 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
         QueryableMethodTranslatingExpressionVisitorDependencies dependencies,
         QueryCompilationContext queryCompilationContext,
         ISqlExpressionFactory sqlExpressionFactory,
-        bool subquery = false) : base(
-        dependencies,
-        queryCompilationContext,
-        subquery)
+        bool subquery = false) : base(dependencies, queryCompilationContext, subquery)
     {
         _sqlExpressionFactory = sqlExpressionFactory;
         _sqlTranslator = new DynamoSqlTranslatingExpressionVisitor(sqlExpressionFactory);
@@ -573,20 +570,40 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
     /// Translates a lambda expression by translating its body.
     /// </summary>
     private SqlExpression? TranslateLambdaExpression(
-            ShapedQueryExpression shapedQueryExpression,
-            LambdaExpression lambdaExpression)
-        // The lambda parameter represents the entity being queried (e.g., x in x => x.Pk == "test")
-        // The SQL translator will recognize parameter.Property accesses and convert them to
-        // SqlPropertyExpression
+        ShapedQueryExpression shapedQueryExpression,
+        LambdaExpression lambdaExpression)
     {
-        _ = shapedQueryExpression;
-        var translation = _sqlTranslator.Translate(lambdaExpression.Body);
+        var parameterEntityTypes = TryBuildLambdaParameterEntityTypes(
+            shapedQueryExpression,
+            lambdaExpression);
+        var translation = _sqlTranslator.Translate(lambdaExpression.Body, parameterEntityTypes);
         if (translation != null)
             return translation;
 
         AddTranslationErrorDetails(
             _sqlTranslator.TranslationErrorDetails ?? DynamoStrings.PredicateNotTranslatable);
         return null;
+    }
+
+    /// <summary>Tries to map lambda parameters to the source entity type used by the shaped query.</summary>
+    private static IReadOnlyDictionary<ParameterExpression, IEntityType>?
+        TryBuildLambdaParameterEntityTypes(
+            ShapedQueryExpression shapedQueryExpression,
+            LambdaExpression lambdaExpression)
+    {
+        if (shapedQueryExpression.ShaperExpression is not StructuralTypeShaperExpression
+            {
+                StructuralType: IEntityType entityType,
+            })
+            return null;
+
+        Dictionary<ParameterExpression, IEntityType> mappings = [];
+        foreach (var parameter in lambdaExpression.Parameters)
+            if (parameter.Type.IsAssignableFrom(entityType.ClrType)
+                || entityType.ClrType.IsAssignableFrom(parameter.Type))
+                mappings[parameter] = entityType;
+
+        return mappings.Count == 0 ? null : mappings;
     }
 
     /// <summary>

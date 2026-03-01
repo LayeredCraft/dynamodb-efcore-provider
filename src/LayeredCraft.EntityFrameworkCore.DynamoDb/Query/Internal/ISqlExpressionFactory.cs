@@ -29,7 +29,25 @@ public interface ISqlExpressionFactory
     /// <summary>
     /// Creates a SQL property expression.
     /// </summary>
-    SqlPropertyExpression Property(string propertyName, Type type);
+    SqlPropertyExpression Property(string propertyName, Type type, bool isPartitionKey = false);
+
+    /// <summary>Creates an IN expression using inline values.</summary>
+    SqlInExpression In(
+        SqlExpression item,
+        IReadOnlyList<SqlExpression> values,
+        bool isPartitionKeyComparison = false);
+
+    /// <summary>Creates an IN expression using a collection parameter.</summary>
+    SqlInExpression In(
+        SqlExpression item,
+        SqlParameterExpression valuesParameter,
+        bool isPartitionKeyComparison = false);
+
+    /// <summary>Creates a SQL function expression.</summary>
+    SqlFunctionExpression Function(
+        string name,
+        IReadOnlyList<SqlExpression> arguments,
+        Type returnType);
 
     /// <summary>
     /// Applies a type mapping to an existing SQL expression.

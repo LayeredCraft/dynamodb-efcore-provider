@@ -9,7 +9,7 @@ icon: lucide/triangle-alert
 - Synchronous query enumeration.
 - `ToQueryString()` support for the custom querying enumerable.
 - Large parts of LINQ translation surface (see `operators.md`).
-- Method calls in `Where` predicates (for example `StartsWith`, `ToUpper`).
+- Method calls in `Where` predicates except supported `Contains` patterns (`string.Contains(string)` and in-memory collection membership).
 - Global secondary index (GSI) and local secondary index (LSI) mapping.
 - Provider-side key encoding helpers (prefix/suffix composition).
 - Provider option for `ConsistentRead`.
