@@ -125,7 +125,7 @@ WHERE Pk = 'TENANT#H' AND ("$type" = 'EmployeeEntity' OR "$type" = 'ManagerEntit
 - Collection membership placeholders are expanded at runtime based on collection size.
 
 **Limitations / DynamoDB quirks**
-- Only `string.Contains(string)` is supported; overloads such as `StringComparison` are not translated.
+- Only `string.Contains(string)` is supported; overloads such as `char` and `StringComparison` are not translated.
 - Only in-memory collection membership is supported (for example `ids.Contains(entity.Id)`).
 - Collection attribute containment (for example `entity.Tags.Contains("x")`) is not supported.
 - Empty collections translate to a constant-false predicate (`1 = 0`).

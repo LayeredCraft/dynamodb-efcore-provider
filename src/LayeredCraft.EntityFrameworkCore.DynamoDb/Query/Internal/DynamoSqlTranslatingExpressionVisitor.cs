@@ -21,6 +21,12 @@ public class DynamoSqlTranslatingExpressionVisitor(ISqlExpressionFactory sqlExpr
     private static readonly MethodInfo StringContainsMethod =
         ((Func<string, bool>)string.Empty.Contains).Method;
 
+    private static readonly MethodInfo ArrayEmptyMethod =
+        ((Func<object[]>)Array.Empty<object>).Method.GetGenericMethodDefinition();
+
+    private static readonly MethodInfo EnumerableEmptyMethod =
+        ((Func<IEnumerable<object>>)Enumerable.Empty<object>).Method.GetGenericMethodDefinition();
+
     private IReadOnlyDictionary<ParameterExpression, IEntityType>? _lambdaParameterEntityTypes;
 
     /// <summary>Gets the latest translation error details captured for the current translation attempt.</summary>
@@ -236,6 +242,10 @@ public class DynamoSqlTranslatingExpressionVisitor(ISqlExpressionFactory sqlExpr
             && TryGetConstantEnumerableValues(constantExpression.Value, itemType, values))
             return true;
 
+        if (collectionExpression is MethodCallExpression methodCallExpression
+            && IsEmptyCollectionFactoryMethod(methodCallExpression))
+            return true;
+
         return false;
     }
 
@@ -267,10 +277,28 @@ public class DynamoSqlTranslatingExpressionVisitor(ISqlExpressionFactory sqlExpr
             && method.GetGenericMethodDefinition() == EnumerableContainsMethod)
             return true;
 
+        if (method.DeclaringType is not { } declaringType)
+            return false;
+
         return !method.IsStatic
             && method.Name == nameof(ICollection<object>.Contains)
-            && method.DeclaringType != typeof(string)
-            && method.GetParameters().Length == 1;
+            && method.ReturnType == typeof(bool)
+            && declaringType != typeof(string)
+            && method.GetParameters().Length == 1
+            && typeof(IEnumerable).IsAssignableFrom(declaringType);
+    }
+
+    /// <summary>Returns whether a method call creates a known empty in-memory collection.</summary>
+    private static bool IsEmptyCollectionFactoryMethod(MethodCallExpression methodCallExpression)
+    {
+        if (!methodCallExpression.Method.IsGenericMethod
+            || methodCallExpression.Arguments.Count != 0)
+            return false;
+
+        var genericMethodDefinition = methodCallExpression.Method.GetGenericMethodDefinition();
+
+        return genericMethodDefinition == ArrayEmptyMethod
+            || genericMethodDefinition == EnumerableEmptyMethod;
     }
 
     /// <summary>Tries to extract collection and item arguments from a Contains call.</summary>

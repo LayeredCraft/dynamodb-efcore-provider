@@ -134,6 +134,44 @@ public class ContainsTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBa
             """);
     }
 
+    /// <summary>Verifies inline Array.Empty values translate to an always-false predicate.</summary>
+    [Fact]
+    public async Task Where_CollectionContains_WithInlineArrayEmpty_RendersFalsePredicate()
+    {
+        var resultItems = await Db
+            .SimpleItems
+            .Where(item => Array.Empty<string>().Contains(item.Pk))
+            .ToListAsync(CancellationToken);
+
+        resultItems.Should().BeEmpty();
+
+        AssertSql(
+            """
+            SELECT Pk, BoolValue, DateTimeOffsetValue, DecimalValue, DoubleValue, FloatValue, GuidValue, IntValue, LongValue, NullableBoolValue, NullableIntValue, NullableStringValue, StringValue
+            FROM SimpleItems
+            WHERE 1 = 0
+            """);
+    }
+
+    /// <summary>Verifies inline Enumerable.Empty values translate to an always-false predicate.</summary>
+    [Fact]
+    public async Task Where_CollectionContains_WithInlineEnumerableEmpty_RendersFalsePredicate()
+    {
+        var resultItems = await Db
+            .SimpleItems
+            .Where(item => Enumerable.Empty<string>().Contains(item.Pk))
+            .ToListAsync(CancellationToken);
+
+        resultItems.Should().BeEmpty();
+
+        AssertSql(
+            """
+            SELECT Pk, BoolValue, DateTimeOffsetValue, DecimalValue, DoubleValue, FloatValue, GuidValue, IntValue, LongValue, NullableBoolValue, NullableIntValue, NullableStringValue, StringValue
+            FROM SimpleItems
+            WHERE 1 = 0
+            """);
+    }
+
     [Fact]
     public async Task Where_CollectionContains_WithNullElement_ExecutesWithInPredicate()
     {

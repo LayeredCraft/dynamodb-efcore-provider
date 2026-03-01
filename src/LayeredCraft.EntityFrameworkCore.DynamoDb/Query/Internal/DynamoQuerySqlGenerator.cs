@@ -46,8 +46,6 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
         SelectExpression selectExpression,
         IReadOnlyDictionary<string, object?> parameterValues)
     {
-        // TODO: This generator is registered as a singleton but uses mutable state.
-        // Refactor to a re-entrant/transient design before enabling higher-concurrency paths.
         _sql.Clear();
         _parameters.Clear();
         _parameterValues = parameterValues;
@@ -437,8 +435,13 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
             enforceLimitDuringEnumeration = false;
         }
 
+        var sqlLengthBeforePredicate = _sql.Length;
+        var parameterCountBeforePredicate = _parameters.Count;
+
+        Visit(sqlInExpression.Item);
+        _sql.Append(" IN [");
+
         var count = 0;
-        var hasAny = false;
 
         foreach (var value in enumerable)
         {
@@ -448,13 +451,6 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
                     maxValues,
                     sqlInExpression.IsPartitionKeyComparison);
 
-            if (!hasAny)
-            {
-                Visit(sqlInExpression.Item);
-                _sql.Append(" IN [");
-                hasAny = true;
-            }
-
             if (count > 0)
                 _sql.Append(", ");
 
@@ -462,8 +458,15 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
             count++;
         }
 
-        if (!hasAny)
+        if (count == 0)
         {
+            _sql.Length = sqlLengthBeforePredicate;
+
+            if (_parameters.Count > parameterCountBeforePredicate)
+                _parameters.RemoveRange(
+                    parameterCountBeforePredicate,
+                    _parameters.Count - parameterCountBeforePredicate);
+
             AppendAlwaysFalsePredicate();
             return sqlInExpression;
         }

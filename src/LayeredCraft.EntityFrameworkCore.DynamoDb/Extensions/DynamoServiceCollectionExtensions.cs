@@ -37,7 +37,8 @@ public static class DynamoServiceCollectionExtensions
                     => services
                         .TryAddScoped<IDynamoClientWrapper, DynamoClientWrapper>()
                         .TryAddSingleton<ISqlExpressionFactory, SqlExpressionFactory>()
-                        .TryAddSingleton<DynamoQuerySqlGenerator, DynamoQuerySqlGenerator>());
+                        .TryAddSingleton<IDynamoQuerySqlGeneratorFactory,
+                            DynamoQuerySqlGeneratorFactory>());
 
             builder.TryAddCoreServices();
 

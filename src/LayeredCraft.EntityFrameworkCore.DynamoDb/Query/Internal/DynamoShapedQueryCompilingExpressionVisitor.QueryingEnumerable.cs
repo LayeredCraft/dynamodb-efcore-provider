@@ -16,7 +16,7 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
     private sealed class QueryingEnumerable<T>(
         DynamoQueryContext queryContext,
         SelectExpression selectExpression,
-        DynamoQuerySqlGenerator sqlGenerator,
+        IDynamoQuerySqlGeneratorFactory sqlGeneratorFactory,
         Func<DynamoQueryContext, Dictionary<string, AttributeValue>, T> shaper,
         bool standAloneStateManager,
         bool threadSafetyChecksEnabled,
@@ -30,6 +30,7 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
         private readonly DynamoQueryContext _queryContext = queryContext;
 
         private readonly SelectExpression _selectExpression = selectExpression;
+        private readonly IDynamoQuerySqlGeneratorFactory _sqlGeneratorFactory = sqlGeneratorFactory;
 
         private readonly Func<DynamoQueryContext, Dictionary<string, AttributeValue>, T> _shaper =
             shaper;
@@ -51,7 +52,7 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
 
         /// <summary>Generates the PartiQL query at runtime with parameter values.</summary>
         private DynamoPartiQlQuery GenerateQuery()
-            => sqlGenerator.Generate(_selectExpression, _queryContext.Parameters);
+            => _sqlGeneratorFactory.Create().Generate(_selectExpression, _queryContext.Parameters);
 
         private sealed class AsyncEnumerator : IAsyncEnumerator<T>
         {

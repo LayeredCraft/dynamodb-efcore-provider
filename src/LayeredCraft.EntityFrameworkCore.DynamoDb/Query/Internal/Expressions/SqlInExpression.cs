@@ -98,7 +98,7 @@ public class SqlInExpression(
         var hasValues = values != null;
         var hasValuesParameter = valuesParameter != null;
         if (hasValues == hasValuesParameter)
-            throw new ArgumentException(
+            throw new InvalidOperationException(
                 "An IN expression must specify either inline values or a values parameter.");
     }
 
