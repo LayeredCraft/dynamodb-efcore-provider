@@ -71,6 +71,50 @@ public class ContainsTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBa
     }
 
     [Fact]
+    public async Task Where_CollectionContains_OnIntProperty_WithArray_TranslatesToInPredicate()
+    {
+        var values = new[] { 100, -100 };
+
+        var resultItems = await Db
+            .SimpleItems
+            .Where(item => values.Contains(item.IntValue))
+            .ToListAsync(CancellationToken);
+
+        var expected = SimpleItems.Items.Where(item => values.Contains(item.IntValue));
+
+        resultItems.Should().BeEquivalentTo(expected);
+
+        AssertSql(
+            """
+            SELECT Pk, BoolValue, DateTimeOffsetValue, DecimalValue, DoubleValue, FloatValue, GuidValue, IntValue, LongValue, NullableBoolValue, NullableIntValue, NullableStringValue, StringValue
+            FROM SimpleItems
+            WHERE IntValue IN [?, ?]
+            """);
+    }
+
+    [Fact]
+    public async Task Where_CollectionContains_OnIntProperty_WithList_TranslatesToInPredicate()
+    {
+        IReadOnlyList<int> values = new List<int> { 100, 987654 };
+
+        var resultItems = await Db
+            .SimpleItems
+            .Where(item => values.Contains(item.IntValue))
+            .ToListAsync(CancellationToken);
+
+        var expected = SimpleItems.Items.Where(item => values.Contains(item.IntValue));
+
+        resultItems.Should().BeEquivalentTo(expected);
+
+        AssertSql(
+            """
+            SELECT Pk, BoolValue, DateTimeOffsetValue, DecimalValue, DoubleValue, FloatValue, GuidValue, IntValue, LongValue, NullableBoolValue, NullableIntValue, NullableStringValue, StringValue
+            FROM SimpleItems
+            WHERE IntValue IN [?, ?]
+            """);
+    }
+
+    [Fact]
     public async Task Where_CollectionContains_WithEmptyCollection_RendersFalsePredicate()
     {
         var keys = Array.Empty<string>();
@@ -107,6 +151,27 @@ public class ContainsTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBa
             SELECT Pk, BoolValue, DateTimeOffsetValue, DecimalValue, DoubleValue, FloatValue, GuidValue, IntValue, LongValue, NullableBoolValue, NullableIntValue, NullableStringValue, StringValue
             FROM SimpleItems
             WHERE NullableStringValue IN [?, ?]
+            """);
+    }
+
+    [Fact]
+    public async Task
+        Where_CollectionContains_OnNullableIntProperty_WithNullElement_ExecutesWithInPredicate()
+    {
+        int?[] values = [null, 42];
+
+        var resultItems = await Db
+            .SimpleItems
+            .Where(item => values.Contains(item.NullableIntValue))
+            .ToListAsync(CancellationToken);
+
+        resultItems.Should().Contain(item => item.Pk == "ITEM#2");
+
+        AssertSql(
+            """
+            SELECT Pk, BoolValue, DateTimeOffsetValue, DecimalValue, DoubleValue, FloatValue, GuidValue, IntValue, LongValue, NullableBoolValue, NullableIntValue, NullableStringValue, StringValue
+            FROM SimpleItems
+            WHERE NullableIntValue IN [?, ?]
             """);
     }
 

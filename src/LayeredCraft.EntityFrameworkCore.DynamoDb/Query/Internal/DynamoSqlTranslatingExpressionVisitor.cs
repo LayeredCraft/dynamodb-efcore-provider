@@ -14,12 +14,12 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
 public class DynamoSqlTranslatingExpressionVisitor(ISqlExpressionFactory sqlExpressionFactory)
     : ExpressionVisitor
 {
-    private static readonly MethodInfo EnumerableContainsMethod = typeof(Enumerable)
-        .GetMethods(BindingFlags.Public | BindingFlags.Static)
-        .Single(m => m.Name == nameof(Enumerable.Contains) && m.GetParameters().Length == 2);
+    private static readonly MethodInfo EnumerableContainsMethod =
+        ((Func<IEnumerable<object>, object, bool>)Enumerable.Contains).Method
+        .GetGenericMethodDefinition();
 
     private static readonly MethodInfo StringContainsMethod =
-        typeof(string).GetMethod(nameof(string.Contains), [typeof(string)])!;
+        ((Func<string, bool>)string.Empty.Contains).Method;
 
     private IReadOnlyDictionary<ParameterExpression, IEntityType>? _lambdaParameterEntityTypes;
 

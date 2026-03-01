@@ -409,49 +409,79 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
             throw new InvalidOperationException(
                 $"Parameter '{valuesParameter.Name}' not found in parameter values.");
 
-        var values = MaterializeInParameterValues(parameterValue);
-        if (values.Count == 0)
+        var maxValues = sqlInExpression.IsPartitionKeyComparison ? 50 : 100;
+
+        if (parameterValue is null)
         {
             AppendAlwaysFalsePredicate();
             return sqlInExpression;
         }
 
-        var maxValues = sqlInExpression.IsPartitionKeyComparison ? 50 : 100;
-        if (values.Count > maxValues)
-            // TODO: Consider supporting chunked IN execution or BatchGetItem optimization.
+        if (parameterValue is string || parameterValue is not IEnumerable enumerable)
             throw new InvalidOperationException(
-                DynamoStrings.InListTooLarge(maxValues, sqlInExpression.IsPartitionKeyComparison));
+                DynamoStrings.ContainsCollectionParameterMustBeEnumerable);
 
-        Visit(sqlInExpression.Item);
-        _sql.Append(" IN [");
-
-        for (var i = 0; i < values.Count; i++)
+        var enforceLimitDuringEnumeration = true;
+        if (parameterValue is ICollection collection)
         {
-            if (i > 0)
+            if (collection.Count == 0)
+            {
+                AppendAlwaysFalsePredicate();
+                return sqlInExpression;
+            }
+
+            ValidateInValueCount(
+                collection.Count,
+                maxValues,
+                sqlInExpression.IsPartitionKeyComparison);
+            enforceLimitDuringEnumeration = false;
+        }
+
+        var count = 0;
+        var hasAny = false;
+
+        foreach (var value in enumerable)
+        {
+            if (enforceLimitDuringEnumeration)
+                ValidateInValueCount(
+                    count + 1,
+                    maxValues,
+                    sqlInExpression.IsPartitionKeyComparison);
+
+            if (!hasAny)
+            {
+                Visit(sqlInExpression.Item);
+                _sql.Append(" IN [");
+                hasAny = true;
+            }
+
+            if (count > 0)
                 _sql.Append(", ");
 
-            AppendParameter(values[i], sqlInExpression.Item.TypeMapping);
+            AppendParameter(value, sqlInExpression.Item.TypeMapping);
+            count++;
+        }
+
+        if (!hasAny)
+        {
+            AppendAlwaysFalsePredicate();
+            return sqlInExpression;
         }
 
         _sql.Append(']');
         return sqlInExpression;
     }
 
-    /// <summary>Converts a parameter value into a materialized list for IN expansion.</summary>
-    private static List<object?> MaterializeInParameterValues(object? parameterValue)
+    /// <summary>Validates IN-list value count against DynamoDB limits.</summary>
+    private static void ValidateInValueCount(
+        int count,
+        int maxValues,
+        bool isPartitionKeyComparison)
     {
-        if (parameterValue is null)
-            return [];
-
-        if (parameterValue is string || parameterValue is not IEnumerable enumerable)
+        if (count > maxValues)
+            // TODO: Consider supporting chunked IN execution or BatchGetItem optimization.
             throw new InvalidOperationException(
-                DynamoStrings.ContainsCollectionParameterMustBeEnumerable);
-
-        List<object?> values = [];
-        foreach (var value in enumerable)
-            values.Add(value);
-
-        return values;
+                DynamoStrings.InListTooLarge(maxValues, isPartitionKeyComparison));
     }
 
     /// <summary>Appends a parameter placeholder and converted AttributeValue in lockstep.</summary>
