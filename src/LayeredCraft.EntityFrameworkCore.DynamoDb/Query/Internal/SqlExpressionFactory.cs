@@ -98,6 +98,9 @@ public class SqlExpressionFactory(ITypeMappingSource typeMappingSource) : ISqlEx
         => new(name, arguments, returnType, typeMappingSource.FindMapping(returnType));
 
     /// <inheritdoc />
+    public SqlUnaryExpression Not(SqlExpression operand) => new(ExpressionType.Not, operand);
+
+    /// <inheritdoc />
     public SqlExpression ApplyTypeMapping(SqlExpression sqlExpression, Type type)
     {
         var typeMapping = typeMappingSource.FindMapping(type);

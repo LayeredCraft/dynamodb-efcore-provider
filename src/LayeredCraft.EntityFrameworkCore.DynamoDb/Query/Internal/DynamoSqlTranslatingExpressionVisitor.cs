@@ -165,6 +165,18 @@ public class DynamoSqlTranslatingExpressionVisitor(ISqlExpressionFactory sqlExpr
             return QueryCompilationContext.NotTranslatedExpression;
         }
 
+        if (node.NodeType == ExpressionType.Not)
+        {
+            var operand = Visit(node.Operand);
+            if (operand == QueryCompilationContext.NotTranslatedExpression)
+                return QueryCompilationContext.NotTranslatedExpression;
+
+            if (operand is SqlExpression sqlOperand)
+                return sqlExpressionFactory.Not(sqlOperand);
+
+            return QueryCompilationContext.NotTranslatedExpression;
+        }
+
         AddTranslationErrorDetails(DynamoStrings.UnaryOperatorNotSupported);
         return QueryCompilationContext.NotTranslatedExpression;
     }

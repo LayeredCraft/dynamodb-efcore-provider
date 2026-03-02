@@ -630,6 +630,8 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
             SqlBinaryExpression binaryExpression => NormalizeBinary(
                 binaryExpression,
                 sqlExpressionFactory),
+            SqlUnaryExpression unaryExpression => unaryExpression.Update(
+                NormalizePredicate(unaryExpression.Operand, sqlExpressionFactory, true)),
             SqlPropertyExpression propertyExpression when inSearchCondition
                 && IsBooleanType(propertyExpression.Type) => WrapBooleanPredicate(
                     propertyExpression,
