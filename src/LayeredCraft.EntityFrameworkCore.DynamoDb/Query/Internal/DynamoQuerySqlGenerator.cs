@@ -187,6 +187,23 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
     }
 
     /// <inheritdoc />
+    protected override Expression VisitSqlIsNull(SqlIsNullExpression sqlIsNullExpression)
+    {
+        Visit(sqlIsNullExpression.Operand);
+        _sql.Append(
+            sqlIsNullExpression.Operator switch
+            {
+                IsNullOperator.IsNull => " IS NULL",
+                IsNullOperator.IsNotNull => " IS NOT NULL",
+                IsNullOperator.IsMissing => " IS MISSING",
+                IsNullOperator.IsNotMissing => " IS NOT MISSING",
+                _ => throw new NotSupportedException(
+                    $"IS operator '{sqlIsNullExpression.Operator}' is not supported."),
+            });
+        return sqlIsNullExpression;
+    }
+
+    /// <inheritdoc />
     protected override Expression VisitSqlFunction(SqlFunctionExpression sqlFunctionExpression)
     {
         _sql.Append(sqlFunctionExpression.Name);
