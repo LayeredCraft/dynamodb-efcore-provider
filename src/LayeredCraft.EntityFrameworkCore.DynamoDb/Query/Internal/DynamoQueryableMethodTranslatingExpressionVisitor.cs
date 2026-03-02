@@ -644,13 +644,22 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
         };
 
     /// <summary>Recursively normalizes logical predicates while preserving comparisons.</summary>
-    private static SqlBinaryExpression NormalizeBinary(
+    private static SqlExpression NormalizeBinary(
         SqlBinaryExpression binaryExpression,
         ISqlExpressionFactory sqlExpressionFactory)
     {
         // Search conditions only exist at AND/OR boundaries.
         if (binaryExpression.OperatorType is ExpressionType.AndAlso or ExpressionType.OrElse)
         {
+            // Detect (prop >= low) AND (prop <= high) → BETWEEN before recursing.
+            if (binaryExpression.OperatorType is ExpressionType.AndAlso
+                && TryExtractBetweenBounds(
+                    binaryExpression,
+                    out var subject,
+                    out var low,
+                    out var high))
+                return sqlExpressionFactory.Between(subject!, low!, high!);
+
             var left = NormalizePredicate(binaryExpression.Left, sqlExpressionFactory, true);
             var right = NormalizePredicate(binaryExpression.Right, sqlExpressionFactory, true);
             return binaryExpression.Update(left, right);
@@ -670,6 +679,59 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
             sqlExpressionFactory,
             false);
         return binaryExpression.Update(normalizedLeft, normalizedRight);
+    }
+
+    /// <summary>
+    ///     Attempts to extract a BETWEEN pattern from an AND expression. Succeeds only when both
+    ///     sides are inclusive comparisons (<c>&gt;=</c> and <c>&lt;=</c>) on the same property.
+    /// </summary>
+    /// <param name="andExpression">The AND binary expression to inspect.</param>
+    /// <param name="subject">The shared property expression, if matched.</param>
+    /// <param name="low">The lower bound expression, if matched.</param>
+    /// <param name="high">The upper bound expression, if matched.</param>
+    /// <returns><see langword="true" /> when both sides form an inclusive BETWEEN range.</returns>
+    private static bool TryExtractBetweenBounds(
+        SqlBinaryExpression andExpression,
+        out SqlExpression? subject,
+        out SqlExpression? low,
+        out SqlExpression? high)
+    {
+        subject = low = high = null;
+
+        if (andExpression.Left is not SqlBinaryExpression leftBinary
+            || andExpression.Right is not SqlBinaryExpression rightBinary)
+            return false;
+
+        // Accept (prop >= low) AND (prop <= high)  or the reversed ordering.
+        SqlBinaryExpression? geExpression = null;
+        SqlBinaryExpression? leExpression = null;
+
+        if (leftBinary.OperatorType is ExpressionType.GreaterThanOrEqual
+            && rightBinary.OperatorType is ExpressionType.LessThanOrEqual)
+        {
+            geExpression = leftBinary;
+            leExpression = rightBinary;
+        }
+        else if (leftBinary.OperatorType is ExpressionType.LessThanOrEqual
+            && rightBinary.OperatorType is ExpressionType.GreaterThanOrEqual)
+        {
+            leExpression = leftBinary;
+            geExpression = rightBinary;
+        }
+
+        if (geExpression is null || leExpression is null)
+            return false;
+
+        // Both sides must compare the same property.
+        if (geExpression.Left is not SqlPropertyExpression geProp
+            || leExpression.Left is not SqlPropertyExpression leProp
+            || geProp.PropertyName != leProp.PropertyName)
+            return false;
+
+        subject = geProp;
+        low = geExpression.Right;
+        high = leExpression.Right;
+        return true;
     }
 
     /// <summary>Wraps a boolean column/parameter into an explicit comparison.</summary>

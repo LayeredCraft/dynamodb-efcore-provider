@@ -220,7 +220,7 @@ public class OperatorPrecedenceTests(SimpleTableDynamoFixture fixture)
             """
             SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
             FROM "SimpleItems"
-            WHERE "IntValue" >= 100 AND "IntValue" <= 500 AND "LongValue" <> 0 AND "DoubleValue" < 100
+            WHERE "IntValue" BETWEEN 100 AND 500 AND "LongValue" <> 0 AND "DoubleValue" < 100
             """);
     }
 }
