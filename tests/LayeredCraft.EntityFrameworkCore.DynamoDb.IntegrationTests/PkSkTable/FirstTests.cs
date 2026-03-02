@@ -26,8 +26,8 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
 
         AssertSql(
             """
-            SELECT Pk, Sk, Category, IsTarget
-            FROM PkSkItems
+            SELECT "Pk", "Sk", "Category", "IsTarget"
+            FROM "PkSkItems"
             """);
     }
 
@@ -46,10 +46,10 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
 
         AssertSql(
             """
-            SELECT Pk, Sk, Category, IsTarget
-            FROM PkSkItems
-            WHERE Pk = 'P#1'
-            ORDER BY Sk ASC
+            SELECT "Pk", "Sk", "Category", "IsTarget"
+            FROM "PkSkItems"
+            WHERE "Pk" = 'P#1'
+            ORDER BY "Sk" ASC
             """);
     }
 
@@ -78,9 +78,9 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
 
         AssertSql(
             """
-            SELECT Pk, Sk, Category, IsTarget
-            FROM PkSkItems
-            WHERE Pk = 'P#1' AND IsTarget = TRUE
+            SELECT "Pk", "Sk", "Category", "IsTarget"
+            FROM "PkSkItems"
+            WHERE "Pk" = 'P#1' AND "IsTarget" = TRUE
             """);
     }
 
@@ -98,9 +98,9 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
 
         AssertSql(
             """
-            SELECT Pk, Sk, Category, IsTarget
-            FROM PkSkItems
-            WHERE Pk = 'P#1' AND Sk = '0002'
+            SELECT "Pk", "Sk", "Category", "IsTarget"
+            FROM "PkSkItems"
+            WHERE "Pk" = 'P#1' AND "Sk" = '0002'
             """);
     }
 
@@ -117,9 +117,9 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
 
         AssertSql(
             """
-            SELECT Pk, Sk, Category, IsTarget
-            FROM PkSkItems
-            WHERE Pk = 'P#2' AND IsTarget = TRUE
+            SELECT "Pk", "Sk", "Category", "IsTarget"
+            FROM "PkSkItems"
+            WHERE "Pk" = 'P#2' AND "IsTarget" = TRUE
             """);
     }
 
@@ -136,9 +136,9 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
 
         AssertSql(
             """
-            SELECT Pk, Sk, Category, IsTarget
-            FROM PkSkItems
-            WHERE Pk = 'P#2' AND IsTarget = TRUE
+            SELECT "Pk", "Sk", "Category", "IsTarget"
+            FROM "PkSkItems"
+            WHERE "Pk" = 'P#2' AND "IsTarget" = TRUE
             """);
     }
 
@@ -156,9 +156,9 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
 
         AssertSql(
             """
-            SELECT Pk, Sk, Category, IsTarget
-            FROM PkSkItems
-            WHERE Pk = 'P#1' AND Sk = '0001'
+            SELECT "Pk", "Sk", "Category", "IsTarget"
+            FROM "PkSkItems"
+            WHERE "Pk" = 'P#1' AND "Sk" = '0001'
             """);
     }
 
@@ -184,9 +184,9 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
 
         AssertSql(
             """
-            SELECT Pk, Sk, Category, IsTarget
-            FROM PkSkItems
-            WHERE Pk = 'P#1'
+            SELECT "Pk", "Sk", "Category", "IsTarget"
+            FROM "PkSkItems"
+            WHERE "Pk" = 'P#1'
             """);
     }
 
@@ -213,9 +213,9 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
 
         AssertSql(
             """
-            SELECT Pk, Sk, Category, IsTarget
-            FROM PkSkItems
-            WHERE Pk = 'P#1' AND IsTarget = TRUE
+            SELECT "Pk", "Sk", "Category", "IsTarget"
+            FROM "PkSkItems"
+            WHERE "Pk" = 'P#1' AND "IsTarget" = TRUE
             """);
     }
 
@@ -239,9 +239,9 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
 
         AssertSql(
             """
-            SELECT Pk, Sk, Category, IsTarget
-            FROM PkSkItems
-            WHERE Pk = 'P#1' AND IsTarget = TRUE
+            SELECT "Pk", "Sk", "Category", "IsTarget"
+            FROM "PkSkItems"
+            WHERE "Pk" = 'P#1' AND "IsTarget" = TRUE
             """);
     }
 
@@ -265,9 +265,9 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
 
         AssertSql(
             """
-            SELECT Pk, Sk, Category, IsTarget
-            FROM PkSkItems
-            WHERE Pk = 'P#1' AND IsTarget = TRUE
+            SELECT "Pk", "Sk", "Category", "IsTarget"
+            FROM "PkSkItems"
+            WHERE "Pk" = 'P#1' AND "IsTarget" = TRUE
             """);
     }
 
@@ -292,9 +292,9 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
 
         AssertSql(
             """
-            SELECT Pk, Sk, Category, IsTarget
-            FROM PkSkItems
-            WHERE Pk = 'P#1'
+            SELECT "Pk", "Sk", "Category", "IsTarget"
+            FROM "PkSkItems"
+            WHERE "Pk" = 'P#1'
             """);
     }
 
@@ -313,10 +313,10 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
 
         AssertSql(
             """
-            SELECT Pk, Sk, Category, IsTarget
-            FROM PkSkItems
-            WHERE Pk = 'P#1'
-            ORDER BY Sk ASC
+            SELECT "Pk", "Sk", "Category", "IsTarget"
+            FROM "PkSkItems"
+            WHERE "Pk" = 'P#1'
+            ORDER BY "Sk" ASC
             """);
     }
 
@@ -338,10 +338,10 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
 
         AssertSql(
             """
-            SELECT Pk, Sk, Category, IsTarget
-            FROM PkSkItems
-            WHERE Pk = 'P#1'
-            ORDER BY Sk ASC
+            SELECT "Pk", "Sk", "Category", "IsTarget"
+            FROM "PkSkItems"
+            WHERE "Pk" = 'P#1'
+            ORDER BY "Sk" ASC
             """);
     }
 
@@ -361,10 +361,10 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
 
         AssertSql(
             """
-            SELECT Pk, Sk, Category, IsTarget
-            FROM PkSkItems
-            WHERE Pk = 'P#1'
-            ORDER BY Sk ASC
+            SELECT "Pk", "Sk", "Category", "IsTarget"
+            FROM "PkSkItems"
+            WHERE "Pk" = 'P#1'
+            ORDER BY "Sk" ASC
             """);
     }
 
@@ -384,10 +384,10 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
 
         AssertSql(
             """
-            SELECT Pk, Sk, Category, IsTarget
-            FROM PkSkItems
-            WHERE Pk = 'P#1'
-            ORDER BY Sk ASC
+            SELECT "Pk", "Sk", "Category", "IsTarget"
+            FROM "PkSkItems"
+            WHERE "Pk" = 'P#1'
+            ORDER BY "Sk" ASC
             """);
     }
 }

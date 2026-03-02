@@ -71,8 +71,7 @@ should keep in mind. Add to these sections as support expands.
 - DynamoDB documents `IN` limits as up to 50 hash-key values or up to 100 non-key values.
 
 ## Identifier quoting notes
-- This provider quotes identifiers when needed (for example reserved words and non-simple names such
-  as `$type` or `app-table`).
+- This provider always quotes identifiers in generated PartiQL.
 - Quoted identifiers in PartiQL are case-sensitive.
 
 ## Shared-table discriminator behavior

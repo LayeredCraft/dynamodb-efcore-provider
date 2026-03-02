@@ -1,7 +1,6 @@
 using System.Collections;
 using System.Linq.Expressions;
 using System.Text;
-using System.Text.RegularExpressions;
 using Amazon.DynamoDBv2.Model;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Storage;
@@ -14,26 +13,6 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
 /// </summary>
 public class DynamoQuerySqlGenerator : SqlExpressionVisitor
 {
-    private static readonly Regex SimpleIdentifierRegex =
-        new("^[A-Za-z_][A-Za-z0-9_]*$", RegexOptions.Compiled);
-
-    private static readonly HashSet<string> ReservedWords = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "SELECT",
-        "FROM",
-        "WHERE",
-        "ORDER",
-        "BY",
-        "ASC",
-        "DESC",
-        "AND",
-        "OR",
-        "NOT",
-        "NULL",
-        "TRUE",
-        "FALSE",
-    };
-
     private readonly StringBuilder _sql = new();
     private readonly List<AttributeValue> _parameters = [];
     private IReadOnlyDictionary<string, object?>? _parameterValues;
@@ -327,27 +306,12 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
         return true;
     }
 
-    /// <summary>Appends an identifier, quoting and escaping it when required by PartiQL rules.</summary>
+    /// <summary>Appends a quoted identifier to the SQL buffer, escaping embedded double-quotes.</summary>
     private void AppendIdentifier(string identifier)
     {
-        if (!NeedsQuoting(identifier))
-        {
-            _sql.Append(identifier);
-            return;
-        }
-
         _sql.Append('"');
         _sql.Append(identifier.Replace("\"", "\"\"", StringComparison.Ordinal));
         _sql.Append('"');
-    }
-
-    /// <summary>Determines whether an identifier should be quoted for PartiQL generation.</summary>
-    private static bool NeedsQuoting(string identifier)
-    {
-        if (string.IsNullOrWhiteSpace(identifier))
-            return true;
-
-        return ReservedWords.Contains(identifier) || !SimpleIdentifierRegex.IsMatch(identifier);
     }
 
     private static string GetOperatorString(ExpressionType operatorType)

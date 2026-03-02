@@ -15,8 +15,8 @@ public class SelectTests(OwnedTypesTableDynamoFixture fixture) : OwnedTypesTable
 
         AssertSql(
             """
-            SELECT Pk, CreatedAt, GuidValue, IntValue, Ratings, StringValue, Tags, Orders, OrderSnapshots, Profile
-            FROM OwnedTypesItems
+            SELECT "Pk", "CreatedAt", "GuidValue", "IntValue", "Ratings", "StringValue", "Tags", "Orders", "OrderSnapshots", "Profile"
+            FROM "OwnedTypesItems"
             """);
     }
 
@@ -32,8 +32,8 @@ public class SelectTests(OwnedTypesTableDynamoFixture fixture) : OwnedTypesTable
 
         AssertSql(
             """
-            SELECT Pk, Profile
-            FROM OwnedTypesItems
+            SELECT "Pk", "Profile"
+            FROM "OwnedTypesItems"
             """);
     }
 
@@ -52,8 +52,8 @@ public class SelectTests(OwnedTypesTableDynamoFixture fixture) : OwnedTypesTable
 
         AssertSql(
             """
-            SELECT Pk, Profile
-            FROM OwnedTypesItems
+            SELECT "Pk", "Profile"
+            FROM "OwnedTypesItems"
             """);
     }
 
@@ -78,8 +78,8 @@ public class SelectTests(OwnedTypesTableDynamoFixture fixture) : OwnedTypesTable
 
         AssertSql(
             """
-            SELECT Pk, Orders, OrderSnapshots
-            FROM OwnedTypesItems
+            SELECT "Pk", "Orders", "OrderSnapshots"
+            FROM "OwnedTypesItems"
             """);
     }
 
@@ -112,9 +112,9 @@ public class SelectTests(OwnedTypesTableDynamoFixture fixture) : OwnedTypesTable
 
         AssertSql(
             """
-            SELECT Pk, CreatedAt, GuidValue, IntValue, Ratings, StringValue, Tags, Orders, OrderSnapshots, Profile
-            FROM OwnedTypesItems
-            WHERE Pk = 'OWNED#3'
+            SELECT "Pk", "CreatedAt", "GuidValue", "IntValue", "Ratings", "StringValue", "Tags", "Orders", "OrderSnapshots", "Profile"
+            FROM "OwnedTypesItems"
+            WHERE "Pk" = 'OWNED#3'
             """);
     }
 
@@ -140,8 +140,8 @@ public class SelectTests(OwnedTypesTableDynamoFixture fixture) : OwnedTypesTable
 
         AssertSql(
             """
-            SELECT Pk, Profile
-            FROM OwnedTypesItems
+            SELECT "Pk", "Profile"
+            FROM "OwnedTypesItems"
             """);
     }
 
@@ -166,9 +166,9 @@ public class SelectTests(OwnedTypesTableDynamoFixture fixture) : OwnedTypesTable
 
         AssertSql(
             """
-            SELECT Pk, Profile
-            FROM OwnedTypesItems
-            WHERE Pk = 'OWNED#MISSINGPROFILE'
+            SELECT "Pk", "Profile"
+            FROM "OwnedTypesItems"
+            WHERE "Pk" = 'OWNED#MISSINGPROFILE'
             """);
     }
 
@@ -194,9 +194,9 @@ public class SelectTests(OwnedTypesTableDynamoFixture fixture) : OwnedTypesTable
 
         AssertSql(
             """
-            SELECT Pk, CreatedAt, GuidValue, IntValue, Ratings, StringValue, Tags, Orders, OrderSnapshots, Profile
-            FROM OwnedTypesItems
-            WHERE Pk = 'OWNED#3'
+            SELECT "Pk", "CreatedAt", "GuidValue", "IntValue", "Ratings", "StringValue", "Tags", "Orders", "OrderSnapshots", "Profile"
+            FROM "OwnedTypesItems"
+            WHERE "Pk" = 'OWNED#3'
             """);
     }
 
@@ -225,9 +225,9 @@ public class SelectTests(OwnedTypesTableDynamoFixture fixture) : OwnedTypesTable
 
         AssertSql(
             """
-            SELECT Pk, CreatedAt, GuidValue, IntValue, Ratings, StringValue, Tags, Orders, OrderSnapshots, Profile
-            FROM OwnedTypesItems
-            WHERE Pk = 'OWNED#3'
+            SELECT "Pk", "CreatedAt", "GuidValue", "IntValue", "Ratings", "StringValue", "Tags", "Orders", "OrderSnapshots", "Profile"
+            FROM "OwnedTypesItems"
+            WHERE "Pk" = 'OWNED#3'
             """);
     }
 
@@ -248,9 +248,9 @@ public class SelectTests(OwnedTypesTableDynamoFixture fixture) : OwnedTypesTable
 
         AssertSql(
             """
-            SELECT Pk, CreatedAt, GuidValue, IntValue, Ratings, StringValue, Tags, Orders, OrderSnapshots, Profile
-            FROM OwnedTypesItems
-            WHERE Pk = 'OWNED#3'
+            SELECT "Pk", "CreatedAt", "GuidValue", "IntValue", "Ratings", "StringValue", "Tags", "Orders", "OrderSnapshots", "Profile"
+            FROM "OwnedTypesItems"
+            WHERE "Pk" = 'OWNED#3'
             """);
     }
 }
