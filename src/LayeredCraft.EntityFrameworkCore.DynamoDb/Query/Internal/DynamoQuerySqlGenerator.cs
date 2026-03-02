@@ -138,6 +138,16 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
     }
 
     /// <inheritdoc />
+    protected override Expression VisitSqlUnary(SqlUnaryExpression sqlUnaryExpression)
+    {
+        _sql.Append("NOT (");
+        Visit(sqlUnaryExpression.Operand);
+        _sql.Append(')');
+
+        return sqlUnaryExpression;
+    }
+
+    /// <inheritdoc />
     protected override Expression VisitSqlConstant(SqlConstantExpression sqlConstantExpression)
     {
         // Inline constant values directly into SQL using type mapping

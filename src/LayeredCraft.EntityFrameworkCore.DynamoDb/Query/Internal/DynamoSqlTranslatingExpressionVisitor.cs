@@ -165,6 +165,23 @@ public class DynamoSqlTranslatingExpressionVisitor(ISqlExpressionFactory sqlExpr
             return QueryCompilationContext.NotTranslatedExpression;
         }
 
+        if (node.NodeType == ExpressionType.Not)
+        {
+            var operand = Visit(node.Operand);
+            if (operand == QueryCompilationContext.NotTranslatedExpression)
+                return QueryCompilationContext.NotTranslatedExpression;
+
+            if (operand is SqlExpression sqlOperand)
+            {
+                if (IsBooleanType(sqlOperand.Type))
+                    return sqlExpressionFactory.Not(sqlOperand);
+
+                AddTranslationErrorDetails(DynamoStrings.BitwiseComplementNotSupported);
+            }
+
+            return QueryCompilationContext.NotTranslatedExpression;
+        }
+
         AddTranslationErrorDetails(DynamoStrings.UnaryOperatorNotSupported);
         return QueryCompilationContext.NotTranslatedExpression;
     }
@@ -300,6 +317,9 @@ public class DynamoSqlTranslatingExpressionVisitor(ISqlExpressionFactory sqlExpr
         return genericMethodDefinition == ArrayEmptyMethod
             || genericMethodDefinition == EnumerableEmptyMethod;
     }
+
+    /// <summary>Returns whether the supplied type is a boolean or nullable boolean type.</summary>
+    private static bool IsBooleanType(Type type) => type == typeof(bool) || type == typeof(bool?);
 
     /// <summary>Tries to extract collection and item arguments from a Contains call.</summary>
     private static (Expression? CollectionExpression, Expression? ItemExpression)

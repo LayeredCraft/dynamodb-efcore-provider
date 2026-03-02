@@ -54,6 +54,9 @@ public interface ISqlExpressionFactory
     /// </summary>
     SqlExpression ApplyTypeMapping(SqlExpression sqlExpression, Type type);
 
+    /// <summary>Creates a SQL NOT expression that negates the given boolean operand.</summary>
+    SqlUnaryExpression Not(SqlExpression operand);
+
     /// <summary>
     /// Applies a default type mapping based on the expression's CLR type.
     /// </summary>

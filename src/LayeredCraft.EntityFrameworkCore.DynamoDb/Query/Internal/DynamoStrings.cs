@@ -61,7 +61,10 @@ internal static class DynamoStrings
         "Only direct entity member access is supported for server-side DynamoDB translation.";
 
     public const string UnaryOperatorNotSupported =
-        "Only simple type conversions are supported in server-side DynamoDB translation.";
+        "Only simple type conversions and logical negation of boolean predicates are supported in server-side DynamoDB translation.";
+
+    public const string BitwiseComplementNotSupported =
+        "Only logical negation of boolean search conditions is supported; bitwise complement is not translated.";
 
     public static string UnsupportedOperator(string operatorName, string reason)
         => $"The LINQ operator '{operatorName}' is not supported by the DynamoDB provider. {reason}";

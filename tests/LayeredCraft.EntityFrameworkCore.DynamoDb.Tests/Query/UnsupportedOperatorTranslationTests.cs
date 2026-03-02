@@ -83,11 +83,33 @@ public class UnsupportedOperatorTranslationTests
         await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
     }
 
+    [Fact]
+    public async Task BitwiseComplementInPredicate_ThrowsTranslationFailureWithDetails()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        await using var context = UnsupportedOperatorDbContext.Create(client);
+
+        var act = async ()
+            => await context
+                .Items
+                .Where(i => ~i.Priority > 0)
+                .ToListAsync(TestContext.Current.CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*bitwise complement is not translated*");
+
+        await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
     private sealed record UnsupportedOperatorEntity
     {
         public string Pk { get; set; } = null!;
 
         public bool IsActive { get; set; }
+
+        public int Priority { get; set; }
     }
 
     private sealed class UnsupportedOperatorDbContext(DbContextOptions options) : DbContext(options)

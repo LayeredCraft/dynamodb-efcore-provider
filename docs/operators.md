@@ -21,6 +21,9 @@ should keep in mind. Add to these sections as support expands.
 - `WithPageSize`
 - `WithoutPagination`
 
+### Predicate operators
+- `!` (logical NOT) translates to PartiQL `NOT (expr)`
+
 ### Not supported today
 - `Any` / `All`
 - `Single` / `SingleOrDefault`
@@ -43,6 +46,7 @@ should keep in mind. Add to these sections as support expands.
 | Operator | Server translation | Client behavior | Notes |
 | --- | --- | --- | --- |
 | `Where` | PartiQL `WHERE` | N/A | Boolean members normalize to `= TRUE` |
+| `!` (logical NOT) | PartiQL `NOT (expr)` | N/A | Operand is always parenthesised |
 | `Contains` | PartiQL `contains(...)` or `IN [ ... ]` | N/A | Only `string.Contains(string)` and in-memory collection membership are supported |
 | `Select` | Explicit projection list | Some computed projections can run client-side | No `SELECT *` |
 | `OrderBy` / `ThenBy` | PartiQL `ORDER BY` | N/A | Precedence and parentheses preserved |
@@ -113,6 +117,18 @@ WHERE Pk = 'TENANT#H' AND ("$type" = 'EmployeeEntity' OR "$type" = 'ManagerEntit
 
 **Limitations / DynamoDB quirks**
 - Filters may return zero matches on a page even when more matches exist on later pages.
+
+## Not
+**Purpose**
+- Negate a boolean predicate.
+
+**Translation**
+- `!expr` translates to PartiQL `NOT (expr)`.
+- The operand is always wrapped in parentheses: `NOT ("IsActive" = TRUE)`.
+- Compound operands are parenthesised correctly: `NOT ("IsActive" = TRUE AND "Score" > 0)`.
+
+**Limitations / DynamoDB quirks**
+- Only logical negation of boolean search conditions is supported; bitwise complement is not translated.
 
 ## Contains
 **Purpose**
