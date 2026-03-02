@@ -14,8 +14,8 @@ public class SelectTests(PrimitiveCollectionsDynamoFixture fixture)
 
         AssertSql(
             """
-            SELECT Pk, LabelSet, Metadata, OptionalTags, RatingSet, ScoresByCategory, Tags
-            FROM PrimitiveCollectionsItems
+            SELECT "Pk", "LabelSet", "Metadata", "OptionalTags", "RatingSet", "ScoresByCategory", "Tags"
+            FROM "PrimitiveCollectionsItems"
             """);
     }
 
@@ -36,8 +36,8 @@ public class SelectTests(PrimitiveCollectionsDynamoFixture fixture)
 
         AssertSql(
             """
-            SELECT Pk, Tags, LabelSet
-            FROM PrimitiveCollectionsItems
+            SELECT "Pk", "Tags", "LabelSet"
+            FROM "PrimitiveCollectionsItems"
             """);
     }
 }

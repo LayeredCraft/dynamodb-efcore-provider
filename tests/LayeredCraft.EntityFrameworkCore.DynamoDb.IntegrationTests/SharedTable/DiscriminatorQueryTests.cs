@@ -16,9 +16,9 @@ public class DiscriminatorQueryTests(SharedTableDynamoFixture fixture)
 
         AssertSql(
             """
-            SELECT Pk, Sk, Name, "$type"
+            SELECT "Pk", "Sk", "Name", "$type"
             FROM "app-table"
-            WHERE Pk = 'TENANT#U' AND "$type" = 'UserEntity'
+            WHERE "Pk" = 'TENANT#U' AND "$type" = 'UserEntity'
             """);
     }
 
@@ -36,9 +36,9 @@ public class DiscriminatorQueryTests(SharedTableDynamoFixture fixture)
 
         AssertSql(
             """
-            SELECT Pk
+            SELECT "Pk"
             FROM "app-table"
-            WHERE Pk = 'TENANT#U' AND "$type" = 'UserEntity'
+            WHERE "Pk" = 'TENANT#U' AND "$type" = 'UserEntity'
             """);
     }
 }
@@ -56,9 +56,9 @@ public class DiscriminatorQueryCustomNameTests(SharedTableDynamoFixture fixture)
 
         AssertSql(
             """
-            SELECT Pk, Sk, Name, "$kind"
+            SELECT "Pk", "Sk", "Name", "$kind"
             FROM "app-table"
-            WHERE Pk = 'TENANT#U' AND "$kind" = 'UserEntity'
+            WHERE "Pk" = 'TENANT#U' AND "$kind" = 'UserEntity'
             """);
     }
 }
@@ -76,9 +76,9 @@ public class DiscriminatorQuerySingleTypeTests(SharedTableDynamoFixture fixture)
 
         AssertSql(
             """
-            SELECT Pk, Sk, Name
+            SELECT "Pk", "Sk", "Name"
             FROM "app-table"
-            WHERE Pk = 'TENANT#U'
+            WHERE "Pk" = 'TENANT#U'
             """);
     }
 }
@@ -105,9 +105,9 @@ public class DiscriminatorInheritanceQueryTests(SharedTableDynamoFixture fixture
 
         AssertSql(
             """
-            SELECT Pk, Sk, Name, Department, ManagerLevel, "$type"
+            SELECT "Pk", "Sk", "Name", "Department", "ManagerLevel", "$type"
             FROM "app-table"
-            WHERE Pk = 'TENANT#H' AND ("$type" = 'EmployeeEntity' OR "$type" = 'ManagerEntity')
+            WHERE "Pk" = 'TENANT#H' AND ("$type" = 'EmployeeEntity' OR "$type" = 'ManagerEntity')
             """);
     }
 
@@ -126,9 +126,9 @@ public class DiscriminatorInheritanceQueryTests(SharedTableDynamoFixture fixture
 
         AssertSql(
             """
-            SELECT Pk, Sk, Name, Department, ManagerLevel, "$type"
+            SELECT "Pk", "Sk", "Name", "Department", "ManagerLevel", "$type"
             FROM "app-table"
-            WHERE Pk = 'TENANT#H' AND Name = 'Eve' AND ("$type" = 'EmployeeEntity' OR "$type" = 'ManagerEntity')
+            WHERE "Pk" = 'TENANT#H' AND "Name" = 'Eve' AND ("$type" = 'EmployeeEntity' OR "$type" = 'ManagerEntity')
             """);
     }
 
@@ -147,9 +147,9 @@ public class DiscriminatorInheritanceQueryTests(SharedTableDynamoFixture fixture
 
         AssertSql(
             """
-            SELECT Pk, Sk, Name, Department, "$type"
+            SELECT "Pk", "Sk", "Name", "Department", "$type"
             FROM "app-table"
-            WHERE Pk = 'TENANT#H' AND "$type" = 'EmployeeEntity'
+            WHERE "Pk" = 'TENANT#H' AND "$type" = 'EmployeeEntity'
             """);
     }
 }
@@ -179,9 +179,9 @@ public class DiscriminatorInheritanceBaseOnlyToTableQueryTests(SharedTableDynamo
 
         AssertSql(
             """
-            SELECT Pk, Sk, Name, Department, ManagerLevel, "$type"
+            SELECT "Pk", "Sk", "Name", "Department", "ManagerLevel", "$type"
             FROM "app-table"
-            WHERE Pk = 'TENANT#H' AND ("$type" = 'EmployeeEntity' OR "$type" = 'ManagerEntity')
+            WHERE "Pk" = 'TENANT#H' AND ("$type" = 'EmployeeEntity' OR "$type" = 'ManagerEntity')
             """);
     }
 
@@ -202,9 +202,9 @@ public class DiscriminatorInheritanceBaseOnlyToTableQueryTests(SharedTableDynamo
 
         AssertSql(
             """
-            SELECT Pk, Sk, Name, Department, "$type"
+            SELECT "Pk", "Sk", "Name", "Department", "$type"
             FROM "app-table"
-            WHERE Pk = 'TENANT#H' AND "$type" = 'EmployeeEntity'
+            WHERE "Pk" = 'TENANT#H' AND "$type" = 'EmployeeEntity'
             """);
     }
 }
