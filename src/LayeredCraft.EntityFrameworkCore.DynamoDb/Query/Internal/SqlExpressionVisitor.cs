@@ -22,6 +22,7 @@ public abstract class SqlExpressionVisitor : ExpressionVisitor
             SqlPropertyExpression sqlPropertyExpression => VisitSqlProperty(sqlPropertyExpression),
             SqlInExpression sqlInExpression => VisitSqlIn(sqlInExpression),
             SqlFunctionExpression sqlFunctionExpression => VisitSqlFunction(sqlFunctionExpression),
+            SqlIsNullExpression sqlIsNullExpression => VisitSqlIsNull(sqlIsNullExpression),
             ProjectionExpression projectionExpression => VisitProjection(projectionExpression),
             SelectExpression selectExpression => VisitSelect(selectExpression),
             _ => base.VisitExtension(node),
@@ -59,6 +60,9 @@ public abstract class SqlExpressionVisitor : ExpressionVisitor
 
     /// <summary>Visits a SQL function expression.</summary>
     protected abstract Expression VisitSqlFunction(SqlFunctionExpression sqlFunctionExpression);
+
+    /// <summary>Visits a SQL IS NULL / IS MISSING expression.</summary>
+    protected abstract Expression VisitSqlIsNull(SqlIsNullExpression sqlIsNullExpression);
 
     /// <summary>
     /// Visits a projection expression.

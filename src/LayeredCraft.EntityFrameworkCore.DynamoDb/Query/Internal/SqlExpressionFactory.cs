@@ -101,6 +101,21 @@ public class SqlExpressionFactory(ITypeMappingSource typeMappingSource) : ISqlEx
     public SqlUnaryExpression Not(SqlExpression operand) => new(ExpressionType.Not, operand);
 
     /// <inheritdoc />
+    public SqlIsNullExpression IsNull(SqlExpression operand) => new(operand, IsNullOperator.IsNull);
+
+    /// <inheritdoc />
+    public SqlIsNullExpression IsNotNull(SqlExpression operand)
+        => new(operand, IsNullOperator.IsNotNull);
+
+    /// <inheritdoc />
+    public SqlIsNullExpression IsMissing(SqlExpression operand)
+        => new(operand, IsNullOperator.IsMissing);
+
+    /// <inheritdoc />
+    public SqlIsNullExpression IsNotMissing(SqlExpression operand)
+        => new(operand, IsNullOperator.IsNotMissing);
+
+    /// <inheritdoc />
     public SqlExpression ApplyTypeMapping(SqlExpression sqlExpression, Type type)
     {
         var typeMapping = typeMappingSource.FindMapping(type);

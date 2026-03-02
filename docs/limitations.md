@@ -66,6 +66,25 @@ icon: lucide/triangle-alert
   - Abstract types are never materialized.
 - Base-type hierarchy queries project hierarchy attributes needed for derived-type materialization.
 
+## Null comparison limitations
+
+### Parameterized null inconsistency {#parameterized-null-inconsistency}
+When a nullable variable is null at runtime (`x.Prop == someVar` where `someVar` is null),
+the query is parameterized as `WHERE "Prop" = ?` with `AttributeValue { NULL = true }`.
+This only matches attributes stored with the DynamoDB NULL type — it does **not** match
+MISSING attributes. DynamoDB PartiQL does not support `attr IS ?` (parameterized IS), so
+the consistent behavior of `== null` (constant) cannot be replicated for parameterized paths.
+
+This is a DynamoDB engine limitation. If you need to match both NULL and MISSING via a
+runtime variable, use `EF.Functions.IsNull(x.Prop) || EF.Functions.IsMissing(x.Prop)`.
+
+### Two-column nullable comparison {#null-column-comparison}
+Comparing two nullable columns directly (`x.A == x.B` where both are nullable) generates a
+binary `=` predicate. This will not return correct results when either column holds a NULL
+type or is MISSING, because DynamoDB PartiQL SQL semantics return MISSING (not TRUE) for
+equality comparisons involving NULL. There is no workaround for this shape at the provider
+level today.
+
 ## Owned types query limitations
 
 ### Nested path queries (not supported)

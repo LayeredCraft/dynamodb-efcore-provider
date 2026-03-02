@@ -57,6 +57,18 @@ public interface ISqlExpressionFactory
     /// <summary>Creates a SQL NOT expression that negates the given boolean operand.</summary>
     SqlUnaryExpression Not(SqlExpression operand);
 
+    /// <summary>Creates an IS NULL predicate expression for the given operand.</summary>
+    SqlIsNullExpression IsNull(SqlExpression operand);
+
+    /// <summary>Creates an IS NOT NULL predicate expression for the given operand.</summary>
+    SqlIsNullExpression IsNotNull(SqlExpression operand);
+
+    /// <summary>Creates an IS MISSING predicate expression for the given operand.</summary>
+    SqlIsNullExpression IsMissing(SqlExpression operand);
+
+    /// <summary>Creates an IS NOT MISSING predicate expression for the given operand.</summary>
+    SqlIsNullExpression IsNotMissing(SqlExpression operand);
+
     /// <summary>
     /// Applies a default type mapping based on the expression's CLR type.
     /// </summary>

@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Linq.Expressions;
 using System.Reflection;
+using LayeredCraft.EntityFrameworkCore.DynamoDb.Extensions;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
@@ -26,6 +27,21 @@ public class DynamoSqlTranslatingExpressionVisitor(ISqlExpressionFactory sqlExpr
 
     private static readonly MethodInfo EnumerableEmptyMethod =
         ((Func<IEnumerable<object>>)Enumerable.Empty<object>).Method.GetGenericMethodDefinition();
+
+    private static readonly MethodInfo IsNullMethod =
+        typeof(DynamoDbFunctionsExtensions).GetMethod(nameof(DynamoDbFunctionsExtensions.IsNull))!;
+
+    private static readonly MethodInfo IsNotNullMethod =
+        typeof(DynamoDbFunctionsExtensions).GetMethod(nameof(DynamoDbFunctionsExtensions.IsNotNull))
+        !;
+
+    private static readonly MethodInfo IsMissingMethod =
+        typeof(DynamoDbFunctionsExtensions).GetMethod(nameof(DynamoDbFunctionsExtensions.IsMissing))
+        !;
+
+    private static readonly MethodInfo IsNotMissingMethod =
+        typeof(DynamoDbFunctionsExtensions).GetMethod(
+            nameof(DynamoDbFunctionsExtensions.IsNotMissing))!;
 
     private IReadOnlyDictionary<ParameterExpression, IEntityType>? _lambdaParameterEntityTypes;
 
@@ -74,6 +90,29 @@ public class DynamoSqlTranslatingExpressionVisitor(ISqlExpressionFactory sqlExpr
 
         if (left == null || right == null)
             return QueryCompilationContext.NotTranslatedExpression;
+
+        if (node.NodeType is ExpressionType.Equal or ExpressionType.NotEqual)
+        {
+            var operand =
+                right is SqlConstantExpression { Value: null } ? left :
+                left is SqlConstantExpression { Value: null } ? right : null;
+
+            if (operand != null)
+            {
+                var composed = node.NodeType == ExpressionType.Equal
+                    ? sqlExpressionFactory.Binary(
+                        ExpressionType.OrElse,
+                        sqlExpressionFactory.IsNull(operand),
+                        sqlExpressionFactory.IsMissing(operand))
+                    : sqlExpressionFactory.Binary(
+                        ExpressionType.AndAlso,
+                        sqlExpressionFactory.IsNotNull(operand),
+                        sqlExpressionFactory.IsNotMissing(operand));
+
+                if (composed != null)
+                    return composed;
+            }
+        }
 
         var sqlBinaryExpression = sqlExpressionFactory.Binary(node.NodeType, left, right);
         if (sqlBinaryExpression != null)
@@ -133,6 +172,12 @@ public class DynamoSqlTranslatingExpressionVisitor(ISqlExpressionFactory sqlExpr
     /// <inheritdoc />
     protected override Expression VisitMethodCall(MethodCallExpression node)
     {
+        if (node.Method == IsNullMethod
+            || node.Method == IsNotNullMethod
+            || node.Method == IsMissingMethod
+            || node.Method == IsNotMissingMethod)
+            return TranslateDynamoDbFunctions(node);
+
         if (node.Method == StringContainsMethod)
             return TranslateStringContains(node);
 
@@ -184,6 +229,27 @@ public class DynamoSqlTranslatingExpressionVisitor(ISqlExpressionFactory sqlExpr
 
         AddTranslationErrorDetails(DynamoStrings.UnaryOperatorNotSupported);
         return QueryCompilationContext.NotTranslatedExpression;
+    }
+
+    /// <summary>Translates EF.Functions IS NULL/MISSING extension methods to SQL IS predicates.</summary>
+    private Expression TranslateDynamoDbFunctions(MethodCallExpression node)
+    {
+        // node.Arguments[0] is DbFunctions, node.Arguments[1] is the value
+        var operand = TranslateInternal(node.Arguments[1]);
+        if (operand == null)
+            return QueryCompilationContext.NotTranslatedExpression;
+
+        return node.Method.Name switch
+        {
+            nameof(DynamoDbFunctionsExtensions.IsNull) => sqlExpressionFactory.IsNull(operand),
+            nameof(DynamoDbFunctionsExtensions.IsNotNull) =>
+                sqlExpressionFactory.IsNotNull(operand),
+            nameof(DynamoDbFunctionsExtensions.IsMissing) =>
+                sqlExpressionFactory.IsMissing(operand),
+            nameof(DynamoDbFunctionsExtensions.IsNotMissing) => sqlExpressionFactory.IsNotMissing(
+                operand),
+            _ => QueryCompilationContext.NotTranslatedExpression,
+        };
     }
 
     /// <summary>Translates string.Contains to the DynamoDB contains function.</summary>

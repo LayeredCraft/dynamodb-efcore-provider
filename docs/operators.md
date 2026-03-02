@@ -23,6 +23,8 @@ should keep in mind. Add to these sections as support expands.
 
 ### Predicate operators
 - `!` (logical NOT) translates to PartiQL `NOT (expr)`
+- `== null` / `!= null` translates to `IS NULL OR IS MISSING` / `IS NOT NULL AND IS NOT MISSING`
+- `EF.Functions.IsNull(prop)`, `IsNotNull`, `IsMissing`, `IsNotMissing` for explicit per-predicate control
 
 ### Not supported today
 - `Any` / `All`
@@ -47,6 +49,12 @@ should keep in mind. Add to these sections as support expands.
 | --- | --- | --- | --- |
 | `Where` | PartiQL `WHERE` | N/A | Boolean members normalize to `= TRUE` |
 | `!` (logical NOT) | PartiQL `NOT (expr)` | N/A | Operand is always parenthesised |
+| `== null` (constant) | `IS NULL OR IS MISSING` | N/A | Covers both DynamoDB null representations |
+| `!= null` (constant) | `IS NOT NULL AND IS NOT MISSING` | N/A | De Morgan inverse of `== null` |
+| `EF.Functions.IsNull(prop)` | `IS NULL` | N/A | Explicit: NULL type only |
+| `EF.Functions.IsNotNull(prop)` | `IS NOT NULL` | N/A | Explicit: not NULL type |
+| `EF.Functions.IsMissing(prop)` | `IS MISSING` | N/A | Explicit: absent attribute |
+| `EF.Functions.IsNotMissing(prop)` | `IS NOT MISSING` | N/A | Explicit: attribute present |
 | `Contains` | PartiQL `contains(...)` or `IN [ ... ]` | N/A | Only `string.Contains(string)` and in-memory collection membership are supported |
 | `Select` | Explicit projection list | Some computed projections can run client-side | No `SELECT *` |
 | `OrderBy` / `ThenBy` | PartiQL `ORDER BY` | N/A | Precedence and parentheses preserved |
@@ -117,6 +125,46 @@ WHERE Pk = 'TENANT#H' AND ("$type" = 'EmployeeEntity' OR "$type" = 'ManagerEntit
 
 **Limitations / DynamoDB quirks**
 - Filters may return zero matches on a page even when more matches exist on later pages.
+
+## IS NULL / IS MISSING
+**Purpose**
+- Test whether a nullable attribute is absent or holds no value.
+
+**Translation**
+DynamoDB has two representations of "no value" for an attribute:
+
+| State | DynamoDB storage | PartiQL predicate |
+|---|---|---|
+| NULL type | Attribute present with `{ NULL: true }` value | `attr IS NULL` |
+| MISSING | Attribute key absent from the item entirely | `attr IS MISSING` |
+
+EF Core users should not need to distinguish which representation was used. The provider
+therefore maps `== null` to cover both:
+
+| LINQ expression | PartiQL emitted |
+|---|---|
+| `x.Prop == null` | `"Prop" IS NULL OR "Prop" IS MISSING` |
+| `x.Prop != null` | `"Prop" IS NOT NULL AND "Prop" IS NOT MISSING` |
+| `EF.Functions.IsNull(x.Prop)` | `"Prop" IS NULL` |
+| `EF.Functions.IsNotNull(x.Prop)` | `"Prop" IS NOT NULL` |
+| `EF.Functions.IsMissing(x.Prop)` | `"Prop" IS MISSING` |
+| `EF.Functions.IsNotMissing(x.Prop)` | `"Prop" IS NOT MISSING` |
+
+The `EF.Functions` methods are for advanced use cases where the NULL vs MISSING distinction
+matters (e.g., schema migration, interop with non-EF-written items).
+
+When `== null` is composed with `AND`, the OR sub-expression is automatically parenthesised:
+```csharp
+// x.Name == null && x.IsActive → ("Name" IS NULL OR "Name" IS MISSING) AND "IsActive" = TRUE
+```
+
+**Limitations / DynamoDB quirks**
+- Parameterized null (`x.Prop == someVar` where `someVar` is null at runtime) uses
+  `= ?` with `AttributeValue { NULL = true }`, which only matches NULL type — not MISSING.
+  This is a DynamoDB engine limitation (`IS` does not accept parameters). See
+  [Limitations](limitations.md#parameterized-null-inconsistency).
+- Two-column nullable comparisons (`x.A == x.B` where both are nullable) are not supported
+  and will not produce correct results. See [Limitations](limitations.md#null-column-comparison).
 
 ## Not
 **Purpose**

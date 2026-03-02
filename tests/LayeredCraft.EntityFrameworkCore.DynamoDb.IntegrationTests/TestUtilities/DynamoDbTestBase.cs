@@ -20,6 +20,11 @@ public abstract class DynamoDbTestBase<TFixture, TContext> : IClassFixture<TFixt
         var builder = new DbContextOptionsBuilder<TContext>();
         builder.UseDynamo(options => options.DynamoDbClient(Client));
         builder.UseLoggerFactory(loggerFactory);
+        // Each test uses a fresh ILoggerFactory instance, which would cause EF Core to build a new
+        // internal IServiceProvider per test and eventually trigger
+        // ManyServiceProvidersCreatedWarning.
+        // Disabling caching avoids that by opting out of the service provider pool entirely.
+        builder.EnableServiceProviderCaching(false);
 
         return builder.Options;
     }
