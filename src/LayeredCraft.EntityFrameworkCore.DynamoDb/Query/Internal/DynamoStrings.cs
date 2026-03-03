@@ -52,7 +52,7 @@ internal static class DynamoStrings
         "Only string.Contains(string) is supported in server-side DynamoDB predicate translation; char and StringComparison overloads are not translated.";
 
     public const string StringStartsWithOverloadNotSupported =
-        "Only string.StartsWith(string) is supported in server-side DynamoDB predicate translation; StringComparison overloads are not translated.";
+        "Only string.StartsWith(string) is supported in server-side DynamoDB predicate translation; char, StringComparison, and culture/ignore-case overloads are not translated.";
 
     public const string ContainsCollectionShapeNotSupported =
         "Contains translation supports in-memory collection membership only (for example, ids.Contains(entity.Id)).";
