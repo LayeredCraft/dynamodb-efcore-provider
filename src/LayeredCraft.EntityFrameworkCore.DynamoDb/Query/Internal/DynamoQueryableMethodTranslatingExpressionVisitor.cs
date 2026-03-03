@@ -682,8 +682,9 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
     }
 
     /// <summary>
-    ///     Attempts to extract a BETWEEN pattern from an AND expression. Succeeds only when both
-    ///     sides are inclusive comparisons (<c>&gt;=</c> and <c>&lt;=</c>) on the same property.
+    ///     Attempts to extract a BETWEEN pattern from an AND expression.
+    ///     Succeeds only when both sides are inclusive comparisons (<c>&gt;=</c> and <c>&lt;=</c>)
+    ///     on the same property.
     /// </summary>
     /// <param name="andExpression">The AND binary expression to inspect.</param>
     /// <param name="subject">The shared property expression, if matched.</param>
@@ -731,6 +732,15 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
         subject = geProp;
         low = geExpression.Right;
         high = leExpression.Right;
+
+        // TODO: consider normalizing for BETWEEN
+        // NOTE: bounds are taken directly from the expression tree — no normalization or
+        // reordering is performed. If the caller supplies inverted bounds (e.g. prop >= 500
+        // && prop <= 100), the BETWEEN is emitted as-is and DynamoDB will return no results.
+        // This is intentional: the provider does not validate value semantics, only structure.
+        // For sort-key range queries this matters because DynamoDB allows only a single
+        // condition on the sort key; the BETWEEN rewrite satisfies that constraint, but only
+        // when the bounds are in the correct order (low, high).
         return true;
     }
 

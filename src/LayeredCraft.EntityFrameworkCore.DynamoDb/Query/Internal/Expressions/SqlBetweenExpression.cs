@@ -4,8 +4,8 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 
 /// <summary>Represents a PartiQL <c>subject BETWEEN low AND high</c> range predicate.</summary>
 /// <remarks>
-///     Both bounds are inclusive. This expression is produced by rewriting
-///     <c>(prop &gt;= low) AND (prop &lt;= high)</c> patterns during predicate normalization.
+/// Both bounds are inclusive. This expression is produced by rewriting
+/// <c>(prop &gt;= low) AND (prop &lt;= high)</c> patterns during predicate normalization.
 /// </remarks>
 public sealed class SqlBetweenExpression : SqlExpression
 {
@@ -42,8 +42,8 @@ public sealed class SqlBetweenExpression : SqlExpression
     public SqlExpression High { get; }
 
     /// <summary>
-    ///     Creates a new expression with updated operands, returning <see langword="this" /> if all
-    ///     operands are unchanged.
+    ///     Creates a new expression with updated operands, returning <see langword="this" /> if
+    ///     all operands are unchanged.
     /// </summary>
     /// <param name="subject">The new subject expression.</param>
     /// <param name="low">The new lower bound expression.</param>

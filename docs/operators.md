@@ -217,6 +217,50 @@ db.Orders.Where(o => o.Total > 10m && o.Total <= 100m)
 // SELECT ... FROM "Orders" WHERE "Total" > ? AND "Total" <= ?
 ```
 
+**Sort key range queries**
+
+DynamoDB allows only a single condition on the sort key per query. `BETWEEN` satisfies this as
+one inclusive range condition. Using `>=` and `<=` without the BETWEEN rewrite would produce two
+separate sort-key comparisons, which DynamoDB cannot use as a key condition and falls back to a
+scan. To ensure the BETWEEN rewrite fires for sort key ranges:
+- Use `>=` for the lower bound and `<=` for the upper bound on the **same property**.
+- Write the lower bound first: `sk >= low && sk <= high` (either left/right ordering of the
+  conditions is accepted, but the bound values are not reordered).
+
+```csharp
+var from = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+var to   = new DateTimeOffset(2026, 1, 31, 23, 59, 59, TimeSpan.Zero);
+
+// ✅ Triggers BETWEEN — property on the left of each comparison, both bounds inclusive
+db.Orders
+    .Where(o => o.Pk == "CUSTOMER#42" && o.CreatedAt >= from && o.CreatedAt <= to)
+    .ToList();
+// WHERE "Pk" = ? AND "CreatedAt" BETWEEN ? AND ?
+
+// ❌ Does NOT trigger BETWEEN — property must be on the LEFT of each comparison operator.
+//    Swapping to "from <= o.CreatedAt" places the property on the right, so the rewrite
+//    does not fire and two separate sort-key comparisons are emitted instead.
+db.Orders
+    .Where(o => o.Pk == "CUSTOMER#42" && from <= o.CreatedAt && to >= o.CreatedAt)
+    .ToList();
+// WHERE "Pk" = ? AND ? <= "CreatedAt" AND ? >= "CreatedAt"
+// (two sort-key conditions → DynamoDB falls back to a scan)
+
+// ❌ Does NOT trigger BETWEEN — exclusive lower bound, emits two comparisons
+db.Orders
+    .Where(o => o.Pk == "CUSTOMER#42" && o.CreatedAt > from && o.CreatedAt <= to)
+    .ToList();
+// WHERE "Pk" = ? AND "CreatedAt" > ? AND "CreatedAt" <= ?
+// (two sort-key conditions → DynamoDB falls back to a scan)
+```
+
+**Bound ordering is not validated**
+
+The provider does not reorder or normalize the bound values. If the bounds are logically
+inverted — for example `x.Score >= 500 && x.Score <= 100` — the predicate is still rewritten
+to `"Score" BETWEEN 500 AND 100`, which DynamoDB evaluates as an empty range and returns no
+results. Ensure `low <= high` at the call site.
+
 **Limitations / DynamoDB quirks**
 - Only single-property inclusive ranges trigger the rewrite. Multi-column range expressions
   are emitted as individual comparisons.
