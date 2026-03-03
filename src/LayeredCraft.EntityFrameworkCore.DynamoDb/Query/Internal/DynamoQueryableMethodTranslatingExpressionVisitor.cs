@@ -644,13 +644,22 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
         };
 
     /// <summary>Recursively normalizes logical predicates while preserving comparisons.</summary>
-    private static SqlBinaryExpression NormalizeBinary(
+    private static SqlExpression NormalizeBinary(
         SqlBinaryExpression binaryExpression,
         ISqlExpressionFactory sqlExpressionFactory)
     {
         // Search conditions only exist at AND/OR boundaries.
         if (binaryExpression.OperatorType is ExpressionType.AndAlso or ExpressionType.OrElse)
         {
+            // Detect (prop >= low) AND (prop <= high) → BETWEEN before recursing.
+            if (binaryExpression.OperatorType is ExpressionType.AndAlso
+                && TryExtractBetweenBounds(
+                    binaryExpression,
+                    out var subject,
+                    out var low,
+                    out var high))
+                return sqlExpressionFactory.Between(subject!, low!, high!);
+
             var left = NormalizePredicate(binaryExpression.Left, sqlExpressionFactory, true);
             var right = NormalizePredicate(binaryExpression.Right, sqlExpressionFactory, true);
             return binaryExpression.Update(left, right);
@@ -670,6 +679,69 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
             sqlExpressionFactory,
             false);
         return binaryExpression.Update(normalizedLeft, normalizedRight);
+    }
+
+    /// <summary>
+    ///     Attempts to extract a BETWEEN pattern from an AND expression.
+    ///     Succeeds only when both sides are inclusive comparisons (<c>&gt;=</c> and <c>&lt;=</c>)
+    ///     on the same property.
+    /// </summary>
+    /// <param name="andExpression">The AND binary expression to inspect.</param>
+    /// <param name="subject">The shared property expression, if matched.</param>
+    /// <param name="low">The lower bound expression, if matched.</param>
+    /// <param name="high">The upper bound expression, if matched.</param>
+    /// <returns><see langword="true" /> when both sides form an inclusive BETWEEN range.</returns>
+    private static bool TryExtractBetweenBounds(
+        SqlBinaryExpression andExpression,
+        out SqlExpression? subject,
+        out SqlExpression? low,
+        out SqlExpression? high)
+    {
+        subject = low = high = null;
+
+        if (andExpression.Left is not SqlBinaryExpression leftBinary
+            || andExpression.Right is not SqlBinaryExpression rightBinary)
+            return false;
+
+        // Accept (prop >= low) AND (prop <= high)  or the reversed ordering.
+        SqlBinaryExpression? geExpression = null;
+        SqlBinaryExpression? leExpression = null;
+
+        if (leftBinary.OperatorType is ExpressionType.GreaterThanOrEqual
+            && rightBinary.OperatorType is ExpressionType.LessThanOrEqual)
+        {
+            geExpression = leftBinary;
+            leExpression = rightBinary;
+        }
+        else if (leftBinary.OperatorType is ExpressionType.LessThanOrEqual
+            && rightBinary.OperatorType is ExpressionType.GreaterThanOrEqual)
+        {
+            leExpression = leftBinary;
+            geExpression = rightBinary;
+        }
+
+        if (geExpression is null || leExpression is null)
+            return false;
+
+        // Both sides must compare the same property.
+        if (geExpression.Left is not SqlPropertyExpression geProp
+            || leExpression.Left is not SqlPropertyExpression leProp
+            || geProp.PropertyName != leProp.PropertyName)
+            return false;
+
+        subject = geProp;
+        low = geExpression.Right;
+        high = leExpression.Right;
+
+        // TODO: consider normalizing for BETWEEN
+        // NOTE: bounds are taken directly from the expression tree — no normalization or
+        // reordering is performed. If the caller supplies inverted bounds (e.g. prop >= 500
+        // && prop <= 100), the BETWEEN is emitted as-is and DynamoDB will return no results.
+        // This is intentional: the provider does not validate value semantics, only structure.
+        // For sort-key range queries this matters because DynamoDB allows only a single
+        // condition on the sort key; the BETWEEN rewrite satisfies that constraint, but only
+        // when the bounds are in the correct order (low, high).
+        return true;
     }
 
     /// <summary>Wraps a boolean column/parameter into an explicit comparison.</summary>

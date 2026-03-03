@@ -23,6 +23,7 @@ public abstract class SqlExpressionVisitor : ExpressionVisitor
             SqlInExpression sqlInExpression => VisitSqlIn(sqlInExpression),
             SqlFunctionExpression sqlFunctionExpression => VisitSqlFunction(sqlFunctionExpression),
             SqlIsNullExpression sqlIsNullExpression => VisitSqlIsNull(sqlIsNullExpression),
+            SqlBetweenExpression sqlBetweenExpression => VisitSqlBetween(sqlBetweenExpression),
             ProjectionExpression projectionExpression => VisitProjection(projectionExpression),
             SelectExpression selectExpression => VisitSelect(selectExpression),
             _ => base.VisitExtension(node),
@@ -63,6 +64,9 @@ public abstract class SqlExpressionVisitor : ExpressionVisitor
 
     /// <summary>Visits a SQL IS NULL / IS MISSING expression.</summary>
     protected abstract Expression VisitSqlIsNull(SqlIsNullExpression sqlIsNullExpression);
+
+    /// <summary>Visits a SQL BETWEEN range predicate expression.</summary>
+    protected abstract Expression VisitSqlBetween(SqlBetweenExpression sqlBetweenExpression);
 
     /// <summary>
     /// Visits a projection expression.

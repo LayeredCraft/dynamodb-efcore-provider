@@ -204,6 +204,17 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
     }
 
     /// <inheritdoc />
+    protected override Expression VisitSqlBetween(SqlBetweenExpression sqlBetweenExpression)
+    {
+        Visit(sqlBetweenExpression.Subject);
+        _sql.Append(" BETWEEN ");
+        Visit(sqlBetweenExpression.Low);
+        _sql.Append(" AND ");
+        Visit(sqlBetweenExpression.High);
+        return sqlBetweenExpression;
+    }
+
+    /// <inheritdoc />
     protected override Expression VisitSqlFunction(SqlFunctionExpression sqlFunctionExpression)
     {
         _sql.Append(sqlFunctionExpression.Name);

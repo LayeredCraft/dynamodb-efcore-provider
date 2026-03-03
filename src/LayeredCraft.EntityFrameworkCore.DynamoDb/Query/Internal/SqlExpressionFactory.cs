@@ -116,6 +116,13 @@ public class SqlExpressionFactory(ITypeMappingSource typeMappingSource) : ISqlEx
         => new(operand, IsNullOperator.IsNotMissing);
 
     /// <inheritdoc />
+    public SqlBetweenExpression Between(
+        SqlExpression subject,
+        SqlExpression low,
+        SqlExpression high)
+        => new(subject, low, high);
+
+    /// <inheritdoc />
     public SqlExpression ApplyTypeMapping(SqlExpression sqlExpression, Type type)
     {
         var typeMapping = typeMappingSource.FindMapping(type);

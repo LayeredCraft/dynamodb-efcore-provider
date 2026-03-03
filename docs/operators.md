@@ -25,6 +25,7 @@ should keep in mind. Add to these sections as support expands.
 - `!` (logical NOT) translates to PartiQL `NOT (expr)`
 - `== null` / `!= null` translates to `IS NULL OR IS MISSING` / `IS NOT NULL AND IS NOT MISSING`
 - `EF.Functions.IsNull(prop)`, `IsNotNull`, `IsMissing`, `IsNotMissing` for explicit per-predicate control
+- `prop >= a && prop <= b` (inclusive range) translates to `prop BETWEEN a AND b`
 
 ### Not supported today
 - `Any` / `All`
@@ -55,6 +56,7 @@ should keep in mind. Add to these sections as support expands.
 | `EF.Functions.IsNotNull(prop)` | `IS NOT NULL` | N/A | Explicit: not NULL type |
 | `EF.Functions.IsMissing(prop)` | `IS MISSING` | N/A | Explicit: absent attribute |
 | `EF.Functions.IsNotMissing(prop)` | `IS NOT MISSING` | N/A | Explicit: attribute present |
+| `prop >= a && prop <= b` | PartiQL `prop BETWEEN a AND b` | N/A | Both bounds inclusive; mixed bounds (`>` + `<=`) fall back to two comparisons |
 | `Contains` | PartiQL `contains(...)` or `IN [ ... ]` | N/A | Only `string.Contains(string)` and in-memory collection membership are supported |
 | `Select` | Explicit projection list | Some computed projections can run client-side | No `SELECT *` |
 | `OrderBy` / `ThenBy` | PartiQL `ORDER BY` | N/A | Precedence and parentheses preserved |
@@ -78,8 +80,8 @@ should keep in mind. Add to these sections as support expands.
 ## DynamoDB PartiQL context (background)
 - PartiQL `SELECT` can behave like a scan unless the `WHERE` clause uses partition-key equality or
   partition-key `IN`.
-- DynamoDB PartiQL supports operators such as `BETWEEN` (inclusive) and `IN`, but provider
-  translation support is narrower than the full DynamoDB operator surface.
+- DynamoDB PartiQL supports operators such as `BETWEEN` (inclusive) and `IN`. The provider
+  translates `BETWEEN` from a matching `>=` + `<=` LINQ pattern on the same property.
 - DynamoDB documents `IN` limits as up to 50 hash-key values or up to 100 non-key values.
 
 ## Identifier quoting notes
@@ -194,6 +196,76 @@ When `== null` is composed with `AND`, the OR sub-expression is automatically pa
 - Empty collections translate to a constant-false predicate (`1 = 0`).
 - DynamoDB `IN` limits apply: up to 50 partition-key values or up to 100 non-key values.
 - `NULL` collection elements are passed through as DynamoDB `NULL`; DynamoDB evaluation semantics apply.
+
+## BETWEEN
+**Purpose**
+- Test whether a property value falls within an inclusive range.
+
+**Translation**
+- A LINQ predicate of the form `x.Prop >= low && x.Prop <= high` is rewritten to
+  PartiQL `"Prop" BETWEEN ? AND ?`.
+- Both bounds must be inclusive (`>=` and `<=`). If either bound is exclusive (`>` or `<`),
+  the predicate is kept as two separate comparisons.
+
+```csharp
+// Inclusive range → BETWEEN
+db.Orders.Where(o => o.Total >= 10m && o.Total <= 100m)
+// SELECT ... FROM "Orders" WHERE "Total" BETWEEN ? AND ?
+
+// Mixed bounds → two comparisons (no BETWEEN rewrite)
+db.Orders.Where(o => o.Total > 10m && o.Total <= 100m)
+// SELECT ... FROM "Orders" WHERE "Total" > ? AND "Total" <= ?
+```
+
+**Sort key range queries**
+
+DynamoDB allows only a single condition on the sort key per query. `BETWEEN` satisfies this as
+one inclusive range condition. Using `>=` and `<=` without the BETWEEN rewrite would produce two
+separate sort-key comparisons, which DynamoDB cannot use as a key condition and falls back to a
+scan. To ensure the BETWEEN rewrite fires for sort key ranges:
+- Use `>=` for the lower bound and `<=` for the upper bound on the **same property**.
+- Write the lower bound first: `sk >= low && sk <= high` (either left/right ordering of the
+  conditions is accepted, but the bound values are not reordered).
+
+```csharp
+var from = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+var to   = new DateTimeOffset(2026, 1, 31, 23, 59, 59, TimeSpan.Zero);
+
+// ✅ Triggers BETWEEN — property on the left of each comparison, both bounds inclusive
+db.Orders
+    .Where(o => o.Pk == "CUSTOMER#42" && o.CreatedAt >= from && o.CreatedAt <= to)
+    .ToList();
+// WHERE "Pk" = ? AND "CreatedAt" BETWEEN ? AND ?
+
+// ❌ Does NOT trigger BETWEEN — property must be on the LEFT of each comparison operator.
+//    Swapping to "from <= o.CreatedAt" places the property on the right, so the rewrite
+//    does not fire and two separate sort-key comparisons are emitted instead.
+db.Orders
+    .Where(o => o.Pk == "CUSTOMER#42" && from <= o.CreatedAt && to >= o.CreatedAt)
+    .ToList();
+// WHERE "Pk" = ? AND ? <= "CreatedAt" AND ? >= "CreatedAt"
+// (two sort-key conditions → DynamoDB falls back to a scan)
+
+// ❌ Does NOT trigger BETWEEN — exclusive lower bound, emits two comparisons
+db.Orders
+    .Where(o => o.Pk == "CUSTOMER#42" && o.CreatedAt > from && o.CreatedAt <= to)
+    .ToList();
+// WHERE "Pk" = ? AND "CreatedAt" > ? AND "CreatedAt" <= ?
+// (two sort-key conditions → DynamoDB falls back to a scan)
+```
+
+**Bound ordering is not validated**
+
+The provider does not reorder or normalize the bound values. If the bounds are logically
+inverted — for example `x.Score >= 500 && x.Score <= 100` — the predicate is still rewritten
+to `"Score" BETWEEN 500 AND 100`, which DynamoDB evaluates as an empty range and returns no
+results. Ensure `low <= high` at the call site.
+
+**Limitations / DynamoDB quirks**
+- Only single-property inclusive ranges trigger the rewrite. Multi-column range expressions
+  are emitted as individual comparisons.
+- DynamoDB BETWEEN is inclusive on both ends; see
+  [PartiQL operators](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ql-operators.html).
 
 ## Select
 **Purpose**
