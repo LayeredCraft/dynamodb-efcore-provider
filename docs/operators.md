@@ -16,6 +16,7 @@ should keep in mind. Add to these sections as support expands.
 - `OrderBy` / `OrderByDescending`
 - `ThenBy` / `ThenByDescending`
 - `Contains` (supported shapes only)
+- `StartsWith`
 - `Take`
 - `First` / `FirstOrDefault`
 - `WithPageSize`
@@ -36,7 +37,7 @@ should keep in mind. Add to these sections as support expands.
 - `Join` / `GroupJoin` / `SelectMany` / `LeftJoin` / `RightJoin`
 - `Union` / `Concat` / `Except` / `Intersect`
 - `Distinct`, `Reverse`, `Last` / `LastOrDefault`
-- Method calls in predicates except supported `Contains` patterns
+- Method calls in predicates except supported `Contains` and `StartsWith` patterns
 
 ### Server-side only policy
 - This provider only supports query shapes that can be translated to DynamoDB PartiQL.
@@ -58,6 +59,7 @@ should keep in mind. Add to these sections as support expands.
 | `EF.Functions.IsNotMissing(prop)` | `IS NOT MISSING` | N/A | Explicit: attribute present |
 | `prop >= a && prop <= b` | PartiQL `prop BETWEEN a AND b` | N/A | Both bounds inclusive; mixed bounds (`>` + `<=`) fall back to two comparisons |
 | `Contains` | PartiQL `contains(...)` or `IN [ ... ]` | N/A | Only `string.Contains(string)` and in-memory collection membership are supported |
+| `string.StartsWith(string)` | `begins_with(attr, <prefix>)` | N/A | Captured values are parameterized; inline literals may be inlined; other overloads are not translated |
 | `Select` | Explicit projection list | Some computed projections can run client-side | No `SELECT *` |
 | `OrderBy` / `ThenBy` | PartiQL `ORDER BY` | N/A | Precedence and parentheses preserved |
 | `Take(n)` | Sets result limit expression | Stops after `n` results | Does not emit SQL `LIMIT` |
@@ -179,6 +181,31 @@ When `== null` is composed with `AND`, the OR sub-expression is automatically pa
 
 **Limitations / DynamoDB quirks**
 - Only logical negation of boolean search conditions is supported; bitwise complement is not translated.
+
+## StartsWith
+**Purpose**
+- Test whether a string attribute begins with a given prefix.
+
+**Translation**
+- `entity.Name.StartsWith("prefix")` translates to `begins_with("Name", ?)` when the prefix is captured/parameterized.
+- Inline constants can be emitted directly as literals, for example `begins_with("Name", 'prefix')`.
+
+```csharp
+// Captured variable
+var prefix = "ORDER#";
+db.Items.Where(x => x.Sk.StartsWith(prefix));
+// WHERE begins_with("Sk", ?)
+
+// Inline literal
+db.Items.Where(x => x.Sk.StartsWith("ORDER#"));
+// WHERE begins_with("Sk", 'ORDER#')
+```
+
+**Limitations / DynamoDB quirks**
+- Only `string.StartsWith(string)` is supported; `char`, `StringComparison`, and culture/ignore-case overloads are not translated and will throw.
+- `begins_with` performs a case-sensitive, literal prefix check — no wildcards, no escaping required.
+- DynamoDB `begins_with` only accepts string attributes; numeric or binary attributes will not match.
+- See [DynamoDB begins_with documentation](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ql-functions.beginswith.html).
 
 ## Contains
 **Purpose**
@@ -363,4 +390,5 @@ var results = await db.Items
 - DynamoDB PartiQL SELECT: <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ql-reference.select.html>
 - DynamoDB PartiQL operators: <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ql-operators.html>
 - DynamoDB PartiQL functions: <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ql-functions.html>
+- DynamoDB `begins_with`: <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ql-functions.beginswith.html>
 - PartiQL identifiers: <https://partiql.org/concepts/identifiers.html>
