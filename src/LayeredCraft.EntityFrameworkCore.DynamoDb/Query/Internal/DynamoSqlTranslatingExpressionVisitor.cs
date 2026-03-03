@@ -22,6 +22,9 @@ public class DynamoSqlTranslatingExpressionVisitor(ISqlExpressionFactory sqlExpr
     private static readonly MethodInfo StringContainsMethod =
         ((Func<string, bool>)string.Empty.Contains).Method;
 
+    private static readonly MethodInfo StringStartsWithMethod =
+        ((Func<string, bool>)string.Empty.StartsWith).Method;
+
     private static readonly MethodInfo ArrayEmptyMethod =
         ((Func<object[]>)Array.Empty<object>).Method.GetGenericMethodDefinition();
 
@@ -188,6 +191,16 @@ public class DynamoSqlTranslatingExpressionVisitor(ISqlExpressionFactory sqlExpr
             return QueryCompilationContext.NotTranslatedExpression;
         }
 
+        if (node.Method == StringStartsWithMethod)
+            return TranslateStringStartsWith(node);
+
+        if (node.Method.DeclaringType == typeof(string)
+            && node.Method.Name == nameof(string.StartsWith))
+        {
+            AddTranslationErrorDetails(DynamoStrings.StringStartsWithOverloadNotSupported);
+            return QueryCompilationContext.NotTranslatedExpression;
+        }
+
         if (IsCollectionContainsMethod(node.Method))
             return TranslateCollectionContains(node);
 
@@ -261,6 +274,17 @@ public class DynamoSqlTranslatingExpressionVisitor(ISqlExpressionFactory sqlExpr
             return QueryCompilationContext.NotTranslatedExpression;
 
         return sqlExpressionFactory.Function("contains", [instance, argument], typeof(bool));
+    }
+
+    /// <summary>Translates string.StartsWith to the DynamoDB begins_with function.</summary>
+    private Expression TranslateStringStartsWith(MethodCallExpression node)
+    {
+        var instance = TranslateInternal(node.Object!);
+        var argument = TranslateInternal(node.Arguments[0]);
+        if (instance == null || argument == null)
+            return QueryCompilationContext.NotTranslatedExpression;
+
+        return sqlExpressionFactory.Function("begins_with", [instance, argument], typeof(bool));
     }
 
     /// <summary>Translates in-memory collection Contains calls to IN predicates.</summary>
