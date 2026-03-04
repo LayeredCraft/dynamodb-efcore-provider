@@ -319,33 +319,7 @@ public class DynamoSqlTranslatingExpressionVisitor(ISqlExpressionFactory sqlExpr
             && node.Method.GetGenericMethodDefinition() == EfPropertyMethod
             && node.Arguments[1] is ConstantExpression { Value: string efPropName })
         {
-            IEntityType? entityType = null;
-            if (node.Arguments[0] is ParameterExpression pe && _lambdaParameterEntityTypes != null)
-                _lambdaParameterEntityTypes.TryGetValue(pe, out entityType);
-            else if (node.Arguments[0] is StructuralTypeShaperExpression
-                {
-                    StructuralType: IEntityType se,
-                })
-                entityType = se;
-
-            if (entityType?.FindProperty(efPropName) is { } prop)
-            {
-                var isPartitionKey = entityType.GetPartitionKeyProperty()?.Name == prop.Name;
-                return sqlExpressionFactory.Property(
-                    prop.GetAttributeName(),
-                    node.Type,
-                    isPartitionKey);
-            }
-
-            // When entity type is known but the named member is not a scalar property it is a
-            // navigation — the binding visitor handles those via DynamoObjectAccessExpression.
-            if (entityType != null)
-            {
-                AddTranslationErrorDetails(DynamoStrings.MemberAccessNotSupported);
-                return QueryCompilationContext.NotTranslatedExpression;
-            }
-
-            return sqlExpressionFactory.Property(efPropName, node.Type);
+            return TranslateEfPropertyAccess(node, efPropName);
         }
 
         if (node.Method == IsNullMethod
@@ -384,6 +358,83 @@ public class DynamoSqlTranslatingExpressionVisitor(ISqlExpressionFactory sqlExpr
 
         AddTranslationErrorDetails(DynamoStrings.MethodCallInPredicateNotSupported);
         return QueryCompilationContext.NotTranslatedExpression;
+    }
+
+    /// <summary>
+    ///     Translates <c>EF.Property&lt;T&gt;(source, "name")</c> to scalar property access,
+    ///     supporting nested chains that represent owned-navigation paths.
+    /// </summary>
+    private Expression TranslateEfPropertyAccess(MethodCallExpression node, string propertyName)
+    {
+        var names = new List<string> { propertyName };
+        var current = node.Arguments[0];
+        while (true)
+            if (current is MethodCallExpression { Method.IsGenericMethod: true } methodCall
+                && methodCall.Method.GetGenericMethodDefinition() == EfPropertyMethod
+                && methodCall.Arguments[1] is ConstantExpression { Value: string nestedProperty })
+            {
+                names.Add(nestedProperty);
+                current = methodCall.Arguments[0];
+            }
+            else if (current is MemberExpression member)
+            {
+                names.Add(member.Member.Name);
+                current = member.Expression;
+            }
+            else
+            {
+                break;
+            }
+
+        var rootEntityType = ResolveRootEntityType(current);
+        names.Reverse();
+
+        if (rootEntityType != null)
+        {
+            if (names.Count == 1)
+            {
+                if (rootEntityType.FindProperty(propertyName) is { } rootProperty)
+                {
+                    var isPartitionKey =
+                        rootEntityType.GetPartitionKeyProperty()?.Name == rootProperty.Name;
+                    return sqlExpressionFactory.Property(
+                        rootProperty.GetAttributeName(),
+                        node.Type,
+                        isPartitionKey);
+                }
+
+                AddTranslationErrorDetails(DynamoStrings.MemberAccessNotSupported);
+                return QueryCompilationContext.NotTranslatedExpression;
+            }
+
+            return TranslateNestedMemberChain(names, rootEntityType, node.Type);
+        }
+
+        var translatedSource = Visit(node.Arguments[0]);
+        if (translatedSource is SqlExpression sqlSource)
+            return new DynamoScalarAccessExpression(sqlSource, propertyName, node.Type);
+
+        return sqlExpressionFactory.Property(propertyName, node.Type);
+    }
+
+    /// <summary>
+    ///     Resolves the root entity type for parameter or shaper-root expressions used in member
+    ///     translation.
+    /// </summary>
+    private IEntityType? ResolveRootEntityType(Expression? expression)
+    {
+        if (expression is ParameterExpression parameter && _lambdaParameterEntityTypes != null)
+        {
+            _lambdaParameterEntityTypes.TryGetValue(parameter, out var parameterEntityType);
+            return parameterEntityType;
+        }
+
+        return expression is StructuralTypeShaperExpression
+        {
+            StructuralType: IEntityType shaperType,
+        }
+            ? shaperType
+            : null;
     }
 
     /// <inheritdoc />

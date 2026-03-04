@@ -10,6 +10,30 @@ public class NestedPathWhereTests(OwnedTypesTableDynamoFixture fixture)
     : OwnedTypesTableTestBase(fixture)
 {
     [Fact]
+    public async Task Where_NestedEfPropertyChain_ReturnsMatchingItems()
+    {
+        var results =
+            await Db
+                .Items
+                .Where(x => EF.Property<string>(
+                        EF.Property<Profile?>(x, nameof(OwnedShapeItem.Profile))!,
+                        nameof(Profile.DisplayName))
+                    == "Ada")
+                .ToListAsync(CancellationToken);
+
+        var expected = OwnedTypesItems.Items.Where(x => x.Profile?.DisplayName == "Ada").ToList();
+
+        results.Should().BeEquivalentTo(expected);
+
+        AssertSql(
+            """
+            SELECT "Pk", "CreatedAt", "GuidValue", "IntValue", "Ratings", "StringValue", "Tags", "Orders", "OrderSnapshots", "Profile"
+            FROM "OwnedTypesItems"
+            WHERE "Profile"."DisplayName" = 'Ada'
+            """);
+    }
+
+    [Fact]
     public async Task Where_SingleLevelOwnedProperty_ReturnsMatchingItems()
     {
         var results =
