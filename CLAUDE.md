@@ -18,15 +18,7 @@ LINQ) into PartiQL and executes them via the AWS SDK.
     `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Storage/DynamoClientWrapper.cs`
   - Type mapping/conversion:
     `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Storage/DynamoTypeMappingSource.cs`
-
-## Build / Test
-
-- Build: `dotnet build`
-- Test (all): `dotnet test`
-- Focused test project:
-  `dotnet test tests/LayeredCraft.EntityFrameworkCore.DynamoDb.Tests/LayeredCraft.EntityFrameworkCore.DynamoDb.Tests.csproj`
-- SDK/runtime settings: `global.json`, `Directory.Build.props`, `Directory.Packages.props`
-
+    
 ## Making Changes (Practical Checklist)
 
 - Start with a failing/added test in `tests/LayeredCraft.EntityFrameworkCore.DynamoDb.Tests/`.
@@ -43,48 +35,6 @@ LINQ) into PartiQL and executes them via the AWS SDK.
     `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Query/Internal/DynamoProjectionBindingRemovingExpressionVisitor.cs`)
     support the new shape
 - Keep changes small and add tests for both translation and execution behavior.
-
-## Writing Integration Tests
-
-Integration tests live in `tests/LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests/`.
-Each table suite has a fixture, a base class, seed data, and test classes.
-
-**Canonical test structure:**
-
-```csharp
-[Fact]
-public async Task Where_SomeCondition_ReturnsMatchingItems()
-{
-    var results = await Db.Items
-        .Where(x => x.SomeProperty == "value")
-        .ToListAsync(CancellationToken);
-
-    var expected = SeedDataClass.Items
-        .Where(x => x.SomeProperty == "value")  // null-safe equivalent
-        .ToList();
-
-    results.Should().BeEquivalentTo(expected);
-
-    AssertSql(
-        """
-        SELECT ...
-        FROM "TableName"
-        WHERE "SomeProperty" = 'value'
-        """);
-}
-```
-
-**Rules:**
-
-- Always compare results against in-memory seed data (e.g. `OwnedTypesItems.Items`) — never
-  hardcode expected `Pk` values or inline anonymous objects unless the query shape has no seed
-  data equivalent (e.g. a custom insert in the test itself).
-- Use null-safe operators (`?.`) in the in-memory filter to mirror EF Core's null-propagation
-  semantics. Guard list index access with a count check (e.g.
-  `x.Tags.Count > 0 && x.Tags[0] == ...`).
-- Always call `AssertSql(...)` with the full expected PartiQL statement.
-- Use `AsAsyncEnumerable().SingleAsync(ct)` instead of `SingleAsync(ct)` for single-item queries.
-- Prefer `AsNoTracking()` unless the test is specifically about change tracking.
 
 ## Documentation (Required For Behavior Changes)
 
