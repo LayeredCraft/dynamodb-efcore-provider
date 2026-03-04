@@ -127,16 +127,10 @@ public class SelectTests(OwnedTypesTableDynamoFixture fixture) : OwnedTypesTable
                 .Select(x => new { x.Pk, x.Profile!.Address!.City })
                 .ToListAsync(CancellationToken);
 
-        results
-            .Should()
-            .BeEquivalentTo(
-                new[]
-                {
-                    new { Pk = "OWNED#1", City = (string?)"Seattle" },
-                    new { Pk = "OWNED#2", City = (string?)null },
-                    new { Pk = "OWNED#3", City = (string?)null },
-                    new { Pk = "OWNED#4", City = (string?)null },
-                });
+        var expected =
+            OwnedTypesItems.Items.Select(x => new { x.Pk, x.Profile?.Address?.City }).ToList();
+
+        results.Should().BeEquivalentTo(expected);
 
         AssertSql(
             """

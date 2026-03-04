@@ -22,7 +22,7 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
     {
         var results = await Db.Items.ToListAsync(CancellationToken);
 
-        results.Should().HaveCount(PkSkItems.Items.Count);
+        results.Should().BeEquivalentTo(PkSkItems.Items);
 
         AssertSql(
             """
@@ -41,8 +41,10 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
                 .OrderBy(item => item.Sk)
                 .FirstAsync(CancellationToken);
 
-        result.Pk.Should().Be("P#1");
-        result.Sk.Should().Be("0001");
+        var expected =
+            PkSkItems.Items.Where(item => item.Pk == "P#1").OrderBy(item => item.Sk).First();
+
+        result.Should().BeEquivalentTo(expected);
 
         AssertSql(
             """
@@ -93,8 +95,9 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
                 .Where(item => item.Pk == "P#1" && item.Sk == "0002")
                 .FirstAsync(CancellationToken);
 
-        result.Pk.Should().Be("P#1");
-        result.Sk.Should().Be("0002");
+        var expected = PkSkItems.Items.Single(item => item.Pk == "P#1" && item.Sk == "0002");
+
+        result.Should().BeEquivalentTo(expected);
 
         AssertSql(
             """
@@ -151,8 +154,9 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
                 .Where(item => item.Pk == "P#1" && item.Sk == "0001")
                 .FirstAsync(CancellationToken);
 
-        result.Pk.Should().Be("P#1");
-        result.Sk.Should().Be("0001");
+        var expected = PkSkItems.Items.Single(item => item.Pk == "P#1" && item.Sk == "0001");
+
+        result.Should().BeEquivalentTo(expected);
 
         AssertSql(
             """
@@ -309,7 +313,15 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
                 .Take(2)
                 .FirstAsync(CancellationToken);
 
-        result.Sk.Should().Be("0001");
+        var expected =
+            PkSkItems
+                .Items
+                .Where(item => item.Pk == "P#1")
+                .OrderBy(item => item.Sk)
+                .Take(2)
+                .First();
+
+        result.Should().BeEquivalentTo(expected);
 
         AssertSql(
             """
@@ -333,8 +345,15 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
                 .Take(limit)
                 .FirstOrDefaultAsync(CancellationToken);
 
-        result.Should().NotBeNull();
-        result!.Sk.Should().Be("0001");
+        var expected =
+            PkSkItems
+                .Items
+                .Where(item => item.Pk == "P#1")
+                .OrderBy(item => item.Sk)
+                .Take(limit)
+                .First();
+
+        result.Should().BeEquivalentTo(expected);
 
         AssertSql(
             """
@@ -357,7 +376,15 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
                 .Take(5)
                 .ToListAsync(CancellationToken);
 
-        results.Should().HaveCount(3);
+        var expected =
+            PkSkItems
+                .Items
+                .Where(item => item.Pk == "P#1")
+                .OrderBy(item => item.Sk)
+                .Take(3)
+                .ToList();
+
+        results.Should().BeEquivalentTo(expected);
 
         AssertSql(
             """
@@ -380,7 +407,15 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
                 .Take(3)
                 .ToListAsync(CancellationToken);
 
-        results.Should().HaveCount(3);
+        var expected =
+            PkSkItems
+                .Items
+                .Where(item => item.Pk == "P#1")
+                .OrderBy(item => item.Sk)
+                .Take(3)
+                .ToList();
+
+        results.Should().BeEquivalentTo(expected);
 
         AssertSql(
             """

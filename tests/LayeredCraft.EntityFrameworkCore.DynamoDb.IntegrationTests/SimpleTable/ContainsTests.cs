@@ -124,7 +124,9 @@ public class ContainsTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBa
             .Where(item => keys.Contains(item.Pk))
             .ToListAsync(CancellationToken);
 
-        resultItems.Should().BeEmpty();
+        var expected = SimpleItems.Items.Where(item => keys.Contains(item.Pk)).ToList();
+
+        resultItems.Should().BeEquivalentTo(expected);
 
         AssertSql(
             """
@@ -143,7 +145,10 @@ public class ContainsTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBa
             .Where(item => Array.Empty<string>().Contains(item.Pk))
             .ToListAsync(CancellationToken);
 
-        resultItems.Should().BeEmpty();
+        var expected =
+            SimpleItems.Items.Where(item => Array.Empty<string>().Contains(item.Pk)).ToList();
+
+        resultItems.Should().BeEquivalentTo(expected);
 
         AssertSql(
             """
@@ -162,7 +167,10 @@ public class ContainsTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBa
             .Where(item => Enumerable.Empty<string>().Contains(item.Pk))
             .ToListAsync(CancellationToken);
 
-        resultItems.Should().BeEmpty();
+        var expected =
+            SimpleItems.Items.Where(item => Enumerable.Empty<string>().Contains(item.Pk)).ToList();
+
+        resultItems.Should().BeEquivalentTo(expected);
 
         AssertSql(
             """
@@ -182,7 +190,10 @@ public class ContainsTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBa
             .Where(item => values.Contains(item.NullableStringValue))
             .ToListAsync(CancellationToken);
 
-        resultItems.Should().Contain(item => item.Pk == "ITEM#2");
+        var expected =
+            SimpleItems.Items.Where(item => values.Contains(item.NullableStringValue)).ToList();
+
+        resultItems.Should().BeEquivalentTo(expected);
 
         AssertSql(
             """
@@ -203,7 +214,10 @@ public class ContainsTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBa
             .Where(item => values.Contains(item.NullableIntValue))
             .ToListAsync(CancellationToken);
 
-        resultItems.Should().Contain(item => item.Pk == "ITEM#2");
+        var expected =
+            SimpleItems.Items.Where(item => values.Contains(item.NullableIntValue)).ToList();
+
+        resultItems.Should().BeEquivalentTo(expected);
 
         AssertSql(
             """

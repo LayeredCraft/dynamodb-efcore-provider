@@ -47,7 +47,10 @@ public class BetweenTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBas
             .Where(item => item.IntValue >= low && item.IntValue <= high)
             .ToListAsync(CancellationToken);
 
-        resultItems.Should().BeEmpty();
+        var expected =
+            SimpleItems.Items.Where(item => item.IntValue >= low && item.IntValue <= high).ToList();
+
+        resultItems.Should().BeEquivalentTo(expected);
 
         AssertSql(
             """
