@@ -109,17 +109,15 @@ public class DynamoSqlTranslatingExpressionVisitor(ISqlExpressionFactory sqlExpr
     /// <inheritdoc />
     protected override Expression VisitBinary(BinaryExpression node)
     {
-        var left = TranslateInternal(node.Left);
-        var right = TranslateInternal(node.Right);
-
-        if (left == null || right == null)
-            return QueryCompilationContext.NotTranslatedExpression;
-
         if (node.NodeType is ExpressionType.Equal or ExpressionType.NotEqual)
         {
-            var operand =
-                right is SqlConstantExpression { Value: null } ? left :
-                left is SqlConstantExpression { Value: null } ? right : null;
+            SqlExpression? operand = null;
+            if (node.Right is ConstantExpression { Value: null })
+                operand = TryTranslateOwnedNavigationOperandForNullComparison(node.Left)
+                    ?? TranslateInternal(node.Left);
+            else if (node.Left is ConstantExpression { Value: null })
+                operand = TryTranslateOwnedNavigationOperandForNullComparison(node.Right)
+                    ?? TranslateInternal(node.Right);
 
             if (operand != null)
             {
@@ -138,12 +136,59 @@ public class DynamoSqlTranslatingExpressionVisitor(ISqlExpressionFactory sqlExpr
             }
         }
 
+        var left = TranslateInternal(node.Left);
+        var right = TranslateInternal(node.Right);
+
+        if (left == null || right == null)
+            return QueryCompilationContext.NotTranslatedExpression;
+
         var sqlBinaryExpression = sqlExpressionFactory.Binary(node.NodeType, left, right);
         if (sqlBinaryExpression != null)
             return sqlBinaryExpression;
 
         AddTranslationErrorDetails(DynamoStrings.UnsupportedBinaryOperator(node.NodeType));
         return QueryCompilationContext.NotTranslatedExpression;
+    }
+
+    /// <summary>
+    ///     Translates a single-segment owned reference navigation operand for null comparisons in
+    ///     predicates.
+    /// </summary>
+    private SqlExpression? TryTranslateOwnedNavigationOperandForNullComparison(Expression operand)
+    {
+        string? memberName = null;
+        Type? memberType = null;
+        Expression? sourceExpression = null;
+
+        if (operand is MemberExpression memberExpression)
+        {
+            memberName = memberExpression.Member.Name;
+            memberType = memberExpression.Type;
+            sourceExpression = memberExpression.Expression;
+        }
+        else if (operand is MethodCallExpression
+            {
+                Method.IsGenericMethod: true,
+                Arguments: [var source, ConstantExpression { Value: string efPropertyName }],
+            } methodCall
+            && methodCall.Method.GetGenericMethodDefinition() == EfPropertyMethod)
+        {
+            memberName = efPropertyName;
+            memberType = methodCall.Type;
+            sourceExpression = source;
+        }
+
+        if (memberName == null || memberType == null)
+            return null;
+
+        var rootEntityType = ResolveRootEntityType(sourceExpression);
+        if (rootEntityType?.FindNavigation(memberName) is not { IsCollection: false } navigation
+            || !navigation.IsEmbedded())
+            return null;
+
+        var navigationAttributeName =
+            navigation.TargetEntityType.GetContainingAttributeName() ?? navigation.Name;
+        return sqlExpressionFactory.Property(navigationAttributeName, memberType);
     }
 
     /// <inheritdoc />
