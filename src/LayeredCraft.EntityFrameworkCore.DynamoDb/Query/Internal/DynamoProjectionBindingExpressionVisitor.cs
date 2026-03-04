@@ -468,9 +468,12 @@ public class DynamoProjectionBindingExpressionVisitor(
 
         if (!_indexBasedBinding)
         {
-            // For other member accesses, try SQL translation
+            // For other member accesses, try SQL translation.
+            // DynamoScalarAccessExpression (nested path) is not supported in SELECT projections —
+            // nested paths are WHERE-only. Return NotTranslated so EF Core falls back to
+            // client-side evaluation via the index-based binding pass.
             var translation = sqlTranslator.Translate(node);
-            if (translation is not SqlPropertyExpression)
+            if (translation is null or DynamoScalarAccessExpression)
                 return QueryCompilationContext.NotTranslatedExpression;
 
             _projectionMapping[_projectionMembers.Peek()] = translation;

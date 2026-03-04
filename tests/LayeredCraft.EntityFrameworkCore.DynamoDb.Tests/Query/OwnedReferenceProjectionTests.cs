@@ -28,6 +28,18 @@ public class OwnedReferenceProjectionTests
         return client;
     }
 
+    /// <summary>Creates a mocked client that returns one item and captures the request.</summary>
+    private static IAmazonDynamoDB CreateMockClientReturning(
+        Dictionary<string, AttributeValue> item,
+        Action<ExecuteStatementRequest> captureRequest)
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        client
+            .ExecuteStatementAsync(Arg.Do(captureRequest), Arg.Any<CancellationToken>())
+            .Returns(new ExecuteStatementResponse { Items = [item] });
+        return client;
+    }
+
     /// <summary>Builds an item with optional top-level profile attribute state.</summary>
     private static Dictionary<string, AttributeValue> CreateItem(
         string pk,
@@ -259,6 +271,53 @@ public class OwnedReferenceProjectionTests
 
         profiles.Should().HaveCount(1);
         profiles[0].Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Where_OwnedReferenceIsNull_TranslatesToProfileNullOrMissingPredicate()
+    {
+        ExecuteStatementRequest? capturedRequest = null;
+        var item = CreateItem("A#7", null, false);
+
+        var client = CreateMockClientReturning(item, r => capturedRequest = r);
+        await using var ctx = AmbiguousModelDbContext.Create(client);
+
+        var results =
+            await ctx
+                .EntityAs
+                .Where(a => a.Profile == null)
+                .Select(a => a.Pk)
+                .AsAsyncEnumerable()
+                .ToListAsync(TestContext.Current.CancellationToken);
+
+        results.Should().Equal("A#7");
+        capturedRequest.Should().NotBeNull();
+        capturedRequest!.Statement.Should().Contain("\"Profile\" IS NULL");
+        capturedRequest.Statement.Should().Contain("\"Profile\" IS MISSING");
+    }
+
+    [Fact]
+    public async Task
+        Where_EfPropertyOwnedReferenceIsNull_TranslatesToProfileNullOrMissingPredicate()
+    {
+        ExecuteStatementRequest? capturedRequest = null;
+        var item = CreateItem("A#8", null, false);
+
+        var client = CreateMockClientReturning(item, r => capturedRequest = r);
+        await using var ctx = AmbiguousModelDbContext.Create(client);
+
+        var results =
+            await ctx
+                .EntityAs
+                .Where(a => EF.Property<SharedProfile?>(a, "Profile") == null)
+                .Select(a => a.Pk)
+                .AsAsyncEnumerable()
+                .ToListAsync(TestContext.Current.CancellationToken);
+
+        results.Should().Equal("A#8");
+        capturedRequest.Should().NotBeNull();
+        capturedRequest!.Statement.Should().Contain("\"Profile\" IS NULL");
+        capturedRequest.Statement.Should().Contain("\"Profile\" IS MISSING");
     }
 
     [Fact]

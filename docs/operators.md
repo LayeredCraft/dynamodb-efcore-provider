@@ -61,6 +61,8 @@ should keep in mind. Add to these sections as support expands.
 | `Contains` | PartiQL `contains(...)` or `IN [ ... ]` | N/A | Only `string.Contains(string)` and in-memory collection membership are supported |
 | `string.StartsWith(string)` | `begins_with(attr, <prefix>)` | N/A | Captured values are parameterized; inline literals may be inlined; other overloads are not translated |
 | `Select` | Explicit projection list | Some computed projections can run client-side | No `SELECT *` |
+| Nested owned property path (`x.Profile.Address.City`) | PartiQL dot-notation `"Profile"."Address"."City"` | N/A | Supported in `Where` predicates only; not supported in `Select` projections |
+| List index access (`x.Tags[0]`) | PartiQL bracket-notation `"Tags"[0]` | N/A | Supported in `Where` predicates only; index must be a compile-time constant |
 | `OrderBy` / `ThenBy` | PartiQL `ORDER BY` | N/A | Precedence and parentheses preserved |
 | `Take(n)` | Sets result limit expression | Stops after `n` results | Does not emit SQL `LIMIT` |
 | `First*` | Sets result limit `1` | Stops after first result | May scan multiple pages unless pagination disabled |
