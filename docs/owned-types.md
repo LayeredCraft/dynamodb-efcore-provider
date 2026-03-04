@@ -100,8 +100,23 @@ same semantics during materialization.
 
 ## Query behavior
 
-DynamoDB PartiQL does not provide full nested-path translation support for provider query translation,
-so the provider projects top-level attributes and extracts owned values client-side.
+### Where predicates
+
+Nested owned property paths and list index accesses are translated to PartiQL dot-notation and
+bracket-notation respectively:
+
+```csharp
+// Translated to: WHERE "Profile"."Address"."City" = 'Seattle'
+context.Customers.Where(x => x.Profile.Address.City == "Seattle")
+
+// Translated to: WHERE "Tags"[0] = 'featured'
+context.Customers.Where(x => x.Tags[0] == "featured")
+```
+
+### Select projections
+
+Nested path access is not supported in `Select` projections. The provider projects the top-level
+owned container and extracts nested values client-side:
 
 ```csharp
 var query = context.Customers
@@ -111,8 +126,8 @@ var query = context.Customers
 Generated PartiQL shape:
 
 ```sql
-SELECT Pk, Profile
-FROM Customers
+SELECT "Pk", "Profile"
+FROM "Customers"
 ```
 
 `Profile` is read from DynamoDB, then `Address.City` is extracted during client-side shaping.
@@ -133,8 +148,7 @@ var rows = await context.Customers
 If `Profile` is null, `Age` is null rather than throwing.
 
 ## Limitations
-- Nested owned member predicates/orderings are not translated (for example
-  `Where(x => x.Profile.Address.City == "Seattle")`).
+- Nested path access is supported in `Where` predicates only; `Select` projections fall back to client-side extraction from the top-level owned container.
 - Direct querying of owned collections via `SelectMany` is not translated.
 - `.Include()` is not required for owned types and has no effect.
 

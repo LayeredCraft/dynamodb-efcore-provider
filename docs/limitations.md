@@ -87,27 +87,6 @@ level today.
 
 ## Owned types query limitations
 
-### Nested path queries (not supported)
-DynamoDB PartiQL does not support querying nested attributes directly. The following queries are
-not supported:
-
-```csharp
-// ❌ Not supported: filtering on owned property
-context.Items.Where(x => x.Profile.Address.City == "Seattle")
-
-// ❌ Not supported: ordering by owned property
-context.Items.OrderBy(x => x.Profile.Age)
-```
-
-**Workaround:** Use `AsAsyncEnumerable()` to switch to client-side evaluation:
-```csharp
-// ✅ Supported: client-side filter after materialization
-var filtered = await context.Items
-    .AsAsyncEnumerable()
-    .Where(x => x.Profile?.Address?.City == "Seattle")
-    .ToListAsync();
-```
-
 ### Direct owned collection queries (not supported)
 You cannot query an owned collection directly:
 
@@ -124,6 +103,24 @@ var orders = await context.Items
     .SelectMany(x => x.Orders)
     .Where(o => o.Total > 100)
     .ToListAsync();
+```
+
+### Nested path access in Select (not supported)
+
+Nested owned property paths (`x.Profile.Address.City`) and list index access (`x.Tags[0]`) are
+translated to PartiQL in `Where` predicates only. Using them in a `Select` projection falls back
+to client-side extraction from the top-level owned container — the full owned container is
+fetched from DynamoDB rather than projecting just the nested attribute.
+
+```csharp
+// ✅ Supported: translates to WHERE "Profile"."Address"."City" = 'Seattle'
+context.Items.Where(x => x.Profile.Address.City == "Seattle")
+
+// ✅ Supported: translates to WHERE "Tags"[0] = 'featured'
+context.Items.Where(x => x.Tags[0] == "featured")
+
+// ⚠️ Client-side only: fetches full "Profile" attribute, extracts City in memory
+context.Items.Select(x => new { x.Pk, x.Profile.Address.City })
 ```
 
 ### Owned types and Include (not applicable)

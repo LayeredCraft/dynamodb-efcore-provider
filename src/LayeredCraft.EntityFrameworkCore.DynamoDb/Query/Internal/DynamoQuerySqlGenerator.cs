@@ -262,6 +262,33 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
     }
 
     /// <summary>
+    ///     Emits a nested scalar path segment as <c>"Parent"."PropertyName"</c> by recursively
+    ///     visiting the parent first then appending a dot and the quoted segment name.
+    /// </summary>
+    protected override Expression VisitDynamoScalarAccess(
+        DynamoScalarAccessExpression scalarAccessExpression)
+    {
+        Visit(scalarAccessExpression.Parent);
+        _sql.Append('.');
+        AppendIdentifier(scalarAccessExpression.PropertyName);
+        return scalarAccessExpression;
+    }
+
+    /// <summary>
+    ///     Emits a list element access as <c>"Source"[index]</c> by visiting the source expression
+    ///     then appending the literal integer index in brackets.
+    /// </summary>
+    protected override Expression VisitDynamoListIndex(
+        DynamoListIndexExpression listIndexExpression)
+    {
+        Visit(listIndexExpression.Source);
+        _sql.Append('[');
+        _sql.Append(listIndexExpression.Index);
+        _sql.Append(']');
+        return listIndexExpression;
+    }
+
+    /// <summary>
     /// Gets the precedence and associativity for an operator expression.
     /// Based on standard SQL operator precedence.
     /// </summary>
@@ -314,9 +341,9 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
             return true; // Conservative: add parentheses if precedence unknown
 
         if (!TryGetOperatorInfo(
-                innerExpression,
-                out var innerPrecedence,
-                out var innerIsAssociative))
+            innerExpression,
+            out var innerPrecedence,
+            out var innerIsAssociative))
             return true; // Conservative: add parentheses if precedence unknown
 
         var innerBinary = (SqlBinaryExpression)innerExpression;

@@ -63,6 +63,9 @@ internal static class DynamoStrings
     public const string MemberAccessNotSupported =
         "Only direct entity member access is supported for server-side DynamoDB translation.";
 
+    public const string ListIndexMustBeConstant =
+        "List element access in server-side DynamoDB translation requires a constant integer index.";
+
     public const string UnaryOperatorNotSupported =
         "Only simple type conversions and logical negation of boolean predicates are supported in server-side DynamoDB translation.";
 
