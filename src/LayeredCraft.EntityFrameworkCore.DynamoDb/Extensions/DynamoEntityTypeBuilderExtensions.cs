@@ -2,6 +2,7 @@ using System.Linq.Expressions;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata.Builders;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Utilities;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 // ReSharper disable CheckNamespace
@@ -119,10 +120,8 @@ public static class DynamoEntityTypeBuilderExtensions
             name.NotEmpty();
             sortKeyPropertyName.NotEmpty();
 
-            var partitionKeyPropertyName = entityTypeBuilder.Metadata.GetPartitionKeyPropertyName();
-            if (partitionKeyPropertyName is null)
-                throw new InvalidOperationException(
-                    $"Entity '{entityTypeBuilder.Metadata.DisplayName()}' must configure a partition key before configuring a local secondary index.");
+            var partitionKeyPropertyName = GetEffectivePartitionKeyPropertyName(entityTypeBuilder.Metadata);
+            EnsureHasEffectiveSortKey(entityTypeBuilder.Metadata, name);
 
             var indexBuilder = entityTypeBuilder.HasIndex([partitionKeyPropertyName, sortKeyPropertyName], name);
             indexBuilder.Metadata.SetSecondaryIndexName(name);
@@ -243,10 +242,8 @@ public static class DynamoEntityTypeBuilderExtensions
             name.NotEmpty();
 
             var sortKeyPropertyName = GetPropertyName(sortKeyExpression);
-            var partitionKeyPropertyName = entityTypeBuilder.Metadata.GetPartitionKeyPropertyName();
-            if (partitionKeyPropertyName is null)
-                throw new InvalidOperationException(
-                    $"Entity '{entityTypeBuilder.Metadata.DisplayName()}' must configure a partition key before configuring a local secondary index.");
+            var partitionKeyPropertyName = GetEffectivePartitionKeyPropertyName(entityTypeBuilder.Metadata);
+            EnsureHasEffectiveSortKey(entityTypeBuilder.Metadata, name);
 
             var indexBuilder = entityTypeBuilder.HasIndex([partitionKeyPropertyName, sortKeyPropertyName], name);
             indexBuilder.Metadata.SetSecondaryIndexName(name);
@@ -267,6 +264,39 @@ public static class DynamoEntityTypeBuilderExtensions
                 $"Expression '{expression}' must be a simple property access.",
                 nameof(expression));
         }
+    }
+
+    /// <summary>Resolves the effective partition key property name from annotations or the EF primary key.</summary>
+    /// <param name="entityType">The entity type being configured.</param>
+    /// <returns>The effective partition key property name.</returns>
+    private static string GetEffectivePartitionKeyPropertyName(IReadOnlyEntityType entityType)
+    {
+        var configuredName = entityType.GetPartitionKeyPropertyName();
+        if (configuredName is not null)
+            return configuredName;
+
+        var primaryKey = entityType.FindPrimaryKey();
+        if (primaryKey?.Properties.FirstOrDefault() is { } partitionKeyProperty)
+            return partitionKeyProperty.Name;
+
+        throw new InvalidOperationException(
+            $"Entity '{entityType.DisplayName()}' must configure or conventionally expose a partition key before configuring a local secondary index.");
+    }
+
+    /// <summary>Ensures the entity type exposes a composite key shape required for local secondary indexes.</summary>
+    /// <param name="entityType">The entity type being configured.</param>
+    /// <param name="indexName">The local secondary index name.</param>
+    private static void EnsureHasEffectiveSortKey(IReadOnlyEntityType entityType, string indexName)
+    {
+        if (entityType.GetSortKeyPropertyName() is not null)
+            return;
+
+        var primaryKey = entityType.FindPrimaryKey();
+        if (primaryKey?.Properties.Count >= 2)
+            return;
+
+        throw new InvalidOperationException(
+            $"Entity '{entityType.DisplayName()}' must have a composite primary key before configuring local secondary index '{indexName}'.");
     }
 
     extension(OwnedNavigationBuilder ownedNavigationBuilder)

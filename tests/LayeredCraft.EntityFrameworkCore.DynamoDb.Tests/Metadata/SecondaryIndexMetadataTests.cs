@@ -82,36 +82,67 @@ public class SecondaryIndexMetadataTests
     }
 
     [Fact]
-    public void HasLocalSecondaryIndex_WithoutConfiguredPartitionKey_ThrowsHelpfulError()
+    public void HasLocalSecondaryIndex_UsesPrimaryKeyConventionWhenPartitionKeyIsNotExplicitlyConfigured()
     {
-        var optionsBuilder = new DbContextOptionsBuilder<MissingPartitionKeyContext>();
+        var optionsBuilder = new DbContextOptionsBuilder<ConventionPartitionKeyContext>();
+        optionsBuilder.UseDynamo();
+
+        using var context = new ConventionPartitionKeyContext(optionsBuilder.Options);
+
+        var entityType = context.Model.FindEntityType(typeof(ConventionPartitionKeyOrder))!;
+        var index = entityType.GetIndexes().Single(x => x.Name == "ByStatus");
+
+        index.Properties.Select(x => x.Name).Should().Equal("TenantId", "Status");
+    }
+
+    [Fact]
+    public void HasLocalSecondaryIndex_WithoutCompositePrimaryKey_ThrowsHelpfulError()
+    {
+        var optionsBuilder = new DbContextOptionsBuilder<HashOnlyTableContext>();
         optionsBuilder.UseDynamo();
 
         Action act = () =>
         {
-            using var context = new MissingPartitionKeyContext(optionsBuilder.Options);
+            using var context = new HashOnlyTableContext(optionsBuilder.Options);
             _ = context.Model;
         };
 
         act.Should().Throw<InvalidOperationException>()
-            .WithMessage("*must configure a partition key before configuring a local secondary index*");
+            .WithMessage("*must have a composite primary key before configuring local secondary index 'ByStatus'*");
     }
 
-    private sealed class MissingPartitionKeyContext(DbContextOptions<MissingPartitionKeyContext> options)
+    private sealed class ConventionPartitionKeyContext(DbContextOptions<ConventionPartitionKeyContext> options)
         : DbContext(options)
     {
         protected override void OnModelCreating(ModelBuilder modelBuilder)
-            => modelBuilder.Entity<MissingPartitionKeyOrder>(entity =>
+            => modelBuilder.Entity<ConventionPartitionKeyOrder>(entity =>
             {
                 entity.HasKey(x => new { x.TenantId, x.OrderId });
                 entity.HasLocalSecondaryIndex("ByStatus", x => x.Status);
             });
     }
 
-    private sealed class MissingPartitionKeyOrder
+    private sealed class ConventionPartitionKeyOrder
     {
         public string TenantId { get; set; } = null!;
         public string OrderId { get; set; } = null!;
+        public string Status { get; set; } = null!;
+    }
+
+    private sealed class HashOnlyTableContext(DbContextOptions<HashOnlyTableContext> options)
+        : DbContext(options)
+    {
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<HashOnlyTableOrder>(entity =>
+            {
+                entity.HasKey(x => x.TenantId);
+                entity.HasLocalSecondaryIndex("ByStatus", x => x.Status);
+            });
+    }
+
+    private sealed class HashOnlyTableOrder
+    {
+        public string TenantId { get; set; } = null!;
         public string Status { get; set; } = null!;
     }
 }
