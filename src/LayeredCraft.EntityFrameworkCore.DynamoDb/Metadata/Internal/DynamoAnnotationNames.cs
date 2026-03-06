@@ -15,4 +15,10 @@ public static class DynamoAnnotationNames
     public const string SortKeyPropertyName = Prefix + "SortKeyPropertyName";
 
     public const string DiscriminatorStrategy = Prefix + "DiscriminatorStrategy";
+
+    public const string SecondaryIndexName = Prefix + "SecondaryIndexName";
+
+    public const string SecondaryIndexKind = Prefix + "SecondaryIndexKind";
+
+    public const string SecondaryIndexProjectionType = Prefix + "SecondaryIndexProjectionType";
 }

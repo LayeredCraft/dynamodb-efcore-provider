@@ -166,4 +166,32 @@ public static class DynamoDbQueryableExtensions
                     ((Func<IQueryable<TEntity>, IQueryable<TEntity>>)WithoutPagination).Method,
                     source.Expression))
             : source;
+
+    /// <summary>Explicitly selects the DynamoDB secondary index to target for this query.</summary>
+    /// <remarks>
+    ///     This API records the user's preferred access path and is intended for provider-specific query
+    ///     routing. The configured index must exist on the mapped table and be compatible with the final
+    ///     query shape.
+    /// </remarks>
+    /// <typeparam name="TEntity">The type of entity being queried.</typeparam>
+    /// <param name="source">The source query.</param>
+    /// <param name="indexName">The DynamoDB secondary index name to target. Must be non-empty.</param>
+    /// <returns>A new query that carries the selected index hint.</returns>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="indexName" /> is empty.</exception>
+    public static IQueryable<TEntity> WithIndex<TEntity>(
+        this IQueryable<TEntity> source,
+        string indexName) where TEntity : class
+    {
+        if (string.IsNullOrWhiteSpace(indexName))
+            throw new ArgumentException("Index name must not be empty.", nameof(indexName));
+
+        return source.Provider is EntityQueryProvider
+            ? source.Provider.CreateQuery<TEntity>(
+                Expression.Call(
+                    null,
+                    ((Func<IQueryable<TEntity>, string, IQueryable<TEntity>>)WithIndex).Method,
+                    source.Expression,
+                    Expression.Constant(indexName, typeof(string))))
+            : source;
+    }
 }

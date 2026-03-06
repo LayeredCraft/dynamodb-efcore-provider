@@ -52,6 +52,13 @@ public class DynamoDbContextOptionsBuilder(DbContextOptionsBuilder optionsBuilde
         return WithOption(e => e.WithDefaultPageSize(pageSize));
     }
 
+    /// <summary>Configures how the provider should apply automatic secondary index selection.</summary>
+    /// <param name="mode">The automatic index selection mode to apply.</param>
+    /// <returns>The builder for chaining.</returns>
+    public virtual DynamoDbContextOptionsBuilder UseAutomaticIndexSelection(
+        DynamoAutomaticIndexSelectionMode mode)
+        => WithOption(e => e.WithAutomaticIndexSelectionMode(mode));
+
     /// <summary>Updates the provider options extension with the supplied mutation action.</summary>
     protected virtual DynamoDbContextOptionsBuilder WithOption(
         Func<DynamoDbOptionsExtension, DynamoDbOptionsExtension> setAction)
