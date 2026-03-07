@@ -77,6 +77,8 @@ public sealed class DynamoModelRuntimeInitializer(
                 DynamoSecondaryIndexProjectionType.All),
         ];
 
+        Dictionary<string, DynamoIndexDescriptor> secondaryIndexesByName = new(StringComparer.Ordinal);
+
         foreach (var index in entityType.EnumerateSecondaryIndexesInHierarchy())
         {
             var secondaryIndexKind = index.GetSecondaryIndexKind();
@@ -87,13 +89,27 @@ public sealed class DynamoModelRuntimeInitializer(
                 ?? throw new InvalidOperationException(
                     $"Secondary index '{index.Name ?? "<unnamed>"}' on entity type '{index.DeclaringEntityType.DisplayName()}' is missing a DynamoDB index name.");
 
-            sources.Add(secondaryIndexKind switch
+            var descriptor = secondaryIndexKind switch
             {
                 DynamoSecondaryIndexKind.Global => BuildGlobalSecondaryIndexDescriptor(index, indexName),
                 DynamoSecondaryIndexKind.Local => BuildLocalSecondaryIndexDescriptor(entityType, index, indexName),
                 _ => throw new InvalidOperationException(
                     $"Secondary index '{indexName}' on entity type '{index.DeclaringEntityType.DisplayName()}' has an unsupported kind '{secondaryIndexKind}'."),
-            });
+            };
+
+            if (!secondaryIndexesByName.TryGetValue(indexName, out var existingDescriptor))
+            {
+                secondaryIndexesByName[indexName] = descriptor;
+                sources.Add(descriptor);
+                continue;
+            }
+
+            if (HasEquivalentSourceSignature(existingDescriptor, descriptor))
+                continue;
+
+            throw new InvalidOperationException(
+                $"Entity type '{entityType.DisplayName()}' defines secondary index name '{indexName}' multiple times with conflicting metadata. "
+                + "Index names must be unique per DynamoDB table and map to a single index definition.");
         }
 
         return sources;
@@ -176,19 +192,19 @@ public sealed class DynamoModelRuntimeInitializer(
     /// </summary>
     /// <remarks>
     ///     Shared-table entity types may expose different secondary-index sets. Compatibility only
-    ///     requires agreement for overlapping secondary indexes with the same runtime source key.
+    ///     requires agreement for overlapping secondary indexes with the same index name.
     /// </remarks>
     private static bool HaveCompatibleSharedTableSources(
         IReadOnlyList<DynamoIndexDescriptor> left,
         IReadOnlyList<DynamoIndexDescriptor> right)
     {
-        var rightByKey = right
+        var rightByName = right
             .Where(static descriptor => descriptor.IndexName is not null)
-            .ToDictionary(static descriptor => GetSourceKey(descriptor), StringComparer.Ordinal);
+            .ToDictionary(static descriptor => descriptor.IndexName!, StringComparer.Ordinal);
 
         foreach (var leftDescriptor in left.Where(static descriptor => descriptor.IndexName is not null))
         {
-            if (!rightByKey.TryGetValue(GetSourceKey(leftDescriptor), out var rightDescriptor))
+            if (!rightByName.TryGetValue(leftDescriptor.IndexName!, out var rightDescriptor))
                 continue;
 
             if (!HasEquivalentSourceSignature(leftDescriptor, rightDescriptor))
@@ -197,10 +213,6 @@ public sealed class DynamoModelRuntimeInitializer(
 
         return true;
     }
-
-    /// <summary>Builds the stable comparison key for a shared secondary-index source.</summary>
-    private static string GetSourceKey(DynamoIndexDescriptor descriptor)
-        => $"{descriptor.Kind}:{descriptor.IndexName}";
 
     /// <summary>Determines whether two source descriptors are equivalent for shared-table analysis.</summary>
     private static bool HasEquivalentSourceSignature(DynamoIndexDescriptor left, DynamoIndexDescriptor right)

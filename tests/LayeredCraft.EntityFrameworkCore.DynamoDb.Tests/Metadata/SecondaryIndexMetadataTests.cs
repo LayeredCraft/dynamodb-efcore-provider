@@ -274,6 +274,53 @@ public class SecondaryIndexMetadataTests
     }
 
     [Fact]
+    public void RuntimeTableModel_SharedTableSameNameDifferentKinds_ThrowsHelpfulError()
+    {
+        var optionsBuilder = new DbContextOptionsBuilder<SharedTableSameNameDifferentKindsContext>();
+        optionsBuilder.UseDynamo();
+
+        Action act = () =>
+        {
+            using var context = new SharedTableSameNameDifferentKindsContext(optionsBuilder.Options);
+            _ = context.Model;
+        };
+
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("*map to DynamoDB table 'Orders' but expose inconsistent secondary-index metadata*");
+    }
+
+    [Fact]
+    public void RuntimeTableModel_HierarchyDuplicateIndexNameWithConflictingDefinitions_IsRejected()
+    {
+        var optionsBuilder = new DbContextOptionsBuilder<HierarchyDuplicateIndexConflictContext>();
+        optionsBuilder.UseDynamo();
+
+        Action act = () =>
+        {
+            using var context = new HierarchyDuplicateIndexConflictContext(optionsBuilder.Options);
+            _ = context.Model;
+        };
+
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("*same name already exists*");
+    }
+
+    [Fact]
+    public void RuntimeTableModel_HierarchyDuplicateIndexNameWithSameDefinition_IsDeduplicated()
+    {
+        var optionsBuilder = new DbContextOptionsBuilder<HierarchyDuplicateIndexSameDefinitionContext>();
+        optionsBuilder.UseDynamo();
+
+        using var context = new HierarchyDuplicateIndexSameDefinitionContext(optionsBuilder.Options);
+
+        var runtimeTableModel = context.Model.GetDynamoRuntimeTableModel()!;
+        var tableDescriptor = runtimeTableModel.Tables["Orders"];
+        var sources = tableDescriptor.SourcesByEntityTypeName[typeof(BaseLookupOrder).FullName!];
+
+        sources.Select(x => x.IndexName).Should().Equal(null, "ByLookup");
+    }
+
+    [Fact]
     public void RuntimeTableModel_SharedTableSecondaryIndexTypeMismatch_ThrowsHelpfulError()
     {
         var optionsBuilder = new DbContextOptionsBuilder<SharedTableMismatchedIndexTypeContext>();
@@ -507,6 +554,99 @@ public class SecondaryIndexMetadataTests
         public string OrderId { get; set; } = null!;
         public string Status { get; set; } = null!;
     }
+
+    private sealed class SharedTableSameNameDifferentKindsContext(DbContextOptions<SharedTableSameNameDifferentKindsContext> options)
+        : DbContext(options)
+    {
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<SharedStatusGsiOrder>(entity =>
+            {
+                entity.ToTable("Orders");
+                entity.HasPartitionKey(x => x.TenantId);
+                entity.HasSortKey(x => x.OrderId);
+                entity.HasGlobalSecondaryIndex("ByStatus", x => x.Status);
+            });
+
+            modelBuilder.Entity<SharedStatusLsiOrder>(entity =>
+            {
+                entity.ToTable("Orders");
+                entity.HasPartitionKey(x => x.TenantId);
+                entity.HasSortKey(x => x.OrderId);
+                entity.HasLocalSecondaryIndex("ByStatus", x => x.Status);
+            });
+        }
+    }
+
+    private sealed class SharedStatusGsiOrder
+    {
+        public string TenantId { get; set; } = null!;
+        public string OrderId { get; set; } = null!;
+        public string Status { get; set; } = null!;
+    }
+
+    private sealed class SharedStatusLsiOrder
+    {
+        public string TenantId { get; set; } = null!;
+        public string OrderId { get; set; } = null!;
+        public string Status { get; set; } = null!;
+    }
+
+    private sealed class HierarchyDuplicateIndexConflictContext(DbContextOptions<HierarchyDuplicateIndexConflictContext> options)
+        : DbContext(options)
+    {
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<BaseLookupOrder>(entity =>
+            {
+                entity.ToTable("Orders");
+                entity.HasPartitionKey(x => x.TenantId);
+                entity.HasSortKey(x => x.OrderId);
+                entity.HasGlobalSecondaryIndex("ByLookup", x => x.CustomerId);
+            });
+
+            modelBuilder.Entity<PriorityLookupOrder>(entity =>
+            {
+                entity.HasBaseType<BaseLookupOrder>();
+                entity.HasGlobalSecondaryIndex("ByLookup", x => x.Priority);
+            });
+        }
+    }
+
+    private sealed class HierarchyDuplicateIndexSameDefinitionContext(DbContextOptions<HierarchyDuplicateIndexSameDefinitionContext> options)
+        : DbContext(options)
+    {
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<BaseLookupOrder>(entity =>
+            {
+                entity.ToTable("Orders");
+                entity.HasPartitionKey(x => x.TenantId);
+                entity.HasSortKey(x => x.OrderId);
+                entity.HasGlobalSecondaryIndex("ByLookup", x => x.CustomerId);
+            });
+
+            modelBuilder.Entity<DerivedLookupOrder>(entity =>
+            {
+                entity.HasBaseType<BaseLookupOrder>();
+                entity.HasGlobalSecondaryIndex("ByLookup", x => x.CustomerId);
+            });
+        }
+    }
+
+    private class BaseLookupOrder
+    {
+        public string TenantId { get; set; } = null!;
+        public string OrderId { get; set; } = null!;
+        public string CustomerId { get; set; } = null!;
+    }
+
+    private sealed class PriorityLookupOrder : BaseLookupOrder
+    {
+        public int Priority { get; set; }
+    }
+
+    private sealed class DerivedLookupOrder : BaseLookupOrder;
 
     private sealed class SharedTableMismatchedIndexTypeContext(DbContextOptions<SharedTableMismatchedIndexTypeContext> options)
         : DbContext(options)
