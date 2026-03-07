@@ -1,3 +1,4 @@
+using LayeredCraft.EntityFrameworkCore.DynamoDb.Extensions;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Storage;
@@ -630,7 +631,7 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
     {
         foreach (var entityType in EnumerateRootEntityTypes(model))
         {
-            foreach (var index in entityType.GetIndexes())
+            foreach (var index in entityType.EnumerateSecondaryIndexesInHierarchy())
             {
                 var indexKind = index.GetSecondaryIndexKind();
                 if (indexKind is null)

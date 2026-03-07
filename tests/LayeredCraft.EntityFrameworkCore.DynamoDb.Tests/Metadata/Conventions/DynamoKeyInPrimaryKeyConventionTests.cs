@@ -106,6 +106,46 @@ public class DynamoKeyInPrimaryKeyConventionTests
     }
 
     // -------------------------------------------------------------------
+    // Shadow properties added after key annotations — synthesis should retry
+    // -------------------------------------------------------------------
+
+    private sealed record LateShadowKeyEntity;
+
+    private sealed class LateShadowKeyContext(DbContextOptions options) : DbContext(options)
+    {
+        public DbSet<LateShadowKeyEntity> Entities { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<LateShadowKeyEntity>(b =>
+            {
+                b.ToTable("LateShadowKeyTable");
+                b.HasPartitionKey("PK");
+                b.HasSortKey("SK");
+                b.Property<string>("PK");
+                b.Property<string>("SK");
+            });
+
+        public static LateShadowKeyContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<LateShadowKeyContext>(client));
+    }
+
+    [Fact]
+    public void HasPartitionAndSortKey_BeforeShadowProperties_AutoConfiguresCompositeEfPrimaryKey()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var ctx = LateShadowKeyContext.Create(client);
+
+        var entityType = ctx.Model.FindEntityType(typeof(LateShadowKeyEntity))!;
+        var primaryKey = entityType.FindPrimaryKey()!;
+
+        primaryKey.Properties.Should().HaveCount(2);
+        primaryKey.Properties[0].Name.Should().Be("PK");
+        primaryKey.Properties[1].Name.Should().Be("SK");
+        entityType.GetPartitionKeyPropertyName().Should().Be("PK");
+        entityType.GetSortKeyPropertyName().Should().Be("SK");
+    }
+
+    // -------------------------------------------------------------------
     // HasSortKey only — validation fails because partition key is required
     // -------------------------------------------------------------------
 

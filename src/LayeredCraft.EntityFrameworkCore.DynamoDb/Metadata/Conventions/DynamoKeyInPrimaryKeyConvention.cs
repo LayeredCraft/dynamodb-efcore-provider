@@ -28,7 +28,8 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata.Conventions;
 ///     <c>[partitionKeyProperty, sortKeyProperty]</c>.
 /// </remarks>
 public sealed class DynamoKeyInPrimaryKeyConvention(
-    ProviderConventionSetBuilderDependencies dependencies) : IEntityTypeAnnotationChangedConvention
+    ProviderConventionSetBuilderDependencies dependencies)
+    : IEntityTypeAnnotationChangedConvention, IPropertyAddedConvention
 {
     // Dependencies are accepted for consistency with the EF Core convention constructor pattern
     // but are not used directly; all logic is in the static ProcessPrimaryKey helper.
@@ -47,6 +48,32 @@ public sealed class DynamoKeyInPrimaryKeyConvention(
             return;
 
         ProcessPrimaryKey(entityTypeBuilder);
+    }
+
+    /// <inheritdoc />
+    public void ProcessPropertyAdded(
+        IConventionPropertyBuilder propertyBuilder,
+        IConventionContext<IConventionPropertyBuilder> context)
+    {
+        if (propertyBuilder.Metadata.DeclaringType is not IConventionEntityType entityType
+            || entityType.Builder is null)
+            return;
+
+        var pkPropertyName = entityType[DynamoAnnotationNames.PartitionKeyPropertyName] as string;
+        if (pkPropertyName is null)
+            return;
+
+        var skPropertyName = entityType[DynamoAnnotationNames.SortKeyPropertyName] as string;
+        var propertyName = propertyBuilder.Metadata.Name;
+
+        var isKeyProperty = string.Equals(propertyName, pkPropertyName, StringComparison.Ordinal)
+            || (skPropertyName is not null
+                && string.Equals(propertyName, skPropertyName, StringComparison.Ordinal));
+
+        if (!isKeyProperty)
+            return;
+
+        ProcessPrimaryKey(entityType.Builder);
     }
 
     /// <summary>
@@ -78,7 +105,7 @@ public sealed class DynamoKeyInPrimaryKeyConvention(
 
         var pkProperty = entityType.FindProperty(pkPropertyName);
         if (pkProperty == null)
-            return; // Property not yet registered; validator will catch this.
+            return; // A later property-added hook may re-run synthesis; validator catches unresolved mappings.
 
         var keyProperties = new List<IConventionProperty> { pkProperty };
 
@@ -86,7 +113,7 @@ public sealed class DynamoKeyInPrimaryKeyConvention(
         {
             var skProperty = entityType.FindProperty(skPropertyName);
             if (skProperty == null)
-                return; // Property not yet registered; validator will catch this.
+                return; // A later property-added hook may re-run synthesis; validator catches unresolved mappings.
 
             if (!keyProperties.Contains(skProperty))
                 keyProperties.Add(skProperty);

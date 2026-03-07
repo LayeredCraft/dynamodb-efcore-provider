@@ -1,4 +1,5 @@
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata.Internal;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 
@@ -42,6 +43,16 @@ internal static class DynamoModelExtensions
 
             return current;
         }
+
+        /// <summary>Enumerates configured secondary indexes across the mapped hierarchy in deterministic order.</summary>
+        internal IEnumerable<IReadOnlyIndex> EnumerateSecondaryIndexesInHierarchy()
+            => entityType
+                .GetDerivedTypesInclusive()
+                .OrderBy(static currentEntityType => currentEntityType.Name, StringComparer.Ordinal)
+                .SelectMany(static currentEntityType => currentEntityType.GetDeclaredIndexes())
+                .Where(static index => index.GetSecondaryIndexKind() is not null)
+                .OrderBy(static index => index.GetSecondaryIndexName() ?? index.Name ?? string.Empty, StringComparer.Ordinal)
+                .ThenBy(static index => index.DeclaringEntityType.Name, StringComparer.Ordinal);
 
         /// <summary>Gets the effective table-group name used for shared-table DynamoDB metadata.</summary>
         internal string GetTableGroupName()

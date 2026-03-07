@@ -148,6 +148,22 @@ public class SecondaryIndexMetadataTests
     }
 
     [Fact]
+    public void DerivedTypeHasLocalSecondaryIndex_UsingTableSortKey_ThrowsHelpfulError()
+    {
+        var optionsBuilder = new DbContextOptionsBuilder<DerivedDuplicateSortKeyContext>();
+        optionsBuilder.UseDynamo();
+
+        Action act = () =>
+        {
+            using var context = new DerivedDuplicateSortKeyContext(optionsBuilder.Options);
+            _ = context.Model;
+        };
+
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("*must use an alternate sort key different from the table sort key*");
+    }
+
+    [Fact]
     public void Model_ContainsRuntimeTableModel_ForConfiguredSecondaryIndexes()
     {
         using var context = CreateContext();
@@ -333,6 +349,34 @@ public class SecondaryIndexMetadataTests
         public string TenantId { get; set; } = null!;
         public string OrderId { get; set; } = null!;
     }
+
+    private sealed class DerivedDuplicateSortKeyContext(DbContextOptions<DerivedDuplicateSortKeyContext> options)
+        : DbContext(options)
+    {
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<BaseDerivedDuplicateSortKeyOrder>(entity =>
+            {
+                entity.ToTable("Orders");
+                entity.HasPartitionKey(x => x.TenantId);
+                entity.HasSortKey(x => x.OrderId);
+            });
+
+            modelBuilder.Entity<DerivedDuplicateSortKeyOrder>(entity =>
+            {
+                entity.HasBaseType<BaseDerivedDuplicateSortKeyOrder>();
+                entity.HasLocalSecondaryIndex("ByOrderId", x => x.OrderId);
+            });
+        }
+    }
+
+    private class BaseDerivedDuplicateSortKeyOrder
+    {
+        public string TenantId { get; set; } = null!;
+        public string OrderId { get; set; } = null!;
+    }
+
+    private sealed class DerivedDuplicateSortKeyOrder : BaseDerivedDuplicateSortKeyOrder;
 
     private sealed class DerivedIndexContext(DbContextOptions<DerivedIndexContext> options)
         : DbContext(options)

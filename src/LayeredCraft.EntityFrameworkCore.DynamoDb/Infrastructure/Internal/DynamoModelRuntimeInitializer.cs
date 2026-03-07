@@ -77,7 +77,7 @@ public sealed class DynamoModelRuntimeInitializer(
                 DynamoSecondaryIndexProjectionType.All),
         ];
 
-        foreach (var index in GetSecondaryIndexes(entityType))
+        foreach (var index in entityType.EnumerateSecondaryIndexesInHierarchy())
         {
             var secondaryIndexKind = index.GetSecondaryIndexKind();
             if (secondaryIndexKind is null)
@@ -98,16 +98,6 @@ public sealed class DynamoModelRuntimeInitializer(
 
         return sources;
     }
-
-    /// <summary>Enumerates configured secondary indexes across a mapped hierarchy in deterministic order.</summary>
-    private static IEnumerable<IReadOnlyIndex> GetSecondaryIndexes(IReadOnlyEntityType rootEntityType)
-        => rootEntityType
-            .GetDerivedTypesInclusive()
-            .OrderBy(static entityType => entityType.Name, StringComparer.Ordinal)
-            .SelectMany(static entityType => entityType.GetDeclaredIndexes())
-            .Where(static index => index.GetSecondaryIndexKind() is not null)
-            .OrderBy(static index => index.GetSecondaryIndexName() ?? index.Name ?? string.Empty, StringComparer.Ordinal)
-            .ThenBy(static index => index.DeclaringEntityType.Name, StringComparer.Ordinal);
 
     /// <summary>Builds a runtime descriptor for a global secondary index.</summary>
     private static DynamoIndexDescriptor BuildGlobalSecondaryIndexDescriptor(
@@ -186,7 +176,7 @@ public sealed class DynamoModelRuntimeInitializer(
     ///     Comparison is positional. Both lists must be in the same order, which is guaranteed
     ///     because <see cref="BuildSourceDescriptors"/> always places the base-table descriptor
     ///     first and then appends secondary indexes in the order returned by
-    ///     <see cref="GetSecondaryIndexes"/>. Any future change to that ordering must be reflected
+    ///     <see cref="LayeredCraft.EntityFrameworkCore.DynamoDb.Extensions.DynamoModelExtensions.EnumerateSecondaryIndexesInHierarchy"/>. Any future change to that ordering must be reflected
     ///     here to keep shared-table consistency validation correct.
     /// </remarks>
     private static bool HaveEquivalentSourceSignatures(

@@ -20,8 +20,11 @@ public sealed class DynamoConventionSetBuilder(
             new DynamoKeyDiscoveryConvention(Dependencies));
         conventionSet.ModelFinalizingConventions.Add(new DynamoDiscriminatorConvention());
         conventionSet.ModelFinalizingConventions.Add(new DynamoKeyAnnotationConvention());
-        conventionSet.EntityTypeAnnotationChangedConventions.Add(
-            new DynamoKeyInPrimaryKeyConvention(Dependencies));
+
+        var keyInPrimaryKeyConvention = new DynamoKeyInPrimaryKeyConvention(Dependencies);
+        conventionSet.EntityTypeAnnotationChangedConventions.Add(keyInPrimaryKeyConvention);
+        conventionSet.PropertyAddedConventions.Add(keyInPrimaryKeyConvention);
+
         conventionSet.ModelFinalizingConventions.Add(new OwnedTypePrimaryKeyConvention());
 
         return conventionSet;
