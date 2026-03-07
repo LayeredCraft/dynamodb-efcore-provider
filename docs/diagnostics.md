@@ -30,6 +30,7 @@ icon: lucide/stethoscope
 - Shared-table key mappings fail model validation when key type categories differ for the same PK/SK attribute (string vs number vs binary).
 - Key properties fail model validation when they are nullable or resolve to nullable converter provider types.
 - Key properties fail model validation when provider types are not DynamoDB key-compatible (`string`, number, `byte[]`), including `bool`.
+- Secondary-index key properties fail model validation when their effective provider types are not DynamoDB key-compatible (`string`, number, `byte[]`), including `bool`.
 - Root entity types fail model validation when they configure `HasKey(...)` or `[Key]` directly instead of using DynamoDB key mapping.
 - Local secondary indexes fail model validation when the table does not resolve a DynamoDB sort key.
 - Shared-table discriminator mappings fail model validation when discriminator values are duplicated.
@@ -40,6 +41,8 @@ icon: lucide/stethoscope
 - **Explicit root `HasKey(...)`**: root DynamoDB entities must use `HasPartitionKey(...)` and, when needed, `HasSortKey(...)`. The provider derives the EF primary key automatically.
 - **No resolved Dynamo key**: if startup still fails after removing `HasKey(...)`, ensure the model resolves a DynamoDB partition key and optional sort key through explicit configuration or the supported naming conventions (`PK` / `PartitionKey`, `SK` / `SortKey`).
 - **Local secondary index requires a sort key**: `HasLocalSecondaryIndex(...)` only works when the table already resolves both a DynamoDB partition key and sort key.
+- **Unsupported secondary-index key type**: secondary-index key properties must map to a DynamoDB key-compatible provider type (`string`, number, `byte[]`). Use a `ValueConverter` when the CLR property type differs from the stored key type.
+- **Sparse secondary indexes**: nullable secondary-index key properties are allowed. Items without key-compatible scalar secondary-key attributes are not present in the secondary index.
 
 ## Discriminator troubleshooting
 - **Missing discriminator in results**: if returned items omit the configured discriminator attribute

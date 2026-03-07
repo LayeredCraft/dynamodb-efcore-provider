@@ -50,7 +50,8 @@ icon: lucide/triangle-alert
 - Key properties must resolve to DynamoDB key-compatible provider types: string, number, or binary (`byte[]`).
 - `bool` key mappings are rejected.
 - Converter-backed key mappings are validated against the converter provider CLR type.
-- Key properties must be required/non-nullable, and converter provider types for keys must also be non-nullable.
+- Table partition/sort key properties must be required/non-nullable, and converter provider types for table keys must also be non-nullable.
+- Secondary-index key properties must resolve to key-compatible provider types, but may be nullable (items without key-compatible scalar secondary-key attributes are not indexed).
 
 Practical implication:
 
