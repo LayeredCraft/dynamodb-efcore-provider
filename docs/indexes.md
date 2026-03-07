@@ -56,6 +56,8 @@ Notes:
 - The GSI partition key is never inferred from the table key.
 - The optional GSI sort key is never inferred from EF key ordering.
 - GSI key schema is part of the public configuration API because DynamoDB requires explicit index identity and key shape.
+- GSI key properties must resolve to DynamoDB key-compatible provider types (`string`, number, or `byte[]`).
+- Nullable GSI key properties are allowed and map to sparse-index membership semantics (items without the key attribute are not present in the index).
 
 ## Local secondary indexes (LSI)
 
@@ -77,6 +79,8 @@ Requirements:
 - The table must already resolve a DynamoDB partition key.
 - The table must already resolve a DynamoDB sort key.
 - Root entities must resolve the table keys through `HasPartitionKey(...)` / `HasSortKey(...)` or the Dynamo naming conventions.
+- The LSI alternate sort key property must resolve to a DynamoDB key-compatible provider type (`string`, number, or `byte[]`).
+- Nullable LSI alternate sort key properties are allowed and result in sparse index membership for items without the attribute.
 
 Convention-based table keys also work:
 

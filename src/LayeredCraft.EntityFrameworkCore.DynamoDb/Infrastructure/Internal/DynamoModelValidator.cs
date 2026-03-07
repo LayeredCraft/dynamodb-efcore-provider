@@ -637,18 +637,46 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
                 if (indexKind is null)
                     continue;
 
-                if (indexKind == DynamoSecondaryIndexKind.Global)
-                    continue;
-
-                ValidateLocalSecondaryIndex(entityType, index);
+                switch (indexKind)
+                {
+                    case DynamoSecondaryIndexKind.Global:
+                        ValidateGlobalSecondaryIndex(entityType, index);
+                        break;
+                    case DynamoSecondaryIndexKind.Local:
+                        ValidateLocalSecondaryIndex(entityType, index);
+                        break;
+                }
             }
         }
+    }
+
+    /// <summary>Validates that a configured global secondary index has a supported key shape.</summary>
+    private static void ValidateGlobalSecondaryIndex(IEntityType entityType, IReadOnlyIndex index)
+    {
+        var indexName = GetSecondaryIndexDisplayName(index);
+        if (index.Properties.Count is < 1 or > 2)
+            throw new InvalidOperationException(
+                $"Entity type '{entityType.DisplayName()}' configures global secondary index '{indexName}', "
+                + $"but the GSI metadata contains {index.Properties.Count} key properties. Global secondary indexes must define one partition key and optional sort key.");
+
+        ValidateSecondaryIndexKeyPropertyType(
+            entityType,
+            index,
+            index.Properties[0],
+            "global secondary index partition key");
+
+        if (index.Properties.Count == 2)
+            ValidateSecondaryIndexKeyPropertyType(
+                entityType,
+                index,
+                index.Properties[1],
+                "global secondary index sort key");
     }
 
     /// <summary>Validates that a configured local secondary index has a valid alternate sort key.</summary>
     private static void ValidateLocalSecondaryIndex(IEntityType entityType, IReadOnlyIndex index)
     {
-        var indexName = index.GetSecondaryIndexName() ?? index.Name ?? "<unnamed>";
+        var indexName = GetSecondaryIndexDisplayName(index);
         var partitionKeyProperty = entityType.GetPartitionKeyProperty();
         if (partitionKeyProperty is null)
             throw new InvalidOperationException(
@@ -671,7 +699,37 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
             throw new InvalidOperationException(
                 $"Entity type '{entityType.DisplayName()}' configures local secondary index '{indexName}' using property '{localSortKeyProperty.Name}', "
                 + "but a local secondary index must use an alternate sort key different from the table sort key.");
+
+        ValidateSecondaryIndexKeyPropertyType(
+            entityType,
+            index,
+            localSortKeyProperty,
+            "local secondary index sort key");
     }
+
+    /// <summary>Validates a secondary-index key property resolves to a DynamoDB key-compatible provider type.</summary>
+    private static void ValidateSecondaryIndexKeyPropertyType(
+        IEntityType entityType,
+        IReadOnlyIndex index,
+        IReadOnlyProperty keyProperty,
+        string keyRole)
+    {
+        var effectiveProviderType = GetEffectiveProviderClrType(keyProperty);
+        var typeCategory = GetKeyTypeCategory(effectiveProviderType);
+        if (typeCategory is not DynamoKeyTypeCategory.Unsupported)
+            return;
+
+        throw new InvalidOperationException(
+            $"Entity type '{entityType.DisplayName()}' configures secondary index '{GetSecondaryIndexDisplayName(index)}' "
+            + $"with property '{keyProperty.Name}' as DynamoDB {keyRole}, "
+            + $"but the effective provider type '{effectiveProviderType.ShortDisplayName()}' is not supported. "
+            + "DynamoDB secondary index keys must be string, number, or binary (byte[]). "
+            + "Configure a ValueConverter when the CLR key type differs from the stored key type.");
+    }
+
+    /// <summary>Gets a stable display name for secondary-index validation messages.</summary>
+    private static string GetSecondaryIndexDisplayName(IReadOnlyIndex index)
+        => index.GetSecondaryIndexName() ?? index.Name ?? "<unnamed>";
 
     /// <summary>Returns root entity types that participate in top-level DynamoDB table mappings.</summary>
     private static IEnumerable<IEntityType> EnumerateRootEntityTypes(IModel model)
@@ -683,14 +741,14 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
                 && entityType.BaseType == null);
 
     /// <summary>Returns the effective provider CLR type with nullable wrappers removed.</summary>
-    private static Type GetEffectiveProviderClrType(IProperty property)
+    private static Type GetEffectiveProviderClrType(IReadOnlyProperty property)
     {
         var providerType = GetEffectiveProviderClrTypeIncludingNullable(property);
         return Nullable.GetUnderlyingType(providerType) ?? providerType;
     }
 
     /// <summary>Returns the effective provider CLR type and preserves nullable wrappers.</summary>
-    private static Type GetEffectiveProviderClrTypeIncludingNullable(IProperty property)
+    private static Type GetEffectiveProviderClrTypeIncludingNullable(IReadOnlyProperty property)
         => property.GetTypeMapping().Converter?.ProviderClrType ?? property.ClrType;
 
     /// <summary>Maps a CLR type to the DynamoDB key type categories used in validation.</summary>
