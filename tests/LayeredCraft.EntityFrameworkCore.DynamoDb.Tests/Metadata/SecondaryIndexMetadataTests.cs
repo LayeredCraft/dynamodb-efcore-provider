@@ -129,7 +129,7 @@ public class SecondaryIndexMetadataTests
         };
 
         act.Should().Throw<InvalidOperationException>()
-            .WithMessage("*no DynamoDB sort key is configured*before configuring an LSI*" );
+            .WithMessage("*no DynamoDB sort key is configured*before configuring an LSI*");
     }
 
     [Fact]
@@ -194,6 +194,24 @@ public class SecondaryIndexMetadataTests
     }
 
     [Fact]
+    public void RuntimeTableModel_IncludesDerivedTypeSecondaryIndexes()
+    {
+        var optionsBuilder = new DbContextOptionsBuilder<DerivedIndexContext>();
+        optionsBuilder.UseDynamo();
+
+        using var context = new DerivedIndexContext(optionsBuilder.Options);
+
+        var runtimeTableModel = context.Model.GetDynamoRuntimeTableModel()!;
+        var tableDescriptor = runtimeTableModel.Tables["Orders"];
+        var sources = tableDescriptor.SourcesByEntityTypeName[typeof(BaseOrder).FullName!];
+
+        sources.Select(x => x.IndexName).Should().Equal(null, "ByPriority", "ByStatus");
+        sources[1].ModelIndex.Should().NotBeNull();
+        sources[1].ModelIndex!.DeclaringEntityType.ClrType.Should().Be(typeof(PriorityOrder));
+        sources[1].PartitionKeyProperty.Name.Should().Be(nameof(PriorityOrder.Priority));
+    }
+
+    [Fact]
     public void RuntimeTableModel_CanonicalizesSharedTableMappings()
     {
         var optionsBuilder = new DbContextOptionsBuilder<SharedTableContext>();
@@ -216,6 +234,22 @@ public class SecondaryIndexMetadataTests
         tableDescriptor.SourcesByEntityTypeName.Values.Should().OnlyContain(x => x.Count == 3);
         tableDescriptor.SourcesByEntityTypeName.Values.Should().OnlyContain(
             x => x.Select(source => source.IndexName).SequenceEqual(new string?[] { null, "ByCustomer", "ByStatus" }));
+    }
+
+    [Fact]
+    public void RuntimeTableModel_SharedTableSecondaryIndexTypeMismatch_ThrowsHelpfulError()
+    {
+        var optionsBuilder = new DbContextOptionsBuilder<SharedTableMismatchedIndexTypeContext>();
+        optionsBuilder.UseDynamo();
+
+        Action act = () =>
+        {
+            using var context = new SharedTableMismatchedIndexTypeContext(optionsBuilder.Options);
+            _ = context.Model;
+        };
+
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("*map to DynamoDB table 'Orders' but expose inconsistent secondary-index metadata*");
     }
 
     [Fact]
@@ -301,6 +335,40 @@ public class SecondaryIndexMetadataTests
         public string OrderId { get; set; } = null!;
     }
 
+    private sealed class DerivedIndexContext(DbContextOptions<DerivedIndexContext> options)
+        : DbContext(options)
+    {
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<BaseOrder>(entity =>
+            {
+                entity.ToTable("Orders");
+                entity.HasKey(x => new { x.TenantId, x.OrderId });
+                entity.HasPartitionKey(x => x.TenantId);
+                entity.HasSortKey(x => x.OrderId);
+                entity.HasLocalSecondaryIndex("ByStatus", x => x.Status);
+            });
+
+            modelBuilder.Entity<PriorityOrder>(entity =>
+            {
+                entity.HasBaseType<BaseOrder>();
+                entity.HasGlobalSecondaryIndex("ByPriority", x => x.Priority);
+            });
+        }
+    }
+
+    private class BaseOrder
+    {
+        public string TenantId { get; set; } = null!;
+        public string OrderId { get; set; } = null!;
+        public string Status { get; set; } = null!;
+    }
+
+    private sealed class PriorityOrder : BaseOrder
+    {
+        public int Priority { get; set; }
+    }
+
     private sealed class SharedTableContext(DbContextOptions<SharedTableContext> options)
         : DbContext(options)
     {
@@ -335,5 +403,40 @@ public class SecondaryIndexMetadataTests
         public string OrderId { get; set; } = null!;
         public string CustomerId { get; set; } = null!;
         public string Status { get; set; } = null!;
+    }
+
+    private sealed class SharedTableMismatchedIndexTypeContext(DbContextOptions<SharedTableMismatchedIndexTypeContext> options)
+        : DbContext(options)
+    {
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<StringCustomerOrder>(entity =>
+            {
+                entity.ToTable("Orders");
+                entity.HasKey(x => x.TenantId);
+                entity.HasPartitionKey(x => x.TenantId);
+                entity.HasGlobalSecondaryIndex("ByCustomer", x => x.CustomerId);
+            });
+
+            modelBuilder.Entity<NumericCustomerOrder>(entity =>
+            {
+                entity.ToTable("Orders");
+                entity.HasKey(x => x.TenantId);
+                entity.HasPartitionKey(x => x.TenantId);
+                entity.HasGlobalSecondaryIndex("ByCustomer", x => x.CustomerId);
+            });
+        }
+    }
+
+    private sealed class StringCustomerOrder
+    {
+        public string TenantId { get; set; } = null!;
+        public string CustomerId { get; set; } = null!;
+    }
+
+    private sealed class NumericCustomerOrder
+    {
+        public string TenantId { get; set; } = null!;
+        public int CustomerId { get; set; }
     }
 }

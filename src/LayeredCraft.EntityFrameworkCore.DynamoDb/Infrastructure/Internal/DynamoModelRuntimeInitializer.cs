@@ -2,7 +2,6 @@ using LayeredCraft.EntityFrameworkCore.DynamoDb.Extensions;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 
@@ -30,7 +29,7 @@ public sealed class DynamoModelRuntimeInitializer(
 
         model.GetOrAddRuntimeAnnotationValue(
             DynamoAnnotationNames.RuntimeTableModel,
-            static currentModel => BuildRuntimeTableModel(currentModel),
+            static currentModel => BuildRuntimeTableModel((IReadOnlyModel)currentModel),
             model);
     }
 
@@ -78,7 +77,7 @@ public sealed class DynamoModelRuntimeInitializer(
                 DynamoSecondaryIndexProjectionType.All),
         ];
 
-        foreach (var index in entityType.GetIndexes())
+        foreach (var index in GetSecondaryIndexes(entityType))
         {
             var secondaryIndexKind = index.GetSecondaryIndexKind();
             if (secondaryIndexKind is null)
@@ -86,19 +85,29 @@ public sealed class DynamoModelRuntimeInitializer(
 
             var indexName = index.GetSecondaryIndexName()
                 ?? throw new InvalidOperationException(
-                    $"Secondary index '{index.Name ?? "<unnamed>"}' on entity type '{entityType.DisplayName()}' is missing a DynamoDB index name.");
+                    $"Secondary index '{index.Name ?? "<unnamed>"}' on entity type '{index.DeclaringEntityType.DisplayName()}' is missing a DynamoDB index name.");
 
             sources.Add(secondaryIndexKind switch
             {
                 DynamoSecondaryIndexKind.Global => BuildGlobalSecondaryIndexDescriptor(index, indexName),
                 DynamoSecondaryIndexKind.Local => BuildLocalSecondaryIndexDescriptor(entityType, index, indexName),
                 _ => throw new InvalidOperationException(
-                    $"Secondary index '{indexName}' on entity type '{entityType.DisplayName()}' has an unsupported kind '{secondaryIndexKind}'."),
+                    $"Secondary index '{indexName}' on entity type '{index.DeclaringEntityType.DisplayName()}' has an unsupported kind '{secondaryIndexKind}'."),
             });
         }
 
         return sources;
     }
+
+    /// <summary>Enumerates configured secondary indexes across a mapped hierarchy in deterministic order.</summary>
+    private static IEnumerable<IReadOnlyIndex> GetSecondaryIndexes(IReadOnlyEntityType rootEntityType)
+        => rootEntityType
+            .GetDerivedTypesInclusive()
+            .OrderBy(static entityType => entityType.Name, StringComparer.Ordinal)
+            .SelectMany(static entityType => entityType.GetDeclaredIndexes())
+            .Where(static index => index.GetSecondaryIndexKind() is not null)
+            .OrderBy(static index => index.GetSecondaryIndexName() ?? index.Name ?? string.Empty, StringComparer.Ordinal)
+            .ThenBy(static index => index.DeclaringEntityType.Name, StringComparer.Ordinal);
 
     /// <summary>Builds a runtime descriptor for a global secondary index.</summary>
     private static DynamoIndexDescriptor BuildGlobalSecondaryIndexDescriptor(
@@ -133,7 +142,7 @@ public sealed class DynamoModelRuntimeInitializer(
         if (index.Properties.Count != 1)
         {
             throw new InvalidOperationException(
-                $"Local secondary index '{indexName}' on entity type '{entityType.DisplayName()}' must define exactly one alternate sort-key property.");
+                $"Local secondary index '{indexName}' on entity type '{index.DeclaringEntityType.DisplayName()}' must define exactly one alternate sort-key property.");
         }
 
         return new DynamoIndexDescriptor(
@@ -177,10 +186,8 @@ public sealed class DynamoModelRuntimeInitializer(
     ///     Comparison is positional. Both lists must be in the same order, which is guaranteed
     ///     because <see cref="BuildSourceDescriptors"/> always places the base-table descriptor
     ///     first and then appends secondary indexes in the order returned by
-    ///     <see cref="Microsoft.EntityFrameworkCore.Metadata.IReadOnlyEntityType.GetIndexes"/>,
-    ///     which is deterministic (unnamed indexes first, then named indexes alphabetically).
-    ///     Any future change to that ordering in <see cref="BuildSourceDescriptors"/> must be
-    ///     reflected here to keep shared-table consistency validation correct.
+    ///     <see cref="GetSecondaryIndexes"/>. Any future change to that ordering must be reflected
+    ///     here to keep shared-table consistency validation correct.
     /// </remarks>
     private static bool HaveEquivalentSourceSignatures(
         IReadOnlyList<DynamoIndexDescriptor> left,
@@ -204,5 +211,49 @@ public sealed class DynamoModelRuntimeInitializer(
             && left.Kind == right.Kind
             && left.ProjectionType == right.ProjectionType
             && left.PartitionKeyProperty.GetAttributeName() == right.PartitionKeyProperty.GetAttributeName()
-            && left.SortKeyProperty?.GetAttributeName() == right.SortKeyProperty?.GetAttributeName();
+            && left.SortKeyProperty?.GetAttributeName() == right.SortKeyProperty?.GetAttributeName()
+            && GetKeyTypeCategory(GetEffectiveProviderClrType(left.PartitionKeyProperty))
+                == GetKeyTypeCategory(GetEffectiveProviderClrType(right.PartitionKeyProperty))
+            && GetSortKeyTypeCategory(left.SortKeyProperty) == GetSortKeyTypeCategory(right.SortKeyProperty);
+
+    /// <summary>Returns the effective provider CLR type with nullable wrappers removed.</summary>
+    private static Type GetEffectiveProviderClrType(IReadOnlyProperty property)
+    {
+        var providerType = property.GetTypeMapping().Converter?.ProviderClrType ?? property.ClrType;
+        return Nullable.GetUnderlyingType(providerType) ?? providerType;
+    }
+
+    /// <summary>Maps a CLR type to the DynamoDB key type categories used in validation.</summary>
+    private static DynamoKeyTypeCategory GetKeyTypeCategory(Type clrType)
+        => clrType == typeof(string) ? DynamoKeyTypeCategory.String :
+            clrType == typeof(byte[]) ? DynamoKeyTypeCategory.Binary :
+            IsNumericType(clrType) ? DynamoKeyTypeCategory.Number :
+            DynamoKeyTypeCategory.Unsupported;
+
+    /// <summary>Determines whether a CLR type is treated as a DynamoDB numeric key type.</summary>
+    private static bool IsNumericType(Type clrType)
+        => Type.GetTypeCode(clrType) is TypeCode.Byte
+            or TypeCode.SByte
+            or TypeCode.Int16
+            or TypeCode.UInt16
+            or TypeCode.Int32
+            or TypeCode.UInt32
+            or TypeCode.Int64
+            or TypeCode.UInt64
+            or TypeCode.Single
+            or TypeCode.Double
+            or TypeCode.Decimal;
+
+    /// <summary>Gets the key type category for an optional sort key property.</summary>
+    private static DynamoKeyTypeCategory GetSortKeyTypeCategory(IReadOnlyProperty? property)
+        => property is null ? DynamoKeyTypeCategory.Unsupported : GetKeyTypeCategory(GetEffectiveProviderClrType(property));
+
+    /// <summary>Represents supported DynamoDB key type categories for runtime consistency checks.</summary>
+    private enum DynamoKeyTypeCategory
+    {
+        Unsupported,
+        String,
+        Number,
+        Binary,
+    }
 }
