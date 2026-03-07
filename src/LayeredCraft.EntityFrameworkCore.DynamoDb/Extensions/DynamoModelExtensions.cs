@@ -16,7 +16,6 @@ internal static class DynamoModelExtensions
 
     extension(IReadOnlyModel model)
     {
-        
         /// <summary>Enumerates non-owned root entity types in model order.</summary>
         internal IEnumerable<IReadOnlyEntityType> EnumerateRootEntityTypes()
             => model.GetEntityTypes()

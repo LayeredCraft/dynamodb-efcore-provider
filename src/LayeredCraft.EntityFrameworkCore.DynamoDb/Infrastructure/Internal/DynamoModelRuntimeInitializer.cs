@@ -5,7 +5,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Infrastructure.Internal;
 
@@ -15,23 +14,24 @@ public sealed class DynamoModelRuntimeInitializer(
     : ModelRuntimeInitializer(dependencies)
 {
     /// <summary>Attaches the canonical runtime table model to the finalized runtime model.</summary>
-    public override IModel Initialize(
-        IModel model,
-        bool designTime = true,
-        IDiagnosticsLogger<DbLoggerCategory.Model.Validation>? validationLogger = null)
+    /// <remarks>
+    ///     Overrides <see cref="ModelRuntimeInitializer.InitializeModel"/> rather than
+    ///     <see cref="ModelRuntimeInitializer.Initialize"/> to avoid depending on the undocumented
+    ///     return-value contract of <c>Initialize</c> changing based on <paramref name="designTime"/>.
+    ///     The <c>prevalidation=false</c> pass runs after model validation, so all metadata is
+    ///     guaranteed to be consistent when the runtime descriptors are built.
+    /// </remarks>
+    protected override void InitializeModel(IModel model, bool designTime, bool prevalidation)
     {
-        var initializedModel = base.Initialize(model, designTime, validationLogger);
+        base.InitializeModel(model, designTime, prevalidation);
 
-        var runtimeModel = designTime
-            ? (IModel)initializedModel.FindRuntimeAnnotationValue(CoreAnnotationNames.ReadOnlyModel)!
-            : initializedModel;
+        if (prevalidation)
+            return;
 
-        runtimeModel.GetOrAddRuntimeAnnotationValue(
+        model.GetOrAddRuntimeAnnotationValue(
             DynamoAnnotationNames.RuntimeTableModel,
             static currentModel => BuildRuntimeTableModel(currentModel),
-            runtimeModel);
-
-        return initializedModel;
+            model);
     }
 
     /// <summary>Builds runtime table descriptors grouped by effective physical table name.</summary>
@@ -170,7 +170,18 @@ public sealed class DynamoModelRuntimeInitializer(
         }
     }
 
-    /// <summary>Determines whether two source lists describe the same access paths by metadata shape.</summary>
+    /// <summary>
+    ///     Determines whether two source lists describe the same access paths by metadata shape.
+    /// </summary>
+    /// <remarks>
+    ///     Comparison is positional. Both lists must be in the same order, which is guaranteed
+    ///     because <see cref="BuildSourceDescriptors"/> always places the base-table descriptor
+    ///     first and then appends secondary indexes in the order returned by
+    ///     <see cref="Microsoft.EntityFrameworkCore.Metadata.IReadOnlyEntityType.GetIndexes"/>,
+    ///     which is deterministic (unnamed indexes first, then named indexes alphabetically).
+    ///     Any future change to that ordering in <see cref="BuildSourceDescriptors"/> must be
+    ///     reflected here to keep shared-table consistency validation correct.
+    /// </remarks>
     private static bool HaveEquivalentSourceSignatures(
         IReadOnlyList<DynamoIndexDescriptor> left,
         IReadOnlyList<DynamoIndexDescriptor> right)

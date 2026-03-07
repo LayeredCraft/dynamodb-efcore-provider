@@ -181,14 +181,14 @@ public class SecondaryIndexMetadataTests
             DynamoIndexSourceKind.GlobalSecondaryIndex,
             DynamoIndexSourceKind.LocalSecondaryIndex);
 
-        sources[0].PartitionKeyProperty.Should().BeSameAs(entityType.FindProperty(nameof(Order.TenantId)));
-        sources[0].SortKeyProperty.Should().BeSameAs(entityType.FindProperty(nameof(Order.OrderId)));
-        sources[1].PartitionKeyProperty.Should().BeSameAs(entityType.FindProperty(nameof(Order.CustomerId)));
+        sources[0].PartitionKeyProperty.Name.Should().Be(nameof(Order.TenantId));
+        sources[0].SortKeyProperty!.Name.Should().Be(nameof(Order.OrderId));
+        sources[1].PartitionKeyProperty.Name.Should().Be(nameof(Order.CustomerId));
         sources[1].SortKeyProperty.Should().BeNull();
-        sources[2].PartitionKeyProperty.Should().BeSameAs(entityType.FindProperty(nameof(Order.CustomerId)));
-        sources[2].SortKeyProperty.Should().BeSameAs(entityType.FindProperty(nameof(Order.CreatedAtUtc)));
-        sources[3].PartitionKeyProperty.Should().BeSameAs(entityType.FindProperty(nameof(Order.TenantId)));
-        sources[3].SortKeyProperty.Should().BeSameAs(entityType.FindProperty(nameof(Order.Status)));
+        sources[2].PartitionKeyProperty.Name.Should().Be(nameof(Order.CustomerId));
+        sources[2].SortKeyProperty!.Name.Should().Be(nameof(Order.CreatedAtUtc));
+        sources[3].PartitionKeyProperty.Name.Should().Be(nameof(Order.TenantId));
+        sources[3].SortKeyProperty!.Name.Should().Be(nameof(Order.Status));
 
         sources.Should().OnlyContain(x => x.ProjectionType == DynamoSecondaryIndexProjectionType.All);
     }
