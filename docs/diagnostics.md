@@ -30,9 +30,16 @@ icon: lucide/stethoscope
 - Shared-table key mappings fail model validation when key type categories differ for the same PK/SK attribute (string vs number vs binary).
 - Key properties fail model validation when they are nullable or resolve to nullable converter provider types.
 - Key properties fail model validation when provider types are not DynamoDB key-compatible (`string`, number, `byte[]`), including `bool`.
+- Entity types fail model validation when they configure only `HasKey(...)` and never resolve a DynamoDB partition key.
+- Local secondary indexes fail model validation when the table does not resolve a DynamoDB sort key.
 - Shared-table discriminator mappings fail model validation when discriminator values are duplicated.
 - Shared-table discriminator mappings fail model validation when discriminator attribute names differ across entity types mapped to the same table.
 - Shared-table discriminator mappings fail model validation when discriminator attribute name collides with PK or SK attribute names.
+
+## Key mapping troubleshooting
+- **`HasKey(...)` only**: `HasKey(...)` configures the EF primary key only. Add `HasPartitionKey(...)` and, when needed, `HasSortKey(...)`, or rename properties to the supported Dynamo conventions (`PK` / `PartitionKey`, `SK` / `SortKey`).
+- **Composite EF key but no Dynamo key**: if the model has `HasKey(x => new { ... })` and startup still fails, the provider has no DynamoDB partition/sort key mapping. Configure the Dynamo key explicitly.
+- **Local secondary index requires a sort key**: `HasLocalSecondaryIndex(...)` only works when the table already resolves both a DynamoDB partition key and sort key.
 
 ## Discriminator troubleshooting
 - **Missing discriminator in results**: if returned items omit the configured discriminator attribute

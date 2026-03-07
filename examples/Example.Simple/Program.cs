@@ -59,7 +59,7 @@ internal class DynamoDbContext : DbContext
                 => config.ServiceURL = "http://localhost:8002"));
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
-        => modelBuilder.Entity<Item>().ToTable("SimpleItems").HasKey(x => x.Id);
+        => modelBuilder.Entity<Item>().ToTable("SimpleItems").HasPartitionKey(x => x.Id);
 }
 
 public class Item

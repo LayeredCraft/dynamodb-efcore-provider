@@ -82,7 +82,7 @@ public class SecondaryIndexMetadataTests
     }
 
     [Fact]
-    public void HasLocalSecondaryIndex_UsesPrimaryKeyConventionWhenPartitionKeyIsNotExplicitlyConfigured()
+    public void HasLocalSecondaryIndex_UsesDynamoKeyConventionWhenPartitionKeyIsNotExplicitlyConfigured()
     {
         var optionsBuilder = new DbContextOptionsBuilder<ConventionPartitionKeyContext>();
         optionsBuilder.UseDynamo();
@@ -92,7 +92,7 @@ public class SecondaryIndexMetadataTests
         var entityType = context.Model.FindEntityType(typeof(ConventionPartitionKeyOrder))!;
         var index = entityType.GetIndexes().Single(x => x.Name == "ByStatus");
 
-        index.Properties.Select(x => x.Name).Should().Equal("TenantId", "Status");
+        index.Properties.Select(x => x.Name).Should().Equal("PK", "Status");
     }
 
     [Fact]
@@ -108,7 +108,7 @@ public class SecondaryIndexMetadataTests
         };
 
         act.Should().Throw<InvalidOperationException>()
-            .WithMessage("*must have a composite primary key before configuring local secondary index 'ByStatus'*");
+            .WithMessage("*must configure a DynamoDB sort key*before configuring local secondary index 'ByStatus'*" );
     }
 
     private sealed class ConventionPartitionKeyContext(DbContextOptions<ConventionPartitionKeyContext> options)
@@ -117,15 +117,16 @@ public class SecondaryIndexMetadataTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ConventionPartitionKeyOrder>(entity =>
             {
-                entity.HasKey(x => new { x.TenantId, x.OrderId });
+                entity.HasPartitionKey(x => x.PK);
+                entity.HasSortKey(x => x.SK);
                 entity.HasLocalSecondaryIndex("ByStatus", x => x.Status);
             });
     }
 
     private sealed class ConventionPartitionKeyOrder
     {
-        public string TenantId { get; set; } = null!;
-        public string OrderId { get; set; } = null!;
+        public string PK { get; set; } = null!;
+        public string SK { get; set; } = null!;
         public string Status { get; set; } = null!;
     }
 
@@ -135,7 +136,7 @@ public class SecondaryIndexMetadataTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<HashOnlyTableOrder>(entity =>
             {
-                entity.HasKey(x => x.TenantId);
+                entity.HasPartitionKey(x => x.TenantId);
                 entity.HasLocalSecondaryIndex("ByStatus", x => x.Status);
             });
     }

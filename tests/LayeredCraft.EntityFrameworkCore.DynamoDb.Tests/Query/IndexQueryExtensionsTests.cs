@@ -10,7 +10,7 @@ public class IndexQueryExtensionsTests
         public DbSet<TestEntity> Entities => Set<TestEntity>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
-            => modelBuilder.Entity<TestEntity>(builder => builder.HasKey(x => x.Id));
+            => modelBuilder.Entity<TestEntity>(builder => builder.HasPartitionKey(x => x.Id));
     }
 
     private sealed class TestEntity

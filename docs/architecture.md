@@ -16,6 +16,9 @@ icon: lucide/git-branch
 - Paging uses DynamoDB continuation tokens via `ExecuteStatement` unless disabled.
 - Result limit and page size are separate concepts.
 - Materialization enforces strict required-property behavior for missing/null/wrong-typed data.
+- Query planning relies on Dynamo-specific partition/sort key metadata (`HasPartitionKey(...)`,
+  `HasSortKey(...)`, or supported Dynamo naming conventions), not on EF `HasKey(...)` inference.
+- Secondary-index metadata can be configured, but index-aware execution is not yet wired into PartiQL generation.
 
 ## DynamoDB ExecuteStatement model
 - SQL text is generated with positional `?` placeholders and a separate positional `AttributeValue`

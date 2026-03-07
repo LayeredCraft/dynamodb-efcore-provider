@@ -213,14 +213,14 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
                     $"No DynamoDB partition key is configured for entity type '{entityType.DisplayName()}'. "
                     + $"The EF primary key has {primaryKey.Properties.Count} properties, but the DynamoDB "
                     + "provider supports only one- or two-part keys (partition key with optional sort key). "
-                    + "Configure HasKey(...) with one or two properties and/or call HasPartitionKey(...) "
-                    + "and HasSortKey(...) to map the key explicitly.");
+                    + "Configure HasPartitionKey(...) and HasSortKey(...) or use conventional property "
+                    + "names ('PK'/'PartitionKey' and 'SK'/'SortKey') to map the DynamoDB table key explicitly.");
 
             throw new InvalidOperationException(
                 $"No DynamoDB partition key is configured for entity type '{entityType.DisplayName()}'. "
                 + "Use a conventional property name ('PK' or 'PartitionKey') or call "
                 + "HasPartitionKey(...). The DynamoDB provider does not infer table keys from "
-                + "EF Core's Id/[Key] conventions.");
+                + "HasKey(...), Id, or [Key] conventions.");
         }
     }
 
@@ -286,8 +286,9 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
             var actualDisplay = string.Join(", ", primaryKey.Properties.Select(static p => p.Name));
             throw new InvalidOperationException(
                 $"Entity type '{entityType.DisplayName()}' has EF primary key [{actualDisplay}] but "
-                + $"the DynamoDB table key is [{expectedDisplay}]. Configure HasKey(...) to match "
-                + "the DynamoDB partition/sort key order.");
+                + $"the DynamoDB table key is [{expectedDisplay}]. Configure the EF primary key to match "
+                + "the DynamoDB partition/sort key order after calling HasPartitionKey(...) and HasSortKey(...), "
+                + "or use matching conventional key property names.");
         }
     }
 
