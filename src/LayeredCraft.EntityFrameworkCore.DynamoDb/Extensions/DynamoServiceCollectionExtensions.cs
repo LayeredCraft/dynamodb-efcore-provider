@@ -27,6 +27,7 @@ public static class DynamoServiceCollectionExtensions
                 .TryAdd<IQueryContextFactory, DynamoQueryContextFactory>()
                 .TryAdd<IProviderConventionSetBuilder, DynamoConventionSetBuilder>()
                 .TryAdd<IModelValidator, DynamoModelValidator>()
+                .TryAdd<IModelRuntimeInitializer, DynamoModelRuntimeInitializer>()
                 .TryAdd<ITypeMappingSource, DynamoTypeMappingSource>()
                 .TryAdd<IQueryableMethodTranslatingExpressionVisitorFactory,
                     DynamoQueryableMethodTranslatingExpressionVisitorFactory>()

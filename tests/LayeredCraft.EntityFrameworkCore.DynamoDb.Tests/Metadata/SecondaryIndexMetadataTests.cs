@@ -1,5 +1,10 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using LayeredCraft.EntityFrameworkCore.DynamoDb.Extensions;
+using LayeredCraft.EntityFrameworkCore.DynamoDb.Infrastructure.Internal;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata;
+using LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata.Internal;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Tests.Metadata;
 
@@ -143,6 +148,86 @@ public class SecondaryIndexMetadataTests
             .WithMessage("*must use an alternate sort key different from the table sort key*");
     }
 
+    [Fact]
+    public void Model_ContainsRuntimeTableModel_ForConfiguredSecondaryIndexes()
+    {
+        using var context = CreateContext();
+
+        var runtimeTableModel = context.Model.GetDynamoRuntimeTableModel();
+
+        runtimeTableModel.Should().NotBeNull();
+        runtimeTableModel!.Tables.Should().ContainKey(nameof(Order));
+
+        var tableDescriptor = runtimeTableModel.Tables[nameof(Order)];
+        tableDescriptor.TableName.Should().Be(nameof(Order));
+        tableDescriptor.RootEntityTypes.Should().ContainSingle();
+        tableDescriptor.RootEntityTypes[0].ClrType.Should().Be(typeof(Order));
+    }
+
+    [Fact]
+    public void RuntimeTableModel_BuildsOrderedSourcesWithResolvedMetadataObjects()
+    {
+        using var context = CreateContext();
+
+        var entityType = context.Model.FindEntityType(typeof(Order))!;
+        var runtimeTableModel = context.Model.GetDynamoRuntimeTableModel()!;
+        var tableDescriptor = runtimeTableModel.Tables[nameof(Order)];
+        var sources = tableDescriptor.SourcesByEntityTypeName[entityType.Name];
+
+        sources.Select(x => x.IndexName).Should().Equal(null, "ByCustomer", "ByCustomerCreatedAt", "ByStatus");
+        sources.Select(x => x.Kind).Should().Equal(
+            DynamoIndexSourceKind.Table,
+            DynamoIndexSourceKind.GlobalSecondaryIndex,
+            DynamoIndexSourceKind.GlobalSecondaryIndex,
+            DynamoIndexSourceKind.LocalSecondaryIndex);
+
+        sources[0].PartitionKeyProperty.Should().BeSameAs(entityType.FindProperty(nameof(Order.TenantId)));
+        sources[0].SortKeyProperty.Should().BeSameAs(entityType.FindProperty(nameof(Order.OrderId)));
+        sources[1].PartitionKeyProperty.Should().BeSameAs(entityType.FindProperty(nameof(Order.CustomerId)));
+        sources[1].SortKeyProperty.Should().BeNull();
+        sources[2].PartitionKeyProperty.Should().BeSameAs(entityType.FindProperty(nameof(Order.CustomerId)));
+        sources[2].SortKeyProperty.Should().BeSameAs(entityType.FindProperty(nameof(Order.CreatedAtUtc)));
+        sources[3].PartitionKeyProperty.Should().BeSameAs(entityType.FindProperty(nameof(Order.TenantId)));
+        sources[3].SortKeyProperty.Should().BeSameAs(entityType.FindProperty(nameof(Order.Status)));
+
+        sources.Should().OnlyContain(x => x.ProjectionType == DynamoSecondaryIndexProjectionType.All);
+    }
+
+    [Fact]
+    public void RuntimeTableModel_CanonicalizesSharedTableMappings()
+    {
+        var optionsBuilder = new DbContextOptionsBuilder<SharedTableContext>();
+        optionsBuilder.UseDynamo();
+
+        using var context = new SharedTableContext(optionsBuilder.Options);
+
+        var runtimeTableModel = context.Model.GetDynamoRuntimeTableModel()!;
+
+        runtimeTableModel.Tables.Should().ContainSingle();
+        runtimeTableModel.Tables.Should().ContainKey("Orders");
+
+        var tableDescriptor = runtimeTableModel.Tables["Orders"];
+        tableDescriptor.RootEntityTypes.Select(x => x.ClrType).Should().BeEquivalentTo(new[]
+        {
+            typeof(LiveOrder),
+            typeof(ArchivedOrder),
+        });
+        tableDescriptor.SourcesByEntityTypeName.Should().HaveCount(2);
+        tableDescriptor.SourcesByEntityTypeName.Values.Should().OnlyContain(x => x.Count == 3);
+        tableDescriptor.SourcesByEntityTypeName.Values.Should().OnlyContain(
+            x => x.Select(source => source.IndexName).SequenceEqual(new string?[] { null, "ByCustomer", "ByStatus" }));
+    }
+
+    [Fact]
+    public void ProviderServices_RegisterCustomModelRuntimeInitializer()
+    {
+        using var context = CreateContext();
+
+        var runtimeInitializer = context.GetService<IModelRuntimeInitializer>();
+
+        runtimeInitializer.Should().BeOfType<DynamoModelRuntimeInitializer>();
+    }
+
     private sealed class ConventionPartitionKeyContext(DbContextOptions<ConventionPartitionKeyContext> options)
         : DbContext(options)
     {
@@ -214,5 +299,41 @@ public class SecondaryIndexMetadataTests
     {
         public string TenantId { get; set; } = null!;
         public string OrderId { get; set; } = null!;
+    }
+
+    private sealed class SharedTableContext(DbContextOptions<SharedTableContext> options)
+        : DbContext(options)
+    {
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            ConfigureSharedOrder(modelBuilder.Entity<LiveOrder>());
+            ConfigureSharedOrder(modelBuilder.Entity<ArchivedOrder>());
+        }
+
+        private static void ConfigureSharedOrder<TEntity>(EntityTypeBuilder<TEntity> entity)
+            where TEntity : class
+        {
+            entity.ToTable("Orders");
+            entity.HasPartitionKey("TenantId");
+            entity.HasSortKey("OrderId");
+            entity.HasGlobalSecondaryIndex("ByCustomer", "CustomerId");
+            entity.HasLocalSecondaryIndex("ByStatus", "Status");
+        }
+    }
+
+    private sealed class LiveOrder
+    {
+        public string TenantId { get; set; } = null!;
+        public string OrderId { get; set; } = null!;
+        public string CustomerId { get; set; } = null!;
+        public string Status { get; set; } = null!;
+    }
+
+    private sealed class ArchivedOrder
+    {
+        public string TenantId { get; set; } = null!;
+        public string OrderId { get; set; } = null!;
+        public string CustomerId { get; set; } = null!;
+        public string Status { get; set; } = null!;
     }
 }
