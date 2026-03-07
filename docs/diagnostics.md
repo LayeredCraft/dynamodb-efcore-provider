@@ -42,7 +42,7 @@ icon: lucide/stethoscope
 - **No resolved Dynamo key**: if startup still fails after removing `HasKey(...)`, ensure the model resolves a DynamoDB partition key and optional sort key through explicit configuration or the supported naming conventions (`PK` / `PartitionKey`, `SK` / `SortKey`).
 - **Local secondary index requires a sort key**: `HasLocalSecondaryIndex(...)` only works when the table already resolves both a DynamoDB partition key and sort key.
 - **Unsupported secondary-index key type**: secondary-index key properties must map to a DynamoDB key-compatible provider type (`string`, number, `byte[]`). Use a `ValueConverter` when the CLR property type differs from the stored key type.
-- **Sparse secondary indexes**: nullable secondary-index key properties are allowed. Items with missing or `NULL` secondary-key attributes are not present in the secondary index.
+- **Sparse secondary indexes**: nullable secondary-index key properties are allowed. Items without key-compatible scalar secondary-key attributes are not present in the secondary index.
 
 ## Discriminator troubleshooting
 - **Missing discriminator in results**: if returned items omit the configured discriminator attribute

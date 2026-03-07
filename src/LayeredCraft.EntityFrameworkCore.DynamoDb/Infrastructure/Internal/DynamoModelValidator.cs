@@ -640,18 +640,22 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
                 switch (indexKind)
                 {
                     case DynamoSecondaryIndexKind.Global:
-                        ValidateGlobalSecondaryIndex(entityType, index);
+                        ValidateGlobalSecondaryIndex(index);
                         break;
                     case DynamoSecondaryIndexKind.Local:
                         ValidateLocalSecondaryIndex(entityType, index);
                         break;
+                    default:
+                        throw new InvalidOperationException(
+                            $"Entity type '{index.DeclaringEntityType.DisplayName()}' configures secondary index '{GetSecondaryIndexDisplayName(index)}' "
+                            + $"with unsupported index kind '{indexKind}'.");
                 }
             }
         }
     }
 
     /// <summary>Validates that a configured global secondary index has a supported key shape.</summary>
-    private static void ValidateGlobalSecondaryIndex(IEntityType entityType, IReadOnlyIndex index)
+    private static void ValidateGlobalSecondaryIndex(IReadOnlyIndex index)
     {
         var declaringEntityDisplayName = index.DeclaringEntityType.DisplayName();
         var indexName = GetSecondaryIndexDisplayName(index);
