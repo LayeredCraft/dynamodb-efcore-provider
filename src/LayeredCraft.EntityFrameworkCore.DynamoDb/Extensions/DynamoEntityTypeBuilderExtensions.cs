@@ -1,9 +1,7 @@
 using System.Linq.Expressions;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata.Builders;
-using LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata.Conventions;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Utilities;
-using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 // ReSharper disable CheckNamespace
@@ -121,12 +119,7 @@ public static class DynamoEntityTypeBuilderExtensions
             name.NotEmpty();
             sortKeyPropertyName.NotEmpty();
 
-            var partitionKeyPropertyName = GetConfiguredOrConventionalPartitionKeyPropertyName(
-                entityTypeBuilder.Metadata,
-                name);
-            EnsureHasConfiguredOrConventionalSortKey(entityTypeBuilder.Metadata, name);
-
-            var indexBuilder = entityTypeBuilder.HasIndex([partitionKeyPropertyName, sortKeyPropertyName], name);
+            var indexBuilder = entityTypeBuilder.HasIndex([sortKeyPropertyName], name);
             indexBuilder.Metadata.SetSecondaryIndexName(name);
             indexBuilder.Metadata.SetSecondaryIndexKind(DynamoSecondaryIndexKind.Local);
             indexBuilder.Metadata.SetSecondaryIndexProjectionType(DynamoSecondaryIndexProjectionType.All);
@@ -245,12 +238,7 @@ public static class DynamoEntityTypeBuilderExtensions
             name.NotEmpty();
 
             var sortKeyPropertyName = GetPropertyName(sortKeyExpression);
-            var partitionKeyPropertyName = GetConfiguredOrConventionalPartitionKeyPropertyName(
-                entityTypeBuilder.Metadata,
-                name);
-            EnsureHasConfiguredOrConventionalSortKey(entityTypeBuilder.Metadata, name);
-
-            var indexBuilder = entityTypeBuilder.HasIndex([partitionKeyPropertyName, sortKeyPropertyName], name);
+            var indexBuilder = entityTypeBuilder.HasIndex([sortKeyPropertyName], name);
             indexBuilder.Metadata.SetSecondaryIndexName(name);
             indexBuilder.Metadata.SetSecondaryIndexKind(DynamoSecondaryIndexKind.Local);
             indexBuilder.Metadata.SetSecondaryIndexProjectionType(DynamoSecondaryIndexProjectionType.All);
@@ -269,64 +257,6 @@ public static class DynamoEntityTypeBuilderExtensions
                 $"Expression '{expression}' must be a simple property access.",
                 nameof(expression));
         }
-    }
-
-    /// <summary>Resolves the effective partition key property name from Dynamo-specific configuration or conventions.</summary>
-    /// <param name="entityType">The entity type being configured.</param>
-    /// <param name="indexName">The local secondary index being configured.</param>
-    /// <returns>The effective partition key property name.</returns>
-    private static string GetConfiguredOrConventionalPartitionKeyPropertyName(
-        IReadOnlyEntityType entityType,
-        string indexName)
-    {
-        var configuredName = entityType.GetPartitionKeyPropertyName();
-        if (configuredName is not null)
-            return configuredName;
-
-        var candidates = entityType
-            .GetProperties()
-            .Where(property => DynamoKeyDiscoveryConvention.IsPartitionKeyName(property.Name))
-            .ToList();
-
-        if (candidates.Count == 1)
-            return candidates[0].Name;
-
-        if (candidates.Count > 1)
-        {
-            var names = string.Join(", ", candidates.Select(static property => $"'{property.Name}'"));
-            throw new InvalidOperationException(
-                $"Entity '{entityType.DisplayName()}' has multiple conventional partition key candidates ({names}) while configuring local secondary index '{indexName}'. Call HasPartitionKey(...) to disambiguate the DynamoDB table partition key.");
-        }
-
-        throw new InvalidOperationException(
-            $"Entity '{entityType.DisplayName()}' must configure a DynamoDB partition key with HasPartitionKey(...) or expose a conventional partition key property name ('PK' or 'PartitionKey') before configuring local secondary index '{indexName}'.");
-    }
-
-    /// <summary>Ensures the entity type exposes a DynamoDB sort key required for local secondary indexes.</summary>
-    /// <param name="entityType">The entity type being configured.</param>
-    /// <param name="indexName">The local secondary index name.</param>
-    private static void EnsureHasConfiguredOrConventionalSortKey(IReadOnlyEntityType entityType, string indexName)
-    {
-        if (entityType.GetSortKeyPropertyName() is not null)
-            return;
-
-        var candidates = entityType
-            .GetProperties()
-            .Where(property => DynamoKeyDiscoveryConvention.IsSortKeyName(property.Name))
-            .ToList();
-
-        if (candidates.Count == 1)
-            return;
-
-        if (candidates.Count > 1)
-        {
-            var names = string.Join(", ", candidates.Select(static property => $"'{property.Name}'"));
-            throw new InvalidOperationException(
-                $"Entity '{entityType.DisplayName()}' has multiple conventional sort key candidates ({names}) while configuring local secondary index '{indexName}'. Call HasSortKey(...) to disambiguate the DynamoDB table sort key.");
-        }
-
-        throw new InvalidOperationException(
-            $"Entity '{entityType.DisplayName()}' must configure a DynamoDB sort key with HasSortKey(...) or expose a conventional sort key property name ('SK' or 'SortKey') before configuring local secondary index '{indexName}'. Local secondary indexes require a DynamoDB table sort key.");
     }
 
     extension(OwnedNavigationBuilder ownedNavigationBuilder)

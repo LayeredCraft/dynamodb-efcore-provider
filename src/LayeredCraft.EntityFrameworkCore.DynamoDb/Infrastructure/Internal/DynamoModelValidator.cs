@@ -1,3 +1,4 @@
+using LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Storage;
 using Microsoft.EntityFrameworkCore;
@@ -35,6 +36,7 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
         ValidateKeyPropertyTypes(model);
         ValidateKeyPropertyNullability(model);
         ValidateTableKeySchemaConsistency(model);
+        ValidateSecondaryIndexes(model);
         ValidateDiscriminatorMappings(model);
     }
 
@@ -572,6 +574,53 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
                 + $"('{expectedSkTypeCategory}' vs '{skTypeCategory}'). All entity types sharing a DynamoDB table "
                 + "must use the same key type category for the same sort key attribute.");
         }
+    }
+
+    /// <summary>Validates DynamoDB secondary-index prerequisites and key-shape rules.</summary>
+    private static void ValidateSecondaryIndexes(IModel model)
+    {
+        foreach (var entityType in EnumerateRootEntityTypes(model))
+        {
+            foreach (var index in entityType.GetIndexes())
+            {
+                var indexKind = index.GetSecondaryIndexKind();
+                if (indexKind is null)
+                    continue;
+
+                if (indexKind == DynamoSecondaryIndexKind.Global)
+                    continue;
+
+                ValidateLocalSecondaryIndex(entityType, index);
+            }
+        }
+    }
+
+    /// <summary>Validates that a configured local secondary index has a valid alternate sort key.</summary>
+    private static void ValidateLocalSecondaryIndex(IEntityType entityType, IReadOnlyIndex index)
+    {
+        var indexName = index.GetSecondaryIndexName() ?? index.Name ?? "<unnamed>";
+        var partitionKeyProperty = entityType.GetPartitionKeyProperty();
+        if (partitionKeyProperty is null)
+            throw new InvalidOperationException(
+                $"Entity type '{entityType.DisplayName()}' configures local secondary index '{indexName}', "
+                + "but no DynamoDB partition key is configured. Configure HasPartitionKey(...) or use a conventional partition key property name before configuring an LSI.");
+
+        var sortKeyProperty = entityType.GetSortKeyProperty();
+        if (sortKeyProperty is null)
+            throw new InvalidOperationException(
+                $"Entity type '{entityType.DisplayName()}' configures local secondary index '{indexName}', "
+                + "but no DynamoDB sort key is configured. Configure HasSortKey(...) or use a conventional sort key property name before configuring an LSI.");
+
+        if (index.Properties.Count != 1)
+            throw new InvalidOperationException(
+                $"Entity type '{entityType.DisplayName()}' configures local secondary index '{indexName}', "
+                + $"but the LSI metadata contains {index.Properties.Count} key properties. Local secondary indexes must define exactly one alternate sort key property.");
+
+        var localSortKeyProperty = index.Properties[0];
+        if (localSortKeyProperty == sortKeyProperty)
+            throw new InvalidOperationException(
+                $"Entity type '{entityType.DisplayName()}' configures local secondary index '{indexName}' using property '{localSortKeyProperty.Name}', "
+                + "but a local secondary index must use an alternate sort key different from the table sort key.");
     }
 
     /// <summary>Returns root entity types that participate in top-level DynamoDB table mappings.</summary>

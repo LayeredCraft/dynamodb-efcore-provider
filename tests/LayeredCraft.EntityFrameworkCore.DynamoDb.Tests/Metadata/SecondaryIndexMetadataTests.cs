@@ -75,7 +75,7 @@ public class SecondaryIndexMetadataTests
         var entityType = context.Model.FindEntityType(typeof(Order))!;
         var index = entityType.GetIndexes().Single(x => x.Name == "ByStatus");
 
-        index.Properties.Select(x => x.Name).Should().Equal("TenantId", "Status");
+        index.Properties.Select(x => x.Name).Should().Equal("Status");
         index.GetSecondaryIndexName().Should().Be("ByStatus");
         index.GetSecondaryIndexKind().Should().Be(DynamoSecondaryIndexKind.Local);
         index.GetSecondaryIndexProjectionType().Should().Be(DynamoSecondaryIndexProjectionType.All);
@@ -92,7 +92,23 @@ public class SecondaryIndexMetadataTests
         var entityType = context.Model.FindEntityType(typeof(ConventionPartitionKeyOrder))!;
         var index = entityType.GetIndexes().Single(x => x.Name == "ByStatus");
 
-        index.Properties.Select(x => x.Name).Should().Equal("PK", "Status");
+        index.Properties.Select(x => x.Name).Should().Equal("Status");
+    }
+
+    [Fact]
+    public void HasLocalSecondaryIndex_BeforeTableKeyConfiguration_IsAllowedUntilModelValidation()
+    {
+        var optionsBuilder = new DbContextOptionsBuilder<OrderIndependentLsiContext>();
+        optionsBuilder.UseDynamo();
+
+        using var context = new OrderIndependentLsiContext(optionsBuilder.Options);
+
+        var entityType = context.Model.FindEntityType(typeof(OrderIndependentLsiOrder))!;
+        var index = entityType.GetIndexes().Single(x => x.Name == "ByStatus");
+
+        index.Properties.Select(x => x.Name).Should().Equal("Status");
+        entityType.GetPartitionKeyPropertyName().Should().Be("TenantId");
+        entityType.GetSortKeyPropertyName().Should().Be("OrderId");
     }
 
     [Fact]
@@ -108,7 +124,23 @@ public class SecondaryIndexMetadataTests
         };
 
         act.Should().Throw<InvalidOperationException>()
-            .WithMessage("*must configure a DynamoDB sort key*before configuring local secondary index 'ByStatus'*" );
+            .WithMessage("*no DynamoDB sort key is configured*before configuring an LSI*" );
+    }
+
+    [Fact]
+    public void HasLocalSecondaryIndex_UsingTableSortKey_ThrowsHelpfulError()
+    {
+        var optionsBuilder = new DbContextOptionsBuilder<DuplicateSortKeyContext>();
+        optionsBuilder.UseDynamo();
+
+        Action act = () =>
+        {
+            using var context = new DuplicateSortKeyContext(optionsBuilder.Options);
+            _ = context.Model;
+        };
+
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("*must use an alternate sort key different from the table sort key*");
     }
 
     private sealed class ConventionPartitionKeyContext(DbContextOptions<ConventionPartitionKeyContext> options)
@@ -121,6 +153,25 @@ public class SecondaryIndexMetadataTests
                 entity.HasSortKey(x => x.SK);
                 entity.HasLocalSecondaryIndex("ByStatus", x => x.Status);
             });
+    }
+
+    private sealed class OrderIndependentLsiContext(DbContextOptions<OrderIndependentLsiContext> options)
+        : DbContext(options)
+    {
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<OrderIndependentLsiOrder>(entity =>
+            {
+                entity.HasLocalSecondaryIndex("ByStatus", x => x.Status);
+                entity.HasPartitionKey(x => x.TenantId);
+                entity.HasSortKey(x => x.OrderId);
+            });
+    }
+
+    private sealed class OrderIndependentLsiOrder
+    {
+        public string TenantId { get; set; } = null!;
+        public string OrderId { get; set; } = null!;
+        public string Status { get; set; } = null!;
     }
 
     private sealed class ConventionPartitionKeyOrder
@@ -145,5 +196,23 @@ public class SecondaryIndexMetadataTests
     {
         public string TenantId { get; set; } = null!;
         public string Status { get; set; } = null!;
+    }
+
+    private sealed class DuplicateSortKeyContext(DbContextOptions<DuplicateSortKeyContext> options)
+        : DbContext(options)
+    {
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<DuplicateSortKeyOrder>(entity =>
+            {
+                entity.HasPartitionKey(x => x.TenantId);
+                entity.HasSortKey(x => x.OrderId);
+                entity.HasLocalSecondaryIndex("ByOrderId", x => x.OrderId);
+            });
+    }
+
+    private sealed class DuplicateSortKeyOrder
+    {
+        public string TenantId { get; set; } = null!;
+        public string OrderId { get; set; } = null!;
     }
 }
