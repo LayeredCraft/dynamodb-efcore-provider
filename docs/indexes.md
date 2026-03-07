@@ -110,7 +110,9 @@ Current scope:
 - metadata for GSIs/LSIs can be configured,
 - but full index-aware PartiQL source selection is not wired yet.
 
-So today, configuring an index documents intent and prepares the model surface, but it does not yet guarantee `FROM "Table"."Index"` generation.
+So today, configuring an index documents intent and prepares the model surface. Calling
+`WithIndex(...)` currently throws immediately until `FROM "Table"."Index"` generation is
+implemented.
 
 ## Current limitations
 

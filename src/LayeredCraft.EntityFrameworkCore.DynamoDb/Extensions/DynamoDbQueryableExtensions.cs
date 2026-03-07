@@ -186,12 +186,8 @@ public static class DynamoDbQueryableExtensions
             throw new ArgumentException("Index name must not be empty.", nameof(indexName));
 
         return source.Provider is EntityQueryProvider
-            ? source.Provider.CreateQuery<TEntity>(
-                Expression.Call(
-                    null,
-                    ((Func<IQueryable<TEntity>, string, IQueryable<TEntity>>)WithIndex).Method,
-                    source.Expression,
-                    Expression.Constant(indexName, typeof(string))))
+            ? throw new NotSupportedException(
+                $"WithIndex('{indexName}') is not supported yet because index-aware PartiQL generation has not been implemented.")
             : source;
     }
 }

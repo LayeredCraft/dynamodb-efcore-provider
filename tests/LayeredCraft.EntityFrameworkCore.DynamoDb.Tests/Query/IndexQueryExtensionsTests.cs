@@ -1,4 +1,3 @@
-using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Tests.Query;
@@ -22,6 +21,8 @@ public class IndexQueryExtensionsTests
     {
         var optionsBuilder = new DbContextOptionsBuilder<TestDbContext>();
         optionsBuilder.UseDynamo();
+        optionsBuilder.ConfigureWarnings(w =>
+            w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.CoreEventId.ManyServiceProvidersCreatedWarning));
         return new TestDbContext(optionsBuilder.Options);
     }
 
@@ -36,17 +37,14 @@ public class IndexQueryExtensionsTests
     }
 
     [Fact]
-    public void WithIndex_EntityQueryProvider_WrapsExpressionInMethodCall()
+    public void WithIndex_EntityQueryProvider_ThrowsNotSupportedException()
     {
         using var context = CreateContext();
 
-        var query = context.Entities.WithIndex("ByCustomerCreatedAt");
+        var act = () => context.Entities.WithIndex("ByCustomerCreatedAt");
 
-        query.Expression.Should().BeAssignableTo<MethodCallExpression>();
-        var methodCall = (MethodCallExpression)query.Expression;
-        methodCall.Method.Name.Should().Be(nameof(DynamoDbQueryableExtensions.WithIndex));
-        methodCall.Arguments[1].Should().BeOfType<ConstantExpression>();
-        ((ConstantExpression)methodCall.Arguments[1]).Value.Should().Be("ByCustomerCreatedAt");
+        act.Should().Throw<NotSupportedException>()
+            .WithMessage("*WithIndex('ByCustomerCreatedAt') is not supported yet*");
     }
 
     [Fact]

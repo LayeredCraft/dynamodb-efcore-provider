@@ -18,6 +18,4 @@ public class DynamoQueryCompilationContext(
     /// <summary>Per-query flag to disable pagination continuation (from .WithoutPagination() extension).</summary>
     public bool PaginationDisabled { get; internal set; }
 
-    /// <summary>Per-query explicit secondary index selection (from .WithIndex() extension).</summary>
-    public string? ExplicitIndexName { get; internal set; }
 }
