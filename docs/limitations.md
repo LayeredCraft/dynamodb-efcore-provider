@@ -51,7 +51,7 @@ icon: lucide/triangle-alert
 - `bool` key mappings are rejected.
 - Converter-backed key mappings are validated against the converter provider CLR type.
 - Table partition/sort key properties must be required/non-nullable, and converter provider types for table keys must also be non-nullable.
-- Secondary-index key properties must resolve to key-compatible provider types, but may be nullable (sparse index membership semantics).
+- Secondary-index key properties must resolve to key-compatible provider types, but may be nullable (items with missing or `NULL` secondary-key attributes are not indexed).
 
 Practical implication:
 

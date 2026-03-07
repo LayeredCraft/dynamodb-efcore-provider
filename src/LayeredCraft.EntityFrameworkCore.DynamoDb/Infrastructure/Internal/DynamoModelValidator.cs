@@ -653,55 +653,91 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
     /// <summary>Validates that a configured global secondary index has a supported key shape.</summary>
     private static void ValidateGlobalSecondaryIndex(IEntityType entityType, IReadOnlyIndex index)
     {
+        var declaringEntityDisplayName = index.DeclaringEntityType.DisplayName();
         var indexName = GetSecondaryIndexDisplayName(index);
         if (index.Properties.Count is < 1 or > 2)
             throw new InvalidOperationException(
-                $"Entity type '{entityType.DisplayName()}' configures global secondary index '{indexName}', "
+                $"Entity type '{declaringEntityDisplayName}' configures global secondary index '{indexName}', "
                 + $"but the GSI metadata contains {index.Properties.Count} key properties. Global secondary indexes must define one partition key and optional sort key.");
 
+        var globalPartitionKeyProperty = index.Properties[0];
         ValidateSecondaryIndexKeyPropertyType(
-            entityType,
+            declaringEntityDisplayName,
             index,
-            index.Properties[0],
+            globalPartitionKeyProperty,
             "global secondary index partition key");
 
         if (index.Properties.Count == 2)
+        {
+            var globalSortKeyProperty = index.Properties[1];
+            if (globalSortKeyProperty == globalPartitionKeyProperty)
+                throw new InvalidOperationException(
+                    $"Entity type '{declaringEntityDisplayName}' configures global secondary index '{indexName}' using property '{globalSortKeyProperty.Name}' for both partition and sort keys, "
+                    + "but a global secondary index must use distinct partition and sort key attributes.");
+
+            var globalPartitionKeyAttributeName = globalPartitionKeyProperty.GetAttributeName();
+            var globalSortKeyAttributeName = globalSortKeyProperty.GetAttributeName();
+            if (string.Equals(globalPartitionKeyAttributeName, globalSortKeyAttributeName, StringComparison.Ordinal))
+                throw new InvalidOperationException(
+                    $"Entity type '{declaringEntityDisplayName}' configures global secondary index '{indexName}' with partition key '{globalPartitionKeyProperty.Name}' and sort key '{globalSortKeyProperty.Name}', "
+                    + $"but both resolve to attribute name '{globalPartitionKeyAttributeName}'. Global secondary indexes must use distinct partition and sort key attributes.");
+
             ValidateSecondaryIndexKeyPropertyType(
-                entityType,
+                declaringEntityDisplayName,
                 index,
-                index.Properties[1],
+                globalSortKeyProperty,
                 "global secondary index sort key");
+        }
     }
 
     /// <summary>Validates that a configured local secondary index has a valid alternate sort key.</summary>
     private static void ValidateLocalSecondaryIndex(IEntityType entityType, IReadOnlyIndex index)
     {
+        var declaringEntityDisplayName = index.DeclaringEntityType.DisplayName();
         var indexName = GetSecondaryIndexDisplayName(index);
         var partitionKeyProperty = entityType.GetPartitionKeyProperty();
         if (partitionKeyProperty is null)
             throw new InvalidOperationException(
-                $"Entity type '{entityType.DisplayName()}' configures local secondary index '{indexName}', "
+                $"Entity type '{declaringEntityDisplayName}' configures local secondary index '{indexName}', "
                 + "but no DynamoDB partition key is configured. Configure HasPartitionKey(...) or use a conventional partition key property name before configuring an LSI.");
 
         var sortKeyProperty = entityType.GetSortKeyProperty();
         if (sortKeyProperty is null)
             throw new InvalidOperationException(
-                $"Entity type '{entityType.DisplayName()}' configures local secondary index '{indexName}', "
+                $"Entity type '{declaringEntityDisplayName}' configures local secondary index '{indexName}', "
                 + "but no DynamoDB sort key is configured. Configure HasSortKey(...) or use a conventional sort key property name before configuring an LSI.");
 
         if (index.Properties.Count != 1)
             throw new InvalidOperationException(
-                $"Entity type '{entityType.DisplayName()}' configures local secondary index '{indexName}', "
+                $"Entity type '{declaringEntityDisplayName}' configures local secondary index '{indexName}', "
                 + $"but the LSI metadata contains {index.Properties.Count} key properties. Local secondary indexes must define exactly one alternate sort key property.");
 
         var localSortKeyProperty = index.Properties[0];
         if (localSortKeyProperty == sortKeyProperty)
             throw new InvalidOperationException(
-                $"Entity type '{entityType.DisplayName()}' configures local secondary index '{indexName}' using property '{localSortKeyProperty.Name}', "
+                $"Entity type '{declaringEntityDisplayName}' configures local secondary index '{indexName}' using property '{localSortKeyProperty.Name}', "
                 + "but a local secondary index must use an alternate sort key different from the table sort key.");
 
+        if (localSortKeyProperty == partitionKeyProperty)
+            throw new InvalidOperationException(
+                $"Entity type '{declaringEntityDisplayName}' configures local secondary index '{indexName}' using property '{localSortKeyProperty.Name}', "
+                + "but a local secondary index must use an alternate sort key different from the table partition key.");
+
+        var localSortKeyAttributeName = localSortKeyProperty.GetAttributeName();
+        var tablePartitionKeyAttributeName = partitionKeyProperty.GetAttributeName();
+        if (string.Equals(localSortKeyAttributeName, tablePartitionKeyAttributeName, StringComparison.Ordinal))
+            throw new InvalidOperationException(
+                $"Entity type '{declaringEntityDisplayName}' configures local secondary index '{indexName}' with alternate sort key '{localSortKeyProperty.Name}', "
+                + $"but it resolves to partition key attribute name '{tablePartitionKeyAttributeName}'. Local secondary indexes must use an alternate sort key attribute different from the table partition key attribute.");
+
+        var tableSortKeyAttributeName = sortKeyProperty.GetAttributeName();
+        if (string.Equals(localSortKeyAttributeName, tableSortKeyAttributeName, StringComparison.Ordinal))
+            throw new InvalidOperationException(
+                $"Entity type '{declaringEntityDisplayName}' configures local secondary index '{indexName}' with alternate sort key '{localSortKeyProperty.Name}', "
+                + $"but it resolves to sort key attribute name '{tableSortKeyAttributeName}'. Local secondary indexes must use an alternate sort key attribute different from the table sort key attribute.");
+
         ValidateSecondaryIndexKeyPropertyType(
-            entityType,
+            declaringEntityDisplayName,
             index,
             localSortKeyProperty,
             "local secondary index sort key");
@@ -709,7 +745,7 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
 
     /// <summary>Validates a secondary-index key property resolves to a DynamoDB key-compatible provider type.</summary>
     private static void ValidateSecondaryIndexKeyPropertyType(
-        IEntityType entityType,
+        string declaringEntityDisplayName,
         IReadOnlyIndex index,
         IReadOnlyProperty keyProperty,
         string keyRole)
@@ -720,7 +756,7 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
             return;
 
         throw new InvalidOperationException(
-            $"Entity type '{entityType.DisplayName()}' configures secondary index '{GetSecondaryIndexDisplayName(index)}' "
+            $"Entity type '{declaringEntityDisplayName}' configures secondary index '{GetSecondaryIndexDisplayName(index)}' "
             + $"with property '{keyProperty.Name}' as DynamoDB {keyRole}, "
             + $"but the effective provider type '{effectiveProviderType.ShortDisplayName()}' is not supported. "
             + "DynamoDB secondary index keys must be string, number, or binary (byte[]). "

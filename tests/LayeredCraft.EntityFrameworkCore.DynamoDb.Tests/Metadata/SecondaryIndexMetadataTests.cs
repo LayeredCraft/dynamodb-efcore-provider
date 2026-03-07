@@ -213,6 +213,71 @@ public class SecondaryIndexMetadataTests
     }
 
     [Fact]
+    public void HasLocalSecondaryIndex_UsingTablePartitionKey_ThrowsHelpfulError()
+    {
+        var optionsBuilder = new DbContextOptionsBuilder<DuplicatePartitionKeyContext>();
+        optionsBuilder.UseDynamo();
+
+        Action act = () =>
+        {
+            using var context = new DuplicatePartitionKeyContext(optionsBuilder.Options);
+            _ = context.Model;
+        };
+
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("*must use an alternate sort key different from the table partition key*");
+    }
+
+    [Fact]
+    public void HasLocalSecondaryIndex_AlternateSortKeyWithPartitionKeyAttributeName_ThrowsHelpfulError()
+    {
+        var optionsBuilder = new DbContextOptionsBuilder<DuplicatePartitionKeyAttributeNameContext>();
+        optionsBuilder.UseDynamo();
+
+        Action act = () =>
+        {
+            using var context = new DuplicatePartitionKeyAttributeNameContext(optionsBuilder.Options);
+            _ = context.Model;
+        };
+
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("*alternate sort key*resolves to partition key attribute name*must use an alternate sort key attribute different from the table partition key attribute*");
+    }
+
+    [Fact]
+    public void HasGlobalSecondaryIndex_SameAttributeNameForPartitionAndSortKey_ThrowsHelpfulError()
+    {
+        var optionsBuilder = new DbContextOptionsBuilder<DuplicateGlobalKeyAttributeNameContext>();
+        optionsBuilder.UseDynamo();
+
+        Action act = () =>
+        {
+            using var context = new DuplicateGlobalKeyAttributeNameContext(optionsBuilder.Options);
+            _ = context.Model;
+        };
+
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("*partition key 'CustomerId' and sort key 'LookupKey'*resolve to attribute name 'SharedLookup'*must use distinct partition and sort key attributes*");
+    }
+
+    [Fact]
+    public void DerivedTypeHasUnsupportedGlobalIndexKeyType_ErrorMentionsDeclaringType()
+    {
+        var optionsBuilder = new DbContextOptionsBuilder<DerivedUnsupportedGlobalPartitionKeyTypeContext>();
+        optionsBuilder.UseDynamo();
+
+        Action act = () =>
+        {
+            using var context = new DerivedUnsupportedGlobalPartitionKeyTypeContext(optionsBuilder.Options);
+            _ = context.Model;
+        };
+
+        var exception = act.Should().Throw<InvalidOperationException>().Which;
+        exception.Message.Should().Contain("Entity type 'DerivedUnsupportedGlobalPartitionKeyOrder'");
+        exception.Message.Should().NotContain("Entity type 'BaseDerivedUnsupportedGlobalPartitionKeyOrder'");
+    }
+
+    [Fact]
     public void HasGlobalSecondaryIndex_NullablePartitionKey_IsAllowedForSparseMembership()
     {
         var optionsBuilder = new DbContextOptionsBuilder<NullableGlobalPartitionKeyContext>();
@@ -225,6 +290,38 @@ public class SecondaryIndexMetadataTests
 
         index.GetSecondaryIndexKind().Should().Be(DynamoSecondaryIndexKind.Global);
         index.Properties.Single().Name.Should().Be(nameof(NullableGlobalPartitionKeyOrder.CustomerId));
+    }
+
+    [Fact]
+    public void HasGlobalSecondaryIndex_NullableSortKey_IsAllowedForSparseMembership()
+    {
+        var optionsBuilder = new DbContextOptionsBuilder<NullableGlobalSortKeyContext>();
+        optionsBuilder.UseDynamo();
+
+        using var context = new NullableGlobalSortKeyContext(optionsBuilder.Options);
+
+        var entityType = context.Model.FindEntityType(typeof(NullableGlobalSortKeyOrder))!;
+        var index = entityType.GetIndexes().Single(x => x.Name == "ByCustomerPriority");
+
+        index.GetSecondaryIndexKind().Should().Be(DynamoSecondaryIndexKind.Global);
+        index.Properties.Select(x => x.Name).Should().Equal(
+            nameof(NullableGlobalSortKeyOrder.CustomerId),
+            nameof(NullableGlobalSortKeyOrder.Priority));
+    }
+
+    [Fact]
+    public void HasLocalSecondaryIndex_NullableSortKey_IsAllowedForSparseMembership()
+    {
+        var optionsBuilder = new DbContextOptionsBuilder<NullableLocalSortKeyContext>();
+        optionsBuilder.UseDynamo();
+
+        using var context = new NullableLocalSortKeyContext(optionsBuilder.Options);
+
+        var entityType = context.Model.FindEntityType(typeof(NullableLocalSortKeyOrder))!;
+        var index = entityType.GetIndexes().Single(x => x.Name == "ByPriority");
+
+        index.GetSecondaryIndexKind().Should().Be(DynamoSecondaryIndexKind.Local);
+        index.Properties.Single().Name.Should().Be(nameof(NullableLocalSortKeyOrder.Priority));
     }
 
     [Fact]
@@ -584,6 +681,67 @@ public class SecondaryIndexMetadataTests
         public bool IsPriority { get; set; }
     }
 
+    private sealed class DuplicatePartitionKeyContext(DbContextOptions<DuplicatePartitionKeyContext> options)
+        : DbContext(options)
+    {
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<DuplicatePartitionKeyOrder>(entity =>
+            {
+                entity.HasPartitionKey(x => x.TenantId);
+                entity.HasSortKey(x => x.OrderId);
+                entity.HasLocalSecondaryIndex("ByTenant", x => x.TenantId);
+            });
+    }
+
+    private sealed class DuplicatePartitionKeyOrder
+    {
+        public string TenantId { get; set; } = null!;
+        public string OrderId { get; set; } = null!;
+    }
+
+    private sealed class DuplicatePartitionKeyAttributeNameContext(DbContextOptions<DuplicatePartitionKeyAttributeNameContext> options)
+        : DbContext(options)
+    {
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<DuplicatePartitionKeyAttributeNameOrder>(entity =>
+            {
+                entity.HasPartitionKey(x => x.TenantId);
+                entity.HasSortKey(x => x.OrderId);
+                entity.Property(x => x.TenantId).HasAttributeName("PK");
+                entity.Property(x => x.Priority).HasAttributeName("PK");
+                entity.HasLocalSecondaryIndex("ByPriority", x => x.Priority);
+            });
+    }
+
+    private sealed class DuplicatePartitionKeyAttributeNameOrder
+    {
+        public string TenantId { get; set; } = null!;
+        public string OrderId { get; set; } = null!;
+        public string Priority { get; set; } = null!;
+    }
+
+    private sealed class DuplicateGlobalKeyAttributeNameContext(DbContextOptions<DuplicateGlobalKeyAttributeNameContext> options)
+        : DbContext(options)
+    {
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<DuplicateGlobalKeyAttributeNameOrder>(entity =>
+            {
+                entity.HasPartitionKey(x => x.TenantId);
+                entity.HasSortKey(x => x.OrderId);
+                entity.Property(x => x.LookupKey).HasAttributeName("SharedLookup");
+                entity.Property(x => x.CustomerId).HasAttributeName("SharedLookup");
+                entity.HasGlobalSecondaryIndex("ByLookup", x => x.CustomerId, x => x.LookupKey);
+            });
+    }
+
+    private sealed class DuplicateGlobalKeyAttributeNameOrder
+    {
+        public string TenantId { get; set; } = null!;
+        public string OrderId { get; set; } = null!;
+        public string CustomerId { get; set; } = null!;
+        public string LookupKey { get; set; } = null!;
+    }
+
     private sealed class NullableGlobalPartitionKeyContext(DbContextOptions<NullableGlobalPartitionKeyContext> options)
         : DbContext(options)
     {
@@ -601,6 +759,45 @@ public class SecondaryIndexMetadataTests
         public string TenantId { get; set; } = null!;
         public string OrderId { get; set; } = null!;
         public string? CustomerId { get; set; }
+    }
+
+    private sealed class NullableGlobalSortKeyContext(DbContextOptions<NullableGlobalSortKeyContext> options)
+        : DbContext(options)
+    {
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<NullableGlobalSortKeyOrder>(entity =>
+            {
+                entity.HasPartitionKey(x => x.TenantId);
+                entity.HasSortKey(x => x.OrderId);
+                entity.HasGlobalSecondaryIndex("ByCustomerPriority", x => x.CustomerId, x => x.Priority);
+            });
+    }
+
+    private sealed class NullableGlobalSortKeyOrder
+    {
+        public string TenantId { get; set; } = null!;
+        public string OrderId { get; set; } = null!;
+        public string CustomerId { get; set; } = null!;
+        public int? Priority { get; set; }
+    }
+
+    private sealed class NullableLocalSortKeyContext(DbContextOptions<NullableLocalSortKeyContext> options)
+        : DbContext(options)
+    {
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<NullableLocalSortKeyOrder>(entity =>
+            {
+                entity.HasPartitionKey(x => x.TenantId);
+                entity.HasSortKey(x => x.OrderId);
+                entity.HasLocalSecondaryIndex("ByPriority", x => x.Priority);
+            });
+    }
+
+    private sealed class NullableLocalSortKeyOrder
+    {
+        public string TenantId { get; set; } = null!;
+        public string OrderId { get; set; } = null!;
+        public int? Priority { get; set; }
     }
 
     private sealed class ConverterGlobalPartitionKeyContext(DbContextOptions<ConverterGlobalPartitionKeyContext> options)
@@ -624,6 +821,37 @@ public class SecondaryIndexMetadataTests
         public string TenantId { get; set; } = null!;
         public string OrderId { get; set; } = null!;
         public Guid CustomerId { get; set; }
+    }
+
+    private sealed class DerivedUnsupportedGlobalPartitionKeyTypeContext(DbContextOptions<DerivedUnsupportedGlobalPartitionKeyTypeContext> options)
+        : DbContext(options)
+    {
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<BaseDerivedUnsupportedGlobalPartitionKeyOrder>(entity =>
+            {
+                entity.ToTable("Orders");
+                entity.HasPartitionKey(x => x.TenantId);
+                entity.HasSortKey(x => x.OrderId);
+            });
+
+            modelBuilder.Entity<DerivedUnsupportedGlobalPartitionKeyOrder>(entity =>
+            {
+                entity.HasBaseType<BaseDerivedUnsupportedGlobalPartitionKeyOrder>();
+                entity.HasGlobalSecondaryIndex("ByPriority", x => x.IsPriority);
+            });
+        }
+    }
+
+    private class BaseDerivedUnsupportedGlobalPartitionKeyOrder
+    {
+        public string TenantId { get; set; } = null!;
+        public string OrderId { get; set; } = null!;
+    }
+
+    private sealed class DerivedUnsupportedGlobalPartitionKeyOrder : BaseDerivedUnsupportedGlobalPartitionKeyOrder
+    {
+        public bool IsPriority { get; set; }
     }
 
     private sealed class DerivedIndexContext(DbContextOptions<DerivedIndexContext> options)
