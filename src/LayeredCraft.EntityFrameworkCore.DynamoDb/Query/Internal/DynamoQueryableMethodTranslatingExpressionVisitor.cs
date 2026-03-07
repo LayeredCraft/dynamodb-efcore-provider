@@ -74,6 +74,15 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
                 return Visit(methodCallExpression.Arguments[0]);
             }
 
+            if (method.Name == nameof(DynamoDbQueryableExtensions.WithIndex))
+            {
+                var context = (DynamoQueryCompilationContext)QueryCompilationContext;
+                if (context.ExplicitIndexName is null
+                    && methodCallExpression.Arguments[1] is ConstantExpression { Value: string indexName })
+                    context.ExplicitIndexName = indexName;
+
+                return Visit(methodCallExpression.Arguments[0]);
+            }
         }
 
         return base.VisitMethodCall(methodCallExpression);

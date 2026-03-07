@@ -245,6 +245,7 @@ The provider validates the key configuration during model finalization and raise
 - Secondary-index metadata APIs:
   - `HasGlobalSecondaryIndex(...)`
   - `HasLocalSecondaryIndex(...)`
+  - `WithIndex(...)`
 - `HasAttributeName` on scalar properties to control the DynamoDB store attribute name.
 
 ## Access patterns and scans
@@ -280,8 +281,8 @@ Current scope for these APIs:
 - GSI key schema is always explicit.
 - LSI requires a resolved table partition key and sort key from `HasPartitionKey(...)` /
   `HasSortKey(...)` or Dynamo naming conventions.
-- `WithIndex(...)` exists as an explicit query-hint surface, but it currently throws immediately
-  until index-aware PartiQL generation is implemented.
+- Query-time index targeting is not fully wired yet, so configuring an index does not yet guarantee
+  index-backed query execution.
 
 See [Indexes](indexes.md) for the current index configuration and support model.
 
