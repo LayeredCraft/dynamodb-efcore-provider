@@ -1,5 +1,7 @@
 using Amazon.DynamoDBv2;
+using LayeredCraft.EntityFrameworkCore.DynamoDb.Infrastructure;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Infrastructure.Internal;
+using Microsoft.EntityFrameworkCore;
 using NSubstitute;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Tests.Query;
@@ -12,6 +14,7 @@ public class PaginationConfigurationTests
         var extension = new DynamoDbOptionsExtension();
 
         extension.DefaultPageSize.Should().BeNull();
+        extension.AutomaticIndexSelectionMode.Should().Be(DynamoAutomaticIndexSelectionMode.Off);
         extension.DynamoDbClient.Should().BeNull();
         extension.DynamoDbClientConfig.Should().BeNull();
         extension.DynamoDbClientConfigAction.Should().BeNull();
@@ -91,7 +94,8 @@ public class PaginationConfigurationTests
             .WithDynamoDbClient(client)
             .WithDynamoDbClientConfig(config)
             .WithDynamoDbClientConfigAction(callback)
-            .WithDefaultPageSize(50);
+            .WithDefaultPageSize(50)
+            .WithAutomaticIndexSelectionMode(DynamoAutomaticIndexSelectionMode.Conservative);
 
         // Clone is protected, so we use one of the With methods which calls Clone
         var cloned = original.WithDefaultPageSize(75);
@@ -100,6 +104,7 @@ public class PaginationConfigurationTests
         cloned.DynamoDbClientConfig.Should().BeSameAs(config);
         cloned.DynamoDbClientConfigAction.Should().BeSameAs(callback);
         cloned.DefaultPageSize.Should().Be(75); // Updated value
+        cloned.AutomaticIndexSelectionMode.Should().Be(DynamoAutomaticIndexSelectionMode.Conservative);
     }
 
     [Fact]
@@ -123,6 +128,45 @@ public class PaginationConfigurationTests
         var extension2 = new DynamoDbOptionsExtension().WithDefaultPageSize(100);
 
         extension1.Info.ShouldUseSameServiceProvider(extension2.Info).Should().BeFalse();
+    }
+
+    [Fact]
+    public void WithAutomaticIndexSelectionMode_SetsMode()
+    {
+        var extension = new DynamoDbOptionsExtension();
+
+        var updated = extension.WithAutomaticIndexSelectionMode(DynamoAutomaticIndexSelectionMode.SuggestOnly);
+
+        updated.AutomaticIndexSelectionMode.Should().Be(DynamoAutomaticIndexSelectionMode.SuggestOnly);
+    }
+
+    [Fact]
+    public void UseDynamo_ConfigureAutomaticIndexSelection_StoresModeOnOptionsExtension()
+    {
+        var optionsBuilder = new DbContextOptionsBuilder();
+
+        optionsBuilder.UseDynamo(options =>
+            options.UseAutomaticIndexSelection(DynamoAutomaticIndexSelectionMode.Conservative));
+
+        var extension = optionsBuilder.Options.FindExtension<DynamoDbOptionsExtension>();
+
+        extension.Should().NotBeNull();
+        extension!.AutomaticIndexSelectionMode.Should().Be(DynamoAutomaticIndexSelectionMode.Conservative);
+    }
+
+    [Fact]
+    public void ServiceProviderHash_IncludesAutomaticIndexSelectionMode()
+    {
+        var extension1 = new DynamoDbOptionsExtension()
+            .WithAutomaticIndexSelectionMode(DynamoAutomaticIndexSelectionMode.Off);
+
+        var extension2 = new DynamoDbOptionsExtension()
+            .WithAutomaticIndexSelectionMode(DynamoAutomaticIndexSelectionMode.Conservative);
+
+        var hash1 = extension1.Info.GetServiceProviderHashCode();
+        var hash2 = extension2.Info.GetServiceProviderHashCode();
+
+        hash1.Should().NotBe(hash2);
     }
 
     [Fact]

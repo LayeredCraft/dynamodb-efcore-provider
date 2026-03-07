@@ -1,3 +1,4 @@
+using LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Storage;
 using Microsoft.EntityFrameworkCore;
@@ -35,6 +36,7 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
         ValidateKeyPropertyTypes(model);
         ValidateKeyPropertyNullability(model);
         ValidateTableKeySchemaConsistency(model);
+        ValidateSecondaryIndexes(model);
         ValidateDiscriminatorMappings(model);
     }
 
@@ -213,14 +215,14 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
                     $"No DynamoDB partition key is configured for entity type '{entityType.DisplayName()}'. "
                     + $"The EF primary key has {primaryKey.Properties.Count} properties, but the DynamoDB "
                     + "provider supports only one- or two-part keys (partition key with optional sort key). "
-                    + "Configure HasKey(...) with one or two properties and/or call HasPartitionKey(...) "
-                    + "and HasSortKey(...) to map the key explicitly.");
+                    + "Configure HasPartitionKey(...) and HasSortKey(...) or use conventional property "
+                    + "names ('PK'/'PartitionKey' and 'SK'/'SortKey') to map the DynamoDB table key explicitly.");
 
             throw new InvalidOperationException(
                 $"No DynamoDB partition key is configured for entity type '{entityType.DisplayName()}'. "
                 + "Use a conventional property name ('PK' or 'PartitionKey') or call "
                 + "HasPartitionKey(...). The DynamoDB provider does not infer table keys from "
-                + "EF Core's Id/[Key] conventions.");
+                + "HasKey(...), Id, or [Key] conventions.");
         }
     }
 
@@ -286,8 +288,9 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
             var actualDisplay = string.Join(", ", primaryKey.Properties.Select(static p => p.Name));
             throw new InvalidOperationException(
                 $"Entity type '{entityType.DisplayName()}' has EF primary key [{actualDisplay}] but "
-                + $"the DynamoDB table key is [{expectedDisplay}]. Configure HasKey(...) to match "
-                + "the DynamoDB partition/sort key order.");
+                + $"the DynamoDB table key is [{expectedDisplay}]. Configure the EF primary key to match "
+                + "the DynamoDB partition/sort key order after calling HasPartitionKey(...) and HasSortKey(...), "
+                + "or use matching conventional key property names.");
         }
     }
 
@@ -571,6 +574,53 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
                 + $"('{expectedSkTypeCategory}' vs '{skTypeCategory}'). All entity types sharing a DynamoDB table "
                 + "must use the same key type category for the same sort key attribute.");
         }
+    }
+
+    /// <summary>Validates DynamoDB secondary-index prerequisites and key-shape rules.</summary>
+    private static void ValidateSecondaryIndexes(IModel model)
+    {
+        foreach (var entityType in EnumerateRootEntityTypes(model))
+        {
+            foreach (var index in entityType.GetIndexes())
+            {
+                var indexKind = index.GetSecondaryIndexKind();
+                if (indexKind is null)
+                    continue;
+
+                if (indexKind == DynamoSecondaryIndexKind.Global)
+                    continue;
+
+                ValidateLocalSecondaryIndex(entityType, index);
+            }
+        }
+    }
+
+    /// <summary>Validates that a configured local secondary index has a valid alternate sort key.</summary>
+    private static void ValidateLocalSecondaryIndex(IEntityType entityType, IReadOnlyIndex index)
+    {
+        var indexName = index.GetSecondaryIndexName() ?? index.Name ?? "<unnamed>";
+        var partitionKeyProperty = entityType.GetPartitionKeyProperty();
+        if (partitionKeyProperty is null)
+            throw new InvalidOperationException(
+                $"Entity type '{entityType.DisplayName()}' configures local secondary index '{indexName}', "
+                + "but no DynamoDB partition key is configured. Configure HasPartitionKey(...) or use a conventional partition key property name before configuring an LSI.");
+
+        var sortKeyProperty = entityType.GetSortKeyProperty();
+        if (sortKeyProperty is null)
+            throw new InvalidOperationException(
+                $"Entity type '{entityType.DisplayName()}' configures local secondary index '{indexName}', "
+                + "but no DynamoDB sort key is configured. Configure HasSortKey(...) or use a conventional sort key property name before configuring an LSI.");
+
+        if (index.Properties.Count != 1)
+            throw new InvalidOperationException(
+                $"Entity type '{entityType.DisplayName()}' configures local secondary index '{indexName}', "
+                + $"but the LSI metadata contains {index.Properties.Count} key properties. Local secondary indexes must define exactly one alternate sort key property.");
+
+        var localSortKeyProperty = index.Properties[0];
+        if (localSortKeyProperty == sortKeyProperty)
+            throw new InvalidOperationException(
+                $"Entity type '{entityType.DisplayName()}' configures local secondary index '{indexName}' using property '{localSortKeyProperty.Name}', "
+                + "but a local secondary index must use an alternate sort key different from the table sort key.");
     }
 
     /// <summary>Returns root entity types that participate in top-level DynamoDB table mappings.</summary>

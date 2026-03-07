@@ -11,6 +11,7 @@ This provider translates LINQ queries to PartiQL and executes them with the AWS 
 ## Documentation
 
 - [Configuration](configuration.md)
+- [Indexes](indexes.md)
 - [Architecture](architecture.md)
 - [Operators](operators.md)
 - [Pagination](pagination.md)

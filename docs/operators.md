@@ -87,6 +87,11 @@ should keep in mind. Add to these sections as support expands.
 - DynamoDB PartiQL supports operators such as `BETWEEN` (inclusive) and `IN`. The provider
   translates `BETWEEN` from a matching `>=` + `<=` LINQ pattern on the same property.
 - DynamoDB documents `IN` limits as up to 50 hash-key values or up to 100 non-key values.
+- Query predicates do not imply GSI/LSI targeting. The current provider analyzes and executes
+  queries against the modeled table key unless and until explicit index-aware execution support is
+  added.
+- Access-pattern guidance in this document therefore applies to the modeled DynamoDB table
+  partition/sort key, not to EF `HasKey(...)` or to un-targeted secondary indexes.
 
 ## Identifier quoting notes
 - This provider always quotes identifiers in generated PartiQL.
