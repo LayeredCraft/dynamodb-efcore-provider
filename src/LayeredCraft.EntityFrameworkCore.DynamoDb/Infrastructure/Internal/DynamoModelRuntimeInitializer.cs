@@ -29,7 +29,7 @@ public sealed class DynamoModelRuntimeInitializer(
 
         model.GetOrAddRuntimeAnnotationValue(
             DynamoAnnotationNames.RuntimeTableModel,
-            static currentModel => BuildRuntimeTableModel((IReadOnlyModel)currentModel),
+            static currentModel => BuildRuntimeTableModel((IReadOnlyModel)currentModel!),
             model);
     }
 

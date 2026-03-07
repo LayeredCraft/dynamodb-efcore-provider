@@ -14,13 +14,15 @@ public class SharedTableDbContext(DbContextOptions<SharedTableDbContext> options
         modelBuilder.Entity<UserEntity>(builder =>
         {
             builder.ToTable(SharedTableDynamoFixture.TableName);
-            builder.HasKey(x => new { x.Pk, x.Sk });
+            builder.HasPartitionKey(x => x.Pk);
+            builder.HasSortKey(x => x.Sk);
         });
 
         modelBuilder.Entity<OrderEntity>(builder =>
         {
             builder.ToTable(SharedTableDynamoFixture.TableName);
-            builder.HasKey(x => new { x.Pk, x.Sk });
+            builder.HasPartitionKey(x => x.Pk);
+            builder.HasSortKey(x => x.Sk);
         });
     }
 }
@@ -39,13 +41,15 @@ public class SharedTableCustomDiscriminatorNameDbContext(
         modelBuilder.Entity<UserEntity>(builder =>
         {
             builder.ToTable(SharedTableDynamoFixture.TableName);
-            builder.HasKey(x => new { x.Pk, x.Sk });
+            builder.HasPartitionKey(x => x.Pk);
+            builder.HasSortKey(x => x.Sk);
         });
 
         modelBuilder.Entity<OrderEntity>(builder =>
         {
             builder.ToTable(SharedTableDynamoFixture.TableName);
-            builder.HasKey(x => new { x.Pk, x.Sk });
+            builder.HasPartitionKey(x => x.Pk);
+            builder.HasSortKey(x => x.Sk);
         });
     }
 }
@@ -59,7 +63,8 @@ public class SharedTableSingleTypeDbContext(
         => modelBuilder.Entity<UserEntity>(builder =>
         {
             builder.ToTable(SharedTableDynamoFixture.TableName);
-            builder.HasKey(x => new { x.Pk, x.Sk });
+            builder.HasPartitionKey(x => x.Pk);
+            builder.HasSortKey(x => x.Sk);
         });
 }
 
@@ -77,7 +82,8 @@ public class SharedTableInheritanceDbContext(
         modelBuilder.Entity<PersonEntity>(builder =>
         {
             builder.ToTable(SharedTableDynamoFixture.TableName);
-            builder.HasKey(x => new { x.Pk, x.Sk });
+            builder.HasPartitionKey(x => x.Pk);
+            builder.HasSortKey(x => x.Sk);
         });
 
         modelBuilder.Entity<EmployeeEntity>(builder =>
@@ -109,7 +115,8 @@ public class SharedTableInheritanceBaseOnlyToTableDbContext(
         modelBuilder.Entity<PersonEntity>(builder =>
         {
             builder.ToTable(SharedTableDynamoFixture.TableName);
-            builder.HasKey(x => new { x.Pk, x.Sk });
+            builder.HasPartitionKey(x => x.Pk);
+            builder.HasSortKey(x => x.Sk);
         });
 
         modelBuilder.Entity<EmployeeEntity>(builder => builder.HasBaseType<PersonEntity>());

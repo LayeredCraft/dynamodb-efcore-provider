@@ -188,7 +188,7 @@ public class DynamoKeyInPrimaryKeyConventionTests
     }
 
     // -------------------------------------------------------------------
-    // Explicit HasKey takes precedence — convention stands down
+    // Explicit root HasKey is rejected — Dynamo key annotations stay authoritative
     // -------------------------------------------------------------------
 
     private sealed record ExplicitKeyEntity
@@ -205,7 +205,7 @@ public class DynamoKeyInPrimaryKeyConventionTests
             => modelBuilder.Entity<ExplicitKeyEntity>(b =>
             {
                 b.ToTable("ExplicitKeyTable");
-                b.HasKey(x => new { x.PkProp, x.SkProp }); // explicit — convention must stand down
+                b.HasKey(x => new { x.PkProp, x.SkProp });
                 b.HasPartitionKey(x => x.PkProp);
                 b.HasSortKey(x => x.SkProp);
             });
@@ -215,19 +215,14 @@ public class DynamoKeyInPrimaryKeyConventionTests
     }
 
     [Fact]
-    public void ExplicitHasKey_WithAnnotations_ConventionStandsDownAndKeyIsUnchanged()
+    public void ExplicitHasKey_WithAnnotations_IsRejected()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
-        using var ctx = ExplicitKeyContext.Create(client);
+        var act = () => ExplicitKeyContext.Create(client).Model;
 
-        var entityType = ctx.Model.FindEntityType(typeof(ExplicitKeyEntity))!;
-        var primaryKey = entityType.FindPrimaryKey()!;
-
-        primaryKey.Properties.Should().HaveCount(2);
-        primaryKey.Properties[0].Name.Should().Be("PkProp");
-        primaryKey.Properties[1].Name.Should().Be("SkProp");
-        entityType.GetPartitionKeyPropertyName().Should().Be("PkProp");
-        entityType.GetSortKeyPropertyName().Should().Be("SkProp");
+        act.Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage("*must use HasPartitionKey(...) and optional HasSortKey(...)*do not use HasKey(...) or [Key]*");
     }
 
     // -------------------------------------------------------------------
@@ -253,7 +248,6 @@ public class DynamoKeyInPrimaryKeyConventionTests
             => modelBuilder.Entity<OwnerWithAnnotationEntity>(b =>
             {
                 b.ToTable("OwnedPartTable");
-                b.HasKey(x => x.Id);
                 b.HasPartitionKey(x => x.Id);
                 b.OwnsOne(x => x.Detail);
             });

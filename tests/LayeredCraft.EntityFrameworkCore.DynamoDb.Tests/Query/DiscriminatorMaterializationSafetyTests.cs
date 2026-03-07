@@ -107,13 +107,15 @@ public class DiscriminatorMaterializationSafetyTests
             modelBuilder.Entity<UserEntity>(b =>
             {
                 b.ToTable("app-table");
-                b.HasKey(x => new { x.PK, x.SK });
+                b.HasPartitionKey(x => x.PK);
+                b.HasSortKey(x => x.SK);
             });
 
             modelBuilder.Entity<OrderEntity>(b =>
             {
                 b.ToTable("app-table");
-                b.HasKey(x => new { x.PK, x.SK });
+                b.HasPartitionKey(x => x.PK);
+                b.HasSortKey(x => x.SK);
             });
         }
 
@@ -154,7 +156,8 @@ public class DiscriminatorMaterializationSafetyTests
             modelBuilder.Entity<PersonEntity>(b =>
             {
                 b.ToTable("app-table");
-                b.HasKey(x => new { x.PK, x.SK });
+                b.HasPartitionKey(x => x.PK);
+                b.HasSortKey(x => x.SK);
             });
 
             modelBuilder.Entity<EmployeeEntity>(b =>

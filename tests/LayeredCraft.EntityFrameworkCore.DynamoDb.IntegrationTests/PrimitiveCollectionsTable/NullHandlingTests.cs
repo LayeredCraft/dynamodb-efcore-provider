@@ -257,7 +257,7 @@ public class NullHandlingTests(PrimitiveCollectionsDynamoFixture fixture)
             => modelBuilder.Entity<OptionalCollectionsItem>(entity =>
             {
                 entity.ToTable(PrimitiveCollectionsDynamoFixture.TableName);
-                entity.HasKey(x => x.Pk);
+                entity.HasPartitionKey(x => x.Pk);
             });
     }
 

@@ -18,5 +18,6 @@ public class PkSkTableDbContext(DbContextOptions options) : DbContext(options)
         => modelBuilder
             .Entity<PkSkItem>()
             .ToTable(PkSkTableDynamoFixture.TableName)
-            .HasKey(x => new { x.Pk, x.Sk });
+            .HasPartitionKey(x => x.Pk)
+            .HasSortKey(x => x.Sk);
 }

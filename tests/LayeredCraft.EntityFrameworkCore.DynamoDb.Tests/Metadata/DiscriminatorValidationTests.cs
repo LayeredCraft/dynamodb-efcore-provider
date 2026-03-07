@@ -36,13 +36,15 @@ public class DiscriminatorValidationTests
             modelBuilder.Entity<UserEntity>(b =>
             {
                 b.ToTable("App");
-                b.HasKey(x => new { x.PK, x.SK });
+                b.HasPartitionKey(x => x.PK);
+                b.HasSortKey(x => x.SK);
             });
 
             modelBuilder.Entity<OrderEntity>(b =>
             {
                 b.ToTable("App");
-                b.HasKey(x => new { x.PK, x.SK });
+                b.HasPartitionKey(x => x.PK);
+                b.HasSortKey(x => x.SK);
             });
         }
 
@@ -58,7 +60,8 @@ public class DiscriminatorValidationTests
             modelBuilder.Entity<UserEntity>(b =>
             {
                 b.ToTable("App");
-                b.HasKey(x => new { x.PK, x.SK });
+                b.HasPartitionKey(x => x.PK);
+                b.HasSortKey(x => x.SK);
                 b.HasDiscriminator("$type", typeof(string));
                 b.Metadata.SetDiscriminatorProperty(null);
             });
@@ -66,7 +69,8 @@ public class DiscriminatorValidationTests
             modelBuilder.Entity<OrderEntity>(b =>
             {
                 b.ToTable("App");
-                b.HasKey(x => new { x.PK, x.SK });
+                b.HasPartitionKey(x => x.PK);
+                b.HasSortKey(x => x.SK);
             });
         }
 
@@ -82,7 +86,8 @@ public class DiscriminatorValidationTests
             modelBuilder.Entity<UserEntity>(b =>
             {
                 b.ToTable("App");
-                b.HasKey(x => new { x.PK, x.SK });
+                b.HasPartitionKey(x => x.PK);
+                b.HasSortKey(x => x.SK);
                 b.HasDiscriminator("$type", typeof(string));
                 b.Metadata.SetDiscriminatorValue(null);
             });
@@ -90,7 +95,8 @@ public class DiscriminatorValidationTests
             modelBuilder.Entity<OrderEntity>(b =>
             {
                 b.ToTable("App");
-                b.HasKey(x => new { x.PK, x.SK });
+                b.HasPartitionKey(x => x.PK);
+                b.HasSortKey(x => x.SK);
             });
         }
 
@@ -106,7 +112,8 @@ public class DiscriminatorValidationTests
             modelBuilder.Entity<UserEntity>(b =>
             {
                 b.ToTable("App");
-                b.HasKey(x => new { x.PK, x.SK });
+                b.HasPartitionKey(x => x.PK);
+                b.HasSortKey(x => x.SK);
                 b
                     .HasDiscriminator("$type", typeof(string))
                     .HasValue(typeof(UserEntity), "duplicate");
@@ -115,7 +122,8 @@ public class DiscriminatorValidationTests
             modelBuilder.Entity<OrderEntity>(b =>
             {
                 b.ToTable("App");
-                b.HasKey(x => new { x.PK, x.SK });
+                b.HasPartitionKey(x => x.PK);
+                b.HasSortKey(x => x.SK);
                 b
                     .HasDiscriminator("$type", typeof(string))
                     .HasValue(typeof(OrderEntity), "duplicate");
@@ -134,14 +142,16 @@ public class DiscriminatorValidationTests
             modelBuilder.Entity<UserEntity>(b =>
             {
                 b.ToTable("App");
-                b.HasKey(x => new { x.PK, x.SK });
+                b.HasPartitionKey(x => x.PK);
+                b.HasSortKey(x => x.SK);
                 b.Property<string>("$type").HasAttributeName("$kind");
             });
 
             modelBuilder.Entity<OrderEntity>(b =>
             {
                 b.ToTable("App");
-                b.HasKey(x => new { x.PK, x.SK });
+                b.HasPartitionKey(x => x.PK);
+                b.HasSortKey(x => x.SK);
             });
         }
 
@@ -157,14 +167,16 @@ public class DiscriminatorValidationTests
             modelBuilder.Entity<UserEntity>(b =>
             {
                 b.ToTable("App");
-                b.HasKey(x => new { x.PK, x.SK });
+                b.HasPartitionKey(x => x.PK);
+                b.HasSortKey(x => x.SK);
                 b.Property(x => x.PK).HasAttributeName("$type");
             });
 
             modelBuilder.Entity<OrderEntity>(b =>
             {
                 b.ToTable("App");
-                b.HasKey(x => new { x.PK, x.SK });
+                b.HasPartitionKey(x => x.PK);
+                b.HasSortKey(x => x.SK);
                 b.Property(x => x.PK).HasAttributeName("$type");
             });
         }
@@ -181,14 +193,16 @@ public class DiscriminatorValidationTests
             modelBuilder.Entity<UserEntity>(b =>
             {
                 b.ToTable("App");
-                b.HasKey(x => new { x.PK, x.SK });
+                b.HasPartitionKey(x => x.PK);
+                b.HasSortKey(x => x.SK);
                 b.Property(x => x.SK).HasAttributeName("$type");
             });
 
             modelBuilder.Entity<OrderEntity>(b =>
             {
                 b.ToTable("App");
-                b.HasKey(x => new { x.PK, x.SK });
+                b.HasPartitionKey(x => x.PK);
+                b.HasSortKey(x => x.SK);
                 b.Property(x => x.SK).HasAttributeName("$type");
             });
         }

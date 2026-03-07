@@ -63,7 +63,8 @@ public sealed class DynamoKeyInPrimaryKeyConvention(
 
         var primaryKey = entityType.FindPrimaryKey();
 
-        // Respect explicit HasKey(...) calls — only modify convention-derived keys.
+        // Preserve explicit EF primary key configuration so model validation can reject it
+        // with a targeted provider error; only modify convention-derived keys here.
         if (primaryKey != null
             && !ConfigurationSource.Convention.Overrides(primaryKey.GetConfigurationSource()))
             return;

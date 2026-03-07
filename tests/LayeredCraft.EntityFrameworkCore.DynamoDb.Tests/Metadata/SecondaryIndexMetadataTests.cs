@@ -15,7 +15,6 @@ public class SecondaryIndexMetadataTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<Order>(entity =>
             {
-                entity.HasKey(x => new { x.TenantId, x.OrderId });
                 entity.HasPartitionKey(x => x.TenantId);
                 entity.HasSortKey(x => x.OrderId);
 
@@ -343,7 +342,6 @@ public class SecondaryIndexMetadataTests
             modelBuilder.Entity<BaseOrder>(entity =>
             {
                 entity.ToTable("Orders");
-                entity.HasKey(x => new { x.TenantId, x.OrderId });
                 entity.HasPartitionKey(x => x.TenantId);
                 entity.HasSortKey(x => x.OrderId);
                 entity.HasLocalSecondaryIndex("ByStatus", x => x.Status);
@@ -413,7 +411,6 @@ public class SecondaryIndexMetadataTests
             modelBuilder.Entity<StringCustomerOrder>(entity =>
             {
                 entity.ToTable("Orders");
-                entity.HasKey(x => x.TenantId);
                 entity.HasPartitionKey(x => x.TenantId);
                 entity.HasGlobalSecondaryIndex("ByCustomer", x => x.CustomerId);
             });
@@ -421,7 +418,6 @@ public class SecondaryIndexMetadataTests
             modelBuilder.Entity<NumericCustomerOrder>(entity =>
             {
                 entity.ToTable("Orders");
-                entity.HasKey(x => x.TenantId);
                 entity.HasPartitionKey(x => x.TenantId);
                 entity.HasGlobalSecondaryIndex("ByCustomer", x => x.CustomerId);
             });

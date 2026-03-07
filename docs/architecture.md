@@ -17,7 +17,8 @@ icon: lucide/git-branch
 - Result limit and page size are separate concepts.
 - Materialization enforces strict required-property behavior for missing/null/wrong-typed data.
 - Query planning relies on Dynamo-specific partition/sort key metadata (`HasPartitionKey(...)`,
-  `HasSortKey(...)`, or supported Dynamo naming conventions), not on EF `HasKey(...)` inference.
+  `HasSortKey(...)`, or supported Dynamo naming conventions), and the provider derives the EF primary
+  key from that mapping rather than from user-configured `HasKey(...)`.
 - Secondary-index metadata can be configured, but index-aware execution is not yet wired into PartiQL generation.
 
 ## DynamoDB ExecuteStatement model

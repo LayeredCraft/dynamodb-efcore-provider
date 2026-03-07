@@ -11,5 +11,5 @@ public class PrimitiveCollectionsDbContext(DbContextOptions<PrimitiveCollections
         => modelBuilder
             .Entity<PrimitiveCollectionsItem>()
             .ToTable(PrimitiveCollectionsDynamoFixture.TableName)
-            .HasKey(x => x.Pk);
+            .HasPartitionKey(x => x.Pk);
 }
