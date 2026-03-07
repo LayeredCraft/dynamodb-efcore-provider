@@ -252,6 +252,28 @@ public class SecondaryIndexMetadataTests
     }
 
     [Fact]
+    public void RuntimeTableModel_AllowsSharedTableTypeSpecificSecondaryIndexes()
+    {
+        var optionsBuilder = new DbContextOptionsBuilder<SharedTableTypeSpecificIndexContext>();
+        optionsBuilder.UseDynamo();
+
+        using var context = new SharedTableTypeSpecificIndexContext(optionsBuilder.Options);
+
+        var runtimeTableModel = context.Model.GetDynamoRuntimeTableModel()!;
+        var tableDescriptor = runtimeTableModel.Tables["Orders"];
+
+        tableDescriptor.SourcesByEntityTypeName[typeof(CustomerOrder).FullName!]
+            .Select(source => source.IndexName)
+            .Should()
+            .Equal(null, "ByCustomer", "ByStatus");
+
+        tableDescriptor.SourcesByEntityTypeName[typeof(AuditOrder).FullName!]
+            .Select(source => source.IndexName)
+            .Should()
+            .Equal(null, "ByStatus");
+    }
+
+    [Fact]
     public void RuntimeTableModel_SharedTableSecondaryIndexTypeMismatch_ThrowsHelpfulError()
     {
         var optionsBuilder = new DbContextOptionsBuilder<SharedTableMismatchedIndexTypeContext>();
@@ -444,6 +466,45 @@ public class SecondaryIndexMetadataTests
         public string TenantId { get; set; } = null!;
         public string OrderId { get; set; } = null!;
         public string CustomerId { get; set; } = null!;
+        public string Status { get; set; } = null!;
+    }
+
+    private sealed class SharedTableTypeSpecificIndexContext(DbContextOptions<SharedTableTypeSpecificIndexContext> options)
+        : DbContext(options)
+    {
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<CustomerOrder>(entity =>
+            {
+                entity.ToTable("Orders");
+                entity.HasPartitionKey(x => x.TenantId);
+                entity.HasSortKey(x => x.OrderId);
+                entity.HasGlobalSecondaryIndex("ByCustomer", x => x.CustomerId);
+                entity.HasLocalSecondaryIndex("ByStatus", x => x.Status);
+            });
+
+            modelBuilder.Entity<AuditOrder>(entity =>
+            {
+                entity.ToTable("Orders");
+                entity.HasPartitionKey(x => x.TenantId);
+                entity.HasSortKey(x => x.OrderId);
+                entity.HasLocalSecondaryIndex("ByStatus", x => x.Status);
+            });
+        }
+    }
+
+    private sealed class CustomerOrder
+    {
+        public string TenantId { get; set; } = null!;
+        public string OrderId { get; set; } = null!;
+        public string CustomerId { get; set; } = null!;
+        public string Status { get; set; } = null!;
+    }
+
+    private sealed class AuditOrder
+    {
+        public string TenantId { get; set; } = null!;
+        public string OrderId { get; set; } = null!;
         public string Status { get; set; } = null!;
     }
 

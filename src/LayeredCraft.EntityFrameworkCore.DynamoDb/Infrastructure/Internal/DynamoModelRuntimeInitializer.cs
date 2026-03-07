@@ -144,56 +144,63 @@ public sealed class DynamoModelRuntimeInitializer(
             index.GetSecondaryIndexProjectionType() ?? DynamoSecondaryIndexProjectionType.All);
     }
 
-    /// <summary>Ensures shared-table root entity types expose equivalent runtime sources for analysis.</summary>
+    /// <summary>Ensures shared-table root entity types do not define conflicting secondary indexes.</summary>
     private static void ValidateSharedTableSources(
         string tableName,
         IReadOnlyDictionary<string, IReadOnlyList<DynamoIndexDescriptor>> sourcesByEntityType)
     {
-        string? baselineEntityTypeName = null;
-        IReadOnlyList<DynamoIndexDescriptor>? baselineSources = null;
+        var entityTypeNames = sourcesByEntityType.Keys.OrderBy(static name => name, StringComparer.Ordinal).ToArray();
 
-        foreach (var pair in sourcesByEntityType)
+        for (var i = 0; i < entityTypeNames.Length; i++)
         {
-            if (baselineSources is null)
+            for (var j = i + 1; j < entityTypeNames.Length; j++)
             {
-                baselineEntityTypeName = pair.Key;
-                baselineSources = pair.Value;
-                continue;
+                var leftEntityTypeName = entityTypeNames[i];
+                var rightEntityTypeName = entityTypeNames[j];
+
+                if (HaveCompatibleSharedTableSources(
+                        sourcesByEntityType[leftEntityTypeName],
+                        sourcesByEntityType[rightEntityTypeName]))
+                {
+                    continue;
+                }
+
+                throw new InvalidOperationException(
+                    $"Entity types '{leftEntityTypeName}' and '{rightEntityTypeName}' map to DynamoDB table '{tableName}' but expose inconsistent secondary-index metadata.");
             }
-
-            if (HaveEquivalentSourceSignatures(baselineSources, pair.Value))
-                continue;
-
-            throw new InvalidOperationException(
-                $"Entity types '{baselineEntityTypeName}' and '{pair.Key}' map to DynamoDB table '{tableName}' but expose inconsistent secondary-index metadata.");
         }
     }
 
     /// <summary>
-    ///     Determines whether two source lists describe the same access paths by metadata shape.
+    ///     Determines whether two source lists expose compatible shared-table secondary-index metadata.
     /// </summary>
     /// <remarks>
-    ///     Comparison is positional. Both lists must be in the same order, which is guaranteed
-    ///     because <see cref="BuildSourceDescriptors"/> always places the base-table descriptor
-    ///     first and then appends secondary indexes in the order returned by
-    ///     <see cref="LayeredCraft.EntityFrameworkCore.DynamoDb.Extensions.DynamoModelExtensions.EnumerateSecondaryIndexesInHierarchy"/>. Any future change to that ordering must be reflected
-    ///     here to keep shared-table consistency validation correct.
+    ///     Shared-table entity types may expose different secondary-index sets. Compatibility only
+    ///     requires agreement for overlapping secondary indexes with the same runtime source key.
     /// </remarks>
-    private static bool HaveEquivalentSourceSignatures(
+    private static bool HaveCompatibleSharedTableSources(
         IReadOnlyList<DynamoIndexDescriptor> left,
         IReadOnlyList<DynamoIndexDescriptor> right)
     {
-        if (left.Count != right.Count)
-            return false;
+        var rightByKey = right
+            .Where(static descriptor => descriptor.IndexName is not null)
+            .ToDictionary(static descriptor => GetSourceKey(descriptor), StringComparer.Ordinal);
 
-        for (var index = 0; index < left.Count; index++)
+        foreach (var leftDescriptor in left.Where(static descriptor => descriptor.IndexName is not null))
         {
-            if (!HasEquivalentSourceSignature(left[index], right[index]))
+            if (!rightByKey.TryGetValue(GetSourceKey(leftDescriptor), out var rightDescriptor))
+                continue;
+
+            if (!HasEquivalentSourceSignature(leftDescriptor, rightDescriptor))
                 return false;
         }
 
         return true;
     }
+
+    /// <summary>Builds the stable comparison key for a shared secondary-index source.</summary>
+    private static string GetSourceKey(DynamoIndexDescriptor descriptor)
+        => $"{descriptor.Kind}:{descriptor.IndexName}";
 
     /// <summary>Determines whether two source descriptors are equivalent for shared-table analysis.</summary>
     private static bool HasEquivalentSourceSignature(DynamoIndexDescriptor left, DynamoIndexDescriptor right)
