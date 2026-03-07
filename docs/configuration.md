@@ -77,8 +77,9 @@ protected override void OnModelCreating(ModelBuilder modelBuilder)
 DynamoDB tables have a partition key and an optional sort key. The provider needs to know which
 EF properties map to those keys so it can build correct key expressions.
 
-`HasKey(...)` configures the EF primary key only. It does **not** identify the DynamoDB partition
-key or sort key for this provider.
+For root DynamoDB entities, `HasKey(...)` is not supported. Configure `HasPartitionKey(...)` and
+optional `HasSortKey(...)` instead; the provider derives the EF primary key automatically from that
+DynamoDB key mapping.
 
 ### Convention-based discovery
 
@@ -119,11 +120,10 @@ modelBuilder.Entity<Order>(b =>
 });
 ```
 
-When `HasPartitionKey` and/or `HasSortKey` are set without an explicit `HasKey` call, the provider
-automatically configures the EF primary key to match. If you choose to configure `HasKey(...)`
-yourself, it must still match the resolved DynamoDB table key shape.
+When `HasPartitionKey` and/or `HasSortKey` are set, the provider automatically configures the EF
+primary key to match. Root entities should not configure `HasKey(...)` themselves.
 
-### `HasKey(...)` is not Dynamo key mapping
+### `HasKey(...)` is rejected for root entities
 
 This model is **not** enough:
 
@@ -135,8 +135,7 @@ modelBuilder.Entity<Order>(b =>
 });
 ```
 
-The provider treats that as EF primary-key configuration only. To make the model valid for DynamoDB,
-use Dynamo-specific key mapping:
+The provider rejects that model for root entities. Use Dynamo-specific key mapping instead:
 
 ```csharp
 modelBuilder.Entity<Order>(b =>
@@ -220,8 +219,8 @@ The provider validates the key configuration during model finalization and raise
 `InvalidOperationException` for:
 
 - A partition or sort key property that does not exist on the entity type.
-- A partition or sort key property that is not a member of the EF primary key.
-- An EF primary key configured with `HasKey(...)` but no resolved DynamoDB partition key.
+- An explicit root EF primary key configured with `HasKey(...)` or `[Key]`.
+- An internally derived EF primary key that does not match the configured DynamoDB key shape.
 - Entity types sharing a DynamoDB table that disagree on the partition key attribute name or
   sort key attribute name.
 - A sort key configured with no resolvable partition key.

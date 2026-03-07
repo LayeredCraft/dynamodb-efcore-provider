@@ -32,7 +32,8 @@ var minId = "item-2";
 var maxId = "item-5";
 var rangeItems =
     await context
-        .Items.Where(i => i.Id.CompareTo(minId) >= 0 && i.Id.CompareTo(maxId) <= 0)
+        .Items
+        .Where(i => i.Id.CompareTo(minId) >= 0 && i.Id.CompareTo(maxId) <= 0)
         .ToListAsync();
 foreach (var item in rangeItems)
     Console.WriteLine($"Range Item: {item.Id}, {item.Name}, {item.Desciption}");
@@ -41,7 +42,8 @@ foreach (var item in rangeItems)
 Console.WriteLine("\n=== Example 4: Ordered Query ===");
 var orderedItems =
     await context
-        .Items.Where(i => i.Id == "item-1" || i.Id == "item-2" || i.Id == "item-3")
+        .Items
+        .Where(i => i.Id == "item-1" || i.Id == "item-2" || i.Id == "item-3")
         .OrderBy(i => i.Id)
         .ToListAsync();
 foreach (var item in orderedItems)
@@ -54,9 +56,11 @@ internal class DynamoDbContext : DbContext
     public DbSet<Item> Items { get; init; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-        => optionsBuilder.UseDynamo(options
-            => options.ConfigureDynamoDbClientConfig(config
-                => config.ServiceURL = "http://localhost:8002"));
+        => optionsBuilder.UseDynamo(options => options.ConfigureDynamoDbClientConfig(config =>
+        {
+            config.ServiceURL = "http://localhost:8002";
+            config.MaxErrorRetry = 1;
+        }));
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
         => modelBuilder.Entity<Item>().ToTable("SimpleItems").HasPartitionKey(x => x.Id);

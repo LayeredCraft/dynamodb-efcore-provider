@@ -1,3 +1,4 @@
+using LayeredCraft.EntityFrameworkCore.DynamoDb.Extensions;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Storage;
@@ -18,8 +19,10 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
     {
         // Run DynamoDB-specific pre-flight checks before EF base validation so that
         // provider-specific error messages take precedence over EF's generic errors.
+        ValidateRootEntityDoesNotUseExplicitPrimaryKeyConfiguration(model);
         ValidateRootEntityHasPartitionKey(model);
         ValidateSortKeyHasResolvablePartitionKey(model);
+        ValidateConfiguredKeyPropertiesExist(model);
 
         base.Validate(model, logger);
 
@@ -39,6 +42,30 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
         ValidateSecondaryIndexes(model);
         ValidateDiscriminatorMappings(model);
     }
+
+    /// <summary>Rejects explicit EF primary key configuration for root DynamoDB entities.</summary>
+    private static void ValidateRootEntityDoesNotUseExplicitPrimaryKeyConfiguration(IModel model)
+    {
+        foreach (var entityType in EnumerateRootEntityTypes(model))
+        {
+            var primaryKey = entityType.FindPrimaryKey();
+            if (primaryKey is null)
+                continue;
+
+            if (primaryKey is not IConventionKey conventionKey
+                || conventionKey.GetConfigurationSource() is not (ConfigurationSource.Explicit or ConfigurationSource.DataAnnotation))
+            {
+                continue;
+            }
+
+            throw new InvalidOperationException(
+                $"Entity type '{entityType.DisplayName()}' configures an EF primary key explicitly. "
+                + "Root DynamoDB entities must use HasPartitionKey(...) and optional HasSortKey(...); "
+                + "do not use HasKey(...) or [Key]. The EF primary key is derived automatically from "
+                + "the DynamoDB key schema.");
+        }
+    }
+
 
     /// <summary>Validates primitive collection properties against DynamoDB provider shape constraints.</summary>
     protected override void ValidatePrimitiveCollections(
@@ -243,6 +270,29 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
                     + $"'{entityType.DisplayName()}' but no partition key can be determined. "
                     + "Call HasPartitionKey(...) or add a conventional partition key property name "
                     + "('PK' or 'PartitionKey').");
+        }
+    }
+
+    /// <summary>Validates that configured partition and sort key properties exist before EF base validation runs.</summary>
+    private static void ValidateConfiguredKeyPropertiesExist(IModel model)
+    {
+        foreach (var entityType in EnumerateRootEntityTypes(model))
+        {
+            if (entityType[DynamoAnnotationNames.PartitionKeyPropertyName] is not string pkName)
+                continue;
+
+            _ = entityType.FindProperty(pkName)
+                ?? throw new InvalidOperationException(
+                    $"The partition key property '{pkName}' configured on entity type "
+                    + $"'{entityType.DisplayName()}' does not exist.");
+
+            if (entityType[DynamoAnnotationNames.SortKeyPropertyName] is not string skName)
+                continue;
+
+            _ = entityType.FindProperty(skName)
+                ?? throw new InvalidOperationException(
+                    $"The sort key property '{skName}' configured on entity type "
+                    + $"'{entityType.DisplayName()}' does not exist.");
         }
     }
 
@@ -581,7 +631,7 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
     {
         foreach (var entityType in EnumerateRootEntityTypes(model))
         {
-            foreach (var index in entityType.GetIndexes())
+            foreach (var index in entityType.EnumerateSecondaryIndexesInHierarchy())
             {
                 var indexKind = index.GetSecondaryIndexKind();
                 if (indexKind is null)

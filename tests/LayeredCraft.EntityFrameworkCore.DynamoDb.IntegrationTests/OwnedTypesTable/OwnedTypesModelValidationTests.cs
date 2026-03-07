@@ -85,7 +85,7 @@ public class OwnedTypesModelValidationTests : IClassFixture<OwnedTypesTableDynam
             => modelBuilder.Entity<OwnerWithSingleOwned>(entity =>
             {
                 entity.ToTable(OwnedTypesTableDynamoFixture.TableName);
-                entity.HasKey(x => x.Pk);
+                entity.HasPartitionKey(x => x.Pk);
                 entity.OwnsOne(
                     x => x.Profile,
                     owned =>
@@ -106,7 +106,7 @@ public class OwnedTypesModelValidationTests : IClassFixture<OwnedTypesTableDynam
             => modelBuilder.Entity<OwnerWithPropertyCollision>(entity =>
             {
                 entity.ToTable(OwnedTypesTableDynamoFixture.TableName);
-                entity.HasKey(x => x.Pk);
+                entity.HasPartitionKey(x => x.Pk);
                 entity.OwnsOne(
                     x => x.Profile,
                     owned => owned.HasAttributeName(
@@ -123,7 +123,7 @@ public class OwnedTypesModelValidationTests : IClassFixture<OwnedTypesTableDynam
             => modelBuilder.Entity<OwnerWithNavigationCollision>(entity =>
             {
                 entity.ToTable(OwnedTypesTableDynamoFixture.TableName);
-                entity.HasKey(x => x.Pk);
+                entity.HasPartitionKey(x => x.Pk);
                 entity.OwnsOne(x => x.PrimaryProfile, owned => owned.HasAttributeName("Profile"));
                 entity.OwnsOne(x => x.SecondaryProfile, owned => owned.HasAttributeName("Profile"));
             });
@@ -164,7 +164,7 @@ public class OwnedTypesModelValidationTests : IClassFixture<OwnedTypesTableDynam
             => modelBuilder.Entity<OwnerWithUnsupportedCollectionShape>(entity =>
             {
                 entity.ToTable(OwnedTypesTableDynamoFixture.TableName);
-                entity.HasKey(x => x.Pk);
+                entity.HasPartitionKey(x => x.Pk);
                 entity.OwnsMany(x => x.Profiles);
             });
     }

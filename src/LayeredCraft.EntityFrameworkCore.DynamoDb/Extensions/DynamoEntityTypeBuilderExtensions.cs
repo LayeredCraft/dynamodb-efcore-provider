@@ -33,9 +33,9 @@ public static class DynamoEntityTypeBuilderExtensions
         ///     entity type.
         /// </summary>
         /// <remarks>
-        ///     Only needed when the partition key property is not the first property in the EF primary
-        ///     key. By default the physical attribute name is derived from the first EF primary key property
-        ///     via <c>HasAttributeName</c>, falling back to the CLR property name.
+        ///     This is the authoritative API for configuring the DynamoDB partition key on a root entity.
+        ///     The provider derives the EF primary key automatically from the configured partition key and
+        ///     optional sort key, so root entities should not configure <c>HasKey(...)</c> directly.
         /// </remarks>
         /// <param name="propertyName">
         ///     The EF property name whose attribute name maps to the DynamoDB partition
@@ -54,9 +54,10 @@ public static class DynamoEntityTypeBuilderExtensions
         ///     type.
         /// </summary>
         /// <remarks>
-        ///     Only needed when the sort key property is not the second property in the EF primary key.
-        ///     By default the physical attribute name is derived from the second EF primary key property via
-        ///     <c>HasAttributeName</c>, falling back to the CLR property name.
+        ///     This is the authoritative API for configuring the DynamoDB sort key on a root entity.
+        ///     When present, the provider derives the EF primary key automatically as
+        ///     <c>[partitionKey, sortKey]</c>, so root entities should not configure <c>HasKey(...)</c>
+        ///     directly.
         /// </remarks>
         /// <param name="propertyName">The EF property name whose attribute name maps to the DynamoDB sort key.</param>
         /// <returns>The same builder instance so that multiple calls can be chained.</returns>
@@ -146,9 +147,9 @@ public static class DynamoEntityTypeBuilderExtensions
         ///     entity type.
         /// </summary>
         /// <remarks>
-        ///     Only needed when the partition key property is not the first property in the EF primary
-        ///     key. By default the physical attribute name is derived from the first EF primary key property
-        ///     via <c>HasAttributeName</c>, falling back to the CLR property name.
+        ///     This is the authoritative API for configuring the DynamoDB partition key on a root entity.
+        ///     The provider derives the EF primary key automatically from the configured partition key and
+        ///     optional sort key, so root entities should not configure <c>HasKey(...)</c> directly.
         /// </remarks>
         /// <typeparam name="TEntity">The entity type being configured.</typeparam>
         /// <param name="keyExpression">
@@ -166,9 +167,10 @@ public static class DynamoEntityTypeBuilderExtensions
         ///     type.
         /// </summary>
         /// <remarks>
-        ///     Only needed when the sort key property is not the second property in the EF primary key.
-        ///     By default the physical attribute name is derived from the second EF primary key property via
-        ///     <c>HasAttributeName</c>, falling back to the CLR property name.
+        ///     This is the authoritative API for configuring the DynamoDB sort key on a root entity.
+        ///     When present, the provider derives the EF primary key automatically as
+        ///     <c>[partitionKey, sortKey]</c>, so root entities should not configure <c>HasKey(...)</c>
+        ///     directly.
         /// </remarks>
         /// <typeparam name="TEntity">The entity type being configured.</typeparam>
         /// <param name="keyExpression">

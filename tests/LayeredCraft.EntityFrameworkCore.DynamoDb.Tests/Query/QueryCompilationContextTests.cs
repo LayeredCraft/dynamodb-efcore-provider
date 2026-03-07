@@ -16,7 +16,7 @@ public class QueryCompilationContextTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<TestEntity>(b =>
             {
-                b.HasKey(x => x.PK);
+                b.HasPartitionKey(x => x.PK);
             });
     }
 

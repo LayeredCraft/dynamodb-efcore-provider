@@ -68,13 +68,13 @@ public class DynamoEntityKeyMappingConventionTests
     }
 
     [Fact]
-    public void ExplicitHasKey_DoesNotInferDynamoPartitionOrSortKey()
+    public void ExplicitHasKey_OnRootEntity_IsRejected()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
         var act = () => ExplicitKeyOnlyContext.Create(client).Model;
 
         act.Should().Throw<InvalidOperationException>()
-            .WithMessage("*No DynamoDB partition key is configured*");
+            .WithMessage("*must use HasPartitionKey(...) and optional HasSortKey(...)*do not use HasKey(...) or [Key]*");
     }
 
     private sealed record ExplicitPartitionKeyBeatsConventionEntity
@@ -129,12 +129,12 @@ public class DynamoEntityKeyMappingConventionTests
     }
 
     [Fact]
-    public void PrimaryKeyWithMoreThanTwoProperties_StillThrowsTargetedValidationMessage()
+    public void ExplicitMultiPropertyHasKey_OnRootEntity_IsRejected()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
         var act = () => ThreePartPrimaryKeyContext.Create(client).Model;
 
         act.Should().Throw<InvalidOperationException>()
-            .WithMessage("*supports only one- or two-part keys*");
+            .WithMessage("*must use HasPartitionKey(...) and optional HasSortKey(...)*do not use HasKey(...) or [Key]*");
     }
 }

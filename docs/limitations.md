@@ -44,7 +44,7 @@ icon: lucide/triangle-alert
   `ReadOnlyDictionary<string,TValue>`.
 
 ## Key mapping validation limits
-- `HasKey(...)` alone does not configure DynamoDB table keys.
+- Root entities cannot use `HasKey(...)` to configure table keys; use `HasPartitionKey(...)` and optional `HasSortKey(...)` instead.
 - Shared-table mappings must agree on key shape: all entity types mapped to the same table must be either PK-only or PK+SK.
 - Shared-table mappings must use consistent physical PK/SK attribute names across entity types.
 - Key properties must resolve to DynamoDB key-compatible provider types: string, number, or binary (`byte[]`).
@@ -55,7 +55,7 @@ icon: lucide/triangle-alert
 Practical implication:
 
 ```csharp
-// Not enough for DynamoDB key mapping
+// Invalid for root DynamoDB entities
 modelBuilder.Entity<Order>()
     .HasKey(x => new { x.CustomerId, x.OrderId });
 

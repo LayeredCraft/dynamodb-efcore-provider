@@ -8,12 +8,13 @@ icon: lucide/table-properties
 
 This provider treats DynamoDB table-key mapping as a Dynamo-specific concern.
 
-- `HasKey(...)` configures the EF primary key only.
 - `HasPartitionKey(...)` identifies the DynamoDB partition key.
 - `HasSortKey(...)` identifies the DynamoDB sort key.
+- The provider derives the EF primary key automatically from that mapping.
+- Root entities should not call `HasKey(...)` directly.
 - Dynamo naming conventions (`PK` / `PartitionKey`, `SK` / `SortKey`) are also supported.
 
-That means this model is **not** enough on its own:
+That means this model is invalid for a root DynamoDB entity:
 
 ```csharp
 modelBuilder.Entity<Order>(b =>
@@ -53,7 +54,7 @@ modelBuilder.Entity<Order>(b =>
 Notes:
 
 - The GSI partition key is never inferred from the table key.
-- The optional GSI sort key is never inferred from `HasKey(...)` or EF key ordering.
+- The optional GSI sort key is never inferred from EF key ordering.
 - GSI key schema is part of the public configuration API because DynamoDB requires explicit index identity and key shape.
 
 ## Local secondary indexes (LSI)
@@ -75,7 +76,7 @@ Requirements:
 
 - The table must already resolve a DynamoDB partition key.
 - The table must already resolve a DynamoDB sort key.
-- `HasKey(...)` alone is not sufficient to satisfy those prerequisites.
+- Root entities must resolve the table keys through `HasPartitionKey(...)` / `HasSortKey(...)` or the Dynamo naming conventions.
 
 Convention-based table keys also work:
 

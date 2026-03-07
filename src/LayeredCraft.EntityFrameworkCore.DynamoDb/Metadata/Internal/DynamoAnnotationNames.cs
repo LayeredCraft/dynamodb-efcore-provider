@@ -21,4 +21,6 @@ public static class DynamoAnnotationNames
     public const string SecondaryIndexKind = Prefix + "SecondaryIndexKind";
 
     public const string SecondaryIndexProjectionType = Prefix + "SecondaryIndexProjectionType";
+
+    public const string RuntimeTableModel = Prefix + "RuntimeTableModel";
 }

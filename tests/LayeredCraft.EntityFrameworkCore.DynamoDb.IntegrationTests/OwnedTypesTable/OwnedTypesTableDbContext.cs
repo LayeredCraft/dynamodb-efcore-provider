@@ -19,7 +19,7 @@ public class OwnedTypesTableDbContext(DbContextOptions options) : DbContext(opti
         => modelBuilder.Entity<OwnedShapeItem>(builder =>
         {
             builder.ToTable(OwnedTypesTableDynamoFixture.TableName);
-            builder.HasKey(x => x.Pk);
+            builder.HasPartitionKey(x => x.Pk);
 
             // Intentionally rely on EF Core convention-based owned type discovery in this suite.
         });

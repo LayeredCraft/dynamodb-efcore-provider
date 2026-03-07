@@ -120,7 +120,6 @@ public class UnsupportedOperatorTranslationTests
             => modelBuilder.Entity<UnsupportedOperatorEntity>(builder =>
             {
                 builder.ToTable("UnsupportedOperatorsTable");
-                builder.HasKey(x => x.Pk);
                 builder.HasPartitionKey(x => x.Pk);
             });
 

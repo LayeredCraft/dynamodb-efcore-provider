@@ -415,7 +415,6 @@ public class OwnedReferenceProjectionTests
             modelBuilder.Entity<EntityA>(b =>
             {
                 b.ToTable("EntityATable");
-                b.HasKey(x => x.Pk);
                 b.HasPartitionKey(x => x.Pk);
                 b.OwnsOne(x => x.Profile);
             });
@@ -423,7 +422,6 @@ public class OwnedReferenceProjectionTests
             modelBuilder.Entity<EntityB>(b =>
             {
                 b.ToTable("EntityBTable");
-                b.HasKey(x => x.Pk);
                 b.HasPartitionKey(x => x.Pk);
                 b.OwnsOne(x => x.Profile);
             });
@@ -447,7 +445,6 @@ public class OwnedReferenceProjectionTests
             => modelBuilder.Entity<RequiredEntity>(b =>
             {
                 b.ToTable("RequiredEntityTable");
-                b.HasKey(x => x.Pk);
                 b.HasPartitionKey(x => x.Pk);
                 b.OwnsOne(x => x.Profile);
                 b.Navigation(x => x.Profile).IsRequired();
