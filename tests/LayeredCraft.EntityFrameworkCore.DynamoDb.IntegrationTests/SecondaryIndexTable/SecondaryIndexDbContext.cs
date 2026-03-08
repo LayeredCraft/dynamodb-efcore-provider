@@ -31,12 +31,10 @@ public class SecondaryIndexDbContext(DbContextOptions options) : DbContext(optio
             .HasSortKey(x => x.OrderId);
 
         // GSI: query all orders for a given status, optionally sorted by creation date.
-        entity.HasGlobalSecondaryIndex("ByStatus", x => x.Status, x => x.CreatedAt)
-            .ProjectsAll();
+        entity.HasGlobalSecondaryIndex("ByStatus", x => x.Status, x => x.CreatedAt);
 
         // GSI: query all orders fulfilled in a given region, optionally sorted by creation date.
-        entity.HasGlobalSecondaryIndex("ByRegion", x => x.Region, x => x.CreatedAt)
-            .ProjectsAll();
+        entity.HasGlobalSecondaryIndex("ByRegion", x => x.Region, x => x.CreatedAt);
 
         // LSI: query a customer's orders sorted by creation date instead of OrderId.
         entity.HasLocalSecondaryIndex("ByCreatedAt", x => x.CreatedAt);

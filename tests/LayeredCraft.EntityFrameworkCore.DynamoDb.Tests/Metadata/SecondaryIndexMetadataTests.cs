@@ -19,7 +19,7 @@ public class SecondaryIndexMetadataTests
                 entity.HasPartitionKey(x => x.TenantId);
                 entity.HasSortKey(x => x.OrderId);
 
-                entity.HasGlobalSecondaryIndex("ByCustomer", x => x.CustomerId).ProjectsAll();
+                entity.HasGlobalSecondaryIndex("ByCustomer", x => x.CustomerId);
                 entity.HasGlobalSecondaryIndex(
                     "ByCustomerCreatedAt",
                     x => x.CustomerId,
