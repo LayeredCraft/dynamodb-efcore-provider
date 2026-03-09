@@ -12,7 +12,9 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
 /// <summary>
 /// Translates C# expression trees to SQL expression trees.
 /// </summary>
-public class DynamoSqlTranslatingExpressionVisitor(ISqlExpressionFactory sqlExpressionFactory)
+public class DynamoSqlTranslatingExpressionVisitor(
+    ISqlExpressionFactory sqlExpressionFactory,
+    DynamoQueryCompilationContext? queryCompilationContext = null)
     : ExpressionVisitor
 {
     private static readonly IReadOnlyList<MethodInfo> StringCompareMethods =
@@ -264,8 +266,7 @@ public class DynamoSqlTranslatingExpressionVisitor(ISqlExpressionFactory sqlExpr
         {
             if (rootEntityType?.FindProperty(node.Member.Name) is { } directProperty)
             {
-                var isPartitionKey =
-                    rootEntityType.GetPartitionKeyProperty()?.Name == directProperty.Name;
+                var isPartitionKey = IsEffectivePartitionKey(directProperty, rootEntityType);
                 return sqlExpressionFactory.Property(
                     directProperty.GetAttributeName(),
                     node.Type,
@@ -453,8 +454,7 @@ public class DynamoSqlTranslatingExpressionVisitor(ISqlExpressionFactory sqlExpr
             {
                 if (rootEntityType.FindProperty(propertyName) is { } rootProperty)
                 {
-                    var isPartitionKey =
-                        rootEntityType.GetPartitionKeyProperty()?.Name == rootProperty.Name;
+                    var isPartitionKey = IsEffectivePartitionKey(rootProperty, rootEntityType);
                     return sqlExpressionFactory.Property(
                         rootProperty.GetAttributeName(),
                         node.Type,
@@ -473,6 +473,40 @@ public class DynamoSqlTranslatingExpressionVisitor(ISqlExpressionFactory sqlExpr
             return new DynamoScalarAccessExpression(sqlSource, propertyName, node.Type);
 
         return sqlExpressionFactory.Property(propertyName, node.Type);
+    }
+
+    /// <summary>
+    ///     Returns <see langword="true" /> when <paramref name="property" /> is the effective
+    ///     partition key for the current query — either the table partition key, or the partition key of
+    ///     the active secondary index when <c>.WithIndex()</c> has been applied.
+    /// </summary>
+    /// <remarks>
+    ///     The distinction matters for IN-predicate value-count limits: DynamoDB allows up to 100
+    ///     values for non-key comparisons but only 50 for partition-key comparisons (table or GSI).
+    /// </remarks>
+    private bool IsEffectivePartitionKey(IReadOnlyProperty property, IReadOnlyEntityType entityType)
+    {
+        // Always a partition key if it's the table-level partition key.
+        if (entityType.GetPartitionKeyProperty()?.Name == property.Name)
+            return true;
+
+        // When a secondary index is active, also check the index's own partition key.
+        if (queryCompilationContext?.ExplicitIndexName is not { } indexName)
+            return false;
+
+        var runtimeModel = queryCompilationContext.Model.GetDynamoRuntimeTableModel();
+        if (runtimeModel is null)
+            return false;
+
+        var tableGroupName = entityType.GetTableGroupName();
+        if (!runtimeModel.Tables.TryGetValue(tableGroupName, out var tableDescriptor))
+            return false;
+
+        if (!tableDescriptor.SourcesByEntityTypeName.TryGetValue(entityType.Name, out var sources))
+            return false;
+
+        return sources.Any(d
+            => d.IndexName == indexName && d.PartitionKeyProperty.Name == property.Name);
     }
 
     /// <summary>

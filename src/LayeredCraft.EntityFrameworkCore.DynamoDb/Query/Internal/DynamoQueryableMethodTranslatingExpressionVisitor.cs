@@ -23,7 +23,9 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
         bool subquery = false) : base(dependencies, queryCompilationContext, subquery)
     {
         _sqlExpressionFactory = sqlExpressionFactory;
-        _sqlTranslator = new DynamoSqlTranslatingExpressionVisitor(sqlExpressionFactory);
+        _sqlTranslator = new DynamoSqlTranslatingExpressionVisitor(
+            sqlExpressionFactory,
+            queryCompilationContext as DynamoQueryCompilationContext);
         _projectionBindingExpressionVisitor = new DynamoProjectionBindingExpressionVisitor(
             _sqlTranslator,
             sqlExpressionFactory,
