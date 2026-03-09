@@ -18,7 +18,10 @@ public class DynamoSqlTranslatingExpressionVisitor(
     : ExpressionVisitor
 {
     private static readonly MethodInfo StringCompareMethod =
-        ((Func<string, string, int>)string.Compare).Method;
+        ((Func<string?, string?, int>)string.Compare).Method;
+
+    private static readonly MethodInfo StringCompareToMethod =
+        ((Func<string?, int>)string.Empty.CompareTo).Method;
 
     private static readonly MethodInfo EnumerableContainsMethod =
         ((Func<IEnumerable<object>, object, bool>)Enumerable.Contains).Method
@@ -581,37 +584,30 @@ public class DynamoSqlTranslatingExpressionVisitor(
     }
 
     /// <summary>
-    ///     Translates <c>string.Compare(a, b) OP 0</c> to a SQL binary comparison
-    ///     <c>a OP b</c>.
+    ///     Translates supported Dynamo lexical string comparison shapes to SQL binary comparisons.
+    ///     Supported forms are <c>string.Compare(a, b) OP 0</c> and <c>a.CompareTo(b) OP 0</c>.
     /// </summary>
     private Expression? TryTranslateStringCompare(BinaryExpression node)
     {
-        MethodCallExpression? compareCall = null;
+        SqlExpression? a = null;
+        SqlExpression? b = null;
         ExpressionType opType = node.NodeType;
         bool swapOperands = false;
 
         if (node.Left is MethodCallExpression leftCall
-            && leftCall.Method == StringCompareMethod
+            && TryTranslateSupportedStringComparisonOperands(leftCall, out a, out b)
             && node.Right is ConstantExpression { Value: 0 })
         {
-            compareCall = leftCall;
         }
         else if (node.Right is MethodCallExpression rightCall
-            && rightCall.Method == StringCompareMethod
+            && TryTranslateSupportedStringComparisonOperands(rightCall, out a, out b)
             && node.Left is ConstantExpression { Value: 0 })
         {
-            compareCall = rightCall;
             swapOperands = true;
         }
 
-        if (compareCall is null)
-            return null;
-
-        // Translate the two string arguments directly for binary PartiQL comparison.
-        var a = TranslateInternal(compareCall.Arguments[0]);
-        var b = TranslateInternal(compareCall.Arguments[1]);
         if (a is null || b is null)
-            return QueryCompilationContext.NotTranslatedExpression;
+            return null;
 
         // When the constant 0 was on the left (0 OP Compare(a,b)), mirror the operator so the
         // generated SQL is still in the canonical "column OP value" order.
@@ -622,6 +618,35 @@ public class DynamoSqlTranslatingExpressionVisitor(
 
         AddTranslationErrorDetails(DynamoStrings.UnsupportedBinaryOperator(effectiveOp));
         return QueryCompilationContext.NotTranslatedExpression;
+    }
+
+    /// <summary>
+    ///     Translates the string operands for supported compare calls used in Dynamo lexical
+    ///     comparisons.
+    /// </summary>
+    private bool TryTranslateSupportedStringComparisonOperands(
+        MethodCallExpression methodCall,
+        out SqlExpression? left,
+        out SqlExpression? right)
+    {
+        left = null;
+        right = null;
+
+        if (methodCall.Method == StringCompareMethod)
+        {
+            left = TranslateInternal(methodCall.Arguments[0]);
+            right = TranslateInternal(methodCall.Arguments[1]);
+            return left is not null && right is not null;
+        }
+
+        if (methodCall.Method == StringCompareToMethod)
+        {
+            left = TranslateInternal(methodCall.Object!);
+            right = TranslateInternal(methodCall.Arguments[0]);
+            return left is not null && right is not null;
+        }
+
+        return false;
     }
 
     /// <summary>Returns the mirrored comparison operator (e.g. <c>&gt;=</c> becomes <c>&lt;=</c>).</summary>

@@ -31,8 +31,7 @@ public class GsiQueryTests(SecondaryIndexDynamoFixture fixture) : SecondaryIndex
     {
         var results = await Db.Orders
             .WithIndex("ByStatus")
-            .Where(o => o.Status == "SHIPPED"
-                        && string.Compare(o.CreatedAt, "2024-01-15", StringComparison.Ordinal) >= 0)
+            .Where(o => o.Status == "SHIPPED" && string.Compare(o.CreatedAt, "2024-01-15") >= 0)
             .ToListAsync(CancellationToken);
 
         var expected = OrderItems.Items

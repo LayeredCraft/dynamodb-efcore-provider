@@ -50,8 +50,8 @@ public class LsiQueryTests(SecondaryIndexDynamoFixture fixture) : SecondaryIndex
         var results = await Db.Orders
             .WithIndex("ByCreatedAt")
             .Where(o => o.CustomerId == "C#1"
-                        && string.Compare(o.CreatedAt, "2024-01-12", StringComparison.Ordinal) >= 0
-                        && string.Compare(o.CreatedAt, "2024-01-18", StringComparison.Ordinal) <= 0)
+                && o.CreatedAt.CompareTo("2024-01-12") >= 0
+                && o.CreatedAt.CompareTo("2024-01-18") <= 0)
             .ToListAsync(CancellationToken);
 
         var expected = OrderItems.Items
