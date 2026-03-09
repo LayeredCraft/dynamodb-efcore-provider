@@ -5,8 +5,8 @@ using LayeredCraft.EntityFrameworkCore.DynamoDb.Extensions;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Infrastructure.Internal;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
-using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Query;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
@@ -40,12 +40,10 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
 
         if (dynamoQueryCompilationContext.ExplicitIndexName is { } indexName)
         {
-            // Extract the root entity type from the shaper so validation is scoped to the
-            // entity type being queried, not all entity types sharing the physical table.
-            var queryEntityTypeName = shapedQueryExpression.ShaperExpression
-                is StructuralTypeShaperExpression { StructuralType: IReadOnlyEntityType et }
-                ? et.Name
-                : null;
+            // Use query-root metadata carried by SelectExpression so validation remains scoped to
+            // the original entity type even after Select(...) rewrites replace the final shaper.
+            var queryEntityTypeName = selectExpression.RootEntityTypeName
+                ?? TryGetEntityTypeNameFromShaper(shapedQueryExpression.ShaperExpression);
 
             ValidateExplicitIndexName(indexName, selectExpression.TableName, queryEntityTypeName);
             selectExpression.ApplyIndexName(indexName);
@@ -175,6 +173,18 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
 
         return value;
     }
+
+    /// <summary>
+    ///     Attempts to extract an entity type name from the final shaper expression as a fallback
+    ///     when the query root metadata is unavailable.
+    /// </summary>
+    private static string? TryGetEntityTypeNameFromShaper(Expression shaperExpression)
+        => shaperExpression is StructuralTypeShaperExpression
+        {
+            StructuralType: IReadOnlyEntityType entityType,
+        }
+            ? entityType.Name
+            : null;
 
     /// <summary>
     ///     Throws if the explicitly requested index name is not registered for the queried entity

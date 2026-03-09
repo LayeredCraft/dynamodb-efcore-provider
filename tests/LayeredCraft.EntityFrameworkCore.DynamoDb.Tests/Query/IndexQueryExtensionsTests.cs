@@ -217,6 +217,26 @@ public class IndexQueryExtensionsTests
     }
 
     [Fact]
+    public async Task
+        WithIndex_SharedTable_IndexOnlyOnOneEntityType_ProjectedQuery_ThrowsForOtherEntityType()
+    {
+        // Regression: projection rewrites can replace the final shaper expression, but explicit
+        // index validation must remain scoped to the original query root entity type.
+        var client = Substitute.For<IAmazonDynamoDB>();
+        await using var context = CreateSharedTableContext(client);
+
+        var act = async () => await context
+            .Invoices
+            .WithIndex("ByStatus")
+            .Select(i => i.Id)
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*ByStatus*");
+
+        await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
+    [Fact]
     public async Task WithIndex_GsiPartitionKey_Contains_51Items_ThrowsPartitionKeyLimitError()
     {
         // Before the fix, CustomerId was not recognised as a partition key when querying via
