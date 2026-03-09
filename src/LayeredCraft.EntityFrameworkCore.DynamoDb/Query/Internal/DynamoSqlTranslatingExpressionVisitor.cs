@@ -499,7 +499,9 @@ public class DynamoSqlTranslatingExpressionVisitor(
         if (!runtimeModel.Tables.TryGetValue(tableGroupName, out var tableDescriptor))
             return false;
 
-        if (!tableDescriptor.SourcesByEntityTypeName.TryGetValue(entityType.Name, out var sources))
+        if (!tableDescriptor.SourcesByQueryEntityTypeName.TryGetValue(
+            entityType.Name,
+            out var sources))
             return false;
 
         return sources.Any(d

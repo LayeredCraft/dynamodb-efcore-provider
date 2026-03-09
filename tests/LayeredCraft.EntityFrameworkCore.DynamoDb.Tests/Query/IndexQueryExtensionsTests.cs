@@ -101,6 +101,54 @@ public class IndexQueryExtensionsTests
                 .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
                 .Options);
 
+    private sealed class DerivedIndexQueryDbContext(DbContextOptions options) : DbContext(options)
+    {
+        public DbSet<BaseOrderForIndexQuery> Orders => Set<BaseOrderForIndexQuery>();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<BaseOrderForIndexQuery>(b =>
+            {
+                b.ToTable("Orders");
+                b.HasPartitionKey(x => x.Id);
+                b.HasSortKey(x => x.OrderId);
+                b.HasLocalSecondaryIndex("ByStatus", x => x.Status);
+            });
+
+            modelBuilder.Entity<PriorityOrderForIndexQuery>(b =>
+            {
+                b.HasBaseType<BaseOrderForIndexQuery>();
+                b.HasGlobalSecondaryIndex("ByPriority", x => x.Priority);
+            });
+
+            modelBuilder.Entity<ArchivedOrderForIndexQuery>(b =>
+            {
+                b.HasBaseType<BaseOrderForIndexQuery>();
+            });
+        }
+    }
+
+    private class BaseOrderForIndexQuery
+    {
+        public string Id { get; set; } = null!;
+        public string OrderId { get; set; } = null!;
+        public string Status { get; set; } = null!;
+    }
+
+    private sealed class PriorityOrderForIndexQuery : BaseOrderForIndexQuery
+    {
+        public int Priority { get; set; }
+    }
+
+    private sealed class ArchivedOrderForIndexQuery : BaseOrderForIndexQuery;
+
+    private static DerivedIndexQueryDbContext CreateDerivedIndexQueryContext(IAmazonDynamoDB client)
+        => new(
+            new DbContextOptionsBuilder<DerivedIndexQueryDbContext>()
+                .UseDynamo(o => o.DynamoDbClient(client))
+                .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .Options);
+
     private static TestDbContext CreateContext()
     {
         var optionsBuilder = new DbContextOptionsBuilder<TestDbContext>();
@@ -192,10 +240,7 @@ public class IndexQueryExtensionsTests
             .Where(o => o.CustomerId == "C1")
             .ToListAsync(TestContext.Current.CancellationToken);
 
-        await act
-            .Should()
-            .ThrowAsync<InvalidOperationException>()
-            .WithMessage("*DoesNotExist*");
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*DoesNotExist*");
 
         await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
     }
@@ -204,7 +249,8 @@ public class IndexQueryExtensionsTests
     public async Task WithIndex_SharedTable_IndexOnlyOnOneEntityType_ThrowsForOtherEntityType()
     {
         // Regression: validation previously searched all entity type sources for the table group,
-        // so an index configured only on Order would incorrectly pass validation for an Invoice query.
+        // so an index configured only on Order would incorrectly pass validation for an Invoice
+        // query.
         var client = Substitute.For<IAmazonDynamoDB>();
         await using var context = CreateSharedTableContext(client);
 
@@ -214,10 +260,7 @@ public class IndexQueryExtensionsTests
             .WithIndex("ByStatus")
             .ToListAsync(TestContext.Current.CancellationToken);
 
-        await act
-            .Should()
-            .ThrowAsync<InvalidOperationException>()
-            .WithMessage("*ByStatus*");
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*ByStatus*");
 
         await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
     }
@@ -259,6 +302,24 @@ public class IndexQueryExtensionsTests
         await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*ByStatus*");
 
         await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
+    [Fact]
+    public async Task WithIndex_BaseQuery_AcceptsDerivedDefinedIndex()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        client
+            .ExecuteStatementAsync(Arg.Any<ExecuteStatementRequest>(), Arg.Any<CancellationToken>())
+            .Returns(new ExecuteStatementResponse { Items = [] });
+
+        await using var context = CreateDerivedIndexQueryContext(client);
+
+        var act = async () => await context
+            .Orders
+            .WithIndex("ByPriority")
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        await act.Should().NotThrowAsync<InvalidOperationException>();
     }
 
     [Fact]

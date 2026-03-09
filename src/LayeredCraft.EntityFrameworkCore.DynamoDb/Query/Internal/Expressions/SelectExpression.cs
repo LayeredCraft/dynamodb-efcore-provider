@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore.Query;
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 
 /// <summary>Represents a SELECT query expression for DynamoDB PartiQL.</summary>
-public class SelectExpression(string tableName, string? rootEntityTypeName = null) : Expression
+public class SelectExpression(string tableName, string? queryEntityTypeName = null) : Expression
 {
     private static readonly MethodInfo MinMethod = ((Func<int, int, int>)Math.Min).Method;
 
@@ -85,11 +85,11 @@ public class SelectExpression(string tableName, string? rootEntityTypeName = nul
     public string TableName { get; } = tableName;
 
     /// <summary>
-    ///     The root query entity type name when the query originates from an entity set. This is
+    ///     The query entity type name when the query originates from an entity set. This is
     ///     preserved through projection rewrites so downstream validation can remain scoped to the
     ///     originating entity type.
     /// </summary>
-    public string? RootEntityTypeName { get; } = rootEntityTypeName;
+    public string? QueryEntityTypeName { get; } = queryEntityTypeName;
 
     /// <summary>The secondary index name to query, or null for the base table.</summary>
     public string? IndexName { get; private set; }

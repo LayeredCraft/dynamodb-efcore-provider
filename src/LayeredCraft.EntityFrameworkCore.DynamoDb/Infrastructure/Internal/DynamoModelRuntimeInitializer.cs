@@ -43,26 +43,44 @@ public sealed class DynamoModelRuntimeInitializer(
             .GroupBy(static entityType => entityType.GetTableGroupName(), StringComparer.Ordinal))
         {
             var rootEntityTypes = tableGroup.ToList();
-            var sourcesByEntityType = new Dictionary<string, IReadOnlyList<DynamoIndexDescriptor>>(StringComparer.Ordinal);
+            var sourcesByRootEntityType =
+                new Dictionary<string, IReadOnlyList<DynamoIndexDescriptor>>(
+                    StringComparer.Ordinal);
+            var sourcesByQueryEntityType =
+                new Dictionary<string, IReadOnlyList<DynamoIndexDescriptor>>(
+                    StringComparer.Ordinal);
 
             foreach (var rootEntityType in rootEntityTypes)
-                sourcesByEntityType[rootEntityType.Name] = BuildSourceDescriptors(rootEntityType);
+            {
+                sourcesByRootEntityType[rootEntityType.Name] = BuildSourceDescriptors(
+                    rootEntityType,
+                    rootEntityType.EnumerateSecondaryIndexesInHierarchy());
 
-            ValidateSharedTableSources(tableGroup.Key, sourcesByEntityType);
+                foreach (var queryEntityType in rootEntityType.GetDerivedTypesInclusive())
+                    sourcesByQueryEntityType[queryEntityType.Name] = BuildSourceDescriptors(
+                        queryEntityType,
+                        EnumerateSecondaryIndexesForQueryEntity(queryEntityType));
+            }
+
+            ValidateSharedTableSources(tableGroup.Key, sourcesByRootEntityType);
 
             tables[tableGroup.Key] = new DynamoTableDescriptor(
                 tableGroup.Key,
                 rootEntityTypes,
-                sourcesByEntityType);
+                sourcesByRootEntityType,
+                sourcesByQueryEntityType);
         }
 
         return new DynamoRuntimeTableModel(tables);
     }
 
-    /// <summary>Builds the ordered source descriptors for a single mapped root entity type.</summary>
-    private static IReadOnlyList<DynamoIndexDescriptor> BuildSourceDescriptors(IReadOnlyEntityType entityType)
+    /// <summary>Builds the ordered source descriptors visible to a single queryable entity type.</summary>
+    private static IReadOnlyList<DynamoIndexDescriptor> BuildSourceDescriptors(
+        IReadOnlyEntityType entityType,
+        IEnumerable<IReadOnlyIndex> secondaryIndexes)
     {
-        var partitionKeyProperty = entityType.GetPartitionKeyProperty()
+        var sourceEntityType = ResolveKeySourceEntityType(entityType);
+        var partitionKeyProperty = sourceEntityType.GetPartitionKeyProperty()
             ?? throw new InvalidOperationException(
                 $"Entity type '{entityType.DisplayName()}' does not have a configured DynamoDB partition key.");
 
@@ -73,13 +91,13 @@ public sealed class DynamoModelRuntimeInitializer(
                 DynamoIndexSourceKind.Table,
                 null,
                 partitionKeyProperty,
-                entityType.GetSortKeyProperty(),
+                sourceEntityType.GetSortKeyProperty(),
                 DynamoSecondaryIndexProjectionType.All),
         ];
 
         Dictionary<string, DynamoIndexDescriptor> secondaryIndexesByName = new(StringComparer.Ordinal);
 
-        foreach (var index in entityType.EnumerateSecondaryIndexesInHierarchy())
+        foreach (var index in secondaryIndexes)
         {
             var secondaryIndexKind = index.GetSecondaryIndexKind();
             if (secondaryIndexKind is null)
@@ -92,7 +110,10 @@ public sealed class DynamoModelRuntimeInitializer(
             var descriptor = secondaryIndexKind switch
             {
                 DynamoSecondaryIndexKind.Global => BuildGlobalSecondaryIndexDescriptor(index, indexName),
-                DynamoSecondaryIndexKind.Local => BuildLocalSecondaryIndexDescriptor(entityType, index, indexName),
+                DynamoSecondaryIndexKind.Local => BuildLocalSecondaryIndexDescriptor(
+                    partitionKeyProperty,
+                    index,
+                    indexName),
                 _ => throw new InvalidOperationException(
                     $"Secondary index '{indexName}' on entity type '{index.DeclaringEntityType.DisplayName()}' has an unsupported kind '{secondaryIndexKind}'."),
             };
@@ -114,6 +135,20 @@ public sealed class DynamoModelRuntimeInitializer(
 
         return sources;
     }
+
+    /// <summary>
+    ///     Enumerates secondary indexes visible to the queried entity type by combining the base
+    ///     hierarchy chain with the queried entity subtree.
+    /// </summary>
+    private static IEnumerable<IReadOnlyIndex>
+        EnumerateSecondaryIndexesForQueryEntity(IReadOnlyEntityType entityType)
+        => entityType
+            .GetAllBaseTypes()
+            .Concat(entityType.GetDerivedTypesInclusive())
+            .SelectMany(static type => type.GetDeclaredIndexes())
+            .Where(static index => index.GetSecondaryIndexKind() is not null)
+            .OrderBy(static index => index.GetSecondaryIndexName(), StringComparer.Ordinal)
+            .ThenBy(static index => index.DeclaringEntityType.Name, StringComparer.Ordinal);
 
     /// <summary>Builds a runtime descriptor for a global secondary index.</summary>
     private static DynamoIndexDescriptor BuildGlobalSecondaryIndexDescriptor(
@@ -137,14 +172,10 @@ public sealed class DynamoModelRuntimeInitializer(
 
     /// <summary>Builds a runtime descriptor for a local secondary index.</summary>
     private static DynamoIndexDescriptor BuildLocalSecondaryIndexDescriptor(
-        IReadOnlyEntityType entityType,
+        IReadOnlyProperty partitionKeyProperty,
         IReadOnlyIndex index,
         string indexName)
     {
-        var partitionKeyProperty = entityType.GetPartitionKeyProperty()
-            ?? throw new InvalidOperationException(
-                $"Entity type '{entityType.DisplayName()}' must define a DynamoDB partition key before local secondary index '{indexName}' can be used.");
-
         if (index.Properties.Count != 1)
         {
             throw new InvalidOperationException(
@@ -163,9 +194,13 @@ public sealed class DynamoModelRuntimeInitializer(
     /// <summary>Ensures shared-table root entity types do not define conflicting secondary indexes.</summary>
     private static void ValidateSharedTableSources(
         string tableName,
-        IReadOnlyDictionary<string, IReadOnlyList<DynamoIndexDescriptor>> sourcesByEntityType)
+        IReadOnlyDictionary<string, IReadOnlyList<DynamoIndexDescriptor>> sourcesByRootEntityType)
     {
-        var entityTypeNames = sourcesByEntityType.Keys.OrderBy(static name => name, StringComparer.Ordinal).ToArray();
+        var entityTypeNames =
+            sourcesByRootEntityType
+                .Keys
+                .OrderBy(static name => name, StringComparer.Ordinal)
+                .ToArray();
 
         for (var i = 0; i < entityTypeNames.Length; i++)
         {
@@ -175,8 +210,8 @@ public sealed class DynamoModelRuntimeInitializer(
                 var rightEntityTypeName = entityTypeNames[j];
 
                 if (HaveCompatibleSharedTableSources(
-                        sourcesByEntityType[leftEntityTypeName],
-                        sourcesByEntityType[rightEntityTypeName]))
+                    sourcesByRootEntityType[leftEntityTypeName],
+                    sourcesByRootEntityType[rightEntityTypeName]))
                 {
                     continue;
                 }
@@ -224,6 +259,20 @@ public sealed class DynamoModelRuntimeInitializer(
             && GetKeyTypeCategory(GetEffectiveProviderClrType(left.PartitionKeyProperty))
                 == GetKeyTypeCategory(GetEffectiveProviderClrType(right.PartitionKeyProperty))
             && GetSortKeyTypeCategory(left.SortKeyProperty) == GetSortKeyTypeCategory(right.SortKeyProperty);
+
+    /// <summary>Resolves the entity type that defines table key metadata for the queried entity type.</summary>
+    private static IReadOnlyEntityType ResolveKeySourceEntityType(IReadOnlyEntityType entityType)
+    {
+        var tableMappedType = entityType.ResolveTableMappedEntityType();
+        if (tableMappedType.GetPartitionKeyProperty() is not null)
+            return tableMappedType;
+
+        foreach (var baseType in entityType.GetAllBaseTypes())
+            if (baseType.GetPartitionKeyProperty() is not null)
+                return baseType;
+
+        return tableMappedType;
+    }
 
     /// <summary>Returns the effective provider CLR type with nullable wrappers removed.</summary>
     private static Type GetEffectiveProviderClrType(IReadOnlyProperty property)
