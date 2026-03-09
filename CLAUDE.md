@@ -18,7 +18,7 @@ LINQ) into PartiQL and executes them via the AWS SDK.
     `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Storage/DynamoClientWrapper.cs`
   - Type mapping/conversion:
     `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Storage/DynamoTypeMappingSource.cs`
-    
+
 ## Making Changes (Practical Checklist)
 
 - Start with a failing/added test in `tests/LayeredCraft.EntityFrameworkCore.DynamoDb.Tests/`.
@@ -65,6 +65,8 @@ When a story changes query behavior, update the docs in the same story so inform
 
 - Prefer pattern matching over chained logical comparisons where possible.
 - Prefer collection expressions over object initializers for collections.
+- Always add comments to code to help explain complex logic or non-obvious behavior. This should
+  provide context for future maintainers. Do not add simple comments that are obvious from the code.
 - Always add XML comments when writing or modifying methods (both public and non-public):
   - Use `<summary>` for all methods - keep it to one or two sentences maximum
   - Add `<param>` and `<returns>` only when the purpose isn't obvious from naming
