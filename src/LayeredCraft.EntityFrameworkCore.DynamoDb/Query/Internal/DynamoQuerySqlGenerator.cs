@@ -4,6 +4,7 @@ using System.Text;
 using Amazon.DynamoDBv2.Model;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Storage;
+using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Storage;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
@@ -60,6 +61,12 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
 
         _sql.Append("\nFROM ");
         AppendIdentifier(selectExpression.TableName);
+        var resolvedIndexName = ResolveIndexName(selectExpression);
+        if (resolvedIndexName is not null)
+        {
+            _sql.Append('.');
+            AppendIdentifier(resolvedIndexName);
+        }
 
         if (selectExpression.Predicate != null)
         {
@@ -79,6 +86,25 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
         }
 
         return selectExpression;
+    }
+
+    /// <summary>
+    ///     Resolves the index name from the select expression, supporting both compile-time constants
+    ///     and runtime-extracted <see cref="QueryParameterExpression" /> values.
+    /// </summary>
+    private string? ResolveIndexName(SelectExpression selectExpression)
+    {
+        if (selectExpression.IndexName is { } name)
+            return name;
+
+        if (selectExpression.IndexNameExpression is QueryParameterExpression qp
+            && _parameterValues!.TryGetValue(qp.Name, out var value))
+            return value as string;
+
+        if (selectExpression.IndexNameExpression is ConstantExpression { Value: string s })
+            return s;
+
+        return null;
     }
 
     /// <summary>

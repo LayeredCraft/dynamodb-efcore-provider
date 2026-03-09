@@ -15,6 +15,15 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
 public class DynamoSqlTranslatingExpressionVisitor(ISqlExpressionFactory sqlExpressionFactory)
     : ExpressionVisitor
 {
+    private static readonly IReadOnlyList<MethodInfo> StringCompareMethods =
+        typeof(string)
+            .GetMethods(BindingFlags.Public | BindingFlags.Static)
+            .Where(m => m.Name == nameof(string.Compare)
+                && m.GetParameters().Length is 2 or 3
+                && m.GetParameters()[0].ParameterType == typeof(string)
+                && m.GetParameters()[1].ParameterType == typeof(string))
+            .ToList();
+
     private static readonly MethodInfo EnumerableContainsMethod =
         ((Func<IEnumerable<object>, object, bool>)Enumerable.Contains).Method
         .GetGenericMethodDefinition();
@@ -109,6 +118,10 @@ public class DynamoSqlTranslatingExpressionVisitor(ISqlExpressionFactory sqlExpr
     /// <inheritdoc />
     protected override Expression VisitBinary(BinaryExpression node)
     {
+        // Translate string.Compare(a, b[, comparisonType]) OP 0 → a OP b
+        if (TryTranslateStringCompare(node) is { } stringCompareResult)
+            return stringCompareResult;
+
         if (node.NodeType is ExpressionType.Equal or ExpressionType.NotEqual)
         {
             SqlExpression? operand = null;
@@ -538,6 +551,59 @@ public class DynamoSqlTranslatingExpressionVisitor(ISqlExpressionFactory sqlExpr
             _ => QueryCompilationContext.NotTranslatedExpression,
         };
     }
+
+    /// <summary>
+    ///     Translates <c>string.Compare(a, b[, comparisonType]) OP 0</c> to a SQL binary comparison
+    ///     <c>a OP b</c>. DynamoDB always uses ordinal comparison for strings so the <c>comparisonType</c>
+    ///     argument is ignored.
+    /// </summary>
+    private Expression? TryTranslateStringCompare(BinaryExpression node)
+    {
+        MethodCallExpression? compareCall = null;
+        ExpressionType opType = node.NodeType;
+        bool swapOperands = false;
+
+        if (node.Left is MethodCallExpression leftCall
+            && StringCompareMethods.Contains(leftCall.Method)
+            && node.Right is ConstantExpression { Value: 0 })
+        {
+            compareCall = leftCall;
+        }
+        else if (node.Right is MethodCallExpression rightCall
+            && StringCompareMethods.Contains(rightCall.Method)
+            && node.Left is ConstantExpression { Value: 0 })
+        {
+            compareCall = rightCall;
+            swapOperands = true;
+        }
+
+        if (compareCall is null)
+            return null;
+
+        var a = TranslateInternal(compareCall.Arguments[0]);
+        var b = TranslateInternal(compareCall.Arguments[1]);
+        if (a is null || b is null)
+            return QueryCompilationContext.NotTranslatedExpression;
+
+        // When the constant was on the left (0 OP Compare(a,b)), flip the operator.
+        var effectiveOp = swapOperands ? FlipComparison(opType) : opType;
+        var result = sqlExpressionFactory.Binary(effectiveOp, a, b);
+        if (result is not null)
+            return result;
+
+        AddTranslationErrorDetails(DynamoStrings.UnsupportedBinaryOperator(effectiveOp));
+        return QueryCompilationContext.NotTranslatedExpression;
+    }
+
+    /// <summary>Returns the mirrored comparison operator (e.g. <c>&gt;=</c> becomes <c>&lt;=</c>).</summary>
+    private static ExpressionType FlipComparison(ExpressionType op) => op switch
+    {
+        ExpressionType.GreaterThan => ExpressionType.LessThan,
+        ExpressionType.GreaterThanOrEqual => ExpressionType.LessThanOrEqual,
+        ExpressionType.LessThan => ExpressionType.GreaterThan,
+        ExpressionType.LessThanOrEqual => ExpressionType.GreaterThanOrEqual,
+        _ => op,
+    };
 
     /// <summary>Translates string.Contains to the DynamoDB contains function.</summary>
     private Expression TranslateStringContains(MethodCallExpression node)

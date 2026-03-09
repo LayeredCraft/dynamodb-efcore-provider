@@ -78,9 +78,14 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
             if (method.Name == nameof(DynamoDbQueryableExtensions.WithIndex))
             {
                 var context = (DynamoQueryCompilationContext)QueryCompilationContext;
-                if (context.ExplicitIndexName is null
-                    && methodCallExpression.Arguments[1] is ConstantExpression { Value: string indexName })
-                    context.ExplicitIndexName = indexName;
+                if (context.ExplicitIndexNameExpression is null)
+                {
+                    var indexArg = methodCallExpression.Arguments[1];
+                    context.ExplicitIndexNameExpression = indexArg;
+                    // Also capture the constant value when available (e.g. EF.Constant or inlined).
+                    if (indexArg is ConstantExpression { Value: string indexName })
+                        context.ExplicitIndexName = indexName;
+                }
 
                 return Visit(methodCallExpression.Arguments[0]);
             }

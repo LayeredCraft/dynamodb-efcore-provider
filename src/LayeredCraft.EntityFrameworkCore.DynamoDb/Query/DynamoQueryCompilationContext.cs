@@ -20,4 +20,12 @@ public class DynamoQueryCompilationContext(
 
     /// <summary>Per-query explicit secondary index selection (from .WithIndex() extension).</summary>
     public string? ExplicitIndexName { get; internal set; }
+
+    /// <summary>
+    ///     Expression for the index name argument, captured after EF Core parameter extraction.
+    ///     May be a <see cref="Microsoft.EntityFrameworkCore.Query.QueryParameterExpression" /> when
+    ///     the index name was a runtime-extracted constant, or a <see cref="System.Linq.Expressions.ConstantExpression" />
+    ///     when it remained inline.
+    /// </summary>
+    public Expression? ExplicitIndexNameExpression { get; internal set; }
 }
