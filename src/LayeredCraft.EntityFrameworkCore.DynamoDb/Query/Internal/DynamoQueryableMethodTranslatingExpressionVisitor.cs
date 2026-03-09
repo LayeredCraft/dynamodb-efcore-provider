@@ -78,25 +78,13 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
             if (method.Name == nameof(DynamoDbQueryableExtensions.WithIndex))
             {
                 var context = (DynamoQueryCompilationContext)QueryCompilationContext;
-                if (context.ExplicitIndexNameExpression is null)
-                {
-                    var indexArg = methodCallExpression.Arguments[1];
+                // The indexName parameter is marked [NotParameterized], so EF Core's funcletizer
+                // leaves it as a ConstantExpression. Capture it once (first-wins) and prune the
+                // call so downstream visitors see only the base entity source.
+                if (context.ExplicitIndexName is null
+                    && methodCallExpression.Arguments[1] is ConstantExpression { Value: string indexName })
+                    context.ExplicitIndexName = indexName;
 
-                    // Store the full expression, not just the string value. EF Core's
-                    // ExpressionTreeFuncletizer runs before this visitor and replaces string
-                    // literals with QueryParameterExpression nodes (e.g. "@p0 = 'ByStatus'"),
-                    // so a ConstantExpression check here would always return null for normal
-                    // queries. The expression is resolved at SQL-generation time from
-                    // queryContext.Parameters, where the funcletizer stored the actual value.
-                    context.ExplicitIndexNameExpression = indexArg;
-
-                    // Also capture the constant value when available (e.g. EF.Constant or inlined).
-                    if (indexArg is ConstantExpression { Value: string indexName })
-                        context.ExplicitIndexName = indexName;
-                }
-
-                // Prune the WithIndex call from the expression tree so the rest of the
-                // pipeline (Where, OrderBy, etc.) sees only the base entity source.
                 return Visit(methodCallExpression.Arguments[0]);
             }
         }

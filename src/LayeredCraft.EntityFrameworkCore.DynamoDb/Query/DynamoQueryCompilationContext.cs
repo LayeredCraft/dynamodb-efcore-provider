@@ -19,21 +19,9 @@ public class DynamoQueryCompilationContext(
     public bool PaginationDisabled { get; internal set; }
 
     /// <summary>
-    ///     Per-query explicit secondary index name when the argument to <c>.WithIndex()</c> was
-    ///     still a <see cref="System.Linq.Expressions.ConstantExpression"/> at translation time
-    ///     (e.g. <c>EF.Constant("ByStatus")</c>). Null in the common case — use
-    ///     <see cref="ExplicitIndexNameExpression"/> instead.
+    ///     Per-query explicit secondary index name from <c>.WithIndex()</c>. The parameter is marked
+    ///     <c>[NotParameterized]</c> so EF Core's funcletizer leaves the string literal as a
+    ///     <see cref="System.Linq.Expressions.ConstantExpression"/>, making it readable at translation time.
     /// </summary>
     public string? ExplicitIndexName { get; internal set; }
-
-    /// <summary>
-    ///     Expression for the index name argument captured during translation. In normal queries
-    ///     EF Core's <c>ExpressionTreeFuncletizer</c> runs before translation and converts the
-    ///     string literal (e.g. <c>"ByStatus"</c>) into a
-    ///     <see cref="Microsoft.EntityFrameworkCore.Query.QueryParameterExpression" />, so this
-    ///     field holds that node rather than a <see cref="System.Linq.Expressions.ConstantExpression" />.
-    ///     The actual string value is retrieved at SQL-generation time from
-    ///     <c>queryContext.Parameters</c> via <c>DynamoQuerySqlGenerator.ResolveIndexName</c>.
-    /// </summary>
-    public Expression? ExplicitIndexNameExpression { get; internal set; }
 }

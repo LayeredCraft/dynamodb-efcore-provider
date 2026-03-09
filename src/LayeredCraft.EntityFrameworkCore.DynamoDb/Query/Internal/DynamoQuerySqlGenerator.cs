@@ -4,7 +4,6 @@ using System.Text;
 using Amazon.DynamoDBv2.Model;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Storage;
-using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Storage;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
@@ -61,11 +60,10 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
 
         _sql.Append("\nFROM ");
         AppendIdentifier(selectExpression.TableName);
-        var resolvedIndexName = ResolveIndexName(selectExpression);
-        if (resolvedIndexName is not null)
+        if (selectExpression.IndexName is { } indexName)
         {
             _sql.Append('.');
-            AppendIdentifier(resolvedIndexName);
+            AppendIdentifier(indexName);
         }
 
         if (selectExpression.Predicate != null)
@@ -86,49 +84,6 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
         }
 
         return selectExpression;
-    }
-
-    /// <summary>
-    ///     Resolves the index name from the select expression at SQL-generation time.
-    /// </summary>
-    /// <remarks>
-    ///     Two resolution paths exist because of how EF Core's pipeline works:
-    ///     <list type="bullet">
-    ///         <item>
-    ///             <description>
-    ///                 <b>Normal queries</b>: EF Core's <c>ExpressionTreeFuncletizer</c> runs before
-    ///                 translation and converts the string literal (e.g. <c>"ByStatus"</c>) into a
-    ///                 <see cref="QueryParameterExpression"/> stored in <c>queryContext.Parameters</c>.
-    ///                 <c>IndexNameExpression</c> holds that <see cref="QueryParameterExpression"/> and
-    ///                 we look up its value here from <c>_parameterValues</c>.
-    ///             </description>
-    ///         </item>
-    ///         <item>
-    ///             <description>
-    ///                 <b>Inlined / <c>EF.Constant()</c> paths</b>: The argument was never extracted,
-    ///                 so <c>IndexName</c> or <c>IndexNameExpression</c> still holds a
-    ///                 <see cref="ConstantExpression"/> and we return its value directly.
-    ///             </description>
-    ///         </item>
-    ///     </list>
-    /// </remarks>
-    private string? ResolveIndexName(SelectExpression selectExpression)
-    {
-        // Fast path: index name was available as a compile-time constant (EF.Constant or inlined).
-        if (selectExpression.IndexName is { } name)
-            return name;
-
-        // Normal path: EF Core's funcletizer extracted the string literal into a named parameter.
-        // The actual value (e.g. "ByStatus") is in _parameterValues under the generated key.
-        if (selectExpression.IndexNameExpression is QueryParameterExpression qp
-            && _parameterValues!.TryGetValue(qp.Name, out var value))
-            return value as string;
-
-        // Fallback: expression is still a ConstantExpression that wasn't captured as IndexName.
-        if (selectExpression.IndexNameExpression is ConstantExpression { Value: string s })
-            return s;
-
-        return null;
     }
 
     /// <summary>
