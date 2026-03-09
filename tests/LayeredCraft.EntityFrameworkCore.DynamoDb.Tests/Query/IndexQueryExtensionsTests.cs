@@ -127,6 +127,28 @@ public class IndexQueryExtensionsTests
     }
 
     [Fact]
+    public async Task WithIndex_UnknownIndexName_ThrowsInvalidOperationException()
+    {
+        // An index name not registered via HasGlobalSecondaryIndex/HasLocalSecondaryIndex must
+        // fail at compile time with a clear message rather than silently reaching DynamoDB.
+        var client = Substitute.For<IAmazonDynamoDB>();
+        await using var context = CreateGsiContext(client);
+
+        var act = async () => await context
+            .Orders
+            .WithIndex("DoesNotExist")
+            .Where(o => o.CustomerId == "C1")
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*DoesNotExist*");
+
+        await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
+    [Fact]
     public async Task WithIndex_GsiPartitionKey_Contains_51Items_ThrowsPartitionKeyLimitError()
     {
         // Before the fix, CustomerId was not recognised as a partition key when querying via

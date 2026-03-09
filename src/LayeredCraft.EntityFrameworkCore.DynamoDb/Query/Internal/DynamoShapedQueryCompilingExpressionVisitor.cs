@@ -1,6 +1,7 @@
 using System.Linq.Expressions;
 using System.Reflection;
 using Amazon.DynamoDBv2.Model;
+using LayeredCraft.EntityFrameworkCore.DynamoDb.Extensions;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Infrastructure.Internal;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using Microsoft.EntityFrameworkCore;
@@ -36,7 +37,10 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
         selectExpression.ApplyProjection();
 
         if (dynamoQueryCompilationContext.ExplicitIndexName is { } indexName)
+        {
+            ValidateExplicitIndexName(indexName, selectExpression.TableName);
             selectExpression.ApplyIndexName(indexName);
+        }
 
         if (selectExpression.PageSize is null && selectExpression.PageSizeExpression is null)
         {
@@ -161,6 +165,31 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
                 "WithPageSize must evaluate to a positive integer.");
 
         return value;
+    }
+
+    /// <summary>
+    ///     Throws if the explicitly requested index name is not registered on the table. This provides
+    ///     a clear compile-time error rather than a confusing DynamoDB runtime error for typos or
+    ///     misconfigured index names.
+    /// </summary>
+    private void ValidateExplicitIndexName(string indexName, string tableGroupName)
+    {
+        var runtimeModel = dynamoQueryCompilationContext.Model.GetDynamoRuntimeTableModel();
+        if (runtimeModel is null)
+            return; // Runtime model not initialized; skip validation.
+
+        if (!runtimeModel.Tables.TryGetValue(tableGroupName, out var tableDescriptor))
+            return; // Table not found in runtime model; skip validation.
+
+        // An index is valid if any entity type source list for the table group contains it.
+        var indexExists = tableDescriptor.SourcesByEntityTypeName.Values
+            .Any(sources => sources.Any(d => d.IndexName == indexName));
+
+        if (!indexExists)
+            throw new InvalidOperationException(
+                $"Index '{indexName}' is not configured on table '{tableGroupName}'. "
+                + "Use HasGlobalSecondaryIndex or HasLocalSecondaryIndex to register the "
+                + "index before using WithIndex.");
     }
 
 }
