@@ -1,7 +1,6 @@
 using System.Linq.Expressions;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Extensions;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Infrastructure.Internal;
-using LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
@@ -78,12 +77,25 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
             if (method.Name == nameof(DynamoDbQueryableExtensions.WithIndex))
             {
                 var context = (DynamoQueryCompilationContext)QueryCompilationContext;
-                // The indexName parameter is marked [NotParameterized], so EF Core's funcletizer
-                // leaves it as a ConstantExpression. Capture it once (first-wins) and prune the
-                // call so downstream visitors see only the base entity source.
-                if (context.ExplicitIndexName is null
-                    && methodCallExpression.Arguments[1] is ConstantExpression { Value: string indexName })
+
+                if (context.ExplicitIndexName is null)
+                {
+                    // The indexName parameter is marked [NotParameterized], so EF Core's
+                    // funcletizer
+                    // leaves it as a ConstantExpression for normal queries. If it's not a constant,
+                    // the index name cannot be embedded in the PartiQL FROM clause — throw rather
+                    // than silently falling back to the base table.
+                    if (methodCallExpression.Arguments[1] is not ConstantExpression
+                        {
+                            Value: string indexName,
+                        })
+                        throw new InvalidOperationException(
+                            $"'{nameof(DynamoDbQueryableExtensions.WithIndex)}' requires a constant index name. "
+                            + "Index names are embedded in the PartiQL FROM clause and cannot be query parameters. "
+                            + "Pass a string literal or capture a local variable in a regular (non-compiled) query.");
+
                     context.ExplicitIndexName = indexName;
+                }
 
                 return Visit(methodCallExpression.Arguments[0]);
             }

@@ -19,9 +19,12 @@ public class DynamoQueryCompilationContext(
     public bool PaginationDisabled { get; internal set; }
 
     /// <summary>
-    ///     Per-query explicit secondary index name from <c>.WithIndex()</c>. The parameter is marked
-    ///     <c>[NotParameterized]</c> so EF Core's funcletizer leaves the string literal as a
-    ///     <see cref="System.Linq.Expressions.ConstantExpression"/>, making it readable at translation time.
+    ///     Per-query explicit secondary index name from <c>.WithIndex()</c>. The index name is
+    ///     embedded in the PartiQL FROM clause at compile time, so it must be a compile-time constant.
+    ///     The parameter is marked <c>[NotParameterized]</c> so EF Core's funcletizer leaves the
+    ///     string literal as a <see cref="System.Linq.Expressions.ConstantExpression"/>; a
+    ///     non-constant argument causes translation to throw rather than silently fall back to the
+    ///     base table.
     /// </summary>
     public string? ExplicitIndexName { get; internal set; }
 }
