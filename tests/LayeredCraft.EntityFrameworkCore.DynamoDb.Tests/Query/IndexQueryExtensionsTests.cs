@@ -49,6 +49,106 @@ public class IndexQueryExtensionsTests
                 .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
                 .Options);
 
+    /// <summary>
+    ///     Shared-table context: <see cref="SharedOrder"/> and <see cref="SharedInvoice"/> both map
+    ///     to <c>SharedDocs</c>, but only <see cref="SharedOrder"/> has the <c>ByStatus</c> GSI.
+    ///     Used to verify that index validation is scoped to the queried entity type, not the whole table.
+    /// </summary>
+    private sealed class SharedTableDbContext(DbContextOptions options) : DbContext(options)
+    {
+        public DbSet<SharedOrder> Orders => Set<SharedOrder>();
+        public DbSet<SharedInvoice> Invoices => Set<SharedInvoice>();
+        public DbSet<SharedCreditInvoice> CreditInvoices => Set<SharedCreditInvoice>();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<SharedOrder>(b =>
+            {
+                b.ToTable("SharedDocs");
+                b.HasPartitionKey(x => x.Id);
+                b.HasGlobalSecondaryIndex("ByStatus", x => x.Status);
+            });
+
+            modelBuilder.Entity<SharedInvoice>(b =>
+            {
+                b.ToTable("SharedDocs");
+                b.HasPartitionKey(x => x.Id);
+                // No secondary indexes on Invoice
+            });
+        }
+    }
+
+    private sealed class SharedOrder
+    {
+        public string Id { get; set; } = null!;
+        public string Status { get; set; } = null!;
+    }
+
+    private class SharedInvoice
+    {
+        public string Id { get; set; } = null!;
+    }
+
+    private sealed class SharedCreditInvoice : SharedInvoice
+    {
+        public string CreditMemoNumber { get; set; } = null!;
+    }
+
+    private static SharedTableDbContext CreateSharedTableContext(IAmazonDynamoDB client)
+        => new(
+            new DbContextOptionsBuilder<SharedTableDbContext>()
+                .UseDynamo(o => o.DynamoDbClient(client))
+                .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .Options);
+
+    private sealed class DerivedIndexQueryDbContext(DbContextOptions options) : DbContext(options)
+    {
+        public DbSet<BaseOrderForIndexQuery> Orders => Set<BaseOrderForIndexQuery>();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<BaseOrderForIndexQuery>(b =>
+            {
+                b.ToTable("Orders");
+                b.HasPartitionKey(x => x.Id);
+                b.HasSortKey(x => x.OrderId);
+                b.HasLocalSecondaryIndex("ByStatus", x => x.Status);
+            });
+
+            modelBuilder.Entity<PriorityOrderForIndexQuery>(b =>
+            {
+                b.HasBaseType<BaseOrderForIndexQuery>();
+                b.HasGlobalSecondaryIndex("ByPriority", x => x.Priority);
+            });
+
+            modelBuilder.Entity<ArchivedOrderForIndexQuery>(b =>
+            {
+                b.HasBaseType<BaseOrderForIndexQuery>();
+            });
+        }
+    }
+
+    private class BaseOrderForIndexQuery
+    {
+        public string Id { get; set; } = null!;
+        public string OrderId { get; set; } = null!;
+        public string Status { get; set; } = null!;
+    }
+
+    private sealed class PriorityOrderForIndexQuery : BaseOrderForIndexQuery
+    {
+        public int Priority { get; set; }
+    }
+
+    private sealed class ArchivedOrderForIndexQuery : BaseOrderForIndexQuery;
+
+    private static DerivedIndexQueryDbContext CreateDerivedIndexQueryContext(IAmazonDynamoDB client)
+        => new(
+            new DbContextOptionsBuilder<DerivedIndexQueryDbContext>()
+                .UseDynamo(o => o.DynamoDbClient(client))
+                .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .Options);
+
     private static TestDbContext CreateContext()
     {
         var optionsBuilder = new DbContextOptionsBuilder<TestDbContext>();
@@ -124,6 +224,102 @@ public class IndexQueryExtensionsTests
             .WithMessage($"*{nameof(DynamoDbQueryableExtensions.WithIndex)}*constant*");
 
         await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
+    [Fact]
+    public async Task WithIndex_UnknownIndexName_ThrowsInvalidOperationException()
+    {
+        // An index name not registered via HasGlobalSecondaryIndex/HasLocalSecondaryIndex must
+        // fail at compile time with a clear message rather than silently reaching DynamoDB.
+        var client = Substitute.For<IAmazonDynamoDB>();
+        await using var context = CreateGsiContext(client);
+
+        var act = async () => await context
+            .Orders
+            .WithIndex("DoesNotExist")
+            .Where(o => o.CustomerId == "C1")
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*DoesNotExist*");
+
+        await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
+    [Fact]
+    public async Task WithIndex_SharedTable_IndexOnlyOnOneEntityType_ThrowsForOtherEntityType()
+    {
+        // Regression: validation previously searched all entity type sources for the table group,
+        // so an index configured only on Order would incorrectly pass validation for an Invoice
+        // query.
+        var client = Substitute.For<IAmazonDynamoDB>();
+        await using var context = CreateSharedTableContext(client);
+
+        // Querying Invoice with an index that is only configured on Order must throw.
+        var act = async () => await context
+            .Invoices
+            .WithIndex("ByStatus")
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*ByStatus*");
+
+        await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
+    [Fact]
+    public async Task
+        WithIndex_SharedTable_IndexOnlyOnOneEntityType_ProjectedQuery_ThrowsForOtherEntityType()
+    {
+        // Regression: projection rewrites can replace the final shaper expression, but explicit
+        // index validation must remain scoped to the original query root entity type.
+        var client = Substitute.For<IAmazonDynamoDB>();
+        await using var context = CreateSharedTableContext(client);
+
+        var act = async () => await context
+            .Invoices
+            .WithIndex("ByStatus")
+            .Select(i => i.Id)
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*ByStatus*");
+
+        await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
+    [Fact]
+    public async Task
+        WithIndex_SharedTable_DerivedTypeFromOtherRoot_IndexOnlyOnOneEntityType_Throws()
+    {
+        // Regression: runtime table descriptors are keyed by root entity type name. A query rooted
+        // at a derived type must still validate against its root entity type scope.
+        var client = Substitute.For<IAmazonDynamoDB>();
+        await using var context = CreateSharedTableContext(client);
+
+        var act = async () => await context
+            .CreditInvoices
+            .WithIndex("ByStatus")
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*ByStatus*");
+
+        await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
+    [Fact]
+    public async Task WithIndex_BaseQuery_AcceptsDerivedDefinedIndex()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        client
+            .ExecuteStatementAsync(Arg.Any<ExecuteStatementRequest>(), Arg.Any<CancellationToken>())
+            .Returns(new ExecuteStatementResponse { Items = [] });
+
+        await using var context = CreateDerivedIndexQueryContext(client);
+
+        var act = async () => await context
+            .Orders
+            .WithIndex("ByPriority")
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        await act.Should().NotThrowAsync<InvalidOperationException>();
     }
 
     [Fact]

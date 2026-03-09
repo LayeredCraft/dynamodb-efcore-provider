@@ -1,11 +1,11 @@
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Extensions;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Infrastructure.Internal;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata.Internal;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Tests.Metadata;
 
@@ -363,7 +363,7 @@ public class SecondaryIndexMetadataTests
         var entityType = context.Model.FindEntityType(typeof(Order))!;
         var runtimeTableModel = context.Model.GetDynamoRuntimeTableModel()!;
         var tableDescriptor = runtimeTableModel.Tables[nameof(Order)];
-        var sources = tableDescriptor.SourcesByEntityTypeName[entityType.Name];
+        var sources = tableDescriptor.SourcesByRootEntityTypeName[entityType.Name];
 
         sources.Select(x => x.IndexName).Should().Equal(null, "ByCustomer", "ByCustomerCreatedAt", "ByStatus");
         sources.Select(x => x.Kind).Should().Equal(
@@ -394,12 +394,23 @@ public class SecondaryIndexMetadataTests
 
         var runtimeTableModel = context.Model.GetDynamoRuntimeTableModel()!;
         var tableDescriptor = runtimeTableModel.Tables["Orders"];
-        var sources = tableDescriptor.SourcesByEntityTypeName[typeof(BaseOrder).FullName!];
+        var rootSources = tableDescriptor.SourcesByRootEntityTypeName[typeof(BaseOrder).FullName!];
 
-        sources.Select(x => x.IndexName).Should().Equal(null, "ByPriority", "ByStatus");
-        sources[1].ModelIndex.Should().NotBeNull();
-        sources[1].ModelIndex!.DeclaringEntityType.ClrType.Should().Be(typeof(PriorityOrder));
-        sources[1].PartitionKeyProperty.Name.Should().Be(nameof(PriorityOrder.Priority));
+        rootSources.Select(x => x.IndexName).Should().Equal(null, "ByPriority", "ByStatus");
+        rootSources[1].ModelIndex.Should().NotBeNull();
+        rootSources[1].ModelIndex!.DeclaringEntityType.ClrType.Should().Be(typeof(PriorityOrder));
+        rootSources[1].PartitionKeyProperty.Name.Should().Be(nameof(PriorityOrder.Priority));
+
+        var prioritySources =
+            tableDescriptor.SourcesByQueryEntityTypeName[typeof(PriorityOrder).FullName!];
+        prioritySources.Select(x => x.IndexName).Should().Equal(null, "ByPriority", "ByStatus");
+
+        var baseSources = tableDescriptor.SourcesByQueryEntityTypeName[typeof(BaseOrder).FullName!];
+        baseSources.Select(x => x.IndexName).Should().Equal(null, "ByPriority", "ByStatus");
+
+        var archivedSources =
+            tableDescriptor.SourcesByQueryEntityTypeName[typeof(ArchivedPriorityOrder).FullName!];
+        archivedSources.Select(x => x.IndexName).Should().Equal(null, "ByStatus");
     }
 
     [Fact]
@@ -421,9 +432,13 @@ public class SecondaryIndexMetadataTests
             typeof(LiveOrder),
             typeof(ArchivedOrder),
         });
-        tableDescriptor.SourcesByEntityTypeName.Should().HaveCount(2);
-        tableDescriptor.SourcesByEntityTypeName.Values.Should().OnlyContain(x => x.Count == 3);
-        tableDescriptor.SourcesByEntityTypeName.Values.Should().OnlyContain(
+        tableDescriptor.SourcesByRootEntityTypeName.Should().HaveCount(2);
+        tableDescriptor.SourcesByRootEntityTypeName.Values.Should().OnlyContain(x => x.Count == 3);
+        tableDescriptor
+            .SourcesByRootEntityTypeName
+            .Values
+            .Should()
+            .OnlyContain(
             x => x.Select(source => source.IndexName).SequenceEqual(new string?[] { null, "ByCustomer", "ByStatus" }));
     }
 
@@ -438,12 +453,26 @@ public class SecondaryIndexMetadataTests
         var runtimeTableModel = context.Model.GetDynamoRuntimeTableModel()!;
         var tableDescriptor = runtimeTableModel.Tables["Orders"];
 
-        tableDescriptor.SourcesByEntityTypeName[typeof(CustomerOrder).FullName!]
+        tableDescriptor
+            .SourcesByRootEntityTypeName[typeof(CustomerOrder).FullName!]
             .Select(source => source.IndexName)
             .Should()
             .Equal(null, "ByCustomer", "ByStatus");
 
-        tableDescriptor.SourcesByEntityTypeName[typeof(AuditOrder).FullName!]
+        tableDescriptor
+            .SourcesByRootEntityTypeName[typeof(AuditOrder).FullName!]
+            .Select(source => source.IndexName)
+            .Should()
+            .Equal(null, "ByStatus");
+
+        tableDescriptor
+            .SourcesByQueryEntityTypeName[typeof(CustomerOrder).FullName!]
+            .Select(source => source.IndexName)
+            .Should()
+            .Equal(null, "ByCustomer", "ByStatus");
+
+        tableDescriptor
+            .SourcesByQueryEntityTypeName[typeof(AuditOrder).FullName!]
             .Select(source => source.IndexName)
             .Should()
             .Equal(null, "ByStatus");
@@ -491,7 +520,8 @@ public class SecondaryIndexMetadataTests
 
         var runtimeTableModel = context.Model.GetDynamoRuntimeTableModel()!;
         var tableDescriptor = runtimeTableModel.Tables["Orders"];
-        var sources = tableDescriptor.SourcesByEntityTypeName[typeof(BaseLookupOrder).FullName!];
+        var sources =
+            tableDescriptor.SourcesByRootEntityTypeName[typeof(BaseLookupOrder).FullName!];
 
         sources.Select(x => x.IndexName).Should().Equal(null, "ByLookup");
     }
@@ -872,6 +902,11 @@ public class SecondaryIndexMetadataTests
                 entity.HasBaseType<BaseOrder>();
                 entity.HasGlobalSecondaryIndex("ByPriority", x => x.Priority);
             });
+
+            modelBuilder.Entity<ArchivedPriorityOrder>(entity =>
+            {
+                entity.HasBaseType<BaseOrder>();
+            });
         }
     }
 
@@ -886,6 +921,8 @@ public class SecondaryIndexMetadataTests
     {
         public int Priority { get; set; }
     }
+
+    private sealed class ArchivedPriorityOrder : BaseOrder;
 
     private sealed class SharedTableContext(DbContextOptions<SharedTableContext> options)
         : DbContext(options)

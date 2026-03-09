@@ -208,3 +208,22 @@ public class DiscriminatorInheritanceBaseOnlyToTableQueryTests(SharedTableDynamo
             """);
     }
 }
+
+public class DiscriminatorInheritanceWithIndexQueryTests(SharedTableDynamoFixture fixture)
+    : SharedTableTestBase<SharedTableInheritanceWithIndexesDbContext>(fixture)
+{
+    /// <summary>
+    ///     Verifies explicit index validation for derived queries excludes sibling-only indexes in
+    ///     the same inheritance root.
+    /// </summary>
+    [Fact]
+    public async Task DerivedQuery_WithSiblingOnlyIndex_ThrowsBeforeExecution()
+    {
+        var act = async () => await Db
+            .ArchivedWorkOrders
+            .WithIndex("ByPriority")
+            .ToListAsync(CancellationToken);
+
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*ByPriority*");
+    }
+}

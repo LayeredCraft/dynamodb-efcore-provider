@@ -128,3 +128,33 @@ public class SharedTableInheritanceBaseOnlyToTableDbContext(
         });
     }
 }
+
+public class SharedTableInheritanceWithIndexesDbContext(
+    DbContextOptions<SharedTableInheritanceWithIndexesDbContext> options) : DbContext(options)
+{
+    public DbSet<ArchivedWorkOrderEntity> ArchivedWorkOrders => Set<ArchivedWorkOrderEntity>();
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<WorkOrderEntity>(builder =>
+        {
+            builder.ToTable(SharedTableDynamoFixture.TableName);
+            builder.HasPartitionKey(x => x.Pk);
+            builder.HasSortKey(x => x.Sk);
+            builder.HasLocalSecondaryIndex("ByStatus", x => x.Status);
+        });
+
+        modelBuilder.Entity<PriorityWorkOrderEntity>(builder =>
+        {
+            builder.ToTable(SharedTableDynamoFixture.TableName);
+            builder.HasBaseType<WorkOrderEntity>();
+            builder.HasGlobalSecondaryIndex("ByPriority", x => x.Priority);
+        });
+
+        modelBuilder.Entity<ArchivedWorkOrderEntity>(builder =>
+        {
+            builder.ToTable(SharedTableDynamoFixture.TableName);
+            builder.HasBaseType<WorkOrderEntity>();
+        });
+    }
+}

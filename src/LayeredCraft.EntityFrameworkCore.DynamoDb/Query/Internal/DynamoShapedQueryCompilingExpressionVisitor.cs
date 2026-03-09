@@ -1,9 +1,12 @@
 using System.Linq.Expressions;
 using System.Reflection;
 using Amazon.DynamoDBv2.Model;
+using LayeredCraft.EntityFrameworkCore.DynamoDb.Extensions;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Infrastructure.Internal;
+using LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Query;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
@@ -36,7 +39,15 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
         selectExpression.ApplyProjection();
 
         if (dynamoQueryCompilationContext.ExplicitIndexName is { } indexName)
+        {
+            // Use query-root metadata carried by SelectExpression so validation remains scoped to
+            // the original entity type even after Select(...) rewrites replace the final shaper.
+            var queryEntityTypeName = selectExpression.QueryEntityTypeName
+                ?? TryGetQueryEntityTypeNameFromShaper(shapedQueryExpression.ShaperExpression);
+
+            ValidateExplicitIndexName(indexName, selectExpression.TableName, queryEntityTypeName);
             selectExpression.ApplyIndexName(indexName);
+        }
 
         if (selectExpression.PageSize is null && selectExpression.PageSizeExpression is null)
         {
@@ -163,4 +174,59 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
         return value;
     }
 
+    /// <summary>
+    ///     Attempts to extract the query entity type name from the final shaper expression as a
+    ///     fallback when query-root metadata is unavailable.
+    /// </summary>
+    private static string? TryGetQueryEntityTypeNameFromShaper(Expression shaperExpression)
+        => shaperExpression is StructuralTypeShaperExpression
+        {
+            StructuralType: IReadOnlyEntityType entityType,
+        }
+            ? entityType.Name
+            : null;
+
+    /// <summary>
+    ///     Throws if the explicitly requested index name is not registered for the queried entity
+    ///     type. Validation is scoped to the entity type being queried so that, in a shared-table
+    ///     model, an index configured only on one entity type does not silently satisfy a query
+    ///     against a different entity type that shares the same physical table.
+    /// </summary>
+    /// <param name="indexName">The index name supplied to <c>WithIndex</c>.</param>
+    /// <param name="tableGroupName">Physical table group name from the <see cref="SelectExpression"/>.</param>
+    /// <param name="queryEntityTypeName">
+    ///     Name of the query entity type, or <c>null</c> for non-entity projection queries.
+    ///     When null, validation falls back to searching all entity type sources for the table group.
+    /// </param>
+    private void ValidateExplicitIndexName(
+        string indexName,
+        string tableGroupName,
+        string? queryEntityTypeName)
+    {
+        var runtimeModel = dynamoQueryCompilationContext.Model.GetDynamoRuntimeTableModel();
+        if (runtimeModel is null)
+            return; // Runtime model not initialized; skip validation.
+
+        if (!runtimeModel.Tables.TryGetValue(tableGroupName, out var tableDescriptor))
+            return; // Table not found in runtime model; skip validation.
+
+        // Scope to the specific entity type when available so that in a shared-table model an
+        // index configured only on Order does not pass validation for an Invoice query.
+        // This mirrors the lookup in DynamoSqlTranslatingExpressionVisitor.IsEffectivePartitionKey.
+        IEnumerable<IReadOnlyList<DynamoIndexDescriptor>> sourceLists =
+            queryEntityTypeName is not null
+            && tableDescriptor.SourcesByQueryEntityTypeName.TryGetValue(
+                queryEntityTypeName,
+                out var entitySources)
+                ? [entitySources]
+                : tableDescriptor.SourcesByQueryEntityTypeName.Values;
+
+        var indexExists = sourceLists.Any(sources => sources.Any(d => d.IndexName == indexName));
+
+        if (!indexExists)
+            throw new InvalidOperationException(
+                $"Index '{indexName}' is not configured on table '{tableGroupName}'. "
+                + "Use HasGlobalSecondaryIndex or HasLocalSecondaryIndex to register the "
+                + "index before using WithIndex.");
+    }
 }
