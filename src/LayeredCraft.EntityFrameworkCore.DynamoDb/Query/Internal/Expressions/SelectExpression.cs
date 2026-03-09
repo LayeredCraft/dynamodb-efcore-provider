@@ -84,6 +84,12 @@ public class SelectExpression(string tableName) : Expression
     /// <summary>The name of the DynamoDB table to query.</summary>
     public string TableName { get; } = tableName;
 
+    /// <summary>The secondary index name to query, or null for the base table.</summary>
+    public string? IndexName { get; private set; }
+
+    /// <summary>Sets the secondary index name to use in the FROM clause.</summary>
+    public void ApplyIndexName(string? indexName) => IndexName = indexName;
+
     /// <inheritdoc />
     public override Type Type => typeof(object);
 

@@ -60,6 +60,11 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
 
         _sql.Append("\nFROM ");
         AppendIdentifier(selectExpression.TableName);
+        if (selectExpression.IndexName is { } indexName)
+        {
+            _sql.Append('.');
+            AppendIdentifier(indexName);
+        }
 
         if (selectExpression.Predicate != null)
         {

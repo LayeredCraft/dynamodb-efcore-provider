@@ -1,4 +1,5 @@
 using System.Linq.Expressions;
+using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.Internal;
 
 namespace Microsoft.EntityFrameworkCore;
@@ -180,7 +181,7 @@ public static class DynamoDbQueryableExtensions
     /// <exception cref="ArgumentException">Thrown when <paramref name="indexName" /> is empty.</exception>
     public static IQueryable<TEntity> WithIndex<TEntity>(
         this IQueryable<TEntity> source,
-        string indexName) where TEntity : class
+        [NotParameterized] string indexName) where TEntity : class
     {
         if (string.IsNullOrWhiteSpace(indexName))
             throw new ArgumentException("Index name must not be empty.", nameof(indexName));

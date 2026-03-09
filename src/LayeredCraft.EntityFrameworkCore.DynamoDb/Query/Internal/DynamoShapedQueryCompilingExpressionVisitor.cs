@@ -35,6 +35,9 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
         // Finalize projection mapping → concrete projection list
         selectExpression.ApplyProjection();
 
+        if (dynamoQueryCompilationContext.ExplicitIndexName is { } indexName)
+            selectExpression.ApplyIndexName(indexName);
+
         if (selectExpression.PageSize is null && selectExpression.PageSizeExpression is null)
         {
             if (dynamoQueryCompilationContext.PageSizeOverrideExpression is not null)
