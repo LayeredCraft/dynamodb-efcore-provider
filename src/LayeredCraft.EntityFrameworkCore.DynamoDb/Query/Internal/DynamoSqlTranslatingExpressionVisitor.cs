@@ -580,12 +580,16 @@ public class DynamoSqlTranslatingExpressionVisitor(ISqlExpressionFactory sqlExpr
         if (compareCall is null)
             return null;
 
+        // Translate the two string arguments. The optional StringComparison argument (index 2)
+        // is intentionally ignored: DynamoDB always compares strings using their binary
+        // (ordinal) encoding in PartiQL, so there is no SQL equivalent to pass through.
         var a = TranslateInternal(compareCall.Arguments[0]);
         var b = TranslateInternal(compareCall.Arguments[1]);
         if (a is null || b is null)
             return QueryCompilationContext.NotTranslatedExpression;
 
-        // When the constant was on the left (0 OP Compare(a,b)), flip the operator.
+        // When the constant 0 was on the left (0 OP Compare(a,b)), mirror the operator so the
+        // generated SQL is still in the canonical "column OP value" order.
         var effectiveOp = swapOperands ? FlipComparison(opType) : opType;
         var result = sqlExpressionFactory.Binary(effectiveOp, a, b);
         if (result is not null)

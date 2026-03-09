@@ -35,6 +35,12 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
         // Finalize projection mapping → concrete projection list
         selectExpression.ApplyProjection();
 
+        // Bake the index name into the SelectExpression constant that is captured in the
+        // compiled delegate. We apply it here (after projection, before the delegate is
+        // built) so the expression is complete when the SQL generator runs at execution time.
+        // ExplicitIndexNameExpression is preferred because it handles the common case where
+        // EF Core's funcletizer extracted the string literal into a QueryParameterExpression;
+        // ExplicitIndexName is a fallback for EF.Constant() or other inline-constant paths.
         if (dynamoQueryCompilationContext.ExplicitIndexNameExpression is { } indexNameExpr)
             selectExpression.ApplyIndexNameExpression(indexNameExpr);
         else if (dynamoQueryCompilationContext.ExplicitIndexName is { } indexName)

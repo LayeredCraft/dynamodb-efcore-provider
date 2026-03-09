@@ -84,19 +84,24 @@ public class SelectExpression(string tableName) : Expression
     /// <summary>The name of the DynamoDB table to query.</summary>
     public string TableName { get; } = tableName;
 
-    /// <summary>The secondary index name to query, or null for the base table.</summary>
+    /// <summary>
+    ///     The secondary index name when it was available as a compile-time constant (e.g. via
+    ///     <c>EF.Constant()</c>), or null when <see cref="IndexNameExpression"/> is used instead.
+    /// </summary>
     public string? IndexName { get; private set; }
 
     /// <summary>
-    ///     Expression representing the index name, captured after EF Core parameter extraction.
-    ///     Resolved at SQL generation time from the query parameter values.
+    ///     Expression representing the secondary index name, set when EF Core's parameter extractor
+    ///     converted the string literal to a <c>QueryParameterExpression</c> before compilation.
+    ///     Resolved to the actual string value at SQL generation time from <c>parameterValues</c>.
+    ///     Null when <see cref="IndexName"/> is used instead (or when no index was specified).
     /// </summary>
     public Expression? IndexNameExpression { get; private set; }
 
-    /// <summary>Sets the secondary index name to use in the FROM clause.</summary>
+    /// <summary>Sets the secondary index name from a compile-time constant value.</summary>
     public void ApplyIndexName(string? indexName) => IndexName = indexName;
 
-    /// <summary>Sets the index name expression to resolve at SQL generation time.</summary>
+    /// <summary>Sets the secondary index name expression to be resolved at SQL generation time.</summary>
     public void ApplyIndexNameExpression(Expression? expression) => IndexNameExpression = expression;
 
     /// <inheritdoc />
