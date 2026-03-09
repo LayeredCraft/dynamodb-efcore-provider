@@ -17,14 +17,8 @@ public class DynamoSqlTranslatingExpressionVisitor(
     DynamoQueryCompilationContext? queryCompilationContext = null)
     : ExpressionVisitor
 {
-    private static readonly IReadOnlyList<MethodInfo> StringCompareMethods =
-        typeof(string)
-            .GetMethods(BindingFlags.Public | BindingFlags.Static)
-            .Where(m => m.Name == nameof(string.Compare)
-                && m.GetParameters().Length is 2 or 3
-                && m.GetParameters()[0].ParameterType == typeof(string)
-                && m.GetParameters()[1].ParameterType == typeof(string))
-            .ToList();
+    private static readonly MethodInfo StringCompareMethod =
+        ((Func<string, string, int>)string.Compare).Method;
 
     private static readonly MethodInfo EnumerableContainsMethod =
         ((Func<IEnumerable<object>, object, bool>)Enumerable.Contains).Method
@@ -120,7 +114,7 @@ public class DynamoSqlTranslatingExpressionVisitor(
     /// <inheritdoc />
     protected override Expression VisitBinary(BinaryExpression node)
     {
-        // Translate string.Compare(a, b[, comparisonType]) OP 0 → a OP b
+        // Translate string.Compare(a, b) OP 0 → a OP b
         if (TryTranslateStringCompare(node) is { } stringCompareResult)
             return stringCompareResult;
 
@@ -587,9 +581,8 @@ public class DynamoSqlTranslatingExpressionVisitor(
     }
 
     /// <summary>
-    ///     Translates <c>string.Compare(a, b[, comparisonType]) OP 0</c> to a SQL binary comparison
-    ///     <c>a OP b</c>. DynamoDB always uses ordinal comparison for strings so the <c>comparisonType</c>
-    ///     argument is ignored.
+    ///     Translates <c>string.Compare(a, b) OP 0</c> to a SQL binary comparison
+    ///     <c>a OP b</c>.
     /// </summary>
     private Expression? TryTranslateStringCompare(BinaryExpression node)
     {
@@ -598,13 +591,13 @@ public class DynamoSqlTranslatingExpressionVisitor(
         bool swapOperands = false;
 
         if (node.Left is MethodCallExpression leftCall
-            && StringCompareMethods.Contains(leftCall.Method)
+            && leftCall.Method == StringCompareMethod
             && node.Right is ConstantExpression { Value: 0 })
         {
             compareCall = leftCall;
         }
         else if (node.Right is MethodCallExpression rightCall
-            && StringCompareMethods.Contains(rightCall.Method)
+            && rightCall.Method == StringCompareMethod
             && node.Left is ConstantExpression { Value: 0 })
         {
             compareCall = rightCall;
@@ -614,9 +607,7 @@ public class DynamoSqlTranslatingExpressionVisitor(
         if (compareCall is null)
             return null;
 
-        // Translate the two string arguments. The optional StringComparison argument (index 2)
-        // is intentionally ignored: DynamoDB always compares strings using their binary
-        // (ordinal) encoding in PartiQL, so there is no SQL equivalent to pass through.
+        // Translate the two string arguments directly for binary PartiQL comparison.
         var a = TranslateInternal(compareCall.Arguments[0]);
         var b = TranslateInternal(compareCall.Arguments[1]);
         if (a is null || b is null)
