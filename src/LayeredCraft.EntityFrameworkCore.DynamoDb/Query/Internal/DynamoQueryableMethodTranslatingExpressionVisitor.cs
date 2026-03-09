@@ -111,7 +111,7 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
         // Get the table name from entity metadata.
         var tableName = entityType.GetTableGroupName();
 
-        var queryExpression = new SelectExpression(tableName, entityType.Name);
+        var queryExpression = new SelectExpression(tableName, entityType.GetRootType().Name);
 
         // Create entity projection expression as single source of truth for property mapping
         var entityProjection =

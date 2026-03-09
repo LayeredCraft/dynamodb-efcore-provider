@@ -42,10 +42,13 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
         {
             // Use query-root metadata carried by SelectExpression so validation remains scoped to
             // the original entity type even after Select(...) rewrites replace the final shaper.
-            var queryEntityTypeName = selectExpression.RootEntityTypeName
-                ?? TryGetEntityTypeNameFromShaper(shapedQueryExpression.ShaperExpression);
+            var queryRootEntityTypeName = selectExpression.RootEntityTypeName
+                ?? TryGetRootEntityTypeNameFromShaper(shapedQueryExpression.ShaperExpression);
 
-            ValidateExplicitIndexName(indexName, selectExpression.TableName, queryEntityTypeName);
+            ValidateExplicitIndexName(
+                indexName,
+                selectExpression.TableName,
+                queryRootEntityTypeName);
             selectExpression.ApplyIndexName(indexName);
         }
 
@@ -175,15 +178,15 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
     }
 
     /// <summary>
-    ///     Attempts to extract an entity type name from the final shaper expression as a fallback
-    ///     when the query root metadata is unavailable.
+    ///     Attempts to extract the root entity type name from the final shaper expression as a
+    ///     fallback when query-root metadata is unavailable.
     /// </summary>
-    private static string? TryGetEntityTypeNameFromShaper(Expression shaperExpression)
+    private static string? TryGetRootEntityTypeNameFromShaper(Expression shaperExpression)
         => shaperExpression is StructuralTypeShaperExpression
         {
             StructuralType: IReadOnlyEntityType entityType,
         }
-            ? entityType.Name
+            ? entityType.GetRootType().Name
             : null;
 
     /// <summary>
@@ -194,14 +197,14 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
     /// </summary>
     /// <param name="indexName">The index name supplied to <c>WithIndex</c>.</param>
     /// <param name="tableGroupName">Physical table group name from the <see cref="SelectExpression"/>.</param>
-    /// <param name="entityTypeName">
-    ///     Name of the entity type being queried, or <c>null</c> for non-entity projection queries.
+    /// <param name="rootEntityTypeName">
+    ///     Name of the root entity type being queried, or <c>null</c> for non-entity projection queries.
     ///     When null, validation falls back to searching all entity type sources for the table group.
     /// </param>
     private void ValidateExplicitIndexName(
         string indexName,
         string tableGroupName,
-        string? entityTypeName)
+        string? rootEntityTypeName)
     {
         var runtimeModel = dynamoQueryCompilationContext.Model.GetDynamoRuntimeTableModel();
         if (runtimeModel is null)
@@ -214,8 +217,10 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
         // index configured only on Order does not pass validation for an Invoice query.
         // This mirrors the lookup in DynamoSqlTranslatingExpressionVisitor.IsEffectivePartitionKey.
         IEnumerable<IReadOnlyList<DynamoIndexDescriptor>> sourceLists =
-            entityTypeName is not null
-            && tableDescriptor.SourcesByEntityTypeName.TryGetValue(entityTypeName, out var entitySources)
+            rootEntityTypeName is not null
+            && tableDescriptor.SourcesByEntityTypeName.TryGetValue(
+                rootEntityTypeName,
+                out var entitySources)
                 ? [entitySources]
                 : tableDescriptor.SourcesByEntityTypeName.Values;
 

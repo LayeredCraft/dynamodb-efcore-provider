@@ -58,6 +58,7 @@ public class IndexQueryExtensionsTests
     {
         public DbSet<SharedOrder> Orders => Set<SharedOrder>();
         public DbSet<SharedInvoice> Invoices => Set<SharedInvoice>();
+        public DbSet<SharedCreditInvoice> CreditInvoices => Set<SharedCreditInvoice>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -83,9 +84,14 @@ public class IndexQueryExtensionsTests
         public string Status { get; set; } = null!;
     }
 
-    private sealed class SharedInvoice
+    private class SharedInvoice
     {
         public string Id { get; set; } = null!;
+    }
+
+    private sealed class SharedCreditInvoice : SharedInvoice
+    {
+        public string CreditMemoNumber { get; set; } = null!;
     }
 
     private static SharedTableDbContext CreateSharedTableContext(IAmazonDynamoDB client)
@@ -229,6 +235,25 @@ public class IndexQueryExtensionsTests
             .Invoices
             .WithIndex("ByStatus")
             .Select(i => i.Id)
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*ByStatus*");
+
+        await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
+    [Fact]
+    public async Task
+        WithIndex_SharedTable_DerivedTypeFromOtherRoot_IndexOnlyOnOneEntityType_Throws()
+    {
+        // Regression: runtime table descriptors are keyed by root entity type name. A query rooted
+        // at a derived type must still validate against its root entity type scope.
+        var client = Substitute.For<IAmazonDynamoDB>();
+        await using var context = CreateSharedTableContext(client);
+
+        var act = async () => await context
+            .CreditInvoices
+            .WithIndex("ByStatus")
             .ToListAsync(TestContext.Current.CancellationToken);
 
         await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*ByStatus*");
