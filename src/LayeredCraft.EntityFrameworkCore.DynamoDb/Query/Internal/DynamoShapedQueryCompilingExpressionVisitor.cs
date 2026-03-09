@@ -3,7 +3,9 @@ using System.Reflection;
 using Amazon.DynamoDBv2.Model;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Extensions;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Infrastructure.Internal;
+using LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 
@@ -38,7 +40,14 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
 
         if (dynamoQueryCompilationContext.ExplicitIndexName is { } indexName)
         {
-            ValidateExplicitIndexName(indexName, selectExpression.TableName);
+            // Extract the root entity type from the shaper so validation is scoped to the
+            // entity type being queried, not all entity types sharing the physical table.
+            var queryEntityTypeName = shapedQueryExpression.ShaperExpression
+                is StructuralTypeShaperExpression { StructuralType: IReadOnlyEntityType et }
+                ? et.Name
+                : null;
+
+            ValidateExplicitIndexName(indexName, selectExpression.TableName, queryEntityTypeName);
             selectExpression.ApplyIndexName(indexName);
         }
 
@@ -168,11 +177,21 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
     }
 
     /// <summary>
-    ///     Throws if the explicitly requested index name is not registered on the table. This provides
-    ///     a clear compile-time error rather than a confusing DynamoDB runtime error for typos or
-    ///     misconfigured index names.
+    ///     Throws if the explicitly requested index name is not registered for the queried entity
+    ///     type. Validation is scoped to the entity type being queried so that, in a shared-table
+    ///     model, an index configured only on one entity type does not silently satisfy a query
+    ///     against a different entity type that shares the same physical table.
     /// </summary>
-    private void ValidateExplicitIndexName(string indexName, string tableGroupName)
+    /// <param name="indexName">The index name supplied to <c>WithIndex</c>.</param>
+    /// <param name="tableGroupName">Physical table group name from the <see cref="SelectExpression"/>.</param>
+    /// <param name="entityTypeName">
+    ///     Name of the entity type being queried, or <c>null</c> for non-entity projection queries.
+    ///     When null, validation falls back to searching all entity type sources for the table group.
+    /// </param>
+    private void ValidateExplicitIndexName(
+        string indexName,
+        string tableGroupName,
+        string? entityTypeName)
     {
         var runtimeModel = dynamoQueryCompilationContext.Model.GetDynamoRuntimeTableModel();
         if (runtimeModel is null)
@@ -181,9 +200,16 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
         if (!runtimeModel.Tables.TryGetValue(tableGroupName, out var tableDescriptor))
             return; // Table not found in runtime model; skip validation.
 
-        // An index is valid if any entity type source list for the table group contains it.
-        var indexExists = tableDescriptor.SourcesByEntityTypeName.Values
-            .Any(sources => sources.Any(d => d.IndexName == indexName));
+        // Scope to the specific entity type when available so that in a shared-table model an
+        // index configured only on Order does not pass validation for an Invoice query.
+        // This mirrors the lookup in DynamoSqlTranslatingExpressionVisitor.IsEffectivePartitionKey.
+        IEnumerable<IReadOnlyList<DynamoIndexDescriptor>> sourceLists =
+            entityTypeName is not null
+            && tableDescriptor.SourcesByEntityTypeName.TryGetValue(entityTypeName, out var entitySources)
+                ? [entitySources]
+                : tableDescriptor.SourcesByEntityTypeName.Values;
+
+        var indexExists = sourceLists.Any(sources => sources.Any(d => d.IndexName == indexName));
 
         if (!indexExists)
             throw new InvalidOperationException(

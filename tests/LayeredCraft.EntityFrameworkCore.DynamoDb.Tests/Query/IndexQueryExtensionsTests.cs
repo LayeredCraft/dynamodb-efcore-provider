@@ -49,6 +49,52 @@ public class IndexQueryExtensionsTests
                 .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
                 .Options);
 
+    /// <summary>
+    ///     Shared-table context: <see cref="SharedOrder"/> and <see cref="SharedInvoice"/> both map
+    ///     to <c>SharedDocs</c>, but only <see cref="SharedOrder"/> has the <c>ByStatus</c> GSI.
+    ///     Used to verify that index validation is scoped to the queried entity type, not the whole table.
+    /// </summary>
+    private sealed class SharedTableDbContext(DbContextOptions options) : DbContext(options)
+    {
+        public DbSet<SharedOrder> Orders => Set<SharedOrder>();
+        public DbSet<SharedInvoice> Invoices => Set<SharedInvoice>();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<SharedOrder>(b =>
+            {
+                b.ToTable("SharedDocs");
+                b.HasPartitionKey(x => x.Id);
+                b.HasGlobalSecondaryIndex("ByStatus", x => x.Status);
+            });
+
+            modelBuilder.Entity<SharedInvoice>(b =>
+            {
+                b.ToTable("SharedDocs");
+                b.HasPartitionKey(x => x.Id);
+                // No secondary indexes on Invoice
+            });
+        }
+    }
+
+    private sealed class SharedOrder
+    {
+        public string Id { get; set; } = null!;
+        public string Status { get; set; } = null!;
+    }
+
+    private sealed class SharedInvoice
+    {
+        public string Id { get; set; } = null!;
+    }
+
+    private static SharedTableDbContext CreateSharedTableContext(IAmazonDynamoDB client)
+        => new(
+            new DbContextOptionsBuilder<SharedTableDbContext>()
+                .UseDynamo(o => o.DynamoDbClient(client))
+                .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .Options);
+
     private static TestDbContext CreateContext()
     {
         var optionsBuilder = new DbContextOptionsBuilder<TestDbContext>();
@@ -144,6 +190,28 @@ public class IndexQueryExtensionsTests
             .Should()
             .ThrowAsync<InvalidOperationException>()
             .WithMessage("*DoesNotExist*");
+
+        await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
+    [Fact]
+    public async Task WithIndex_SharedTable_IndexOnlyOnOneEntityType_ThrowsForOtherEntityType()
+    {
+        // Regression: validation previously searched all entity type sources for the table group,
+        // so an index configured only on Order would incorrectly pass validation for an Invoice query.
+        var client = Substitute.For<IAmazonDynamoDB>();
+        await using var context = CreateSharedTableContext(client);
+
+        // Querying Invoice with an index that is only configured on Order must throw.
+        var act = async () => await context
+            .Invoices
+            .WithIndex("ByStatus")
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*ByStatus*");
 
         await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
     }
