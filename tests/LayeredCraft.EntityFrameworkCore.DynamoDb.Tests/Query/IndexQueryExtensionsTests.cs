@@ -1,6 +1,7 @@
 using System.Linq.Expressions;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
+using LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using NSubstitute;
@@ -48,6 +49,35 @@ public class IndexQueryExtensionsTests
                 .UseDynamo(o => o.DynamoDbClient(client))
                 .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
                 .Options);
+
+    private static GsiDbContext CreateGsiContextWithAutoAnalyzer(IAmazonDynamoDB client)
+        => new(
+            new DbContextOptionsBuilder<GsiDbContext>()
+                .ReplaceService<IDynamoIndexSelectionAnalyzer, AutoSelectByCustomerIndexAnalyzer>()
+                .UseDynamo(o => o.DynamoDbClient(client))
+                .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .Options);
+
+    /// <summary>
+    ///     Analyzer used by tests to simulate index auto-selection without an explicit WithIndex
+    ///     hint.
+    /// </summary>
+    private sealed class AutoSelectByCustomerIndexAnalyzer : IDynamoIndexSelectionAnalyzer
+    {
+        /// <summary>Selects the ByCustomer index when no explicit hint is provided.</summary>
+        /// <param name="context">The query analysis context.</param>
+        /// <returns>The selected index decision.</returns>
+        public DynamoIndexSelectionDecision Analyze(DynamoIndexAnalysisContext context)
+            => context.ExplicitIndexHint is { } explicitIndexHint
+                ? new DynamoIndexSelectionDecision(
+                    explicitIndexHint,
+                    DynamoIndexSelectionReason.ExplicitHint,
+                    [])
+                : new DynamoIndexSelectionDecision(
+                    "ByCustomer",
+                    DynamoIndexSelectionReason.AutoSelected,
+                    []);
+    }
 
     /// <summary>
     ///     Shared-table context: <see cref="SharedOrder"/> and <see cref="SharedInvoice"/> both map
@@ -370,5 +400,98 @@ public class IndexQueryExtensionsTests
                 .ToListAsync(TestContext.Current.CancellationToken);
 
         await act.Should().NotThrowAsync<InvalidOperationException>();
+    }
+
+    [Fact]
+    public async Task
+        AutoSelectedIndex_GsiPartitionKey_Contains_51Items_ThrowsPartitionKeyLimitError()
+    {
+        // Regression: analyzer-selected indexes are applied after translation. Ensure SQL
+        // generation
+        // enforces the selected index partition-key limit instead of the base-table non-key limit.
+        var client = Substitute.For<IAmazonDynamoDB>();
+        await using var context = CreateGsiContextWithAutoAnalyzer(client);
+
+        var customerIds = Enumerable.Range(1, 51).Select(i => $"CUSTOMER#{i}").ToList();
+
+        var act = async ()
+            => await context
+                .Orders
+                .Where(o => customerIds.Contains(o.CustomerId))
+                .ToListAsync(TestContext.Current.CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*50*partition key*");
+
+        await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
+    [Fact]
+    public async Task
+        AutoSelectedIndex_GsiPartitionKey_Contains_50Items_DoesNotThrowPartitionKeyLimitError()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        client
+            .ExecuteStatementAsync(Arg.Any<ExecuteStatementRequest>(), Arg.Any<CancellationToken>())
+            .Returns(new ExecuteStatementResponse { Items = [] });
+
+        await using var context = CreateGsiContextWithAutoAnalyzer(client);
+
+        var customerIds = Enumerable.Range(1, 50).Select(i => $"CUSTOMER#{i}").ToList();
+
+        var act = async ()
+            => await context
+                .Orders
+                .Where(o => customerIds.Contains(o.CustomerId))
+                .ToListAsync(TestContext.Current.CancellationToken);
+
+        await act.Should().NotThrowAsync<InvalidOperationException>();
+    }
+
+    [Fact]
+    public async Task
+        AutoSelectedIndex_BaseTablePartitionKey_Contains_51Items_DoesNotThrowPartitionKeyLimitError()
+    {
+        // Regression: when an analyzer selects ByCustomer, TenantId is a non-key attribute for
+        // that query source and must use the non-key IN limit (100), not the 50 partition-key
+        // limit.
+        var client = Substitute.For<IAmazonDynamoDB>();
+        client
+            .ExecuteStatementAsync(Arg.Any<ExecuteStatementRequest>(), Arg.Any<CancellationToken>())
+            .Returns(new ExecuteStatementResponse { Items = [] });
+
+        await using var context = CreateGsiContextWithAutoAnalyzer(client);
+
+        var tenantIds = Enumerable.Range(1, 51).Select(i => $"TENANT#{i}").ToList();
+
+        var act = async ()
+            => await context
+                .Orders
+                .Where(o => tenantIds.Contains(o.TenantId))
+                .ToListAsync(TestContext.Current.CancellationToken);
+
+        await act.Should().NotThrowAsync<InvalidOperationException>();
+    }
+
+    [Fact]
+    public async Task
+        AutoSelectedIndex_BaseTablePartitionKey_Contains_101Items_ThrowsNonKeyLimitError()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        await using var context = CreateGsiContextWithAutoAnalyzer(client);
+
+        var tenantIds = Enumerable.Range(1, 101).Select(i => $"TENANT#{i}").ToList();
+
+        var act = async ()
+            => await context
+                .Orders
+                .Where(o => tenantIds.Contains(o.TenantId))
+                .ToListAsync(TestContext.Current.CancellationToken);
+
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*100*non-key*");
+
+        await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
     }
 }

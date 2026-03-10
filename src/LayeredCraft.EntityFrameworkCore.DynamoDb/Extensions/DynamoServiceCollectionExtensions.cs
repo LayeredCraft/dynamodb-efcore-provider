@@ -31,6 +31,8 @@ public static class DynamoServiceCollectionExtensions
                 .TryAdd<ITypeMappingSource, DynamoTypeMappingSource>()
                 .TryAdd<IQueryableMethodTranslatingExpressionVisitorFactory,
                     DynamoQueryableMethodTranslatingExpressionVisitorFactory>()
+                .TryAdd<IQueryTranslationPostprocessorFactory,
+                    DynamoQueryTranslationPostprocessorFactory>()
                 .TryAdd<IShapedQueryCompilingExpressionVisitorFactory,
                     DynamoShapedQueryCompilingExpressionVisitorFactory>()
                 .TryAdd<IQueryCompilationContextFactory, DynamoQueryCompilationContextFactory>()
@@ -38,8 +40,10 @@ public static class DynamoServiceCollectionExtensions
                     => services
                         .TryAddScoped<IDynamoClientWrapper, DynamoClientWrapper>()
                         .TryAddSingleton<ISqlExpressionFactory, SqlExpressionFactory>()
-                        .TryAddSingleton<IDynamoQuerySqlGeneratorFactory,
-                            DynamoQuerySqlGeneratorFactory>());
+                        .TryAddSingleton<IDynamoQuerySqlGeneratorFactory, DynamoQuerySqlGeneratorFactory>()
+                        // Replaceable via ReplaceService<IDynamoIndexSelectionAnalyzer, T>() for
+                        // steps 7–8 auto-selection or test substitution.
+                        .TryAddSingleton<IDynamoIndexSelectionAnalyzer, DynamoDefaultIndexSelectionAnalyzer>());
 
             builder.TryAddCoreServices();
 
