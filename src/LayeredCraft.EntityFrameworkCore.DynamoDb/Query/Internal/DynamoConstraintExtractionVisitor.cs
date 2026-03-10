@@ -156,44 +156,82 @@ internal sealed class DynamoConstraintExtractionVisitor
     /// <c>IN</c> constraint) or an unsafe OR that prevents key-condition queries.
     /// </summary>
     /// <remarks>
-    /// An OR is considered safe when every branch contains exactly the same PK attribute in an
-    /// equality predicate. This shape (<c>PK = "a" OR PK = "b"</c>) is semantically equivalent
-    /// to <c>PK IN ["a", "b"]</c>. A filter-only OR (no branch touches the PK) is also safe
-    /// and leaves <c>HasUnsafeOr</c> unset.
+    /// An OR is considered safe only when every branch is a <em>plain</em> PK equality on the
+    /// same attribute (<c>PK = "a" OR PK = "b"</c> → <c>IN</c> constraint). A filter-only OR
+    /// where no branch touches the PK at all is also safe. All other shapes — including
+    /// conjunctive branches such as <c>(PK = "a" AND SK &gt; "1") OR (PK = "b" AND SK &gt; "2")</c>
+    /// — set <see cref="_hasUnsafeOr"/> because the per-branch SK conditions cannot be reduced
+    /// to a single key-condition query against one index.
     /// </remarks>
     private void ClassifyOr(SqlBinaryExpression orExpr)
     {
         var branches = FlattenOrChain(orExpr);
 
-        // Determine which branches reference a PK equality constraint.
+        // Collect the plain PK equality attribute name for each branch.
+        // Returns null when the branch is not a plain PK equality (e.g. a conjunction or
+        // non-PK predicate).
         var pkNames = branches
             .Select(GetSinglePkEqualityPropertyName)
             .ToList();
 
-        var anyHasPk = pkNames.Any(name => name is not null);
+        // A branch "touches PK" if it has a plain PK equality, OR if it is a conjunctive
+        // expression that references a PK attribute somewhere inside it.
+        var anyHasPk = pkNames.Any(name => name is not null)
+            || branches.Any(BranchTouchesPk);
 
-        // Filter-only OR (no branch touches the PK): safe, no action needed.
+        // Filter-only OR (no branch touches PK in any form): safe, no action needed.
         if (!anyHasPk)
             return;
 
-        var firstPk = pkNames.First(name => name is not null)!;
-        var allSamePk = pkNames.All(name => name == firstPk);
+        // allSamePk requires every branch to be a plain PK equality on the same attribute.
+        // Conjunctive branches (pkName == null even though BranchTouchesPk is true) make this
+        // false, correctly routing them to the unsafe path.
+        var firstPk = pkNames.FirstOrDefault(name => name is not null);
+        var allSamePk = firstPk is not null && pkNames.All(name => name == firstPk);
 
         if (allSamePk)
         {
             // All branches are PK equalities on the same attribute — safe multi-value IN shape.
             foreach (var branch in branches)
             {
-                var value = ExtractEqualityValue(branch, firstPk);
+                var value = ExtractEqualityValue(branch, firstPk!);
                 if (value is not null)
-                    AddToInConstraints(firstPk, value);
+                    AddToInConstraints(firstPk!, value);
             }
         }
         else
         {
-            // Mixed PK and non-PK branches, or PK equalities on different attributes — unsafe.
+            // Conjunctive branches, mixed PK/non-PK branches, or different PK attributes — unsafe.
             _hasUnsafeOr = true;
         }
+    }
+
+    /// <summary>
+    /// Returns <c>true</c> when <paramref name="branch"/> contains a reference to any PK
+    /// attribute anywhere in its subtree, regardless of expression shape.
+    /// </summary>
+    /// <remarks>
+    /// Used to detect conjunctive OR branches such as <c>(PK = "a" AND SK &gt; "1")</c> that
+    /// touch the PK but are not plain PK equalities.
+    /// </remarks>
+    private bool BranchTouchesPk(SqlExpression branch)
+    {
+        while (branch is SqlParenthesizedExpression paren)
+            branch = paren.Operand;
+
+        return branch switch
+        {
+            SqlBinaryExpression { OperatorType: ExpressionType.AndAlso } and =>
+                BranchTouchesPk(and.Left) || BranchTouchesPk(and.Right),
+            SqlBinaryExpression { OperatorType: ExpressionType.OrElse } or =>
+                BranchTouchesPk(or.Left) || BranchTouchesPk(or.Right),
+            SqlBinaryExpression bin =>
+                (bin.Left is SqlPropertyExpression lp && _pkAttributeNames.Contains(lp.PropertyName))
+                || (bin.Right is SqlPropertyExpression rp && _pkAttributeNames.Contains(rp.PropertyName)),
+            SqlInExpression inExpr =>
+                inExpr.Item is SqlPropertyExpression ip && _pkAttributeNames.Contains(ip.PropertyName),
+            _ => false,
+        };
     }
 
     /// <summary>

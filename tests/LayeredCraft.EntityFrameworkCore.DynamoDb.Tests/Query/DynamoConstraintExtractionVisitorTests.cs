@@ -307,6 +307,27 @@ public class DynamoConstraintExtractionVisitorTests
     }
 
     [Fact]
+    public void ConjunctiveOrBranches_ContainingPk_SetsHasUnsafeOrTrue()
+    {
+        // (PK = "a" AND SK > "1") OR (PK = "b" AND SK > "2")
+        // Each OR branch is a conjunction that touches PK, but is not a plain PK equality.
+        // The SK conditions differ per branch, so this cannot be reduced to a key-condition
+        // query against a single index — must be marked unsafe.
+        var candidates = new[] { MakeDescriptor("PK", "SK") };
+        var branch1 = new SqlParenthesizedExpression(
+            And(BinEq(Prop("PK"), Const("a")),
+                BinOp(ExpressionType.GreaterThan, Prop("SK"), Const("1"))));
+        var branch2 = new SqlParenthesizedExpression(
+            And(BinEq(Prop("PK"), Const("b")),
+                BinOp(ExpressionType.GreaterThan, Prop("SK"), Const("2"))));
+        var predicate = Or(branch1, branch2);
+
+        var result = Extract(predicate, candidates);
+
+        result.HasUnsafeOr.Should().BeTrue();
+    }
+
+    [Fact]
     public void ReversedRangeComparison_FlipsOperatorCorrectly()
     {
         // BinOp(GreaterThan, Const("y"), Prop("SK")) → value > SK → SK < value → LessThan
