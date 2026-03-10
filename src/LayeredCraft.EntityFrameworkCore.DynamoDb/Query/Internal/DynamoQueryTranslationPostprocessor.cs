@@ -1,5 +1,7 @@
 using System.Linq.Expressions;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Extensions;
+using LayeredCraft.EntityFrameworkCore.DynamoDb.Infrastructure;
+using LayeredCraft.EntityFrameworkCore.DynamoDb.Infrastructure.Internal;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using Microsoft.EntityFrameworkCore;
@@ -68,13 +70,18 @@ internal sealed class DynamoQueryTranslationPostprocessor(
             ? new DynamoConstraintExtractionVisitor(candidates).Extract(selectExpression)
             : null;
 
+        var mode = dynamoQueryCompilationContext.ContextOptions
+            .FindExtension<DynamoDbOptionsExtension>()?.AutomaticIndexSelectionMode
+            ?? DynamoAutomaticIndexSelectionMode.Off;
+
         var analysisCtx = new DynamoIndexAnalysisContext
         {
-            SelectExpression     = selectExpression,
-            ExplicitIndexHint    = dynamoQueryCompilationContext.ExplicitIndexName,
-            CandidateDescriptors = candidates,
-            QueryEntityTypeName  = selectExpression.QueryEntityTypeName,
-            QueryConstraints     = queryConstraints,
+            SelectExpression          = selectExpression,
+            ExplicitIndexHint         = dynamoQueryCompilationContext.ExplicitIndexName,
+            CandidateDescriptors      = candidates,
+            QueryEntityTypeName       = selectExpression.QueryEntityTypeName,
+            QueryConstraints          = queryConstraints,
+            AutomaticIndexSelectionMode = mode,
         };
 
         // IDynamoIndexSelectionAnalyzer is a DI singleton injected via the factory, so callers can

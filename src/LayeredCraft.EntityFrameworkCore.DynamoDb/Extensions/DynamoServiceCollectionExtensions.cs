@@ -42,8 +42,8 @@ public static class DynamoServiceCollectionExtensions
                         .TryAddSingleton<ISqlExpressionFactory, SqlExpressionFactory>()
                         .TryAddSingleton<IDynamoQuerySqlGeneratorFactory, DynamoQuerySqlGeneratorFactory>()
                         // Replaceable via ReplaceService<IDynamoIndexSelectionAnalyzer, T>() for
-                        // steps 7–8 auto-selection or test substitution.
-                        .TryAddSingleton<IDynamoIndexSelectionAnalyzer, DynamoDefaultIndexSelectionAnalyzer>());
+                        // custom selection logic or test substitution.
+                        .TryAddSingleton<IDynamoIndexSelectionAnalyzer, DynamoAutoIndexSelectionAnalyzer>());
 
             builder.TryAddCoreServices();
 

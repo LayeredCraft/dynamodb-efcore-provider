@@ -1,3 +1,4 @@
+using LayeredCraft.EntityFrameworkCore.DynamoDb.Infrastructure;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 
@@ -50,4 +51,10 @@ internal sealed class DynamoIndexAnalysisContext
     /// projections are supported.
     /// </remarks>
     public DynamoQueryConstraints? QueryConstraints { get; init; }
+
+    /// <summary>
+    /// The configured automatic index selection mode, read from
+    /// <see cref="DynamoDbOptionsExtension.AutomaticIndexSelectionMode"/> at compile time.
+    /// </summary>
+    public DynamoAutomaticIndexSelectionMode AutomaticIndexSelectionMode { get; init; }
 }
