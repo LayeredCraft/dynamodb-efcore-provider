@@ -434,4 +434,114 @@ public class DynamoConstraintExtractionVisitorTests
         result.EqualityConstraints.Should().ContainKey("PK");
         result.SkKeyConditions.Should().BeEmpty();
     }
+
+    // ── cross-role attribute tests (PK in one index, SK in another) ───────────
+
+    [Fact]
+    public void CrossRole_RangeOnDualRoleAttribute_RecordedAsSkKeyCondition()
+    {
+        // GSI-A: PK=Status, SK=CreatedAt
+        // GSI-B: PK=CreatedAt, SK=Type
+        // WHERE Status = "Open" AND CreatedAt > "2024-01-01"
+        // CreatedAt is a PK on GSI-B but also an SK on GSI-A — the range condition must
+        // be recorded so the index selector can match GSI-A.
+        var candidates = new[]
+        {
+            MakeDescriptor("Status", "CreatedAt", "gsi-a"),
+            MakeDescriptor("CreatedAt", "Type", "gsi-b"),
+        };
+        var predicate = And(
+            BinEq(Prop("Status"), Const("Open")),
+            BinOp(ExpressionType.GreaterThan, Prop("CreatedAt"), Const("2024-01-01")));
+
+        var result = Extract(predicate, candidates);
+
+        result.EqualityConstraints.Should().ContainKey("Status");
+        result.SkKeyConditions.Should().ContainKey("CreatedAt");
+        result.SkKeyConditions["CreatedAt"].Operator.Should().Be(SkOperator.GreaterThan);
+    }
+
+    [Fact]
+    public void CrossRole_EqualityOnDualRoleAttribute_RecordedInBothEqualityAndSk()
+    {
+        // GSI-A: PK=Status, SK=CreatedAt
+        // GSI-B: PK=CreatedAt, SK=Type
+        // WHERE CreatedAt = "2024-01-01"
+        // CreatedAt equality must go to both EqualityConstraints (for GSI-B as PK) and
+        // SkKeyConditions (for GSI-A as SK).
+        var candidates = new[]
+        {
+            MakeDescriptor("Status", "CreatedAt", "gsi-a"),
+            MakeDescriptor("CreatedAt", "Type", "gsi-b"),
+        };
+        var predicate = BinEq(Prop("CreatedAt"), Const("2024-01-01"));
+
+        var result = Extract(predicate, candidates);
+
+        result.EqualityConstraints.Should().ContainKey("CreatedAt");
+        result.SkKeyConditions.Should().ContainKey("CreatedAt");
+        result.SkKeyConditions["CreatedAt"].Operator.Should().Be(SkOperator.Equal);
+    }
+
+    [Fact]
+    public void CrossRole_BetweenOnDualRoleAttribute_RecordedAsSkKeyCondition()
+    {
+        // GSI-A: PK=Status, SK=CreatedAt
+        // GSI-B: PK=CreatedAt, SK=Type
+        // WHERE Status = "Open" AND CreatedAt BETWEEN "2024-01-01" AND "2024-12-31"
+        var candidates = new[]
+        {
+            MakeDescriptor("Status", "CreatedAt", "gsi-a"),
+            MakeDescriptor("CreatedAt", "Type", "gsi-b"),
+        };
+        var between =
+            new SqlBetweenExpression(Prop("CreatedAt"), Const("2024-01-01"), Const("2024-12-31"));
+        var predicate = And(BinEq(Prop("Status"), Const("Open")), between);
+
+        var result = Extract(predicate, candidates);
+
+        result.EqualityConstraints.Should().ContainKey("Status");
+        result.SkKeyConditions.Should().ContainKey("CreatedAt");
+        result.SkKeyConditions["CreatedAt"].Operator.Should().Be(SkOperator.Between);
+    }
+
+    [Fact]
+    public void CrossRole_BeginsWithOnDualRoleAttribute_RecordedAsSkKeyCondition()
+    {
+        // GSI-A: PK=Status, SK=Prefix
+        // GSI-B: PK=Prefix, SK=Type
+        // WHERE Status = "Open" AND begins_with(Prefix, "ABC")
+        var candidates = new[]
+        {
+            MakeDescriptor("Status", "Prefix", "gsi-a"),
+            MakeDescriptor("Prefix", "Type", "gsi-b"),
+        };
+        var fn = new SqlFunctionExpression(
+            "begins_with",
+            [Prop("Prefix"), Const("ABC")],
+            typeof(bool),
+            null);
+        var predicate = And(BinEq(Prop("Status"), Const("Open")), fn);
+
+        var result = Extract(predicate, candidates);
+
+        result.EqualityConstraints.Should().ContainKey("Status");
+        result.SkKeyConditions.Should().ContainKey("Prefix");
+        result.SkKeyConditions["Prefix"].Operator.Should().Be(SkOperator.BeginsWith);
+    }
+
+    [Fact]
+    public void PurelyPkAttribute_RangeCondition_StillDropped()
+    {
+        // Regression: a pure-PK attribute (not an SK on any index) must still be blocked
+        // from SK recording after the cross-role fix.
+        // WHERE PK > "x"  — range on a PK that is never an SK → not a valid key condition.
+        var candidates = new[] { MakeDescriptor("PK", "SK") };
+        var predicate = BinOp(ExpressionType.GreaterThan, Prop("PK"), Const("x"));
+
+        var result = Extract(predicate, candidates);
+
+        result.EqualityConstraints.Should().BeEmpty();
+        result.SkKeyConditions.Should().BeEmpty();
+    }
 }

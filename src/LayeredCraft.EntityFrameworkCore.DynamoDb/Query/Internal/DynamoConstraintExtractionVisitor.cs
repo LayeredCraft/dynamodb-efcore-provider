@@ -20,11 +20,16 @@ internal sealed class DynamoConstraintExtractionVisitor
     // PK equality constraints (which belong in EqualityConstraints / InConstraints) from
     // SK candidates (SkKeyConditions). DynamoDB attribute names are case-sensitive, so
     // Ordinal comparison is required throughout.
+    // An attribute that also appears in _skAttributeNames plays dual roles across different
+    // GSIs (e.g. PK in one index, SK in another); such attributes can participate in both
+    // equality constraints and SK key-condition candidates.
     private readonly HashSet<string> _pkAttributeNames;
 
     // The set of sort-key attribute names across all candidates. Only properties that appear
     // as an actual sort key on at least one descriptor are recorded as SK candidates. This
     // prevents filter-only predicates on unrelated attributes from polluting SkKeyConditions.
+    // Note: an attribute may also appear in _pkAttributeNames when it is a PK on a different
+    // candidate index.
     private readonly HashSet<string> _skAttributeNames;
 
     private readonly Dictionary<string, SqlExpression> _equalityConstraints =
@@ -347,6 +352,13 @@ internal sealed class DynamoConstraintExtractionVisitor
         {
             // Last-wins for duplicate PK equality conjuncts (logical contradiction at user level).
             _equalityConstraints[propName] = value;
+
+            // If this attribute is also an SK on at least one candidate index, record it as an
+            // SK candidate too. An attribute can play different roles across GSIs (e.g. PK in
+            // one, SK in another), and the index selector needs an SK constraint to match the
+            // index where it acts as a sort key.
+            if (_skAttributeNames.Contains(propName))
+                RecordSkCandidate(propName, new SkConstraint(SkOperator.Equal, value));
         }
         else
         {
@@ -386,9 +398,10 @@ internal sealed class DynamoConstraintExtractionVisitor
 
         var propName = ((SqlPropertyExpression)propExpr).PropertyName;
 
-        // Range conditions on PK are not valid key conditions (DynamoDB only supports
-        // equality on PK); treat as filter predicates.
-        if (_pkAttributeNames.Contains(propName))
+        // Range conditions on PK are not valid key conditions (DynamoDB only supports equality
+        // on PK); treat as filter predicates. Exception: if this attribute is also an SK on
+        // another candidate index, it can carry a valid range condition for that index.
+        if (_pkAttributeNames.Contains(propName) && !_skAttributeNames.Contains(propName))
             return;
 
         var skOp = MapToSkOperator(op);
@@ -403,8 +416,10 @@ internal sealed class DynamoConstraintExtractionVisitor
         if (between.Subject is not SqlPropertyExpression prop)
             return;
 
-        // BETWEEN on PK is not a valid DynamoDB key condition — treat as filter.
-        if (_pkAttributeNames.Contains(prop.PropertyName))
+        // BETWEEN on PK is not a valid DynamoDB key condition — treat as filter. Exception:
+        // if this attribute is also an SK on another candidate index, allow it through.
+        if (_pkAttributeNames.Contains(prop.PropertyName)
+            && !_skAttributeNames.Contains(prop.PropertyName))
             return;
 
         RecordSkCandidate(
@@ -420,8 +435,10 @@ internal sealed class DynamoConstraintExtractionVisitor
         if (fn.Arguments.Count < 2 || fn.Arguments[0] is not SqlPropertyExpression prop)
             return;
 
-        // begins_with on PK is unusual but not a valid DynamoDB key condition for PK.
-        if (_pkAttributeNames.Contains(prop.PropertyName))
+        // begins_with on PK is not a valid DynamoDB key condition. Exception: if this attribute
+        // is also an SK on another candidate index, allow it through.
+        if (_pkAttributeNames.Contains(prop.PropertyName)
+            && !_skAttributeNames.Contains(prop.PropertyName))
             return;
 
         // DynamoDB key conditions do not allow attribute-to-attribute comparison; a prefix
@@ -468,8 +485,10 @@ internal sealed class DynamoConstraintExtractionVisitor
     /// </summary>
     private void RecordSkCandidate(string propName, SkConstraint constraint)
     {
-        // PK attributes are never SK candidates.
-        if (_pkAttributeNames.Contains(propName))
+        // An attribute that is a PK on every candidate but never an SK cannot be an SK candidate.
+        // If it is also an SK on at least one candidate index, allow it through — it plays dual
+        // roles across different GSIs.
+        if (_pkAttributeNames.Contains(propName) && !_skAttributeNames.Contains(propName))
             return;
 
         // Only properties that appear as an actual sort key on at least one candidate descriptor
