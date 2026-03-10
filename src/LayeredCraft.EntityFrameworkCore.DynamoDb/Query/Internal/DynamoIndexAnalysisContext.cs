@@ -39,4 +39,15 @@ internal sealed class DynamoIndexAnalysisContext
     /// candidates in this case.
     /// </summary>
     public required string? QueryEntityTypeName { get; init; }
+
+    /// <summary>
+    /// Structural key-condition constraints extracted from the finalized predicate by
+    /// <see cref="DynamoConstraintExtractionVisitor"/>. Null when no candidates are available
+    /// at design-time. Step 8 uses this to evaluate candidate descriptors for auto-selection.
+    /// </summary>
+    /// <remarks>
+    /// TODO(partial-projection): extend with projection shape analysis once non-ALL index
+    /// projections are supported.
+    /// </remarks>
+    public DynamoQueryConstraints? QueryConstraints { get; init; }
 }
