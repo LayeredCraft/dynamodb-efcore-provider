@@ -335,7 +335,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
             MakeDescriptor("Status", "CreatedAt", "ByStatus"),
             MakeDescriptor("Region", "CreatedAt", "ByRegion"),
         };
-        // Both GSI PKs are present — both score 0 (no SK condition, no ordering).
+        // Both GSI PKs are present and neither gets a sort-key bonus.
         var constraints = MakeConstraints(equalityPks: ["Status", "Region"]);
         var ctx = BuildContext(DynamoAutomaticIndexSelectionMode.Conservative, candidates, constraints);
 
@@ -347,6 +347,31 @@ public class DynamoAutoIndexSelectionAnalyzerTests
         decision.Diagnostics[0].Code.Should().Be("DYNAMO_IDX002");
         decision.Diagnostics[0].Message.Should().Contain("ByStatus");
         decision.Diagnostics[0].Message.Should().Contain("ByRegion");
+    }
+
+    [Fact]
+    public void Conservative_NoOrdering_DoesNotPreferSortKeyIndexOverPartitionOnlyIndex()
+    {
+        var candidates = new List<DynamoIndexDescriptor>
+        {
+            MakeDescriptor("CustomerId", indexName: null),
+            MakeDescriptor("Status", indexName: "ByStatus"),
+            MakeDescriptor("Status", "CreatedAt", "ByStatusCreatedAt"),
+        };
+        var constraints = MakeConstraints(["Status"]);
+        var ctx = BuildContext(
+            DynamoAutomaticIndexSelectionMode.Conservative,
+            candidates,
+            constraints);
+
+        var decision = Analyzer.Analyze(ctx);
+
+        decision.SelectedIndexName.Should().BeNull();
+        decision.Reason.Should().Be(DynamoIndexSelectionReason.NoSelection);
+        decision.Diagnostics.Should().HaveCount(1);
+        decision.Diagnostics[0].Code.Should().Be("DYNAMO_IDX002");
+        decision.Diagnostics[0].Message.Should().Contain("ByStatus");
+        decision.Diagnostics[0].Message.Should().Contain("ByStatusCreatedAt");
     }
 
     [Fact]

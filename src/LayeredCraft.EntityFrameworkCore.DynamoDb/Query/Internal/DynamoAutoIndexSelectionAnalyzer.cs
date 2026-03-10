@@ -1,6 +1,6 @@
+using LayeredCraft.EntityFrameworkCore.DynamoDb.Infrastructure;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata.Internal;
-using LayeredCraft.EntityFrameworkCore.DynamoDb.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
@@ -196,7 +196,7 @@ internal sealed class DynamoAutoIndexSelectionAnalyzer : IDynamoIndexSelectionAn
     /// </summary>
     /// <returns>
     /// A non-negative integer bonus: 0 for a bare PK match, up to 2 when the sort key is both
-    /// constrained and aligned with the query ordering.
+    /// constrained and aligned with an explicit query ordering.
     /// </returns>
     private static int ComputeScore(DynamoIndexDescriptor descriptor, DynamoQueryConstraints constraints)
     {
@@ -211,10 +211,10 @@ internal sealed class DynamoAutoIndexSelectionAnalyzer : IDynamoIndexSelectionAn
         if (constraints.SkKeyConditions.ContainsKey(skAttr))
             score++;
 
-        // +1 if the query ordering is either absent (no ORDER BY) or aligned with this sort key.
-        // An aligned ordering means DynamoDB returns items pre-sorted, avoiding a client sort.
-        if (constraints.OrderingPropertyNames.Count == 0
-            || constraints.OrderingPropertyNames.Contains(skAttr))
+        // +1 if the query ordering aligns with this sort key. Absence of ORDER BY should not
+        // prefer a sparse PK+SK index over a partition-only index because ordering is irrelevant
+        // to result correctness in that shape.
+        if (constraints.OrderingPropertyNames.Contains(skAttr))
             score++;
 
         return score;
