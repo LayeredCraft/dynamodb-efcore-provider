@@ -1,10 +1,12 @@
 using System.Linq.Expressions;
+using LayeredCraft.EntityFrameworkCore.DynamoDb.Diagnostics.Internal;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Extensions;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Infrastructure;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Infrastructure.Internal;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Query;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
@@ -95,7 +97,7 @@ internal sealed class DynamoQueryTranslationPostprocessor(
         selectExpression.ApplyEffectivePartitionKeyPropertyNames(
             ResolveEffectivePartitionKeyPropertyNames(candidates, decision.SelectedIndexName));
 
-        // step 10 will wire decision.Diagnostics to EF structured logger events.
+        EmitIndexSelectionDiagnostics(decision.Diagnostics, dynamoQueryCompilationContext.Logger);
 
         return query;
     }
@@ -171,5 +173,16 @@ internal sealed class DynamoQueryTranslationPostprocessor(
             propertyNames.Add(indexDescriptor.PartitionKeyProperty.GetAttributeName());
 
         return propertyNames;
+    }
+
+    /// <summary>Emits structured EF query diagnostics for index-selection analysis results.</summary>
+    /// <param name="diagnostics">The diagnostics produced by the analyzer.</param>
+    /// <param name="queryLogger">The EF Core query logger for query-compilation events.</param>
+    private static void EmitIndexSelectionDiagnostics(
+        IReadOnlyList<DynamoQueryDiagnostic> diagnostics,
+        IDiagnosticsLogger<DbLoggerCategory.Query> queryLogger)
+    {
+        foreach (var diagnostic in diagnostics)
+            queryLogger.IndexSelectionDiagnostic(diagnostic);
     }
 }

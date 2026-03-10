@@ -111,16 +111,23 @@ var query = context.Orders
 
 Current scope:
 
-- the query hint surface exists,
+- `WithIndex(...)` validates the named index against the queried entity type and emits
+  `FROM "Table"."Index"`,
 - metadata for GSIs/LSIs can be configured,
-- but full index-aware PartiQL source selection is not wired yet.
+- automatic index selection can route compatible queries when `UseAutomaticIndexSelection(...)` is enabled.
 
-So today, configuring an index documents intent and prepares the model surface, but it does not yet guarantee `FROM "Table"."Index"` generation.
+Automatic selection is conservative:
+
+- it requires partition-key coverage,
+- it only considers `ALL` projection indexes,
+- it falls back to the base table on ties or unsupported shapes,
+- it only considers indexes declared on the queried entity type or its base types, so base-type
+  queries are not routed onto subtype-only sparse indexes.
 
 ## Current limitations
 
-- Query predicates do not automatically imply GSI/LSI selection.
-- Full secondary-index query planning is still in progress.
+- Query predicates do not guarantee index selection; unsupported shapes and ties fall back to the
+  base table.
 - Projection-specific index behavior is intentionally deferred; the current workflow assumes full-entity compatibility.
 
 See also:

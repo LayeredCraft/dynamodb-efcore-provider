@@ -8,15 +8,26 @@ icon: lucide/stethoscope
 - Logs PartiQL command execution.
 - Logs `ExecuteStatement` request metadata (for example limit and pagination token presence).
 - Logs `ExecuteStatement` response metadata (for example item count and token presence).
+- Logs automatic index-selection decisions during query compilation.
 
 ### Event IDs
 - `ExecutingPartiQlQuery`
 - `ExecutingExecuteStatement`
 - `ExecutedExecuteStatement`
 - `RowLimitingQueryWithoutPageSize`
+- `NoCompatibleSecondaryIndexFound`
+- `MultipleCompatibleSecondaryIndexesFound`
+- `SecondaryIndexSelected`
 
 ## Warnings
 - Row-limiting query without configured page size logs a warning.
+- Automatic index selection logs warnings when no compatible secondary index is found or when
+  multiple indexes tie and the provider stays on the base table.
+
+## Informational query-planning events
+- Automatic index selection logs an information event when a single compatible index is selected in
+  `Conservative` mode.
+- `SuggestOnly` logs the same information event without rewriting the query source.
 
 ## Translation failures
 - Unsupported LINQ operators fail with `InvalidOperationException` during query translation.

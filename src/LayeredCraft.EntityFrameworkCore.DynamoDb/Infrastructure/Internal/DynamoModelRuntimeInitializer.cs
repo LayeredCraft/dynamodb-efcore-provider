@@ -138,13 +138,18 @@ public sealed class DynamoModelRuntimeInitializer(
 
     /// <summary>
     ///     Enumerates secondary indexes visible to the queried entity type by combining the base
-    ///     hierarchy chain with the queried entity subtree.
+    ///     hierarchy chain with the queried type itself.
     /// </summary>
+    /// <remarks>
+    ///     Query-time source selection must stay result-complete for the queried entity set. A
+    ///     secondary index declared only on a derived subtype may be sparse for sibling/base
+    ///     entities, so exposing it to base-type queries would allow auto-selection to drop rows.
+    /// </remarks>
     private static IEnumerable<IReadOnlyIndex>
         EnumerateSecondaryIndexesForQueryEntity(IReadOnlyEntityType entityType)
         => entityType
             .GetAllBaseTypes()
-            .Concat(entityType.GetDerivedTypesInclusive())
+            .Append(entityType)
             .SelectMany(static type => type.GetDeclaredIndexes())
             .Where(static index => index.GetSecondaryIndexKind() is not null)
             .OrderBy(static index => index.GetSecondaryIndexName(), StringComparer.Ordinal)

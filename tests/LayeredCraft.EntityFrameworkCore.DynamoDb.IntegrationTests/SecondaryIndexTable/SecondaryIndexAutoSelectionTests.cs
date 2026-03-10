@@ -1,7 +1,9 @@
 using Amazon.DynamoDBv2;
+using LayeredCraft.EntityFrameworkCore.DynamoDb.Diagnostics;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Infrastructure;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.SecondaryIndexTable;
 
@@ -41,6 +43,14 @@ public class SecondaryIndexAutoSelectionTests(SecondaryIndexDynamoFixture fixtur
 
         var expected = OrderItems.Items.Where(o => o.Status == "PENDING").ToList();
         results.Should().BeEquivalentTo(expected);
+
+        LoggerFactory
+            .QueryDiagnosticEvents
+            .Should()
+            .ContainSingle(e
+                => e.EventId.Id == DynamoEventId.SecondaryIndexSelected.Id
+                && e.LogLevel == LogLevel.Information
+                && e.Message.Contains("ByStatus"));
 
         AssertSql(
             """
@@ -146,6 +156,15 @@ public class SecondaryIndexAutoSelectionTests(SecondaryIndexDynamoFixture fixtur
 
         var expected = OrderItems.Items.Where(o => o.CustomerId == "C#1").ToList();
         results.Should().BeEquivalentTo(expected);
+
+        LoggerFactory
+            .QueryDiagnosticEvents
+            .Should()
+            .ContainSingle(e
+                => e.EventId.Id == DynamoEventId.MultipleCompatibleSecondaryIndexesFound.Id
+                && e.LogLevel == LogLevel.Warning
+                && e.Message.Contains("ByCreatedAt")
+                && e.Message.Contains("ByPriority"));
 
         // No index in the FROM clause — base table is used.
         AssertSql(

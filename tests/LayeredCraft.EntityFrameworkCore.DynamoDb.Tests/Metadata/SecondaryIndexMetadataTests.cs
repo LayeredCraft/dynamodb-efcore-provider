@@ -406,7 +406,7 @@ public class SecondaryIndexMetadataTests
         prioritySources.Select(x => x.IndexName).Should().Equal(null, "ByPriority", "ByStatus");
 
         var baseSources = tableDescriptor.SourcesByQueryEntityTypeName[typeof(BaseOrder).FullName!];
-        baseSources.Select(x => x.IndexName).Should().Equal(null, "ByPriority", "ByStatus");
+        baseSources.Select(x => x.IndexName).Should().Equal(null, "ByStatus");
 
         var archivedSources =
             tableDescriptor.SourcesByQueryEntityTypeName[typeof(ArchivedPriorityOrder).FullName!];
