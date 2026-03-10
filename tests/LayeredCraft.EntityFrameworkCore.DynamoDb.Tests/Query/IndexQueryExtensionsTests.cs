@@ -335,13 +335,9 @@ public class IndexQueryExtensionsTests
     }
 
     [Fact]
-    public async Task WithIndex_BaseQuery_AcceptsDerivedDefinedIndex()
+    public async Task WithIndex_BaseQuery_DerivedDefinedIndex_Throws()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
-        client
-            .ExecuteStatementAsync(Arg.Any<ExecuteStatementRequest>(), Arg.Any<CancellationToken>())
-            .Returns(new ExecuteStatementResponse { Items = [] });
-
         await using var context = CreateDerivedIndexQueryContext(client);
 
         var act = async () => await context
@@ -349,7 +345,8 @@ public class IndexQueryExtensionsTests
             .WithIndex("ByPriority")
             .ToListAsync(TestContext.Current.CancellationToken);
 
-        await act.Should().NotThrowAsync<InvalidOperationException>();
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*ByPriority*");
+        await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
     }
 
     [Fact]

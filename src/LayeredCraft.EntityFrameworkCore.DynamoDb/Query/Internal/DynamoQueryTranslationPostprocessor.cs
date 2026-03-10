@@ -1,8 +1,12 @@
 using System.Linq.Expressions;
+using LayeredCraft.EntityFrameworkCore.DynamoDb.Diagnostics.Internal;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Extensions;
+using LayeredCraft.EntityFrameworkCore.DynamoDb.Infrastructure;
+using LayeredCraft.EntityFrameworkCore.DynamoDb.Infrastructure.Internal;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Query;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
@@ -68,13 +72,18 @@ internal sealed class DynamoQueryTranslationPostprocessor(
             ? new DynamoConstraintExtractionVisitor(candidates).Extract(selectExpression)
             : null;
 
+        var mode = dynamoQueryCompilationContext.ContextOptions
+            .FindExtension<DynamoDbOptionsExtension>()?.AutomaticIndexSelectionMode
+            ?? DynamoAutomaticIndexSelectionMode.Off;
+
         var analysisCtx = new DynamoIndexAnalysisContext
         {
-            SelectExpression     = selectExpression,
-            ExplicitIndexHint    = dynamoQueryCompilationContext.ExplicitIndexName,
-            CandidateDescriptors = candidates,
-            QueryEntityTypeName  = selectExpression.QueryEntityTypeName,
-            QueryConstraints     = queryConstraints,
+            SelectExpression          = selectExpression,
+            ExplicitIndexHint         = dynamoQueryCompilationContext.ExplicitIndexName,
+            CandidateDescriptors      = candidates,
+            QueryEntityTypeName       = selectExpression.QueryEntityTypeName,
+            QueryConstraints          = queryConstraints,
+            AutomaticIndexSelectionMode = mode,
         };
 
         // IDynamoIndexSelectionAnalyzer is a DI singleton injected via the factory, so callers can
@@ -88,7 +97,7 @@ internal sealed class DynamoQueryTranslationPostprocessor(
         selectExpression.ApplyEffectivePartitionKeyPropertyNames(
             ResolveEffectivePartitionKeyPropertyNames(candidates, decision.SelectedIndexName));
 
-        // step 10 will wire decision.Diagnostics to EF structured logger events.
+        EmitIndexSelectionDiagnostics(decision.Diagnostics, dynamoQueryCompilationContext.Logger);
 
         return query;
     }
@@ -125,11 +134,18 @@ internal sealed class DynamoQueryTranslationPostprocessor(
         // When the query entity type is known, scope to that type so that in a shared-table model
         // an index configured only on one entity type does not appear as a candidate for a query
         // against a different entity type sharing the same physical table.
-        if (queryEntityTypeName is not null
-            && tableDescriptor.SourcesByQueryEntityTypeName.TryGetValue(
+        if (queryEntityTypeName is not null)
+        {
+            if (tableDescriptor.SourcesByQueryEntityTypeName.TryGetValue(
                 queryEntityTypeName,
                 out var scopedSources))
-            return scopedSources;
+                return scopedSources;
+
+            // Keep typed queries strict. Falling back to the union of all shared-table sources can
+            // incorrectly expose indexes from unrelated entity types, which allows explicit hints
+            // or auto-selection to choose an incomplete source for the queried entity set.
+            return [];
+        }
 
         // Non-entity projection queries have no entity type name; fall back to a deduplicated
         // union of all sources so explicit-hint validation can still succeed.
@@ -164,5 +180,16 @@ internal sealed class DynamoQueryTranslationPostprocessor(
             propertyNames.Add(indexDescriptor.PartitionKeyProperty.GetAttributeName());
 
         return propertyNames;
+    }
+
+    /// <summary>Emits structured EF query diagnostics for index-selection analysis results.</summary>
+    /// <param name="diagnostics">The diagnostics produced by the analyzer.</param>
+    /// <param name="queryLogger">The EF Core query logger for query-compilation events.</param>
+    private static void EmitIndexSelectionDiagnostics(
+        IReadOnlyList<DynamoQueryDiagnostic> diagnostics,
+        IDiagnosticsLogger<DbLoggerCategory.Query> queryLogger)
+    {
+        foreach (var diagnostic in diagnostics)
+            queryLogger.IndexSelectionDiagnostic(diagnostic);
     }
 }
