@@ -97,6 +97,20 @@ public class SelectExpression(string tableName, string? queryEntityTypeName = nu
     /// <summary>Sets the secondary index name to use in the FROM clause.</summary>
     public void ApplyIndexName(string? indexName) => IndexName = indexName;
 
+    /// <summary>
+    ///     Gets the effective partition-key property names for the finalized query source. Includes
+    ///     the base table partition key and, when an index is selected, that index's partition key.
+    /// </summary>
+    public IReadOnlySet<string> EffectivePartitionKeyPropertyNames { get; private set; } =
+        new HashSet<string>(StringComparer.Ordinal);
+
+    /// <summary>Replaces the effective partition-key property names used by downstream SQL generation.</summary>
+    public void ApplyEffectivePartitionKeyPropertyNames(
+        IReadOnlySet<string> effectivePartitionKeyPropertyNames)
+        => EffectivePartitionKeyPropertyNames = new HashSet<string>(
+            effectivePartitionKeyPropertyNames,
+            StringComparer.Ordinal);
+
     /// <inheritdoc />
     public override Type Type => typeof(object);
 

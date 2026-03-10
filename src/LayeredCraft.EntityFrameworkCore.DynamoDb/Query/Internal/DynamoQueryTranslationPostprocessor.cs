@@ -2,6 +2,7 @@ using System.Linq.Expressions;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Extensions;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
@@ -73,6 +74,9 @@ internal sealed class DynamoQueryTranslationPostprocessor(
         if (decision.SelectedIndexName is { } chosen)
             selectExpression.ApplyIndexName(chosen);
 
+        selectExpression.ApplyEffectivePartitionKeyPropertyNames(
+            ResolveEffectivePartitionKeyPropertyNames(candidates, decision.SelectedIndexName));
+
         // step 10 will wire decision.Diagnostics to EF structured logger events.
 
         return query;
@@ -122,5 +126,29 @@ internal sealed class DynamoQueryTranslationPostprocessor(
             .SelectMany(v => v)
             .DistinctBy(d => d.IndexName)
             .ToList();
+    }
+
+    /// <summary>Resolves effective partition-key property names for the finalized query source.</summary>
+    /// <param name="candidates">The scoped runtime source descriptors for the query.</param>
+    /// <param name="selectedIndexName">The selected index name, or <c>null</c> for base table.</param>
+    /// <returns>
+    ///     A set containing the base-table partition key and, when available, the selected index
+    ///     partition key.
+    /// </returns>
+    private static IReadOnlySet<string> ResolveEffectivePartitionKeyPropertyNames(
+        IReadOnlyList<DynamoIndexDescriptor> candidates,
+        string? selectedIndexName)
+    {
+        var propertyNames = new HashSet<string>(StringComparer.Ordinal);
+
+        if (candidates.FirstOrDefault(d => d.IndexName is null) is { } tableDescriptor)
+            propertyNames.Add(tableDescriptor.PartitionKeyProperty.GetAttributeName());
+
+        if (selectedIndexName is not null
+            && candidates.FirstOrDefault(d => d.IndexName == selectedIndexName) is
+                { } indexDescriptor)
+            propertyNames.Add(indexDescriptor.PartitionKeyProperty.GetAttributeName());
+
+        return propertyNames;
     }
 }
