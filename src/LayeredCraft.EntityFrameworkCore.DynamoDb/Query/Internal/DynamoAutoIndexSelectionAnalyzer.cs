@@ -146,9 +146,9 @@ internal sealed class DynamoAutoIndexSelectionAnalyzer : IDynamoIndexSelectionAn
         if (context.CandidateDescriptors.Count == 0)
             return new DynamoIndexSelectionDecision(indexName, DynamoIndexSelectionReason.ExplicitHint, []);
 
-        var indexExists = context.CandidateDescriptors.Any(d => d.IndexName == indexName);
+        var descriptor = context.CandidateDescriptors.FirstOrDefault(d => d.IndexName == indexName);
 
-        if (!indexExists)
+        if (descriptor is null)
             throw new InvalidOperationException(
                 $"Index '{indexName}' is not configured on table '{context.SelectExpression.TableName}'. "
                 + "Use HasGlobalSecondaryIndex or HasLocalSecondaryIndex to register the "

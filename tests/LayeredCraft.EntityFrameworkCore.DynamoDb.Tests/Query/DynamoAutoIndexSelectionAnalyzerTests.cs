@@ -184,6 +184,56 @@ public class DynamoAutoIndexSelectionAnalyzerTests
         act.Should().NotThrow();
     }
 
+    [Fact]
+    public void ExplicitHint_KeysOnlyProjectionIndex_Returns_ExplicitHintDecision()
+    {
+        var candidates = new List<DynamoIndexDescriptor>
+        {
+            MakeDescriptor("CustomerId", indexName: null),
+            MakeDescriptor(
+                "Status",
+                "CreatedAt",
+                "ByStatus",
+                DynamoSecondaryIndexProjectionType.KeysOnly),
+        };
+        var ctx = BuildContext(
+            DynamoAutomaticIndexSelectionMode.Off,
+            candidates,
+            MakeConstraints(["Status"]),
+            "ByStatus");
+
+        var decision = Analyzer.Analyze(ctx);
+
+        decision.SelectedIndexName.Should().Be("ByStatus");
+        decision.Reason.Should().Be(DynamoIndexSelectionReason.ExplicitHint);
+        decision.Diagnostics.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void ExplicitHint_IncludeProjectionIndex_Returns_ExplicitHintDecision()
+    {
+        var candidates = new List<DynamoIndexDescriptor>
+        {
+            MakeDescriptor("CustomerId", indexName: null),
+            MakeDescriptor(
+                "Status",
+                "CreatedAt",
+                "ByStatus",
+                DynamoSecondaryIndexProjectionType.Include),
+        };
+        var ctx = BuildContext(
+            DynamoAutomaticIndexSelectionMode.Off,
+            candidates,
+            MakeConstraints(["Status"]),
+            "ByStatus");
+
+        var decision = Analyzer.Analyze(ctx);
+
+        decision.SelectedIndexName.Should().Be("ByStatus");
+        decision.Reason.Should().Be(DynamoIndexSelectionReason.ExplicitHint);
+        decision.Diagnostics.Should().BeEmpty();
+    }
+
     // ── no hint, Off mode ────────────────────────────────────────────────────
 
     [Fact]
