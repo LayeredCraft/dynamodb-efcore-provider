@@ -98,8 +98,8 @@ public class SelectExpression(string tableName, string? queryEntityTypeName = nu
     public void ApplyIndexName(string? indexName) => IndexName = indexName;
 
     /// <summary>
-    ///     Gets the effective partition-key property names for the finalized query source. Includes
-    ///     the base table partition key and, when an index is selected, that index's partition key.
+    ///     Gets the effective partition-key property names for the finalized query source.
+    ///     Contains exactly the active source partition key (base table or selected index).
     /// </summary>
     public IReadOnlySet<string> EffectivePartitionKeyPropertyNames { get; private set; } =
         new HashSet<string>(StringComparer.Ordinal);

@@ -449,4 +449,49 @@ public class IndexQueryExtensionsTests
 
         await act.Should().NotThrowAsync<InvalidOperationException>();
     }
+
+    [Fact]
+    public async Task
+        AutoSelectedIndex_BaseTablePartitionKey_Contains_51Items_DoesNotThrowPartitionKeyLimitError()
+    {
+        // Regression: when an analyzer selects ByCustomer, TenantId is a non-key attribute for
+        // that query source and must use the non-key IN limit (100), not the 50 partition-key
+        // limit.
+        var client = Substitute.For<IAmazonDynamoDB>();
+        client
+            .ExecuteStatementAsync(Arg.Any<ExecuteStatementRequest>(), Arg.Any<CancellationToken>())
+            .Returns(new ExecuteStatementResponse { Items = [] });
+
+        await using var context = CreateGsiContextWithAutoAnalyzer(client);
+
+        var tenantIds = Enumerable.Range(1, 51).Select(i => $"TENANT#{i}").ToList();
+
+        var act = async ()
+            => await context
+                .Orders
+                .Where(o => tenantIds.Contains(o.TenantId))
+                .ToListAsync(TestContext.Current.CancellationToken);
+
+        await act.Should().NotThrowAsync<InvalidOperationException>();
+    }
+
+    [Fact]
+    public async Task
+        AutoSelectedIndex_BaseTablePartitionKey_Contains_101Items_ThrowsNonKeyLimitError()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        await using var context = CreateGsiContextWithAutoAnalyzer(client);
+
+        var tenantIds = Enumerable.Range(1, 101).Select(i => $"TENANT#{i}").ToList();
+
+        var act = async ()
+            => await context
+                .Orders
+                .Where(o => tenantIds.Contains(o.TenantId))
+                .ToListAsync(TestContext.Current.CancellationToken);
+
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*100*non-key*");
+
+        await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
 }

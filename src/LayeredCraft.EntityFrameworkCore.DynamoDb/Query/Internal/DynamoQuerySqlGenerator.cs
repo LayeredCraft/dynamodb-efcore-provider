@@ -537,14 +537,11 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
     /// </returns>
     private bool IsPartitionKeyComparison(SqlInExpression sqlInExpression)
     {
-        if (sqlInExpression.IsPartitionKeyComparison)
-            return true;
-
         if (_currentSelectExpression is not { } selectExpression)
-            return false;
+            return sqlInExpression.IsPartitionKeyComparison;
 
         if (selectExpression.EffectivePartitionKeyPropertyNames.Count == 0)
-            return false;
+            return sqlInExpression.IsPartitionKeyComparison;
 
         return TryGetRootPropertyName(sqlInExpression.Item) is { } propertyName
             && selectExpression.EffectivePartitionKeyPropertyNames.Contains(propertyName);

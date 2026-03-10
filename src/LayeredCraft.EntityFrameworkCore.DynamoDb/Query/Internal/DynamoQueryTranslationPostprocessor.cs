@@ -135,8 +135,8 @@ internal sealed class DynamoQueryTranslationPostprocessor(
     /// <param name="candidates">The scoped runtime source descriptors for the query.</param>
     /// <param name="selectedIndexName">The selected index name, or <c>null</c> for base table.</param>
     /// <returns>
-    ///     A set containing the base-table partition key and, when available, the selected index
-    ///     partition key.
+    ///     A set containing the partition key for the finalized query source (base table when no
+    ///     index is selected, or the selected index partition key when an index is selected).
     /// </returns>
     private static IReadOnlySet<string> ResolveEffectivePartitionKeyPropertyNames(
         IReadOnlyList<DynamoIndexDescriptor> candidates,
@@ -144,12 +144,15 @@ internal sealed class DynamoQueryTranslationPostprocessor(
     {
         var propertyNames = new HashSet<string>(StringComparer.Ordinal);
 
-        if (candidates.FirstOrDefault(d => d.IndexName is null) is { } tableDescriptor)
-            propertyNames.Add(tableDescriptor.PartitionKeyProperty.GetAttributeName());
+        if (selectedIndexName is null)
+        {
+            if (candidates.FirstOrDefault(d => d.IndexName is null) is { } tableDescriptor)
+                propertyNames.Add(tableDescriptor.PartitionKeyProperty.GetAttributeName());
 
-        if (selectedIndexName is not null
-            && candidates.FirstOrDefault(d => d.IndexName == selectedIndexName) is
-                { } indexDescriptor)
+            return propertyNames;
+        }
+
+        if (candidates.FirstOrDefault(d => d.IndexName == selectedIndexName) is { } indexDescriptor)
             propertyNames.Add(indexDescriptor.PartitionKeyProperty.GetAttributeName());
 
         return propertyNames;
