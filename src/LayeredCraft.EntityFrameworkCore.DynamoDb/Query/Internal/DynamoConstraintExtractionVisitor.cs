@@ -212,7 +212,8 @@ internal sealed class DynamoConstraintExtractionVisitor
     /// </summary>
     /// <remarks>
     /// Used to detect conjunctive OR branches such as <c>(PK = "a" AND SK &gt; "1")</c> that
-    /// touch the PK but are not plain PK equalities.
+    /// touch the PK but are not plain PK equalities. This also unwraps unary NOT nodes so
+    /// negated PK predicates (for example <c>NOT(PK = "x")</c>) are treated as PK-touching.
     /// </remarks>
     private bool BranchTouchesPk(SqlExpression branch)
     {
@@ -225,6 +226,7 @@ internal sealed class DynamoConstraintExtractionVisitor
                 BranchTouchesPk(and.Left) || BranchTouchesPk(and.Right),
             SqlBinaryExpression { OperatorType: ExpressionType.OrElse } or =>
                 BranchTouchesPk(or.Left) || BranchTouchesPk(or.Right),
+            SqlUnaryExpression unary => BranchTouchesPk(unary.Operand),
             SqlBinaryExpression bin =>
                 (bin.Left is SqlPropertyExpression lp && _pkAttributeNames.Contains(lp.PropertyName))
                 || (bin.Right is SqlPropertyExpression rp && _pkAttributeNames.Contains(rp.PropertyName)),
@@ -420,6 +422,11 @@ internal sealed class DynamoConstraintExtractionVisitor
 
         // begins_with on PK is unusual but not a valid DynamoDB key condition for PK.
         if (_pkAttributeNames.Contains(prop.PropertyName))
+            return;
+
+        // DynamoDB key conditions do not allow attribute-to-attribute comparison; a prefix
+        // expression that is another property must be treated as a filter predicate.
+        if (fn.Arguments[1] is SqlPropertyExpression)
             return;
 
         RecordSkCandidate(

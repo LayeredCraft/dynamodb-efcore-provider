@@ -361,6 +361,20 @@ public class DynamoConstraintExtractionVisitorTests
     }
 
     [Fact]
+    public void OrBranch_WithNegatedPkEqualityAndNonPk_SetsHasUnsafeOrTrue()
+    {
+        // NOT(PK = "x") OR NonKey = "y"
+        // A negated PK branch still touches PK and cannot participate in a safe PK-IN rewrite.
+        var candidates = new[] { MakeDescriptor("PK") };
+        var negatedPk = new SqlUnaryExpression(ExpressionType.Not, BinEq(Prop("PK"), Const("x")));
+        var predicate = Or(negatedPk, BinEq(Prop("NonKey"), Const("y")));
+
+        var result = Extract(predicate, candidates);
+
+        result.HasUnsafeOr.Should().BeTrue();
+    }
+
+    [Fact]
     public void AttributeToAttributeEquality_NotExtractedToEqualityConstraints()
     {
         // WHERE PK = OtherColumn  — both sides are properties: not a valid key condition.
@@ -400,5 +414,24 @@ public class DynamoConstraintExtractionVisitorTests
 
         result.SkKeyConditions.Should().ContainKey("SK");
         result.SkKeyConditions["SK"].Operator.Should().Be(SkOperator.LessThan);
+    }
+
+    [Fact]
+    public void BeginsWith_WithAttributePrefix_NotExtractedToSkKeyConditions()
+    {
+        // WHERE PK = "x" AND begins_with(SK, OtherColumn)
+        // The prefix side is another attribute and must not be treated as a key condition value.
+        var candidates = new[] { MakeDescriptor("PK", "SK") };
+        var beginsWith = new SqlFunctionExpression(
+            "begins_with",
+            [Prop("SK"), Prop("OtherColumn")],
+            typeof(bool),
+            null);
+        var predicate = And(BinEq(Prop("PK"), Const("x")), beginsWith);
+
+        var result = Extract(predicate, candidates);
+
+        result.EqualityConstraints.Should().ContainKey("PK");
+        result.SkKeyConditions.Should().BeEmpty();
     }
 }
