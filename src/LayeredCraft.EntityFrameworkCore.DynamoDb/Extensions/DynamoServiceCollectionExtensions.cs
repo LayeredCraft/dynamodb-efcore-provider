@@ -31,6 +31,8 @@ public static class DynamoServiceCollectionExtensions
                 .TryAdd<ITypeMappingSource, DynamoTypeMappingSource>()
                 .TryAdd<IQueryableMethodTranslatingExpressionVisitorFactory,
                     DynamoQueryableMethodTranslatingExpressionVisitorFactory>()
+                .TryAdd<IQueryTranslationPostprocessorFactory,
+                    DynamoQueryTranslationPostprocessorFactory>()
                 .TryAdd<IShapedQueryCompilingExpressionVisitorFactory,
                     DynamoShapedQueryCompilingExpressionVisitorFactory>()
                 .TryAdd<IQueryCompilationContextFactory, DynamoQueryCompilationContextFactory>()
@@ -39,7 +41,11 @@ public static class DynamoServiceCollectionExtensions
                         .TryAddScoped<IDynamoClientWrapper, DynamoClientWrapper>()
                         .TryAddSingleton<ISqlExpressionFactory, SqlExpressionFactory>()
                         .TryAddSingleton<IDynamoQuerySqlGeneratorFactory,
-                            DynamoQuerySqlGeneratorFactory>());
+                            DynamoQuerySqlGeneratorFactory>()
+                        // Index-selection analysis seam: default implementation handles explicit
+                        // .WithIndex() hints; steps 7-8 will replace it with full structural analysis.
+                        .TryAddSingleton<IDynamoIndexSelectionAnalyzer,
+                            DynamoDefaultIndexSelectionAnalyzer>());
 
             builder.TryAddCoreServices();
 
