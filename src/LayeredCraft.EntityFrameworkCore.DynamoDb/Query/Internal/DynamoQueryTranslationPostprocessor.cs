@@ -61,12 +61,20 @@ internal sealed class DynamoQueryTranslationPostprocessor(
             selectExpression.TableName,
             selectExpression.QueryEntityTypeName);
 
+        // Run structural constraint extraction when runtime candidates are available.
+        // The visitor requires candidates to correctly classify safe vs unsafe OR expressions
+        // (a filter-only OR on non-PK attributes does not set HasUnsafeOr).
+        var queryConstraints = candidates.Count > 0
+            ? new DynamoConstraintExtractionVisitor(candidates).Extract(selectExpression)
+            : null;
+
         var analysisCtx = new DynamoIndexAnalysisContext
         {
             SelectExpression     = selectExpression,
             ExplicitIndexHint    = dynamoQueryCompilationContext.ExplicitIndexName,
             CandidateDescriptors = candidates,
             QueryEntityTypeName  = selectExpression.QueryEntityTypeName,
+            QueryConstraints     = queryConstraints,
         };
 
         // IDynamoIndexSelectionAnalyzer is a DI singleton injected via the factory, so callers can
