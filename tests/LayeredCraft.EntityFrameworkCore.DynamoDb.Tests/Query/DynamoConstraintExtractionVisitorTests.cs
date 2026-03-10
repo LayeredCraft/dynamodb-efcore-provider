@@ -361,6 +361,20 @@ public class DynamoConstraintExtractionVisitorTests
     }
 
     [Fact]
+    public void OrBranch_WithPkIsNullAndNonPk_SetsHasUnsafeOrTrue()
+    {
+        // PK IS NULL OR NonKey = "y"
+        // SqlIsNullExpression still touches PK and must not be treated as a filter-only OR.
+        var candidates = new[] { MakeDescriptor("PK") };
+        var pkIsNull = new SqlIsNullExpression(Prop("PK"), IsNullOperator.IsNull);
+        var predicate = Or(pkIsNull, BinEq(Prop("NonKey"), Const("y")));
+
+        var result = Extract(predicate, candidates);
+
+        result.HasUnsafeOr.Should().BeTrue();
+    }
+
+    [Fact]
     public void OrBranch_WithNegatedPkEqualityAndNonPk_SetsHasUnsafeOrTrue()
     {
         // NOT(PK = "x") OR NonKey = "y"
@@ -503,6 +517,21 @@ public class DynamoConstraintExtractionVisitorTests
         result.EqualityConstraints.Should().ContainKey("Status");
         result.SkKeyConditions.Should().ContainKey("CreatedAt");
         result.SkKeyConditions["CreatedAt"].Operator.Should().Be(SkOperator.Between);
+    }
+
+    [Fact]
+    public void Between_WithAttributeBounds_NotExtractedToSkKeyConditions()
+    {
+        // WHERE PK = "x" AND SK BETWEEN OtherLow AND OtherHigh
+        // Attribute bounds are not valid DynamoDB key-condition values and must stay filters.
+        var candidates = new[] { MakeDescriptor("PK", "SK") };
+        var between = new SqlBetweenExpression(Prop("SK"), Prop("OtherLow"), Prop("OtherHigh"));
+        var predicate = And(BinEq(Prop("PK"), Const("x")), between);
+
+        var result = Extract(predicate, candidates);
+
+        result.EqualityConstraints.Should().ContainKey("PK");
+        result.SkKeyConditions.Should().BeEmpty();
     }
 
     [Fact]

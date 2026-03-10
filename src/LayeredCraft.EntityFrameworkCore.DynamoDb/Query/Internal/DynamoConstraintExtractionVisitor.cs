@@ -232,6 +232,10 @@ internal sealed class DynamoConstraintExtractionVisitor
             SqlBinaryExpression { OperatorType: ExpressionType.OrElse } or =>
                 BranchTouchesPk(or.Left) || BranchTouchesPk(or.Right),
             SqlUnaryExpression unary => BranchTouchesPk(unary.Operand),
+            // IS NULL / IS MISSING predicates still reference the tested attribute, so OR
+            // classification must treat them as PK-touching when the operand is a PK property.
+            SqlIsNullExpression { Operand: SqlPropertyExpression operand } => _pkAttributeNames
+                .Contains(operand.PropertyName),
             SqlBinaryExpression bin =>
                 (bin.Left is SqlPropertyExpression lp && _pkAttributeNames.Contains(lp.PropertyName))
                 || (bin.Right is SqlPropertyExpression rp && _pkAttributeNames.Contains(rp.PropertyName)),
@@ -414,6 +418,11 @@ internal sealed class DynamoConstraintExtractionVisitor
     private void TryExtractBetween(SqlBetweenExpression between)
     {
         if (between.Subject is not SqlPropertyExpression prop)
+            return;
+
+        // DynamoDB key conditions compare the key attribute against constants/parameters only.
+        // Attribute bounds such as `SK BETWEEN OtherLow AND OtherHigh` are filter predicates.
+        if (between.Low is SqlPropertyExpression || between.High is SqlPropertyExpression)
             return;
 
         // BETWEEN on PK is not a valid DynamoDB key condition — treat as filter. Exception:
