@@ -69,6 +69,9 @@ internal sealed class DynamoQueryTranslationPostprocessor(
             QueryEntityTypeName  = selectExpression.QueryEntityTypeName,
         };
 
+        // IDynamoIndexSelectionAnalyzer is a DI singleton injected via the factory, so callers can
+        // replace it with ReplaceService<IDynamoIndexSelectionAnalyzer, TCustom>() for steps 7–8
+        // auto-selection or for test-time substitution.
         var decision = indexSelectionAnalyzer.Analyze(analysisCtx);
 
         if (decision.SelectedIndexName is { } chosen)

@@ -40,12 +40,10 @@ public static class DynamoServiceCollectionExtensions
                     => services
                         .TryAddScoped<IDynamoClientWrapper, DynamoClientWrapper>()
                         .TryAddSingleton<ISqlExpressionFactory, SqlExpressionFactory>()
-                        .TryAddSingleton<IDynamoQuerySqlGeneratorFactory,
-                            DynamoQuerySqlGeneratorFactory>()
-                        // Index-selection analysis seam: default implementation handles explicit
-                        // .WithIndex() hints; steps 7-8 will replace it with full structural analysis.
-                        .TryAddSingleton<IDynamoIndexSelectionAnalyzer,
-                            DynamoDefaultIndexSelectionAnalyzer>());
+                        .TryAddSingleton<IDynamoQuerySqlGeneratorFactory, DynamoQuerySqlGeneratorFactory>()
+                        // Replaceable via ReplaceService<IDynamoIndexSelectionAnalyzer, T>() for
+                        // steps 7–8 auto-selection or test substitution.
+                        .TryAddSingleton<IDynamoIndexSelectionAnalyzer, DynamoDefaultIndexSelectionAnalyzer>());
 
             builder.TryAddCoreServices();
 

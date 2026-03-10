@@ -3,9 +3,12 @@ using Microsoft.EntityFrameworkCore.Query;
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
 
 /// <summary>
-/// Factory that creates <see cref="DynamoQueryTranslationPostprocessor"/> instances, injecting
-/// the <see cref="IDynamoIndexSelectionAnalyzer"/> seam so tests and advanced integrations can
-/// substitute alternative analyzer implementations.
+/// Factory that creates <see cref="DynamoQueryTranslationPostprocessor"/> instances.
+/// Registering <see cref="IQueryTranslationPostprocessorFactory"/> is the single EF Core seam
+/// for provider-specific query analysis. <see cref="IDynamoIndexSelectionAnalyzer"/> is injected
+/// here so callers can replace it via <c>ReplaceService&lt;IDynamoIndexSelectionAnalyzer, T&gt;()</c>
+/// without needing to replace the entire factory — enabling steps 7–8 auto-selection and test
+/// substitution.
 /// </summary>
 internal sealed class DynamoQueryTranslationPostprocessorFactory(
     QueryTranslationPostprocessorDependencies dependencies,
