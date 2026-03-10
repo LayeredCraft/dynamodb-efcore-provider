@@ -328,6 +328,66 @@ public class DynamoConstraintExtractionVisitorTests
     }
 
     [Fact]
+    public void OrBranch_WithPkBeginsWithAndNonPk_SetsHasUnsafeOrTrue()
+    {
+        // begins_with(PK, "prefix") OR NonKey = "z"
+        // The first branch is a SqlFunctionExpression that touches PK — BranchTouchesPk must
+        // detect it and mark the OR unsafe.
+        var candidates = new[] { MakeDescriptor("PK") };
+        var fn = new SqlFunctionExpression(
+            "begins_with",
+            [Prop("PK"), Const("prefix")],
+            typeof(bool),
+            null);
+        var predicate = Or(fn, BinEq(Prop("NonKey"), Const("z")));
+
+        var result = Extract(predicate, candidates);
+
+        result.HasUnsafeOr.Should().BeTrue();
+    }
+
+    [Fact]
+    public void OrBranch_WithPkBetweenAndNonPk_SetsHasUnsafeOrTrue()
+    {
+        // (PK BETWEEN "a" AND "z") OR NonKey = "z"
+        // SqlBetweenExpression with Subject=PK must be detected by BranchTouchesPk.
+        var candidates = new[] { MakeDescriptor("PK") };
+        var between = new SqlBetweenExpression(Prop("PK"), Const("a"), Const("z"));
+        var predicate = Or(between, BinEq(Prop("NonKey"), Const("z")));
+
+        var result = Extract(predicate, candidates);
+
+        result.HasUnsafeOr.Should().BeTrue();
+    }
+
+    [Fact]
+    public void AttributeToAttributeEquality_NotExtractedToEqualityConstraints()
+    {
+        // WHERE PK = OtherColumn  — both sides are properties: not a valid key condition.
+        var candidates = new[] { MakeDescriptor("PK") };
+        var predicate = BinEq(Prop("PK"), Prop("OtherColumn"));
+
+        var result = Extract(predicate, candidates);
+
+        result.EqualityConstraints.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void AttributeToAttributeRange_NotExtractedToSkKeyConditions()
+    {
+        // WHERE PK = "x" AND SK > OtherColumn — value side is an attribute: not a valid key condition.
+        var candidates = new[] { MakeDescriptor("PK", "SK") };
+        var predicate = And(
+            BinEq(Prop("PK"), Const("x")),
+            BinOp(ExpressionType.GreaterThan, Prop("SK"), Prop("OtherColumn")));
+
+        var result = Extract(predicate, candidates);
+
+        result.EqualityConstraints.Should().ContainKey("PK");
+        result.SkKeyConditions.Should().BeEmpty();
+    }
+
+    [Fact]
     public void ReversedRangeComparison_FlipsOperatorCorrectly()
     {
         // BinOp(GreaterThan, Const("y"), Prop("SK")) → value > SK → SK < value → LessThan

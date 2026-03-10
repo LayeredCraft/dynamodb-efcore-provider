@@ -230,6 +230,14 @@ internal sealed class DynamoConstraintExtractionVisitor
                 || (bin.Right is SqlPropertyExpression rp && _pkAttributeNames.Contains(rp.PropertyName)),
             SqlInExpression inExpr =>
                 inExpr.Item is SqlPropertyExpression ip && _pkAttributeNames.Contains(ip.PropertyName),
+            // begins_with(PK, ...) — the first argument is the attribute being tested.
+            SqlFunctionExpression fn =>
+                fn.Arguments.Count > 0
+                && fn.Arguments[0] is SqlPropertyExpression fp
+                && _pkAttributeNames.Contains(fp.PropertyName),
+            // PK BETWEEN low AND high — Subject is the attribute.
+            SqlBetweenExpression between =>
+                between.Subject is SqlPropertyExpression sp && _pkAttributeNames.Contains(sp.PropertyName),
             _ => false,
         };
     }
@@ -280,10 +288,16 @@ internal sealed class DynamoConstraintExtractionVisitor
         if (branch is not SqlBinaryExpression { OperatorType: ExpressionType.Equal } eq)
             return null;
 
-        if (eq.Left is SqlPropertyExpression leftProp && _pkAttributeNames.Contains(leftProp.PropertyName))
+        // Reject attribute-to-attribute comparisons: DynamoDB key conditions require a
+        // constant or parameter on the non-key side, never another attribute column.
+        if (eq.Left is SqlPropertyExpression leftProp
+            && eq.Right is not SqlPropertyExpression
+            && _pkAttributeNames.Contains(leftProp.PropertyName))
             return leftProp.PropertyName;
 
-        if (eq.Right is SqlPropertyExpression rightProp && _pkAttributeNames.Contains(rightProp.PropertyName))
+        if (eq.Right is SqlPropertyExpression rightProp
+            && eq.Left is not SqlPropertyExpression
+            && _pkAttributeNames.Contains(rightProp.PropertyName))
             return rightProp.PropertyName;
 
         return null;
@@ -301,10 +315,16 @@ internal sealed class DynamoConstraintExtractionVisitor
         if (branch is not SqlBinaryExpression { OperatorType: ExpressionType.Equal } eq)
             return null;
 
-        if (eq.Left is SqlPropertyExpression lp && lp.PropertyName == propName)
+        // Reject attribute-to-attribute comparisons — the value side must not itself be a
+        // property reference (DynamoDB key conditions compare against constants/parameters only).
+        if (eq.Left is SqlPropertyExpression lp
+            && lp.PropertyName == propName
+            && eq.Right is not SqlPropertyExpression)
             return eq.Right;
 
-        if (eq.Right is SqlPropertyExpression rp && rp.PropertyName == propName)
+        if (eq.Right is SqlPropertyExpression rp
+            && rp.PropertyName == propName
+            && eq.Left is not SqlPropertyExpression)
             return eq.Left;
 
         return null;
@@ -342,13 +362,13 @@ internal sealed class DynamoConstraintExtractionVisitor
         SqlExpression valueExpr;
         ExpressionType op;
 
-        if (range.Left is SqlPropertyExpression)
+        if (range.Left is SqlPropertyExpression && range.Right is not SqlPropertyExpression)
         {
             propExpr = range.Left;
             valueExpr = range.Right;
             op = range.OperatorType;
         }
-        else if (range.Right is SqlPropertyExpression)
+        else if (range.Right is SqlPropertyExpression && range.Left is not SqlPropertyExpression)
         {
             // Property is on the right: flip the operator direction.
             propExpr = range.Right;
@@ -357,6 +377,8 @@ internal sealed class DynamoConstraintExtractionVisitor
         }
         else
         {
+            // Both sides are properties (attribute-to-attribute) or neither is: not a valid
+            // DynamoDB key condition.
             return;
         }
 
@@ -481,20 +503,26 @@ internal sealed class DynamoConstraintExtractionVisitor
     /// Tries to extract a <c>(propertyName, valueExpression)</c> pair from either operand
     /// order of a binary expression.
     /// </summary>
+    /// <remarks>
+    /// Returns <c>false</c> when both sides are <see cref="SqlPropertyExpression"/>. DynamoDB
+    /// key conditions require a constant or parameter on the value side; attribute-to-attribute
+    /// comparisons such as <c>TenantId = CustomerId</c> are not valid key conditions and must
+    /// not be recorded as constraints.
+    /// </remarks>
     private static bool TryGetPropertyAndValue(
         SqlExpression left,
         SqlExpression right,
         out string propName,
         out SqlExpression value)
     {
-        if (left is SqlPropertyExpression lp)
+        if (left is SqlPropertyExpression lp && right is not SqlPropertyExpression)
         {
             propName = lp.PropertyName;
             value = right;
             return true;
         }
 
-        if (right is SqlPropertyExpression rp)
+        if (right is SqlPropertyExpression rp && left is not SqlPropertyExpression)
         {
             propName = rp.PropertyName;
             value = left;
