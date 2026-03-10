@@ -134,11 +134,18 @@ internal sealed class DynamoQueryTranslationPostprocessor(
         // When the query entity type is known, scope to that type so that in a shared-table model
         // an index configured only on one entity type does not appear as a candidate for a query
         // against a different entity type sharing the same physical table.
-        if (queryEntityTypeName is not null
-            && tableDescriptor.SourcesByQueryEntityTypeName.TryGetValue(
+        if (queryEntityTypeName is not null)
+        {
+            if (tableDescriptor.SourcesByQueryEntityTypeName.TryGetValue(
                 queryEntityTypeName,
                 out var scopedSources))
-            return scopedSources;
+                return scopedSources;
+
+            // Keep typed queries strict. Falling back to the union of all shared-table sources can
+            // incorrectly expose indexes from unrelated entity types, which allows explicit hints
+            // or auto-selection to choose an incomplete source for the queried entity set.
+            return [];
+        }
 
         // Non-entity projection queries have no entity type name; fall back to a deduplicated
         // union of all sources so explicit-hint validation can still succeed.
