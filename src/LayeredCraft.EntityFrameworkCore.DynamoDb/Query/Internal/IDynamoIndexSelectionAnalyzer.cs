@@ -7,10 +7,11 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
 /// Invoked by <see cref="DynamoQueryTranslationPostprocessor"/> after the query has been
 /// translated into a <c>SelectExpression</c> with discriminator predicates and projection
 /// finalised, and before SQL generation. The default implementation handles only explicit
-/// <c>.WithIndex()</c> hints; steps 7–8 supply a richer implementation inside the postprocessor.
-/// The interface is not registered in DI — following the Cosmos pattern where the analysis
-/// helper is instantiated directly with <c>new</c> inside <c>Process()</c>. The registered
-/// <see cref="IQueryTranslationPostprocessorFactory"/> is the EF Core seam for substitution.
+/// <c>.WithIndex()</c> hints; steps 7-8 supply a richer implementation inside the postprocessor.
+/// The interface is registered in DI and injected through
+/// <see cref="DynamoQueryTranslationPostprocessorFactory"/>, which keeps
+/// <see cref="IQueryTranslationPostprocessorFactory"/> as the EF Core seam while still allowing
+/// <c>ReplaceService&lt;IDynamoIndexSelectionAnalyzer, T&gt;()</c> to swap the analyzer.
 /// </remarks>
 internal interface IDynamoIndexSelectionAnalyzer
 {
