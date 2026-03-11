@@ -101,7 +101,9 @@ public class DynamoAutoIndexSelectionAnalyzerTests
 
         decision.SelectedIndexName.Should().Be("ByStatus");
         decision.Reason.Should().Be(DynamoIndexSelectionReason.ExplicitHint);
-        decision.Diagnostics.Should().BeEmpty();
+        decision.Diagnostics.Should().HaveCount(1);
+        decision.Diagnostics[0].Code.Should().Be("DYNAMO_IDX004");
+        decision.Diagnostics[0].Level.Should().Be(DynamoQueryDiagnosticLevel.Information);
     }
 
     [Fact]
@@ -206,7 +208,8 @@ public class DynamoAutoIndexSelectionAnalyzerTests
 
         decision.SelectedIndexName.Should().Be("ByStatus");
         decision.Reason.Should().Be(DynamoIndexSelectionReason.ExplicitHint);
-        decision.Diagnostics.Should().BeEmpty();
+        decision.Diagnostics.Should().HaveCount(1);
+        decision.Diagnostics[0].Code.Should().Be("DYNAMO_IDX004");
     }
 
     [Fact]
@@ -231,7 +234,8 @@ public class DynamoAutoIndexSelectionAnalyzerTests
 
         decision.SelectedIndexName.Should().Be("ByStatus");
         decision.Reason.Should().Be(DynamoIndexSelectionReason.ExplicitHint);
-        decision.Diagnostics.Should().BeEmpty();
+        decision.Diagnostics.Should().HaveCount(1);
+        decision.Diagnostics[0].Code.Should().Be("DYNAMO_IDX004");
     }
 
     // ── no hint, Off mode ────────────────────────────────────────────────────
@@ -329,9 +333,11 @@ public class DynamoAutoIndexSelectionAnalyzerTests
 
         decision.SelectedIndexName.Should().BeNull();
         decision.Reason.Should().Be(DynamoIndexSelectionReason.NoSelection);
-        decision.Diagnostics.Should().HaveCount(1);
-        decision.Diagnostics[0].Code.Should().Be("DYNAMO_IDX001");
-        decision.Diagnostics[0].Level.Should().Be(DynamoQueryDiagnosticLevel.Warning);
+        // IDX005 (rejection) is emitted first, then IDX001 (no-selection summary).
+        decision.Diagnostics.Should().HaveCount(2);
+        decision.Diagnostics[0].Code.Should().Be("DYNAMO_IDX005");
+        decision.Diagnostics[1].Code.Should().Be("DYNAMO_IDX001");
+        decision.Diagnostics[1].Level.Should().Be(DynamoQueryDiagnosticLevel.Warning);
     }
 
     // ── Conservative mode ────────────────────────────────────────────────────
@@ -372,8 +378,10 @@ public class DynamoAutoIndexSelectionAnalyzerTests
 
         decision.SelectedIndexName.Should().BeNull();
         decision.Reason.Should().Be(DynamoIndexSelectionReason.NoSelection);
-        decision.Diagnostics.Should().HaveCount(1);
-        decision.Diagnostics[0].Code.Should().Be("DYNAMO_IDX001");
+        // IDX005 (rejection) is emitted first, then IDX001 (no-selection summary).
+        decision.Diagnostics.Should().HaveCount(2);
+        decision.Diagnostics[0].Code.Should().Be("DYNAMO_IDX005");
+        decision.Diagnostics[1].Code.Should().Be("DYNAMO_IDX001");
     }
 
     [Fact]
@@ -519,10 +527,11 @@ public class DynamoAutoIndexSelectionAnalyzerTests
 
         var decision = Analyzer.Analyze(ctx);
 
-        // HasUnsafeOr blocks Gate 2 for all candidates, so IDX001 warning is emitted.
+        // HasUnsafeOr blocks Gate 2 for all candidates; IDX005 per rejected candidate, then IDX001.
         decision.SelectedIndexName.Should().BeNull();
-        decision.Diagnostics.Should().HaveCount(1);
-        decision.Diagnostics[0].Code.Should().Be("DYNAMO_IDX001");
+        decision.Diagnostics.Should().HaveCount(2);
+        decision.Diagnostics[0].Code.Should().Be("DYNAMO_IDX005");
+        decision.Diagnostics[1].Code.Should().Be("DYNAMO_IDX001");
     }
 
     [Fact]
@@ -538,10 +547,11 @@ public class DynamoAutoIndexSelectionAnalyzerTests
 
         var decision = Analyzer.Analyze(ctx);
 
-        // Gate 3 excludes non-All projection descriptors.
+        // Gate 3 excludes non-All projection descriptors; IDX005 per rejected candidate, then IDX001.
         decision.SelectedIndexName.Should().BeNull();
-        decision.Diagnostics.Should().HaveCount(1);
-        decision.Diagnostics[0].Code.Should().Be("DYNAMO_IDX001");
+        decision.Diagnostics.Should().HaveCount(2);
+        decision.Diagnostics[0].Code.Should().Be("DYNAMO_IDX005");
+        decision.Diagnostics[1].Code.Should().Be("DYNAMO_IDX001");
     }
 
     [Fact]
@@ -622,5 +632,150 @@ public class DynamoAutoIndexSelectionAnalyzerTests
 
         decision.SelectedIndexName.Should().Be("ByPriority");
         decision.Reason.Should().Be(DynamoIndexSelectionReason.AutoSelected);
+    }
+
+    // ── DYNAMO_IDX004 — explicit hint diagnostics ─────────────────────────────
+
+    [Fact]
+    public void ExplicitHint_KnownIndex_EmitsDynamoIdx004Diagnostic()
+    {
+        var candidates = new List<DynamoIndexDescriptor>
+        {
+            MakeDescriptor("CustomerId", indexName: null),
+            MakeDescriptor("Status", "CreatedAt", "ByStatus"),
+        };
+        var ctx = BuildContext(
+            DynamoAutomaticIndexSelectionMode.Off,
+            candidates,
+            null,
+            explicitHint: "ByStatus",
+            tableName: "Orders");
+
+        var decision = Analyzer.Analyze(ctx);
+
+        decision.Diagnostics.Should().HaveCount(1);
+        decision.Diagnostics[0].Code.Should().Be("DYNAMO_IDX004");
+        decision.Diagnostics[0].Level.Should().Be(DynamoQueryDiagnosticLevel.Information);
+        decision.Diagnostics[0].Message.Should().Contain("ByStatus");
+        decision.Diagnostics[0].Message.Should().Contain("Orders");
+    }
+
+    [Fact]
+    public void ExplicitHint_DesignTime_NoCandidates_EmitsNoDiagnostics()
+    {
+        // Design-time path: no candidates available, validation is skipped and no diagnostic
+        // is emitted because there is no runtime model context.
+        var ctx = BuildContext(
+            DynamoAutomaticIndexSelectionMode.Off,
+            [],
+            null,
+            explicitHint: "ByStatus");
+
+        var decision = Analyzer.Analyze(ctx);
+
+        decision.SelectedIndexName.Should().Be("ByStatus");
+        decision.Reason.Should().Be(DynamoIndexSelectionReason.ExplicitHint);
+        decision.Diagnostics.Should().BeEmpty();
+    }
+
+    // ── DYNAMO_IDX005 — candidate rejection diagnostics ───────────────────────
+
+    [Fact]
+    public void RejectedCandidate_NoPkConstraint_EmitsDynamoIdx005WithPartitionKeyMessage()
+    {
+        var candidates = new List<DynamoIndexDescriptor>
+        {
+            MakeDescriptor("CustomerId", indexName: null),
+            MakeDescriptor("Status", "CreatedAt", "ByStatus"),
+        };
+        // Constraint is on CustomerId, not Status — Gate 1 fails for ByStatus.
+        var constraints = MakeConstraints(equalityPks: ["CustomerId"]);
+        var ctx = BuildContext(DynamoAutomaticIndexSelectionMode.Conservative, candidates, constraints);
+
+        var decision = Analyzer.Analyze(ctx);
+
+        var rejection = decision.Diagnostics.Should().Contain(d => d.Code == "DYNAMO_IDX005").Subject;
+        rejection.Level.Should().Be(DynamoQueryDiagnosticLevel.Information);
+        rejection.Message.Should().Contain("partition key");
+    }
+
+    [Fact]
+    public void RejectedCandidate_ProjectionMismatch_EmitsDynamoIdx005WithProjectionMessage()
+    {
+        var candidates = new List<DynamoIndexDescriptor>
+        {
+            MakeDescriptor("CustomerId", indexName: null),
+            MakeDescriptor("Status", "CreatedAt", "ByStatus", DynamoSecondaryIndexProjectionType.KeysOnly),
+        };
+        // PK is covered but Gate 3 (projection) fails.
+        var constraints = MakeConstraints(equalityPks: ["Status"]);
+        var ctx = BuildContext(DynamoAutomaticIndexSelectionMode.Conservative, candidates, constraints);
+
+        var decision = Analyzer.Analyze(ctx);
+
+        var rejection = decision.Diagnostics.Should().Contain(d => d.Code == "DYNAMO_IDX005").Subject;
+        rejection.Message.Should().Contain("projection type");
+    }
+
+    [Fact]
+    public void RejectedCandidate_UnsafeOr_EmitsDynamoIdx005WithUnsafeOrMessage()
+    {
+        var candidates = new List<DynamoIndexDescriptor>
+        {
+            MakeDescriptor("CustomerId", indexName: null),
+            MakeDescriptor("Status", "CreatedAt", "ByStatus"),
+        };
+        // PK covered but Gate 2 (unsafe OR) fails.
+        var constraints = MakeConstraints(equalityPks: ["Status"], hasUnsafeOr: true);
+        var ctx = BuildContext(DynamoAutomaticIndexSelectionMode.Conservative, candidates, constraints);
+
+        var decision = Analyzer.Analyze(ctx);
+
+        var rejection = decision.Diagnostics.Should().Contain(d => d.Code == "DYNAMO_IDX005").Subject;
+        rejection.Message.Should().Contain("unsafe OR");
+    }
+
+    [Fact]
+    public void RejectionDiagnostics_PrecedeIdx001_InDiagnosticsList()
+    {
+        // Single candidate fails Gate 1 → IDX005 then IDX001, in that order.
+        var candidates = new List<DynamoIndexDescriptor>
+        {
+            MakeDescriptor("CustomerId", indexName: null),
+            MakeDescriptor("Status", "CreatedAt", "ByStatus"),
+        };
+        var constraints = MakeConstraints(equalityPks: ["CustomerId"]);
+        var ctx = BuildContext(DynamoAutomaticIndexSelectionMode.Conservative, candidates, constraints);
+
+        var decision = Analyzer.Analyze(ctx);
+
+        decision.Diagnostics.Should().HaveCount(2);
+        decision.Diagnostics[0].Code.Should().Be("DYNAMO_IDX005");
+        decision.Diagnostics[0].Level.Should().Be(DynamoQueryDiagnosticLevel.Information);
+        decision.Diagnostics[1].Code.Should().Be("DYNAMO_IDX001");
+        decision.Diagnostics[1].Level.Should().Be(DynamoQueryDiagnosticLevel.Warning);
+    }
+
+    [Fact]
+    public void RejectionDiagnostics_PrecedeIdx003_WhenOnePassesAndOneIsRejected()
+    {
+        // ByStatus (PK "Status") passes; ByRegion (PK "Region") fails Gate 1 (not covered).
+        // Diagnostics: IDX005 (ByRegion rejected) then IDX003 (ByStatus selected).
+        var candidates = new List<DynamoIndexDescriptor>
+        {
+            MakeDescriptor("CustomerId", indexName: null),
+            MakeDescriptor("Status", "CreatedAt", "ByStatus"),
+            MakeDescriptor("Region", "CreatedAt", "ByRegion"),
+        };
+        var constraints = MakeConstraints(equalityPks: ["Status"]);
+        var ctx = BuildContext(DynamoAutomaticIndexSelectionMode.Conservative, candidates, constraints);
+
+        var decision = Analyzer.Analyze(ctx);
+
+        decision.SelectedIndexName.Should().Be("ByStatus");
+        decision.Diagnostics.Should().HaveCount(2);
+        decision.Diagnostics[0].Code.Should().Be("DYNAMO_IDX005");
+        decision.Diagnostics[0].Message.Should().Contain("ByRegion");
+        decision.Diagnostics[1].Code.Should().Be("DYNAMO_IDX003");
     }
 }
