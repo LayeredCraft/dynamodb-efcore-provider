@@ -18,6 +18,8 @@ icon: lucide/stethoscope
 - `NoCompatibleSecondaryIndexFound`
 - `MultipleCompatibleSecondaryIndexesFound`
 - `SecondaryIndexSelected`
+- `ExplicitIndexSelected`
+- `SecondaryIndexCandidateRejected`
 
 ## Warnings
 - Row-limiting query without configured page size logs a warning.
@@ -28,6 +30,12 @@ icon: lucide/stethoscope
 - Automatic index selection logs an information event when a single compatible index is selected in
   `Conservative` mode.
 - `SuggestOnly` logs the same information event without rewriting the query source.
+- An explicit `.WithIndex()` hint logs an information event (`ExplicitIndexSelected`) naming the
+  resolved index and table.
+- When automatic index selection evaluates candidates, each rejected candidate logs an information
+  event (`SecondaryIndexCandidateRejected`) with the rejection reason: no equality or IN constraint
+  on the index partition key, predicate contains an unsafe OR, or projection type is not ALL.
+- Rejection events appear before the final selection or no-selection summary event in log output.
 
 ## Translation failures
 - Unsupported LINQ operators fail with `InvalidOperationException` during query translation.

@@ -24,11 +24,16 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
 ///   <item><c>DYNAMO_IDX001</c> — no candidate satisfies the predicate (Warning)</item>
 ///   <item><c>DYNAMO_IDX002</c> — multiple candidates tie (Warning)</item>
 ///   <item><c>DYNAMO_IDX003</c> — a single candidate was selected or would be selected (Information)</item>
+///   <item><c>DYNAMO_IDX004</c> — explicit index selected via .WithIndex() (Information)</item>
+///   <item><c>DYNAMO_IDX005</c> — candidate rejected during auto-selection (Information)</item>
 /// </list>
 /// </para>
 /// </remarks>
 internal sealed class DynamoAutoIndexSelectionAnalyzer : IDynamoIndexSelectionAnalyzer
 {
+    /// <summary>Outcome of a single gate check for an index candidate.</summary>
+    private enum CandidateGateResult { Passed, NoPkConstraint, UnsafeOr, ProjectionMismatch }
+
     /// <summary>
     /// Validates an explicit hint when present, or evaluates candidate indexes against query
     /// constraints for automatic selection according to the configured mode.
@@ -63,6 +68,7 @@ internal sealed class DynamoAutoIndexSelectionAnalyzer : IDynamoIndexSelectionAn
         // Base-table queries are the default — skipping the base-table descriptor here means
         // the auto-selection only considers switching the source to a secondary index.
         var usableCandidates = new List<(DynamoIndexDescriptor Descriptor, int Score)>();
+        var rejectionDiagnostics = new List<DynamoQueryDiagnostic>();
 
         foreach (var descriptor in context.CandidateDescriptors)
         {
@@ -70,8 +76,13 @@ internal sealed class DynamoAutoIndexSelectionAnalyzer : IDynamoIndexSelectionAn
             if (descriptor.IndexName is null)
                 continue;
 
-            if (!PassesGates(descriptor, constraints))
+            var gateResult = EvaluateGates(descriptor, constraints);
+            if (gateResult != CandidateGateResult.Passed)
+            {
+                rejectionDiagnostics.Add(MakeRejectionDiagnostic(
+                    descriptor, context.SelectExpression.TableName, gateResult));
                 continue;
+            }
 
             var score = ComputeScore(descriptor, constraints);
             usableCandidates.Add((descriptor, score));
@@ -80,7 +91,9 @@ internal sealed class DynamoAutoIndexSelectionAnalyzer : IDynamoIndexSelectionAn
         // ── 4. No usable candidate ───────────────────────────────────────────
         if (usableCandidates.Count == 0)
         {
-            var diagnostics = new List<DynamoQueryDiagnostic>
+            // Rejection diagnostics are prepended so callers see per-candidate reasons before
+            // the overall no-selection summary.
+            var diagnostics = new List<DynamoQueryDiagnostic>(rejectionDiagnostics)
             {
                 new(DynamoQueryDiagnosticLevel.Warning,
                     "DYNAMO_IDX001",
@@ -98,7 +111,7 @@ internal sealed class DynamoAutoIndexSelectionAnalyzer : IDynamoIndexSelectionAn
         if (winners.Count > 1)
         {
             var tiedNames = string.Join(", ", winners.Select(w => $"'{w.Descriptor.IndexName}'"));
-            var diagnostics = new List<DynamoQueryDiagnostic>
+            var diagnostics = new List<DynamoQueryDiagnostic>(rejectionDiagnostics)
             {
                 new(DynamoQueryDiagnosticLevel.Warning,
                     "DYNAMO_IDX002",
@@ -112,7 +125,7 @@ internal sealed class DynamoAutoIndexSelectionAnalyzer : IDynamoIndexSelectionAn
         var winner = winners[0].Descriptor;
         var mode = context.AutomaticIndexSelectionMode;
 
-        var selectedDiagnostics = new List<DynamoQueryDiagnostic>
+        var selectedDiagnostics = new List<DynamoQueryDiagnostic>(rejectionDiagnostics)
         {
             new(DynamoQueryDiagnosticLevel.Information,
                 "DYNAMO_IDX003",
@@ -154,19 +167,27 @@ internal sealed class DynamoAutoIndexSelectionAnalyzer : IDynamoIndexSelectionAn
                 + "Use HasGlobalSecondaryIndex or HasLocalSecondaryIndex to register the "
                 + "index before using WithIndex.");
 
-        return new DynamoIndexSelectionDecision(indexName, DynamoIndexSelectionReason.ExplicitHint, []);
+        var diagnostics = new List<DynamoQueryDiagnostic>
+        {
+            new(DynamoQueryDiagnosticLevel.Information,
+                "DYNAMO_IDX004",
+                $"Index '{indexName}' on table '{context.SelectExpression.TableName}' was explicitly selected via WithIndex()."),
+        };
+        return new DynamoIndexSelectionDecision(indexName, DynamoIndexSelectionReason.ExplicitHint, diagnostics);
     }
 
     /// <summary>
-    /// Returns <c>true</c> when the descriptor passes all gates required for it to be a usable
-    /// key-condition query source:
+    /// Evaluates all gates required for a descriptor to be a usable key-condition query source,
+    /// returning the first failing gate or <see cref="CandidateGateResult.Passed"/> if all pass:
     /// <list type="number">
     ///   <item>Gate 1 — PK covered: the constraints include an equality or IN on the index PK.</item>
     ///   <item>Gate 2 — Safe OR: the predicate has no unsafe OR that would corrupt result correctness.</item>
     ///   <item>Gate 3 — Projection safety: the index projects ALL attributes.</item>
     /// </list>
     /// </summary>
-    private static bool PassesGates(DynamoIndexDescriptor descriptor, DynamoQueryConstraints constraints)
+    private static CandidateGateResult EvaluateGates(
+        DynamoIndexDescriptor descriptor,
+        DynamoQueryConstraints constraints)
     {
         var pkAttr = descriptor.PartitionKeyProperty.GetAttributeName();
 
@@ -174,20 +195,45 @@ internal sealed class DynamoAutoIndexSelectionAnalyzer : IDynamoIndexSelectionAn
         var pkCovered = constraints.EqualityConstraints.ContainsKey(pkAttr)
             || constraints.InConstraints.ContainsKey(pkAttr);
         if (!pkCovered)
-            return false;
+            return CandidateGateResult.NoPkConstraint;
 
         // Gate 2: any unsafe OR in the predicate means the extracted constraints do not
         // fully represent the filter, so auto-selection could return incorrect result sets.
         if (constraints.HasUnsafeOr)
-            return false;
+            return CandidateGateResult.UnsafeOr;
 
         // Gate 3: only project-ALL indexes are safe to auto-select until partial-projection
         // coverage (KEYS_ONLY / INCLUDE) is fully implemented.
         // TODO(partial-projection): lift this gate once attribute coverage analysis is added.
         if (descriptor.ProjectionType != DynamoSecondaryIndexProjectionType.All)
-            return false;
+            return CandidateGateResult.ProjectionMismatch;
 
-        return true;
+        return CandidateGateResult.Passed;
+    }
+
+    /// <summary>
+    /// Builds an <c>DYNAMO_IDX005</c> rejection diagnostic for a candidate that failed a gate check.
+    /// </summary>
+    private static DynamoQueryDiagnostic MakeRejectionDiagnostic(
+        DynamoIndexDescriptor descriptor,
+        string tableName,
+        CandidateGateResult gateResult)
+    {
+        var reason = gateResult switch
+        {
+            CandidateGateResult.NoPkConstraint =>
+                "no equality or IN constraint on the index partition key",
+            CandidateGateResult.UnsafeOr =>
+                "predicate contains an unsafe OR that would produce incorrect results",
+            CandidateGateResult.ProjectionMismatch =>
+                $"projection type is {descriptor.ProjectionType} (only ALL projection is auto-selected)",
+            _ => "unknown gate failure",
+        };
+
+        return new DynamoQueryDiagnostic(
+            DynamoQueryDiagnosticLevel.Information,
+            "DYNAMO_IDX005",
+            $"Index '{descriptor.IndexName}' on table '{tableName}' was rejected: {reason}.");
     }
 
     /// <summary>

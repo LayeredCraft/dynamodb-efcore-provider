@@ -22,6 +22,8 @@ public static class DynamoEventId
         NoCompatibleSecondaryIndexFound = CoreEventId.ProviderBaseId + 104,
         MultipleCompatibleSecondaryIndexesFound = CoreEventId.ProviderBaseId + 105,
         SecondaryIndexSelected = CoreEventId.ProviderBaseId + 106,
+        ExplicitIndexSelected = CoreEventId.ProviderBaseId + 107,
+        SecondaryIndexCandidateRejected = CoreEventId.ProviderBaseId + 108,
     }
 
     private static readonly string CommandPrefix = DbLoggerCategory.Database.Command.Name + ".";
@@ -80,4 +82,16 @@ public static class DynamoEventId
     public static readonly EventId SecondaryIndexSelected = new(
         (int)Id.SecondaryIndexSelected,
         QueryPrefix + Id.SecondaryIndexSelected);
+
+    /// <summary>A secondary index was explicitly selected via <c>.WithIndex()</c>.</summary>
+    /// <remarks>This event is in the <see cref="DbLoggerCategory.Query" /> category.</remarks>
+    public static readonly EventId ExplicitIndexSelected = new(
+        (int)Id.ExplicitIndexSelected,
+        QueryPrefix + Id.ExplicitIndexSelected);
+
+    /// <summary>A secondary index candidate was rejected during automatic index selection.</summary>
+    /// <remarks>This event is in the <see cref="DbLoggerCategory.Query" /> category.</remarks>
+    public static readonly EventId SecondaryIndexCandidateRejected = new(
+        (int)Id.SecondaryIndexCandidateRejected,
+        QueryPrefix + Id.SecondaryIndexCandidateRejected);
 }
