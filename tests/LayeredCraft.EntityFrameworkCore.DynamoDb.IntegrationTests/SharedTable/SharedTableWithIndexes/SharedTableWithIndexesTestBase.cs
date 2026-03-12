@@ -128,6 +128,18 @@ public abstract class SharedTableWithIndexesTestBase(SharedTableWithIndexesDynam
             .Select(item => new WriteRequest { PutRequest = new PutRequest { Item = item } })
             .ToList();
 
+        for (var i = 0; i < writeRequests.Count; i += 25)
+        {
+            var batch = writeRequests.Skip(i).Take(25).ToList();
+            await BatchWriteWithRetriesAsync(batch, cancellationToken);
+        }
+    }
+
+    /// <summary>Writes a single DynamoDB batch and retries any unprocessed items until completion.</summary>
+    private async Task BatchWriteWithRetriesAsync(
+        List<WriteRequest> writeRequests,
+        CancellationToken cancellationToken)
+    {
         var request = new BatchWriteItemRequest
         {
             RequestItems = new Dictionary<string, List<WriteRequest>>
