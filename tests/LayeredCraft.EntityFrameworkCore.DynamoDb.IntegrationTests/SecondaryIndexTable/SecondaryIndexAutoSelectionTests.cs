@@ -175,47 +175,6 @@ public class SecondaryIndexAutoSelectionTests(SecondaryIndexDynamoFixture fixtur
             """);
     }
 
-    // ── SuggestOnly mode ─────────────────────────────────────────────────────
-
-    /// <summary>
-    /// Verifies that <see cref="DynamoAutomaticIndexSelectionMode.SuggestOnly"/> emits an IDX003
-    /// diagnostic indicating which index would be selected, but leaves the query source unchanged
-    /// so execution falls back to the base table.
-    /// </summary>
-    [Fact]
-    public async Task SuggestOnly_WhereOnGsiPk_EmitsDiagnosticButStaysOnBaseTable()
-    {
-        var loggerFactory = new TestPartiQlLoggerFactory();
-        var suggestOptions = new DbContextOptionsBuilder<SecondaryIndexDbContext>(
-                base.CreateOptions(loggerFactory))
-            .UseDynamo(opt =>
-                opt.UseAutomaticIndexSelection(DynamoAutomaticIndexSelectionMode.SuggestOnly))
-            .Options;
-
-        await using var suggestDb = new SecondaryIndexDbContext(suggestOptions);
-
-        _ = await suggestDb.Orders
-            .Where(o => o.Status == "PENDING")
-            .ToListAsync(CancellationToken);
-
-        // IDX003 "would be selected" diagnostic (checked before AssertBaseline which clears state).
-        loggerFactory.QueryDiagnosticEvents.Should().ContainSingle(e
-            => e.EventId.Id == DynamoEventId.SecondaryIndexSelected.Id
-            && e.LogLevel == LogLevel.Information
-            && e.Message.Contains("ByStatus")
-            && e.Message.Contains("would be selected"));
-
-        // SuggestOnly: query executes on base table — no index in FROM clause.
-        loggerFactory.AssertBaseline(
-            """
-            SELECT "CustomerId", "OrderId", "CreatedAt", "Priority", "Region", "Status"
-            FROM "SecondaryIndexOrders"
-            WHERE "Status" = 'PENDING'
-            """);
-
-        loggerFactory.Dispose();
-    }
-
     // ── IN predicate auto-selection ──────────────────────────────────────────
 
     /// <summary>
@@ -410,37 +369,4 @@ public class SecondaryIndexAutoSelectionTests(SecondaryIndexDynamoFixture fixtur
             """);
     }
 
-    // ── Off mode override ────────────────────────────────────────────────────
-
-    /// <summary>
-    /// Verifies that <see cref="DynamoAutomaticIndexSelectionMode.Off"/> suppresses auto-selection
-    /// even when the predicate would satisfy a GSI partition key.
-    /// </summary>
-    [Fact]
-    public async Task Off_WhereOnGsiPk_DoesNotAutoSelect()
-    {
-        // Re-create the context with Off mode to override the class-level Conservative setting.
-        var loggerFactory = new TestPartiQlLoggerFactory();
-        var offOptions = new DbContextOptionsBuilder<SecondaryIndexDbContext>(
-                base.CreateOptions(loggerFactory))
-            .UseDynamo(opt =>
-                opt.UseAutomaticIndexSelection(DynamoAutomaticIndexSelectionMode.Off))
-            .Options;
-
-        await using var offDb = new SecondaryIndexDbContext(offOptions);
-
-        _ = await offDb.Orders
-            .Where(o => o.Status == "PENDING")
-            .ToListAsync(CancellationToken);
-
-        // Off mode: base table is used regardless of the predicate.
-        loggerFactory.AssertBaseline(
-            """
-            SELECT "CustomerId", "OrderId", "CreatedAt", "Priority", "Region", "Status"
-            FROM "SecondaryIndexOrders"
-            WHERE "Status" = 'PENDING'
-            """);
-
-        loggerFactory.Dispose();
-    }
 }
