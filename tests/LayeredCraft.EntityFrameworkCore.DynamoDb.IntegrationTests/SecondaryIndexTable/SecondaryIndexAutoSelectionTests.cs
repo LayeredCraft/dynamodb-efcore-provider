@@ -175,6 +175,241 @@ public class SecondaryIndexAutoSelectionTests(SecondaryIndexDynamoFixture fixtur
             """);
     }
 
+    // ── SuggestOnly mode ─────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Verifies that <see cref="DynamoAutomaticIndexSelectionMode.SuggestOnly"/> emits an IDX003
+    /// diagnostic indicating which index would be selected, but leaves the query source unchanged
+    /// so execution falls back to the base table.
+    /// </summary>
+    [Fact]
+    public async Task SuggestOnly_WhereOnGsiPk_EmitsDiagnosticButStaysOnBaseTable()
+    {
+        var loggerFactory = new TestPartiQlLoggerFactory();
+        var suggestOptions = new DbContextOptionsBuilder<SecondaryIndexDbContext>(
+                base.CreateOptions(loggerFactory))
+            .UseDynamo(opt =>
+                opt.UseAutomaticIndexSelection(DynamoAutomaticIndexSelectionMode.SuggestOnly))
+            .Options;
+
+        await using var suggestDb = new SecondaryIndexDbContext(suggestOptions);
+
+        _ = await suggestDb.Orders
+            .Where(o => o.Status == "PENDING")
+            .ToListAsync(CancellationToken);
+
+        // IDX003 "would be selected" diagnostic (checked before AssertBaseline which clears state).
+        loggerFactory.QueryDiagnosticEvents.Should().ContainSingle(e
+            => e.EventId.Id == DynamoEventId.SecondaryIndexSelected.Id
+            && e.LogLevel == LogLevel.Information
+            && e.Message.Contains("ByStatus")
+            && e.Message.Contains("would be selected"));
+
+        // SuggestOnly: query executes on base table — no index in FROM clause.
+        loggerFactory.AssertBaseline(
+            """
+            SELECT "CustomerId", "OrderId", "CreatedAt", "Priority", "Region", "Status"
+            FROM "SecondaryIndexOrders"
+            WHERE "Status" = 'PENDING'
+            """);
+
+        loggerFactory.Dispose();
+    }
+
+    // ── IN predicate auto-selection ──────────────────────────────────────────
+
+    /// <summary>
+    /// Verifies that a <c>Contains()</c> predicate on a GSI partition key generates an IN
+    /// constraint that satisfies Gate 1, causing the analyzer to auto-select the GSI.
+    /// </summary>
+    [Fact]
+    public async Task Conservative_ContainsOnGsiPk_AutoSelects_ByStatusIndex()
+    {
+        // Contains() on a GSI PK attribute is translated to an IN constraint by the
+        // constraint extractor, which satisfies Gate 1 (partition-key coverage).
+        var statusList = new List<string> { "PENDING", "SHIPPED" };
+
+        var results = await Db.Orders
+            .Where(o => statusList.Contains(o.Status))
+            .ToListAsync(CancellationToken);
+
+        var expected = OrderItems.Items.Where(o => statusList.Contains(o.Status)).ToList();
+        results.Should().BeEquivalentTo(expected);
+
+        LoggerFactory.QueryDiagnosticEvents.Should().ContainSingle(e
+            => e.EventId.Id == DynamoEventId.SecondaryIndexSelected.Id
+            && e.Message.Contains("ByStatus"));
+
+        AssertSql(
+            """
+            SELECT "CustomerId", "OrderId", "CreatedAt", "Priority", "Region", "Status"
+            FROM "SecondaryIndexOrders"."ByStatus"
+            WHERE "Status" IN [?, ?]
+            """);
+    }
+
+    // ── Unsafe OR blocking ────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Verifies that an OR predicate spanning two different GSI partition-key attributes is
+    /// classified as an unsafe OR, which causes all index candidates to be rejected (IDX005 per
+    /// candidate) and the query to fall back to the base table with an IDX001 summary.
+    /// </summary>
+    [Fact]
+    public async Task Conservative_UnsafeOrPredicate_BlocksAutoSelection_EmitsRejectionDiagnostics()
+    {
+        // OR across two different GSI PK attributes: Status (ByStatus PK) || Region (ByRegion PK).
+        // The constraint extractor sees the top-level OR as unsafe and does not extract any partial
+        // equality constraints from its branches. All candidates therefore fail Gate 1 (no PK
+        // constraint) — Gate 2 (unsafe OR) is never reached because Gate 1 fails first.
+        _ = await Db.Orders
+            .Where(o => o.Status == "PENDING" || o.Region == "US-EAST")
+            .ToListAsync(CancellationToken);
+
+        // IDX005 per rejected candidate — Gate 1 failures (no PK constraint extracted from OR branches).
+        LoggerFactory.QueryDiagnosticEvents
+            .Where(e => e.EventId.Id == DynamoEventId.SecondaryIndexCandidateRejected.Id)
+            .Should().NotBeEmpty()
+            .And.OnlyContain(e => e.Message.Contains("no equality or IN constraint on the index partition key"));
+
+        // IDX001 summary — no index was selected.
+        LoggerFactory.QueryDiagnosticEvents.Should().Contain(e
+            => e.EventId.Id == DynamoEventId.NoCompatibleSecondaryIndexFound.Id);
+
+        AssertSql(
+            """
+            SELECT "CustomerId", "OrderId", "CreatedAt", "Priority", "Region", "Status"
+            FROM "SecondaryIndexOrders"
+            WHERE "Status" = 'PENDING' OR "Region" = 'US-EAST'
+            """);
+    }
+
+    // ── All candidates rejected ───────────────────────────────────────────────
+
+    /// <summary>
+    /// Verifies that when no predicate covers any index partition key, all candidates are rejected
+    /// at Gate 1 with IDX005 diagnostics and the query falls back to the base table with IDX001.
+    /// </summary>
+    [Fact]
+    public async Task Conservative_WhereOnNonIndexPkAttribute_AllCandidatesRejected_EmitsIdxDiagnostics()
+    {
+        // Priority is the ByPriority LSI sort key — not a partition key on any index.
+        // All candidates fail Gate 1 (no equality or IN constraint on any index PK).
+        _ = await Db.Orders
+            .Where(o => o.Priority == 1)
+            .ToListAsync(CancellationToken);
+
+        // IDX005 for every rejected candidate — all fail on missing PK constraint.
+        LoggerFactory.QueryDiagnosticEvents
+            .Where(e => e.EventId.Id == DynamoEventId.SecondaryIndexCandidateRejected.Id)
+            .Should().NotBeEmpty()
+            .And.OnlyContain(e => e.Message.Contains("partition key"));
+
+        // IDX001 summary.
+        LoggerFactory.QueryDiagnosticEvents.Should().Contain(e
+            => e.EventId.Id == DynamoEventId.NoCompatibleSecondaryIndexFound.Id);
+
+        AssertSql(
+            """
+            SELECT "CustomerId", "OrderId", "CreatedAt", "Priority", "Region", "Status"
+            FROM "SecondaryIndexOrders"
+            WHERE "Priority" = 1
+            """);
+    }
+
+    // ── Explicit hint diagnostics ─────────────────────────────────────────────
+
+    /// <summary>
+    /// Verifies that an explicit <c>.WithIndex()</c> hint emits an IDX004 diagnostic and that no
+    /// IDX003 auto-selection event is raised (the explicit path short-circuits auto-selection).
+    /// </summary>
+    [Fact]
+    public async Task ExplicitHint_WithIndex_EmitsExplicitIndexSelectedDiagnostic()
+    {
+        _ = await Db.Orders
+            .WithIndex("ByStatus")
+            .Where(o => o.Status == "PENDING")
+            .ToListAsync(CancellationToken);
+
+        // IDX004: explicit hint applied.
+        LoggerFactory.QueryDiagnosticEvents.Should().ContainSingle(e
+            => e.EventId.Id == DynamoEventId.ExplicitIndexSelected.Id
+            && e.LogLevel == LogLevel.Information
+            && e.Message.Contains("ByStatus")
+            && e.Message.Contains("explicitly selected"));
+
+        // No IDX003 auto-selection event — explicit path short-circuits auto-selection entirely.
+        LoggerFactory.QueryDiagnosticEvents.Should()
+            .NotContain(e => e.EventId.Id == DynamoEventId.SecondaryIndexSelected.Id);
+
+        AssertSql(
+            """
+            SELECT "CustomerId", "OrderId", "CreatedAt", "Priority", "Region", "Status"
+            FROM "SecondaryIndexOrders"."ByStatus"
+            WHERE "Status" = 'PENDING'
+            """);
+    }
+
+    // ── Ordering alignment scoring ────────────────────────────────────────────
+
+    /// <summary>
+    /// Verifies that when a GSI PK equality constraint is combined with an <c>OrderBy</c> on the
+    /// GSI sort key, the ordering-alignment bonus raises the candidate score and it is selected.
+    /// Uses ByStatus (PK=Status, SK=CreatedAt): Status equality + OrderBy(CreatedAt) → score 2.
+    /// </summary>
+    [Fact]
+    public async Task Conservative_GsiPkWithOrderBySk_AutoSelects_ScoringWinner()
+    {
+        // ByStatus PK=Status, SK=CreatedAt. Status equality passes Gate 1.
+        // OrderBy(CreatedAt) aligns with ByStatus SK — ordering bonus score +1.
+        // DynamoDB Local does not support ORDER BY on GSI sort keys, so wrap execution.
+        try
+        {
+            _ = await Db.Orders
+                .Where(o => o.Status == "PENDING")
+                .OrderBy(o => o.CreatedAt)
+                .ToListAsync(CancellationToken);
+        }
+        catch (AmazonDynamoDBException)
+        {
+            // DynamoDB Local limitation: ORDER BY on GSI sort keys is not supported.
+        }
+
+        LoggerFactory.QueryDiagnosticEvents.Should().ContainSingle(e
+            => e.EventId.Id == DynamoEventId.SecondaryIndexSelected.Id
+            && e.Message.Contains("ByStatus"));
+
+        AssertSql(
+            """
+            SELECT "CustomerId", "OrderId", "CreatedAt", "Priority", "Region", "Status"
+            FROM "SecondaryIndexOrders"."ByStatus"
+            WHERE "Status" = 'PENDING'
+            ORDER BY "CreatedAt" ASC
+            """);
+    }
+
+    // ── No predicate fallback ─────────────────────────────────────────────────
+
+    /// <summary>
+    /// Verifies that a query with no WHERE clause results in no index PK constraints, so all
+    /// candidates fail Gate 1 and the provider emits IDX001 and falls back to the base table.
+    /// </summary>
+    [Fact]
+    public async Task Conservative_NoPredicate_EmitsNoCompatibleIndex_StaysOnBaseTable()
+    {
+        _ = await Db.Orders.ToListAsync(CancellationToken);
+
+        // All candidates fail Gate 1 — no PK constraints extracted.
+        LoggerFactory.QueryDiagnosticEvents.Should().Contain(e
+            => e.EventId.Id == DynamoEventId.NoCompatibleSecondaryIndexFound.Id);
+
+        AssertSql(
+            """
+            SELECT "CustomerId", "OrderId", "CreatedAt", "Priority", "Region", "Status"
+            FROM "SecondaryIndexOrders"
+            """);
+    }
+
     // ── Off mode override ────────────────────────────────────────────────────
 
     /// <summary>
