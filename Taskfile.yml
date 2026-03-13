@@ -1,6 +1,51 @@
 version: '3'
 
 tasks:
+  clean:
+    desc: Clean the project
+    silent: true
+    cmds:
+      - echo "🧹 Cleaning"
+      - '[ -d ./nupkg ] && rm -r ./nupkg || true'
+      - dotnet clean --configuration Release
+      - echo "✅ Cleaning complete"
+      
+  restore:
+    desc: Restore the project's dependencies'
+    silent: true
+    deps: [ clean ]
+    cmds:
+      - echo "📥 Restoring dependencies"
+      - dotnet restore
+      - echo "✅ Dependencies restored"
+  
+  build:
+    desc: Build the project
+    silent: true
+    deps: [ restore ]
+    cmds:
+      - echo "🔨 Building Release"
+      - dotnet build --configuration Release --no-restore
+      - echo "✅ Release build complete"  
+  
+  pack:
+    desc: Pack the project for distribution
+    silent: true
+    deps: [ build ]
+    cmds:
+      - echo "📦 Packing Packages"
+      - dotnet pack --configuration Release --no-build --output ./nupkg
+      - echo "✅ Packed"   
+    
+  publish:
+    desc: Publish the package to a package registry
+    silent: true
+    deps: [ pack ]
+    cmds:
+      - echo "🚀 Publishing"
+      - dotnet nuget push ./nupkg/*.nupkg --source https://api.nuget.org/v3/index.json --api-key $NUGET_API_KEY --skip-duplicate
+      - echo "✨ Published"    
+    
   docs:serve:
     desc: Serve docs locally with Zensical
     cmds:
