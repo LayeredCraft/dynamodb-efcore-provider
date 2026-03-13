@@ -24,6 +24,7 @@ public static class DynamoEventId
         SecondaryIndexSelected = CoreEventId.ProviderBaseId + 106,
         ExplicitIndexSelected = CoreEventId.ProviderBaseId + 107,
         SecondaryIndexCandidateRejected = CoreEventId.ProviderBaseId + 108,
+        ExplicitIndexSelectionDisabled = CoreEventId.ProviderBaseId + 109,
     }
 
     private static readonly string CommandPrefix = DbLoggerCategory.Database.Command.Name + ".";
@@ -94,4 +95,10 @@ public static class DynamoEventId
     public static readonly EventId SecondaryIndexCandidateRejected = new(
         (int)Id.SecondaryIndexCandidateRejected,
         QueryPrefix + Id.SecondaryIndexCandidateRejected);
+
+    /// <summary>Index selection was suppressed by <c>.WithoutIndex()</c>.</summary>
+    /// <remarks>This event is in the <see cref="DbLoggerCategory.Query" /> category.</remarks>
+    public static readonly EventId ExplicitIndexSelectionDisabled = new(
+        (int)Id.ExplicitIndexSelectionDisabled,
+        QueryPrefix + Id.ExplicitIndexSelectionDisabled);
 }

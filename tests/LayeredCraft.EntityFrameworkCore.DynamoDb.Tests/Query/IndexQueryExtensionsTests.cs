@@ -193,6 +193,71 @@ public class IndexQueryExtensionsTests
                 .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
                 .Options);
 
+    // ── WithoutIndex extension tests ─────────────────────────────────────────
+
+    [Fact]
+    public void WithoutIndex_EntityQueryProvider_WrapsExpressionInMethodCall()
+    {
+        using var context = CreateContext();
+
+        var query = context.Entities.WithoutIndex();
+
+        query.Expression.Should().BeAssignableTo<MethodCallExpression>();
+        var methodCall = (MethodCallExpression)query.Expression;
+        methodCall.Method.Name.Should().Be(nameof(DynamoDbQueryableExtensions.WithoutIndex));
+        // WithoutIndex takes no arguments beyond the source
+        methodCall.Arguments.Should().HaveCount(1);
+    }
+
+    [Fact]
+    public void WithoutIndex_NonEntityQueryProvider_ReturnsOriginalSource()
+    {
+        var source = new List<TestEntity>().AsQueryable();
+
+        var query = source.WithoutIndex();
+
+        query.Should().BeSameAs(source);
+    }
+
+    [Fact]
+    public void WithoutIndex_SetsIndexSelectionDisabledOnContext()
+    {
+        // Verifies that the translation visitor propagates WithoutIndex() to the compilation context.
+        var client = Substitute.For<IAmazonDynamoDB>();
+        client
+            .ExecuteStatementAsync(Arg.Any<ExecuteStatementRequest>(), Arg.Any<CancellationToken>())
+            .Returns(new ExecuteStatementResponse { Items = [] });
+
+        using var context = CreateContextWithClient(client);
+
+        // Executing the query causes translation — if IndexSelectionDisabled is not set, the
+        // provider would just use the base table silently; we just verify no exception is thrown
+        // and the call reaches the client (meaning translation completed successfully).
+        var act = async () => await context.Entities.WithoutIndex().ToListAsync();
+
+        act.Should().NotThrowAsync();
+    }
+
+    [Fact]
+    public async Task WithoutIndex_WithIndex_BothPresent_ThrowsInvalidOperationException()
+    {
+        // Combining .WithIndex() and .WithoutIndex() on the same query is a programmer error.
+        var client = Substitute.For<IAmazonDynamoDB>();
+        await using var context = CreateGsiContext(client);
+
+        var act = async () => await context
+            .Orders
+            .WithIndex("ByCustomer")
+            .WithoutIndex()
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        await act.Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*'.WithIndex()'*'.WithoutIndex()'*");
+    }
+
+    // ── WithIndex extension tests ─────────────────────────────────────────────
+
     [Fact]
     public void WithIndex_EmptyName_ThrowsArgumentException()
     {

@@ -61,6 +61,12 @@ public static class DynamoLoggerExtensions
             DynamoEventId.SecondaryIndexCandidateRejected,
             "{message}");
 
+    private static readonly Action<ILogger, string, Exception?> LogExplicitIndexSelectionDisabled =
+        LoggerMessage.Define<string>(
+            LogLevel.Information,
+            DynamoEventId.ExplicitIndexSelectionDisabled,
+            "{message}");
+
     public static void ExecutingPartiQlQuery(
         this IDiagnosticsLogger<DbLoggerCategory.Database.Command> diagnostics,
         string tableName,
@@ -154,6 +160,13 @@ public static class DynamoLoggerExtensions
                     return;
 
                 LogSecondaryIndexCandidateRejected(diagnostics.Logger, diagnostic.Message, null);
+                return;
+
+            case "DYNAMO_IDX006":
+                if (!diagnostics.Logger.IsEnabled(LogLevel.Information))
+                    return;
+
+                LogExplicitIndexSelectionDisabled(diagnostics.Logger, diagnostic.Message, null);
                 return;
         }
     }
