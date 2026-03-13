@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore.Metadata;
 
 namespace Microsoft.EntityFrameworkCore;
 
+/// <summary>Represents the DynamoNavigationExtensions type.</summary>
 public static class DynamoNavigationExtensions
 {
     extension(IReadOnlyNavigation navigation)

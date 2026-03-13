@@ -10,7 +10,9 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.SimpleTable
 /// </summary>
 public class NullComparisonTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase(fixture)
 {
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task Where_EqualNull_TranslatesToIsNullOrIsMissing()
     {
         var results =
@@ -31,7 +33,9 @@ public class NullComparisonTests(SimpleTableDynamoFixture fixture) : SimpleTable
             """);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task Where_NotEqualNull_TranslatesToIsNotNullAndIsNotMissing()
     {
         var results =
@@ -52,7 +56,9 @@ public class NullComparisonTests(SimpleTableDynamoFixture fixture) : SimpleTable
             """);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task Where_EqualNull_ComposedWithAnd_AddsParentheses()
     {
         var results =
@@ -73,7 +79,9 @@ public class NullComparisonTests(SimpleTableDynamoFixture fixture) : SimpleTable
             """);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task Where_NotOnEqualNull_WrapsWithNot()
     {
         var results =
@@ -94,7 +102,9 @@ public class NullComparisonTests(SimpleTableDynamoFixture fixture) : SimpleTable
             """);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task Where_Functions_IsNull_TranslatesToIsNull()
     {
         var results =
@@ -117,7 +127,9 @@ public class NullComparisonTests(SimpleTableDynamoFixture fixture) : SimpleTable
             """);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task Where_Functions_IsNotNull_TranslatesToIsNotNull()
     {
         var results =
@@ -138,7 +150,9 @@ public class NullComparisonTests(SimpleTableDynamoFixture fixture) : SimpleTable
             """);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task Where_Functions_IsMissing_ReturnsNoResults_WhenAllStoredAsNull()
     {
         // All seeded items store null NullableStringValue as {NULL:true} (OmitNullStrings = false),
@@ -159,7 +173,9 @@ public class NullComparisonTests(SimpleTableDynamoFixture fixture) : SimpleTable
             """);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task Where_Functions_IsNotMissing_ReturnsAllItems_WhenAllAttributesPresent()
     {
         // All seeded items have NullableStringValue present in the attribute map
@@ -180,7 +196,9 @@ public class NullComparisonTests(SimpleTableDynamoFixture fixture) : SimpleTable
             """);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task Where_Functions_IsMissing_FindsAbsentAttribute()
     {
         // Insert an item via the SDK with NullableStringValue absent from the attribute map.

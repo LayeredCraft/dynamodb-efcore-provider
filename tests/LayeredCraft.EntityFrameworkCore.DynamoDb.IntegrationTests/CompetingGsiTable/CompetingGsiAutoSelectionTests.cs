@@ -23,6 +23,7 @@ public sealed class CompetingGsiAutoSelectionTests(CompetingGsiDynamoFixture fix
 
     /// <summary>Verifies that when two GSIs tie, the provider emits IDX002 and uses the base table.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task Conservative_CompetingGsis_WithEqualScore_EmitsIdx002_UsesBaseTable()
     {
         var results =
@@ -48,6 +49,7 @@ public sealed class CompetingGsiAutoSelectionTests(CompetingGsiDynamoFixture fix
 
     /// <summary>Verifies that ordering on one candidate sort key breaks the tie and selects that index.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task Conservative_CompetingGsis_OrderBySortKey_SelectsScoringWinner()
     {
         _ = await Db

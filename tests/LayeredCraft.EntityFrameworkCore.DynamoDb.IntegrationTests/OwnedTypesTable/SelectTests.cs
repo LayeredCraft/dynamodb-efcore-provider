@@ -2,9 +2,12 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.OwnedTypesTable;
 
+/// <summary>Represents the SelectTests type.</summary>
 public class SelectTests(OwnedTypesTableDynamoFixture fixture) : OwnedTypesTableTestBase(fixture)
 {
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task ToListAsync_MaterializesOwnedReferencesAndCollections()
     {
         var results = await Db.Items.ToListAsync(CancellationToken);
@@ -20,7 +23,9 @@ public class SelectTests(OwnedTypesTableDynamoFixture fixture) : OwnedTypesTable
             """);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task Select_NestedOwnedReferenceProjection_MaterializesShape()
     {
         var results =
@@ -37,7 +42,9 @@ public class SelectTests(OwnedTypesTableDynamoFixture fixture) : OwnedTypesTable
             """);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task Select_NestedOwnedReferencePartialProjection_MaterializesShape()
     {
         var results =
@@ -57,7 +64,9 @@ public class SelectTests(OwnedTypesTableDynamoFixture fixture) : OwnedTypesTable
             """);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task Select_NestedOwnedCollectionProjection_MaterializesShape()
     {
         var results =
@@ -83,7 +92,9 @@ public class SelectTests(OwnedTypesTableDynamoFixture fixture) : OwnedTypesTable
             """);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task OwnedCollectionElements_HaveOrdinalKeys()
     {
         var item =
@@ -118,7 +129,9 @@ public class SelectTests(OwnedTypesTableDynamoFixture fixture) : OwnedTypesTable
             """);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task Select_OwnedNavigationChain_IntermediateNull_PropagatesNull()
     {
         var results =
@@ -139,7 +152,9 @@ public class SelectTests(OwnedTypesTableDynamoFixture fixture) : OwnedTypesTable
             """);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task Select_OwnedNavigationChain_MissingAttribute_PropagatesNull()
     {
         var item = OwnedTypesItemMapper.ToItem(OwnedTypesItems.Items[0]);
@@ -166,7 +181,9 @@ public class SelectTests(OwnedTypesTableDynamoFixture fixture) : OwnedTypesTable
             """);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task
         ToListAsync_OwnedCollectionElement_WithOptionalOwnedReference_MixedNullMaterializes()
     {
@@ -194,7 +211,9 @@ public class SelectTests(OwnedTypesTableDynamoFixture fixture) : OwnedTypesTable
             """);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task NestedOwnedCollectionElements_HaveOrdinalKeys_ResetPerParent()
     {
         var item =
@@ -225,7 +244,9 @@ public class SelectTests(OwnedTypesTableDynamoFixture fixture) : OwnedTypesTable
             """);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task ToListAsync_AsNoTracking_OwnedCollections_MaterializeCorrectly()
     {
         var item =

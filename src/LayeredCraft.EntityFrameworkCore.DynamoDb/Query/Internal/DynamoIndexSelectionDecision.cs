@@ -2,7 +2,7 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
 
 /// <summary>
 /// The outcome of index-selection analysis for a single compiled query.
-/// Returned by <see cref="IDynamoIndexSelectionAnalyzer.Analyze"/>.
+/// Returned by <c>IDynamoIndexSelectionAnalyzer.Analyze</c>.
 /// </summary>
 internal sealed record DynamoIndexSelectionDecision(
     string? SelectedIndexName,

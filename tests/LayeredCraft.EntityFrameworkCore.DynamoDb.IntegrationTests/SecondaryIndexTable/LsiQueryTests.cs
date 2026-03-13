@@ -3,10 +3,12 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.SecondaryIndexTable;
 
-/// <summary>Integration tests for querying <see cref="OrderItem" /> via local secondary indexes.</summary>
+/// <summary>Integration tests for querying <c>OrderItem</c> via local secondary indexes.</summary>
 public class LsiQueryTests(SecondaryIndexDynamoFixture fixture) : SecondaryIndexTestBase(fixture)
 {
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task ByCreatedAt_Lsi_ReturnsCustomerOrdersInDateOrder()
     {
         // DynamoDB Local does not support ORDER BY on secondary index sort keys via PartiQL.
@@ -44,7 +46,9 @@ public class LsiQueryTests(SecondaryIndexDynamoFixture fixture) : SecondaryIndex
             """);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task ByCreatedAt_Lsi_WithSortKeyBetween_ReturnsDateRangeOrders()
     {
         var results = await Db.Orders
@@ -70,7 +74,9 @@ public class LsiQueryTests(SecondaryIndexDynamoFixture fixture) : SecondaryIndex
             """);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task ByPriority_Lsi_ReturnsCustomerOrdersInPriorityOrder()
     {
         // DynamoDB Local does not support ORDER BY on secondary index sort keys via PartiQL.
@@ -108,7 +114,9 @@ public class LsiQueryTests(SecondaryIndexDynamoFixture fixture) : SecondaryIndex
             """);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task ByPriority_Lsi_WithNumericSortKeyFilter_ReturnsHighPriorityOrders()
     {
         var results = await Db.Orders
@@ -130,7 +138,9 @@ public class LsiQueryTests(SecondaryIndexDynamoFixture fixture) : SecondaryIndex
             """);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task ByCreatedAt_Lsi_EmitsCorrectFromSource_ForExecuteStatement()
     {
         _ = await Db.Orders

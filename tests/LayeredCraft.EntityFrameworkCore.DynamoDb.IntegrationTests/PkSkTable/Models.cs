@@ -3,16 +3,26 @@ using DynamoMapper.Runtime;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.PkSkTable;
 
+/// <summary>Represents the PkSkItem type.</summary>
 public sealed record PkSkItem
 {
+    /// <summary>Provides functionality for this member.</summary>
     public string Pk { get; set; } = null!;
+
+    /// <summary>Provides functionality for this member.</summary>
     public string Sk { get; set; } = null!;
+
+    /// <summary>Provides functionality for this member.</summary>
     public bool IsTarget { get; set; }
+
+    /// <summary>Provides functionality for this member.</summary>
     public string Category { get; set; } = null!;
 }
 
+/// <summary>Represents the PkSkItems type.</summary>
 public static class PkSkItems
 {
+    /// <summary>Provides functionality for this member.</summary>
     public static readonly List<PkSkItem> Items =
     [
         new()
@@ -37,6 +47,7 @@ public static class PkSkItems
         },
     ];
 
+    /// <summary>Provides functionality for this member.</summary>
     public static readonly IReadOnlyList<Dictionary<string, AttributeValue>> AttributeValues =
         CreateAttributeValues();
 

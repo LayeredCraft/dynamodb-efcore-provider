@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Diagnostics.Internal;
 
+/// <summary>Represents the DynamoLoggerExtensions type.</summary>
 public static class DynamoLoggerExtensions
 {
     private static readonly Action<ILogger, string, string, string, Exception?>
@@ -67,6 +68,7 @@ public static class DynamoLoggerExtensions
             DynamoEventId.ExplicitIndexSelectionDisabled,
             "{message}");
 
+    /// <summary>Provides functionality for this member.</summary>
     public static void ExecutingPartiQlQuery(
         this IDiagnosticsLogger<DbLoggerCategory.Database.Command> diagnostics,
         string tableName,
@@ -83,6 +85,7 @@ public static class DynamoLoggerExtensions
             null);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     public static void ExecutingExecuteStatement(
         this IDiagnosticsLogger<DbLoggerCategory.Database.Command> diagnostics,
         int? limit,
@@ -94,6 +97,7 @@ public static class DynamoLoggerExtensions
         LogExecutingExecuteStatement(diagnostics.Logger, limit, nextTokenPresent, null);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     public static void ExecutedExecuteStatement(
         this IDiagnosticsLogger<DbLoggerCategory.Database.Command> diagnostics,
         int itemsCount,
@@ -105,6 +109,7 @@ public static class DynamoLoggerExtensions
         LogExecutedExecuteStatement(diagnostics.Logger, itemsCount, nextTokenPresent, null);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     public static void RowLimitingQueryWithoutPageSize(
         this IDiagnosticsLogger<DbLoggerCategory.Database.Command> diagnostics,
         int resultLimit)
@@ -116,8 +121,6 @@ public static class DynamoLoggerExtensions
     }
 
     /// <summary>Logs a structured query-compilation diagnostic from automatic index selection.</summary>
-    /// <param name="diagnostics">The EF Core query diagnostics logger.</param>
-    /// <param name="diagnostic">The provider diagnostic produced during index analysis.</param>
     internal static void IndexSelectionDiagnostic(
         this IDiagnosticsLogger<DbLoggerCategory.Query> diagnostics,
         DynamoQueryDiagnostic diagnostic)

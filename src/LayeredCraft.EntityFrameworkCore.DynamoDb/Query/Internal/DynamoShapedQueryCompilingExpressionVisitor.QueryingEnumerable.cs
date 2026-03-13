@@ -11,6 +11,7 @@ using Microsoft.EntityFrameworkCore.Query;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
 
+/// <summary>Represents the DynamoShapedQueryCompilingExpressionVisitor type.</summary>
 public partial class DynamoShapedQueryCompilingExpressionVisitor
 {
     private sealed class QueryingEnumerable<T>(
@@ -39,15 +40,18 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
         private readonly bool _threadSafetyChecksEnabled = threadSafetyChecksEnabled;
         private readonly bool _paginationDisabled = paginationDisabled;
 
+        /// <summary>Provides functionality for this member.</summary>
         public IAsyncEnumerator<T> GetAsyncEnumerator(CancellationToken cancellationToken = default)
             => new AsyncEnumerator(this, cancellationToken);
 
+        /// <summary>Provides functionality for this member.</summary>
         public IEnumerator<T> GetEnumerator()
             => throw new InvalidOperationException(
                 "Sync enumerating is not supported for DynamoDB.");
 
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
+        /// <summary>Provides functionality for this member.</summary>
         public string ToQueryString() => throw new NotImplementedException();
 
         /// <summary>Generates the PartiQL query at runtime with parameter values.</summary>
@@ -72,6 +76,7 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
 
             private IAsyncEnumerator<Dictionary<string, AttributeValue>>? _dataEnumerator;
 
+            /// <summary>Provides functionality for this member.</summary>
             public AsyncEnumerator(
                 QueryingEnumerable<T> enumerable,
                 CancellationToken cancellationToken)
@@ -103,8 +108,10 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
                     : null;
             }
 
+            /// <summary>Provides functionality for this member.</summary>
             public T Current { get; private set; } = default!;
 
+            /// <summary>Provides functionality for this member.</summary>
             public async ValueTask<bool> MoveNextAsync()
             {
                 using var _ = _concurrencyDetector?.EnterCriticalSection();
@@ -153,6 +160,7 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
                 return true;
             }
 
+            /// <summary>Provides functionality for this member.</summary>
             public ValueTask DisposeAsync()
             {
                 var enumerator = _dataEnumerator;

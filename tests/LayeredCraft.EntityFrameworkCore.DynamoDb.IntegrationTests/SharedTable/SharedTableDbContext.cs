@@ -2,13 +2,17 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.SharedTable;
 
+/// <summary>Represents the SharedTableDbContext type.</summary>
 public class SharedTableDbContext(DbContextOptions<SharedTableDbContext> options) : DbContext(
     options)
 {
+    /// <summary>Provides functionality for this member.</summary>
     public DbSet<UserEntity> Users => Set<UserEntity>();
 
+    /// <summary>Provides functionality for this member.</summary>
     public DbSet<OrderEntity> Orders => Set<OrderEntity>();
 
+    /// <summary>Provides functionality for this member.</summary>
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<UserEntity>(builder =>
@@ -27,13 +31,17 @@ public class SharedTableDbContext(DbContextOptions<SharedTableDbContext> options
     }
 }
 
+/// <summary>Represents the SharedTableCustomDiscriminatorNameDbContext type.</summary>
 public class SharedTableCustomDiscriminatorNameDbContext(
     DbContextOptions<SharedTableCustomDiscriminatorNameDbContext> options) : DbContext(options)
 {
+    /// <summary>Provides functionality for this member.</summary>
     public DbSet<UserEntity> Users => Set<UserEntity>();
 
+    /// <summary>Provides functionality for this member.</summary>
     public DbSet<OrderEntity> Orders => Set<OrderEntity>();
 
+    /// <summary>Provides functionality for this member.</summary>
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasEmbeddedDiscriminatorName("$kind");
@@ -54,11 +62,14 @@ public class SharedTableCustomDiscriminatorNameDbContext(
     }
 }
 
+/// <summary>Represents the SharedTableSingleTypeDbContext type.</summary>
 public class SharedTableSingleTypeDbContext(
     DbContextOptions<SharedTableSingleTypeDbContext> options) : DbContext(options)
 {
+    /// <summary>Provides functionality for this member.</summary>
     public DbSet<UserEntity> Users => Set<UserEntity>();
 
+    /// <summary>Provides functionality for this member.</summary>
     protected override void OnModelCreating(ModelBuilder modelBuilder)
         => modelBuilder.Entity<UserEntity>(builder =>
         {
@@ -68,15 +79,20 @@ public class SharedTableSingleTypeDbContext(
         });
 }
 
+/// <summary>Represents the SharedTableInheritanceDbContext type.</summary>
 public class SharedTableInheritanceDbContext(
     DbContextOptions<SharedTableInheritanceDbContext> options) : DbContext(options)
 {
+    /// <summary>Provides functionality for this member.</summary>
     public DbSet<PersonEntity> People => Set<PersonEntity>();
 
+    /// <summary>Provides functionality for this member.</summary>
     public DbSet<EmployeeEntity> Employees => Set<EmployeeEntity>();
 
+    /// <summary>Provides functionality for this member.</summary>
     public DbSet<ManagerEntity> Managers => Set<ManagerEntity>();
 
+    /// <summary>Provides functionality for this member.</summary>
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<PersonEntity>(builder =>
@@ -101,15 +117,20 @@ public class SharedTableInheritanceDbContext(
     }
 }
 
+/// <summary>Represents the SharedTableInheritanceBaseOnlyToTableDbContext type.</summary>
 public class SharedTableInheritanceBaseOnlyToTableDbContext(
     DbContextOptions<SharedTableInheritanceBaseOnlyToTableDbContext> options) : DbContext(options)
 {
+    /// <summary>Provides functionality for this member.</summary>
     public DbSet<PersonEntity> People => Set<PersonEntity>();
 
+    /// <summary>Provides functionality for this member.</summary>
     public DbSet<EmployeeEntity> Employees => Set<EmployeeEntity>();
 
+    /// <summary>Provides functionality for this member.</summary>
     public DbSet<ManagerEntity> Managers => Set<ManagerEntity>();
 
+    /// <summary>Provides functionality for this member.</summary>
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<PersonEntity>(builder =>
@@ -129,11 +150,14 @@ public class SharedTableInheritanceBaseOnlyToTableDbContext(
     }
 }
 
+/// <summary>Represents the SharedTableInheritanceWithIndexesDbContext type.</summary>
 public class SharedTableInheritanceWithIndexesDbContext(
     DbContextOptions<SharedTableInheritanceWithIndexesDbContext> options) : DbContext(options)
 {
+    /// <summary>Provides functionality for this member.</summary>
     public DbSet<ArchivedWorkOrderEntity> ArchivedWorkOrders => Set<ArchivedWorkOrderEntity>();
 
+    /// <summary>Provides functionality for this member.</summary>
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<WorkOrderEntity>(builder =>

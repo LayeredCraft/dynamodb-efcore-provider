@@ -6,23 +6,30 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.TestUtilities;
 
+/// <summary>Represents the TestPartiQlLoggerFactory type.</summary>
 public sealed class TestPartiQlLoggerFactory : ILoggerFactory
 {
     private readonly TestPartiQlLogger _logger = new();
     private bool _disposed;
 
+    /// <summary>Provides functionality for this member.</summary>
     public IReadOnlyList<string> PartiQlStatements => _logger.PartiQlStatements;
 
+    /// <summary>Provides functionality for this member.</summary>
     public IReadOnlyList<ExecuteStatementCall> ExecuteStatementCalls
         => _logger.ExecuteStatementCalls;
 
+    /// <summary>Provides functionality for this member.</summary>
     public IReadOnlyList<int> RowLimitingWarnings => _logger.RowLimitingWarnings;
 
+    /// <summary>Provides functionality for this member.</summary>
     public IReadOnlyList<QueryDiagnosticEvent> QueryDiagnosticEvents
         => _logger.QueryDiagnosticEvents;
 
+    /// <summary>Provides functionality for this member.</summary>
     public void Clear() => _logger.Clear();
 
+    /// <summary>Provides functionality for this member.</summary>
     public ILogger CreateLogger(string categoryName)
     {
         ObjectDisposedException.ThrowIf(_disposed, typeof(TestPartiQlLoggerFactory));
@@ -35,11 +42,14 @@ public sealed class TestPartiQlLoggerFactory : ILoggerFactory
             : NullLogger.Instance;
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     public void AddProvider(ILoggerProvider provider)
         => ObjectDisposedException.ThrowIf(_disposed, typeof(TestPartiQlLoggerFactory));
 
+    /// <summary>Provides functionality for this member.</summary>
     public void Dispose() => _disposed = true;
 
+    /// <summary>Provides functionality for this member.</summary>
     public void AssertBaseline(params string[] expected)
     {
         try
@@ -79,11 +89,19 @@ public sealed class TestPartiQlLoggerFactory : ILoggerFactory
 
     private sealed class TestPartiQlLogger : ILogger
     {
+        /// <summary>Provides functionality for this member.</summary>
         public List<string> PartiQlStatements { get; } = [];
+
+        /// <summary>Provides functionality for this member.</summary>
         public List<ExecuteStatementCall> ExecuteStatementCalls { get; } = [];
+
+        /// <summary>Provides functionality for this member.</summary>
         public List<int> RowLimitingWarnings { get; } = [];
+
+        /// <summary>Provides functionality for this member.</summary>
         public List<QueryDiagnosticEvent> QueryDiagnosticEvents { get; } = [];
 
+        /// <summary>Provides functionality for this member.</summary>
         public void Clear()
         {
             PartiQlStatements.Clear();
@@ -92,10 +110,13 @@ public sealed class TestPartiQlLoggerFactory : ILoggerFactory
             QueryDiagnosticEvents.Clear();
         }
 
+        /// <summary>Provides functionality for this member.</summary>
         public bool IsEnabled(LogLevel logLevel) => true;
 
+        /// <summary>Provides functionality for this member.</summary>
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
 
+        /// <summary>Provides functionality for this member.</summary>
         public void Log<TState>(
             LogLevel logLevel,
             EventId eventId,
@@ -194,11 +215,13 @@ public sealed class TestPartiQlLoggerFactory : ILoggerFactory
         }
     }
 
+    /// <summary>Represents the ExecuteStatementCall type.</summary>
     public sealed record ExecuteStatementCall(
         int? Limit,
         bool RequestNextTokenPresent,
         int? ItemsCount,
         bool? ResponseNextTokenPresent);
 
+    /// <summary>Represents the QueryDiagnosticEvent type.</summary>
     public sealed record QueryDiagnosticEvent(EventId EventId, LogLevel LogLevel, string Message);
 }

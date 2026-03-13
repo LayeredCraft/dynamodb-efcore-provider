@@ -30,6 +30,7 @@ public sealed class SecondaryIndexProjectionAutoSelectionTests(
     ///     table.
     /// </summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task Conservative_WhereOnKeysOnlyGsiPk_RejectsCandidate_UsesBaseTable()
     {
         var results =
@@ -66,6 +67,7 @@ public sealed class SecondaryIndexProjectionAutoSelectionTests(
     ///     table.
     /// </summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task Conservative_WhereOnIncludeGsiPk_RejectsCandidate_UsesBaseTable()
     {
         var results =

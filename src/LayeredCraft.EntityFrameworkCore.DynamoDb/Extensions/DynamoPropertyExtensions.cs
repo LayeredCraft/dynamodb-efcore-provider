@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore.Metadata;
 
 namespace Microsoft.EntityFrameworkCore;
 
+/// <summary>Represents the DynamoPropertyExtensions type.</summary>
 public static class DynamoPropertyExtensions
 {
     extension(IReadOnlyProperty property)

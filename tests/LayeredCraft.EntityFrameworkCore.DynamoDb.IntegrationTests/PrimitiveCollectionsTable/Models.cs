@@ -3,6 +3,7 @@ using DynamoMapper.Runtime;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.PrimitiveCollectionsTable;
 
+/// <summary>Represents the PrimitiveCollectionsItem type.</summary>
 public record PrimitiveCollectionsItem(
     string Pk,
     List<string> Tags,
@@ -12,8 +13,10 @@ public record PrimitiveCollectionsItem(
     Dictionary<string, string> Metadata,
     List<string>? OptionalTags);
 
+/// <summary>Represents the PrimitiveCollectionsItems type.</summary>
 public static class PrimitiveCollectionsItems
 {
+    /// <summary>Provides functionality for this member.</summary>
     public static readonly List<PrimitiveCollectionsItem> Items =
     [
         new(
@@ -45,6 +48,7 @@ public static class PrimitiveCollectionsItems
             ["only"]),
     ];
 
+    /// <summary>Provides functionality for this member.</summary>
     public static readonly IReadOnlyList<Dictionary<string, AttributeValue>> AttributeValues =
         CreateAttributeValues();
 

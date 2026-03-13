@@ -18,7 +18,7 @@ public abstract class SharedTableWithIndexesTestBase(SharedTableWithIndexesDynam
     /// <inheritdoc />
     /// <remarks>
     /// Overrides the default options to enable
-    /// <see cref="DynamoAutomaticIndexSelectionMode.Conservative"/> so the analyzer may rewrite
+    /// <c>DynamoAutomaticIndexSelectionMode.Conservative</c> so the analyzer may rewrite
     /// query sources during these tests.
     /// </remarks>
     protected override DbContextOptions<SharedTableWithIndexesDbContext> CreateOptions(

@@ -57,7 +57,9 @@ public class OwnedReferenceProjectionTests
         return item;
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void Model_EntityA_HasEmbeddedProfileNavigation()
     {
         using var ctx = AmbiguousModelDbContext.Create(Substitute.For<IAmazonDynamoDB>());
@@ -75,7 +77,9 @@ public class OwnedReferenceProjectionTests
             $"Profile should be embedded (IsOnDependent={nav.IsOnDependent}, TargetIsOwned={nav.TargetEntityType.IsOwned()})");
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task SelectOwnedReference_WithAmbiguousModel_ReturnsCorrectProfile()
     {
         // Arrange: build item representing an EntityA row with a Profile map attribute.
@@ -112,7 +116,9 @@ public class OwnedReferenceProjectionTests
         profiles[0]!.Age.Should().Be(39);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task
         SelectOwnedReference_WithAmbiguousModel_SelectingEntityB_ReturnsCorrectProfile()
     {
@@ -147,7 +153,9 @@ public class OwnedReferenceProjectionTests
         profiles[0]!.Age.Should().Be(25);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task SelectAnonymousWithOwnedReference_WithAmbiguousModel_MaterialisesCorrectly()
     {
         // Arrange: anonymous type projection { Pk, Profile } — exercises index-based binding.
@@ -180,7 +188,9 @@ public class OwnedReferenceProjectionTests
         results[0].Profile!.Age.Should().Be(42);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task SelectOwnedReference_WithEfProperty_InAmbiguousModel_ReturnsCorrectProfile()
     {
         var item = CreateItem(
@@ -206,7 +216,9 @@ public class OwnedReferenceProjectionTests
         profiles[0]!.Age.Should().Be(31);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task
         SelectAnonymousWithOwnedReferenceEfProperty_WithAmbiguousModel_MaterialisesCorrectly()
     {
@@ -234,7 +246,9 @@ public class OwnedReferenceProjectionTests
         results[0].Profile!.Age.Should().Be(28);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task
         SelectOwnedReference_ProfileAttributeMissing_ReturnsNullForOptionalNavigation()
     {
@@ -254,7 +268,9 @@ public class OwnedReferenceProjectionTests
         profiles[0].Should().BeNull();
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task SelectOwnedReference_ProfileAttributeNull_ReturnsNullForOptionalNavigation()
     {
         var item = CreateItem("A#6", null, true, true);
@@ -273,7 +289,9 @@ public class OwnedReferenceProjectionTests
         profiles[0].Should().BeNull();
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task Where_OwnedReferenceIsNull_TranslatesToProfileNullOrMissingPredicate()
     {
         ExecuteStatementRequest? capturedRequest = null;
@@ -296,7 +314,9 @@ public class OwnedReferenceProjectionTests
         capturedRequest.Statement.Should().Contain("\"Profile\" IS MISSING");
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task
         Where_EfPropertyOwnedReferenceIsNull_TranslatesToProfileNullOrMissingPredicate()
     {
@@ -320,7 +340,9 @@ public class OwnedReferenceProjectionTests
         capturedRequest.Statement.Should().Contain("\"Profile\" IS MISSING");
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task SelectOwnedReference_RequiredProfileMissing_ThrowsClearError()
     {
         var item = CreateItem("R#1", null, false);
@@ -341,7 +363,9 @@ public class OwnedReferenceProjectionTests
             .WithMessage("*Required owned navigation*missing or NULL*");
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void ProjectionBinding_ForOwnedType_WithoutNavigationMetadata_ThrowsClearError()
     {
         using var ctx = AmbiguousModelDbContext.Create(Substitute.For<IAmazonDynamoDB>());
@@ -380,25 +404,37 @@ public class OwnedReferenceProjectionTests
     // Shared owned CLR type used by both root entities to trigger the ambiguity scenario.
     private sealed record SharedProfile
     {
+        /// <summary>Provides functionality for this member.</summary>
         public int? Age { get; set; }
+
+        /// <summary>Provides functionality for this member.</summary>
         public string DisplayName { get; set; } = null!;
     }
 
     private sealed record EntityA
     {
+        /// <summary>Provides functionality for this member.</summary>
         public string Pk { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public SharedProfile? Profile { get; set; }
     }
 
     private sealed record EntityB
     {
+        /// <summary>Provides functionality for this member.</summary>
         public string Pk { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public SharedProfile? Profile { get; set; }
     }
 
     private sealed record RequiredEntity
     {
+        /// <summary>Provides functionality for this member.</summary>
         public string Pk { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public SharedProfile Profile { get; set; } = null!;
     }
 
@@ -407,9 +443,13 @@ public class OwnedReferenceProjectionTests
     // type.
     private sealed class AmbiguousModelDbContext(DbContextOptions options) : DbContext(options)
     {
+        /// <summary>Provides functionality for this member.</summary>
         public DbSet<EntityA> EntityAs { get; set; }
+
+        /// <summary>Provides functionality for this member.</summary>
         public DbSet<EntityB> EntityBs { get; set; }
 
+        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<EntityA>(b =>
@@ -427,6 +467,7 @@ public class OwnedReferenceProjectionTests
             });
         }
 
+        /// <summary>Provides functionality for this member.</summary>
         public static AmbiguousModelDbContext Create(IAmazonDynamoDB client)
             => new(
                 new DbContextOptionsBuilder<AmbiguousModelDbContext>()
@@ -439,8 +480,10 @@ public class OwnedReferenceProjectionTests
     /// <summary>DbContext with a required owned-reference navigation used to validate requiredness errors.</summary>
     private sealed class RequiredOwnedDbContext(DbContextOptions options) : DbContext(options)
     {
+        /// <summary>Provides functionality for this member.</summary>
         public DbSet<RequiredEntity> RequiredEntities { get; set; }
 
+        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<RequiredEntity>(b =>
             {
@@ -450,6 +493,7 @@ public class OwnedReferenceProjectionTests
                 b.Navigation(x => x.Profile).IsRequired();
             });
 
+        /// <summary>Provides functionality for this member.</summary>
         public static RequiredOwnedDbContext Create(IAmazonDynamoDB client)
             => new(
                 new DbContextOptionsBuilder<RequiredOwnedDbContext>()

@@ -7,6 +7,6 @@
     <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
   </PropertyGroup>
   <PropertyGroup>
-    <NoWarn>EF1001</NoWarn>
+    <NoWarn>EF1001;CS1574;CS1587;CS1591;xUnit1051</NoWarn>
   </PropertyGroup>
 </Project>

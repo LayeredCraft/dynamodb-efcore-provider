@@ -20,11 +20,11 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
 /// Follows the same pattern as <c>CosmosQueryTranslationPostprocessor</c>:
 /// <list type="number">
 ///   <item><description>Calls <c>base.Process</c> to apply standard EF post-processing.</description></item>
-///   <item><description>Finalises the <see cref="SelectExpression"/> (discriminator predicate and projection)
+///   <item><description>Finalises the <c>SelectExpression</c> (discriminator predicate and projection)
 ///     so the analyzer can inspect the complete predicate tree and projection shape.</description></item>
 ///   <item><description>Pre-fetches runtime index descriptors from model annotations (once per compile).</description></item>
-///   <item><description>Delegates to <see cref="IDynamoIndexSelectionAnalyzer"/> to choose an index.</description></item>
-///   <item><description>Applies the chosen index name to the <see cref="SelectExpression"/> so the SQL generator
+///   <item><description>Delegates to <c>IDynamoIndexSelectionAnalyzer</c> to choose an index.</description></item>
+///   <item><description>Applies the chosen index name to the <c>SelectExpression</c> so the SQL generator
 ///     emits <c>FROM "Table"."Index"</c> or <c>FROM "Table"</c> accordingly.</description></item>
 /// </list>
 /// </para>
@@ -36,12 +36,11 @@ internal sealed class DynamoQueryTranslationPostprocessor(
     : QueryTranslationPostprocessor(dependencies, dynamoQueryCompilationContext)
 {
     /// <summary>
-    /// Applies standard post-processing, finalises the <see cref="SelectExpression"/>, runs
+    /// Applies standard post-processing, finalises the <c>SelectExpression</c>, runs
     /// index-selection analysis, and applies the chosen index name to the query model.
     /// </summary>
-    /// <param name="query">The translated LINQ expression tree to post-process.</param>
     /// <returns>
-    /// The post-processed expression tree with <see cref="SelectExpression.IndexName"/> set to
+    /// The post-processed expression tree with <c>SelectExpression.IndexName</c> set to
     /// the analyzer's chosen index, or <c>null</c> for base-table queries.
     /// </returns>
     public override Expression Process(Expression query)
@@ -105,19 +104,14 @@ internal sealed class DynamoQueryTranslationPostprocessor(
 
     /// <summary>
     /// Resolves the pre-fetched list of query source candidates for the given table and entity
-    /// type from the <see cref="DynamoRuntimeTableModel"/> runtime annotation.
+    /// type from the <c>DynamoRuntimeTableModel</c> runtime annotation.
     /// </summary>
-    /// <param name="runtimeModel">
     /// The runtime model, or <c>null</c> when the model has not yet been initialised (design-time).
-    /// </param>
-    /// <param name="tableGroupName">Physical DynamoDB table name from the <see cref="SelectExpression"/>.</param>
-    /// <param name="queryEntityTypeName">
     /// The CLR name of the entity type being queried, used to scope candidates for shared-table
     /// models. When <c>null</c> (non-entity projection queries), all sources for the table are
     /// returned deduplicated by index name.
-    /// </param>
     /// <returns>
-    /// The scoped list of <see cref="DynamoIndexDescriptor"/> candidates (base table first, then
+    /// The scoped list of <c>DynamoIndexDescriptor</c> candidates (base table first, then
     /// secondary indexes), or an empty list when the runtime model is unavailable or the table
     /// is not found.
     /// </returns>
@@ -157,8 +151,6 @@ internal sealed class DynamoQueryTranslationPostprocessor(
     }
 
     /// <summary>Resolves effective partition-key property names for the finalized query source.</summary>
-    /// <param name="candidates">The scoped runtime source descriptors for the query.</param>
-    /// <param name="selectedIndexName">The selected index name, or <c>null</c> for base table.</param>
     /// <returns>
     ///     A set containing the partition key for the finalized query source (base table when no
     ///     index is selected, or the selected index partition key when an index is selected).
@@ -184,8 +176,6 @@ internal sealed class DynamoQueryTranslationPostprocessor(
     }
 
     /// <summary>Emits structured EF query diagnostics for index-selection analysis results.</summary>
-    /// <param name="diagnostics">The diagnostics produced by the analyzer.</param>
-    /// <param name="queryLogger">The EF Core query logger for query-compilation events.</param>
     private static void EmitIndexSelectionDiagnostics(
         IReadOnlyList<DynamoQueryDiagnostic> diagnostics,
         IDiagnosticsLogger<DbLoggerCategory.Query> queryLogger)

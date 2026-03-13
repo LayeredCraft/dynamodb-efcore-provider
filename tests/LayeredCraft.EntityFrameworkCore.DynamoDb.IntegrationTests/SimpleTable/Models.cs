@@ -3,42 +3,62 @@ using DynamoMapper.Runtime;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.SimpleTable;
 
-using System;
-
+/// <summary>Represents the SimpleItem type.</summary>
 public sealed record SimpleItem
 {
     // Partition key
+    /// <summary>Provides functionality for this member.</summary>
     public string Pk { get; set; } = null!;
 
     // Boolean
+    /// <summary>Provides functionality for this member.</summary>
     public bool BoolValue { get; set; }
 
     // Integral numerics
     // public byte ByteValue { get; set; }
     // public short ShortValue { get; set; }
+    /// <summary>Provides functionality for this member.</summary>
     public int IntValue { get; set; }
+
+    /// <summary>Provides functionality for this member.</summary>
     public long LongValue { get; set; }
 
     // Floating point / decimal
+    /// <summary>Provides functionality for this member.</summary>
     public float FloatValue { get; set; }
+
+    /// <summary>Provides functionality for this member.</summary>
     public double DoubleValue { get; set; }
+
+    /// <summary>Provides functionality for this member.</summary>
     public decimal DecimalValue { get; set; }
 
     // String-like
+    /// <summary>Provides functionality for this member.</summary>
     public string StringValue { get; set; } = null!;
+
+    /// <summary>Provides functionality for this member.</summary>
     public Guid GuidValue { get; set; }
 
     // Temporal
+    /// <summary>Provides functionality for this member.</summary>
     public DateTimeOffset DateTimeOffsetValue { get; set; }
 
     // nullable
+    /// <summary>Provides functionality for this member.</summary>
     public bool? NullableBoolValue { get; set; }
+
+    /// <summary>Provides functionality for this member.</summary>
     public int? NullableIntValue { get; set; }
+
+    /// <summary>Provides functionality for this member.</summary>
     public string? NullableStringValue { get; set; }
 }
 
+/// <summary>Represents the SimpleItems type.</summary>
 public static class SimpleItems
 {
+    /// <summary>Provides functionality for this member.</summary>
     public static readonly List<SimpleItem> Items =
     [
         new()
@@ -107,6 +127,7 @@ public static class SimpleItems
         },
     ];
 
+    /// <summary>Provides functionality for this member.</summary>
     public static readonly IReadOnlyList<Dictionary<string, AttributeValue>> AttributeValues =
         CreateAttributeValues();
 

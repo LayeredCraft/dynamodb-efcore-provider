@@ -4,10 +4,12 @@ using LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.TestUtilities;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.PrimitiveCollectionsTable;
 
+/// <summary>Represents the PrimitiveCollectionsTestBase type.</summary>
 public abstract class PrimitiveCollectionsTestBase(PrimitiveCollectionsDynamoFixture fixture)
     : DynamoDbPerTestResetTestBase<PrimitiveCollectionsDynamoFixture,
         PrimitiveCollectionsDbContext>(fixture)
 {
+    /// <summary>Provides functionality for this member.</summary>
     protected override async Task CreateTablesAsync(CancellationToken cancellationToken)
     {
         await Client.CreateTableAsync(
@@ -35,6 +37,7 @@ public abstract class PrimitiveCollectionsTestBase(PrimitiveCollectionsDynamoFix
             cancellationToken);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     protected override async Task SeedAsync(CancellationToken cancellationToken)
     {
         var writeRequests =

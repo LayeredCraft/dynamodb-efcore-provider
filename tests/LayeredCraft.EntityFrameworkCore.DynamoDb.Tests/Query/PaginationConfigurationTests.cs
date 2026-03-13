@@ -6,9 +6,12 @@ using NSubstitute;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Tests.Query;
 
+/// <summary>Represents the PaginationConfigurationTests type.</summary>
 public class PaginationConfigurationTests
 {
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void DynamoDbOptionsExtension_DefaultValues_AreCorrect()
     {
         var extension = new DynamoDbOptionsExtension();
@@ -20,7 +23,9 @@ public class PaginationConfigurationTests
         extension.DynamoDbClientConfigAction.Should().BeNull();
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void WithDynamoDbClient_SetsClient()
     {
         var extension = new DynamoDbOptionsExtension();
@@ -31,7 +36,9 @@ public class PaginationConfigurationTests
         updated.DynamoDbClient.Should().BeSameAs(client);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void WithDynamoDbClientConfig_SetsConfig()
     {
         var extension = new DynamoDbOptionsExtension();
@@ -42,7 +49,9 @@ public class PaginationConfigurationTests
         updated.DynamoDbClientConfig.Should().BeSameAs(config);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void WithDynamoDbClientConfigAction_SetsCallback()
     {
         var extension = new DynamoDbOptionsExtension();
@@ -54,7 +63,9 @@ public class PaginationConfigurationTests
         updated.DynamoDbClientConfigAction.Should().BeSameAs(callback);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void WithDefaultPageSize_SetsPageSize()
     {
         var extension = new DynamoDbOptionsExtension();
@@ -64,7 +75,9 @@ public class PaginationConfigurationTests
         updated.DefaultPageSize.Should().Be(100);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void WithDefaultPageSize_Zero_ThrowsException()
     {
         var extension = new DynamoDbOptionsExtension();
@@ -74,7 +87,9 @@ public class PaginationConfigurationTests
         act.Should().Throw<ArgumentOutOfRangeException>().WithParameterName("pageSize");
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void WithDefaultPageSize_Negative_ThrowsException()
     {
         var extension = new DynamoDbOptionsExtension();
@@ -84,7 +99,9 @@ public class PaginationConfigurationTests
         act.Should().Throw<ArgumentOutOfRangeException>().WithParameterName("pageSize");
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void Clone_PreservesAllProperties()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -107,7 +124,9 @@ public class PaginationConfigurationTests
         cloned.AutomaticIndexSelectionMode.Should().Be(DynamoAutomaticIndexSelectionMode.Conservative);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void ServiceProviderHash_IncludesDefaultPageSize()
     {
         var extension1 = new DynamoDbOptionsExtension().WithDefaultPageSize(100);
@@ -120,7 +139,9 @@ public class PaginationConfigurationTests
         hash1.Should().NotBe(hash2);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void ShouldUseSameServiceProvider_DifferentDefaultPageSize_ReturnsFalse()
     {
         var extension1 = new DynamoDbOptionsExtension().WithDefaultPageSize(50);
@@ -130,7 +151,9 @@ public class PaginationConfigurationTests
         extension1.Info.ShouldUseSameServiceProvider(extension2.Info).Should().BeFalse();
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void WithAutomaticIndexSelectionMode_SetsMode()
     {
         var extension = new DynamoDbOptionsExtension();
@@ -140,7 +163,9 @@ public class PaginationConfigurationTests
         updated.AutomaticIndexSelectionMode.Should().Be(DynamoAutomaticIndexSelectionMode.SuggestOnly);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void UseDynamo_ConfigureAutomaticIndexSelection_StoresModeOnOptionsExtension()
     {
         var optionsBuilder = new DbContextOptionsBuilder();
@@ -154,7 +179,9 @@ public class PaginationConfigurationTests
         extension!.AutomaticIndexSelectionMode.Should().Be(DynamoAutomaticIndexSelectionMode.Conservative);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void ServiceProviderHash_IncludesAutomaticIndexSelectionMode()
     {
         var extension1 = new DynamoDbOptionsExtension()
@@ -169,7 +196,9 @@ public class PaginationConfigurationTests
         hash1.Should().NotBe(hash2);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void ShouldUseSameServiceProvider_SameSettings_ReturnsTrue()
     {
         var extension1 = new DynamoDbOptionsExtension().WithDefaultPageSize(100);
@@ -179,7 +208,9 @@ public class PaginationConfigurationTests
         extension1.Info.ShouldUseSameServiceProvider(extension2.Info).Should().BeTrue();
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void ShouldUseSameServiceProvider_DifferentClient_ReturnsFalse()
     {
         var extension1 =
@@ -190,7 +221,9 @@ public class PaginationConfigurationTests
         extension1.Info.ShouldUseSameServiceProvider(extension2.Info).Should().BeFalse();
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void ShouldUseSameServiceProvider_DifferentConfig_ReturnsFalse()
     {
         var extension1 = new DynamoDbOptionsExtension().WithDynamoDbClientConfig(
@@ -201,7 +234,9 @@ public class PaginationConfigurationTests
         extension1.Info.ShouldUseSameServiceProvider(extension2.Info).Should().BeFalse();
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void ShouldUseSameServiceProvider_DifferentConfigCallback_ReturnsFalse()
     {
         Action<AmazonDynamoDBConfig> callback1 = c => c.ServiceURL = "http://localhost:8000";

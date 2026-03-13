@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore.Query;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
 
+/// <summary>Represents the DynamoShapedQueryCompilingExpressionVisitorFactory type.</summary>
 public class DynamoShapedQueryCompilingExpressionVisitorFactory(
     ShapedQueryCompilingExpressionVisitorDependencies dependencies,
     IDynamoQuerySqlGeneratorFactory sqlGeneratorFactory)

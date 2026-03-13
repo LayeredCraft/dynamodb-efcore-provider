@@ -1,15 +1,20 @@
 using Amazon.DynamoDBv2;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Extensions;
-using LayeredCraft.EntityFrameworkCore.DynamoDb.Infrastructure;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Infrastructure.Internal;
 
+/// <summary>Represents the DynamoDbOptionsExtension type.</summary>
 public class DynamoDbOptionsExtension : IDbContextOptionsExtension
 {
+    /// <summary>Provides functionality for this member.</summary>
     public IAmazonDynamoDB? DynamoDbClient { get; private set; }
+
+    /// <summary>Provides functionality for this member.</summary>
     public AmazonDynamoDBConfig? DynamoDbClientConfig { get; private set; }
+
+    /// <summary>Provides functionality for this member.</summary>
     public Action<AmazonDynamoDBConfig>? DynamoDbClientConfigAction { get; private set; }
 
     /// <summary>
@@ -28,6 +33,7 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
     /// <summary>Validates configured options for this provider extension.</summary>
     public void Validate(IDbContextOptions options) { }
 
+    /// <summary>Provides functionality for this member.</summary>
     public DbContextOptionsExtensionInfo Info
     {
         get
@@ -82,7 +88,6 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
     }
 
     /// <summary>Sets how the provider should apply automatic secondary index selection.</summary>
-    /// <param name="mode">The automatic index selection mode to apply.</param>
     /// <returns>A cloned options extension containing the updated mode.</returns>
     public virtual DynamoDbOptionsExtension WithAutomaticIndexSelectionMode(
         DynamoAutomaticIndexSelectionMode mode)
@@ -105,6 +110,7 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
             AutomaticIndexSelectionMode = AutomaticIndexSelectionMode,
         };
 
+    /// <summary>Represents the DynamoOptionsExtensionInfo type.</summary>
     public class DynamoOptionsExtensionInfo(IDbContextOptionsExtension extension)
         : DbContextOptionsExtensionInfo(extension)
     {
@@ -112,6 +118,7 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
 
         private new DynamoDbOptionsExtension Extension => (DynamoDbOptionsExtension)base.Extension;
 
+        /// <summary>Provides functionality for this member.</summary>
         public override int GetServiceProviderHashCode()
         {
             if (_serviceProviderHash == null)
@@ -130,6 +137,7 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
             return _serviceProviderHash.Value;
         }
 
+        /// <summary>Provides functionality for this member.</summary>
         public override bool ShouldUseSameServiceProvider(DbContextOptionsExtensionInfo other)
             => other is DynamoOptionsExtensionInfo otherInfo
                 && ReferenceEquals(Extension.DynamoDbClient, otherInfo.Extension.DynamoDbClient)
@@ -142,10 +150,13 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
                 && Extension.DefaultPageSize == otherInfo.Extension.DefaultPageSize
                 && Extension.AutomaticIndexSelectionMode == otherInfo.Extension.AutomaticIndexSelectionMode;
 
+        /// <summary>Provides functionality for this member.</summary>
         public override void PopulateDebugInfo(IDictionary<string, string> debugInfo) { }
 
+        /// <summary>Provides functionality for this member.</summary>
         public override bool IsDatabaseProvider => true;
 
+        /// <summary>Provides functionality for this member.</summary>
         public override string LogFragment
         {
             get

@@ -7,24 +7,21 @@ using Microsoft.EntityFrameworkCore.Metadata;
 
 namespace Microsoft.EntityFrameworkCore;
 
+/// <summary>Represents the DynamoEntityTypeExtensions type.</summary>
 public static class DynamoEntityTypeExtensions
 {
     extension(IMutableEntityType entityType)
     {
         /// <summary>Sets the DynamoDB table name for the root entity type.</summary>
-        /// <param name="name">
-        ///     The DynamoDB table name. Pass <see langword="null" /> to clear the explicit mapping.
-        /// </param>
+        ///     The DynamoDB table name. Pass  to clear the explicit mapping.
         public void SetTableName(string? name)
             => entityType.SetOrRemoveAnnotation(
                 DynamoAnnotationNames.TableName,
                 name.NullButNotEmpty());
 
         /// <summary>Sets the containing top-level attribute name for an embedded owned entity type.</summary>
-        /// <param name="name">
         ///     The top-level DynamoDB attribute name under which this owned entity is stored.
-        ///     Pass <see langword="null" /> to revert to the navigation property name.
-        /// </param>
+        ///     Pass  to revert to the navigation property name.
         public void SetContainingAttributeName(string? name)
             => entityType.SetOrRemoveAnnotation(
                 DynamoAnnotationNames.ContainingAttributeName,
@@ -33,9 +30,7 @@ public static class DynamoEntityTypeExtensions
         /// <summary>
         ///     Sets the EF property name designated as the DynamoDB partition key.
         /// </summary>
-        /// <param name="name">
-        ///     The EF property name, or <see langword="null" /> to clear the explicit override.
-        /// </param>
+        ///     The EF property name, or  to clear the explicit override.
         public void SetPartitionKeyPropertyName(string? name)
             => entityType.SetOrRemoveAnnotation(
                 DynamoAnnotationNames.PartitionKeyPropertyName,
@@ -44,19 +39,15 @@ public static class DynamoEntityTypeExtensions
         /// <summary>
         ///     Sets the EF property name designated as the DynamoDB sort key.
         /// </summary>
-        /// <param name="name">
-        ///     The EF property name, or <see langword="null" /> to clear the explicit override.
-        /// </param>
+        ///     The EF property name, or  to clear the explicit override.
         public void SetSortKeyPropertyName(string? name)
             => entityType.SetOrRemoveAnnotation(
                 DynamoAnnotationNames.SortKeyPropertyName,
                 name.NullButNotEmpty());
 
         /// <summary>Sets the discriminator strategy used for DynamoDB shared-table mappings.</summary>
-        /// <param name="strategy">
-        ///     The strategy to apply, or <see langword="null" /> to clear the explicit
+        ///     The strategy to apply, or  to clear the explicit
         ///     setting.
-        /// </param>
         public void SetDiscriminatorStrategy(DynamoDiscriminatorStrategy? strategy)
             => entityType.SetOrRemoveAnnotation(
                 DynamoAnnotationNames.DiscriminatorStrategy,
@@ -68,7 +59,7 @@ public static class DynamoEntityTypeExtensions
         /// <summary>Gets the top-level DynamoDB attribute name used to store this owned entity type.</summary>
         /// <returns>
         ///     The explicitly configured attribute name, or the navigation property name as a fallback.
-        ///     Returns <see langword="null" /> if no containing attribute name can be determined.
+        ///     Returns  if no containing attribute name can be determined.
         /// </returns>
         public string? GetContainingAttributeName()
         {
@@ -84,7 +75,7 @@ public static class DynamoEntityTypeExtensions
         /// <remarks>
         ///     Returns the configured partition key property annotation when present.
         /// </remarks>
-        /// <returns>The EF property name, or <see langword="null" /> when no partition key is configured.</returns>
+        /// <returns>The EF property name, or  when no partition key is configured.</returns>
         public string? GetPartitionKeyPropertyName()
         {
             if (entityType[DynamoAnnotationNames.PartitionKeyPropertyName] is string annotated)
@@ -94,10 +85,10 @@ public static class DynamoEntityTypeExtensions
 
         /// <summary>Gets the EF property that maps to the DynamoDB partition key.</summary>
         /// <remarks>
-        ///     Resolves the property from <see cref="GetPartitionKeyPropertyName()" />.
+        ///     Resolves the property from <c>GetPartitionKeyPropertyName()</c>.
         /// </remarks>
         /// <returns>
-        ///     The partition key <see cref="IReadOnlyProperty" />, or <see langword="null" /> when no
+        ///     The partition key <c>IReadOnlyProperty</c>, or  when no
         ///     partition key is configured.
         /// </returns>
         public IReadOnlyProperty? GetPartitionKeyProperty()
@@ -110,7 +101,7 @@ public static class DynamoEntityTypeExtensions
         /// <remarks>
         ///     Returns the configured sort key property annotation when present.
         /// </remarks>
-        /// <returns>The EF property name, or <see langword="null" /> if the table has no sort key.</returns>
+        /// <returns>The EF property name, or  if the table has no sort key.</returns>
         public string? GetSortKeyPropertyName()
         {
             if (entityType[DynamoAnnotationNames.SortKeyPropertyName] is string annotated)
@@ -120,10 +111,10 @@ public static class DynamoEntityTypeExtensions
 
         /// <summary>Gets the EF property that maps to the DynamoDB sort key.</summary>
         /// <remarks>
-        ///     Resolves the property from <see cref="GetSortKeyPropertyName()" />.
+        ///     Resolves the property from <c>GetSortKeyPropertyName()</c>.
         /// </remarks>
         /// <returns>
-        ///     The sort key <see cref="IReadOnlyProperty" />, or <see langword="null" /> if the table has
+        ///     The sort key <c>IReadOnlyProperty</c>, or  if the table has
         ///     no sort key.
         /// </returns>
         public IReadOnlyProperty? GetSortKeyProperty()
@@ -135,7 +126,7 @@ public static class DynamoEntityTypeExtensions
         /// <summary>Gets the configured discriminator strategy for DynamoDB shared-table mappings.</summary>
         /// <returns>
         ///     The configured strategy when present; otherwise
-        ///     <see cref="DynamoDiscriminatorStrategy.Attribute" />.
+        ///     <c>DynamoDiscriminatorStrategy.Attribute</c>.
         /// </returns>
         public DynamoDiscriminatorStrategy GetDiscriminatorStrategy()
         {
@@ -151,10 +142,10 @@ public static class DynamoEntityTypeExtensions
     {
         /// <summary>Gets the EF property that maps to the DynamoDB partition key.</summary>
         /// <remarks>
-        ///     Resolves the property from <see cref="GetPartitionKeyPropertyName()" />.
+        ///     Resolves the property from <c>GetPartitionKeyPropertyName()</c>.
         /// </remarks>
         /// <returns>
-        ///     The partition key <see cref="IProperty" />, or <see langword="null" /> when no partition key
+        ///     The partition key <c>IProperty</c>, or  when no partition key
         ///     is configured.
         /// </returns>
         public IProperty? GetPartitionKeyProperty()
@@ -165,10 +156,10 @@ public static class DynamoEntityTypeExtensions
 
         /// <summary>Gets the EF property that maps to the DynamoDB sort key.</summary>
         /// <remarks>
-        ///     Resolves the property from <see cref="GetSortKeyPropertyName()" />.
+        ///     Resolves the property from <c>GetSortKeyPropertyName()</c>.
         /// </remarks>
         /// <returns>
-        ///     The sort key <see cref="IProperty" />, or <see langword="null" /> if the table has no sort
+        ///     The sort key <c>IProperty</c>, or  if the table has no sort
         ///     key.
         /// </returns>
         public IProperty? GetSortKeyProperty()
@@ -180,7 +171,7 @@ public static class DynamoEntityTypeExtensions
         /// <summary>Gets the configured discriminator strategy for DynamoDB shared-table mappings.</summary>
         /// <returns>
         ///     The configured strategy when present; otherwise
-        ///     <see cref="DynamoDiscriminatorStrategy.Attribute" />.
+        ///     <c>DynamoDiscriminatorStrategy.Attribute</c>.
         /// </returns>
         public DynamoDiscriminatorStrategy GetDiscriminatorStrategy()
             => ((IReadOnlyEntityType)entityType).GetDiscriminatorStrategy();
@@ -192,13 +183,10 @@ public static class DynamoEntityTypeExtensions
         ///     Sets the EF property name designated as the DynamoDB partition key at the given
         ///     configuration source.
         /// </summary>
-        /// <param name="name">The EF property name, or <see langword="null" /> to clear the override.</param>
-        /// <param name="fromDataAnnotation">
-        ///     <see langword="true" /> if configured via a data annotation;
-        ///     <see langword="false" /> for the fluent API.
-        /// </param>
+        ///      if configured via a data annotation;
+        ///      for the fluent API.
         /// <returns>
-        ///     The configured property name, or <see langword="null" /> if the configuration was not
+        ///     The configured property name, or  if the configuration was not
         ///     applied.
         /// </returns>
         public string? SetPartitionKeyPropertyName(string? name, bool fromDataAnnotation = false)
@@ -212,13 +200,10 @@ public static class DynamoEntityTypeExtensions
         ///     Sets the EF property name designated as the DynamoDB sort key at the given
         ///     configuration source.
         /// </summary>
-        /// <param name="name">The EF property name, or <see langword="null" /> to clear the override.</param>
-        /// <param name="fromDataAnnotation">
-        ///     <see langword="true" /> if configured via a data annotation;
-        ///     <see langword="false" /> for the fluent API.
-        /// </param>
+        ///      if configured via a data annotation;
+        ///      for the fluent API.
         /// <returns>
-        ///     The configured property name, or <see langword="null" /> if the configuration was not
+        ///     The configured property name, or  if the configuration was not
         ///     applied.
         /// </returns>
         public string? SetSortKeyPropertyName(string? name, bool fromDataAnnotation = false)
@@ -230,7 +215,7 @@ public static class DynamoEntityTypeExtensions
 
         /// <summary>Returns the configuration source for the partition key property name annotation.</summary>
         /// <returns>
-        ///     The <see cref="ConfigurationSource" /> of the annotation, or <see langword="null" /> if no
+        ///     The <c>ConfigurationSource</c> of the annotation, or  if no
         ///     explicit partition key has been configured.
         /// </returns>
         public ConfigurationSource? GetPartitionKeyPropertyNameConfigurationSource()
@@ -240,7 +225,7 @@ public static class DynamoEntityTypeExtensions
 
         /// <summary>Returns the configuration source for the sort key property name annotation.</summary>
         /// <returns>
-        ///     The <see cref="ConfigurationSource" /> of the annotation, or <see langword="null" /> if no
+        ///     The <c>ConfigurationSource</c> of the annotation, or  if no
         ///     explicit sort key has been configured.
         /// </returns>
         public ConfigurationSource? GetSortKeyPropertyNameConfigurationSource()
@@ -252,15 +237,11 @@ public static class DynamoEntityTypeExtensions
         ///     Sets the discriminator strategy used for DynamoDB shared-table mappings at the given
         ///     configuration source.
         /// </summary>
-        /// <param name="strategy">
-        ///     The strategy to set, or <see langword="null" /> to clear the explicit
+        ///     The strategy to set, or  to clear the explicit
         ///     setting.
-        /// </param>
-        /// <param name="fromDataAnnotation">
-        ///     <see langword="true" /> if configured via a data annotation;
-        ///     <see langword="false" /> for the fluent API.
-        /// </param>
-        /// <returns>The applied strategy when configuration succeeded; otherwise <see langword="null" />.</returns>
+        ///      if configured via a data annotation;
+        ///      for the fluent API.
+        /// <returns>The applied strategy when configuration succeeded; otherwise .</returns>
         public DynamoDiscriminatorStrategy? SetDiscriminatorStrategy(
             DynamoDiscriminatorStrategy? strategy,
             bool fromDataAnnotation = false)
@@ -276,7 +257,7 @@ public static class DynamoEntityTypeExtensions
 
         /// <summary>Returns the configuration source for the discriminator strategy annotation.</summary>
         /// <returns>
-        ///     The <see cref="ConfigurationSource" /> of the annotation, or <see langword="null" /> if no
+        ///     The <c>ConfigurationSource</c> of the annotation, or  if no
         ///     explicit strategy has been configured.
         /// </returns>
         public ConfigurationSource? GetDiscriminatorStrategyConfigurationSource()
@@ -285,14 +266,11 @@ public static class DynamoEntityTypeExtensions
                 ?.GetConfigurationSource();
 
         /// <summary>Returns whether the discriminator strategy can be set from the given configuration source.</summary>
-        /// <param name="strategy">The strategy to test.</param>
-        /// <param name="fromDataAnnotation">
-        ///     <see langword="true" /> if configured via a data annotation;
-        ///     <see langword="false" /> for the fluent API.
-        /// </param>
+        ///      if configured via a data annotation;
+        ///      for the fluent API.
         /// <returns>
-        ///     <see langword="true" /> when the new value can be applied; otherwise
-        ///     <see langword="false" />.
+        ///      when the new value can be applied; otherwise
+        ///     .
         /// </returns>
         public bool CanSetDiscriminatorStrategy(
             DynamoDiscriminatorStrategy? strategy,

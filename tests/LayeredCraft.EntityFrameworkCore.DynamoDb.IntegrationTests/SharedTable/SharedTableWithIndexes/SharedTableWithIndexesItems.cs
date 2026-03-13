@@ -4,7 +4,7 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.SharedTable
 
 /// <summary>
 /// Deterministic seed data for the shared-table-with-indexes integration tests. Items are
-/// pre-built as <see cref="AttributeValue"/> maps because <c>WorkOrderEntity</c> is abstract
+/// pre-built as <c>AttributeValue</c> maps because <c>WorkOrderEntity</c> is abstract
 /// and cannot be used with a source-generated DynamoMapper.
 /// </summary>
 /// <remarks>

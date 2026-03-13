@@ -349,7 +349,7 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
 
     /// <summary>
     ///     Enforces that owned-reference projections carry navigation metadata via
-    ///     <see cref="DynamoObjectAccessExpression" />.
+    ///     <c>DynamoObjectAccessExpression</c>.
     /// </summary>
     private void EnsureOwnedProjectionHasNavigationMetadata(
         string propertyName,
@@ -444,7 +444,7 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
 
     /// <summary>
     ///     Builds an expression that reads an owned reference from a map attribute (
-    ///     <see cref="AttributeValue.M" />) and validates null/missing shape semantics.
+    ///     <c>AttributeValue.M</c>) and validates null/missing shape semantics.
     /// </summary>
     private static Expression CreateReadOwnedMapExpression(
         Expression parentMapExpression,
@@ -874,7 +874,7 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
 
     /// <summary>
     ///     Builds an expression that reads an owned collection from a list attribute (
-    ///     <see cref="AttributeValue.L" />) and validates null/missing shape semantics.
+    ///     <c>AttributeValue.L</c>) and validates null/missing shape semantics.
     /// </summary>
     private static Expression CreateReadOwnedListExpression(
         Expression parentMapExpression,
@@ -1224,7 +1224,7 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
     /// <remarks>
     ///     For deeply-nested owned entities the FK chain may span multiple ownership levels (e.g.
     ///     <c>OrderLine.OwnedShapeItemPk → Order.OwnedShapeItemPk → OwnedShapeItem.Pk</c>). This method
-    ///     follows the chain through successive entries of <see cref="_ownerAttributeContextStack" />
+    ///     follows the chain through successive entries of <c>_ownerAttributeContextStack</c>
     ///     until it reaches a non-shadow principal, or an ordinal key property that must be resolved from
     ///     the parent collection's ordinal binding.
     /// </remarks>
@@ -1380,7 +1380,7 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
         => type.IsValueType && Nullable.GetUnderlyingType(type) == null;
 
     /// <summary>
-    ///     Returns the expected primitive <see cref="AttributeValue" /> wire member for a wire CLR
+    ///     Returns the expected primitive <c>AttributeValue</c> wire member for a wire CLR
     ///     type.
     /// </summary>
     private static string GetExpectedWireMemberName(Type wireType)
@@ -1475,7 +1475,7 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
     }
 
     /// <summary>
-    ///     Builds a typed conversion expression from <see cref="AttributeValue" /> to a model CLR
+    ///     Builds a typed conversion expression from <c>AttributeValue</c> to a model CLR
     ///     value.
     /// </summary>
     private static Expression CreateTypedValueExpressionFromAttributeValue(
@@ -1952,7 +1952,7 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
 
     /// <summary>Traverses an expression tree to locate a nested collection element shaper.</summary>
     /// <remarks>
-    ///     A copy of this class also lives in <see cref="DynamoProjectionBindingExpressionVisitor" />
+    ///     A copy of this class also lives in <c>DynamoProjectionBindingExpressionVisitor</c>
     ///     ; the duplication is deliberate to avoid cross-visitor coupling.
     /// </remarks>
     private sealed class ElementShaperExpressionFinder : ExpressionVisitor
@@ -2040,7 +2040,7 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
 
     /// <summary>Finds whether a target structural shaper exists within a tree.</summary>
     /// <remarks>
-    ///     A copy of this class also lives in <see cref="DynamoProjectionBindingExpressionVisitor" />
+    ///     A copy of this class also lives in <c>DynamoProjectionBindingExpressionVisitor</c>
     ///     ; the duplication is deliberate to avoid cross-visitor coupling.
     /// </remarks>
     private sealed class TargetShaperPresenceFinder(IEntityType targetEntityType)

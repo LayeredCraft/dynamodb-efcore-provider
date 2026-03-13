@@ -4,8 +4,10 @@ using Testcontainers.DynamoDb;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.SimpleTable;
 
+/// <summary>Represents the DynamoFixture type.</summary>
 public class DynamoFixture : IAsyncLifetime, IDynamoDbTestFixture
 {
+    /// <summary>Provides functionality for this member.</summary>
     public IAmazonDynamoDB Client
     {
         get
@@ -16,15 +18,19 @@ public class DynamoFixture : IAsyncLifetime, IDynamoDbTestFixture
         }
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     public DynamoDbContainer Container { get; }
 
+    /// <summary>Provides functionality for this member.</summary>
     public DynamoFixture()
         => Container =
             new DynamoDbBuilder("amazon/dynamodb-local:latest").Build()
             ?? throw new Exception("Failed to create DynamoDB Container");
 
+    /// <summary>Provides functionality for this member.</summary>
     public virtual async ValueTask InitializeAsync() => await Container.StartAsync();
 
+    /// <summary>Provides functionality for this member.</summary>
     public virtual async ValueTask DisposeAsync()
     {
         await Container.DisposeAsync();
@@ -32,7 +38,9 @@ public class DynamoFixture : IAsyncLifetime, IDynamoDbTestFixture
     }
 }
 
+/// <summary>Represents the SimpleTableDynamoFixture type.</summary>
 public class SimpleTableDynamoFixture : DynamoFixture
 {
+    /// <summary>Provides functionality for this member.</summary>
     public const string TableName = "SimpleItems";
 }

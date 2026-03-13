@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore.Query;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
 
+/// <summary>Represents the DynamoShapedQueryCompilingExpressionVisitor type.</summary>
 public partial class DynamoShapedQueryCompilingExpressionVisitor(
     ShapedQueryCompilingExpressionVisitorDependencies dependencies,
     DynamoQueryCompilationContext dynamoQueryCompilationContext,

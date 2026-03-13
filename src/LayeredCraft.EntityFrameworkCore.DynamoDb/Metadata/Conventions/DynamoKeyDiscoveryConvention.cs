@@ -6,7 +6,7 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata.Conventions;
 
 /// <summary>A convention that discovers DynamoDB table keys from CLR property naming conventions.</summary>
 /// <remarks>
-///     Inherits <see cref="KeyDiscoveryConvention" /> so that all standard EF Core key-discovery
+///     Inherits <c>KeyDiscoveryConvention</c> so that all standard EF Core key-discovery
 ///     triggers (entity type added, property added, key removed, foreign key ownership changes, etc.)
 ///     are handled by a single replacement convention rather than running alongside the base. The
 ///     following property names are recognised (case-insensitive, ordinal comparison):
@@ -22,11 +22,11 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata.Conventions;
 ///     </list>
 ///     Convention-level discovery is overridden by explicit <c>HasPartitionKey</c> or
 ///     <c>HasSortKey</c> fluent API calls, which set annotations at
-///     <see cref="Microsoft.EntityFrameworkCore.Metadata.ConfigurationSource.Explicit" /> source and
-///     are handled by <see cref="DynamoKeyInPrimaryKeyConvention" />. Root entity types without a
+///     <c>Microsoft.EntityFrameworkCore.Metadata.ConfigurationSource.Explicit</c> source and
+///     are handled by <c>DynamoKeyInPrimaryKeyConvention</c>. Root entity types without a
 ///     conventional partition key name do not fall back to EF Core's <c>Id</c>/<c>[Key]</c> discovery.
 ///     Annotation-setting and ambiguity validation are handled separately by
-///     <see cref="DynamoKeyAnnotationConvention" />.
+///     <c>DynamoKeyAnnotationConvention</c>.
 /// </remarks>
 public class DynamoKeyDiscoveryConvention(ProviderConventionSetBuilderDependencies dependencies)
     : KeyDiscoveryConvention(dependencies)
@@ -38,7 +38,7 @@ public class DynamoKeyDiscoveryConvention(ProviderConventionSetBuilderDependenci
     ///     <c>SK</c> / <c>SortKey</c>), it is appended after the partition key. Root types without a
     ///     conventional partition key leave key discovery empty so EF does not implicitly promote
     ///     <c>Id</c> as the table key. Annotations are not set here — that is the responsibility of
-    ///     <see cref="DynamoKeyAnnotationConvention" />.
+    ///     <c>DynamoKeyAnnotationConvention</c>.
     /// </remarks>
     protected override void ProcessKeyProperties(
         IList<IConventionProperty> keyProperties,
@@ -69,7 +69,7 @@ public class DynamoKeyDiscoveryConvention(ProviderConventionSetBuilderDependenci
     }
 
     /// <summary>
-    ///     Returns <see langword="true" /> when the property name matches a DynamoDB partition key
+    ///     Returns  when the property name matches a DynamoDB partition key
     ///     convention.
     /// </summary>
     internal static bool IsPartitionKeyName(string name)
@@ -77,7 +77,7 @@ public class DynamoKeyDiscoveryConvention(ProviderConventionSetBuilderDependenci
             || string.Equals(name, "PartitionKey", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
-    ///     Returns <see langword="true" /> when the property name matches a DynamoDB sort key
+    ///     Returns  when the property name matches a DynamoDB sort key
     ///     convention.
     /// </summary>
     internal static bool IsSortKeyName(string name)

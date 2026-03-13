@@ -6,12 +6,12 @@ using Microsoft.EntityFrameworkCore;
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
 
 /// <summary>
-/// Walks a finalized <see cref="SelectExpression"/> predicate and orderings to extract structural
-/// key-condition constraints into a <see cref="DynamoQueryConstraints"/> snapshot.
+/// Walks a finalized <c>SelectExpression</c> predicate and orderings to extract structural
+/// key-condition constraints into a <c>DynamoQueryConstraints</c> snapshot.
 /// </summary>
 /// <remarks>
 /// This visitor is single-use and stateful. Construct a new instance per query. It does NOT
-/// extend <see cref="SqlExpressionVisitor"/> because that is a transform visitor; this visitor
+/// extend <c>SqlExpressionVisitor</c> because that is a transform visitor; this visitor
 /// is read-only and uses recursive private methods.
 /// </remarks>
 internal sealed class DynamoConstraintExtractionVisitor
@@ -48,13 +48,11 @@ internal sealed class DynamoConstraintExtractionVisitor
     private bool _hasUnsafeOr;
 
     /// <summary>
-    /// Initializes a new instance of <see cref="DynamoConstraintExtractionVisitor"/> scoped to
+    /// Initializes a new instance of <c>DynamoConstraintExtractionVisitor</c> scoped to
     /// the given candidate descriptors.
     /// </summary>
-    /// <param name="candidates">
     /// The runtime index candidates for the query. Used to build the set of partition-key
     /// attribute names so the visitor can distinguish PK constraints from SK conditions.
-    /// </param>
     public DynamoConstraintExtractionVisitor(IReadOnlyList<DynamoIndexDescriptor> candidates)
     {
         _pkAttributeNames = new HashSet<string>(StringComparer.Ordinal);
@@ -72,9 +70,8 @@ internal sealed class DynamoConstraintExtractionVisitor
     /// Extracts key-condition constraints from the <paramref name="selectExpression"/> predicate
     /// and orderings.
     /// </summary>
-    /// <param name="selectExpression">The finalized SELECT expression to analyze.</param>
     /// <returns>
-    /// A <see cref="DynamoQueryConstraints"/> snapshot containing all extracted constraints.
+    /// A <c>DynamoQueryConstraints</c> snapshot containing all extracted constraints.
     /// </returns>
     public DynamoQueryConstraints Extract(SelectExpression selectExpression)
     {
@@ -165,7 +162,7 @@ internal sealed class DynamoConstraintExtractionVisitor
     /// same attribute (<c>PK = "a" OR PK = "b"</c> → <c>IN</c> constraint). A filter-only OR
     /// where no branch touches the PK at all is also safe. All other shapes — including
     /// conjunctive branches such as <c>(PK = "a" AND SK &gt; "1") OR (PK = "b" AND SK &gt; "2")</c>
-    /// — set <see cref="_hasUnsafeOr"/> because the per-branch SK conditions cannot be reduced
+    /// — set <c>_hasUnsafeOr</c> because the per-branch SK conditions cannot be reduced
     /// to a single key-condition query against one index.
     /// </remarks>
     private void ClassifyOr(SqlBinaryExpression orExpr)
@@ -287,7 +284,7 @@ internal sealed class DynamoConstraintExtractionVisitor
 
     /// <summary>
     /// Returns the PK attribute name if <paramref name="branch"/> is a plain equality with a
-    /// <see cref="SqlPropertyExpression"/> on either side and that property is a PK attribute;
+    /// <c>SqlPropertyExpression</c> on either side and that property is a PK attribute;
     /// otherwise returns <c>null</c>.
     /// </summary>
     private string? GetSinglePkEqualityPropertyName(SqlExpression branch)
@@ -344,8 +341,8 @@ internal sealed class DynamoConstraintExtractionVisitor
     // ── individual constraint extractors ──────────────────────────────────────
 
     /// <summary>
-    /// Extracts a PK equality into <see cref="_equalityConstraints"/> or an SK equality into
-    /// <see cref="_skCandidates"/>.
+    /// Extracts a PK equality into <c>_equalityConstraints</c> or an SK equality into
+    /// <c>_skCandidates</c>.
     /// </summary>
     private void TryExtractEquality(SqlBinaryExpression eq)
     {
@@ -461,7 +458,7 @@ internal sealed class DynamoConstraintExtractionVisitor
     }
 
     /// <summary>
-    /// Extracts an <c>IN</c> expression on a PK attribute into <see cref="_inConstraints"/>.
+    /// Extracts an <c>IN</c> expression on a PK attribute into <c>_inConstraints</c>.
     /// IN on non-PK attributes is a filter predicate and is ignored.
     /// </summary>
     private void TryExtractIn(SqlInExpression inExpr)
@@ -539,7 +536,7 @@ internal sealed class DynamoConstraintExtractionVisitor
     /// order of a binary expression.
     /// </summary>
     /// <remarks>
-    /// Returns <c>false</c> when both sides are <see cref="SqlPropertyExpression"/>. DynamoDB
+    /// Returns <c>false</c> when both sides are <c>SqlPropertyExpression</c>. DynamoDB
     /// key conditions require a constant or parameter on the value side; attribute-to-attribute
     /// comparisons such as <c>TenantId = CustomerId</c> are not valid key conditions and must
     /// not be recorded as constraints.
@@ -590,7 +587,7 @@ internal sealed class DynamoConstraintExtractionVisitor
             _ => throw new ArgumentOutOfRangeException(nameof(op), op, null),
         };
 
-    /// <summary>Maps a <see cref="ExpressionType"/> range operator to the corresponding <see cref="SkOperator"/>.</summary>
+    /// <summary>Maps a <c>ExpressionType</c> range operator to the corresponding <c>SkOperator</c>.</summary>
     private static SkOperator MapToSkOperator(ExpressionType op)
         => op switch
         {

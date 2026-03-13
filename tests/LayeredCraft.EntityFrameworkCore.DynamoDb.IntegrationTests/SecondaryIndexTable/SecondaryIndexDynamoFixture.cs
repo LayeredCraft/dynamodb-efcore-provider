@@ -4,7 +4,7 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.SecondaryIn
 
 /// <summary>
 ///     xUnit collection fixture that provisions a DynamoDB Local container for secondary-index
-///     integration tests. Each test class that extends <see cref="SecondaryIndexTestBase" />
+///     integration tests. Each test class that extends <c>SecondaryIndexTestBase</c>
 ///     shares this container instance for the lifetime of the test run.
 /// </summary>
 public class SecondaryIndexDynamoFixture : DynamoFixture

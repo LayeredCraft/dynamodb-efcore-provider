@@ -28,6 +28,7 @@ public class SharedTableIndexAutoSelectionTests(SharedTableWithIndexesDynamoFixt
     /// block Gate 2 (unsafe-OR check).
     /// </summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task Conservative_DerivedTypeQuery_AutoSelects_ByPriorityGsi()
     {
         // Priority == 3 covers the ByPriority GSI PK. The discriminator adds a single equality,
@@ -73,6 +74,7 @@ public class SharedTableIndexAutoSelectionTests(SharedTableWithIndexesDynamoFixt
     /// satisfies the ByStatus LSI Gate 1.
     /// </summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task Conservative_BaseTypeQuery_OrDiscriminatorIsSafe_AutoSelects_ByStatusLsi()
     {
         // The base-type query injects: ("$type" = 'PriorityWorkOrderEntity' OR "$type" =
@@ -119,6 +121,7 @@ public class SharedTableIndexAutoSelectionTests(SharedTableWithIndexesDynamoFixt
     /// the base table with an IDX001 diagnostic.
     /// </summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task Conservative_BaseTypeQuery_NoIndexPkConstraint_FallsBackToBaseTable()
     {
         // Status is the ByStatus LSI sort key — NOT a partition key on any index.
@@ -147,6 +150,7 @@ public class SharedTableIndexAutoSelectionTests(SharedTableWithIndexesDynamoFixt
     /// nor mentioned in any IDX005 rejection diagnostic.
     /// </summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task Conservative_ArchivedWorkOrderQuery_ByPriorityGsiIsNotACandidate()
     {
         // Pk = "WO#ALPHA" would satisfy ByStatus LSI PK. ByPriority is not in the candidate list
@@ -172,6 +176,7 @@ public class SharedTableIndexAutoSelectionTests(SharedTableWithIndexesDynamoFixt
     /// an IDX004 diagnostic and routes the query to the LSI.
     /// </summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task ExplicitHint_ByStatus_OnWorkOrders_EmitsIdx004()
     {
         _ = await Db
@@ -202,6 +207,7 @@ public class SharedTableIndexAutoSelectionTests(SharedTableWithIndexesDynamoFixt
     /// emits an IDX004 diagnostic and routes the query to the GSI.
     /// </summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task ExplicitHint_ByPriority_OnPriorityWorkOrders_EmitsIdx004()
     {
         var results =
@@ -242,11 +248,12 @@ public class SharedTableIndexAutoSelectionTests(SharedTableWithIndexesDynamoFixt
 
     /// <summary>
     /// Verifies that an explicit hint for a sibling entity type's index throws
-    /// <see cref="InvalidOperationException"/> even when the physical index exists on the table.
+    /// <c>InvalidOperationException</c> even when the physical index exists on the table.
     /// This confirms that candidate scoping enforced at compile time is independent of the
     /// physical DynamoDB schema.
     /// </summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task ExplicitHint_SiblingEntityIndex_OnArchivedWorkOrders_Throws()
     {
         // ByPriority is declared on PriorityWorkOrderEntity — not ArchivedWorkOrderEntity.
@@ -261,11 +268,12 @@ public class SharedTableIndexAutoSelectionTests(SharedTableWithIndexesDynamoFixt
     // ── SuggestOnly mode on shared table ─────────────────────────────────────
 
     /// <summary>
-    /// Verifies that <see cref="DynamoAutomaticIndexSelectionMode.SuggestOnly"/> emits an IDX003
+    /// Verifies that <c>DynamoAutomaticIndexSelectionMode.SuggestOnly</c> emits an IDX003
     /// "would be selected" diagnostic for a shared-table derived-type query but does not rewrite
     /// the query source, leaving execution on the base table.
     /// </summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task SuggestOnly_DerivedTypeQuery_EmitsDiagnosticButStaysOnBaseTable()
     {
         var loggerFactory = new TestPartiQlLoggerFactory();

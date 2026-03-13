@@ -5,17 +5,17 @@ using LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
 
 /// <summary>
-/// Snapshot of compile-time state supplied to <see cref="IDynamoIndexSelectionAnalyzer.Analyze"/>.
+/// Snapshot of compile-time state supplied to <c>IDynamoIndexSelectionAnalyzer.Analyze</c>.
 /// </summary>
 /// <remarks>
 /// Candidates are pre-fetched from the <c>Dynamo:RuntimeTableModel</c> runtime annotation by
-/// <see cref="DynamoQueryTranslationPostprocessor"/> once per query, so the analyzer never
+/// <c>DynamoQueryTranslationPostprocessor</c> once per query, so the analyzer never
 /// re-reads model annotations or rebuilds metadata per property lookup.
 /// </remarks>
 internal sealed class DynamoIndexAnalysisContext
 {
     /// <summary>
-    /// The fully-finalised <see cref="SelectExpression"/> for the query.
+    /// The fully-finalised <c>SelectExpression</c> for the query.
     /// Deferred discriminator predicates and projections have already been applied before the
     /// context is passed to the analyzer, so the analyzer sees the complete predicate tree.
     /// </summary>
@@ -29,7 +29,7 @@ internal sealed class DynamoIndexAnalysisContext
 
     /// <summary>
     /// All available query sources (base table first, then secondary indexes in registration order)
-    /// for the queried entity type, pre-fetched from the <see cref="DynamoRuntimeTableModel"/>
+    /// for the queried entity type, pre-fetched from the <c>DynamoRuntimeTableModel</c>
     /// runtime annotations. Empty when the runtime model has not been initialised (design-time).
     /// </summary>
     public required IReadOnlyList<DynamoIndexDescriptor> CandidateDescriptors { get; init; }
@@ -43,7 +43,7 @@ internal sealed class DynamoIndexAnalysisContext
 
     /// <summary>
     /// Structural key-condition constraints extracted from the finalized predicate by
-    /// <see cref="DynamoConstraintExtractionVisitor"/>. Null when no candidates are available
+    /// <c>DynamoConstraintExtractionVisitor</c>. Null when no candidates are available
     /// at design-time. Step 8 uses this to evaluate candidate descriptors for auto-selection.
     /// </summary>
     /// <remarks>
@@ -54,14 +54,14 @@ internal sealed class DynamoIndexAnalysisContext
 
     /// <summary>
     /// The configured automatic index selection mode, read from
-    /// <see cref="DynamoDbOptionsExtension.AutomaticIndexSelectionMode"/> at compile time.
+    /// <c>DynamoDbOptionsExtension.AutomaticIndexSelectionMode</c> at compile time.
     /// </summary>
     public DynamoAutomaticIndexSelectionMode AutomaticIndexSelectionMode { get; init; }
 
     /// <summary>
     /// <c>true</c> when <c>.WithoutIndex()</c> was called on this query. The analyzer will
     /// suppress all index selection and emit <c>DYNAMO_IDX006</c>. Combining this with a
-    /// non-null <see cref="ExplicitIndexHint"/> is a programmer error and throws at compile time.
+    /// non-null <c>ExplicitIndexHint</c> is a programmer error and throws at compile time.
     /// </summary>
     public bool IndexSelectionDisabled { get; init; }
 }

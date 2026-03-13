@@ -16,10 +16,6 @@ public static class DynamoDbQueryableExtensions
     ///     you want page-size tuning at the terminal operation. The page size controls items evaluated
     ///     per request (DynamoDB Limit), not the number of results returned.
     /// </remarks>
-    /// <typeparam name="TEntity">The type of entity being queried.</typeparam>
-    /// <param name="source">The source query.</param>
-    /// <param name="pageSize">Maximum items to evaluate per request. Must be positive.</param>
-    /// <param name="cancellationToken">A cancellation token to observe while awaiting the task.</param>
     /// <returns>A task that represents the asynchronous operation.</returns>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when pageSize is not positive.</exception>
     public static Task<TEntity> FirstAsync<TEntity>(
@@ -37,11 +33,6 @@ public static class DynamoDbQueryableExtensions
     ///     overload when you want page-size tuning at the terminal operation. The page size controls
     ///     items evaluated per request (DynamoDB Limit), not the number of results returned.
     /// </remarks>
-    /// <typeparam name="TEntity">The type of entity being queried.</typeparam>
-    /// <param name="source">The source query.</param>
-    /// <param name="predicate">A function to test each element for a condition.</param>
-    /// <param name="pageSize">Maximum items to evaluate per request. Must be positive.</param>
-    /// <param name="cancellationToken">A cancellation token to observe while awaiting the task.</param>
     /// <returns>A task that represents the asynchronous operation.</returns>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when pageSize is not positive.</exception>
     public static Task<TEntity> FirstAsync<TEntity>(
@@ -60,10 +51,6 @@ public static class DynamoDbQueryableExtensions
     ///     overload when you want page-size tuning at the terminal operation while keeping normal EF
     ///     pagination continuation semantics.
     /// </remarks>
-    /// <typeparam name="TEntity">The type of entity being queried.</typeparam>
-    /// <param name="source">The source query.</param>
-    /// <param name="pageSize">Maximum items to evaluate per request. Must be positive.</param>
-    /// <param name="cancellationToken">A cancellation token to observe while awaiting the task.</param>
     /// <returns>A task that represents the asynchronous operation.</returns>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when pageSize is not positive.</exception>
     public static Task<TEntity?> FirstOrDefaultAsync<TEntity>(
@@ -81,11 +68,6 @@ public static class DynamoDbQueryableExtensions
     ///     this overload when you want page-size tuning at the terminal operation while keeping normal
     ///     EF pagination continuation semantics.
     /// </remarks>
-    /// <typeparam name="TEntity">The type of entity being queried.</typeparam>
-    /// <param name="source">The source query.</param>
-    /// <param name="predicate">A function to test each element for a condition.</param>
-    /// <param name="pageSize">Maximum items to evaluate per request. Must be positive.</param>
-    /// <param name="cancellationToken">A cancellation token to observe while awaiting the task.</param>
     /// <returns>A task that represents the asynchronous operation.</returns>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when pageSize is not positive.</exception>
     public static Task<TEntity?> FirstOrDefaultAsync<TEntity>(
@@ -114,9 +96,6 @@ public static class DynamoDbQueryableExtensions
     ///         items per request and continue paging until the result limit is reached.
     ///     </para>
     /// </remarks>
-    /// <typeparam name="TEntity">The type of entity being queried.</typeparam>
-    /// <param name="source">The source query.</param>
-    /// <param name="pageSize">Maximum items to evaluate per request. Must be positive.</param>
     /// <returns>A new query with the specified page size.</returns>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when pageSize is not positive.</exception>
     public static IQueryable<TEntity> WithPageSize<TEntity>(
@@ -155,8 +134,6 @@ public static class DynamoDbQueryableExtensions
     ///         page will contain matches.
     ///     </para>
     /// </remarks>
-    /// <typeparam name="TEntity">The type of entity being queried.</typeparam>
-    /// <param name="source">The source query.</param>
     /// <returns>A new query with pagination disabled.</returns>
     public static IQueryable<TEntity> WithoutPagination<TEntity>(this IQueryable<TEntity> source)
         where TEntity : class
@@ -185,8 +162,6 @@ public static class DynamoDbQueryableExtensions
     ///         <c>Information</c> level so the suppression is visible in query logs.
     ///     </para>
     /// </remarks>
-    /// <typeparam name="TEntity">The type of entity being queried.</typeparam>
-    /// <param name="source">The source query.</param>
     /// <returns>A new query that forces base-table execution.</returns>
     public static IQueryable<TEntity> WithoutIndex<TEntity>(this IQueryable<TEntity> source)
         where TEntity : class
@@ -204,9 +179,6 @@ public static class DynamoDbQueryableExtensions
     ///     routing. The configured index must exist on the mapped table and be compatible with the final
     ///     query shape.
     /// </remarks>
-    /// <typeparam name="TEntity">The type of entity being queried.</typeparam>
-    /// <param name="source">The source query.</param>
-    /// <param name="indexName">The DynamoDB secondary index name to target. Must be non-empty.</param>
     /// <returns>A new query that carries the selected index hint.</returns>
     /// <exception cref="ArgumentException">Thrown when <paramref name="indexName" /> is empty.</exception>
     public static IQueryable<TEntity> WithIndex<TEntity>(

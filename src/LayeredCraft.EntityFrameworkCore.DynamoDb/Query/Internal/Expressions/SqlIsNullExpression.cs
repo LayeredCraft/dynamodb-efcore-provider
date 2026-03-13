@@ -22,8 +22,6 @@ public enum IsNullOperator
 public sealed class SqlIsNullExpression : SqlExpression
 {
     /// <summary>Initializes a new IS NULL/MISSING expression.</summary>
-    /// <param name="operand">The attribute expression being tested.</param>
-    /// <param name="operator">The specific IS predicate variant to apply.</param>
     public SqlIsNullExpression(SqlExpression operand, IsNullOperator @operator) : base(
         typeof(bool),
         null)
@@ -48,7 +46,7 @@ public sealed class SqlIsNullExpression : SqlExpression
     public IsNullOperator Operator { get; }
 
     /// <summary>
-    ///     Creates a new expression with an updated operand, returning <see langword="this" /> if
+    ///     Creates a new expression with an updated operand, returning  if
     ///     unchanged.
     /// </summary>
     public SqlIsNullExpression Update(SqlExpression operand)

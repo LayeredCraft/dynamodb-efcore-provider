@@ -2,7 +2,7 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
 
 /// <summary>
 /// A diagnostic observation produced during index-selection analysis.
-/// Collected as part of <see cref="DynamoIndexSelectionDecision.Diagnostics"/>.
+/// Collected as part of <c>DynamoIndexSelectionDecision.Diagnostics</c>.
 /// </summary>
 /// <remarks>
 /// These diagnostics are wired to EF structured logging events in step 10.
@@ -13,7 +13,7 @@ internal sealed record DynamoQueryDiagnostic(
     string Code,
     string Message);
 
-/// <summary>Severity level for a <see cref="DynamoQueryDiagnostic"/>.</summary>
+/// <summary>Severity level for a <c>DynamoQueryDiagnostic</c>.</summary>
 internal enum DynamoQueryDiagnosticLevel
 {
     Information,

@@ -3,8 +3,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.OwnedTypesTable;
 
+/// <summary>Represents the OwnedTypesTableDbContext type.</summary>
 public class OwnedTypesTableDbContext(DbContextOptions options) : DbContext(options)
 {
+    /// <summary>Provides functionality for this member.</summary>
     public DbSet<OwnedShapeItem> Items { get; set; }
 
     /// <summary>Creates a context configured to use the provided DynamoDB client instance.</summary>

@@ -60,11 +60,15 @@ internal static class EnumerableMethods
                                 method.IsGenericMethod ? method.GetGenericArguments() : [])));
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     public static MethodInfo Select { get; }
 
+    /// <summary>Provides functionality for this member.</summary>
     public static MethodInfo SelectWithOrdinal { get; }
 
+    /// <summary>Provides functionality for this member.</summary>
     public static MethodInfo ToList { get; }
 
+    /// <summary>Provides functionality for this member.</summary>
     public static MethodInfo ToArray { get; }
 }

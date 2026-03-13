@@ -6,24 +6,26 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Infrastructure;
 
+/// <summary>Defines the contract for IDynamoDbContextOptionsBuilder.</summary>
 public interface IDynamoDbContextOptionsBuilder
 {
+    /// <summary>Provides functionality for this member.</summary>
     DbContextOptionsBuilder OptionsBuilder { get; }
 }
 
+/// <summary>Represents the DynamoDbContextOptionsBuilder type.</summary>
 public class DynamoDbContextOptionsBuilder(DbContextOptionsBuilder optionsBuilder)
     : IDynamoDbContextOptionsBuilder
 {
+    /// <summary>Provides functionality for this member.</summary>
     public DbContextOptionsBuilder OptionsBuilder { get; } = optionsBuilder;
 
     /// <summary>Uses a preconfigured DynamoDB client instance for all provider operations.</summary>
-    /// <param name="client">The DynamoDB client instance.</param>
     /// <returns>The builder for chaining.</returns>
     public virtual DynamoDbContextOptionsBuilder DynamoDbClient(IAmazonDynamoDB client)
         => WithOption(e => e.WithDynamoDbClient(client.NotNull()));
 
     /// <summary>Uses the provided DynamoDB client configuration when creating the SDK client.</summary>
-    /// <param name="config">The DynamoDB client configuration.</param>
     /// <returns>The builder for chaining.</returns>
     public virtual DynamoDbContextOptionsBuilder DynamoDbClientConfig(AmazonDynamoDBConfig config)
         => WithOption(e => e.WithDynamoDbClientConfig(config.NotNull()));
@@ -32,7 +34,6 @@ public class DynamoDbContextOptionsBuilder(DbContextOptionsBuilder optionsBuilde
     ///     Applies additional configuration to the DynamoDB client configuration before client
     ///     creation.
     /// </summary>
-    /// <param name="configure">The callback used to configure the client configuration.</param>
     /// <returns>The builder for chaining.</returns>
     public virtual DynamoDbContextOptionsBuilder ConfigureDynamoDbClientConfig(
         Action<AmazonDynamoDBConfig> configure)
@@ -42,7 +43,6 @@ public class DynamoDbContextOptionsBuilder(DbContextOptionsBuilder optionsBuilde
     ///     Sets the default number of items DynamoDB should evaluate per request. Null means no limit
     ///     (DynamoDB scans up to 1MB per request).
     /// </summary>
-    /// <param name="pageSize">The default page size. Must be positive if specified.</param>
     /// <returns>The builder for chaining.</returns>
     public virtual DynamoDbContextOptionsBuilder DefaultPageSize(int pageSize)
     {
@@ -53,7 +53,6 @@ public class DynamoDbContextOptionsBuilder(DbContextOptionsBuilder optionsBuilde
     }
 
     /// <summary>Configures how the provider should apply automatic secondary index selection.</summary>
-    /// <param name="mode">The automatic index selection mode to apply.</param>
     /// <returns>The builder for chaining.</returns>
     public virtual DynamoDbContextOptionsBuilder UseAutomaticIndexSelection(
         DynamoAutomaticIndexSelectionMode mode)

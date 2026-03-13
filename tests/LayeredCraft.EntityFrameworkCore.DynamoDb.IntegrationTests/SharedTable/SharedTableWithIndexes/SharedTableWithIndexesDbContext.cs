@@ -1,15 +1,14 @@
-using LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.SharedTable;
 using Microsoft.EntityFrameworkCore;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.SharedTable.SharedTableWithIndexes;
 
 /// <summary>
-/// DbContext that maps the <see cref="WorkOrderEntity"/> hierarchy to a separate physical table
+/// DbContext that maps the <c>WorkOrderEntity</c> hierarchy to a separate physical table
 /// that includes both a GSI and an LSI. Used to verify that discriminator predicates and automatic
 /// index selection interact correctly when multiple entity types share an indexed table.
 /// </summary>
 /// <remarks>
-/// Uses a distinct table name (<see cref="TableName"/>) so the schema can declare GSI and LSI
+/// Uses a distinct table name (<c>TableName</c>) so the schema can declare GSI and LSI
 /// attributes without affecting the plain <c>"app-table"</c> used by other shared-table tests.
 /// </remarks>
 public class SharedTableWithIndexesDbContext(DbContextOptions options) : DbContext(options)

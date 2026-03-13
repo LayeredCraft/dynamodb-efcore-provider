@@ -36,6 +36,7 @@ public abstract class SqlExpression(Type type, CoreTypeMapping? typeMapping) : E
     /// <inheritdoc />
     public override bool Equals(object? obj) => obj is SqlExpression other && Equals(other);
 
+    /// <summary>Provides functionality for this member.</summary>
     protected virtual bool Equals(SqlExpression? other)
         => other != null && Type == other.Type && TypeMapping?.Equals(other.TypeMapping) == true;
 

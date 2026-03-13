@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.SimpleTable;
 
+/// <summary>Represents the CompiledQueryPaginationTests type.</summary>
 public class CompiledQueryPaginationTests(SimpleTableDynamoFixture fixture)
     : SimpleTableTestBase(fixture)
 {
@@ -13,7 +14,9 @@ public class CompiledQueryPaginationTests(SimpleTableDynamoFixture fixture)
         PageSizePlusOneQuery = EF.CompileAsyncQuery((SimpleTableDbContext ctx, int n)
             => ctx.SimpleItems.WithPageSize(n + 1).Take(3));
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task Take_WithArithmetic_EvaluatesAtRuntime()
     {
         var results = await TakePlusOneQuery(Db, 2).ToListAsync(CancellationToken);
@@ -25,7 +28,9 @@ public class CompiledQueryPaginationTests(SimpleTableDynamoFixture fixture)
         calls[0].Limit.Should().BeNull();
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task WithPageSize_WithArithmetic_UsesComputedLimit()
     {
         var results = await PageSizePlusOneQuery(Db, 6).ToListAsync(CancellationToken);

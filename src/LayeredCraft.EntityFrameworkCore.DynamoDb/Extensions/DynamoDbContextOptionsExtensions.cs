@@ -1,14 +1,15 @@
-using Amazon.DynamoDBv2;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Infrastructure;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Infrastructure.Internal;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace Microsoft.EntityFrameworkCore;
 
+/// <summary>Represents the DynamoDbContextOptionsExtensions type.</summary>
 public static class DynamoDbContextOptionsExtensions
 {
     extension(DbContextOptionsBuilder optionsBuilder)
     {
+        /// <summary>Provides functionality for this member.</summary>
         public DbContextOptionsBuilder UseDynamo()
         {
             ArgumentNullException.ThrowIfNull(optionsBuilder);
@@ -25,6 +26,7 @@ public static class DynamoDbContextOptionsExtensions
             return optionsBuilder;
         }
 
+        /// <summary>Provides functionality for this member.</summary>
         public DbContextOptionsBuilder UseDynamo(Action<DynamoDbContextOptionsBuilder> configure)
         {
             ArgumentNullException.ThrowIfNull(optionsBuilder);

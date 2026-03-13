@@ -4,9 +4,11 @@ using LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.TestUtilities;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.PkSkTable;
 
+/// <summary>Represents the PkSkTableTestBase type.</summary>
 public abstract class PkSkTableTestBase(PkSkTableDynamoFixture fixture)
     : DynamoDbPerTestResetTestBase<PkSkTableDynamoFixture, PkSkTableDbContext>(fixture)
 {
+    /// <summary>Provides functionality for this member.</summary>
     protected override async Task CreateTablesAsync(CancellationToken cancellationToken)
     {
         await Client.CreateTableAsync(
@@ -39,6 +41,7 @@ public abstract class PkSkTableTestBase(PkSkTableDynamoFixture fixture)
             cancellationToken);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     protected override async Task SeedAsync(CancellationToken cancellationToken)
     {
         var writeRequests =

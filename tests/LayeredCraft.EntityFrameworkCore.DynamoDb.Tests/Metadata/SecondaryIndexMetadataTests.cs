@@ -9,10 +9,12 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Tests.Metadata;
 
+/// <summary>Represents the SecondaryIndexMetadataTests type.</summary>
 public class SecondaryIndexMetadataTests
 {
     private sealed class TestDbContext(DbContextOptions<TestDbContext> options) : DbContext(options)
     {
+        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<Order>(entity =>
             {
@@ -30,10 +32,19 @@ public class SecondaryIndexMetadataTests
 
     private sealed class Order
     {
+        /// <summary>Provides functionality for this member.</summary>
         public string TenantId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public string OrderId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public string CustomerId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public DateTime CreatedAtUtc { get; set; }
+
+        /// <summary>Provides functionality for this member.</summary>
         public string Status { get; set; } = null!;
     }
 
@@ -44,7 +55,9 @@ public class SecondaryIndexMetadataTests
         return new TestDbContext(optionsBuilder.Options);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void HasGlobalSecondaryIndex_PartitionKeyOnly_ConfiguresSecondaryIndexMetadata()
     {
         using var context = CreateContext();
@@ -58,7 +71,9 @@ public class SecondaryIndexMetadataTests
         index.GetSecondaryIndexProjectionType().Should().Be(DynamoSecondaryIndexProjectionType.All);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void HasGlobalSecondaryIndex_PartitionAndSortKey_ConfiguresSecondaryIndexMetadata()
     {
         using var context = CreateContext();
@@ -72,7 +87,9 @@ public class SecondaryIndexMetadataTests
         index.GetSecondaryIndexProjectionType().Should().Be(DynamoSecondaryIndexProjectionType.All);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void HasLocalSecondaryIndex_UsesConfiguredPartitionKeyAndSortKey()
     {
         using var context = CreateContext();
@@ -86,7 +103,9 @@ public class SecondaryIndexMetadataTests
         index.GetSecondaryIndexProjectionType().Should().Be(DynamoSecondaryIndexProjectionType.All);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void HasLocalSecondaryIndex_UsesDynamoKeyConventionWhenPartitionKeyIsNotExplicitlyConfigured()
     {
         var optionsBuilder = new DbContextOptionsBuilder<ConventionPartitionKeyContext>();
@@ -100,7 +119,9 @@ public class SecondaryIndexMetadataTests
         index.Properties.Select(x => x.Name).Should().Equal("Status");
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void HasLocalSecondaryIndex_BeforeTableKeyConfiguration_IsAllowedUntilModelValidation()
     {
         var optionsBuilder = new DbContextOptionsBuilder<OrderIndependentLsiContext>();
@@ -116,7 +137,9 @@ public class SecondaryIndexMetadataTests
         entityType.GetSortKeyPropertyName().Should().Be("OrderId");
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void HasLocalSecondaryIndex_WithoutCompositePrimaryKey_ThrowsHelpfulError()
     {
         var optionsBuilder = new DbContextOptionsBuilder<HashOnlyTableContext>();
@@ -132,7 +155,9 @@ public class SecondaryIndexMetadataTests
             .WithMessage("*no DynamoDB sort key is configured*before configuring an LSI*");
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void HasLocalSecondaryIndex_UsingTableSortKey_ThrowsHelpfulError()
     {
         var optionsBuilder = new DbContextOptionsBuilder<DuplicateSortKeyContext>();
@@ -148,7 +173,9 @@ public class SecondaryIndexMetadataTests
             .WithMessage("*must use an alternate sort key different from the table sort key*");
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void DerivedTypeHasLocalSecondaryIndex_UsingTableSortKey_ThrowsHelpfulError()
     {
         var optionsBuilder = new DbContextOptionsBuilder<DerivedDuplicateSortKeyContext>();
@@ -164,7 +191,9 @@ public class SecondaryIndexMetadataTests
             .WithMessage("*must use an alternate sort key different from the table sort key*");
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void HasGlobalSecondaryIndex_PartitionKeyUnsupportedType_ThrowsHelpfulError()
     {
         var optionsBuilder = new DbContextOptionsBuilder<UnsupportedGlobalPartitionKeyTypeContext>();
@@ -180,7 +209,9 @@ public class SecondaryIndexMetadataTests
             .WithMessage("*secondary index 'ByPriority'*global secondary index partition key*must be string, number, or binary*");
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void HasGlobalSecondaryIndex_SortKeyUnsupportedType_ThrowsHelpfulError()
     {
         var optionsBuilder = new DbContextOptionsBuilder<UnsupportedGlobalSortKeyTypeContext>();
@@ -196,7 +227,9 @@ public class SecondaryIndexMetadataTests
             .WithMessage("*secondary index 'ByCustomerPriority'*global secondary index sort key*must be string, number, or binary*");
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void HasLocalSecondaryIndex_SortKeyUnsupportedType_ThrowsHelpfulError()
     {
         var optionsBuilder = new DbContextOptionsBuilder<UnsupportedLocalSortKeyTypeContext>();
@@ -212,7 +245,9 @@ public class SecondaryIndexMetadataTests
             .WithMessage("*secondary index 'ByPriority'*local secondary index sort key*must be string, number, or binary*");
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void HasLocalSecondaryIndex_UsingTablePartitionKey_ThrowsHelpfulError()
     {
         var optionsBuilder = new DbContextOptionsBuilder<DuplicatePartitionKeyContext>();
@@ -228,7 +263,9 @@ public class SecondaryIndexMetadataTests
             .WithMessage("*must use an alternate sort key different from the table partition key*");
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void HasLocalSecondaryIndex_AlternateSortKeyWithPartitionKeyAttributeName_ThrowsHelpfulError()
     {
         var optionsBuilder = new DbContextOptionsBuilder<DuplicatePartitionKeyAttributeNameContext>();
@@ -244,7 +281,9 @@ public class SecondaryIndexMetadataTests
             .WithMessage("*alternate sort key*resolves to partition key attribute name*must use an alternate sort key attribute different from the table partition key attribute*");
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void HasGlobalSecondaryIndex_SameAttributeNameForPartitionAndSortKey_ThrowsHelpfulError()
     {
         var optionsBuilder = new DbContextOptionsBuilder<DuplicateGlobalKeyAttributeNameContext>();
@@ -260,7 +299,9 @@ public class SecondaryIndexMetadataTests
             .WithMessage("*partition key 'CustomerId' and sort key 'LookupKey'*resolve to attribute name 'SharedLookup'*must use distinct partition and sort key attributes*");
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void DerivedTypeHasUnsupportedGlobalIndexKeyType_ErrorMentionsDeclaringType()
     {
         var optionsBuilder = new DbContextOptionsBuilder<DerivedUnsupportedGlobalPartitionKeyTypeContext>();
@@ -277,7 +318,9 @@ public class SecondaryIndexMetadataTests
         exception.Message.Should().NotContain("Entity type 'BaseDerivedUnsupportedGlobalPartitionKeyOrder'");
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void HasGlobalSecondaryIndex_NullablePartitionKey_IsAllowedForSparseMembership()
     {
         var optionsBuilder = new DbContextOptionsBuilder<NullableGlobalPartitionKeyContext>();
@@ -292,7 +335,9 @@ public class SecondaryIndexMetadataTests
         index.Properties.Single().Name.Should().Be(nameof(NullableGlobalPartitionKeyOrder.CustomerId));
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void HasGlobalSecondaryIndex_NullableSortKey_IsAllowedForSparseMembership()
     {
         var optionsBuilder = new DbContextOptionsBuilder<NullableGlobalSortKeyContext>();
@@ -309,7 +354,9 @@ public class SecondaryIndexMetadataTests
             nameof(NullableGlobalSortKeyOrder.Priority));
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void HasLocalSecondaryIndex_NullableSortKey_IsAllowedForSparseMembership()
     {
         var optionsBuilder = new DbContextOptionsBuilder<NullableLocalSortKeyContext>();
@@ -324,7 +371,9 @@ public class SecondaryIndexMetadataTests
         index.Properties.Single().Name.Should().Be(nameof(NullableLocalSortKeyOrder.Priority));
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void HasGlobalSecondaryIndex_ConverterToSupportedProviderType_DoesNotThrow()
     {
         var optionsBuilder = new DbContextOptionsBuilder<ConverterGlobalPartitionKeyContext>();
@@ -339,7 +388,9 @@ public class SecondaryIndexMetadataTests
         act.Should().NotThrow();
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void Model_ContainsRuntimeTableModel_ForConfiguredSecondaryIndexes()
     {
         using var context = CreateContext();
@@ -355,7 +406,9 @@ public class SecondaryIndexMetadataTests
         tableDescriptor.RootEntityTypes[0].ClrType.Should().Be(typeof(Order));
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void RuntimeTableModel_BuildsOrderedSourcesWithResolvedMetadataObjects()
     {
         using var context = CreateContext();
@@ -384,7 +437,9 @@ public class SecondaryIndexMetadataTests
         sources.Should().OnlyContain(x => x.ProjectionType == DynamoSecondaryIndexProjectionType.All);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void RuntimeTableModel_IncludesDerivedTypeSecondaryIndexes()
     {
         var optionsBuilder = new DbContextOptionsBuilder<DerivedIndexContext>();
@@ -413,7 +468,9 @@ public class SecondaryIndexMetadataTests
         archivedSources.Select(x => x.IndexName).Should().Equal(null, "ByStatus");
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void RuntimeTableModel_CanonicalizesSharedTableMappings()
     {
         var optionsBuilder = new DbContextOptionsBuilder<SharedTableContext>();
@@ -442,7 +499,9 @@ public class SecondaryIndexMetadataTests
             x => x.Select(source => source.IndexName).SequenceEqual(new string?[] { null, "ByCustomer", "ByStatus" }));
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void RuntimeTableModel_AllowsSharedTableTypeSpecificSecondaryIndexes()
     {
         var optionsBuilder = new DbContextOptionsBuilder<SharedTableTypeSpecificIndexContext>();
@@ -478,7 +537,9 @@ public class SecondaryIndexMetadataTests
             .Equal(null, "ByStatus");
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void RuntimeTableModel_SharedTableSameNameDifferentKinds_ThrowsHelpfulError()
     {
         var optionsBuilder = new DbContextOptionsBuilder<SharedTableSameNameDifferentKindsContext>();
@@ -494,7 +555,9 @@ public class SecondaryIndexMetadataTests
             .WithMessage("*map to DynamoDB table 'Orders' but expose inconsistent secondary-index metadata*");
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void RuntimeTableModel_HierarchyDuplicateIndexNameWithConflictingDefinitions_IsRejected()
     {
         var optionsBuilder = new DbContextOptionsBuilder<HierarchyDuplicateIndexConflictContext>();
@@ -510,7 +573,9 @@ public class SecondaryIndexMetadataTests
             .WithMessage("*same name already exists*");
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void RuntimeTableModel_HierarchyDuplicateIndexNameWithSameDefinition_IsDeduplicated()
     {
         var optionsBuilder = new DbContextOptionsBuilder<HierarchyDuplicateIndexSameDefinitionContext>();
@@ -526,7 +591,9 @@ public class SecondaryIndexMetadataTests
         sources.Select(x => x.IndexName).Should().Equal(null, "ByLookup");
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void RuntimeTableModel_SharedTableSecondaryIndexTypeMismatch_ThrowsHelpfulError()
     {
         var optionsBuilder = new DbContextOptionsBuilder<SharedTableMismatchedIndexTypeContext>();
@@ -542,7 +609,9 @@ public class SecondaryIndexMetadataTests
             .WithMessage("*map to DynamoDB table 'Orders' but expose inconsistent secondary-index metadata*");
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void ProviderServices_RegisterCustomModelRuntimeInitializer()
     {
         using var context = CreateContext();
@@ -555,6 +624,7 @@ public class SecondaryIndexMetadataTests
     private sealed class ConventionPartitionKeyContext(DbContextOptions<ConventionPartitionKeyContext> options)
         : DbContext(options)
     {
+        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ConventionPartitionKeyOrder>(entity =>
             {
@@ -567,6 +637,7 @@ public class SecondaryIndexMetadataTests
     private sealed class OrderIndependentLsiContext(DbContextOptions<OrderIndependentLsiContext> options)
         : DbContext(options)
     {
+        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<OrderIndependentLsiOrder>(entity =>
             {
@@ -578,21 +649,32 @@ public class SecondaryIndexMetadataTests
 
     private sealed class OrderIndependentLsiOrder
     {
+        /// <summary>Provides functionality for this member.</summary>
         public string TenantId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public string OrderId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public string Status { get; set; } = null!;
     }
 
     private sealed class ConventionPartitionKeyOrder
     {
+        /// <summary>Provides functionality for this member.</summary>
         public string PK { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public string SK { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public string Status { get; set; } = null!;
     }
 
     private sealed class HashOnlyTableContext(DbContextOptions<HashOnlyTableContext> options)
         : DbContext(options)
     {
+        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<HashOnlyTableOrder>(entity =>
             {
@@ -603,13 +685,17 @@ public class SecondaryIndexMetadataTests
 
     private sealed class HashOnlyTableOrder
     {
+        /// <summary>Provides functionality for this member.</summary>
         public string TenantId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public string Status { get; set; } = null!;
     }
 
     private sealed class DuplicateSortKeyContext(DbContextOptions<DuplicateSortKeyContext> options)
         : DbContext(options)
     {
+        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<DuplicateSortKeyOrder>(entity =>
             {
@@ -621,13 +707,17 @@ public class SecondaryIndexMetadataTests
 
     private sealed class DuplicateSortKeyOrder
     {
+        /// <summary>Provides functionality for this member.</summary>
         public string TenantId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public string OrderId { get; set; } = null!;
     }
 
     private sealed class DerivedDuplicateSortKeyContext(DbContextOptions<DerivedDuplicateSortKeyContext> options)
         : DbContext(options)
     {
+        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<BaseDerivedDuplicateSortKeyOrder>(entity =>
@@ -647,7 +737,10 @@ public class SecondaryIndexMetadataTests
 
     private class BaseDerivedDuplicateSortKeyOrder
     {
+        /// <summary>Provides functionality for this member.</summary>
         public string TenantId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public string OrderId { get; set; } = null!;
     }
 
@@ -656,6 +749,7 @@ public class SecondaryIndexMetadataTests
     private sealed class UnsupportedGlobalPartitionKeyTypeContext(DbContextOptions<UnsupportedGlobalPartitionKeyTypeContext> options)
         : DbContext(options)
     {
+        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<UnsupportedGlobalPartitionKeyTypeOrder>(entity =>
             {
@@ -667,14 +761,20 @@ public class SecondaryIndexMetadataTests
 
     private sealed class UnsupportedGlobalPartitionKeyTypeOrder
     {
+        /// <summary>Provides functionality for this member.</summary>
         public string TenantId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public string OrderId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public bool IsPriority { get; set; }
     }
 
     private sealed class UnsupportedGlobalSortKeyTypeContext(DbContextOptions<UnsupportedGlobalSortKeyTypeContext> options)
         : DbContext(options)
     {
+        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<UnsupportedGlobalSortKeyTypeOrder>(entity =>
             {
@@ -686,15 +786,23 @@ public class SecondaryIndexMetadataTests
 
     private sealed class UnsupportedGlobalSortKeyTypeOrder
     {
+        /// <summary>Provides functionality for this member.</summary>
         public string TenantId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public string OrderId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public string CustomerId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public bool IsPriority { get; set; }
     }
 
     private sealed class UnsupportedLocalSortKeyTypeContext(DbContextOptions<UnsupportedLocalSortKeyTypeContext> options)
         : DbContext(options)
     {
+        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<UnsupportedLocalSortKeyTypeOrder>(entity =>
             {
@@ -706,14 +814,20 @@ public class SecondaryIndexMetadataTests
 
     private sealed class UnsupportedLocalSortKeyTypeOrder
     {
+        /// <summary>Provides functionality for this member.</summary>
         public string TenantId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public string OrderId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public bool IsPriority { get; set; }
     }
 
     private sealed class DuplicatePartitionKeyContext(DbContextOptions<DuplicatePartitionKeyContext> options)
         : DbContext(options)
     {
+        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<DuplicatePartitionKeyOrder>(entity =>
             {
@@ -725,13 +839,17 @@ public class SecondaryIndexMetadataTests
 
     private sealed class DuplicatePartitionKeyOrder
     {
+        /// <summary>Provides functionality for this member.</summary>
         public string TenantId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public string OrderId { get; set; } = null!;
     }
 
     private sealed class DuplicatePartitionKeyAttributeNameContext(DbContextOptions<DuplicatePartitionKeyAttributeNameContext> options)
         : DbContext(options)
     {
+        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<DuplicatePartitionKeyAttributeNameOrder>(entity =>
             {
@@ -745,14 +863,20 @@ public class SecondaryIndexMetadataTests
 
     private sealed class DuplicatePartitionKeyAttributeNameOrder
     {
+        /// <summary>Provides functionality for this member.</summary>
         public string TenantId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public string OrderId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public string Priority { get; set; } = null!;
     }
 
     private sealed class DuplicateGlobalKeyAttributeNameContext(DbContextOptions<DuplicateGlobalKeyAttributeNameContext> options)
         : DbContext(options)
     {
+        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<DuplicateGlobalKeyAttributeNameOrder>(entity =>
             {
@@ -766,15 +890,23 @@ public class SecondaryIndexMetadataTests
 
     private sealed class DuplicateGlobalKeyAttributeNameOrder
     {
+        /// <summary>Provides functionality for this member.</summary>
         public string TenantId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public string OrderId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public string CustomerId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public string LookupKey { get; set; } = null!;
     }
 
     private sealed class NullableGlobalPartitionKeyContext(DbContextOptions<NullableGlobalPartitionKeyContext> options)
         : DbContext(options)
     {
+        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<NullableGlobalPartitionKeyOrder>(entity =>
             {
@@ -786,14 +918,20 @@ public class SecondaryIndexMetadataTests
 
     private sealed class NullableGlobalPartitionKeyOrder
     {
+        /// <summary>Provides functionality for this member.</summary>
         public string TenantId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public string OrderId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public string? CustomerId { get; set; }
     }
 
     private sealed class NullableGlobalSortKeyContext(DbContextOptions<NullableGlobalSortKeyContext> options)
         : DbContext(options)
     {
+        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<NullableGlobalSortKeyOrder>(entity =>
             {
@@ -805,15 +943,23 @@ public class SecondaryIndexMetadataTests
 
     private sealed class NullableGlobalSortKeyOrder
     {
+        /// <summary>Provides functionality for this member.</summary>
         public string TenantId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public string OrderId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public string CustomerId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public int? Priority { get; set; }
     }
 
     private sealed class NullableLocalSortKeyContext(DbContextOptions<NullableLocalSortKeyContext> options)
         : DbContext(options)
     {
+        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<NullableLocalSortKeyOrder>(entity =>
             {
@@ -825,14 +971,20 @@ public class SecondaryIndexMetadataTests
 
     private sealed class NullableLocalSortKeyOrder
     {
+        /// <summary>Provides functionality for this member.</summary>
         public string TenantId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public string OrderId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public int? Priority { get; set; }
     }
 
     private sealed class ConverterGlobalPartitionKeyContext(DbContextOptions<ConverterGlobalPartitionKeyContext> options)
         : DbContext(options)
     {
+        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ConverterGlobalPartitionKeyOrder>(entity =>
             {
@@ -848,14 +1000,20 @@ public class SecondaryIndexMetadataTests
 
     private sealed class ConverterGlobalPartitionKeyOrder
     {
+        /// <summary>Provides functionality for this member.</summary>
         public string TenantId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public string OrderId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public Guid CustomerId { get; set; }
     }
 
     private sealed class DerivedUnsupportedGlobalPartitionKeyTypeContext(DbContextOptions<DerivedUnsupportedGlobalPartitionKeyTypeContext> options)
         : DbContext(options)
     {
+        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<BaseDerivedUnsupportedGlobalPartitionKeyOrder>(entity =>
@@ -875,18 +1033,23 @@ public class SecondaryIndexMetadataTests
 
     private class BaseDerivedUnsupportedGlobalPartitionKeyOrder
     {
+        /// <summary>Provides functionality for this member.</summary>
         public string TenantId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public string OrderId { get; set; } = null!;
     }
 
     private sealed class DerivedUnsupportedGlobalPartitionKeyOrder : BaseDerivedUnsupportedGlobalPartitionKeyOrder
     {
+        /// <summary>Provides functionality for this member.</summary>
         public bool IsPriority { get; set; }
     }
 
     private sealed class DerivedIndexContext(DbContextOptions<DerivedIndexContext> options)
         : DbContext(options)
     {
+        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<BaseOrder>(entity =>
@@ -912,13 +1075,19 @@ public class SecondaryIndexMetadataTests
 
     private class BaseOrder
     {
+        /// <summary>Provides functionality for this member.</summary>
         public string TenantId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public string OrderId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public string Status { get; set; } = null!;
     }
 
     private sealed class PriorityOrder : BaseOrder
     {
+        /// <summary>Provides functionality for this member.</summary>
         public int Priority { get; set; }
     }
 
@@ -927,6 +1096,7 @@ public class SecondaryIndexMetadataTests
     private sealed class SharedTableContext(DbContextOptions<SharedTableContext> options)
         : DbContext(options)
     {
+        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             ConfigureSharedOrder(modelBuilder.Entity<LiveOrder>());
@@ -946,23 +1116,38 @@ public class SecondaryIndexMetadataTests
 
     private sealed class LiveOrder
     {
+        /// <summary>Provides functionality for this member.</summary>
         public string TenantId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public string OrderId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public string CustomerId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public string Status { get; set; } = null!;
     }
 
     private sealed class ArchivedOrder
     {
+        /// <summary>Provides functionality for this member.</summary>
         public string TenantId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public string OrderId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public string CustomerId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public string Status { get; set; } = null!;
     }
 
     private sealed class SharedTableTypeSpecificIndexContext(DbContextOptions<SharedTableTypeSpecificIndexContext> options)
         : DbContext(options)
     {
+        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<CustomerOrder>(entity =>
@@ -986,22 +1171,35 @@ public class SecondaryIndexMetadataTests
 
     private sealed class CustomerOrder
     {
+        /// <summary>Provides functionality for this member.</summary>
         public string TenantId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public string OrderId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public string CustomerId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public string Status { get; set; } = null!;
     }
 
     private sealed class AuditOrder
     {
+        /// <summary>Provides functionality for this member.</summary>
         public string TenantId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public string OrderId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public string Status { get; set; } = null!;
     }
 
     private sealed class SharedTableSameNameDifferentKindsContext(DbContextOptions<SharedTableSameNameDifferentKindsContext> options)
         : DbContext(options)
     {
+        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<SharedStatusGsiOrder>(entity =>
@@ -1024,21 +1222,32 @@ public class SecondaryIndexMetadataTests
 
     private sealed class SharedStatusGsiOrder
     {
+        /// <summary>Provides functionality for this member.</summary>
         public string TenantId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public string OrderId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public string Status { get; set; } = null!;
     }
 
     private sealed class SharedStatusLsiOrder
     {
+        /// <summary>Provides functionality for this member.</summary>
         public string TenantId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public string OrderId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public string Status { get; set; } = null!;
     }
 
     private sealed class HierarchyDuplicateIndexConflictContext(DbContextOptions<HierarchyDuplicateIndexConflictContext> options)
         : DbContext(options)
     {
+        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<BaseLookupOrder>(entity =>
@@ -1060,6 +1269,7 @@ public class SecondaryIndexMetadataTests
     private sealed class HierarchyDuplicateIndexSameDefinitionContext(DbContextOptions<HierarchyDuplicateIndexSameDefinitionContext> options)
         : DbContext(options)
     {
+        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<BaseLookupOrder>(entity =>
@@ -1080,13 +1290,19 @@ public class SecondaryIndexMetadataTests
 
     private class BaseLookupOrder
     {
+        /// <summary>Provides functionality for this member.</summary>
         public string TenantId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public string OrderId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public string CustomerId { get; set; } = null!;
     }
 
     private sealed class PriorityLookupOrder : BaseLookupOrder
     {
+        /// <summary>Provides functionality for this member.</summary>
         public int Priority { get; set; }
     }
 
@@ -1095,6 +1311,7 @@ public class SecondaryIndexMetadataTests
     private sealed class SharedTableMismatchedIndexTypeContext(DbContextOptions<SharedTableMismatchedIndexTypeContext> options)
         : DbContext(options)
     {
+        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<StringCustomerOrder>(entity =>
@@ -1115,13 +1332,19 @@ public class SecondaryIndexMetadataTests
 
     private sealed class StringCustomerOrder
     {
+        /// <summary>Provides functionality for this member.</summary>
         public string TenantId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public string CustomerId { get; set; } = null!;
     }
 
     private sealed class NumericCustomerOrder
     {
+        /// <summary>Provides functionality for this member.</summary>
         public string TenantId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public int CustomerId { get; set; }
     }
 }

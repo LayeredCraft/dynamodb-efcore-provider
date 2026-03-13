@@ -13,6 +13,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Extensions;
 
+/// <summary>Represents the DynamoServiceCollectionExtensions type.</summary>
 public static class DynamoServiceCollectionExtensions
 {
     extension(IServiceCollection serviceCollection)

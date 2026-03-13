@@ -2,9 +2,12 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.SimpleTable;
 
+/// <summary>Represents the PaginationTests type.</summary>
 public class PaginationTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase(fixture)
 {
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task FirstAsync_WithoutPageSize_UsesDefault()
     {
         LoggerFactory.Clear();
@@ -20,7 +23,9 @@ public class PaginationTests(SimpleTableDynamoFixture fixture) : SimpleTableTest
         LoggerFactory.RowLimitingWarnings.Should().ContainSingle().Which.Should().Be(1);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task Take_WithoutPageSize_UsesDefault()
     {
         LoggerFactory.Clear();
@@ -36,7 +41,9 @@ public class PaginationTests(SimpleTableDynamoFixture fixture) : SimpleTableTest
         LoggerFactory.RowLimitingWarnings.Should().ContainSingle().Which.Should().Be(3);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task FirstAsync_WithPageSize_UsesCustomPageSize()
     {
         LoggerFactory.Clear();
@@ -55,7 +62,9 @@ public class PaginationTests(SimpleTableDynamoFixture fixture) : SimpleTableTest
         LoggerFactory.RowLimitingWarnings.Should().BeEmpty();
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task FirstAsync_WithPageSizeOverload_UsesCustomPageSize()
     {
         LoggerFactory.Clear();
@@ -70,7 +79,9 @@ public class PaginationTests(SimpleTableDynamoFixture fixture) : SimpleTableTest
         LoggerFactory.RowLimitingWarnings.Should().BeEmpty();
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task FirstOrDefaultAsync_WithPageSizeOverload_UsesCustomPageSize()
     {
         LoggerFactory.Clear();
@@ -85,7 +96,9 @@ public class PaginationTests(SimpleTableDynamoFixture fixture) : SimpleTableTest
         LoggerFactory.RowLimitingWarnings.Should().BeEmpty();
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task Take_WithPageSize_UsesCustomPageSize()
     {
         LoggerFactory.Clear();
@@ -99,7 +112,9 @@ public class PaginationTests(SimpleTableDynamoFixture fixture) : SimpleTableTest
         calls.Should().OnlyContain(call => call.Limit == 10);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task ToListAsync_WithPageSize_UsesCustomPageSize()
     {
         LoggerFactory.Clear();
@@ -114,7 +129,9 @@ public class PaginationTests(SimpleTableDynamoFixture fixture) : SimpleTableTest
         LoggerFactory.RowLimitingWarnings.Should().BeEmpty();
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task ToListAsync_WithoutPageSize_DoesNotEmitRowLimitingWarning()
     {
         LoggerFactory.Clear();
@@ -125,7 +142,9 @@ public class PaginationTests(SimpleTableDynamoFixture fixture) : SimpleTableTest
         LoggerFactory.RowLimitingWarnings.Should().BeEmpty();
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task FirstAsync_WithoutPagination_SingleRequest()
     {
         LoggerFactory.Clear();
@@ -139,7 +158,9 @@ public class PaginationTests(SimpleTableDynamoFixture fixture) : SimpleTableTest
         calls.Should().HaveCount(1);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task Take_WithoutPagination_SingleRequest()
     {
         LoggerFactory.Clear();
@@ -154,7 +175,9 @@ public class PaginationTests(SimpleTableDynamoFixture fixture) : SimpleTableTest
         calls.Should().HaveCount(1);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task MultipleExtensions_LastOneWins()
     {
         LoggerFactory.Clear();
@@ -170,7 +193,9 @@ public class PaginationTests(SimpleTableDynamoFixture fixture) : SimpleTableTest
         calls.Should().OnlyContain(call => call.Limit == 20);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task MultipleExtensions_LastOneWins_WithOperatorsBetween()
     {
         LoggerFactory.Clear();

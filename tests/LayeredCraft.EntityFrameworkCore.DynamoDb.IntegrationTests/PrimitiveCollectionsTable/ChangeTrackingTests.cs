@@ -2,10 +2,13 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.PrimitiveCollectionsTable;
 
+/// <summary>Represents the ChangeTrackingTests type.</summary>
 public class ChangeTrackingTests(PrimitiveCollectionsDynamoFixture fixture)
     : PrimitiveCollectionsTestBase(fixture)
 {
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task MutatingListMarksPropertyModified()
     {
         var entity =
@@ -19,7 +22,9 @@ public class ChangeTrackingTests(PrimitiveCollectionsDynamoFixture fixture)
         Db.Entry(entity).Property(e => e.Tags).IsModified.Should().BeTrue();
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task MutatingDictionaryMarksPropertyModified()
     {
         var entity =
@@ -33,7 +38,9 @@ public class ChangeTrackingTests(PrimitiveCollectionsDynamoFixture fixture)
         Db.Entry(entity).Property(e => e.ScoresByCategory).IsModified.Should().BeTrue();
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task MutatingSetMarksPropertyModified()
     {
         var entity =

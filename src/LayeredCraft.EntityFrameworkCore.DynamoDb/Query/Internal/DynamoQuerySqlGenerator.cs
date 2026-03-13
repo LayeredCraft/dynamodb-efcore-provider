@@ -265,7 +265,7 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
         return projectionExpression;
     }
 
-    /// <summary>Emits <see cref="DynamoObjectAccessExpression" /> as a bare attribute name.</summary>
+    /// <summary>Emits <c>DynamoObjectAccessExpression</c> as a bare attribute name.</summary>
     protected override Expression VisitExtension(Expression node)
     {
         if (node is DynamoObjectAccessExpression objectAccess)
@@ -530,7 +530,6 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
     ///     Determines whether the IN comparison targets an effective partition key for the finalized
     ///     query source.
     /// </summary>
-    /// <param name="sqlInExpression">The IN expression currently being emitted.</param>
     /// <returns>
     ///     <c>true</c> when the IN item is a table or selected-index partition key; otherwise
     ///     <c>false</c>.
@@ -548,7 +547,6 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
     }
 
     /// <summary>Tries to resolve the root property name for an IN-item expression.</summary>
-    /// <param name="expression">The expression used as the left side of IN.</param>
     /// <returns>The root property name when resolvable; otherwise <c>null</c>.</returns>
     private static string? TryGetRootPropertyName(SqlExpression expression)
         => expression switch

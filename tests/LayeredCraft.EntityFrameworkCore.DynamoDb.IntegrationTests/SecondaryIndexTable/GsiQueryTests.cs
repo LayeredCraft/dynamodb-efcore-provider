@@ -3,10 +3,12 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.SecondaryIndexTable;
 
-/// <summary>Integration tests for querying <see cref="OrderItem" /> via global secondary indexes.</summary>
+/// <summary>Integration tests for querying <c>OrderItem</c> via global secondary indexes.</summary>
 public class GsiQueryTests(SecondaryIndexDynamoFixture fixture) : SecondaryIndexTestBase(fixture)
 {
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task ByStatus_Gsi_ReturnsAllPendingOrders_AcrossCustomers()
     {
         var results = await Db.Orders
@@ -26,7 +28,9 @@ public class GsiQueryTests(SecondaryIndexDynamoFixture fixture) : SecondaryIndex
             """);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task ByStatus_Gsi_WithSortKeyFilter_ReturnsOrdersInDateRange()
     {
         var results = await Db.Orders
@@ -48,7 +52,9 @@ public class GsiQueryTests(SecondaryIndexDynamoFixture fixture) : SecondaryIndex
             """);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task ByStatus_Gsi_WithOrderBy_EmitsOrderByClause()
     {
         // DynamoDB Local does not support ORDER BY on secondary index sort keys via PartiQL.
@@ -86,7 +92,9 @@ public class GsiQueryTests(SecondaryIndexDynamoFixture fixture) : SecondaryIndex
             """);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task ByRegion_Gsi_ReturnsAllUsEastOrders()
     {
         var results = await Db.Orders
@@ -106,7 +114,9 @@ public class GsiQueryTests(SecondaryIndexDynamoFixture fixture) : SecondaryIndex
             """);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task ByRegion_Gsi_WithTake_ReturnsCorrectCount()
     {
         var results = await Db.Orders
@@ -125,7 +135,9 @@ public class GsiQueryTests(SecondaryIndexDynamoFixture fixture) : SecondaryIndex
             """);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task ByStatus_Gsi_EmitsCorrectFromSource_ForExecuteStatement()
     {
         _ = await Db.Orders
