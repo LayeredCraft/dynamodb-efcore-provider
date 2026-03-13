@@ -10,7 +10,6 @@ icon: lucide/triangle-alert
 - `ToQueryString()` support for the custom querying enumerable.
 - Large parts of LINQ translation surface (see `operators.md`).
 - Method calls in `Where` predicates except supported `Contains` patterns (`string.Contains(string)` and in-memory collection membership); other `string.Contains` overloads (such as `char` or `StringComparison`) are not translated.
-- Index-aware query planning and PartiQL secondary-index targeting.
 - Provider-side key encoding helpers (prefix/suffix composition).
 - Provider option for `ConsistentRead`.
 
@@ -27,7 +26,9 @@ icon: lucide/triangle-alert
 ## Single-table mapping constraints
 - A "table group" is the set of entity types mapped to the same DynamoDB table name.
 - Only the table primary key (partition key and optional sort key) is modeled today.
-- Secondary-index metadata can be configured, but query execution does not yet target GSIs/LSIs in generated PartiQL.
+- Secondary indexes (GSI/LSI) can be configured and queried. Explicit `.WithIndex("name")`
+  rewrites the PartiQL `FROM` clause to `FROM "Table"."Index"`. Conservative automatic index
+  selection is opt-in via `UseAutomaticIndexSelection(...)`.
 - Key encoding is not implemented as a provider feature; construct PK/SK values in your domain model.
 - For table groups containing multiple concrete entity types, a discriminator is required and is
   validated at startup.
