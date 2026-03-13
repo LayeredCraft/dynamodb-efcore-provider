@@ -1,11 +1,11 @@
-using Amazon.DynamoDBv2;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Diagnostics;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Infrastructure;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
-namespace LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.SharedTable.SharedTableWithIndexes;
+namespace LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.SharedTable.
+    SharedTableWithIndexes;
 
 /// <summary>
 /// Integration tests that verify automatic index selection and explicit hints interact correctly
@@ -32,21 +32,28 @@ public class SharedTableIndexAutoSelectionTests(SharedTableWithIndexesDynamoFixt
     {
         // Priority == 3 covers the ByPriority GSI PK. The discriminator adds a single equality,
         // which is a safe AND — not an OR — so HasUnsafeOr remains false.
-        var results = await Db.PriorityWorkOrders
-            .Where(o => o.Priority == 3)
-            .ToListAsync(CancellationToken);
+        var results =
+            await Db.PriorityWorkOrders.Where(o => o.Priority == 3).ToListAsync(CancellationToken);
 
-        results.Should().ContainSingle()
-            .Which.Should().BeEquivalentTo(new PriorityWorkOrderEntity
-            {
-                Pk = "WO#ALPHA", Sk = "WO#001", Status = "OPEN", Priority = 3,
-            });
+        results
+            .Should()
+            .ContainSingle()
+            .Which
+            .Should()
+            .BeEquivalentTo(
+                new PriorityWorkOrderEntity
+                {
+                    Pk = "WO#ALPHA", Sk = "WO#001", Status = "OPEN", Priority = 3,
+                });
 
-        LoggerFactory.QueryDiagnosticEvents.Should().ContainSingle(e
-            => e.EventId.Id == DynamoEventId.SecondaryIndexSelected.Id
-            && e.LogLevel == LogLevel.Information
-            && e.Message.Contains(
-                "Index 'ByPriority' on table 'work-orders-indexed-table' was auto-selected."));
+        LoggerFactory
+            .QueryDiagnosticEvents
+            .Should()
+            .ContainSingle(e
+                => e.EventId.Id == DynamoEventId.SecondaryIndexSelected.Id
+                && e.LogLevel == LogLevel.Information
+                && e.Message.Contains(
+                    "Index 'ByPriority' on table 'work-orders-indexed-table' was auto-selected."));
 
         AssertSql(
             """
@@ -68,34 +75,33 @@ public class SharedTableIndexAutoSelectionTests(SharedTableWithIndexesDynamoFixt
     [Fact]
     public async Task Conservative_BaseTypeQuery_OrDiscriminatorIsSafe_AutoSelects_ByStatusLsi()
     {
-        // The base-type query injects: ("$type" = 'PriorityWorkOrderEntity' OR "$type" = 'ArchivedWorkOrderEntity').
+        // The base-type query injects: ("$type" = 'PriorityWorkOrderEntity' OR "$type" =
+        // 'ArchivedWorkOrderEntity').
         // $type is not a PK/SK of any index, so the OR must be classified as safe (filter-only).
         // Pk = "WO#ALPHA" satisfies the ByStatus LSI partition-key gate.
-        List<WorkOrderEntity>? results = null;
-        try
-        {
-            results = await Db.WorkOrders
-                .Where(o => o.Pk == "WO#ALPHA")
-                .ToListAsync(CancellationToken);
-        }
-        catch (AmazonDynamoDBException)
-        {
-            // DynamoDB Local may not support LSI ordering semantics — tolerate but still assert SQL.
-        }
+        var results = await Db
+            .WorkOrders
+            .Where(o => o.Pk == "WO#ALPHA")
+            .ToListAsync(CancellationToken);
 
-        if (results is not null)
-        {
-            results.Should().HaveCount(3)
-                .And.Contain(o => o.Sk == "WO#001")
-                .And.Contain(o => o.Sk == "WO#002")
-                .And.Contain(o => o.Sk == "WO#003");
-        }
+        results
+            .Should()
+            .HaveCount(3)
+            .And
+            .Contain(o => o.Sk == "WO#001")
+            .And
+            .Contain(o => o.Sk == "WO#002")
+            .And
+            .Contain(o => o.Sk == "WO#003");
 
         // IDX003: ByStatus LSI auto-selected.
-        LoggerFactory.QueryDiagnosticEvents.Should().ContainSingle(e
-            => e.EventId.Id == DynamoEventId.SecondaryIndexSelected.Id
-            && e.Message.Contains(
-                "Index 'ByStatus' on table 'work-orders-indexed-table' was auto-selected."));
+        LoggerFactory
+            .QueryDiagnosticEvents
+            .Should()
+            .ContainSingle(e
+                => e.EventId.Id == DynamoEventId.SecondaryIndexSelected.Id
+                && e.Message.Contains(
+                    "Index 'ByStatus' on table 'work-orders-indexed-table' was auto-selected."));
 
         AssertSql(
             """
@@ -117,12 +123,12 @@ public class SharedTableIndexAutoSelectionTests(SharedTableWithIndexesDynamoFixt
     {
         // Status is the ByStatus LSI sort key — NOT a partition key on any index.
         // No GSI PK is constrained either. All candidates fail Gate 1.
-        _ = await Db.WorkOrders
-            .Where(o => o.Status == "OPEN")
-            .ToListAsync(CancellationToken);
+        _ = await Db.WorkOrders.Where(o => o.Status == "OPEN").ToListAsync(CancellationToken);
 
-        LoggerFactory.QueryDiagnosticEvents.Should().Contain(e
-            => e.EventId.Id == DynamoEventId.NoCompatibleSecondaryIndexFound.Id);
+        LoggerFactory
+            .QueryDiagnosticEvents
+            .Should()
+            .Contain(e => e.EventId.Id == DynamoEventId.NoCompatibleSecondaryIndexFound.Id);
 
         AssertSql(
             """
@@ -145,13 +151,17 @@ public class SharedTableIndexAutoSelectionTests(SharedTableWithIndexesDynamoFixt
     {
         // Pk = "WO#ALPHA" would satisfy ByStatus LSI PK. ByPriority is not in the candidate list
         // for ArchivedWorkOrderEntity because it is scoped to PriorityWorkOrderEntity only.
-        _ = await Db.ArchivedWorkOrders
+        _ = await Db
+            .ArchivedWorkOrders
             .Where(o => o.Pk == "WO#ALPHA")
             .ToListAsync(CancellationToken);
 
         // ByPriority must never appear in any diagnostic message for this query.
-        LoggerFactory.QueryDiagnosticEvents.Should()
-            .NotContain(e => e.Message.Contains("ByPriority"),
+        LoggerFactory
+            .QueryDiagnosticEvents
+            .Should()
+            .NotContain(
+                e => e.Message.Contains("ByPriority"),
                 "ByPriority is scoped to PriorityWorkOrderEntity and must not be a candidate for ArchivedWorkOrderEntity queries");
     }
 
@@ -164,16 +174,20 @@ public class SharedTableIndexAutoSelectionTests(SharedTableWithIndexesDynamoFixt
     [Fact]
     public async Task ExplicitHint_ByStatus_OnWorkOrders_EmitsIdx004()
     {
-        _ = await Db.WorkOrders
+        _ = await Db
+            .WorkOrders
             .WithIndex("ByStatus")
             .Where(o => o.Pk == "WO#ALPHA")
             .ToListAsync(CancellationToken);
 
-        LoggerFactory.QueryDiagnosticEvents.Should().ContainSingle(e
-            => e.EventId.Id == DynamoEventId.ExplicitIndexSelected.Id
-            && e.LogLevel == LogLevel.Information
-            && e.Message.Contains(
-                "Index 'ByStatus' on table 'work-orders-indexed-table' was explicitly selected via WithIndex()."));
+        LoggerFactory
+            .QueryDiagnosticEvents
+            .Should()
+            .ContainSingle(e
+                => e.EventId.Id == DynamoEventId.ExplicitIndexSelected.Id
+                && e.LogLevel == LogLevel.Information
+                && e.Message.Contains(
+                    "Index 'ByStatus' on table 'work-orders-indexed-table' was explicitly selected via WithIndex()."));
 
         AssertSql(
             """
@@ -190,21 +204,31 @@ public class SharedTableIndexAutoSelectionTests(SharedTableWithIndexesDynamoFixt
     [Fact]
     public async Task ExplicitHint_ByPriority_OnPriorityWorkOrders_EmitsIdx004()
     {
-        var results = await Db.PriorityWorkOrders
-            .WithIndex("ByPriority")
-            .Where(o => o.Priority == 5)
-            .ToListAsync(CancellationToken);
+        var results =
+            await Db
+                .PriorityWorkOrders
+                .WithIndex("ByPriority")
+                .Where(o => o.Priority == 5)
+                .ToListAsync(CancellationToken);
 
-        results.Should().ContainSingle()
-            .Which.Should().BeEquivalentTo(new PriorityWorkOrderEntity
-            {
-                Pk = "WO#BETA", Sk = "WO#001", Status = "OPEN", Priority = 5,
-            });
+        results
+            .Should()
+            .ContainSingle()
+            .Which
+            .Should()
+            .BeEquivalentTo(
+                new PriorityWorkOrderEntity
+                {
+                    Pk = "WO#BETA", Sk = "WO#001", Status = "OPEN", Priority = 5,
+                });
 
-        LoggerFactory.QueryDiagnosticEvents.Should().ContainSingle(e
-            => e.EventId.Id == DynamoEventId.ExplicitIndexSelected.Id
-            && e.Message.Contains(
-                "Index 'ByPriority' on table 'work-orders-indexed-table' was explicitly selected via WithIndex()."));
+        LoggerFactory
+            .QueryDiagnosticEvents
+            .Should()
+            .ContainSingle(e
+                => e.EventId.Id == DynamoEventId.ExplicitIndexSelected.Id
+                && e.Message.Contains(
+                    "Index 'ByPriority' on table 'work-orders-indexed-table' was explicitly selected via WithIndex()."));
 
         AssertSql(
             """
@@ -228,12 +252,10 @@ public class SharedTableIndexAutoSelectionTests(SharedTableWithIndexesDynamoFixt
         // ByPriority is declared on PriorityWorkOrderEntity — not ArchivedWorkOrderEntity.
         // The postprocessor scopes candidates to ArchivedWorkOrderEntity and ByPriority is absent,
         // so the hint validator throws before any network call is made.
-        var act = async () => await Db.ArchivedWorkOrders
-            .WithIndex("ByPriority")
-            .ToListAsync(CancellationToken);
+        var act = async ()
+            => await Db.ArchivedWorkOrders.WithIndex("ByPriority").ToListAsync(CancellationToken);
 
-        await act.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*ByPriority*");
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*ByPriority*");
     }
 
     // ── SuggestOnly mode on shared table ─────────────────────────────────────
@@ -248,22 +270,28 @@ public class SharedTableIndexAutoSelectionTests(SharedTableWithIndexesDynamoFixt
     {
         var loggerFactory = new TestPartiQlLoggerFactory();
         var baseOptions = base.CreateOptions(loggerFactory);
-        var suggestOptions = new DbContextOptionsBuilder<SharedTableWithIndexesDbContext>(baseOptions)
-            .UseDynamo(opt =>
-                opt.UseAutomaticIndexSelection(DynamoAutomaticIndexSelectionMode.SuggestOnly))
-            .Options;
+        var suggestOptions =
+            new DbContextOptionsBuilder<SharedTableWithIndexesDbContext>(baseOptions).UseDynamo(opt
+                    => opt.UseAutomaticIndexSelection(
+                        DynamoAutomaticIndexSelectionMode.SuggestOnly))
+                .Options;
 
         await using var suggestDb = new SharedTableWithIndexesDbContext(suggestOptions);
 
-        _ = await suggestDb.PriorityWorkOrders
+        _ = await suggestDb
+            .PriorityWorkOrders
             .Where(o => o.Priority == 3)
             .ToListAsync(CancellationToken);
 
-        // IDX003 "would be selected" diagnostic emitted (checked before AssertBaseline which clears state).
-        loggerFactory.QueryDiagnosticEvents.Should().ContainSingle(e
-            => e.EventId.Id == DynamoEventId.SecondaryIndexSelected.Id
-            && e.Message.Contains(
-                "Index 'ByPriority' on table 'work-orders-indexed-table' would be selected in Conservative mode."));
+        // IDX003 "would be selected" diagnostic emitted (checked before AssertBaseline which clears
+        // state).
+        loggerFactory
+            .QueryDiagnosticEvents
+            .Should()
+            .ContainSingle(e
+                => e.EventId.Id == DynamoEventId.SecondaryIndexSelected.Id
+                && e.Message.Contains(
+                    "Index 'ByPriority' on table 'work-orders-indexed-table' would be selected in Conservative mode."));
 
         // SuggestOnly: query executes on base table — no index in FROM clause.
         loggerFactory.AssertBaseline(
