@@ -7,7 +7,8 @@ using NSubstitute;
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Tests.Metadata.Conventions;
 
 /// <summary>
-///     Tests fallback and precedence behavior for DynamoDB entity key-mapping annotations.
+///     Tests DynamoDB entity key-mapping annotations are derived only from Dynamo-specific
+///     configuration or Dynamo naming conventions.
 /// </summary>
 public class DynamoEntityKeyMappingConventionTests
 {
@@ -17,103 +18,92 @@ public class DynamoEntityKeyMappingConventionTests
             .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
             .Options;
 
-    private sealed record SingleKeyEntity
+    private sealed record ConventionalKeyEntity
     {
-        public string TenantId { get; set; } = null!;
+        public string PK { get; set; } = null!;
+        public string SK { get; set; } = null!;
         public string Name { get; set; } = null!;
     }
 
-    private sealed class SingleKeyContext(DbContextOptions options) : DbContext(options)
+    private sealed class ConventionalKeyContext(DbContextOptions options) : DbContext(options)
     {
-        public DbSet<SingleKeyEntity> Entities { get; set; } = null!;
-
         protected override void OnModelCreating(ModelBuilder modelBuilder)
-            => modelBuilder.Entity<SingleKeyEntity>(b =>
-            {
-                b.ToTable("SingleKeyTable");
-                b.HasKey(x => x.TenantId);
-            });
+            => modelBuilder.Entity<ConventionalKeyEntity>(b => b.ToTable("ConventionalKeyTable"));
 
-        public static SingleKeyContext Create(IAmazonDynamoDB client)
-            => new(BuildOptions<SingleKeyContext>(client));
+        public static ConventionalKeyContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<ConventionalKeyContext>(client));
     }
 
     [Fact]
-    public void ExplicitSinglePropertyPrimaryKey_InferredAsPartitionKeyMapping()
+    public void ConventionalPkSkNames_AreInferredAsDynamoKeyMapping()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
-        using var ctx = SingleKeyContext.Create(client);
+        using var ctx = ConventionalKeyContext.Create(client);
 
-        var entityType = ctx.Model.FindEntityType(typeof(SingleKeyEntity))!;
-        entityType.GetPartitionKeyPropertyName().Should().Be("TenantId");
-        entityType.GetSortKeyPropertyName().Should().BeNull();
+        var entityType = ctx.Model.FindEntityType(typeof(ConventionalKeyEntity))!;
+        var primaryKey = entityType.FindPrimaryKey()!;
+
+        primaryKey.Properties.Select(static p => p.Name).Should().Equal("PK", "SK");
+        entityType.GetPartitionKeyPropertyName().Should().Be("PK");
+        entityType.GetSortKeyPropertyName().Should().Be("SK");
     }
 
-    private sealed record CompositeKeyEntity
+    private sealed record ExplicitKeyOnlyEntity
     {
         public string TenantId { get; set; } = null!;
         public string OrderId { get; set; } = null!;
-        public string Name { get; set; } = null!;
     }
 
-    private sealed class CompositeKeyContext(DbContextOptions options) : DbContext(options)
+    private sealed class ExplicitKeyOnlyContext(DbContextOptions options) : DbContext(options)
     {
-        public DbSet<CompositeKeyEntity> Entities { get; set; } = null!;
-
         protected override void OnModelCreating(ModelBuilder modelBuilder)
-            => modelBuilder.Entity<CompositeKeyEntity>(b =>
+            => modelBuilder.Entity<ExplicitKeyOnlyEntity>(b =>
             {
-                b.ToTable("CompositeKeyTable");
+                b.ToTable("ExplicitKeyOnlyTable");
                 b.HasKey(x => new { x.TenantId, x.OrderId });
             });
 
-        public static CompositeKeyContext Create(IAmazonDynamoDB client)
-            => new(BuildOptions<CompositeKeyContext>(client));
+        public static ExplicitKeyOnlyContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<ExplicitKeyOnlyContext>(client));
     }
 
     [Fact]
-    public void ExplicitCompositePrimaryKey_InferredAsPartitionAndSortKeyMapping()
+    public void ExplicitHasKey_OnRootEntity_IsRejected()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
-        using var ctx = CompositeKeyContext.Create(client);
+        var act = () => ExplicitKeyOnlyContext.Create(client).Model;
 
-        var entityType = ctx.Model.FindEntityType(typeof(CompositeKeyEntity))!;
-        var primaryKey = entityType.FindPrimaryKey()!;
-
-        primaryKey.Properties.Select(static p => p.Name).Should().Equal("TenantId", "OrderId");
-        entityType.GetPartitionKeyPropertyName().Should().Be("TenantId");
-        entityType.GetSortKeyPropertyName().Should().Be("OrderId");
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("*must use HasPartitionKey(...) and optional HasSortKey(...)*do not use HasKey(...) or [Key]*");
     }
 
-    private sealed record ExplicitPrimaryKeyBeatsNameEntity
+    private sealed record ExplicitPartitionKeyBeatsConventionEntity
     {
         public string PK { get; set; } = null!;
         public string CustomKey { get; set; } = null!;
         public string Name { get; set; } = null!;
     }
 
-    private sealed class ExplicitPrimaryKeyBeatsNameContext(DbContextOptions options) : DbContext(options)
+    private sealed class ExplicitPartitionKeyBeatsConventionContext(DbContextOptions options) : DbContext(options)
     {
-        public DbSet<ExplicitPrimaryKeyBeatsNameEntity> Entities { get; set; } = null!;
-
         protected override void OnModelCreating(ModelBuilder modelBuilder)
-            => modelBuilder.Entity<ExplicitPrimaryKeyBeatsNameEntity>(b =>
+            => modelBuilder.Entity<ExplicitPartitionKeyBeatsConventionEntity>(b =>
             {
-                b.ToTable("ExplicitPrimaryKeyBeatsNameTable");
-                b.HasKey(x => x.CustomKey);
+                b.ToTable("ExplicitPartitionKeyBeatsConventionTable");
+                b.HasPartitionKey(x => x.CustomKey);
             });
 
-        public static ExplicitPrimaryKeyBeatsNameContext Create(IAmazonDynamoDB client)
-            => new(BuildOptions<ExplicitPrimaryKeyBeatsNameContext>(client));
+        public static ExplicitPartitionKeyBeatsConventionContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<ExplicitPartitionKeyBeatsConventionContext>(client));
     }
 
     [Fact]
-    public void ExplicitPrimaryKeyShape_TakesPrecedenceOverPkNamedProperty()
+    public void ExplicitPartitionKey_TakesPrecedenceOverConventionalPkNamedProperty()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
-        using var ctx = ExplicitPrimaryKeyBeatsNameContext.Create(client);
+        using var ctx = ExplicitPartitionKeyBeatsConventionContext.Create(client);
 
-        var entityType = ctx.Model.FindEntityType(typeof(ExplicitPrimaryKeyBeatsNameEntity))!;
+        var entityType = ctx.Model.FindEntityType(typeof(ExplicitPartitionKeyBeatsConventionEntity))!;
         entityType.GetPartitionKeyPropertyName().Should().Be("CustomKey");
         entityType.GetSortKeyPropertyName().Should().BeNull();
     }
@@ -127,8 +117,6 @@ public class DynamoEntityKeyMappingConventionTests
 
     private sealed class ThreePartPrimaryKeyContext(DbContextOptions options) : DbContext(options)
     {
-        public DbSet<ThreePartPrimaryKeyEntity> Entities { get; set; } = null!;
-
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ThreePartPrimaryKeyEntity>(b =>
             {
@@ -141,14 +129,12 @@ public class DynamoEntityKeyMappingConventionTests
     }
 
     [Fact]
-    public void PrimaryKeyWithMoreThanTwoProperties_ThrowsTargetedValidationMessage()
+    public void ExplicitMultiPropertyHasKey_OnRootEntity_IsRejected()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
         var act = () => ThreePartPrimaryKeyContext.Create(client).Model;
 
-        act
-            .Should()
-            .Throw<InvalidOperationException>()
-            .WithMessage("*supports only one- or two-part keys*");
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("*must use HasPartitionKey(...) and optional HasSortKey(...)*do not use HasKey(...) or [Key]*");
     }
 }

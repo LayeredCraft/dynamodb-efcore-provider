@@ -10,7 +10,6 @@ icon: lucide/triangle-alert
 - `ToQueryString()` support for the custom querying enumerable.
 - Large parts of LINQ translation surface (see `operators.md`).
 - Method calls in `Where` predicates except supported `Contains` patterns (`string.Contains(string)` and in-memory collection membership); other `string.Contains` overloads (such as `char` or `StringComparison`) are not translated.
-- Global secondary index (GSI) and local secondary index (LSI) mapping.
 - Provider-side key encoding helpers (prefix/suffix composition).
 - Provider option for `ConsistentRead`.
 
@@ -27,7 +26,9 @@ icon: lucide/triangle-alert
 ## Single-table mapping constraints
 - A "table group" is the set of entity types mapped to the same DynamoDB table name.
 - Only the table primary key (partition key and optional sort key) is modeled today.
-- Secondary indexes (GSI/LSI) are not modeled or queryable through provider metadata yet.
+- Secondary indexes (GSI/LSI) can be configured and queried. Explicit `.WithIndex("name")`
+  rewrites the PartiQL `FROM` clause to `FROM "Table"."Index"`. Conservative automatic index
+  selection is opt-in via `UseAutomaticIndexSelection(...)`.
 - Key encoding is not implemented as a provider feature; construct PK/SK values in your domain model.
 - For table groups containing multiple concrete entity types, a discriminator is required and is
   validated at startup.
@@ -44,12 +45,29 @@ icon: lucide/triangle-alert
   `ReadOnlyDictionary<string,TValue>`.
 
 ## Key mapping validation limits
+- Root entities cannot use `HasKey(...)` to configure table keys; use `HasPartitionKey(...)` and optional `HasSortKey(...)` instead.
 - Shared-table mappings must agree on key shape: all entity types mapped to the same table must be either PK-only or PK+SK.
 - Shared-table mappings must use consistent physical PK/SK attribute names across entity types.
 - Key properties must resolve to DynamoDB key-compatible provider types: string, number, or binary (`byte[]`).
 - `bool` key mappings are rejected.
 - Converter-backed key mappings are validated against the converter provider CLR type.
-- Key properties must be required/non-nullable, and converter provider types for keys must also be non-nullable.
+- Table partition/sort key properties must be required/non-nullable, and converter provider types for table keys must also be non-nullable.
+- Secondary-index key properties must resolve to key-compatible provider types, but may be nullable (items without key-compatible scalar secondary-key attributes are not indexed).
+
+Practical implication:
+
+```csharp
+// Invalid for root DynamoDB entities
+modelBuilder.Entity<Order>()
+    .HasKey(x => new { x.CustomerId, x.OrderId });
+
+// Required DynamoDB-specific mapping
+modelBuilder.Entity<Order>(b =>
+{
+    b.HasPartitionKey(x => x.CustomerId);
+    b.HasSortKey(x => x.OrderId);
+});
+```
 
 ## Shared-table discriminator limits
 - Shared-table mappings with multiple concrete entity types require a discriminator.

@@ -17,9 +17,18 @@ public static class DynamoEventId
         ExecutingExecuteStatement = CoreEventId.ProviderBaseId + 101,
         ExecutedExecuteStatement = CoreEventId.ProviderBaseId + 102,
         RowLimitingQueryWithoutPageSize = CoreEventId.ProviderBaseId + 103,
+
+        // Query events
+        NoCompatibleSecondaryIndexFound = CoreEventId.ProviderBaseId + 104,
+        MultipleCompatibleSecondaryIndexesFound = CoreEventId.ProviderBaseId + 105,
+        SecondaryIndexSelected = CoreEventId.ProviderBaseId + 106,
+        ExplicitIndexSelected = CoreEventId.ProviderBaseId + 107,
+        SecondaryIndexCandidateRejected = CoreEventId.ProviderBaseId + 108,
+        ExplicitIndexSelectionDisabled = CoreEventId.ProviderBaseId + 109,
     }
 
     private static readonly string CommandPrefix = DbLoggerCategory.Database.Command.Name + ".";
+    private static readonly string QueryPrefix = DbLoggerCategory.Query.Name + ".";
 
     /// <summary>
     /// A PartiQL query is going to be executed.
@@ -56,4 +65,40 @@ public static class DynamoEventId
     public static readonly EventId RowLimitingQueryWithoutPageSize = new(
         (int)Id.RowLimitingQueryWithoutPageSize,
         CommandPrefix + Id.RowLimitingQueryWithoutPageSize);
+
+    /// <summary>No compatible secondary index was found for automatic selection.</summary>
+    /// <remarks>This event is in the <see cref="DbLoggerCategory.Query" /> category.</remarks>
+    public static readonly EventId NoCompatibleSecondaryIndexFound = new(
+        (int)Id.NoCompatibleSecondaryIndexFound,
+        QueryPrefix + Id.NoCompatibleSecondaryIndexFound);
+
+    /// <summary>Multiple compatible secondary indexes tied during automatic selection.</summary>
+    /// <remarks>This event is in the <see cref="DbLoggerCategory.Query" /> category.</remarks>
+    public static readonly EventId MultipleCompatibleSecondaryIndexesFound = new(
+        (int)Id.MultipleCompatibleSecondaryIndexesFound,
+        QueryPrefix + Id.MultipleCompatibleSecondaryIndexesFound);
+
+    /// <summary>A secondary index was selected, or would be selected, for the query.</summary>
+    /// <remarks>This event is in the <see cref="DbLoggerCategory.Query" /> category.</remarks>
+    public static readonly EventId SecondaryIndexSelected = new(
+        (int)Id.SecondaryIndexSelected,
+        QueryPrefix + Id.SecondaryIndexSelected);
+
+    /// <summary>A secondary index was explicitly selected via <c>.WithIndex()</c>.</summary>
+    /// <remarks>This event is in the <see cref="DbLoggerCategory.Query" /> category.</remarks>
+    public static readonly EventId ExplicitIndexSelected = new(
+        (int)Id.ExplicitIndexSelected,
+        QueryPrefix + Id.ExplicitIndexSelected);
+
+    /// <summary>A secondary index candidate was rejected during automatic index selection.</summary>
+    /// <remarks>This event is in the <see cref="DbLoggerCategory.Query" /> category.</remarks>
+    public static readonly EventId SecondaryIndexCandidateRejected = new(
+        (int)Id.SecondaryIndexCandidateRejected,
+        QueryPrefix + Id.SecondaryIndexCandidateRejected);
+
+    /// <summary>Index selection was suppressed by <c>.WithoutIndex()</c>.</summary>
+    /// <remarks>This event is in the <see cref="DbLoggerCategory.Query" /> category.</remarks>
+    public static readonly EventId ExplicitIndexSelectionDisabled = new(
+        (int)Id.ExplicitIndexSelectionDisabled,
+        QueryPrefix + Id.ExplicitIndexSelectionDisabled);
 }

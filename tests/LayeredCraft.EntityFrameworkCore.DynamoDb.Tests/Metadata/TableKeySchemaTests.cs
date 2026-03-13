@@ -40,7 +40,6 @@ public class TableKeySchemaTests
             => modelBuilder.Entity<SingleKeyEntity>(b =>
             {
                 b.ToTable("SingleKeyTable");
-                b.HasKey(x => x.Id);
                 b.HasPartitionKey(x => x.Id);
             });
 
@@ -107,7 +106,6 @@ public class TableKeySchemaTests
             => modelBuilder.Entity<SingleKeyWithAttributeEntity>(b =>
             {
                 b.ToTable("SingleKeyAttributeTable");
-                b.HasKey(x => x.Id);
                 b.HasPartitionKey(x => x.Id);
                 b.Property(x => x.Id).HasAttributeName("PK");
             });
@@ -158,7 +156,8 @@ public class TableKeySchemaTests
             => modelBuilder.Entity<TwoPartKeyEntity>(b =>
             {
                 b.ToTable("TwoPartKeyTable");
-                b.HasKey(x => new { x.PartitionId, x.SortId });
+                b.HasPartitionKey(x => x.PartitionId);
+                b.HasSortKey(x => x.SortId);
                 b.HasPartitionKey(x => x.PartitionId);
                 b.HasSortKey(x => x.SortId);
             });
@@ -292,7 +291,6 @@ public class TableKeySchemaTests
             => modelBuilder.Entity<AttributeNameEntity>(b =>
             {
                 b.ToTable("AttributeNameTable");
-                b.HasKey(x => x.Id);
                 b.HasPartitionKey(x => x.Id);
                 b.Property(x => x.Id).HasAttributeName("HASH");
             });
@@ -335,7 +333,6 @@ public class TableKeySchemaTests
             => modelBuilder.Entity<OwnerEntity>(b =>
             {
                 b.ToTable("OwnedTable");
-                b.HasKey(x => x.Id);
                 b.HasPartitionKey(x => x.Id);
                 b.OwnsOne(x => x.Detail);
             });
@@ -375,7 +372,8 @@ public class TableKeySchemaTests
             => modelBuilder.Entity<TwoPartKeyWithSkAttributeEntity>(b =>
             {
                 b.ToTable("TwoPartKeySkAttributeTable");
-                b.HasKey(x => new { x.PartitionId, x.SortId });
+                b.HasPartitionKey(x => x.PartitionId);
+                b.HasSortKey(x => x.SortId);
                 b.HasPartitionKey(x => x.PartitionId);
                 b.HasSortKey(x => x.SortId);
                 b.Property(x => x.SortId).HasAttributeName("SK");

@@ -14,13 +14,15 @@ public class SharedTableDbContext(DbContextOptions<SharedTableDbContext> options
         modelBuilder.Entity<UserEntity>(builder =>
         {
             builder.ToTable(SharedTableDynamoFixture.TableName);
-            builder.HasKey(x => new { x.Pk, x.Sk });
+            builder.HasPartitionKey(x => x.Pk);
+            builder.HasSortKey(x => x.Sk);
         });
 
         modelBuilder.Entity<OrderEntity>(builder =>
         {
             builder.ToTable(SharedTableDynamoFixture.TableName);
-            builder.HasKey(x => new { x.Pk, x.Sk });
+            builder.HasPartitionKey(x => x.Pk);
+            builder.HasSortKey(x => x.Sk);
         });
     }
 }
@@ -39,13 +41,15 @@ public class SharedTableCustomDiscriminatorNameDbContext(
         modelBuilder.Entity<UserEntity>(builder =>
         {
             builder.ToTable(SharedTableDynamoFixture.TableName);
-            builder.HasKey(x => new { x.Pk, x.Sk });
+            builder.HasPartitionKey(x => x.Pk);
+            builder.HasSortKey(x => x.Sk);
         });
 
         modelBuilder.Entity<OrderEntity>(builder =>
         {
             builder.ToTable(SharedTableDynamoFixture.TableName);
-            builder.HasKey(x => new { x.Pk, x.Sk });
+            builder.HasPartitionKey(x => x.Pk);
+            builder.HasSortKey(x => x.Sk);
         });
     }
 }
@@ -59,7 +63,8 @@ public class SharedTableSingleTypeDbContext(
         => modelBuilder.Entity<UserEntity>(builder =>
         {
             builder.ToTable(SharedTableDynamoFixture.TableName);
-            builder.HasKey(x => new { x.Pk, x.Sk });
+            builder.HasPartitionKey(x => x.Pk);
+            builder.HasSortKey(x => x.Sk);
         });
 }
 
@@ -77,7 +82,8 @@ public class SharedTableInheritanceDbContext(
         modelBuilder.Entity<PersonEntity>(builder =>
         {
             builder.ToTable(SharedTableDynamoFixture.TableName);
-            builder.HasKey(x => new { x.Pk, x.Sk });
+            builder.HasPartitionKey(x => x.Pk);
+            builder.HasSortKey(x => x.Sk);
         });
 
         modelBuilder.Entity<EmployeeEntity>(builder =>
@@ -109,7 +115,8 @@ public class SharedTableInheritanceBaseOnlyToTableDbContext(
         modelBuilder.Entity<PersonEntity>(builder =>
         {
             builder.ToTable(SharedTableDynamoFixture.TableName);
-            builder.HasKey(x => new { x.Pk, x.Sk });
+            builder.HasPartitionKey(x => x.Pk);
+            builder.HasSortKey(x => x.Sk);
         });
 
         modelBuilder.Entity<EmployeeEntity>(builder => builder.HasBaseType<PersonEntity>());
@@ -118,6 +125,36 @@ public class SharedTableInheritanceBaseOnlyToTableDbContext(
         {
             builder.HasBaseType<PersonEntity>();
             builder.Property(x => x.Level).HasAttributeName("ManagerLevel");
+        });
+    }
+}
+
+public class SharedTableInheritanceWithIndexesDbContext(
+    DbContextOptions<SharedTableInheritanceWithIndexesDbContext> options) : DbContext(options)
+{
+    public DbSet<ArchivedWorkOrderEntity> ArchivedWorkOrders => Set<ArchivedWorkOrderEntity>();
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<WorkOrderEntity>(builder =>
+        {
+            builder.ToTable(SharedTableDynamoFixture.TableName);
+            builder.HasPartitionKey(x => x.Pk);
+            builder.HasSortKey(x => x.Sk);
+            builder.HasLocalSecondaryIndex("ByStatus", x => x.Status);
+        });
+
+        modelBuilder.Entity<PriorityWorkOrderEntity>(builder =>
+        {
+            builder.ToTable(SharedTableDynamoFixture.TableName);
+            builder.HasBaseType<WorkOrderEntity>();
+            builder.HasGlobalSecondaryIndex("ByPriority", x => x.Priority);
+        });
+
+        modelBuilder.Entity<ArchivedWorkOrderEntity>(builder =>
+        {
+            builder.ToTable(SharedTableDynamoFixture.TableName);
+            builder.HasBaseType<WorkOrderEntity>();
         });
     }
 }

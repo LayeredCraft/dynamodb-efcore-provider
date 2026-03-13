@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore.Query;
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 
 /// <summary>Represents a SELECT query expression for DynamoDB PartiQL.</summary>
-public class SelectExpression(string tableName) : Expression
+public class SelectExpression(string tableName, string? queryEntityTypeName = null) : Expression
 {
     private static readonly MethodInfo MinMethod = ((Func<int, int, int>)Math.Min).Method;
 
@@ -83,6 +83,33 @@ public class SelectExpression(string tableName) : Expression
 
     /// <summary>The name of the DynamoDB table to query.</summary>
     public string TableName { get; } = tableName;
+
+    /// <summary>
+    ///     The query entity type name when the query originates from an entity set. This is
+    ///     preserved through projection rewrites so downstream validation can remain scoped to the
+    ///     originating entity type.
+    /// </summary>
+    public string? QueryEntityTypeName { get; } = queryEntityTypeName;
+
+    /// <summary>The secondary index name to query, or null for the base table.</summary>
+    public string? IndexName { get; private set; }
+
+    /// <summary>Sets the secondary index name to use in the FROM clause.</summary>
+    public void ApplyIndexName(string? indexName) => IndexName = indexName;
+
+    /// <summary>
+    ///     Gets the effective partition-key property names for the finalized query source.
+    ///     Contains exactly the active source partition key (base table or selected index).
+    /// </summary>
+    public IReadOnlySet<string> EffectivePartitionKeyPropertyNames { get; private set; } =
+        new HashSet<string>(StringComparer.Ordinal);
+
+    /// <summary>Replaces the effective partition-key property names used by downstream SQL generation.</summary>
+    public void ApplyEffectivePartitionKeyPropertyNames(
+        IReadOnlySet<string> effectivePartitionKeyPropertyNames)
+        => EffectivePartitionKeyPropertyNames = new HashSet<string>(
+            effectivePartitionKeyPropertyNames,
+            StringComparer.Ordinal);
 
     /// <inheritdoc />
     public override Type Type => typeof(object);

@@ -12,9 +12,17 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
 /// <summary>
 /// Translates C# expression trees to SQL expression trees.
 /// </summary>
-public class DynamoSqlTranslatingExpressionVisitor(ISqlExpressionFactory sqlExpressionFactory)
+public class DynamoSqlTranslatingExpressionVisitor(
+    ISqlExpressionFactory sqlExpressionFactory,
+    DynamoQueryCompilationContext? queryCompilationContext = null)
     : ExpressionVisitor
 {
+    private static readonly MethodInfo StringCompareMethod =
+        ((Func<string?, string?, int>)string.Compare).Method;
+
+    private static readonly MethodInfo StringCompareToMethod =
+        ((Func<string?, int>)string.Empty.CompareTo).Method;
+
     private static readonly MethodInfo EnumerableContainsMethod =
         ((Func<IEnumerable<object>, object, bool>)Enumerable.Contains).Method
         .GetGenericMethodDefinition();
@@ -109,6 +117,10 @@ public class DynamoSqlTranslatingExpressionVisitor(ISqlExpressionFactory sqlExpr
     /// <inheritdoc />
     protected override Expression VisitBinary(BinaryExpression node)
     {
+        // Translate string.Compare(a, b) OP 0 → a OP b
+        if (TryTranslateStringCompare(node) is { } stringCompareResult)
+            return stringCompareResult;
+
         if (node.NodeType is ExpressionType.Equal or ExpressionType.NotEqual)
         {
             SqlExpression? operand = null;
@@ -251,8 +263,7 @@ public class DynamoSqlTranslatingExpressionVisitor(ISqlExpressionFactory sqlExpr
         {
             if (rootEntityType?.FindProperty(node.Member.Name) is { } directProperty)
             {
-                var isPartitionKey =
-                    rootEntityType.GetPartitionKeyProperty()?.Name == directProperty.Name;
+                var isPartitionKey = IsEffectivePartitionKey(directProperty, rootEntityType);
                 return sqlExpressionFactory.Property(
                     directProperty.GetAttributeName(),
                     node.Type,
@@ -440,8 +451,7 @@ public class DynamoSqlTranslatingExpressionVisitor(ISqlExpressionFactory sqlExpr
             {
                 if (rootEntityType.FindProperty(propertyName) is { } rootProperty)
                 {
-                    var isPartitionKey =
-                        rootEntityType.GetPartitionKeyProperty()?.Name == rootProperty.Name;
+                    var isPartitionKey = IsEffectivePartitionKey(rootProperty, rootEntityType);
                     return sqlExpressionFactory.Property(
                         rootProperty.GetAttributeName(),
                         node.Type,
@@ -460,6 +470,42 @@ public class DynamoSqlTranslatingExpressionVisitor(ISqlExpressionFactory sqlExpr
             return new DynamoScalarAccessExpression(sqlSource, propertyName, node.Type);
 
         return sqlExpressionFactory.Property(propertyName, node.Type);
+    }
+
+    /// <summary>
+    ///     Returns <see langword="true" /> when <paramref name="property" /> is the effective
+    ///     partition key for the current query — either the table partition key, or the partition key of
+    ///     the active secondary index when <c>.WithIndex()</c> has been applied.
+    /// </summary>
+    /// <remarks>
+    ///     The distinction matters for IN-predicate value-count limits: DynamoDB allows up to 100
+    ///     values for non-key comparisons but only 50 for partition-key comparisons (table or GSI).
+    /// </remarks>
+    private bool IsEffectivePartitionKey(IReadOnlyProperty property, IReadOnlyEntityType entityType)
+    {
+        // Always a partition key if it's the table-level partition key.
+        if (entityType.GetPartitionKeyProperty()?.Name == property.Name)
+            return true;
+
+        // When a secondary index is active, also check the index's own partition key.
+        if (queryCompilationContext?.ExplicitIndexName is not { } indexName)
+            return false;
+
+        var runtimeModel = queryCompilationContext.Model.GetDynamoRuntimeTableModel();
+        if (runtimeModel is null)
+            return false;
+
+        var tableGroupName = entityType.GetTableGroupName();
+        if (!runtimeModel.Tables.TryGetValue(tableGroupName, out var tableDescriptor))
+            return false;
+
+        if (!tableDescriptor.SourcesByQueryEntityTypeName.TryGetValue(
+            entityType.Name,
+            out var sources))
+            return false;
+
+        return sources.Any(d
+            => d.IndexName == indexName && d.PartitionKeyProperty.Name == property.Name);
     }
 
     /// <summary>
@@ -538,6 +584,82 @@ public class DynamoSqlTranslatingExpressionVisitor(ISqlExpressionFactory sqlExpr
             _ => QueryCompilationContext.NotTranslatedExpression,
         };
     }
+
+    /// <summary>
+    ///     Translates supported Dynamo lexical string comparison shapes to SQL binary comparisons.
+    ///     Supported forms are <c>string.Compare(a, b) OP 0</c> and <c>a.CompareTo(b) OP 0</c>.
+    /// </summary>
+    private Expression? TryTranslateStringCompare(BinaryExpression node)
+    {
+        SqlExpression? a = null;
+        SqlExpression? b = null;
+        ExpressionType opType = node.NodeType;
+        bool swapOperands = false;
+
+        if (node.Left is MethodCallExpression leftCall
+            && TryTranslateSupportedStringComparisonOperands(leftCall, out a, out b)
+            && node.Right is ConstantExpression { Value: 0 })
+        {
+        }
+        else if (node.Right is MethodCallExpression rightCall
+            && TryTranslateSupportedStringComparisonOperands(rightCall, out a, out b)
+            && node.Left is ConstantExpression { Value: 0 })
+        {
+            swapOperands = true;
+        }
+
+        if (a is null || b is null)
+            return null;
+
+        // When the constant 0 was on the left (0 OP Compare(a,b)), mirror the operator so the
+        // generated SQL is still in the canonical "column OP value" order.
+        var effectiveOp = swapOperands ? FlipComparison(opType) : opType;
+        var result = sqlExpressionFactory.Binary(effectiveOp, a, b);
+        if (result is not null)
+            return result;
+
+        AddTranslationErrorDetails(DynamoStrings.UnsupportedBinaryOperator(effectiveOp));
+        return QueryCompilationContext.NotTranslatedExpression;
+    }
+
+    /// <summary>
+    ///     Translates the string operands for supported compare calls used in Dynamo lexical
+    ///     comparisons.
+    /// </summary>
+    private bool TryTranslateSupportedStringComparisonOperands(
+        MethodCallExpression methodCall,
+        out SqlExpression? left,
+        out SqlExpression? right)
+    {
+        left = null;
+        right = null;
+
+        if (methodCall.Method == StringCompareMethod)
+        {
+            left = TranslateInternal(methodCall.Arguments[0]);
+            right = TranslateInternal(methodCall.Arguments[1]);
+            return left is not null && right is not null;
+        }
+
+        if (methodCall.Method == StringCompareToMethod)
+        {
+            left = TranslateInternal(methodCall.Object!);
+            right = TranslateInternal(methodCall.Arguments[0]);
+            return left is not null && right is not null;
+        }
+
+        return false;
+    }
+
+    /// <summary>Returns the mirrored comparison operator (e.g. <c>&gt;=</c> becomes <c>&lt;=</c>).</summary>
+    private static ExpressionType FlipComparison(ExpressionType op) => op switch
+    {
+        ExpressionType.GreaterThan => ExpressionType.LessThan,
+        ExpressionType.GreaterThanOrEqual => ExpressionType.LessThanOrEqual,
+        ExpressionType.LessThan => ExpressionType.GreaterThan,
+        ExpressionType.LessThanOrEqual => ExpressionType.GreaterThanOrEqual,
+        _ => op,
+    };
 
     /// <summary>Translates string.Contains to the DynamoDB contains function.</summary>
     private Expression TranslateStringContains(MethodCallExpression node)

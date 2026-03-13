@@ -33,6 +33,20 @@ public sealed record ManagerEntity : PersonEntity
     public int Level { get; set; }
 }
 
+public abstract record WorkOrderEntity
+{
+    public string Pk { get; set; } = null!;
+    public string Sk { get; set; } = null!;
+    public string Status { get; set; } = null!;
+}
+
+public sealed record PriorityWorkOrderEntity : WorkOrderEntity
+{
+    public int Priority { get; set; }
+}
+
+public sealed record ArchivedWorkOrderEntity : WorkOrderEntity;
+
 public static class SharedTableItems
 {
     public static readonly IReadOnlyList<Dictionary<string, AttributeValue>> AttributeValues =

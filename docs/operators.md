@@ -21,6 +21,7 @@ should keep in mind. Add to these sections as support expands.
 - `First` / `FirstOrDefault`
 - `WithPageSize`
 - `WithoutPagination`
+- `WithIndex` / `WithoutIndex`
 
 ### Predicate operators
 - `!` (logical NOT) translates to PartiQL `NOT (expr)`
@@ -68,6 +69,8 @@ should keep in mind. Add to these sections as support expands.
 | `First*` | Sets result limit `1` | Stops after first result | May scan multiple pages unless pagination disabled |
 | `WithPageSize(n)` | Sets request `Limit` | N/A | Last call wins |
 | `WithoutPagination()` | Single request only | Stops after first page | Can return incomplete results |
+| `WithIndex(name)` | Sets query source to `"Table"."Index"` | N/A | Name must resolve to an index on the queried entity type or its base types |
+| `WithoutIndex()` | Suppresses index selection | N/A | Forces base-table execution and logs `DYNAMO_IDX006`; cannot be combined with `WithIndex(...)` |
 
 ## General paging model
 - Result limit (how many results are returned) is separate from page size (how many items DynamoDB
@@ -87,6 +90,11 @@ should keep in mind. Add to these sections as support expands.
 - DynamoDB PartiQL supports operators such as `BETWEEN` (inclusive) and `IN`. The provider
   translates `BETWEEN` from a matching `>=` + `<=` LINQ pattern on the same property.
 - DynamoDB documents `IN` limits as up to 50 hash-key values or up to 100 non-key values.
+- Query predicates do not imply GSI/LSI targeting. The current provider analyzes and executes
+  queries against the modeled table key unless and until explicit index-aware execution support is
+  added.
+- Access-pattern guidance in this document therefore applies to the modeled DynamoDB table
+  partition/sort key, not to EF `HasKey(...)` or to un-targeted secondary indexes.
 
 ## Identifier quoting notes
 - This provider always quotes identifiers in generated PartiQL.

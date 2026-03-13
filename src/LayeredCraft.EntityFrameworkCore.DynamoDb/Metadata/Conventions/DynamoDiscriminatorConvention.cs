@@ -1,3 +1,4 @@
+using LayeredCraft.EntityFrameworkCore.DynamoDb.Extensions;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -20,10 +21,15 @@ public sealed class DynamoDiscriminatorConvention : IModelFinalizingConvention
         IConventionModelBuilder modelBuilder,
         IConventionContext<IConventionModelBuilder> context)
     {
-        var rootEntityTypes =
-            modelBuilder.Metadata.GetEntityTypes().Where(IsRootEntityType).ToList();
+        var rootEntityTypes = modelBuilder.Metadata
+            .GetEntityTypes()
+            .OfType<IConventionEntityType>()
+            .Where(static entityType => !entityType.IsOwned()
+                && entityType.FindOwnership() is null
+                && entityType.BaseType is null)
+            .ToList();
 
-        foreach (var tableGroup in rootEntityTypes.GroupBy(GetTableGroupName))
+        foreach (var tableGroup in rootEntityTypes.GroupBy(static entityType => entityType.GetTableGroupName()))
         {
             var concreteEntityTypes = tableGroup
                 .SelectMany(static entityType => entityType.GetConcreteDerivedTypesInclusive())
@@ -58,14 +64,7 @@ public sealed class DynamoDiscriminatorConvention : IModelFinalizingConvention
         foreach (var entityType in entityTypes)
             discriminatorBuilder.HasValue(entityType, entityType.ShortName());
     }
-
-    /// <summary>Determines whether the entity type is a non-owned root type in the model.</summary>
-    private static bool IsRootEntityType(IConventionEntityType entityType)
-        => !entityType.IsOwned()
-            && entityType.FindOwnership() is null
-            && entityType.BaseType is null;
-
     /// <summary>Gets the table-group key used for shared-table discriminator convention decisions.</summary>
     private static string GetTableGroupName(IConventionEntityType entityType)
-        => entityType[DynamoAnnotationNames.TableName] as string ?? entityType.ClrType.Name;
+        => entityType.GetTableGroupName();
 }

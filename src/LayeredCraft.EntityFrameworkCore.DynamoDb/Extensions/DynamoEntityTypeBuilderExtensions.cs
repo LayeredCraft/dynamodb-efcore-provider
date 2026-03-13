@@ -1,4 +1,6 @@
 using System.Linq.Expressions;
+using LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata;
+using LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata.Builders;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Utilities;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -31,9 +33,9 @@ public static class DynamoEntityTypeBuilderExtensions
         ///     entity type.
         /// </summary>
         /// <remarks>
-        ///     Only needed when the partition key property is not the first property in the EF primary
-        ///     key. By default the physical attribute name is derived from the first EF primary key property
-        ///     via <c>HasAttributeName</c>, falling back to the CLR property name.
+        ///     This is the authoritative API for configuring the DynamoDB partition key on a root entity.
+        ///     The provider derives the EF primary key automatically from the configured partition key and
+        ///     optional sort key, so root entities should not configure <c>HasKey(...)</c> directly.
         /// </remarks>
         /// <param name="propertyName">
         ///     The EF property name whose attribute name maps to the DynamoDB partition
@@ -52,9 +54,10 @@ public static class DynamoEntityTypeBuilderExtensions
         ///     type.
         /// </summary>
         /// <remarks>
-        ///     Only needed when the sort key property is not the second property in the EF primary key.
-        ///     By default the physical attribute name is derived from the second EF primary key property via
-        ///     <c>HasAttributeName</c>, falling back to the CLR property name.
+        ///     This is the authoritative API for configuring the DynamoDB sort key on a root entity.
+        ///     When present, the provider derives the EF primary key automatically as
+        ///     <c>[partitionKey, sortKey]</c>, so root entities should not configure <c>HasKey(...)</c>
+        ///     directly.
         /// </remarks>
         /// <param name="propertyName">The EF property name whose attribute name maps to the DynamoDB sort key.</param>
         /// <returns>The same builder instance so that multiple calls can be chained.</returns>
@@ -63,6 +66,66 @@ public static class DynamoEntityTypeBuilderExtensions
             propertyName.NotEmpty();
             entityTypeBuilder.Metadata.SetSortKeyPropertyName(propertyName);
             return entityTypeBuilder;
+        }
+
+        /// <summary>Configures a DynamoDB global secondary index that uses only a partition key.</summary>
+        /// <param name="name">The DynamoDB global secondary index name.</param>
+        /// <param name="partitionKeyPropertyName">The EF property name that maps to the GSI partition key.</param>
+        /// <returns>A builder for chaining DynamoDB secondary index configuration.</returns>
+        public DynamoSecondaryIndexBuilder HasGlobalSecondaryIndex(
+            string name,
+            string partitionKeyPropertyName)
+        {
+            name.NotEmpty();
+            partitionKeyPropertyName.NotEmpty();
+
+            var indexBuilder = entityTypeBuilder.HasIndex([partitionKeyPropertyName], name);
+            indexBuilder.Metadata.SetSecondaryIndexName(name);
+            indexBuilder.Metadata.SetSecondaryIndexKind(DynamoSecondaryIndexKind.Global);
+            indexBuilder.Metadata.SetSecondaryIndexProjectionType(DynamoSecondaryIndexProjectionType.All);
+
+            return new DynamoSecondaryIndexBuilder(indexBuilder);
+        }
+
+        /// <summary>Configures a DynamoDB global secondary index that uses partition and sort keys.</summary>
+        /// <param name="name">The DynamoDB global secondary index name.</param>
+        /// <param name="partitionKeyPropertyName">The EF property name that maps to the GSI partition key.</param>
+        /// <param name="sortKeyPropertyName">The EF property name that maps to the GSI sort key.</param>
+        /// <returns>A builder for chaining DynamoDB secondary index configuration.</returns>
+        public DynamoSecondaryIndexBuilder HasGlobalSecondaryIndex(
+            string name,
+            string partitionKeyPropertyName,
+            string sortKeyPropertyName)
+        {
+            name.NotEmpty();
+            partitionKeyPropertyName.NotEmpty();
+            sortKeyPropertyName.NotEmpty();
+
+            var indexBuilder = entityTypeBuilder.HasIndex([partitionKeyPropertyName, sortKeyPropertyName], name);
+            indexBuilder.Metadata.SetSecondaryIndexName(name);
+            indexBuilder.Metadata.SetSecondaryIndexKind(DynamoSecondaryIndexKind.Global);
+            indexBuilder.Metadata.SetSecondaryIndexProjectionType(DynamoSecondaryIndexProjectionType.All);
+
+            return new DynamoSecondaryIndexBuilder(indexBuilder);
+        }
+
+        /// <summary>Configures a DynamoDB local secondary index that uses the table partition key and a new sort key.</summary>
+        /// <param name="name">The DynamoDB local secondary index name.</param>
+        /// <param name="sortKeyPropertyName">The EF property name that maps to the LSI sort key.</param>
+        /// <returns>A builder for chaining DynamoDB secondary index configuration.</returns>
+        public DynamoSecondaryIndexBuilder HasLocalSecondaryIndex(
+            string name,
+            string sortKeyPropertyName)
+        {
+            name.NotEmpty();
+            sortKeyPropertyName.NotEmpty();
+
+            var indexBuilder = entityTypeBuilder.HasIndex([sortKeyPropertyName], name);
+            indexBuilder.Metadata.SetSecondaryIndexName(name);
+            indexBuilder.Metadata.SetSecondaryIndexKind(DynamoSecondaryIndexKind.Local);
+            indexBuilder.Metadata.SetSecondaryIndexProjectionType(DynamoSecondaryIndexProjectionType.All);
+
+            return new DynamoSecondaryIndexBuilder(indexBuilder);
         }
     }
 
@@ -84,9 +147,9 @@ public static class DynamoEntityTypeBuilderExtensions
         ///     entity type.
         /// </summary>
         /// <remarks>
-        ///     Only needed when the partition key property is not the first property in the EF primary
-        ///     key. By default the physical attribute name is derived from the first EF primary key property
-        ///     via <c>HasAttributeName</c>, falling back to the CLR property name.
+        ///     This is the authoritative API for configuring the DynamoDB partition key on a root entity.
+        ///     The provider derives the EF primary key automatically from the configured partition key and
+        ///     optional sort key, so root entities should not configure <c>HasKey(...)</c> directly.
         /// </remarks>
         /// <typeparam name="TEntity">The entity type being configured.</typeparam>
         /// <param name="keyExpression">
@@ -104,9 +167,10 @@ public static class DynamoEntityTypeBuilderExtensions
         ///     type.
         /// </summary>
         /// <remarks>
-        ///     Only needed when the sort key property is not the second property in the EF primary key.
-        ///     By default the physical attribute name is derived from the second EF primary key property via
-        ///     <c>HasAttributeName</c>, falling back to the CLR property name.
+        ///     This is the authoritative API for configuring the DynamoDB sort key on a root entity.
+        ///     When present, the provider derives the EF primary key automatically as
+        ///     <c>[partitionKey, sortKey]</c>, so root entities should not configure <c>HasKey(...)</c>
+        ///     directly.
         /// </remarks>
         /// <typeparam name="TEntity">The entity type being configured.</typeparam>
         /// <param name="keyExpression">
@@ -118,6 +182,71 @@ public static class DynamoEntityTypeBuilderExtensions
             Expression<Func<TEntity, object?>> keyExpression)
             => (EntityTypeBuilder<TEntity>)entityTypeBuilder.HasSortKey(
                 EntityTypeBuilder<TEntity>.GetPropertyName(keyExpression));
+
+        /// <summary>Configures a DynamoDB global secondary index that uses only a partition key.</summary>
+        /// <typeparam name="TEntity">The entity type being configured.</typeparam>
+        /// <param name="name">The DynamoDB global secondary index name.</param>
+        /// <param name="partitionKeyExpression">A lambda selecting the property that maps to the GSI partition key.</param>
+        /// <returns>A builder for chaining DynamoDB secondary index configuration.</returns>
+        public DynamoSecondaryIndexBuilder<TEntity> HasGlobalSecondaryIndex(
+            string name,
+            Expression<Func<TEntity, object?>> partitionKeyExpression)
+        {
+            name.NotEmpty();
+
+            var partitionKeyPropertyName = GetPropertyName(partitionKeyExpression);
+            var indexBuilder = entityTypeBuilder.HasIndex([partitionKeyPropertyName], name);
+            indexBuilder.Metadata.SetSecondaryIndexName(name);
+            indexBuilder.Metadata.SetSecondaryIndexKind(DynamoSecondaryIndexKind.Global);
+            indexBuilder.Metadata.SetSecondaryIndexProjectionType(DynamoSecondaryIndexProjectionType.All);
+
+            return new DynamoSecondaryIndexBuilder<TEntity>(indexBuilder);
+        }
+
+        /// <summary>Configures a DynamoDB global secondary index that uses partition and sort keys.</summary>
+        /// <typeparam name="TEntity">The entity type being configured.</typeparam>
+        /// <param name="name">The DynamoDB global secondary index name.</param>
+        /// <param name="partitionKeyExpression">A lambda selecting the property that maps to the GSI partition key.</param>
+        /// <param name="sortKeyExpression">A lambda selecting the property that maps to the GSI sort key.</param>
+        /// <returns>A builder for chaining DynamoDB secondary index configuration.</returns>
+        public DynamoSecondaryIndexBuilder<TEntity> HasGlobalSecondaryIndex(
+            string name,
+            Expression<Func<TEntity, object?>> partitionKeyExpression,
+            Expression<Func<TEntity, object?>> sortKeyExpression)
+        {
+            name.NotEmpty();
+
+            var partitionKeyPropertyName = GetPropertyName(partitionKeyExpression);
+            var sortKeyPropertyName = GetPropertyName(sortKeyExpression);
+            var indexBuilder = entityTypeBuilder.HasIndex(
+                [partitionKeyPropertyName, sortKeyPropertyName],
+                name);
+            indexBuilder.Metadata.SetSecondaryIndexName(name);
+            indexBuilder.Metadata.SetSecondaryIndexKind(DynamoSecondaryIndexKind.Global);
+            indexBuilder.Metadata.SetSecondaryIndexProjectionType(DynamoSecondaryIndexProjectionType.All);
+
+            return new DynamoSecondaryIndexBuilder<TEntity>(indexBuilder);
+        }
+
+        /// <summary>Configures a DynamoDB local secondary index that uses the table partition key and a new sort key.</summary>
+        /// <typeparam name="TEntity">The entity type being configured.</typeparam>
+        /// <param name="name">The DynamoDB local secondary index name.</param>
+        /// <param name="sortKeyExpression">A lambda selecting the property that maps to the LSI sort key.</param>
+        /// <returns>A builder for chaining DynamoDB secondary index configuration.</returns>
+        public DynamoSecondaryIndexBuilder<TEntity> HasLocalSecondaryIndex(
+            string name,
+            Expression<Func<TEntity, object?>> sortKeyExpression)
+        {
+            name.NotEmpty();
+
+            var sortKeyPropertyName = GetPropertyName(sortKeyExpression);
+            var indexBuilder = entityTypeBuilder.HasIndex([sortKeyPropertyName], name);
+            indexBuilder.Metadata.SetSecondaryIndexName(name);
+            indexBuilder.Metadata.SetSecondaryIndexKind(DynamoSecondaryIndexKind.Local);
+            indexBuilder.Metadata.SetSecondaryIndexProjectionType(DynamoSecondaryIndexProjectionType.All);
+
+            return new DynamoSecondaryIndexBuilder<TEntity>(indexBuilder);
+        }
 
         private static string GetPropertyName(Expression<Func<TEntity, object?>> expression)
         {

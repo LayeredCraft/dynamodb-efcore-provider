@@ -16,7 +16,7 @@ public class QueryCompilationContextTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<TestEntity>(b =>
             {
-                b.HasKey(x => x.PK);
+                b.HasPartitionKey(x => x.PK);
             });
     }
 
@@ -44,6 +44,7 @@ public class QueryCompilationContextTests
 
         context.PageSizeOverride.Should().BeNull();
         context.PaginationDisabled.Should().BeFalse();
+        context.ExplicitIndexName.Should().BeNull();
     }
 
     [Fact]
@@ -80,5 +81,18 @@ public class QueryCompilationContextTests
 
         context.PageSizeOverride.Should().Be(50);
         context.PaginationDisabled.Should().BeTrue();
+    }
+
+    [Fact]
+    public void ExplicitIndexName_CanBeSet()
+    {
+        var dependencies = CreateDependencies();
+
+        var context = new DynamoQueryCompilationContext(dependencies, true)
+        {
+            ExplicitIndexName = "ByCustomerCreatedAt",
+        };
+
+        context.ExplicitIndexName.Should().Be("ByCustomerCreatedAt");
     }
 }

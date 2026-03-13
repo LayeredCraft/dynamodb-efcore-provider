@@ -16,6 +16,7 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
     private readonly StringBuilder _sql = new();
     private readonly List<AttributeValue> _parameters = [];
     private IReadOnlyDictionary<string, object?>? _parameterValues;
+    private SelectExpression? _currentSelectExpression;
 
     /// <summary>
     /// Generates a PartiQL query from a SelectExpression.
@@ -37,48 +38,64 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
         finally
         {
             _parameterValues = null;
+            _currentSelectExpression = null;
         }
     }
 
     /// <inheritdoc />
     protected override Expression VisitSelect(SelectExpression selectExpression)
     {
-        _sql.Append("SELECT ");
+        var previousSelectExpression = _currentSelectExpression;
+        _currentSelectExpression = selectExpression;
 
-        // Projections are MANDATORY - no SELECT * support
-        if (selectExpression.Projection.Count == 0)
-            throw new InvalidOperationException(
-                "SelectExpression must have at least one projection. SELECT * is not supported.");
-
-        // Generate column list
-        for (var i = 0; i < selectExpression.Projection.Count; i++)
+        try
         {
-            if (i > 0)
-                _sql.Append(", ");
-            Visit(selectExpression.Projection[i].Expression);
-        }
+            _sql.Append("SELECT ");
 
-        _sql.Append("\nFROM ");
-        AppendIdentifier(selectExpression.TableName);
+            // Projections are MANDATORY - no SELECT * support
+            if (selectExpression.Projection.Count == 0)
+                throw new InvalidOperationException(
+                    "SelectExpression must have at least one projection. SELECT * is not supported.");
 
-        if (selectExpression.Predicate != null)
-        {
-            _sql.Append("\nWHERE ");
-            Visit(selectExpression.Predicate);
-        }
-
-        if (selectExpression.Orderings.Count > 0)
-        {
-            _sql.Append("\nORDER BY ");
-            for (var i = 0; i < selectExpression.Orderings.Count; i++)
+            // Generate column list
+            for (var i = 0; i < selectExpression.Projection.Count; i++)
             {
                 if (i > 0)
                     _sql.Append(", ");
-                VisitOrdering(selectExpression.Orderings[i]);
+                Visit(selectExpression.Projection[i].Expression);
             }
-        }
 
-        return selectExpression;
+            _sql.Append("\nFROM ");
+            AppendIdentifier(selectExpression.TableName);
+            if (selectExpression.IndexName is { } indexName)
+            {
+                _sql.Append('.');
+                AppendIdentifier(indexName);
+            }
+
+            if (selectExpression.Predicate != null)
+            {
+                _sql.Append("\nWHERE ");
+                Visit(selectExpression.Predicate);
+            }
+
+            if (selectExpression.Orderings.Count > 0)
+            {
+                _sql.Append("\nORDER BY ");
+                for (var i = 0; i < selectExpression.Orderings.Count; i++)
+                {
+                    if (i > 0)
+                        _sql.Append(", ");
+                    VisitOrdering(selectExpression.Orderings[i]);
+                }
+            }
+
+            return selectExpression;
+        }
+        finally
+        {
+            _currentSelectExpression = previousSelectExpression;
+        }
     }
 
     /// <summary>
@@ -407,8 +424,9 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
             return sqlInExpression;
         }
 
-        var maxValues = sqlInExpression.IsPartitionKeyComparison ? 50 : 100;
-        ValidateInValueCount(values.Count, maxValues, sqlInExpression.IsPartitionKeyComparison);
+        var isPartitionKeyComparison = IsPartitionKeyComparison(sqlInExpression);
+        var maxValues = isPartitionKeyComparison ? 50 : 100;
+        ValidateInValueCount(values.Count, maxValues, isPartitionKeyComparison);
 
         Visit(sqlInExpression.Item);
         _sql.Append(" IN [");
@@ -439,7 +457,8 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
             throw new InvalidOperationException(
                 $"Parameter '{valuesParameter.Name}' not found in parameter values.");
 
-        var maxValues = sqlInExpression.IsPartitionKeyComparison ? 50 : 100;
+        var isPartitionKeyComparison = IsPartitionKeyComparison(sqlInExpression);
+        var maxValues = isPartitionKeyComparison ? 50 : 100;
 
         if (parameterValue is null)
         {
@@ -463,7 +482,7 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
             ValidateInValueCount(
                 collection.Count,
                 maxValues,
-                sqlInExpression.IsPartitionKeyComparison);
+                isPartitionKeyComparison);
             enforceLimitDuringEnumeration = false;
         }
 
@@ -481,7 +500,7 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
                 ValidateInValueCount(
                     count + 1,
                     maxValues,
-                    sqlInExpression.IsPartitionKeyComparison);
+                    isPartitionKeyComparison);
 
             if (count > 0)
                 _sql.Append(", ");
@@ -506,6 +525,43 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
         _sql.Append(']');
         return sqlInExpression;
     }
+
+    /// <summary>
+    ///     Determines whether the IN comparison targets an effective partition key for the finalized
+    ///     query source.
+    /// </summary>
+    /// <param name="sqlInExpression">The IN expression currently being emitted.</param>
+    /// <returns>
+    ///     <c>true</c> when the IN item is a table or selected-index partition key; otherwise
+    ///     <c>false</c>.
+    /// </returns>
+    private bool IsPartitionKeyComparison(SqlInExpression sqlInExpression)
+    {
+        if (_currentSelectExpression is not { } selectExpression)
+            return sqlInExpression.IsPartitionKeyComparison;
+
+        if (selectExpression.EffectivePartitionKeyPropertyNames.Count == 0)
+            return sqlInExpression.IsPartitionKeyComparison;
+
+        return TryGetRootPropertyName(sqlInExpression.Item) is { } propertyName
+            && selectExpression.EffectivePartitionKeyPropertyNames.Contains(propertyName);
+    }
+
+    /// <summary>Tries to resolve the root property name for an IN-item expression.</summary>
+    /// <param name="expression">The expression used as the left side of IN.</param>
+    /// <returns>The root property name when resolvable; otherwise <c>null</c>.</returns>
+    private static string? TryGetRootPropertyName(SqlExpression expression)
+        => expression switch
+        {
+            SqlPropertyExpression propertyExpression => propertyExpression.PropertyName,
+            SqlParenthesizedExpression parenthesizedExpression => TryGetRootPropertyName(
+                parenthesizedExpression.Operand),
+            DynamoScalarAccessExpression scalarAccessExpression =>
+                scalarAccessExpression.Parent is SqlExpression parentSqlExpression
+                    ? TryGetRootPropertyName(parentSqlExpression)
+                    : null,
+            _ => null,
+        };
 
     /// <summary>Validates IN-list value count against DynamoDB limits.</summary>
     private static void ValidateInValueCount(

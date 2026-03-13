@@ -28,12 +28,10 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
     {
         var selectExpression = (SelectExpression)shapedQueryExpression.QueryExpression;
 
-        // Apply deferred discriminator filtering after query composition so user predicates remain
-        // first in generated SQL and discriminator clauses are appended.
-        selectExpression.ApplyDeferredDiscriminatorPredicate();
-
-        // Finalize projection mapping → concrete projection list
-        selectExpression.ApplyProjection();
+        // Discriminator-predicate finalisation, projection finalisation, and index selection are
+        // performed earlier in the pipeline by DynamoQueryTranslationPostprocessor so the analyzer
+        // sees the complete predicate tree and projection shape. By this point SelectExpression
+        // already has IndexName set (or null for base-table queries).
 
         if (selectExpression.PageSize is null && selectExpression.PageSizeExpression is null)
         {
@@ -159,5 +157,4 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
 
         return value;
     }
-
 }

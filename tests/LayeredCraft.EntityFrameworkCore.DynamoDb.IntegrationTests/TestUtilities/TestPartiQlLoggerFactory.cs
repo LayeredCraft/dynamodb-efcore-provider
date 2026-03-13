@@ -18,13 +18,19 @@ public sealed class TestPartiQlLoggerFactory : ILoggerFactory
 
     public IReadOnlyList<int> RowLimitingWarnings => _logger.RowLimitingWarnings;
 
+    public IReadOnlyList<QueryDiagnosticEvent> QueryDiagnosticEvents
+        => _logger.QueryDiagnosticEvents;
+
     public void Clear() => _logger.Clear();
 
     public ILogger CreateLogger(string categoryName)
     {
         ObjectDisposedException.ThrowIf(_disposed, typeof(TestPartiQlLoggerFactory));
 
-        return categoryName == DbLoggerCategory.Database.Command.Name
+        return categoryName.StartsWith(
+                DbLoggerCategory.Database.Command.Name,
+                StringComparison.Ordinal)
+            || categoryName.StartsWith(DbLoggerCategory.Query.Name, StringComparison.Ordinal)
             ? _logger
             : NullLogger.Instance;
     }
@@ -76,12 +82,14 @@ public sealed class TestPartiQlLoggerFactory : ILoggerFactory
         public List<string> PartiQlStatements { get; } = [];
         public List<ExecuteStatementCall> ExecuteStatementCalls { get; } = [];
         public List<int> RowLimitingWarnings { get; } = [];
+        public List<QueryDiagnosticEvent> QueryDiagnosticEvents { get; } = [];
 
         public void Clear()
         {
             PartiQlStatements.Clear();
             ExecuteStatementCalls.Clear();
             RowLimitingWarnings.Clear();
+            QueryDiagnosticEvents.Clear();
         }
 
         public bool IsEnabled(LogLevel logLevel) => true;
@@ -166,6 +174,15 @@ public sealed class TestPartiQlLoggerFactory : ILoggerFactory
                 if (resultLimit.HasValue)
                     RowLimitingWarnings.Add(resultLimit.Value);
             }
+
+            if (eventId.Id == DynamoEventId.NoCompatibleSecondaryIndexFound.Id          // IDX001
+                || eventId.Id == DynamoEventId.MultipleCompatibleSecondaryIndexesFound.Id  // IDX002
+                || eventId.Id == DynamoEventId.SecondaryIndexSelected.Id                 // IDX003
+                || eventId.Id == DynamoEventId.ExplicitIndexSelected.Id                  // IDX004
+                || eventId.Id == DynamoEventId.SecondaryIndexCandidateRejected.Id        // IDX005
+                || eventId.Id == DynamoEventId.ExplicitIndexSelectionDisabled.Id)        // IDX006
+                QueryDiagnosticEvents.Add(
+                    new QueryDiagnosticEvent(eventId, logLevel, formatter(state, exception)));
         }
 
         private static int? ToNullableInt(object? value)
@@ -182,4 +199,6 @@ public sealed class TestPartiQlLoggerFactory : ILoggerFactory
         bool RequestNextTokenPresent,
         int? ItemsCount,
         bool? ResponseNextTokenPresent);
+
+    public sealed record QueryDiagnosticEvent(EventId EventId, LogLevel LogLevel, string Message);
 }

@@ -1,4 +1,5 @@
 using System.Linq.Expressions;
+using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.Internal;
 
 namespace Microsoft.EntityFrameworkCore;
@@ -166,4 +167,62 @@ public static class DynamoDbQueryableExtensions
                     ((Func<IQueryable<TEntity>, IQueryable<TEntity>>)WithoutPagination).Method,
                     source.Expression))
             : source;
+
+    /// <summary>
+    ///     Explicitly suppresses index selection for this query, forcing it to use the base table
+    ///     regardless of the configured automatic index selection mode.
+    /// </summary>
+    /// <remarks>
+    ///     Use this when you need a query to hit the base table even though the query shape would
+    ///     normally trigger automatic index selection. For example, strongly-consistent reads are
+    ///     only available on the base table.
+    ///     <para>
+    ///         Combining this with <c>.WithIndex()</c> on the same query is a programmer error and
+    ///         will throw at query compilation time.
+    ///     </para>
+    ///     <para>
+    ///         When this override is active, a <c>DYNAMO_IDX006</c> diagnostic is emitted at
+    ///         <c>Information</c> level so the suppression is visible in query logs.
+    ///     </para>
+    /// </remarks>
+    /// <typeparam name="TEntity">The type of entity being queried.</typeparam>
+    /// <param name="source">The source query.</param>
+    /// <returns>A new query that forces base-table execution.</returns>
+    public static IQueryable<TEntity> WithoutIndex<TEntity>(this IQueryable<TEntity> source)
+        where TEntity : class
+        => source.Provider is EntityQueryProvider
+            ? source.Provider.CreateQuery<TEntity>(
+                Expression.Call(
+                    null,
+                    ((Func<IQueryable<TEntity>, IQueryable<TEntity>>)WithoutIndex).Method,
+                    source.Expression))
+            : source;
+
+    /// <summary>Explicitly selects the DynamoDB secondary index to target for this query.</summary>
+    /// <remarks>
+    ///     This API records the user's preferred access path and is intended for provider-specific query
+    ///     routing. The configured index must exist on the mapped table and be compatible with the final
+    ///     query shape.
+    /// </remarks>
+    /// <typeparam name="TEntity">The type of entity being queried.</typeparam>
+    /// <param name="source">The source query.</param>
+    /// <param name="indexName">The DynamoDB secondary index name to target. Must be non-empty.</param>
+    /// <returns>A new query that carries the selected index hint.</returns>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="indexName" /> is empty.</exception>
+    public static IQueryable<TEntity> WithIndex<TEntity>(
+        this IQueryable<TEntity> source,
+        [NotParameterized] string indexName) where TEntity : class
+    {
+        if (string.IsNullOrWhiteSpace(indexName))
+            throw new ArgumentException("Index name must not be empty.", nameof(indexName));
+
+        return source.Provider is EntityQueryProvider
+            ? source.Provider.CreateQuery<TEntity>(
+                Expression.Call(
+                    null,
+                    ((Func<IQueryable<TEntity>, string, IQueryable<TEntity>>)WithIndex).Method,
+                    source.Expression,
+                    Expression.Constant(indexName, typeof(string))))
+            : source;
+    }
 }

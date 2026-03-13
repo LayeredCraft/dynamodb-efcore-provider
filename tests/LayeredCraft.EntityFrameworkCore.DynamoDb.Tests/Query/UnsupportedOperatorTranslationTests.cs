@@ -103,6 +103,26 @@ public class UnsupportedOperatorTranslationTests
         await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
     }
 
+    [Fact]
+    public async Task
+        StringCompareWithStringComparisonInPredicate_ThrowsTranslationFailureWithDetails()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        await using var context = UnsupportedOperatorDbContext.Create(client);
+
+        var act = async () => await context
+            .Items
+            .Where(i => string.Compare(i.Pk, "item#1", StringComparison.OrdinalIgnoreCase) == 0)
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*Method calls are not supported*predicate translation*");
+
+        await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
     private sealed record UnsupportedOperatorEntity
     {
         public string Pk { get; set; } = null!;
@@ -120,7 +140,6 @@ public class UnsupportedOperatorTranslationTests
             => modelBuilder.Entity<UnsupportedOperatorEntity>(builder =>
             {
                 builder.ToTable("UnsupportedOperatorsTable");
-                builder.HasKey(x => x.Pk);
                 builder.HasPartitionKey(x => x.Pk);
             });
 

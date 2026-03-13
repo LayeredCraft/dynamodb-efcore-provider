@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "dynamo-mapper": {
+      "source": "LayeredCraft/dynamo-mapper",
+      "sourceType": "github",
+      "computedHash": "4b524259ec97771c695f2e2404b8e98016ac011e9046642038b6a89f4f5a86fa"
+    }
+  }
+}

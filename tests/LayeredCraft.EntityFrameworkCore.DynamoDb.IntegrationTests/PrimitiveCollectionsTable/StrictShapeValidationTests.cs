@@ -52,7 +52,7 @@ public class StrictShapeValidationTests : IClassFixture<PrimitiveCollectionsDyna
             => modelBuilder.Entity<DerivedDictionaryItem>(entity =>
             {
                 entity.ToTable("DerivedDictionaryItems");
-                entity.HasKey(x => x.Pk);
+                entity.HasPartitionKey(x => x.Pk);
                 entity.Property(x => x.Scores);
             });
     }
@@ -66,7 +66,7 @@ public class StrictShapeValidationTests : IClassFixture<PrimitiveCollectionsDyna
             => modelBuilder.Entity<DerivedSetItem>(entity =>
             {
                 entity.ToTable("DerivedSetItems");
-                entity.HasKey(x => x.Pk);
+                entity.HasPartitionKey(x => x.Pk);
                 entity.Property(x => x.Labels);
             });
     }

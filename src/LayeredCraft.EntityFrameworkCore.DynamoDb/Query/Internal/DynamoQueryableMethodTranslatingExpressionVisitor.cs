@@ -1,6 +1,6 @@
 using System.Linq.Expressions;
+using LayeredCraft.EntityFrameworkCore.DynamoDb.Extensions;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Infrastructure.Internal;
-using LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
@@ -23,7 +23,9 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
         bool subquery = false) : base(dependencies, queryCompilationContext, subquery)
     {
         _sqlExpressionFactory = sqlExpressionFactory;
-        _sqlTranslator = new DynamoSqlTranslatingExpressionVisitor(sqlExpressionFactory);
+        _sqlTranslator = new DynamoSqlTranslatingExpressionVisitor(
+            sqlExpressionFactory,
+            queryCompilationContext as DynamoQueryCompilationContext);
         _projectionBindingExpressionVisitor = new DynamoProjectionBindingExpressionVisitor(
             _sqlTranslator,
             sqlExpressionFactory,
@@ -73,6 +75,41 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
                 // Continue visiting the source (prune this extension from the tree)
                 return Visit(methodCallExpression.Arguments[0]);
             }
+
+            if (method.Name == nameof(DynamoDbQueryableExtensions.WithoutIndex))
+            {
+                var context = (DynamoQueryCompilationContext)QueryCompilationContext;
+                context.IndexSelectionDisabled = true;
+
+                // Continue visiting the source (prune this extension from the tree)
+                return Visit(methodCallExpression.Arguments[0]);
+            }
+
+            if (method.Name == nameof(DynamoDbQueryableExtensions.WithIndex))
+            {
+                var context = (DynamoQueryCompilationContext)QueryCompilationContext;
+
+                if (context.ExplicitIndexName is null)
+                {
+                    // The indexName parameter is marked [NotParameterized], so EF Core's
+                    // funcletizer
+                    // leaves it as a ConstantExpression for normal queries. If it's not a constant,
+                    // the index name cannot be embedded in the PartiQL FROM clause — throw rather
+                    // than silently falling back to the base table.
+                    if (methodCallExpression.Arguments[1] is not ConstantExpression
+                        {
+                            Value: string indexName,
+                        })
+                        throw new InvalidOperationException(
+                            $"'{nameof(DynamoDbQueryableExtensions.WithIndex)}' requires a constant index name. "
+                            + "Index names are embedded in the PartiQL FROM clause and cannot be query parameters. "
+                            + "Pass a string literal or capture a local variable in a regular (non-compiled) query.");
+
+                    context.ExplicitIndexName = indexName;
+                }
+
+                return Visit(methodCallExpression.Arguments[0]);
+            }
         }
 
         return base.VisitMethodCall(methodCallExpression);
@@ -81,9 +118,9 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
     protected override ShapedQueryExpression? CreateShapedQueryExpression(IEntityType entityType)
     {
         // Get the table name from entity metadata.
-        var tableName = GetTableGroupName(entityType);
+        var tableName = entityType.GetTableGroupName();
 
-        var queryExpression = new SelectExpression(tableName);
+        var queryExpression = new SelectExpression(tableName, entityType.Name);
 
         // Create entity projection expression as single source of truth for property mapping
         var entityProjection =
@@ -169,15 +206,14 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
     /// </summary>
     private bool RequiresDiscriminatorPredicate(IEntityType entityType)
     {
-        var tableGroupName = GetTableGroupName(entityType);
+        var tableGroupName = entityType.GetTableGroupName();
 
-        HashSet<IEntityType> concreteTypes = [];
+        HashSet<IReadOnlyEntityType> concreteTypes = [];
         foreach (var rootEntityType in QueryCompilationContext
             .Model
-            .GetEntityTypes()
-            .Where(static t => !t.IsOwned() && t.FindOwnership() is null && t.BaseType is null)
+            .EnumerateRootEntityTypes()
             .Where(t => string.Equals(
-                GetTableGroupName(t),
+                t.GetTableGroupName(),
                 tableGroupName,
                 StringComparison.Ordinal)))
         {
@@ -192,37 +228,6 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
 
         return concreteTypes.Count > 1;
     }
-
-    /// <summary>Gets the effective table-group name for an entity type.</summary>
-    /// <remarks>
-    ///     When the current type has no explicit table-name annotation, this resolves against the
-    ///     nearest mapped base type so derived queries inherit the root table mapping.
-    /// </remarks>
-    private static string GetTableGroupName(IReadOnlyEntityType entityType)
-    {
-        var mappedEntityType = ResolveTableMappedEntityType(entityType);
-
-        return mappedEntityType.FindAnnotation(DynamoAnnotationNames.TableName)?.Value as string
-            ?? mappedEntityType.ClrType.Name;
-    }
-
-    /// <summary>Resolves the entity type that owns table-name metadata for table-group comparisons.</summary>
-    private static IReadOnlyEntityType ResolveTableMappedEntityType(IReadOnlyEntityType entityType)
-    {
-        if (entityType.FindAnnotation(DynamoAnnotationNames.TableName)?.Value is string)
-            return entityType;
-
-        var current = entityType;
-        while (current.BaseType is { } baseType)
-        {
-            current = baseType;
-            if (current.FindAnnotation(DynamoAnnotationNames.TableName)?.Value is string)
-                return current;
-        }
-
-        return current;
-    }
-
     protected override ShapedQueryExpression? TranslateAll(
         ShapedQueryExpression source,
         LambdaExpression predicate)

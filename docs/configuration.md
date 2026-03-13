@@ -68,7 +68,7 @@ protected override void OnModelCreating(ModelBuilder modelBuilder)
 {
     modelBuilder.Entity<SimpleItem>()
         .ToTable("SimpleItems")
-        .HasKey(x => x.Pk);
+        .HasPartitionKey(x => x.Pk);
 }
 ```
 
@@ -76,6 +76,10 @@ protected override void OnModelCreating(ModelBuilder modelBuilder)
 
 DynamoDB tables have a partition key and an optional sort key. The provider needs to know which
 EF properties map to those keys so it can build correct key expressions.
+
+For root DynamoDB entities, `HasKey(...)` is not supported. Configure `HasPartitionKey(...)` and
+optional `HasSortKey(...)` instead; the provider derives the EF primary key automatically from that
+DynamoDB key mapping.
 
 ### Convention-based discovery
 
@@ -112,13 +116,35 @@ modelBuilder.Entity<Order>(b =>
     b.ToTable("Orders");
     b.HasPartitionKey(x => x.CustomerId);
     b.HasSortKey(x => x.OrderId);
-    // EF primary key is automatically set to [CustomerId, OrderId]
+    // EF primary key is automatically aligned to [CustomerId, OrderId]
 });
 ```
 
-When `HasPartitionKey` and/or `HasSortKey` are set without an explicit `HasKey` call, the provider
-automatically configures the EF primary key to match. An explicit `HasKey` call always takes
-precedence over convention.
+When `HasPartitionKey` and/or `HasSortKey` are set, the provider automatically configures the EF
+primary key to match. Root entities should not configure `HasKey(...)` themselves.
+
+### `HasKey(...)` is rejected for root entities
+
+This model is **not** enough:
+
+```csharp
+modelBuilder.Entity<Order>(b =>
+{
+    b.ToTable("Orders");
+    b.HasKey(x => new { x.CustomerId, x.OrderId });
+});
+```
+
+The provider rejects that model for root entities. Use Dynamo-specific key mapping instead:
+
+```csharp
+modelBuilder.Entity<Order>(b =>
+{
+    b.ToTable("Orders");
+    b.HasPartitionKey(x => x.CustomerId);
+    b.HasSortKey(x => x.OrderId);
+});
+```
 
 ### String-based overload
 
@@ -193,7 +219,8 @@ The provider validates the key configuration during model finalization and raise
 `InvalidOperationException` for:
 
 - A partition or sort key property that does not exist on the entity type.
-- A partition or sort key property that is not a member of the EF primary key.
+- An explicit root EF primary key configured with `HasKey(...)` or `[Key]`.
+- An internally derived EF primary key that does not match the configured DynamoDB key shape.
 - Entity types sharing a DynamoDB table that disagree on the partition key attribute name or
   sort key attribute name.
 - A sort key configured with no resolvable partition key.
@@ -214,6 +241,10 @@ The provider validates the key configuration during model finalization and raise
 - Composite keys are supported at the model level (for example `{ Pk, Sk }`).
 - Convention-based partition/sort key discovery from property names (`PK`, `PartitionKey`, `SK`, `SortKey`).
 - Explicit `HasPartitionKey`/`HasSortKey` fluent API with automatic EF primary key alignment.
+- Secondary-index metadata APIs:
+  - `HasGlobalSecondaryIndex(...)`
+  - `HasLocalSecondaryIndex(...)`
+  - `WithIndex(...)`
 - `HasAttributeName` on scalar properties to control the DynamoDB store attribute name.
 
 ## Access patterns and scans
@@ -224,8 +255,36 @@ The provider validates the key configuration during model finalization and raise
 
 ## Not configurable yet
 - `ConsistentRead` is not currently exposed as a provider option.
-- Global secondary index (GSI) and local secondary index (LSI) mapping.
 - Provider-side key encoding helpers.
+
+## Secondary indexes
+
+The provider now exposes model-configuration APIs for GSIs and LSIs:
+
+```csharp
+modelBuilder.Entity<Order>(b =>
+{
+    b.ToTable("Orders");
+    b.HasPartitionKey(x => x.CustomerId);
+    b.HasSortKey(x => x.OrderId);
+
+    b.HasGlobalSecondaryIndex("ByStatus", x => x.Status);
+    b.HasGlobalSecondaryIndex("ByCustomerCreatedAt", x => x.CustomerId, x => x.CreatedAt);
+    b.HasLocalSecondaryIndex("ByStatusDate", x => x.CreatedAt);
+});
+```
+
+Current scope for these APIs:
+
+- GSI key schema is always explicit.
+- LSI requires a resolved table partition key and sort key from `HasPartitionKey(...)` /
+  `HasSortKey(...)` or Dynamo naming conventions.
+- `WithIndex(...)` emits `FROM "Table"."Index"` for explicit query-time targeting.
+- Automatic index selection can route compatible queries to GSIs/LSIs when enabled.
+- Automatic selection only considers indexes visible to the queried entity type and avoids
+  subtype-only sparse indexes for base-type queries.
+
+See [Indexes](indexes.md) for the current index configuration and support model.
 
 ## External references
 - DynamoDB PartiQL SELECT: <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ql-reference.select.html>
