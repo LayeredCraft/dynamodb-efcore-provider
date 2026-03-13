@@ -48,10 +48,16 @@ tasks:
     
   docs:serve:
     desc: Serve docs locally with Zensical
+    silent: true
     cmds:
+      - echo "📖 Serving Docs"
       - uv run zensical serve -f zensical.toml
 
   docs:build:
     desc: Build docs site with Zensical
+    silent: true
     cmds:
+      - echo "📖 Building Docs"
       - uv run zensical build -f zensical.toml
+      - echo "✅ Docs built"
+  
