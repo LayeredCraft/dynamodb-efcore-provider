@@ -84,6 +84,7 @@ internal sealed class DynamoQueryTranslationPostprocessor(
             QueryEntityTypeName       = selectExpression.QueryEntityTypeName,
             QueryConstraints          = queryConstraints,
             AutomaticIndexSelectionMode = mode,
+            IndexSelectionDisabled    = dynamoQueryCompilationContext.IndexSelectionDisabled,
         };
 
         // IDynamoIndexSelectionAnalyzer is a DI singleton injected via the factory, so callers can

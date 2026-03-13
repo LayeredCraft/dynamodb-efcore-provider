@@ -107,14 +107,27 @@ The provider also exposes an explicit query hint API:
 var query = context.Orders
     .WithIndex("ByCustomerCreatedAt")
     .Where(x => x.CustomerId == customerId);
+
+var baseTableOnly = context.Orders
+    .WithoutIndex()
+    .Where(x => x.CustomerId == customerId);
 ```
 
 Current scope:
 
 - `WithIndex(...)` validates the named index against the queried entity type and emits
   `FROM "Table"."Index"`,
+- `WithoutIndex()` suppresses both automatic and explicit index selection for the query and keeps
+  execution on the base table,
 - metadata for GSIs/LSIs can be configured,
 - automatic index selection can route compatible queries when `UseAutomaticIndexSelection(...)` is enabled.
+
+Guardrails:
+
+- `.WithIndex(...)` and `.WithoutIndex()` cannot be combined on the same query; translation throws
+  `InvalidOperationException`.
+- `.WithoutIndex()` emits informational diagnostic `DYNAMO_IDX006` when index selection is
+  suppressed.
 
 Automatic selection is conservative:
 

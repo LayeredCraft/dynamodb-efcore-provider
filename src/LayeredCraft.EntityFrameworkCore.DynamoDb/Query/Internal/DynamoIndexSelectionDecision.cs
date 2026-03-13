@@ -23,4 +23,7 @@ internal enum DynamoIndexSelectionReason
     /// Used in steps 7–8 when structural analysis is implemented.
     /// </summary>
     AutoSelected,
+
+    /// <summary>Index selection was explicitly suppressed by <c>.WithoutIndex()</c>.</summary>
+    ExplicitlyDisabled,
 }

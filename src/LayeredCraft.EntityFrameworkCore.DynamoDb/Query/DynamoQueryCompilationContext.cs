@@ -27,4 +27,12 @@ public class DynamoQueryCompilationContext(
     ///     base table.
     /// </summary>
     public string? ExplicitIndexName { get; internal set; }
+
+    /// <summary>
+    ///     Per-query flag set by <c>.WithoutIndex()</c>. When <c>true</c>, index selection is
+    ///     suppressed and the query executes against the base table regardless of the configured
+    ///     automatic index selection mode. Combining this with <c>.WithIndex()</c> on the same
+    ///     query throws at compile time.
+    /// </summary>
+    public bool IndexSelectionDisabled { get; internal set; }
 }

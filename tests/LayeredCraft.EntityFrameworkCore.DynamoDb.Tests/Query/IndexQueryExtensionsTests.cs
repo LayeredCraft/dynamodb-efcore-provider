@@ -59,6 +59,21 @@ public class IndexQueryExtensionsTests
                 .Options);
 
     /// <summary>
+    ///     Creates a GSI context whose analyzer auto-selects ByCustomer unless WithoutIndex() is
+    ///     present.
+    /// </summary>
+    /// <param name="client">The DynamoDB client substitute used by tests.</param>
+    /// <returns>A configured test context.</returns>
+    private static GsiDbContext CreateGsiContextWithDisableAwareAutoAnalyzer(IAmazonDynamoDB client)
+        => new(
+            new DbContextOptionsBuilder<GsiDbContext>()
+                .ReplaceService<IDynamoIndexSelectionAnalyzer,
+                    AutoSelectByCustomerUnlessDisabledAnalyzer>()
+                .UseDynamo(o => o.DynamoDbClient(client))
+                .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .Options);
+
+    /// <summary>
     ///     Analyzer used by tests to simulate index auto-selection without an explicit WithIndex
     ///     hint.
     /// </summary>
@@ -77,6 +92,30 @@ public class IndexQueryExtensionsTests
                     "ByCustomer",
                     DynamoIndexSelectionReason.AutoSelected,
                     []);
+    }
+
+    /// <summary>Analyzer used by tests to prove that WithoutIndex() is propagated to the analysis context.</summary>
+    private sealed class AutoSelectByCustomerUnlessDisabledAnalyzer : IDynamoIndexSelectionAnalyzer
+    {
+        /// <summary>Auto-selects ByCustomer unless index selection is disabled by WithoutIndex().</summary>
+        /// <param name="context">The query analysis context.</param>
+        /// <returns>The selected index decision.</returns>
+        public DynamoIndexSelectionDecision Analyze(DynamoIndexAnalysisContext context)
+            => context.ExplicitIndexHint is { } explicitIndexHint
+                ?
+                new DynamoIndexSelectionDecision(
+                    explicitIndexHint,
+                    DynamoIndexSelectionReason.ExplicitHint,
+                    [])
+                : context.IndexSelectionDisabled
+                    ? new DynamoIndexSelectionDecision(
+                        null,
+                        DynamoIndexSelectionReason.ExplicitlyDisabled,
+                        [])
+                    : new DynamoIndexSelectionDecision(
+                        "ByCustomer",
+                        DynamoIndexSelectionReason.AutoSelected,
+                        []);
     }
 
     /// <summary>
@@ -192,6 +231,87 @@ public class IndexQueryExtensionsTests
                 .UseDynamo(o => o.DynamoDbClient(client))
                 .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
                 .Options);
+
+    // ── WithoutIndex extension tests ─────────────────────────────────────────
+
+    [Fact]
+    public void WithoutIndex_EntityQueryProvider_WrapsExpressionInMethodCall()
+    {
+        using var context = CreateContext();
+
+        var query = context.Entities.WithoutIndex();
+
+        query.Expression.Should().BeAssignableTo<MethodCallExpression>();
+        var methodCall = (MethodCallExpression)query.Expression;
+        methodCall.Method.Name.Should().Be(nameof(DynamoDbQueryableExtensions.WithoutIndex));
+        // WithoutIndex takes no arguments beyond the source
+        methodCall.Arguments.Should().HaveCount(1);
+    }
+
+    [Fact]
+    public void WithoutIndex_NonEntityQueryProvider_ReturnsOriginalSource()
+    {
+        var source = new List<TestEntity>().AsQueryable();
+
+        var query = source.WithoutIndex();
+
+        query.Should().BeSameAs(source);
+    }
+
+    /// <summary>
+    ///     Ensures <c>.WithoutIndex()</c> propagates index-selection suppression into query
+    ///     compilation.
+    /// </summary>
+    [Fact]
+    public async Task WithoutIndex_SetsIndexSelectionDisabledOnContext()
+    {
+        // Verifies that WithoutIndex suppresses analyzer auto-selection and keeps FROM on the base
+        // table even when an analyzer would otherwise pick ByCustomer.
+        var client = Substitute.For<IAmazonDynamoDB>();
+        ExecuteStatementRequest? capturedRequest = null;
+        client
+            .ExecuteStatementAsync(
+                Arg.Do<ExecuteStatementRequest>(r => capturedRequest = r),
+                Arg.Any<CancellationToken>())
+            .Returns(new ExecuteStatementResponse { Items = [] });
+
+        await using var context = CreateGsiContextWithDisableAwareAutoAnalyzer(client);
+
+        _ = await context
+            .Orders
+            .WithoutIndex()
+            .Where(o => o.CustomerId == "C1")
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        await client
+            .Received()
+            .ExecuteStatementAsync(
+                Arg.Any<ExecuteStatementRequest>(),
+                Arg.Any<CancellationToken>());
+        capturedRequest.Should().NotBeNull();
+        capturedRequest!.Statement.Should().Contain("FROM ");
+        capturedRequest.Statement.Should().NotContain("\"ByCustomer\"");
+    }
+
+    [Fact]
+    public async Task WithoutIndex_WithIndex_BothPresent_ThrowsInvalidOperationException()
+    {
+        // Combining .WithIndex() and .WithoutIndex() on the same query is a programmer error.
+        var client = Substitute.For<IAmazonDynamoDB>();
+        await using var context = CreateGsiContext(client);
+
+        var act = async () => await context
+            .Orders
+            .WithIndex("ByCustomer")
+            .WithoutIndex()
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        await act.Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*'.WithIndex()'*'.WithoutIndex()'*");
+    }
+
+    // ── WithIndex extension tests ─────────────────────────────────────────────
 
     [Fact]
     public void WithIndex_EmptyName_ThrowsArgumentException()

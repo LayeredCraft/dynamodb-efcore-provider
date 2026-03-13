@@ -21,6 +21,7 @@ should keep in mind. Add to these sections as support expands.
 - `First` / `FirstOrDefault`
 - `WithPageSize`
 - `WithoutPagination`
+- `WithIndex` / `WithoutIndex`
 
 ### Predicate operators
 - `!` (logical NOT) translates to PartiQL `NOT (expr)`
@@ -68,6 +69,8 @@ should keep in mind. Add to these sections as support expands.
 | `First*` | Sets result limit `1` | Stops after first result | May scan multiple pages unless pagination disabled |
 | `WithPageSize(n)` | Sets request `Limit` | N/A | Last call wins |
 | `WithoutPagination()` | Single request only | Stops after first page | Can return incomplete results |
+| `WithIndex(name)` | Sets query source to `"Table"."Index"` | N/A | Name must resolve to an index on the queried entity type or its base types |
+| `WithoutIndex()` | Suppresses index selection | N/A | Forces base-table execution and logs `DYNAMO_IDX006`; cannot be combined with `WithIndex(...)` |
 
 ## General paging model
 - Result limit (how many results are returned) is separate from page size (how many items DynamoDB

@@ -57,4 +57,11 @@ internal sealed class DynamoIndexAnalysisContext
     /// <see cref="DynamoDbOptionsExtension.AutomaticIndexSelectionMode"/> at compile time.
     /// </summary>
     public DynamoAutomaticIndexSelectionMode AutomaticIndexSelectionMode { get; init; }
+
+    /// <summary>
+    /// <c>true</c> when <c>.WithoutIndex()</c> was called on this query. The analyzer will
+    /// suppress all index selection and emit <c>DYNAMO_IDX006</c>. Combining this with a
+    /// non-null <see cref="ExplicitIndexHint"/> is a programmer error and throws at compile time.
+    /// </summary>
+    public bool IndexSelectionDisabled { get; init; }
 }

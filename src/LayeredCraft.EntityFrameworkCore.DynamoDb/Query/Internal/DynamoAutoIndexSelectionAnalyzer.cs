@@ -7,8 +7,9 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
 
 /// <summary>
 /// <see cref="IDynamoIndexSelectionAnalyzer"/> implementation that handles explicit
-/// <c>.WithIndex()</c> hints and performs conservative automatic index selection based on
-/// structural key-condition constraints extracted from the query predicate.
+/// <c>.WithIndex()</c> hints, <c>.WithoutIndex()</c> suppression, and performs conservative
+/// automatic index selection based on structural key-condition constraints extracted from the
+/// query predicate.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -26,6 +27,7 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
 ///   <item><c>DYNAMO_IDX003</c> — a single candidate was selected or would be selected (Information)</item>
 ///   <item><c>DYNAMO_IDX004</c> — explicit index selected via .WithIndex() (Information)</item>
 ///   <item><c>DYNAMO_IDX005</c> — candidate rejected during auto-selection (Information)</item>
+///   <item><c>DYNAMO_IDX006</c> — index selection suppressed by .WithoutIndex() (Information)</item>
 /// </list>
 /// </para>
 /// </remarks>
@@ -48,10 +50,23 @@ internal sealed class DynamoAutoIndexSelectionAnalyzer : IDynamoIndexSelectionAn
     /// </returns>
     /// <exception cref="InvalidOperationException">
     /// Thrown when an explicit hint names an index that is not registered for the queried table
-    /// and entity type.
+    /// and entity type, or when both <c>.WithIndex()</c> and <c>.WithoutIndex()</c> are present
+    /// on the same query.
     /// </exception>
     public DynamoIndexSelectionDecision Analyze(DynamoIndexAnalysisContext context)
     {
+        // ── 0. Conflict guard ────────────────────────────────────────────────
+        // Both .WithIndex() and .WithoutIndex() on the same query is a programmer error —
+        // they express contradictory intent so we throw rather than silently picking a winner.
+        if (context.IndexSelectionDisabled && context.ExplicitIndexHint is not null)
+            throw new InvalidOperationException(
+                "Cannot combine '.WithIndex()' and '.WithoutIndex()' on the same query. "
+                + "Remove one of the two calls.");
+
+        // ── 0b. Explicit disable path ────────────────────────────────────────
+        if (context.IndexSelectionDisabled)
+            return HandleExplicitlyDisabled(context);
+
         // ── 1. Explicit hint path ────────────────────────────────────────────
         if (context.ExplicitIndexHint is { } indexName)
             return HandleExplicitHint(context, indexName);
@@ -145,6 +160,22 @@ internal sealed class DynamoAutoIndexSelectionAnalyzer : IDynamoIndexSelectionAn
     }
 
     // ── helpers ──────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Returns a <see cref="DynamoIndexSelectionReason.ExplicitlyDisabled"/> decision and emits
+    /// <c>DYNAMO_IDX006</c> to record that <c>.WithoutIndex()</c> suppressed index selection.
+    /// </summary>
+    private static DynamoIndexSelectionDecision HandleExplicitlyDisabled(DynamoIndexAnalysisContext context)
+    {
+        var diagnostics = new List<DynamoQueryDiagnostic>
+        {
+            new(DynamoQueryDiagnosticLevel.Information,
+                "DYNAMO_IDX006",
+                $"Index selection was suppressed for table '{context.SelectExpression.TableName}' "
+                + "by '.WithoutIndex()'. The query will execute against the base table."),
+        };
+        return new DynamoIndexSelectionDecision(null, DynamoIndexSelectionReason.ExplicitlyDisabled, diagnostics);
+    }
 
     /// <summary>
     /// Validates and returns an explicit <c>.WithIndex()</c> hint, throwing when the named index

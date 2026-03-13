@@ -73,7 +73,8 @@ public class DynamoAutoIndexSelectionAnalyzerTests
         DynamoQueryConstraints? constraints,
         string? explicitHint = null,
         string tableName = "Orders",
-        string? queryEntityTypeName = "Order")
+        string? queryEntityTypeName = "Order",
+        bool indexSelectionDisabled = false)
         => new()
         {
             SelectExpression = new SelectExpression(tableName, queryEntityTypeName),
@@ -82,6 +83,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
             QueryEntityTypeName = queryEntityTypeName,
             QueryConstraints = constraints,
             AutomaticIndexSelectionMode = mode,
+            IndexSelectionDisabled = indexSelectionDisabled,
         };
 
     // ── absorbed: explicit hint tests ────────────────────────────────────────
@@ -777,5 +779,101 @@ public class DynamoAutoIndexSelectionAnalyzerTests
         decision.Diagnostics[0].Code.Should().Be("DYNAMO_IDX005");
         decision.Diagnostics[0].Message.Should().Contain("ByRegion");
         decision.Diagnostics[1].Code.Should().Be("DYNAMO_IDX003");
+    }
+
+    // ── WithoutIndex suppression tests ────────────────────────────────────────
+
+    [Fact]
+    public void WithoutIndex_DisablesAutoSelection_ReturnsNoSelection()
+    {
+        // Even though ByStatus passes all gates in Conservative mode, IndexSelectionDisabled
+        // should short-circuit before evaluation and return the base table.
+        var candidates = new List<DynamoIndexDescriptor>
+        {
+            MakeDescriptor("CustomerId", indexName: null),
+            MakeDescriptor("Status", "CreatedAt", "ByStatus"),
+        };
+        var constraints = MakeConstraints(equalityPks: ["Status"]);
+        var ctx = BuildContext(
+            DynamoAutomaticIndexSelectionMode.Conservative,
+            candidates,
+            constraints,
+            indexSelectionDisabled: true);
+
+        var decision = Analyzer.Analyze(ctx);
+
+        decision.SelectedIndexName.Should().BeNull();
+        decision.Reason.Should().Be(DynamoIndexSelectionReason.ExplicitlyDisabled);
+    }
+
+    [Fact]
+    public void WithoutIndex_EmitsDiagnosticIDX006_WithTableName()
+    {
+        var candidates = new List<DynamoIndexDescriptor>
+        {
+            MakeDescriptor("CustomerId", indexName: null),
+            MakeDescriptor("Status", "CreatedAt", "ByStatus"),
+        };
+        var constraints = MakeConstraints(equalityPks: ["Status"]);
+        var ctx = BuildContext(
+            DynamoAutomaticIndexSelectionMode.Conservative,
+            candidates,
+            constraints,
+            indexSelectionDisabled: true,
+            tableName: "Orders");
+
+        var decision = Analyzer.Analyze(ctx);
+
+        decision.Diagnostics.Should().ContainSingle();
+        var diag = decision.Diagnostics[0];
+        diag.Code.Should().Be("DYNAMO_IDX006");
+        diag.Level.Should().Be(DynamoQueryDiagnosticLevel.Information);
+        diag.Message.Should().Contain("Orders");
+        diag.Message.Should().Contain(".WithoutIndex()");
+    }
+
+    [Fact]
+    public void WithoutIndex_OffMode_StillEmitsDiagnosticIDX006()
+    {
+        // The disabled check runs before the mode check, so IDX006 is emitted even when
+        // automatic selection is off.
+        var candidates = new List<DynamoIndexDescriptor>
+        {
+            MakeDescriptor("CustomerId", indexName: null),
+        };
+        var ctx = BuildContext(
+            DynamoAutomaticIndexSelectionMode.Off,
+            candidates,
+            null,
+            indexSelectionDisabled: true);
+
+        var decision = Analyzer.Analyze(ctx);
+
+        decision.SelectedIndexName.Should().BeNull();
+        decision.Reason.Should().Be(DynamoIndexSelectionReason.ExplicitlyDisabled);
+        decision.Diagnostics.Should().ContainSingle(d => d.Code == "DYNAMO_IDX006");
+    }
+
+    [Fact]
+    public void WithoutIndex_WithExplicitHint_ThrowsInvalidOperationException()
+    {
+        // Having both .WithIndex() and .WithoutIndex() on the same query is a programmer error.
+        var candidates = new List<DynamoIndexDescriptor>
+        {
+            MakeDescriptor("CustomerId", indexName: null),
+            MakeDescriptor("Status", "CreatedAt", "ByStatus"),
+        };
+        var ctx = BuildContext(
+            DynamoAutomaticIndexSelectionMode.Off,
+            candidates,
+            null,
+            explicitHint: "ByStatus",
+            indexSelectionDisabled: true);
+
+        var act = () => Analyzer.Analyze(ctx);
+
+        act.Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage("*'.WithIndex()'*'.WithoutIndex()'*");
     }
 }
