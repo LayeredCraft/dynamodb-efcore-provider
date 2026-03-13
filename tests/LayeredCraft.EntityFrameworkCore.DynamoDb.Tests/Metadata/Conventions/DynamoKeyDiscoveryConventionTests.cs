@@ -267,6 +267,146 @@ public class DynamoKeyDiscoveryConventionTests
         entityType.GetSortKeyPropertyName().Should().Be("CustomSort");
     }
 
+    private sealed record ConventionalPkExplicitSortEntity
+    {
+        public string PK { get; set; } = null!;
+        public string CustomSort { get; set; } = null!;
+    }
+
+    private sealed class ConventionalPkExplicitSortContext(DbContextOptions options) : DbContext(
+        options)
+    {
+        public DbSet<ConventionalPkExplicitSortEntity> Entities { get; set; } = null!;
+
+        /// <summary>
+        ///     Configures only the sort key explicitly so the partition key must still be discovered from
+        ///     the conventional <c>PK</c> name.
+        /// </summary>
+        /// <param name="modelBuilder">The model builder used for test model configuration.</param>
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<ConventionalPkExplicitSortEntity>(b =>
+            {
+                b.ToTable("ConventionalPkExplicitSortTable");
+                b.HasSortKey(x => x.CustomSort);
+            });
+
+        /// <summary>Creates a context instance using the DynamoDB test options.</summary>
+        /// <param name="client">The DynamoDB client substitute used by the provider.</param>
+        /// <returns>A configured test context.</returns>
+        public static ConventionalPkExplicitSortContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<ConventionalPkExplicitSortContext>(client));
+    }
+
+    [Fact]
+    public void ConventionalPartitionKey_WithExplicitSortKey_ResolvesBothRoles()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var ctx = ConventionalPkExplicitSortContext.Create(client);
+
+        var entityType = ctx.Model.FindEntityType(typeof(ConventionalPkExplicitSortEntity))!;
+        var primaryKey = entityType.FindPrimaryKey()!;
+
+        primaryKey.Properties.Should().HaveCount(2);
+        primaryKey.Properties[0].Name.Should().Be("PK");
+        primaryKey.Properties[1].Name.Should().Be("CustomSort");
+        entityType.GetPartitionKeyPropertyName().Should().Be("PK");
+        entityType.GetSortKeyPropertyName().Should().Be("CustomSort");
+    }
+
+    private sealed record ExplicitPartitionConventionalSkEntity
+    {
+        public string CustomPartition { get; set; } = null!;
+        public string SK { get; set; } = null!;
+    }
+
+    private sealed class ExplicitPartitionConventionalSkContext(DbContextOptions options)
+        : DbContext(options)
+    {
+        public DbSet<ExplicitPartitionConventionalSkEntity> Entities { get; set; } = null!;
+
+        /// <summary>
+        ///     Configures only the partition key explicitly so the sort key must still be discovered from
+        ///     the conventional <c>SK</c> name.
+        /// </summary>
+        /// <param name="modelBuilder">The model builder used for test model configuration.</param>
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<ExplicitPartitionConventionalSkEntity>(b =>
+            {
+                b.ToTable("ExplicitPartitionConventionalSkTable");
+                b.HasPartitionKey(x => x.CustomPartition);
+            });
+
+        /// <summary>Creates a context instance using the DynamoDB test options.</summary>
+        /// <param name="client">The DynamoDB client substitute used by the provider.</param>
+        /// <returns>A configured test context.</returns>
+        public static ExplicitPartitionConventionalSkContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<ExplicitPartitionConventionalSkContext>(client));
+    }
+
+    [Fact]
+    public void ExplicitPartitionKey_WithConventionalSortKey_ResolvesBothRoles()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var ctx = ExplicitPartitionConventionalSkContext.Create(client);
+
+        var entityType = ctx.Model.FindEntityType(typeof(ExplicitPartitionConventionalSkEntity))!;
+        var primaryKey = entityType.FindPrimaryKey()!;
+
+        primaryKey.Properties.Should().HaveCount(2);
+        primaryKey.Properties[0].Name.Should().Be("CustomPartition");
+        primaryKey.Properties[1].Name.Should().Be("SK");
+        entityType.GetPartitionKeyPropertyName().Should().Be("CustomPartition");
+        entityType.GetSortKeyPropertyName().Should().Be("SK");
+    }
+
+    private sealed record ExplicitPartitionAmbiguousSortEntity
+    {
+        public string CustomPartition { get; set; } = null!;
+        public string SK { get; set; } = null!;
+        public string SortKey { get; set; } = null!;
+    }
+
+    private sealed class ExplicitPartitionAmbiguousSortContext(DbContextOptions options)
+        : DbContext(options)
+    {
+        public DbSet<ExplicitPartitionAmbiguousSortEntity> Entities { get; set; } = null!;
+
+        /// <summary>
+        ///     Configures an explicit partition key while leaving sort-key discovery to conventions,
+        ///     which should fail because both <c>SK</c> and <c>SortKey</c> are present.
+        /// </summary>
+        /// <param name="modelBuilder">The model builder used for test model configuration.</param>
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<ExplicitPartitionAmbiguousSortEntity>(b =>
+            {
+                b.ToTable("ExplicitPartitionAmbiguousSortTable");
+                b.HasPartitionKey(x => x.CustomPartition);
+            });
+
+        /// <summary>Creates a context instance using the DynamoDB test options.</summary>
+        /// <param name="client">The DynamoDB client substitute used by the provider.</param>
+        /// <returns>A configured test context.</returns>
+        public static ExplicitPartitionAmbiguousSortContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<ExplicitPartitionAmbiguousSortContext>(client));
+    }
+
+    [Fact]
+    public void ExplicitPartitionKey_WithAmbiguousConventionalSortNames_ThrowsAmbiguityError()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        var ctx = ExplicitPartitionAmbiguousSortContext.Create(client);
+        var act = () => ctx.Model;
+
+        act
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage("*multiple properties with conventional sort key names*")
+            .And
+            .Message
+            .Should()
+            .Contain("HasSortKey");
+    }
+
     // -------------------------------------------------------------------
     // Names are case-sensitive — 'pk', 'sk', 'partitionkey' do NOT trigger
     // -------------------------------------------------------------------

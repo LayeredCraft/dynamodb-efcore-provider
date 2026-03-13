@@ -45,9 +45,6 @@ public sealed class DynamoKeyAnnotationConvention : IModelFinalizingConvention
                 || entityType.BaseType != null)
                 continue;
 
-            if (HasNonConventionKeyMapping(entityType))
-                continue;
-
             SetAnnotationFromConventionalName(
                 entityType,
                 DynamoAnnotationNames.PartitionKeyPropertyName,
@@ -63,20 +60,6 @@ public sealed class DynamoKeyAnnotationConvention : IModelFinalizingConvention
                 "HasSortKey");
         }
     }
-
-    /// <summary>
-    ///     Returns <see langword="true" /> when partition or sort key mapping has already been
-    ///     configured using explicit or data-annotation source.
-    /// </summary>
-    private static bool HasNonConventionKeyMapping(IConventionEntityType entityType)
-        => entityType
-                    .FindAnnotation(DynamoAnnotationNames.PartitionKeyPropertyName)
-                    ?.GetConfigurationSource() is
-                ConfigurationSource.Explicit or ConfigurationSource.DataAnnotation
-            || entityType
-                    .FindAnnotation(DynamoAnnotationNames.SortKeyPropertyName)
-                    ?.GetConfigurationSource() is ConfigurationSource.Explicit
-                or ConfigurationSource.DataAnnotation;
 
     /// <summary>
     ///     Sets the annotation to the single matching property name, or throws if multiple unresolved
