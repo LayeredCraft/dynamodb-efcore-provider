@@ -1,7 +1,7 @@
 # LayeredCraft.EntityFrameworkCore.DynamoDb
 
-EF Core Provider for Amazon DynamoDB.
-
+EF Core Provider for AWS DynamoDB
+>
 > [!WARNING]
 > This provider is not production ready yet. Validate behavior carefully before using it in
 > important workloads, and review the current limitations before adopting it.
