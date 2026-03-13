@@ -175,9 +175,11 @@ public sealed class TestPartiQlLoggerFactory : ILoggerFactory
                     RowLimitingWarnings.Add(resultLimit.Value);
             }
 
-            if (eventId.Id == DynamoEventId.NoCompatibleSecondaryIndexFound.Id
-                || eventId.Id == DynamoEventId.MultipleCompatibleSecondaryIndexesFound.Id
-                || eventId.Id == DynamoEventId.SecondaryIndexSelected.Id)
+            if (eventId.Id == DynamoEventId.NoCompatibleSecondaryIndexFound.Id          // IDX001
+                || eventId.Id == DynamoEventId.MultipleCompatibleSecondaryIndexesFound.Id  // IDX002
+                || eventId.Id == DynamoEventId.SecondaryIndexSelected.Id                 // IDX003
+                || eventId.Id == DynamoEventId.ExplicitIndexSelected.Id                  // IDX004
+                || eventId.Id == DynamoEventId.SecondaryIndexCandidateRejected.Id)       // IDX005
                 QueryDiagnosticEvents.Add(
                     new QueryDiagnosticEvent(eventId, logLevel, formatter(state, exception)));
         }

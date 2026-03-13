@@ -316,6 +316,31 @@ public class IndexQueryExtensionsTests
     }
 
     [Fact]
+    public async Task WithIndex_SharedTable_ProjectedQuery_OnOwningEntityType_UsesIndexSource()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        client
+            .ExecuteStatementAsync(Arg.Any<ExecuteStatementRequest>(), Arg.Any<CancellationToken>())
+            .Returns(new ExecuteStatementResponse { Items = [] });
+
+        await using var context = CreateSharedTableContext(client);
+
+        _ = await context
+            .Orders
+            .WithIndex("ByStatus")
+            .Where(o => o.Status == "OPEN")
+            .Select(o => o.Id)
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        await client
+            .Received()
+            .ExecuteStatementAsync(
+                Arg.Is<ExecuteStatementRequest>(r
+                    => r.Statement.Contains("FROM \"SharedDocs\".\"ByStatus\"")),
+                Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task
         WithIndex_SharedTable_DerivedTypeFromOtherRoot_IndexOnlyOnOneEntityType_Throws()
     {
