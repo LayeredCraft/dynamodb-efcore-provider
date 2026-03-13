@@ -59,6 +59,21 @@ public class IndexQueryExtensionsTests
                 .Options);
 
     /// <summary>
+    ///     Creates a GSI context whose analyzer auto-selects ByCustomer unless WithoutIndex() is
+    ///     present.
+    /// </summary>
+    /// <param name="client">The DynamoDB client substitute used by tests.</param>
+    /// <returns>A configured test context.</returns>
+    private static GsiDbContext CreateGsiContextWithDisableAwareAutoAnalyzer(IAmazonDynamoDB client)
+        => new(
+            new DbContextOptionsBuilder<GsiDbContext>()
+                .ReplaceService<IDynamoIndexSelectionAnalyzer,
+                    AutoSelectByCustomerUnlessDisabledAnalyzer>()
+                .UseDynamo(o => o.DynamoDbClient(client))
+                .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .Options);
+
+    /// <summary>
     ///     Analyzer used by tests to simulate index auto-selection without an explicit WithIndex
     ///     hint.
     /// </summary>
@@ -77,6 +92,30 @@ public class IndexQueryExtensionsTests
                     "ByCustomer",
                     DynamoIndexSelectionReason.AutoSelected,
                     []);
+    }
+
+    /// <summary>Analyzer used by tests to prove that WithoutIndex() is propagated to the analysis context.</summary>
+    private sealed class AutoSelectByCustomerUnlessDisabledAnalyzer : IDynamoIndexSelectionAnalyzer
+    {
+        /// <summary>Auto-selects ByCustomer unless index selection is disabled by WithoutIndex().</summary>
+        /// <param name="context">The query analysis context.</param>
+        /// <returns>The selected index decision.</returns>
+        public DynamoIndexSelectionDecision Analyze(DynamoIndexAnalysisContext context)
+            => context.ExplicitIndexHint is { } explicitIndexHint
+                ?
+                new DynamoIndexSelectionDecision(
+                    explicitIndexHint,
+                    DynamoIndexSelectionReason.ExplicitHint,
+                    [])
+                : context.IndexSelectionDisabled
+                    ? new DynamoIndexSelectionDecision(
+                        null,
+                        DynamoIndexSelectionReason.ExplicitlyDisabled,
+                        [])
+                    : new DynamoIndexSelectionDecision(
+                        "ByCustomer",
+                        DynamoIndexSelectionReason.AutoSelected,
+                        []);
     }
 
     /// <summary>
@@ -226,24 +265,32 @@ public class IndexQueryExtensionsTests
     [Fact]
     public async Task WithoutIndex_SetsIndexSelectionDisabledOnContext()
     {
-        // Verifies that the translation visitor propagates WithoutIndex() to the compilation context.
+        // Verifies that WithoutIndex suppresses analyzer auto-selection and keeps FROM on the base
+        // table even when an analyzer would otherwise pick ByCustomer.
         var client = Substitute.For<IAmazonDynamoDB>();
+        ExecuteStatementRequest? capturedRequest = null;
         client
-            .ExecuteStatementAsync(Arg.Any<ExecuteStatementRequest>(), Arg.Any<CancellationToken>())
+            .ExecuteStatementAsync(
+                Arg.Do<ExecuteStatementRequest>(r => capturedRequest = r),
+                Arg.Any<CancellationToken>())
             .Returns(new ExecuteStatementResponse { Items = [] });
 
-        using var context = CreateContextWithClient(client);
+        await using var context = CreateGsiContextWithDisableAwareAutoAnalyzer(client);
 
-        // Executing the query causes translation — if IndexSelectionDisabled is not set, the
-        // provider would just use the base table silently; we just verify no exception is thrown
-        // and the call reaches the client (meaning translation completed successfully).
-        var act = async ()
-            => await context
-                .Entities
-                .WithoutIndex()
-                .ToListAsync(TestContext.Current.CancellationToken);
+        _ = await context
+            .Orders
+            .WithoutIndex()
+            .Where(o => o.CustomerId == "C1")
+            .ToListAsync(TestContext.Current.CancellationToken);
 
-        await act.Should().NotThrowAsync();
+        await client
+            .Received()
+            .ExecuteStatementAsync(
+                Arg.Any<ExecuteStatementRequest>(),
+                Arg.Any<CancellationToken>());
+        capturedRequest.Should().NotBeNull();
+        capturedRequest!.Statement.Should().Contain("FROM ");
+        capturedRequest.Statement.Should().NotContain("\"ByCustomer\"");
     }
 
     [Fact]
