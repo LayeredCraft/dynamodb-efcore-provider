@@ -23,10 +23,10 @@ public class SecondaryIndexAutoSelectionTests(SecondaryIndexDynamoFixture fixtur
     protected override DbContextOptions<SecondaryIndexDbContext> CreateOptions(
         TestPartiQlLoggerFactory loggerFactory)
     {
-        var builder = new DbContextOptionsBuilder<SecondaryIndexDbContext>(
-            base.CreateOptions(loggerFactory));
-        builder.UseDynamo(opt =>
-            opt.UseAutomaticIndexSelection(DynamoAutomaticIndexSelectionMode.Conservative));
+        var builder =
+            new DbContextOptionsBuilder<SecondaryIndexDbContext>(base.CreateOptions(loggerFactory));
+        builder.UseDynamo(opt
+            => opt.UseAutomaticIndexSelection(DynamoAutomaticIndexSelectionMode.Conservative));
         return builder.Options;
     }
 
@@ -37,9 +37,8 @@ public class SecondaryIndexAutoSelectionTests(SecondaryIndexDynamoFixture fixtur
     {
         // Status equality satisfies the ByStatus GSI PK gate — the analyzer should rewrite the
         // FROM clause to "SecondaryIndexOrders"."ByStatus" without an explicit .WithIndex() call.
-        var results = await Db.Orders
-            .Where(o => o.Status == "PENDING")
-            .ToListAsync(CancellationToken);
+        var results =
+            await Db.Orders.Where(o => o.Status == "PENDING").ToListAsync(CancellationToken);
 
         var expected = OrderItems.Items.Where(o => o.Status == "PENDING").ToList();
         results.Should().BeEquivalentTo(expected);
@@ -50,7 +49,8 @@ public class SecondaryIndexAutoSelectionTests(SecondaryIndexDynamoFixture fixtur
             .ContainSingle(e
                 => e.EventId.Id == DynamoEventId.SecondaryIndexSelected.Id
                 && e.LogLevel == LogLevel.Information
-                && e.Message.Contains("ByStatus"));
+                && e.Message.Contains(
+                    "Index 'ByStatus' on table 'SecondaryIndexOrders' was auto-selected."));
 
         AssertSql(
             """
@@ -64,14 +64,18 @@ public class SecondaryIndexAutoSelectionTests(SecondaryIndexDynamoFixture fixtur
     public async Task Conservative_WhereOnGsiPk_WithSkRange_AutoSelects_AndProducesCorrectResults()
     {
         // Region equality covers the ByRegion GSI PK; the CreatedAt range is a sort-key condition.
-        var results = await Db.Orders
-            .Where(o => o.Region == "US-EAST" && string.Compare(o.CreatedAt, "2024-01-14") >= 0)
-            .ToListAsync(CancellationToken);
+        var results =
+            await Db
+                .Orders
+                .Where(o => o.Region == "US-EAST" && string.Compare(o.CreatedAt, "2024-01-14") >= 0)
+                .ToListAsync(CancellationToken);
 
-        var expected = OrderItems.Items
-            .Where(o => o.Region == "US-EAST"
-                && string.Compare(o.CreatedAt, "2024-01-14", StringComparison.Ordinal) >= 0)
-            .ToList();
+        var expected =
+            OrderItems
+                .Items
+                .Where(o => o.Region == "US-EAST"
+                    && string.Compare(o.CreatedAt, "2024-01-14", StringComparison.Ordinal) >= 0)
+                .ToList();
 
         results.Should().BeEquivalentTo(expected);
 
@@ -91,9 +95,8 @@ public class SecondaryIndexAutoSelectionTests(SecondaryIndexDynamoFixture fixtur
         // CustomerId equality satisfies both LSI PKs (ByCreatedAt and ByPriority) but not any GSI
         // PK. The two LSI candidates tie at score 0 (no SK condition, no ordering), so the analyzer
         // emits IDX002 and falls back to the base table.
-        var results = await Db.Orders
-            .Where(o => o.CustomerId == "C#1")
-            .ToListAsync(CancellationToken);
+        var results =
+            await Db.Orders.Where(o => o.CustomerId == "C#1").ToListAsync(CancellationToken);
 
         var expected = OrderItems.Items.Where(o => o.CustomerId == "C#1").ToList();
         results.Should().BeEquivalentTo(expected);
@@ -117,7 +120,8 @@ public class SecondaryIndexAutoSelectionTests(SecondaryIndexDynamoFixture fixtur
         List<OrderItem>? results = null;
         try
         {
-            results = await Db.Orders
+            results = await Db
+                .Orders
                 .Where(o => o.CustomerId == "C#1")
                 .OrderBy(o => o.Priority)
                 .ToListAsync(CancellationToken);
@@ -129,10 +133,12 @@ public class SecondaryIndexAutoSelectionTests(SecondaryIndexDynamoFixture fixtur
 
         if (results is not null)
         {
-            var expected = OrderItems.Items
-                .Where(o => o.CustomerId == "C#1")
-                .OrderBy(o => o.Priority)
-                .ToList();
+            var expected =
+                OrderItems
+                    .Items
+                    .Where(o => o.CustomerId == "C#1")
+                    .OrderBy(o => o.Priority)
+                    .ToList();
             results.Should().ContainInOrder(expected);
         }
 
@@ -150,9 +156,8 @@ public class SecondaryIndexAutoSelectionTests(SecondaryIndexDynamoFixture fixtur
     {
         // CustomerId equality satisfies both LSI PKs (ByCreatedAt and ByPriority) with equal
         // scores (no SK condition, no ordering). The analyzer emits IDX002 and returns base table.
-        var results = await Db.Orders
-            .Where(o => o.CustomerId == "C#1")
-            .ToListAsync(CancellationToken);
+        var results =
+            await Db.Orders.Where(o => o.CustomerId == "C#1").ToListAsync(CancellationToken);
 
         var expected = OrderItems.Items.Where(o => o.CustomerId == "C#1").ToList();
         results.Should().BeEquivalentTo(expected);
@@ -163,6 +168,7 @@ public class SecondaryIndexAutoSelectionTests(SecondaryIndexDynamoFixture fixtur
             .ContainSingle(e
                 => e.EventId.Id == DynamoEventId.MultipleCompatibleSecondaryIndexesFound.Id
                 && e.LogLevel == LogLevel.Warning
+                && e.Message.Contains("are equally suitable")
                 && e.Message.Contains("ByCreatedAt")
                 && e.Message.Contains("ByPriority"));
 
@@ -188,16 +194,22 @@ public class SecondaryIndexAutoSelectionTests(SecondaryIndexDynamoFixture fixtur
         // constraint extractor, which satisfies Gate 1 (partition-key coverage).
         var statusList = new List<string> { "PENDING", "SHIPPED" };
 
-        var results = await Db.Orders
-            .Where(o => statusList.Contains(o.Status))
-            .ToListAsync(CancellationToken);
+        var results =
+            await Db
+                .Orders
+                .Where(o => statusList.Contains(o.Status))
+                .ToListAsync(CancellationToken);
 
         var expected = OrderItems.Items.Where(o => statusList.Contains(o.Status)).ToList();
         results.Should().BeEquivalentTo(expected);
 
-        LoggerFactory.QueryDiagnosticEvents.Should().ContainSingle(e
-            => e.EventId.Id == DynamoEventId.SecondaryIndexSelected.Id
-            && e.Message.Contains("ByStatus"));
+        LoggerFactory
+            .QueryDiagnosticEvents
+            .Should()
+            .ContainSingle(e
+                => e.EventId.Id == DynamoEventId.SecondaryIndexSelected.Id
+                && e.Message.Contains(
+                    "Index 'ByStatus' on table 'SecondaryIndexOrders' was auto-selected."));
 
         AssertSql(
             """
@@ -221,19 +233,28 @@ public class SecondaryIndexAutoSelectionTests(SecondaryIndexDynamoFixture fixtur
         // The constraint extractor sees the top-level OR as unsafe and does not extract any partial
         // equality constraints from its branches. All candidates therefore fail Gate 1 (no PK
         // constraint) — Gate 2 (unsafe OR) is never reached because Gate 1 fails first.
-        _ = await Db.Orders
+        _ = await Db
+            .Orders
             .Where(o => o.Status == "PENDING" || o.Region == "US-EAST")
             .ToListAsync(CancellationToken);
 
-        // IDX005 per rejected candidate — Gate 1 failures (no PK constraint extracted from OR branches).
-        LoggerFactory.QueryDiagnosticEvents
+        // IDX005 per rejected candidate — Gate 1 failures (no PK constraint extracted from OR
+        // branches).
+        LoggerFactory
+            .QueryDiagnosticEvents
             .Where(e => e.EventId.Id == DynamoEventId.SecondaryIndexCandidateRejected.Id)
-            .Should().NotBeEmpty()
-            .And.OnlyContain(e => e.Message.Contains("no equality or IN constraint on the index partition key"));
+            .Should()
+            .NotBeEmpty()
+            .And
+            .OnlyContain(e
+                => e.Message.Contains(
+                    "was rejected: no equality or IN constraint on the index partition key."));
 
         // IDX001 summary — no index was selected.
-        LoggerFactory.QueryDiagnosticEvents.Should().Contain(e
-            => e.EventId.Id == DynamoEventId.NoCompatibleSecondaryIndexFound.Id);
+        LoggerFactory
+            .QueryDiagnosticEvents
+            .Should()
+            .Contain(e => e.EventId.Id == DynamoEventId.NoCompatibleSecondaryIndexFound.Id);
 
         AssertSql(
             """
@@ -250,23 +271,29 @@ public class SecondaryIndexAutoSelectionTests(SecondaryIndexDynamoFixture fixtur
     /// at Gate 1 with IDX005 diagnostics and the query falls back to the base table with IDX001.
     /// </summary>
     [Fact]
-    public async Task Conservative_WhereOnNonIndexPkAttribute_AllCandidatesRejected_EmitsIdxDiagnostics()
+    public async Task
+        Conservative_WhereOnNonIndexPkAttribute_AllCandidatesRejected_EmitsIdxDiagnostics()
     {
         // Priority is the ByPriority LSI sort key — not a partition key on any index.
         // All candidates fail Gate 1 (no equality or IN constraint on any index PK).
-        _ = await Db.Orders
-            .Where(o => o.Priority == 1)
-            .ToListAsync(CancellationToken);
+        _ = await Db.Orders.Where(o => o.Priority == 1).ToListAsync(CancellationToken);
 
         // IDX005 for every rejected candidate — all fail on missing PK constraint.
-        LoggerFactory.QueryDiagnosticEvents
+        LoggerFactory
+            .QueryDiagnosticEvents
             .Where(e => e.EventId.Id == DynamoEventId.SecondaryIndexCandidateRejected.Id)
-            .Should().NotBeEmpty()
-            .And.OnlyContain(e => e.Message.Contains("partition key"));
+            .Should()
+            .NotBeEmpty()
+            .And
+            .OnlyContain(e
+                => e.Message.Contains(
+                    "was rejected: no equality or IN constraint on the index partition key."));
 
         // IDX001 summary.
-        LoggerFactory.QueryDiagnosticEvents.Should().Contain(e
-            => e.EventId.Id == DynamoEventId.NoCompatibleSecondaryIndexFound.Id);
+        LoggerFactory
+            .QueryDiagnosticEvents
+            .Should()
+            .Contain(e => e.EventId.Id == DynamoEventId.NoCompatibleSecondaryIndexFound.Id);
 
         AssertSql(
             """
@@ -285,20 +312,26 @@ public class SecondaryIndexAutoSelectionTests(SecondaryIndexDynamoFixture fixtur
     [Fact]
     public async Task ExplicitHint_WithIndex_EmitsExplicitIndexSelectedDiagnostic()
     {
-        _ = await Db.Orders
+        _ = await Db
+            .Orders
             .WithIndex("ByStatus")
             .Where(o => o.Status == "PENDING")
             .ToListAsync(CancellationToken);
 
         // IDX004: explicit hint applied.
-        LoggerFactory.QueryDiagnosticEvents.Should().ContainSingle(e
-            => e.EventId.Id == DynamoEventId.ExplicitIndexSelected.Id
-            && e.LogLevel == LogLevel.Information
-            && e.Message.Contains("ByStatus")
-            && e.Message.Contains("explicitly selected"));
+        LoggerFactory
+            .QueryDiagnosticEvents
+            .Should()
+            .ContainSingle(e
+                => e.EventId.Id == DynamoEventId.ExplicitIndexSelected.Id
+                && e.LogLevel == LogLevel.Information
+                && e.Message.Contains(
+                    "Index 'ByStatus' on table 'SecondaryIndexOrders' was explicitly selected via WithIndex()."));
 
         // No IDX003 auto-selection event — explicit path short-circuits auto-selection entirely.
-        LoggerFactory.QueryDiagnosticEvents.Should()
+        LoggerFactory
+            .QueryDiagnosticEvents
+            .Should()
             .NotContain(e => e.EventId.Id == DynamoEventId.SecondaryIndexSelected.Id);
 
         AssertSql(
@@ -324,7 +357,8 @@ public class SecondaryIndexAutoSelectionTests(SecondaryIndexDynamoFixture fixtur
         // DynamoDB Local does not support ORDER BY on GSI sort keys, so wrap execution.
         try
         {
-            _ = await Db.Orders
+            _ = await Db
+                .Orders
                 .Where(o => o.Status == "PENDING")
                 .OrderBy(o => o.CreatedAt)
                 .ToListAsync(CancellationToken);
@@ -334,9 +368,13 @@ public class SecondaryIndexAutoSelectionTests(SecondaryIndexDynamoFixture fixtur
             // DynamoDB Local limitation: ORDER BY on GSI sort keys is not supported.
         }
 
-        LoggerFactory.QueryDiagnosticEvents.Should().ContainSingle(e
-            => e.EventId.Id == DynamoEventId.SecondaryIndexSelected.Id
-            && e.Message.Contains("ByStatus"));
+        LoggerFactory
+            .QueryDiagnosticEvents
+            .Should()
+            .ContainSingle(e
+                => e.EventId.Id == DynamoEventId.SecondaryIndexSelected.Id
+                && e.Message.Contains(
+                    "Index 'ByStatus' on table 'SecondaryIndexOrders' was auto-selected."));
 
         AssertSql(
             """
@@ -359,8 +397,10 @@ public class SecondaryIndexAutoSelectionTests(SecondaryIndexDynamoFixture fixtur
         _ = await Db.Orders.ToListAsync(CancellationToken);
 
         // All candidates fail Gate 1 — no PK constraints extracted.
-        LoggerFactory.QueryDiagnosticEvents.Should().Contain(e
-            => e.EventId.Id == DynamoEventId.NoCompatibleSecondaryIndexFound.Id);
+        LoggerFactory
+            .QueryDiagnosticEvents
+            .Should()
+            .Contain(e => e.EventId.Id == DynamoEventId.NoCompatibleSecondaryIndexFound.Id);
 
         AssertSql(
             """
@@ -368,5 +408,4 @@ public class SecondaryIndexAutoSelectionTests(SecondaryIndexDynamoFixture fixtur
             FROM "SecondaryIndexOrders"
             """);
     }
-
 }

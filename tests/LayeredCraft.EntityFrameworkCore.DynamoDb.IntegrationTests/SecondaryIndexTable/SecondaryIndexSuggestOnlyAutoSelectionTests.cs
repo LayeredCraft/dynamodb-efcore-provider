@@ -44,8 +44,8 @@ public class SecondaryIndexSuggestOnlyAutoSelectionTests(SecondaryIndexDynamoFix
             .ContainSingle(e
                 => e.EventId.Id == DynamoEventId.SecondaryIndexSelected.Id
                 && e.LogLevel == LogLevel.Information
-                && e.Message.Contains("ByStatus")
-                && e.Message.Contains("would be selected"));
+                && e.Message.Contains(
+                    "Index 'ByStatus' on table 'SecondaryIndexOrders' would be selected in Conservative mode."));
 
         AssertSql(
             """

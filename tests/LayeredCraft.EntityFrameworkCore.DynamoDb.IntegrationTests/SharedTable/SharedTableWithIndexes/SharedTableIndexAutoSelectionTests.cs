@@ -1,7 +1,6 @@
 using Amazon.DynamoDBv2;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Diagnostics;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Infrastructure;
-using LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.SharedTable;
 using LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -46,7 +45,8 @@ public class SharedTableIndexAutoSelectionTests(SharedTableWithIndexesDynamoFixt
         LoggerFactory.QueryDiagnosticEvents.Should().ContainSingle(e
             => e.EventId.Id == DynamoEventId.SecondaryIndexSelected.Id
             && e.LogLevel == LogLevel.Information
-            && e.Message.Contains("ByPriority"));
+            && e.Message.Contains(
+                "Index 'ByPriority' on table 'work-orders-indexed-table' was auto-selected."));
 
         AssertSql(
             """
@@ -94,7 +94,8 @@ public class SharedTableIndexAutoSelectionTests(SharedTableWithIndexesDynamoFixt
         // IDX003: ByStatus LSI auto-selected.
         LoggerFactory.QueryDiagnosticEvents.Should().ContainSingle(e
             => e.EventId.Id == DynamoEventId.SecondaryIndexSelected.Id
-            && e.Message.Contains("ByStatus"));
+            && e.Message.Contains(
+                "Index 'ByStatus' on table 'work-orders-indexed-table' was auto-selected."));
 
         AssertSql(
             """
@@ -171,8 +172,8 @@ public class SharedTableIndexAutoSelectionTests(SharedTableWithIndexesDynamoFixt
         LoggerFactory.QueryDiagnosticEvents.Should().ContainSingle(e
             => e.EventId.Id == DynamoEventId.ExplicitIndexSelected.Id
             && e.LogLevel == LogLevel.Information
-            && e.Message.Contains("ByStatus")
-            && e.Message.Contains("explicitly selected"));
+            && e.Message.Contains(
+                "Index 'ByStatus' on table 'work-orders-indexed-table' was explicitly selected via WithIndex()."));
 
         AssertSql(
             """
@@ -202,8 +203,8 @@ public class SharedTableIndexAutoSelectionTests(SharedTableWithIndexesDynamoFixt
 
         LoggerFactory.QueryDiagnosticEvents.Should().ContainSingle(e
             => e.EventId.Id == DynamoEventId.ExplicitIndexSelected.Id
-            && e.Message.Contains("ByPriority")
-            && e.Message.Contains("explicitly selected"));
+            && e.Message.Contains(
+                "Index 'ByPriority' on table 'work-orders-indexed-table' was explicitly selected via WithIndex()."));
 
         AssertSql(
             """
@@ -261,8 +262,8 @@ public class SharedTableIndexAutoSelectionTests(SharedTableWithIndexesDynamoFixt
         // IDX003 "would be selected" diagnostic emitted (checked before AssertBaseline which clears state).
         loggerFactory.QueryDiagnosticEvents.Should().ContainSingle(e
             => e.EventId.Id == DynamoEventId.SecondaryIndexSelected.Id
-            && e.Message.Contains("ByPriority")
-            && e.Message.Contains("would be selected"));
+            && e.Message.Contains(
+                "Index 'ByPriority' on table 'work-orders-indexed-table' would be selected in Conservative mode."));
 
         // SuggestOnly: query executes on base table — no index in FROM clause.
         loggerFactory.AssertBaseline(
