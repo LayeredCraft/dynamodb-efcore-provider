@@ -19,6 +19,7 @@ icon: lucide/stethoscope
 - `MultipleCompatibleSecondaryIndexesFound`
 - `SecondaryIndexSelected`
 - `ExplicitIndexSelected`
+- `ExplicitIndexSelectionDisabled`
 - `SecondaryIndexCandidateRejected`
 
 ## Warnings
@@ -32,6 +33,9 @@ icon: lucide/stethoscope
 - `SuggestOnly` logs the same information event without rewriting the query source.
 - An explicit `.WithIndex()` hint logs an information event (`ExplicitIndexSelected`) naming the
   resolved index and table.
+- An explicit `.WithoutIndex()` hint logs an information event
+  (`ExplicitIndexSelectionDisabled`, diagnostic code `DYNAMO_IDX006`) indicating index selection
+  was suppressed and the query will execute against the base table.
 - When automatic index selection evaluates candidates, each rejected candidate logs an information
   event (`SecondaryIndexCandidateRejected`) with the rejection reason: no equality or IN constraint
   on the index partition key, predicate contains an unsafe OR, or projection type is not ALL.

@@ -219,8 +219,12 @@ public class IndexQueryExtensionsTests
         query.Should().BeSameAs(source);
     }
 
+    /// <summary>
+    ///     Ensures <c>.WithoutIndex()</c> propagates index-selection suppression into query
+    ///     compilation.
+    /// </summary>
     [Fact]
-    public void WithoutIndex_SetsIndexSelectionDisabledOnContext()
+    public async Task WithoutIndex_SetsIndexSelectionDisabledOnContext()
     {
         // Verifies that the translation visitor propagates WithoutIndex() to the compilation context.
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -233,9 +237,13 @@ public class IndexQueryExtensionsTests
         // Executing the query causes translation — if IndexSelectionDisabled is not set, the
         // provider would just use the base table silently; we just verify no exception is thrown
         // and the call reaches the client (meaning translation completed successfully).
-        var act = async () => await context.Entities.WithoutIndex().ToListAsync();
+        var act = async ()
+            => await context
+                .Entities
+                .WithoutIndex()
+                .ToListAsync(TestContext.Current.CancellationToken);
 
-        act.Should().NotThrowAsync();
+        await act.Should().NotThrowAsync();
     }
 
     [Fact]
