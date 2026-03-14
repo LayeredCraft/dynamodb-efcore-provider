@@ -5,6 +5,11 @@
       "source": "LayeredCraft/dynamo-mapper",
       "sourceType": "github",
       "computedHash": "4b524259ec97771c695f2e2404b8e98016ac011e9046642038b6a89f4f5a86fa"
+    },
+    "zensical-site": {
+      "source": "LayeredCraft/skills",
+      "sourceType": "github",
+      "computedHash": "af704738b2af958de5118e472738a14126f195470e487f018da50bf5c7273ee6"
     }
   }
 }
