@@ -13,14 +13,13 @@
   </Folder>
   <Folder Name="/src/">
     <File Path="src\Directory.Build.props"/>
-    <Project
-      Path="src/LayeredCraft.EntityFrameworkCore.DynamoDb/LayeredCraft.EntityFrameworkCore.DynamoDb.csproj"/>
+    <Project Path="src\EntityFrameworkCore.DynamoDb\EntityFrameworkCore.DynamoDb.csproj"/>
   </Folder>
   <Folder Name="/tests/">
     <File Path="tests\Directory.Build.props"/>
     <Project
-      Path="tests/LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests/LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.csproj"/>
+      Path="tests\EntityFrameworkCore.DynamoDb.IntegrationTests\EntityFrameworkCore.DynamoDb.IntegrationTests.csproj"/>
     <Project
-      Path="tests/LayeredCraft.EntityFrameworkCore.DynamoDb.Tests/LayeredCraft.EntityFrameworkCore.DynamoDb.Tests.csproj"/>
+      Path="tests\EntityFrameworkCore.DynamoDb.Tests\EntityFrameworkCore.DynamoDb.Tests.csproj"/>
   </Folder>
 </Solution>
