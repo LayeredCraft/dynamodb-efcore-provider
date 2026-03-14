@@ -8,6 +8,10 @@ Entity Framework Core provider for AWS DynamoDB.
 
 This provider translates LINQ queries to PartiQL and executes them with the AWS SDK.
 
+!!! warning
+
+    This project is still under active development and is not production-ready yet.
+
 ## Documentation
 
 - [Configuration](configuration.md)
