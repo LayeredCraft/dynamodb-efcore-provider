@@ -28,6 +28,12 @@ nav = [
 [project.markdown_extensions.admonition]
 [project.markdown_extensions.pymdownx.details]
 [project.markdown_extensions.pymdownx.superfences]
+[project.markdown_extensions.pymdownx.highlight]
+anchor_linenums = true
+line_spans = "__span"
+pygments_lang_class = true
+[project.markdown_extensions.pymdownx.inlinehilite]
+[project.markdown_extensions.pymdownx.snippets]
 
 [project.theme]
 logo = "images/icon.png"
@@ -35,7 +41,9 @@ favicon = "images/icon.png"
 features = [
   "navigation.footer",
   "content.action.edit",
-  "content.action.view"
+  "content.action.view",
+  "content.code.copy",
+  "content.code.select"
 ]
 
 [[project.theme.palette]]
