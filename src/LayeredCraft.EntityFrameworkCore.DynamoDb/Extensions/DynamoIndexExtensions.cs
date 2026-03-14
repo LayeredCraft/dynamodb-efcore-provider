@@ -13,21 +13,18 @@ public static class DynamoIndexExtensions
     extension(IMutableIndex index)
     {
         /// <summary>Sets the DynamoDB secondary index name used for PartiQL index targeting.</summary>
-        /// <param name="name">The DynamoDB secondary index name, or <see langword="null" /> to clear it.</param>
         public void SetSecondaryIndexName(string? name)
             => index.SetOrRemoveAnnotation(
                 DynamoAnnotationNames.SecondaryIndexName,
                 name.NullButNotEmpty());
 
         /// <summary>Sets the DynamoDB secondary index kind for this EF index.</summary>
-        /// <param name="kind">The secondary index kind, or <see langword="null" /> to clear it.</param>
         public void SetSecondaryIndexKind(DynamoSecondaryIndexKind? kind)
             => index.SetOrRemoveAnnotation(
                 DynamoAnnotationNames.SecondaryIndexKind,
                 kind?.ToString());
 
         /// <summary>Sets the DynamoDB projection type for this EF index.</summary>
-        /// <param name="projectionType">The projection type, or <see langword="null" /> to clear it.</param>
         public void SetSecondaryIndexProjectionType(DynamoSecondaryIndexProjectionType? projectionType)
             => index.SetOrRemoveAnnotation(
                 DynamoAnnotationNames.SecondaryIndexProjectionType,
@@ -37,12 +34,12 @@ public static class DynamoIndexExtensions
     extension(IReadOnlyIndex index)
     {
         /// <summary>Gets the configured DynamoDB secondary index name.</summary>
-        /// <returns>The configured name, or <see langword="null" /> when none has been configured.</returns>
+        /// <returns>The configured name, or  when none has been configured.</returns>
         public string? GetSecondaryIndexName()
             => index[DynamoAnnotationNames.SecondaryIndexName] as string;
 
         /// <summary>Gets the configured DynamoDB secondary index kind.</summary>
-        /// <returns>The configured kind, or <see langword="null" /> when none has been configured.</returns>
+        /// <returns>The configured kind, or  when none has been configured.</returns>
         public DynamoSecondaryIndexKind? GetSecondaryIndexKind()
             => Enum.TryParse<DynamoSecondaryIndexKind>(
                 index[DynamoAnnotationNames.SecondaryIndexKind] as string,
@@ -52,7 +49,7 @@ public static class DynamoIndexExtensions
 
         /// <summary>Gets the configured DynamoDB projection type for this EF index.</summary>
         /// <returns>
-        ///     The configured projection type, or <see cref="DynamoSecondaryIndexProjectionType.All" />
+        ///     The configured projection type, or <c>DynamoSecondaryIndexProjectionType.All</c>
         ///     when the index is configured as a DynamoDB secondary index and no explicit projection has
         ///     been stored.
         /// </returns>
@@ -72,11 +69,8 @@ public static class DynamoIndexExtensions
     extension(IConventionIndex index)
     {
         /// <summary>Sets the DynamoDB secondary index name at the given configuration source.</summary>
-        /// <param name="name">The DynamoDB secondary index name, or <see langword="null" /> to clear it.</param>
-        /// <param name="fromDataAnnotation">
-        ///     <see langword="true" /> if configured via a data annotation; otherwise the fluent API.
-        /// </param>
-        /// <returns>The applied name when successful; otherwise <see langword="null" />.</returns>
+        ///      if configured via a data annotation; otherwise the fluent API.
+        /// <returns>The applied name when successful; otherwise .</returns>
         public string? SetSecondaryIndexName(string? name, bool fromDataAnnotation = false)
             => (string?)index.SetOrRemoveAnnotation(
                     DynamoAnnotationNames.SecondaryIndexName,
@@ -85,11 +79,8 @@ public static class DynamoIndexExtensions
                 ?.Value;
 
         /// <summary>Sets the DynamoDB secondary index kind at the given configuration source.</summary>
-        /// <param name="kind">The secondary index kind, or <see langword="null" /> to clear it.</param>
-        /// <param name="fromDataAnnotation">
-        ///     <see langword="true" /> if configured via a data annotation; otherwise the fluent API.
-        /// </param>
-        /// <returns>The applied kind when successful; otherwise <see langword="null" />.</returns>
+        ///      if configured via a data annotation; otherwise the fluent API.
+        /// <returns>The applied kind when successful; otherwise .</returns>
         public DynamoSecondaryIndexKind? SetSecondaryIndexKind(
             DynamoSecondaryIndexKind? kind,
             bool fromDataAnnotation = false)
@@ -104,11 +95,8 @@ public static class DynamoIndexExtensions
                 : null;
 
         /// <summary>Sets the DynamoDB projection type at the given configuration source.</summary>
-        /// <param name="projectionType">The projection type, or <see langword="null" /> to clear it.</param>
-        /// <param name="fromDataAnnotation">
-        ///     <see langword="true" /> if configured via a data annotation; otherwise the fluent API.
-        /// </param>
-        /// <returns>The applied projection type when successful; otherwise <see langword="null" />.</returns>
+        ///      if configured via a data annotation; otherwise the fluent API.
+        /// <returns>The applied projection type when successful; otherwise .</returns>
         public DynamoSecondaryIndexProjectionType? SetSecondaryIndexProjectionType(
             DynamoSecondaryIndexProjectionType? projectionType,
             bool fromDataAnnotation = false)
@@ -124,7 +112,7 @@ public static class DynamoIndexExtensions
 
         /// <summary>Gets the configuration source for the DynamoDB secondary index name.</summary>
         /// <returns>
-        ///     The <see cref="ConfigurationSource" /> of the annotation, or <see langword="null" /> if
+        ///     The <c>ConfigurationSource</c> of the annotation, or  if
         ///     none has been configured.
         /// </returns>
         public ConfigurationSource? GetSecondaryIndexNameConfigurationSource()
@@ -132,7 +120,7 @@ public static class DynamoIndexExtensions
 
         /// <summary>Gets the configuration source for the DynamoDB secondary index kind.</summary>
         /// <returns>
-        ///     The <see cref="ConfigurationSource" /> of the annotation, or <see langword="null" /> if
+        ///     The <c>ConfigurationSource</c> of the annotation, or  if
         ///     none has been configured.
         /// </returns>
         public ConfigurationSource? GetSecondaryIndexKindConfigurationSource()
@@ -140,7 +128,7 @@ public static class DynamoIndexExtensions
 
         /// <summary>Gets the configuration source for the DynamoDB projection type.</summary>
         /// <returns>
-        ///     The <see cref="ConfigurationSource" /> of the annotation, or <see langword="null" /> if
+        ///     The <c>ConfigurationSource</c> of the annotation, or  if
         ///     none has been configured.
         /// </returns>
         public ConfigurationSource? GetSecondaryIndexProjectionTypeConfigurationSource()

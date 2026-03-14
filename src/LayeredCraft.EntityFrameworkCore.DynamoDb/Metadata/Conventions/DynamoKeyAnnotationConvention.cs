@@ -22,7 +22,7 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata.Conventions;
 ///     <para>
 ///         If an entity type has multiple properties whose names match the same role (e.g., both
 ///         <c>PK</c> and <c>PartitionKey</c>) and no explicit override has been provided, an
-///         <see cref="InvalidOperationException" /> is raised. Resolve the ambiguity by calling
+///         <c>InvalidOperationException</c> is raised. Resolve the ambiguity by calling
 ///         <c>HasPartitionKey()</c> or <c>HasSortKey()</c>.
 ///     </para>
 /// </remarks>
@@ -32,8 +32,6 @@ public sealed class DynamoKeyAnnotationConvention : IModelFinalizingConvention
     ///     Finalizes partition/sort key annotations by applying configured mappings, EF-primary-key
     ///     fallback, and conventional property-name fallback in precedence order.
     /// </summary>
-    /// <param name="modelBuilder">The convention model builder.</param>
-    /// <param name="context">The convention context.</param>
     public void ProcessModelFinalizing(
         IConventionModelBuilder modelBuilder,
         IConventionContext<IConventionModelBuilder> context)
@@ -64,8 +62,8 @@ public sealed class DynamoKeyAnnotationConvention : IModelFinalizingConvention
     /// <summary>
     ///     Sets the annotation to the single matching property name, or throws if multiple unresolved
     ///     candidates exist. Skips entity types where the annotation was already set at
-    ///     <see cref="ConfigurationSource.Explicit" /> or
-    ///     <see cref="ConfigurationSource.DataAnnotation" /> source.
+    ///     <c>ConfigurationSource.Explicit</c> or
+    ///     <c>ConfigurationSource.DataAnnotation</c> source.
     /// </summary>
     private static void SetAnnotationFromConventionalName(
         IConventionEntityType entityType,

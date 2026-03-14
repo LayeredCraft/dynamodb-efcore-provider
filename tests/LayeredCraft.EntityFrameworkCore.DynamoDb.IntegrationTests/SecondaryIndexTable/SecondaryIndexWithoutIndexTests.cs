@@ -16,7 +16,7 @@ public class SecondaryIndexWithoutIndexTests(SecondaryIndexDynamoFixture fixture
 {
     /// <inheritdoc />
     /// <remarks>
-    /// Overrides the base options to enable <see cref="DynamoAutomaticIndexSelectionMode.Conservative"/>
+    /// Overrides the base options to enable <c>DynamoAutomaticIndexSelectionMode.Conservative</c>
     /// so that queries that don't call <c>.WithoutIndex()</c> would normally get an index auto-selected,
     /// making the suppression clearly observable.
     /// </remarks>
@@ -30,7 +30,9 @@ public class SecondaryIndexWithoutIndexTests(SecondaryIndexDynamoFixture fixture
         return builder.Options;
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task WithoutIndex_ConservativeMode_UsesBaseTable_AndEmitsDiagnosticIDX006()
     {
         // Without .WithoutIndex(), this query would auto-select the ByStatus GSI (Status equality
@@ -61,7 +63,9 @@ public class SecondaryIndexWithoutIndexTests(SecondaryIndexDynamoFixture fixture
             """);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task WithoutIndex_DoesNotEmitAutoSelectionDiagnostics()
     {
         // When .WithoutIndex() is present the analyzer short-circuits before evaluation, so
@@ -81,7 +85,9 @@ public class SecondaryIndexWithoutIndexTests(SecondaryIndexDynamoFixture fixture
                 || e.EventId.Id == DynamoEventId.SecondaryIndexCandidateRejected.Id);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task WithoutIndex_WithExplicitHint_ThrowsInvalidOperationException()
     {
         // Combining .WithIndex() and .WithoutIndex() on the same query must throw at compile time.

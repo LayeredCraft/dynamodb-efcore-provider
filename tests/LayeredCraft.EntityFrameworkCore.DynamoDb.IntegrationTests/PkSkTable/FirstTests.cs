@@ -2,9 +2,12 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.PkSkTable;
 
+/// <summary>Represents the FirstTests type.</summary>
 public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixture)
 {
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void PkAndSkProperlyConfiguredAsKeys()
     {
         var entityType = Db.Model.FindEntityType(typeof(PkSkItem))!;
@@ -17,7 +20,9 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
         efPrimaryKey.Should().Equal("Pk", "Sk");
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task ToListAsync_ReturnsAllItems()
     {
         var results = await Db.Items.ToListAsync(CancellationToken);
@@ -31,7 +36,9 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
             """);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task OrderBy_Sk_FirstAsync_ReturnsLowestSkWithinPartition()
     {
         var result =
@@ -55,7 +62,9 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
             """);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task FirstOrDefaultAsync_WithSelectivePredicate_PagesUntilMatch()
     {
         LoggerFactory.Clear();
@@ -86,7 +95,9 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
             """);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task FirstAsync_WithPredicate_ReturnsMatchingItem()
     {
         var result =
@@ -107,7 +118,9 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
             """);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task FirstAsync_WithPredicate_ThrowsWhenNoMatch()
     {
         var act = async ()
@@ -126,7 +139,9 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
             """);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task FirstOrDefaultAsync_WithPredicate_ReturnsNullWhenNoMatch()
     {
         var result =
@@ -145,7 +160,9 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
             """);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task FirstAsync_DoesNotEmitLimitClause()
     {
         var result =
@@ -166,7 +183,9 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
             """);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task FirstAsync_WithPageSize_UsesCustomPageSize()
     {
         LoggerFactory.Clear();
@@ -194,7 +213,9 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
             """);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task FirstOrDefaultAsync_WithPageSizeOverload_UsesCustomPageSize()
     {
         LoggerFactory.Clear();
@@ -223,7 +244,9 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
             """);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task FirstAsync_WithoutPagination_StopsSinglePage()
     {
         LoggerFactory.Clear();
@@ -249,7 +272,9 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
             """);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task Take_WithSelectiveFilter_ContinuesPaging()
     {
         LoggerFactory.Clear();
@@ -275,7 +300,9 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
             """);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task Take_WithPageSize_UsesCustomPageSize()
     {
         LoggerFactory.Clear();
@@ -302,7 +329,9 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
             """);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task Take_FirstAsync_UsesMinimumResultLimit()
     {
         var result =
@@ -332,7 +361,9 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
             """);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task Take_FirstOrDefaultAsync_UsesMinimumResultLimit()
     {
         var limit = 2;
@@ -364,7 +395,9 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
             """);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task Take_Take_UsesMinimumResultLimit()
     {
         var results =
@@ -395,7 +428,9 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
             """);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task Take_Take_UsesMinimumResultLimit_WhenReversed()
     {
         var results =

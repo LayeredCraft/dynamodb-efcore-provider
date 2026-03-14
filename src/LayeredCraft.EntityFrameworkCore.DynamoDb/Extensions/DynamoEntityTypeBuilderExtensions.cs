@@ -8,16 +8,14 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Microsoft.EntityFrameworkCore;
 
+/// <summary>Represents the DynamoEntityTypeBuilderExtensions type.</summary>
 public static class DynamoEntityTypeBuilderExtensions
 {
     extension(EntityTypeBuilder entityTypeBuilder)
     {
         /// <summary>Configures the table that the entity type maps to when targeting AWS DynamoDB.</summary>
-        /// <param name="entityTypeBuilder">The builder for the entity type being configured.</param>
-        /// <param name="name">
-        ///     The table name. Pass <see langword="null" /> to clear the explicit table mapping and
+        ///     The table name. Pass  to clear the explicit table mapping and
         ///     fall back to convention behavior.
-        /// </param>
         /// <returns>The same builder instance so that multiple calls can be chained.</returns>
         public EntityTypeBuilder ToTable(string? name)
         {
@@ -37,10 +35,8 @@ public static class DynamoEntityTypeBuilderExtensions
         ///     The provider derives the EF primary key automatically from the configured partition key and
         ///     optional sort key, so root entities should not configure <c>HasKey(...)</c> directly.
         /// </remarks>
-        /// <param name="propertyName">
         ///     The EF property name whose attribute name maps to the DynamoDB partition
         ///     key.
-        /// </param>
         /// <returns>The same builder instance so that multiple calls can be chained.</returns>
         public EntityTypeBuilder HasPartitionKey(string propertyName)
         {
@@ -59,7 +55,6 @@ public static class DynamoEntityTypeBuilderExtensions
         ///     <c>[partitionKey, sortKey]</c>, so root entities should not configure <c>HasKey(...)</c>
         ///     directly.
         /// </remarks>
-        /// <param name="propertyName">The EF property name whose attribute name maps to the DynamoDB sort key.</param>
         /// <returns>The same builder instance so that multiple calls can be chained.</returns>
         public EntityTypeBuilder HasSortKey(string propertyName)
         {
@@ -69,8 +64,6 @@ public static class DynamoEntityTypeBuilderExtensions
         }
 
         /// <summary>Configures a DynamoDB global secondary index that uses only a partition key.</summary>
-        /// <param name="name">The DynamoDB global secondary index name.</param>
-        /// <param name="partitionKeyPropertyName">The EF property name that maps to the GSI partition key.</param>
         /// <returns>A builder for chaining DynamoDB secondary index configuration.</returns>
         public DynamoSecondaryIndexBuilder HasGlobalSecondaryIndex(
             string name,
@@ -88,9 +81,6 @@ public static class DynamoEntityTypeBuilderExtensions
         }
 
         /// <summary>Configures a DynamoDB global secondary index that uses partition and sort keys.</summary>
-        /// <param name="name">The DynamoDB global secondary index name.</param>
-        /// <param name="partitionKeyPropertyName">The EF property name that maps to the GSI partition key.</param>
-        /// <param name="sortKeyPropertyName">The EF property name that maps to the GSI sort key.</param>
         /// <returns>A builder for chaining DynamoDB secondary index configuration.</returns>
         public DynamoSecondaryIndexBuilder HasGlobalSecondaryIndex(
             string name,
@@ -110,8 +100,6 @@ public static class DynamoEntityTypeBuilderExtensions
         }
 
         /// <summary>Configures a DynamoDB local secondary index that uses the table partition key and a new sort key.</summary>
-        /// <param name="name">The DynamoDB local secondary index name.</param>
-        /// <param name="sortKeyPropertyName">The EF property name that maps to the LSI sort key.</param>
         /// <returns>A builder for chaining DynamoDB secondary index configuration.</returns>
         public DynamoSecondaryIndexBuilder HasLocalSecondaryIndex(
             string name,
@@ -132,12 +120,8 @@ public static class DynamoEntityTypeBuilderExtensions
     extension<TEntity>(EntityTypeBuilder<TEntity> entityTypeBuilder) where TEntity : class
     {
         /// <summary>Configures the table that the entity type maps to when targeting AWS DynamoDB.</summary>
-        /// <typeparam name="TEntity">The entity type being configured.</typeparam>
-        /// <param name="entityTypeBuilder">The builder for the entity type being configured.</param>
-        /// <param name="name">
-        ///     The table name. Pass <see langword="null" /> to clear the explicit table mapping and
+        ///     The table name. Pass  to clear the explicit table mapping and
         ///     fall back to convention behavior.
-        /// </param>
         /// <returns>The same builder instance so that multiple calls can be chained.</returns>
         public EntityTypeBuilder<TEntity> ToTable(string? name)
             => (EntityTypeBuilder<TEntity>)((EntityTypeBuilder)entityTypeBuilder).ToTable(name);
@@ -151,11 +135,8 @@ public static class DynamoEntityTypeBuilderExtensions
         ///     The provider derives the EF primary key automatically from the configured partition key and
         ///     optional sort key, so root entities should not configure <c>HasKey(...)</c> directly.
         /// </remarks>
-        /// <typeparam name="TEntity">The entity type being configured.</typeparam>
-        /// <param name="keyExpression">
         ///     A lambda expression selecting the property that maps to the DynamoDB
         ///     partition key.
-        /// </param>
         /// <returns>The same builder instance so that multiple calls can be chained.</returns>
         public EntityTypeBuilder<TEntity> HasPartitionKey(
             Expression<Func<TEntity, object?>> keyExpression)
@@ -172,11 +153,8 @@ public static class DynamoEntityTypeBuilderExtensions
         ///     <c>[partitionKey, sortKey]</c>, so root entities should not configure <c>HasKey(...)</c>
         ///     directly.
         /// </remarks>
-        /// <typeparam name="TEntity">The entity type being configured.</typeparam>
-        /// <param name="keyExpression">
         ///     A lambda expression selecting the property that maps to the DynamoDB
         ///     sort key.
-        /// </param>
         /// <returns>The same builder instance so that multiple calls can be chained.</returns>
         public EntityTypeBuilder<TEntity> HasSortKey(
             Expression<Func<TEntity, object?>> keyExpression)
@@ -184,9 +162,6 @@ public static class DynamoEntityTypeBuilderExtensions
                 EntityTypeBuilder<TEntity>.GetPropertyName(keyExpression));
 
         /// <summary>Configures a DynamoDB global secondary index that uses only a partition key.</summary>
-        /// <typeparam name="TEntity">The entity type being configured.</typeparam>
-        /// <param name="name">The DynamoDB global secondary index name.</param>
-        /// <param name="partitionKeyExpression">A lambda selecting the property that maps to the GSI partition key.</param>
         /// <returns>A builder for chaining DynamoDB secondary index configuration.</returns>
         public DynamoSecondaryIndexBuilder<TEntity> HasGlobalSecondaryIndex(
             string name,
@@ -204,10 +179,6 @@ public static class DynamoEntityTypeBuilderExtensions
         }
 
         /// <summary>Configures a DynamoDB global secondary index that uses partition and sort keys.</summary>
-        /// <typeparam name="TEntity">The entity type being configured.</typeparam>
-        /// <param name="name">The DynamoDB global secondary index name.</param>
-        /// <param name="partitionKeyExpression">A lambda selecting the property that maps to the GSI partition key.</param>
-        /// <param name="sortKeyExpression">A lambda selecting the property that maps to the GSI sort key.</param>
         /// <returns>A builder for chaining DynamoDB secondary index configuration.</returns>
         public DynamoSecondaryIndexBuilder<TEntity> HasGlobalSecondaryIndex(
             string name,
@@ -229,9 +200,6 @@ public static class DynamoEntityTypeBuilderExtensions
         }
 
         /// <summary>Configures a DynamoDB local secondary index that uses the table partition key and a new sort key.</summary>
-        /// <typeparam name="TEntity">The entity type being configured.</typeparam>
-        /// <param name="name">The DynamoDB local secondary index name.</param>
-        /// <param name="sortKeyExpression">A lambda selecting the property that maps to the LSI sort key.</param>
         /// <returns>A builder for chaining DynamoDB secondary index configuration.</returns>
         public DynamoSecondaryIndexBuilder<TEntity> HasLocalSecondaryIndex(
             string name,
@@ -264,8 +232,6 @@ public static class DynamoEntityTypeBuilderExtensions
     extension(OwnedNavigationBuilder ownedNavigationBuilder)
     {
         /// <summary>Configures the top-level DynamoDB attribute name used to store this owned navigation.</summary>
-        /// <param name="ownedNavigationBuilder">The owned navigation builder being configured.</param>
-        /// <param name="name">The top-level attribute name.</param>
         /// <returns>The same builder instance so that multiple calls can be chained.</returns>
         public OwnedNavigationBuilder HasAttributeName(string? name)
         {
@@ -279,10 +245,6 @@ public static class DynamoEntityTypeBuilderExtensions
         where TOwnerEntity : class where TDependentEntity : class
     {
         /// <summary>Configures the top-level DynamoDB attribute name used to store this owned navigation.</summary>
-        /// <typeparam name="TOwnerEntity">The owner CLR type.</typeparam>
-        /// <typeparam name="TDependentEntity">The dependent CLR type.</typeparam>
-        /// <param name="ownedNavigationBuilder">The owned navigation builder being configured.</param>
-        /// <param name="name">The top-level attribute name.</param>
         /// <returns>The same builder instance so that multiple calls can be chained.</returns>
         public OwnedNavigationBuilder<TOwnerEntity, TDependentEntity> HasAttributeName(string? name)
             => (OwnedNavigationBuilder<TOwnerEntity, TDependentEntity>)

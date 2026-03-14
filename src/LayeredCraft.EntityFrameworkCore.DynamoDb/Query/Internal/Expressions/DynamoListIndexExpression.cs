@@ -6,10 +6,10 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 /// <summary>
 ///     Represents a list element access by integer index, emitting bracket-notation PartiQL
 ///     (e.g., <c>"Tags"[0]</c> or <c>"Profile"."Tags"[0]</c>). Composes with
-///     <see cref="DynamoScalarAccessExpression" /> for arbitrarily nested paths.
+///     <c>DynamoScalarAccessExpression</c> for arbitrarily nested paths.
 /// </summary>
 /// <remarks>
-///     The index is a literal <see cref="int" /> rather than an expression because DynamoDB
+///     The index is a literal <c>int</c> rather than an expression because DynamoDB
 ///     PartiQL path notation requires integer literals — list indexes are never parameterized.
 /// </remarks>
 public sealed class DynamoListIndexExpression(

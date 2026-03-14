@@ -4,9 +4,11 @@ using LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.TestUtilities;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.SimpleTable;
 
+/// <summary>Represents the SimpleTableTestBase type.</summary>
 public abstract class SimpleTableTestBase(SimpleTableDynamoFixture fixture)
     : DynamoDbPerTestResetTestBase<SimpleTableDynamoFixture, SimpleTableDbContext>(fixture)
 {
+    /// <summary>Provides functionality for this member.</summary>
     protected override async Task CreateTablesAsync(CancellationToken cancellationToken)
     {
         await Client.CreateTableAsync(
@@ -34,6 +36,7 @@ public abstract class SimpleTableTestBase(SimpleTableDynamoFixture fixture)
             cancellationToken);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     protected override async Task SeedAsync(CancellationToken cancellationToken)
     {
         var writeRequests =

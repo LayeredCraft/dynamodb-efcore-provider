@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
 
 /// <summary>
-/// <see cref="IDynamoIndexSelectionAnalyzer"/> implementation that handles explicit
+/// <c>IDynamoIndexSelectionAnalyzer</c> implementation that handles explicit
 /// <c>.WithIndex()</c> hints, <c>.WithoutIndex()</c> suppression, and performs conservative
 /// automatic index selection based on structural key-condition constraints extracted from the
 /// query predicate.
@@ -16,7 +16,7 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal;
 /// An index is usable as a key-condition query source only when the WHERE clause contains an
 /// equality (<c>=</c>) or IN constraint on the index's partition key. Sort-key conditions and
 /// ordering alignment improve the score but do not gate eligibility. Only indexes with
-/// <see cref="DynamoSecondaryIndexProjectionType.All"/> projection are considered as a
+/// <c>DynamoSecondaryIndexProjectionType.All</c> projection are considered as a
 /// conservative guardrail until partial-projection coverage is implemented.
 /// </para>
 /// <para>
@@ -40,12 +40,10 @@ internal sealed class DynamoAutoIndexSelectionAnalyzer : IDynamoIndexSelectionAn
     /// Validates an explicit hint when present, or evaluates candidate indexes against query
     /// constraints for automatic selection according to the configured mode.
     /// </summary>
-    /// <param name="context">
     /// Compile-time snapshot including the explicit hint, pre-fetched runtime descriptors,
     /// extracted query constraints, and the configured automatic selection mode.
-    /// </param>
     /// <returns>
-    /// A <see cref="DynamoIndexSelectionDecision"/> naming the chosen index (or <c>null</c> for
+    /// A <c>DynamoIndexSelectionDecision</c> naming the chosen index (or <c>null</c> for
     /// the base table) and any diagnostic observations produced during analysis.
     /// </returns>
     /// <exception cref="InvalidOperationException">
@@ -162,7 +160,7 @@ internal sealed class DynamoAutoIndexSelectionAnalyzer : IDynamoIndexSelectionAn
     // ── helpers ──────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Returns a <see cref="DynamoIndexSelectionReason.ExplicitlyDisabled"/> decision and emits
+    /// Returns a <c>DynamoIndexSelectionReason.ExplicitlyDisabled</c> decision and emits
     /// <c>DYNAMO_IDX006</c> to record that <c>.WithoutIndex()</c> suppressed index selection.
     /// </summary>
     private static DynamoIndexSelectionDecision HandleExplicitlyDisabled(DynamoIndexAnalysisContext context)
@@ -209,7 +207,7 @@ internal sealed class DynamoAutoIndexSelectionAnalyzer : IDynamoIndexSelectionAn
 
     /// <summary>
     /// Evaluates all gates required for a descriptor to be a usable key-condition query source,
-    /// returning the first failing gate or <see cref="CandidateGateResult.Passed"/> if all pass:
+    /// returning the first failing gate or <c>CandidateGateResult.Passed</c> if all pass:
     /// <list type="number">
     ///   <item>Gate 1 — PK covered: the constraints include an equality or IN on the index PK.</item>
     ///   <item>Gate 2 — Safe OR: the predicate has no unsafe OR that would corrupt result correctness.</item>

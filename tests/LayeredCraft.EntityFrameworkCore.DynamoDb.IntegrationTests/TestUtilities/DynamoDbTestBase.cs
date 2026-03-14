@@ -3,17 +3,23 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.TestUtilities;
 
+/// <summary>Represents the DynamoDbTestBase type.</summary>
 public abstract class DynamoDbTestBase<TFixture, TContext> : IClassFixture<TFixture>
     where TFixture : class, IDynamoDbTestFixture where TContext : DbContext
 {
+    /// <summary>Provides functionality for this member.</summary>
     protected DynamoDbTestBase(TFixture fixture) => Fixture = fixture;
 
+    /// <summary>Provides functionality for this member.</summary>
     protected TFixture Fixture { get; }
 
+    /// <summary>Provides functionality for this member.</summary>
     protected IAmazonDynamoDB Client => Fixture.Client;
 
+    /// <summary>Provides functionality for this member.</summary>
     protected CancellationToken CancellationToken => TestContext.Current.CancellationToken;
 
+    /// <summary>Provides functionality for this member.</summary>
     protected virtual DbContextOptions<TContext> CreateOptions(
         TestPartiQlLoggerFactory loggerFactory)
     {
@@ -29,6 +35,7 @@ public abstract class DynamoDbTestBase<TFixture, TContext> : IClassFixture<TFixt
         return builder.Options;
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     protected virtual TContext CreateContext(DbContextOptions<TContext> options)
         => (TContext)Activator.CreateInstance(typeof(TContext), options)!;
 }

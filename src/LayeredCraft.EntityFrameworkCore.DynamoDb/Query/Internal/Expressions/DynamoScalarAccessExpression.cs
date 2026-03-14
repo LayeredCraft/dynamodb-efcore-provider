@@ -8,9 +8,9 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 ///     PartiQL (e.g., <c>"Profile"."Address"."City"</c>). Supported in WHERE predicates.
 /// </summary>
 /// <remarks>
-///     Forms a linked chain: the <see cref="Parent" /> expression represents the path up to this
-///     point, and <see cref="PropertyName" /> appends the next segment. The root of any chain is a
-///     <see cref="SqlPropertyExpression" /> for the top-level DynamoDB attribute.
+///     Forms a linked chain: the <c>Parent</c> expression represents the path up to this
+///     point, and <c>PropertyName</c> appends the next segment. The root of any chain is a
+///     <c>SqlPropertyExpression</c> for the top-level DynamoDB attribute.
 /// </remarks>
 public sealed class DynamoScalarAccessExpression(
     Expression parent,

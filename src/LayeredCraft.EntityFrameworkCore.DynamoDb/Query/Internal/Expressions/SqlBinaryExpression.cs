@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore.Storage;
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 
 /// <summary>
-/// Represents a binary operation in a SQL expression (e.g., =, <, AND, OR, +, -).
+/// Represents a binary operation in a SQL expression.
 /// </summary>
 public class SqlBinaryExpression(
     ExpressionType operatorType,
@@ -71,10 +71,10 @@ public class SqlBinaryExpression(
     /// <inheritdoc />
     protected override bool Equals(SqlExpression? other)
         => other is SqlBinaryExpression binaryExpression
-           && base.Equals(binaryExpression)
-           && OperatorType == binaryExpression.OperatorType
-           && Left.Equals(binaryExpression.Left)
-           && Right.Equals(binaryExpression.Right);
+            && base.Equals(binaryExpression)
+            && OperatorType == binaryExpression.OperatorType
+            && Left.Equals(binaryExpression.Left)
+            && Right.Equals(binaryExpression.Right);
 
     /// <inheritdoc />
     public override int GetHashCode()

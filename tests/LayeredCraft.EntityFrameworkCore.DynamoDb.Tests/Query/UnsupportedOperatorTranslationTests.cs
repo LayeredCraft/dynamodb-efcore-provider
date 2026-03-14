@@ -11,7 +11,9 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Tests.Query;
 /// </summary>
 public class UnsupportedOperatorTranslationTests
 {
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task AnyAsync_ThrowsTranslationFailureWithDetails()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -27,7 +29,9 @@ public class UnsupportedOperatorTranslationTests
         await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task AllAsync_ThrowsTranslationFailureWithDetails()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -44,7 +48,9 @@ public class UnsupportedOperatorTranslationTests
         await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task SingleOrDefaultAsync_ThrowsTranslationFailureWithDetails()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -62,7 +68,9 @@ public class UnsupportedOperatorTranslationTests
         await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task SingleAsync_UsesSingleOperatorNameInFailureDetails()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -83,7 +91,9 @@ public class UnsupportedOperatorTranslationTests
         await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task BitwiseComplementInPredicate_ThrowsTranslationFailureWithDetails()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -103,7 +113,9 @@ public class UnsupportedOperatorTranslationTests
         await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task
         StringCompareWithStringComparisonInPredicate_ThrowsTranslationFailureWithDetails()
     {
@@ -125,17 +137,22 @@ public class UnsupportedOperatorTranslationTests
 
     private sealed record UnsupportedOperatorEntity
     {
+        /// <summary>Provides functionality for this member.</summary>
         public string Pk { get; set; } = null!;
 
+        /// <summary>Provides functionality for this member.</summary>
         public bool IsActive { get; set; }
 
+        /// <summary>Provides functionality for this member.</summary>
         public int Priority { get; set; }
     }
 
     private sealed class UnsupportedOperatorDbContext(DbContextOptions options) : DbContext(options)
     {
+        /// <summary>Provides functionality for this member.</summary>
         public DbSet<UnsupportedOperatorEntity> Items => Set<UnsupportedOperatorEntity>();
 
+        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<UnsupportedOperatorEntity>(builder =>
             {
@@ -143,6 +160,7 @@ public class UnsupportedOperatorTranslationTests
                 builder.HasPartitionKey(x => x.Pk);
             });
 
+        /// <summary>Provides functionality for this member.</summary>
         public static UnsupportedOperatorDbContext Create(IAmazonDynamoDB client)
             => new(
                 new DbContextOptionsBuilder<UnsupportedOperatorDbContext>()

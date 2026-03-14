@@ -2,10 +2,13 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.PrimitiveCollectionsTable;
 
+/// <summary>Represents the SelectTests type.</summary>
 public class SelectTests(PrimitiveCollectionsDynamoFixture fixture)
     : PrimitiveCollectionsTestBase(fixture)
 {
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task ToListAsync_MaterializesListMapSetProperties()
     {
         var resultItems = await Db.Items.ToListAsync(CancellationToken);
@@ -19,7 +22,9 @@ public class SelectTests(PrimitiveCollectionsDynamoFixture fixture)
             """);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact(Skip = "Collection projection rewriting for anonymous types is not implemented yet.")]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task Select_AnonymousProjection_WithCollectionProperties()
     {
         var results =

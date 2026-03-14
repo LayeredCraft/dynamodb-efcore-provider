@@ -7,7 +7,7 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 
 /// <summary>
 ///     Represents access to an embedded owned reference attribute in a DynamoDB projection.
-///     Carries the <see cref="INavigation" /> so the projection-binding removal visitor can
+///     Carries the <c>INavigation</c> so the projection-binding removal visitor can
 ///     materialise the owned reference without a model-wide navigation scan.
 /// </summary>
 /// <remarks>

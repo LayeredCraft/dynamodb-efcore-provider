@@ -5,7 +5,7 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.SecondaryIn
 
 /// <summary>
 ///     EF Core DbContext for the secondary-index integration test table. Configures one entity
-///     type (<see cref="OrderItem" />) with a composite primary key plus two GSIs and two LSIs so
+///     type (<c>OrderItem</c>) with a composite primary key plus two GSIs and two LSIs so
 ///     that all supported index shapes can be exercised in a single table.
 /// </summary>
 public class SecondaryIndexDbContext(DbContextOptions options) : DbContext(options)

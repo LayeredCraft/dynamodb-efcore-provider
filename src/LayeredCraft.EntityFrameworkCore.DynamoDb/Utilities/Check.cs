@@ -9,7 +9,6 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
-using JetBrains.Annotations;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Utilities;
@@ -17,6 +16,7 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Utilities;
 [DebuggerStepThrough]
 internal static class Check
 {
+    /// <summary>Provides functionality for this member.</summary>
     [return: NotNull]
     public static T NotNull<T>(
         [AllowNull] [NotNull] this T value,
@@ -28,6 +28,7 @@ internal static class Check
         return value;
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     public static IReadOnlyList<T> NotEmpty<T>(
         [NotNull] this IReadOnlyList<T>? value,
         [CallerArgumentExpression(nameof(value))] string parameterName = "")
@@ -40,6 +41,7 @@ internal static class Check
         return value;
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     public static string NotEmpty(
         [NotNull] this string? value,
         [CallerArgumentExpression(nameof(value))] string parameterName = "")
@@ -52,6 +54,7 @@ internal static class Check
         return value;
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     public static string NullButNotEmpty(
         this string? value,
         [CallerArgumentExpression(nameof(value))] string parameterName = "")
@@ -62,6 +65,7 @@ internal static class Check
         return value!;
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     public static IReadOnlyList<T> HasNoNulls<T>(
         [NotNull] this IReadOnlyList<T>? value,
         [CallerArgumentExpression(nameof(value))] string parameterName = "") where T : class
@@ -77,6 +81,7 @@ internal static class Check
         return value;
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     public static IReadOnlyList<string> HasNoEmptyElements(
         [NotNull] this IReadOnlyList<string>? value,
         [CallerArgumentExpression(nameof(value))] string parameterName = "")
@@ -90,6 +95,7 @@ internal static class Check
         return value;
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Conditional("DEBUG")]
     public static void DebugAssert(
         [DoesNotReturnIf(false)] bool condition,
@@ -99,6 +105,7 @@ internal static class Check
             throw new UnreachableException($"Check.DebugAssert failed: {message}");
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Conditional("DEBUG")]
     [DoesNotReturn]
     public static void DebugFail(string message)

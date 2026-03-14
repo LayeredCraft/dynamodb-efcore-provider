@@ -14,8 +14,8 @@ public sealed class DynamoModelRuntimeInitializer(
 {
     /// <summary>Attaches the canonical runtime table model to the finalized runtime model.</summary>
     /// <remarks>
-    ///     Overrides <see cref="ModelRuntimeInitializer.InitializeModel"/> rather than
-    ///     <see cref="ModelRuntimeInitializer.Initialize"/> to avoid depending on the undocumented
+    ///     Overrides <c>ModelRuntimeInitializer.InitializeModel</c> rather than
+    ///     <c>ModelRuntimeInitializer.Initialize</c> to avoid depending on the undocumented
     ///     return-value contract of <c>Initialize</c> changing based on <paramref name="designTime"/>.
     ///     The <c>prevalidation=false</c> pass runs after model validation, so all metadata is
     ///     guaranteed to be consistent when the runtime descriptors are built.

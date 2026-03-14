@@ -40,7 +40,7 @@ public sealed record OrderItem
     public int Priority { get; set; }
 }
 
-/// <summary>Static test data and DynamoDB attribute-value conversions for <see cref="OrderItem" />.</summary>
+/// <summary>Static test data and DynamoDB attribute-value conversions for <c>OrderItem</c>.</summary>
 public static class OrderItems
 {
     /// <summary>
@@ -118,7 +118,10 @@ public static class OrderItems
         => OrderItemMapper.ToItems(Items);
 }
 
-/// <summary>Source-generated DynamoDB mapper for <see cref="OrderItem" /> using exact property-name convention.</summary>
+/// <summary>
+///     Source-generated DynamoDB mapper for <c>OrderItem</c> using exact property-name
+///     convention.
+/// </summary>
 [DynamoMapper(Convention = DynamoNamingConvention.Exact, OmitNullStrings = false)]
 internal static partial class OrderItemMapper
 {

@@ -2,9 +2,12 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.SimpleTable;
 
+/// <summary>Represents the StartsWithTests type.</summary>
 public class StartsWithTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase(fixture)
 {
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task Where_StringStartsWith_WithCapturedParameter_TranslatesToPartiQlBeginsWith()
     {
         var prefix = "al";
@@ -26,7 +29,9 @@ public class StartsWithTests(SimpleTableDynamoFixture fixture) : SimpleTableTest
             """);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task Where_StringStartsWith_WithInlineLiteral_TranslatesToPartiQlBeginsWith()
     {
         var resultItems = await Db
@@ -46,7 +51,9 @@ public class StartsWithTests(SimpleTableDynamoFixture fixture) : SimpleTableTest
             """);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task Where_StringStartsWith_WithStringComparisonOverload_StillThrows()
     {
         var act = async ()

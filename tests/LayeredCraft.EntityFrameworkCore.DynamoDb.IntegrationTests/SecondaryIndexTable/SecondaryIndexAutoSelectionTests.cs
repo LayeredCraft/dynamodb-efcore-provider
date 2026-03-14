@@ -17,7 +17,7 @@ public class SecondaryIndexAutoSelectionTests(SecondaryIndexDynamoFixture fixtur
 {
     /// <inheritdoc />
     /// <remarks>
-    /// Overrides the base options to enable <see cref="DynamoAutomaticIndexSelectionMode.Conservative"/>
+    /// Overrides the base options to enable <c>DynamoAutomaticIndexSelectionMode.Conservative</c>
     /// so that the auto-selection analyzer may rewrite query sources.
     /// </remarks>
     protected override DbContextOptions<SecondaryIndexDbContext> CreateOptions(
@@ -32,7 +32,9 @@ public class SecondaryIndexAutoSelectionTests(SecondaryIndexDynamoFixture fixtur
 
     // ── GSI auto-selection ───────────────────────────────────────────────────
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task Conservative_WhereOnGsiPk_AutoSelects_ByStatusIndex()
     {
         // Status equality satisfies the ByStatus GSI PK gate — the analyzer should rewrite the
@@ -60,7 +62,9 @@ public class SecondaryIndexAutoSelectionTests(SecondaryIndexDynamoFixture fixtur
             """);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task Conservative_WhereOnGsiPk_WithSkRange_AutoSelects_AndProducesCorrectResults()
     {
         // Region equality covers the ByRegion GSI PK; the CreatedAt range is a sort-key condition.
@@ -89,7 +93,9 @@ public class SecondaryIndexAutoSelectionTests(SecondaryIndexDynamoFixture fixtur
 
     // ── Base table stays on base table ───────────────────────────────────────
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task Conservative_WhereOnTablePk_DoesNotAutoSelectGsi_StaysOnBaseTable()
     {
         // CustomerId equality satisfies both LSI PKs (ByCreatedAt and ByPriority) but not any GSI
@@ -111,7 +117,9 @@ public class SecondaryIndexAutoSelectionTests(SecondaryIndexDynamoFixture fixtur
 
     // ── LSI auto-selection ───────────────────────────────────────────────────
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task Conservative_WhereOnTablePk_LsiCandidates_AutoSelects_WhenOrderingMatches()
     {
         // CustomerId equality covers both LSI PKs (LSIs share the base-table PK).
@@ -151,7 +159,9 @@ public class SecondaryIndexAutoSelectionTests(SecondaryIndexDynamoFixture fixtur
             """);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task Conservative_WhereOnTablePk_AmbiguousLsi_FallsBackToBaseTable()
     {
         // CustomerId equality satisfies both LSI PKs (ByCreatedAt and ByPriority) with equal
@@ -188,6 +198,7 @@ public class SecondaryIndexAutoSelectionTests(SecondaryIndexDynamoFixture fixtur
     /// constraint that satisfies Gate 1, causing the analyzer to auto-select the GSI.
     /// </summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task Conservative_ContainsOnGsiPk_AutoSelects_ByStatusIndex()
     {
         // Contains() on a GSI PK attribute is translated to an IN constraint by the
@@ -227,6 +238,7 @@ public class SecondaryIndexAutoSelectionTests(SecondaryIndexDynamoFixture fixtur
     /// candidate) and the query to fall back to the base table with an IDX001 summary.
     /// </summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task Conservative_UnsafeOrPredicate_BlocksAutoSelection_EmitsRejectionDiagnostics()
     {
         // OR across two different GSI PK attributes: Status (ByStatus PK) || Region (ByRegion PK).
@@ -271,6 +283,7 @@ public class SecondaryIndexAutoSelectionTests(SecondaryIndexDynamoFixture fixtur
     /// at Gate 1 with IDX005 diagnostics and the query falls back to the base table with IDX001.
     /// </summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task
         Conservative_WhereOnNonIndexPkAttribute_AllCandidatesRejected_EmitsIdxDiagnostics()
     {
@@ -310,6 +323,7 @@ public class SecondaryIndexAutoSelectionTests(SecondaryIndexDynamoFixture fixtur
     /// IDX003 auto-selection event is raised (the explicit path short-circuits auto-selection).
     /// </summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task ExplicitHint_WithIndex_EmitsExplicitIndexSelectedDiagnostic()
     {
         _ = await Db
@@ -350,6 +364,7 @@ public class SecondaryIndexAutoSelectionTests(SecondaryIndexDynamoFixture fixtur
     /// Uses ByStatus (PK=Status, SK=CreatedAt): Status equality + OrderBy(CreatedAt) → score 2.
     /// </summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task Conservative_GsiPkWithOrderBySk_AutoSelects_ScoringWinner()
     {
         // ByStatus PK=Status, SK=CreatedAt. Status equality passes Gate 1.
@@ -392,6 +407,7 @@ public class SecondaryIndexAutoSelectionTests(SecondaryIndexDynamoFixture fixtur
     /// candidates fail Gate 1 and the provider emits IDX001 and falls back to the base table.
     /// </summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task Conservative_NoPredicate_EmitsNoCompatibleIndex_StaysOnBaseTable()
     {
         _ = await Db.Orders.ToListAsync(CancellationToken);

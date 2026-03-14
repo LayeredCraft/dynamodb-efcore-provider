@@ -1,5 +1,4 @@
 using LayeredCraft.EntityFrameworkCore.DynamoDb.Extensions;
-using LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions;
@@ -10,13 +9,11 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Metadata.Conventions;
 /// <remarks>
 ///     A discriminator is conventionally configured when multiple concrete entity types are
 ///     mapped to the same table group. The discriminator property name comes from
-///     <see cref="IReadOnlyModel.GetEmbeddedDiscriminatorName" />, which defaults to <c>$type</c>.
+///     <c>IReadOnlyModel.GetEmbeddedDiscriminatorName</c>, which defaults to <c>$type</c>.
 /// </remarks>
 public sealed class DynamoDiscriminatorConvention : IModelFinalizingConvention
 {
     /// <summary>Applies discriminator conventions to table groups that map multiple concrete entity types.</summary>
-    /// <param name="modelBuilder">The convention model builder.</param>
-    /// <param name="context">The convention context.</param>
     public void ProcessModelFinalizing(
         IConventionModelBuilder modelBuilder,
         IConventionContext<IConventionModelBuilder> context)

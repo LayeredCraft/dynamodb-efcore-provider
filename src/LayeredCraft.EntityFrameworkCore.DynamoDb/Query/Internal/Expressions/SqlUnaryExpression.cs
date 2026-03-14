@@ -7,15 +7,11 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 public sealed class SqlUnaryExpression : SqlExpression
 {
     /// <summary>Initializes a new unary expression.</summary>
-    /// <param name="operatorType">
-    ///     The unary operator type; only <see cref="ExpressionType.Not" /> is
+    ///     The unary operator type; only <c>ExpressionType.Not</c> is
     ///     supported.
-    /// </param>
-    /// <param name="operand">The operand expression.</param>
-    /// <param name="typeMapping">Optional type mapping for the result.</param>
     /// <exception cref="NotSupportedException">
     ///     Thrown when <paramref name="operatorType" /> is not
-    ///     <see cref="ExpressionType.Not" />.
+    ///     <c>ExpressionType.Not</c>.
     /// </exception>
     public SqlUnaryExpression(
         ExpressionType operatorType,

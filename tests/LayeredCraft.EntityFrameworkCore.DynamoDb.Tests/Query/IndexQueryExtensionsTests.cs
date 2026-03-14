@@ -8,26 +8,32 @@ using NSubstitute;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Tests.Query;
 
+/// <summary>Represents the IndexQueryExtensionsTests type.</summary>
 public class IndexQueryExtensionsTests
 {
     private sealed class TestDbContext(DbContextOptions options) : DbContext(options)
     {
+        /// <summary>Provides functionality for this member.</summary>
         public DbSet<TestEntity> Entities => Set<TestEntity>();
 
+        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<TestEntity>(builder => builder.HasPartitionKey(x => x.Id));
     }
 
     private sealed class TestEntity
     {
+        /// <summary>Provides functionality for this member.</summary>
         public int Id { get; set; }
     }
 
-    /// <summary>Context with a GSI on <see cref="GsiEntity.CustomerId" /> used for IN-limit tests.</summary>
+    /// <summary>Context with a GSI on <c>GsiEntity.CustomerId</c> used for IN-limit tests.</summary>
     private sealed class GsiDbContext(DbContextOptions options) : DbContext(options)
     {
+        /// <summary>Provides functionality for this member.</summary>
         public DbSet<GsiEntity> Orders => Set<GsiEntity>();
 
+        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<GsiEntity>(b =>
             {
@@ -38,8 +44,13 @@ public class IndexQueryExtensionsTests
 
     private sealed class GsiEntity
     {
+        /// <summary>Provides functionality for this member.</summary>
         public string TenantId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public string OrderId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public string CustomerId { get; set; } = null!;
     }
 
@@ -62,7 +73,6 @@ public class IndexQueryExtensionsTests
     ///     Creates a GSI context whose analyzer auto-selects ByCustomer unless WithoutIndex() is
     ///     present.
     /// </summary>
-    /// <param name="client">The DynamoDB client substitute used by tests.</param>
     /// <returns>A configured test context.</returns>
     private static GsiDbContext CreateGsiContextWithDisableAwareAutoAnalyzer(IAmazonDynamoDB client)
         => new(
@@ -80,7 +90,6 @@ public class IndexQueryExtensionsTests
     private sealed class AutoSelectByCustomerIndexAnalyzer : IDynamoIndexSelectionAnalyzer
     {
         /// <summary>Selects the ByCustomer index when no explicit hint is provided.</summary>
-        /// <param name="context">The query analysis context.</param>
         /// <returns>The selected index decision.</returns>
         public DynamoIndexSelectionDecision Analyze(DynamoIndexAnalysisContext context)
             => context.ExplicitIndexHint is { } explicitIndexHint
@@ -98,7 +107,6 @@ public class IndexQueryExtensionsTests
     private sealed class AutoSelectByCustomerUnlessDisabledAnalyzer : IDynamoIndexSelectionAnalyzer
     {
         /// <summary>Auto-selects ByCustomer unless index selection is disabled by WithoutIndex().</summary>
-        /// <param name="context">The query analysis context.</param>
         /// <returns>The selected index decision.</returns>
         public DynamoIndexSelectionDecision Analyze(DynamoIndexAnalysisContext context)
             => context.ExplicitIndexHint is { } explicitIndexHint
@@ -119,16 +127,22 @@ public class IndexQueryExtensionsTests
     }
 
     /// <summary>
-    ///     Shared-table context: <see cref="SharedOrder"/> and <see cref="SharedInvoice"/> both map
-    ///     to <c>SharedDocs</c>, but only <see cref="SharedOrder"/> has the <c>ByStatus</c> GSI.
+    ///     Shared-table context: <c>SharedOrder</c> and <c>SharedInvoice</c> both map
+    ///     to <c>SharedDocs</c>, but only <c>SharedOrder</c> has the <c>ByStatus</c> GSI.
     ///     Used to verify that index validation is scoped to the queried entity type, not the whole table.
     /// </summary>
     private sealed class SharedTableDbContext(DbContextOptions options) : DbContext(options)
     {
+        /// <summary>Provides functionality for this member.</summary>
         public DbSet<SharedOrder> Orders => Set<SharedOrder>();
+
+        /// <summary>Provides functionality for this member.</summary>
         public DbSet<SharedInvoice> Invoices => Set<SharedInvoice>();
+
+        /// <summary>Provides functionality for this member.</summary>
         public DbSet<SharedCreditInvoice> CreditInvoices => Set<SharedCreditInvoice>();
 
+        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<SharedOrder>(b =>
@@ -149,17 +163,22 @@ public class IndexQueryExtensionsTests
 
     private sealed class SharedOrder
     {
+        /// <summary>Provides functionality for this member.</summary>
         public string Id { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public string Status { get; set; } = null!;
     }
 
     private class SharedInvoice
     {
+        /// <summary>Provides functionality for this member.</summary>
         public string Id { get; set; } = null!;
     }
 
     private sealed class SharedCreditInvoice : SharedInvoice
     {
+        /// <summary>Provides functionality for this member.</summary>
         public string CreditMemoNumber { get; set; } = null!;
     }
 
@@ -172,8 +191,10 @@ public class IndexQueryExtensionsTests
 
     private sealed class DerivedIndexQueryDbContext(DbContextOptions options) : DbContext(options)
     {
+        /// <summary>Provides functionality for this member.</summary>
         public DbSet<BaseOrderForIndexQuery> Orders => Set<BaseOrderForIndexQuery>();
 
+        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<BaseOrderForIndexQuery>(b =>
@@ -199,13 +220,19 @@ public class IndexQueryExtensionsTests
 
     private class BaseOrderForIndexQuery
     {
+        /// <summary>Provides functionality for this member.</summary>
         public string Id { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public string OrderId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public string Status { get; set; } = null!;
     }
 
     private sealed class PriorityOrderForIndexQuery : BaseOrderForIndexQuery
     {
+        /// <summary>Provides functionality for this member.</summary>
         public int Priority { get; set; }
     }
 
@@ -234,7 +261,9 @@ public class IndexQueryExtensionsTests
 
     // ── WithoutIndex extension tests ─────────────────────────────────────────
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void WithoutIndex_EntityQueryProvider_WrapsExpressionInMethodCall()
     {
         using var context = CreateContext();
@@ -248,7 +277,9 @@ public class IndexQueryExtensionsTests
         methodCall.Arguments.Should().HaveCount(1);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void WithoutIndex_NonEntityQueryProvider_ReturnsOriginalSource()
     {
         var source = new List<TestEntity>().AsQueryable();
@@ -263,6 +294,7 @@ public class IndexQueryExtensionsTests
     ///     compilation.
     /// </summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task WithoutIndex_SetsIndexSelectionDisabledOnContext()
     {
         // Verifies that WithoutIndex suppresses analyzer auto-selection and keeps FROM on the base
@@ -293,7 +325,9 @@ public class IndexQueryExtensionsTests
         capturedRequest.Statement.Should().NotContain("\"ByCustomer\"");
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task WithoutIndex_WithIndex_BothPresent_ThrowsInvalidOperationException()
     {
         // Combining .WithIndex() and .WithoutIndex() on the same query is a programmer error.
@@ -313,7 +347,9 @@ public class IndexQueryExtensionsTests
 
     // ── WithIndex extension tests ─────────────────────────────────────────────
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void WithIndex_EmptyName_ThrowsArgumentException()
     {
         using var context = CreateContext();
@@ -323,7 +359,9 @@ public class IndexQueryExtensionsTests
         act.Should().Throw<ArgumentException>().WithParameterName("indexName");
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void WithIndex_EntityQueryProvider_WrapsExpressionInMethodCall()
     {
         using var context = CreateContext();
@@ -337,7 +375,9 @@ public class IndexQueryExtensionsTests
         ((ConstantExpression)methodCall.Arguments[1]).Value.Should().Be("ByCustomerCreatedAt");
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void WithIndex_NonEntityQueryProvider_ReturnsOriginalQuery()
     {
         var source = new List<TestEntity>().AsQueryable();
@@ -347,7 +387,9 @@ public class IndexQueryExtensionsTests
         query.Should().BeSameAs(source);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task WithIndex_NonConstantExpression_ThrowsInvalidOperationException()
     {
         // Simulate a compiled query where the index name arrives as a ParameterExpression
@@ -376,7 +418,9 @@ public class IndexQueryExtensionsTests
         await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task WithIndex_UnknownIndexName_ThrowsInvalidOperationException()
     {
         // An index name not registered via HasGlobalSecondaryIndex/HasLocalSecondaryIndex must
@@ -395,7 +439,9 @@ public class IndexQueryExtensionsTests
         await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task WithIndex_SharedTable_IndexOnlyOnOneEntityType_ThrowsForOtherEntityType()
     {
         // Regression: validation previously searched all entity type sources for the table group,
@@ -415,7 +461,9 @@ public class IndexQueryExtensionsTests
         await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task
         WithIndex_SharedTable_IndexOnlyOnOneEntityType_ProjectedQuery_ThrowsForOtherEntityType()
     {
@@ -435,7 +483,9 @@ public class IndexQueryExtensionsTests
         await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task WithIndex_SharedTable_ProjectedQuery_OnOwningEntityType_UsesIndexSource()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -460,7 +510,9 @@ public class IndexQueryExtensionsTests
                 Arg.Any<CancellationToken>());
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task
         WithIndex_SharedTable_DerivedTypeFromOtherRoot_IndexOnlyOnOneEntityType_Throws()
     {
@@ -479,7 +531,9 @@ public class IndexQueryExtensionsTests
         await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task WithIndex_BaseQuery_DerivedDefinedIndex_Throws()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -494,7 +548,9 @@ public class IndexQueryExtensionsTests
         await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task WithIndex_GsiPartitionKey_Contains_51Items_ThrowsPartitionKeyLimitError()
     {
         // Before the fix, CustomerId was not recognised as a partition key when querying via
@@ -520,7 +576,9 @@ public class IndexQueryExtensionsTests
         await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task
         WithIndex_GsiPartitionKey_Contains_50Items_DoesNotThrowPartitionKeyLimitError()
     {
@@ -544,7 +602,9 @@ public class IndexQueryExtensionsTests
         await act.Should().NotThrowAsync<InvalidOperationException>();
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task
         AutoSelectedIndex_GsiPartitionKey_Contains_51Items_ThrowsPartitionKeyLimitError()
     {
@@ -570,7 +630,9 @@ public class IndexQueryExtensionsTests
         await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task
         AutoSelectedIndex_GsiPartitionKey_Contains_50Items_DoesNotThrowPartitionKeyLimitError()
     {
@@ -592,7 +654,9 @@ public class IndexQueryExtensionsTests
         await act.Should().NotThrowAsync<InvalidOperationException>();
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task
         AutoSelectedIndex_BaseTablePartitionKey_Contains_51Items_DoesNotThrowPartitionKeyLimitError()
     {
@@ -617,7 +681,9 @@ public class IndexQueryExtensionsTests
         await act.Should().NotThrowAsync<InvalidOperationException>();
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task
         AutoSelectedIndex_BaseTablePartitionKey_Contains_101Items_ThrowsNonKeyLimitError()
     {

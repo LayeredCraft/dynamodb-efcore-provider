@@ -3,8 +3,10 @@ using Amazon.DynamoDBv2.Model;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.TestUtilities;
 
+/// <summary>Represents the DynamoDbSchemaManager type.</summary>
 public static class DynamoDbSchemaManager
 {
+    /// <summary>Provides functionality for this member.</summary>
     public static async Task DeleteAllTablesAsync(
         IAmazonDynamoDB client,
         CancellationToken cancellationToken)
@@ -33,6 +35,7 @@ public static class DynamoDbSchemaManager
         }
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     public static async Task WaitForTableActiveAsync(
         IAmazonDynamoDB client,
         string tableName,
@@ -50,6 +53,7 @@ public static class DynamoDbSchemaManager
         }
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     public static async Task WaitForTableDeletedAsync(
         IAmazonDynamoDB client,
         string tableName,

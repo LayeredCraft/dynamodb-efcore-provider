@@ -47,7 +47,7 @@ internal sealed class SetValueComparer<TSet, TElement>(ValueComparer elementComp
         return hash;
     }
 
-    /// <summary>Creates a snapshot as <see cref="HashSet{T}" /> and preserves comparer when possible.</summary>
+    /// <summary>Creates a snapshot as <c>HashSet{T}</c> and preserves comparer when possible.</summary>
     private static TSet Snapshot(TSet value, ValueComparer elementComparer)
     {
         var snapshot = value as HashSet<TElement> is { } sourceHashSet

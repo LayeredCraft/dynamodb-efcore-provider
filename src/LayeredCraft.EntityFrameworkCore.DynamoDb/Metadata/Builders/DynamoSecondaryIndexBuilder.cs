@@ -13,7 +13,6 @@ public class DynamoSecondaryIndexBuilder(IndexBuilder indexBuilder)
 ///     Provides DynamoDB-specific fluent configuration for a configured secondary index on a typed
 ///     entity builder.
 /// </summary>
-/// <typeparam name="TEntity">The entity type that owns the configured secondary index.</typeparam>
 public class DynamoSecondaryIndexBuilder<TEntity>(IndexBuilder<TEntity> indexBuilder)
     : DynamoSecondaryIndexBuilder(indexBuilder)
     where TEntity : class

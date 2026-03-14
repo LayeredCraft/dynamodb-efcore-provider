@@ -10,9 +10,12 @@ using NSubstitute;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.Storage;
 
+/// <summary>Represents the DynamoClientWrapperTests type.</summary>
 public class DynamoClientWrapperTests
 {
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task ExecutePartiQl_Reenumeration_UsesFreshContinuationToken()
     {
         var diagnosticsLogger =
@@ -89,7 +92,9 @@ public class DynamoClientWrapperTests
         nextTokens[3].Should().Be("t1");
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void Client_WhenConfiguredClientProvided_UsesConfiguredClient()
     {
         var diagnosticsLogger =
@@ -108,7 +113,9 @@ public class DynamoClientWrapperTests
         wrapper.Client.Should().BeSameAs(configuredClient);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void Client_WhenOnlyConfigProvided_UsesConfiguredValues()
     {
         var diagnosticsLogger =
@@ -133,7 +140,9 @@ public class DynamoClientWrapperTests
         wrapper.Client.Config.AuthenticationRegion.Should().Be("us-east-1");
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void Client_WhenConfigAndCallbackProvided_UsesConfigOnly()
     {
         var diagnosticsLogger =
@@ -163,7 +172,9 @@ public class DynamoClientWrapperTests
         wrapper.Client.Config.AuthenticationRegion.Should().Be("us-west-1");
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void Client_WhenConfigCallbackProvided_InvokesCallback()
     {
         var diagnosticsLogger =
@@ -201,14 +212,17 @@ public class DynamoClientWrapperTests
 
     private sealed class TestExecutionStrategy : IExecutionStrategy
     {
+        /// <summary>Provides functionality for this member.</summary>
         public bool RetriesOnFailure => false;
 
+        /// <summary>Provides functionality for this member.</summary>
         public TResult Execute<TState, TResult>(
             TState state,
             Func<DbContext, TState, TResult> operation,
             Func<DbContext, TState, ExecutionResult<TResult>>? verifySucceeded)
             => operation(null!, state);
 
+        /// <summary>Provides functionality for this member.</summary>
         public Task<TResult> ExecuteAsync<TState, TResult>(
             TState state,
             Func<DbContext, TState, CancellationToken, Task<TResult>> operation,
@@ -227,6 +241,7 @@ public class DynamoClientWrapperTests
         executionStrategy,
         commandLogger)
     {
+        /// <summary>Provides functionality for this member.</summary>
         public override IAmazonDynamoDB Client { get; } = client;
     }
 }

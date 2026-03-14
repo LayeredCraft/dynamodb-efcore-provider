@@ -10,9 +10,6 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 public sealed class SqlBetweenExpression : SqlExpression
 {
     /// <summary>Initializes a new BETWEEN predicate expression.</summary>
-    /// <param name="subject">The attribute expression whose value is tested.</param>
-    /// <param name="low">The inclusive lower bound.</param>
-    /// <param name="high">The inclusive upper bound.</param>
     public SqlBetweenExpression(SqlExpression subject, SqlExpression low, SqlExpression high) :
         base(typeof(bool), null)
     {
@@ -42,12 +39,9 @@ public sealed class SqlBetweenExpression : SqlExpression
     public SqlExpression High { get; }
 
     /// <summary>
-    ///     Creates a new expression with updated operands, returning <see langword="this" /> if
+    ///     Creates a new expression with updated operands, returning  if
     ///     all operands are unchanged.
     /// </summary>
-    /// <param name="subject">The new subject expression.</param>
-    /// <param name="low">The new lower bound expression.</param>
-    /// <param name="high">The new upper bound expression.</param>
     public SqlBetweenExpression Update(SqlExpression subject, SqlExpression low, SqlExpression high)
         => subject != Subject || low != Low || high != High
             ? new SqlBetweenExpression(subject, low, high, TypeMapping)

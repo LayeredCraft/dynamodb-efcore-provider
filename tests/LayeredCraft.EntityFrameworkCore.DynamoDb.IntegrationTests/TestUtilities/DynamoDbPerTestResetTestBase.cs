@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.TestUtilities;
 
+/// <summary>Represents the DynamoDbPerTestResetTestBase type.</summary>
 public abstract class DynamoDbPerTestResetTestBase<TFixture, TContext>(TFixture fixture)
     : DynamoDbTestBase<TFixture, TContext>(fixture), IAsyncLifetime
     where TFixture : class, IDynamoDbTestFixture where TContext : DbContext
@@ -9,21 +10,27 @@ public abstract class DynamoDbPerTestResetTestBase<TFixture, TContext>(TFixture 
     private TestPartiQlLoggerFactory? _loggerFactory;
     private TContext? _db;
 
+    /// <summary>Provides functionality for this member.</summary>
     protected TContext Db
         => _db
             ?? throw new InvalidOperationException(
                 "DbContext is not initialized. Ensure the test class implements xUnit async lifetime correctly.");
 
+    /// <summary>Provides functionality for this member.</summary>
     protected TestPartiQlLoggerFactory LoggerFactory
         => _loggerFactory
             ?? throw new InvalidOperationException("Logger factory is not initialized.");
 
+    /// <summary>Provides functionality for this member.</summary>
     protected void AssertSql(params string[] expected) => LoggerFactory.AssertBaseline(expected);
 
+    /// <summary>Provides functionality for this member.</summary>
     protected abstract Task CreateTablesAsync(CancellationToken cancellationToken);
 
+    /// <summary>Provides functionality for this member.</summary>
     protected abstract Task SeedAsync(CancellationToken cancellationToken);
 
+    /// <summary>Provides functionality for this member.</summary>
     public async ValueTask InitializeAsync()
     {
         await DynamoDbSchemaManager.DeleteAllTablesAsync(Client, CancellationToken);
@@ -35,6 +42,7 @@ public abstract class DynamoDbPerTestResetTestBase<TFixture, TContext>(TFixture 
         _db = CreateContext(options);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     public async ValueTask DisposeAsync()
     {
         List<Exception>? exceptions = null;

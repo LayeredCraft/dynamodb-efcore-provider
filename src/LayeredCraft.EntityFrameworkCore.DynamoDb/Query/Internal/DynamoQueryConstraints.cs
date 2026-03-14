@@ -15,18 +15,14 @@ internal enum SkOperator
 }
 
 /// <summary>A single key-condition constraint on a sort-key property.</summary>
-/// <param name="Operator">The key-condition operator for this sort-key property.</param>
-/// <param name="Low">
 /// Primary value: equality target, range bound, or <c>begins_with</c> prefix.
-/// Upper bound for <see cref="SkOperator.Between"/> is held in <paramref name="High"/>.
-/// </param>
-/// <param name="High">Upper bound for <see cref="SkOperator.Between"/>; <c>null</c> for all other operators.</param>
+/// Upper bound for <c>SkOperator.Between</c> is held in <paramref name="High"/>.
 internal sealed record SkConstraint(SkOperator Operator, SqlExpression Low, SqlExpression? High = null);
 
 /// <summary>
-/// Extracted key-condition constraints from a finalized <see cref="SelectExpression"/> predicate.
-/// Produced by <see cref="DynamoConstraintExtractionVisitor"/>; consumed by
-/// <see cref="IDynamoIndexSelectionAnalyzer"/>.
+/// Extracted key-condition constraints from a finalized <c>SelectExpression</c> predicate.
+/// Produced by <c>DynamoConstraintExtractionVisitor</c>; consumed by
+/// <c>IDynamoIndexSelectionAnalyzer</c>.
 /// </summary>
 internal sealed record DynamoQueryConstraints(
     IReadOnlyDictionary<string, SqlExpression> EqualityConstraints,

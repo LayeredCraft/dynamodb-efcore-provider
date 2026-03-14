@@ -2,10 +2,13 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.SharedTable;
 
+/// <summary>Represents the DiscriminatorQueryTests type.</summary>
 public class DiscriminatorQueryTests(SharedTableDynamoFixture fixture)
     : SharedTableTestBase<SharedTableDbContext>(fixture)
 {
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task Where_IncludesDiscriminatorPredicate_AndQuotedTableName()
     {
         var results =
@@ -22,7 +25,9 @@ public class DiscriminatorQueryTests(SharedTableDynamoFixture fixture)
             """);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task SelectProjection_StillAppliesDiscriminatorPredicate()
     {
         var results =
@@ -43,10 +48,13 @@ public class DiscriminatorQueryTests(SharedTableDynamoFixture fixture)
     }
 }
 
+/// <summary>Represents the DiscriminatorQueryCustomNameTests type.</summary>
 public class DiscriminatorQueryCustomNameTests(SharedTableDynamoFixture fixture)
     : SharedTableTestBase<SharedTableCustomDiscriminatorNameDbContext>(fixture)
 {
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task UsesEmbeddedDiscriminatorNameOverrideInPredicate()
     {
         var results =
@@ -63,10 +71,13 @@ public class DiscriminatorQueryCustomNameTests(SharedTableDynamoFixture fixture)
     }
 }
 
+/// <summary>Represents the DiscriminatorQuerySingleTypeTests type.</summary>
 public class DiscriminatorQuerySingleTypeTests(SharedTableDynamoFixture fixture)
     : SharedTableTestBase<SharedTableSingleTypeDbContext>(fixture)
 {
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task SingleTypeTable_DoesNotInjectDiscriminatorPredicate()
     {
         var results =
@@ -83,11 +94,13 @@ public class DiscriminatorQuerySingleTypeTests(SharedTableDynamoFixture fixture)
     }
 }
 
+/// <summary>Represents the DiscriminatorInheritanceQueryTests type.</summary>
 public class DiscriminatorInheritanceQueryTests(SharedTableDynamoFixture fixture)
     : SharedTableTestBase<SharedTableInheritanceDbContext>(fixture)
 {
     /// <summary>Verifies a base-type query materializes all concrete hierarchy types.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task BaseQuery_MaterializesConcreteHierarchyTypes()
     {
         var results =
@@ -113,6 +126,7 @@ public class DiscriminatorInheritanceQueryTests(SharedTableDynamoFixture fixture
 
     /// <summary>Verifies discriminator OR conditions remain grouped when additional filters are combined.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task BaseQuery_WithAdditionalFilter_UsesGroupedDiscriminatorPredicate()
     {
         var results = await Db
@@ -134,6 +148,7 @@ public class DiscriminatorInheritanceQueryTests(SharedTableDynamoFixture fixture
 
     /// <summary>Verifies a derived-type query applies a derived discriminator predicate.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task DerivedQuery_UsesDerivedDiscriminatorPredicate()
     {
         var results =
@@ -154,6 +169,7 @@ public class DiscriminatorInheritanceQueryTests(SharedTableDynamoFixture fixture
     }
 }
 
+/// <summary>Represents the DiscriminatorInheritanceBaseOnlyToTableQueryTests type.</summary>
 public class DiscriminatorInheritanceBaseOnlyToTableQueryTests(SharedTableDynamoFixture fixture)
     : SharedTableTestBase<SharedTableInheritanceBaseOnlyToTableDbContext>(fixture)
 {
@@ -162,6 +178,7 @@ public class DiscriminatorInheritanceBaseOnlyToTableQueryTests(SharedTableDynamo
     ///     entity configures table mapping.
     /// </summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task BaseQuery_MaterializesConcreteHierarchyTypes_WhenOnlyBaseConfiguresTable()
     {
         var results =
@@ -190,6 +207,7 @@ public class DiscriminatorInheritanceBaseOnlyToTableQueryTests(SharedTableDynamo
     ///     the table.
     /// </summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task DerivedQuery_UsesRootTableMapping_WhenOnlyBaseConfiguresTable()
     {
         var results = await Db
@@ -209,6 +227,7 @@ public class DiscriminatorInheritanceBaseOnlyToTableQueryTests(SharedTableDynamo
     }
 }
 
+/// <summary>Represents the DiscriminatorInheritanceWithIndexQueryTests type.</summary>
 public class DiscriminatorInheritanceWithIndexQueryTests(SharedTableDynamoFixture fixture)
     : SharedTableTestBase<SharedTableInheritanceWithIndexesDbContext>(fixture)
 {
@@ -217,6 +236,7 @@ public class DiscriminatorInheritanceWithIndexQueryTests(SharedTableDynamoFixtur
     ///     the same inheritance root.
     /// </summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task DerivedQuery_WithSiblingOnlyIndex_ThrowsBeforeExecution()
     {
         var act = async () => await Db

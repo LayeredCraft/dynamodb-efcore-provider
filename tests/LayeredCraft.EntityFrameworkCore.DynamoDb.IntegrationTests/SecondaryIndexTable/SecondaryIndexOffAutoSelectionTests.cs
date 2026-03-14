@@ -28,6 +28,7 @@ public class SecondaryIndexOffAutoSelectionTests(SecondaryIndexDynamoFixture fix
     ///     GSI partition key.
     /// </summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task Off_WhereOnGsiPk_DoesNotAutoSelect()
     {
         _ = await Db.Orders.Where(o => o.Status == "PENDING").ToListAsync(CancellationToken);

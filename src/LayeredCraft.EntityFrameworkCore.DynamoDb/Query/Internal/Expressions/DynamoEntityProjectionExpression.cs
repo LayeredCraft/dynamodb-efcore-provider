@@ -16,10 +16,8 @@ public class DynamoEntityProjectionExpression : SqlExpression
     private readonly ISqlExpressionFactory _sqlExpressionFactory;
 
     /// <summary>
-    ///     Creates a new instance of <see cref="DynamoEntityProjectionExpression"/>.
+    ///     Creates a new instance of <c>DynamoEntityProjectionExpression</c>.
     /// </summary>
-    /// <param name="entityType">The entity type being projected.</param>
-    /// <param name="sqlExpressionFactory">Factory for creating SQL expressions.</param>
     public DynamoEntityProjectionExpression(
         IEntityType entityType,
         ISqlExpressionFactory sqlExpressionFactory) : base(entityType.ClrType, null)
@@ -37,7 +35,6 @@ public class DynamoEntityProjectionExpression : SqlExpression
     ///     Binds a property to its SQL expression, creating it on-demand and caching the result.
     ///     This is the single source of truth for property-to-SQL mapping.
     /// </summary>
-    /// <param name="property">The property to bind.</param>
     /// <returns>The SQL expression representing the property.</returns>
     public SqlExpression BindProperty(IProperty property)
     {
@@ -61,7 +58,6 @@ public class DynamoEntityProjectionExpression : SqlExpression
     /// <summary>
     ///     Gets the member info (PropertyInfo or FieldInfo) for a property.
     /// </summary>
-    /// <param name="property">The property to get member info for.</param>
     /// <returns>The MemberInfo for the property.</returns>
     public static MemberInfo GetMemberInfo(IProperty property)
     {

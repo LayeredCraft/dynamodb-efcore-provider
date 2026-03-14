@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore.Storage;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Storage;
 
+/// <summary>Represents the DynamoTypeMappingSource type.</summary>
 public class DynamoTypeMappingSource(TypeMappingSourceDependencies dependencies)
     : TypeMappingSource(dependencies)
 {

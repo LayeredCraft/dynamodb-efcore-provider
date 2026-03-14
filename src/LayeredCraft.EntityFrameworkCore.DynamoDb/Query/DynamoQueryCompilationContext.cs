@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore.Query;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Query;
 
+/// <summary>Represents the DynamoQueryCompilationContext type.</summary>
 public class DynamoQueryCompilationContext(
     QueryCompilationContextDependencies dependencies,
     bool async) : QueryCompilationContext(dependencies, async)
@@ -13,6 +14,7 @@ public class DynamoQueryCompilationContext(
     /// </summary>
     public int? PageSizeOverride { get; internal set; }
 
+    /// <summary>Provides functionality for this member.</summary>
     public Expression? PageSizeOverrideExpression { get; internal set; }
 
     /// <summary>Per-query flag to disable pagination continuation (from .WithoutPagination() extension).</summary>
@@ -22,7 +24,7 @@ public class DynamoQueryCompilationContext(
     ///     Per-query explicit secondary index name from <c>.WithIndex()</c>. The index name is
     ///     embedded in the PartiQL FROM clause at compile time, so it must be a compile-time constant.
     ///     The parameter is marked <c>[NotParameterized]</c> so EF Core's funcletizer leaves the
-    ///     string literal as a <see cref="System.Linq.Expressions.ConstantExpression"/>; a
+    ///     string literal as a <c>System.Linq.Expressions.ConstantExpression</c>; a
     ///     non-constant argument causes translation to throw rather than silently fall back to the
     ///     base table.
     /// </summary>

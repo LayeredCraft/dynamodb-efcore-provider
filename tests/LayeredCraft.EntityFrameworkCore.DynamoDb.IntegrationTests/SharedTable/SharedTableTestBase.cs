@@ -5,10 +5,12 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.SharedTable;
 
+/// <summary>Represents the SharedTableTestBase type.</summary>
 public abstract class SharedTableTestBase<TContext>(SharedTableDynamoFixture fixture)
     : DynamoDbPerTestResetTestBase<SharedTableDynamoFixture, TContext>(fixture)
     where TContext : DbContext
 {
+    /// <summary>Provides functionality for this member.</summary>
     protected override async Task CreateTablesAsync(CancellationToken cancellationToken)
     {
         await Client.CreateTableAsync(
@@ -41,6 +43,7 @@ public abstract class SharedTableTestBase<TContext>(SharedTableDynamoFixture fix
             cancellationToken);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     protected override async Task SeedAsync(CancellationToken cancellationToken)
     {
         var writeRequests =

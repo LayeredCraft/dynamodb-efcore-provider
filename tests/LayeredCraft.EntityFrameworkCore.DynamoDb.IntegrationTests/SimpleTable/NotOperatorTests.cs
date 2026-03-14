@@ -5,7 +5,9 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.SimpleTable
 /// <summary>Verifies that the logical NOT operator is translated to PartiQL NOT predicates.</summary>
 public class NotOperatorTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase(fixture)
 {
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task Where_NotBoolColumn_TranslatesToPartiQlNot()
     {
         var resultItems =
@@ -23,7 +25,9 @@ public class NotOperatorTests(SimpleTableDynamoFixture fixture) : SimpleTableTes
             """);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task Where_NotCompoundPredicate_TranslatesToPartiQlNotWithParentheses()
     {
         var resultItems =

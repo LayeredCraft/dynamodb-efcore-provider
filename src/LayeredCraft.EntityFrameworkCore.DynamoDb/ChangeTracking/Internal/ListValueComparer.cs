@@ -40,7 +40,7 @@ internal sealed class ListValueComparer<TList, TElement>(ValueComparer elementCo
         return hash.ToHashCode();
     }
 
-    /// <summary>Creates a snapshot as an array for array shapes; otherwise as <see cref="List{T}" />.</summary>
+    /// <summary>Creates a snapshot as an array for array shapes; otherwise as <c>List{T}</c>.</summary>
     private static TList Snapshot(TList source, ValueComparer elementComparer)
     {
         var snapshotValues = source

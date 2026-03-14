@@ -521,6 +521,7 @@ public class DynamoProjectionBindingExpressionVisitor(
             && IsOwnedNavigationAccess(memberExpression.Expression);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     protected override Expression VisitMethodCall(MethodCallExpression node)
     {
         if (node.Method.DeclaringType == typeof(EF)
@@ -780,7 +781,7 @@ public class DynamoProjectionBindingExpressionVisitor(
     ///     maps to an EF property.
     /// </summary>
     /// <remarks>
-    ///     Uses <see cref="DynamoPropertyExtensions.GetAttributeName" /> so scalar projections honor
+    ///     Uses <c>DynamoPropertyExtensions.GetAttributeName</c> so scalar projections honor
     ///     <c>HasAttributeName</c>, and applies the property type mapping so converter-backed projections
     ///     materialize with the correct wire conversion.
     /// </remarks>
@@ -840,7 +841,7 @@ public class DynamoProjectionBindingExpressionVisitor(
     /// <summary>Traverses an expression tree to locate a nested collection element shaper.</summary>
     /// <remarks>
     ///     A copy of this class also lives in
-    ///     <see cref="DynamoProjectionBindingRemovingExpressionVisitor" />; the duplication is deliberate
+    ///     <c>DynamoProjectionBindingRemovingExpressionVisitor</c>; the duplication is deliberate
     ///     to avoid cross-visitor coupling.
     /// </remarks>
     private sealed class ElementShaperExpressionFinder : ExpressionVisitor
@@ -880,7 +881,7 @@ public class DynamoProjectionBindingExpressionVisitor(
     /// <summary>Finds whether a target structural shaper exists within a tree.</summary>
     /// <remarks>
     ///     A copy of this class also lives in
-    ///     <see cref="DynamoProjectionBindingRemovingExpressionVisitor" />; the duplication is deliberate
+    ///     <c>DynamoProjectionBindingRemovingExpressionVisitor</c>; the duplication is deliberate
     ///     to avoid cross-visitor coupling.
     /// </remarks>
     private sealed class TargetShaperPresenceFinder(IEntityType targetEntityType)

@@ -14,7 +14,9 @@ namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Tests.Query;
 /// </summary>
 public class AttributeNameOverrideTests
 {
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task PartiQL_UsesAttributeName_NotClrPropertyName()
     {
         // Arrange: capture the statement sent to the DynamoDB client.
@@ -41,7 +43,9 @@ public class AttributeNameOverrideTests
         capturedRequest!.Statement.Should().NotContain("FullName");
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task Materialization_ReadsFromAttributeName_NotClrPropertyName()
     {
         // Arrange: item stored with the DynamoDB attribute name key.
@@ -69,7 +73,9 @@ public class AttributeNameOverrideTests
         results[0].FullName.Should().Be("Ada Lovelace");
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task Materialization_ItemKeyedByClrName_DoesNotPopulateProperty()
     {
         // Arrange: item stored with the CLR property name instead of the overridden attribute name.
@@ -97,7 +103,9 @@ public class AttributeNameOverrideTests
         results[0].FullName.Should().BeNull();
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task ScalarProjection_PartiQL_UsesAttributeName_NotClrPropertyName()
     {
         ExecuteStatementRequest? capturedRequest = null;
@@ -122,7 +130,9 @@ public class AttributeNameOverrideTests
         capturedRequest.Statement.Should().NotContain("SELECT FullName");
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task ScalarProjection_Materialization_ReadsFromAttributeName()
     {
         var item = new Dictionary<string, AttributeValue>
@@ -151,13 +161,16 @@ public class AttributeNameOverrideTests
         /// <summary>CLR name is FullName; DynamoDB attribute is "display_name".</summary>
         public string? FullName { get; set; }
 
+        /// <summary>Provides functionality for this member.</summary>
         public string Id { get; set; } = null!;
     }
 
     private sealed class RenameDbContext(DbContextOptions options) : DbContext(options)
     {
+        /// <summary>Provides functionality for this member.</summary>
         public DbSet<RenameEntity> Entities { get; set; }
 
+        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<RenameEntity>(b =>
             {
@@ -166,6 +179,7 @@ public class AttributeNameOverrideTests
                 b.Property(x => x.FullName).HasAttributeName("display_name");
             });
 
+        /// <summary>Provides functionality for this member.</summary>
         public static RenameDbContext Create(IAmazonDynamoDB client)
             => new(
                 new DbContextOptionsBuilder<RenameDbContext>()

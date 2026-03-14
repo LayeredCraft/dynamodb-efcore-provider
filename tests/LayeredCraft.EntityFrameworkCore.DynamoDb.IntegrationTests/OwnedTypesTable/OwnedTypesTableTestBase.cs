@@ -4,6 +4,7 @@ using LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.TestUtilities;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.OwnedTypesTable;
 
+/// <summary>Represents the OwnedTypesTableTestBase type.</summary>
 public abstract class OwnedTypesTableTestBase(OwnedTypesTableDynamoFixture fixture)
     : DynamoDbPerTestResetTestBase<OwnedTypesTableDynamoFixture, OwnedTypesTableDbContext>(fixture)
 {

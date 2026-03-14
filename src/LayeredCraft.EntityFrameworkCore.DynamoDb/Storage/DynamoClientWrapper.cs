@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore.Storage;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Storage;
 
+/// <summary>Represents the DynamoClientWrapper type.</summary>
 public class DynamoClientWrapper : IDynamoClientWrapper
 {
     private readonly AmazonDynamoDBConfig? _amazonDynamoDbConfig;
@@ -87,6 +88,7 @@ public class DynamoClientWrapper : IDynamoClientWrapper
         private readonly bool _singlePageOnly = singlePageOnly;
         private readonly ExecuteStatementRequest _statementRequestPrototype = statementRequest;
 
+        /// <summary>Provides functionality for this member.</summary>
         public IAsyncEnumerator<Dictionary<string, AttributeValue>> GetAsyncEnumerator(
             CancellationToken cancellationToken = default)
             => new AsyncEnumerator(this, cancellationToken);
@@ -108,6 +110,7 @@ public class DynamoClientWrapper : IDynamoClientWrapper
             private bool _hasMorePages = true;
             private string? _nextToken = dynamoEnumerable._statementRequestPrototype.NextToken;
 
+            /// <summary>Provides functionality for this member.</summary>
             public Dictionary<string, AttributeValue> Current
             {
                 get
@@ -122,6 +125,7 @@ public class DynamoClientWrapper : IDynamoClientWrapper
                 }
             }
 
+            /// <summary>Provides functionality for this member.</summary>
             public async ValueTask<bool> MoveNextAsync()
             {
                 while (true)
@@ -161,6 +165,7 @@ public class DynamoClientWrapper : IDynamoClientWrapper
                 }
             }
 
+            /// <summary>Provides functionality for this member.</summary>
             public ValueTask DisposeAsync()
             {
                 _currentItems = null;

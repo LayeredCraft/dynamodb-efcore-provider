@@ -70,9 +70,6 @@ public interface ISqlExpressionFactory
     SqlIsNullExpression IsNotMissing(SqlExpression operand);
 
     /// <summary>Creates a BETWEEN range predicate expression with inclusive bounds.</summary>
-    /// <param name="subject">The attribute expression whose value is tested.</param>
-    /// <param name="low">The inclusive lower bound.</param>
-    /// <param name="high">The inclusive upper bound.</param>
     SqlBetweenExpression Between(SqlExpression subject, SqlExpression low, SqlExpression high);
 
     /// <summary>

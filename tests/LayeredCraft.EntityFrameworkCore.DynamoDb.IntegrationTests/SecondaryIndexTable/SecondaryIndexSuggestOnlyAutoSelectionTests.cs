@@ -16,7 +16,7 @@ public class SecondaryIndexSuggestOnlyAutoSelectionTests(SecondaryIndexDynamoFix
     /// <inheritdoc />
     /// <remarks>
     ///     Overrides the base options to enable
-    ///     <see cref="DynamoAutomaticIndexSelectionMode.SuggestOnly" /> so diagnostics are emitted without
+    ///     <c>DynamoAutomaticIndexSelectionMode.SuggestOnly</c> so diagnostics are emitted without
     ///     rewriting query sources.
     /// </remarks>
     protected override DbContextOptions<SecondaryIndexDbContext> CreateOptions(
@@ -34,6 +34,7 @@ public class SecondaryIndexSuggestOnlyAutoSelectionTests(SecondaryIndexDynamoFix
     ///     while the generated PartiQL still targets the base table.
     /// </summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task SuggestOnly_WhereOnGsiPk_EmitsDiagnosticButStaysOnBaseTable()
     {
         _ = await Db.Orders.Where(o => o.Status == "PENDING").ToListAsync(CancellationToken);

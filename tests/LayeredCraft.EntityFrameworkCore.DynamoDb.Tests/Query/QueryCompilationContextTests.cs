@@ -6,13 +6,17 @@ using Microsoft.EntityFrameworkCore.Query;
 
 namespace LayeredCraft.EntityFrameworkCore.DynamoDb.Tests.Query;
 
+/// <summary>Represents the QueryCompilationContextTests type.</summary>
 [SuppressMessage("Usage", "EF1001:Internal EF Core API usage.")]
+/// <summary>Represents the QueryCompilationContextTests type.</summary>
 public class QueryCompilationContextTests
 {
     private sealed class TestDbContext : DbContext
     {
+        /// <summary>Provides functionality for this member.</summary>
         public TestDbContext(DbContextOptions<TestDbContext> options) : base(options) { }
 
+        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<TestEntity>(b =>
             {
@@ -22,6 +26,7 @@ public class QueryCompilationContextTests
 
     private sealed class TestEntity
     {
+        /// <summary>Provides functionality for this member.</summary>
         public int PK { get; set; }
     }
 
@@ -35,7 +40,9 @@ public class QueryCompilationContextTests
         return dbContext.GetService<QueryCompilationContextDependencies>();
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void DefaultValues_AreCorrect()
     {
         var dependencies = CreateDependencies();
@@ -47,7 +54,9 @@ public class QueryCompilationContextTests
         context.ExplicitIndexName.Should().BeNull();
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void PageSizeOverride_CanBeSet()
     {
         var dependencies = CreateDependencies();
@@ -58,7 +67,9 @@ public class QueryCompilationContextTests
         context.PageSizeOverride.Should().Be(100);
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void PaginationDisabled_CanBeSet()
     {
         var dependencies = CreateDependencies();
@@ -69,7 +80,9 @@ public class QueryCompilationContextTests
         context.PaginationDisabled.Should().BeTrue();
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void BothProperties_CanBeSetIndependently()
     {
         var dependencies = CreateDependencies();
@@ -83,7 +96,9 @@ public class QueryCompilationContextTests
         context.PaginationDisabled.Should().BeTrue();
     }
 
+    /// <summary>Provides functionality for this member.</summary>
     [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void ExplicitIndexName_CanBeSet()
     {
         var dependencies = CreateDependencies();
