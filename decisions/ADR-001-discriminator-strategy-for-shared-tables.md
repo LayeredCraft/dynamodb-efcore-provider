@@ -4,7 +4,7 @@
 
 - Proposed
 - **Date:** 2026-02-26
-- **Deciders:** LayeredCraft.EntityFrameworkCore.DynamoDb maintainers
+- **Deciders:** EntityFrameworkCore.DynamoDb maintainers
 - **Supersedes:** none
 
 ---

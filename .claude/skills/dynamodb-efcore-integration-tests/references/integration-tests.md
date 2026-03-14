@@ -1,16 +1,16 @@
 # DynamoDB EF Core Provider Integration Tests (Repo Conventions)
 
-Integration tests live in `tests/LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests/` and run against DynamoDB Local (Testcontainers).
+Integration tests live in `tests/EntityFrameworkCore.DynamoDb.IntegrationTests/` and run against DynamoDB Local (Testcontainers).
 
 ## Project layout
 
-- Test project: `tests/LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests/LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.csproj`
+- Test project: `tests/EntityFrameworkCore.DynamoDb.IntegrationTests/EntityFrameworkCore.DynamoDb.IntegrationTests.csproj`
 - Suites (examples):
-  - `tests/LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests/SimpleTable/`
-  - `tests/LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests/OwnedTypesTable/`
+  - `tests/EntityFrameworkCore.DynamoDb.IntegrationTests/SimpleTable/`
+  - `tests/EntityFrameworkCore.DynamoDb.IntegrationTests/OwnedTypesTable/`
 - Shared helpers:
-  - `tests/LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests/TestUtilities/DynamoDbPerTestResetTestBase.cs`
-  - `tests/LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests/TestUtilities/DynamoDbSchemaManager.cs`
+  - `tests/EntityFrameworkCore.DynamoDb.IntegrationTests/TestUtilities/DynamoDbPerTestResetTestBase.cs`
+  - `tests/EntityFrameworkCore.DynamoDb.IntegrationTests/TestUtilities/DynamoDbSchemaManager.cs`
 
 ## Base classes (how tests get Db, seeding, and AssertSql)
 
@@ -67,7 +67,7 @@ Notes:
 
 ## Creating a new suite (minimal checklist)
 
-1. Add a suite folder under `tests/LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests/`.
+1. Add a suite folder under `tests/EntityFrameworkCore.DynamoDb.IntegrationTests/`.
 2. Create a fixture that starts DynamoDB Local:
 
 ```csharp
@@ -110,5 +110,5 @@ public abstract class MySuiteTestBase
 - Or run directly:
 
 ```bash
-dotnet test tests/LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests/LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests.csproj
+dotnet test tests/EntityFrameworkCore.DynamoDb.IntegrationTests/EntityFrameworkCore.DynamoDb.IntegrationTests.csproj
 ```
