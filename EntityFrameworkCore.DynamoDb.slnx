@@ -7,8 +7,8 @@
     <File Path="CLAUDE.md"/>
     <File Path="Directory.Build.props"/>
     <File Path="Directory.Packages.props"/>
+    <File Path="EntityFrameworkCore.DynamoDb.sln.DotSettings"/>
     <File Path="global.json"/>
-    <File Path="LayeredCraft.EntityFrameworkCore.DynamoDb.sln.DotSettings"/>
     <File Path="README.md"/>
   </Folder>
   <Folder Name="/src/">
