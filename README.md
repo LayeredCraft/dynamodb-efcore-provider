@@ -1,4 +1,4 @@
-# LayeredCraft.EntityFrameworkCore.DynamoDb
+# EntityFrameworkCore.DynamoDb
 
 EF Core Provider for AWS DynamoDB
 >

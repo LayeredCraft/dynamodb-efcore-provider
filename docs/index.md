@@ -2,7 +2,7 @@
 icon: lucide/house
 ---
 
-# LayeredCraft.EntityFrameworkCore.DynamoDb
+# EntityFrameworkCore.DynamoDb
 
 Entity Framework Core provider for AWS DynamoDB.
 
@@ -15,7 +15,7 @@ This provider translates LINQ queries to PartiQL and executes them with the AWS 
 ## Install
 
 ```bash
-dotnet add package LayeredCraft.EntityFrameworkCore.DynamoDb
+dotnet add package EntityFrameworkCore.DynamoDb
 ```
 
 ## Quick Start

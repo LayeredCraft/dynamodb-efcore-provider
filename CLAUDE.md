@@ -5,34 +5,34 @@ LINQ) into PartiQL and executes them via the AWS SDK.
 
 ## Where To Look First
 
-- Provider code: `src/LayeredCraft.EntityFrameworkCore.DynamoDb/`
-- Tests: `tests/LayeredCraft.EntityFrameworkCore.DynamoDb.Tests/`
+- Provider code: `src/EntityFrameworkCore.DynamoDb/`
+- Tests: `tests/EntityFrameworkCore.DynamoDb.Tests/`
 - Query pipeline entry points (start here for query features):
   - LINQ translation:
-    `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Query/Internal/DynamoQueryableMethodTranslatingExpressionVisitor.cs`
+    `src/EntityFrameworkCore.DynamoDb/Query/Internal/DynamoQueryableMethodTranslatingExpressionVisitor.cs`
   - Query compilation:
-    `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Query/Internal/DynamoShapedQueryCompilingExpressionVisitor.cs`
+    `src/EntityFrameworkCore.DynamoDb/Query/Internal/DynamoShapedQueryCompilingExpressionVisitor.cs`
   - PartiQL generation:
-    `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Query/Internal/DynamoQuerySqlGenerator.cs`
+    `src/EntityFrameworkCore.DynamoDb/Query/Internal/DynamoQuerySqlGenerator.cs`
   - DynamoDB execution:
-    `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Storage/DynamoClientWrapper.cs`
+    `src/EntityFrameworkCore.DynamoDb/Storage/DynamoClientWrapper.cs`
   - Type mapping/conversion:
-    `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Storage/DynamoTypeMappingSource.cs`
+    `src/EntityFrameworkCore.DynamoDb/Storage/DynamoTypeMappingSource.cs`
 
 ## Making Changes (Practical Checklist)
 
-- Start with a failing/added test in `tests/LayeredCraft.EntityFrameworkCore.DynamoDb.Tests/`.
+- Start with a failing/added test in `tests/EntityFrameworkCore.DynamoDb.Tests/`.
 - For new query translation behavior:
   - adjust translation in
-    `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Query/Internal/*TranslatingExpressionVisitor*.cs`
+    `src/EntityFrameworkCore.DynamoDb/Query/Internal/*TranslatingExpressionVisitor*.cs`
   - if needed, add a SQL expression under
-    `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Query/Internal/Expressions/`
+    `src/EntityFrameworkCore.DynamoDb/Query/Internal/Expressions/`
   - emit PartiQL in
-    `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Query/Internal/DynamoQuerySqlGenerator.cs`
+    `src/EntityFrameworkCore.DynamoDb/Query/Internal/DynamoQuerySqlGenerator.cs`
   - ensure type mapping (
-    `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Storage/DynamoTypeMappingSource.cs`) and
+    `src/EntityFrameworkCore.DynamoDb/Storage/DynamoTypeMappingSource.cs`) and
     materialization (
-    `src/LayeredCraft.EntityFrameworkCore.DynamoDb/Query/Internal/DynamoProjectionBindingRemovingExpressionVisitor.cs`)
+    `src/EntityFrameworkCore.DynamoDb/Query/Internal/DynamoProjectionBindingRemovingExpressionVisitor.cs`)
     support the new shape
 - Keep changes small and add tests for both translation and execution behavior.
 
