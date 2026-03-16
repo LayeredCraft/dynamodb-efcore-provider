@@ -4,17 +4,36 @@
 # ///
 
 import json
-import os
 import sys
-from pathlib import Path
+import subprocess
+
 
 def main():
     try:
         # Read JSON input from stdin
         input_data = json.load(sys.stdin)
 
-        # write payload
-        print(input_data)
+        cwd = input_data["cwd"]
+        eddited_input = input_data["tool_input"]["file_path"]
+
+        result = subprocess.run(
+            [
+                "dotnet",
+                "tool",
+                "run",
+                "jb",
+                "cleanupcode",
+                '--profile="Built-in: Reformat Code"',
+                f' --include="{eddited_input}"',
+                '--settings="EntityFrameworkCore.DynamoDb.sln.DotSettings"',
+            ],
+            cwd=cwd,
+            shell=True,
+            capture_output=True,
+            text=True,
+        )
+
+        print(result.stdout)
 
         sys.exit(0)
 
@@ -25,7 +44,7 @@ def main():
         # Exit cleanly on any other error
         sys.exit(0)
 
-if __name__ == '__main__':
-    print('Hello from python')
-    main()
 
+if __name__ == "__main__":
+    print("Hello from python")
+    main()
