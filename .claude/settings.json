@@ -1,0 +1,48 @@
+{
+  "respectGitignore": false,
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(colima status:*)",
+      "Bash(docker logs:*)",
+      "Bash(docker-compose:*)",
+      "Bash(docker exec:*)",
+      "Bash(docker run:*)",
+      "Bash(find:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(dotnet build:*)",
+      "Bash(dotnet run:*)",
+      "Bash(grep:*)",
+      "Bash(gh issue list:*)",
+      "Bash(gh issue view:*)",
+      "Bash(dotnet test:*)",
+      "mcp__dotnet-test-mcp",
+      "Read(/Users/jonasha/Repos/CSharp/efcore/**)",
+      "Read(/Users/jonasha/Repos/CSharp/mongo-efcore-provider/**)",
+      "Read(/Users/jonasha/Repos/CSharp/efcore.pg/**)",
+      "Bash(git remote get-url:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(ls:*)",
+      "Bash(git checkout:*)"
+    ],
+    "deny": [],
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'HELLO WORLD!!!'"
+          },
+          {
+            "type": "command",
+            "command": "uv run $CLAUDE_PROJECT_DIR/.claude/hooks/format_cs.py"
+          }
+        ]
+      }
+    ]
+  }
+}
