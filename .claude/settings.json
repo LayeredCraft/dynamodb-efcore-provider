@@ -26,17 +26,13 @@
       "Bash(ls:*)",
       "Bash(git checkout:*)"
     ],
-    "deny": [],
+    "deny": []
   },
   "hooks": {
     "PostToolUse": [
       {
         "matcher": "Write|Edit|MultiEdit",
         "hooks": [
-          {
-            "type": "command",
-            "command": "echo 'HELLO WORLD!!!'"
-          },
           {
             "type": "command",
             "command": "uv run $CLAUDE_PROJECT_DIR/.claude/hooks/format_cs.py"
