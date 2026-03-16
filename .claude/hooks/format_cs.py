@@ -16,6 +16,10 @@ def main():
         cwd = input_data["cwd"]
         eddited_input = input_data["tool_input"]["file_path"]
 
+        print(f"Running code cleanup on: '{eddited_input}' in directory: '{cwd}'")
+
+        print("======================================")
+
         result = subprocess.run(
             [
                 "dotnet",
@@ -28,12 +32,13 @@ def main():
                 '--settings="EntityFrameworkCore.DynamoDb.sln.DotSettings"',
             ],
             cwd=cwd,
-            shell=True,
             capture_output=True,
             text=True,
         )
 
         print(result.stdout)
+
+        print("======================================")
 
         sys.exit(0)
 
@@ -46,5 +51,5 @@ def main():
 
 
 if __name__ == "__main__":
-    print("Hello from python")
+    print("Running format_cs.py hook...")
     main()
