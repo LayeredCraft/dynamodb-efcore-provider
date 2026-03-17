@@ -215,12 +215,15 @@ internal sealed class DynamoQueryTranslationPostprocessor(
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         DynamoDB PartiQL imposes two hard requirements on ORDER BY:
+    ///         DynamoDB PartiQL imposes the following requirements on ORDER BY:
     ///         <list type="number">
     ///             <item>
-    ///                 The ordering column must be the sort key of the active query source. For sources
-    ///                 with no sort key (PK-only tables/indexes), the ordering column must be the
-    ///                 partition key (valid only with an IN predicate spanning multiple partitions).
+    ///                 Each ordering column must be a key attribute (partition key or sort key) of the
+    ///                 active query source. Non-key attributes are rejected regardless of PK constraints.
+    ///             </item>
+    ///             <item>
+    ///                 For multi-partition queries (WHERE PK IN (...)), the partition key must appear
+    ///                 first in the ORDER BY chain so DynamoDB can apply cross-partition ordering.
     ///             </item>
     ///             <item>
     ///                 The WHERE clause must contain an equality (<c>=</c>) or IN constraint on the
@@ -253,21 +256,50 @@ internal sealed class DynamoQueryTranslationPostprocessor(
         if (pkNames.Count == 0)
             return;
 
-        // ── 1. Sort-key column check ──────────────────────────────────────────
-        // DynamoDB only allows ordering on the sort key. For PK-only sources (no sort key),
-        // ordering on the partition key is valid when the PK is IN-constrained (multi-partition).
-        var allowedOrderingAttr = effectiveSortKeyAttributeName ?? pkNames.First();
-        var keyLabel = effectiveSortKeyAttributeName is not null ? "sort key" : "partition key";
+        // ── 1. Non-key attribute check ────────────────────────────────────────
+        // Both PK and SK are valid ordering attributes. Non-key attributes are always rejected
+        // because DynamoDB does not support arbitrary attribute ordering.
+        var validKeyAttrs = new HashSet<string>(pkNames, StringComparer.Ordinal);
+        if (effectiveSortKeyAttributeName is not null)
+            validKeyAttrs.Add(effectiveSortKeyAttributeName);
 
         foreach (var ordering in selectExpression.Orderings)
+        {
             if (ordering.Expression is not SqlPropertyExpression prop
-                || prop.PropertyName != allowedOrderingAttr)
+                || !validKeyAttrs.Contains(prop.PropertyName))
+            {
+                var propName = ordering.Expression is SqlPropertyExpression p
+                    ? p.PropertyName
+                    : "?";
+                var pkAttr = pkNames.First();
+                var keyDesc = effectiveSortKeyAttributeName is not null
+                    ? $"partition key '{pkAttr}' or sort key '{effectiveSortKeyAttributeName}'"
+                    : $"partition key '{pkAttr}'";
                 throw new InvalidOperationException(
-                    $"ORDER BY can only reference the {keyLabel} '{allowedOrderingAttr}' "
-                    + $"on table '{selectExpression.TableName}'. DynamoDB does not support ordering "
-                    + "by arbitrary attributes.");
+                    $"ORDER BY can only reference key attributes ({keyDesc}) on table "
+                    + $"'{selectExpression.TableName}'. '{propName}' is not a key. DynamoDB does "
+                    + "not support ordering by arbitrary attributes.");
+            }
+        }
 
-        // ── 2. Partition-key constraint check ─────────────────────────────────
+        // ── 2. Multi-partition leading-PK check ────────────────────────────────
+        // When the query spans multiple partitions (PK IN (...)), DynamoDB requires the partition
+        // key to lead the ORDER BY chain. Ordering by SK first (or any non-PK attribute first) is
+        // not supported across partitions.
+        var isMultiPartition = pkNames.Any(pk => queryConstraints.InConstraints.ContainsKey(pk));
+        if (isMultiPartition)
+        {
+            var firstOrdering = selectExpression.Orderings[0];
+            if (firstOrdering.Expression is not SqlPropertyExpression firstProp
+                || !pkNames.Contains(firstProp.PropertyName))
+                throw new InvalidOperationException(
+                    $"ORDER BY with a multi-partition query (WHERE partition key IN (...)) requires "
+                    + $"the partition key to appear first in the ORDER BY chain on table "
+                    + $"'{selectExpression.TableName}'. Use .OrderBy(e => e.PartitionKey) or "
+                    + ".OrderBy(e => e.PartitionKey).ThenBy(e => e.SortKey).");
+        }
+
+        // ── 3. Partition-key constraint check ─────────────────────────────────
         // DynamoDB requires the partition key to be equality or IN-constrained when ORDER BY is
         // used.
         foreach (var pkAttr in pkNames)

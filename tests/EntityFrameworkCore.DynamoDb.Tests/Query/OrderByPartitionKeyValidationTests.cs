@@ -32,6 +32,36 @@ public class OrderByPartitionKeyValidationTests
     }
 
     /// <summary>
+    ///     Builds a <c>SelectExpression</c> with multiple orderings and <paramref name="pkAttr" /> as
+    ///     the effective partition key.  The first entry in <paramref name="orderings" /> is applied via
+    ///     <c>ApplyOrdering</c>; subsequent entries are appended via <c>AppendOrdering</c>.
+    /// </summary>
+    private static SelectExpression MakeSelectWithMultipleOrderings(
+        string pkAttr,
+        params (string attr, bool asc)[] orderings)
+    {
+        var sel = new SelectExpression("TestTable");
+        sel.ApplyEffectivePartitionKeyPropertyNames(
+            new HashSet<string>(StringComparer.Ordinal) { pkAttr });
+
+        if (orderings.Length == 0)
+            return sel;
+
+        sel.ApplyOrdering(
+            new OrderingExpression(
+                new SqlPropertyExpression(orderings[0].attr, typeof(string), null),
+                orderings[0].asc));
+
+        for (var i = 1; i < orderings.Length; i++)
+            sel.AppendOrdering(
+                new OrderingExpression(
+                    new SqlPropertyExpression(orderings[i].attr, typeof(string), null),
+                    orderings[i].asc));
+
+        return sel;
+    }
+
+    /// <summary>
     ///     Builds a <c>DynamoQueryConstraints</c> with optional equality and IN constraints on PK
     ///     attributes.
     /// </summary>
@@ -97,16 +127,19 @@ public class OrderByPartitionKeyValidationTests
         act.Should().NotThrow();
     }
 
-    /// <summary>ORDER BY sort key with IN PK constraint — valid.</summary>
+    /// <summary>
+    ///     ORDER BY sort key with IN PK constraint on a multi-partition query — must throw. PK must
+    ///     lead the ORDER BY chain when the query spans multiple partitions.
+    /// </summary>
     [Fact]
-    public void OrderBy_WithInPkConstraint_DoesNotThrow()
+    public void OrderBy_WithInPkConstraint_Throws()
     {
         var sel = MakeSelectWithOrdering("PK", "SK");
         var constraints = MakeConstraints(inPks: ["PK"]);
 
         var act = () => InvokeValidate(sel, constraints, "SK");
 
-        act.Should().NotThrow();
+        act.Should().Throw<InvalidOperationException>().WithMessage("*partition key*");
     }
 
     /// <summary>
@@ -139,7 +172,7 @@ public class OrderByPartitionKeyValidationTests
         act.Should().Throw<InvalidOperationException>().WithMessage("*partition key*");
     }
 
-    /// <summary>ORDER BY on a non-sort-key attribute when a sort key exists — must throw.</summary>
+    /// <summary>ORDER BY on a non-key attribute when a sort key exists — must throw.</summary>
     [Fact]
     public void OrderBy_OnNonSortKeyAttribute_Throws()
     {
@@ -148,7 +181,7 @@ public class OrderByPartitionKeyValidationTests
 
         var act = () => InvokeValidate(sel, constraints, "SK");
 
-        act.Should().Throw<InvalidOperationException>().WithMessage("*sort key*'SK'*");
+        act.Should().Throw<InvalidOperationException>().WithMessage("*key attribute*");
     }
 
     /// <summary>PK-only source: ORDER BY on a non-PK attribute — must throw.</summary>
@@ -161,6 +194,156 @@ public class OrderByPartitionKeyValidationTests
         var act = () => InvokeValidate(sel, constraints, null);
 
         act.Should().Throw<InvalidOperationException>().WithMessage("*partition key*'PK'*");
+    }
+
+    // ── new pass cases: PK and PK+SK orderings ────────────────────────────────
+
+    /// <summary>ORDER BY on PK ASC with equality PK constraint — valid.</summary>
+    [Fact]
+    public void OrderBy_OnPkAttr_WithEqualityPkConstraint_DoesNotThrow()
+    {
+        var sel = MakeSelectWithOrdering("PK", "PK");
+        var constraints = MakeConstraints(["PK"]);
+
+        var act = () => InvokeValidate(sel, constraints, "SK");
+
+        act.Should().NotThrow();
+    }
+
+    /// <summary>ORDER BY on PK DESC with equality PK constraint — valid.</summary>
+    [Fact]
+    public void OrderByDescending_OnPkAttr_WithEqualityPkConstraint_DoesNotThrow()
+    {
+        var sel = new SelectExpression("TestTable");
+        sel.ApplyEffectivePartitionKeyPropertyNames(
+            new HashSet<string>(StringComparer.Ordinal) { "PK" });
+        sel.ApplyOrdering(
+            new OrderingExpression(new SqlPropertyExpression("PK", typeof(string), null), false));
+        var constraints = MakeConstraints(["PK"]);
+
+        var act = () => InvokeValidate(sel, constraints, "SK");
+
+        act.Should().NotThrow();
+    }
+
+    /// <summary>ORDER BY PK ASC, SK ASC with equality PK constraint — valid.</summary>
+    [Fact]
+    public void OrderBy_PkThenSk_WithEqualityPkConstraint_DoesNotThrow()
+    {
+        var sel = MakeSelectWithMultipleOrderings("PK", ("PK", true), ("SK", true));
+        var constraints = MakeConstraints(["PK"]);
+
+        var act = () => InvokeValidate(sel, constraints, "SK");
+
+        act.Should().NotThrow();
+    }
+
+    /// <summary>ORDER BY PK DESC, SK DESC with equality PK constraint — valid.</summary>
+    [Fact]
+    public void OrderByDescending_PkThenByDescendingSk_WithEqualityPkConstraint_DoesNotThrow()
+    {
+        var sel = MakeSelectWithMultipleOrderings("PK", ("PK", false), ("SK", false));
+        var constraints = MakeConstraints(["PK"]);
+
+        var act = () => InvokeValidate(sel, constraints, "SK");
+
+        act.Should().NotThrow();
+    }
+
+    /// <summary>ORDER BY PK ASC, SK DESC with equality PK constraint — valid.</summary>
+    [Fact]
+    public void OrderBy_PkThenByDescendingSk_WithEqualityPkConstraint_DoesNotThrow()
+    {
+        var sel = MakeSelectWithMultipleOrderings("PK", ("PK", true), ("SK", false));
+        var constraints = MakeConstraints(["PK"]);
+
+        var act = () => InvokeValidate(sel, constraints, "SK");
+
+        act.Should().NotThrow();
+    }
+
+    /// <summary>ORDER BY PK DESC, SK ASC with equality PK constraint — valid.</summary>
+    [Fact]
+    public void OrderByDescending_PkThenBySk_WithEqualityPkConstraint_DoesNotThrow()
+    {
+        var sel = MakeSelectWithMultipleOrderings("PK", ("PK", false), ("SK", true));
+        var constraints = MakeConstraints(["PK"]);
+
+        var act = () => InvokeValidate(sel, constraints, "SK");
+
+        act.Should().NotThrow();
+    }
+
+    /// <summary>ORDER BY PK ASC, SK ASC with IN PK constraint (multi-partition) — valid.</summary>
+    [Fact]
+    public void OrderBy_PkThenSk_WithInPkConstraint_DoesNotThrow()
+    {
+        var sel = MakeSelectWithMultipleOrderings("PK", ("PK", true), ("SK", true));
+        var constraints = MakeConstraints(inPks: ["PK"]);
+
+        var act = () => InvokeValidate(sel, constraints, "SK");
+
+        act.Should().NotThrow();
+    }
+
+    /// <summary>ORDER BY PK DESC, SK DESC with IN PK constraint (multi-partition) — valid.</summary>
+    [Fact]
+    public void OrderByDescending_PkThenByDescendingSk_WithInPkConstraint_DoesNotThrow()
+    {
+        var sel = MakeSelectWithMultipleOrderings("PK", ("PK", false), ("SK", false));
+        var constraints = MakeConstraints(inPks: ["PK"]);
+
+        var act = () => InvokeValidate(sel, constraints, "SK");
+
+        act.Should().NotThrow();
+    }
+
+    // ── new fail cases: multi-partition ordering violations ───────────────────
+
+    /// <summary>ORDER BY SK (not PK) on a multi-partition query — must throw with partition key message.</summary>
+    [Fact]
+    public void OrderBy_OnSk_WhenMultiPartition_Throws()
+    {
+        var sel = MakeSelectWithOrdering("PK", "SK");
+        var constraints = MakeConstraints(inPks: ["PK"]);
+
+        var act = () => InvokeValidate(sel, constraints, "SK");
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*partition key*");
+    }
+
+    /// <summary>
+    ///     ORDER BY SK DESC (not PK) on a multi-partition query — must throw with partition key
+    ///     message.
+    /// </summary>
+    [Fact]
+    public void OrderByDescending_OnSk_WhenMultiPartition_Throws()
+    {
+        var sel = new SelectExpression("TestTable");
+        sel.ApplyEffectivePartitionKeyPropertyNames(
+            new HashSet<string>(StringComparer.Ordinal) { "PK" });
+        sel.ApplyOrdering(
+            new OrderingExpression(new SqlPropertyExpression("SK", typeof(string), null), false));
+        var constraints = MakeConstraints(inPks: ["PK"]);
+
+        var act = () => InvokeValidate(sel, constraints, "SK");
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*partition key*");
+    }
+
+    /// <summary>
+    ///     ORDER BY non-key attribute first on a multi-partition query — must throw with key
+    ///     attribute message.
+    /// </summary>
+    [Fact]
+    public void OrderBy_NonKeyFirst_WhenMultiPartition_Throws()
+    {
+        var sel = MakeSelectWithOrdering("PK", "NonKey");
+        var constraints = MakeConstraints(inPks: ["PK"]);
+
+        var act = () => InvokeValidate(sel, constraints, "SK");
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*key attribute*");
     }
 
     // ── reflection shim ───────────────────────────────────────────────────────

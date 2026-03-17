@@ -320,9 +320,52 @@ results. Ensure `low <= high` at the call site.
 
 **Translation**
 - Translated to PartiQL `ORDER BY` with `ASC`/`DESC`.
+- Both `OrderBy`/`ThenBy` (ascending) and `OrderByDescending`/`ThenByDescending` (descending) are
+  supported in any combination per key.
+
+**Valid ordering attributes**
+- Only partition key and sort key attributes are valid ordering columns. Non-key attributes are
+  rejected at query compilation with a provider error.
+
+**Single-partition queries** (`WHERE PK = value`):
+- `OrderBy(e => e.Pk)` — order by partition key
+- `OrderBy(e => e.Sk)` — order by sort key
+- `OrderBy(e => e.Pk).ThenBy(e => e.Sk)` — order by PK then SK
+- Any `ASC`/`DESC` combination on the above is valid
+
+**Multi-partition queries** (`WHERE PK IN (...)`):
+- The partition key **must lead** the `ORDER BY` chain.
+- `OrderBy(e => e.Pk)` — valid
+- `OrderBy(e => e.Pk).ThenBy(e => e.Sk)` — valid
+- `OrderBy(e => e.Sk)` — **invalid**: partition key must come first
+- `OrderByDescending(e => e.Pk).ThenByDescending(e => e.Sk)` — valid (any direction)
+
+```csharp
+// Single partition — order by PK or SK
+db.Orders
+    .Where(o => o.Pk == "CUSTOMER#42")
+    .OrderBy(o => o.Pk)
+    .ThenByDescending(o => o.Sk)
+    .ToList();
+// ORDER BY "Pk" ASC, "Sk" DESC
+
+// Multi-partition — PK must lead
+var customers = new[] { "CUSTOMER#1", "CUSTOMER#2" };
+db.Orders
+    .Where(o => customers.Contains(o.Pk))
+    .OrderBy(o => o.Pk)
+    .ThenBy(o => o.Sk)
+    .ToList();
+// ORDER BY "Pk" ASC, "Sk" ASC
+```
 
 **Limitations / DynamoDB quirks**
-- Ordering semantics depend on DynamoDB access patterns and query shape.
+- A `WHERE` clause with an equality or IN constraint on the partition key is required; `ORDER BY`
+  without a partition key constraint throws a provider error.
+- For multi-partition queries, the partition key must be the first `ORDER BY` column; ordering by
+  sort key first is not supported.
+- Non-key attributes in `ORDER BY` always produce a provider error.
+- See [DynamoDB PartiQL SELECT](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ql-reference.select.html) for engine-level ordering behavior.
 
 ## Take(n)
 **Purpose**
