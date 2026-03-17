@@ -19,3 +19,9 @@ max_line_length = 120
 [docs/**]
 ij_formatter_enabled = false
 resharper_disable_formatter = true
+
+[*.py]
+indent_size = 4
+end_of_line = LF
+insert_final_newline = true
+trim_trailing_whitespace = true

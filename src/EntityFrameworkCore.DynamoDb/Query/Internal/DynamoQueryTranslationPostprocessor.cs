@@ -104,6 +104,12 @@ internal sealed class DynamoQueryTranslationPostprocessor(
 
         EmitIndexSelectionDiagnostics(decision.Diagnostics, dynamoQueryCompilationContext.Logger);
 
+        // Validate ORDER BY constraints after index selection so the error references the
+        // finalized query source (base table or chosen index).
+        var effectiveSortKeyAttr =
+            ResolveEffectiveSortKeyAttributeName(candidates, decision.SelectedIndexName);
+        ValidateOrderByConstraints(selectExpression, queryConstraints, effectiveSortKeyAttr);
+
         return query;
     }
 
@@ -180,6 +186,132 @@ internal sealed class DynamoQueryTranslationPostprocessor(
             propertyNames.Add(indexDescriptor.PartitionKeyProperty.GetAttributeName());
 
         return propertyNames;
+    }
+
+    /// <summary>
+    ///     Resolves the sort-key attribute name for the finalized query source, or <c>null</c> when
+    ///     the source has no sort key.
+    /// </summary>
+    /// <returns>
+    ///     The DynamoDB attribute name of the sort key for the base table (when no index is selected)
+    ///     or the selected index, or <c>null</c> when the source has no sort key.
+    /// </returns>
+    private static string? ResolveEffectiveSortKeyAttributeName(
+        IReadOnlyList<DynamoIndexDescriptor> candidates,
+        string? selectedIndexName)
+    {
+        // Find the descriptor for the finalized query source (base table when selectedIndexName is
+        // null).
+        var descriptor = selectedIndexName is null
+            ? candidates.FirstOrDefault(d => d.IndexName is null)
+            : candidates.FirstOrDefault(d => d.IndexName == selectedIndexName);
+
+        return descriptor?.SortKeyProperty?.GetAttributeName();
+    }
+
+    /// <summary>
+    ///     Validates ORDER BY constraints after index selection, throwing before SQL generation when
+    ///     the query violates DynamoDB's ordering requirements.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         DynamoDB PartiQL imposes the following requirements on ORDER BY:
+    ///         <list type="number">
+    ///             <item>
+    ///                 Each ordering column must be a key attribute (partition key or sort key) of the
+    ///                 active query source. Non-key attributes are rejected regardless of PK constraints.
+    ///             </item>
+    ///             <item>
+    ///                 For multi-partition queries (WHERE PK IN (...)), the partition key must appear
+    ///                 first in the ORDER BY chain so DynamoDB can apply cross-partition ordering.
+    ///             </item>
+    ///             <item>
+    ///                 The WHERE clause must contain an equality (<c>=</c>) or IN constraint on the
+    ///                 partition key of the active query source.
+    ///             </item>
+    ///         </list>
+    ///     </para>
+    ///     <para>
+    ///         Validation is skipped at design-time when <paramref name="queryConstraints" /> is
+    ///         <c>null</c> (runtime model not yet built) to avoid false negatives during model building
+    ///         and tooling.
+    ///     </para>
+    /// </remarks>
+    private static void ValidateOrderByConstraints(
+        SelectExpression selectExpression,
+        DynamoQueryConstraints? queryConstraints,
+        string? effectiveSortKeyAttributeName)
+    {
+        // No orderings — nothing to validate.
+        if (selectExpression.Orderings.Count == 0)
+            return;
+
+        // Design-time: runtime model unavailable, skip to avoid false negatives.
+        if (queryConstraints is null)
+            return;
+
+        var pkNames = selectExpression.EffectivePartitionKeyPropertyNames;
+
+        // No descriptor resolved (edge case: model partially initialised) — skip silently.
+        if (pkNames.Count == 0)
+            return;
+
+        // ── 1. Non-key attribute check ────────────────────────────────────────
+        // Both PK and SK are valid ordering attributes. Non-key attributes are always rejected
+        // because DynamoDB does not support arbitrary attribute ordering.
+        var validKeyAttrs = new HashSet<string>(pkNames, StringComparer.Ordinal);
+        if (effectiveSortKeyAttributeName is not null)
+            validKeyAttrs.Add(effectiveSortKeyAttributeName);
+
+        foreach (var ordering in selectExpression.Orderings)
+        {
+            if (ordering.Expression is not SqlPropertyExpression prop
+                || !validKeyAttrs.Contains(prop.PropertyName))
+            {
+                var propName = ordering.Expression is SqlPropertyExpression p
+                    ? p.PropertyName
+                    : "?";
+                var pkAttr = pkNames.First();
+                var keyDesc = effectiveSortKeyAttributeName is not null
+                    ? $"partition key '{pkAttr}' or sort key '{effectiveSortKeyAttributeName}'"
+                    : $"partition key '{pkAttr}'";
+                throw new InvalidOperationException(
+                    $"ORDER BY can only reference key attributes ({keyDesc}) on table "
+                    + $"'{selectExpression.TableName}'. '{propName}' is not a key. DynamoDB does "
+                    + "not support ordering by arbitrary attributes.");
+            }
+        }
+
+        // ── 2. Multi-partition leading-PK check ────────────────────────────────
+        // When the query spans multiple partitions (PK IN (...)), DynamoDB requires the partition
+        // key to lead the ORDER BY chain. Ordering by SK first (or any non-PK attribute first) is
+        // not supported across partitions.
+        var isMultiPartition = pkNames.Any(pk => queryConstraints.InConstraints.ContainsKey(pk));
+        if (isMultiPartition)
+        {
+            var firstOrdering = selectExpression.Orderings[0];
+            if (firstOrdering.Expression is not SqlPropertyExpression firstProp
+                || !pkNames.Contains(firstProp.PropertyName))
+                throw new InvalidOperationException(
+                    $"ORDER BY with a multi-partition query (WHERE partition key IN (...)) requires "
+                    + $"the partition key to appear first in the ORDER BY chain on table "
+                    + $"'{selectExpression.TableName}'. Use .OrderBy(e => e.PartitionKey) or "
+                    + ".OrderBy(e => e.PartitionKey).ThenBy(e => e.SortKey).");
+        }
+
+        // ── 3. Partition-key constraint check ─────────────────────────────────
+        // DynamoDB requires the partition key to be equality or IN-constrained when ORDER BY is
+        // used.
+        foreach (var pkAttr in pkNames)
+            if (queryConstraints.EqualityConstraints.ContainsKey(pkAttr)
+                || queryConstraints.InConstraints.ContainsKey(pkAttr))
+                return;
+
+        throw new InvalidOperationException(
+            $"ORDER BY requires an equality or IN constraint on the partition key in the WHERE "
+            + $"clause for table '{selectExpression.TableName}'. DynamoDB only supports ordering "
+            + "within a single partition. Add a WHERE predicate on the partition key "
+            + "(e.g., .Where(e => e.PartitionKey == value)).");
     }
 
     /// <summary>Emits structured EF query diagnostics for index-selection analysis results.</summary>
