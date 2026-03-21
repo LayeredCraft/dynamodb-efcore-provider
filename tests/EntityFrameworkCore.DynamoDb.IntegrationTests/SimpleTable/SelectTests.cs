@@ -191,73 +191,39 @@ public class SelectTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase
     }
 
     /// <summary>Provides functionality for this member.</summary>
+    /// <summary>
+    /// Verifies that ORDER BY with a multi-value OR predicate on the partition key throws even
+    /// when combined with a projection. An OR predicate does not satisfy the single-partition
+    /// equality constraint required for ORDER BY.
+    /// </summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public async Task Select_WithWhereAndOrderBy()
+    public async Task Select_WithOrPredicateAndOrderBy_ThrowsProviderError()
     {
-        // Note: DynamoDB PartiQL requires:
-        // 1. Partition key (Pk) filter in WHERE when using ORDER BY
-        // 2. ORDER BY column must be part of primary key
-        var results =
-            await Db
+        var act = async () => await Db
                 .SimpleItems
                 .Where(item => item.Pk == "ITEM#1" || item.Pk == "ITEM#2")
                 .OrderBy(item => item.Pk)
                 .Select(item => new { item.Pk, item.StringValue })
                 .ToListAsync(CancellationToken);
 
-        var expected =
-            SimpleItems
-                .Items
-                .Where(item => item.Pk == "ITEM#1" || item.Pk == "ITEM#2")
-                .OrderBy(item => item.Pk)
-                .Select(item => new { item.Pk, item.StringValue })
-                .ToList();
-
-        results.Should().BeEquivalentTo(expected);
-
-        AssertSql(
-            """
-            SELECT "Pk", "StringValue"
-            FROM "SimpleItems"
-            WHERE "Pk" = 'ITEM#1' OR "Pk" = 'ITEM#2'
-            ORDER BY "Pk" ASC
-            """);
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*partition key*");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
+    /// <summary>
+    ///     Verifies that ORDER BY descending with a multi-value OR predicate on the partition key
+    ///     throws even when combined with a projection.
+    /// </summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public async Task Select_WithWhereAndOrderByDescending()
+    public async Task Select_WithOrPredicateAndOrderByDescending_ThrowsProviderError()
     {
-        // Note: DynamoDB PartiQL requires:
-        // 1. Partition key (Pk) filter in WHERE when using ORDER BY
-        // 2. ORDER BY column must be part of primary key
-        var results =
-            await Db
+        var act = async () => await Db
                 .SimpleItems
                 .Where(item => item.Pk == "ITEM#1" || item.Pk == "ITEM#2")
                 .OrderByDescending(item => item.Pk)
                 .Select(item => new { item.Pk, item.StringValue })
                 .ToListAsync(CancellationToken);
 
-        var expected =
-            SimpleItems
-                .Items
-                .Where(item => item.Pk == "ITEM#1" || item.Pk == "ITEM#2")
-                .OrderByDescending(item => item.Pk)
-                .Select(item => new { item.Pk, item.StringValue })
-                .ToList();
-
-        results.Should().BeEquivalentTo(expected);
-
-        AssertSql(
-            """
-            SELECT "Pk", "StringValue"
-            FROM "SimpleItems"
-            WHERE "Pk" = 'ITEM#1' OR "Pk" = 'ITEM#2'
-            ORDER BY "Pk" DESC
-            """);
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*partition key*");
     }
 
     // Different Data Types Tests

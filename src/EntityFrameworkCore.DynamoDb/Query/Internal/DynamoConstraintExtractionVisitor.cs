@@ -17,7 +17,7 @@ namespace EntityFrameworkCore.DynamoDb.Query.Internal;
 internal sealed class DynamoConstraintExtractionVisitor
 {
     // The set of partition-key attribute names across all candidates. Used to separate
-    // PK equality constraints (which belong in EqualityConstraints / InConstraints) from
+    // PK equality constraints (which belong in EqualityConstraints) from
     // SK candidates (SkKeyConditions). DynamoDB attribute names are case-sensitive, so
     // Ordinal comparison is required throughout.
     // An attribute that also appears in _skAttributeNames plays dual roles across different
@@ -33,9 +33,6 @@ internal sealed class DynamoConstraintExtractionVisitor
     private readonly HashSet<string> _skAttributeNames;
 
     private readonly Dictionary<string, SqlExpression> _equalityConstraints =
-        new(StringComparer.Ordinal);
-
-    private readonly Dictionary<string, List<SqlExpression>> _inConstraints =
         new(StringComparer.Ordinal);
 
     // Tracks per-property SK candidates. A slot with Count > 1 has been "demoted" (multiple
@@ -89,15 +86,8 @@ internal sealed class DynamoConstraintExtractionVisitor
             if (slot is { Count: 1, Constraint: not null })
                 skKeyConditions[propName] = slot.Constraint;
 
-        // Wrap mutable list values as IReadOnlyList<SqlExpression>
-        var inConstraints =
-            new Dictionary<string, IReadOnlyList<SqlExpression>>(StringComparer.Ordinal);
-        foreach (var (propName, values) in _inConstraints)
-            inConstraints[propName] = values;
-
         return new DynamoQueryConstraints(
             EqualityConstraints: _equalityConstraints,
-            InConstraints: inConstraints,
             SkKeyConditions: skKeyConditions,
             HasUnsafeOr: _hasUnsafeOr,
             OrderingPropertyNames: _orderingPropertyNames);
@@ -142,11 +132,7 @@ internal sealed class DynamoConstraintExtractionVisitor
                 TryExtractBeginsWith(fn);
                 break;
 
-            case SqlInExpression inExpr:
-                TryExtractIn(inExpr);
-                break;
-
-            // All other nodes (NOT, IS NULL, custom functions, etc.) are filter predicates
+            // All other nodes (NOT, IS NULL, IN, custom functions, etc.) are filter predicates
             // that do not contribute to key-condition constraints — safely ignored.
         }
     }
@@ -154,16 +140,16 @@ internal sealed class DynamoConstraintExtractionVisitor
     // ── OR classification ──────────────────────────────────────────────────────
 
     /// <summary>
-    /// Classifies an OR expression as either a safe multi-value PK expansion (converted to an
-    /// <c>IN</c> constraint) or an unsafe OR that prevents key-condition queries.
+    /// Classifies an OR expression as either safe (filter-only) or unsafe (prevents key-condition
+    /// queries).
     /// </summary>
     /// <remarks>
-    /// An OR is considered safe only when every branch is a <em>plain</em> PK equality on the
-    /// same attribute (<c>PK = "a" OR PK = "b"</c> → <c>IN</c> constraint). A filter-only OR
-    /// where no branch touches the PK at all is also safe. All other shapes — including
-    /// conjunctive branches such as <c>(PK = "a" AND SK &gt; "1") OR (PK = "b" AND SK &gt; "2")</c>
-    /// — set <c>_hasUnsafeOr</c> because the per-branch SK conditions cannot be reduced
-    /// to a single key-condition query against one index.
+    /// A filter-only OR where no branch touches the PK is safe. A PK-equality OR (all branches
+    /// are plain PK equalities on the same attribute) is also safe and treated as a filter
+    /// predicate — it does not contribute a key-condition constraint. Conjunctive branches such
+    /// as <c>(PK = "a" AND SK &gt; "1") OR (PK = "b" AND SK &gt; "2")</c> set
+    /// <c>_hasUnsafeOr</c> because the per-branch SK conditions cannot be reduced to a single
+    /// key-condition query against one index.
     /// </remarks>
     private void ClassifyOr(SqlBinaryExpression orExpr)
     {
@@ -190,13 +176,10 @@ internal sealed class DynamoConstraintExtractionVisitor
 
         if (allSamePk)
         {
-            // All branches are PK equalities on the same attribute — safe multi-value IN shape.
-            foreach (var branch in branches)
-            {
-                var value = ExtractEqualityValue(branch, firstPk!);
-                if (value is not null)
-                    AddToInConstraints(firstPk!, value);
-            }
+            // All branches are PK equalities on the same attribute — safe filter-only shape.
+            // Previously this would have generated an IN constraint; with IN removed, this OR
+            // is treated as a filter predicate (not unsafe, does not block index selection).
+            return;
         }
         else
         {
@@ -236,8 +219,6 @@ internal sealed class DynamoConstraintExtractionVisitor
                     && _pkAttributeNames.Contains(lp.PropertyName))
                 || (bin.Right is SqlPropertyExpression rp
                     && _pkAttributeNames.Contains(rp.PropertyName)),
-            SqlInExpression inExpr => inExpr.Item is SqlPropertyExpression ip
-                && _pkAttributeNames.Contains(ip.PropertyName),
             // begins_with(PK, ...) — the first argument is the attribute being tested.
             SqlFunctionExpression fn => fn.Arguments.Count > 0
                 && fn.Arguments[0] is SqlPropertyExpression fp
@@ -456,31 +437,6 @@ internal sealed class DynamoConstraintExtractionVisitor
             new SkConstraint(SkOperator.BeginsWith, fn.Arguments[1]));
     }
 
-    /// <summary>
-    /// Extracts an <c>IN</c> expression on a PK attribute into <c>_inConstraints</c>.
-    /// IN on non-PK attributes is a filter predicate and is ignored.
-    /// </summary>
-    private void TryExtractIn(SqlInExpression inExpr)
-    {
-        if (inExpr.Item is not SqlPropertyExpression prop)
-            return;
-
-        if (!_pkAttributeNames.Contains(prop.PropertyName))
-            return;
-
-        if (inExpr.Values is { } values)
-        {
-            foreach (var value in values)
-                AddToInConstraints(prop.PropertyName, value);
-        }
-        else if (inExpr.ValuesParameter is { } valuesParameter)
-        {
-            // Runtime collection parameter: the analyzer knows an IN exists even without
-            // static values. Store the parameter expression as the single entry.
-            AddToInConstraints(prop.PropertyName, valuesParameter);
-        }
-    }
-
     // ── SK candidate recording ─────────────────────────────────────────────────
 
     /// <summary>
@@ -515,21 +471,6 @@ internal sealed class DynamoConstraintExtractionVisitor
     }
 
     // ── helpers ────────────────────────────────────────────────────────────────
-
-    /// <summary>
-    /// Adds <paramref name="value"/> to the in-constraint list for <paramref name="propName"/>,
-    /// creating the list on first use.
-    /// </summary>
-    private void AddToInConstraints(string propName, SqlExpression value)
-    {
-        if (!_inConstraints.TryGetValue(propName, out var list))
-        {
-            list = [];
-            _inConstraints[propName] = list;
-        }
-
-        list.Add(value);
-    }
 
     /// <summary>
     /// Tries to extract a <c>(propertyName, valueExpression)</c> pair from either operand

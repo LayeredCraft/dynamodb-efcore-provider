@@ -64,20 +64,8 @@ internal static class DynamoStrings
         "Method calls are not supported in server-side DynamoDB predicate translation.";
 
     /// <summary>Provides functionality for this member.</summary>
-    public const string StringContainsOverloadNotSupported =
-        "Only string.Contains(string) is supported in server-side DynamoDB predicate translation; char and StringComparison overloads are not translated.";
-
-    /// <summary>Provides functionality for this member.</summary>
     public const string StringStartsWithOverloadNotSupported =
         "Only string.StartsWith(string) is supported in server-side DynamoDB predicate translation; char, StringComparison, and culture/ignore-case overloads are not translated.";
-
-    /// <summary>Provides functionality for this member.</summary>
-    public const string ContainsCollectionShapeNotSupported =
-        "Contains translation supports in-memory collection membership only (for example, ids.Contains(entity.Id)).";
-
-    /// <summary>Provides functionality for this member.</summary>
-    public const string ContainsCollectionParameterMustBeEnumerable =
-        "Contains translation requires the collection parameter to implement IEnumerable.";
 
     /// <summary>Provides functionality for this member.</summary>
     public const string MemberAccessNotSupported =
@@ -110,10 +98,4 @@ internal static class DynamoStrings
     /// <summary>Provides functionality for this member.</summary>
     public static string UnsupportedBinaryOperator(ExpressionType operatorType)
         => $"Binary operator '{operatorType}' is not supported by server-side DynamoDB translation.";
-
-    /// <summary>Provides functionality for this member.</summary>
-    public static string InListTooLarge(int maxValues, bool isPartitionKeyComparison)
-        => isPartitionKeyComparison
-            ? $"Contains translation exceeded DynamoDB IN limit of {maxValues} values for partition key comparisons."
-            : $"Contains translation exceeded DynamoDB IN limit of {maxValues} values for non-key comparisons.";
 }

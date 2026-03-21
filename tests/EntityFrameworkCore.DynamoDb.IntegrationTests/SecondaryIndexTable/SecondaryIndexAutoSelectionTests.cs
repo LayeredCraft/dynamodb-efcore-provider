@@ -193,43 +193,6 @@ public class SecondaryIndexAutoSelectionTests(SecondaryIndexDynamoFixture fixtur
 
     // ── IN predicate auto-selection ──────────────────────────────────────────
 
-    /// <summary>
-    /// Verifies that a <c>Contains()</c> predicate on a GSI partition key generates an IN
-    /// constraint that satisfies Gate 1, causing the analyzer to auto-select the GSI.
-    /// </summary>
-    [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public async Task Conservative_ContainsOnGsiPk_AutoSelects_ByStatusIndex()
-    {
-        // Contains() on a GSI PK attribute is translated to an IN constraint by the
-        // constraint extractor, which satisfies Gate 1 (partition-key coverage).
-        var statusList = new List<string> { "PENDING", "SHIPPED" };
-
-        var results =
-            await Db
-                .Orders
-                .Where(o => statusList.Contains(o.Status))
-                .ToListAsync(CancellationToken);
-
-        var expected = OrderItems.Items.Where(o => statusList.Contains(o.Status)).ToList();
-        results.Should().BeEquivalentTo(expected);
-
-        LoggerFactory
-            .QueryDiagnosticEvents
-            .Should()
-            .ContainSingle(e
-                => e.EventId.Id == DynamoEventId.SecondaryIndexSelected.Id
-                && e.Message.Contains(
-                    "Index 'ByStatus' on table 'SecondaryIndexOrders' was auto-selected."));
-
-        AssertSql(
-            """
-            SELECT "CustomerId", "OrderId", "CreatedAt", "Priority", "Region", "Status"
-            FROM "SecondaryIndexOrders"."ByStatus"
-            WHERE "Status" IN [?, ?]
-            """);
-    }
-
     // ── Unsafe OR blocking ────────────────────────────────────────────────────
 
     /// <summary>
@@ -260,7 +223,7 @@ public class SecondaryIndexAutoSelectionTests(SecondaryIndexDynamoFixture fixtur
             .And
             .OnlyContain(e
                 => e.Message.Contains(
-                    "was rejected: no equality or IN constraint on the index partition key."));
+                    "was rejected: no equality constraint on the index partition key."));
 
         // IDX001 summary — no index was selected.
         LoggerFactory
@@ -288,7 +251,7 @@ public class SecondaryIndexAutoSelectionTests(SecondaryIndexDynamoFixture fixtur
         Conservative_WhereOnNonIndexPkAttribute_AllCandidatesRejected_EmitsIdxDiagnostics()
     {
         // Priority is the ByPriority LSI sort key — not a partition key on any index.
-        // All candidates fail Gate 1 (no equality or IN constraint on any index PK).
+        // All candidates fail Gate 1 (no equality constraint on any index PK).
         _ = await Db.Orders.Where(o => o.Priority == 1).ToListAsync(CancellationToken);
 
         // IDX005 for every rejected candidate — all fail on missing PK constraint.
@@ -300,7 +263,7 @@ public class SecondaryIndexAutoSelectionTests(SecondaryIndexDynamoFixture fixtur
             .And
             .OnlyContain(e
                 => e.Message.Contains(
-                    "was rejected: no equality or IN constraint on the index partition key."));
+                    "was rejected: no equality constraint on the index partition key."));
 
         // IDX001 summary.
         LoggerFactory

@@ -152,75 +152,42 @@ public class WhereTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase(
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
+    /// <summary>
+    ///     Verifies that ORDER BY combined with a multi-value OR predicate on the partition key
+    ///     throws, because an OR predicate does not satisfy the single-partition equality constraint
+    ///     required for ORDER BY. Use a single equality constraint (<c>WHERE Pk = value</c>) instead.
+    /// </summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public async Task OrderBy_ThenBy_WithOrPredicate_ReturnsItemsInAscendingOrder()
+    public async Task OrderBy_WithOrPredicate_OnPk_ThrowsProviderError()
     {
-        // DynamoDB PartiQL requires a hash-key condition when using ORDER BY.
-        // We keep ORDER BY strictly on the primary key, but make the predicate non-trivial.
-        var resultItems = await Db
-            .SimpleItems
-            .Where(item => item.Pk == "ITEM#3" || item.Pk == "ITEM#1" || item.Pk == "ITEM#4")
-            .OrderBy(item => item.Pk)
-            .ThenBy(item => item.Pk)
-            .ToListAsync(CancellationToken);
-
-        var expected =
-            SimpleItems
-                .Items
+        var act = async ()
+            => await Db
+                .SimpleItems
                 .Where(item => item.Pk == "ITEM#3" || item.Pk == "ITEM#1" || item.Pk == "ITEM#4")
                 .OrderBy(item => item.Pk)
-                .ThenBy(item => item.Pk)
-                .ToList();
+                .ToListAsync(CancellationToken);
 
-        // DynamoDB Local doesn't reliably return deterministic ordering for these PartiQL scans,
-        // so validate ordering via the generated PartiQL instead of result ordering.
-        resultItems.Should().BeEquivalentTo(expected);
-
-        AssertSql(
-            """
-            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
-            FROM "SimpleItems"
-            WHERE "Pk" = 'ITEM#3' OR "Pk" = 'ITEM#1' OR "Pk" = 'ITEM#4'
-            ORDER BY "Pk" ASC, "Pk" ASC
-            """);
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*partition key*");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
+    /// <summary>
+    ///     Verifies that ORDER BY combined with a mixed AND/OR predicate where the PK constraint is
+    ///     inside an OR throws, because the equality constraint extractor cannot guarantee a single
+    ///     partition. Use a single equality constraint (<c>WHERE Pk = value</c>) instead.
+    /// </summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public async Task
-        OrderByDescending_ThenByDescending_WithAndOrPredicate_ReturnsItemsInExpectedOrder()
+    public async Task OrderByDescending_WithAndOrPredicate_ThrowsProviderError()
     {
-        var resultItems = await Db
-            .SimpleItems
-            .Where(item
-                => (item.Pk == "ITEM#1" || item.Pk == "ITEM#2" || item.Pk == "ITEM#3")
-                && (item.IntValue >= 100 || item.BoolValue == false))
-            .OrderByDescending(item => item.Pk)
-            .ThenByDescending(item => item.Pk)
-            .ToListAsync(CancellationToken);
-
-        var expected =
-            SimpleItems
-                .Items
+        var act = async ()
+            => await Db
+                .SimpleItems
                 .Where(item
                     => (item.Pk == "ITEM#1" || item.Pk == "ITEM#2" || item.Pk == "ITEM#3")
-                    && (item.IntValue >= 100 || !item.BoolValue))
+                    && (item.IntValue >= 100 || item.BoolValue == false))
                 .OrderByDescending(item => item.Pk)
-                .ThenByDescending(item => item.Pk)
-                .ToList();
+                .ToListAsync(CancellationToken);
 
-        resultItems.Should().BeEquivalentTo(expected);
-
-        AssertSql(
-            """
-            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
-            FROM "SimpleItems"
-            WHERE ("Pk" = 'ITEM#1' OR "Pk" = 'ITEM#2' OR "Pk" = 'ITEM#3') AND ("IntValue" >= 100 OR "BoolValue" = FALSE)
-            ORDER BY "Pk" DESC, "Pk" DESC
-            """);
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*partition key*");
     }
 
     /// <summary>Provides functionality for this member.</summary>

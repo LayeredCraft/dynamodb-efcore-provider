@@ -54,13 +54,11 @@ public class DynamoAutoIndexSelectionAnalyzerTests
     /// </summary>
     private static DynamoQueryConstraints MakeConstraints(
         string[]? equalityPks = null,
-        string[]? inPks = null,
         string[]? skConditions = null,
         bool hasUnsafeOr = false,
         string[]? orderings = null)
         => new(
             (equalityPks ?? []).ToDictionary(k => k, _ => (SqlExpression)Const("v")),
-            (inPks ?? []).ToDictionary(k => k, _ => (IReadOnlyList<SqlExpression>)[Const("v")]),
             (skConditions ?? []).ToDictionary(
                 k => k,
                 _ => new SkConstraint(SkOperator.Equal, Const("v"))),
@@ -634,29 +632,6 @@ public class DynamoAutoIndexSelectionAnalyzerTests
         decision.Diagnostics.Should().HaveCount(2);
         decision.Diagnostics[0].Code.Should().Be("DYNAMO_IDX005");
         decision.Diagnostics[1].Code.Should().Be("DYNAMO_IDX001");
-    }
-
-    /// <summary>Provides functionality for this member.</summary>
-    [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public void Conservative_InConstraint_SatisfiesPkGate_AutoSelected()
-    {
-        var candidates = new List<DynamoIndexDescriptor>
-        {
-            MakeDescriptor("CustomerId", indexName: null),
-            MakeDescriptor("Status", "CreatedAt", "ByStatus"),
-        };
-        // IN constraint on Status PK satisfies Gate 1.
-        var constraints = MakeConstraints(inPks: ["Status"]);
-        var ctx = BuildContext(
-            DynamoAutomaticIndexSelectionMode.Conservative,
-            candidates,
-            constraints);
-
-        var decision = Analyzer.Analyze(ctx);
-
-        decision.SelectedIndexName.Should().Be("ByStatus");
-        decision.Reason.Should().Be(DynamoIndexSelectionReason.AutoSelected);
     }
 
     /// <summary>Provides functionality for this member.</summary>

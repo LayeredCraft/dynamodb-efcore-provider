@@ -282,33 +282,14 @@ internal sealed class DynamoQueryTranslationPostprocessor(
             }
         }
 
-        // ── 2. Multi-partition leading-PK check ────────────────────────────────
-        // When the query spans multiple partitions (PK IN (...)), DynamoDB requires the partition
-        // key to lead the ORDER BY chain. Ordering by SK first (or any non-PK attribute first) is
-        // not supported across partitions.
-        var isMultiPartition = pkNames.Any(pk => queryConstraints.InConstraints.ContainsKey(pk));
-        if (isMultiPartition)
-        {
-            var firstOrdering = selectExpression.Orderings[0];
-            if (firstOrdering.Expression is not SqlPropertyExpression firstProp
-                || !pkNames.Contains(firstProp.PropertyName))
-                throw new InvalidOperationException(
-                    $"ORDER BY with a multi-partition query (WHERE partition key IN (...)) requires "
-                    + $"the partition key to appear first in the ORDER BY chain on table "
-                    + $"'{selectExpression.TableName}'. Use .OrderBy(e => e.PartitionKey) or "
-                    + ".OrderBy(e => e.PartitionKey).ThenBy(e => e.SortKey).");
-        }
-
-        // ── 3. Partition-key constraint check ─────────────────────────────────
-        // DynamoDB requires the partition key to be equality or IN-constrained when ORDER BY is
-        // used.
+        // ── 2. Partition-key constraint check ─────────────────────────────────
+        // DynamoDB requires the partition key to be equality-constrained when ORDER BY is used.
         foreach (var pkAttr in pkNames)
-            if (queryConstraints.EqualityConstraints.ContainsKey(pkAttr)
-                || queryConstraints.InConstraints.ContainsKey(pkAttr))
+            if (queryConstraints.EqualityConstraints.ContainsKey(pkAttr))
                 return;
 
         throw new InvalidOperationException(
-            $"ORDER BY requires an equality or IN constraint on the partition key in the WHERE "
+            $"ORDER BY requires an equality constraint on the partition key in the WHERE "
             + $"clause for table '{selectExpression.TableName}'. DynamoDB only supports ordering "
             + "within a single partition. Add a WHERE predicate on the partition key "
             + "(e.g., .Where(e => e.PartitionKey == value)).");

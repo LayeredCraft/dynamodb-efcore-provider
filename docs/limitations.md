@@ -9,7 +9,7 @@ icon: lucide/triangle-alert
 - Synchronous query enumeration.
 - `ToQueryString()` support for the custom querying enumerable.
 - Large parts of LINQ translation surface (see `operators.md`).
-- Method calls in `Where` predicates except supported `Contains` patterns (`string.Contains(string)` and in-memory collection membership); other `string.Contains` overloads (such as `char` or `StringComparison`) are not translated.
+- Method calls in `Where` predicates are not translated. `string.Contains()` (all overloads), collection `Contains()` (e.g. `list.Contains(x.Prop)`), and `Queryable.Contains()` are all unsupported and throw during translation.
 - Provider-side key encoding helpers (prefix/suffix composition).
 - Provider option for `ConsistentRead`.
 

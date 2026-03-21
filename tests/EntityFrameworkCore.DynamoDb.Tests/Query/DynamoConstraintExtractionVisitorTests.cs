@@ -95,7 +95,6 @@ public class DynamoConstraintExtractionVisitorTests
         var result = Extract(null, candidates);
 
         result.EqualityConstraints.Should().BeEmpty();
-        result.InConstraints.Should().BeEmpty();
         result.SkKeyConditions.Should().BeEmpty();
         result.HasUnsafeOr.Should().BeFalse();
         result.OrderingPropertyNames.Should().BeEmpty();
@@ -121,29 +120,7 @@ public class DynamoConstraintExtractionVisitorTests
             .Value
             .Should()
             .Be("foo");
-        result.InConstraints.Should().BeEmpty();
         result.HasUnsafeOr.Should().BeFalse();
-    }
-
-    /// <summary>Provides functionality for this member.</summary>
-    [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public void PkIn_IsExtractedToInConstraints()
-    {
-        // PK IN ["a", "b"]
-        var candidates = new[] { MakeDescriptor("PK") };
-        var inExpr = new SqlInExpression(
-            Prop("PK"),
-            [Const("a"), Const("b")],
-            null,
-            isPartitionKeyComparison: true,
-            null);
-
-        var result = Extract(inExpr, candidates);
-
-        result.InConstraints.Should().ContainKey("PK");
-        result.InConstraints["PK"].Should().HaveCount(2);
-        result.EqualityConstraints.Should().BeEmpty();
     }
 
     /// <summary>Provides functionality for this member.</summary>
@@ -293,16 +270,14 @@ public class DynamoConstraintExtractionVisitorTests
     /// <summary>Provides functionality for this member.</summary>
     [Fact]
     /// <summary>Provides functionality for this member.</summary>
-    public void SafePkOr_AllBranchesSamePk_PopulatesInConstraints_HasUnsafeOrFalse()
+    public void SafePkOr_AllBranchesSamePk_IsFilterOnly_HasUnsafeOrFalse()
     {
-        // WHERE PK = "a" OR PK = "b"
+        // WHERE PK = "a" OR PK = "b" — safe filter-only OR, does not set HasUnsafeOr
         var candidates = new[] { MakeDescriptor("PK") };
         var predicate = Or(BinEq(Prop("PK"), Const("a")), BinEq(Prop("PK"), Const("b")));
 
         var result = Extract(predicate, candidates);
 
-        result.InConstraints.Should().ContainKey("PK");
-        result.InConstraints["PK"].Should().HaveCount(2);
         result.HasUnsafeOr.Should().BeFalse();
         result.EqualityConstraints.Should().NotContainKey("PK");
     }

@@ -64,33 +64,6 @@ public class SqlExpressionFactory(ITypeMappingSource typeMappingSource) : ISqlEx
     }
 
     /// <inheritdoc />
-    public SqlInExpression In(
-        SqlExpression item,
-        IReadOnlyList<SqlExpression> values,
-        bool isPartitionKeyComparison = false)
-    {
-        SqlInExpression.ValidateValueSource(values, null);
-        var mappedItem = ApplyDefaultTypeMapping(item);
-        return new SqlInExpression(mappedItem, values, null, isPartitionKeyComparison, null);
-    }
-
-    /// <inheritdoc />
-    public SqlInExpression In(
-        SqlExpression item,
-        SqlParameterExpression valuesParameter,
-        bool isPartitionKeyComparison = false)
-    {
-        SqlInExpression.ValidateValueSource(null, valuesParameter);
-        var mappedItem = ApplyDefaultTypeMapping(item);
-        return new SqlInExpression(
-            mappedItem,
-            null,
-            valuesParameter,
-            isPartitionKeyComparison,
-            null);
-    }
-
-    /// <inheritdoc />
     public SqlFunctionExpression Function(
         string name,
         IReadOnlyList<SqlExpression> arguments,

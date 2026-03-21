@@ -14,7 +14,7 @@ namespace EntityFrameworkCore.DynamoDb.Query.Internal;
 /// <remarks>
 /// <para>
 /// An index is usable as a key-condition query source only when the WHERE clause contains an
-/// equality (<c>=</c>) or IN constraint on the index's partition key. Sort-key conditions and
+/// equality (<c>=</c>) constraint on the index's partition key. Sort-key conditions and
 /// ordering alignment improve the score but do not gate eligibility. Only indexes with
 /// <c>DynamoSecondaryIndexProjectionType.All</c> projection are considered as a
 /// conservative guardrail until partial-projection coverage is implemented.
@@ -245,7 +245,7 @@ internal sealed class DynamoAutoIndexSelectionAnalyzer : IDynamoIndexSelectionAn
     /// Evaluates all gates required for a descriptor to be a usable key-condition query source,
     /// returning the first failing gate or <c>CandidateGateResult.Passed</c> if all pass:
     /// <list type="number">
-    ///   <item>Gate 1 — PK covered: the constraints include an equality or IN on the index PK.</item>
+    ///   <item>Gate 1 — PK covered: the constraints include an equality on the index PK.</item>
     ///   <item>Gate 2 — Safe OR: the predicate has no unsafe OR that would corrupt result correctness.</item>
     ///   <item>Gate 3 — Projection safety: the index projects ALL attributes.</item>
     /// </list>
@@ -256,9 +256,8 @@ internal sealed class DynamoAutoIndexSelectionAnalyzer : IDynamoIndexSelectionAn
     {
         var pkAttr = descriptor.PartitionKeyProperty.GetAttributeName();
 
-        // Gate 1: index partition key must be covered by an equality or IN constraint.
-        var pkCovered = constraints.EqualityConstraints.ContainsKey(pkAttr)
-            || constraints.InConstraints.ContainsKey(pkAttr);
+        // Gate 1: index partition key must be covered by an equality constraint.
+        var pkCovered = constraints.EqualityConstraints.ContainsKey(pkAttr);
         if (!pkCovered)
             return CandidateGateResult.NoPkConstraint;
 
@@ -287,7 +286,7 @@ internal sealed class DynamoAutoIndexSelectionAnalyzer : IDynamoIndexSelectionAn
         var reason = gateResult switch
         {
             CandidateGateResult.NoPkConstraint =>
-                "no equality or IN constraint on the index partition key",
+                "no equality constraint on the index partition key",
             CandidateGateResult.UnsafeOr =>
                 "predicate contains an unsafe OR that would produce incorrect results",
             CandidateGateResult.ProjectionMismatch =>

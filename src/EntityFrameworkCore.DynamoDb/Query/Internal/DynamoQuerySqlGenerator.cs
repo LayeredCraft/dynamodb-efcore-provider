@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Linq.Expressions;
 using System.Text;
 using Amazon.DynamoDBv2.Model;
@@ -18,10 +17,7 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
     private IReadOnlyDictionary<string, object?>? _parameterValues;
     private SelectExpression? _currentSelectExpression;
 
-    /// <summary>
-    /// Generates a PartiQL query from a SelectExpression.
-    /// Uses runtime parameter values during SQL generation to support dynamic IN expansion.
-    /// </summary>
+    /// <summary>Generates a PartiQL query from a SelectExpression.</summary>
     public DynamoPartiQlQuery Generate(
         SelectExpression selectExpression,
         IReadOnlyDictionary<string, object?> parameterValues)
@@ -192,15 +188,6 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
         AppendParameter(value, sqlParameterExpression.TypeMapping);
 
         return sqlParameterExpression;
-    }
-
-    /// <inheritdoc />
-    protected override Expression VisitSqlIn(SqlInExpression sqlInExpression)
-    {
-        if (sqlInExpression.Values != null)
-            return VisitInlineIn(sqlInExpression);
-
-        return VisitParameterizedIn(sqlInExpression);
     }
 
     /// <inheritdoc />
@@ -413,159 +400,6 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
             ExpressionType.Divide => "/",
             _ => throw new NotSupportedException($"Operator type {operatorType} is not supported"),
         };
-
-    /// <summary>Emits an IN predicate using inline SQL values.</summary>
-    private Expression VisitInlineIn(SqlInExpression sqlInExpression)
-    {
-        var values = sqlInExpression.Values!;
-        if (values.Count == 0)
-        {
-            AppendAlwaysFalsePredicate();
-            return sqlInExpression;
-        }
-
-        var isPartitionKeyComparison = IsPartitionKeyComparison(sqlInExpression);
-        var maxValues = isPartitionKeyComparison ? 50 : 100;
-        ValidateInValueCount(values.Count, maxValues, isPartitionKeyComparison);
-
-        Visit(sqlInExpression.Item);
-        _sql.Append(" IN [");
-
-        for (var i = 0; i < values.Count; i++)
-        {
-            if (i > 0)
-                _sql.Append(", ");
-
-            Visit(values[i]);
-        }
-
-        _sql.Append(']');
-        return sqlInExpression;
-    }
-
-    /// <summary>Emits an IN predicate using runtime parameter expansion.</summary>
-    private Expression VisitParameterizedIn(SqlInExpression sqlInExpression)
-    {
-        if (_parameterValues == null)
-            throw new InvalidOperationException(
-                "Parameter values are unavailable during SQL generation.");
-
-        var valuesParameter = sqlInExpression.ValuesParameter
-            ?? throw new InvalidOperationException("IN expression parameter values are required.");
-
-        if (!_parameterValues.TryGetValue(valuesParameter.Name, out var parameterValue))
-            throw new InvalidOperationException(
-                $"Parameter '{valuesParameter.Name}' not found in parameter values.");
-
-        var isPartitionKeyComparison = IsPartitionKeyComparison(sqlInExpression);
-        var maxValues = isPartitionKeyComparison ? 50 : 100;
-
-        if (parameterValue is null)
-        {
-            AppendAlwaysFalsePredicate();
-            return sqlInExpression;
-        }
-
-        if (parameterValue is string || parameterValue is not IEnumerable enumerable)
-            throw new InvalidOperationException(
-                DynamoStrings.ContainsCollectionParameterMustBeEnumerable);
-
-        var enforceLimitDuringEnumeration = true;
-        if (parameterValue is ICollection collection)
-        {
-            if (collection.Count == 0)
-            {
-                AppendAlwaysFalsePredicate();
-                return sqlInExpression;
-            }
-
-            ValidateInValueCount(collection.Count, maxValues, isPartitionKeyComparison);
-            enforceLimitDuringEnumeration = false;
-        }
-
-        var sqlLengthBeforePredicate = _sql.Length;
-        var parameterCountBeforePredicate = _parameters.Count;
-
-        Visit(sqlInExpression.Item);
-        _sql.Append(" IN [");
-
-        var count = 0;
-
-        foreach (var value in enumerable)
-        {
-            if (enforceLimitDuringEnumeration)
-                ValidateInValueCount(count + 1, maxValues, isPartitionKeyComparison);
-
-            if (count > 0)
-                _sql.Append(", ");
-
-            AppendParameter(value, sqlInExpression.Item.TypeMapping);
-            count++;
-        }
-
-        if (count == 0)
-        {
-            _sql.Length = sqlLengthBeforePredicate;
-
-            if (_parameters.Count > parameterCountBeforePredicate)
-                _parameters.RemoveRange(
-                    parameterCountBeforePredicate,
-                    _parameters.Count - parameterCountBeforePredicate);
-
-            AppendAlwaysFalsePredicate();
-            return sqlInExpression;
-        }
-
-        _sql.Append(']');
-        return sqlInExpression;
-    }
-
-    /// <summary>
-    ///     Determines whether the IN comparison targets an effective partition key for the finalized
-    ///     query source.
-    /// </summary>
-    /// <returns>
-    ///     <c>true</c> when the IN item is a table or selected-index partition key; otherwise
-    ///     <c>false</c>.
-    /// </returns>
-    private bool IsPartitionKeyComparison(SqlInExpression sqlInExpression)
-    {
-        if (_currentSelectExpression is not { } selectExpression)
-            return sqlInExpression.IsPartitionKeyComparison;
-
-        if (selectExpression.EffectivePartitionKeyPropertyNames.Count == 0)
-            return sqlInExpression.IsPartitionKeyComparison;
-
-        return TryGetRootPropertyName(sqlInExpression.Item) is { } propertyName
-            && selectExpression.EffectivePartitionKeyPropertyNames.Contains(propertyName);
-    }
-
-    /// <summary>Tries to resolve the root property name for an IN-item expression.</summary>
-    /// <returns>The root property name when resolvable; otherwise <c>null</c>.</returns>
-    private static string? TryGetRootPropertyName(SqlExpression expression)
-        => expression switch
-        {
-            SqlPropertyExpression propertyExpression => propertyExpression.PropertyName,
-            SqlParenthesizedExpression parenthesizedExpression => TryGetRootPropertyName(
-                parenthesizedExpression.Operand),
-            DynamoScalarAccessExpression scalarAccessExpression =>
-                scalarAccessExpression.Parent is SqlExpression parentSqlExpression
-                    ? TryGetRootPropertyName(parentSqlExpression)
-                    : null,
-            _ => null,
-        };
-
-    /// <summary>Validates IN-list value count against DynamoDB limits.</summary>
-    private static void ValidateInValueCount(
-        int count,
-        int maxValues,
-        bool isPartitionKeyComparison)
-    {
-        if (count > maxValues)
-            // TODO: Consider supporting chunked IN execution or BatchGetItem optimization.
-            throw new InvalidOperationException(
-                DynamoStrings.InListTooLarge(maxValues, isPartitionKeyComparison));
-    }
 
     /// <summary>Appends a parameter placeholder and converted AttributeValue in lockstep.</summary>
     private void AppendParameter(object? value, CoreTypeMapping? typeMapping)

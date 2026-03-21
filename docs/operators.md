@@ -15,7 +15,6 @@ should keep in mind. Add to these sections as support expands.
 - `Select`
 - `OrderBy` / `OrderByDescending`
 - `ThenBy` / `ThenByDescending`
-- `Contains` (supported shapes only)
 - `StartsWith`
 - `Take`
 - `First` / `FirstOrDefault`
@@ -38,7 +37,8 @@ should keep in mind. Add to these sections as support expands.
 - `Join` / `GroupJoin` / `SelectMany` / `LeftJoin` / `RightJoin`
 - `Union` / `Concat` / `Except` / `Intersect`
 - `Distinct`, `Reverse`, `Last` / `LastOrDefault`
-- Method calls in predicates except supported `Contains` and `StartsWith` patterns
+- Method calls in predicates except supported `StartsWith` pattern
+- `string.Contains(string)` and collection `Contains()` (not translated; use explicit equality predicates)
 
 ### Server-side only policy
 - This provider only supports query shapes that can be translated to DynamoDB PartiQL.
@@ -59,7 +59,6 @@ should keep in mind. Add to these sections as support expands.
 | `EF.Functions.IsMissing(prop)` | `IS MISSING` | N/A | Explicit: absent attribute |
 | `EF.Functions.IsNotMissing(prop)` | `IS NOT MISSING` | N/A | Explicit: attribute present |
 | `prop >= a && prop <= b` | PartiQL `prop BETWEEN a AND b` | N/A | Both bounds inclusive; mixed bounds (`>` + `<=`) fall back to two comparisons |
-| `Contains` | PartiQL `contains(...)` or `IN [ ... ]` | N/A | Only `string.Contains(string)` and in-memory collection membership are supported |
 | `string.StartsWith(string)` | `begins_with(attr, <prefix>)` | N/A | Captured values are parameterized; inline literals may be inlined; other overloads are not translated |
 | `Select` | Explicit projection list | Some computed projections can run client-side | No `SELECT *` |
 | Nested owned property path (`x.Profile.Address.City`) | PartiQL dot-notation `"Profile"."Address"."City"` | N/A | Supported in `Where` predicates only; not supported in `Select` projections |
@@ -85,11 +84,9 @@ should keep in mind. Add to these sections as support expands.
   page size (`WithPageSize` or `DefaultPageSize`).
 
 ## DynamoDB PartiQL context (background)
-- PartiQL `SELECT` can behave like a scan unless the `WHERE` clause uses partition-key equality or
-  partition-key `IN`.
-- DynamoDB PartiQL supports operators such as `BETWEEN` (inclusive) and `IN`. The provider
-  translates `BETWEEN` from a matching `>=` + `<=` LINQ pattern on the same property.
-- DynamoDB documents `IN` limits as up to 50 hash-key values or up to 100 non-key values.
+- PartiQL `SELECT` can behave like a scan unless the `WHERE` clause uses partition-key equality.
+- DynamoDB PartiQL supports operators such as `BETWEEN` (inclusive). The provider translates
+  `BETWEEN` from a matching `>=` + `<=` LINQ pattern on the same property.
 - Query predicates do not imply GSI/LSI targeting. The current provider analyzes and executes
   queries against the modeled table key unless and until explicit index-aware execution support is
   added.
@@ -217,23 +214,6 @@ db.Items.Where(x => x.Sk.StartsWith("ORDER#"));
 - DynamoDB `begins_with` only accepts string attributes; numeric or binary attributes will not match.
 - See [DynamoDB begins_with documentation](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ql-functions.beginswith.html).
 
-## Contains
-**Purpose**
-- Check string substring membership or in-memory collection membership.
-
-**Translation**
-- `entity.Name.Contains("Ada")` translates to `contains(Name, ?)`.
-- `ids.Contains(entity.Id)` translates to `Id IN [?, ?, ...]`.
-- Collection membership placeholders are expanded at runtime based on collection size.
-
-**Limitations / DynamoDB quirks**
-- Only `string.Contains(string)` is supported; overloads such as `char` and `StringComparison` are not translated.
-- Only in-memory collection membership is supported (for example `ids.Contains(entity.Id)`).
-- Collection attribute containment (for example `entity.Tags.Contains("x")`) is not supported.
-- Empty collections translate to a constant-false predicate (`1 = 0`).
-- DynamoDB `IN` limits apply: up to 50 partition-key values or up to 100 non-key values.
-- `NULL` collection elements are passed through as DynamoDB `NULL`; DynamoDB evaluation semantics apply.
-
 ## BETWEEN
 **Purpose**
 - Test whether a property value falls within an inclusive range.
@@ -327,43 +307,24 @@ results. Ensure `low <= high` at the call site.
 - Only partition key and sort key attributes are valid ordering columns. Non-key attributes are
   rejected at query compilation with a provider error.
 
-**Single-partition queries** (`WHERE PK = value`):
+**Valid shapes**:
 - `OrderBy(e => e.Pk)` — order by partition key
 - `OrderBy(e => e.Sk)` — order by sort key
 - `OrderBy(e => e.Pk).ThenBy(e => e.Sk)` — order by PK then SK
 - Any `ASC`/`DESC` combination on the above is valid
 
-**Multi-partition queries** (`WHERE PK IN (...)`):
-- The partition key **must lead** the `ORDER BY` chain.
-- `OrderBy(e => e.Pk)` — valid
-- `OrderBy(e => e.Pk).ThenBy(e => e.Sk)` — valid
-- `OrderBy(e => e.Sk)` — **invalid**: partition key must come first
-- `OrderByDescending(e => e.Pk).ThenByDescending(e => e.Sk)` — valid (any direction)
-
 ```csharp
-// Single partition — order by PK or SK
 db.Orders
     .Where(o => o.Pk == "CUSTOMER#42")
     .OrderBy(o => o.Pk)
     .ThenByDescending(o => o.Sk)
     .ToList();
 // ORDER BY "Pk" ASC, "Sk" DESC
-
-// Multi-partition — PK must lead
-var customers = new[] { "CUSTOMER#1", "CUSTOMER#2" };
-db.Orders
-    .Where(o => customers.Contains(o.Pk))
-    .OrderBy(o => o.Pk)
-    .ThenBy(o => o.Sk)
-    .ToList();
-// ORDER BY "Pk" ASC, "Sk" ASC
 ```
 
 **Limitations / DynamoDB quirks**
-- A `WHERE` clause with an equality or IN constraint on the partition key is required; `ORDER BY`
-  without a partition key constraint throws a provider error.
-- For multi-partition queries, the partition key must be the first `ORDER BY` column; ordering by
-  sort key first is not supported.
+- A `WHERE` clause with an equality constraint on the partition key is required; `ORDER BY`
+  without a partition key equality constraint throws a provider error.
 - Non-key attributes in `ORDER BY` always produce a provider error.
 - See [DynamoDB PartiQL SELECT](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ql-reference.select.html) for engine-level ordering behavior.
 

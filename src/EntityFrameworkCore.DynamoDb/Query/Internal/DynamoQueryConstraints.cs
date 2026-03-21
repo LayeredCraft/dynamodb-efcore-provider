@@ -29,7 +29,6 @@ internal sealed record SkConstraint(
 /// </summary>
 internal sealed record DynamoQueryConstraints(
     IReadOnlyDictionary<string, SqlExpression> EqualityConstraints,
-    IReadOnlyDictionary<string, IReadOnlyList<SqlExpression>> InConstraints,
     IReadOnlyDictionary<string, SkConstraint> SkKeyConditions,
     bool HasUnsafeOr,
     IReadOnlySet<string> OrderingPropertyNames);
