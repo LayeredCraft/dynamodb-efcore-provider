@@ -50,12 +50,16 @@ Keep an evaluation-limit concept, but stop pretending it is row-limit semantics.
 Under this model:
 
 - `WithEvaluationLimit(...)` is request tuning only.
-- `Take(n)` means "return the first `n` items in the query's actual order".
+- `Take(n)` means "return the first `n` items in the query's effective backend order".
 - `First*` means `Take(1)`.
-- `Last*` means the last item in the query's order and is only supported when that order is actually
+- `Last*` means the last item in the query's order and is only supported when that order is
   well-defined.
 - If the user specifies `OrderBy(...)` / `OrderByDescending(...)`, the provider honors it.
 - If the user does not specify ordering, the provider leaves ordering alone and does not inject one.
+- Natural ordering is considered reliable only for true DynamoDB queryable access paths that have a
+  sort key (table/index key order; reverse direction maps to low-level forward/reverse traversal).
+- Scan-like shapes and access paths without a sort key are not treated as having a strict ordering
+  guarantee.
 
 By default, unsafe row-limiting shapes fail translation.
 
@@ -118,6 +122,9 @@ var page = await db.Orders
 
 Keyset paging is also a strong future option for ordered key queries.
 
+If this API is added, continuation must use an opaque provider cursor contract rather than exposing
+raw backend tokens.
+
 ## Decision
 
 We will adopt **Option B** as the core model, and keep **Option C** for later.
@@ -131,7 +138,7 @@ We will adopt **Option B** as the core model, and keep **Option C** for later.
 4. Add explicit opt-in for unsafe shapes via `AllowBestEffortRowLimiting`.
 5. Honor explicit ordering when provided, and do not inject ordering when it is not provided.
 6. Support `First*` and `Take` without explicit `OrderBy`; they operate on the backend-returned order
-   of the query.
+   only when the selected access path has a reliable natural order (query + sort key).
 7. Support `Last*` only when the order is well-defined; otherwise require best-effort opt-in or
    reject translation.
 
@@ -154,6 +161,7 @@ hint.
 
 - We are not using request evaluation limits as a substitute for LINQ row semantics.
 - We are not injecting a default ordering when the user did not request one.
+- We are not promising scan order or partition-key-only global order as a strict contract.
 - We are not exposing continuation paging through normal LINQ operators.
 
 ### Follow-on work
@@ -163,6 +171,17 @@ hint.
 - Add diagnostics for unsupported row-limiting shapes.
 - Design explicit paging APIs later if needed.
 
+### Continuation state and cursor contract
+
+- Strict LINQ paths (`Take`, `First*`, `Last*`) keep continuation internal to query execution and do
+  not expose backend pagination state.
+- If/when explicit paging APIs are introduced, the provider returns an opaque cursor token.
+- The opaque cursor encapsulates backend continuation state (currently `NextToken` for PartiQL
+  `ExecuteStatement`; potentially `LastEvaluatedKey` / `ExclusiveStartKey` if low-level query paths
+  are introduced later).
+- Raw backend continuation values are not the public API contract.
+- Cursor design must prevent skipped results across calls when best-effort row limiting is enabled.
+
 ## Rationale
 
 This keeps the model clear:
@@ -171,6 +190,7 @@ This keeps the model clear:
 - **Evaluation limit** describes request behavior.
 - **Best-effort row limiting** is explicit, not hidden.
 - **Paging** stays separate and can be designed like Cosmos `ToPageAsync(...)` later.
+- **Continuation state** is wrapped behind an opaque provider cursor for explicit paging APIs.
 
 This also fits what we learned from other providers:
 
@@ -179,6 +199,12 @@ This also fits what we learned from other providers:
 
 For DynamoDB, keeping these concepts separate matters even more because evaluated item count and
 returned row count can diverge by design.
+
+For ordering specifically, strict assumptions are limited to queryable access paths with sort keys:
+
+- low-level DynamoDB query traversal is key-ordered,
+- direction is controlled by forward/reverse traversal,
+- scan-like paths do not provide a strict ordering guarantee for LINQ semantics.
 
 ## Consequences
 
