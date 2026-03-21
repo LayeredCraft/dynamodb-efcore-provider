@@ -9,7 +9,7 @@
     <PackageVersion Include="AutoFixture.Xunit3" Version="4.19.0"/>
     <PackageVersion Include="AwesomeAssertions" Version="9.4.0"/>
     <PackageVersion Include="AWSSDK.DynamoDBv2" Version="4.0.15"/>
-    <PackageVersion Include="DynamoMapper" Version="1.0.4.25"/>
+    <PackageVersion Include="DynamoMapper" Version="1.0.5.29"/>
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.3"/>
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.102"/>
     <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.3"/>
