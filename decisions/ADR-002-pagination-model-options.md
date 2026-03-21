@@ -24,6 +24,10 @@ This creates two problems:
 - any future paging API can lose rows if it forwards DynamoDB `NextToken` after over-evaluating a
   page
 
+Additionally, exposing an evaluation-limit API at all keeps the conceptual confusion alive even with
+better naming. The `WithPageSize` / `DefaultPageSize` API was the root cause of this confusion and
+should be removed, not renamed.
+
 The provider is not published yet, so breaking changes are acceptable.
 
 ## Options Considered
@@ -45,11 +49,11 @@ honest, such as `WithEvaluationLimit` / `DefaultEvaluationLimit`.
 
 ### Option B: Strict by default, explicit best-effort opt-in
 
-Keep an evaluation-limit concept, but stop pretending it is row-limit semantics.
+Remove the evaluation-limit API entirely. The provider manages request sizing internally based on
+the query shape. LINQ operators are the only row-limiting surface.
 
 Under this model:
 
-- `WithEvaluationLimit(...)` is request tuning only.
 - `Take(n)` means "return the first `n` items in the query's effective backend order".
 - `First*` means `Take(1)`.
 - `Last*` means the last item in the query's order and is only supported when that order is
@@ -132,31 +136,35 @@ We will adopt **Option B** as the core model, and keep **Option C** for later.
 
 ### What we are doing now
 
-1. Rename `WithPageSize` and `DefaultPageSize` to evaluation-oriented names such as
-   `WithEvaluationLimit` and `DefaultEvaluationLimit`.
-2. Treat those APIs strictly as request-tuning controls.
-3. Keep LINQ strict by default: if a row-limiting shape is not safe, fail translation.
-4. Add explicit opt-in for unsafe shapes via `AllowBestEffortRowLimiting`.
-5. Honor explicit ordering when provided, and do not inject ordering when it is not provided.
-6. Support `First*` and `Take` without explicit `OrderBy`; they operate on the backend-returned order
+1. Remove `WithPageSize`, `DefaultPageSize`, and the `FirstAsync(pageSize, ...)` /
+   `FirstOrDefaultAsync(pageSize, ...)` convenience overloads entirely.
+2. Keep LINQ strict by default: if a row-limiting shape is not safe, fail translation.
+3. Add explicit opt-in for unsafe shapes via `AllowBestEffortRowLimiting`.
+4. Honor explicit ordering when provided, and do not inject ordering when it is not provided.
+5. Support `First*` and `Take` without explicit `OrderBy`; they operate on the backend-returned order
    only when the selected access path has a reliable natural order (query + sort key).
-7. Support `Last*` only when the order is well-defined; otherwise require best-effort opt-in or
+6. Support `Last*` only when the order is well-defined; otherwise require best-effort opt-in or
    reject translation.
 
 ### Effective request-limit rule
 
-When a query has both row limiting and request tuning, row limiting wins.
+The provider manages `ExecuteStatementRequest.Limit` internally based on query shape. There is no
+user-facing evaluation-limit API.
 
-- `WithEvaluationLimit(25).Take(10)` -> effective request limit is `10`
-- `WithEvaluationLimit(5).Take(10)` -> effective request limit is `5`, then continue if needed
-- `First*` behaves like `Take(1)`
+**Safe paths** (partition key equality + sort key present):
 
-In other words, the request limit for each call is:
+- `Limit` is set to the number of remaining results needed per request.
+- `Take(10)` sends `Limit = 10` on the first request, `Limit = remaining` on each continuation.
+- `First*` behaves like `Take(1)`.
+- This is efficient: key-ordered traversal finds results immediately, so small limits are correct.
 
-- `min(configured evaluation limit, remaining results needed)`
+**Unsafe paths** (scan-like, `AllowBestEffortRowLimiting` active):
 
-That keeps `Take` / `First*` as the semantic operator and `WithEvaluationLimit(...)` as a tuning
-hint.
+- `Limit` is left unset (DynamoDB default of 1MB per request).
+- Non-key filters may be sparse; capping `Limit` to remaining results would produce many tiny,
+  inefficient requests. DynamoDB's natural page size is the right default here.
+- Users who need fine-grained evaluation-limit control on unsafe paths should use the future
+  explicit paging API (Option C) or the AWS SDK directly.
 
 ### Safe path definition
 
@@ -178,7 +186,8 @@ unsafe shape fails translation unless `AllowBestEffortRowLimiting` is active.
 
 ### What we are not doing now
 
-- We are not using request evaluation limits as a substitute for LINQ row semantics.
+- We are not exposing an evaluation-limit tuning API on the LINQ surface; if needed it belongs in
+  the future explicit paging API (Option C).
 - We are not injecting a default ordering when the user did not request one.
 - We are not promising scan order or partition-key-only global order as a strict contract.
 - We are not exposing continuation paging through normal LINQ operators.
@@ -209,7 +218,7 @@ unsafe shape fails translation unless `AllowBestEffortRowLimiting` is active.
 This keeps the model clear:
 
 - **LINQ operators** describe result semantics.
-- **Evaluation limit** describes request behavior.
+- **Request sizing** is managed internally by the provider, not exposed to callers.
 - **Best-effort row limiting** is explicit, not hidden.
 - **Paging** stays separate and can be designed like Cosmos `ToPageAsync(...)` later.
 - **Continuation state** is wrapped behind an opaque provider cursor for explicit paging APIs.
@@ -240,7 +249,9 @@ For ordering specifically, strict assumptions are limited to queryable access pa
 **Trade-offs:**
 
 - Some currently supported shapes become opt-in or translation failures.
-- Users need to understand the difference between row limiting and evaluation limit.
+- `WithPageSize` / `DefaultPageSize` and their convenience overloads are removed with no direct
+  replacement on the LINQ surface; users who need per-request evaluation tuning must wait for the
+  explicit paging API or use the AWS SDK directly.
 - More diagnostics and documentation work are required.
 
 ## References
