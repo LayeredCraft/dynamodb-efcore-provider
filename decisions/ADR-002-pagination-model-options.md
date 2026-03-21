@@ -151,6 +151,17 @@ We will adopt **Option B** as the core model, and keep **Option C** for later.
 The provider manages `ExecuteStatementRequest.Limit` internally based on query shape. There is no
 user-facing evaluation-limit API.
 
+**Termination conditions (both path types):**
+
+Paging stops when either of the following is true:
+
+1. The requested number of results has been returned to the caller.
+2. DynamoDB returns no `NextToken` — there are no more items to evaluate.
+
+Condition 2 means `Take(n)` may return fewer than `n` results. This is correct behavior, not an
+error. If only 3 items exist and the caller asked for 10, the provider returns 3 and stops. This
+matches standard LINQ and SQL semantics (`SELECT TOP 10` on a 3-row table returns 3).
+
 **Safe paths** (partition key equality + sort key present):
 
 - `Limit` is set to the number of remaining results needed per request.
