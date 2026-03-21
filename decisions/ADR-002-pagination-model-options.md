@@ -69,7 +69,8 @@ Add an explicit escape hatch for users who want Dynamo-style best-effort behavio
 - per-query option: `.AllowBestEffortRowLimiting()`
 
 That opt-in means the caller accepts that non-key filters may require reading forward across requests
-to find enough matches.
+to find enough matches. When enabled, the provider continues paging DynamoDB requests until the
+requested row count is satisfied or results are exhausted — it does not stop at the first page.
 
 Example of a safe query:
 
@@ -157,6 +158,24 @@ In other words, the request limit for each call is:
 That keeps `Take` / `First*` as the semantic operator and `WithEvaluationLimit(...)` as a tuning
 hint.
 
+### Safe path definition
+
+A query shape is **safe** for strict row limiting when both of the following hold:
+
+1. The WHERE clause contains an equality condition on the partition key of the accessed source
+   (base table, GSI, or LSI).
+2. The accessed source has a sort key.
+
+A shape is **unsafe** when either condition fails: no equality on the partition key (scan shape),
+or the source has no sort key.
+
+For GSIs: the GSI's own partition key must be equality-filtered and the GSI must define a sort key.
+An LSI inherits the table partition key, so condition 1 is satisfied when the table partition key
+is equality-filtered.
+
+This definition is the gate for the strict-by-default rule. Any `Take`, `First*`, or `Last*` on an
+unsafe shape fails translation unless `AllowBestEffortRowLimiting` is active.
+
 ### What we are not doing now
 
 - We are not using request evaluation limits as a substitute for LINQ row semantics.
@@ -166,7 +185,10 @@ hint.
 
 ### Follow-on work
 
-- Re-evaluate `WithoutPagination()` under this model.
+- `WithoutPagination()` is deprecated under this model. It will be removed when explicit paging APIs
+  (Option C) are introduced. Until then it remains callable but is documented as: equivalent to
+  `AllowBestEffortRowLimiting()` with a single-page cap. It does not become part of the
+  `AllowBestEffortRowLimiting` opt-in path — it is a temporary survival shim only.
 - Define the exact safe-query rules for `Take`, `First*`, and `Last*`.
 - Add diagnostics for unsupported row-limiting shapes.
 - Design explicit paging APIs later if needed.
