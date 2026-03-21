@@ -6,6 +6,11 @@
       "sourceType": "github",
       "computedHash": "4b524259ec97771c695f2e2404b8e98016ac011e9046642038b6a89f4f5a86fa"
     },
+    "git-workflow": {
+      "source": "LayeredCraft/skills",
+      "sourceType": "github",
+      "computedHash": "71c06cd805ff64045709dba8f7777b8e8d812c186a5450bf3f8e38863abdf031"
+    },
     "zensical-site": {
       "source": "LayeredCraft/skills",
       "sourceType": "github",
