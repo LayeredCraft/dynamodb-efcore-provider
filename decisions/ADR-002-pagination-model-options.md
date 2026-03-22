@@ -59,7 +59,8 @@ honest, such as `WithEvaluationLimit` / `DefaultEvaluationLimit`.
 Remove `Take` entirely. Replace it with a new provider-specific `Limit(n)` method that explicitly
 maps to `ExecuteStatementRequest.Limit`. The name encodes what DynamoDB actually does: evaluate
 `n` items, apply filters, return 0..n results. `Limit(n)` must be a positive integer; values of 0
-or less throw `ArgumentOutOfRangeException` at query construction time.
+or less throw `ArgumentOutOfRangeException`. For constant values this is validated at query
+construction time; for parameterized values it is validated at execution time.
 
 Under this model:
 
@@ -205,7 +206,9 @@ We will adopt **Option B** as the core model, and keep **Option C** for later.
    request. No paging. Works on any query shape. `n` must be positive; 0 or negative throws
    `ArgumentOutOfRangeException`. For constant values this validation occurs at query construction
    time. For parameterized values (e.g. `Limit(userInput)` where `userInput` is a variable), the
-   value is not known until execution and validation occurs at query execution time.
+   value is not known until execution and validation occurs at query execution time. When multiple
+   `Limit(n)` calls are chained, the last one wins — each call overwrites the previous value on
+   the `SelectExpression`.
 6. Restrict `First*` to safe key-only queries by default (PK equality, key predicates only). Any
    `First*` beyond this shape — non-key filters, scan-like paths, or both — requires explicit
    opt-in via `WithNonKeyFilter()`.
@@ -222,7 +225,8 @@ We will adopt **Option B** as the core model, and keep **Option C** for later.
    request. Every evaluated item is guaranteed to match, so this is both correct and efficient.
    Without `OrderBy`, the result is the first item in ascending sort key order (DynamoDB's natural
    forward traversal). With `OrderByDescending`, the provider emits ORDER BY and the result is the
-   first item in descending sort key order.
+   first item in descending sort key order. For sources with no sort key, ordering is irrelevant —
+   PK equality selects a single-item partition, so the result is that item regardless of direction.
 10. `Last*` is not supported in this iteration. Translation always fails. Enabling it requires
     implementing reverse traversal (equivalent to `ScanIndexForward = false`) and is deferred to
     follow-on work.
