@@ -18,15 +18,20 @@ The current provider mixes two different ideas:
 That is problematic because DynamoDB `ExecuteStatementRequest.Limit` is not SQL `LIMIT`. It caps how
 many items DynamoDB evaluates in a request, not how many rows the query logically returns.
 
-This creates two problems:
+This creates a fundamental semantic mismatch:
 
-- normal LINQ operators can drift into provider-managed trimming instead of strict EF semantics
-- any future paging API can lose rows if it forwards DynamoDB `NextToken` after over-evaluating a
-  page
+- `Take(n)` in EF Core means "return n rows." Standard LINQ contract.
+- DynamoDB `Limit` means "evaluate n items." Items that do not match a non-key filter are evaluated
+  but not returned.
 
-Additionally, exposing an evaluation-limit API at all keeps the conceptual confusion alive even with
-better naming. The `WithPageSize` / `DefaultPageSize` API was the root cause of this confusion and
-should be removed, not renamed.
+When `Take(n)` maps to `Limit = n` in DynamoDB, a query with a non-key filter silently returns
+fewer than `n` rows even when more matching rows exist later in the partition. The caller has no
+way to distinguish "fewer rows because none exist" from "fewer rows because the evaluation budget
+ran out early."
+
+Additionally, the current `WithPageSize` / `DefaultPageSize` API exposes DynamoDB's internal
+evaluation-limit concept as a per-request tuning knob. This belongs to the future explicit paging
+API (Option C), not the LINQ surface. These should be removed, not renamed.
 
 The provider is not published yet, so breaking changes are acceptable.
 
@@ -45,66 +50,108 @@ honest, such as `WithEvaluationLimit` / `DefaultEvaluationLimit`.
 **Cons:**
 
 - Keeps implicit provider-side row limiting.
+- Does not solve the semantic mismatch between EF Core's `Take` contract and DynamoDB's evaluation
+  budget.
 - Does not solve the paging model.
 
-### Option B: Strict by default, explicit best-effort opt-in
+### Option B: Remove `Take`, introduce `Limit(n)`, strict by default
 
-Remove the evaluation-limit API entirely. The provider manages request sizing internally based on
-the query shape. LINQ operators are the only row-limiting surface.
+Remove `Take` entirely. Replace it with a new provider-specific `Limit(n)` method that explicitly
+maps to `ExecuteStatementRequest.Limit`. The name encodes what DynamoDB actually does: evaluate
+`n` items, apply filters, return 0..n results. `Limit(n)` must be a positive integer; values of 0
+or less throw `ArgumentOutOfRangeException` at query construction time.
 
 Under this model:
 
-- `Take(n)` means "return the first `n` items in the query's effective backend order".
-- `First*` means `Take(1)`.
-- `Last*` means the last item in the query's order and is only supported when that order is
-  well-defined.
-- If the user specifies `OrderBy(...)` / `OrderByDescending(...)`, the provider honors it.
-- If the user does not specify ordering, the provider leaves ordering alone and does not inject one.
-- Natural ordering is considered reliable only for true DynamoDB queryable access paths that have a
-  sort key (table/index key order; reverse direction maps to low-level forward/reverse traversal).
-- Scan-like shapes and access paths without a sort key are not treated as having a strict ordering
-  guarantee.
+- **`Limit(n)`** means "evaluate n items, apply any non-key filter, return whatever matches." A
+  single request. No paging. The result count is 0..n. This is the correct mental model for
+  DynamoDB's evaluation budget. It works on any query shape — safe path or scan-like — because
+  the cost is always bounded to one request.
+- **`First*` / `Last*`** are restricted to key-only queries by default. When non-key filters are
+  present, they require explicit opt-in via `WithNonKeyFilter()`. `WithNonKeyFilter()` is a
+  **permission flag** — it removes the translation restriction that prevents non-key predicates
+  in `First*`/`Last*` queries. It does not change execution behavior: evaluation budget comes from
+  `Limit(n)` if specified, or DynamoDB's default (1MB) otherwise. Single request. No paging.
+  The caller accepts that a match may not be found if the filter is sparse and the evaluation
+  budget is small.
+- **`WithNonKeyFilter()` is only required for `First*` / `Last*`.** `ToListAsync()` and other
+  multi-result terminals work with non-key filters freely and need no opt-in.
+- **`First*` / `Last*` on scan-like shapes** (no PK equality) are a translation failure. A full
+  table scan to find the first match is not a supported access pattern.
+- **`Last*`** is not supported in this iteration. Enabling it requires implementing reverse
+  traversal and is deferred to follow-on work.
 
-By default, unsafe row-limiting shapes fail translation.
+Remove the evaluation-limit tuning API entirely. `WithPageSize` / `DefaultPageSize` are removed.
+The per-page-budget-with-paging use case ("`WithPageSize(n)` + `ToListAsync()`") is explicitly
+deferred to Option C's `ToDynamoPageAsync(evaluationLimit: n, ...)` API. For collecting all
+results, the provider uses DynamoDB's 1MB default per page, which minimises round trips.
 
-Add an explicit escape hatch for users who want Dynamo-style best-effort behavior:
-
-- global option: `AllowBestEffortRowLimiting`
-- per-query option: `.AllowBestEffortRowLimiting()`
-
-That opt-in means the caller accepts that non-key filters may require reading forward across requests
-to find enough matches. When enabled, the provider continues paging DynamoDB requests until the
-requested row count is satisfied or results are exhausted — it does not stop at the first page.
-
-Example of a safe query:
+Example of a safe key-only query with evaluation budget:
 
 ```csharp
+// Evaluate 10 items, all match (key-only), return 10.
+var orders = await db.Orders
+    .Where(x => x.UserId == userId && x.OrderId >= "2024")
+    .Limit(10)
+    .ToListAsync(cancellationToken);
+```
+
+Example of a scan-like query with evaluation budget:
+
+```csharp
+// Evaluate 25 items from a full scan, apply IsActive filter, return 0..25.
+var orders = await db.Orders
+    .Where(x => x.IsActive)
+    .Limit(25)
+    .ToListAsync(cancellationToken);
+```
+
+Example of `First*` — key-only, no opt-in needed:
+
+```csharp
+// Natural key order, single result, no opt-in needed.
 var latest = await db.Orders
-    .Where(x => x.TenantId == tenantId)
-    .OrderByDescending(x => x.CreatedAt)
+    .Where(x => x.UserId == userId)
+    .OrderByDescending(x => x.OrderId)
     .FirstOrDefaultAsync(cancellationToken);
 ```
 
-Example of an unsafe query that would require explicit opt-in:
+Example of `First*` with non-key filter — explicit opt-in:
 
 ```csharp
-var items = await db.Orders
-    .Where(x => x.TenantId == tenantId && x.IsActive)
-    .AllowBestEffortRowLimiting()
-    .Take(10)
-    .ToListAsync(cancellationToken);
+// WithNonKeyFilter() permits the non-key predicate. Limit(50) sets evaluation budget.
+// Single request. Returns first match within the evaluated range or null.
+var active = await db.Orders
+    .Where(x => x.UserId == userId && x.IsActive)
+    .WithNonKeyFilter()
+    .Limit(50)
+    .FirstOrDefaultAsync(cancellationToken);
+```
+
+Example of `First*` with non-key filter, no explicit budget:
+
+```csharp
+// WithNonKeyFilter() permits the non-key predicate.
+// No Limit(n) — DynamoDB evaluates up to its 1MB default. Single request.
+var active = await db.Orders
+    .Where(x => x.UserId == userId && x.IsActive)
+    .WithNonKeyFilter()
+    .FirstOrDefaultAsync(cancellationToken);
 ```
 
 **Pros:**
 
-- Keeps normal LINQ semantics strict by default.
-- Makes the Dynamo-specific trade-off explicit.
-- Still gives users a practical escape hatch when they want it.
+- Eliminates the EF Core `Take` vs DynamoDB `Limit` semantic mismatch entirely.
+- `Limit(n)` name encodes exactly what DynamoDB does — no ambiguity.
+- `First*` stay correct for key-only queries with no special opt-in.
+- Non-key filter permission is always explicit via `WithNonKeyFilter()`, never implicit.
+- No `WithBestEffortRowLimiting()` needed.
 
 **Cons:**
 
-- Some current query shapes become translation failures by default.
-- Requires clear diagnostics and docs.
+- `Take` is removed entirely — callers must migrate to `Limit(n)`.
+- `WithPageSize` / `DefaultPageSize` and `WithoutPagination` are removed.
+- Requires clear diagnostics, migration guidance, and documentation.
 
 ### Option C: Explicit paging APIs later
 
@@ -125,7 +172,8 @@ var page = await db.Orders
     .ToDynamoPageAsync(evaluationLimit: 20, continuationToken: token, cancellationToken);
 ```
 
-Keyset paging is also a strong future option for ordered key queries.
+Keyset paging is also a strong future option for ordered key queries. This is also where the
+per-page evaluation budget (the old `WithPageSize` use case) belongs.
 
 If this API is added, continuation must use an opaque provider cursor contract rather than exposing
 raw backend tokens.
@@ -136,101 +184,170 @@ We will adopt **Option B** as the core model, and keep **Option C** for later.
 
 ### What we are doing now
 
-1. Remove `WithPageSize`, `DefaultPageSize`, and the `FirstAsync(pageSize, ...)` /
-   `FirstOrDefaultAsync(pageSize, ...)` convenience overloads entirely.
-2. Keep LINQ strict by default: if a row-limiting shape is not safe, fail translation.
-3. Add explicit opt-in for unsafe shapes via `AllowBestEffortRowLimiting`.
-4. Honor explicit ordering when provided, and do not inject ordering when it is not provided.
-5. Support `First*` and `Take` without explicit `OrderBy`; they operate on the backend-returned order
-   only when the selected access path has a reliable natural order (query + sort key).
-6. Support `Last*` only when the order is well-defined; otherwise require best-effort opt-in or
-   reject translation.
+1. Remove `Take` entirely. It has the wrong semantics for DynamoDB — EF Core's `Take(n)` contract
+   promises n rows returned, but DynamoDB's `Limit` caps items evaluated. The gap causes silent
+   correctness problems with non-key filters.
+2. Remove `WithPageSize`, `DefaultPageSize`, and the `FirstAsync(pageSize, ...)` /
+   `FirstOrDefaultAsync(pageSize, ...)` convenience overloads entirely. The per-page-budget-with-
+   paging use case is deferred to Option C; using DynamoDB's 1MB default is the correct choice for
+   `ToListAsync()` paths (fewer round trips).
+3. Remove `WithBestEffortRowLimiting()` entirely. It existed solely to make `Take` work on
+   scan-like shapes. With `Take` gone, `Limit(n)` handles bounded scan-like evaluation without
+   opt-in.
+4. Remove `WithoutPagination()`. Its single-page use case is now expressed via `Limit(n)` directly.
+5. Introduce `Limit(n)` as a provider-specific operator that maps directly to
+   `ExecuteStatementRequest.Limit`. Evaluates `n` items, applies any filters, returns 0..n. Single
+   request. No paging. Works on any query shape. `n` must be positive; 0 or negative throws
+   `ArgumentOutOfRangeException` at query construction time.
+6. Restrict `First*` to key-only queries by default. If a non-key filter is present, translation
+   fails unless the caller opts in via `WithNonKeyFilter()`.
+7. `WithNonKeyFilter()` is a permission flag. It removes the translation restriction that blocks
+   non-key predicates in `First*` queries. Execution is unchanged: evaluation budget is `n` from
+   `Limit(n)` if present, or DynamoDB's 1MB default otherwise. Single request. No paging.
+   `WithNonKeyFilter()` applied to a key-only query (no non-key predicates) is silently accepted
+   as a no-op.
+8. `WithNonKeyFilter()` is only required for `First*`. `ToListAsync()` and other multi-result
+   terminals accept non-key filters without any opt-in.
+9. `First*` on scan-like shapes (no PK equality) is a translation failure with no opt-in path.
+   Use `Limit(n)` or `ToListAsync()` instead.
+10. `Last*` is not supported in this iteration. Translation always fails. Enabling it requires
+    implementing reverse traversal (equivalent to `ScanIndexForward = false`) and is deferred to
+    follow-on work.
+11. Honor explicit ordering when provided, and do not inject ordering when it is not provided.
+12. Support `First*` on key-only queries without explicit `OrderBy`; they operate on the
+    backend-returned order only when the selected access path has a reliable natural order (query +
+    sort key). The provider sets `Limit = 1` in the request for key-only `First*` queries — every
+    evaluated item is guaranteed to match.
+
+### Row-limiting shapes reference
+
+| Shape | API | Behaviour |
+|---|---|---|
+| Any query with evaluation budget | `.Limit(n)` | Evaluate n items, filter, return 0..n. Single request. |
+| `First*`, key-only | `First*` | Provider sets `Limit = 1`. Key order. Single result. |
+| `First*`, non-key filter, safe path | `First*` + `.WithNonKeyFilter()` | Non-key predicate permitted. Budget from `Limit(n)` or 1MB default. Single request. |
+| `First*`, non-key filter, safe path + explicit budget | `First*` + `.WithNonKeyFilter()` + `.Limit(n)` | Non-key predicate permitted. Evaluate n items. Single request. |
+| `First*`, scan-like (no PK equality) | — | Translation failure |
+| `Last*` | — | Not supported in this iteration |
 
 ### Effective request-limit rule
 
 The provider manages `ExecuteStatementRequest.Limit` internally based on query shape. There is no
 user-facing evaluation-limit API.
 
-**Termination conditions (both path types):**
+**`Limit(n)` queries (any shape):**
 
-Paging stops when either of the following is true:
+Exactly one request is sent with `Limit = n`. Returning fewer than `n` results is correct — it
+means the filter eliminated some evaluated items, or fewer than `n` items exist in the evaluated
+range. There is no paging.
 
-1. The requested number of results has been returned to the caller.
-2. DynamoDB returns no `NextToken` — there are no more items to evaluate.
+**Key-only `First*`:**
 
-Condition 2 means `Take(n)` may return fewer than `n` results. This is correct behavior, not an
-error. If only 3 items exist and the caller asked for 10, the provider returns 3 and stops. This
-matches standard LINQ and SQL semantics (`SELECT TOP 10` on a 3-row table returns 3).
+`Limit` is set to `1`. Every item DynamoDB evaluates is guaranteed to match — result count is
+0 or 1.
 
-**Safe paths** (partition key equality + sort key present):
+**`First*` with `WithNonKeyFilter()`:**
 
-- `Limit` is set to the number of remaining results needed per request.
-- `Take(10)` sends `Limit = 10` on the first request, `Limit = remaining` on each continuation.
-- `First*` behaves like `Take(1)`.
-- This is efficient: key-ordered traversal finds results immediately, so small limits are correct.
+`Limit` is set from `Limit(n)` if present; otherwise left unset (DynamoDB 1MB default). Single
+request. No paging. If no match is found within the evaluated range, null/default is returned.
+The caller accepts this trade-off when opting in via `WithNonKeyFilter()`.
 
-**Unsafe paths** (scan-like, `AllowBestEffortRowLimiting` active):
+**`ToListAsync()` (any shape):**
 
-- `Limit` is left unset (DynamoDB default of 1MB per request).
-- Non-key filters may be sparse; capping `Limit` to remaining results would produce many tiny,
-  inefficient requests. DynamoDB's natural page size is the right default here.
-- Users who need fine-grained evaluation-limit control on unsafe paths should use the future
-  explicit paging API (Option C) or the AWS SDK directly.
+`Limit` is left unset. The provider pages automatically until `NextToken` is absent, collecting
+all matching results. Per-request evaluation granularity is managed internally (DynamoDB 1MB
+default). Fine-grained per-page control is deferred to Option C.
 
 ### Safe path definition
 
-A query shape is **safe** for strict row limiting when both of the following hold:
+A query shape is **safe** for `First*` without opt-in when the following holds:
 
 1. The WHERE clause contains an equality condition on the partition key of the accessed source
    (base table, GSI, or LSI).
-2. The accessed source has a sort key.
+2. The WHERE clause contains **only key predicates** (partition key and/or sort key conditions).
+   No non-key attribute filters.
 
-A shape is **unsafe** when either condition fails: no equality on the partition key (scan shape),
-or the source has no sort key.
+**Special case — no sort key:** When the accessed source has no sort key, each partition contains
+at most one item. In that case `First*` on PK equality is always a point lookup and is safe
+regardless of whether non-key filters are present. `WithNonKeyFilter()` is still silently accepted
+but not required.
 
-For GSIs: the GSI's own partition key must be equality-filtered and the GSI must define a sort key.
-An LSI inherits the table partition key, so condition 1 is satisfied when the table partition key
-is equality-filtered.
+When condition 2 fails (non-key filter present on a source with a sort key), `First*` requires
+`WithNonKeyFilter()` to proceed.
 
-This definition is the gate for the strict-by-default rule. Any `Take`, `First*`, or `Last*` on an
-unsafe shape fails translation unless `AllowBestEffortRowLimiting` is active.
+When condition 1 fails (no PK equality — scan-like), `First*` is a translation failure with no
+opt-in path. Use `Limit(n)` for bounded evaluation on scan-like shapes, or `ToListAsync()` for
+full traversal.
+
+For GSIs: the GSI's own partition key must be equality-filtered. An LSI inherits the table
+partition key, so condition 1 is satisfied when the table partition key is equality-filtered.
+
+The ordering guarantee on safe paths holds because the provider enforces at translation time that
+`OrderBy` / `OrderByDescending` may only reference key attributes (partition key or sort key) of
+the active query source. Ordering by non-key attributes is rejected as a translation error
+regardless of path safety, since DynamoDB cannot globally order by arbitrary attributes across
+pages.
 
 ### What we are not doing now
 
-- We are not exposing an evaluation-limit tuning API on the LINQ surface; if needed it belongs in
-  the future explicit paging API (Option C).
+- We are not keeping `Take`. It is removed because it has the wrong semantics for DynamoDB.
+- We are not keeping `WithBestEffortRowLimiting()`. It existed solely to make `Take` work on
+  scan-like shapes. With `Take` gone, `Limit(n)` handles bounded scan-like evaluation without
+  opt-in.
+- We are not exposing a per-page evaluation-limit API on the LINQ surface. The per-page-budget-
+  with-paging use case (`WithPageSize`) is deferred to Option C.
+- We are not implementing `Last*` in this iteration.
 - We are not injecting a default ordering when the user did not request one.
 - We are not promising scan order or partition-key-only global order as a strict contract.
 - We are not exposing continuation paging through normal LINQ operators.
 
 ### Follow-on work
 
-- `WithoutPagination()` is deprecated under this model. It will be removed when explicit paging APIs
-  (Option C) are introduced. Until then it remains callable but is documented as: equivalent to
-  `AllowBestEffortRowLimiting()` with a single-page cap. It does not become part of the
-  `AllowBestEffortRowLimiting` opt-in path — it is a temporary survival shim only.
-- Define the exact safe-query rules for `Take`, `First*`, and `Last*`.
-- Add diagnostics for unsupported row-limiting shapes.
-- Design explicit paging APIs later if needed.
+- Implement `Last*` for well-ordered paths. Requires reverse traversal equivalent to DynamoDB's
+  `ScanIndexForward = false`. Until implemented, `Last*` always fails translation.
+- Define the exact safe-query translation error messages for `Limit(n)`, `First*`, and `Last*`.
+- Add diagnostics for unsupported row-limiting shapes (e.g. `First*` on scan-like paths).
+- Emit a diagnostic warning for `WithNonKeyFilter()` when no match is found and the evaluation
+  budget was exhausted (i.e. the result was null due to budget, not absence of data).
+- Design explicit paging APIs later if needed (Option C), including the per-page evaluation budget
+  use case previously served by `WithPageSize`.
+- Remove the following infrastructure coupled to the old model:
+  - `DynamoDbOptionsExtension.DefaultPageSize` and `DynamoDbContextOptionsBuilder.DefaultPageSize()`
+  - `DynamoQueryCompilationContext`: `PageSizeOverride`, `PageSizeOverrideExpression`, `SinglePageOnly`
+  - `SelectExpression`: `PageSize`, `PageSizeExpression`, `ApplyPageSize()` — replaced by
+    `Limit` / `LimitExpression` for the new `Limit(n)` operator
+  - `SelectExpression`: `ResultLimit`, `ResultLimitExpression`, `ApplyOrCombineResultLimitExpression()`
+    — removed with `Take`
+  - `QueryingEnumerable`: `_resultLimit` counter and `_pageSize` field
+  - `DynamoClientWrapper.ExecutePartiQl`: `singlePageOnly` parameter — tied to `WithoutPagination()`
 
 ### Continuation state and cursor contract
 
-- Strict LINQ paths (`Take`, `First*`, `Last*`) keep continuation internal to query execution and do
-  not expose backend pagination state.
+- `Limit(n)` queries send a single request and have no continuation state.
+- `First*` with or without `WithNonKeyFilter()` sends a single request and has no continuation
+  state exposed to the caller.
+- `ToListAsync()` manages continuation internally via `NextToken` and does not expose it.
 - If/when explicit paging APIs are introduced, the provider returns an opaque cursor token.
 - The opaque cursor encapsulates backend continuation state (currently `NextToken` for PartiQL
   `ExecuteStatement`; potentially `LastEvaluatedKey` / `ExclusiveStartKey` if low-level query paths
   are introduced later).
 - Raw backend continuation values are not the public API contract.
-- Cursor design must prevent skipped results across calls when best-effort row limiting is enabled.
 
 ## Rationale
 
 This keeps the model clear:
 
-- **LINQ operators** describe result semantics.
+- **`Limit(n)`** describes an evaluation budget — exactly what DynamoDB's `Limit` parameter does.
+  The name makes the DynamoDB semantic explicit rather than hiding it behind EF Core's `Take`
+  contract. Because it is always a single request, it needs no opt-in on any query shape.
+- **`First*`** operates on key order for key-only queries, where results are globally ordered and
+  every evaluated item matches. Non-key filter permission is always explicit via `WithNonKeyFilter()`
+  — it unlocks the non-key predicate but does not change execution behavior.
+- **`WithBestEffortRowLimiting()`** is retired because the problem it solved only existed because
+  `Take(n)` had the wrong semantics.
+- **`WithPageSize`** is retired because per-page evaluation granularity belongs to Option C's
+  explicit paging API, not the LINQ surface. The 1MB default is correct for `ToListAsync()`.
 - **Request sizing** is managed internally by the provider, not exposed to callers.
-- **Best-effort row limiting** is explicit, not hidden.
 - **Paging** stays separate and can be designed like Cosmos `ToPageAsync(...)` later.
 - **Continuation state** is wrapped behind an opaque provider cursor for explicit paging APIs.
 
@@ -240,7 +357,8 @@ This also fits what we learned from other providers:
 - Mongo relies on backend query semantics and does not expose provider paging for normal LINQ.
 
 For DynamoDB, keeping these concepts separate matters even more because evaluated item count and
-returned row count can diverge by design.
+returned row count can diverge by design. Removing `Take` eliminates the divergence entirely for
+the common case rather than papering over it with opt-ins.
 
 For ordering specifically, strict assumptions are limited to queryable access paths with sort keys:
 
@@ -252,17 +370,22 @@ For ordering specifically, strict assumptions are limited to queryable access pa
 
 **Positive:**
 
-- Easier-to-explain semantics.
-- Strict-by-default LINQ behavior.
-- Explicit escape hatch for Dynamo-style behavior.
+- Eliminates the EF Core `Take` vs DynamoDB evaluation-budget mismatch.
+- `Limit(n)` name encodes exactly what happens — no hidden semantics.
+- Strict-by-default LINQ behavior for `First*`.
+- Non-key filter permission is always explicit via `WithNonKeyFilter()`.
+- No `WithBestEffortRowLimiting()` or `WithPageSize` to explain — the opt-in surface is small and
+  focused.
 - Clean path to future paging APIs.
 
 **Trade-offs:**
 
-- Some currently supported shapes become opt-in or translation failures.
-- `WithPageSize` / `DefaultPageSize` and their convenience overloads are removed with no direct
-  replacement on the LINQ surface; users who need per-request evaluation tuning must wait for the
-  explicit paging API or use the AWS SDK directly.
+- `Take` is removed with no direct replacement on the LINQ surface. Callers who need a row count
+  guarantee must wait for the explicit paging API (Option C).
+- `WithPageSize` / `DefaultPageSize`, their convenience overloads, `WithBestEffortRowLimiting()`,
+  and `WithoutPagination()` are all removed. Users who need per-request evaluation granularity
+  must use the explicit paging API (Option C) or the AWS SDK directly.
+- `Last*` is not supported in this iteration.
 - More diagnostics and documentation work are required.
 
 ## References
