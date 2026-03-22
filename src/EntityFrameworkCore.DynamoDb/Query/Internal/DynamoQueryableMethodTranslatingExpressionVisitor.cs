@@ -132,7 +132,8 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
 
         var discriminatorPredicate = CreateDiscriminatorPredicate(entityType, entityProjection);
         if (discriminatorPredicate is not null)
-            queryExpression.SetDeferredDiscriminatorPredicate(discriminatorPredicate);
+            queryExpression.SetDeferredDiscriminatorPredicate(
+                new SqlDiscriminatorPredicateExpression(discriminatorPredicate));
 
         // Store entity projection in projection mapping under root ProjectionMember
         var projectionMapping = new Dictionary<ProjectionMember, Expression>

@@ -146,6 +146,63 @@ public class FirstOrDefaultSafePathTests
         await act.Should().NotThrowAsync<InvalidOperationException>();
     }
 
+    // ── Inheritance / shared-table (discriminator regression) ───────────────
+
+    [Fact]
+    public async Task FirstOrDefault_InheritanceHierarchy_PkAndSkEquality_Succeeds()
+    {
+        // Regression: the provider-injected discriminator predicate (Discriminator = 'ChildItem')
+        // must not cause the First* validator to reject an otherwise key-only query.
+        var client = Substitute.For<IAmazonDynamoDB>();
+        await using var context = InheritanceDbContext.Create(client);
+
+        var act = async ()
+            => await context
+                .Children
+                .Where(x => x.Pk == "P#1" && x.Sk == "S#1")
+                .FirstOrDefaultAsync(TestContext.Current.CancellationToken);
+
+        await act.Should().NotThrowAsync<InvalidOperationException>();
+    }
+
+    [Fact]
+    public async Task FirstOrDefault_InheritanceHierarchy_PkOnly_Succeeds()
+    {
+        // PK-only on SK table with discriminator: allowed per safe-path rules.
+        // Returns the first item in the partition that matches the discriminator.
+        var client = Substitute.For<IAmazonDynamoDB>();
+        await using var context = InheritanceDbContext.Create(client);
+
+        var act = async ()
+            => await context
+                .Children
+                .Where(x => x.Pk == "P#1")
+                .FirstOrDefaultAsync(TestContext.Current.CancellationToken);
+
+        await act.Should().NotThrowAsync<InvalidOperationException>();
+    }
+
+    [Fact]
+    public async Task FirstOrDefault_InheritanceHierarchy_NonKeyUserFilter_Throws()
+    {
+        // User-supplied non-key filter must still throw even on an inheritance hierarchy.
+        var client = Substitute.For<IAmazonDynamoDB>();
+        await using var context = InheritanceDbContext.Create(client);
+
+        var act = async ()
+            => await context
+                .Children
+                .Where(x => x.Pk == "P#1" && x.Label == "active")
+                .FirstOrDefaultAsync(TestContext.Current.CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*AsAsyncEnumerable*");
+
+        await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
     // ── Support types ────────────────────────────────────────────────────────
 
     /// <summary>Entity with partition key and sort key.</summary>
@@ -201,6 +258,51 @@ public class FirstOrDefaultSafePathTests
         public static SafePathDbContext Create(IAmazonDynamoDB client)
             => new(
                 new DbContextOptionsBuilder<SafePathDbContext>()
+                    .UseDynamo(options => options.DynamoDbClient(client))
+                    .ConfigureWarnings(w
+                        => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                    .Options);
+    }
+
+    /// <summary>Abstract base for a TPH inheritance hierarchy on a shared DynamoDB table.</summary>
+    private abstract record BaseItem
+    {
+        /// <summary>Provides functionality for this member.</summary>
+        public string Pk { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
+        public string Sk { get; set; } = null!;
+    }
+
+    /// <summary>Derived type — carries a non-key attribute to test user filter rejection.</summary>
+    private sealed record ChildItem : BaseItem
+    {
+        /// <summary>Non-key attribute used to verify that user-supplied non-key filters still throw.</summary>
+        public string Label { get; set; } = null!;
+    }
+
+    private sealed class InheritanceDbContext(DbContextOptions options) : DbContext(options)
+    {
+        /// <summary>Provides functionality for this member.</summary>
+        public DbSet<ChildItem> Children => Set<ChildItem>();
+
+        /// <summary>Provides functionality for this member.</summary>
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<BaseItem>(b =>
+            {
+                b.ToTable("InheritanceTable");
+                b.HasPartitionKey(x => x.Pk);
+                b.HasSortKey(x => x.Sk);
+            });
+
+            modelBuilder.Entity<ChildItem>(b => b.HasBaseType<BaseItem>());
+        }
+
+        /// <summary>Provides functionality for this member.</summary>
+        public static InheritanceDbContext Create(IAmazonDynamoDB client)
+            => new(
+                new DbContextOptionsBuilder<InheritanceDbContext>()
                     .UseDynamo(options => options.DynamoDbClient(client))
                     .ConfigureWarnings(w
                         => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))

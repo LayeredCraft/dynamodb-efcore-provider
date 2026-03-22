@@ -430,6 +430,9 @@ internal sealed class DynamoQueryTranslationPostprocessor(
             SqlInExpression inExpr => ContainsNonKeyProperty(inExpr.Item, keyAttributes),
             // Constants and parameters are never property references.
             SqlConstantExpression or SqlParameterExpression => false,
+            // Provider-injected discriminator predicates are never user-supplied non-key filters.
+            // They must not cause First* validation to reject an otherwise key-only query.
+            SqlDiscriminatorPredicateExpression => false,
             _ => false,
         };
 
