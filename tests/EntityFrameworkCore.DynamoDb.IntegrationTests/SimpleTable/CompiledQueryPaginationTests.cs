@@ -2,43 +2,28 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SimpleTable;
 
-/// <summary>Represents the CompiledQueryPaginationTests type.</summary>
+/// <summary>Integration tests for compiled queries using Limit(n) with runtime parameters.</summary>
 public class CompiledQueryPaginationTests(SimpleTableDynamoFixture fixture)
     : SimpleTableTestBase(fixture)
 {
+    // Parameterized Limit(n): limit = n + 1 evaluated at runtime.
     private static readonly Func<SimpleTableDbContext, int, IAsyncEnumerable<SimpleItem>>
-        TakePlusOneQuery = EF.CompileAsyncQuery((SimpleTableDbContext ctx, int n)
-            => ctx.SimpleItems.Take(n + 1));
+        LimitPlusOneQuery = EF.CompileAsyncQuery((SimpleTableDbContext ctx, int n)
+            => ctx.SimpleItems.Limit(n + 1));
 
-    private static readonly Func<SimpleTableDbContext, int, IAsyncEnumerable<SimpleItem>>
-        PageSizePlusOneQuery = EF.CompileAsyncQuery((SimpleTableDbContext ctx, int n)
-            => ctx.SimpleItems.WithPageSize(n + 1).Take(3));
-
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public async Task Take_WithArithmetic_EvaluatesAtRuntime()
+    public async Task Limit_WithArithmetic_EvaluatesAtRuntime()
     {
-        var results = await TakePlusOneQuery(Db, 2).ToListAsync(CancellationToken);
+        LoggerFactory.Clear();
 
-        results.Should().HaveCount(3);
+        // n=4 → Limit=5; DynamoDB evaluates 5 items.
+        var results = await LimitPlusOneQuery(Db, 4).ToListAsync(CancellationToken);
+
+        // At most 5 items evaluated and returned.
+        results.Count.Should().BeLessThanOrEqualTo(5);
 
         var calls = LoggerFactory.ExecuteStatementCalls.ToList();
         calls.Should().ContainSingle();
-        calls[0].Limit.Should().BeNull();
-    }
-
-    /// <summary>Provides functionality for this member.</summary>
-    [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public async Task WithPageSize_WithArithmetic_UsesComputedLimit()
-    {
-        var results = await PageSizePlusOneQuery(Db, 6).ToListAsync(CancellationToken);
-
-        results.Should().HaveCount(3);
-
-        var calls = LoggerFactory.ExecuteStatementCalls.ToList();
-        calls.Should().ContainSingle();
-        calls[0].Limit.Should().Be(7);
+        calls[0].Limit.Should().Be(5);
     }
 }

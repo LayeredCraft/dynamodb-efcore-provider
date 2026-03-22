@@ -20,8 +20,7 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
         IDynamoQuerySqlGeneratorFactory sqlGeneratorFactory,
         Func<DynamoQueryContext, Dictionary<string, AttributeValue>, T> shaper,
         bool standAloneStateManager,
-        bool threadSafetyChecksEnabled,
-        bool paginationDisabled) : IEnumerable<T>, IAsyncEnumerable<T>, IQueryingEnumerable
+        bool threadSafetyChecksEnabled) : IEnumerable<T>, IAsyncEnumerable<T>, IQueryingEnumerable
     {
         private readonly IDynamoClientWrapper _client = queryContext.Client;
 
@@ -38,7 +37,6 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
 
         private readonly bool _standAloneStateManager = standAloneStateManager;
         private readonly bool _threadSafetyChecksEnabled = threadSafetyChecksEnabled;
-        private readonly bool _paginationDisabled = paginationDisabled;
 
         /// <summary>Provides functionality for this member.</summary>
         public IAsyncEnumerator<T> GetAsyncEnumerator(CancellationToken cancellationToken = default)
@@ -69,10 +67,18 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
                 _shaper;
 
             private readonly bool _standAloneStateManager;
-            private readonly int? _resultLimit;
-            private readonly int? _pageSize;
-            private readonly bool _paginationDisabled;
-            private int _returnedCount;
+
+            /// <summary>
+            ///     The user-specified (or implicit) evaluation limit resolved from
+            ///     <c>SelectExpression.LimitExpression</c>. Maps directly to <c>ExecuteStatementRequest.Limit</c>.
+            /// </summary>
+            private readonly int? _limit;
+
+            /// <summary>
+            ///     True when the query should stop after the first executed request — either because it is a
+            ///     <c>First*</c> terminal or because the user set an explicit <c>Limit(n)</c>.
+            /// </summary>
+            private readonly bool _singlePageOnly;
 
             private IAsyncEnumerator<Dictionary<string, AttributeValue>>? _dataEnumerator;
 
@@ -87,21 +93,21 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
                 _standAloneStateManager = enumerable._standAloneStateManager;
                 _cancellationToken = cancellationToken;
 
-                // Separate result limit (how many to return) from page size (how many to scan)
-                _resultLimit = ResolveIntExpression(
-                    enumerable._selectExpression.ResultLimitExpression,
-                    enumerable._selectExpression.ResultLimit,
+                // Resolve the evaluation limit from the SelectExpression.
+                _limit = ResolveIntExpression(
+                    enumerable._selectExpression.LimitExpression,
+                    enumerable._selectExpression.Limit,
                     _queryContext);
 
-                _pageSize = ResolveIntExpression(
-                    enumerable._selectExpression.PageSizeExpression,
-                    enumerable._selectExpression.PageSize,
-                    _queryContext);
+                if (_limit is <= 0)
+                    throw new ArgumentOutOfRangeException(
+                        "limit",
+                        "Limit must be a positive integer.");
 
-                if (_pageSize is <= 0)
-                    throw new InvalidOperationException(
-                        "WithPageSize must evaluate to a positive integer.");
-                _paginationDisabled = enumerable._paginationDisabled;
+                // Single-page when: First* terminal (always one request) OR user set Limit(n)
+                // (per ADR-002, Limit(n) is always a single request).
+                _singlePageOnly = enumerable._selectExpression.IsFirstTerminal
+                    || enumerable._selectExpression.HasUserLimit;
 
                 _concurrencyDetector = enumerable._threadSafetyChecksEnabled
                     ? _queryContext.ConcurrencyDetector
@@ -116,17 +122,10 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
             {
                 using var _ = _concurrencyDetector?.EnterCriticalSection();
 
-                if (_resultLimit.HasValue && _returnedCount >= _resultLimit.Value)
-                    return false;
-
                 if (_dataEnumerator == null)
                 {
                     // Generate query at runtime with parameter values inlined
                     var sqlQuery = _queryingEnumerable.GenerateQuery();
-
-                    if (_resultLimit is { } resultLimit && _pageSize is null)
-                        _queryingEnumerable._commandLogger.RowLimitingQueryWithoutPageSize(
-                            resultLimit);
 
                     _queryingEnumerable._commandLogger.ExecutingPartiQlQuery(
                         _queryingEnumerable._selectExpression.TableName,
@@ -135,12 +134,12 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
                     var asyncEnumerable = _queryingEnumerable._client.ExecutePartiQl(
                         new ExecuteStatementRequest
                         {
-                            Statement =
-                                sqlQuery.Sql,
+                            Statement = sqlQuery.Sql,
                             Parameters = sqlQuery.Parameters.ToList(),
-                            Limit = _pageSize, // Use page size for DynamoDB scan limit
+                            // Maps directly to ExecuteStatementRequest.Limit (evaluation budget).
+                            Limit = _limit,
                         },
-                        _paginationDisabled);
+                        _singlePageOnly);
 
                     _dataEnumerator = asyncEnumerable.GetAsyncEnumerator(_cancellationToken);
                     _queryContext.InitializeStateManager(_standAloneStateManager);
@@ -155,7 +154,6 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
                 }
 
                 Current = _shaper(_queryContext, _dataEnumerator.Current);
-                _returnedCount++;
 
                 return true;
             }

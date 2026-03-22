@@ -1,4 +1,3 @@
-using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore.Query;
 
 namespace EntityFrameworkCore.DynamoDb.Query;
@@ -9,16 +8,10 @@ public class DynamoQueryCompilationContext(
     bool async) : QueryCompilationContext(dependencies, async)
 {
     /// <summary>
-    ///     Per-query override for page size (from .WithPageSize() extension). Null means use global
-    ///     default.
+    ///     Set by <c>.WithNonKeyFilter()</c> translation. Removes the restriction that limits
+    ///     <c>First*</c> to safe key-only query shapes. Does not change execution behavior.
     /// </summary>
-    public int? PageSizeOverride { get; internal set; }
-
-    /// <summary>Provides functionality for this member.</summary>
-    public Expression? PageSizeOverrideExpression { get; internal set; }
-
-    /// <summary>Per-query flag to disable pagination continuation (from .WithoutPagination() extension).</summary>
-    public bool PaginationDisabled { get; internal set; }
+    public bool NonKeyFilterAllowed { get; internal set; }
 
     /// <summary>
     ///     Per-query explicit secondary index name from <c>.WithIndex()</c>. The index name is

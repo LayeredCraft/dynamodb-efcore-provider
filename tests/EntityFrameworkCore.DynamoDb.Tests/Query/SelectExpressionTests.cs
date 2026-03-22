@@ -1,109 +1,139 @@
+using System.Linq.Expressions;
 using EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 
 namespace EntityFrameworkCore.DynamoDb.Tests.Query;
 
-/// <summary>Represents the SelectExpressionTests type.</summary>
+/// <summary>Unit tests for the new Limit/IsFirstTerminal API on SelectExpression.</summary>
 public class SelectExpressionTests
 {
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public void DefaultValues_AreNull()
+    public void DefaultValues_LimitIsNull_HasUserLimitFalse_IsFirstTerminalFalse()
     {
-        var selectExpression = new SelectExpression("TestTable");
+        var expr = new SelectExpression("TestTable");
 
-        selectExpression.ResultLimit.Should().BeNull();
-        selectExpression.PageSize.Should().BeNull();
+        expr.Limit.Should().BeNull();
+        expr.LimitExpression.Should().BeNull();
+        expr.HasUserLimit.Should().BeFalse();
+        expr.IsFirstTerminal.Should().BeFalse();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public void ApplyResultLimit_SetsResultLimit()
+    public void ApplyUserLimit_SetsLimitAndHasUserLimit()
     {
-        var selectExpression = new SelectExpression("TestTable");
+        var expr = new SelectExpression("TestTable");
 
-        selectExpression.ApplyResultLimit(10);
+        expr.ApplyUserLimit(10);
 
-        selectExpression.ResultLimit.Should().Be(10);
-        selectExpression.PageSize.Should().BeNull();
+        expr.Limit.Should().Be(10);
+        expr.LimitExpression.Should().BeOfType<ConstantExpression>().Which.Value.Should().Be(10);
+        expr.HasUserLimit.Should().BeTrue();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public void ApplyPageSize_SetsPageSize()
+    public void ApplyUserLimit_ChainedTwice_LastOneWins()
     {
-        var selectExpression = new SelectExpression("TestTable");
+        var expr = new SelectExpression("TestTable");
 
-        selectExpression.ApplyPageSize(50);
+        expr.ApplyUserLimit(5);
+        expr.ApplyUserLimit(10);
 
-        selectExpression.ResultLimit.Should().BeNull();
-        selectExpression.PageSize.Should().Be(50);
+        expr.Limit.Should().Be(10);
+        expr.HasUserLimit.Should().BeTrue();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public void ApplyBoth_SetsBothIndependently()
+    public void ApplyImplicitLimit_WhenNoUserLimit_SetsLimit()
     {
-        var selectExpression = new SelectExpression("TestTable");
+        var expr = new SelectExpression("TestTable");
 
-        selectExpression.ApplyResultLimit(5);
-        selectExpression.ApplyPageSize(100);
+        expr.ApplyImplicitLimit(1);
 
-        selectExpression.ResultLimit.Should().Be(5);
-        selectExpression.PageSize.Should().Be(100);
+        expr.Limit.Should().Be(1);
+        expr.HasUserLimit.Should().BeFalse();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public void ApplyLimit_BackwardCompatibility_SetsPageSize()
+    public void ApplyImplicitLimit_WhenUserLimitAlreadySet_IsNoOp()
     {
-        var selectExpression = new SelectExpression("TestTable");
+        var expr = new SelectExpression("TestTable");
 
-        selectExpression.ApplyLimit(10);
+        expr.ApplyUserLimit(5);
+        expr.ApplyImplicitLimit(1);
 
-        selectExpression.Limit.Should().Be(10);
-        selectExpression.PageSize.Should().Be(10);
+        // User limit wins — implicit is ignored.
+        expr.Limit.Should().Be(5);
+        expr.HasUserLimit.Should().BeTrue();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public void Limit_Property_BackwardCompatibility_ReturnsPageSize()
+    public void ClearImplicitLimit_WhenNoUserLimit_ClearsLimit()
     {
-        var selectExpression = new SelectExpression("TestTable");
+        var expr = new SelectExpression("TestTable");
 
-        selectExpression.ApplyPageSize(25);
+        expr.ApplyImplicitLimit(1);
+        expr.ClearImplicitLimit();
 
-        selectExpression.Limit.Should().Be(25);
+        expr.Limit.Should().BeNull();
+        expr.LimitExpression.Should().BeNull();
+        expr.HasUserLimit.Should().BeFalse();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public void MultipleApplies_OverwritePreviousValues()
+    public void ClearImplicitLimit_WhenUserLimit_IsNoOp()
     {
-        var selectExpression = new SelectExpression("TestTable");
+        var expr = new SelectExpression("TestTable");
 
-        selectExpression.ApplyResultLimit(10);
-        selectExpression.ApplyResultLimit(20);
+        expr.ApplyUserLimit(5);
+        expr.ClearImplicitLimit();
 
-        selectExpression.ResultLimit.Should().Be(20);
+        // User limit is preserved.
+        expr.Limit.Should().Be(5);
+        expr.HasUserLimit.Should().BeTrue();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public void ApplyNull_ClearsValue()
+    public void MarkAsFirstTerminal_SetsFlag()
     {
-        var selectExpression = new SelectExpression("TestTable");
+        var expr = new SelectExpression("TestTable");
 
-        selectExpression.ApplyResultLimit(10);
-        selectExpression.ApplyResultLimit(null);
+        expr.MarkAsFirstTerminal();
 
-        selectExpression.ResultLimit.Should().BeNull();
+        expr.IsFirstTerminal.Should().BeTrue();
+    }
+
+    [Fact]
+    public void ApplyUserLimit_ThenClearImplicit_LimitStays()
+    {
+        var expr = new SelectExpression("TestTable");
+
+        expr.ApplyUserLimit(7);
+        expr.ClearImplicitLimit(); // No-op because HasUserLimit=true.
+
+        expr.Limit.Should().Be(7);
+        expr.HasUserLimit.Should().BeTrue();
+    }
+
+    [Fact]
+    public void ApplyUserLimitExpression_WithNonConstant_SetsExpressionOnly()
+    {
+        var expr = new SelectExpression("TestTable");
+        var parameter = Expression.Parameter(typeof(int), "n");
+
+        expr.ApplyUserLimitExpression(parameter);
+
+        expr.LimitExpression.Should().BeSameAs(parameter);
+        expr.Limit.Should().BeNull(); // Cannot extract from non-constant.
+        expr.HasUserLimit.Should().BeTrue();
+    }
+
+    [Fact]
+    public void ApplyPredicate_StillWorks()
+    {
+        var expr = new SelectExpression("TestTable");
+        var predicate = new SqlConstantExpression(true, typeof(bool), null);
+
+        expr.ApplyPredicate(predicate);
+
+        expr.Predicate.Should().BeSameAs(predicate);
     }
 }

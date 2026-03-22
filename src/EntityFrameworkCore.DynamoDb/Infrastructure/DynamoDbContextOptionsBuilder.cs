@@ -39,19 +39,6 @@ public class DynamoDbContextOptionsBuilder(DbContextOptionsBuilder optionsBuilde
         Action<AmazonDynamoDBConfig> configure)
         => WithOption(e => e.WithDynamoDbClientConfigAction(configure.NotNull()));
 
-    /// <summary>
-    ///     Sets the default number of items DynamoDB should evaluate per request. Null means no limit
-    ///     (DynamoDB scans up to 1MB per request).
-    /// </summary>
-    /// <returns>The builder for chaining.</returns>
-    public virtual DynamoDbContextOptionsBuilder DefaultPageSize(int pageSize)
-    {
-        if (pageSize <= 0)
-            throw new ArgumentOutOfRangeException(nameof(pageSize), "Page size must be positive.");
-
-        return WithOption(e => e.WithDefaultPageSize(pageSize));
-    }
-
     /// <summary>Configures how the provider should apply automatic secondary index selection.</summary>
     /// <returns>The builder for chaining.</returns>
     public virtual DynamoDbContextOptionsBuilder UseAutomaticIndexSelection(

@@ -37,7 +37,22 @@ internal static class DynamoStrings
 
     /// <summary>Provides functionality for this member.</summary>
     public const string LastNotSupported =
-        "DynamoDB queries do not support Last/LastOrDefault translation without offset semantics.";
+        "Last/LastOrDefault is not supported in this iteration. Reverse traversal "
+        + "(equivalent to ScanIndexForward=false) is deferred to a future release.";
+
+    /// <summary>Provides functionality for this member.</summary>
+    public const string TakeNotSupported =
+        "Take is not supported by this provider. Use Limit(n) instead — it sets a DynamoDB "
+        + "evaluation budget: evaluates n items, applies any filters, and returns 0..n results in "
+        + "a single request. Example: .Limit(25).ToListAsync()";
+
+    /// <summary>Provides functionality for this member.</summary>
+    public static string FirstOrDefaultRequiresNonKeyFilterOptIn(string queryShape)
+        => $"FirstOrDefault/First on a {queryShape} requires .WithNonKeyFilter() to proceed. "
+            + "This operator is restricted to safe key-only queries by default because non-key predicates "
+            + "or scan-like paths can silently return null even when matches exist beyond the evaluation "
+            + "budget. Add .WithNonKeyFilter() to acknowledge this. "
+            + "Example: .Where(...).WithNonKeyFilter().Limit(50).FirstOrDefaultAsync()";
 
     /// <summary>Provides functionality for this member.</summary>
     public const string SkipWhileNotSupported =

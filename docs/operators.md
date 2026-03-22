@@ -17,10 +17,9 @@ should keep in mind. Add to these sections as support expands.
 - `ThenBy` / `ThenByDescending`
 - `Contains` (supported shapes only)
 - `StartsWith`
-- `Take`
+- `Limit(n)` (evaluation budget)
 - `First` / `FirstOrDefault`
-- `WithPageSize`
-- `WithoutPagination`
+- `WithNonKeyFilter` (opt-in for unsafe `First*` paths)
 - `WithIndex` / `WithoutIndex`
 
 ### Predicate operators
@@ -30,6 +29,7 @@ should keep in mind. Add to these sections as support expands.
 - `prop >= a && prop <= b` (inclusive range) translates to `prop BETWEEN a AND b`
 
 ### Not supported today
+- `Take` — use `.Limit(n)` for evaluation budget
 - `Any` / `All`
 - `Single` / `SingleOrDefault`
 - `Count`, `LongCount`, `Sum`, `Average`, `Min`, `Max`
@@ -65,24 +65,26 @@ should keep in mind. Add to these sections as support expands.
 | Nested owned property path (`x.Profile.Address.City`) | PartiQL dot-notation `"Profile"."Address"."City"` | N/A | Supported in `Where` predicates only; not supported in `Select` projections |
 | List index access (`x.Tags[0]`) | PartiQL bracket-notation `"Tags"[0]` | N/A | Supported in `Where` predicates only; index must be a compile-time constant |
 | `OrderBy` / `ThenBy` | PartiQL `ORDER BY` | N/A | Precedence and parentheses preserved |
-| `Take(n)` | Sets result limit expression | Stops after `n` results | Does not emit SQL `LIMIT` |
-| `First*` | Sets result limit `1` | Stops after first result | May scan multiple pages unless pagination disabled |
-| `WithPageSize(n)` | Sets request `Limit` | N/A | Last call wins |
-| `WithoutPagination()` | Single request only | Stops after first page | Can return incomplete results |
+| `Limit(n)` | Sets `ExecuteStatementRequest.Limit = n` | Single request, 0..n results | Last call wins; must be positive |
+| `First*` (key-only) | Sets implicit `Limit=1`; single request | Stops after first result | Safe path only; see First* section |
+| `First*` + `WithNonKeyFilter()` | Clears implicit limit; single request | Stops after first result | Unsafe path opt-in; `Limit(n)` may be added for budget |
+| `WithNonKeyFilter()` | Permission flag | N/A | Silent no-op on `ToListAsync` and key-only `First*` |
 | `WithIndex(name)` | Sets query source to `"Table"."Index"` | N/A | Name must resolve to an index on the queried entity type or its base types |
 | `WithoutIndex()` | Suppresses index selection | N/A | Forces base-table execution and logs `DYNAMO_IDX006`; cannot be combined with `WithIndex(...)` |
 
 ## General paging model
-- Result limit (how many results are returned) is separate from page size (how many items DynamoDB
-  evaluates per request).
-- DynamoDB `Limit` controls evaluation, not returned matches. A page can return zero matches and
-  still include `NextToken` if more items could match.
-- DynamoDB read responses can stop at the request `Limit` or at the 1 MB processed-data cap,
-  whichever is reached first.
-- The provider does not emit SQL `LIMIT`; it stops after enough results are returned while request
-  `Limit` is used as page size.
-- The provider logs a warning when a row-limiting query (`First*`, `Take`) runs without a configured
-  page size (`WithPageSize` or `DefaultPageSize`).
+
+DynamoDB `ExecuteStatementRequest.Limit` controls evaluation (how many items are read), not the
+number of matching rows returned. A page can return zero matches and still include `NextToken`
+when more items could match.
+
+- **`Limit(n)` + `ToListAsync()`**: single request, evaluates at most `n` items. No paging.
+- **`Limit(n)` + `First*`**: single request, `Limit = n`. User limit wins over implicit `Limit=1`.
+- **`First*` key-only (no explicit limit)**: single request, implicit `Limit=1`.
+- **`First*` + `WithNonKeyFilter()` (no explicit limit)**: single request, `Limit=null` (1MB default).
+- **`ToListAsync()` (no limit)**: multi-page, `Limit=null` per request. Provider follows `NextToken`.
+
+The provider never emits SQL `LIMIT`; the limit is a request-level field on `ExecuteStatementRequest`.
 
 ## DynamoDB PartiQL context (background)
 - PartiQL `SELECT` can behave like a scan unless the `WHERE` clause uses partition-key equality or
@@ -108,8 +110,7 @@ should keep in mind. Add to these sections as support expands.
 - For inheritance hierarchies, querying a base type includes all concrete discriminator values in
   that hierarchy.
 - For the currently supported operator surface, discriminator filtering therefore applies to:
-  `Where`, `Select`, `OrderBy`/`ThenBy`, `Take`, `First`/`FirstOrDefault`, `WithPageSize`, and
-  `WithoutPagination`.
+  `Where`, `Select`, `OrderBy`/`ThenBy`, `Limit(n)`, `First`/`FirstOrDefault`, and `WithNonKeyFilter`.
 - Unsupported operators (joins, groupings, set operations, skip, aggregates, single-result
   operators) are outside the discriminator coverage contract.
 
@@ -367,76 +368,116 @@ db.Orders
 - Non-key attributes in `ORDER BY` always produce a provider error.
 - See [DynamoDB PartiQL SELECT](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ql-reference.select.html) for engine-level ordering behavior.
 
-## Take(n)
+## Limit(n)
 **Purpose**
-- Return at most `n` results.
+- Set a DynamoDB evaluation budget for a query.
 
 **Translation**
-- Sets a result limit of `n` and stops after returning `n` items.
-- Page size comes from `.WithPageSize(...)` or `DefaultPageSize` if configured.
-- Composes with other `Take`/`First*` operators using the minimum effective limit.
-
-**Limitations / DynamoDB quirks**
-- `n` does not imply DynamoDB request `Limit` is `n`.
-- If filters are present, multiple pages may be needed to collect `n` matches.
-- Without a configured page size, DynamoDB may return a large first page and the provider will log a warning.
-
-## First
-**Purpose**
-- Return the first result; throw if none exist.
-
-**Translation**
-- Sets a result limit of `1` and stops after returning the first item.
-- Page size comes from `.WithPageSize(...)` or `DefaultPageSize` if configured.
-- If a prior `Take(n)` is applied, the effective result limit is still `1`.
-
-**Limitations / DynamoDB quirks**
-- An empty page does not prove absence if `NextToken` is present.
-- Without a configured page size, DynamoDB may return a large first page and the provider will log a warning.
-
-## FirstOrDefault
-**Purpose**
-- Return the first result or `null` if none exist.
-
-**Translation**
-- Sets a result limit of `1` and stops after returning the first item.
-- Page size comes from `.WithPageSize(...)` or `DefaultPageSize` if configured.
-- If a prior `Take(n)` is applied, the effective result limit is still `1`.
-
-**Limitations / DynamoDB quirks**
-- An empty page does not prove absence if `NextToken` is present.
-- Without a configured page size, DynamoDB may return a large first page and the provider will log a warning.
-
-## WithPageSize(int)
-**Purpose**
-- Override request page size for a specific query.
-
-**Translation**
-- Sets DynamoDB request `Limit` (items evaluated per request).
-- If `WithPageSize` is chained multiple times, the last call wins.
+- Sets `ExecuteStatementRequest.Limit = n`. Always a single request.
+- DynamoDB evaluates at most `n` items, applies any non-key filters, and returns 0..n results.
+- When chained multiple times, the last call wins.
+- `n` must be positive. Zero or negative throws `ArgumentOutOfRangeException` at construction time
+  for constants, or at execution time for runtime values.
 
 **Example**
 ```csharp
-var results = await db.Items
-    .WithPageSize(10)
-    .Where(item => item.IsActive)
-    .WithPageSize(25)
-    .ToListAsync();
-// Effective page size: 25
+// Evaluate 25 items, apply filter, return 0..25.
+var results = await db.Orders
+    .Where(x => x.IsActive)
+    .Limit(25)
+    .ToListAsync(cancellationToken);
+
+// Chaining — last wins (effective limit: 20).
+await db.Orders.Limit(10).Limit(20).ToListAsync(cancellationToken);
+```
+
+**Compiled queries with runtime parameters**
+```csharp
+var query = EF.CompileAsyncQuery((OrderDbContext ctx, int n)
+    => ctx.Orders.Limit(n));
+
+var results = await query(db, 50).ToListAsync(cancellationToken);
+```
+
+**Limitations**
+- Does not guarantee `n` rows returned. DynamoDB reads `n` items, applies filters, and returns
+  whatever matches in that range. Use `ToListAsync()` without `Limit(n)` to collect all matches.
+- There is no paging. If fewer than `n` matching items exist in the evaluated range, the result is
+  simply shorter.
+
+## First / FirstOrDefault
+
+**Purpose**
+- Return the first result (throw if none exist for `First`; return `null` for `FirstOrDefault`).
+
+**Translation**
+
+`First*` behavior depends on the query shape:
+
+| Shape | Limit on request | Notes |
+|---|---|---|
+| Key-only (PK equality, no non-key predicates) | `1` (implicit) | Safe by default |
+| Key-only + `Limit(n)` | `n` | User limit wins |
+| Non-key predicate or scan-like + `WithNonKeyFilter()` | `null` (1MB) | Opt-in required |
+| Non-key predicate or scan-like + `WithNonKeyFilter()` + `Limit(n)` | `n` | |
+| Non-key predicate or scan-like, no opt-in | Translation failure | Must add `WithNonKeyFilter()` |
+
+`First*` is always a **single request**. The provider never pages for a `First*` terminal.
+
+**Safe path conditions** — ALL must hold:
+1. The `WHERE` clause contains a partition-key equality condition.
+2. The `WHERE` clause contains only key predicates (no non-key attribute filters).
+
+**Special case — no sort key**: When the queried source has no sort key, each partition contains
+at most one item. `First*` with PK equality is always safe regardless of non-key predicates.
+
+**Example — key-only (safe)**
+```csharp
+// Safe path: PK + SK equality. Uses Limit=1 automatically.
+var item = await db.Orders
+    .Where(o => o.UserId == userId && o.OrderId == orderId)
+    .FirstOrDefaultAsync(cancellationToken);
+```
+
+**Example — non-key filter (opt-in required)**
+```csharp
+// Non-key predicate: IsActive is not PK or SK → requires WithNonKeyFilter().
+var active = await db.Orders
+    .Where(o => o.UserId == userId && o.IsActive)
+    .WithNonKeyFilter()
+    .Limit(50)
+    .FirstOrDefaultAsync(cancellationToken);
 ```
 
 **Limitations / DynamoDB quirks**
-- Smaller page sizes can increase round trips under filtering.
+- For non-safe paths, the result may be `null` even when matches exist beyond the evaluation
+  budget — that risk is acknowledged by calling `WithNonKeyFilter()`.
+- `First*` without `WithNonKeyFilter()` on a non-safe path always throws at translation time
+  (never silently returns null).
 
-## WithoutPagination()
+## WithNonKeyFilter()
+
 **Purpose**
-- Force a single request for a query.
+- Opt in to `First*` on non-safe query shapes: non-key predicates, scan-like paths, or PK `IN`.
 
 **Translation**
-- Stops after the first DynamoDB request, even if `NextToken` is returned.
+- Sets a permission flag. Does not change execution behavior.
+- When the query is unsafe and no `Limit(n)` is present, the implicit `Limit=1` is cleared so
+  DynamoDB uses its 1MB default (single request, no paging).
+- Silent no-op when applied to `ToListAsync()` or other multi-result terminals.
+- Silent no-op when applied to a key-only `First*` query with no non-key predicates.
 
-**Limitations / DynamoDB quirks**
-- Best-effort mode: may return incomplete results when more matches exist on later pages.
+**Example**
+```csharp
+var result = await db.Orders
+    .Where(o => o.UserId == userId && o.IsActive)
+    .WithNonKeyFilter()
+    .FirstOrDefaultAsync(cancellationToken);
+```
+
+**Limitations**
+- The caller accepts that the result may be `null` even when matches exist beyond the
+  evaluation budget.
 
 ## External references
 - AWS ExecuteStatement API: <https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_ExecuteStatement.html>

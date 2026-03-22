@@ -12,13 +12,30 @@ icon: lucide/triangle-alert
 - Method calls in `Where` predicates except supported `Contains` patterns (`string.Contains(string)` and in-memory collection membership); other `string.Contains` overloads (such as `char` or `StringComparison`) are not translated.
 - Provider-side key encoding helpers (prefix/suffix composition).
 - Provider option for `ConsistentRead`.
+- `Take`: removed. Use `.Limit(n)` for evaluation budget.
+- `Last` / `LastOrDefault`: deferred (requires reverse traversal).
 
 ## What this means in practice
 - The provider is currently query-only.
 - Unsupported LINQ shapes fail during translation with `InvalidOperationException` including provider-specific details.
-- `WithoutPagination()` is best-effort mode and can return incomplete results.
 - Discriminator guardrails for unsupported query shapes are deferred; support is limited to the
   current operator surface in `operators.md`.
+
+## First* safe-path requirement
+
+`First*` (`FirstAsync`, `FirstOrDefaultAsync`) is restricted by default to queries where:
+1. The `WHERE` clause contains a partition-key equality condition.
+2. The `WHERE` clause contains only key predicates (no non-key attribute filters).
+
+Any query that goes beyond this safe shape requires explicit opt-in via `.WithNonKeyFilter()`.
+Without it, translation fails with `InvalidOperationException`.
+
+**Exception — no sort key**: When the queried source has no sort key, each partition contains at
+most one item. `First*` with PK equality is always safe regardless of non-key predicates.
+
+**Why**: DynamoDB evaluates a bounded number of items per request. A `First*` query on a non-safe
+path may silently return `null` even when matches exist beyond the evaluation range. The opt-in
+makes this risk explicit.
 
 ## Operator-specific status
 - Use `operators.md` as the canonical source for supported and unsupported operators.

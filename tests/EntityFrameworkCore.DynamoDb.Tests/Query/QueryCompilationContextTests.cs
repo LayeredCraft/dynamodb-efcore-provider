@@ -6,9 +6,8 @@ using Microsoft.EntityFrameworkCore.Query;
 
 namespace EntityFrameworkCore.DynamoDb.Tests.Query;
 
-/// <summary>Represents the QueryCompilationContextTests type.</summary>
+/// <summary>Unit tests for DynamoQueryCompilationContext.</summary>
 [SuppressMessage("Usage", "EF1001:Internal EF Core API usage.")]
-/// <summary>Represents the QueryCompilationContextTests type.</summary>
 public class QueryCompilationContextTests
 {
     private sealed class TestDbContext : DbContext
@@ -18,10 +17,7 @@ public class QueryCompilationContextTests
 
         /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
-            => modelBuilder.Entity<TestEntity>(b =>
-            {
-                b.HasPartitionKey(x => x.PK);
-            });
+            => modelBuilder.Entity<TestEntity>(b => b.HasPartitionKey(x => x.PK));
     }
 
     private sealed class TestEntity
@@ -34,71 +30,34 @@ public class QueryCompilationContextTests
     {
         var dbContextOptionsBuilder = new DbContextOptionsBuilder<TestDbContext>();
         dbContextOptionsBuilder.UseDynamo();
-        var dbContextOptions = dbContextOptionsBuilder.Options;
-
-        var dbContext = new TestDbContext(dbContextOptions);
+        var dbContext = new TestDbContext(dbContextOptionsBuilder.Options);
         return dbContext.GetService<QueryCompilationContextDependencies>();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public void DefaultValues_AreCorrect()
     {
         var dependencies = CreateDependencies();
 
         var context = new DynamoQueryCompilationContext(dependencies, true);
 
-        context.PageSizeOverride.Should().BeNull();
-        context.PaginationDisabled.Should().BeFalse();
+        context.NonKeyFilterAllowed.Should().BeFalse();
         context.ExplicitIndexName.Should().BeNull();
+        context.IndexSelectionDisabled.Should().BeFalse();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public void PageSizeOverride_CanBeSet()
+    public void NonKeyFilterAllowed_CanBeSet()
     {
         var dependencies = CreateDependencies();
 
         var context =
-            new DynamoQueryCompilationContext(dependencies, true) { PageSizeOverride = 100 };
+            new DynamoQueryCompilationContext(dependencies, true) { NonKeyFilterAllowed = true };
 
-        context.PageSizeOverride.Should().Be(100);
+        context.NonKeyFilterAllowed.Should().BeTrue();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public void PaginationDisabled_CanBeSet()
-    {
-        var dependencies = CreateDependencies();
-
-        var context =
-            new DynamoQueryCompilationContext(dependencies, true) { PaginationDisabled = true };
-
-        context.PaginationDisabled.Should().BeTrue();
-    }
-
-    /// <summary>Provides functionality for this member.</summary>
-    [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public void BothProperties_CanBeSetIndependently()
-    {
-        var dependencies = CreateDependencies();
-
-        var context = new DynamoQueryCompilationContext(dependencies, true)
-        {
-            PageSizeOverride = 50, PaginationDisabled = true,
-        };
-
-        context.PageSizeOverride.Should().Be(50);
-        context.PaginationDisabled.Should().BeTrue();
-    }
-
-    /// <summary>Provides functionality for this member.</summary>
-    [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public void ExplicitIndexName_CanBeSet()
     {
         var dependencies = CreateDependencies();

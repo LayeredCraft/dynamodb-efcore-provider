@@ -1,6 +1,5 @@
 using System.Linq.Expressions;
 using EntityFrameworkCore.DynamoDb.Extensions;
-using EntityFrameworkCore.DynamoDb.Infrastructure.Internal;
 using EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
@@ -50,32 +49,41 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
         // Check for DynamoDB-specific extension methods
         if (method.DeclaringType == typeof(DynamoDbQueryableExtensions))
         {
-            if (method.Name == nameof(DynamoDbQueryableExtensions.WithPageSize))
+            if (method.Name == nameof(DynamoDbQueryableExtensions.Limit))
             {
-                var context = (DynamoQueryCompilationContext)QueryCompilationContext;
-                // The outermost call is the last chained call, so capture once to keep last-wins
-                // semantics.
-                if (context.PageSizeOverrideExpression == null)
+                // Visit inner source first so SelectExpression exists before applying the limit.
+                var limitResult = Visit(methodCallExpression.Arguments[0]);
+                if (limitResult is not ShapedQueryExpression
+                    {
+                        QueryExpression: SelectExpression limitSelectExpr,
+                    })
+                    return limitResult;
+
+                var limitArg = methodCallExpression.Arguments[1];
+
+                if (limitArg is ConstantExpression { Value: int constantLimit })
                 {
-                    context.PageSizeOverrideExpression = methodCallExpression.Arguments[1];
-                    if (methodCallExpression.Arguments[1] is ConstantExpression
-                        {
-                            Value: int pageSize,
-                        })
-                        context.PageSizeOverride = pageSize;
+                    // Constant: validate immediately, apply directly.
+                    if (constantLimit <= 0)
+                        throw new ArgumentOutOfRangeException(
+                            "limit",
+                            "Limit must be a positive integer.");
+                    limitSelectExpr.ApplyUserLimit(constantLimit);
+                }
+                else
+                {
+                    // Parameterized: store expression, validate at runtime.
+                    limitSelectExpr.ApplyUserLimitExpression(limitArg);
                 }
 
-                // Continue visiting the source (prune this extension from the tree)
-                return Visit(methodCallExpression.Arguments[0]);
+                return limitResult;
             }
 
-            if (method.Name == nameof(DynamoDbQueryableExtensions.WithoutPagination))
+            if (method.Name == nameof(DynamoDbQueryableExtensions.WithNonKeyFilter))
             {
+                // Set the permission flag on the context then prune this call from the tree.
                 var context = (DynamoQueryCompilationContext)QueryCompilationContext;
-                if (!context.PaginationDisabled)
-                    context.PaginationDisabled = true;
-
-                // Continue visiting the source (prune this extension from the tree)
+                context.NonKeyFilterAllowed = true;
                 return Visit(methodCallExpression.Arguments[0]);
             }
 
@@ -326,11 +334,13 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
 
         var selectExpression = (SelectExpression)source.QueryExpression;
 
-        // Set result limit (how many to return to caller)
-        selectExpression.ApplyOrCombineResultLimitExpression(Expression.Constant(1));
+        // Mark as First* terminal — drives single-page execution and safe-path validation in the
+        // postprocessor.
+        selectExpression.MarkAsFirstTerminal();
 
-        var context = (DynamoQueryCompilationContext)QueryCompilationContext;
-        ApplyPageSize(selectExpression, context);
+        // Set implicit Limit=1 for key-only paths. When the user already called Limit(n),
+        // HasUserLimit=true and ApplyImplicitLimit is a no-op (user's value wins).
+        selectExpression.ApplyImplicitLimit(1);
 
         return source;
     }
@@ -526,47 +536,7 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
     protected override ShapedQueryExpression? TranslateTake(
         ShapedQueryExpression source,
         Expression count)
-    {
-        var selectExpression = (SelectExpression)source.QueryExpression;
-
-        // Store the expression for later evaluation (handles both constants and parameters)
-        selectExpression.ApplyOrCombineResultLimitExpression(count);
-
-        var context = (DynamoQueryCompilationContext)QueryCompilationContext;
-        ApplyPageSize(selectExpression, context);
-
-        return source;
-    }
-
-    /// <summary>
-    ///     Determines the page size to use based on configuration hierarchy: per-query override →
-    ///     global default → null (DynamoDB default of 1MB).
-    /// </summary>
-    private void ApplyPageSize(
-        SelectExpression selectExpression,
-        DynamoQueryCompilationContext context)
-    {
-        if (context.PageSizeOverrideExpression is not null)
-        {
-            selectExpression.ApplyPageSizeExpression(context.PageSizeOverrideExpression);
-            return;
-        }
-
-        if (context.PageSizeOverride.HasValue)
-        {
-            selectExpression.ApplyPageSize(context.PageSizeOverride.Value);
-            return;
-        }
-
-        selectExpression.ApplyPageSize(DetermineDefaultPageSize(context));
-    }
-
-    /// <summary>Determines the default page size to use when no per-query override is set.</summary>
-    private int? DetermineDefaultPageSize(DynamoQueryCompilationContext context)
-    {
-        var options = context.ContextOptions.FindExtension<DynamoDbOptionsExtension>();
-        return options?.DefaultPageSize;
-    }
+        => UnsupportedOperator(nameof(Queryable.Take), DynamoStrings.TakeNotSupported);
 
     /// <summary>Provides functionality for this member.</summary>
     protected override ShapedQueryExpression? TranslateTakeWhile(

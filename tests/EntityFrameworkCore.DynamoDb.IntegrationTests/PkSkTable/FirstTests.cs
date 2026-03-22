@@ -2,12 +2,12 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.PkSkTable;
 
-/// <summary>Represents the FirstTests type.</summary>
+/// <summary>Integration tests for First* query behavior with the ADR-002 pagination model.</summary>
 public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixture)
 {
-    /// <summary>Provides functionality for this member.</summary>
+    // ── Model smoke tests ────────────────────────────────────────────────────
+
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public void PkAndSkProperlyConfiguredAsKeys()
     {
         var entityType = Db.Model.FindEntityType(typeof(PkSkItem))!;
@@ -20,9 +20,9 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
         efPrimaryKey.Should().Equal("Pk", "Sk");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
+    // ── ToListAsync — baseline ───────────────────────────────────────────────
+
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task ToListAsync_ReturnsAllItems()
     {
         var results = await Db.Items.ToListAsync(CancellationToken);
@@ -36,9 +36,9 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
+    // ── Key-only First* — safe path ──────────────────────────────────────────
+
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task OrderBy_Sk_FirstAsync_ReturnsLowestSkWithinPartition()
     {
         var result =
@@ -62,43 +62,8 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public async Task FirstOrDefaultAsync_WithSelectivePredicate_PagesUntilMatch()
-    {
-        LoggerFactory.Clear();
-
-        var result =
-            await Db
-                .Items
-                .Where(item => item.Pk == "P#1" && item.IsTarget)
-                .FirstOrDefaultAsync(CancellationToken);
-
-        var calls = LoggerFactory.ExecuteStatementCalls.ToList();
-
-        result.Should().NotBeNull();
-        result!.Pk.Should().Be("P#1");
-        result.Sk.Should().Be("0002");
-
-        calls.Should().NotBeEmpty();
-
-        // With Phase 4 changes: page size is null by default (DynamoDB scans up to 1MB)
-        // This is more efficient than scanning 1 item at a time
-        calls.Should().OnlyContain(call => call.Limit == null);
-
-        AssertSql(
-            """
-            SELECT "Pk", "Sk", "Category", "IsTarget"
-            FROM "PkSkItems"
-            WHERE "Pk" = 'P#1' AND "IsTarget" = TRUE
-            """);
-    }
-
-    /// <summary>Provides functionality for this member.</summary>
-    [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public async Task FirstAsync_WithPredicate_ReturnsMatchingItem()
+    public async Task FirstAsync_KeyOnly_PkAndSkEquality_ReturnsMatchingItem()
     {
         var result =
             await Db
@@ -118,36 +83,142 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public async Task FirstAsync_WithPredicate_ThrowsWhenNoMatch()
+    public async Task FirstAsync_KeyOnly_SetsImplicitLimit1_OnRequest()
     {
-        var act = async ()
-            => await Db
-                .Items
-                .Where(item => item.Pk == "P#2" && item.IsTarget)
-                .FirstAsync(CancellationToken);
+        // Key-only First* sets implicit Limit=1 on the ExecuteStatement request.
+        LoggerFactory.Clear();
 
-        await act.Should().ThrowAsync<InvalidOperationException>();
+        await Db
+            .Items
+            .Where(item => item.Pk == "P#1" && item.Sk == "0001")
+            .FirstAsync(CancellationToken);
+
+        var calls = LoggerFactory.ExecuteStatementCalls.ToList();
+        calls.Should().ContainSingle();
+        calls[0].Limit.Should().Be(1);
 
         AssertSql(
             """
             SELECT "Pk", "Sk", "Category", "IsTarget"
             FROM "PkSkItems"
-            WHERE "Pk" = 'P#2' AND "IsTarget" = TRUE
+            WHERE "Pk" = 'P#1' AND "Sk" = '0001'
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public async Task FirstOrDefaultAsync_WithPredicate_ReturnsNullWhenNoMatch()
+    public async Task FirstAsync_KeyOnly_WithExplicitLimit_UsesExplicitLimit()
     {
+        // User Limit(n) takes precedence over the implicit Limit=1 set by First*.
+        LoggerFactory.Clear();
+
+        await Db.Items.Where(item => item.Pk == "P#1").Limit(5).FirstAsync(CancellationToken);
+
+        var calls = LoggerFactory.ExecuteStatementCalls.ToList();
+        calls.Should().ContainSingle();
+        calls[0].Limit.Should().Be(5);
+    }
+
+    [Fact]
+    public async Task FirstAsync_KeyOnly_ThrowsWhenNoMatch()
+    {
+        // Key-only path, no match — First throws, no translation failure.
+        var act = async () => await Db
+            .Items
+            .Where(item => item.Pk == "P#2" && item.Sk == "9999")
+            .FirstAsync(CancellationToken);
+
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*no elements*");
+    }
+
+    [Fact]
+    public async Task FirstOrDefault_KeyOnly_ReturnsNullWhenNoMatch()
+    {
+        var result = await Db
+            .Items
+            .Where(item => item.Pk == "P#2" && item.Sk == "9999")
+            .FirstOrDefaultAsync(CancellationToken);
+
+        result.Should().BeNull();
+    }
+
+    // ── Non-key First* — must opt in ────────────────────────────────────────
+
+    [Fact]
+    public async Task FirstOrDefault_NonKeyFilter_WithoutOptIn_ThrowsTranslationFailure()
+    {
+        // IsTarget is a non-key attribute — requires WithNonKeyFilter() opt-in.
+        var act = async () => await Db
+            .Items
+            .Where(item => item.Pk == "P#1" && item.IsTarget)
+            .FirstOrDefaultAsync(CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*WithNonKeyFilter*");
+    }
+
+    [Fact]
+    public async Task FirstOrDefault_NonKeyFilter_WithOptIn_ReturnsMatch()
+    {
+        // P#1 has two IsTarget=true items; WithNonKeyFilter lets the query through.
+        LoggerFactory.Clear();
+
+        var result =
+            await Db
+                .Items
+                .Where(item => item.Pk == "P#1" && item.IsTarget)
+                .WithNonKeyFilter()
+                .FirstOrDefaultAsync(CancellationToken);
+
+        result.Should().NotBeNull();
+        result!.Pk.Should().Be("P#1");
+        result.IsTarget.Should().BeTrue();
+
+        // Limit is null (1MB default) because no explicit Limit(n) was set.
+        var calls = LoggerFactory.ExecuteStatementCalls.ToList();
+        calls.Should().ContainSingle();
+        calls[0].Limit.Should().BeNull();
+
+        AssertSql(
+            """
+            SELECT "Pk", "Sk", "Category", "IsTarget"
+            FROM "PkSkItems"
+            WHERE "Pk" = 'P#1' AND "IsTarget" = TRUE
+            """);
+    }
+
+    [Fact]
+    public async Task FirstOrDefault_NonKeyFilter_WithOptIn_WithLimit_UsesLimit()
+    {
+        // WithNonKeyFilter + Limit(n): user limit is preserved on the request.
+        LoggerFactory.Clear();
+
+        var result =
+            await Db
+                .Items
+                .Where(item => item.Pk == "P#1" && item.IsTarget)
+                .WithNonKeyFilter()
+                .Limit(50)
+                .FirstOrDefaultAsync(CancellationToken);
+
+        result.Should().NotBeNull();
+
+        var calls = LoggerFactory.ExecuteStatementCalls.ToList();
+        calls.Should().ContainSingle();
+        calls[0].Limit.Should().Be(50);
+    }
+
+    [Fact]
+    public async Task FirstOrDefault_NonKeyFilter_WithOptIn_ReturnsNullWhenNoMatch()
+    {
+        // P#2 has no IsTarget=true items; WithNonKeyFilter lets the query through → null.
         var result =
             await Db
                 .Items
                 .Where(item => item.Pk == "P#2" && item.IsTarget)
+                .WithNonKeyFilter()
                 .FirstOrDefaultAsync(CancellationToken);
 
         result.Should().BeNull();
@@ -160,304 +231,32 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public async Task FirstAsync_DoesNotEmitLimitClause()
+    public async Task FirstOrDefault_WithNonKeyFilter_IsAlwaysSingleRequest()
     {
-        var result =
-            await Db
-                .Items
-                .Where(item => item.Pk == "P#1" && item.Sk == "0001")
-                .FirstAsync(CancellationToken);
-
-        var expected = PkSkItems.Items.Single(item => item.Pk == "P#1" && item.Sk == "0001");
-
-        result.Should().BeEquivalentTo(expected);
-
-        AssertSql(
-            """
-            SELECT "Pk", "Sk", "Category", "IsTarget"
-            FROM "PkSkItems"
-            WHERE "Pk" = 'P#1' AND "Sk" = '0001'
-            """);
-    }
-
-    /// <summary>Provides functionality for this member.</summary>
-    [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public async Task FirstAsync_WithPageSize_UsesCustomPageSize()
-    {
+        // Regardless of opt-in, First* must be a single request (never pages).
         LoggerFactory.Clear();
 
-        var result =
-            await Db
-                .Items
-                .Where(item => item.Pk == "P#1")
-                .WithPageSize(10)
-                .FirstAsync(CancellationToken);
+        await Db
+            .Items
+            .Where(item => item.Pk == "P#1" && item.IsTarget)
+            .WithNonKeyFilter()
+            .FirstOrDefaultAsync(CancellationToken);
 
-        var calls = LoggerFactory.ExecuteStatementCalls.ToList();
-
-        result.Should().NotBeNull();
-        result.Pk.Should().Be("P#1");
-
-        calls.Should().NotBeEmpty();
-        calls.Should().OnlyContain(call => call.Limit == 10);
-
-        AssertSql(
-            """
-            SELECT "Pk", "Sk", "Category", "IsTarget"
-            FROM "PkSkItems"
-            WHERE "Pk" = 'P#1'
-            """);
+        LoggerFactory.ExecuteStatementCalls.Should().HaveCount(1);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
+    // ── Take is removed — must throw ─────────────────────────────────────────
+
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public async Task FirstOrDefaultAsync_WithPageSizeOverload_UsesCustomPageSize()
+    public async Task Take_ThrowsTranslationFailurePointingToLimit()
     {
-        LoggerFactory.Clear();
+        var act = async () => await Db
+            .Items
+            .Where(item => item.Pk == "P#1")
+            .Take(3)
+            .ToListAsync(CancellationToken);
 
-        var result =
-            await Db
-                .Items
-                .Where(item => item.Pk == "P#1" && item.IsTarget)
-                .FirstOrDefaultAsync(25, CancellationToken);
-
-        var calls = LoggerFactory.ExecuteStatementCalls.ToList();
-
-        result.Should().NotBeNull();
-        result!.Pk.Should().Be("P#1");
-        result.Sk.Should().Be("0002");
-
-        calls.Should().NotBeEmpty();
-        calls.Should().OnlyContain(call => call.Limit == 25);
-        LoggerFactory.RowLimitingWarnings.Should().BeEmpty();
-
-        AssertSql(
-            """
-            SELECT "Pk", "Sk", "Category", "IsTarget"
-            FROM "PkSkItems"
-            WHERE "Pk" = 'P#1' AND "IsTarget" = TRUE
-            """);
-    }
-
-    /// <summary>Provides functionality for this member.</summary>
-    [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public async Task FirstAsync_WithoutPagination_StopsSinglePage()
-    {
-        LoggerFactory.Clear();
-
-        var result =
-            await Db
-                .Items
-                .Where(item => item.Pk == "P#1" && item.IsTarget)
-                .WithoutPagination()
-                .FirstOrDefaultAsync(CancellationToken);
-
-        var calls = LoggerFactory.ExecuteStatementCalls.ToList();
-
-        // With WithoutPagination, may or may not find result depending on first page
-        // The key assertion is that only ONE request is made
-        calls.Should().HaveCount(1);
-
-        AssertSql(
-            """
-            SELECT "Pk", "Sk", "Category", "IsTarget"
-            FROM "PkSkItems"
-            WHERE "Pk" = 'P#1' AND "IsTarget" = TRUE
-            """);
-    }
-
-    /// <summary>Provides functionality for this member.</summary>
-    [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public async Task Take_WithSelectiveFilter_ContinuesPaging()
-    {
-        LoggerFactory.Clear();
-
-        var results =
-            await Db
-                .Items
-                .Where(item => item.Pk == "P#1" && item.IsTarget)
-                .Take(2)
-                .ToListAsync(CancellationToken);
-
-        results.Should().HaveCount(2);
-
-        // Should continue paging to get 2 results
-        var calls = LoggerFactory.ExecuteStatementCalls.ToList();
-        calls.Should().NotBeEmpty();
-
-        AssertSql(
-            """
-            SELECT "Pk", "Sk", "Category", "IsTarget"
-            FROM "PkSkItems"
-            WHERE "Pk" = 'P#1' AND "IsTarget" = TRUE
-            """);
-    }
-
-    /// <summary>Provides functionality for this member.</summary>
-    [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public async Task Take_WithPageSize_UsesCustomPageSize()
-    {
-        LoggerFactory.Clear();
-
-        var results =
-            await Db
-                .Items
-                .Where(item => item.Pk == "P#1")
-                .WithPageSize(5)
-                .Take(3)
-                .ToListAsync(CancellationToken);
-
-        results.Should().HaveCount(3);
-
-        var calls = LoggerFactory.ExecuteStatementCalls.ToList();
-        calls.Should().NotBeEmpty();
-        calls.Should().OnlyContain(call => call.Limit == 5);
-
-        AssertSql(
-            """
-            SELECT "Pk", "Sk", "Category", "IsTarget"
-            FROM "PkSkItems"
-            WHERE "Pk" = 'P#1'
-            """);
-    }
-
-    /// <summary>Provides functionality for this member.</summary>
-    [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public async Task Take_FirstAsync_UsesMinimumResultLimit()
-    {
-        var result =
-            await Db
-                .Items
-                .Where(item => item.Pk == "P#1")
-                .OrderBy(item => item.Sk)
-                .Take(2)
-                .FirstAsync(CancellationToken);
-
-        var expected =
-            PkSkItems
-                .Items
-                .Where(item => item.Pk == "P#1")
-                .OrderBy(item => item.Sk)
-                .Take(2)
-                .First();
-
-        result.Should().BeEquivalentTo(expected);
-
-        AssertSql(
-            """
-            SELECT "Pk", "Sk", "Category", "IsTarget"
-            FROM "PkSkItems"
-            WHERE "Pk" = 'P#1'
-            ORDER BY "Sk" ASC
-            """);
-    }
-
-    /// <summary>Provides functionality for this member.</summary>
-    [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public async Task Take_FirstOrDefaultAsync_UsesMinimumResultLimit()
-    {
-        var limit = 2;
-
-        var result =
-            await Db
-                .Items
-                .Where(item => item.Pk == "P#1")
-                .OrderBy(item => item.Sk)
-                .Take(limit)
-                .FirstOrDefaultAsync(CancellationToken);
-
-        var expected =
-            PkSkItems
-                .Items
-                .Where(item => item.Pk == "P#1")
-                .OrderBy(item => item.Sk)
-                .Take(limit)
-                .First();
-
-        result.Should().BeEquivalentTo(expected);
-
-        AssertSql(
-            """
-            SELECT "Pk", "Sk", "Category", "IsTarget"
-            FROM "PkSkItems"
-            WHERE "Pk" = 'P#1'
-            ORDER BY "Sk" ASC
-            """);
-    }
-
-    /// <summary>Provides functionality for this member.</summary>
-    [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public async Task Take_Take_UsesMinimumResultLimit()
-    {
-        var results =
-            await Db
-                .Items
-                .Where(item => item.Pk == "P#1")
-                .OrderBy(item => item.Sk)
-                .Take(3)
-                .Take(5)
-                .ToListAsync(CancellationToken);
-
-        var expected =
-            PkSkItems
-                .Items
-                .Where(item => item.Pk == "P#1")
-                .OrderBy(item => item.Sk)
-                .Take(3)
-                .ToList();
-
-        results.Should().BeEquivalentTo(expected);
-
-        AssertSql(
-            """
-            SELECT "Pk", "Sk", "Category", "IsTarget"
-            FROM "PkSkItems"
-            WHERE "Pk" = 'P#1'
-            ORDER BY "Sk" ASC
-            """);
-    }
-
-    /// <summary>Provides functionality for this member.</summary>
-    [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public async Task Take_Take_UsesMinimumResultLimit_WhenReversed()
-    {
-        var results =
-            await Db
-                .Items
-                .Where(item => item.Pk == "P#1")
-                .OrderBy(item => item.Sk)
-                .Take(5)
-                .Take(3)
-                .ToListAsync(CancellationToken);
-
-        var expected =
-            PkSkItems
-                .Items
-                .Where(item => item.Pk == "P#1")
-                .OrderBy(item => item.Sk)
-                .Take(3)
-                .ToList();
-
-        results.Should().BeEquivalentTo(expected);
-
-        AssertSql(
-            """
-            SELECT "Pk", "Sk", "Category", "IsTarget"
-            FROM "PkSkItems"
-            WHERE "Pk" = 'P#1'
-            ORDER BY "Sk" ASC
-            """);
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*Limit(n)*");
     }
 }

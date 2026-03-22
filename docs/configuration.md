@@ -17,16 +17,16 @@ optionsBuilder.UseDynamo(options =>
         config.AuthenticationRegion = "us-east-1";
         config.UseHttp = true;
     });
-    options.DefaultPageSize(100);
 });
 ```
 
 ## Options
-- `DefaultPageSize`: default request page size (`ExecuteStatementRequest.Limit`) for queries when no per-query override is present.
 - `DynamoDbClient`: use a preconfigured `IAmazonDynamoDB` instance.
 - `DynamoDbClientConfig`: use a preconfigured `AmazonDynamoDBConfig` when creating the SDK client.
 - `ConfigureDynamoDbClientConfig`: apply a callback to configure `AmazonDynamoDBConfig` before client creation.
-- `DefaultPageSize` must be greater than zero.
+
+Per-query evaluation budget is controlled by `.Limit(n)` on the query rather than a global default.
+See [Pagination](pagination.md) for the evaluation budget model.
 
 ## Client configuration precedence
 - The provider resolves client settings in this order:

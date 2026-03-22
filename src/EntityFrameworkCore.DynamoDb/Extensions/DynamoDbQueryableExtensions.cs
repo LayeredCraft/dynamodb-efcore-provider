@@ -8,140 +8,74 @@ namespace Microsoft.EntityFrameworkCore;
 public static class DynamoDbQueryableExtensions
 {
     /// <summary>
-    ///     Returns the first element of a sequence and configures the DynamoDB page size for this
-    ///     query.
-    /// </summary>
-    /// <remarks>
-    ///     Equivalent to <c>source.WithPageSize(pageSize).FirstAsync(...)</c>. Use this overload when
-    ///     you want page-size tuning at the terminal operation. The page size controls items evaluated
-    ///     per request (DynamoDB Limit), not the number of results returned.
-    /// </remarks>
-    /// <returns>A task that represents the asynchronous operation.</returns>
-    /// <exception cref="ArgumentOutOfRangeException">Thrown when pageSize is not positive.</exception>
-    public static Task<TEntity> FirstAsync<TEntity>(
-        this IQueryable<TEntity> source,
-        int pageSize,
-        CancellationToken cancellationToken = default) where TEntity : class
-        => source.WithPageSize(pageSize).FirstAsync(cancellationToken);
-
-    /// <summary>
-    ///     Returns the first element of a sequence that satisfies a specified condition and
-    ///     configures the DynamoDB page size for this query.
-    /// </summary>
-    /// <remarks>
-    ///     Equivalent to <c>source.WithPageSize(pageSize).FirstAsync(predicate, ...)</c>. Use this
-    ///     overload when you want page-size tuning at the terminal operation. The page size controls
-    ///     items evaluated per request (DynamoDB Limit), not the number of results returned.
-    /// </remarks>
-    /// <returns>A task that represents the asynchronous operation.</returns>
-    /// <exception cref="ArgumentOutOfRangeException">Thrown when pageSize is not positive.</exception>
-    public static Task<TEntity> FirstAsync<TEntity>(
-        this IQueryable<TEntity> source,
-        Expression<Func<TEntity, bool>> predicate,
-        int pageSize,
-        CancellationToken cancellationToken = default) where TEntity : class
-        => source.WithPageSize(pageSize).FirstAsync(predicate, cancellationToken);
-
-    /// <summary>
-    ///     Returns the first element of a sequence, or a default value if the sequence contains no
-    ///     elements, and configures the DynamoDB page size for this query.
-    /// </summary>
-    /// <remarks>
-    ///     Equivalent to <c>source.WithPageSize(pageSize).FirstOrDefaultAsync(...)</c>. Use this
-    ///     overload when you want page-size tuning at the terminal operation while keeping normal EF
-    ///     pagination continuation semantics.
-    /// </remarks>
-    /// <returns>A task that represents the asynchronous operation.</returns>
-    /// <exception cref="ArgumentOutOfRangeException">Thrown when pageSize is not positive.</exception>
-    public static Task<TEntity?> FirstOrDefaultAsync<TEntity>(
-        this IQueryable<TEntity> source,
-        int pageSize,
-        CancellationToken cancellationToken = default) where TEntity : class
-        => source.WithPageSize(pageSize).FirstOrDefaultAsync(cancellationToken);
-
-    /// <summary>
-    ///     Returns the first element of a sequence that satisfies a specified condition, or a default
-    ///     value if no such element is found, and configures the DynamoDB page size for this query.
-    /// </summary>
-    /// <remarks>
-    ///     Equivalent to <c>source.WithPageSize(pageSize).FirstOrDefaultAsync(predicate, ...)</c>. Use
-    ///     this overload when you want page-size tuning at the terminal operation while keeping normal
-    ///     EF pagination continuation semantics.
-    /// </remarks>
-    /// <returns>A task that represents the asynchronous operation.</returns>
-    /// <exception cref="ArgumentOutOfRangeException">Thrown when pageSize is not positive.</exception>
-    public static Task<TEntity?> FirstOrDefaultAsync<TEntity>(
-        this IQueryable<TEntity> source,
-        Expression<Func<TEntity, bool>> predicate,
-        int pageSize,
-        CancellationToken cancellationToken = default) where TEntity : class
-        => source.WithPageSize(pageSize).FirstOrDefaultAsync(predicate, cancellationToken);
-
-    /// <summary>
-    ///     Sets the maximum number of items DynamoDB should evaluate per request for this query.
-    ///     Allows per-query override of the global default page size.
+    ///     Sets a DynamoDB evaluation budget for this query. DynamoDB evaluates at most
+    ///     <paramref name="limit"/> items, applies any non-key filters, and returns
+    ///     0..<paramref name="limit"/> results in a single request. There is no paging.
+    ///     This maps directly to <c>ExecuteStatementRequest.Limit</c>.
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         DynamoDB's Limit parameter controls how many items to evaluate (scan), not how many to
-    ///         return after filtering. This setting allows you to control request sizes for performance
-    ///         tuning.
+    ///         Unlike EF Core's <c>Take(n)</c>, this does not guarantee <paramref name="limit"/> rows
+    ///         are returned. It bounds how many items DynamoDB reads. When filters are present, fewer
+    ///         items may match within the evaluated range.
     ///     </para>
     ///     <para>
-    ///         This setting only affects the page size. The result limit (from First, Take, etc.) is
-    ///         enforced by continuing to page until enough results are obtained.
-    ///     </para>
-    ///     <para>
-    ///         Example: For a query with a selective non-key filter, using WithPageSize(50) will scan 50
-    ///         items per request and continue paging until the result limit is reached.
+    ///         When chained multiple times, the last call wins.
     ///     </para>
     /// </remarks>
-    /// <returns>A new query with the specified page size.</returns>
-    /// <exception cref="ArgumentOutOfRangeException">Thrown when pageSize is not positive.</exception>
-    public static IQueryable<TEntity> WithPageSize<TEntity>(
-        this IQueryable<TEntity> source,
-        int pageSize) where TEntity : class
+    /// <param name="source">The query to apply the limit to.</param>
+    /// <param name="limit">The maximum number of items DynamoDB should evaluate. Must be positive.</param>
+    /// <returns>A new query with the specified evaluation budget.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">
+    ///     Thrown immediately when <paramref name="limit"/> is zero or negative and the value is
+    ///     known at construction time (constant). For compiled queries with runtime values, thrown at
+    ///     execution time.
+    /// </exception>
+    public static IQueryable<TEntity> Limit<TEntity>(this IQueryable<TEntity> source, int limit)
+        where TEntity : class
     {
-        if (pageSize <= 0)
-            throw new ArgumentOutOfRangeException(nameof(pageSize), "Page size must be positive.");
+        if (limit <= 0)
+            throw new ArgumentOutOfRangeException(
+                nameof(limit),
+                "Limit must be a positive integer.");
 
         return source.Provider is EntityQueryProvider
             ? source.Provider.CreateQuery<TEntity>(
                 Expression.Call(
                     null,
-                    ((Func<IQueryable<TEntity>, int, IQueryable<TEntity>>)WithPageSize).Method,
+                    ((Func<IQueryable<TEntity>, int, IQueryable<TEntity>>)Limit).Method,
                     source.Expression,
-                    Expression.Constant(pageSize, typeof(int))))
+                    Expression.Constant(limit, typeof(int))))
             : source;
     }
 
     /// <summary>
-    ///     Disables automatic pagination continuation for this query. The query will stop after the
-    ///     first request even if fewer results are returned.
+    ///     Permits <c>First*</c> to run on queries that have non-key predicates or scan-like paths
+    ///     (no partition-key equality). Without this opt-in, <c>First*</c> is restricted to safe
+    ///     key-only queries.
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         WARNING: This violates EF Core semantics. FirstOrDefault may return null even when
-    ///         matching data exists on later pages. Only use this if you understand the implications and
-    ///         need the performance optimization.
+    ///         This is a permission flag, not a behavioral change. Execution is unchanged: evaluation
+    ///         budget comes from <c>Limit(n)</c> if present, or DynamoDB's 1MB default otherwise.
+    ///         Single request. No paging. The caller accepts that the result may be null even when
+    ///         matches exist beyond the evaluation budget.
     ///     </para>
     ///     <para>
-    ///         This is useful when you know your query will match in the first page, or when you're
-    ///         willing to accept potentially incomplete results for better performance.
-    ///     </para>
-    ///     <para>
-    ///         Common use case: Queries with very selective key filters where you're confident the first
-    ///         page will contain matches.
+    ///         Applied to a key-only query with no non-key predicates, this is a silent no-op.
+    ///         Applied to <c>ToListAsync()</c> or other multi-result terminals, this is also a silent
+    ///         no-op.
     ///     </para>
     /// </remarks>
-    /// <returns>A new query with pagination disabled.</returns>
-    public static IQueryable<TEntity> WithoutPagination<TEntity>(this IQueryable<TEntity> source)
+    /// <param name="source">The query to apply the opt-in to.</param>
+    /// <returns>A new query with the non-key filter opt-in flag set.</returns>
+    public static IQueryable<TEntity> WithNonKeyFilter<TEntity>(this IQueryable<TEntity> source)
         where TEntity : class
         => source.Provider is EntityQueryProvider
             ? source.Provider.CreateQuery<TEntity>(
                 Expression.Call(
                     null,
-                    ((Func<IQueryable<TEntity>, IQueryable<TEntity>>)WithoutPagination).Method,
+                    ((Func<IQueryable<TEntity>, IQueryable<TEntity>>)WithNonKeyFilter).Method,
                     source.Expression))
             : source;
 
