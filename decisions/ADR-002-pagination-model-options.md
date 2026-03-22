@@ -203,7 +203,9 @@ We will adopt **Option B** as the core model, and keep **Option C** for later.
 5. Introduce `Limit(n)` as a provider-specific operator that maps directly to
    `ExecuteStatementRequest.Limit`. Evaluates `n` items, applies any filters, returns 0..n. Single
    request. No paging. Works on any query shape. `n` must be positive; 0 or negative throws
-   `ArgumentOutOfRangeException` at query construction time.
+   `ArgumentOutOfRangeException`. For constant values this validation occurs at query construction
+   time. For parameterized values (e.g. `Limit(userInput)` where `userInput` is a variable), the
+   value is not known until execution and validation occurs at query execution time.
 6. Restrict `First*` to safe key-only queries by default (PK equality, key predicates only). Any
    `First*` beyond this shape — non-key filters, scan-like paths, or both — requires explicit
    opt-in via `WithNonKeyFilter()`.
@@ -250,6 +252,10 @@ means the filter eliminated some evaluated items, or fewer than `n` items exist 
 range. There is no paging. `Limit(n)` overrides any implicit `Limit` the provider would otherwise
 set (e.g. the `Limit = 1` optimisation for key-only `First*`).
 
+When `Limit(n)` is present on a query whose terminal is `ToListAsync()`, `Limit(n)` wins — the
+query is a single request evaluating n items and the paging loop does not run. `ToListAsync()`
+paging only applies when no `Limit(n)` is set.
+
 **Key-only `First*` without explicit `Limit(n)`:**
 
 `Limit` is set to `1`. Every item DynamoDB evaluates is guaranteed to match — result count is
@@ -289,6 +295,10 @@ When either condition fails, `First*` requires `WithNonKeyFilter()` to proceed. 
 - Non-key filter on a safe path (condition 2 fails).
 - Scan-like path (condition 1 fails) — with or without non-key filters. The caller explicitly
   accepts potentially unbounded evaluation cost.
+- PK `IN (...)` on a safe path — `IN` is not equality and fails condition 1. `First*` with a
+  partition key `IN` constraint requires `WithNonKeyFilter()` and is treated as scan-like.
+  DynamoDB returns items across the matched partitions in key order; the first item returned is
+  whatever appears first in that traversal.
 
 For GSIs: the GSI's own partition key must be equality-filtered. An LSI inherits the table
 partition key, so condition 1 is satisfied when the table partition key is equality-filtered.
@@ -297,7 +307,8 @@ The ordering guarantee on safe paths holds because the provider enforces at tran
 `OrderBy` / `OrderByDescending` may only reference key attributes (partition key or sort key) of
 the active query source. Ordering by non-key attributes is rejected as a translation error
 regardless of path safety, since DynamoDB cannot globally order by arbitrary attributes across
-pages.
+pages. `WithNonKeyFilter()` does not affect this constraint — ORDER BY validation is independent
+and always enforced.
 
 ### What we are not doing now
 
@@ -319,6 +330,9 @@ pages.
 - Define the exact translation error messages for `Limit(n)`, `First*`, and `Last*` failure cases.
   `TranslateTake` should fail with a message pointing callers to `Limit(n)`.
 - Add diagnostics for unsupported row-limiting shapes.
+- Emit a diagnostic warning when a `WithNonKeyFilter()` + `Limit(n)` query returns null but
+  `NextToken` was present in the response — the caller cannot distinguish "no match exists" from
+  "match exists beyond the evaluation budget."
 - Design explicit paging APIs later if needed (Option C), including the per-page evaluation budget
   use case previously served by `WithPageSize`.
 - Add the following new API surface:
