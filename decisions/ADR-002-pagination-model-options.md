@@ -67,17 +67,16 @@ Under this model:
   single request. No paging. The result count is 0..n. This is the correct mental model for
   DynamoDB's evaluation budget. It works on any query shape — safe path or scan-like — because
   the cost is always bounded to one request.
-- **`First*` / `Last*`** are restricted to key-only queries by default. When non-key filters are
-  present, they require explicit opt-in via `WithNonKeyFilter()`. `WithNonKeyFilter()` is a
-  **permission flag** — it removes the translation restriction that prevents non-key predicates
-  in `First*`/`Last*` queries. It does not change execution behavior: evaluation budget comes from
-  `Limit(n)` if specified, or DynamoDB's default (1MB) otherwise. Single request. No paging.
-  The caller accepts that a match may not be found if the filter is sparse and the evaluation
-  budget is small.
-- **`WithNonKeyFilter()` is only required for `First*` / `Last*`.** `ToListAsync()` and other
-  multi-result terminals work with non-key filters freely and need no opt-in.
-- **`First*` / `Last*` on scan-like shapes** (no PK equality) are a translation failure. A full
-  table scan to find the first match is not a supported access pattern.
+- **`First*`** is restricted to key-only queries by default (PK equality, no non-key filters).
+  Any `First*` query that goes beyond the safe key-only shape requires explicit opt-in via
+  `WithNonKeyFilter()`. This covers: non-key filters on a safe path, non-key filters on a
+  scan-like path, and scan-like paths of any kind. The caller accepts the evaluation cost.
+- **`WithNonKeyFilter()`** is a **permission flag** — it removes the translation restriction that
+  limits `First*` to safe key-only queries. It does not change execution behavior: evaluation
+  budget comes from `Limit(n)` if specified, or DynamoDB's default (1MB) otherwise. Single
+  request. No paging. Applied to a key-only query with no non-key predicates, it is a silent
+  no-op. Applied to a `ToListAsync()` or other multi-result terminal, it is also a silent no-op —
+  those terminals always accept non-key filters without opt-in.
 - **`Last*`** is not supported in this iteration. Enabling it requires implementing reverse
   traversal and is deferred to follow-on work.
 
@@ -109,14 +108,19 @@ var orders = await db.Orders
 Example of `First*` — key-only, no opt-in needed:
 
 ```csharp
-// Natural key order, single result, no opt-in needed.
+// Ascending sort key order (DynamoDB forward traversal). Single result.
+var earliest = await db.Orders
+    .Where(x => x.UserId == userId)
+    .FirstOrDefaultAsync(cancellationToken);
+
+// Explicit descending order.
 var latest = await db.Orders
     .Where(x => x.UserId == userId)
     .OrderByDescending(x => x.OrderId)
     .FirstOrDefaultAsync(cancellationToken);
 ```
 
-Example of `First*` with non-key filter — explicit opt-in:
+Example of `First*` with non-key filter on a safe path:
 
 ```csharp
 // WithNonKeyFilter() permits the non-key predicate. Limit(50) sets evaluation budget.
@@ -128,14 +132,15 @@ var active = await db.Orders
     .FirstOrDefaultAsync(cancellationToken);
 ```
 
-Example of `First*` with non-key filter, no explicit budget:
+Example of `First*` on a scan-like path — caller accepts unbounded cost:
 
 ```csharp
-// WithNonKeyFilter() permits the non-key predicate.
-// No Limit(n) — DynamoDB evaluates up to its 1MB default. Single request.
-var active = await db.Orders
-    .Where(x => x.UserId == userId && x.IsActive)
+// No PK equality — full table scan. WithNonKeyFilter() opts in to this.
+// Limit(100) bounds the evaluation to 100 items. Single request.
+var first = await db.Orders
+    .Where(x => x.IsActive)
     .WithNonKeyFilter()
+    .Limit(100)
     .FirstOrDefaultAsync(cancellationToken);
 ```
 
@@ -143,8 +148,8 @@ var active = await db.Orders
 
 - Eliminates the EF Core `Take` vs DynamoDB `Limit` semantic mismatch entirely.
 - `Limit(n)` name encodes exactly what DynamoDB does — no ambiguity.
-- `First*` stay correct for key-only queries with no special opt-in.
-- Non-key filter permission is always explicit via `WithNonKeyFilter()`, never implicit.
+- `First*` stays correct for key-only queries with no special opt-in.
+- Non-safe `First*` is always explicit via `WithNonKeyFilter()`, never implicit.
 - No `WithBestEffortRowLimiting()` needed.
 
 **Cons:**
@@ -185,8 +190,8 @@ We will adopt **Option B** as the core model, and keep **Option C** for later.
 ### What we are doing now
 
 1. Remove `Take` entirely. It has the wrong semantics for DynamoDB — EF Core's `Take(n)` contract
-   promises n rows returned, but DynamoDB's `Limit` caps items evaluated. The gap causes silent
-   correctness problems with non-key filters.
+   promises n rows returned, but DynamoDB's `Limit` caps items evaluated. `TranslateTake` becomes
+   a translation failure pointing callers to `Limit(n)` as the replacement.
 2. Remove `WithPageSize`, `DefaultPageSize`, and the `FirstAsync(pageSize, ...)` /
    `FirstOrDefaultAsync(pageSize, ...)` convenience overloads entirely. The per-page-budget-with-
    paging use case is deferred to Option C; using DynamoDB's 1MB default is the correct choice for
@@ -199,35 +204,38 @@ We will adopt **Option B** as the core model, and keep **Option C** for later.
    `ExecuteStatementRequest.Limit`. Evaluates `n` items, applies any filters, returns 0..n. Single
    request. No paging. Works on any query shape. `n` must be positive; 0 or negative throws
    `ArgumentOutOfRangeException` at query construction time.
-6. Restrict `First*` to key-only queries by default. If a non-key filter is present, translation
-   fails unless the caller opts in via `WithNonKeyFilter()`.
-7. `WithNonKeyFilter()` is a permission flag. It removes the translation restriction that blocks
-   non-key predicates in `First*` queries. Execution is unchanged: evaluation budget is `n` from
-   `Limit(n)` if present, or DynamoDB's 1MB default otherwise. Single request. No paging.
-   `WithNonKeyFilter()` applied to a key-only query (no non-key predicates) is silently accepted
-   as a no-op.
-8. `WithNonKeyFilter()` is only required for `First*`. `ToListAsync()` and other multi-result
-   terminals accept non-key filters without any opt-in.
-9. `First*` on scan-like shapes (no PK equality) is a translation failure with no opt-in path.
-   Use `Limit(n)` or `ToListAsync()` instead.
+6. Restrict `First*` to safe key-only queries by default (PK equality, key predicates only). Any
+   `First*` beyond this shape — non-key filters, scan-like paths, or both — requires explicit
+   opt-in via `WithNonKeyFilter()`.
+7. `WithNonKeyFilter()` is a permission flag recorded in `DynamoQueryCompilationContext`. It removes
+   the translation restriction that limits `First*` to safe key-only queries. Execution is
+   unchanged: evaluation budget is `n` from `Limit(n)` if present, or DynamoDB's 1MB default
+   otherwise. Single request. No paging. When `Limit(n)` is explicitly specified alongside a
+   key-only `First*`, `Limit(n)` takes precedence over the provider's implicit `Limit = 1`
+   optimisation — the explicit caller instruction wins.
+8. `WithNonKeyFilter()` applied to a key-only query with no non-key predicates is a silent no-op.
+   `WithNonKeyFilter()` applied to a `ToListAsync()` or other multi-result terminal is also a
+   silent no-op — those terminals always accept non-key filters without opt-in.
+9. For key-only `First*` without an explicit `Limit(n)`, the provider sets `Limit = 1` on the
+   request. Every evaluated item is guaranteed to match, so this is both correct and efficient.
+   Without `OrderBy`, the result is the first item in ascending sort key order (DynamoDB's natural
+   forward traversal). With `OrderByDescending`, the provider emits ORDER BY and the result is the
+   first item in descending sort key order.
 10. `Last*` is not supported in this iteration. Translation always fails. Enabling it requires
     implementing reverse traversal (equivalent to `ScanIndexForward = false`) and is deferred to
     follow-on work.
 11. Honor explicit ordering when provided, and do not inject ordering when it is not provided.
-12. Support `First*` on key-only queries without explicit `OrderBy`; they operate on the
-    backend-returned order only when the selected access path has a reliable natural order (query +
-    sort key). The provider sets `Limit = 1` in the request for key-only `First*` queries — every
-    evaluated item is guaranteed to match.
 
 ### Row-limiting shapes reference
 
 | Shape | API | Behaviour |
 |---|---|---|
 | Any query with evaluation budget | `.Limit(n)` | Evaluate n items, filter, return 0..n. Single request. |
-| `First*`, key-only | `First*` | Provider sets `Limit = 1`. Key order. Single result. |
-| `First*`, non-key filter, safe path | `First*` + `.WithNonKeyFilter()` | Non-key predicate permitted. Budget from `Limit(n)` or 1MB default. Single request. |
-| `First*`, non-key filter, safe path + explicit budget | `First*` + `.WithNonKeyFilter()` + `.Limit(n)` | Non-key predicate permitted. Evaluate n items. Single request. |
-| `First*`, scan-like (no PK equality) | — | Translation failure |
+| `First*`, key-only, no explicit budget | `First*` | Provider sets `Limit = 1`. Ascending sort key order unless `OrderBy` overrides. |
+| `First*`, key-only, explicit budget | `First*` + `.Limit(n)` | `Limit(n)` wins. Evaluate n items. Single request. |
+| `First*`, non-key filter or scan-like | `First*` + `.WithNonKeyFilter()` | Permission flag. Budget from `Limit(n)` or 1MB default. Single request. |
+| `First*`, non-key filter or scan-like + explicit budget | `First*` + `.WithNonKeyFilter()` + `.Limit(n)` | Permission flag + evaluation budget. Single request. |
+| `First*`, unsafe (no `WithNonKeyFilter()`) | — | Translation failure |
 | `Last*` | — | Not supported in this iteration |
 
 ### Effective request-limit rule
@@ -239,18 +247,23 @@ user-facing evaluation-limit API.
 
 Exactly one request is sent with `Limit = n`. Returning fewer than `n` results is correct — it
 means the filter eliminated some evaluated items, or fewer than `n` items exist in the evaluated
-range. There is no paging.
+range. There is no paging. `Limit(n)` overrides any implicit `Limit` the provider would otherwise
+set (e.g. the `Limit = 1` optimisation for key-only `First*`).
 
-**Key-only `First*`:**
+**Key-only `First*` without explicit `Limit(n)`:**
 
 `Limit` is set to `1`. Every item DynamoDB evaluates is guaranteed to match — result count is
-0 or 1.
+0 or 1. This is an internal optimisation; callers cannot observe the difference.
 
-**`First*` with `WithNonKeyFilter()`:**
+**`First*` with `WithNonKeyFilter()` (any path):**
 
 `Limit` is set from `Limit(n)` if present; otherwise left unset (DynamoDB 1MB default). Single
 request. No paging. If no match is found within the evaluated range, null/default is returned.
-The caller accepts this trade-off when opting in via `WithNonKeyFilter()`.
+The caller accepts this when opting in via `WithNonKeyFilter()`. Validation that the flag is
+present for non-safe `First*` queries occurs in `DynamoQueryTranslationPostprocessor` after index
+selection, where effective key attributes are known — the same stage as ORDER BY validation.
+`TranslateFirstOrDefault` records `Limit = 1` as the default request limit and stores any
+`WithNonKeyFilter()` flag; the postprocessor then validates and may override the limit.
 
 **`ToListAsync()` (any shape):**
 
@@ -260,7 +273,7 @@ default). Fine-grained per-page control is deferred to Option C.
 
 ### Safe path definition
 
-A query shape is **safe** for `First*` without opt-in when the following holds:
+A query shape is **safe** for `First*` without opt-in when the following hold:
 
 1. The WHERE clause contains an equality condition on the partition key of the accessed source
    (base table, GSI, or LSI).
@@ -268,16 +281,14 @@ A query shape is **safe** for `First*` without opt-in when the following holds:
    No non-key attribute filters.
 
 **Special case — no sort key:** When the accessed source has no sort key, each partition contains
-at most one item. In that case `First*` on PK equality is always a point lookup and is safe
-regardless of whether non-key filters are present. `WithNonKeyFilter()` is still silently accepted
-but not required.
+at most one item. `First*` on PK equality is always a point lookup and is safe regardless of
+whether non-key filters are present. `WithNonKeyFilter()` is silently accepted but not required.
 
-When condition 2 fails (non-key filter present on a source with a sort key), `First*` requires
-`WithNonKeyFilter()` to proceed.
+When either condition fails, `First*` requires `WithNonKeyFilter()` to proceed. This covers:
 
-When condition 1 fails (no PK equality — scan-like), `First*` is a translation failure with no
-opt-in path. Use `Limit(n)` for bounded evaluation on scan-like shapes, or `ToListAsync()` for
-full traversal.
+- Non-key filter on a safe path (condition 2 fails).
+- Scan-like path (condition 1 fails) — with or without non-key filters. The caller explicitly
+  accepts potentially unbounded evaluation cost.
 
 For GSIs: the GSI's own partition key must be equality-filtered. An LSI inherits the table
 partition key, so condition 1 is satisfied when the table partition key is equality-filtered.
@@ -305,21 +316,30 @@ pages.
 
 - Implement `Last*` for well-ordered paths. Requires reverse traversal equivalent to DynamoDB's
   `ScanIndexForward = false`. Until implemented, `Last*` always fails translation.
-- Define the exact safe-query translation error messages for `Limit(n)`, `First*`, and `Last*`.
-- Add diagnostics for unsupported row-limiting shapes (e.g. `First*` on scan-like paths).
-- Emit a diagnostic warning for `WithNonKeyFilter()` when no match is found and the evaluation
-  budget was exhausted (i.e. the result was null due to budget, not absence of data).
+- Define the exact translation error messages for `Limit(n)`, `First*`, and `Last*` failure cases.
+  `TranslateTake` should fail with a message pointing callers to `Limit(n)`.
+- Add diagnostics for unsupported row-limiting shapes.
 - Design explicit paging APIs later if needed (Option C), including the per-page evaluation budget
   use case previously served by `WithPageSize`.
+- Add the following new API surface:
+  - `Limit(n)` extension method on `DynamoDbQueryableExtensions`
+  - `WithNonKeyFilter()` extension method on `DynamoDbQueryableExtensions`
+  - `NonKeyFilterAllowed` flag on `DynamoQueryCompilationContext` (set by `WithNonKeyFilter()`
+    translation, read by postprocessor validation)
+  - `Limit` / `LimitExpression` on `SelectExpression` — replaces `PageSize` / `PageSizeExpression`
+    for the new `Limit(n)` operator
 - Remove the following infrastructure coupled to the old model:
   - `DynamoDbOptionsExtension.DefaultPageSize` and `DynamoDbContextOptionsBuilder.DefaultPageSize()`
   - `DynamoQueryCompilationContext`: `PageSizeOverride`, `PageSizeOverrideExpression`, `SinglePageOnly`
-  - `SelectExpression`: `PageSize`, `PageSizeExpression`, `ApplyPageSize()` — replaced by
-    `Limit` / `LimitExpression` for the new `Limit(n)` operator
+  - `SelectExpression`: `PageSize`, `PageSizeExpression`, `ApplyPageSize()`
   - `SelectExpression`: `ResultLimit`, `ResultLimitExpression`, `ApplyOrCombineResultLimitExpression()`
     — removed with `Take`
   - `QueryingEnumerable`: `_resultLimit` counter and `_pageSize` field
   - `DynamoClientWrapper.ExecutePartiQl`: `singlePageOnly` parameter — tied to `WithoutPagination()`
+- Move `WithNonKeyFilter()` validation (safe path check, scan-like check) into
+  `DynamoQueryTranslationPostprocessor`, after index selection resolves effective key attributes.
+  `TranslateFirstOrDefault` records `Limit = 1` as the default and stores the `WithNonKeyFilter()`
+  flag; the postprocessor performs the validation and may override the limit.
 
 ### Continuation state and cursor contract
 
@@ -340,9 +360,9 @@ This keeps the model clear:
 - **`Limit(n)`** describes an evaluation budget — exactly what DynamoDB's `Limit` parameter does.
   The name makes the DynamoDB semantic explicit rather than hiding it behind EF Core's `Take`
   contract. Because it is always a single request, it needs no opt-in on any query shape.
-- **`First*`** operates on key order for key-only queries, where results are globally ordered and
-  every evaluated item matches. Non-key filter permission is always explicit via `WithNonKeyFilter()`
-  — it unlocks the non-key predicate but does not change execution behavior.
+- **`First*`** is safe by default for key-only queries. `WithNonKeyFilter()` is the universal
+  escape hatch for any `First*` that goes beyond the safe key-only shape — non-key filters, scan
+  paths, or both. It does not change execution behavior; the caller accepts the evaluation risk.
 - **`WithBestEffortRowLimiting()`** is retired because the problem it solved only existed because
   `Take(n)` had the wrong semantics.
 - **`WithPageSize`** is retired because per-page evaluation granularity belongs to Option C's
@@ -372,10 +392,9 @@ For ordering specifically, strict assumptions are limited to queryable access pa
 
 - Eliminates the EF Core `Take` vs DynamoDB evaluation-budget mismatch.
 - `Limit(n)` name encodes exactly what happens — no hidden semantics.
-- Strict-by-default LINQ behavior for `First*`.
-- Non-key filter permission is always explicit via `WithNonKeyFilter()`.
-- No `WithBestEffortRowLimiting()` or `WithPageSize` to explain — the opt-in surface is small and
-  focused.
+- Strict-by-default `First*` behavior; one clear escape hatch via `WithNonKeyFilter()`.
+- Non-safe `First*` is always explicit, never implicit.
+- No `WithBestEffortRowLimiting()` or `WithPageSize` to explain — the opt-in surface is small.
 - Clean path to future paging APIs.
 
 **Trade-offs:**
