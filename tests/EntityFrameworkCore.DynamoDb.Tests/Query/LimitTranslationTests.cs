@@ -47,19 +47,23 @@ public class LimitTranslationTests
     }
 
     [Fact]
-    public async Task Limit_WithFirstOrDefault_UserLimitWinsOverImplicitOne()
+    public async Task Limit_WithFirstOrDefault_ThrowsTranslationFailure()
     {
-        // First* sets an implicit Limit=1, but user Limit(n) must override it.
-        var (client, captured) = SetupMockClient();
+        // Limit(n) + First* is disallowed — use
+        // .Limit(n).AsAsyncEnumerable().FirstOrDefaultAsync(ct).
+        var (client, _) = SetupMockClient();
         await using var context = LimitTestDbContext.Create(client);
 
-        await context
+        var act = async () => await context
             .Items
             .Where(x => x.Pk == "P#1")
             .Limit(5)
             .FirstOrDefaultAsync(TestContext.Current.CancellationToken);
 
-        captured.Single().Limit.Should().Be(5);
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*AsAsyncEnumerable*");
     }
 
     [Fact]

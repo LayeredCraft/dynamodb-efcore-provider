@@ -26,8 +26,7 @@ public class SelectExpression(string tableName, string? queryEntityTypeName = nu
 
     /// <summary>
     ///     The user-specified evaluation limit from <c>.Limit(n)</c>. Maps directly to
-    ///     <c>ExecuteStatementRequest.Limit</c>. Null means not set by the user (or cleared by
-    ///     <see cref="ClearImplicitLimit"/>).
+    ///     <c>ExecuteStatementRequest.Limit</c>. Null means not set by the user.
     /// </summary>
     public int? Limit { get; private set; }
 
@@ -161,21 +160,6 @@ public class SelectExpression(string tableName, string? queryEntityTypeName = nu
             Limit = limit;
             LimitExpression = Constant(limit);
         }
-    }
-
-    /// <summary>
-    ///     Clears the implicit limit set by <see cref="ApplyImplicitLimit" />. No-op when
-    ///     <see cref="HasUserLimit" /> is <c>true</c>. Called by the postprocessor when
-    ///     <c>WithNonKeyFilter()</c> is present without a user limit so DynamoDB uses its 1MB default per
-    ///     request.
-    /// </summary>
-    public void ClearImplicitLimit()
-    {
-        if (HasUserLimit)
-            return;
-
-        Limit = null;
-        LimitExpression = null;
     }
 
     /// <summary>Marks this query as having a <c>First*</c> terminal.</summary>

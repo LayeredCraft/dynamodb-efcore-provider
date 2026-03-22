@@ -5,10 +5,7 @@ using NSubstitute;
 
 namespace EntityFrameworkCore.DynamoDb.Tests.Query;
 
-/// <summary>
-///     Unit tests for DynamoDbQueryableExtensions — Limit, WithNonKeyFilter, WithIndex,
-///     WithoutIndex.
-/// </summary>
+/// <summary>Unit tests for DynamoDbQueryableExtensions — Limit, WithIndex, WithoutIndex.</summary>
 public class DynamoDbQueryableExtensionsTests
 {
     // ── Limit ────────────────────────────────────────────────────────────────
@@ -53,30 +50,6 @@ public class DynamoDbQueryableExtensionsTests
         var source = new[] { new TestEntity() }.AsQueryable();
 
         var result = source.Limit(5);
-
-        result.Should().BeSameAs(source);
-    }
-
-    // ── WithNonKeyFilter ─────────────────────────────────────────────────────
-
-    [Fact]
-    public void WithNonKeyFilter_ReturnsNewQueryable()
-    {
-        var client = Substitute.For<IAmazonDynamoDB>();
-        using var context = LimitDbContext.Create(client);
-
-        var original = context.Items.AsQueryable();
-        var withFlag = original.WithNonKeyFilter();
-
-        withFlag.Should().NotBeSameAs(original);
-    }
-
-    [Fact]
-    public void WithNonKeyFilter_OnNonEntityQueryProvider_ReturnsSourceUnchanged()
-    {
-        var source = new[] { new TestEntity() }.AsQueryable();
-
-        var result = source.WithNonKeyFilter();
 
         result.Should().BeSameAs(source);
     }

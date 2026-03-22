@@ -46,13 +46,28 @@ internal static class DynamoStrings
         + "evaluation budget: evaluates n items, applies any filters, and returns 0..n results in "
         + "a single request. Example: .Limit(25).ToListAsync()";
 
-    /// <summary>Provides functionality for this member.</summary>
-    public static string FirstOrDefaultRequiresNonKeyFilterOptIn(string queryShape)
-        => $"FirstOrDefault/First on a {queryShape} requires .WithNonKeyFilter() to proceed. "
-            + "This operator is restricted to safe key-only queries by default because non-key predicates "
-            + "or scan-like paths can silently return null even when matches exist beyond the evaluation "
-            + "budget. Add .WithNonKeyFilter() to acknowledge this. "
-            + "Example: .Where(...).WithNonKeyFilter().Limit(50).FirstOrDefaultAsync()";
+    /// <summary>
+    ///     Thrown when <c>First*</c> is used on a non-key or scan-like path. Server-side
+    ///     <c>First*</c> is restricted to key-only queries; use <c>AsAsyncEnumerable()</c> for unsafe
+    ///     paths.
+    /// </summary>
+    public static string FirstOrDefaultRequiresKeyOnlyPath(string queryShape)
+        => $"First/FirstOrDefault on a {queryShape} is not supported server-side. "
+            + "Server-side First* is restricted to key-only queries (partition-key equality with only "
+            + "key predicates). For non-key filters or scan-like paths, fetch server-side then select "
+            + "client-side via AsAsyncEnumerable(): "
+            + ".Where(...).Limit(n).AsAsyncEnumerable().FirstOrDefaultAsync(ct)";
+
+    /// <summary>
+    ///     Thrown when <c>Limit(n)</c> and <c>First*</c> are combined directly. Use
+    ///     <c>AsAsyncEnumerable()</c> to make the client-side selection explicit.
+    /// </summary>
+    public const string FirstOrDefaultWithUserLimitNotSupported =
+        "Limit(n) cannot be combined with First/FirstOrDefault directly. "
+        + "Limit(n) sets a DynamoDB evaluation budget and may return multiple items; "
+        + "combining it with First* is ambiguous. Use AsAsyncEnumerable() to explicitly "
+        + "take the first item client-side: "
+        + ".Where(...).Limit(n).AsAsyncEnumerable().FirstOrDefaultAsync(ct)";
 
     /// <summary>Provides functionality for this member.</summary>
     public const string SkipWhileNotSupported =

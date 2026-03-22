@@ -79,14 +79,6 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
                 return limitResult;
             }
 
-            if (method.Name == nameof(DynamoDbQueryableExtensions.WithNonKeyFilter))
-            {
-                // Set the permission flag on the context then prune this call from the tree.
-                var context = (DynamoQueryCompilationContext)QueryCompilationContext;
-                context.NonKeyFilterAllowed = true;
-                return Visit(methodCallExpression.Arguments[0]);
-            }
-
             if (method.Name == nameof(DynamoDbQueryableExtensions.WithoutIndex))
             {
                 var context = (DynamoQueryCompilationContext)QueryCompilationContext;

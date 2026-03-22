@@ -110,14 +110,10 @@ internal sealed class DynamoQueryTranslationPostprocessor(
             ResolveEffectiveSortKeyAttributeName(candidates, decision.SelectedIndexName);
         ValidateOrderByConstraints(selectExpression, queryConstraints, effectiveSortKeyAttr);
 
-        // Validate First* safe path: must be key-only or have WithNonKeyFilter() opt-in.
+        // Validate First* safe path: must be key-only (no user limit, no non-key predicates).
         // Run after index selection so we use the effective key attributes of the chosen source.
         if (selectExpression.IsFirstTerminal)
-            ValidateFirstTerminalSafePath(
-                selectExpression,
-                queryConstraints,
-                effectiveSortKeyAttr,
-                dynamoQueryCompilationContext.NonKeyFilterAllowed);
+            ValidateFirstTerminalSafePath(selectExpression, queryConstraints, effectiveSortKeyAttr);
 
         return query;
     }
@@ -324,14 +320,15 @@ internal sealed class DynamoQueryTranslationPostprocessor(
     }
 
     /// <summary>
-    ///     Enforces the <c>First*</c> safe-path contract from ADR-002: by default, <c>First*</c> is
-    ///     restricted to key-only query shapes. Non-key predicates or scan-like paths require
-    ///     <c>WithNonKeyFilter()</c> opt-in.
+    ///     Enforces the <c>First*</c> safe-path contract: <c>First*</c> is restricted to key-only
+    ///     query shapes with no user-specified limit. Any unsafe path throws, directing the user
+    ///     to <c>.AsAsyncEnumerable().FirstOrDefaultAsync()</c>.
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         Safe path conditions — both must hold:
+    ///         Safe path conditions — all must hold:
     ///         <list type="number">
+    ///             <item>No user-specified <c>Limit(n)</c>.</item>
     ///             <item>PK equality constraint (not IN) in the WHERE clause.</item>
     ///             <item>All predicates use only partition-key or sort-key attributes.</item>
     ///         </list>
@@ -346,12 +343,19 @@ internal sealed class DynamoQueryTranslationPostprocessor(
     private static void ValidateFirstTerminalSafePath(
         SelectExpression selectExpression,
         DynamoQueryConstraints? queryConstraints,
-        string? effectiveSortKeyAttributeName,
-        bool nonKeyFilterAllowed)
+        string? effectiveSortKeyAttributeName)
     {
         // Design-time: runtime model unavailable, skip to avoid false negatives.
         if (queryConstraints is null)
             return;
+
+        // Limit(n) + First* is always disallowed. The combination is ambiguous — Limit(n) may
+        // return multiple items and First* silently discards all but one. Use
+        // .Limit(n).AsAsyncEnumerable().FirstOrDefaultAsync(ct) to make the client-side
+        // selection explicit.
+        if (selectExpression.HasUserLimit)
+            throw new InvalidOperationException(
+                DynamoStrings.FirstOrDefaultWithUserLimitNotSupported);
 
         var pkNames = selectExpression.EffectivePartitionKeyPropertyNames;
         if (pkNames.Count == 0)
@@ -359,42 +363,30 @@ internal sealed class DynamoQueryTranslationPostprocessor(
 
         var effectivePk = pkNames.First();
 
-        // Condition 1: PK equality constraint exists (IN is not equality).
+        // Condition: PK equality constraint exists (IN is not equality).
         var hasPkEquality = queryConstraints.EqualityConstraints.ContainsKey(effectivePk);
 
         // Special case: no sort key → single-item partition on PK equality → always safe
-        // regardless of non-key predicates.
+        // regardless of non-key predicates, since each partition holds at most one item.
         if (hasPkEquality && effectiveSortKeyAttributeName is null)
-            // WithNonKeyFilter() is accepted silently on a PK-only table.
             return;
 
-        // Condition 2: no non-key predicates (walk predicate tree against effective keys).
+        // Condition: no non-key predicates (walk predicate tree against effective keys).
         var hasNonKeyPredicate = selectExpression.Predicate is not null
             && HasNonKeyPredicates(
                 selectExpression.Predicate,
                 effectivePk,
                 effectiveSortKeyAttributeName);
 
-        var isSafe = hasPkEquality && !hasNonKeyPredicate;
+        if (hasPkEquality && !hasNonKeyPredicate)
+            return; // Key-only path — safe.
 
-        if (isSafe)
-            // Key-only path — always safe. WithNonKeyFilter() is a silent no-op here.
-            return;
-
-        // Unsafe path (non-key predicate, scan-like, or PK IN).
-        if (!nonKeyFilterAllowed)
-        {
-            var shape = !hasPkEquality
-                ? "scan-like path (no partition-key equality)"
-                : "non-key predicate";
-            throw new InvalidOperationException(
-                DynamoStrings.FirstOrDefaultRequiresNonKeyFilterOptIn(shape));
-        }
-
-        // WithNonKeyFilter() is present. Clear the implicit Limit=1 so DynamoDB uses its 1MB
-        // default per request (single request, no paging). A user-set Limit(n) is preserved by
-        // ClearImplicitLimit (it is a no-op when HasUserLimit=true).
-        selectExpression.ClearImplicitLimit();
+        // Unsafe path: non-key predicate, scan-like, or PK IN. Always throw — use
+        // .AsAsyncEnumerable().FirstOrDefaultAsync(ct) for client-side selection.
+        var shape = !hasPkEquality
+            ? "scan-like path (no partition-key equality)"
+            : "non-key predicate";
+        throw new InvalidOperationException(DynamoStrings.FirstOrDefaultRequiresKeyOnlyPath(shape));
     }
 
     /// <summary>

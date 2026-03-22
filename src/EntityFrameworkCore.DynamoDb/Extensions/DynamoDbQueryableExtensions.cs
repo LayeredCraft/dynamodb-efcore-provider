@@ -50,36 +50,6 @@ public static class DynamoDbQueryableExtensions
     }
 
     /// <summary>
-    ///     Permits <c>First*</c> to run on queries that have non-key predicates or scan-like paths
-    ///     (no partition-key equality). Without this opt-in, <c>First*</c> is restricted to safe
-    ///     key-only queries.
-    /// </summary>
-    /// <remarks>
-    ///     <para>
-    ///         This is a permission flag, not a behavioral change. Execution is unchanged: evaluation
-    ///         budget comes from <c>Limit(n)</c> if present, or DynamoDB's 1MB default otherwise.
-    ///         Single request. No paging. The caller accepts that the result may be null even when
-    ///         matches exist beyond the evaluation budget.
-    ///     </para>
-    ///     <para>
-    ///         Applied to a key-only query with no non-key predicates, this is a silent no-op.
-    ///         Applied to <c>ToListAsync()</c> or other multi-result terminals, this is also a silent
-    ///         no-op.
-    ///     </para>
-    /// </remarks>
-    /// <param name="source">The query to apply the opt-in to.</param>
-    /// <returns>A new query with the non-key filter opt-in flag set.</returns>
-    public static IQueryable<TEntity> WithNonKeyFilter<TEntity>(this IQueryable<TEntity> source)
-        where TEntity : class
-        => source.Provider is EntityQueryProvider
-            ? source.Provider.CreateQuery<TEntity>(
-                Expression.Call(
-                    null,
-                    ((Func<IQueryable<TEntity>, IQueryable<TEntity>>)WithNonKeyFilter).Method,
-                    source.Expression))
-            : source;
-
-    /// <summary>
     ///     Explicitly suppresses index selection for this query, forcing it to use the base table
     ///     regardless of the configured automatic index selection mode.
     /// </summary>

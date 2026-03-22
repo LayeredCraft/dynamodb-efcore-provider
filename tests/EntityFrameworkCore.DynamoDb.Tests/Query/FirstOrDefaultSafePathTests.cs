@@ -6,12 +6,13 @@ using NSubstitute;
 namespace EntityFrameworkCore.DynamoDb.Tests.Query;
 
 /// <summary>
-///     Verifies the First* safe-path contract from ADR-002: key-only queries are safe by default;
-///     non-key predicates and scan-like paths require <c>.WithNonKeyFilter()</c> opt-in.
+///     Verifies the First* safe-path contract: key-only queries succeed server-side; non-key
+///     predicates, scan-like paths, and user-specified Limit(n) always throw — use
+///     <c>.AsAsyncEnumerable().FirstOrDefaultAsync(ct)</c> for those shapes.
 /// </summary>
 public class FirstOrDefaultSafePathTests
 {
-    // ── Unsafe paths: throw without opt-in ──────────────────────────────────
+    // ── Unsafe paths: always throw ──────────────────────────────────────────
 
     [Fact]
     public async Task FirstOrDefault_NonKeyFilter_WithoutOptIn_ThrowsTranslationFailure()
@@ -28,7 +29,7 @@ public class FirstOrDefaultSafePathTests
         await act
             .Should()
             .ThrowAsync<InvalidOperationException>()
-            .WithMessage("*WithNonKeyFilter*");
+            .WithMessage("*AsAsyncEnumerable*");
 
         await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
     }
@@ -49,12 +50,34 @@ public class FirstOrDefaultSafePathTests
         await act
             .Should()
             .ThrowAsync<InvalidOperationException>()
-            .WithMessage("*WithNonKeyFilter*");
+            .WithMessage("*AsAsyncEnumerable*");
 
         await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
     }
 
-    // ── Safe paths: no opt-in required ──────────────────────────────────────
+    [Fact]
+    public async Task FirstOrDefault_KeyOnly_WithUserLimit_ThrowsTranslationFailure()
+    {
+        // Limit(n) + First* is always disallowed — use AsAsyncEnumerable() instead.
+        var client = Substitute.For<IAmazonDynamoDB>();
+        await using var context = SafePathDbContext.Create(client);
+
+        var act = async ()
+            => await context
+                .PkSkItems
+                .Where(x => x.Pk == "P#1")
+                .Limit(5)
+                .FirstOrDefaultAsync(TestContext.Current.CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*AsAsyncEnumerable*");
+
+        await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
+    // ── Safe paths: key-only ─────────────────────────────────────────────────
 
     [Fact]
     public async Task FirstOrDefault_KeyOnly_PkEquality_Succeeds()
@@ -104,40 +127,6 @@ public class FirstOrDefaultSafePathTests
         await act.Should().NotThrowAsync<InvalidOperationException>();
     }
 
-    // ── Opt-in: WithNonKeyFilter lets unsafe paths through ───────────────────
-
-    [Fact]
-    public async Task FirstOrDefault_NonKeyFilter_WithOptIn_Succeeds()
-    {
-        var client = Substitute.For<IAmazonDynamoDB>();
-        await using var context = SafePathDbContext.Create(client);
-
-        var act = async ()
-            => await context
-                .PkSkItems
-                .Where(x => x.Pk == "P#1" && x.IsActive)
-                .WithNonKeyFilter()
-                .FirstOrDefaultAsync(TestContext.Current.CancellationToken);
-
-        await act.Should().NotThrowAsync<InvalidOperationException>();
-    }
-
-    [Fact]
-    public async Task FirstOrDefault_ScanLike_WithOptIn_Succeeds()
-    {
-        var client = Substitute.For<IAmazonDynamoDB>();
-        await using var context = SafePathDbContext.Create(client);
-
-        var act = async ()
-            => await context
-                .PkSkItems
-                .Where(x => x.IsActive)
-                .WithNonKeyFilter()
-                .FirstOrDefaultAsync(TestContext.Current.CancellationToken);
-
-        await act.Should().NotThrowAsync<InvalidOperationException>();
-    }
-
     // ── No-sort-key special case ─────────────────────────────────────────────
 
     [Fact]
@@ -152,42 +141,6 @@ public class FirstOrDefaultSafePathTests
             => await context
                 .PkOnlyItems
                 .Where(x => x.Pk == "P#1" && x.IsActive)
-                .FirstOrDefaultAsync(TestContext.Current.CancellationToken);
-
-        await act.Should().NotThrowAsync<InvalidOperationException>();
-    }
-
-    // ── WithNonKeyFilter on other terminals ──────────────────────────────────
-
-    [Fact]
-    public async Task WithNonKeyFilter_OnToListAsync_IsNoOp_Succeeds()
-    {
-        var client = Substitute.For<IAmazonDynamoDB>();
-        await using var context = SafePathDbContext.Create(client);
-
-        // WithNonKeyFilter on ToListAsync should be a silent no-op (no validation, no error).
-        var act = async ()
-            => await context
-                .PkSkItems
-                .Where(x => x.IsActive)
-                .WithNonKeyFilter()
-                .ToListAsync(TestContext.Current.CancellationToken);
-
-        await act.Should().NotThrowAsync<InvalidOperationException>();
-    }
-
-    [Fact]
-    public async Task WithNonKeyFilter_OnKeyOnlyFirst_IsNoOp_Succeeds()
-    {
-        var client = Substitute.For<IAmazonDynamoDB>();
-        await using var context = SafePathDbContext.Create(client);
-
-        // Key-only query is already safe; WithNonKeyFilter is accepted silently.
-        var act = async ()
-            => await context
-                .PkSkItems
-                .Where(x => x.Pk == "P#1")
-                .WithNonKeyFilter()
                 .FirstOrDefaultAsync(TestContext.Current.CancellationToken);
 
         await act.Should().NotThrowAsync<InvalidOperationException>();

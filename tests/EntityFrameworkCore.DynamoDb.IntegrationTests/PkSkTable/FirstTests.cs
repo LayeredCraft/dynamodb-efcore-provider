@@ -107,16 +107,21 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
     }
 
     [Fact]
-    public async Task FirstAsync_KeyOnly_WithExplicitLimit_UsesExplicitLimit()
+    public async Task FirstOrDefault_KeyOnly_WithUserLimit_ThrowsTranslationFailure()
     {
-        // User Limit(n) takes precedence over the implicit Limit=1 set by First*.
-        LoggerFactory.Clear();
+        // Limit(n) + First* is disallowed — use
+        // .Limit(n).AsAsyncEnumerable().FirstOrDefaultAsync(ct).
+        var act = async ()
+            => await Db
+                .Items
+                .Where(item => item.Pk == "P#1")
+                .Limit(5)
+                .FirstOrDefaultAsync(CancellationToken);
 
-        await Db.Items.Where(item => item.Pk == "P#1").Limit(5).FirstAsync(CancellationToken);
-
-        var calls = LoggerFactory.ExecuteStatementCalls.ToList();
-        calls.Should().ContainSingle();
-        calls[0].Limit.Should().Be(5);
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*AsAsyncEnumerable*");
     }
 
     [Fact]
@@ -142,12 +147,12 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
         result.Should().BeNull();
     }
 
-    // ── Non-key First* — must opt in ────────────────────────────────────────
+    // ── Non-key First* — always throws ──────────────────────────────────────
 
     [Fact]
     public async Task FirstOrDefault_NonKeyFilter_WithoutOptIn_ThrowsTranslationFailure()
     {
-        // IsTarget is a non-key attribute — requires WithNonKeyFilter() opt-in.
+        // IsTarget is a non-key attribute — unsafe path always throws.
         var act = async () => await Db
             .Items
             .Where(item => item.Pk == "P#1" && item.IsTarget)
@@ -156,94 +161,7 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
         await act
             .Should()
             .ThrowAsync<InvalidOperationException>()
-            .WithMessage("*WithNonKeyFilter*");
-    }
-
-    [Fact]
-    public async Task FirstOrDefault_NonKeyFilter_WithOptIn_ReturnsMatch()
-    {
-        // P#1 has two IsTarget=true items; WithNonKeyFilter lets the query through.
-        LoggerFactory.Clear();
-
-        var result =
-            await Db
-                .Items
-                .Where(item => item.Pk == "P#1" && item.IsTarget)
-                .WithNonKeyFilter()
-                .FirstOrDefaultAsync(CancellationToken);
-
-        result.Should().NotBeNull();
-        result!.Pk.Should().Be("P#1");
-        result.IsTarget.Should().BeTrue();
-
-        // Limit is null (1MB default) because no explicit Limit(n) was set.
-        var calls = LoggerFactory.ExecuteStatementCalls.ToList();
-        calls.Should().ContainSingle();
-        calls[0].Limit.Should().BeNull();
-
-        AssertSql(
-            """
-            SELECT "Pk", "Sk", "Category", "IsTarget"
-            FROM "PkSkItems"
-            WHERE "Pk" = 'P#1' AND "IsTarget" = TRUE
-            """);
-    }
-
-    [Fact]
-    public async Task FirstOrDefault_NonKeyFilter_WithOptIn_WithLimit_UsesLimit()
-    {
-        // WithNonKeyFilter + Limit(n): user limit is preserved on the request.
-        LoggerFactory.Clear();
-
-        var result =
-            await Db
-                .Items
-                .Where(item => item.Pk == "P#1" && item.IsTarget)
-                .WithNonKeyFilter()
-                .Limit(50)
-                .FirstOrDefaultAsync(CancellationToken);
-
-        result.Should().NotBeNull();
-
-        var calls = LoggerFactory.ExecuteStatementCalls.ToList();
-        calls.Should().ContainSingle();
-        calls[0].Limit.Should().Be(50);
-    }
-
-    [Fact]
-    public async Task FirstOrDefault_NonKeyFilter_WithOptIn_ReturnsNullWhenNoMatch()
-    {
-        // P#2 has no IsTarget=true items; WithNonKeyFilter lets the query through → null.
-        var result =
-            await Db
-                .Items
-                .Where(item => item.Pk == "P#2" && item.IsTarget)
-                .WithNonKeyFilter()
-                .FirstOrDefaultAsync(CancellationToken);
-
-        result.Should().BeNull();
-
-        AssertSql(
-            """
-            SELECT "Pk", "Sk", "Category", "IsTarget"
-            FROM "PkSkItems"
-            WHERE "Pk" = 'P#2' AND "IsTarget" = TRUE
-            """);
-    }
-
-    [Fact]
-    public async Task FirstOrDefault_WithNonKeyFilter_IsAlwaysSingleRequest()
-    {
-        // Regardless of opt-in, First* must be a single request (never pages).
-        LoggerFactory.Clear();
-
-        await Db
-            .Items
-            .Where(item => item.Pk == "P#1" && item.IsTarget)
-            .WithNonKeyFilter()
-            .FirstOrDefaultAsync(CancellationToken);
-
-        LoggerFactory.ExecuteStatementCalls.Should().HaveCount(1);
+            .WithMessage("*AsAsyncEnumerable*");
     }
 
     // ── Take is removed — must throw ─────────────────────────────────────────

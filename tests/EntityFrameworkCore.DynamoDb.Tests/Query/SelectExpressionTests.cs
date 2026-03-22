@@ -66,32 +66,6 @@ public class SelectExpressionTests
     }
 
     [Fact]
-    public void ClearImplicitLimit_WhenNoUserLimit_ClearsLimit()
-    {
-        var expr = new SelectExpression("TestTable");
-
-        expr.ApplyImplicitLimit(1);
-        expr.ClearImplicitLimit();
-
-        expr.Limit.Should().BeNull();
-        expr.LimitExpression.Should().BeNull();
-        expr.HasUserLimit.Should().BeFalse();
-    }
-
-    [Fact]
-    public void ClearImplicitLimit_WhenUserLimit_IsNoOp()
-    {
-        var expr = new SelectExpression("TestTable");
-
-        expr.ApplyUserLimit(5);
-        expr.ClearImplicitLimit();
-
-        // User limit is preserved.
-        expr.Limit.Should().Be(5);
-        expr.HasUserLimit.Should().BeTrue();
-    }
-
-    [Fact]
     public void MarkAsFirstTerminal_SetsFlag()
     {
         var expr = new SelectExpression("TestTable");
@@ -99,18 +73,6 @@ public class SelectExpressionTests
         expr.MarkAsFirstTerminal();
 
         expr.IsFirstTerminal.Should().BeTrue();
-    }
-
-    [Fact]
-    public void ApplyUserLimit_ThenClearImplicit_LimitStays()
-    {
-        var expr = new SelectExpression("TestTable");
-
-        expr.ApplyUserLimit(7);
-        expr.ClearImplicitLimit(); // No-op because HasUserLimit=true.
-
-        expr.Limit.Should().Be(7);
-        expr.HasUserLimit.Should().BeTrue();
     }
 
     [Fact]

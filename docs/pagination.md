@@ -21,8 +21,7 @@ the evaluation budget per query.
 ### `First*` terminals
 
 - **Safe path** (PK equality + key-only predicates): sets `Limit=1` implicitly. Single request.
-- **Safe path + explicit `Limit(n)`**: user limit wins over the implicit `Limit=1`.
-- **Unsafe path** (non-key predicate or scan-like): requires `.WithNonKeyFilter()` opt-in. Translation fails without it.
+- **Unsafe path** (non-key predicate, scan-like, or user `Limit(n)` present): translation fails. Use `.AsAsyncEnumerable()` instead.
 
 ### `ToListAsync()` without `Limit(n)`
 
@@ -33,22 +32,23 @@ the evaluation budget per query.
 
 - Single request, `Limit = n`. No paging.
 
-## `WithNonKeyFilter()` opt-in
+## Unsafe First* — use AsAsyncEnumerable()
 
-Required for `First*` on non-safe query shapes:
+When a `First*` query cannot use the safe key-only path (non-key predicate, scan-like, or any
+`Limit(n)` present), translation fails with `InvalidOperationException`. The correct pattern is to
+fetch the server-side results then select client-side:
 
-- **Non-key predicate present**: any attribute outside the partition key or sort key.
-- **Scan-like path**: no partition-key equality constraint.
-- **PK `IN (...)` constraint**: treated as non-equality.
+```csharp
+// Unsafe shape — non-key filter: use AsAsyncEnumerable()
+var active = await db.Orders
+    .Where(x => x.UserId == userId && x.IsActive)
+    .Limit(50)
+    .AsAsyncEnumerable()
+    .FirstOrDefaultAsync(cancellationToken);
+```
 
-This is a **permission flag only** — it does not change execution behavior. The caller accepts that
-the result may be `null` even when matches exist beyond the evaluation budget.
-
-**Silent no-op** when applied to `ToListAsync()` or key-only `First*` queries.
-
-**Special case — no sort key**: when the queried source has no sort key, each partition contains at
-most one item. `First*` with PK equality is always safe regardless of non-key predicates.
-`WithNonKeyFilter()` is accepted but not required in this case.
+This is the standard EF Core pattern for explicit client-side evaluation: `AsAsyncEnumerable()`
+marks where server-side evaluation ends and LINQ-to-objects begins.
 
 ## No global default
 
@@ -56,13 +56,13 @@ There is no `DefaultPageSize` option. Use `.Limit(n)` per query.
 
 ## Evaluation budget reference
 
-| API | `ExecuteStatementRequest.Limit` | Pages? |
+| Shape | `ExecuteStatementRequest.Limit` | Pages? |
 |---|---|---|
 | `.Limit(n)` + `ToListAsync()` | `n` | No |
-| `.Limit(n)` + `First*` | `n` | No |
 | `First*` (key-only, no explicit limit) | `1` | No |
-| `First*` + `.WithNonKeyFilter()` (no explicit limit) | `null` (1MB) | No |
-| `First*` + `.WithNonKeyFilter()` + `.Limit(n)` | `n` | No |
+| `First*` + any `Limit(n)` | **Translation failure** | — |
+| `First*` on non-key/scan-like path | **Translation failure** | — |
+| `.Limit(n)` + `AsAsyncEnumerable()` + `First*` | `n` (client-side selection) | No |
 | `ToListAsync()` (no limit) | `null` (1MB per page) | Yes |
 
 ## Examples
@@ -77,13 +77,14 @@ var orders = await db.Orders
     .ToListAsync(cancellationToken);
 ```
 
-### First* with non-key filter (opt-in required)
+### First* with non-key filter — use AsAsyncEnumerable()
 
 ```csharp
+// Evaluate 50 items server-side, then take first match client-side.
 var active = await db.Orders
     .Where(x => x.UserId == userId && x.IsActive)
-    .WithNonKeyFilter()
     .Limit(50)
+    .AsAsyncEnumerable()
     .FirstOrDefaultAsync(cancellationToken);
 ```
 

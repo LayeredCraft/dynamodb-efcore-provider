@@ -13,6 +13,7 @@ icon: lucide/triangle-alert
 - Provider-side key encoding helpers (prefix/suffix composition).
 - Provider option for `ConsistentRead`.
 - `Take`: removed. Use `.Limit(n)` for evaluation budget.
+- `Limit(n)` combined with `First*`: throws at translation time. Use `.Limit(n).AsAsyncEnumerable().FirstOrDefaultAsync(ct)`.
 - `Last` / `LastOrDefault`: deferred (requires reverse traversal).
 
 ## What this means in practice
@@ -23,19 +24,30 @@ icon: lucide/triangle-alert
 
 ## First* safe-path requirement
 
-`First*` (`FirstAsync`, `FirstOrDefaultAsync`) is restricted by default to queries where:
-1. The `WHERE` clause contains a partition-key equality condition.
-2. The `WHERE` clause contains only key predicates (no non-key attribute filters).
+`First*` (`FirstAsync`, `FirstOrDefaultAsync`) works server-side **only** on safe key-only queries:
+1. No user-specified `Limit(n)`.
+2. The `WHERE` clause contains a partition-key equality condition.
+3. The `WHERE` clause contains only key predicates (no non-key attribute filters).
 
-Any query that goes beyond this safe shape requires explicit opt-in via `.WithNonKeyFilter()`.
-Without it, translation fails with `InvalidOperationException`.
+Any query that does not meet all three conditions fails at translation time with
+`InvalidOperationException`. Use `.AsAsyncEnumerable()` to evaluate client-side instead:
+
+```csharp
+// Non-key filter or Limit(n) present — use AsAsyncEnumerable():
+var result = await db.Orders
+    .Where(x => x.UserId == userId && x.IsActive)
+    .Limit(50)
+    .AsAsyncEnumerable()
+    .FirstOrDefaultAsync(cancellationToken);
+```
 
 **Exception — no sort key**: When the queried source has no sort key, each partition contains at
-most one item. `First*` with PK equality is always safe regardless of non-key predicates.
+most one item. `First*` with PK equality is always safe regardless of non-key predicates (condition
+3 is relaxed in this case).
 
-**Why**: DynamoDB evaluates a bounded number of items per request. A `First*` query on a non-safe
-path may silently return `null` even when matches exist beyond the evaluation range. The opt-in
-makes this risk explicit.
+**Why**: DynamoDB evaluates a bounded number of items per request. A non-safe `First*` server-side
+would silently discard matching items beyond the evaluation range, hiding client-side selection.
+The `AsAsyncEnumerable()` bridge makes the client-side step explicit.
 
 ## Operator-specific status
 - Use `operators.md` as the canonical source for supported and unsupported operators.

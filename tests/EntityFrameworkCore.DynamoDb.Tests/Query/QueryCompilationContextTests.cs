@@ -41,20 +41,8 @@ public class QueryCompilationContextTests
 
         var context = new DynamoQueryCompilationContext(dependencies, true);
 
-        context.NonKeyFilterAllowed.Should().BeFalse();
         context.ExplicitIndexName.Should().BeNull();
         context.IndexSelectionDisabled.Should().BeFalse();
-    }
-
-    [Fact]
-    public void NonKeyFilterAllowed_CanBeSet()
-    {
-        var dependencies = CreateDependencies();
-
-        var context =
-            new DynamoQueryCompilationContext(dependencies, true) { NonKeyFilterAllowed = true };
-
-        context.NonKeyFilterAllowed.Should().BeTrue();
     }
 
     [Fact]

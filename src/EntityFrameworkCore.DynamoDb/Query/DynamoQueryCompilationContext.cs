@@ -8,12 +8,6 @@ public class DynamoQueryCompilationContext(
     bool async) : QueryCompilationContext(dependencies, async)
 {
     /// <summary>
-    ///     Set by <c>.WithNonKeyFilter()</c> translation. Removes the restriction that limits
-    ///     <c>First*</c> to safe key-only query shapes. Does not change execution behavior.
-    /// </summary>
-    public bool NonKeyFilterAllowed { get; internal set; }
-
-    /// <summary>
     ///     Per-query explicit secondary index name from <c>.WithIndex()</c>. The index name is
     ///     embedded in the PartiQL FROM clause at compile time, so it must be a compile-time constant.
     ///     The parameter is marked <c>[NotParameterized]</c> so EF Core's funcletizer leaves the
