@@ -146,6 +146,11 @@ internal sealed class DynamoConstraintExtractionVisitor
                 TryExtractIn(inExpr);
                 break;
 
+            // Provider-injected discriminator predicates are filter predicates on a non-key
+            // attribute. They never contribute to key-condition constraints.
+            case SqlDiscriminatorPredicateExpression:
+                break;
+
             // All other nodes (NOT, IS NULL, custom functions, etc.) are filter predicates
             // that do not contribute to key-condition constraints — safely ignored.
         }

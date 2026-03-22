@@ -28,6 +28,8 @@ public abstract class SqlExpressionVisitor : ExpressionVisitor
             SelectExpression selectExpression => VisitSelect(selectExpression),
             DynamoScalarAccessExpression scalarAccess => VisitDynamoScalarAccess(scalarAccess),
             DynamoListIndexExpression listIndex => VisitDynamoListIndex(listIndex),
+            SqlDiscriminatorPredicateExpression discriminatorPredicate =>
+                VisitSqlDiscriminatorPredicate(discriminatorPredicate),
             _ => base.VisitExtension(node),
         };
 
@@ -87,4 +89,12 @@ public abstract class SqlExpressionVisitor : ExpressionVisitor
     /// <summary>Visits a list element index access expression.</summary>
     protected abstract Expression VisitDynamoListIndex(
         DynamoListIndexExpression listIndexExpression);
+
+    /// <summary>
+    ///     Visits a provider-injected discriminator predicate expression. Implementations should
+    ///     visit the inner <see cref="SqlDiscriminatorPredicateExpression.Predicate" /> to emit or
+    ///     transform the underlying filter.
+    /// </summary>
+    protected abstract Expression VisitSqlDiscriminatorPredicate(
+        SqlDiscriminatorPredicateExpression discriminatorPredicateExpression);
 }

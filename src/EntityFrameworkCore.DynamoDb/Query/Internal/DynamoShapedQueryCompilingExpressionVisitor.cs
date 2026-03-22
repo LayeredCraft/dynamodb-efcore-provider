@@ -1,7 +1,6 @@
 using System.Linq.Expressions;
 using System.Reflection;
 using Amazon.DynamoDBv2.Model;
-using EntityFrameworkCore.DynamoDb.Infrastructure.Internal;
 using EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
@@ -19,10 +18,10 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
     private readonly ShapedQueryCompilingExpressionVisitorDependencies _dependencies = dependencies;
     private int _runtimeParameterIndex;
 
-    private static readonly MethodInfo EnsurePositivePageSizeMethodInfo =
+    private static readonly MethodInfo EnsurePositiveLimitMethodInfo =
         typeof(DynamoShapedQueryCompilingExpressionVisitor)
             .GetTypeInfo()
-            .GetDeclaredMethod(nameof(EnsurePositivePageSize))!;
+            .GetDeclaredMethod(nameof(EnsurePositiveLimit))!;
 
     /// <summary>Builds the runtime querying enumerable and shaper for a translated DynamoDB query.</summary>
     protected override Expression VisitShapedQuery(ShapedQueryExpression shapedQueryExpression)
@@ -34,40 +33,12 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
         // sees the complete predicate tree and projection shape. By this point SelectExpression
         // already has IndexName set (or null for base-table queries).
 
-        if (selectExpression.PageSize is null && selectExpression.PageSizeExpression is null)
-        {
-            if (dynamoQueryCompilationContext.PageSizeOverrideExpression is not null)
-            {
-                selectExpression.ApplyPageSizeExpression(
-                    dynamoQueryCompilationContext.PageSizeOverrideExpression);
-            }
-            else if (dynamoQueryCompilationContext.PageSizeOverride.HasValue)
-            {
-                selectExpression.ApplyPageSize(
-                    dynamoQueryCompilationContext.PageSizeOverride.Value);
-            }
-            else
-            {
-                var options = dynamoQueryCompilationContext.ContextOptions
-                    .FindExtension<DynamoDbOptionsExtension>();
-                if (options?.DefaultPageSize is not null)
-                    selectExpression.ApplyPageSize(options.DefaultPageSize);
-            }
-        }
-
-        if (selectExpression.ResultLimitExpression is not null)
-            selectExpression.ApplyResultLimitExpression(
-                NormalizeRuntimeIntExpression(
-                    selectExpression.ResultLimitExpression,
-                    "resultLimit",
-                    false));
-
-        if (selectExpression.PageSizeExpression is not null)
-            selectExpression.ApplyPageSizeExpression(
-                NormalizeRuntimeIntExpression(
-                    selectExpression.PageSizeExpression,
-                    "pageSize",
-                    true));
+        // Normalize parameterized Limit(n) expression for runtime evaluation.
+        // Constant values are already inline; only runtime parameters need registration.
+        if (selectExpression.LimitExpression is not null
+            && selectExpression.LimitExpression is not ConstantExpression)
+            selectExpression.ApplyUserLimitExpression(
+                NormalizeLimitExpression(selectExpression.LimitExpression));
 
         var shaperBody = shapedQueryExpression.ShaperExpression;
 
@@ -112,20 +83,21 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
                 .MakeGenericType(shaperBody.Type)
                 .GetConstructors(
                     BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
-                .Single(c => c.GetParameters().Length == 7),
+                .Single(c => c.GetParameters().Length == 6),
             queryContextParameter,
             Expression.Constant(selectExpression),
             Expression.Constant(sqlGeneratorFactory),
             shaperLambda,
             Expression.Constant(standAloneStateManager),
-            Expression.Constant(_dependencies.CoreSingletonOptions.AreThreadSafetyChecksEnabled),
-            Expression.Constant(dynamoQueryCompilationContext.PaginationDisabled));
+            Expression.Constant(_dependencies.CoreSingletonOptions.AreThreadSafetyChecksEnabled));
     }
 
-    private Expression NormalizeRuntimeIntExpression(
-        Expression expression,
-        string parameterNamePrefix,
-        bool requirePositive)
+    /// <summary>
+    ///     Normalizes a parameterized <c>Limit(n)</c> expression for runtime evaluation. Constants
+    ///     are returned as-is; all other forms are registered as runtime parameters so EF Core can cache
+    ///     and bind query delegates consistently across executions.
+    /// </summary>
+    private Expression NormalizeLimitExpression(Expression expression)
     {
         if (expression is ConstantExpression { Value: int })
             return expression;
@@ -133,28 +105,25 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
         if (expression is QueryParameterExpression)
             return expression;
 
-        var parameterName = $"__dynamo_{parameterNamePrefix}_{_runtimeParameterIndex++}";
+        var parameterName = $"__dynamo_limit_{_runtimeParameterIndex++}";
         var injectedExpression = new DynamoInjectingExpressionVisitor().Visit(expression)
-            ?? throw new InvalidOperationException(
-                $"Unable to normalize {parameterNamePrefix} expression.");
+            ?? throw new InvalidOperationException("Unable to normalize Limit expression.");
 
-        // Runtime parameters must be int-valued before registration so EF can cache and bind
-        // query delegates consistently across executions.
+        // Runtime parameters must be int-valued before registration.
         var convertedExpression = Expression.Convert(injectedExpression, typeof(int));
-        Expression body = convertedExpression;
-        if (requirePositive)
-            body = Expression.Call(EnsurePositivePageSizeMethodInfo, convertedExpression);
 
+        // Validate at runtime: Limit must be positive.
+        var body = Expression.Call(EnsurePositiveLimitMethodInfo, convertedExpression);
         var valueExtractor = Expression.Lambda(body, QueryCompilationContext.QueryContextParameter);
 
         return QueryCompilationContext.RegisterRuntimeParameter(parameterName, valueExtractor);
     }
 
-    private static int EnsurePositivePageSize(int value)
+    /// <summary>Validates that the runtime Limit value is positive.</summary>
+    private static int EnsurePositiveLimit(int value)
     {
         if (value <= 0)
-            throw new InvalidOperationException(
-                "WithPageSize must evaluate to a positive integer.");
+            throw new ArgumentOutOfRangeException("limit", "Limit must be a positive integer.");
 
         return value;
     }

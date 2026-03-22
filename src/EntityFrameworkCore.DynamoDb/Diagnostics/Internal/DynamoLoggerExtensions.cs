@@ -26,12 +26,6 @@ public static class DynamoLoggerExtensions
             DynamoEventId.ExecutedExecuteStatement,
             "Executed DynamoDB ExecuteStatement request (itemsCount: {itemsCount}, nextTokenPresent: {nextTokenPresent})");
 
-    private static readonly Action<ILogger, int, Exception?> LogRowLimitingQueryWithoutPageSize =
-        LoggerMessage.Define<int>(
-            LogLevel.Warning,
-            DynamoEventId.RowLimitingQueryWithoutPageSize,
-            "Executing a row-limiting query (resultLimit: {resultLimit}) without a configured page size. Configure DefaultPageSize or use WithPageSize(...) to control per-request evaluated items. Consider using FirstAsync(pageSize, ...) or FirstOrDefaultAsync(pageSize, ...).");
-
     private static readonly Action<ILogger, string, Exception?> LogNoCompatibleSecondaryIndexFound =
         LoggerMessage.Define<string>(
             LogLevel.Warning,
@@ -107,17 +101,6 @@ public static class DynamoLoggerExtensions
             return;
 
         LogExecutedExecuteStatement(diagnostics.Logger, itemsCount, nextTokenPresent, null);
-    }
-
-    /// <summary>Provides functionality for this member.</summary>
-    public static void RowLimitingQueryWithoutPageSize(
-        this IDiagnosticsLogger<DbLoggerCategory.Database.Command> diagnostics,
-        int resultLimit)
-    {
-        if (!diagnostics.Logger.IsEnabled(LogLevel.Warning))
-            return;
-
-        LogRowLimitingQueryWithoutPageSize(diagnostics.Logger, resultLimit, null);
     }
 
     /// <summary>Logs a structured query-compilation diagnostic from automatic index selection.</summary>

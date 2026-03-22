@@ -1,5 +1,4 @@
 using System.Linq.Expressions;
-using System.Reflection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Query;
@@ -9,8 +8,6 @@ namespace EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 /// <summary>Represents a SELECT query expression for DynamoDB PartiQL.</summary>
 public class SelectExpression(string tableName, string? queryEntityTypeName = null) : Expression
 {
-    private static readonly MethodInfo MinMethod = ((Func<int, int, int>)Math.Min).Method;
-
     private readonly List<OrderingExpression> _orderings = [];
     private readonly List<ProjectionExpression> _projection = [];
     private SqlExpression? _deferredDiscriminatorPredicate;
@@ -28,38 +25,30 @@ public class SelectExpression(string tableName, string? queryEntityTypeName = nu
     public SqlExpression? Predicate { get; private set; }
 
     /// <summary>
-    ///     The maximum number of results to return to the caller (e.g., 1 for First, N for Take(N)).
-    ///     Controls when the query stops returning items. Null means unlimited results.
+    ///     The user-specified evaluation limit from <c>.Limit(n)</c>. Maps directly to
+    ///     <c>ExecuteStatementRequest.Limit</c>. Null means not set by the user.
     /// </summary>
-    public int? ResultLimit { get; private set; }
+    public int? Limit { get; private set; }
 
     /// <summary>
-    ///     The expression for the result limit (handles parameterized Take count). If set, this takes
-    ///     precedence over ResultLimit during query execution.
+    ///     Supports parameterized <c>Limit(n)</c> (compiled queries / captured variables). Takes
+    ///     precedence over <see cref="Limit"/> during execution normalization.
     /// </summary>
-    public Expression? ResultLimitExpression { get; private set; }
+    public Expression? LimitExpression { get; private set; }
 
     /// <summary>
-    ///     The maximum number of items DynamoDB should evaluate per request. Maps to
-    ///     ExecuteStatementRequest.Limit. Null means no limit (DynamoDB default of 1MB).
+    ///     True when <c>Limit(n)</c> was explicitly called by the user, as opposed to the
+    ///     implicit <c>Limit=1</c> set by <see cref="ApplyImplicitLimit"/> for key-only
+    ///     <c>First*</c> queries.
     /// </summary>
-    public int? PageSize { get; private set; }
+    public bool HasUserLimit { get; private set; }
 
     /// <summary>
-    ///     The expression for the page size (handles parameterized WithPageSize). If set, this takes
-    ///     precedence over PageSize during query execution.
+    ///     True when the query terminal is <c>First*</c> (<c>FirstAsync</c>,
+    ///     <c>FirstOrDefaultAsync</c>). Drives implicit <c>Limit=1</c>, single-page execution,
+    ///     and safe-path validation in the postprocessor.
     /// </summary>
-    public Expression? PageSizeExpression { get; private set; }
-
-    /// <summary>
-    ///     The maximum number of items to evaluate per request. For backward compatibility -
-    ///     redirects to PageSize.
-    /// </summary>
-    public int? Limit
-    {
-        get => PageSize;
-        private set => PageSize = value;
-    }
+    public bool IsFirstTerminal { get; private set; }
 
     /// <summary>
     ///     The list of projected columns for the SELECT clause. Must have at least one projection -
@@ -136,88 +125,45 @@ public class SelectExpression(string tableName, string? queryEntityTypeName = nu
     /// <summary>Appends an additional ordering (for ThenBy).</summary>
     public void AppendOrdering(OrderingExpression ordering) => _orderings.Add(ordering);
 
-    /// <summary>Sets the maximum number of results to return to the caller.</summary>
-    public void ApplyResultLimit(int? limit)
-        => SetResultLimitExpression(limit is null ? null : Constant(limit.Value));
-
-    /// <summary>Sets the result limit expression (for parameterized Take).</summary>
-    public void ApplyResultLimitExpression(Expression limitExpression)
-        => SetResultLimitExpression(limitExpression);
-
     /// <summary>
-    ///     Sets or combines the result limit expression. This composes multiple row-limiting
-    ///     operations (e.g. Take/First) using minimum semantics.
+    ///     Sets the user-specified evaluation limit from <c>.Limit(n)</c>. Overwrites any previous
+    ///     value — last call wins when chained. Sets <see cref="HasUserLimit"/> to <c>true</c>.
     /// </summary>
-    public void ApplyOrCombineResultLimitExpression(Expression limitExpression)
-        => ApplyOrCombineResultLimitCore(limitExpression);
-
-    /// <summary>
-    ///     Replaces the current result limit expression without combining. Used during query
-    ///     compilation when normalizing expressions for execution.
-    /// </summary>
-    public void SetResultLimitExpression(Expression? limitExpression)
+    public void ApplyUserLimit(int limit)
     {
-        ResultLimitExpression = limitExpression;
-        ResultLimit =
-            limitExpression is not null && TryGetIntConstant(limitExpression, out var value)
-                ? value
-                : null;
+        Limit = limit;
+        LimitExpression = Constant(limit);
+        HasUserLimit = true;
     }
 
-    private void ApplyOrCombineResultLimitCore(Expression limitExpression)
+    /// <summary>
+    ///     Sets the limit expression for parameterized <c>Limit(n)</c> (runtime parameter or
+    ///     compiled-query expression). Sets <see cref="HasUserLimit"/> to <c>true</c>.
+    /// </summary>
+    public void ApplyUserLimitExpression(Expression limitExpression)
     {
-        var normalizedNewLimit = ConvertToInt(limitExpression);
-        var existing = ResultLimitExpression
-            ?? (ResultLimit.HasValue ? Constant(ResultLimit.Value) : null);
-
-        Expression effectiveLimit;
-
-        if (existing is null)
-            effectiveLimit = normalizedNewLimit;
-        else if (TryGetIntConstant(existing, out var existingValue)
-            && TryGetIntConstant(normalizedNewLimit, out var newValue))
-            effectiveLimit = Constant(Math.Min(existingValue, newValue));
-        else
-            effectiveLimit = Call(MinMethod, ConvertToInt(existing), normalizedNewLimit);
-
-        ResultLimitExpression = effectiveLimit;
-        ResultLimit = TryGetIntConstant(effectiveLimit, out var value) ? value : null;
+        LimitExpression = limitExpression;
+        Limit = limitExpression is ConstantExpression { Value: int v } ? v : null;
+        HasUserLimit = true;
     }
 
-    private static Expression ConvertToInt(Expression expression)
-        => expression.Type == typeof(int) ? expression : Convert(expression, typeof(int));
-
-    private static bool TryGetIntConstant(Expression expression, out int value)
+    /// <summary>
+    ///     Sets <see cref="Limit"/> as the implicit default for key-only <c>First*</c> queries.
+    ///     Does NOT set <see cref="HasUserLimit"/>. A subsequent <see cref="ApplyUserLimit"/>
+    ///     call overrides this value.
+    /// </summary>
+    public void ApplyImplicitLimit(int limit)
     {
-        if (expression is ConstantExpression { Value: int intValue })
+        // Only apply when the user has not already set an explicit limit.
+        if (!HasUserLimit)
         {
-            value = intValue;
-            return true;
+            Limit = limit;
+            LimitExpression = Constant(limit);
         }
-
-        value = default;
-        return false;
     }
 
-    /// <summary>Sets the maximum number of items DynamoDB should evaluate per request.</summary>
-    public void ApplyPageSize(int? pageSize)
-    {
-        PageSize = pageSize;
-        PageSizeExpression = null;
-    }
-
-    /// <summary>Sets the page size expression (for parameterized WithPageSize).</summary>
-    public void ApplyPageSizeExpression(Expression pageSizeExpression)
-    {
-        PageSizeExpression = pageSizeExpression;
-        PageSize = null;
-    }
-
-    /// <summary>
-    ///     Sets the maximum number of items to evaluate per request. For backward compatibility -
-    ///     redirects to ApplyPageSize.
-    /// </summary>
-    public void ApplyLimit(int? limit) => ApplyPageSize(limit);
+    /// <summary>Marks this query as having a <c>First*</c> terminal.</summary>
+    public void MarkAsFirstTerminal() => IsFirstTerminal = true;
 
     /// <summary>Adds a projection to the SELECT clause.</summary>
     public void AddToProjection(ProjectionExpression projectionExpression)

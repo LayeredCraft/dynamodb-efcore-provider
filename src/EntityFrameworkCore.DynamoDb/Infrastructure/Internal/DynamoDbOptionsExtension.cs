@@ -17,12 +17,6 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
     /// <summary>Provides functionality for this member.</summary>
     public Action<AmazonDynamoDBConfig>? DynamoDbClientConfigAction { get; private set; }
 
-    /// <summary>
-    ///     The default number of items DynamoDB should evaluate per request. Null means no limit
-    ///     (DynamoDB scans up to 1MB per request).
-    /// </summary>
-    public int? DefaultPageSize { get; private set; }
-
     /// <summary>Controls whether the provider should automatically select compatible secondary indexes.</summary>
     public DynamoAutomaticIndexSelectionMode AutomaticIndexSelectionMode { get; private set; }
 
@@ -74,19 +68,6 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
         return clone;
     }
 
-    /// <summary>Sets the default statement limit applied to query requests when not explicitly set.</summary>
-    public virtual DynamoDbOptionsExtension WithDefaultPageSize(int? pageSize)
-    {
-        if (pageSize is <= 0)
-            throw new ArgumentOutOfRangeException(nameof(pageSize), "Page size must be positive.");
-
-        var clone = Clone();
-
-        clone.DefaultPageSize = pageSize;
-
-        return clone;
-    }
-
     /// <summary>Sets how the provider should apply automatic secondary index selection.</summary>
     /// <returns>A cloned options extension containing the updated mode.</returns>
     public virtual DynamoDbOptionsExtension WithAutomaticIndexSelectionMode(
@@ -106,7 +87,6 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
             DynamoDbClient = DynamoDbClient,
             DynamoDbClientConfig = DynamoDbClientConfig,
             DynamoDbClientConfigAction = DynamoDbClientConfigAction,
-            DefaultPageSize = DefaultPageSize,
             AutomaticIndexSelectionMode = AutomaticIndexSelectionMode,
         };
 
@@ -128,7 +108,6 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
                 hashCode.Add(Extension.DynamoDbClient);
                 hashCode.Add(Extension.DynamoDbClientConfig);
                 hashCode.Add(Extension.DynamoDbClientConfigAction);
-                hashCode.Add(Extension.DefaultPageSize);
                 hashCode.Add(Extension.AutomaticIndexSelectionMode);
 
                 _serviceProviderHash = hashCode.ToHashCode();
@@ -147,7 +126,6 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
                 && ReferenceEquals(
                     Extension.DynamoDbClientConfigAction,
                     otherInfo.Extension.DynamoDbClientConfigAction)
-                && Extension.DefaultPageSize == otherInfo.Extension.DefaultPageSize
                 && Extension.AutomaticIndexSelectionMode
                 == otherInfo.Extension.AutomaticIndexSelectionMode;
 
@@ -162,8 +140,7 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
         {
             get
             {
-                field ??= $"DefaultPageSize={Extension.DefaultPageSize?.ToString() ?? "null"},"
-                    + $"AutomaticIndexSelectionMode={Extension.AutomaticIndexSelectionMode},"
+                field ??= $"AutomaticIndexSelectionMode={Extension.AutomaticIndexSelectionMode},"
                     + $"DynamoDbClient={Extension.DynamoDbClient is not null},"
                     + $"DynamoDbClientConfig={Extension.DynamoDbClientConfig is not null},"
                     + $"DynamoDbClientConfigAction={Extension.DynamoDbClientConfigAction is not null}";
