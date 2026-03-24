@@ -116,18 +116,18 @@ var baseTableOnly = context.Orders
 Current scope:
 
 - `WithIndex(...)` validates the named index against the queried entity type and emits
-  `FROM "Table"."Index"`,
+    `FROM "Table"."Index"`,
 - `WithoutIndex()` suppresses both automatic and explicit index selection for the query and keeps
-  execution on the base table,
+    execution on the base table,
 - metadata for GSIs/LSIs can be configured,
 - automatic index selection can route compatible queries when `UseAutomaticIndexSelection(...)` is enabled.
 
 Guardrails:
 
 - `.WithIndex(...)` and `.WithoutIndex()` cannot be combined on the same query; translation throws
-  `InvalidOperationException`.
+    `InvalidOperationException`.
 - `.WithoutIndex()` emits informational diagnostic `DYNAMO_IDX006` when index selection is
-  suppressed.
+    suppressed.
 
 Automatic selection is conservative:
 
@@ -135,7 +135,7 @@ Automatic selection is conservative:
 - it only considers `ALL` projection indexes,
 - it falls back to the base table on ties or unsupported shapes,
 - it only considers indexes declared on the queried entity type or its base types, so base-type
-  queries are not routed onto subtype-only sparse indexes.
+    queries are not routed onto subtype-only sparse indexes.
 
 ## Projection scope (v1)
 
@@ -144,10 +144,10 @@ use `ALL` projection to be eligible for entity materialization:
 
 - Only `ALL`-projection indexes are considered for automatic index selection.
 - Querying a `KEYS_ONLY` or `INCLUDE`-projection index via `.WithIndex(...)` is not blocked at
-  configuration time, but entity materialization will fail at runtime if required attributes are
-  absent from the index.
+    configuration time, but entity materialization will fail at runtime if required attributes are
+    absent from the index.
 - The provider does not auto-null or default non-projected properties; missing required attributes
-  cause a materialization error.
+    cause a materialization error.
 
 Partial-projection support (read-model patterns, `KEYS_ONLY`/`INCLUDE` index queries, fetch-back)
 is deferred to a future milestone.
@@ -155,10 +155,10 @@ is deferred to a future milestone.
 ## Current limitations
 
 - Query predicates do not guarantee index selection; unsupported shapes and ties fall back to the
-  base table.
+    base table.
 - Only `ALL`-projection indexes are eligible for entity materialization. Querying a non-`ALL` index
-  and materializing a full entity will throw if required attributes are absent; the provider does
-  not silently default missing properties.
+    and materializing a full entity will throw if required attributes are absent; the provider does
+    not silently default missing properties.
 - Partial projection support (`KEYS_ONLY`, `INCLUDE`) is deferred to a future milestone.
 
 See also:

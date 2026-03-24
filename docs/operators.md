@@ -11,6 +11,7 @@ should keep in mind. Add to these sections as support expands.
 ## At a glance
 
 ### Supported today
+
 - `Where`
 - `Select`
 - `OrderBy` / `OrderByDescending`
@@ -22,12 +23,14 @@ should keep in mind. Add to these sections as support expands.
 - `WithIndex` / `WithoutIndex`
 
 ### Predicate operators
+
 - `!` (logical NOT) translates to PartiQL `NOT (expr)`
 - `== null` / `!= null` translates to `IS NULL OR IS MISSING` / `IS NOT NULL AND IS NOT MISSING`
 - `EF.Functions.IsNull(prop)`, `IsNotNull`, `IsMissing`, `IsNotMissing` for explicit per-predicate control
 - `prop >= a && prop <= b` (inclusive range) translates to `prop BETWEEN a AND b`
 
 ### Not supported today
+
 - `Take` — use `.Limit(n)` for evaluation budget
 - `Any` / `All`
 - `Single` / `SingleOrDefault`
@@ -40,6 +43,7 @@ should keep in mind. Add to these sections as support expands.
 - Method calls in predicates except supported `Contains` and `StartsWith` patterns
 
 ### Server-side only policy
+
 - This provider only supports query shapes that can be translated to DynamoDB PartiQL.
 - Unsupported operators fail translation with a detailed `InvalidOperationException` message.
 - The provider does not silently switch unsupported LINQ operators to client-side evaluation.
@@ -47,30 +51,30 @@ should keep in mind. Add to these sections as support expands.
 
 ## Operator matrix (current contract)
 
-| Operator | Server translation | Client behavior | Notes |
-| --- | --- | --- | --- |
-| `Where` | PartiQL `WHERE` | N/A | Boolean members normalize to `= TRUE` |
-| `!` (logical NOT) | PartiQL `NOT (expr)` | N/A | Operand is always parenthesised |
-| `== null` (constant) | `IS NULL OR IS MISSING` | N/A | Covers both DynamoDB null representations |
-| `!= null` (constant) | `IS NOT NULL AND IS NOT MISSING` | N/A | De Morgan inverse of `== null` |
-| `EF.Functions.IsNull(prop)` | `IS NULL` | N/A | Explicit: NULL type only |
-| `EF.Functions.IsNotNull(prop)` | `IS NOT NULL` | N/A | Explicit: not NULL type |
-| `EF.Functions.IsMissing(prop)` | `IS MISSING` | N/A | Explicit: absent attribute |
-| `EF.Functions.IsNotMissing(prop)` | `IS NOT MISSING` | N/A | Explicit: attribute present |
-| `prop >= a && prop <= b` | PartiQL `prop BETWEEN a AND b` | N/A | Both bounds inclusive; mixed bounds (`>` + `<=`) fall back to two comparisons |
-| `Contains` | PartiQL `contains(...)` or `IN [ ... ]` | N/A | Only `string.Contains(string)` and in-memory collection membership are supported |
-| `string.StartsWith(string)` | `begins_with(attr, <prefix>)` | N/A | Captured values are parameterized; inline literals may be inlined; other overloads are not translated |
-| `Select` | Explicit projection list | Some computed projections can run client-side | No `SELECT *` |
-| Nested owned property path (`x.Profile.Address.City`) | PartiQL dot-notation `"Profile"."Address"."City"` | N/A | Supported in `Where` predicates only; not supported in `Select` projections |
-| List index access (`x.Tags[0]`) | PartiQL bracket-notation `"Tags"[0]` | N/A | Supported in `Where` predicates only; index must be a compile-time constant |
-| `OrderBy` / `ThenBy` | PartiQL `ORDER BY` | N/A | Precedence and parentheses preserved |
-| `Limit(n)` | Sets `ExecuteStatementRequest.Limit = n` | Single request, 0..n results | Last call wins; must be positive |
-| `First*` (key-only, no explicit limit) | Sets implicit `Limit=1`; single request | N/A | Safe path only; unsafe paths throw — use `AsAsyncEnumerable()` |
-| `First*` + `Limit(n)` | Translation failure | — | Use `.Limit(n).AsAsyncEnumerable().FirstOrDefaultAsync(ct)` |
-| `First*` on non-key/scan-like path | Translation failure | — | Use `.Limit(n).AsAsyncEnumerable().FirstOrDefaultAsync(ct)` |
-| `AsAsyncEnumerable()` + `First*` | `Limit(n)` server-side, client-side selection | Takes first from result set | Standard EF Core explicit client-side evaluation |
-| `WithIndex(name)` | Sets query source to `"Table"."Index"` | N/A | Name must resolve to an index on the queried entity type or its base types |
-| `WithoutIndex()` | Suppresses index selection | N/A | Forces base-table execution and logs `DYNAMO_IDX006`; cannot be combined with `WithIndex(...)` |
+| Operator                                              | Server translation                                | Client behavior                               | Notes                                                                                                 |
+| ----------------------------------------------------- | ------------------------------------------------- | --------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `Where`                                               | PartiQL `WHERE`                                   | N/A                                           | Boolean members normalize to `= TRUE`                                                                 |
+| `!` (logical NOT)                                     | PartiQL `NOT (expr)`                              | N/A                                           | Operand is always parenthesised                                                                       |
+| `== null` (constant)                                  | `IS NULL OR IS MISSING`                           | N/A                                           | Covers both DynamoDB null representations                                                             |
+| `!= null` (constant)                                  | `IS NOT NULL AND IS NOT MISSING`                  | N/A                                           | De Morgan inverse of `== null`                                                                        |
+| `EF.Functions.IsNull(prop)`                           | `IS NULL`                                         | N/A                                           | Explicit: NULL type only                                                                              |
+| `EF.Functions.IsNotNull(prop)`                        | `IS NOT NULL`                                     | N/A                                           | Explicit: not NULL type                                                                               |
+| `EF.Functions.IsMissing(prop)`                        | `IS MISSING`                                      | N/A                                           | Explicit: absent attribute                                                                            |
+| `EF.Functions.IsNotMissing(prop)`                     | `IS NOT MISSING`                                  | N/A                                           | Explicit: attribute present                                                                           |
+| `prop >= a && prop <= b`                              | PartiQL `prop BETWEEN a AND b`                    | N/A                                           | Both bounds inclusive; mixed bounds (`>` + `<=`) fall back to two comparisons                         |
+| `Contains`                                            | PartiQL `contains(...)` or `IN [ ... ]`           | N/A                                           | Only `string.Contains(string)` and in-memory collection membership are supported                      |
+| `string.StartsWith(string)`                           | `begins_with(attr, <prefix>)`                     | N/A                                           | Captured values are parameterized; inline literals may be inlined; other overloads are not translated |
+| `Select`                                              | Explicit projection list                          | Some computed projections can run client-side | No `SELECT *`                                                                                         |
+| Nested owned property path (`x.Profile.Address.City`) | PartiQL dot-notation `"Profile"."Address"."City"` | N/A                                           | Supported in `Where` predicates only; not supported in `Select` projections                           |
+| List index access (`x.Tags[0]`)                       | PartiQL bracket-notation `"Tags"[0]`              | N/A                                           | Supported in `Where` predicates only; index must be a compile-time constant                           |
+| `OrderBy` / `ThenBy`                                  | PartiQL `ORDER BY`                                | N/A                                           | Precedence and parentheses preserved                                                                  |
+| `Limit(n)`                                            | Sets `ExecuteStatementRequest.Limit = n`          | Single request, 0..n results                  | Last call wins; must be positive                                                                      |
+| `First*` (key-only, no explicit limit)                | Sets implicit `Limit=1`; single request           | N/A                                           | Safe path only; unsafe paths throw — use `AsAsyncEnumerable()`                                        |
+| `First*` + `Limit(n)`                                 | Translation failure                               | —                                             | Use `.Limit(n).AsAsyncEnumerable().FirstOrDefaultAsync(ct)`                                           |
+| `First*` on non-key/scan-like path                    | Translation failure                               | —                                             | Use `.Limit(n).AsAsyncEnumerable().FirstOrDefaultAsync(ct)`                                           |
+| `AsAsyncEnumerable()` + `First*`                      | `Limit(n)` server-side, client-side selection     | Takes first from result set                   | Standard EF Core explicit client-side evaluation                                                      |
+| `WithIndex(name)`                                     | Sets query source to `"Table"."Index"`            | N/A                                           | Name must resolve to an index on the queried entity type or its base types                            |
+| `WithoutIndex()`                                      | Suppresses index selection                        | N/A                                           | Forces base-table execution and logs `DYNAMO_IDX006`; cannot be combined with `WithIndex(...)`        |
 
 ## General paging model
 
@@ -87,32 +91,35 @@ when more items could match.
 The provider never emits SQL `LIMIT`; the limit is a request-level field on `ExecuteStatementRequest`.
 
 ## DynamoDB PartiQL context (background)
+
 - PartiQL `SELECT` can behave like a scan unless the `WHERE` clause uses partition-key equality or
-  partition-key `IN`.
+    partition-key `IN`.
 - DynamoDB PartiQL supports operators such as `BETWEEN` (inclusive) and `IN`. The provider
-  translates `BETWEEN` from a matching `>=` + `<=` LINQ pattern on the same property.
+    translates `BETWEEN` from a matching `>=` + `<=` LINQ pattern on the same property.
 - DynamoDB documents `IN` limits as up to 50 hash-key values or up to 100 non-key values.
 - Query predicates do not imply GSI/LSI targeting. The current provider analyzes and executes
-  queries against the modeled table key unless and until explicit index-aware execution support is
-  added.
+    queries against the modeled table key unless and until explicit index-aware execution support is
+    added.
 - Access-pattern guidance in this document therefore applies to the modeled DynamoDB table
-  partition/sort key, not to EF `HasKey(...)` or to un-targeted secondary indexes.
+    partition/sort key, not to EF `HasKey(...)` or to un-targeted secondary indexes.
 
 ## Identifier quoting notes
+
 - This provider always quotes identifiers in generated PartiQL.
 - Quoted identifiers in PartiQL are case-sensitive.
 
 ## Shared-table discriminator behavior
+
 - For shared-table mappings (multiple concrete entity types in one table group), root `DbSet<T>`
-  queries include discriminator filtering.
+    queries include discriminator filtering.
 - The discriminator filter is injected at query-root creation and composes with user predicates
-  using `AND`.
+    using `AND`.
 - For inheritance hierarchies, querying a base type includes all concrete discriminator values in
-  that hierarchy.
+    that hierarchy.
 - For the currently supported operator surface, discriminator filtering therefore applies to:
-  `Where`, `Select`, `OrderBy`/`ThenBy`, `Limit(n)`, and `First`/`FirstOrDefault`.
+    `Where`, `Select`, `OrderBy`/`ThenBy`, `Limit(n)`, and `First`/`FirstOrDefault`.
 - Unsupported operators (joins, groupings, set operations, skip, aggregates, single-result
-  operators) are outside the discriminator coverage contract.
+    operators) are outside the discriminator coverage contract.
 
 Conceptual example for `DbSet<UserEntity>` against a shared table:
 
@@ -131,73 +138,88 @@ WHERE Pk = 'TENANT#H' AND ("$type" = 'EmployeeEntity' OR "$type" = 'ManagerEntit
 ```
 
 ## Where
+
 **Purpose**
+
 - Filter results by predicate.
 
 **Translation**
+
 - Translated to PartiQL `WHERE`.
 - Boolean members are normalized to explicit comparisons (e.g., `IsActive` becomes `IsActive = TRUE`).
 
 **Limitations / DynamoDB quirks**
+
 - Filters may return zero matches on a page even when more matches exist on later pages.
 
 ## IS NULL / IS MISSING
+
 **Purpose**
+
 - Test whether a nullable attribute is absent or holds no value.
 
 **Translation**
 DynamoDB has two representations of "no value" for an attribute:
 
-| State | DynamoDB storage | PartiQL predicate |
-|---|---|---|
-| NULL type | Attribute present with `{ NULL: true }` value | `attr IS NULL` |
-| MISSING | Attribute key absent from the item entirely | `attr IS MISSING` |
+| State     | DynamoDB storage                              | PartiQL predicate |
+| --------- | --------------------------------------------- | ----------------- |
+| NULL type | Attribute present with `{ NULL: true }` value | `attr IS NULL`    |
+| MISSING   | Attribute key absent from the item entirely   | `attr IS MISSING` |
 
 EF Core users should not need to distinguish which representation was used. The provider
 therefore maps `== null` to cover both:
 
-| LINQ expression | PartiQL emitted |
-|---|---|
-| `x.Prop == null` | `"Prop" IS NULL OR "Prop" IS MISSING` |
-| `x.Prop != null` | `"Prop" IS NOT NULL AND "Prop" IS NOT MISSING` |
-| `EF.Functions.IsNull(x.Prop)` | `"Prop" IS NULL` |
-| `EF.Functions.IsNotNull(x.Prop)` | `"Prop" IS NOT NULL` |
-| `EF.Functions.IsMissing(x.Prop)` | `"Prop" IS MISSING` |
-| `EF.Functions.IsNotMissing(x.Prop)` | `"Prop" IS NOT MISSING` |
+| LINQ expression                     | PartiQL emitted                                |
+| ----------------------------------- | ---------------------------------------------- |
+| `x.Prop == null`                    | `"Prop" IS NULL OR "Prop" IS MISSING`          |
+| `x.Prop != null`                    | `"Prop" IS NOT NULL AND "Prop" IS NOT MISSING` |
+| `EF.Functions.IsNull(x.Prop)`       | `"Prop" IS NULL`                               |
+| `EF.Functions.IsNotNull(x.Prop)`    | `"Prop" IS NOT NULL`                           |
+| `EF.Functions.IsMissing(x.Prop)`    | `"Prop" IS MISSING`                            |
+| `EF.Functions.IsNotMissing(x.Prop)` | `"Prop" IS NOT MISSING`                        |
 
 The `EF.Functions` methods are for advanced use cases where the NULL vs MISSING distinction
 matters (e.g., schema migration, interop with non-EF-written items).
 
 When `== null` is composed with `AND`, the OR sub-expression is automatically parenthesised:
+
 ```csharp
 // x.Name == null && x.IsActive → ("Name" IS NULL OR "Name" IS MISSING) AND "IsActive" = TRUE
 ```
 
 **Limitations / DynamoDB quirks**
+
 - Parameterized null (`x.Prop == someVar` where `someVar` is null at runtime) uses
-  `= ?` with `AttributeValue { NULL = true }`, which only matches NULL type — not MISSING.
-  This is a DynamoDB engine limitation (`IS` does not accept parameters). See
-  [Limitations](limitations.md#parameterized-null-inconsistency).
+    `= ?` with `AttributeValue { NULL = true }`, which only matches NULL type — not MISSING.
+    This is a DynamoDB engine limitation (`IS` does not accept parameters). See
+    [Limitations](limitations.md#parameterized-null-inconsistency).
 - Two-column nullable comparisons (`x.A == x.B` where both are nullable) are not supported
-  and will not produce correct results. See [Limitations](limitations.md#null-column-comparison).
+    and will not produce correct results. See [Limitations](limitations.md#null-column-comparison).
 
 ## Not
+
 **Purpose**
+
 - Negate a boolean predicate.
 
 **Translation**
+
 - `!expr` translates to PartiQL `NOT (expr)`.
 - The operand is always wrapped in parentheses: `NOT ("IsActive" = TRUE)`.
 - Compound operands are parenthesised correctly: `NOT ("IsActive" = TRUE AND "Score" > 0)`.
 
 **Limitations / DynamoDB quirks**
+
 - Only logical negation of boolean search conditions is supported; bitwise complement is not translated.
 
 ## StartsWith
+
 **Purpose**
+
 - Test whether a string attribute begins with a given prefix.
 
 **Translation**
+
 - `entity.Name.StartsWith("prefix")` translates to `begins_with("Name", ?)` when the prefix is captured/parameterized.
 - Inline constants can be emitted directly as literals, for example `begins_with("Name", 'prefix')`.
 
@@ -213,21 +235,26 @@ db.Items.Where(x => x.Sk.StartsWith("ORDER#"));
 ```
 
 **Limitations / DynamoDB quirks**
+
 - Only `string.StartsWith(string)` is supported; `char`, `StringComparison`, and culture/ignore-case overloads are not translated and will throw.
 - `begins_with` performs a case-sensitive, literal prefix check — no wildcards, no escaping required.
 - DynamoDB `begins_with` only accepts string attributes; numeric or binary attributes will not match.
 - See [DynamoDB begins_with documentation](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ql-functions.beginswith.html).
 
 ## Contains
+
 **Purpose**
+
 - Check string substring membership or in-memory collection membership.
 
 **Translation**
+
 - `entity.Name.Contains("Ada")` translates to `contains(Name, ?)`.
 - `ids.Contains(entity.Id)` translates to `Id IN [?, ?, ...]`.
 - Collection membership placeholders are expanded at runtime based on collection size.
 
 **Limitations / DynamoDB quirks**
+
 - Only `string.Contains(string)` is supported; overloads such as `char` and `StringComparison` are not translated.
 - Only in-memory collection membership is supported (for example `ids.Contains(entity.Id)`).
 - Collection attribute containment (for example `entity.Tags.Contains("x")`) is not supported.
@@ -236,14 +263,17 @@ db.Items.Where(x => x.Sk.StartsWith("ORDER#"));
 - `NULL` collection elements are passed through as DynamoDB `NULL`; DynamoDB evaluation semantics apply.
 
 ## BETWEEN
+
 **Purpose**
+
 - Test whether a property value falls within an inclusive range.
 
 **Translation**
+
 - A LINQ predicate of the form `x.Prop >= low && x.Prop <= high` is rewritten to
-  PartiQL `"Prop" BETWEEN ? AND ?`.
+    PartiQL `"Prop" BETWEEN ? AND ?`.
 - Both bounds must be inclusive (`>=` and `<=`). If either bound is exclusive (`>` or `<`),
-  the predicate is kept as two separate comparisons.
+    the predicate is kept as two separate comparisons.
 
 ```csharp
 // Inclusive range → BETWEEN
@@ -261,9 +291,10 @@ DynamoDB allows only a single condition on the sort key per query. `BETWEEN` sat
 one inclusive range condition. Using `>=` and `<=` without the BETWEEN rewrite would produce two
 separate sort-key comparisons, which DynamoDB cannot use as a key condition and falls back to a
 scan. To ensure the BETWEEN rewrite fires for sort key ranges:
+
 - Use `>=` for the lower bound and `<=` for the upper bound on the **same property**.
 - Write the lower bound first: `sk >= low && sk <= high` (either left/right ordering of the
-  conditions is accepted, but the bound values are not reordered).
+    conditions is accepted, but the bound values are not reordered).
 
 ```csharp
 var from = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
@@ -300,41 +331,52 @@ to `"Score" BETWEEN 500 AND 100`, which DynamoDB evaluates as an empty range and
 results. Ensure `low <= high` at the call site.
 
 **Limitations / DynamoDB quirks**
+
 - Only single-property inclusive ranges trigger the rewrite. Multi-column range expressions
-  are emitted as individual comparisons.
+    are emitted as individual comparisons.
 - DynamoDB BETWEEN is inclusive on both ends; see
-  [PartiQL operators](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ql-operators.html).
+    [PartiQL operators](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ql-operators.html).
 
 ## Select
+
 **Purpose**
+
 - Shape the projection.
 
 **Translation**
+
 - Translated to explicit `SELECT <projection>`; no `SELECT *` is emitted.
 
 **Limitations / DynamoDB quirks**
+
 - Projection is explicit to keep attribute reads predictable and aligned with type mapping.
 
 ## OrderBy / ThenBy
+
 **Purpose**
+
 - Order results by one or more keys.
 
 **Translation**
+
 - Translated to PartiQL `ORDER BY` with `ASC`/`DESC`.
 - Both `OrderBy`/`ThenBy` (ascending) and `OrderByDescending`/`ThenByDescending` (descending) are
-  supported in any combination per key.
+    supported in any combination per key.
 
 **Valid ordering attributes**
+
 - Only partition key and sort key attributes are valid ordering columns. Non-key attributes are
-  rejected at query compilation with a provider error.
+    rejected at query compilation with a provider error.
 
 **Single-partition queries** (`WHERE PK = value`):
+
 - `OrderBy(e => e.Pk)` — order by partition key
 - `OrderBy(e => e.Sk)` — order by sort key
 - `OrderBy(e => e.Pk).ThenBy(e => e.Sk)` — order by PK then SK
 - Any `ASC`/`DESC` combination on the above is valid
 
 **Multi-partition queries** (`WHERE PK IN (...)`):
+
 - The partition key **must lead** the `ORDER BY` chain.
 - `OrderBy(e => e.Pk)` — valid
 - `OrderBy(e => e.Pk).ThenBy(e => e.Sk)` — valid
@@ -361,25 +403,30 @@ db.Orders
 ```
 
 **Limitations / DynamoDB quirks**
+
 - A `WHERE` clause with an equality or IN constraint on the partition key is required; `ORDER BY`
-  without a partition key constraint throws a provider error.
+    without a partition key constraint throws a provider error.
 - For multi-partition queries, the partition key must be the first `ORDER BY` column; ordering by
-  sort key first is not supported.
+    sort key first is not supported.
 - Non-key attributes in `ORDER BY` always produce a provider error.
 - See [DynamoDB PartiQL SELECT](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ql-reference.select.html) for engine-level ordering behavior.
 
 ## Limit(n)
+
 **Purpose**
+
 - Set a DynamoDB evaluation budget for a query.
 
 **Translation**
+
 - Sets `ExecuteStatementRequest.Limit = n`. Always a single request.
 - DynamoDB evaluates at most `n` items, applies any non-key filters, and returns 0..n results.
 - When chained multiple times, the last call wins.
 - `n` must be positive. Zero or negative throws `ArgumentOutOfRangeException` at construction time
-  for constants, or at execution time for runtime values.
+    for constants, or at execution time for runtime values.
 
 **Example**
+
 ```csharp
 // Evaluate 25 items, apply filter, return 0..25.
 var results = await db.Orders
@@ -392,6 +439,7 @@ await db.Orders.Limit(10).Limit(20).ToListAsync(cancellationToken);
 ```
 
 **Compiled queries with runtime parameters**
+
 ```csharp
 var query = EF.CompileAsyncQuery((OrderDbContext ctx, int n)
     => ctx.Orders.Limit(n));
@@ -400,14 +448,16 @@ var results = await query(db, 50).ToListAsync(cancellationToken);
 ```
 
 **Limitations**
+
 - Does not guarantee `n` rows returned. DynamoDB reads `n` items, applies filters, and returns
-  whatever matches in that range. Use `ToListAsync()` without `Limit(n)` to collect all matches.
+    whatever matches in that range. Use `ToListAsync()` without `Limit(n)` to collect all matches.
 - There is no paging. If fewer than `n` matching items exist in the evaluated range, the result is
-  simply shorter.
+    simply shorter.
 
 ## First / FirstOrDefault
 
 **Purpose**
+
 - Return the first result (throw if none exist for `First`; return `null` for `FirstOrDefault`).
 
 **Translation**
@@ -415,24 +465,26 @@ var results = await query(db, 50).ToListAsync(cancellationToken);
 `First*` works server-side **only** on the safe key-only path. All other shapes throw at
 translation time — use `.AsAsyncEnumerable()` to cross into client-side LINQ explicitly.
 
-| Shape | Limit on request | Notes |
-|---|---|---|
-| Key-only (PK equality, key-only predicates, no user limit) | `1` (implicit) | Safe path — single request |
-| `Limit(n)` + `First*` | Translation failure | Use `.Limit(n).AsAsyncEnumerable().FirstOrDefaultAsync(ct)` |
-| Non-key predicate or scan-like | Translation failure | Use `.Limit(n).AsAsyncEnumerable().FirstOrDefaultAsync(ct)` |
+| Shape                                                      | Limit on request    | Notes                                                       |
+| ---------------------------------------------------------- | ------------------- | ----------------------------------------------------------- |
+| Key-only (PK equality, key-only predicates, no user limit) | `1` (implicit)      | Safe path — single request                                  |
+| `Limit(n)` + `First*`                                      | Translation failure | Use `.Limit(n).AsAsyncEnumerable().FirstOrDefaultAsync(ct)` |
+| Non-key predicate or scan-like                             | Translation failure | Use `.Limit(n).AsAsyncEnumerable().FirstOrDefaultAsync(ct)` |
 
 `First*` on the safe path is always a **single request**. The provider never pages for a `First*` terminal.
 
 **Safe path conditions** — ALL must hold:
+
 1. No user-specified `Limit(n)`.
-2. The `WHERE` clause contains a partition-key equality condition.
-3. The `WHERE` clause contains only key predicates (no non-key attribute filters).
+1. The `WHERE` clause contains a partition-key equality condition.
+1. The `WHERE` clause contains only key predicates (no non-key attribute filters).
 
 **Special case — no sort key**: When the queried source has no sort key, each partition contains
 at most one item. `First*` with PK equality is always safe regardless of non-key predicates
 (condition 3 is relaxed).
 
 **Example — key-only (safe)**
+
 ```csharp
 // Safe path: PK + SK equality. Uses Limit=1 automatically.
 var item = await db.Orders
@@ -441,6 +493,7 @@ var item = await db.Orders
 ```
 
 **Example — non-key filter (use AsAsyncEnumerable)**
+
 ```csharp
 // Non-key predicate: IsActive is not PK or SK.
 // Fetch up to 50 items server-side, take the first match client-side.
@@ -452,14 +505,16 @@ var active = await db.Orders
 ```
 
 **Limitations / DynamoDB quirks**
+
 - Unsafe `First*` always throws at translation time — never silently returns null.
 - `Limit(n) + First*` always throws. `Limit(n)` is an evaluation budget that may return multiple
-  items; combining it directly with `First*` is ambiguous. Use `AsAsyncEnumerable()` to make the
-  client-side selection explicit.
+    items; combining it directly with `First*` is ambiguous. Use `AsAsyncEnumerable()` to make the
+    client-side selection explicit.
 - The `AsAsyncEnumerable()` pattern is the standard EF Core approach for explicit client-side
-  evaluation — it marks the boundary between server-side and LINQ-to-objects evaluation.
+    evaluation — it marks the boundary between server-side and LINQ-to-objects evaluation.
 
 ## External references
+
 - AWS ExecuteStatement API: <https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_ExecuteStatement.html>
 - DynamoDB PartiQL SELECT: <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ql-reference.select.html>
 - DynamoDB PartiQL operators: <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ql-operators.html>

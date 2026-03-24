@@ -1,5 +1,5 @@
 [project]
-site_name = "LayeredCraft DynamoDB EF Core Provider"
+site_name = "EntityFrameworkCore.DynamoDb"
 site_description = "Entity Framework Core provider for AWS DynamoDB."
 site_author = "LayeredCraft"
 site_url = "https://layeredcraft.github.io/dynamodb-efcore-provider/"

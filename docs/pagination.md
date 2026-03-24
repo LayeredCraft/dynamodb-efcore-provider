@@ -32,7 +32,7 @@ the evaluation budget per query.
 
 - Single request, `Limit = n`. No paging.
 
-## Unsafe First* — use AsAsyncEnumerable()
+## Unsafe First\* — use AsAsyncEnumerable()
 
 When a `First*` query cannot use the safe key-only path (non-key predicate, scan-like, or any
 `Limit(n)` present), translation fails with `InvalidOperationException`. The correct pattern is to
@@ -56,14 +56,14 @@ There is no `DefaultPageSize` option. Use `.Limit(n)` per query.
 
 ## Evaluation budget reference
 
-| Shape | `ExecuteStatementRequest.Limit` | Pages? |
-|---|---|---|
-| `.Limit(n)` + `ToListAsync()` | `n` | No |
-| `First*` (key-only, no explicit limit) | `1` | No |
-| `First*` + any `Limit(n)` | **Translation failure** | — |
-| `First*` on non-key/scan-like path | **Translation failure** | — |
-| `.Limit(n)` + `AsAsyncEnumerable()` + `First*` | `n` (client-side selection) | No |
-| `ToListAsync()` (no limit) | `null` (1MB per page) | Yes |
+| Shape                                          | `ExecuteStatementRequest.Limit` | Pages? |
+| ---------------------------------------------- | ------------------------------- | ------ |
+| `.Limit(n)` + `ToListAsync()`                  | `n`                             | No     |
+| `First*` (key-only, no explicit limit)         | `1`                             | No     |
+| `First*` + any `Limit(n)`                      | **Translation failure**         | —      |
+| `First*` on non-key/scan-like path             | **Translation failure**         | —      |
+| `.Limit(n)` + `AsAsyncEnumerable()` + `First*` | `n` (client-side selection)     | No     |
+| `ToListAsync()` (no limit)                     | `null` (1MB per page)           | Yes    |
 
 ## Examples
 
@@ -77,7 +77,7 @@ var orders = await db.Orders
     .ToListAsync(cancellationToken);
 ```
 
-### First* with non-key filter — use AsAsyncEnumerable()
+### First\* with non-key filter — use AsAsyncEnumerable()
 
 ```csharp
 // Evaluate 50 items server-side, then take first match client-side.

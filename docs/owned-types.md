@@ -8,6 +8,7 @@ The DynamoDB provider supports Entity Framework Core owned entity types (`OwnsOn
 embedding complex object graphs within a single DynamoDB item.
 
 ## Overview
+
 - Owned references are stored as nested maps (`AttributeValue.M`).
 - Owned collections are stored as lists of maps (`AttributeValue.L`).
 - Nested ownership is supported (owned types can contain other owned types).
@@ -133,6 +134,7 @@ FROM "Customers"
 `Profile` is read from DynamoDB, then `Address.City` is extracted during client-side shaping.
 
 ## Null handling
+
 - Optional owned navigation missing or `NULL`: materializes as `null`.
 - Required owned navigation missing or `NULL`: throws during materialization.
 - Optional owned navigation chains null-propagate in projections.
@@ -148,6 +150,7 @@ var rows = await context.Customers
 If `Profile` is null, `Age` is null rather than throwing.
 
 ## Limitations
+
 - Nested path access is supported in `Where` predicates only; `Select` projections fall back to client-side extraction from the top-level owned container.
 - Direct querying of owned collections via `SelectMany` is not translated.
 - `.Include()` is not required for owned types and has no effect.
@@ -155,6 +158,7 @@ If `Profile` is null, `Age` is null rather than throwing.
 For current supported workarounds, see [Limitations](limitations.md).
 
 ## See also
+
 - [Projections](projections.md)
 - [Limitations](limitations.md)
 - [EF Core Owned Entity Types](https://learn.microsoft.com/en-us/ef/core/modeling/owned-entities)

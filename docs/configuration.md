@@ -5,6 +5,7 @@ icon: lucide/settings
 # Configuration
 
 ## DbContext setup
+
 - Configure the provider with `UseDynamo()` or `UseDynamo(options => ...)`.
 - For local development and integration tests, pass a configured `IAmazonDynamoDB` client.
 
@@ -21,6 +22,7 @@ optionsBuilder.UseDynamo(options =>
 ```
 
 ## Options
+
 - `DynamoDbClient`: use a preconfigured `IAmazonDynamoDB` instance.
 - `DynamoDbClientConfig`: use a preconfigured `AmazonDynamoDBConfig` when creating the SDK client.
 - `ConfigureDynamoDbClientConfig`: apply a callback to configure `AmazonDynamoDBConfig` before client creation.
@@ -29,10 +31,11 @@ Per-query evaluation budget is controlled by `.Limit(n)` on the query rather tha
 See [Pagination](pagination.md) for the evaluation budget model.
 
 ## Client configuration precedence
+
 - The provider resolves client settings in this order:
-  1. `DynamoDbClient(...)` (explicit client instance)
-  2. `DynamoDbClientConfig(...)` (base SDK config)
-  3. `ConfigureDynamoDbClientConfig(...)` (callback adjustments)
+    1. `DynamoDbClient(...)` (explicit client instance)
+    1. `DynamoDbClientConfig(...)` (base SDK config)
+    1. `ConfigureDynamoDbClientConfig(...)` (callback adjustments)
 
 ```csharp
 var sharedClient = new AmazonDynamoDBClient(new AmazonDynamoDBConfig
@@ -60,6 +63,7 @@ optionsBuilder.UseDynamo(options =>
 ```
 
 ## Table mapping
+
 - Use `ToTable("TableName")` to map an entity to a DynamoDB table.
 - If omitted, the provider falls back to the entity CLR type name.
 
@@ -222,38 +226,42 @@ The provider validates the key configuration during model finalization and raise
 - An explicit root EF primary key configured with `HasKey(...)` or `[Key]`.
 - An internally derived EF primary key that does not match the configured DynamoDB key shape.
 - Entity types sharing a DynamoDB table that disagree on the partition key attribute name or
-  sort key attribute name.
+    sort key attribute name.
 - A sort key configured with no resolvable partition key.
 
 ## Owned and embedded types
+
 - Complex navigation types are discovered as owned by convention.
 - Primitive properties and supported primitive collection shapes remain scalar properties.
 - Supported primitive collection shapes are:
-  - lists: `T[]`, `List<T>`, `IList<T>`, `IReadOnlyList<T>`
-  - sets: `HashSet<T>`, `ISet<T>`, `IReadOnlySet<T>`
-  - dictionaries with string keys: `Dictionary<string,TValue>`, `IDictionary<string,TValue>`,
-    `IReadOnlyDictionary<string,TValue>`, `ReadOnlyDictionary<string,TValue>`
+    - lists: `T[]`, `List<T>`, `IList<T>`, `IReadOnlyList<T>`
+    - sets: `HashSet<T>`, `ISet<T>`, `IReadOnlySet<T>`
+    - dictionaries with string keys: `Dictionary<string,TValue>`, `IDictionary<string,TValue>`,
+        `IReadOnlyDictionary<string,TValue>`, `ReadOnlyDictionary<string,TValue>`
 - You can still configure ownership explicitly with `OwnsOne`/`OwnsMany` when needed.
 
 ## What works today
+
 - `UseDynamo` registers provider services and query pipeline components.
 - Table mapping uses a Dynamo-specific annotation (`Dynamo:TableName`).
 - Composite keys are supported at the model level (for example `{ Pk, Sk }`).
 - Convention-based partition/sort key discovery from property names (`PK`, `PartitionKey`, `SK`, `SortKey`).
 - Explicit `HasPartitionKey`/`HasSortKey` fluent API with automatic EF primary key alignment.
 - Secondary-index metadata APIs:
-  - `HasGlobalSecondaryIndex(...)`
-  - `HasLocalSecondaryIndex(...)`
-  - `WithIndex(...)`
+    - `HasGlobalSecondaryIndex(...)`
+    - `HasLocalSecondaryIndex(...)`
+    - `WithIndex(...)`
 - `HasAttributeName` on scalar properties to control the DynamoDB store attribute name.
 
 ## Access patterns and scans
+
 - DynamoDB PartiQL `SELECT` can trigger a full table scan unless predicates include partition-key
-  equality or partition-key `IN` conditions.
+    equality or partition-key `IN` conditions.
 - Key-based predicates are important for predictable latency and cost.
 - The provider currently does not add scan-denial guards; query shape is controlled by your LINQ.
 
 ## Not configurable yet
+
 - `ConsistentRead` is not currently exposed as a provider option.
 - Provider-side key encoding helpers.
 
@@ -278,13 +286,14 @@ Current scope for these APIs:
 
 - GSI key schema is always explicit.
 - LSI requires a resolved table partition key and sort key from `HasPartitionKey(...)` /
-  `HasSortKey(...)` or Dynamo naming conventions.
+    `HasSortKey(...)` or Dynamo naming conventions.
 - `WithIndex(...)` emits `FROM "Table"."Index"` for explicit query-time targeting.
 - Automatic index selection can route compatible queries to GSIs/LSIs when enabled.
 - Automatic selection only considers indexes visible to the queried entity type and avoids
-  subtype-only sparse indexes for base-type queries.
+    subtype-only sparse indexes for base-type queries.
 
 See [Indexes](indexes.md) for the current index configuration and support model.
 
 ## External references
+
 - DynamoDB PartiQL SELECT: <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ql-reference.select.html>
