@@ -193,6 +193,35 @@ public class FirstOrDefaultSafePathTests
         await act.Should().NotThrowAsync<InvalidOperationException>();
     }
 
+    // ── Partition-only GSI: non-key filter must throw ────────────────────────
+
+    [Fact]
+    public async Task FirstOrDefault_PartitionOnlyGsi_NonKeyFilter_ThrowsTranslationFailure()
+    {
+        // Regression: the effectiveSortKeyAttributeName is null shortcut in
+        // ValidateFirstTerminalSafePath fires for partition-only GSIs (no SK defined on the
+        // index), bypassing the non-key predicate check entirely. A partition-only GSI can
+        // hold many items per partition — Limit=1 with a non-key filter expression can
+        // silently miss matching items later in the GSI partition.
+        // The guard must not take the shortcut when the query source is a GSI.
+        var client = Substitute.For<IAmazonDynamoDB>();
+        await using var context = PartitionOnlyGsiDbContext.Create(client);
+
+        var act = async ()
+            => await context
+                .GsiItems
+                .WithIndex("ByPriority")
+                .Where(x => x.Priority == 3 && x.Status == "OPEN")
+                .FirstOrDefaultAsync(TestContext.Current.CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*AsAsyncEnumerable*");
+
+        await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
     // ── Nested-path / list-index predicates: unsafe (DynamoScalarAccessExpression /
     // DynamoListIndexExpression regression) ──
 
@@ -495,6 +524,51 @@ public class FirstOrDefaultSafePathTests
 
         /// <summary>Provides functionality for this member.</summary>
         public string Sk { get; set; } = null!;
+    }
+
+    /// <summary>
+    ///     Entity with a base table PK+SK and a partition-only GSI (no sort key on the index). Used
+    ///     to verify that non-key filters on a partition-only GSI are rejected by First*.
+    /// </summary>
+    private sealed record GsiItem
+    {
+        /// <summary>Base table partition key.</summary>
+        public string Pk { get; set; } = null!;
+
+        /// <summary>Base table sort key.</summary>
+        public string Sk { get; set; } = null!;
+
+        /// <summary>GSI partition key for the partition-only ByPriority index.</summary>
+        public int Priority { get; set; }
+
+        /// <summary>Non-key attribute — not part of any index key schema.</summary>
+        public string Status { get; set; } = null!;
+    }
+
+    private sealed class PartitionOnlyGsiDbContext(DbContextOptions options) : DbContext(options)
+    {
+        /// <summary>Provides functionality for this member.</summary>
+        public DbSet<GsiItem> GsiItems => Set<GsiItem>();
+
+        /// <summary>Provides functionality for this member.</summary>
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<GsiItem>(b =>
+            {
+                b.ToTable("GsiTable");
+                b.HasPartitionKey(x => x.Pk);
+                b.HasSortKey(x => x.Sk);
+                // Partition-only GSI: Priority is the GSI PK, no GSI sort key.
+                b.HasGlobalSecondaryIndex("ByPriority", x => x.Priority);
+            });
+
+        /// <summary>Provides functionality for this member.</summary>
+        public static PartitionOnlyGsiDbContext Create(IAmazonDynamoDB client)
+            => new(
+                new DbContextOptionsBuilder<PartitionOnlyGsiDbContext>()
+                    .UseDynamo(options => options.DynamoDbClient(client))
+                    .ConfigureWarnings(w
+                        => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                    .Options);
     }
 
     /// <summary>Derived type — carries a non-key attribute to test user filter rejection.</summary>
