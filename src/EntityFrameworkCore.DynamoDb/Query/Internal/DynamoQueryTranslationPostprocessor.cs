@@ -451,6 +451,17 @@ internal sealed class DynamoQueryTranslationPostprocessor(
             // Provider-injected discriminator predicates are never user-supplied non-key filters.
             // They must not cause First* validation to reject an otherwise key-only query.
             SqlDiscriminatorPredicateExpression => false,
+            // Nested path access (e.g. x.Profile.City → DynamoScalarAccessExpression): recurse
+            // into the parent chain. The root of the chain is a SqlPropertyExpression whose name
+            // identifies the top-level DynamoDB attribute. PK and SK are always scalar types and
+            // can never host nested properties, so any nested path is inherently non-key.
+            DynamoScalarAccessExpression scalar => scalar.Parent is not SqlExpression parentSql
+                || ContainsNonKeyProperty(parentSql, keyAttributes),
+            // List-index access (e.g. x.Tags[0] → DynamoListIndexExpression): recurse into the
+            // source expression. PK and SK are never list types, so any list-index access is
+            // inherently non-key.
+            DynamoListIndexExpression listIdx => listIdx.Source is not SqlExpression sourceSql
+                || ContainsNonKeyProperty(sourceSql, keyAttributes),
             _ => false,
         };
 
@@ -477,6 +488,13 @@ internal sealed class DynamoQueryTranslationPostprocessor(
             SqlFunctionExpression func => func.Arguments.Any(a
                 => PredicateReferencesAttribute(a, attributeName)),
             SqlInExpression inExpr => PredicateReferencesAttribute(inExpr.Item, attributeName),
+            // Recurse into nested-path and list-index chains so callers searching for a top-level
+            // attribute name (e.g. the sort-key attribute) can match the root
+            // SqlPropertyExpression.
+            DynamoScalarAccessExpression scalar => scalar.Parent is SqlExpression parentSql
+                && PredicateReferencesAttribute(parentSql, attributeName),
+            DynamoListIndexExpression listIdx => listIdx.Source is SqlExpression sourceSql
+                && PredicateReferencesAttribute(sourceSql, attributeName),
             _ => false,
         };
 
