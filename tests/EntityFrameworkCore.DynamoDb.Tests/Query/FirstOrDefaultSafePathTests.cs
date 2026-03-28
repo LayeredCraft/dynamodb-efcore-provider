@@ -193,6 +193,80 @@ public class FirstOrDefaultSafePathTests
         await act.Should().NotThrowAsync<InvalidOperationException>();
     }
 
+    // ── Nested-path / list-index predicates: unsafe (DynamoScalarAccessExpression /
+    // DynamoListIndexExpression regression) ──
+
+    [Fact]
+    public async Task FirstOrDefault_NestedOwnedPropertyPredicate_ThrowsTranslationFailure()
+    {
+        // Regression: ContainsNonKeyProperty() does not descend into DynamoScalarAccessExpression,
+        // so x.Profile.City == "Seattle" (which becomes DynamoScalarAccessExpression wrapping a
+        // SqlPropertyExpression("Profile")) is silently misclassified as key-only.
+        // The guard must recognise the nested path as a non-key predicate and throw.
+        var client = Substitute.For<IAmazonDynamoDB>();
+        await using var context = NestedPathDbContext.Create(client);
+
+        var act = async ()
+            => await context
+                .NestedItems
+                .Where(x => x.Pk == "P#1" && x.Profile!.City == "Seattle")
+                .FirstOrDefaultAsync(TestContext.Current.CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*AsAsyncEnumerable*");
+
+        await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
+    [Fact]
+    public async Task FirstOrDefault_ListIndexPredicate_ThrowsTranslationFailure()
+    {
+        // Regression: ContainsNonKeyProperty() does not descend into DynamoListIndexExpression,
+        // so x.Tags[0] == "vip" (which becomes DynamoListIndexExpression wrapping
+        // SqlPropertyExpression("Tags")) is silently misclassified as key-only.
+        // The guard must recognise the list-index access as a non-key predicate and throw.
+        var client = Substitute.For<IAmazonDynamoDB>();
+        await using var context = NestedPathDbContext.Create(client);
+
+        var act = async ()
+            => await context
+                .NestedItems
+                .Where(x => x.Pk == "P#1" && x.Tags[0] == "vip")
+                .FirstOrDefaultAsync(TestContext.Current.CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*AsAsyncEnumerable*");
+
+        await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
+    [Fact]
+    public async Task FirstOrDefault_DeepNestedOwnedPropertyPredicate_ThrowsTranslationFailure()
+    {
+        // Regression: a two-level nested path (x.Profile.Address.City) produces a chain of
+        // DynamoScalarAccessExpression nodes. The guard must walk the whole chain and still
+        // detect the non-key attribute, not stop at the first DynamoScalarAccessExpression.
+        var client = Substitute.For<IAmazonDynamoDB>();
+        await using var context = DeepNestedPathDbContext.Create(client);
+
+        var act = async ()
+            => await context
+                .DeepItems
+                .Where(x => x.Pk == "P#1" && x.Profile!.Address!.City == "Seattle")
+                .FirstOrDefaultAsync(TestContext.Current.CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*AsAsyncEnumerable*");
+
+        await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
     // ── Inheritance / shared-table (discriminator regression) ───────────────
 
     [Fact]
@@ -305,6 +379,108 @@ public class FirstOrDefaultSafePathTests
         public static SafePathDbContext Create(IAmazonDynamoDB client)
             => new(
                 new DbContextOptionsBuilder<SafePathDbContext>()
+                    .UseDynamo(options => options.DynamoDbClient(client))
+                    .ConfigureWarnings(w
+                        => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                    .Options);
+    }
+
+    // ── Nested-path / list-index support types ──────────────────────────────
+
+    /// <summary>Single-level owned reference — used to exercise DynamoScalarAccessExpression in the guard.</summary>
+    private sealed record FlatProfile
+    {
+        /// <summary>Non-key nested attribute.</summary>
+        public string City { get; } = null!;
+    }
+
+    /// <summary>Two-level owned reference — wraps a second owned type to exercise deep nesting.</summary>
+    private sealed record Address
+    {
+        /// <summary>Non-key nested attribute.</summary>
+        public string City { get; } = null!;
+    }
+
+    /// <summary>Outer owned reference — contains a nested owned reference for deep-path tests.</summary>
+    private sealed record DeepProfile
+    {
+        /// <summary>Nested owned reference.</summary>
+        public Address? Address { get; set; }
+    }
+
+    /// <summary>Entity with PK, SK, an owned reference, and a primitive string list.</summary>
+    private sealed record NestedPathItem
+    {
+        /// <summary>Partition key.</summary>
+        public string Pk { get; set; } = null!;
+
+        /// <summary>Sort key — required so the no-sort-key bypass does not mask the bug.</summary>
+        public string Sk { get; set; } = null!;
+
+        /// <summary>Single-level owned reference whose properties are non-key attributes.</summary>
+        public FlatProfile? Profile { get; set; }
+
+        /// <summary>Primitive collection — element access becomes DynamoListIndexExpression.</summary>
+        public List<string> Tags { get; set; } = [];
+    }
+
+    /// <summary>Entity with PK, SK, and a two-level owned reference for deep-nesting tests.</summary>
+    private sealed record DeepNestedItem
+    {
+        /// <summary>Partition key.</summary>
+        public string Pk { get; set; } = null!;
+
+        /// <summary>Sort key — required so the no-sort-key bypass does not mask the bug.</summary>
+        public string Sk { get; set; } = null!;
+
+        /// <summary>Two-level owned reference whose leaf property is a non-key attribute.</summary>
+        public DeepProfile? Profile { get; set; }
+    }
+
+    private sealed class NestedPathDbContext(DbContextOptions options) : DbContext(options)
+    {
+        /// <summary>Provides functionality for this member.</summary>
+        public DbSet<NestedPathItem> NestedItems => Set<NestedPathItem>();
+
+        /// <summary>Provides functionality for this member.</summary>
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<NestedPathItem>(b =>
+            {
+                b.ToTable("NestedPathTable");
+                b.HasPartitionKey(x => x.Pk);
+                b.HasSortKey(x => x.Sk);
+                b.OwnsOne(x => x.Profile);
+            });
+
+        /// <summary>Provides functionality for this member.</summary>
+        public static NestedPathDbContext Create(IAmazonDynamoDB client)
+            => new(
+                new DbContextOptionsBuilder<NestedPathDbContext>()
+                    .UseDynamo(options => options.DynamoDbClient(client))
+                    .ConfigureWarnings(w
+                        => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                    .Options);
+    }
+
+    private sealed class DeepNestedPathDbContext(DbContextOptions options) : DbContext(options)
+    {
+        /// <summary>Provides functionality for this member.</summary>
+        public DbSet<DeepNestedItem> DeepItems => Set<DeepNestedItem>();
+
+        /// <summary>Provides functionality for this member.</summary>
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<DeepNestedItem>(b =>
+            {
+                b.ToTable("DeepNestedTable");
+                b.HasPartitionKey(x => x.Pk);
+                b.HasSortKey(x => x.Sk);
+                b.OwnsOne(x => x.Profile, pb => pb.OwnsOne(p => p.Address));
+            });
+
+        /// <summary>Provides functionality for this member.</summary>
+        public static DeepNestedPathDbContext Create(IAmazonDynamoDB client)
+            => new(
+                new DbContextOptionsBuilder<DeepNestedPathDbContext>()
                     .UseDynamo(options => options.DynamoDbClient(client))
                     .ConfigureWarnings(w
                         => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
