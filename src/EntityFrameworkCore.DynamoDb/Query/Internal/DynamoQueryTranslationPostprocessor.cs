@@ -108,12 +108,17 @@ internal sealed class DynamoQueryTranslationPostprocessor(
         // finalized query source (base table or chosen index).
         var effectiveSortKeyAttr =
             ResolveEffectiveSortKeyAttributeName(candidates, decision.SelectedIndexName);
+        var isBaseTableSource = decision.SelectedIndexName is null;
         ValidateOrderByConstraints(selectExpression, queryConstraints, effectiveSortKeyAttr);
 
         // Validate First* safe path: must be key-only (no user limit, no non-key predicates).
         // Run after index selection so we use the effective key attributes of the chosen source.
         if (selectExpression.IsFirstTerminal)
-            ValidateFirstTerminalSafePath(selectExpression, queryConstraints, effectiveSortKeyAttr);
+            ValidateFirstTerminalSafePath(
+                selectExpression,
+                queryConstraints,
+                effectiveSortKeyAttr,
+                isBaseTableSource);
 
         return query;
     }
@@ -343,7 +348,8 @@ internal sealed class DynamoQueryTranslationPostprocessor(
     private static void ValidateFirstTerminalSafePath(
         SelectExpression selectExpression,
         DynamoQueryConstraints? queryConstraints,
-        string? effectiveSortKeyAttributeName)
+        string? effectiveSortKeyAttributeName,
+        bool isBaseTableSource)
     {
         // Design-time: runtime model unavailable, skip to avoid false negatives.
         if (queryConstraints is null)
@@ -372,9 +378,25 @@ internal sealed class DynamoQueryTranslationPostprocessor(
                 selectExpression.Predicate,
                 effectivePk,
                 effectiveSortKeyAttributeName);
+        var hasDiscriminatorPredicate = selectExpression.Predicate is not null
+            && ContainsDiscriminatorPredicate(selectExpression.Predicate);
 
         if (hasPkEquality && !hasNonKeyPredicate)
         {
+            // Provider-injected discriminator filters are safe only when the query shape is
+            // guaranteed to evaluate at most one base-table item before filtering. Otherwise,
+            // DynamoDB can evaluate one item that fails discriminator filtering and still expose a
+            // continuation token, causing First* to return null/throw while a matching typed row
+            // exists later in the partition.
+            if (hasDiscriminatorPredicate
+                && !IsSingleItemBaseTableLookup(
+                    queryConstraints,
+                    effectiveSortKeyAttributeName,
+                    isBaseTableSource))
+                throw new InvalidOperationException(
+                    DynamoStrings.FirstOrDefaultRequiresKeyOnlyPath(
+                        "discriminator filter on a multi-item source"));
+
             // Guard: if the predicate references the sort key but the sort key is not in
             // SkKeyConditions, it is a filter expression (e.g. SK IN (...) or SK = A OR SK = B),
             // not a DynamoDB key condition. DynamoDB's Limit counts *evaluated* items, not
@@ -443,8 +465,9 @@ internal sealed class DynamoQueryTranslationPostprocessor(
             SqlInExpression inExpr => ContainsNonKeyProperty(inExpr.Item, keyAttributes),
             // Constants and parameters are never property references.
             SqlConstantExpression or SqlParameterExpression => false,
-            // Provider-injected discriminator predicates are never user-supplied non-key filters.
-            // They must not cause First* validation to reject an otherwise key-only query.
+            // Provider-injected discriminator predicates are handled by a dedicated safety check
+            // in ValidateFirstTerminalSafePath. Keep them out of generic non-key classification
+            // so key-only user predicates (e.g., PK+SK equality) are still evaluated correctly.
             SqlDiscriminatorPredicateExpression => false,
             // Nested path access (e.g. x.Profile.City → DynamoScalarAccessExpression): recurse
             // into the parent chain. The root of the chain is a SqlPropertyExpression whose name
@@ -492,6 +515,50 @@ internal sealed class DynamoQueryTranslationPostprocessor(
                 && PredicateReferencesAttribute(sourceSql, attributeName),
             _ => false,
         };
+
+    /// <summary>
+    ///     Returns <c>true</c> when the predicate tree contains a provider-injected discriminator
+    ///     predicate node.
+    /// </summary>
+    private static bool ContainsDiscriminatorPredicate(SqlExpression expression)
+        => expression switch
+        {
+            SqlDiscriminatorPredicateExpression => true,
+            SqlBinaryExpression bin => ContainsDiscriminatorPredicate(bin.Left)
+                || ContainsDiscriminatorPredicate(bin.Right),
+            SqlUnaryExpression unary => ContainsDiscriminatorPredicate(unary.Operand),
+            SqlIsNullExpression isNull => ContainsDiscriminatorPredicate(isNull.Operand),
+            SqlParenthesizedExpression paren => ContainsDiscriminatorPredicate(paren.Operand),
+            SqlBetweenExpression between => ContainsDiscriminatorPredicate(between.Subject),
+            SqlFunctionExpression func => func.Arguments.Any(ContainsDiscriminatorPredicate),
+            SqlInExpression inExpr => ContainsDiscriminatorPredicate(inExpr.Item),
+            DynamoScalarAccessExpression scalar => scalar.Parent is SqlExpression parentSql
+                && ContainsDiscriminatorPredicate(parentSql),
+            DynamoListIndexExpression listIdx => listIdx.Source is SqlExpression sourceSql
+                && ContainsDiscriminatorPredicate(sourceSql),
+            _ => false,
+        };
+
+    /// <summary>
+    ///     Determines whether a <c>First*</c> query is guaranteed to evaluate at most one base-table
+    ///     item before discriminator filtering.
+    /// </summary>
+    private static bool IsSingleItemBaseTableLookup(
+        DynamoQueryConstraints queryConstraints,
+        string? effectiveSortKeyAttributeName,
+        bool isBaseTableSource)
+    {
+        if (!isBaseTableSource)
+            return false;
+
+        if (effectiveSortKeyAttributeName is null)
+            return true;
+
+        return queryConstraints.SkKeyConditions.TryGetValue(
+                effectiveSortKeyAttributeName,
+                out var sortKeyConstraint)
+            && sortKeyConstraint.Operator == SkOperator.Equal;
+    }
 
     /// <summary>Emits structured EF query diagnostics for index-selection analysis results.</summary>
     private static void EmitIndexSelectionDiagnostics(

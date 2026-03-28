@@ -167,6 +167,25 @@ public class DiscriminatorInheritanceQueryTests(SharedTableDynamoFixture fixture
             WHERE "Pk" = 'TENANT#H' AND "$type" = 'EmployeeEntity'
             """);
     }
+
+    /// <summary>
+    ///     Verifies <c>FirstOrDefaultAsync</c> rejects derived/shared-table PK-only queries because
+    ///     discriminator filtering on a multi-item source is not a safe server-side <c>First*</c> path.
+    /// </summary>
+    [Fact]
+    /// <summary>Provides functionality for this member.</summary>
+    public async Task DerivedQuery_FirstOrDefault_PkOnly_ThrowsTranslationFailure()
+    {
+        var act = async () => await Db
+            .Employees
+            .Where(employee => employee.Pk == "TENANT#H")
+            .FirstOrDefaultAsync(CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*AsAsyncEnumerable*");
+    }
 }
 
 /// <summary>Represents the DiscriminatorInheritanceBaseOnlyToTableQueryTests type.</summary>

@@ -70,9 +70,9 @@ should keep in mind. Add to these sections as support expands.
 | `OrderBy` / `ThenBy`                                  | PartiQL `ORDER BY`                                | N/A                                           | Precedence and parentheses preserved                                                                  |
 | `Limit(n)`                                            | Sets `ExecuteStatementRequest.Limit = n`          | Single request, 0..n results                  | Last call wins; must be positive                                                                      |
 | `First*` (key-only, no explicit limit)                | Sets implicit `Limit=1`; single request           | N/A                                           | Safe path only; unsafe paths throw — use `AsAsyncEnumerable()`                                        |
-| `First*` + `Limit(n)`                                 | Translation failure                               | —                                             | Use `.Limit(n).AsAsyncEnumerable().FirstOrDefaultAsync(ct)`                                           |
-| `First*` on non-key/scan-like path                    | Translation failure                               | —                                             | Use `.Limit(n).AsAsyncEnumerable().FirstOrDefaultAsync(ct)`                                           |
-| `AsAsyncEnumerable()` + `First*`                      | `Limit(n)` server-side, client-side selection     | Takes first from result set                   | Standard EF Core explicit client-side evaluation                                                      |
+| `First*` + `Limit(n)`                                 | Translation failure                               | —                                             | Use `.AsAsyncEnumerable().FirstOrDefaultAsync(ct)` (optional `Limit(n)` only if you want a budget)    |
+| `First*` on non-key/scan-like path                    | Translation failure                               | —                                             | Use `.AsAsyncEnumerable().FirstOrDefaultAsync(ct)` (add `Limit(n)` only for bounded sampling)         |
+| `AsAsyncEnumerable()` + `First*`                      | Optional `Limit(n)` server-side, then client-side | Takes first from result set                   | Standard EF Core explicit client-side evaluation                                                      |
 | `WithIndex(name)`                                     | Sets query source to `"Table"."Index"`            | N/A                                           | Name must resolve to an index on the queried entity type or its base types                            |
 | `WithoutIndex()`                                      | Suppresses index selection                        | N/A                                           | Forces base-table execution and logs `DYNAMO_IDX006`; cannot be combined with `WithIndex(...)`        |
 
@@ -83,9 +83,9 @@ number of matching rows returned. A page can return zero matches and still inclu
 when more items could match.
 
 - **`Limit(n)` + `ToListAsync()`**: single request, evaluates at most `n` items. No paging.
-- **`Limit(n)` + `First*`**: translation failure — use `.Limit(n).AsAsyncEnumerable().FirstOrDefaultAsync(ct)`.
+- **`Limit(n)` + `First*`**: translation failure — use `.AsAsyncEnumerable().FirstOrDefaultAsync(ct)`.
 - **`First*` key-only (no explicit limit)**: single request, implicit `Limit=1`.
-- **`First*` on non-key/scan-like path**: translation failure — use `.Limit(n).AsAsyncEnumerable().FirstOrDefaultAsync(ct)`.
+- **`First*` on non-key/scan-like path**: translation failure — use `.AsAsyncEnumerable().FirstOrDefaultAsync(ct)`.
 - **`ToListAsync()` (no limit)**: multi-page, `Limit=null` per request. Provider follows `NextToken`.
 
 The provider never emits SQL `LIMIT`; the limit is a request-level field on `ExecuteStatementRequest`.
@@ -118,6 +118,10 @@ The provider never emits SQL `LIMIT`; the limit is a request-level field on `Exe
     that hierarchy.
 - For the currently supported operator surface, discriminator filtering therefore applies to:
     `Where`, `Select`, `OrderBy`/`ThenBy`, `Limit(n)`, and `First`/`FirstOrDefault`.
+- `First*` on derived/shared-table queries requires a single-item base-table lookup before
+    discriminator filtering (PK-only on PK-only table, or PK+SK equality on PK+SK table). Derived
+    PK-only queries on PK+SK tables throw translation failure; use
+    `.AsAsyncEnumerable().FirstOrDefaultAsync(ct)`.
 - Unsupported operators (joins, groupings, set operations, skip, aggregates, single-result
     operators) are outside the discriminator coverage contract.
 

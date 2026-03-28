@@ -42,9 +42,10 @@ internal static class DynamoStrings
 
     /// <summary>Provides functionality for this member.</summary>
     public const string TakeNotSupported =
-        "Take is not supported by this provider. Use Limit(n) instead — it sets a DynamoDB "
-        + "evaluation budget: evaluates n items, applies any filters, and returns 0..n results in "
-        + "a single request. Example: .Limit(25).ToListAsync()";
+        "Take is not supported by this provider. Limit(n) is an evaluation budget (not a "
+        + "row-count operator): it evaluates n items, applies filters, and returns 0..n results in a "
+        + "single request. Use it only when evaluation-budget semantics are desired. "
+        + "Example: .Limit(25).ToListAsync()";
 
     /// <summary>
     ///     Thrown when <c>First*</c> is used on a non-key or scan-like path. Server-side
@@ -56,7 +57,7 @@ internal static class DynamoStrings
             + "Server-side First* is restricted to key-only queries (partition-key equality with only "
             + "key predicates). For non-key filters or scan-like paths, fetch server-side then select "
             + "client-side via AsAsyncEnumerable(): "
-            + ".Where(...).Limit(n).AsAsyncEnumerable().FirstOrDefaultAsync(ct)";
+            + ".Where(...).AsAsyncEnumerable().FirstOrDefaultAsync(ct)";
 
     /// <summary>
     ///     Thrown when <c>Limit(n)</c> and <c>First*</c> are combined directly. Use

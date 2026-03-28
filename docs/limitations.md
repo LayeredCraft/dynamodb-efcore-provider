@@ -14,7 +14,7 @@ icon: lucide/triangle-alert
 - Provider-side key encoding helpers (prefix/suffix composition).
 - Provider option for `ConsistentRead`.
 - `Take`: removed. Use `.Limit(n)` for evaluation budget.
-- `Limit(n)` combined with `First*`: throws at translation time. Use `.Limit(n).AsAsyncEnumerable().FirstOrDefaultAsync(ct)`.
+- `Limit(n)` combined with `First*`: throws at translation time. Use `.AsAsyncEnumerable().FirstOrDefaultAsync(ct)`.
 - `Last` / `LastOrDefault`: deferred (requires reverse traversal).
 
 ## What this means in practice
@@ -59,27 +59,26 @@ await db.Orders
     .Where(x => x.Pk == pk && skValues.Contains(x.Sk))
     .FirstOrDefaultAsync(ct);
 
-// ✅ Correct — client-side selection after bounded server fetch
+// ✅ Correct — client-side selection (add Limit(n) only when you want a bounded sample)
 var result = await db.Orders
     .Where(x => x.Pk == pk && skValues.Contains(x.Sk))
     .AsAsyncEnumerable()
     .FirstOrDefaultAsync(ct);
 ```
 
-**Exception — no sort key**: When the queried source has no sort key, each partition contains at
-most one item. `First*` with PK equality is always safe regardless of non-key predicates (condition
-3 is relaxed in this case).
+**Exception — no sort key**: When the queried base-table source has no sort key, each partition
+contains at most one item. `First*` with PK equality is safe.
 
-**Inheritance / shared-table**: The provider injects a discriminator predicate automatically (e.g.
-`Discriminator = 'Order'`). This predicate is provider-managed and is not counted as a user-supplied
-non-key filter for safe-path validation. A `First*` on an inheritance hierarchy with key-only user
-predicates is allowed. However, DynamoDB evaluates the `LIMIT` before applying the discriminator
-filter — if the first items in a partition belong to a different entity type, the query may return
-`null`/default even when matching items exist further in the partition. This is semantically correct
-(you asked for a specific type and none was found at that position), but it means `First*` on
-inheritance hierarchies is most predictable when the sort key naturally groups items by type (e.g.
-`SK` begins with `ORDER#`). Use `.AsAsyncEnumerable().FirstOrDefaultAsync()` when a full partition
-scan is required.
+**Inheritance / shared-table**: The provider injects a discriminator predicate automatically (for
+example, `$type = 'OrderEntity'`). For server-side `First*`, this is considered safe only when the
+query is guaranteed to evaluate at most one base-table item before filtering:
+
+- PK-only lookup on a PK-only table, or
+- PK+SK equality lookup on a PK+SK base table.
+
+Derived/shared-table PK-only queries on PK+SK tables now fail translation to avoid false
+`null`/empty results caused by DynamoDB evaluating `Limit=1` before discriminator filtering.
+Use `.AsAsyncEnumerable().FirstOrDefaultAsync()` for those shapes.
 
 **Why**: DynamoDB evaluates a bounded number of items per request. A non-safe `First*` server-side
 would silently discard matching items beyond the evaluation range, hiding client-side selection.

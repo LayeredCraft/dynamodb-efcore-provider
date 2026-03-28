@@ -22,6 +22,8 @@ the evaluation budget per query.
 
 - **Safe path** (PK equality + key-only predicates): sets `Limit=1` implicitly. Single request.
 - **Unsafe path** (non-key predicate, scan-like, or user `Limit(n)` present): translation fails. Use `.AsAsyncEnumerable()` instead.
+- **Derived/shared-table note**: when a discriminator filter is present, `First*` is safe only for
+    single-item base-table lookups (PK-only on PK-only table, or PK+SK equality on PK+SK table).
 
 ### `ToListAsync()` without `Limit(n)`
 
@@ -34,18 +36,20 @@ the evaluation budget per query.
 
 ## Unsafe First\* — use AsAsyncEnumerable()
 
-When a `First*` query cannot use the safe key-only path (non-key predicate, scan-like, or any
-`Limit(n)` present), translation fails with `InvalidOperationException`. The correct pattern is to
-fetch the server-side results then select client-side:
+When a `First*` query cannot use the safe key-only path (non-key predicate, scan-like,
+discriminator on a multi-item source, or any `Limit(n)` present), translation fails with
+`InvalidOperationException`. The correct pattern is to fetch server-side results then select
+client-side:
 
 ```csharp
 // Unsafe shape — non-key filter: use AsAsyncEnumerable()
 var active = await db.Orders
     .Where(x => x.UserId == userId && x.IsActive)
-    .Limit(50)
     .AsAsyncEnumerable()
     .FirstOrDefaultAsync(cancellationToken);
 ```
+
+Add `.Limit(n)` before `AsAsyncEnumerable()` only when you intentionally want a bounded sample.
 
 This is the standard EF Core pattern for explicit client-side evaluation: `AsAsyncEnumerable()`
 marks where server-side evaluation ends and LINQ-to-objects begins.

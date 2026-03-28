@@ -320,10 +320,11 @@ public class FirstOrDefaultSafePathTests
     }
 
     [Fact]
-    public async Task FirstOrDefault_InheritanceHierarchy_PkOnly_Succeeds()
+    public async Task FirstOrDefault_InheritanceHierarchy_PkOnly_ThrowsTranslationFailure()
     {
-        // PK-only on SK table with discriminator: allowed per safe-path rules.
-        // Returns the first item in the partition that matches the discriminator.
+        // Derived/shared-table PK-only queries include a discriminator filter over a multi-item
+        // partition. Limit=1 can evaluate a sibling type first and miss matching derived items
+        // later, so the safe-path guard must reject this shape.
         var client = Substitute.For<IAmazonDynamoDB>();
         await using var context = InheritanceDbContext.Create(client);
 
@@ -333,7 +334,12 @@ public class FirstOrDefaultSafePathTests
                 .Where(x => x.Pk == "P#1")
                 .FirstOrDefaultAsync(TestContext.Current.CancellationToken);
 
-        await act.Should().NotThrowAsync<InvalidOperationException>();
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*AsAsyncEnumerable*");
+
+        await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
     }
 
     [Fact]
