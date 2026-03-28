@@ -366,11 +366,6 @@ internal sealed class DynamoQueryTranslationPostprocessor(
         // Condition: PK equality constraint exists (IN is not equality).
         var hasPkEquality = queryConstraints.EqualityConstraints.ContainsKey(effectivePk);
 
-        // Special case: no sort key → single-item partition on PK equality → always safe
-        // regardless of non-key predicates, since each partition holds at most one item.
-        if (hasPkEquality && effectiveSortKeyAttributeName is null)
-            return;
-
         // Condition: no non-key predicates (walk predicate tree against effective keys).
         var hasNonKeyPredicate = selectExpression.Predicate is not null
             && HasNonKeyPredicates(

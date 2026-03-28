@@ -177,20 +177,27 @@ public class FirstOrDefaultSafePathTests
     // ── No-sort-key special case ─────────────────────────────────────────────
 
     [Fact]
-    public async Task FirstOrDefault_PkOnlyEntity_NonKeyFilter_NoOptInRequired_Succeeds()
+    public async Task FirstOrDefault_PkOnlyEntity_NonKeyFilter_ThrowsTranslationFailure()
     {
+        // Even on a no-sort-key table, a non-key filter is not allowed with First*.
+        // The absence of a sort key does not make a non-key predicate safe — it simply
+        // means the partition holds one item, but the non-key filter is still a filter
+        // expression that could mask intent. Consistency requires rejection.
         var client = Substitute.For<IAmazonDynamoDB>();
         await using var context = SafePathDbContext.Create(client);
 
-        // Entity has no sort key. PK equality makes each partition a single-item set —
-        // non-key predicates are irrelevant, so opt-in is not required.
         var act = async ()
             => await context
                 .PkOnlyItems
                 .Where(x => x.Pk == "P#1" && x.IsActive)
                 .FirstOrDefaultAsync(TestContext.Current.CancellationToken);
 
-        await act.Should().NotThrowAsync<InvalidOperationException>();
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*AsAsyncEnumerable*");
+
+        await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
     }
 
     // ── Partition-only GSI: non-key filter must throw ────────────────────────
@@ -198,12 +205,9 @@ public class FirstOrDefaultSafePathTests
     [Fact]
     public async Task FirstOrDefault_PartitionOnlyGsi_NonKeyFilter_ThrowsTranslationFailure()
     {
-        // Regression: the effectiveSortKeyAttributeName is null shortcut in
-        // ValidateFirstTerminalSafePath fires for partition-only GSIs (no SK defined on the
-        // index), bypassing the non-key predicate check entirely. A partition-only GSI can
-        // hold many items per partition — Limit=1 with a non-key filter expression can
-        // silently miss matching items later in the GSI partition.
-        // The guard must not take the shortcut when the query source is a GSI.
+        // A partition-only GSI can hold many items per partition — Limit=1 with a non-key
+        // filter expression can silently miss matching items later in the GSI partition.
+        // The guard must reject this regardless of whether the query source has a sort key.
         var client = Substitute.For<IAmazonDynamoDB>();
         await using var context = PartitionOnlyGsiDbContext.Create(client);
 
