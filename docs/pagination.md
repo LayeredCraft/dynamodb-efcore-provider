@@ -2,56 +2,113 @@
 icon: lucide/file-stack
 ---
 
-# Pagination
+# Pagination and Evaluation Budget
 
-## Core model
-- Result limit and page size are different concepts in this provider.
-- Result limit controls how many rows are returned to EF.
-- Page size controls how many items DynamoDB evaluates per request.
+## Model overview
 
-### Result limit
-- Set by row-limiting operators such as `Take(n)`, `FirstAsync`, and `FirstOrDefaultAsync`.
-- Enforced by the provider while enumerating query results.
+This provider separates **evaluation budget** (how many items DynamoDB reads) from **terminal behavior**
+(what the query returns). There is no general-purpose result limit; instead, use `Limit(n)` to control
+the evaluation budget per query.
 
-### Page size
-- Mapped to DynamoDB `ExecuteStatementRequest.Limit`.
-- Controls request evaluation size, not final result count.
-- A page can return zero matches and still return `NextToken`.
+### Evaluation budget: `Limit(n)`
 
-## DynamoDB ExecuteStatement semantics
-- `Limit` is the maximum number of items DynamoDB evaluates, not the number of matching rows returned.
-- A read response can stop when DynamoDB reaches the request `Limit` or when it reaches the 1 MB processed-data cap.
-- Filtering and matching happen after evaluation/page boundaries, so selective filters can require multiple requests.
-- This provider continues pagination using `NextToken` unless `WithoutPagination()` is used.
+- `.Limit(n)` maps directly to `ExecuteStatementRequest.Limit`.
+- DynamoDB evaluates at most `n` items, applies any non-key filters, and returns 0..n results.
+- Always a **single request**. No paging.
+- `n` must be a positive integer. Zero or negative throws `ArgumentOutOfRangeException`.
+- When chained multiple times, the **last call wins**.
 
-## Controls
-- `WithPageSize(int)`: per-query page size override.
-- `DefaultPageSize(int)`: global default page size.
-- `WithoutPagination()`: single-request mode.
+### `First*` terminals
 
-## Resolution order
-1. Per-query `WithPageSize(...)` (last call wins).
-2. Global `DefaultPageSize(...)`.
-3. `null` (no explicit request limit; DynamoDB page size defaults still apply, including the 1 MB processed-data cap).
+- **Safe path** (PK equality + key-only predicates): sets `Limit=1` implicitly. Single request.
+- **Unsafe path** (non-key predicate, scan-like, or user `Limit(n)` present): translation fails. Use `.AsAsyncEnumerable()` instead.
+- **Derived/shared-table note**: when a discriminator filter is present, `First*` is safe only for
+    single-item base-table lookups (PK-only on PK-only table, or PK+SK equality on PK+SK table).
 
-## Notes
-- `Take` and `First*` are result-limiting operators.
-- If row limiting runs without a page size, a warning is logged.
-- The provider does not emit SQL `LIMIT`; it stops after enough rows are returned.
-- `WithoutPagination()` can return incomplete results for selective predicates.
+### `ToListAsync()` without `Limit(n)`
 
-## Example
+- No `Limit` set on request. DynamoDB pages up to 1MB per request.
+- Provider follows `NextToken` until exhausted — collects all results.
+
+### `ToListAsync()` with `Limit(n)`
+
+- Single request, `Limit = n`. No paging.
+
+## Unsafe First\* — use AsAsyncEnumerable()
+
+When a `First*` query cannot use the safe key-only path (non-key predicate, scan-like,
+discriminator on a multi-item source, or any `Limit(n)` present), translation fails with
+`InvalidOperationException`. The correct pattern is to fetch server-side results then select
+client-side:
 
 ```csharp
-var items = await db.SimpleItems
-    .WithPageSize(25)
-    .Where(x => x.Pk == "ITEM#1" && x.BoolValue)
-    .Take(3)
-    .ToListAsync();
+// Unsafe shape — non-key filter: use AsAsyncEnumerable()
+var active = await db.Orders
+    .Where(x => x.UserId == userId && x.IsActive)
+    .AsAsyncEnumerable()
+    .FirstOrDefaultAsync(cancellationToken);
 ```
 
-- Effective result limit is `3`.
-- Effective request page size is `25`.
+Add `.Limit(n)` before `AsAsyncEnumerable()` only when you intentionally want a bounded sample.
+
+This is the standard EF Core pattern for explicit client-side evaluation: `AsAsyncEnumerable()`
+marks where server-side evaluation ends and LINQ-to-objects begins.
+
+## No global default
+
+There is no `DefaultPageSize` option. Use `.Limit(n)` per query.
+
+## Evaluation budget reference
+
+| Shape                                          | `ExecuteStatementRequest.Limit` | Pages? |
+| ---------------------------------------------- | ------------------------------- | ------ |
+| `.Limit(n)` + `ToListAsync()`                  | `n`                             | No     |
+| `First*` (key-only, no explicit limit)         | `1`                             | No     |
+| `First*` + any `Limit(n)`                      | **Translation failure**         | —      |
+| `First*` on non-key/scan-like path             | **Translation failure**         | —      |
+| `.Limit(n)` + `AsAsyncEnumerable()` + `First*` | `n` (client-side selection)     | No     |
+| `ToListAsync()` (no limit)                     | `null` (1MB per page)           | Yes    |
+
+## Examples
+
+### Evaluation budget on a scan
+
+```csharp
+// Evaluate 25 items, apply IsActive filter, return 0..25.
+var orders = await db.Orders
+    .Where(x => x.IsActive)
+    .Limit(25)
+    .ToListAsync(cancellationToken);
+```
+
+### First\* with non-key filter — use AsAsyncEnumerable()
+
+```csharp
+// Evaluate 50 items server-side, then take first match client-side.
+var active = await db.Orders
+    .Where(x => x.UserId == userId && x.IsActive)
+    .Limit(50)
+    .AsAsyncEnumerable()
+    .FirstOrDefaultAsync(cancellationToken);
+```
+
+### Chaining `Limit(n)` — last call wins
+
+```csharp
+// Effective limit is 20.
+await db.Orders.Limit(10).Limit(20).ToListAsync(cancellationToken);
+```
+
+### Compiled query with runtime parameter
+
+```csharp
+var query = EF.CompileAsyncQuery((OrderDbContext ctx, int n)
+    => ctx.Orders.Limit(n));
+
+var results = await query(db, 50).ToListAsync(cancellationToken);
+```
 
 ## External references
+
 - AWS ExecuteStatement API: <https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_ExecuteStatement.html>
+- DynamoDB PartiQL SELECT: <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ql-reference.select.html>

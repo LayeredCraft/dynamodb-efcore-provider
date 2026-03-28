@@ -16,7 +16,6 @@ public static class DynamoEventId
         ExecutingPartiQlQuery = CoreEventId.ProviderBaseId + 100,
         ExecutingExecuteStatement = CoreEventId.ProviderBaseId + 101,
         ExecutedExecuteStatement = CoreEventId.ProviderBaseId + 102,
-        RowLimitingQueryWithoutPageSize = CoreEventId.ProviderBaseId + 103,
 
         // Query events
         NoCompatibleSecondaryIndexFound = CoreEventId.ProviderBaseId + 104,
@@ -59,12 +58,6 @@ public static class DynamoEventId
     public static readonly EventId ExecutedExecuteStatement = new(
         (int)Id.ExecutedExecuteStatement,
         CommandPrefix + Id.ExecutedExecuteStatement);
-
-    /// <summary>A row-limiting query is executing without a configured page size.</summary>
-    /// <remarks>This event is in the <c>DbLoggerCategory.Database.Command</c> category.</remarks>
-    public static readonly EventId RowLimitingQueryWithoutPageSize = new(
-        (int)Id.RowLimitingQueryWithoutPageSize,
-        CommandPrefix + Id.RowLimitingQueryWithoutPageSize);
 
     /// <summary>No compatible secondary index was found for automatic selection.</summary>
     /// <remarks>This event is in the <c>DbLoggerCategory.Query</c> category.</remarks>

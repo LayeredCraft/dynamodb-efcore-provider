@@ -2,217 +2,91 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SimpleTable;
 
-/// <summary>Represents the PaginationTests type.</summary>
+/// <summary>Integration tests for the pagination model: Limit(n) and key-only First*.</summary>
 public class PaginationTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase(fixture)
 {
-    /// <summary>Provides functionality for this member.</summary>
+    // ── Limit(n) on ToListAsync ──────────────────────────────────────────────
+
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public async Task FirstAsync_WithoutPageSize_UsesDefault()
+    public async Task Limit_SetsRequestLimit_OnToListAsync()
     {
         LoggerFactory.Clear();
 
-        var result = await Db.SimpleItems.FirstAsync(CancellationToken);
-
-        result.Should().NotBeNull();
+        await Db.SimpleItems.Limit(3).ToListAsync(CancellationToken);
 
         var calls = LoggerFactory.ExecuteStatementCalls.ToList();
-        calls.Should().NotBeEmpty();
-        // Default page size is null (DynamoDB scans up to 1MB)
-        calls.Should().OnlyContain(call => call.Limit == null);
-        LoggerFactory.RowLimitingWarnings.Should().ContainSingle().Which.Should().Be(1);
+        calls.Should().ContainSingle();
+        calls[0].Limit.Should().Be(3);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public async Task Take_WithoutPageSize_UsesDefault()
+    public async Task Limit_ChainedTwice_LastOneWins()
     {
         LoggerFactory.Clear();
 
-        var results = await Db.SimpleItems.Take(3).ToListAsync(CancellationToken);
-
-        results.Should().HaveCount(3);
+        await Db.SimpleItems.Limit(10).Limit(20).ToListAsync(CancellationToken);
 
         var calls = LoggerFactory.ExecuteStatementCalls.ToList();
-        calls.Should().NotBeEmpty();
-        // Default page size is null (DynamoDB scans up to 1MB)
-        calls.Should().OnlyContain(call => call.Limit == null);
-        LoggerFactory.RowLimitingWarnings.Should().ContainSingle().Which.Should().Be(3);
+        calls.Should().ContainSingle();
+        calls[0].Limit.Should().Be(20);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public async Task FirstAsync_WithPageSize_UsesCustomPageSize()
+    public async Task Limit_SingleRequest_ToListAsync_NoNextTokenFollowUp()
     {
+        // Limit(n) is always a single request — the provider must not follow NextToken.
+        LoggerFactory.Clear();
+
+        await Db.SimpleItems.Limit(3).ToListAsync(CancellationToken);
+
+        LoggerFactory.ExecuteStatementCalls.Should().HaveCount(1);
+    }
+
+    // ── First* with key-only path ────────────────────────────────────────────
+
+    [Fact]
+    public async Task FirstOrDefault_KeyOnly_UsesImplicitLimit1()
+    {
+        // PK equality, no sort key → safe, implicit Limit=1.
         LoggerFactory.Clear();
 
         var result =
             await Db
                 .SimpleItems
-                .Where(item => item.IntValue > 0)
-                .WithPageSize(5)
-                .FirstAsync(CancellationToken);
+                .Where(x => x.Pk == "ITEM#1")
+                .FirstOrDefaultAsync(CancellationToken);
 
         result.Should().NotBeNull();
 
         var calls = LoggerFactory.ExecuteStatementCalls.ToList();
-        calls.Should().NotBeEmpty();
-        calls.Should().OnlyContain(call => call.Limit == 5);
-        LoggerFactory.RowLimitingWarnings.Should().BeEmpty();
+        calls.Should().ContainSingle();
+        calls[0].Limit.Should().Be(1);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public async Task FirstAsync_WithPageSizeOverload_UsesCustomPageSize()
+    public async Task FirstOrDefault_KeyOnly_WithUserLimit_ThrowsTranslationFailure()
     {
-        LoggerFactory.Clear();
-
-        var result = await Db.SimpleItems.FirstAsync(6, CancellationToken);
-
-        result.Should().NotBeNull();
-
-        var calls = LoggerFactory.ExecuteStatementCalls.ToList();
-        calls.Should().NotBeEmpty();
-        calls.Should().OnlyContain(call => call.Limit == 6);
-        LoggerFactory.RowLimitingWarnings.Should().BeEmpty();
-    }
-
-    /// <summary>Provides functionality for this member.</summary>
-    [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public async Task FirstOrDefaultAsync_WithPageSizeOverload_UsesCustomPageSize()
-    {
-        LoggerFactory.Clear();
-
-        var result = await Db.SimpleItems.FirstOrDefaultAsync(8, CancellationToken);
-
-        result.Should().NotBeNull();
-
-        var calls = LoggerFactory.ExecuteStatementCalls.ToList();
-        calls.Should().NotBeEmpty();
-        calls.Should().OnlyContain(call => call.Limit == 8);
-        LoggerFactory.RowLimitingWarnings.Should().BeEmpty();
-    }
-
-    /// <summary>Provides functionality for this member.</summary>
-    [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public async Task Take_WithPageSize_UsesCustomPageSize()
-    {
-        LoggerFactory.Clear();
-
-        var results = await Db.SimpleItems.WithPageSize(10).Take(3).ToListAsync(CancellationToken);
-
-        results.Should().HaveCount(3);
-
-        var calls = LoggerFactory.ExecuteStatementCalls.ToList();
-        calls.Should().NotBeEmpty();
-        calls.Should().OnlyContain(call => call.Limit == 10);
-    }
-
-    /// <summary>Provides functionality for this member.</summary>
-    [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public async Task ToListAsync_WithPageSize_UsesCustomPageSize()
-    {
-        LoggerFactory.Clear();
-
-        var results = await Db.SimpleItems.WithPageSize(7).ToListAsync(CancellationToken);
-
-        results.Should().NotBeEmpty();
-
-        var calls = LoggerFactory.ExecuteStatementCalls.ToList();
-        calls.Should().NotBeEmpty();
-        calls.Should().OnlyContain(call => call.Limit == 7);
-        LoggerFactory.RowLimitingWarnings.Should().BeEmpty();
-    }
-
-    /// <summary>Provides functionality for this member.</summary>
-    [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public async Task ToListAsync_WithoutPageSize_DoesNotEmitRowLimitingWarning()
-    {
-        LoggerFactory.Clear();
-
-        var results = await Db.SimpleItems.ToListAsync(CancellationToken);
-
-        results.Should().NotBeEmpty();
-        LoggerFactory.RowLimitingWarnings.Should().BeEmpty();
-    }
-
-    /// <summary>Provides functionality for this member.</summary>
-    [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public async Task FirstAsync_WithoutPagination_SingleRequest()
-    {
-        LoggerFactory.Clear();
-
-        var result =
-            await Db.SimpleItems.WithoutPagination().FirstOrDefaultAsync(CancellationToken);
-
-        result.Should().NotBeNull();
-
-        var calls = LoggerFactory.ExecuteStatementCalls.ToList();
-        calls.Should().HaveCount(1);
-    }
-
-    /// <summary>Provides functionality for this member.</summary>
-    [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public async Task Take_WithoutPagination_SingleRequest()
-    {
-        LoggerFactory.Clear();
-
-        var results =
-            await Db.SimpleItems.WithoutPagination().Take(5).ToListAsync(CancellationToken);
-
-        // May get fewer than 5 results with single page
-        results.Should().NotBeEmpty();
-
-        var calls = LoggerFactory.ExecuteStatementCalls.ToList();
-        calls.Should().HaveCount(1);
-    }
-
-    /// <summary>Provides functionality for this member.</summary>
-    [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public async Task MultipleExtensions_LastOneWins()
-    {
-        LoggerFactory.Clear();
-
-        var result =
-            await Db.SimpleItems.WithPageSize(10).WithPageSize(20).FirstAsync(CancellationToken);
-
-        result.Should().NotBeNull();
-
-        var calls = LoggerFactory.ExecuteStatementCalls.ToList();
-        calls.Should().NotBeEmpty();
-        // Last WithPageSize should win
-        calls.Should().OnlyContain(call => call.Limit == 20);
-    }
-
-    /// <summary>Provides functionality for this member.</summary>
-    [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public async Task MultipleExtensions_LastOneWins_WithOperatorsBetween()
-    {
-        LoggerFactory.Clear();
-
-        var results =
-            await Db
+        // Limit(n) + First* is disallowed — use
+        // .Limit(n).AsAsyncEnumerable().FirstOrDefaultAsync(ct).
+        var act = async () => await Db
                 .SimpleItems
-                .WithPageSize(10)
-                .Take(3)
-                .WithPageSize(20)
-                .ToListAsync(CancellationToken);
+                .Where(x => x.Pk == "ITEM#1")
+                .Limit(5)
+                .FirstOrDefaultAsync(CancellationToken);
 
-        results.Should().HaveCount(3);
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*AsAsyncEnumerable*");
+    }
 
-        var calls = LoggerFactory.ExecuteStatementCalls.ToList();
-        calls.Should().NotBeEmpty();
-        calls.Should().OnlyContain(call => call.Limit == 20);
+    // ── Take is removed — must throw ─────────────────────────────────────────
+
+    [Fact]
+    public async Task Take_ThrowsTranslationFailurePointingToLimit()
+    {
+        var act = async () => await Db.SimpleItems.Take(3).ToListAsync(CancellationToken);
+
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*Limit(n)*");
     }
 }

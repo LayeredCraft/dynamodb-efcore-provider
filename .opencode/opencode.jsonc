@@ -5,7 +5,7 @@
   ],
   "formatter": {
     "cs-jb-formatter": {
-      "command":  [
+      "command": [
         "dotnet",
         "tool",
         "run",
@@ -15,7 +15,20 @@
         "--include=$FILE",
         "--settings=EntityFrameworkCore.DynamoDb.sln.DotSettings",
       ],
-      "extensions": [".cs"]
+      "extensions": [
+        ".cs"
+      ]
+    },
+    "mdformat": {
+      "command": [
+        "uv",
+        "run",
+        "mdformat",
+        "$FILE"
+      ],
+      "extensions": [
+        ".md"
+      ]
     }
   }
 }

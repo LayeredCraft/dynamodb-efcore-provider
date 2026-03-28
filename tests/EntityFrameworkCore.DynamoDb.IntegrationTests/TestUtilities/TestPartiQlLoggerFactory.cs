@@ -20,9 +20,6 @@ public sealed class TestPartiQlLoggerFactory : ILoggerFactory
         => _logger.ExecuteStatementCalls;
 
     /// <summary>Provides functionality for this member.</summary>
-    public IReadOnlyList<int> RowLimitingWarnings => _logger.RowLimitingWarnings;
-
-    /// <summary>Provides functionality for this member.</summary>
     public IReadOnlyList<QueryDiagnosticEvent> QueryDiagnosticEvents
         => _logger.QueryDiagnosticEvents;
 
@@ -96,9 +93,6 @@ public sealed class TestPartiQlLoggerFactory : ILoggerFactory
         public List<ExecuteStatementCall> ExecuteStatementCalls { get; } = [];
 
         /// <summary>Provides functionality for this member.</summary>
-        public List<int> RowLimitingWarnings { get; } = [];
-
-        /// <summary>Provides functionality for this member.</summary>
         public List<QueryDiagnosticEvent> QueryDiagnosticEvents { get; } = [];
 
         /// <summary>Provides functionality for this member.</summary>
@@ -106,7 +100,6 @@ public sealed class TestPartiQlLoggerFactory : ILoggerFactory
         {
             PartiQlStatements.Clear();
             ExecuteStatementCalls.Clear();
-            RowLimitingWarnings.Clear();
             QueryDiagnosticEvents.Clear();
         }
 
@@ -181,19 +174,6 @@ public sealed class TestPartiQlLoggerFactory : ILoggerFactory
                         ItemsCount = itemsCount, ResponseNextTokenPresent = nextTokenPresent,
                     };
                 }
-            }
-
-            if (eventId.Id == DynamoEventId.RowLimitingQueryWithoutPageSize.Id
-                && state is IReadOnlyList<KeyValuePair<string, object?>> rowLimitingStructure)
-            {
-                var resultLimit =
-                    rowLimitingStructure
-                        .Where(i => i.Key == "resultLimit")
-                        .Select(i => ToNullableInt(i.Value))
-                        .FirstOrDefault();
-
-                if (resultLimit.HasValue)
-                    RowLimitingWarnings.Add(resultLimit.Value);
             }
 
             if (eventId.Id == DynamoEventId.NoCompatibleSecondaryIndexFound.Id // IDX001

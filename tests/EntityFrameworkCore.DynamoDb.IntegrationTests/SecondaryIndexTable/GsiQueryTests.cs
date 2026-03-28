@@ -126,19 +126,19 @@ public class GsiQueryTests(SecondaryIndexDynamoFixture fixture) : SecondaryIndex
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
+    /// <summary>Verifies that Limit(n) sets the evaluation budget when querying a GSI.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public async Task ByRegion_Gsi_WithTake_ReturnsCorrectCount()
+    public async Task ByRegion_Gsi_WithLimit_ReturnsCorrectCount()
     {
         var results =
             await Db
                 .Orders
                 .WithIndex("ByRegion")
                 .Where(o => o.Region == "US-EAST")
-                .Take(2)
+                .Limit(2)
                 .ToListAsync(CancellationToken);
 
+        // Limit(2) evaluates at most 2 items. All seeded US-EAST items match, so 2 are returned.
         results.Should().HaveCount(2);
 
         AssertSql(

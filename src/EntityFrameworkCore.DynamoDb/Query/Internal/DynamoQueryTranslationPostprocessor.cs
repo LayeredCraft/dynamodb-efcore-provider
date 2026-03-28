@@ -108,7 +108,17 @@ internal sealed class DynamoQueryTranslationPostprocessor(
         // finalized query source (base table or chosen index).
         var effectiveSortKeyAttr =
             ResolveEffectiveSortKeyAttributeName(candidates, decision.SelectedIndexName);
+        var isBaseTableSource = decision.SelectedIndexName is null;
         ValidateOrderByConstraints(selectExpression, queryConstraints, effectiveSortKeyAttr);
+
+        // Validate First* safe path: must be key-only (no user limit, no non-key predicates).
+        // Run after index selection so we use the effective key attributes of the chosen source.
+        if (selectExpression.IsFirstTerminal)
+            ValidateFirstTerminalSafePath(
+                selectExpression,
+                queryConstraints,
+                effectiveSortKeyAttr,
+                isBaseTableSource);
 
         return query;
     }
@@ -312,6 +322,242 @@ internal sealed class DynamoQueryTranslationPostprocessor(
             + $"clause for table '{selectExpression.TableName}'. DynamoDB only supports ordering "
             + "within a single partition. Add a WHERE predicate on the partition key "
             + "(e.g., .Where(e => e.PartitionKey == value)).");
+    }
+
+    /// <summary>
+    ///     Enforces the <c>First*</c> safe-path contract: <c>First*</c> is restricted to key-only
+    ///     query shapes with no user-specified limit. Any unsafe path throws, directing the user
+    ///     to <c>.AsAsyncEnumerable().FirstOrDefaultAsync()</c>.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Safe path conditions — all must hold:
+    ///         <list type="number">
+    ///             <item>No user-specified <c>Limit(n)</c>.</item>
+    ///             <item>PK equality constraint (not IN) in the WHERE clause.</item>
+    ///             <item>All predicates use only partition-key or sort-key attributes.</item>
+    ///         </list>
+    ///         Special case: when the active source has no sort key, PK equality makes every partition a
+    ///         single-item set, so non-key predicates are irrelevant — always safe.
+    ///     </para>
+    ///     <para>
+    ///         Design-time: skipped when <paramref name="queryConstraints" /> is <c>null</c> (runtime
+    ///         model not yet built) to avoid false negatives during tooling.
+    ///     </para>
+    /// </remarks>
+    private static void ValidateFirstTerminalSafePath(
+        SelectExpression selectExpression,
+        DynamoQueryConstraints? queryConstraints,
+        string? effectiveSortKeyAttributeName,
+        bool isBaseTableSource)
+    {
+        // Design-time: runtime model unavailable, skip to avoid false negatives.
+        if (queryConstraints is null)
+            return;
+
+        // Limit(n) + First* is always disallowed. The combination is ambiguous — Limit(n) may
+        // return multiple items and First* silently discards all but one. Use
+        // .Limit(n).AsAsyncEnumerable().FirstOrDefaultAsync(ct) to make the client-side
+        // selection explicit.
+        if (selectExpression.HasUserLimit)
+            throw new InvalidOperationException(
+                DynamoStrings.FirstOrDefaultWithUserLimitNotSupported);
+
+        var pkNames = selectExpression.EffectivePartitionKeyPropertyNames;
+        if (pkNames.Count == 0)
+            return; // No descriptor resolved (edge case) — skip silently.
+
+        var effectivePk = pkNames.First();
+
+        // Condition: PK equality constraint exists (IN is not equality).
+        var hasPkEquality = queryConstraints.EqualityConstraints.ContainsKey(effectivePk);
+
+        // Condition: no non-key predicates (walk predicate tree against effective keys).
+        var hasNonKeyPredicate = selectExpression.Predicate is not null
+            && HasNonKeyPredicates(
+                selectExpression.Predicate,
+                effectivePk,
+                effectiveSortKeyAttributeName);
+        var hasDiscriminatorPredicate = selectExpression.Predicate is not null
+            && ContainsDiscriminatorPredicate(selectExpression.Predicate);
+
+        if (hasPkEquality && !hasNonKeyPredicate)
+        {
+            // Provider-injected discriminator filters are safe only when the query shape is
+            // guaranteed to evaluate at most one base-table item before filtering. Otherwise,
+            // DynamoDB can evaluate one item that fails discriminator filtering and still expose a
+            // continuation token, causing First* to return null/throw while a matching typed row
+            // exists later in the partition.
+            if (hasDiscriminatorPredicate
+                && !IsSingleItemBaseTableLookup(
+                    queryConstraints,
+                    effectiveSortKeyAttributeName,
+                    isBaseTableSource))
+                throw new InvalidOperationException(
+                    DynamoStrings.FirstOrDefaultRequiresKeyOnlyPath(
+                        "discriminator filter on a multi-item source"));
+
+            // Guard: if the predicate references the sort key but the sort key is not in
+            // SkKeyConditions, it is a filter expression (e.g. SK IN (...) or SK = A OR SK = B),
+            // not a DynamoDB key condition. DynamoDB's Limit counts *evaluated* items, not
+            // matched items, so Limit=1 on a filter predicate can silently miss matching rows
+            // later in the partition.
+            if (effectiveSortKeyAttributeName is not null
+                && selectExpression.Predicate is not null
+                && PredicateReferencesAttribute(
+                    selectExpression.Predicate,
+                    effectiveSortKeyAttributeName)
+                && !queryConstraints.SkKeyConditions.ContainsKey(effectiveSortKeyAttributeName))
+                throw new InvalidOperationException(
+                    DynamoStrings.FirstOrDefaultRequiresKeyOnlyPath(
+                        "sort-key filter predicate (SK IN and SK OR are filter expressions, "
+                        + "not DynamoDB key conditions)"));
+
+            return; // Key-only path — safe.
+        }
+
+        // Unsafe path: non-key predicate, scan-like, or PK IN. Always throw — use
+        // .AsAsyncEnumerable().FirstOrDefaultAsync(ct) for client-side selection.
+        var shape = !hasPkEquality
+            ? "scan-like path (no partition-key equality)"
+            : "non-key predicate";
+        throw new InvalidOperationException(DynamoStrings.FirstOrDefaultRequiresKeyOnlyPath(shape));
+    }
+
+    /// <summary>
+    ///     Returns <c>true</c> when the predicate references any attribute that is not the effective
+    ///     partition key or sort key of the active query source.
+    /// </summary>
+    private static bool HasNonKeyPredicates(
+        SqlExpression predicate,
+        string effectivePk,
+        string? effectiveSortKey)
+    {
+        var keyAttrs = new HashSet<string>(StringComparer.Ordinal) { effectivePk };
+        if (effectiveSortKey is not null)
+            keyAttrs.Add(effectiveSortKey);
+
+        return ContainsNonKeyProperty(predicate, keyAttrs);
+    }
+
+    /// <summary>
+    ///     Recursively walks a SQL predicate expression and returns <c>true</c> if any
+    ///     <see cref="SqlPropertyExpression" /> references an attribute outside the key set.
+    /// </summary>
+    private static bool ContainsNonKeyProperty(
+        SqlExpression expression,
+        HashSet<string> keyAttributes)
+        => expression switch
+        {
+            SqlPropertyExpression prop => !keyAttributes.Contains(prop.PropertyName),
+            SqlBinaryExpression bin => ContainsNonKeyProperty(bin.Left, keyAttributes)
+                || ContainsNonKeyProperty(bin.Right, keyAttributes),
+            SqlUnaryExpression unary => ContainsNonKeyProperty(unary.Operand, keyAttributes),
+            SqlIsNullExpression isNull => ContainsNonKeyProperty(isNull.Operand, keyAttributes),
+            // SqlParenthesizedExpression wraps a single inner expression via Operand.
+            SqlParenthesizedExpression paren => ContainsNonKeyProperty(
+                paren.Operand,
+                keyAttributes),
+            SqlBetweenExpression between => ContainsNonKeyProperty(between.Subject, keyAttributes),
+            SqlFunctionExpression func => func.Arguments.Any(a
+                => ContainsNonKeyProperty(a, keyAttributes)),
+            // SqlInExpression: check both the item and inline values.
+            SqlInExpression inExpr => ContainsNonKeyProperty(inExpr.Item, keyAttributes),
+            // Constants and parameters are never property references.
+            SqlConstantExpression or SqlParameterExpression => false,
+            // Provider-injected discriminator predicates are handled by a dedicated safety check
+            // in ValidateFirstTerminalSafePath. Keep them out of generic non-key classification
+            // so key-only user predicates (e.g., PK+SK equality) are still evaluated correctly.
+            SqlDiscriminatorPredicateExpression => false,
+            // Nested path access (e.g. x.Profile.City → DynamoScalarAccessExpression): recurse
+            // into the parent chain. The root of the chain is a SqlPropertyExpression whose name
+            // identifies the top-level DynamoDB attribute. PK and SK are always scalar types and
+            // can never host nested properties, so any nested path is inherently non-key.
+            DynamoScalarAccessExpression scalar => scalar.Parent is not SqlExpression parentSql
+                || ContainsNonKeyProperty(parentSql, keyAttributes),
+            // List-index access (e.g. x.Tags[0] → DynamoListIndexExpression): recurse into the
+            // source expression. PK and SK are never list types, so any list-index access is
+            // inherently non-key.
+            DynamoListIndexExpression listIdx => listIdx.Source is not SqlExpression sourceSql
+                || ContainsNonKeyProperty(sourceSql, keyAttributes),
+            _ => false,
+        };
+
+    /// <summary>
+    ///     Recursively walks a SQL predicate expression and returns <c>true</c> if any
+    ///     <see cref="SqlPropertyExpression" /> references the given <paramref name="attributeName" />.
+    /// </summary>
+    private static bool PredicateReferencesAttribute(SqlExpression expression, string attributeName)
+        => expression switch
+        {
+            SqlPropertyExpression prop => prop.PropertyName == attributeName,
+            SqlBinaryExpression bin => PredicateReferencesAttribute(bin.Left, attributeName)
+                || PredicateReferencesAttribute(bin.Right, attributeName),
+            SqlUnaryExpression unary => PredicateReferencesAttribute(unary.Operand, attributeName),
+            SqlIsNullExpression isNull => PredicateReferencesAttribute(
+                isNull.Operand,
+                attributeName),
+            SqlParenthesizedExpression paren => PredicateReferencesAttribute(
+                paren.Operand,
+                attributeName),
+            SqlBetweenExpression between => PredicateReferencesAttribute(
+                between.Subject,
+                attributeName),
+            SqlFunctionExpression func => func.Arguments.Any(a
+                => PredicateReferencesAttribute(a, attributeName)),
+            SqlInExpression inExpr => PredicateReferencesAttribute(inExpr.Item, attributeName),
+            // Recurse into nested-path and list-index chains so callers searching for a top-level
+            // attribute name (e.g. the sort-key attribute) can match the root
+            // SqlPropertyExpression.
+            DynamoScalarAccessExpression scalar => scalar.Parent is SqlExpression parentSql
+                && PredicateReferencesAttribute(parentSql, attributeName),
+            DynamoListIndexExpression listIdx => listIdx.Source is SqlExpression sourceSql
+                && PredicateReferencesAttribute(sourceSql, attributeName),
+            _ => false,
+        };
+
+    /// <summary>
+    ///     Returns <c>true</c> when the predicate tree contains a provider-injected discriminator
+    ///     predicate node.
+    /// </summary>
+    private static bool ContainsDiscriminatorPredicate(SqlExpression expression)
+        => expression switch
+        {
+            SqlDiscriminatorPredicateExpression => true,
+            SqlBinaryExpression bin => ContainsDiscriminatorPredicate(bin.Left)
+                || ContainsDiscriminatorPredicate(bin.Right),
+            SqlUnaryExpression unary => ContainsDiscriminatorPredicate(unary.Operand),
+            SqlIsNullExpression isNull => ContainsDiscriminatorPredicate(isNull.Operand),
+            SqlParenthesizedExpression paren => ContainsDiscriminatorPredicate(paren.Operand),
+            SqlBetweenExpression between => ContainsDiscriminatorPredicate(between.Subject),
+            SqlFunctionExpression func => func.Arguments.Any(ContainsDiscriminatorPredicate),
+            SqlInExpression inExpr => ContainsDiscriminatorPredicate(inExpr.Item),
+            DynamoScalarAccessExpression scalar => scalar.Parent is SqlExpression parentSql
+                && ContainsDiscriminatorPredicate(parentSql),
+            DynamoListIndexExpression listIdx => listIdx.Source is SqlExpression sourceSql
+                && ContainsDiscriminatorPredicate(sourceSql),
+            _ => false,
+        };
+
+    /// <summary>
+    ///     Determines whether a <c>First*</c> query is guaranteed to evaluate at most one base-table
+    ///     item before discriminator filtering.
+    /// </summary>
+    private static bool IsSingleItemBaseTableLookup(
+        DynamoQueryConstraints queryConstraints,
+        string? effectiveSortKeyAttributeName,
+        bool isBaseTableSource)
+    {
+        if (!isBaseTableSource)
+            return false;
+
+        if (effectiveSortKeyAttributeName is null)
+            return true;
+
+        return queryConstraints.SkKeyConditions.TryGetValue(
+                effectiveSortKeyAttributeName,
+                out var sortKeyConstraint)
+            && sortKeyConstraint.Operator == SkOperator.Equal;
     }
 
     /// <summary>Emits structured EF query diagnostics for index-selection analysis results.</summary>

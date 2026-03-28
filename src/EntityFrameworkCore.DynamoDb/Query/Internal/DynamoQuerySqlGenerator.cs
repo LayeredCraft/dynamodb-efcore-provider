@@ -306,6 +306,18 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
     }
 
     /// <summary>
+    ///     Unwraps the discriminator wrapper and emits the inner predicate as plain SQL. The wrapper
+    ///     is a provider implementation detail; the emitted PartiQL is identical to what the inner
+    ///     expression would produce on its own.
+    /// </summary>
+    protected override Expression VisitSqlDiscriminatorPredicate(
+        SqlDiscriminatorPredicateExpression discriminatorPredicateExpression)
+    {
+        Visit(discriminatorPredicateExpression.Predicate);
+        return discriminatorPredicateExpression;
+    }
+
+    /// <summary>
     /// Gets the precedence and associativity for an operator expression.
     /// Based on standard SQL operator precedence.
     /// </summary>

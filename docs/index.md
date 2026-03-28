@@ -21,9 +21,9 @@ dotnet add package EntityFrameworkCore.DynamoDb
 ## Quick Start
 
 1. Configure the provider in your `DbContext` via `UseDynamo(...)`; see [Configuration](configuration.md).
-2. Map your entities to DynamoDB tables and key schema; see [Indexes](indexes.md).
-3. Start with supported LINQ operators from [Operators](operators.md).
-4. Review [Limitations](limitations.md) before adopting query patterns.
+1. Map your entities to DynamoDB tables and key schema; see [Indexes](indexes.md).
+1. Start with supported LINQ operators from [Operators](operators.md).
+1. Review [Limitations](limitations.md) before adopting query patterns.
 
 ## Current Scope
 

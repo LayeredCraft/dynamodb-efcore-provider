@@ -6,26 +6,21 @@ using NSubstitute;
 
 namespace EntityFrameworkCore.DynamoDb.Tests.Query;
 
-/// <summary>Represents the PaginationConfigurationTests type.</summary>
+/// <summary>Tests for DynamoDbOptionsExtension configuration (excluding removed DefaultPageSize).</summary>
 public class PaginationConfigurationTests
 {
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public void DynamoDbOptionsExtension_DefaultValues_AreCorrect()
     {
         var extension = new DynamoDbOptionsExtension();
 
-        extension.DefaultPageSize.Should().BeNull();
         extension.AutomaticIndexSelectionMode.Should().Be(DynamoAutomaticIndexSelectionMode.Off);
         extension.DynamoDbClient.Should().BeNull();
         extension.DynamoDbClientConfig.Should().BeNull();
         extension.DynamoDbClientConfigAction.Should().BeNull();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public void WithDynamoDbClient_SetsClient()
     {
         var extension = new DynamoDbOptionsExtension();
@@ -36,9 +31,7 @@ public class PaginationConfigurationTests
         updated.DynamoDbClient.Should().BeSameAs(client);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public void WithDynamoDbClientConfig_SetsConfig()
     {
         var extension = new DynamoDbOptionsExtension();
@@ -49,9 +42,7 @@ public class PaginationConfigurationTests
         updated.DynamoDbClientConfig.Should().BeSameAs(config);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public void WithDynamoDbClientConfigAction_SetsCallback()
     {
         var extension = new DynamoDbOptionsExtension();
@@ -63,45 +54,7 @@ public class PaginationConfigurationTests
         updated.DynamoDbClientConfigAction.Should().BeSameAs(callback);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public void WithDefaultPageSize_SetsPageSize()
-    {
-        var extension = new DynamoDbOptionsExtension();
-
-        var updated = extension.WithDefaultPageSize(100);
-
-        updated.DefaultPageSize.Should().Be(100);
-    }
-
-    /// <summary>Provides functionality for this member.</summary>
-    [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public void WithDefaultPageSize_Zero_ThrowsException()
-    {
-        var extension = new DynamoDbOptionsExtension();
-
-        var act = () => extension.WithDefaultPageSize(0);
-
-        act.Should().Throw<ArgumentOutOfRangeException>().WithParameterName("pageSize");
-    }
-
-    /// <summary>Provides functionality for this member.</summary>
-    [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public void WithDefaultPageSize_Negative_ThrowsException()
-    {
-        var extension = new DynamoDbOptionsExtension();
-
-        var act = () => extension.WithDefaultPageSize(-1);
-
-        act.Should().Throw<ArgumentOutOfRangeException>().WithParameterName("pageSize");
-    }
-
-    /// <summary>Provides functionality for this member.</summary>
-    [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public void Clone_PreservesAllProperties()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -111,52 +64,22 @@ public class PaginationConfigurationTests
             .WithDynamoDbClient(client)
             .WithDynamoDbClientConfig(config)
             .WithDynamoDbClientConfigAction(callback)
-            .WithDefaultPageSize(50)
             .WithAutomaticIndexSelectionMode(DynamoAutomaticIndexSelectionMode.Conservative);
 
-        // Clone is protected, so we use one of the With methods which calls Clone
-        var cloned = original.WithDefaultPageSize(75);
+        // Clone is protected; trigger via a With method.
+        var cloned =
+            original.WithAutomaticIndexSelectionMode(DynamoAutomaticIndexSelectionMode.SuggestOnly);
 
         cloned.DynamoDbClient.Should().BeSameAs(client);
         cloned.DynamoDbClientConfig.Should().BeSameAs(config);
         cloned.DynamoDbClientConfigAction.Should().BeSameAs(callback);
-        cloned.DefaultPageSize.Should().Be(75); // Updated value
         cloned
             .AutomaticIndexSelectionMode
             .Should()
-            .Be(DynamoAutomaticIndexSelectionMode.Conservative);
+            .Be(DynamoAutomaticIndexSelectionMode.SuggestOnly);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public void ServiceProviderHash_IncludesDefaultPageSize()
-    {
-        var extension1 = new DynamoDbOptionsExtension().WithDefaultPageSize(100);
-
-        var extension2 = new DynamoDbOptionsExtension().WithDefaultPageSize(200);
-
-        var hash1 = extension1.Info.GetServiceProviderHashCode();
-        var hash2 = extension2.Info.GetServiceProviderHashCode();
-
-        hash1.Should().NotBe(hash2);
-    }
-
-    /// <summary>Provides functionality for this member.</summary>
-    [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public void ShouldUseSameServiceProvider_DifferentDefaultPageSize_ReturnsFalse()
-    {
-        var extension1 = new DynamoDbOptionsExtension().WithDefaultPageSize(50);
-
-        var extension2 = new DynamoDbOptionsExtension().WithDefaultPageSize(100);
-
-        extension1.Info.ShouldUseSameServiceProvider(extension2.Info).Should().BeFalse();
-    }
-
-    /// <summary>Provides functionality for this member.</summary>
-    [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public void WithAutomaticIndexSelectionMode_SetsMode()
     {
         var extension = new DynamoDbOptionsExtension();
@@ -171,9 +94,7 @@ public class PaginationConfigurationTests
             .Be(DynamoAutomaticIndexSelectionMode.SuggestOnly);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public void UseDynamo_ConfigureAutomaticIndexSelection_StoresModeOnOptionsExtension()
     {
         var optionsBuilder = new DbContextOptionsBuilder();
@@ -190,40 +111,37 @@ public class PaginationConfigurationTests
             .Be(DynamoAutomaticIndexSelectionMode.Conservative);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public void ServiceProviderHash_IncludesAutomaticIndexSelectionMode()
     {
         var extension1 =
             new DynamoDbOptionsExtension().WithAutomaticIndexSelectionMode(
                 DynamoAutomaticIndexSelectionMode.Off);
-
         var extension2 =
             new DynamoDbOptionsExtension().WithAutomaticIndexSelectionMode(
                 DynamoAutomaticIndexSelectionMode.Conservative);
 
-        var hash1 = extension1.Info.GetServiceProviderHashCode();
-        var hash2 = extension2.Info.GetServiceProviderHashCode();
-
-        hash1.Should().NotBe(hash2);
+        extension1
+            .Info
+            .GetServiceProviderHashCode()
+            .Should()
+            .NotBe(extension2.Info.GetServiceProviderHashCode());
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public void ShouldUseSameServiceProvider_SameSettings_ReturnsTrue()
     {
-        var extension1 = new DynamoDbOptionsExtension().WithDefaultPageSize(100);
-
-        var extension2 = new DynamoDbOptionsExtension().WithDefaultPageSize(100);
+        var extension1 =
+            new DynamoDbOptionsExtension().WithAutomaticIndexSelectionMode(
+                DynamoAutomaticIndexSelectionMode.Conservative);
+        var extension2 =
+            new DynamoDbOptionsExtension().WithAutomaticIndexSelectionMode(
+                DynamoAutomaticIndexSelectionMode.Conservative);
 
         extension1.Info.ShouldUseSameServiceProvider(extension2.Info).Should().BeTrue();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public void ShouldUseSameServiceProvider_DifferentClient_ReturnsFalse()
     {
         var extension1 =
@@ -234,9 +152,7 @@ public class PaginationConfigurationTests
         extension1.Info.ShouldUseSameServiceProvider(extension2.Info).Should().BeFalse();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public void ShouldUseSameServiceProvider_DifferentConfig_ReturnsFalse()
     {
         var extension1 = new DynamoDbOptionsExtension().WithDynamoDbClientConfig(
@@ -247,9 +163,7 @@ public class PaginationConfigurationTests
         extension1.Info.ShouldUseSameServiceProvider(extension2.Info).Should().BeFalse();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public void ShouldUseSameServiceProvider_DifferentConfigCallback_ReturnsFalse()
     {
         Action<AmazonDynamoDBConfig> callback1 = c => c.ServiceURL = "http://localhost:8000";

@@ -113,6 +113,21 @@ public class UnsupportedOperatorTranslationTests
         await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
     }
 
+    /// <summary>Verifies Take throws a translation failure that directs the user to Limit(n).</summary>
+    [Fact]
+    public async Task Take_ThrowsTranslationFailurePointingToLimit()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        await using var context = UnsupportedOperatorDbContext.Create(client);
+
+        var act = async ()
+            => await context.Items.Take(3).ToListAsync(TestContext.Current.CancellationToken);
+
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*Limit(n)*");
+
+        await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
     /// <summary>Provides functionality for this member.</summary>
     [Fact]
     /// <summary>Provides functionality for this member.</summary>
