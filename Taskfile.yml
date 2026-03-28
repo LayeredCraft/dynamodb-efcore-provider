@@ -1,5 +1,8 @@
 version: '3'
 
+dotenv:
+  - .env
+
 tasks:
   clean:
     desc: Clean the project
@@ -43,7 +46,7 @@ tasks:
     deps: [ pack ]
     cmds:
       - echo "🚀 Publishing"
-      - dotnet nuget push ./.nupkg/*.nupkg --source https://api.nuget.org/v3/index.json --api-key $NUGET_API_KEY --skip-duplicate
+      - dotnet nuget push ./.nupkg/*.nupkg --source https://api.nuget.org/v3/index.json --api-key $NUGET_API_KEY_LOCAL --skip-duplicate
       - echo "✨ Published"    
     
   docs:serve:
