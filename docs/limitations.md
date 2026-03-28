@@ -30,7 +30,8 @@ icon: lucide/triangle-alert
 
 1. No user-specified `Limit(n)`.
 1. The `WHERE` clause contains a partition-key equality condition.
-1. The `WHERE` clause contains only key predicates (no non-key attribute filters).
+1. The `WHERE` clause uses only key attributes, and any sort-key predicate is a valid DynamoDB
+    key condition (`=`, `<`, `<=`, `>`, `>=`, `BETWEEN`, `begins_with`).
 
 Any query that does not meet all three conditions fails at translation time with
 `InvalidOperationException`. Use `.AsAsyncEnumerable()` to evaluate client-side instead:
@@ -42,6 +43,27 @@ var result = await db.Orders
     .Limit(50)
     .AsAsyncEnumerable()
     .FirstOrDefaultAsync(cancellationToken);
+```
+
+**Sort-key filter expressions are not safe**: `SK IN (...)` and `SK = A || SK = B` reference only
+key attributes but are DynamoDB **filter expressions**, not key conditions. DynamoDB's `Limit`
+counts *evaluated* items (not matched items), so `Limit=1` on a filter predicate can silently miss
+matching rows later in the partition. These shapes throw at translation time — use
+`.AsAsyncEnumerable().FirstOrDefaultAsync()` instead.
+
+```csharp
+var skValues = new[] { "ORDER#1", "ORDER#2" };
+
+// ❌ Throws — SK IN is a filter expression, not a key condition
+await db.Orders
+    .Where(x => x.Pk == pk && skValues.Contains(x.Sk))
+    .FirstOrDefaultAsync(ct);
+
+// ✅ Correct — client-side selection after bounded server fetch
+var result = await db.Orders
+    .Where(x => x.Pk == pk && skValues.Contains(x.Sk))
+    .AsAsyncEnumerable()
+    .FirstOrDefaultAsync(ct);
 ```
 
 **Exception — no sort key**: When the queried source has no sort key, each partition contains at

@@ -127,6 +127,53 @@ public class FirstOrDefaultSafePathTests
         await act.Should().NotThrowAsync<InvalidOperationException>();
     }
 
+    // ── SK filter predicates: unsafe (IN/OR are filter expressions, not key conditions) ──
+
+    [Fact]
+    public async Task FirstOrDefault_SkIn_WithoutOptIn_ThrowsTranslationFailure()
+    {
+        // SK IN (...) is a filter expression, not a DynamoDB key condition. DynamoDB Limit
+        // counts scanned items — Limit=1 can silently miss matching rows later in the partition.
+        var client = Substitute.For<IAmazonDynamoDB>();
+        await using var context = SafePathDbContext.Create(client);
+
+        var ids = new[] { "S#1", "S#2" };
+        var act = async ()
+            => await context
+                .PkSkItems
+                .Where(x => x.Pk == "P#1" && ids.Contains(x.Sk))
+                .FirstOrDefaultAsync(TestContext.Current.CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*AsAsyncEnumerable*");
+
+        await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
+    [Fact]
+    public async Task FirstOrDefault_SkOrEquality_WithoutOptIn_ThrowsTranslationFailure()
+    {
+        // SK = A OR SK = B is a filter expression on the sort key, not a key condition.
+        // DynamoDB Limit counts scanned items — Limit=1 can silently miss items in the partition.
+        var client = Substitute.For<IAmazonDynamoDB>();
+        await using var context = SafePathDbContext.Create(client);
+
+        var act = async ()
+            => await context
+                .PkSkItems
+                .Where(x => x.Pk == "P#1" && (x.Sk == "S#1" || x.Sk == "S#2"))
+                .FirstOrDefaultAsync(TestContext.Current.CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*AsAsyncEnumerable*");
+
+        await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
     // ── No-sort-key special case ─────────────────────────────────────────────
 
     [Fact]

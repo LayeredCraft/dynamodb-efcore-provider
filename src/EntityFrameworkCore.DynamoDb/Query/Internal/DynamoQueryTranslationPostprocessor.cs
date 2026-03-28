@@ -379,7 +379,25 @@ internal sealed class DynamoQueryTranslationPostprocessor(
                 effectiveSortKeyAttributeName);
 
         if (hasPkEquality && !hasNonKeyPredicate)
+        {
+            // Guard: if the predicate references the sort key but the sort key is not in
+            // SkKeyConditions, it is a filter expression (e.g. SK IN (...) or SK = A OR SK = B),
+            // not a DynamoDB key condition. DynamoDB's Limit counts *evaluated* items, not
+            // matched items, so Limit=1 on a filter predicate can silently miss matching rows
+            // later in the partition.
+            if (effectiveSortKeyAttributeName is not null
+                && selectExpression.Predicate is not null
+                && PredicateReferencesAttribute(
+                    selectExpression.Predicate,
+                    effectiveSortKeyAttributeName)
+                && !queryConstraints.SkKeyConditions.ContainsKey(effectiveSortKeyAttributeName))
+                throw new InvalidOperationException(
+                    DynamoStrings.FirstOrDefaultRequiresKeyOnlyPath(
+                        "sort-key filter predicate (SK IN and SK OR are filter expressions, "
+                        + "not DynamoDB key conditions)"));
+
             return; // Key-only path — safe.
+        }
 
         // Unsafe path: non-key predicate, scan-like, or PK IN. Always throw — use
         // .AsAsyncEnumerable().FirstOrDefaultAsync(ct) for client-side selection.
@@ -433,6 +451,32 @@ internal sealed class DynamoQueryTranslationPostprocessor(
             // Provider-injected discriminator predicates are never user-supplied non-key filters.
             // They must not cause First* validation to reject an otherwise key-only query.
             SqlDiscriminatorPredicateExpression => false,
+            _ => false,
+        };
+
+    /// <summary>
+    ///     Recursively walks a SQL predicate expression and returns <c>true</c> if any
+    ///     <see cref="SqlPropertyExpression" /> references the given <paramref name="attributeName" />.
+    /// </summary>
+    private static bool PredicateReferencesAttribute(SqlExpression expression, string attributeName)
+        => expression switch
+        {
+            SqlPropertyExpression prop => prop.PropertyName == attributeName,
+            SqlBinaryExpression bin => PredicateReferencesAttribute(bin.Left, attributeName)
+                || PredicateReferencesAttribute(bin.Right, attributeName),
+            SqlUnaryExpression unary => PredicateReferencesAttribute(unary.Operand, attributeName),
+            SqlIsNullExpression isNull => PredicateReferencesAttribute(
+                isNull.Operand,
+                attributeName),
+            SqlParenthesizedExpression paren => PredicateReferencesAttribute(
+                paren.Operand,
+                attributeName),
+            SqlBetweenExpression between => PredicateReferencesAttribute(
+                between.Subject,
+                attributeName),
+            SqlFunctionExpression func => func.Arguments.Any(a
+                => PredicateReferencesAttribute(a, attributeName)),
+            SqlInExpression inExpr => PredicateReferencesAttribute(inExpr.Item, attributeName),
             _ => false,
         };
 

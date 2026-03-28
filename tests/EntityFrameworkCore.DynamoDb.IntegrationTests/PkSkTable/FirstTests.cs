@@ -147,6 +147,40 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
         result.Should().BeNull();
     }
 
+    // ── SK filter predicates — always throws ────────────────────────────────
+
+    [Fact]
+    public async Task FirstOrDefault_SkIn_ThrowsTranslationFailure()
+    {
+        // SK IN (...) is a filter expression in DynamoDB — not a key condition. Limit=1 counts
+        // scanned items (not matched), so it would silently miss matching rows in the partition.
+        var skValues = new[] { "0002", "0003" };
+        var act = async () => await Db
+            .Items
+            .Where(item => item.Pk == "P#1" && skValues.Contains(item.Sk))
+            .FirstOrDefaultAsync(CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*AsAsyncEnumerable*");
+    }
+
+    [Fact]
+    public async Task FirstOrDefault_SkOrEquality_ThrowsTranslationFailure()
+    {
+        // SK = A OR SK = B is a filter expression — not a key condition. Same Limit=1 hazard.
+        var act = async () => await Db
+            .Items
+            .Where(item => item.Pk == "P#1" && (item.Sk == "0002" || item.Sk == "0003"))
+            .FirstOrDefaultAsync(CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*AsAsyncEnumerable*");
+    }
+
     // ── Non-key First* — always throws ──────────────────────────────────────
 
     [Fact]
