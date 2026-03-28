@@ -588,6 +588,9 @@ public class FirstOrDefaultSafePathTests
         public string Label { get; set; } = null!;
     }
 
+    /// <summary>Sibling derived type used to force discriminator narrowing in inheritance safe-path tests.</summary>
+    private sealed record SiblingItem : BaseItem;
+
     private sealed class InheritanceDbContext(DbContextOptions options) : DbContext(options)
     {
         /// <summary>Provides functionality for this member.</summary>
@@ -604,6 +607,7 @@ public class FirstOrDefaultSafePathTests
             });
 
             modelBuilder.Entity<ChildItem>(b => b.HasBaseType<BaseItem>());
+            modelBuilder.Entity<SiblingItem>(b => b.HasBaseType<BaseItem>());
         }
 
         /// <summary>Provides functionality for this member.</summary>

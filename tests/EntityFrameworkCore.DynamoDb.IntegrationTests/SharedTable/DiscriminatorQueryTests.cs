@@ -169,6 +169,30 @@ public class DiscriminatorInheritanceQueryTests(SharedTableDynamoFixture fixture
     }
 
     /// <summary>
+    ///     Verifies <c>FirstOrDefaultAsync</c> allows derived/shared-table single-item lookups when
+    ///     PK+SK equality uniquely identifies one base-table item before discriminator filtering.
+    /// </summary>
+    [Fact]
+    /// <summary>Provides functionality for this member.</summary>
+    public async Task DerivedQuery_FirstOrDefault_PkAndSkEquality_ReturnsMatchingDerivedItem()
+    {
+        var result = await Db
+            .Employees
+            .Where(employee => employee.Pk == "TENANT#H" && employee.Sk == "PERSON#EMP-1")
+            .FirstOrDefaultAsync(CancellationToken);
+
+        result.Should().NotBeNull();
+        result!.Department.Should().Be("Engineering");
+
+        AssertSql(
+            """
+            SELECT "Pk", "Sk", "Name", "Department", "$type"
+            FROM "app-table"
+            WHERE "Pk" = 'TENANT#H' AND "Sk" = 'PERSON#EMP-1' AND "$type" = 'EmployeeEntity'
+            """);
+    }
+
+    /// <summary>
     ///     Verifies <c>FirstOrDefaultAsync</c> rejects derived/shared-table PK-only queries because
     ///     discriminator filtering on a multi-item source is not a safe server-side <c>First*</c> path.
     /// </summary>
