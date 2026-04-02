@@ -4,6 +4,7 @@ using System.Text;
 using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using EntityFrameworkCore.DynamoDb.Storage;
+using EntityFrameworkCore.DynamoDb.Storage.Internal;
 using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EntityFrameworkCore.DynamoDb.Query.Internal;
@@ -589,36 +590,9 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
     /// <summary>Appends a predicate that is guaranteed to evaluate to false.</summary>
     private void AppendAlwaysFalsePredicate() => _sql.Append("1 = 0");
 
-    /// <summary>
-    /// Converts a CLR value to a DynamoDB AttributeValue.
-    /// </summary>
+    /// <summary>Delegates to the shared <see cref="DynamoAttributeValueConverter" />.</summary>
     private static AttributeValue ConvertToAttributeValue(
         object? value,
         CoreTypeMapping? typeMapping)
-    {
-        // Apply value converter if present
-        if (typeMapping?.Converter != null && value != null)
-            value = typeMapping.Converter.ConvertToProvider(value);
-
-        if (value == null)
-            return new AttributeValue { NULL = true };
-
-        return value switch
-        {
-            string s => new AttributeValue { S = s },
-            bool b => new AttributeValue { BOOL = b },
-            int i => new AttributeValue { N = i.ToString() },
-            long l => new AttributeValue { N = l.ToString() },
-            short sh => new AttributeValue { N = sh.ToString() },
-            byte by => new AttributeValue { N = by.ToString() },
-            double d => new AttributeValue { N = d.ToString("R") },
-            float f => new AttributeValue { N = f.ToString("R") },
-            decimal dec => new AttributeValue { N = dec.ToString() },
-            Guid g => new AttributeValue { S = g.ToString() },
-            DateTime dt => new AttributeValue { S = dt.ToString("O") },
-            DateTimeOffset dto => new AttributeValue { S = dto.ToString("O") },
-            _ => throw new NotSupportedException(
-                $"Type {value.GetType()} is not supported for conversion to AttributeValue"),
-        };
-    }
+        => DynamoAttributeValueConverter.Convert(value, typeMapping);
 }

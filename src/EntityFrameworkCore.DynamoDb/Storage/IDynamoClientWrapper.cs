@@ -13,4 +13,15 @@ public interface IDynamoClientWrapper
     IAsyncEnumerable<Dictionary<string, AttributeValue>> ExecutePartiQl(
         ExecuteStatementRequest statementRequest,
         bool singlePageOnly = false);
+
+    /// <summary>
+    ///     Executes a single PartiQL write statement (INSERT, UPDATE, or DELETE) and returns
+    ///     the AWS SDK response.
+    /// </summary>
+    /// <param name="statementRequest">The PartiQL write statement with positional parameters.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The <see cref="ExecuteStatementResponse" /> from the DynamoDB service.</returns>
+    Task<ExecuteStatementResponse> ExecuteWriteStatementAsync(
+        ExecuteStatementRequest statementRequest,
+        CancellationToken cancellationToken = default);
 }
