@@ -1,3 +1,4 @@
+using System.Collections;
 using EntityFrameworkCore.DynamoDb.Extensions;
 using EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using Microsoft.EntityFrameworkCore;
@@ -50,11 +51,15 @@ public sealed class InsertExpressionBuilder(ITypeMappingSource typeMappingSource
 
         foreach (var property in entityType.GetProperties())
         {
-            // Skip primitive collection properties (List<T>, HashSet<T>, Dictionary<TK,TV>, etc.)
-            // — these require map/list/set AttributeValue serialization which is in story 6gu.2.
+            // Primitive collection properties (List<T>, HashSet<T>, Dictionary<TK,TV>, etc.)
+            // require map/list/set AttributeValue serialization, which is not yet implemented
+            // (planned for story 6gu.2). Throw rather than silently dropping the data.
             if (property.ClrType != typeof(string)
-                && typeof(System.Collections.IEnumerable).IsAssignableFrom(property.ClrType))
-                continue;
+                && typeof(IEnumerable).IsAssignableFrom(property.ClrType))
+                throw new NotSupportedException(
+                    $"Property '{property.Name}' on entity type '{entityType.Name}' is a primitive "
+                    + $"collection ('{property.ClrType.Name}'). Primitive collection serialization "
+                    + "is not yet supported. Remove or exclude the property until support is added.");
 
             var paramName = $"p{paramIndex++}";
             var typeMapping = typeMappingSource.FindMapping(property) as CoreTypeMapping;

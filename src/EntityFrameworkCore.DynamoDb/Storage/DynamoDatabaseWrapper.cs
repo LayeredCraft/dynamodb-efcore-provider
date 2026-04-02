@@ -25,8 +25,9 @@ public class DynamoDatabaseWrapper(
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The total number of root entities written.</returns>
     /// <exception cref="NotSupportedException">
-    ///     Thrown when an entry has an <see cref="EntityState" /> other than <see cref="EntityState.Added" />.
-    ///     Modified and Deleted support is added in later stories.
+    ///     Thrown when an entry has an <see cref="EntityState" /> other than <see cref="EntityState.Added" />
+    ///     (Modified/Deleted are added in later stories), or when an owned entity entry is encountered
+    ///     (owned navigation serialization is planned for story 6gu.2).
     /// </exception>
     public override async Task<int> SaveChangesAsync(
         IList<IUpdateEntry> entries,
@@ -37,10 +38,13 @@ public class DynamoDatabaseWrapper(
 
         foreach (var entry in entries)
         {
-            // Owned entity entries are handled as part of the root item write in story 6gu.2.
-            // EF Core includes them as separate IUpdateEntry instances; skip them here.
+            // Owned entity entries are tracked separately by EF Core, but serializing owned
+            // navigations as nested AttributeValue maps is not yet implemented (story 6gu.2).
+            // Throw rather than silently dropping the owned data.
             if (entry.EntityType.IsOwned())
-                continue;
+                throw new NotSupportedException(
+                    $"Entity type '{entry.EntityType.Name}' is an owned type. Saving entities "
+                    + "with owned navigations is not yet supported. Planned for story 6gu.2.");
 
             switch (entry.EntityState)
             {
@@ -52,6 +56,7 @@ public class DynamoDatabaseWrapper(
 
                     await clientWrapper
                         .ExecuteWriteStatementAsync(
+                            plan.Expression.TableName,
                             new ExecuteStatementRequest
                             {
                                 Statement = query.Sql, Parameters = [..query.Parameters],

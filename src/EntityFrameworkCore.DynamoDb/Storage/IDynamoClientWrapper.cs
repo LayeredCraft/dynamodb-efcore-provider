@@ -18,10 +18,12 @@ public interface IDynamoClientWrapper
     ///     Executes a single PartiQL write statement (INSERT, UPDATE, or DELETE) and returns
     ///     the AWS SDK response.
     /// </summary>
+    /// <param name="tableName">The target DynamoDB table name, used for diagnostics logging.</param>
     /// <param name="statementRequest">The PartiQL write statement with positional parameters.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The <see cref="ExecuteStatementResponse" /> from the DynamoDB service.</returns>
     Task<ExecuteStatementResponse> ExecuteWriteStatementAsync(
+        string tableName,
         ExecuteStatementRequest statementRequest,
         CancellationToken cancellationToken = default);
 }

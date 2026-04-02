@@ -55,19 +55,21 @@ public class DynamoClientWrapper : IDynamoClientWrapper
     ///     Executes a single PartiQL write statement (INSERT, UPDATE, or DELETE) via
     ///     <see cref="IAmazonDynamoDB.ExecuteStatementAsync" /> and returns the response.
     /// </summary>
+    /// <param name="tableName">The target DynamoDB table name, used for diagnostics logging.</param>
     /// <param name="statementRequest">The write statement with positional parameters.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The <see cref="ExecuteStatementResponse" /> from the DynamoDB service.</returns>
     public async Task<ExecuteStatementResponse> ExecuteWriteStatementAsync(
+        string tableName,
         ExecuteStatementRequest statementRequest,
         CancellationToken cancellationToken = default)
     {
         return await _executionStrategy.ExecuteAsync(
-            (wrapper: this, request: statementRequest),
+            (wrapper: this, tableName, request: statementRequest),
             static async (_, state, ct) =>
             {
                 state.wrapper._commandLogger.ExecutingPartiQlWrite(
-                    state.request.Statement,
+                    state.tableName,
                     state.request.Statement);
 
                 return await state
