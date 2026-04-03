@@ -16,6 +16,7 @@ namespace EntityFrameworkCore.DynamoDb.Storage;
 public class DynamoTypeMapping : CoreTypeMapping
 {
     internal DynamoValueReaderWriter? ReaderWriter { get; }
+    private readonly IDynamoUntypedValueWriter? _untypedValueWriter;
 
     /// <summary>Creates a mapping for the given CLR type.</summary>
     public DynamoTypeMapping(
@@ -23,11 +24,21 @@ public class DynamoTypeMapping : CoreTypeMapping
         ValueComparer? comparer = null,
         ValueComparer? keyComparer = null) : base(
         new CoreTypeMappingParameters(clrType, null, comparer, keyComparer))
-        => ReaderWriter = CreateReaderWriter(Parameters);
+    {
+        ReaderWriter = CreateReaderWriter(Parameters);
+        // Cache the untyped adapter once per mapping; EF reaches us with object values, but the
+        // typed codec pipeline resumes immediately behind this boundary.
+        _untypedValueWriter = ReaderWriter?.CreateUntypedValueWriter();
+    }
 
     /// <summary>Creates a mapping from a fully-specified EF Core mapping parameter set.</summary>
     protected DynamoTypeMapping(CoreTypeMappingParameters parameters) : base(parameters)
-        => ReaderWriter = CreateReaderWriter(parameters);
+    {
+        ReaderWriter = CreateReaderWriter(parameters);
+        // Cache the untyped adapter once per mapping; EF reaches us with object values, but the
+        // typed codec pipeline resumes immediately behind this boundary.
+        _untypedValueWriter = ReaderWriter?.CreateUntypedValueWriter();
+    }
 
     /// <summary>Clones the mapping with updated parameters.</summary>
     protected override CoreTypeMapping Clone(CoreTypeMappingParameters parameters)
@@ -66,28 +77,31 @@ public class DynamoTypeMapping : CoreTypeMapping
 
     /// <summary>Serializes a model CLR value to an <see cref="AttributeValue" />.</summary>
     /// <remarks>
-    ///     The mapping remains model-value-facing; any EF Core value converter is already composed
-    ///     into the underlying reader/writer.
+    ///     EF exposes runtime values to mappings as <see cref="object" />. This is the unavoidable
+    ///     untyped provider boundary; the cast happens in the cached adapter and the typed codec
+    ///     pipeline resumes immediately after that handoff.
     /// </remarks>
     internal virtual AttributeValue CreateAttributeValue(object? value)
     {
         if (value == null)
             return new AttributeValue { NULL = true };
 
-        return ReaderWriter?.WriteAsObject(value)
+        return _untypedValueWriter?.Write(value)
             ?? throw new NotSupportedException(
                 $"CLR type '{ClrType.Name}' is not supported for DynamoDB AttributeValue serialization.");
     }
 
-    /// <summary>
-    /// Generates a SQL literal for a constant value in PartiQL.
-    /// </summary>
+    /// <summary>Generates a SQL literal for a constant value in PartiQL.</summary>
+    /// <remarks>
+    ///     This stays model-value-facing for EF, but the cached adapter forwards immediately into the
+    ///     typed Dynamo serialization pipeline owned by the mapping.
+    /// </remarks>
     public virtual string GenerateConstant(object? value)
     {
         if (value == null)
             return "NULL";
 
-        return ReaderWriter?.ToPartiQlLiteralAsObject(value)
+        return _untypedValueWriter?.ToPartiQlLiteral(value)
             ?? throw new NotSupportedException(
                 $"CLR type '{ClrType.Name}' is not supported for PartiQL constant generation.");
     }

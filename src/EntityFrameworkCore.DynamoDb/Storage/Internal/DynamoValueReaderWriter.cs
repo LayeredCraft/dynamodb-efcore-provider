@@ -5,6 +5,7 @@ using System.Linq.Expressions;
 using System.Reflection;
 using Amazon.DynamoDBv2.Model;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace EntityFrameworkCore.DynamoDb.Storage.Internal;
@@ -16,62 +17,105 @@ namespace EntityFrameworkCore.DynamoDb.Storage.Internal;
 /// </remarks>
 internal abstract class DynamoValueReaderWriter
 {
-    private static readonly MethodInfo ReadAsObjectMethod =
-        typeof(DynamoValueReaderWriter).GetMethod(
-            nameof(ReadAsObject),
-            BindingFlags.Instance | BindingFlags.NonPublic)!;
-
     public abstract Type ValueType { get; }
+
+    /// <summary>
+    ///     Recreates this codec inside generated query expressions without forcing query compilation
+    ///     to close over a specific runtime instance.
+    /// </summary>
+    internal abstract Expression ConstructorExpression { get; }
 
     internal abstract string WireMemberName { get; }
 
-    internal Expression CreateReadExpression(
-            Expression attributeValueExpression,
-            string propertyPath,
-            bool required,
-            IProperty? property)
-        // Keep the read path expression-based: the compiled query closes over this mapping-owned
-        // reader/writer instance instead of re-deriving wire-shape rules elsewhere.
-        => Expression.Convert(
-            Expression.Call(
-                Expression.Constant(this),
-                ReadAsObjectMethod,
-                attributeValueExpression,
-                Expression.Constant(propertyPath),
-                Expression.Constant(required),
-                Expression.Constant(property, typeof(IProperty))),
-            ValueType);
-
-    protected abstract object? ReadAsObject(
-        AttributeValue attributeValue,
+    internal abstract Expression CreateReadExpression(
+        Expression attributeValueExpression,
         string propertyPath,
         bool required,
         IProperty? property);
 
-    public abstract AttributeValue WriteAsObject(object value);
+    internal abstract IDynamoUntypedValueWriter CreateUntypedValueWriter();
 
-    public abstract string ToPartiQlLiteralAsObject(object value);
+    protected static Expression CreatePropertyExpression(
+        Expression attributeValueExpression,
+        string propertyPath,
+        bool required,
+        IProperty? property,
+        MethodInfo methodInfo,
+        Expression instanceExpression)
+        => Expression.Call(
+            instanceExpression,
+            methodInfo,
+            attributeValueExpression,
+            Expression.Constant(propertyPath),
+            Expression.Constant(required),
+            Expression.Constant(property, typeof(IProperty)));
+
+    protected static Expression CreateMethodCallExpression(
+        MethodInfo methodInfo,
+        Expression instanceExpression,
+        params Expression[] arguments)
+        => Expression.Call(instanceExpression, methodInfo, arguments);
 
     protected string CreateMissingValueMessage(string propertyPath)
         => $"Required property '{propertyPath}' did not contain a value for expected DynamoDB wire member '{WireMemberName}'.";
 }
 
+/// <summary>Bridges EF's untyped mapping boundary to the typed Dynamo serialization pipeline.</summary>
+/// <remarks>
+///     EF asks type mappings to serialize runtime values as <see cref="object" /> for query
+///     constants, parameters, and update values. The cast happens exactly once here, and the typed
+///     delegate pipeline resumes immediately after this adapter.
+/// </remarks>
+internal interface IDynamoUntypedValueWriter
+{
+    AttributeValue Write(object value);
+
+    string ToPartiQlLiteral(object value);
+}
+
 /// <summary>Strongly-typed base implementation for a DynamoDB value reader/writer.</summary>
 internal abstract class DynamoValueReaderWriter<TValue> : DynamoValueReaderWriter
 {
+    private static readonly MethodInfo ReadMethod =
+        typeof(DynamoValueReaderWriter<TValue>).GetMethod(
+            nameof(Read),
+            [typeof(AttributeValue), typeof(string), typeof(bool), typeof(IProperty)])!;
+
+    private static readonly MethodInfo WriteMethod =
+        typeof(DynamoValueReaderWriter<TValue>).GetMethod(nameof(Write), [typeof(TValue)])!;
+
+    private static readonly MethodInfo ToPartiQlLiteralMethod =
+        typeof(DynamoValueReaderWriter<TValue>).GetMethod(
+            nameof(ToPartiQlLiteral),
+            [typeof(TValue)])!;
+
+    private Func<TValue, AttributeValue>? _attributeValueFactory;
+    private Func<TValue, string>? _partiQlLiteralFactory;
+    private IDynamoUntypedValueWriter? _untypedValueWriter;
+
     public sealed override Type ValueType => typeof(TValue);
 
-    protected sealed override object? ReadAsObject(
-        AttributeValue attributeValue,
-        string propertyPath,
-        bool required,
-        IProperty? property)
-        => Read(attributeValue, propertyPath, required, property);
+    internal sealed override Expression ConstructorExpression => CreateConstructorExpression();
 
-    public sealed override AttributeValue WriteAsObject(object value) => Write((TValue)value);
+    internal override Expression CreateReadExpression(
+            Expression attributeValueExpression,
+            string propertyPath,
+            bool required,
+            IProperty? property)
+        // Recreate the codec in the expression tree so query compilation does not close over a
+        // specific runtime instance while still returning the final typed CLR value directly.
+        => CreatePropertyExpression(
+            attributeValueExpression,
+            propertyPath,
+            required,
+            property,
+            ReadMethod,
+            CreateConstructorExpression());
 
-    public sealed override string ToPartiQlLiteralAsObject(object value)
-        => ToPartiQlLiteral((TValue)value);
+    internal sealed override IDynamoUntypedValueWriter CreateUntypedValueWriter()
+        => _untypedValueWriter ??= new DynamoUntypedValueWriter<TValue>(
+            _attributeValueFactory ??= CompileAttributeValueFactory(),
+            _partiQlLiteralFactory ??= CompilePartiQlLiteralFactory());
 
     public TValue Read(
         AttributeValue attributeValue,
@@ -100,6 +144,44 @@ internal abstract class DynamoValueReaderWriter<TValue> : DynamoValueReaderWrite
     public abstract AttributeValue Write(TValue value);
 
     public abstract string ToPartiQlLiteral(TValue value);
+
+    protected virtual Expression CreateConstructorExpression() => Expression.New(GetType());
+
+    internal virtual Expression CreateWriteExpression(Expression typedValueExpression)
+        => Expression.Call(Expression.Constant(this, GetType()), WriteMethod, typedValueExpression);
+
+    internal virtual Expression CreatePartiQlLiteralExpression(Expression typedValueExpression)
+        => Expression.Call(
+            Expression.Constant(this, GetType()),
+            ToPartiQlLiteralMethod,
+            typedValueExpression);
+
+    private Func<TValue, AttributeValue> CompileAttributeValueFactory()
+    {
+        var valueParameter = Expression.Parameter(typeof(TValue), "value");
+        var body = CreateWriteExpression(valueParameter);
+
+        return Expression.Lambda<Func<TValue, AttributeValue>>(body, valueParameter).Compile();
+    }
+
+    private Func<TValue, string> CompilePartiQlLiteralFactory()
+    {
+        var valueParameter = Expression.Parameter(typeof(TValue), "value");
+        var body = CreatePartiQlLiteralExpression(valueParameter);
+
+        return Expression.Lambda<Func<TValue, string>>(body, valueParameter).Compile();
+    }
+}
+
+internal sealed class DynamoUntypedValueWriter<TValue>(
+    Func<TValue, AttributeValue> write,
+    Func<TValue, string> toPartiQlLiteral) : IDynamoUntypedValueWriter
+{
+    // This is the single intentional cast site from EF's object-based mapping boundary back into
+    // the typed serialization pipeline.
+    public AttributeValue Write(object value) => write((TValue)value);
+
+    public string ToPartiQlLiteral(object value) => toPartiQlLiteral((TValue)value);
 }
 
 /// <summary>Exposes the provider-level reader/writer under a composed wrapper.</summary>
@@ -117,6 +199,10 @@ internal sealed class DynamoConvertedValueReaderWriter<TModel, TProvider>(
     DynamoValueReaderWriter<TProvider> innerReaderWriter,
     ValueConverter converter) : DynamoValueReaderWriter<TModel>, IDynamoConvertedValueReaderWriter
 {
+    private static readonly ConstructorInfo Constructor =
+        typeof(DynamoConvertedValueReaderWriter<TModel, TProvider>).GetConstructor(
+            [typeof(DynamoValueReaderWriter<TProvider>), typeof(ValueConverter)])!;
+
     internal override string WireMemberName => innerReaderWriter.WireMemberName;
 
     DynamoValueReaderWriter IDynamoConvertedValueReaderWriter.InnerReaderWriter
@@ -124,6 +210,28 @@ internal sealed class DynamoConvertedValueReaderWriter<TModel, TProvider>(
 
     internal override bool HasValue(AttributeValue attributeValue)
         => innerReaderWriter.HasValue(attributeValue);
+
+    internal override Expression CreateReadExpression(
+        Expression attributeValueExpression,
+        string propertyPath,
+        bool required,
+        IProperty? property)
+    {
+        var providerValueExpression = innerReaderWriter.CreateReadExpression(
+            attributeValueExpression,
+            propertyPath,
+            required,
+            property);
+
+        var modelValueExpression = ReplacingExpressionVisitor.Replace(
+            converter.ConvertFromProviderExpression.Parameters.Single(),
+            providerValueExpression,
+            converter.ConvertFromProviderExpression.Body);
+
+        return modelValueExpression.Type != typeof(TModel)
+            ? Expression.Convert(modelValueExpression, typeof(TModel))
+            : modelValueExpression;
+    }
 
     protected override TModel ReadValue(
         AttributeValue attributeValue,
@@ -137,6 +245,34 @@ internal sealed class DynamoConvertedValueReaderWriter<TModel, TProvider>(
 
     public override string ToPartiQlLiteral(TModel value)
         => innerReaderWriter.ToPartiQlLiteral((TProvider)converter.ConvertToProvider(value)!);
+
+    protected override Expression CreateConstructorExpression()
+        // ValueConverter instances may carry state; preserve the exact composed converter the
+        // mapping built instead of trying to reconstruct it from type information alone.
+        => Expression.New(
+            Constructor,
+            innerReaderWriter.ConstructorExpression,
+            Expression.Constant(converter, typeof(ValueConverter)));
+
+    internal override Expression CreateWriteExpression(Expression typedValueExpression)
+        => innerReaderWriter.CreateWriteExpression(
+            CreateProviderValueExpression(typedValueExpression));
+
+    internal override Expression CreatePartiQlLiteralExpression(Expression typedValueExpression)
+        => innerReaderWriter.CreatePartiQlLiteralExpression(
+            CreateProviderValueExpression(typedValueExpression));
+
+    private Expression CreateProviderValueExpression(Expression modelValueExpression)
+    {
+        var providerValueExpression = ReplacingExpressionVisitor.Replace(
+            converter.ConvertToProviderExpression.Parameters.Single(),
+            modelValueExpression,
+            converter.ConvertToProviderExpression.Body);
+
+        return providerValueExpression.Type != typeof(TProvider)
+            ? Expression.Convert(providerValueExpression, typeof(TProvider))
+            : providerValueExpression;
+    }
 }
 
 /// <summary>Adapts a non-nullable provider reader/writer for nullable value-type mappings.</summary>
@@ -148,7 +284,14 @@ internal sealed class NullableDynamoValueReaderWriter<TValue>(
     DynamoValueReaderWriter<TValue> innerReaderWriter) : DynamoValueReaderWriter<TValue?>
     where TValue : struct
 {
+    private static readonly ConstructorInfo Constructor =
+        typeof(NullableDynamoValueReaderWriter<TValue>).GetConstructor(
+            [typeof(DynamoValueReaderWriter<TValue>)])!;
+
     internal override string WireMemberName => innerReaderWriter.WireMemberName;
+
+    protected override Expression CreateConstructorExpression()
+        => Expression.New(Constructor, innerReaderWriter.ConstructorExpression);
 
     internal override bool HasValue(AttributeValue attributeValue)
         => attributeValue.NULL == true || innerReaderWriter.HasValue(attributeValue);
@@ -229,7 +372,16 @@ internal sealed class NumericDynamoValueReaderWriter<TValue>(
     Func<string, TValue> parse,
     Func<TValue, string> format) : DynamoValueReaderWriter<TValue>
 {
+    private static readonly ConstructorInfo Constructor =
+        typeof(NumericDynamoValueReaderWriter<TValue>).GetConstructor(
+            [typeof(Func<string, TValue>), typeof(Func<TValue, string>)])!;
+
     internal override string WireMemberName => nameof(AttributeValue.N);
+
+    protected override Expression CreateConstructorExpression()
+        // The numeric codec is defined by its parse/format delegates, so the constructor expression
+        // needs to carry those delegates forward when the codec is recreated in query trees.
+        => Expression.New(Constructor, Expression.Constant(parse), Expression.Constant(format));
 
     internal override bool HasValue(AttributeValue attributeValue) => attributeValue.N != null;
 
@@ -247,7 +399,20 @@ internal sealed class NumericDynamoValueReaderWriter<TValue>(
 internal sealed class ListDynamoValueReaderWriter<TCollection, TElement>(
     DynamoValueReaderWriter<TElement> elementReaderWriter) : DynamoValueReaderWriter<TCollection>
 {
+    private static readonly ConstructorInfo Constructor =
+        typeof(ListDynamoValueReaderWriter<TCollection, TElement>).GetConstructor(
+            [typeof(DynamoValueReaderWriter<TElement>)])!;
+
+    private readonly Func<List<TElement>, TCollection> _materializeCollection =
+        DynamoValueReaderWriterHelpers.CreateListMaterializer<TCollection, TElement>();
+
+    private readonly Func<TCollection, IEnumerable<TElement>> _enumerateCollection =
+        DynamoValueReaderWriterHelpers.CreateEnumerableAccessor<TCollection, TElement>();
+
     internal override string WireMemberName => nameof(AttributeValue.L);
+
+    protected override Expression CreateConstructorExpression()
+        => Expression.New(Constructor, elementReaderWriter.ConstructorExpression);
 
     internal override bool HasValue(AttributeValue attributeValue) => attributeValue.L != null;
 
@@ -259,16 +424,17 @@ internal sealed class ListDynamoValueReaderWriter<TCollection, TElement>(
             attributeValue,
             propertyPath,
             property,
-            elementReaderWriter);
+            elementReaderWriter,
+            _materializeCollection);
 
     public override AttributeValue Write(TCollection value)
         => DynamoValueReaderWriterHelpers.WriteList(
-            (IEnumerable<TElement>)value!,
+            _enumerateCollection(value),
             elementReaderWriter);
 
     public override string ToPartiQlLiteral(TCollection value)
         => DynamoValueReaderWriterHelpers.FormatListLiteral(
-            (IEnumerable<TElement>)value!,
+            _enumerateCollection(value),
             elementReaderWriter);
 }
 
@@ -276,7 +442,25 @@ internal sealed class DictionaryDynamoValueReaderWriter<TCollection, TValue>(
     DynamoValueReaderWriter<TValue> valueReaderWriter,
     bool readOnly) : DynamoValueReaderWriter<TCollection>
 {
+    private static readonly ConstructorInfo Constructor =
+        typeof(DictionaryDynamoValueReaderWriter<TCollection, TValue>).GetConstructor(
+            [typeof(DynamoValueReaderWriter<TValue>), typeof(bool)])!;
+
+    private readonly Func<Dictionary<string, TValue>, TCollection> _materializeCollection =
+        DynamoValueReaderWriterHelpers.CreateDictionaryMaterializer<TCollection, TValue>(readOnly);
+
+    private readonly Func<TCollection, IEnumerable<KeyValuePair<string, TValue>>>
+        _enumerateCollection =
+            DynamoValueReaderWriterHelpers
+                .CreateEnumerableAccessor<TCollection, KeyValuePair<string, TValue>>();
+
     internal override string WireMemberName => nameof(AttributeValue.M);
+
+    protected override Expression CreateConstructorExpression()
+        => Expression.New(
+            Constructor,
+            valueReaderWriter.ConstructorExpression,
+            Expression.Constant(readOnly));
 
     internal override bool HasValue(AttributeValue attributeValue) => attributeValue.M != null;
 
@@ -289,24 +473,37 @@ internal sealed class DictionaryDynamoValueReaderWriter<TCollection, TValue>(
             propertyPath,
             property,
             valueReaderWriter,
-            readOnly);
+            _materializeCollection);
 
     public override AttributeValue Write(TCollection value)
         => DynamoValueReaderWriterHelpers.WriteDictionary(
-            (IEnumerable<KeyValuePair<string, TValue>>)value!,
+            _enumerateCollection(value),
             valueReaderWriter);
 
     public override string ToPartiQlLiteral(TCollection value)
         => DynamoValueReaderWriterHelpers.FormatDictionaryLiteral(
-            (IEnumerable<KeyValuePair<string, TValue>>)value!,
+            _enumerateCollection(value),
             valueReaderWriter);
 }
 
 internal sealed class SetDynamoValueReaderWriter<TCollection, TElement>(
     DynamoValueReaderWriter<TElement> elementReaderWriter) : DynamoValueReaderWriter<TCollection>
 {
+    private static readonly ConstructorInfo Constructor =
+        typeof(SetDynamoValueReaderWriter<TCollection, TElement>).GetConstructor(
+            [typeof(DynamoValueReaderWriter<TElement>)])!;
+
+    private readonly Func<HashSet<TElement>, TCollection> _materializeCollection =
+        DynamoValueReaderWriterHelpers.CreateSetMaterializer<TCollection, TElement>();
+
+    private readonly Func<TCollection, IEnumerable<TElement>> _enumerateCollection =
+        DynamoValueReaderWriterHelpers.CreateEnumerableAccessor<TCollection, TElement>();
+
     internal override string WireMemberName { get; } =
         DynamoValueReaderWriterHelpers.GetSetWireMemberName(elementReaderWriter.WireMemberName);
+
+    protected override Expression CreateConstructorExpression()
+        => Expression.New(Constructor, elementReaderWriter.ConstructorExpression);
 
     internal override bool HasValue(AttributeValue attributeValue)
         => DynamoValueReaderWriterHelpers.HasSetValue(attributeValue, WireMemberName);
@@ -320,17 +517,18 @@ internal sealed class SetDynamoValueReaderWriter<TCollection, TElement>(
             propertyPath,
             property,
             elementReaderWriter,
-            WireMemberName);
+            WireMemberName,
+            _materializeCollection);
 
     public override AttributeValue Write(TCollection value)
         => DynamoValueReaderWriterHelpers.WriteSet(
-            (IEnumerable<TElement>)value!,
+            _enumerateCollection(value),
             elementReaderWriter,
             WireMemberName);
 
     public override string ToPartiQlLiteral(TCollection value)
         => DynamoValueReaderWriterHelpers.FormatSetLiteral(
-            (IEnumerable<TElement>)value!,
+            _enumerateCollection(value),
             elementReaderWriter);
 }
 
@@ -428,6 +626,8 @@ internal static class DynamoValueReaderWriterFactory
 
         // Compose the converter once at mapping-construction time so callers can keep working with
         // model CLR values while the inner reader/writer stays focused on the provider CLR type.
+        // Activator is acceptable here because this runs when the mapping is built, not in the
+        // per-row/per-parameter hot path.
         return (DynamoValueReaderWriter)Activator.CreateInstance(
             typeof(DynamoConvertedValueReaderWriter<,>).MakeGenericType(
                 converter.ModelClrType,
@@ -559,7 +759,8 @@ internal static class DynamoValueReaderWriterHelpers
         AttributeValue attributeValue,
         string propertyPath,
         IProperty? property,
-        DynamoValueReaderWriter<TElement> elementReaderWriter)
+        DynamoValueReaderWriter<TElement> elementReaderWriter,
+        Func<List<TElement>, TCollection> materializeCollection)
     {
         // Collection element nullability comes from element metadata, not the collection property
         // itself. Required value-type elements should fail when a wire value is missing.
@@ -569,7 +770,7 @@ internal static class DynamoValueReaderWriterHelpers
         foreach (var element in attributeValue.L)
             result.Add(elementReaderWriter.Read(element, propertyPath, elementRequired, null));
 
-        return ConvertListResult<TCollection, TElement>(result);
+        return materializeCollection(result);
     }
 
     public static AttributeValue WriteList<TElement>(
@@ -587,7 +788,7 @@ internal static class DynamoValueReaderWriterHelpers
         string propertyPath,
         IProperty? property,
         DynamoValueReaderWriter<TValue> valueReaderWriter,
-        bool readOnly)
+        Func<Dictionary<string, TValue>, TCollection> materializeCollection)
     {
         var valueRequired = IsRequiredCollectionElement(property, typeof(TValue));
         var result = new Dictionary<string, TValue>(attributeValue.M.Count, StringComparer.Ordinal);
@@ -597,7 +798,7 @@ internal static class DynamoValueReaderWriterHelpers
                 pair.Key,
                 valueReaderWriter.Read(pair.Value, propertyPath, valueRequired, null));
 
-        return ConvertDictionaryResult<TCollection, TValue>(result, readOnly);
+        return materializeCollection(result);
     }
 
     public static AttributeValue WriteDictionary<TValue>(
@@ -633,7 +834,8 @@ internal static class DynamoValueReaderWriterHelpers
         string propertyPath,
         IProperty? property,
         DynamoValueReaderWriter<TElement> elementReaderWriter,
-        string setWireMemberName)
+        string setWireMemberName,
+        Func<HashSet<TElement>, TCollection> materializeCollection)
     {
         var elementRequired = IsRequiredCollectionElement(property, typeof(TElement));
         var result = new HashSet<TElement>();
@@ -663,7 +865,7 @@ internal static class DynamoValueReaderWriterHelpers
                         elementRequired,
                         null));
 
-        return ConvertSetResult<TCollection, TElement>(result);
+        return materializeCollection(result);
     }
 
     public static AttributeValue WriteSet<TElement>(
@@ -704,23 +906,72 @@ internal static class DynamoValueReaderWriterHelpers
         return literals.Count == 0 ? "NULL" : $"<<{string.Join(", ", literals)}>>";
     }
 
-    private static TCollection ConvertListResult<TCollection, TElement>(List<TElement> values)
-        => typeof(TCollection).IsArray
-            ? (TCollection)(object)values.ToArray()
-            : (TCollection)(object)values;
-
-    private static TCollection ConvertDictionaryResult<TCollection, TValue>(
-        Dictionary<string, TValue> values,
-        bool readOnly)
+    public static Func<TCollection, IEnumerable<TElement>> CreateEnumerableAccessor<TCollection,
+        TElement>()
     {
-        if (readOnly)
-            return (TCollection)(object)new ReadOnlyDictionary<string, TValue>(values);
+        // Compile collection-shape adaptation once per mapping so runtime reads/writes avoid
+        // repeated object casts when enumerating typed collection values.
+        var valueParameter = Expression.Parameter(typeof(TCollection), "value");
+        var body = Expression.Convert(valueParameter, typeof(IEnumerable<TElement>));
 
-        return (TCollection)(object)values;
+        return Expression
+            .Lambda<Func<TCollection, IEnumerable<TElement>>>(body, valueParameter)
+            .Compile();
     }
 
-    private static TCollection ConvertSetResult<TCollection, TElement>(HashSet<TElement> values)
-        => (TCollection)(object)values;
+    public static Func<List<TElement>, TCollection> CreateListMaterializer<TCollection, TElement>()
+    {
+        // List/array result shaping is a collection-shape concern, so compile that conversion once
+        // and let the read path reuse the typed delegate.
+        var valuesParameter = Expression.Parameter(typeof(List<TElement>), "values");
+        Expression body = typeof(TCollection).IsArray
+            ? Expression.Convert(
+                Expression.Call(
+                    typeof(Enumerable),
+                    nameof(Enumerable.ToArray),
+                    [typeof(TElement)],
+                    valuesParameter),
+                typeof(TCollection))
+            : Expression.Convert(valuesParameter, typeof(TCollection));
+
+        return Expression
+            .Lambda<Func<List<TElement>, TCollection>>(body, valuesParameter)
+            .Compile();
+    }
+
+    public static Func<Dictionary<string, TValue>, TCollection>
+        CreateDictionaryMaterializer<TCollection, TValue>(bool readOnly)
+    {
+        // Read-only dictionary wrapping is determined by the requested CLR collection shape, not by
+        // the wire format, so cache the materializer once when the mapping is created.
+        var valuesParameter = Expression.Parameter(typeof(Dictionary<string, TValue>), "values");
+        Expression body = readOnly
+            ? Expression.Convert(
+                Expression.New(
+                    typeof(ReadOnlyDictionary<string, TValue>).GetConstructor(
+                        [typeof(IDictionary<string, TValue>)])!,
+                    valuesParameter),
+                typeof(TCollection))
+            : Expression.Convert(valuesParameter, typeof(TCollection));
+
+        return Expression
+            .Lambda<Func<Dictionary<string, TValue>, TCollection>>(body, valuesParameter)
+            .Compile();
+    }
+
+    public static Func<HashSet<TElement>, TCollection>
+        CreateSetMaterializer<TCollection, TElement>()
+    {
+        // Sets always materialize through a HashSet first; compile the final CLR-shape conversion
+        // once so the runtime path stays typed and allocation-focused only on the collection
+        // itself.
+        var valuesParameter = Expression.Parameter(typeof(HashSet<TElement>), "values");
+        var body = Expression.Convert(valuesParameter, typeof(TCollection));
+
+        return Expression
+            .Lambda<Func<HashSet<TElement>, TCollection>>(body, valuesParameter)
+            .Compile();
+    }
 
     private static bool IsRequiredCollectionElement(IProperty? property, Type elementType)
         => property?.GetElementType()?.IsNullable == false

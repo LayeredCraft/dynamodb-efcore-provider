@@ -3,6 +3,7 @@ using System.Linq.Expressions;
 using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.Storage;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Metadata;
 
 namespace EntityFrameworkCore.DynamoDb.Tests.Storage;
@@ -115,7 +116,9 @@ public class DynamoTypeMappingTests
     private static SerializationContext CreateContext()
     {
         var optionsBuilder = new DbContextOptionsBuilder<SerializationContext>();
-        optionsBuilder.UseDynamo();
+        optionsBuilder
+            .UseDynamo()
+            .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning));
         return new SerializationContext(optionsBuilder.Options);
     }
 
