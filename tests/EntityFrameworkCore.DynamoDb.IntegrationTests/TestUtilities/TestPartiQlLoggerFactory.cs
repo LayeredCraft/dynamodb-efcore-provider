@@ -117,7 +117,8 @@ public sealed class TestPartiQlLoggerFactory : ILoggerFactory
             Exception? exception,
             Func<TState, Exception?, string> formatter)
         {
-            if (eventId.Id == DynamoEventId.ExecutingPartiQlQuery.Id
+            if ((eventId.Id == DynamoEventId.ExecutingPartiQlQuery.Id
+                    || eventId.Id == DynamoEventId.ExecutingPartiQlWrite.Id)
                 && state is IReadOnlyList<KeyValuePair<string, object?>> structure)
             {
                 var commandText =

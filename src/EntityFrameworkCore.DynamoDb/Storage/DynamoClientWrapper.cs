@@ -51,6 +51,37 @@ public class DynamoClientWrapper : IDynamoClientWrapper
         bool singlePageOnly = false)
         => new DynamoAsyncEnumerable(this, statementRequest, singlePageOnly);
 
+    /// <summary>
+    ///     Executes a single PartiQL write statement (INSERT, UPDATE, or DELETE) via
+    ///     <see cref="IAmazonDynamoDB.ExecuteStatementAsync" /> and returns the response.
+    /// </summary>
+    /// <param name="tableName">The target DynamoDB table name, used for diagnostics logging.</param>
+    /// <param name="statementRequest">The write statement with positional parameters.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The <see cref="ExecuteStatementResponse" /> from the DynamoDB service.</returns>
+    public async Task<ExecuteStatementResponse> ExecuteWriteStatementAsync(
+        string tableName,
+        ExecuteStatementRequest statementRequest,
+        CancellationToken cancellationToken = default)
+    {
+        return await _executionStrategy.ExecuteAsync(
+            (wrapper: this, tableName, request: statementRequest),
+            static async (_, state, ct) =>
+            {
+                state.wrapper._commandLogger.ExecutingPartiQlWrite(
+                    state.tableName,
+                    state.request.Statement);
+
+                return await state
+                    .wrapper
+                    .Client
+                    .ExecuteStatementAsync(state.request, ct)
+                    .ConfigureAwait(false);
+            },
+            null,
+            cancellationToken);
+    }
+
     /// <summary>Builds the effective SDK configuration from extension options in precedence order.</summary>
     private static AmazonDynamoDBConfig BuildAmazonDynamoDbConfig(DynamoDbOptionsExtension? options)
     {

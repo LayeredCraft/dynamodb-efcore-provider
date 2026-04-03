@@ -62,6 +62,12 @@ public static class DynamoLoggerExtensions
             DynamoEventId.ExplicitIndexSelectionDisabled,
             "{message}");
 
+    private static readonly Action<ILogger, string, string, string, Exception?>
+        LogExecutingPartiQlWrite = LoggerMessage.Define<string, string, string>(
+            LogLevel.Information,
+            DynamoEventId.ExecutingPartiQlWrite,
+            "Executing DynamoDB PartiQL write for table '{tableName}'{newLine}{commandText}");
+
     /// <summary>Provides functionality for this member.</summary>
     public static void ExecutingPartiQlQuery(
         this IDiagnosticsLogger<DbLoggerCategory.Database.Command> diagnostics,
@@ -101,6 +107,28 @@ public static class DynamoLoggerExtensions
             return;
 
         LogExecutedExecuteStatement(diagnostics.Logger, itemsCount, nextTokenPresent, null);
+    }
+
+    /// <summary>
+    ///     Logs that a PartiQL write statement (INSERT, UPDATE, or DELETE) is about to be executed.
+    /// </summary>
+    /// <param name="diagnostics">The command diagnostics logger.</param>
+    /// <param name="tableName">The target DynamoDB table name.</param>
+    /// <param name="commandText">The PartiQL statement text.</param>
+    public static void ExecutingPartiQlWrite(
+        this IDiagnosticsLogger<DbLoggerCategory.Database.Command> diagnostics,
+        string tableName,
+        string commandText)
+    {
+        if (!diagnostics.Logger.IsEnabled(LogLevel.Information))
+            return;
+
+        LogExecutingPartiQlWrite(
+            diagnostics.Logger,
+            tableName,
+            Environment.NewLine,
+            commandText,
+            null);
     }
 
     /// <summary>Logs a structured query-compilation diagnostic from automatic index selection.</summary>

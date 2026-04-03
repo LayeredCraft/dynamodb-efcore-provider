@@ -16,6 +16,7 @@ public static class DynamoEventId
         ExecutingPartiQlQuery = CoreEventId.ProviderBaseId + 100,
         ExecutingExecuteStatement = CoreEventId.ProviderBaseId + 101,
         ExecutedExecuteStatement = CoreEventId.ProviderBaseId + 102,
+        ExecutingPartiQlWrite = CoreEventId.ProviderBaseId + 110,
 
         // Query events
         NoCompatibleSecondaryIndexFound = CoreEventId.ProviderBaseId + 104,
@@ -58,6 +59,16 @@ public static class DynamoEventId
     public static readonly EventId ExecutedExecuteStatement = new(
         (int)Id.ExecutedExecuteStatement,
         CommandPrefix + Id.ExecutedExecuteStatement);
+
+    /// <summary>
+    /// A PartiQL write statement (INSERT, UPDATE, or DELETE) is going to be executed.
+    /// </summary>
+    /// <remarks>
+    /// This event is in the <c>DbLoggerCategory.Database.Command</c> category.
+    /// </remarks>
+    public static readonly EventId ExecutingPartiQlWrite = new(
+        (int)Id.ExecutingPartiQlWrite,
+        CommandPrefix + Id.ExecutingPartiQlWrite);
 
     /// <summary>No compatible secondary index was found for automatic selection.</summary>
     /// <remarks>This event is in the <c>DbLoggerCategory.Query</c> category.</remarks>
