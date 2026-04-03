@@ -247,8 +247,14 @@ internal sealed class DynamoConvertedValueReaderWriter<TModel, TProvider>(
         => innerReaderWriter.ToPartiQlLiteral((TProvider)converter.ConvertToProvider(value)!);
 
     protected override Expression CreateConstructorExpression()
-        // ValueConverter instances may carry state; preserve the exact composed converter the
-        // mapping built instead of trying to reconstruct it from type information alone.
+        // ValueConverter instances may carry state; we capture the exact converter the mapping
+        // was constructed with rather than quoting it (quoting would create a new instance on
+        // every expression-tree evaluation, forcing recompilation and degrading performance).
+        // This is safe because ValueConverter instances are model-lifetime singletons — the
+        // same lifetime as compiled queries (both are tied to the service provider).
+        // Trade-off: this pattern is incompatible with precompiled (NativeAOT / ahead-of-time)
+        // query scenarios. EF Core uses the identical approach in JsonConvertedValueReaderWriter
+        // for the same reasons (dotnet/efcore #36856).
         => Expression.New(
             Constructor,
             innerReaderWriter.ConstructorExpression,

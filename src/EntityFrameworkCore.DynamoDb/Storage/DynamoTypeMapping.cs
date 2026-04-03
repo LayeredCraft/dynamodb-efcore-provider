@@ -13,6 +13,24 @@ namespace EntityFrameworkCore.DynamoDb.Storage;
 ///     Represents a DynamoDB type mapping that owns both EF Core conversion metadata and the
 ///     provider's AttributeValue/PartiQL serialization rules.
 /// </summary>
+/// <remarks>
+///     <para>
+///         Serialization is handled by <see cref="DynamoValueReaderWriter" /> instances owned
+///         by each mapping. This is a DynamoDB-specific codec system — <b>not</b> EF Core's
+///         <c>JsonValueReaderWriter</c> infrastructure. The wire format is DynamoDB
+///         <see cref="Amazon.DynamoDBv2.Model.AttributeValue" />, not JSON, so the JSON
+///         reader/writer slot in <c>CoreTypeMappingParameters</c>
+///         is intentionally left unpopulated. Any <c>JsonValueReaderWriter</c> configured on a
+///         property via model builder is ignored by this provider.
+///     </para>
+///     <para>
+///         Literal generation uses <see cref="GenerateConstant" /> rather than
+///         <c>RelationalTypeMapping.GenerateSqlLiteral</c>. The latter is relational-only and
+///         is neither inherited by <see cref="Microsoft.EntityFrameworkCore.Storage.CoreTypeMapping" />
+///         subclasses nor auto-invoked by EF Core infrastructure for non-relational providers.
+///         This mirrors the pattern used by the EF Core Cosmos provider.
+///     </para>
+/// </remarks>
 public class DynamoTypeMapping : CoreTypeMapping
 {
     internal DynamoValueReaderWriter? ReaderWriter { get; }
@@ -91,20 +109,26 @@ public class DynamoTypeMapping : CoreTypeMapping
                 $"CLR type '{ClrType.Name}' is not supported for DynamoDB AttributeValue serialization.");
     }
 
-    /// <summary>Generates a SQL literal for a constant value in PartiQL.</summary>
+    /// <summary>Generates a PartiQL literal for a constant value.</summary>
     /// <remarks>
-    ///     This stays model-value-facing for EF, but the cached adapter forwards immediately into the
-    ///     typed Dynamo serialization pipeline owned by the mapping.
+    ///     Follows the same template method pattern as <c>RelationalTypeMapping.GenerateSqlLiteral</c>:
+    ///     this public entry point handles null, then delegates to
+    ///     <see cref="GenerateNonNullConstant" /> for non-null values. Subclasses override
+    ///     <see cref="GenerateNonNullConstant" /> rather than this method.
     /// </remarks>
     public virtual string GenerateConstant(object? value)
-    {
-        if (value == null)
-            return "NULL";
+        => value == null ? "NULL" : GenerateNonNullConstant(value);
 
-        return _untypedValueWriter?.ToPartiQlLiteral(value)
+    /// <summary>Generates a PartiQL literal for a known non-null value.</summary>
+    /// <remarks>
+    ///     This is the override point for subclasses, mirroring
+    ///     <c>RelationalTypeMapping.GenerateNonNullSqlLiteral</c>. The base implementation delegates to
+    ///     the cached typed adapter in the mapping-owned codec pipeline.
+    /// </remarks>
+    protected virtual string GenerateNonNullConstant(object value)
+        => _untypedValueWriter?.ToPartiQlLiteral(value)
             ?? throw new NotSupportedException(
                 $"CLR type '{ClrType.Name}' is not supported for PartiQL constant generation.");
-    }
 
     private static DynamoValueReaderWriter? CreateReaderWriter(CoreTypeMappingParameters parameters)
     {
