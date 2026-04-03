@@ -300,6 +300,9 @@ internal sealed class NullableDynamoValueReaderWriter<TValue>(
         => Expression.New(Constructor, innerReaderWriter.ConstructorExpression);
 
     internal override bool HasValue(AttributeValue attributeValue)
+        // DynamoDB NULL is treated as "has a value (null)" rather than "attribute absent".
+        // Returning true here lets the base Read() call through to ReadValue, which returns null.
+        // This is intentional: NULL = true round-trips as CLR null, not as a missing attribute.
         => attributeValue.NULL == true || innerReaderWriter.HasValue(attributeValue);
 
     protected override TValue? ReadValue(
