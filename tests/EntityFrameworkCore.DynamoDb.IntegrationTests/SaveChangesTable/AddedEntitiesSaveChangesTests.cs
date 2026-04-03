@@ -1,5 +1,4 @@
 using Amazon.DynamoDBv2.Model;
-using AwesomeAssertions;
 using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SaveChangesTable;
@@ -40,7 +39,7 @@ public class AddedEntitiesSaveChangesTests(SaveChangesTableDynamoFixture fixture
 
         AssertSql(
             """
-            INSERT INTO "AppItems" VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'IsActive': ?, 'Name': ?, 'Price': ?, 'PublishedAt': ?, 'Version': ?}
+            INSERT INTO "AppItems" VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CategorySet': ?, 'IsActive': ?, 'Metadata': ?, 'Name': ?, 'Price': ?, 'PublishedAt': ?, 'SearchTerms': ?, 'Version': ?}
             """);
     }
 
@@ -123,6 +122,43 @@ public class AddedEntitiesSaveChangesTests(SaveChangesTableDynamoFixture fixture
         var item = await GetItemAsync(product.Pk, product.Sk, CancellationToken);
         item.Should().NotBeNull();
         item!["PublishedAt"].NULL.Should().BeTrue();
+    }
+
+    /// <summary>A newly added entity with primitive collections persists list, map, and set wire shapes.</summary>
+    [Fact]
+    public async Task AddAsync_SessionItem_PrimitiveCollections_Persist()
+    {
+        var session = new SessionItem
+        {
+            Pk = "SESS#collections",
+            Sk = "SESSION",
+            Version = 1,
+            CustomerPk = "CUST#collections",
+            ExpiresAt = new DateTimeOffset(2025, 6, 1, 0, 0, 0, TimeSpan.Zero),
+            Scopes = ["read", "write"],
+            Attributes =
+                new Dictionary<string, string>
+                {
+                    ["device"] = "ios", ["region"] = "eu-west-1",
+                },
+            Flags = ["trusted", "mfa"],
+            Revoked = false,
+        };
+
+        Db.Sessions.Add(session);
+        await Db.SaveChangesAsync(CancellationToken);
+
+        var item = await GetItemAsync(session.Pk, session.Sk, CancellationToken);
+        item.Should().NotBeNull();
+        item!["Scopes"].L.Select(x => x.S).Should().Equal("read", "write");
+        item["Attributes"].M["device"].S.Should().Be("ios");
+        item["Attributes"].M["region"].S.Should().Be("eu-west-1");
+        item["Flags"].SS.Should().BeEquivalentTo("trusted", "mfa");
+
+        AssertSql(
+            """
+            INSERT INTO "AppItems" VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'Attributes': ?, 'CustomerPk': ?, 'ExpiresAt': ?, 'Flags': ?, 'LastSeenAt': ?, 'Revoked': ?, 'Scopes': ?, 'Version': ?}
+            """);
     }
 
     /// <summary>Entity state transitions from Added to Unchanged after a successful SaveChanges.</summary>

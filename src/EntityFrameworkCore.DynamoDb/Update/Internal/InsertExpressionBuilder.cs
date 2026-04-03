@@ -1,6 +1,6 @@
-using System.Collections;
 using EntityFrameworkCore.DynamoDb.Extensions;
 using EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
+using EntityFrameworkCore.DynamoDb.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.Update;
@@ -51,18 +51,15 @@ public sealed class InsertExpressionBuilder(ITypeMappingSource typeMappingSource
 
         foreach (var property in entityType.GetProperties())
         {
-            // Primitive collection properties (List<T>, HashSet<T>, Dictionary<TK,TV>, etc.)
-            // require map/list/set AttributeValue serialization, which is not yet implemented
-            // (planned for story 6gu.2). Throw rather than silently dropping the data.
-            if (property.ClrType != typeof(string)
-                && typeof(IEnumerable).IsAssignableFrom(property.ClrType))
-                throw new NotSupportedException(
-                    $"Property '{property.Name}' on entity type '{entityType.Name}' is a primitive "
-                    + $"collection ('{property.ClrType.Name}'). Primitive collection serialization "
-                    + "is not yet supported. Remove or exclude the property until support is added.");
-
             var paramName = $"p{paramIndex++}";
-            var typeMapping = typeMappingSource.FindMapping(property) as CoreTypeMapping;
+            var typeMapping = typeMappingSource.FindMapping(property) as DynamoTypeMapping;
+            if (typeMapping == null || !typeMapping.CanSerialize)
+                throw new NotSupportedException(
+                    $"Property '{property.Name}' on entity type '{entityType.Name}' does not have a supported DynamoDB write mapping. "
+                    + "Unsupported owned, nested, or collection shapes must fail explicitly until serialization support exists.");
+
+            // Mappings accept model CLR values and compose EF converters internally, so the update
+            // pipeline should keep passing the current model value rather than a provider value.
             var currentValue = entry.GetCurrentValue(property);
 
             // The discriminator shadow property must be populated by EF Core's conventions

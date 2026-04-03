@@ -4,7 +4,6 @@ using System.Text;
 using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using EntityFrameworkCore.DynamoDb.Storage;
-using EntityFrameworkCore.DynamoDb.Storage.Internal;
 using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EntityFrameworkCore.DynamoDb.Query.Internal;
@@ -168,7 +167,8 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
     /// <inheritdoc />
     protected override Expression VisitSqlConstant(SqlConstantExpression sqlConstantExpression)
     {
-        // Inline constant values directly into SQL using type mapping
+        // Constants and parameters must go through the same mapping-owned serialization rules so
+        // inline literals and AttributeValue parameters stay behaviorally aligned.
         if (sqlConstantExpression.TypeMapping is DynamoTypeMapping dynamoTypeMapping)
             _sql.Append(dynamoTypeMapping.GenerateConstant(sqlConstantExpression.Value));
         else
@@ -584,15 +584,14 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
     private void AppendParameter(object? value, CoreTypeMapping? typeMapping)
     {
         _sql.Append('?');
-        _parameters.Add(ConvertToAttributeValue(value, typeMapping));
+        _parameters.Add(
+            // Parameter conversion is model-value-facing; the mapping composes any EF converter and
+            // then serializes to the correct DynamoDB wire shape.
+            (typeMapping as DynamoTypeMapping)?.CreateAttributeValue(value)
+            ?? throw new InvalidOperationException(
+                $"Query parameter requires a DynamoTypeMapping. Got: {typeMapping?.GetType().Name ?? "null"}"));
     }
 
     /// <summary>Appends a predicate that is guaranteed to evaluate to false.</summary>
     private void AppendAlwaysFalsePredicate() => _sql.Append("1 = 0");
-
-    /// <summary>Delegates to the shared <see cref="DynamoAttributeValueConverter" />.</summary>
-    private static AttributeValue ConvertToAttributeValue(
-        object? value,
-        CoreTypeMapping? typeMapping)
-        => DynamoAttributeValueConverter.Convert(value, typeMapping);
 }

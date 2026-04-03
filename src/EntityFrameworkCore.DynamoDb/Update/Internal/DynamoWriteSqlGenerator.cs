@@ -2,7 +2,7 @@ using System.Text;
 using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.Query.Internal;
 using EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
-using EntityFrameworkCore.DynamoDb.Storage.Internal;
+using EntityFrameworkCore.DynamoDb.Storage;
 
 namespace EntityFrameworkCore.DynamoDb.Update.Internal;
 
@@ -11,9 +11,8 @@ namespace EntityFrameworkCore.DynamoDb.Update.Internal;
 /// </summary>
 /// <remarks>
 ///     This generator walks the expression tree produced by <see cref="InsertExpressionBuilder" />
-///     and emits the corresponding PartiQL with positional <c>?</c> parameters. No raw CLR values
-///     pass through this class — values are extracted from the expression tree nodes and converted
-///     to <see cref="AttributeValue" /> via <see cref="DynamoAttributeValueConverter" />.
+///     and emits the corresponding PartiQL with positional <c>?</c> parameters. Value conversion
+///     is owned by <see cref="DynamoTypeMapping" />.
 /// </remarks>
 public sealed class DynamoWriteSqlGenerator
 {
@@ -79,13 +78,21 @@ public sealed class DynamoWriteSqlGenerator
             case SqlParameterExpression param:
                 parameterValues.TryGetValue(param.Name, out var value);
                 sql.Append('?');
-                parameters.Add(DynamoAttributeValueConverter.Convert(value, param.TypeMapping));
+                parameters.Add(
+                    // SaveChanges writes stay model-value-facing; the mapping owns converter
+                    // composition and AttributeValue creation for both scalars and collections.
+                    (param.TypeMapping as DynamoTypeMapping)?.CreateAttributeValue(value)
+                    ?? throw new InvalidOperationException(
+                        $"INSERT parameter '{param.Name}' requires a DynamoTypeMapping."));
                 break;
 
             case SqlConstantExpression constant:
                 sql.Append('?');
                 parameters.Add(
-                    DynamoAttributeValueConverter.Convert(constant.Value, constant.TypeMapping));
+                    (constant.TypeMapping as DynamoTypeMapping)?.CreateAttributeValue(
+                        constant.Value)
+                    ?? throw new InvalidOperationException(
+                        "INSERT constant requires a DynamoTypeMapping."));
                 break;
 
             default:
