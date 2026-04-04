@@ -4,7 +4,6 @@ using System.Linq.Expressions;
 using System.Reflection;
 using Amazon.DynamoDBv2.Model;
 using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Microsoft.EntityFrameworkCore.Update;
 
 namespace EntityFrameworkCore.DynamoDb.Storage;
@@ -18,11 +17,16 @@ namespace EntityFrameworkCore.DynamoDb.Storage;
 /// <remarks>
 /// This service mirrors the role of <c>EntityMaterializerSource</c> on the read side:
 /// model metadata drives a one-time compilation step, and the compiled delegate handles
-/// the hot path without reflection. Register as a scoped service so the cache is shared
-/// across a single <see cref="Microsoft.EntityFrameworkCore.DbContext"/> lifetime.
+/// the hot path without reflection. Register as a singleton so the compiled-delegate cache
+/// is shared across all <see cref="Microsoft.EntityFrameworkCore.DbContext"/> lifetimes and
+/// entity types are only compiled once per application.
 /// </remarks>
 public sealed class DynamoEntityItemSerializerSource
 {
+    // ──────────────────────────────────────────────────────────────────────────────
+    //  Cached reflection members — resolved once at class init, used at build time
+    // ──────────────────────────────────────────────────────────────────────────────
+
     /// <summary>
     /// The <c>GetCurrentValue&lt;T&gt;</c> open generic on <see cref="IUpdateEntry"/>.
     /// Resolved once and stored so MakeGenericMethod can be called per property at build time.
@@ -33,6 +37,37 @@ public sealed class DynamoEntityItemSerializerSource
             && m.IsGenericMethod
             && m.GetParameters() is [{ ParameterType: var pt }]
             && pt == typeof(IPropertyBase));
+
+    // AttributeValue property accessors — used in MemberInit expressions.
+    private static readonly PropertyInfo AttributeValueSProperty =
+        typeof(AttributeValue).GetProperty(nameof(AttributeValue.S))!;
+
+    private static readonly PropertyInfo AttributeValueBoolProperty =
+        typeof(AttributeValue).GetProperty(nameof(AttributeValue.BOOL))!;
+
+    private static readonly PropertyInfo AttributeValueNProperty =
+        typeof(AttributeValue).GetProperty(nameof(AttributeValue.N))!;
+
+    private static readonly PropertyInfo AttributeValueNullProperty =
+        typeof(AttributeValue).GetProperty(nameof(AttributeValue.NULL))!;
+
+    // Open-generic MethodInfo for collection helpers — closed via MakeGenericMethod per element
+    // type.
+    private static readonly MethodInfo SerializeNumericSetOpenMethod =
+        typeof(DynamoAttributeValueCollectionHelpers).GetMethod(
+            nameof(DynamoAttributeValueCollectionHelpers.SerializeNumericSet))!;
+
+    private static readonly MethodInfo SerializeDictionaryOpenMethod =
+        typeof(DynamoAttributeValueCollectionHelpers).GetMethod(
+            nameof(DynamoAttributeValueCollectionHelpers.SerializeDictionary))!;
+
+    private static readonly MethodInfo SerializeListOpenMethod =
+        typeof(DynamoAttributeValueCollectionHelpers).GetMethod(
+            nameof(DynamoAttributeValueCollectionHelpers.SerializeList))!;
+
+    private static readonly MethodInfo SerializeStringSetMethod =
+        typeof(DynamoAttributeValueCollectionHelpers).GetMethod(
+            nameof(DynamoAttributeValueCollectionHelpers.SerializeStringSet))!;
 
     private readonly ConcurrentDictionary<IEntityType, CompiledEntitySerializer> _cache = new();
 
@@ -108,12 +143,17 @@ public sealed class DynamoEntityItemSerializerSource
         var clrType = property.ClrType;
         var converter = property.GetTypeMapping().Converter;
 
-        // entry.GetCurrentValue<ClrType>(property) — strongly typed, no boxing for value types.
-        Expression valueExpr = Expression.Call(
-            entryParam,
-            GetCurrentValueOpenMethod.MakeGenericMethod(clrType),
-            Expression.Constant(property, typeof(IPropertyBase)));
+        // Capture the raw EF Core value in a local variable so it is read exactly once,
+        // even when we need it both as the converter input and as the null-guard test subject.
+        var rawVar = Expression.Variable(clrType, "rawValue");
+        var assignRaw = Expression.Assign(
+            rawVar,
+            Expression.Call(
+                entryParam,
+                GetCurrentValueOpenMethod.MakeGenericMethod(clrType),
+                Expression.Constant(property, typeof(IPropertyBase))));
 
+        Expression valueExpr = rawVar;
         Type effectiveType = clrType;
         bool needsNullableGuard = false;
 
@@ -130,10 +170,10 @@ public sealed class DynamoEntityItemSerializerSource
             //   2. Emit the outer null guard ourselves rather than relying on
             //      BuildAttributeValueExpression, because that guard needs to test the
             //      original Nullable<T> value before the converter runs.
-            Expression converterInput = valueExpr;
+            Expression converterInput = rawVar;
             if (Nullable.GetUnderlyingType(clrType) == converterInputType)
             {
-                converterInput = Expression.Property(valueExpr, "Value");
+                converterInput = Expression.Property(rawVar, "Value");
                 needsNullableGuard = true;
             }
 
@@ -143,24 +183,23 @@ public sealed class DynamoEntityItemSerializerSource
             effectiveType = converter.ProviderClrType;
         }
 
-        var body = BuildAttributeValueExpression(valueExpr, effectiveType);
+        Expression body = BuildAttributeValueExpression(valueExpr, effectiveType);
 
         // Add the pre-converter null guard when we unwrapped a Nullable<T>.
         // BuildAttributeValueExpression may add a null guard for the converter's output type, but
         // that doesn't protect against the original Nullable<T> being null before conversion.
         if (needsNullableGuard)
         {
-            Expression rawValueExpr = Expression.Call(
-                entryParam,
-                GetCurrentValueOpenMethod.MakeGenericMethod(clrType),
-                Expression.Constant(property, typeof(IPropertyBase)));
             body = Expression.Condition(
-                Expression.Equal(rawValueExpr, Expression.Constant(null, clrType)),
+                Expression.Equal(rawVar, Expression.Constant(null, clrType)),
                 NullAttributeValueExpr,
                 body);
         }
 
-        return Expression.Lambda<Func<IUpdateEntry, AttributeValue>>(body, entryParam).Compile();
+        // Block: { ClrType rawValue = entry.GetCurrentValue<ClrType>(property); return <body>; }
+        var block = Expression.Block(typeof(AttributeValue), [rawVar], assignRaw, body);
+
+        return Expression.Lambda<Func<IUpdateEntry, AttributeValue>>(block, entryParam).Compile();
     }
 
     /// <summary>
@@ -247,16 +286,16 @@ public sealed class DynamoEntityItemSerializerSource
         // --- Collections: call typed static helpers to avoid complex expression trees ---
 
         if (DynamoTypeMappingSource.TryGetSetElementType(coreType, out var setElementType))
-            return BuildSetHelperCall(valueExpr, coreType, setElementType);
+            return BuildSetHelperCall(valueExpr, setElementType);
 
         if (DynamoTypeMappingSource.TryGetDictionaryValueType(
             coreType,
             out var dictValueType,
             out _))
-            return BuildDictionaryHelperCall(valueExpr, coreType, dictValueType);
+            return BuildDictionaryHelperCall(valueExpr, dictValueType);
 
         if (DynamoTypeMappingSource.TryGetListElementType(coreType, out var listElementType))
-            return BuildListHelperCall(valueExpr, coreType, listElementType);
+            return BuildListHelperCall(valueExpr, listElementType);
 
         throw new NotSupportedException(
             $"CLR type '{coreType.FullName}' has no DynamoDB AttributeValue mapping. "
@@ -265,50 +304,24 @@ public sealed class DynamoEntityItemSerializerSource
 
     // --- Typed collection helper call builders ---
 
-    private static Expression BuildSetHelperCall(
-        Expression valueExpr,
-        Type setType,
-        Type elementType)
+    private static Expression BuildSetHelperCall(Expression valueExpr, Type elementType)
     {
         if (elementType == typeof(string))
-        {
-            var method =
-                typeof(DynamoAttributeValueCollectionHelpers).GetMethod(
-                    nameof(DynamoAttributeValueCollectionHelpers.SerializeStringSet))!;
-            return Expression.Call(method, valueExpr);
-        }
+            return Expression.Call(SerializeStringSetMethod, valueExpr);
 
         // Numeric set — generic method dispatched on element type.
-        var genericMethod =
-            typeof(DynamoAttributeValueCollectionHelpers).GetMethod(
-                    nameof(DynamoAttributeValueCollectionHelpers.SerializeNumericSet))!
-                .MakeGenericMethod(elementType);
-        return Expression.Call(genericMethod, valueExpr);
+        return Expression.Call(
+            SerializeNumericSetOpenMethod.MakeGenericMethod(elementType),
+            valueExpr);
     }
 
-    private static Expression BuildDictionaryHelperCall(
-        Expression valueExpr,
-        Type dictType,
-        Type valueElementType)
-    {
-        var genericMethod =
-            typeof(DynamoAttributeValueCollectionHelpers).GetMethod(
-                    nameof(DynamoAttributeValueCollectionHelpers.SerializeDictionary))!
-                .MakeGenericMethod(valueElementType);
-        return Expression.Call(genericMethod, valueExpr);
-    }
+    private static Expression BuildDictionaryHelperCall(Expression valueExpr, Type valueElementType)
+        => Expression.Call(
+            SerializeDictionaryOpenMethod.MakeGenericMethod(valueElementType),
+            valueExpr);
 
-    private static Expression BuildListHelperCall(
-        Expression valueExpr,
-        Type listType,
-        Type elementType)
-    {
-        var genericMethod =
-            typeof(DynamoAttributeValueCollectionHelpers).GetMethod(
-                nameof(DynamoAttributeValueCollectionHelpers.SerializeList))!.MakeGenericMethod(
-                elementType);
-        return Expression.Call(genericMethod, valueExpr);
-    }
+    private static Expression BuildListHelperCall(Expression valueExpr, Type elementType)
+        => Expression.Call(SerializeListOpenMethod.MakeGenericMethod(elementType), valueExpr);
 
     // ──────────────────────────────────────────────────────────────────────────────
     //  Expression helpers
@@ -317,31 +330,27 @@ public sealed class DynamoEntityItemSerializerSource
     private static readonly MemberInitExpression NullAttributeValueExpr = Expression.MemberInit(
         Expression.New(typeof(AttributeValue)),
         Expression.Bind(
-            typeof(AttributeValue).GetProperty(nameof(AttributeValue.NULL))!,
+            AttributeValueNullProperty,
             // NULL is bool? — must convert from bool constant to avoid invalid IL.
             Expression.Convert(Expression.Constant(true), typeof(bool?))));
 
     private static MemberInitExpression MakeAttributeValueS(Expression valueExpr)
         => Expression.MemberInit(
             Expression.New(typeof(AttributeValue)),
-            Expression.Bind(
-                typeof(AttributeValue).GetProperty(nameof(AttributeValue.S))!,
-                valueExpr));
+            Expression.Bind(AttributeValueSProperty, valueExpr));
 
     private static MemberInitExpression MakeAttributeValueBool(Expression valueExpr)
         => Expression.MemberInit(
             Expression.New(typeof(AttributeValue)),
             Expression.Bind(
-                typeof(AttributeValue).GetProperty(nameof(AttributeValue.BOOL))!,
+                AttributeValueBoolProperty,
                 // BOOL is bool? — must convert from bool to avoid invalid IL.
                 Expression.Convert(valueExpr, typeof(bool?))));
 
     private static MemberInitExpression MakeAttributeValueN(Expression valueExpr)
         => Expression.MemberInit(
             Expression.New(typeof(AttributeValue)),
-            Expression.Bind(
-                typeof(AttributeValue).GetProperty(nameof(AttributeValue.N))!,
-                valueExpr));
+            Expression.Bind(AttributeValueNProperty, valueExpr));
 
     /// <summary>Builds <c>value.ToString()</c> for a type that has a zero-argument ToString.</summary>
     private static MethodCallExpression CallToString(Expression valueExpr)
