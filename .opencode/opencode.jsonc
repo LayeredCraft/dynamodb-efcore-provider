@@ -16,7 +16,9 @@
         "--settings=EntityFrameworkCore.DynamoDb.sln.DotSettings",
       ],
       "extensions": [
-        ".cs"
+        ".cs",
+        ".props",
+        ".csproj",
       ]
     },
     "mdformat": {
