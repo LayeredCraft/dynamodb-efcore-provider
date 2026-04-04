@@ -281,7 +281,14 @@ public class DynamoTypeMappingSource(TypeMappingSourceDependencies dependencies)
             || type == typeof(float)
             || type == typeof(double)
             || type == typeof(decimal)
-            || type == typeof(byte[]);
+            || type == typeof(byte[])
+            // Temporal and identity types are handled natively by the provider's serializer
+            // (DateTimeOffset/DateTime → S with "O" format, Guid → S via ToString).
+            // Declaring them as primitives here prevents EF Core from falling back to its own
+            // DateTimeOffsetToStringConverter / GuidToStringConverter which use different formats.
+            || type == typeof(Guid)
+            || type == typeof(DateTime)
+            || type == typeof(DateTimeOffset);
 
     /// <summary>
     ///     Checks whether a set element provider type can be represented by DynamoDB set wire

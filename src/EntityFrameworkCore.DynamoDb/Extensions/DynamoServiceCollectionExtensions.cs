@@ -39,6 +39,8 @@ public static class DynamoServiceCollectionExtensions
                 .TryAdd<IQueryCompilationContextFactory, DynamoQueryCompilationContextFactory>()
                 .TryAddProviderSpecificServices(services => services
                     .TryAddScoped<IDynamoClientWrapper, DynamoClientWrapper>()
+                    .TryAddScoped<DynamoEntityItemSerializerSource>(_
+                        => new DynamoEntityItemSerializerSource())
                     .TryAddSingleton<ISqlExpressionFactory, SqlExpressionFactory>()
                     .TryAddSingleton<IDynamoQuerySqlGeneratorFactory,
                         DynamoQuerySqlGeneratorFactory>()
