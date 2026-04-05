@@ -163,6 +163,34 @@ public sealed record SessionItem
     public DateTimeOffset? LastSeenAt { get; set; }
 }
 
+/// <summary>Represents the ConverterCoverageItem type.</summary>
+public sealed record ConverterCoverageItem
+{
+    /// <summary>Provides functionality for this member.</summary>
+    public string Pk { get; set; } = null!;
+
+    /// <summary>Provides functionality for this member.</summary>
+    public string Sk { get; set; } = null!;
+
+    /// <summary>Provides functionality for this member.</summary>
+    public long Version { get; set; }
+
+    /// <summary>Provides functionality for this member.</summary>
+    public Guid ExternalId { get; set; }
+
+    /// <summary>Provides functionality for this member.</summary>
+    public DateTimeOffset OccurredAt { get; set; }
+
+    /// <summary>Provides functionality for this member.</summary>
+    public byte[] Payload { get; set; } = [];
+
+    /// <summary>Provides functionality for this member.</summary>
+    public HashSet<byte[]>? BinaryTags { get; set; }
+
+    /// <summary>Provides functionality for this member.</summary>
+    public List<DateTimeOffset> History { get; set; } = [];
+}
+
 /// <summary>Represents the CustomerProfile type.</summary>
 public sealed record CustomerProfile
 {

@@ -1137,9 +1137,11 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
         var isDynamoNullExpression = OrElse(isAttributeValueNullExpression, isNullFlagExpression);
 
         Expression valueExpression;
-        var isCollectionType = DynamoTypeMappingSource.TryGetDictionaryValueType(type, out _, out _)
-            || DynamoTypeMappingSource.TryGetSetElementType(type, out _)
-            || DynamoTypeMappingSource.TryGetListElementType(type, out _);
+        var nonNullableType = Nullable.GetUnderlyingType(type) ?? type;
+        var isCollectionType = nonNullableType != typeof(byte[])
+            && (DynamoTypeMappingSource.TryGetDictionaryValueType(type, out _, out _)
+                || DynamoTypeMappingSource.TryGetSetElementType(type, out _)
+                || DynamoTypeMappingSource.TryGetListElementType(type, out _));
 
         if (isCollectionType)
         {
@@ -1309,14 +1311,7 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
             || nonNullableType == typeof(ulong)
             || nonNullableType == typeof(float)
             || nonNullableType == typeof(double)
-            || nonNullableType == typeof(decimal)
-            // Temporal and identity types are stored as S and parsed on read.
-            // These must be declared as provider primitives (in DynamoTypeMappingSource)
-            // so EF Core does not wrap them with DateTimeOffsetToStringConverter /
-            // GuidToStringConverter.
-            || nonNullableType == typeof(Guid)
-            || nonNullableType == typeof(DateTime)
-            || nonNullableType == typeof(DateTimeOffset);
+            || nonNullableType == typeof(decimal);
     }
 
     /// <summary>
@@ -1326,11 +1321,9 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
     /// <remarks>
     ///     Maps AttributeValue properties to wire primitive CLR types:
     ///     <list type="bullet">
-    ///         <item>string / Guid / DateTime / DateTimeOffset → attributeValue.S (parsed as needed)</item>
+    ///         <item>string → attributeValue.S</item>
     ///         <item>bool → attributeValue.BOOL ?? false (non-nullable only)</item>
-    ///         <item>long → long.Parse(attributeValue.N)</item>
-    ///         <item>double → double.Parse(attributeValue.N)</item>
-    ///         <item>decimal → decimal.Parse(attributeValue.N)</item>
+    ///         <item>numeric primitives → Parse(attributeValue.N, InvariantCulture)</item>
     ///         <item>byte[] → attributeValue.B?.ToArray()</item>
     ///     </list>
     /// </remarks>
@@ -1375,46 +1368,9 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
             || primitiveType == typeof(decimal))
             return CreateNumericStringParseExpression(nProperty, primitiveType);
 
-        // Temporal and identity types are stored as S strings and parsed on read.
-        // Use Parse (not ParseExact) for temporal types so that values written by external tools
-        // (e.g. DynamoMapper) in slightly different ISO 8601 variants (no fractional seconds,
-        // Z suffix, etc.) are still accepted. InvariantCulture ensures locale-independence.
-        // Guid:           Guid.Parse(attributeValue.S)
-        // DateTime:       DateTime.Parse(attributeValue.S, InvariantCulture, RoundtripKind)
-        // DateTimeOffset: DateTimeOffset.Parse(attributeValue.S, InvariantCulture)
-        var sProperty = Property(attributeValueExpression, AttributeValueSProperty);
-
-        if (primitiveType == typeof(Guid))
-            return Call(typeof(Guid).GetMethod(nameof(Guid.Parse), [typeof(string)])!, sProperty);
-
-        if (primitiveType == typeof(DateTime))
-            return Call(
-                typeof(DateTime).GetMethod(
-                    nameof(DateTime.Parse),
-                    [
-                        typeof(string),
-                        typeof(IFormatProvider),
-                        typeof(System.Globalization.DateTimeStyles)
-                    ])!,
-                sProperty,
-                Constant(
-                    System.Globalization.CultureInfo.InvariantCulture,
-                    typeof(IFormatProvider)),
-                Constant(System.Globalization.DateTimeStyles.RoundtripKind));
-
-        if (primitiveType == typeof(DateTimeOffset))
-            return Call(
-                typeof(DateTimeOffset).GetMethod(
-                    nameof(DateTimeOffset.Parse),
-                    [typeof(string), typeof(IFormatProvider)])!,
-                sProperty,
-                Constant(
-                    System.Globalization.CultureInfo.InvariantCulture,
-                    typeof(IFormatProvider)));
-
         throw new InvalidOperationException(
             $"Cannot create expression for AttributeValue to primitive type '{primitiveType.Name}'. "
-            + $"Supported types: string, bool, numeric types (int, long, float, double, decimal, etc.), byte[], Guid, DateTime, DateTimeOffset");
+            + "Supported types: string, bool, numeric types (int, long, float, double, decimal, etc.), and byte[].");
     }
 
     /// <summary>Checks whether a CLR type is a non-nullable value type.</summary>
@@ -1426,10 +1382,7 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
     ///     type.
     /// </summary>
     private static string GetExpectedWireMemberName(Type wireType)
-        => wireType == typeof(string)
-            || wireType == typeof(Guid)
-            || wireType == typeof(DateTime)
-            || wireType == typeof(DateTimeOffset) ? nameof(AttributeValue.S) :
+        => wireType == typeof(string) ? nameof(AttributeValue.S) :
             wireType == typeof(bool) ? nameof(AttributeValue.BOOL) :
             wireType == typeof(byte[]) ? nameof(AttributeValue.B) : nameof(AttributeValue.N);
 
@@ -1439,11 +1392,7 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
         Type wireType,
         out Expression hasWireValueExpression)
     {
-        // string, Guid, DateTime, DateTimeOffset all use AttributeValue.S
-        if (wireType == typeof(string)
-            || wireType == typeof(Guid)
-            || wireType == typeof(DateTime)
-            || wireType == typeof(DateTimeOffset))
+        if (wireType == typeof(string))
         {
             hasWireValueExpression = NotEqual(
                 Property(attributeValueExpression, AttributeValueSProperty),

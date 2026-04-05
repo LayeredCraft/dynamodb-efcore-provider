@@ -35,17 +35,6 @@ public class DynamoTypeMappingSource(TypeMappingSourceDependencies dependencies)
         return mapping;
     }
 
-    /// <summary>Resolves mapping for primitive collection element metadata, including value converters.</summary>
-    public override CoreTypeMapping? FindMapping(IElementType elementType)
-    {
-        var mapping = FindMapping(new TypeMappingInfo(elementType.ClrType));
-        if (mapping == null)
-            return null;
-
-        var valueConverter = elementType.GetValueConverter();
-        return valueConverter == null ? mapping : mapping.WithComposedConverter(valueConverter);
-    }
-
     /// <summary>Resolves provider mapping for primitives and strict primitive collection shapes.</summary>
     protected override CoreTypeMapping? FindMapping(in TypeMappingInfo mappingInfo)
     {
@@ -61,13 +50,17 @@ public class DynamoTypeMappingSource(TypeMappingSourceDependencies dependencies)
             clrType,
             out var dictionaryValueType,
             out var readOnlyDictionary))
-            return FindDictionaryTypeMapping(clrType, dictionaryValueType, readOnlyDictionary);
+            return FindDictionaryTypeMapping(
+                clrType,
+                dictionaryValueType,
+                readOnlyDictionary,
+                mappingInfo.ElementTypeMapping);
 
         if (TryGetSetElementType(clrType, out var setElementType))
-            return FindSetTypeMapping(clrType, setElementType);
+            return FindSetTypeMapping(clrType, setElementType, mappingInfo.ElementTypeMapping);
 
         if (TryGetListElementType(clrType, out var listElementType))
-            return FindListTypeMapping(clrType, listElementType);
+            return FindListTypeMapping(clrType, listElementType, mappingInfo.ElementTypeMapping);
 
         return null;
     }
@@ -76,9 +69,10 @@ public class DynamoTypeMappingSource(TypeMappingSourceDependencies dependencies)
     private CoreTypeMapping? FindDictionaryTypeMapping(
         Type clrType,
         Type valueType,
-        bool readOnlyDictionary)
+        bool readOnlyDictionary,
+        CoreTypeMapping? valueMapping)
     {
-        var valueMapping = FindMapping(new TypeMappingInfo(valueType));
+        valueMapping ??= FindMapping(valueType);
         if (valueMapping == null)
             return null;
 
@@ -99,9 +93,12 @@ public class DynamoTypeMappingSource(TypeMappingSourceDependencies dependencies)
     }
 
     /// <summary>Builds a set mapping with composed element mapping and set comparer.</summary>
-    private CoreTypeMapping? FindSetTypeMapping(Type clrType, Type elementType)
+    private CoreTypeMapping? FindSetTypeMapping(
+        Type clrType,
+        Type elementType,
+        CoreTypeMapping? elementMapping)
     {
-        var elementMapping = FindMapping(new TypeMappingInfo(elementType));
+        elementMapping ??= FindMapping(elementType);
         if (elementMapping == null)
             return null;
 
@@ -126,9 +123,12 @@ public class DynamoTypeMappingSource(TypeMappingSourceDependencies dependencies)
     }
 
     /// <summary>Builds a list mapping with composed element mapping and list comparer.</summary>
-    private CoreTypeMapping? FindListTypeMapping(Type clrType, Type elementType)
+    private CoreTypeMapping? FindListTypeMapping(
+        Type clrType,
+        Type elementType,
+        CoreTypeMapping? elementMapping)
     {
-        var elementMapping = FindMapping(new TypeMappingInfo(elementType));
+        elementMapping ??= FindMapping(elementType);
         if (elementMapping == null)
             return null;
 
@@ -281,14 +281,7 @@ public class DynamoTypeMappingSource(TypeMappingSourceDependencies dependencies)
             || type == typeof(float)
             || type == typeof(double)
             || type == typeof(decimal)
-            || type == typeof(byte[])
-            // Temporal and identity types are handled natively by the provider's serializer
-            // (DateTimeOffset/DateTime → S with "O" format, Guid → S via ToString).
-            // Declaring them as primitives here prevents EF Core from falling back to its own
-            // DateTimeOffsetToStringConverter / GuidToStringConverter which use different formats.
-            || type == typeof(Guid)
-            || type == typeof(DateTime)
-            || type == typeof(DateTimeOffset);
+            || type == typeof(byte[]);
 
     /// <summary>
     ///     Checks whether a set element provider type can be represented by DynamoDB set wire

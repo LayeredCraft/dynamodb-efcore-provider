@@ -48,7 +48,7 @@ public class DynamoDatabaseWrapper(
         // ToEntityEntry().Entity is the canonical path from IUpdateEntry to the CLR object.
         var ownedEntries = entries
             .Where(static e => e.EntityType.IsOwned())
-            .ToDictionary(e => e.ToEntityEntry().Entity);
+            .ToDictionary(e => e.ToEntityEntry().Entity, ReferenceEqualityComparer.Instance);
 
         var rootEntries = entries
             .Where(static e => !e.EntityType.IsOwned() && e.EntityState == EntityState.Added)

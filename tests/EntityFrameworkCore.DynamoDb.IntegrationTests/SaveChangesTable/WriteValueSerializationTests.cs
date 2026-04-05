@@ -48,7 +48,13 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
         item["Version"].N.Should().Be("7");
         item["Email"].S.Should().Be("scalar@test.com");
         item["IsPreferred"].BOOL.Should().BeTrue();
-        item["CreatedAt"].S.Should().Be("2026-03-01T12:00:00.0000000+00:00");
+        item["CreatedAt"]
+            .S
+            .Should()
+            .Be(
+                GetExpectedProviderString<CustomerItem>(
+                    nameof(CustomerItem.CreatedAt),
+                    entity.CreatedAt));
         item["NullableNote"].NULL.Should().BeTrue();
         item["$type"].S.Should().Be("CustomerItem");
     }
@@ -72,7 +78,7 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
         Db.Customers.Add(entity);
         await Db.SaveChangesAsync(CancellationToken);
 
-        Db.Entry(entity).State.Should().Be(Microsoft.EntityFrameworkCore.EntityState.Unchanged);
+        Db.Entry(entity).State.Should().Be(EntityState.Unchanged);
     }
 
     // ──────────────────────────────────────────────────────────────────────────────
@@ -253,7 +259,13 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
         first["Kind"].S.Should().Be("email");
         first["Value"].S.Should().Be("a@b.com");
         first["Verified"].BOOL.Should().BeTrue();
-        first["VerifiedAt"].S.Should().Be("2026-01-01T00:00:00.0000000+00:00");
+        first["VerifiedAt"]
+            .S
+            .Should()
+            .Be(
+                GetExpectedProviderString<CustomerContact>(
+                    nameof(CustomerContact.VerifiedAt),
+                    entity.Contacts[0].VerifiedAt));
         first.Should().NotContainKey("Address"); // null OwnsOne inside OwnsMany is omitted
 
         var second = contacts[1].M;
@@ -521,6 +533,27 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
         // Build the expected baseline from the DynamoMapper (authoritative serializer for tests).
         var expected = SaveChangesCustomerItemMapper.ToItem(entity);
         expected["$type"] = new AttributeValue { S = "CustomerItem" };
+        expected["CreatedAt"] = new AttributeValue
+        {
+            S = GetExpectedProviderString<CustomerItem>(
+                nameof(CustomerItem.CreatedAt),
+                entity.CreatedAt),
+        };
+
+        if (expected.TryGetValue("Contacts", out var expectedContactsAttribute))
+            for (var i = 0; i < entity.Contacts.Count; i++)
+            {
+                var verifiedAt = entity.Contacts[i].VerifiedAt;
+                if (verifiedAt is null)
+                    continue;
+
+                expectedContactsAttribute.L[i].M["VerifiedAt"] = new AttributeValue
+                {
+                    S = GetExpectedProviderString<CustomerContact>(
+                        nameof(CustomerContact.VerifiedAt),
+                        verifiedAt),
+                };
+            }
 
         // Compare attribute-by-attribute for clear failure messages on mismatch.
         // DynamoMapper writes null owned-navigations as explicit NULL attributes; the provider
@@ -646,5 +679,29 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
             actual.L.Should().NotBeNull($"attribute '{path}' should be an empty list");
             actual.L.Should().BeEmpty($"attribute '{path}' should be an empty list");
         }
+    }
+
+    private string GetExpectedProviderString<TEntity>(string propertyName, object? value)
+        where TEntity : class
+        => (string?)GetExpectedProviderValue(typeof(TEntity), propertyName, value)
+            ?? throw new InvalidOperationException(
+                $"Expected provider value for '{typeof(TEntity).Name}.{propertyName}' to be a string.");
+
+    private object? GetExpectedProviderValue(Type entityClrType, string propertyName, object? value)
+    {
+        if (value == null)
+            return null;
+
+        var property =
+            Db
+                .Model
+                .GetEntityTypes()
+                .Single(entityType
+                    => entityType.ClrType == entityClrType
+                    && entityType.FindProperty(propertyName) is not null)
+                .FindProperty(propertyName)!;
+
+        var converter = property.GetTypeMapping().Converter;
+        return converter == null ? value : converter.ConvertToProvider(value);
     }
 }

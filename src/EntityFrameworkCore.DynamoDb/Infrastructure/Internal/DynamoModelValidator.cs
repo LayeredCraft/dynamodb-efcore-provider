@@ -802,11 +802,7 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
 
     /// <summary>Maps a CLR type to the DynamoDB key type categories used in validation.</summary>
     private static DynamoKeyTypeCategory GetKeyTypeCategory(Type clrType)
-        => clrType == typeof(string)
-            // Guid, DateTime, DateTimeOffset are provider primitives stored as S — valid key types.
-            || clrType == typeof(Guid)
-            || clrType == typeof(DateTime)
-            || clrType == typeof(DateTimeOffset) ? DynamoKeyTypeCategory.String :
+        => clrType == typeof(string) ? DynamoKeyTypeCategory.String :
             clrType == typeof(byte[]) ? DynamoKeyTypeCategory.Binary :
             IsNumericType(clrType) ? DynamoKeyTypeCategory.Number :
             DynamoKeyTypeCategory.Unsupported;
