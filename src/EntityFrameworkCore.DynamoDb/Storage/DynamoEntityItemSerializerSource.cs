@@ -11,6 +11,10 @@ namespace EntityFrameworkCore.DynamoDb.Storage;
 
 /// <summary>
 /// Builds and caches typed write plans per <see cref="IEntityType"/> for SaveChanges.
+/// Each plan holds one pre-compiled <see cref="Func{IUpdateEntry,AttributeValue}"/> per property,
+/// produced at plan-build time by dispatching on the property's provider CLR type via
+/// <see cref="DispatchSupportedDirectType{TFactory}"/>. Write-time execution is just delegate
+/// invocation — no reflection, no boxing beyond what EF Core's ValueConverter API requires.
 /// </summary>
 public sealed class DynamoEntityItemSerializerSource
 {
@@ -39,7 +43,8 @@ public sealed class DynamoEntityItemSerializerSource
         var propertyWriters = entityType
             .GetProperties()
             .Where(static p => !(p.IsShadowProperty() && p.IsKey()))
-            .Select(CreatePropertyWriter)
+            .Select(static p
+                => new PropertyWriteAction(p.GetAttributeName(), CreatePropertySerializer(p)))
             .ToList();
 
         var ownedNavigations = entityType
@@ -50,152 +55,86 @@ public sealed class DynamoEntityItemSerializerSource
         return new EntityWritePlan(propertyWriters, ownedNavigations);
     }
 
-    private static PropertyWriteAction CreatePropertyWriter(IProperty property)
-        => new(property.GetAttributeName(), CreatePropertySerializer(property));
-
+    /// <summary>
+    ///     Selects and builds the typed write delegate for a single property. Detects the collection
+    ///     shape (dictionary, set, list) or falls back to scalar, then branches on whether an element- or
+    ///     property-level converter is present to pick the right factory.
+    /// </summary>
     private static Func<IUpdateEntry, AttributeValue> CreatePropertySerializer(IProperty property)
     {
         var clrType = property.ClrType;
         var typeMapping = property.GetTypeMapping();
-        var nonNullableType = Nullable.GetUnderlyingType(clrType) ?? clrType;
 
+        // byte[] is a reference type that looks like a collection but maps to a single Binary
+        // attribute.
+        var nonNullableType = Nullable.GetUnderlyingType(clrType) ?? clrType;
         if (nonNullableType == typeof(byte[]))
-            return CreateScalarPropertySerializer(property, clrType, typeMapping.Converter);
+            return BuildScalarSerializer(property, clrType, typeMapping.Converter);
 
         if (DynamoTypeMappingSource.TryGetDictionaryValueType(clrType, out var valueType, out _))
-            return CreateDictionaryPropertySerializer(
+        {
+            var conv = typeMapping.ElementTypeMapping?.Converter;
+            if (conv == null)
+                return DispatchSupportedDirectType(
+                    property,
+                    valueType,
+                    default(DirectDictionaryFactory));
+            EnsureSupportedValueProviderType(property, conv.ProviderClrType);
+            return DispatchSupportedDirectType(
                 property,
-                valueType,
-                typeMapping.ElementTypeMapping?.Converter);
+                conv.ProviderClrType,
+                new ConvertedDictionaryFactory(conv));
+        }
 
         if (DynamoTypeMappingSource.TryGetSetElementType(clrType, out var setElementType))
-            return CreateSetPropertySerializer(
+        {
+            var conv = typeMapping.ElementTypeMapping?.Converter;
+            if (conv == null)
+                return DispatchSupportedDirectType(
+                    property,
+                    setElementType,
+                    default(DirectSetFactory));
+            EnsureSupportedSetProviderType(property, conv.ProviderClrType);
+            return DispatchSupportedDirectType(
                 property,
-                setElementType,
-                typeMapping.ElementTypeMapping?.Converter);
+                conv.ProviderClrType,
+                new ConvertedSetFactory(conv));
+        }
 
         if (DynamoTypeMappingSource.TryGetListElementType(clrType, out var listElementType))
-            return CreateListPropertySerializer(
+        {
+            var conv = typeMapping.ElementTypeMapping?.Converter;
+            if (conv == null)
+                return DispatchSupportedDirectType(
+                    property,
+                    listElementType,
+                    default(DirectListFactory));
+            EnsureSupportedValueProviderType(property, conv.ProviderClrType);
+            return DispatchSupportedDirectType(
                 property,
-                listElementType,
-                typeMapping.ElementTypeMapping?.Converter);
+                conv.ProviderClrType,
+                new ConvertedListFactory(conv));
+        }
 
-        return CreateScalarPropertySerializer(property, clrType, typeMapping.Converter);
+        return BuildScalarSerializer(property, clrType, typeMapping.Converter);
     }
 
-    private static Func<IUpdateEntry, AttributeValue> CreateScalarPropertySerializer(
-        IProperty property,
-        Type propertyType,
-        ValueConverter? converter)
-        => converter == null
-            ? CreateDirectScalarPropertySerializer(property, propertyType)
-            : CreateConvertedScalarPropertySerializer(property, converter);
-
-    private static Func<IUpdateEntry, AttributeValue> CreateListPropertySerializer(
-        IProperty property,
-        Type elementType,
-        ValueConverter? converter)
-        => converter == null
-            ? CreateDirectListPropertySerializer(property, elementType)
-            : CreateConvertedListPropertySerializer(property, converter);
-
-    private static Func<IUpdateEntry, AttributeValue> CreateSetPropertySerializer(
-        IProperty property,
-        Type elementType,
-        ValueConverter? converter)
-        => converter == null
-            ? CreateDirectSetPropertySerializer(property, elementType)
-            : CreateConvertedSetPropertySerializer(property, converter);
-
-    private static Func<IUpdateEntry, AttributeValue> CreateDictionaryPropertySerializer(
-        IProperty property,
-        Type valueType,
-        ValueConverter? converter)
-        => converter == null
-            ? CreateDirectDictionaryPropertySerializer(property, valueType)
-            : CreateConvertedDictionaryPropertySerializer(property, converter);
-
-    private static Func<IUpdateEntry, AttributeValue> CreateDirectScalarPropertySerializer(
-        IProperty property,
-        Type propertyType)
-        => DispatchSupportedDirectType(property, propertyType, default(DirectScalarFactory));
-
-    private static Func<IUpdateEntry, AttributeValue> CreateDirectListPropertySerializer(
-        IProperty property,
-        Type elementType)
-        => DispatchSupportedDirectType(property, elementType, default(DirectListFactory));
-
-    private static Func<IUpdateEntry, AttributeValue> CreateDirectSetPropertySerializer(
-        IProperty property,
-        Type elementType)
-        => DispatchSupportedDirectType(property, elementType, default(DirectSetFactory));
-
-    private static Func<IUpdateEntry, AttributeValue> CreateDirectDictionaryPropertySerializer(
-        IProperty property,
-        Type valueType)
-        => DispatchSupportedDirectType(property, valueType, default(DirectDictionaryFactory));
-
     /// <summary>
-    /// Creates a write delegate for a scalar property with a value converter. Dispatches on the
-    /// converter's provider type at plan-build time so the hot path uses a typed cast and
-    /// JIT-specialized <see cref="DynamoWireValueConversion.ConvertProviderValueToAttributeValue{T}"/>
-    /// rather than a boxed pattern-match dispatch at every write.
+    /// Builds a scalar write delegate, dispatching on the provider CLR type (after applying the
+    /// converter if present).
     /// </summary>
-    private static Func<IUpdateEntry, AttributeValue> CreateConvertedScalarPropertySerializer(
+    private static Func<IUpdateEntry, AttributeValue> BuildScalarSerializer(
         IProperty property,
-        ValueConverter converter)
+        Type clrType,
+        ValueConverter? converter)
     {
+        if (converter == null)
+            return DispatchSupportedDirectType(property, clrType, default(DirectScalarFactory));
         EnsureSupportedValueProviderType(property, converter.ProviderClrType);
         return DispatchSupportedDirectType(
             property,
             converter.ProviderClrType,
             new ConvertedScalarFactory(converter));
-    }
-
-    /// <summary>
-    /// Creates a write delegate for a list property with an element-level converter. Dispatches on
-    /// the converter's provider type at plan-build time to avoid per-element pattern-match dispatch.
-    /// </summary>
-    private static Func<IUpdateEntry, AttributeValue> CreateConvertedListPropertySerializer(
-        IProperty property,
-        ValueConverter converter)
-    {
-        EnsureSupportedValueProviderType(property, converter.ProviderClrType);
-        return DispatchSupportedDirectType(
-            property,
-            converter.ProviderClrType,
-            new ConvertedListFactory(converter));
-    }
-
-    /// <summary>
-    /// Creates a write delegate for a set property with an element-level converter. Dispatches on
-    /// the converter's provider type at plan-build time so the write loop directly accumulates
-    /// SS/NS/BS without creating and destructuring intermediate <see cref="AttributeValue"/> objects.
-    /// </summary>
-    private static Func<IUpdateEntry, AttributeValue> CreateConvertedSetPropertySerializer(
-        IProperty property,
-        ValueConverter converter)
-    {
-        EnsureSupportedSetProviderType(property, converter.ProviderClrType);
-        return DispatchSupportedDirectType(
-            property,
-            converter.ProviderClrType,
-            new ConvertedSetFactory(converter));
-    }
-
-    /// <summary>
-    /// Creates a write delegate for a dictionary property with a value-level converter. Dispatches
-    /// on the converter's provider type at plan-build time.
-    /// </summary>
-    private static Func<IUpdateEntry, AttributeValue> CreateConvertedDictionaryPropertySerializer(
-        IProperty property,
-        ValueConverter converter)
-    {
-        EnsureSupportedValueProviderType(property, converter.ProviderClrType);
-        return DispatchSupportedDirectType(
-            property,
-            converter.ProviderClrType,
-            new ConvertedDictionaryFactory(converter));
     }
 
     private static void EnsureSupportedValueProviderType(IProperty property, Type providerType)
@@ -243,6 +182,11 @@ public sealed class DynamoEntityItemSerializerSource
             || type == typeof(double)
             || type == typeof(decimal);
 
+    /// <summary>
+    ///     Dispatches on <paramref name="type" /> to call <c>factory.Create&lt;T&gt;(property)</c>
+    ///     with the matching type argument. The if-chain runs once at plan-build time per property; the
+    ///     resulting delegate has no runtime type dispatch on the write path.
+    /// </summary>
     private static Func<IUpdateEntry, AttributeValue> DispatchSupportedDirectType<TFactory>(
         IProperty property,
         Type type,
@@ -306,72 +250,70 @@ public sealed class DynamoEntityItemSerializerSource
             + $"provider-native type '{type.ShortDisplayName()}' on the write path.");
     }
 
-    private static Func<IUpdateEntry, AttributeValue> CreateDirectScalarSerializer<TProperty>(
-        IProperty property)
-        => entry => DynamoWireValueConversion.ConvertProviderValueToAttributeValue(
-            entry.GetCurrentValue<TProperty>(property));
-
-    private static Func<IUpdateEntry, AttributeValue>
-        CreateDirectListSerializer<TElement>(IProperty property)
-        => entry => SerializeCollectionOrNull(
-            entry.GetCurrentValue<IEnumerable<TElement>>(property),
-            static value => DynamoAttributeValueCollectionHelpers
-                .SerializeList<IEnumerable<TElement>, TElement>(value));
-
-    private static Func<IUpdateEntry, AttributeValue>
-        CreateDirectSetSerializer<TElement>(IProperty property)
-        => entry => SerializeCollectionOrNull(
-            entry.GetCurrentValue<IEnumerable<TElement>>(property),
-            static value => DynamoAttributeValueCollectionHelpers
-                .SerializeSet<IEnumerable<TElement>, TElement>(value));
-
-    private static Func<IUpdateEntry, AttributeValue>
-        CreateDirectDictionarySerializer<TValue>(IProperty property)
-        => entry => SerializeCollectionOrNull(
-            entry.GetCurrentValue<IEnumerable<KeyValuePair<string, TValue>>>(property),
-            static value => DynamoAttributeValueCollectionHelpers
-                .SerializeDictionary<IEnumerable<KeyValuePair<string, TValue>>, TValue>(value));
-
-    private static AttributeValue SerializeCollectionOrNull<TCollection>(
-        TCollection value,
-        Func<TCollection, AttributeValue> serialize)
-        => value is null ? CreateNullAttributeValue() : serialize(value);
-
-    private static AttributeValue CreateNullAttributeValue() => new() { NULL = true };
+    private static AttributeValue NullAttributeValue() => new() { NULL = true };
 
     private interface IDirectSerializerFactory
     {
         Func<IUpdateEntry, AttributeValue> Create<T>(IProperty property);
     }
 
+    // ── Direct (no converter) factories ────────────────────────────────────────
+
     private readonly struct DirectScalarFactory : IDirectSerializerFactory
     {
         public Func<IUpdateEntry, AttributeValue> Create<T>(IProperty property)
-            => CreateDirectScalarSerializer<T>(property);
+            => entry => DynamoWireValueConversion.ConvertProviderValueToAttributeValue(
+                entry.GetCurrentValue<T>(property));
     }
 
     private readonly struct DirectListFactory : IDirectSerializerFactory
     {
         public Func<IUpdateEntry, AttributeValue> Create<T>(IProperty property)
-            => CreateDirectListSerializer<T>(property);
+            => entry =>
+            {
+                var value = entry.GetCurrentValue<IEnumerable<T>>(property);
+                return value is null
+                    ? NullAttributeValue()
+                    : DynamoAttributeValueCollectionHelpers.SerializeList<IEnumerable<T>, T>(value);
+            };
     }
 
     private readonly struct DirectSetFactory : IDirectSerializerFactory
     {
         public Func<IUpdateEntry, AttributeValue> Create<T>(IProperty property)
-            => CreateDirectSetSerializer<T>(property);
+            => entry =>
+            {
+                var value = entry.GetCurrentValue<IEnumerable<T>>(property);
+                return value is null
+                    ? NullAttributeValue()
+                    : DynamoAttributeValueCollectionHelpers.SerializeSet<IEnumerable<T>, T>(value);
+            };
     }
 
     private readonly struct DirectDictionaryFactory : IDirectSerializerFactory
     {
         public Func<IUpdateEntry, AttributeValue> Create<T>(IProperty property)
-            => CreateDirectDictionarySerializer<T>(property);
+            => entry =>
+            {
+                var value = entry.GetCurrentValue<IEnumerable<KeyValuePair<string, T>>>(property);
+                return value is null
+                    ? NullAttributeValue()
+                    : DynamoAttributeValueCollectionHelpers
+                        .SerializeDictionary<IEnumerable<KeyValuePair<string, T>>, T>(value);
+            };
     }
 
+    // ── Converter-path factories ────────────────────────────────────────────────
+    //
+    // Provider type TProvider is resolved at plan-build time via DispatchSupportedDirectType so
+    // that ConvertProviderValueToAttributeValue<TProvider> is JIT-specialized per type, and
+    // collection helpers receive a typed Func<object?,object?> rather than a boxed pattern-match
+    // dispatcher. The converter's ConvertToProvider(object?) is the unavoidable boxing boundary —
+    // EF Core's ValueConverter API is object-typed at the model→provider boundary.
+
     /// <summary>
-    ///     Converter-path factory for scalar properties. Dispatches on the provider type at
-    ///     plan-build time so the write delegate uses a typed cast and JIT-specialized conversion rather
-    ///     than a boxed pattern-match dispatch on every write.
+    /// Converter-path factory for scalar properties. Dispatches on the converter's provider type
+    /// at plan-build time.
     /// </summary>
     private readonly struct ConvertedScalarFactory : IDirectSerializerFactory
     {
@@ -387,7 +329,7 @@ public sealed class DynamoEntityItemSerializerSource
             {
                 var providerValue = conv.ConvertToProvider(entry.GetCurrentValue(property));
                 if (providerValue is null)
-                    return CreateNullAttributeValue();
+                    return NullAttributeValue();
                 return DynamoWireValueConversion.ConvertProviderValueToAttributeValue(
                     (TProvider)providerValue);
             };
@@ -395,10 +337,8 @@ public sealed class DynamoEntityItemSerializerSource
     }
 
     /// <summary>
-    ///     Converter-path factory for list properties. Delegates to
-    ///     <see
-    ///         cref="DynamoAttributeValueCollectionHelpers.SerializeList{TProvider}(IEnumerable,Func{object?,object?})" />
-    ///     which passes converter results directly into the typed element serializer.
+    /// Converter-path factory for list properties. Passes the converter's
+    /// <see cref="ValueConverter.ConvertToProvider"/> delegate directly to the typed list helper.
     /// </summary>
     private readonly struct ConvertedListFactory : IDirectSerializerFactory
     {
@@ -413,7 +353,7 @@ public sealed class DynamoEntityItemSerializerSource
             {
                 var value = entry.GetCurrentValue(property);
                 if (value is null)
-                    return CreateNullAttributeValue();
+                    return NullAttributeValue();
                 if (value is not IEnumerable enumerable)
                     throw CreateCollectionRuntimeTypeException(
                         property,
@@ -427,11 +367,8 @@ public sealed class DynamoEntityItemSerializerSource
     }
 
     /// <summary>
-    ///     Converter-path factory for set properties. Delegates to
-    ///     <see
-    ///         cref="DynamoAttributeValueCollectionHelpers.SerializeSet{TProvider}(IEnumerable,Func{object?,object?})" />
-    ///     which accumulates directly into SS/NS/BS without creating intermediate
-    ///     <see cref="AttributeValue" /> objects.
+    /// Converter-path factory for set properties. Accumulates directly into SS/NS/BS without
+    /// creating intermediate <see cref="AttributeValue"/> objects per element.
     /// </summary>
     private readonly struct ConvertedSetFactory : IDirectSerializerFactory
     {
@@ -446,7 +383,7 @@ public sealed class DynamoEntityItemSerializerSource
             {
                 var value = entry.GetCurrentValue(property);
                 if (value is null)
-                    return CreateNullAttributeValue();
+                    return NullAttributeValue();
                 if (value is not IEnumerable enumerable)
                     throw CreateCollectionRuntimeTypeException(
                         property,
@@ -460,10 +397,8 @@ public sealed class DynamoEntityItemSerializerSource
     }
 
     /// <summary>
-    ///     Converter-path factory for dictionary properties. Delegates to
-    ///     <see
-    ///         cref="DynamoAttributeValueCollectionHelpers.SerializeDictionary{TProvider}(IDictionary,Func{object?,object?})" />
-    ///     which passes converter results directly into the typed value serializer.
+    /// Converter-path factory for dictionary properties. Passes the converter's
+    /// <see cref="ValueConverter.ConvertToProvider"/> delegate directly to the typed map helper.
     /// </summary>
     private readonly struct ConvertedDictionaryFactory : IDirectSerializerFactory
     {
@@ -478,7 +413,7 @@ public sealed class DynamoEntityItemSerializerSource
             {
                 var value = entry.GetCurrentValue(property);
                 if (value is null)
-                    return CreateNullAttributeValue();
+                    return NullAttributeValue();
                 if (value is not IDictionary dictionary)
                     throw CreateCollectionRuntimeTypeException(
                         property,
