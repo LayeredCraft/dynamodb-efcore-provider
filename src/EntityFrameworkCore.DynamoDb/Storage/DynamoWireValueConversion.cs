@@ -15,33 +15,7 @@ internal static class DynamoWireValueConversion
 
     public static AttributeValue ConvertProviderValueToAttributeValue<T>(T value)
     {
-        if (value == null)
-            return new AttributeValue { NULL = true };
-
-        return value switch
-        {
-            string s => new AttributeValue { S = s },
-            bool b => new AttributeValue { BOOL = b },
-            byte by => new AttributeValue { N = FormatNumber(by) },
-            sbyte sb => new AttributeValue { N = FormatNumber(sb) },
-            short sh => new AttributeValue { N = FormatNumber(sh) },
-            ushort ush => new AttributeValue { N = FormatNumber(ush) },
-            int i => new AttributeValue { N = FormatNumber(i) },
-            uint ui => new AttributeValue { N = FormatNumber(ui) },
-            long l => new AttributeValue { N = FormatNumber(l) },
-            ulong ul => new AttributeValue { N = FormatNumber(ul) },
-            float f => new AttributeValue { N = FormatNumber(f) },
-            double d => new AttributeValue { N = FormatNumber(d) },
-            decimal dec => new AttributeValue { N = FormatNumber(dec) },
-            byte[] bytes => CreateBinaryAttributeValue(bytes),
-            _ => throw new NotSupportedException(
-                $"Type {value.GetType()} is not supported for DynamoDB wire conversion"),
-        };
-    }
-
-    public static AttributeValue ConvertBoxedProviderValueToAttributeValue(object? value)
-    {
-        if (value == null)
+        if (value is null)
             return new AttributeValue { NULL = true };
 
         return value switch
