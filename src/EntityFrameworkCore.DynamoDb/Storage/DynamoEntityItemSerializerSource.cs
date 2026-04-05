@@ -30,7 +30,7 @@ public sealed class DynamoEntityItemSerializerSource
         => GetOrBuildPlan(rootEntry.EntityType).Serialize(rootEntry, ownedEntries, this);
 
     /// <summary>Returns the fully assembled DynamoDB item dictionary for an owned sub-entry.</summary>
-    internal Dictionary<string, AttributeValue> BuildItemFromOwnedEntry(
+    private Dictionary<string, AttributeValue> BuildItemFromOwnedEntry(
         IUpdateEntry entry,
         IReadOnlyDictionary<object, IUpdateEntry> ownedEntries)
         => GetOrBuildPlan(entry.EntityType).Serialize(entry, ownedEntries, this);
