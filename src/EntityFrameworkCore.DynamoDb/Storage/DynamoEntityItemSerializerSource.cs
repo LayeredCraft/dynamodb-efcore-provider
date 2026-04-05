@@ -13,8 +13,8 @@ namespace EntityFrameworkCore.DynamoDb.Storage;
 /// Builds and caches typed write plans per <see cref="IEntityType"/> for SaveChanges.
 /// Each plan holds one pre-compiled <see cref="Func{IUpdateEntry,AttributeValue}"/> per property,
 /// produced at plan-build time by dispatching on the property's provider CLR type via
-/// <see cref="DispatchSupportedDirectType{TFactory}"/>. Write-time execution is just delegate
-/// invocation — no reflection, no boxing beyond what EF Core's ValueConverter API requires.
+/// <see cref="DispatchType{TFactory}"/>. Write-time execution is just delegate invocation — no
+/// reflection, no boxing beyond what EF Core's ValueConverter API requires.
 /// </summary>
 public sealed class DynamoEntityItemSerializerSource
 {
@@ -56,9 +56,9 @@ public sealed class DynamoEntityItemSerializerSource
     }
 
     /// <summary>
-    ///     Selects and builds the typed write delegate for a single property. Detects the collection
-    ///     shape (dictionary, set, list) or falls back to scalar, then branches on whether an element- or
-    ///     property-level converter is present to pick the right factory.
+    /// Selects and builds the typed write delegate for a single property. Detects the collection
+    /// shape (dictionary, set, list) or falls back to scalar, then branches on whether an element-
+    /// or property-level converter is present to pick the right factory.
     /// </summary>
     private static Func<IUpdateEntry, AttributeValue> CreatePropertySerializer(IProperty property)
     {
@@ -75,12 +75,9 @@ public sealed class DynamoEntityItemSerializerSource
         {
             var conv = typeMapping.ElementTypeMapping?.Converter;
             if (conv == null)
-                return DispatchSupportedDirectType(
-                    property,
-                    valueType,
-                    default(DirectDictionaryFactory));
+                return DispatchType(property, valueType, default(DirectDictionaryFactory));
             EnsureSupportedValueProviderType(property, conv.ProviderClrType);
-            return DispatchSupportedDirectType(
+            return DispatchType(
                 property,
                 conv.ProviderClrType,
                 new ConvertedDictionaryFactory(conv));
@@ -90,30 +87,18 @@ public sealed class DynamoEntityItemSerializerSource
         {
             var conv = typeMapping.ElementTypeMapping?.Converter;
             if (conv == null)
-                return DispatchSupportedDirectType(
-                    property,
-                    setElementType,
-                    default(DirectSetFactory));
+                return DispatchType(property, setElementType, default(DirectSetFactory));
             EnsureSupportedSetProviderType(property, conv.ProviderClrType);
-            return DispatchSupportedDirectType(
-                property,
-                conv.ProviderClrType,
-                new ConvertedSetFactory(conv));
+            return DispatchType(property, conv.ProviderClrType, new ConvertedSetFactory(conv));
         }
 
         if (DynamoTypeMappingSource.TryGetListElementType(clrType, out var listElementType))
         {
             var conv = typeMapping.ElementTypeMapping?.Converter;
             if (conv == null)
-                return DispatchSupportedDirectType(
-                    property,
-                    listElementType,
-                    default(DirectListFactory));
+                return DispatchType(property, listElementType, default(DirectListFactory));
             EnsureSupportedValueProviderType(property, conv.ProviderClrType);
-            return DispatchSupportedDirectType(
-                property,
-                conv.ProviderClrType,
-                new ConvertedListFactory(conv));
+            return DispatchType(property, conv.ProviderClrType, new ConvertedListFactory(conv));
         }
 
         return BuildScalarSerializer(property, clrType, typeMapping.Converter);
@@ -129,9 +114,9 @@ public sealed class DynamoEntityItemSerializerSource
         ValueConverter? converter)
     {
         if (converter == null)
-            return DispatchSupportedDirectType(property, clrType, default(DirectScalarFactory));
+            return DispatchType(property, clrType, default(DirectScalarFactory));
         EnsureSupportedValueProviderType(property, converter.ProviderClrType);
-        return DispatchSupportedDirectType(
+        return DispatchType(
             property,
             converter.ProviderClrType,
             new ConvertedScalarFactory(converter));
@@ -183,14 +168,17 @@ public sealed class DynamoEntityItemSerializerSource
             || type == typeof(decimal);
 
     /// <summary>
-    ///     Dispatches on <paramref name="type" /> to call <c>factory.Create&lt;T&gt;(property)</c>
-    ///     with the matching type argument. The if-chain runs once at plan-build time per property; the
-    ///     resulting delegate has no runtime type dispatch on the write path.
+    /// Dispatches on <paramref name="type"/> to call <c>factory.Create&lt;T&gt;(property)</c>
+    /// with the matching type argument. The if-chain runs once at plan-build time per property;
+    /// the resulting delegate has no runtime type dispatch on the write path. The
+    /// <c>TFactory : struct</c> constraint lets the JIT devirtualize <c>Create&lt;T&gt;</c>
+    /// regardless of whether <paramref name="factory"/> is stateless (direct) or carries a
+    /// <see cref="ValueConverter"/> (converter path).
     /// </summary>
-    private static Func<IUpdateEntry, AttributeValue> DispatchSupportedDirectType<TFactory>(
+    private static Func<IUpdateEntry, AttributeValue> DispatchType<TFactory>(
         IProperty property,
         Type type,
-        TFactory factory) where TFactory : struct, IDirectSerializerFactory
+        TFactory factory) where TFactory : struct, ISerializerFactory
     {
         if (type == typeof(string))
             return factory.Create<string>(property);
@@ -252,21 +240,28 @@ public sealed class DynamoEntityItemSerializerSource
 
     private static AttributeValue NullAttributeValue() => new() { NULL = true };
 
-    private interface IDirectSerializerFactory
+    /// <summary>
+    ///     Unified factory interface for both direct (stateless) and converter-path (stateful)
+    ///     property serializers. The <c>TFactory : struct</c> constraint on
+    ///     <see cref="DispatchType{TFactory}" /> lets the JIT devirtualize <c>Create&lt;T&gt;</c> for all
+    ///     implementations without virtual dispatch overhead.
+    /// </summary>
+    private interface ISerializerFactory
     {
         Func<IUpdateEntry, AttributeValue> Create<T>(IProperty property);
     }
 
     // ── Direct (no converter) factories ────────────────────────────────────────
+    // Stateless — passed as default(TFactory). The JIT eliminates the zero-byte struct entirely.
 
-    private readonly struct DirectScalarFactory : IDirectSerializerFactory
+    private readonly struct DirectScalarFactory : ISerializerFactory
     {
         public Func<IUpdateEntry, AttributeValue> Create<T>(IProperty property)
             => entry => DynamoWireValueConversion.ConvertProviderValueToAttributeValue(
                 entry.GetCurrentValue<T>(property));
     }
 
-    private readonly struct DirectListFactory : IDirectSerializerFactory
+    private readonly struct DirectListFactory : ISerializerFactory
     {
         public Func<IUpdateEntry, AttributeValue> Create<T>(IProperty property)
             => entry =>
@@ -278,7 +273,7 @@ public sealed class DynamoEntityItemSerializerSource
             };
     }
 
-    private readonly struct DirectSetFactory : IDirectSerializerFactory
+    private readonly struct DirectSetFactory : ISerializerFactory
     {
         public Func<IUpdateEntry, AttributeValue> Create<T>(IProperty property)
             => entry =>
@@ -290,7 +285,7 @@ public sealed class DynamoEntityItemSerializerSource
             };
     }
 
-    private readonly struct DirectDictionaryFactory : IDirectSerializerFactory
+    private readonly struct DirectDictionaryFactory : ISerializerFactory
     {
         public Func<IUpdateEntry, AttributeValue> Create<T>(IProperty property)
             => entry =>
@@ -305,17 +300,16 @@ public sealed class DynamoEntityItemSerializerSource
 
     // ── Converter-path factories ────────────────────────────────────────────────
     //
-    // Provider type TProvider is resolved at plan-build time via DispatchSupportedDirectType so
-    // that ConvertProviderValueToAttributeValue<TProvider> is JIT-specialized per type, and
-    // collection helpers receive a typed Func<object?,object?> rather than a boxed pattern-match
-    // dispatcher. The converter's ConvertToProvider(object?) is the unavoidable boxing boundary —
-    // EF Core's ValueConverter API is object-typed at the model→provider boundary.
+    // Provider type TProvider is resolved at plan-build time via DispatchType so that
+    // ConvertProviderValueToAttributeValue<TProvider> is JIT-specialized per type. The converter's
+    // ConvertToProvider(object?) is the unavoidable boxing boundary — EF Core's ValueConverter
+    // API is object-typed at the model→provider boundary.
 
     /// <summary>
     /// Converter-path factory for scalar properties. Dispatches on the converter's provider type
     /// at plan-build time.
     /// </summary>
-    private readonly struct ConvertedScalarFactory : IDirectSerializerFactory
+    private readonly struct ConvertedScalarFactory : ISerializerFactory
     {
         private readonly ValueConverter _converter;
 
@@ -340,7 +334,7 @@ public sealed class DynamoEntityItemSerializerSource
     /// Converter-path factory for list properties. Passes the converter's
     /// <see cref="ValueConverter.ConvertToProvider"/> delegate directly to the typed list helper.
     /// </summary>
-    private readonly struct ConvertedListFactory : IDirectSerializerFactory
+    private readonly struct ConvertedListFactory : ISerializerFactory
     {
         private readonly ValueConverter _converter;
 
@@ -370,7 +364,7 @@ public sealed class DynamoEntityItemSerializerSource
     /// Converter-path factory for set properties. Accumulates directly into SS/NS/BS without
     /// creating intermediate <see cref="AttributeValue"/> objects per element.
     /// </summary>
-    private readonly struct ConvertedSetFactory : IDirectSerializerFactory
+    private readonly struct ConvertedSetFactory : ISerializerFactory
     {
         private readonly ValueConverter _converter;
 
@@ -400,7 +394,7 @@ public sealed class DynamoEntityItemSerializerSource
     /// Converter-path factory for dictionary properties. Passes the converter's
     /// <see cref="ValueConverter.ConvertToProvider"/> delegate directly to the typed map helper.
     /// </summary>
-    private readonly struct ConvertedDictionaryFactory : IDirectSerializerFactory
+    private readonly struct ConvertedDictionaryFactory : ISerializerFactory
     {
         private readonly ValueConverter _converter;
 
