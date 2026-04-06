@@ -2,10 +2,13 @@ using System.Collections;
 using System.Collections.Concurrent;
 using Amazon.DynamoDBv2.Model;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking.Internal;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Microsoft.EntityFrameworkCore.Update;
+
+#pragma warning disable EF1001 // Internal EF Core API usage
 
 namespace EntityFrameworkCore.DynamoDb.Storage;
 
@@ -21,19 +24,16 @@ public sealed class DynamoEntityItemSerializerSource
     private readonly ConcurrentDictionary<IEntityType, EntityWritePlan> _cache = new();
 
     /// <summary>
-    /// Returns the fully assembled DynamoDB item dictionary for a root
-    /// <see cref="IUpdateEntry"/> and its owned sub-entries.
+    /// Returns the fully assembled DynamoDB item dictionary for a root <see cref="IUpdateEntry"/>.
+    /// Owned sub-entries are resolved on-demand via the EF state manager, scoped to what is
+    /// reachable from <paramref name="rootEntry"/> — no global owned-entries dictionary is needed.
     /// </summary>
-    public Dictionary<string, AttributeValue> BuildItem(
-        IUpdateEntry rootEntry,
-        IReadOnlyDictionary<object, IUpdateEntry> ownedEntries)
-        => GetOrBuildPlan(rootEntry.EntityType).Serialize(rootEntry, ownedEntries, this);
+    public Dictionary<string, AttributeValue> BuildItem(IUpdateEntry rootEntry)
+        => GetOrBuildPlan(rootEntry.EntityType).Serialize(rootEntry, this);
 
     /// <summary>Returns the fully assembled DynamoDB item dictionary for an owned sub-entry.</summary>
-    private Dictionary<string, AttributeValue> BuildItemFromOwnedEntry(
-        IUpdateEntry entry,
-        IReadOnlyDictionary<object, IUpdateEntry> ownedEntries)
-        => GetOrBuildPlan(entry.EntityType).Serialize(entry, ownedEntries, this);
+    private Dictionary<string, AttributeValue> BuildItemFromOwnedEntry(IUpdateEntry entry)
+        => GetOrBuildPlan(entry.EntityType).Serialize(entry, this);
 
     private EntityWritePlan GetOrBuildPlan(IEntityType entityType)
         => _cache.GetOrAdd(entityType, BuildPlan);
@@ -430,7 +430,6 @@ public sealed class DynamoEntityItemSerializerSource
     {
         public Dictionary<string, AttributeValue> Serialize(
             IUpdateEntry entry,
-            IReadOnlyDictionary<object, IUpdateEntry> ownedEntries,
             DynamoEntityItemSerializerSource source)
         {
             var result = new Dictionary<string, AttributeValue>(
@@ -439,6 +438,14 @@ public sealed class DynamoEntityItemSerializerSource
 
             foreach (var writer in propertyWriters)
                 result[writer.AttributeName] = writer.Serialize(entry);
+
+            if (ownedNavigations.Count == 0)
+                return result;
+
+            // Resolve owned entries on-demand via the state manager, scoped to navigations
+            // reachable from this entry. This avoids passing a global owned-entries dictionary
+            // that spans all root entities being saved in a single SaveChanges call.
+            var stateManager = ((InternalEntityEntry)entry).StateManager;
 
             foreach (var nav in ownedNavigations)
             {
@@ -455,26 +462,29 @@ public sealed class DynamoEntityItemSerializerSource
                     {
                         foreach (var element in collection)
                         {
-                            if (element is not null
-                                && ownedEntries.TryGetValue(element, out var ownedEntry))
+                            if (element is null)
+                                continue;
+                            var ownedEntry =
+                                stateManager.TryGetEntry(element, nav.TargetEntityType);
+                            if (ownedEntry is not null)
                                 elements.Add(
                                     new AttributeValue
                                     {
-                                        M = source.BuildItemFromOwnedEntry(
-                                            ownedEntry,
-                                            ownedEntries),
+                                        M = source.BuildItemFromOwnedEntry(ownedEntry),
                                     });
                         }
                     }
 
                     result[attributeName] = new AttributeValue { L = elements };
                 }
-                else if (ownedEntries.TryGetValue(navValue, out var ownedEntry))
+                else
                 {
-                    result[attributeName] = new AttributeValue
-                    {
-                        M = source.BuildItemFromOwnedEntry(ownedEntry, ownedEntries),
-                    };
+                    var ownedEntry = stateManager.TryGetEntry(navValue, nav.TargetEntityType);
+                    if (ownedEntry is not null)
+                        result[attributeName] = new AttributeValue
+                        {
+                            M = source.BuildItemFromOwnedEntry(ownedEntry),
+                        };
                 }
             }
 

@@ -3,8 +3,11 @@ using System.Text;
 using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking.Internal;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.Update;
+
+#pragma warning disable EF1001 // Internal EF Core API usage
 
 namespace EntityFrameworkCore.DynamoDb.Storage;
 
@@ -44,12 +47,6 @@ public class DynamoDatabaseWrapper(
                 $"SaveChanges for EntityState.{unsupported.EntityState} is not yet supported. "
                 + "Only Added entities can be persisted in this version.");
 
-        // Build a lookup from owned CLR entity object → its IUpdateEntry for all nesting depths.
-        // ToEntityEntry().Entity is the canonical path from IUpdateEntry to the CLR object.
-        var ownedEntries = entries
-            .Where(static e => e.EntityType.IsOwned())
-            .ToDictionary(e => e.ToEntityEntry().Entity, ReferenceEqualityComparer.Instance);
-
         var rootEntries = entries
             .Where(static e => !e.EntityType.IsOwned() && e.EntityState == EntityState.Added)
             .ToList();
@@ -58,7 +55,8 @@ public class DynamoDatabaseWrapper(
         {
             // Serialization is handled by the compiled, per-entity-type serializer — no
             // per-call type dispatch or value-type boxing on the scalar-property hot path.
-            var item = serializerSource.BuildItem(entry, ownedEntries);
+            // Owned sub-entries are resolved on-demand via the EF state manager.
+            var item = serializerSource.BuildItem(entry);
             var tableName = (string)entry.EntityType[DynamoAnnotationNames.TableName]!;
             var (sql, parameters) = BuildInsertStatement(tableName, item);
 
@@ -70,7 +68,7 @@ public class DynamoDatabaseWrapper(
             entry.EntityState = EntityState.Unchanged;
 
             // Walk owned navigations and mark every owned sub-entry as Unchanged too.
-            MarkOwnedEntriesUnchanged(entry, ownedEntries);
+            MarkOwnedEntriesUnchanged(entry);
         }
 
         return rootEntries.Count;
@@ -108,11 +106,12 @@ public class DynamoDatabaseWrapper(
     /// <summary>
     /// Recursively marks all owned sub-entries reachable from <paramref name="ownerEntry"/>
     /// as <see cref="EntityState.Unchanged"/> after a successful write.
+    /// Owned entries are resolved on-demand via the EF state manager.
     /// </summary>
-    private static void MarkOwnedEntriesUnchanged(
-        IUpdateEntry ownerEntry,
-        IReadOnlyDictionary<object, IUpdateEntry> ownedEntries)
+    private static void MarkOwnedEntriesUnchanged(IUpdateEntry ownerEntry)
     {
+        var stateManager = ((InternalEntityEntry)ownerEntry).StateManager;
+
         foreach (var navigation in ownerEntry
             .EntityType
             .GetNavigations()
@@ -129,20 +128,26 @@ public class DynamoDatabaseWrapper(
 
                 foreach (var element in collection)
                 {
-                    if (element is not null
-                        && ownedEntries.TryGetValue(element, out var ownedEntry))
+                    if (element is null)
+                        continue;
+                    var ownedEntry = stateManager.TryGetEntry(element, navigation.TargetEntityType);
+                    if (ownedEntry is not null)
                     {
-                        ownedEntry.EntityState = EntityState.Unchanged;
-                        MarkOwnedEntriesUnchanged(ownedEntry, ownedEntries);
+                        // Cast to IUpdateEntry to access the public EntityState setter —
+                        // InternalEntityEntry's setter is internal.
+                        ((IUpdateEntry)ownedEntry).EntityState = EntityState.Unchanged;
+                        MarkOwnedEntriesUnchanged(ownedEntry);
                     }
                 }
             }
             else
             {
-                if (ownedEntries.TryGetValue(navigationValue, out var ownedEntry))
+                var ownedEntry =
+                    stateManager.TryGetEntry(navigationValue, navigation.TargetEntityType);
+                if (ownedEntry is not null)
                 {
-                    ownedEntry.EntityState = EntityState.Unchanged;
-                    MarkOwnedEntriesUnchanged(ownedEntry, ownedEntries);
+                    ((IUpdateEntry)ownedEntry).EntityState = EntityState.Unchanged;
+                    MarkOwnedEntriesUnchanged(ownedEntry);
                 }
             }
         }
