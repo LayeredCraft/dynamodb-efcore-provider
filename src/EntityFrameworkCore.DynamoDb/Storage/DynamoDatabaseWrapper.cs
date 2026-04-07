@@ -19,9 +19,11 @@ public class DynamoDatabaseWrapper(
     IDiagnosticsLogger<DbLoggerCategory.Database.Command> commandLogger,
     DynamoEntityItemSerializerSource serializerSource) : Database(dependencies)
 {
-    /// <summary>Synchronously saves changes by delegating to the async path.</summary>
+    /// <summary>Not supported — DynamoDB only exposes an async API.</summary>
+    /// <exception cref="NotSupportedException">Always thrown.</exception>
     public override int SaveChanges(IList<IUpdateEntry> entries)
-        => SaveChangesAsync(entries).GetAwaiter().GetResult();
+        => throw new NotSupportedException(
+            "DynamoDB does not support synchronous SaveChanges. Use SaveChangesAsync instead.");
 
     /// <summary>
     /// Persists all <see cref="EntityState.Added"/> entries as PartiQL <c>INSERT</c> statements.

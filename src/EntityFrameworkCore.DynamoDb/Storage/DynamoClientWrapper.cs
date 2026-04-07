@@ -68,9 +68,7 @@ public class DynamoClientWrapper : IDynamoClientWrapper
                     Statement = state.statement, Parameters = state.parameters,
                 };
 
-                _commandLogger.ExecutingExecuteStatement(null, false);
                 await Client.ExecuteStatementAsync(request, ct).ConfigureAwait(false);
-                _commandLogger.ExecutedExecuteStatement(0, false);
 
                 return true;
             },

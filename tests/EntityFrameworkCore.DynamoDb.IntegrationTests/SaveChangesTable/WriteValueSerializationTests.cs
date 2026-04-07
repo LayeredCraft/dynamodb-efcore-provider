@@ -474,6 +474,94 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
     }
 
     // ──────────────────────────────────────────────────────────────────────────────
+    //  Empty collections
+    // ──────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    ///     An empty <c>HashSet&lt;string&gt;</c> (set property) must serialize as
+    ///     <c>{ NULL = true }</c> because DynamoDB does not allow empty sets on the wire.
+    /// </summary>
+    [Fact]
+    public async Task CustomerItem_WithEmptyStringSet_SerializesAsNull()
+    {
+        var entity = new CustomerItem
+        {
+            Pk = "TEST#ESS",
+            Sk = "CUSTOMER#WRITE-ESS",
+            Version = 1,
+            Email = "emptyset@test.com",
+            IsPreferred = false,
+            CreatedAt = new DateTimeOffset(2026, 03, 10, 12, 00, 00, TimeSpan.Zero),
+            Tags = [],
+        };
+
+        Db.Customers.Add(entity);
+        await Db.SaveChangesAsync(CancellationToken);
+
+        var item = await GetItemAsync(entity.Pk, entity.Sk, CancellationToken);
+        item.Should().NotBeNull();
+
+        // Empty sets are not valid in DynamoDB — the provider must emit NULL.
+        item!["Tags"].NULL.Should().BeTrue();
+    }
+
+    /// <summary>
+    ///     An empty <c>List&lt;string&gt;</c> (list property) must serialize as <c>{ L = [] }</c>
+    ///     because empty lists are valid in DynamoDB.
+    /// </summary>
+    [Fact]
+    public async Task CustomerItem_WithEmptyList_SerializesAsEmptyL()
+    {
+        var entity = new CustomerItem
+        {
+            Pk = "TEST#EL",
+            Sk = "CUSTOMER#WRITE-EL",
+            Version = 1,
+            Email = "emptylist@test.com",
+            IsPreferred = false,
+            CreatedAt = new DateTimeOffset(2026, 03, 11, 12, 00, 00, TimeSpan.Zero),
+            Notes = [],
+        };
+
+        Db.Customers.Add(entity);
+        await Db.SaveChangesAsync(CancellationToken);
+
+        var item = await GetItemAsync(entity.Pk, entity.Sk, CancellationToken);
+        item.Should().NotBeNull();
+
+        // Empty lists are valid in DynamoDB — the provider must emit L = [].
+        item!["Notes"].L.Should().BeEmpty();
+    }
+
+    /// <summary>
+    ///     An empty <c>Dictionary&lt;string, string&gt;</c> (map property) must serialize as
+    ///     <c>{ M = {} }</c> because empty maps are valid in DynamoDB.
+    /// </summary>
+    [Fact]
+    public async Task CustomerItem_WithEmptyDictionary_SerializesAsEmptyM()
+    {
+        var entity = new CustomerItem
+        {
+            Pk = "TEST#ED",
+            Sk = "CUSTOMER#WRITE-ED",
+            Version = 1,
+            Email = "emptydict@test.com",
+            IsPreferred = false,
+            CreatedAt = new DateTimeOffset(2026, 03, 12, 12, 00, 00, TimeSpan.Zero),
+            Preferences = [],
+        };
+
+        Db.Customers.Add(entity);
+        await Db.SaveChangesAsync(CancellationToken);
+
+        var item = await GetItemAsync(entity.Pk, entity.Sk, CancellationToken);
+        item.Should().NotBeNull();
+
+        // Empty maps are valid in DynamoDB — the provider must emit M = {}.
+        item!["Preferences"].M.Should().BeEmpty();
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────────
     //  Full-shape baseline comparison
     // ──────────────────────────────────────────────────────────────────────────────
 

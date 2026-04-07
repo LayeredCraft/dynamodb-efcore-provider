@@ -175,6 +175,12 @@ public sealed class DynamoEntityItemSerializerSource
     /// regardless of whether <paramref name="factory"/> is stateless (direct) or carries a
     /// <see cref="ValueConverter"/> (converter path).
     /// </summary>
+    /// <remarks>
+    /// <paramref name="type"/> is the <em>provider</em> CLR type — i.e., after any converter has
+    /// been applied. Higher-level types such as <see cref="Guid"/>, <see cref="DateTime"/>, and
+    /// <see cref="DateTimeOffset"/> are promoted to provider primitives (stored as <c>S</c>) via
+    /// built-in EF Core type mappings, so they never reach this method directly.
+    /// </remarks>
     private static Func<IUpdateEntry, AttributeValue> DispatchType<TFactory>(
         IProperty property,
         Type type,

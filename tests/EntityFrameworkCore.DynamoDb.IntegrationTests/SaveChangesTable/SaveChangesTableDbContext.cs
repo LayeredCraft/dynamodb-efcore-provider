@@ -1,22 +1,11 @@
-using System.Globalization;
 using Amazon.DynamoDBv2;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SaveChangesTable;
 
 /// <summary>Represents the SaveChangesTableDbContext type.</summary>
 public class SaveChangesTableDbContext(DbContextOptions options) : DbContext(options)
 {
-    private static readonly ValueConverter<Guid, string> GuidAsNStringConverter = new(
-        static value => value.ToString("N"),
-        static value => Guid.ParseExact(value, "N"));
-
-    private static readonly ValueConverter<DateTimeOffset, string> UnixSecondsConverter = new(
-        static value => value.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture),
-        static value => DateTimeOffset.FromUnixTimeSeconds(
-            long.Parse(value, CultureInfo.InvariantCulture)));
-
     /// <summary>Provides functionality for this member.</summary>
     public DbSet<CustomerItem> Customers => Set<CustomerItem>();
 
@@ -107,12 +96,9 @@ public class SaveChangesTableDbContext(DbContextOptions options) : DbContext(opt
             builder.HasPartitionKey(x => x.Pk);
             builder.HasSortKey(x => x.Sk);
             builder.Property(x => x.Version).IsConcurrencyToken();
-            builder.Property(x => x.ExternalId).HasConversion(GuidAsNStringConverter);
-            builder.Property(x => x.OccurredAt).HasConversion(UnixSecondsConverter);
-            builder
-                .PrimitiveCollection(x => x.History)
-                .ElementType()
-                .HasConversion(UnixSecondsConverter);
+            builder.Property(x => x.ExternalId);
+            builder.Property(x => x.OccurredAt);
+            builder.PrimitiveCollection(x => x.History).ElementType();
         });
     }
 }
