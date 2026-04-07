@@ -1,7 +1,9 @@
 using System.Text;
 using Amazon.DynamoDBv2.Model;
+using EntityFrameworkCore.DynamoDb.Diagnostics.Internal;
 using EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.Update;
 
@@ -14,6 +16,7 @@ namespace EntityFrameworkCore.DynamoDb.Storage;
 public class DynamoDatabaseWrapper(
     DatabaseDependencies dependencies,
     IDynamoClientWrapper clientWrapper,
+    IDiagnosticsLogger<DbLoggerCategory.Database.Command> commandLogger,
     DynamoEntityItemSerializerSource serializerSource) : Database(dependencies)
 {
     /// <summary>Synchronously saves changes by delegating to the async path.</summary>
@@ -56,6 +59,8 @@ public class DynamoDatabaseWrapper(
             var tableName = (string)entry.EntityType[DynamoAnnotationNames.TableName]!;
             var (sql, parameters) = BuildInsertStatement(tableName, item);
 
+            commandLogger.ExecutingPartiQlQuery(tableName, sql);
+
             await clientWrapper
                 .ExecuteWriteAsync(sql, parameters, cancellationToken)
                 .ConfigureAwait(false);
@@ -73,7 +78,8 @@ public class DynamoDatabaseWrapper(
         Dictionary<string, AttributeValue> item)
     {
         var sql = new StringBuilder();
-        sql.Append($"INSERT INTO \"{tableName}\" VALUE {{");
+        sql.AppendLine($"INSERT INTO \"{tableName}\"");
+        sql.Append("VALUE {");
 
         var parameters = new List<AttributeValue>(item.Count);
         var first = true;

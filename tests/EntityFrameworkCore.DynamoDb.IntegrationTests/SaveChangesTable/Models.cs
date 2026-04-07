@@ -665,6 +665,7 @@ public static class SaveChangesTableItems
 }
 
 [DynamoMapper(Convention = DynamoNamingConvention.Exact, OmitNullStrings = false)]
+[DynamoField(nameof(CustomerItem.CreatedAt), Format = "yyyy-MM-dd HH:mm:sszzz")]
 internal static partial class SaveChangesCustomerItemMapper
 {
     internal static partial Dictionary<string, AttributeValue> ToItem(CustomerItem source);

@@ -39,24 +39,16 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
 
         Db.Customers.Add(entity);
         await Db.SaveChangesAsync(CancellationToken);
+        AssertSql(
+            """
+            INSERT INTO "AppItems"
+            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?}
+            """);
 
-        var item = await GetItemAsync("TEST#SC", "CUSTOMER#WRITE-1", CancellationToken);
+        var item = await GetItemAsync(entity.Pk, entity.Sk, CancellationToken);
+
         item.Should().NotBeNull();
-
-        item!["Pk"].S.Should().Be("TEST#SC");
-        item["Sk"].S.Should().Be("CUSTOMER#WRITE-1");
-        item["Version"].N.Should().Be("7");
-        item["Email"].S.Should().Be("scalar@test.com");
-        item["IsPreferred"].BOOL.Should().BeTrue();
-        item["CreatedAt"]
-            .S
-            .Should()
-            .Be(
-                GetExpectedProviderString<CustomerItem>(
-                    nameof(CustomerItem.CreatedAt),
-                    entity.CreatedAt));
-        item["NullableNote"].NULL.Should().BeTrue();
-        item["$type"].S.Should().Be("CustomerItem");
+        SaveChangesCustomerItemMapper.FromItem(item).Should().BeEquivalentTo(entity);
     }
 
     /// <summary>
@@ -72,11 +64,20 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
             Version = 1,
             Email = "tracker@test.com",
             IsPreferred = false,
-            CreatedAt = DateTimeOffset.UtcNow,
+            CreatedAt = new DateTimeOffset(2026, 03, 02, 12, 00, 00, TimeSpan.Zero),
         };
 
         Db.Customers.Add(entity);
+
+        Db.Entry(entity).State.Should().Be(EntityState.Added);
+
         await Db.SaveChangesAsync(CancellationToken);
+
+        AssertSql(
+            """
+            INSERT INTO "AppItems"
+            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?}
+            """);
 
         Db.Entry(entity).State.Should().Be(EntityState.Unchanged);
     }
@@ -99,7 +100,7 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
             Version = 1,
             Email = "profile@test.com",
             IsPreferred = false,
-            CreatedAt = DateTimeOffset.UtcNow,
+            CreatedAt = new DateTimeOffset(2026, 03, 03, 12, 00, 00, TimeSpan.Zero),
             Profile = new CustomerProfile
             {
                 DisplayName = "Test User",
@@ -111,18 +112,17 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
 
         Db.Customers.Add(entity);
         await Db.SaveChangesAsync(CancellationToken);
+        AssertSql(
+            """
+            INSERT INTO "AppItems"
+            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?, 'Profile': ?}
+            """);
 
         var item = await GetItemAsync("TEST#P", "CUSTOMER#WRITE-2", CancellationToken);
         item.Should().NotBeNull();
 
         item!.Should().ContainKey("Profile");
-        var profile = item["Profile"].M;
-        profile.Should().NotBeNull();
-        profile["DisplayName"].S.Should().Be("Test User");
-        profile["Nickname"].S.Should().Be("tester");
-        // Null OwnsOne sub-navigations are omitted — no "PreferredAddress" or "BillingAddress" key.
-        profile.Should().NotContainKey("PreferredAddress");
-        profile.Should().NotContainKey("BillingAddress");
+        SaveChangesCustomerItemMapper.FromItem(item).Should().BeEquivalentTo(entity);
     }
 
     /// <summary>
@@ -138,16 +138,22 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
             Version = 1,
             Email = "noprofile@test.com",
             IsPreferred = false,
-            CreatedAt = DateTimeOffset.UtcNow,
+            CreatedAt = new DateTimeOffset(2026, 03, 04, 12, 00, 00, TimeSpan.Zero),
             Profile = null,
         };
 
         Db.Customers.Add(entity);
         await Db.SaveChangesAsync(CancellationToken);
+        AssertSql(
+            """
+            INSERT INTO "AppItems"
+            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?}
+            """);
 
         var item = await GetItemAsync("TEST#NP", "CUSTOMER#WRITE-7", CancellationToken);
         item.Should().NotBeNull();
         item!.Should().NotContainKey("Profile");
+        SaveChangesCustomerItemMapper.FromItem(item).Should().BeEquivalentTo(entity);
     }
 
     /// <summary>
@@ -164,7 +170,7 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
             Version = 1,
             Email = "deepmap@test.com",
             IsPreferred = false,
-            CreatedAt = DateTimeOffset.UtcNow,
+            CreatedAt = new DateTimeOffset(2026, 03, 05, 12, 00, 00, TimeSpan.Zero),
             Profile = new CustomerProfile
             {
                 DisplayName = "Deep Test",
@@ -182,20 +188,17 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
 
         Db.Customers.Add(entity);
         await Db.SaveChangesAsync(CancellationToken);
+        AssertSql(
+            """
+            INSERT INTO "AppItems"
+            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?, 'Profile': ?}
+            """);
 
         var item = await GetItemAsync("TEST#PA", "CUSTOMER#WRITE-3", CancellationToken);
         item.Should().NotBeNull();
 
-        var profile = item!["Profile"].M;
-        profile["DisplayName"].S.Should().Be("Deep Test");
-        profile["Nickname"].NULL.Should().BeTrue();
-
-        profile.Should().ContainKey("PreferredAddress");
-        var addr = profile["PreferredAddress"].M;
-        addr["Line1"].S.Should().Be("42 Nested Rd");
-        addr["City"].S.Should().Be("Mapville");
-        addr["Country"].S.Should().Be("US");
-        addr["PostalCode"].S.Should().Be("12345");
+        item!.Should().ContainKey("Profile");
+        SaveChangesCustomerItemMapper.FromItem(item).Should().BeEquivalentTo(entity);
     }
 
     // ──────────────────────────────────────────────────────────────────────────────
@@ -216,7 +219,7 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
             Version = 1,
             Email = "contacts@test.com",
             IsPreferred = false,
-            CreatedAt = DateTimeOffset.UtcNow,
+            CreatedAt = new DateTimeOffset(2026, 03, 06, 12, 00, 00, TimeSpan.Zero),
             Contacts =
             [
                 new CustomerContact
@@ -247,6 +250,11 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
 
         Db.Customers.Add(entity);
         await Db.SaveChangesAsync(CancellationToken);
+        AssertSql(
+            """
+            INSERT INTO "AppItems"
+            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?}
+            """);
 
         var item = await GetItemAsync("TEST#C", "CUSTOMER#WRITE-4", CancellationToken);
         item.Should().NotBeNull();
@@ -266,7 +274,7 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
                 GetExpectedProviderString<CustomerContact>(
                     nameof(CustomerContact.VerifiedAt),
                     entity.Contacts[0].VerifiedAt));
-        first.Should().NotContainKey("Address"); // null OwnsOne inside OwnsMany is omitted
+        first.Should().NotContainKey("Address");
 
         var second = contacts[1].M;
         second["Kind"].S.Should().Be("phone");
@@ -295,17 +303,23 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
             Version = 1,
             Email = "sset@test.com",
             IsPreferred = false,
-            CreatedAt = DateTimeOffset.UtcNow,
+            CreatedAt = new DateTimeOffset(2026, 03, 07, 12, 00, 00, TimeSpan.Zero),
             Tags = ["alpha", "beta", "gamma"],
         };
 
         Db.Customers.Add(entity);
         await Db.SaveChangesAsync(CancellationToken);
+        AssertSql(
+            """
+            INSERT INTO "AppItems"
+            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?}
+            """);
 
         var item = await GetItemAsync("TEST#SS", "CUSTOMER#WRITE-5", CancellationToken);
         item.Should().NotBeNull();
 
         item!["Tags"].SS.Should().BeEquivalentTo(["alpha", "beta", "gamma"]);
+        SaveChangesCustomerItemMapper.FromItem(item).Should().BeEquivalentTo(entity);
     }
 
     // ──────────────────────────────────────────────────────────────────────────────
@@ -332,12 +346,18 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
 
         Db.Orders.Add(entity);
         await Db.SaveChangesAsync(CancellationToken);
+        AssertSql(
+            """
+            INSERT INTO "AppItems"
+            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'AppliedCoupons': ?, 'CancellationReason': ?, 'ChargesByCode': ?, 'CustomerPk': ?, 'RiskFlags': ?, 'Status': ?, 'Total': ?, 'Version': ?, 'Lines': ?}
+            """);
 
         var item = await GetItemAsync("TEST#NS", "ORDER#WRITE-1", CancellationToken);
         item.Should().NotBeNull();
 
         // DynamoDB stores numeric set values as strings
         item!["RiskFlags"].NS.Should().BeEquivalentTo(["1", "4", "9"]);
+        SaveChangesOrderItemMapper.FromItem(item).Should().BeEquivalentTo(entity);
     }
 
     // ──────────────────────────────────────────────────────────────────────────────
@@ -358,7 +378,7 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
             Version = 1,
             Email = "dict@test.com",
             IsPreferred = false,
-            CreatedAt = DateTimeOffset.UtcNow,
+            CreatedAt = new DateTimeOffset(2026, 03, 08, 12, 00, 00, TimeSpan.Zero),
             Preferences = new Dictionary<string, string>
             {
                 ["language"] = "en", ["theme"] = "dark",
@@ -367,13 +387,17 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
 
         Db.Customers.Add(entity);
         await Db.SaveChangesAsync(CancellationToken);
+        AssertSql(
+            """
+            INSERT INTO "AppItems"
+            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?}
+            """);
 
         var item = await GetItemAsync("TEST#D", "CUSTOMER#WRITE-6", CancellationToken);
         item.Should().NotBeNull();
 
-        var prefs = item!["Preferences"].M;
-        prefs["language"].S.Should().Be("en");
-        prefs["theme"].S.Should().Be("dark");
+        item!["Preferences"].M.Should().ContainKeys("language", "theme");
+        SaveChangesCustomerItemMapper.FromItem(item).Should().BeEquivalentTo(entity);
     }
 
     /// <summary>
@@ -399,13 +423,17 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
 
         Db.Orders.Add(entity);
         await Db.SaveChangesAsync(CancellationToken);
+        AssertSql(
+            """
+            INSERT INTO "AppItems"
+            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'AppliedCoupons': ?, 'CancellationReason': ?, 'ChargesByCode': ?, 'CustomerPk': ?, 'RiskFlags': ?, 'Status': ?, 'Total': ?, 'Version': ?, 'Lines': ?}
+            """);
 
         var item = await GetItemAsync("TEST#DN", "ORDER#WRITE-2", CancellationToken);
         item.Should().NotBeNull();
 
-        var charges = item!["ChargesByCode"].M;
-        charges["shipping"].N.Should().Be("9.99");
-        charges["tax"].N.Should().Be("4.50");
+        item!["ChargesByCode"].M.Should().ContainKeys("shipping", "tax");
+        SaveChangesOrderItemMapper.FromItem(item).Should().BeEquivalentTo(entity);
     }
 
     // ──────────────────────────────────────────────────────────────────────────────
@@ -426,20 +454,23 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
             Version = 1,
             Email = "list@test.com",
             IsPreferred = false,
-            CreatedAt = DateTimeOffset.UtcNow,
+            CreatedAt = new DateTimeOffset(2026, 03, 09, 12, 00, 00, TimeSpan.Zero),
             Notes = ["first note", "second note"],
         };
 
         Db.Customers.Add(entity);
         await Db.SaveChangesAsync(CancellationToken);
+        AssertSql(
+            """
+            INSERT INTO "AppItems"
+            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?}
+            """);
 
         var item = await GetItemAsync("TEST#L", "CUSTOMER#WRITE-L", CancellationToken);
         item.Should().NotBeNull();
 
-        var notes = item!["Notes"].L;
-        notes.Should().HaveCount(2);
-        notes[0].S.Should().Be("first note");
-        notes[1].S.Should().Be("second note");
+        item!["Notes"].L.Should().HaveCount(2);
+        SaveChangesCustomerItemMapper.FromItem(item).Should().BeEquivalentTo(entity);
     }
 
     // ──────────────────────────────────────────────────────────────────────────────
@@ -526,6 +557,11 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
 
         Db.Customers.Add(entity);
         await Db.SaveChangesAsync(CancellationToken);
+        AssertSql(
+            """
+            INSERT INTO "AppItems"
+            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?, 'Profile': ?}
+            """);
 
         var actual = await GetItemAsync("TEST#BL", "CUSTOMER#WRITE-8", CancellationToken);
         actual.Should().NotBeNull();

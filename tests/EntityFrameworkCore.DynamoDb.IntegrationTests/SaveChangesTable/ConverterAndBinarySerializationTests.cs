@@ -29,6 +29,11 @@ public class ConverterAndBinarySerializationTests(SaveChangesTableDynamoFixture 
 
         Db.ConverterCoverageItems.Add(entity);
         await Db.SaveChangesAsync(CancellationToken);
+        AssertSql(
+            """
+            INSERT INTO "AppItems"
+            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'BinaryTags': ?, 'ExternalId': ?, 'History': ?, 'OccurredAt': ?, 'Payload': ?, 'Version': ?}
+            """);
 
         var item = await GetItemAsync(entity.Pk, entity.Sk, CancellationToken);
         item.Should().NotBeNull();
