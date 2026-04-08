@@ -122,7 +122,7 @@ public static class OrderItems
 ///     Source-generated DynamoDB mapper for <c>OrderItem</c> using exact property-name
 ///     convention.
 /// </summary>
-[DynamoMapper(Convention = DynamoNamingConvention.Exact, OmitNullStrings = false)]
+[DynamoMapper(Convention = DynamoNamingConvention.Exact, OmitNullValues = false)]
 internal static partial class OrderItemMapper
 {
     internal static partial Dictionary<string, AttributeValue> ToItem(OrderItem source);

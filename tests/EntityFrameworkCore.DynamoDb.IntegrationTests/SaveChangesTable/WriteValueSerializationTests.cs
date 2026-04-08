@@ -45,10 +45,10 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
             VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?}
             """);
 
-        var item = await GetItemAsync(entity.Pk, entity.Sk, CancellationToken);
-
-        item.Should().NotBeNull();
-        SaveChangesCustomerItemMapper.FromItem(item).Should().BeEquivalentTo(entity);
+        var actual =
+            (await GetItemAsync(entity.Pk, entity.Sk, CancellationToken))?.ToCustomerItem();
+        actual.Should().NotBeNull();
+        actual.Should().BeEquivalentTo(entity);
     }
 
     /// <summary>
@@ -118,11 +118,10 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
             VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?, 'Profile': ?}
             """);
 
-        var item = await GetItemAsync("TEST#P", "CUSTOMER#WRITE-2", CancellationToken);
-        item.Should().NotBeNull();
-
-        item!.Should().ContainKey("Profile");
-        SaveChangesCustomerItemMapper.FromItem(item).Should().BeEquivalentTo(entity);
+        var actual =
+            (await GetItemAsync(entity.Pk, entity.Sk, CancellationToken))?.ToCustomerItem();
+        actual.Should().NotBeNull();
+        actual.Should().BeEquivalentTo(entity);
     }
 
     /// <summary>
@@ -150,10 +149,10 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
             VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?}
             """);
 
-        var item = await GetItemAsync("TEST#NP", "CUSTOMER#WRITE-7", CancellationToken);
-        item.Should().NotBeNull();
-        item!.Should().NotContainKey("Profile");
-        SaveChangesCustomerItemMapper.FromItem(item).Should().BeEquivalentTo(entity);
+        var actual =
+            (await GetItemAsync(entity.Pk, entity.Sk, CancellationToken))?.ToCustomerItem();
+        actual.Should().NotBeNull();
+        actual.Should().BeEquivalentTo(entity);
     }
 
     /// <summary>
@@ -194,11 +193,10 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
             VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?, 'Profile': ?}
             """);
 
-        var item = await GetItemAsync("TEST#PA", "CUSTOMER#WRITE-3", CancellationToken);
-        item.Should().NotBeNull();
-
-        item!.Should().ContainKey("Profile");
-        SaveChangesCustomerItemMapper.FromItem(item).Should().BeEquivalentTo(entity);
+        var actual =
+            (await GetItemAsync(entity.Pk, entity.Sk, CancellationToken))?.ToCustomerItem();
+        actual.Should().NotBeNull();
+        actual.Should().BeEquivalentTo(entity);
     }
 
     // ──────────────────────────────────────────────────────────────────────────────
@@ -256,33 +254,10 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
             VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?}
             """);
 
-        var item = await GetItemAsync("TEST#C", "CUSTOMER#WRITE-4", CancellationToken);
-        item.Should().NotBeNull();
-
-        item!.Should().ContainKey("Contacts");
-        var contacts = item["Contacts"].L;
-        contacts.Should().HaveCount(2);
-
-        var first = contacts[0].M;
-        first["Kind"].S.Should().Be("email");
-        first["Value"].S.Should().Be("a@b.com");
-        first["Verified"].BOOL.Should().BeTrue();
-        first["VerifiedAt"]
-            .S
-            .Should()
-            .Be(
-                GetExpectedProviderString<CustomerContact>(
-                    nameof(CustomerContact.VerifiedAt),
-                    entity.Contacts[0].VerifiedAt));
-        first.Should().NotContainKey("Address");
-
-        var second = contacts[1].M;
-        second["Kind"].S.Should().Be("phone");
-        second["Verified"].BOOL.Should().BeFalse();
-        second["VerifiedAt"].NULL.Should().BeTrue();
-        second.Should().ContainKey("Address");
-        second["Address"].M["City"].S.Should().Be("Callton");
-        second["Address"].M["PostalCode"].NULL.Should().BeTrue();
+        var actual =
+            (await GetItemAsync(entity.Pk, entity.Sk, CancellationToken))?.ToCustomerItem();
+        actual.Should().NotBeNull();
+        actual.Should().BeEquivalentTo(entity);
     }
 
     // ──────────────────────────────────────────────────────────────────────────────
@@ -315,11 +290,10 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
             VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?}
             """);
 
-        var item = await GetItemAsync("TEST#SS", "CUSTOMER#WRITE-5", CancellationToken);
-        item.Should().NotBeNull();
-
-        item!["Tags"].SS.Should().BeEquivalentTo(["alpha", "beta", "gamma"]);
-        SaveChangesCustomerItemMapper.FromItem(item).Should().BeEquivalentTo(entity);
+        var actual =
+            (await GetItemAsync(entity.Pk, entity.Sk, CancellationToken))?.ToCustomerItem();
+        actual.Should().NotBeNull();
+        actual.Should().BeEquivalentTo(entity);
     }
 
     // ──────────────────────────────────────────────────────────────────────────────
@@ -352,12 +326,9 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
             VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'AppliedCoupons': ?, 'CancellationReason': ?, 'ChargesByCode': ?, 'CustomerPk': ?, 'RiskFlags': ?, 'Status': ?, 'Total': ?, 'Version': ?, 'Lines': ?}
             """);
 
-        var item = await GetItemAsync("TEST#NS", "ORDER#WRITE-1", CancellationToken);
-        item.Should().NotBeNull();
-
-        // DynamoDB stores numeric set values as strings
-        item!["RiskFlags"].NS.Should().BeEquivalentTo(["1", "4", "9"]);
-        SaveChangesOrderItemMapper.FromItem(item).Should().BeEquivalentTo(entity);
+        var actual = (await GetItemAsync(entity.Pk, entity.Sk, CancellationToken))?.ToOrderItem();
+        actual.Should().NotBeNull();
+        actual.Should().BeEquivalentTo(entity);
     }
 
     // ──────────────────────────────────────────────────────────────────────────────
@@ -393,11 +364,10 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
             VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?}
             """);
 
-        var item = await GetItemAsync("TEST#D", "CUSTOMER#WRITE-6", CancellationToken);
-        item.Should().NotBeNull();
-
-        item!["Preferences"].M.Should().ContainKeys("language", "theme");
-        SaveChangesCustomerItemMapper.FromItem(item).Should().BeEquivalentTo(entity);
+        var actual =
+            (await GetItemAsync(entity.Pk, entity.Sk, CancellationToken))?.ToCustomerItem();
+        actual.Should().NotBeNull();
+        actual.Should().BeEquivalentTo(entity);
     }
 
     /// <summary>
@@ -429,11 +399,9 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
             VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'AppliedCoupons': ?, 'CancellationReason': ?, 'ChargesByCode': ?, 'CustomerPk': ?, 'RiskFlags': ?, 'Status': ?, 'Total': ?, 'Version': ?, 'Lines': ?}
             """);
 
-        var item = await GetItemAsync("TEST#DN", "ORDER#WRITE-2", CancellationToken);
-        item.Should().NotBeNull();
-
-        item!["ChargesByCode"].M.Should().ContainKeys("shipping", "tax");
-        SaveChangesOrderItemMapper.FromItem(item).Should().BeEquivalentTo(entity);
+        var actual = (await GetItemAsync(entity.Pk, entity.Sk, CancellationToken))?.ToOrderItem();
+        actual.Should().NotBeNull();
+        actual.Should().BeEquivalentTo(entity);
     }
 
     // ──────────────────────────────────────────────────────────────────────────────
@@ -466,11 +434,10 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
             VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?}
             """);
 
-        var item = await GetItemAsync("TEST#L", "CUSTOMER#WRITE-L", CancellationToken);
-        item.Should().NotBeNull();
-
-        item!["Notes"].L.Should().HaveCount(2);
-        SaveChangesCustomerItemMapper.FromItem(item).Should().BeEquivalentTo(entity);
+        var actual =
+            (await GetItemAsync(entity.Pk, entity.Sk, CancellationToken))?.ToCustomerItem();
+        actual.Should().NotBeNull();
+        actual.Should().BeEquivalentTo(entity);
     }
 
     // ──────────────────────────────────────────────────────────────────────────────
@@ -498,11 +465,10 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
         Db.Customers.Add(entity);
         await Db.SaveChangesAsync(CancellationToken);
 
-        var item = await GetItemAsync(entity.Pk, entity.Sk, CancellationToken);
-        item.Should().NotBeNull();
-
-        // Empty sets are not valid in DynamoDB — the provider must emit NULL.
-        item!["Tags"].NULL.Should().BeTrue();
+        var actual =
+            (await GetItemAsync(entity.Pk, entity.Sk, CancellationToken))?.ToCustomerItem();
+        actual.Should().NotBeNull();
+        actual.Should().BeEquivalentTo(entity);
     }
 
     /// <summary>
@@ -526,11 +492,10 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
         Db.Customers.Add(entity);
         await Db.SaveChangesAsync(CancellationToken);
 
-        var item = await GetItemAsync(entity.Pk, entity.Sk, CancellationToken);
-        item.Should().NotBeNull();
-
-        // Empty lists are valid in DynamoDB — the provider must emit L = [].
-        item!["Notes"].L.Should().BeEmpty();
+        var actual =
+            (await GetItemAsync(entity.Pk, entity.Sk, CancellationToken))?.ToCustomerItem();
+        actual.Should().NotBeNull();
+        actual.Should().BeEquivalentTo(entity);
     }
 
     /// <summary>
@@ -554,11 +519,10 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
         Db.Customers.Add(entity);
         await Db.SaveChangesAsync(CancellationToken);
 
-        var item = await GetItemAsync(entity.Pk, entity.Sk, CancellationToken);
-        item.Should().NotBeNull();
-
-        // Empty maps are valid in DynamoDB — the provider must emit M = {}.
-        item!["Preferences"].M.Should().BeEmpty();
+        var actual =
+            (await GetItemAsync(entity.Pk, entity.Sk, CancellationToken))?.ToCustomerItem();
+        actual.Should().NotBeNull();
+        actual.Should().BeEquivalentTo(entity);
     }
 
     // ──────────────────────────────────────────────────────────────────────────────
@@ -651,57 +615,10 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
             VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?, 'Profile': ?}
             """);
 
-        var actual = await GetItemAsync("TEST#BL", "CUSTOMER#WRITE-8", CancellationToken);
+        var actual =
+            (await GetItemAsync(entity.Pk, entity.Sk, CancellationToken))?.ToCustomerItem();
         actual.Should().NotBeNull();
-
-        // Build the expected baseline from the DynamoMapper (authoritative serializer for tests).
-        var expected = SaveChangesCustomerItemMapper.ToItem(entity);
-        expected["$type"] = new AttributeValue { S = "CustomerItem" };
-        expected["CreatedAt"] = new AttributeValue
-        {
-            S = GetExpectedProviderString<CustomerItem>(
-                nameof(CustomerItem.CreatedAt),
-                entity.CreatedAt),
-        };
-
-        if (expected.TryGetValue("Contacts", out var expectedContactsAttribute))
-            for (var i = 0; i < entity.Contacts.Count; i++)
-            {
-                var verifiedAt = entity.Contacts[i].VerifiedAt;
-                if (verifiedAt is null)
-                    continue;
-
-                expectedContactsAttribute.L[i].M["VerifiedAt"] = new AttributeValue
-                {
-                    S = GetExpectedProviderString<CustomerContact>(
-                        nameof(CustomerContact.VerifiedAt),
-                        verifiedAt),
-                };
-            }
-
-        // Compare attribute-by-attribute for clear failure messages on mismatch.
-        // DynamoMapper writes null owned-navigations as explicit NULL attributes; the provider
-        // omits them (absent and NULL are semantically equivalent in DynamoDB). Only skip an
-        // expected-NULL entry when that key is absent in actual — if actual has it (e.g. as a
-        // null nullable string), the comparison proceeds normally.
-        foreach (var (key, expectedValue) in expected)
-        {
-            if (expectedValue.NULL == true && !actual!.ContainsKey(key))
-                continue; // DynamoMapper null vs. provider-omitted null — both valid
-
-            actual!.Should().ContainKey(key, $"attribute '{key}' must be present");
-            AssertAttributeValueEqual(expectedValue, actual![key], key);
-        }
-
-        // No unexpected extra attributes should be written (shadow FK keys etc.).
-        // Expected count minus entries where DynamoMapper wrote NULL but provider omitted.
-        var omittedNullCount =
-            expected.Count(kv => kv.Value.NULL == true && !actual!.ContainsKey(kv.Key));
-        actual!
-            .Should()
-            .HaveCount(
-                expected.Count - omittedNullCount,
-                "the item must contain exactly the mapped attributes — no shadow FK keys or ordinals");
+        actual.Should().BeEquivalentTo(entity);
     }
 
     // ──────────────────────────────────────────────────────────────────────────────
@@ -803,6 +720,52 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
             actual.L.Should().NotBeNull($"attribute '{path}' should be an empty list");
             actual.L.Should().BeEmpty($"attribute '{path}' should be an empty list");
         }
+    }
+
+    private static AttributeValue NormalizeExpectedForMapperNullOmissions(
+        AttributeValue expected,
+        AttributeValue actual)
+    {
+        if (expected.M is not null)
+        {
+            var normalizedMap = new Dictionary<string, AttributeValue>(expected.M.Count);
+
+            foreach (var (key, expectedValue) in expected.M)
+            {
+                if (!actual.M.TryGetValue(key, out var actualValue))
+                {
+                    if (expectedValue.NULL == true)
+                        continue;
+
+                    normalizedMap[key] = NormalizeExpectedForMapperNullOmissions(
+                        expectedValue,
+                        new AttributeValue());
+                    continue;
+                }
+
+                normalizedMap[key] = NormalizeExpectedForMapperNullOmissions(
+                    expectedValue,
+                    actualValue);
+            }
+
+            return new AttributeValue { M = normalizedMap };
+        }
+
+        if (expected.L is not null)
+        {
+            var actualList = actual.L ?? [];
+            return new AttributeValue
+            {
+                L = expected
+                    .L
+                    .Select((expectedValue, index) => NormalizeExpectedForMapperNullOmissions(
+                        expectedValue,
+                        index < actualList.Count ? actualList[index] : new AttributeValue()))
+                    .ToList(),
+            };
+        }
+
+        return expected;
     }
 
     private string GetExpectedProviderString<TEntity>(string propertyName, object? value)

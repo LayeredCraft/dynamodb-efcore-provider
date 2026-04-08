@@ -135,7 +135,7 @@ public static class SimpleItems
         => SimpleItemMapper.ToItems(Items);
 }
 
-[DynamoMapper(Convention = DynamoNamingConvention.Exact, OmitNullStrings = false)]
+[DynamoMapper(Convention = DynamoNamingConvention.Exact, OmitNullValues = false)]
 internal static partial class SimpleItemMapper
 {
     internal static partial Dictionary<string, AttributeValue> ToItem(SimpleItem source);

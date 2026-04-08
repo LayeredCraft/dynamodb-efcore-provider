@@ -56,7 +56,7 @@ public static class PrimitiveCollectionsItems
         => PrimitiveCollectionsItemMapper.ToItems(Items);
 }
 
-[DynamoMapper(Convention = DynamoNamingConvention.Exact, OmitNullStrings = false)]
+[DynamoMapper(Convention = DynamoNamingConvention.Exact, OmitNullValues = false)]
 internal static partial class PrimitiveCollectionsItemMapper
 {
     internal static List<Dictionary<string, AttributeValue>> ToItems(

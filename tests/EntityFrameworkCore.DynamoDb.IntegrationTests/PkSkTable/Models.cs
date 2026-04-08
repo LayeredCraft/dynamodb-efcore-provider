@@ -55,7 +55,7 @@ public static class PkSkItems
         => PkSkItemMapper.ToItems(Items);
 }
 
-[DynamoMapper(Convention = DynamoNamingConvention.Exact, OmitNullStrings = false)]
+[DynamoMapper(Convention = DynamoNamingConvention.Exact, OmitNullValues = false)]
 internal static partial class PkSkItemMapper
 {
     internal static partial Dictionary<string, AttributeValue> ToItem(PkSkItem source);
