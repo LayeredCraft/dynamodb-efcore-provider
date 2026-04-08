@@ -68,6 +68,11 @@ internal static class DynamoAttributeValueCollectionHelpers
     /// <see cref="AddSetElement{T}"/> is JIT-specialized per provider type rather than dispatched
     /// via a boxed pattern-match on every element.
     /// </summary>
+    /// <remarks>
+    /// Null elements are rejected — DynamoDB does not permit null values inside SS/NS/BS sets.
+    /// This differs from <see cref="SerializeList{TProvider}"/>, where null provider results
+    /// are allowed and stored as <c>{ NULL = true }</c> list elements.
+    /// </remarks>
     /// <param name="value">Non-generic enumerable of model-side elements.</param>
     /// <param name="convertToProvider">
     /// The <see cref="Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter.ConvertToProvider"/>
@@ -90,7 +95,11 @@ internal static class DynamoAttributeValueCollectionHelpers
                 throw new InvalidOperationException("DynamoDB sets cannot contain null elements.");
             // Cast unboxes to TProvider; AddSetElement<TProvider> is JIT-specialized so the
             // internal switch resolves to a single branch at runtime.
-            AddSetElement((TProvider)providerValue, ref stringSet, ref numberSet, ref binarySet);
+            if (providerValue is not TProvider typedValue)
+                throw new InvalidOperationException(
+                    $"Value converter returned '{providerValue.GetType().Name}' "
+                    + $"but the declared set element provider type is '{typeof(TProvider).Name}'.");
+            AddSetElement(typedValue, ref stringSet, ref numberSet, ref binarySet);
         }
 
         if (!hasElements)
@@ -139,6 +148,11 @@ internal static class DynamoAttributeValueCollectionHelpers
     ///     <see cref="DynamoWireValueConversion.ConvertProviderValueToAttributeValue{T}" /> is
     ///     JIT-specialized per provider type.
     /// </summary>
+    /// <remarks>
+    ///     Null provider results are stored as <c>{ NULL = true }</c> list elements because DynamoDB
+    ///     allows null values inside an L attribute. This differs from set serializers (SS/NS/BS),
+    ///     which reject null elements outright because DynamoDB sets cannot contain nulls.
+    /// </remarks>
     /// <param name="value">Non-generic enumerable of model-side elements.</param>
     /// <param name="convertToProvider">
     ///     The
@@ -154,11 +168,19 @@ internal static class DynamoAttributeValueCollectionHelpers
         foreach (var item in value)
         {
             var providerValue = convertToProvider(item);
+            // Null provider results are valid for list elements (DynamoDB allows NULL in L).
+            if (providerValue is null)
+            {
+                elements.Add(new AttributeValue { NULL = true });
+                continue;
+            }
+
+            if (providerValue is not TProvider typedValue)
+                throw new InvalidOperationException(
+                    $"Value converter returned '{providerValue.GetType().Name}' "
+                    + $"but the declared list element provider type is '{typeof(TProvider).Name}'.");
             elements.Add(
-                providerValue is null
-                    ? new AttributeValue { NULL = true }
-                    : DynamoWireValueConversion.ConvertProviderValueToAttributeValue(
-                        (TProvider)providerValue));
+                DynamoWireValueConversion.ConvertProviderValueToAttributeValue(typedValue));
         }
 
         return new AttributeValue { L = elements };
@@ -222,10 +244,17 @@ internal static class DynamoAttributeValueCollectionHelpers
                 throw new InvalidOperationException(
                     "DynamoDB dictionary keys must be strings on the write path.");
             var providerValue = convertToProvider(entry.Value);
-            map[key] = providerValue is null
-                ? new AttributeValue { NULL = true }
-                : DynamoWireValueConversion.ConvertProviderValueToAttributeValue(
-                    (TProvider)providerValue);
+            if (providerValue is null)
+            {
+                map[key] = new AttributeValue { NULL = true };
+                continue;
+            }
+
+            if (providerValue is not TProvider typedValue)
+                throw new InvalidOperationException(
+                    $"Value converter returned '{providerValue.GetType().Name}' "
+                    + $"but the declared dictionary value provider type is '{typeof(TProvider).Name}'.");
+            map[key] = DynamoWireValueConversion.ConvertProviderValueToAttributeValue(typedValue);
         }
 
         return new AttributeValue { M = map };

@@ -247,6 +247,24 @@ public sealed class DynamoEntityItemSerializerSource
     private static AttributeValue NullAttributeValue() => new() { NULL = true };
 
     /// <summary>
+    ///     Casts <paramref name="providerValue" /> to <typeparamref name="TProvider" />, throwing an
+    ///     <see cref="InvalidOperationException" /> with entity/property context if the cast fails. This
+    ///     is only reachable if a <see cref="ValueConverter" /> returns a value whose runtime type does
+    ///     not match the converter's declared <see cref="ValueConverter.ProviderClrType" />.
+    /// </summary>
+    private static TProvider CastProviderValue<TProvider>(object providerValue, IProperty property)
+    {
+        if (providerValue is TProvider typed)
+            return typed;
+
+        throw new InvalidOperationException(
+            $"Property '{property.DeclaringType.DisplayName()}.{property.Name}': "
+            + $"value converter returned '{providerValue.GetType().ShortDisplayName()}' "
+            + $"but the declared provider type is '{typeof(TProvider).ShortDisplayName()}'. "
+            + "Ensure the converter's ConvertToProvider delegate returns the correct type.");
+    }
+
+    /// <summary>
     ///     Unified factory interface for both direct (stateless) and converter-path (stateful)
     ///     property serializers. The <c>TFactory : struct</c> constraint on
     ///     <see cref="DispatchType{TFactory}" /> lets the JIT devirtualize <c>Create&lt;T&gt;</c> for all
@@ -331,7 +349,7 @@ public sealed class DynamoEntityItemSerializerSource
                 if (providerValue is null)
                     return NullAttributeValue();
                 return DynamoWireValueConversion.ConvertProviderValueToAttributeValue(
-                    (TProvider)providerValue);
+                    CastProviderValue<TProvider>(providerValue, property));
             };
         }
     }

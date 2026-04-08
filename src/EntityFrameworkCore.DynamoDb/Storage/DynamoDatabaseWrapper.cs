@@ -57,6 +57,12 @@ public class DynamoDatabaseWrapper(
             // Serialization is handled by the compiled, per-entity-type serializer — no
             // per-call type dispatch or value-type boxing on the scalar-property hot path.
             // Owned sub-entries are resolved on-demand via the EF state manager.
+            //
+            // Concurrency note: for Added entities there is no prior version to conflict with.
+            // DynamoDB's PartiQL INSERT will fail with ConditionalCheckFailedException if the
+            // key already exists, which is the correct behavior for inserts. Optimistic
+            // concurrency token validation (version checks) will be required when Modified and
+            // Deleted entity states are implemented.
             var item = serializerSource.BuildItem(entry);
             var tableName = (string)entry.EntityType[DynamoAnnotationNames.TableName]!;
             var (sql, parameters) = BuildInsertStatement(tableName, item);
@@ -79,6 +85,15 @@ public class DynamoDatabaseWrapper(
         string tableName,
         Dictionary<string, AttributeValue> item)
     {
+        // Guard: a double-quote in the table name would break the PartiQL identifier syntax.
+        // DynamoDB table names only allow letters, digits, hyphens, dots, and underscores, so
+        // this should never fire in practice but is a cheap safety net.
+        if (tableName.Contains('"'))
+            throw new ArgumentException(
+                $"Table name '{tableName}' contains an illegal character ('\"'). "
+                + "DynamoDB table names must not contain double-quote characters.",
+                nameof(tableName));
+
         var sql = new StringBuilder();
         sql.AppendLine($"INSERT INTO \"{tableName}\"");
         sql.Append("VALUE {");

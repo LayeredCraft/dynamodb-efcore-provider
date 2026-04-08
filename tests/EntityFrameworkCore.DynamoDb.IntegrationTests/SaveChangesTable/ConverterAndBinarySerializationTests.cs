@@ -97,18 +97,25 @@ public class ConverterAndBinarySerializationTests(SaveChangesTableDynamoFixture 
                 .AsAsyncEnumerable()
                 .SingleAsync(CancellationToken);
 
-        entity.ExternalId.Should().Be(externalId);
-        entity.OccurredAt.Should().Be(occurredAt);
-        entity.Payload.Should().Equal(payload);
-        entity.BinaryTags.Should().NotBeNull();
-        entity.BinaryTags!
+        var expected = new ConverterCoverageItem
+        {
+            Pk = pk,
+            Sk = sk,
+            Version = 1,
+            ExternalId = externalId,
+            OccurredAt = occurredAt,
+            Payload = payload,
+            BinaryTags = new HashSet<byte[]>([firstTag, secondTag], ByteArrayComparer.Instance),
+            History = [firstHistory, secondHistory],
+        };
+
+        entity
             .Should()
             .BeEquivalentTo(
-                [firstTag, secondTag],
+                expected,
                 options => options
-                    .Using<byte[]>(context => context.Subject.Should().Equal(context.Expectation))
+                    .Using<byte[]>(ctx => ctx.Subject.Should().Equal(ctx.Expectation))
                     .WhenTypeIs<byte[]>());
-        entity.History.Should().Equal(firstHistory, secondHistory);
     }
 
     private sealed class ByteArrayComparer : IEqualityComparer<byte[]>
