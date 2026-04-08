@@ -1,5 +1,5 @@
 using Amazon.DynamoDBv2.Model;
-using DynamoMapper.Runtime;
+using LayeredCraft.DynamoMapper.Runtime;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SimpleTable;
 

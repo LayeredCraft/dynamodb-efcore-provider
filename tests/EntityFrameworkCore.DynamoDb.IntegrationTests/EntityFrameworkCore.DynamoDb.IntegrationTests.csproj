@@ -12,7 +12,7 @@
     <PackageReference Include="AutoFixture.AutoNSubstitute"/>
     <PackageReference Include="AutoFixture.Xunit3"/>
     <PackageReference Include="AwesomeAssertions"/>
-    <PackageReference Include="DynamoMapper"/>
+    <PackageReference Include="LayeredCraft.DynamoMapper"/>
     <PackageReference Include="Microsoft.NET.Test.Sdk"/>
     <PackageReference Include="NSubstitute"/>
     <PackageReference Include="NSubstitute.Analyzers.CSharp">
