@@ -705,3 +705,17 @@ internal static partial class SaveChangesSessionItemMapper
 
     internal static partial SessionItem FromItem(Dictionary<string, AttributeValue> item);
 }
+
+[DynamoMapper(Convention = DynamoNamingConvention.Exact, OmitNullValues = false)]
+[DynamoField(nameof(ConverterCoverageItem.OccurredAt), Format = "yyyy-MM-dd HH:mm:sszzz")]
+[DynamoField(nameof(ConverterCoverageItem.History), Format = "yyyy-MM-dd HH:mm:sszzz")]
+internal static partial class SaveChangesConverterCoverageItemMapper
+{
+    internal static partial Dictionary<string, AttributeValue> ToItem(ConverterCoverageItem source);
+
+    internal static partial ConverterCoverageItem FromItem(Dictionary<string, AttributeValue> item);
+
+    internal static ConverterCoverageItem ToConverterCoverageItem(
+        this Dictionary<string, AttributeValue> item)
+        => FromItem(item);
+}

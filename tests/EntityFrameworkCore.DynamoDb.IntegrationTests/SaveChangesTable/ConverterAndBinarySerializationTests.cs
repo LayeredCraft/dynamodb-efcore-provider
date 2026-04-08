@@ -35,25 +35,10 @@ public class ConverterAndBinarySerializationTests(SaveChangesTableDynamoFixture 
             VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'BinaryTags': ?, 'ExternalId': ?, 'History': ?, 'OccurredAt': ?, 'Payload': ?, 'Version': ?}
             """);
 
-        var item = await GetItemAsync(entity.Pk, entity.Sk, CancellationToken);
-        item.Should().NotBeNull();
-
-        item!["ExternalId"].S.Should().Be(entity.ExternalId.ToString("N"));
-        item["OccurredAt"].S.Should().Be(entity.OccurredAt.ToUnixTimeSeconds().ToString());
-        item["Payload"].B.ToArray().Should().Equal(payload);
-        item["BinaryTags"]
-            .BS
-            .Select(static stream => stream.ToArray())
-            .Should()
-            .BeEquivalentTo([firstTag, secondTag]);
-        item["History"]
-            .L
-            .Select(static element => element.S)
-            .Should()
-            .Equal(
-                firstHistory.ToUnixTimeSeconds().ToString(),
-                secondHistory.ToUnixTimeSeconds().ToString());
-        item["$type"].S.Should().Be(nameof(ConverterCoverageItem));
+        var rawItem = await GetItemAsync(entity.Pk, entity.Sk, CancellationToken);
+        var actual = rawItem?.ToConverterCoverageItem();
+        actual.Should().NotBeNull();
+        actual.Should().BeEquivalentTo(entity);
     }
 
     [Fact]
