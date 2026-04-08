@@ -61,7 +61,7 @@ public class ConverterAndBinarySerializationTests(SaveChangesTableDynamoFixture 
                 ["Sk"] = new() { S = sk },
                 ["Version"] = new() { N = "1" },
                 ["ExternalId"] = new() { S = externalId.ToString("N") },
-                ["OccurredAt"] = new() { S = occurredAt.ToUnixTimeSeconds().ToString() },
+                ["OccurredAt"] = new() { S = occurredAt.ToString("yyyy-MM-dd HH:mm:sszzz") },
                 ["Payload"] = new() { B = new MemoryStream(payload, false) },
                 ["BinaryTags"] =
                     new()
@@ -78,11 +78,11 @@ public class ConverterAndBinarySerializationTests(SaveChangesTableDynamoFixture 
                     [
                         new AttributeValue
                         {
-                            S = firstHistory.ToUnixTimeSeconds().ToString(),
+                            S = firstHistory.ToString("yyyy-MM-dd HH:mm:sszzz"),
                         },
                         new AttributeValue
                         {
-                            S = secondHistory.ToUnixTimeSeconds().ToString(),
+                            S = secondHistory.ToString("yyyy-MM-dd HH:mm:sszzz"),
                         },
                     ],
                 },
