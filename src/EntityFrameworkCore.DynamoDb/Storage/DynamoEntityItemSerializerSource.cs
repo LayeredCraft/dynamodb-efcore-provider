@@ -325,16 +325,6 @@ public sealed class DynamoEntityItemSerializerSource
 
     private static AttributeValue NullAttributeValue() => new() { NULL = true };
 
-    /// <summary>
-    ///     Converts a provider-typed value to an <see cref="AttributeValue" />, returning
-    ///     <c>{ NULL = true }</c> if <paramref name="providerValue" /> is null.
-    /// </summary>
-    private static AttributeValue
-        SerializeProviderValueAllowNull<TProvider>(TProvider providerValue)
-        => providerValue is null
-            ? NullAttributeValue()
-            : DynamoWireValueConversion.ConvertProviderValueToAttributeValue(providerValue);
-
     // ── Interfaces ──────────────────────────────────────────────────────────────────
 
     /// <summary>
@@ -382,7 +372,7 @@ public sealed class DynamoEntityItemSerializerSource
                 var value = entry.GetCurrentValue<IEnumerable<T>>(property);
                 return value is null
                     ? NullAttributeValue()
-                    : DynamoAttributeValueCollectionHelpers.SerializeList<IEnumerable<T>, T>(value);
+                    : DynamoAttributeValueCollectionHelpers.SerializeList(value);
             };
     }
 
@@ -395,7 +385,7 @@ public sealed class DynamoEntityItemSerializerSource
                 var value = entry.GetCurrentValue<IEnumerable<T>>(property);
                 return value is null
                     ? NullAttributeValue()
-                    : DynamoAttributeValueCollectionHelpers.SerializeSet<IEnumerable<T>, T>(value);
+                    : DynamoAttributeValueCollectionHelpers.SerializeSet(value);
             };
     }
 
@@ -408,8 +398,7 @@ public sealed class DynamoEntityItemSerializerSource
                 var value = entry.GetCurrentValue<IEnumerable<KeyValuePair<string, T>>>(property);
                 return value is null
                     ? NullAttributeValue()
-                    : DynamoAttributeValueCollectionHelpers
-                        .SerializeDictionary<IEnumerable<KeyValuePair<string, T>>, T>(value);
+                    : DynamoAttributeValueCollectionHelpers.SerializeDictionary(value);
             };
     }
 
@@ -586,7 +575,7 @@ public sealed class DynamoEntityItemSerializerSource
         public Func<IUpdateEntry, AttributeValue> Create<TModel>(IProperty property)
         {
             var typed = (ValueConverter<TModel, TProvider>)converter;
-            return entry => SerializeProviderValueAllowNull(
+            return entry => DynamoWireValueConversion.ConvertProviderValueToAttributeValue(
                 typed.ConvertToProviderTyped(entry.GetCurrentValue<TModel>(property)));
         }
     }
@@ -611,7 +600,8 @@ public sealed class DynamoEntityItemSerializerSource
             {
                 var value = entry.GetCurrentValue<TUnderlying?>(property);
                 return value.HasValue
-                    ? SerializeProviderValueAllowNull(typed.ConvertToProviderTyped(value.Value))
+                    ? DynamoWireValueConversion.ConvertProviderValueToAttributeValue(
+                        typed.ConvertToProviderTyped(value.Value))
                     : NullAttributeValue();
             };
         }
@@ -637,10 +627,9 @@ public sealed class DynamoEntityItemSerializerSource
                 var value = entry.GetCurrentValue<IEnumerable<TElement>>(property);
                 return value is null
                     ? NullAttributeValue()
-                    : DynamoAttributeValueCollectionHelpers
-                        .SerializeList<IEnumerable<TElement>, TElement, TProvider>(
-                            value,
-                            typed.ConvertToProviderTyped);
+                    : DynamoAttributeValueCollectionHelpers.SerializeList(
+                        value,
+                        typed.ConvertToProviderTyped);
             };
         }
     }
@@ -667,12 +656,11 @@ public sealed class DynamoEntityItemSerializerSource
                 var value = entry.GetCurrentValue<IEnumerable<TUnderlying?>>(property);
                 return value is null
                     ? NullAttributeValue()
-                    : DynamoAttributeValueCollectionHelpers
-                        .SerializeList<IEnumerable<TUnderlying?>, TUnderlying?, TProvider>(
-                            value,
-                            item => item.HasValue
-                                ? typed.ConvertToProviderTyped(item.Value)
-                                : default!);
+                    : DynamoAttributeValueCollectionHelpers.SerializeList(
+                        value,
+                        item => item.HasValue
+                            ? typed.ConvertToProviderTyped(item.Value)
+                            : default!);
             };
         }
     }
@@ -722,12 +710,11 @@ public sealed class DynamoEntityItemSerializerSource
                 var value = entry.GetCurrentValue<IEnumerable<TUnderlying?>>(property);
                 return value is null
                     ? NullAttributeValue()
-                    : DynamoAttributeValueCollectionHelpers
-                        .SerializeSet<IEnumerable<TUnderlying?>, TUnderlying?, TProvider>(
-                            value,
-                            item => item.HasValue
-                                ? typed.ConvertToProviderTyped(item.Value)
-                                : default!);
+                    : DynamoAttributeValueCollectionHelpers.SerializeSet(
+                        value,
+                        item => item.HasValue
+                            ? typed.ConvertToProviderTyped(item.Value)
+                            : default!);
             };
         }
     }
@@ -749,9 +736,9 @@ public sealed class DynamoEntityItemSerializerSource
                     entry.GetCurrentValue<IEnumerable<KeyValuePair<string, TValue>>>(property);
                 return value is null
                     ? NullAttributeValue()
-                    : DynamoAttributeValueCollectionHelpers
-                        .SerializeDictionary<IEnumerable<KeyValuePair<string, TValue>>, TValue,
-                            TProvider>(value, typed.ConvertToProviderTyped);
+                    : DynamoAttributeValueCollectionHelpers.SerializeDictionary(
+                        value,
+                        typed.ConvertToProviderTyped);
             };
         }
     }
@@ -779,13 +766,11 @@ public sealed class DynamoEntityItemSerializerSource
                         property);
                 return value is null
                     ? NullAttributeValue()
-                    : DynamoAttributeValueCollectionHelpers
-                        .SerializeDictionary<IEnumerable<KeyValuePair<string, TUnderlying?>>,
-                            TUnderlying?, TProvider>(
-                            value,
-                            item => item.HasValue
-                                ? typed.ConvertToProviderTyped(item.Value)
-                                : default!);
+                    : DynamoAttributeValueCollectionHelpers.SerializeDictionary(
+                        value,
+                        item => item.HasValue
+                            ? typed.ConvertToProviderTyped(item.Value)
+                            : default!);
             };
         }
     }

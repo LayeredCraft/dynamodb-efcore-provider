@@ -1,4 +1,3 @@
-using System.Collections;
 using Amazon.DynamoDBv2.Model;
 
 namespace EntityFrameworkCore.DynamoDb.Storage;
@@ -16,8 +15,7 @@ internal static class DynamoAttributeValueCollectionHelpers
     // ──────────────────────────────────────────────────────────────────────────────
 
     /// <summary>Serializes a typed enumerable to a DynamoDB set (SS/NS/BS).</summary>
-    public static AttributeValue SerializeSet<TCollection, TElement>(TCollection value)
-        where TCollection : IEnumerable<TElement>
+    public static AttributeValue SerializeSet<TElement>(IEnumerable<TElement> value)
     {
         List<string>? stringSet = null;
         List<string>? numberSet = null;
@@ -40,9 +38,9 @@ internal static class DynamoAttributeValueCollectionHelpers
     /// Serializes a typed enumerable to a DynamoDB set (SS/NS/BS) applying a per-element
     /// converter from <typeparamref name="TElement"/> to <typeparamref name="TProvider"/>.
     /// </summary>
-    public static AttributeValue SerializeSet<TCollection, TElement, TProvider>(
-        TCollection value,
-        Func<TElement, TProvider> convertToProvider) where TCollection : IEnumerable<TElement>
+    public static AttributeValue SerializeSet<TElement, TProvider>(
+        IEnumerable<TElement> value,
+        Func<TElement, TProvider> convertToProvider)
     {
         List<string>? stringSet = null;
         List<string>? numberSet = null;
@@ -61,130 +59,36 @@ internal static class DynamoAttributeValueCollectionHelpers
         return CreateSetAttributeValue(stringSet, numberSet, binarySet);
     }
 
-    /// <summary>
-    /// Fallback: serializes a non-generic enumerable to a DynamoDB set (SS/NS/BS) using a boxed
-    /// <c>Func&lt;object?, object?&gt;</c> converter. Used by <c>ConvertedSetFactory</c> when the
-    /// model element type is not in the typed dispatch table (e.g. user-defined enums or value
-    /// objects). The provider type <typeparamref name="TProvider"/> is still resolved at plan-build
-    /// time so <see cref="AddSetElement{T}"/> is JIT-specialized per provider type.
-    /// </summary>
-    /// <remarks>
-    /// Null elements are rejected — DynamoDB does not permit null values inside SS/NS/BS sets.
-    /// This differs from <see cref="SerializeList{TProvider}"/>, where null provider results
-    /// are allowed and stored as <c>{ NULL = true }</c> list elements.
-    /// </remarks>
-    /// <param name="value">Non-generic enumerable of model-side elements.</param>
-    /// <param name="convertToProvider">
-    /// The <see cref="Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter.ConvertToProvider"/>
-    /// delegate; accepts <c>object?</c> and returns <c>object?</c>.
-    /// </param>
-    public static AttributeValue SerializeSet<TProvider>(
-        IEnumerable value,
-        Func<object?, object?> convertToProvider)
-    {
-        List<string>? stringSet = null;
-        List<string>? numberSet = null;
-        List<MemoryStream>? binarySet = null;
-        var hasElements = false;
-
-        foreach (var item in value)
-        {
-            hasElements = true;
-            var providerValue = convertToProvider(item);
-            if (providerValue is null)
-                throw new InvalidOperationException("DynamoDB sets cannot contain null elements.");
-            // Cast unboxes to TProvider; AddSetElement<TProvider> is JIT-specialized so the
-            // internal switch resolves to a single branch at runtime.
-            if (providerValue is not TProvider typedValue)
-                throw new InvalidOperationException(
-                    $"Value converter returned '{providerValue.GetType().Name}' "
-                    + $"but the declared set element provider type is '{typeof(TProvider).Name}'.");
-            AddSetElement(typedValue, ref stringSet, ref numberSet, ref binarySet);
-        }
-
-        if (!hasElements)
-            return new AttributeValue { NULL = true };
-
-        return CreateSetAttributeValue(stringSet, numberSet, binarySet);
-    }
-
     // ──────────────────────────────────────────────────────────────────────────────
     //  List  →  L
     // ──────────────────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Serializes a <see cref="List{T}"/> of scalar values to a DynamoDB list (L) where each
+    /// Serializes a typed enumerable of scalar values to a DynamoDB list (L) where each
     /// element is a scalar <see cref="AttributeValue"/>. Empty lists are valid in DynamoDB
     /// and are serialized as <c>{ L = [] }</c>.
     /// </summary>
-    /// <typeparam name="TCollection">The concrete collection type.</typeparam>
     /// <typeparam name="TElement">
     /// The element type. Must be a scalar type supported by <see cref="DynamoWireValueConversion"/>.
     /// </typeparam>
-    public static AttributeValue SerializeList<TCollection, TElement>(TCollection value)
-        where TCollection : IEnumerable<TElement>
+    public static AttributeValue SerializeList<TElement>(IEnumerable<TElement> value)
     {
         var elements = new List<AttributeValue>();
         foreach (var item in value)
-            elements.Add(SerializeElement(item));
+            elements.Add(DynamoWireValueConversion.ConvertProviderValueToAttributeValue(item));
         return new AttributeValue { L = elements };
     }
 
     /// <summary>Serializes a typed enumerable to a DynamoDB list (L) applying a per-element converter.</summary>
-    public static AttributeValue SerializeList<TCollection, TElement, TProvider>(
-        TCollection value,
-        Func<TElement, TProvider> convertToProvider) where TCollection : IEnumerable<TElement>
+    public static AttributeValue SerializeList<TElement, TProvider>(
+        IEnumerable<TElement> value,
+        Func<TElement, TProvider> convertToProvider)
     {
         var elements = new List<AttributeValue>();
         foreach (var item in value)
-            elements.Add(SerializeElement(convertToProvider(item)));
-        return new AttributeValue { L = elements };
-    }
-
-    /// <summary>
-    ///     Fallback: serializes a non-generic enumerable to a DynamoDB list (L) using a boxed
-    ///     <c>Func&lt;object?, object?&gt;</c> converter. Used by <c>ConvertedListFactory</c> when the
-    ///     model element type is not in the typed dispatch table (e.g. user-defined enums or value
-    ///     objects). Null provider results become <c>{ NULL = true }</c> elements. The provider type
-    ///     <typeparamref name="TProvider" /> is resolved at plan-build time so that
-    ///     <see cref="DynamoWireValueConversion.ConvertProviderValueToAttributeValue{T}" /> is
-    ///     JIT-specialized per provider type.
-    /// </summary>
-    /// <remarks>
-    ///     Null provider results are stored as <c>{ NULL = true }</c> list elements because DynamoDB
-    ///     allows null values inside an L attribute. This differs from set serializers (SS/NS/BS),
-    ///     which reject null elements outright because DynamoDB sets cannot contain nulls.
-    /// </remarks>
-    /// <param name="value">Non-generic enumerable of model-side elements.</param>
-    /// <param name="convertToProvider">
-    ///     The
-    ///     <see
-    ///         cref="Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter.ConvertToProvider" />
-    ///     delegate; accepts <c>object?</c> and returns <c>object?</c>.
-    /// </param>
-    public static AttributeValue SerializeList<TProvider>(
-        IEnumerable value,
-        Func<object?, object?> convertToProvider)
-    {
-        var elements = new List<AttributeValue>();
-        foreach (var item in value)
-        {
-            var providerValue = convertToProvider(item);
-            // Null provider results are valid for list elements (DynamoDB allows NULL in L).
-            if (providerValue is null)
-            {
-                elements.Add(new AttributeValue { NULL = true });
-                continue;
-            }
-
-            if (providerValue is not TProvider typedValue)
-                throw new InvalidOperationException(
-                    $"Value converter returned '{providerValue.GetType().Name}' "
-                    + $"but the declared list element provider type is '{typeof(TProvider).Name}'.");
             elements.Add(
-                DynamoWireValueConversion.ConvertProviderValueToAttributeValue(typedValue));
-        }
-
+                DynamoWireValueConversion.ConvertProviderValueToAttributeValue(
+                    convertToProvider(item)));
         return new AttributeValue { L = elements };
     }
 
@@ -193,87 +97,37 @@ internal static class DynamoAttributeValueCollectionHelpers
     // ──────────────────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Serializes a <c>Dictionary&lt;string, V&gt;</c> to a DynamoDB map (M) where each value
-    /// is a scalar <see cref="AttributeValue"/>. Empty dictionaries serialize to <c>{ M = {} }</c>.
+    /// Serializes an enumerable of <c>KeyValuePair&lt;string, V&gt;</c> to a DynamoDB map (M) where
+    /// each value is a scalar <see cref="AttributeValue"/>. Empty dictionaries serialize to
+    /// <c>{ M = {} }</c>.
     /// </summary>
-    /// <typeparam name="TCollection">The concrete dictionary shape.</typeparam>
     /// <typeparam name="TValue">
     /// The value type. Must be a scalar type supported by <see cref="DynamoWireValueConversion"/>.
     /// </typeparam>
-    public static AttributeValue SerializeDictionary<TCollection, TValue>(TCollection value)
-        where TCollection : IEnumerable<KeyValuePair<string, TValue>>
+    public static AttributeValue SerializeDictionary<TValue>(
+        IEnumerable<KeyValuePair<string, TValue>> value)
     {
         var map = new Dictionary<string, AttributeValue>(StringComparer.Ordinal);
         foreach (var (k, v) in value)
-            map[k] = SerializeElement(v);
+            map[k] = DynamoWireValueConversion.ConvertProviderValueToAttributeValue(v);
         return new AttributeValue { M = map };
     }
 
     /// <summary>Serializes a typed dictionary to a DynamoDB map (M) applying a per-value converter.</summary>
-    public static AttributeValue SerializeDictionary<TCollection, TValue, TProvider>(
-        TCollection value,
+    public static AttributeValue SerializeDictionary<TValue, TProvider>(
+        IEnumerable<KeyValuePair<string, TValue>> value,
         Func<TValue, TProvider> convertToProvider)
-        where TCollection : IEnumerable<KeyValuePair<string, TValue>>
     {
         var map = new Dictionary<string, AttributeValue>(StringComparer.Ordinal);
         foreach (var (k, v) in value)
-            map[k] = SerializeElement(convertToProvider(v));
-        return new AttributeValue { M = map };
-    }
-
-    /// <summary>
-    ///     Fallback: serializes a non-generic <see cref="IDictionary" /> to a DynamoDB map (M) using a
-    ///     boxed <c>Func&lt;object?, object?&gt;</c> converter. Used by <c>ConvertedDictionaryFactory</c>
-    ///     when the model value type is not in the typed dispatch table (e.g. user-defined enums or value
-    ///     objects). Null provider results become <c>{ NULL = true }</c> values. The provider type
-    ///     <typeparamref name="TProvider" /> is resolved at plan-build time so that
-    ///     <see cref="DynamoWireValueConversion.ConvertProviderValueToAttributeValue{T}" /> is
-    ///     JIT-specialized per provider type.
-    /// </summary>
-    /// <param name="value">Non-generic dictionary with string keys and model-side values.</param>
-    /// <param name="convertToProvider">
-    ///     The
-    ///     <see
-    ///         cref="Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter.ConvertToProvider" />
-    ///     delegate; accepts <c>object?</c> and returns <c>object?</c>.
-    /// </param>
-    public static AttributeValue SerializeDictionary<TProvider>(
-        IDictionary value,
-        Func<object?, object?> convertToProvider)
-    {
-        var map = new Dictionary<string, AttributeValue>(value.Count, StringComparer.Ordinal);
-        foreach (DictionaryEntry entry in value)
-        {
-            if (entry.Key is not string key)
-                throw new InvalidOperationException(
-                    "DynamoDB dictionary keys must be strings on the write path.");
-            var providerValue = convertToProvider(entry.Value);
-            if (providerValue is null)
-            {
-                map[key] = new AttributeValue { NULL = true };
-                continue;
-            }
-
-            if (providerValue is not TProvider typedValue)
-                throw new InvalidOperationException(
-                    $"Value converter returned '{providerValue.GetType().Name}' "
-                    + $"but the declared dictionary value provider type is '{typeof(TProvider).Name}'.");
-            map[key] = DynamoWireValueConversion.ConvertProviderValueToAttributeValue(typedValue);
-        }
-
+            map[k] = DynamoWireValueConversion.ConvertProviderValueToAttributeValue(
+                convertToProvider(v));
         return new AttributeValue { M = map };
     }
 
     // ──────────────────────────────────────────────────────────────────────────────
-    //  Shared scalar helper used by list and dictionary serializers
+    //  Set accumulation helpers
     // ──────────────────────────────────────────────────────────────────────────────
-
-    /// <summary>
-    /// Serializes a single scalar element inside a list or dictionary value.
-    /// Handles null elements and all scalar types supported by the provider.
-    /// </summary>
-    private static AttributeValue SerializeElement<T>(T item)
-        => DynamoWireValueConversion.ConvertProviderValueToAttributeValue(item);
 
     /// <summary>
     ///     Adds a single element to the appropriate set accumulator (SS, NS, or BS), enforcing that

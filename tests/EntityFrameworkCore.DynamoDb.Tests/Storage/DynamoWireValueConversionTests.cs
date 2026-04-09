@@ -24,8 +24,7 @@ public class DynamoWireValueConversionTests
         var second = new byte[] { 3, 4 };
         var values = new HashSet<byte[]>([first, second], ByteArrayComparer.Instance);
 
-        var attributeValue = DynamoAttributeValueCollectionHelpers
-            .SerializeSet<HashSet<byte[]>, byte[]>(values);
+        var attributeValue = DynamoAttributeValueCollectionHelpers.SerializeSet(values);
 
         attributeValue.BS.Should().NotBeNull();
         attributeValue.BS.Should().HaveCount(2);
@@ -45,11 +44,9 @@ public class DynamoWireValueConversionTests
             new(2026, 4, 2, 11, 45, 0, TimeSpan.Zero),
         };
 
-        var attributeValue =
-            DynamoAttributeValueCollectionHelpers
-                .SerializeList<List<DateTimeOffset>, DateTimeOffset, string>(
-                    values,
-                    static value => value.ToUnixTimeSeconds().ToString());
+        var attributeValue = DynamoAttributeValueCollectionHelpers.SerializeList(
+            values,
+            static value => value.ToUnixTimeSeconds().ToString());
 
         attributeValue.L.Should().HaveCount(2);
         attributeValue.L[0].S.Should().Be(values[0].ToUnixTimeSeconds().ToString());
@@ -65,11 +62,9 @@ public class DynamoWireValueConversionTests
             ["second"] = Guid.Parse("22222222-2222-2222-2222-222222222222"),
         };
 
-        var attributeValue =
-            DynamoAttributeValueCollectionHelpers
-                .SerializeDictionary<Dictionary<string, Guid>, Guid, string>(
-                    values,
-                    static value => value.ToString("N"));
+        var attributeValue = DynamoAttributeValueCollectionHelpers.SerializeDictionary(
+            values,
+            static value => value.ToString("N"));
 
         attributeValue.M["first"].S.Should().Be("11111111111111111111111111111111");
         attributeValue.M["second"].S.Should().Be("22222222222222222222222222222222");
@@ -78,10 +73,9 @@ public class DynamoWireValueConversionTests
     [Fact]
     public void SerializeList_WithConverterReturningNull_WritesNullElement()
     {
-        var attributeValue =
-            DynamoAttributeValueCollectionHelpers.SerializeList<List<string>, string, string?>(
-                new List<string> { "keep", "drop" },
-                static value => value == "drop" ? null : value.ToUpperInvariant());
+        var attributeValue = DynamoAttributeValueCollectionHelpers.SerializeList(
+            new List<string> { "keep", "drop" },
+            static value => value == "drop" ? null : value.ToUpperInvariant());
 
         attributeValue.L.Should().HaveCount(2);
         attributeValue.L[0].S.Should().Be("KEEP");
