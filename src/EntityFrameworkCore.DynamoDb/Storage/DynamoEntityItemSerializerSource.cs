@@ -80,7 +80,7 @@ public sealed class DynamoEntityItemSerializerSource
             return DispatchType(
                 property,
                 conv.ProviderClrType,
-                new ConvertedDictionaryFactory(conv));
+                new ConvertedDictionaryFactory(conv, valueType));
         }
 
         if (DynamoTypeMappingSource.TryGetSetElementType(clrType, out var setElementType))
@@ -89,7 +89,10 @@ public sealed class DynamoEntityItemSerializerSource
             if (conv == null)
                 return DispatchType(property, setElementType, default(DirectSetFactory));
             EnsureSupportedSetProviderType(property, conv.ProviderClrType);
-            return DispatchType(property, conv.ProviderClrType, new ConvertedSetFactory(conv));
+            return DispatchType(
+                property,
+                conv.ProviderClrType,
+                new ConvertedSetFactory(conv, setElementType));
         }
 
         if (DynamoTypeMappingSource.TryGetListElementType(clrType, out var listElementType))
@@ -98,7 +101,10 @@ public sealed class DynamoEntityItemSerializerSource
             if (conv == null)
                 return DispatchType(property, listElementType, default(DirectListFactory));
             EnsureSupportedValueProviderType(property, conv.ProviderClrType);
-            return DispatchType(property, conv.ProviderClrType, new ConvertedListFactory(conv));
+            return DispatchType(
+                property,
+                conv.ProviderClrType,
+                new ConvertedListFactory(conv, listElementType));
         }
 
         return BuildScalarSerializer(property, clrType, typeMapping.Converter);
@@ -355,18 +361,24 @@ public sealed class DynamoEntityItemSerializerSource
     }
 
     /// <summary>
-    /// Converter-path factory for list properties. Passes the converter's
-    /// <see cref="ValueConverter.ConvertToProvider"/> delegate directly to the typed list helper.
+    /// Converter-path factory for list properties. Dispatches on the model-side element type to
+    /// use a fully typed <c>IEnumerable&lt;TElement&gt;</c> access path and a
+    /// <c>Func&lt;TElement, TProvider&gt;</c> converter delegate — eliminating per-element boxing
+    /// for the common element types. Falls back to a boxed path for unknown types such as
+    /// user-defined enums or value objects.
     /// </summary>
-    private readonly struct ConvertedListFactory : ISerializerFactory
+    private readonly struct ConvertedListFactory(ValueConverter converter, Type elementClrType)
+        : ISerializerFactory
     {
-        private readonly ValueConverter _converter;
-
-        internal ConvertedListFactory(ValueConverter converter) => _converter = converter;
-
         public Func<IUpdateEntry, AttributeValue> Create<TProvider>(IProperty property)
         {
-            var conv = _converter;
+            var conv = converter;
+            if (TryCreateTyped<TProvider>(property, conv, elementClrType) is { } typed)
+                return typed;
+
+            // Fallback for element types outside the static dispatch table (e.g. user-defined
+            // enums, value objects): accepts per-element boxing on both iteration and converter
+            // call.
             return entry =>
             {
                 var value = entry.GetCurrentValue(property);
@@ -382,21 +394,122 @@ public sealed class DynamoEntityItemSerializerSource
                     conv.ConvertToProvider);
             };
         }
+
+        /// <summary>
+        ///     Attempts to produce a fully typed list delegate by pattern-matching
+        ///     <paramref name="elementType" /> against the DynamoDB wire primitive types. Semantic types such
+        ///     as <see cref="Guid" /> and <see cref="DateTime" /> are resolved to primitives by EF Core's own
+        ///     type mapping infrastructure before reaching this dispatch, so they are not listed here. All
+        ///     generic instantiations are statically visible to the AOT compiler. Returns
+        ///     <see langword="null" /> for element types outside the primitive dispatch table (e.g.
+        ///     user-defined enums, value objects), causing the caller to use the boxed fallback.
+        /// </summary>
+        private static Func<IUpdateEntry, AttributeValue>? TryCreateTyped<TProvider>(
+            IProperty property,
+            ValueConverter converter,
+            Type elementType)
+        {
+            // The `converter is ValueConverter<TElement, TProvider>` pattern-match is both a safe
+            // cast and a runtime guard: it handles EF Core wrapping nullable or derived converters.
+            if (elementType == typeof(string) && converter is ValueConverter<string, TProvider> s)
+                return CreateTyped(property, s);
+            if (elementType == typeof(bool) && converter is ValueConverter<bool, TProvider> bl)
+                return CreateTyped(property, bl);
+            if (elementType == typeof(bool?) && converter is ValueConverter<bool?, TProvider> bln)
+                return CreateTyped(property, bln);
+            if (elementType == typeof(byte) && converter is ValueConverter<byte, TProvider> by)
+                return CreateTyped(property, by);
+            if (elementType == typeof(byte?) && converter is ValueConverter<byte?, TProvider> byn)
+                return CreateTyped(property, byn);
+            if (elementType == typeof(sbyte) && converter is ValueConverter<sbyte, TProvider> sb)
+                return CreateTyped(property, sb);
+            if (elementType == typeof(sbyte?) && converter is ValueConverter<sbyte?, TProvider> sbn)
+                return CreateTyped(property, sbn);
+            if (elementType == typeof(short) && converter is ValueConverter<short, TProvider> sh)
+                return CreateTyped(property, sh);
+            if (elementType == typeof(short?) && converter is ValueConverter<short?, TProvider> shn)
+                return CreateTyped(property, shn);
+            if (elementType == typeof(ushort) && converter is ValueConverter<ushort, TProvider> us)
+                return CreateTyped(property, us);
+            if (elementType == typeof(ushort?)
+                && converter is ValueConverter<ushort?, TProvider> usn)
+                return CreateTyped(property, usn);
+            if (elementType == typeof(int) && converter is ValueConverter<int, TProvider> i)
+                return CreateTyped(property, i);
+            if (elementType == typeof(int?) && converter is ValueConverter<int?, TProvider> ni)
+                return CreateTyped(property, ni);
+            if (elementType == typeof(uint) && converter is ValueConverter<uint, TProvider> ui)
+                return CreateTyped(property, ui);
+            if (elementType == typeof(uint?) && converter is ValueConverter<uint?, TProvider> uin)
+                return CreateTyped(property, uin);
+            if (elementType == typeof(long) && converter is ValueConverter<long, TProvider> l)
+                return CreateTyped(property, l);
+            if (elementType == typeof(long?) && converter is ValueConverter<long?, TProvider> ln)
+                return CreateTyped(property, ln);
+            if (elementType == typeof(ulong) && converter is ValueConverter<ulong, TProvider> ul)
+                return CreateTyped(property, ul);
+            if (elementType == typeof(ulong?) && converter is ValueConverter<ulong?, TProvider> uln)
+                return CreateTyped(property, uln);
+            if (elementType == typeof(float) && converter is ValueConverter<float, TProvider> f)
+                return CreateTyped(property, f);
+            if (elementType == typeof(float?) && converter is ValueConverter<float?, TProvider> fn)
+                return CreateTyped(property, fn);
+            if (elementType == typeof(double) && converter is ValueConverter<double, TProvider> d)
+                return CreateTyped(property, d);
+            if (elementType == typeof(double?)
+                && converter is ValueConverter<double?, TProvider> dn)
+                return CreateTyped(property, dn);
+            if (elementType == typeof(decimal)
+                && converter is ValueConverter<decimal, TProvider> dec)
+                return CreateTyped(property, dec);
+            if (elementType == typeof(decimal?)
+                && converter is ValueConverter<decimal?, TProvider> decn)
+                return CreateTyped(property, decn);
+            if (elementType == typeof(byte[]) && converter is ValueConverter<byte[], TProvider> ba)
+                return CreateTyped(property, ba);
+            return null;
+        }
+
+        /// <summary>
+        ///     Builds the write delegate for the fully typed case. Captures
+        ///     <see cref="ValueConverter{TModel,TProvider}.ConvertToProviderTyped" /> once at plan-build time
+        ///     — <c>ConvertToProviderTyped</c> compiles lazily and caches, so this is a one-time cost per
+        ///     converter instance. The write-time hot path has no type dispatch, no reflection, and no boxing
+        ///     on element access or converter call.
+        /// </summary>
+        private static Func<IUpdateEntry, AttributeValue> CreateTyped<TElement, TProvider>(
+            IProperty property,
+            ValueConverter<TElement, TProvider> converter)
+        {
+            var convDelegate = converter.ConvertToProviderTyped;
+            return entry =>
+            {
+                var value = entry.GetCurrentValue<IEnumerable<TElement>>(property);
+                return value is null
+                    ? NullAttributeValue()
+                    : DynamoAttributeValueCollectionHelpers
+                        .SerializeList<IEnumerable<TElement>, TElement, TProvider>(
+                            value,
+                            convDelegate);
+            };
+        }
     }
 
     /// <summary>
-    /// Converter-path factory for set properties. Accumulates directly into SS/NS/BS without
-    /// creating intermediate <see cref="AttributeValue"/> objects per element.
+    /// Converter-path factory for set properties. Dispatches on the model-side element type to
+    /// use a fully typed iteration path and <c>Func&lt;TElement, TProvider&gt;</c> converter,
+    /// accumulating directly into SS/NS/BS without intermediate <see cref="AttributeValue"/>
+    /// allocations. Falls back to a boxed path for unknown element types.
     /// </summary>
-    private readonly struct ConvertedSetFactory : ISerializerFactory
+    private readonly struct ConvertedSetFactory(ValueConverter converter, Type elementClrType)
+        : ISerializerFactory
     {
-        private readonly ValueConverter _converter;
-
-        internal ConvertedSetFactory(ValueConverter converter) => _converter = converter;
-
         public Func<IUpdateEntry, AttributeValue> Create<TProvider>(IProperty property)
         {
-            var conv = _converter;
+            var conv = converter;
+            if (TryCreateTyped<TProvider>(property, conv, elementClrType) is { } typed)
+                return typed;
+
             return entry =>
             {
                 var value = entry.GetCurrentValue(property);
@@ -412,21 +525,111 @@ public sealed class DynamoEntityItemSerializerSource
                     conv.ConvertToProvider);
             };
         }
+
+        /// <summary>
+        ///     Same primitive dispatch table as <see cref="ConvertedListFactory" /> but produces a set
+        ///     delegate. Semantic types are excluded for the same reason — EF Core resolves them to primitives
+        ///     before this dispatch is reached. Returns <see langword="null" /> for element types outside the
+        ///     primitive dispatch table.
+        /// </summary>
+        private static Func<IUpdateEntry, AttributeValue>? TryCreateTyped<TProvider>(
+            IProperty property,
+            ValueConverter converter,
+            Type elementType)
+        {
+            if (elementType == typeof(string) && converter is ValueConverter<string, TProvider> s)
+                return CreateTyped(property, s);
+            if (elementType == typeof(bool) && converter is ValueConverter<bool, TProvider> bl)
+                return CreateTyped(property, bl);
+            if (elementType == typeof(bool?) && converter is ValueConverter<bool?, TProvider> bln)
+                return CreateTyped(property, bln);
+            if (elementType == typeof(byte) && converter is ValueConverter<byte, TProvider> by)
+                return CreateTyped(property, by);
+            if (elementType == typeof(byte?) && converter is ValueConverter<byte?, TProvider> byn)
+                return CreateTyped(property, byn);
+            if (elementType == typeof(sbyte) && converter is ValueConverter<sbyte, TProvider> sb)
+                return CreateTyped(property, sb);
+            if (elementType == typeof(sbyte?) && converter is ValueConverter<sbyte?, TProvider> sbn)
+                return CreateTyped(property, sbn);
+            if (elementType == typeof(short) && converter is ValueConverter<short, TProvider> sh)
+                return CreateTyped(property, sh);
+            if (elementType == typeof(short?) && converter is ValueConverter<short?, TProvider> shn)
+                return CreateTyped(property, shn);
+            if (elementType == typeof(ushort) && converter is ValueConverter<ushort, TProvider> us)
+                return CreateTyped(property, us);
+            if (elementType == typeof(ushort?)
+                && converter is ValueConverter<ushort?, TProvider> usn)
+                return CreateTyped(property, usn);
+            if (elementType == typeof(int) && converter is ValueConverter<int, TProvider> i)
+                return CreateTyped(property, i);
+            if (elementType == typeof(int?) && converter is ValueConverter<int?, TProvider> ni)
+                return CreateTyped(property, ni);
+            if (elementType == typeof(uint) && converter is ValueConverter<uint, TProvider> ui)
+                return CreateTyped(property, ui);
+            if (elementType == typeof(uint?) && converter is ValueConverter<uint?, TProvider> uin)
+                return CreateTyped(property, uin);
+            if (elementType == typeof(long) && converter is ValueConverter<long, TProvider> l)
+                return CreateTyped(property, l);
+            if (elementType == typeof(long?) && converter is ValueConverter<long?, TProvider> ln)
+                return CreateTyped(property, ln);
+            if (elementType == typeof(ulong) && converter is ValueConverter<ulong, TProvider> ul)
+                return CreateTyped(property, ul);
+            if (elementType == typeof(ulong?) && converter is ValueConverter<ulong?, TProvider> uln)
+                return CreateTyped(property, uln);
+            if (elementType == typeof(float) && converter is ValueConverter<float, TProvider> f)
+                return CreateTyped(property, f);
+            if (elementType == typeof(float?) && converter is ValueConverter<float?, TProvider> fn)
+                return CreateTyped(property, fn);
+            if (elementType == typeof(double) && converter is ValueConverter<double, TProvider> d)
+                return CreateTyped(property, d);
+            if (elementType == typeof(double?)
+                && converter is ValueConverter<double?, TProvider> dn)
+                return CreateTyped(property, dn);
+            if (elementType == typeof(decimal)
+                && converter is ValueConverter<decimal, TProvider> dec)
+                return CreateTyped(property, dec);
+            if (elementType == typeof(decimal?)
+                && converter is ValueConverter<decimal?, TProvider> decn)
+                return CreateTyped(property, decn);
+            if (elementType == typeof(byte[]) && converter is ValueConverter<byte[], TProvider> ba)
+                return CreateTyped(property, ba);
+            return null;
+        }
+
+        /// <summary>
+        ///     Builds the write delegate for the fully typed set case. Captures
+        ///     <see cref="ValueConverter{TModel,TProvider}.ConvertToProviderTyped" /> once at plan-build time.
+        /// </summary>
+        private static Func<IUpdateEntry, AttributeValue> CreateTyped<TElement, TProvider>(
+            IProperty property,
+            ValueConverter<TElement, TProvider> converter)
+        {
+            var convDelegate = converter.ConvertToProviderTyped;
+            return entry =>
+            {
+                var value = entry.GetCurrentValue<IEnumerable<TElement>>(property);
+                return value is null
+                    ? NullAttributeValue()
+                    : DynamoAttributeValueCollectionHelpers.SerializeSet(value, convDelegate);
+            };
+        }
     }
 
     /// <summary>
-    /// Converter-path factory for dictionary properties. Passes the converter's
-    /// <see cref="ValueConverter.ConvertToProvider"/> delegate directly to the typed map helper.
+    ///     Converter-path factory for dictionary properties. Dispatches on the model-side value type
+    ///     to use a fully typed <c>IEnumerable&lt;KeyValuePair&lt;string, TValue&gt;&gt;</c> access path
+    ///     and a <c>Func&lt;TValue, TProvider&gt;</c> converter delegate, eliminating per-element boxing
+    ///     for common value types. Falls back to a boxed path for unknown value types.
     /// </summary>
-    private readonly struct ConvertedDictionaryFactory : ISerializerFactory
+    private readonly struct ConvertedDictionaryFactory(ValueConverter converter, Type valueClrType)
+        : ISerializerFactory
     {
-        private readonly ValueConverter _converter;
-
-        internal ConvertedDictionaryFactory(ValueConverter converter) => _converter = converter;
-
         public Func<IUpdateEntry, AttributeValue> Create<TProvider>(IProperty property)
         {
-            var conv = _converter;
+            var conv = converter;
+            if (TryCreateTyped<TProvider>(property, conv, valueClrType) is { } typed)
+                return typed;
+
             return entry =>
             {
                 var value = entry.GetCurrentValue(property);
@@ -440,6 +643,94 @@ public sealed class DynamoEntityItemSerializerSource
                 return DynamoAttributeValueCollectionHelpers.SerializeDictionary<TProvider>(
                     dictionary,
                     conv.ConvertToProvider);
+            };
+        }
+
+        /// <summary>
+        ///     Same primitive dispatch table as <see cref="ConvertedListFactory" /> but dispatches on the
+        ///     dictionary value type and produces a map delegate. Semantic types are excluded for the same
+        ///     reason — EF Core resolves them to primitives before this dispatch is reached. Returns
+        ///     <see langword="null" /> for value types outside the primitive dispatch table.
+        /// </summary>
+        private static Func<IUpdateEntry, AttributeValue>? TryCreateTyped<TProvider>(
+            IProperty property,
+            ValueConverter converter,
+            Type valueType)
+        {
+            if (valueType == typeof(string) && converter is ValueConverter<string, TProvider> s)
+                return CreateTyped(property, s);
+            if (valueType == typeof(bool) && converter is ValueConverter<bool, TProvider> bl)
+                return CreateTyped(property, bl);
+            if (valueType == typeof(bool?) && converter is ValueConverter<bool?, TProvider> bln)
+                return CreateTyped(property, bln);
+            if (valueType == typeof(byte) && converter is ValueConverter<byte, TProvider> by)
+                return CreateTyped(property, by);
+            if (valueType == typeof(byte?) && converter is ValueConverter<byte?, TProvider> byn)
+                return CreateTyped(property, byn);
+            if (valueType == typeof(sbyte) && converter is ValueConverter<sbyte, TProvider> sb)
+                return CreateTyped(property, sb);
+            if (valueType == typeof(sbyte?) && converter is ValueConverter<sbyte?, TProvider> sbn)
+                return CreateTyped(property, sbn);
+            if (valueType == typeof(short) && converter is ValueConverter<short, TProvider> sh)
+                return CreateTyped(property, sh);
+            if (valueType == typeof(short?) && converter is ValueConverter<short?, TProvider> shn)
+                return CreateTyped(property, shn);
+            if (valueType == typeof(ushort) && converter is ValueConverter<ushort, TProvider> us)
+                return CreateTyped(property, us);
+            if (valueType == typeof(ushort?) && converter is ValueConverter<ushort?, TProvider> usn)
+                return CreateTyped(property, usn);
+            if (valueType == typeof(int) && converter is ValueConverter<int, TProvider> i)
+                return CreateTyped(property, i);
+            if (valueType == typeof(int?) && converter is ValueConverter<int?, TProvider> ni)
+                return CreateTyped(property, ni);
+            if (valueType == typeof(uint) && converter is ValueConverter<uint, TProvider> ui)
+                return CreateTyped(property, ui);
+            if (valueType == typeof(uint?) && converter is ValueConverter<uint?, TProvider> uin)
+                return CreateTyped(property, uin);
+            if (valueType == typeof(long) && converter is ValueConverter<long, TProvider> l)
+                return CreateTyped(property, l);
+            if (valueType == typeof(long?) && converter is ValueConverter<long?, TProvider> ln)
+                return CreateTyped(property, ln);
+            if (valueType == typeof(ulong) && converter is ValueConverter<ulong, TProvider> ul)
+                return CreateTyped(property, ul);
+            if (valueType == typeof(ulong?) && converter is ValueConverter<ulong?, TProvider> uln)
+                return CreateTyped(property, uln);
+            if (valueType == typeof(float) && converter is ValueConverter<float, TProvider> f)
+                return CreateTyped(property, f);
+            if (valueType == typeof(float?) && converter is ValueConverter<float?, TProvider> fn)
+                return CreateTyped(property, fn);
+            if (valueType == typeof(double) && converter is ValueConverter<double, TProvider> d)
+                return CreateTyped(property, d);
+            if (valueType == typeof(double?) && converter is ValueConverter<double?, TProvider> dn)
+                return CreateTyped(property, dn);
+            if (valueType == typeof(decimal) && converter is ValueConverter<decimal, TProvider> dec)
+                return CreateTyped(property, dec);
+            if (valueType == typeof(decimal?)
+                && converter is ValueConverter<decimal?, TProvider> decn)
+                return CreateTyped(property, decn);
+            if (valueType == typeof(byte[]) && converter is ValueConverter<byte[], TProvider> ba)
+                return CreateTyped(property, ba);
+            return null;
+        }
+
+        /// <summary>
+        ///     Builds the write delegate for the fully typed dictionary case. Captures
+        ///     <see cref="ValueConverter{TModel,TProvider}.ConvertToProviderTyped" /> once at plan-build time.
+        /// </summary>
+        private static Func<IUpdateEntry, AttributeValue> CreateTyped<TValue, TProvider>(
+            IProperty property,
+            ValueConverter<TValue, TProvider> converter)
+        {
+            var convDelegate = converter.ConvertToProviderTyped;
+            return entry =>
+            {
+                var value =
+                    entry.GetCurrentValue<IEnumerable<KeyValuePair<string, TValue>>>(property);
+                return value is null
+                    ? NullAttributeValue()
+                    : DynamoAttributeValueCollectionHelpers.SerializeDictionary(
+                        value,
+                        convDelegate);
             };
         }
     }

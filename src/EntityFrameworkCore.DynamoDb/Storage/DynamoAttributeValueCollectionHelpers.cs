@@ -62,11 +62,11 @@ internal static class DynamoAttributeValueCollectionHelpers
     }
 
     /// <summary>
-    /// Serializes a non-generic enumerable of model values to a DynamoDB set (SS/NS/BS) using a
-    /// boxed provider converter. The provider type <typeparamref name="TProvider"/> is resolved at
-    /// plan-build time via <c>DispatchSupportedDirectType</c> so that
-    /// <see cref="AddSetElement{T}"/> is JIT-specialized per provider type rather than dispatched
-    /// via a boxed pattern-match on every element.
+    /// Fallback: serializes a non-generic enumerable to a DynamoDB set (SS/NS/BS) using a boxed
+    /// <c>Func&lt;object?, object?&gt;</c> converter. Used by <c>ConvertedSetFactory</c> when the
+    /// model element type is not in the typed dispatch table (e.g. user-defined enums or value
+    /// objects). The provider type <typeparamref name="TProvider"/> is still resolved at plan-build
+    /// time so <see cref="AddSetElement{T}"/> is JIT-specialized per provider type.
     /// </summary>
     /// <remarks>
     /// Null elements are rejected — DynamoDB does not permit null values inside SS/NS/BS sets.
@@ -142,9 +142,11 @@ internal static class DynamoAttributeValueCollectionHelpers
     }
 
     /// <summary>
-    ///     Serializes a non-generic enumerable of model values to a DynamoDB list (L) using a boxed
-    ///     provider converter. Null provider results become <c>{ NULL = true }</c> elements. The provider
-    ///     type <typeparamref name="TProvider" /> is resolved at plan-build time so that
+    ///     Fallback: serializes a non-generic enumerable to a DynamoDB list (L) using a boxed
+    ///     <c>Func&lt;object?, object?&gt;</c> converter. Used by <c>ConvertedListFactory</c> when the
+    ///     model element type is not in the typed dispatch table (e.g. user-defined enums or value
+    ///     objects). Null provider results become <c>{ NULL = true }</c> elements. The provider type
+    ///     <typeparamref name="TProvider" /> is resolved at plan-build time so that
     ///     <see cref="DynamoWireValueConversion.ConvertProviderValueToAttributeValue{T}" /> is
     ///     JIT-specialized per provider type.
     /// </summary>
@@ -220,9 +222,11 @@ internal static class DynamoAttributeValueCollectionHelpers
     }
 
     /// <summary>
-    ///     Serializes a non-generic <see cref="IDictionary" /> of model values to a DynamoDB map (M)
-    ///     using a boxed provider converter. Null provider results become <c>{ NULL = true }</c> values.
-    ///     The provider type <typeparamref name="TProvider" /> is resolved at plan-build time so that
+    ///     Fallback: serializes a non-generic <see cref="IDictionary" /> to a DynamoDB map (M) using a
+    ///     boxed <c>Func&lt;object?, object?&gt;</c> converter. Used by <c>ConvertedDictionaryFactory</c>
+    ///     when the model value type is not in the typed dispatch table (e.g. user-defined enums or value
+    ///     objects). Null provider results become <c>{ NULL = true }</c> values. The provider type
+    ///     <typeparamref name="TProvider" /> is resolved at plan-build time so that
     ///     <see cref="DynamoWireValueConversion.ConvertProviderValueToAttributeValue{T}" /> is
     ///     JIT-specialized per provider type.
     /// </summary>
@@ -271,6 +275,10 @@ internal static class DynamoAttributeValueCollectionHelpers
     private static AttributeValue SerializeElement<T>(T item)
         => DynamoWireValueConversion.ConvertProviderValueToAttributeValue(item);
 
+    /// <summary>
+    ///     Adds a single element to the appropriate set accumulator (SS, NS, or BS), enforcing that
+    ///     all elements belong to the same DynamoDB set kind.
+    /// </summary>
     private static void AddSetElement<T>(
         T item,
         ref List<string>? stringSet,
@@ -340,6 +348,11 @@ internal static class DynamoAttributeValueCollectionHelpers
         }
     }
 
+    /// <summary>
+    ///     Assembles the final <see cref="AttributeValue" /> from whichever set accumulator is
+    ///     populated. SS takes priority, then BS, then NS. At most one accumulator will be non-null
+    ///     because <see cref="AddSetElement{T}" /> enforces kind homogeneity.
+    /// </summary>
     private static AttributeValue CreateSetAttributeValue(
         List<string>? stringSet,
         List<string>? numberSet,
@@ -354,10 +367,16 @@ internal static class DynamoAttributeValueCollectionHelpers
         return new AttributeValue { NS = numberSet ?? [] };
     }
 
+    /// <summary>
+    ///     Throws if elements of a different set kind (SS vs NS vs BS) have already been added, since
+    ///     DynamoDB sets are homogeneous.
+    /// </summary>
     private static void ThrowIfMixed(bool hasOtherKind, Type currentType)
     {
         if (hasOtherKind)
             throw new InvalidOperationException(
-                $"DynamoDB sets cannot mix provider element kinds. Encountered '{currentType.Name}'.");
+                $"DynamoDB sets must be homogeneous (SS, NS, or BS — not mixed). "
+                + $"Encountered '{currentType.Name}' but elements of a different kind were already added. "
+                + "Ensure all elements in the set map to the same provider type.");
     }
 }
