@@ -688,18 +688,17 @@ public sealed class DynamoEntityItemSerializerSource
     }
 
     /// <summary>
-    /// Set binder for the nullable-wrapping path (element type = <c>Nullable&lt;T&gt;</c>,
-    /// converter model type = <c>T</c>). Null elements become <c>default(TProvider)</c>;
-    /// <see cref="DynamoAttributeValueCollectionHelpers.AddSetElement{T}"/> will reject null with
-    /// an informative exception since DynamoDB sets cannot contain null values.
+    ///     Set binder for the nullable-wrapping path (element type = <c>Nullable&lt;T&gt;</c>,
+    ///     converter model type = <c>T</c>). Null elements become <c>default(TProvider)</c>;
+    ///     <see cref="DynamoAttributeValueCollectionHelpers.SerializeSet{TElement,TProvider}"/> will
+    ///     reject null with an informative exception since DynamoDB sets cannot contain null values.
     /// </summary>
     private readonly struct SetNullableBinder<TProvider>(ValueConverter converter)
         : IStructSerializerFactory
     {
         /// <summary>
         ///     Returns a delegate that serializes an enumerable of nullable elements to a DynamoDB set
-        ///     (SS/NS/BS), rejecting null elements via
-        ///     <see cref="DynamoAttributeValueCollectionHelpers.AddSetElement{T}" />.
+        ///     (SS/NS/BS), rejecting null elements.
         /// </summary>
         public Func<IUpdateEntry, AttributeValue> Create<TUnderlying>(IProperty property)
             where TUnderlying : struct
