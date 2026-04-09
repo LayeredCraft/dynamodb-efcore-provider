@@ -279,7 +279,7 @@ internal static class DynamoAttributeValueCollectionHelpers
     ///     Adds a single element to the appropriate set accumulator (SS, NS, or BS), enforcing that
     ///     all elements belong to the same DynamoDB set kind.
     /// </summary>
-    private static void AddSetElement<T>(
+    internal static void AddSetElement<T>(
         T item,
         ref List<string>? stringSet,
         ref List<string>? numberSet,
@@ -353,7 +353,7 @@ internal static class DynamoAttributeValueCollectionHelpers
     ///     populated. SS takes priority, then BS, then NS. At most one accumulator will be non-null
     ///     because <see cref="AddSetElement{T}" /> enforces kind homogeneity.
     /// </summary>
-    private static AttributeValue CreateSetAttributeValue(
+    internal static AttributeValue CreateSetAttributeValue(
         List<string>? stringSet,
         List<string>? numberSet,
         List<MemoryStream>? binarySet)
