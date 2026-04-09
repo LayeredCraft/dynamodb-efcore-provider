@@ -7,7 +7,7 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SaveChangesTable;
 /// Integration tests that verify the DynamoDB AttributeValue shapes written by
 /// <c>SaveChangesAsync</c> for the full range of property shapes in the SaveChangesTable model:
 /// scalars, owned references (OwnsOne → M), owned collections (OwnsMany → L of M), primitive
-/// lists (L), string sets (SS), numeric sets (NS), and string-keyed maps (M).
+/// lists (L), string sets (SS), converter-backed Guid sets (SS), numeric sets (NS), and string-keyed maps (M).
 /// Each test inserts via EF Core and then reads the raw item via the DynamoDB SDK to assert the
 /// wire format rather than re-reading through the provider projection stack.
 /// </summary>
@@ -42,7 +42,7 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
         AssertSql(
             """
             INSERT INTO "AppItems"
-            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?}
+            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'ReferenceIds': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?}
             """);
 
         var actual =
@@ -76,7 +76,7 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
         AssertSql(
             """
             INSERT INTO "AppItems"
-            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?}
+            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'ReferenceIds': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?}
             """);
 
         Db.Entry(entity).State.Should().Be(EntityState.Unchanged);
@@ -115,7 +115,7 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
         AssertSql(
             """
             INSERT INTO "AppItems"
-            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?, 'Profile': ?}
+            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'ReferenceIds': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?, 'Profile': ?}
             """);
 
         var actual =
@@ -146,7 +146,7 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
         AssertSql(
             """
             INSERT INTO "AppItems"
-            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?}
+            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'ReferenceIds': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?}
             """);
 
         var actual =
@@ -190,7 +190,7 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
         AssertSql(
             """
             INSERT INTO "AppItems"
-            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?, 'Profile': ?}
+            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'ReferenceIds': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?, 'Profile': ?}
             """);
 
         var actual =
@@ -251,7 +251,7 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
         AssertSql(
             """
             INSERT INTO "AppItems"
-            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?}
+            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'ReferenceIds': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?}
             """);
 
         var actual =
@@ -287,7 +287,43 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
         AssertSql(
             """
             INSERT INTO "AppItems"
-            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?}
+            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'ReferenceIds': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?}
+            """);
+
+        var actual =
+            (await GetItemAsync(entity.Pk, entity.Sk, CancellationToken))?.ToCustomerItem();
+        actual.Should().NotBeNull();
+        actual.Should().BeEquivalentTo(entity);
+    }
+
+    /// <summary>
+    ///     A <c>HashSet&lt;Guid&gt;</c> property must be serialized as a DynamoDB string set (SS) by
+    ///     applying the element converter for each Guid.
+    /// </summary>
+    [Fact]
+    public async Task CustomerItem_WithGuidSet_SerializesAsSS()
+    {
+        var entity = new CustomerItem
+        {
+            Pk = "TEST#GSS",
+            Sk = "CUSTOMER#WRITE-GSS",
+            Version = 1,
+            Email = "guidset@test.com",
+            IsPreferred = false,
+            CreatedAt = new DateTimeOffset(2026, 03, 07, 12, 30, 00, TimeSpan.Zero),
+            ReferenceIds =
+            [
+                Guid.Parse("12345678-1234-1234-1234-1234567890ab"),
+                Guid.Parse("abcdefab-cdef-cdef-cdef-abcdefabcdef"),
+            ],
+        };
+
+        Db.Customers.Add(entity);
+        await Db.SaveChangesAsync(CancellationToken);
+        AssertSql(
+            """
+            INSERT INTO "AppItems"
+            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'ReferenceIds': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?}
             """);
 
         var actual =
@@ -361,7 +397,7 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
         AssertSql(
             """
             INSERT INTO "AppItems"
-            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?}
+            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'ReferenceIds': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?}
             """);
 
         var actual =
@@ -431,7 +467,7 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
         AssertSql(
             """
             INSERT INTO "AppItems"
-            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?}
+            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'ReferenceIds': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?}
             """);
 
         var actual =
@@ -553,6 +589,7 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
             CreatedAt = source.CreatedAt,
             NullableNote = source.NullableNote,
             Preferences = source.Preferences,
+            ReferenceIds = source.ReferenceIds,
             Tags = source.Tags,
             Notes = source.Notes,
             Profile =
@@ -612,7 +649,7 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
         AssertSql(
             """
             INSERT INTO "AppItems"
-            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?, 'Profile': ?}
+            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'ReferenceIds': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?, 'Profile': ?}
             """);
 
         var actual =

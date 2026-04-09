@@ -37,6 +37,9 @@ public sealed record CustomerItem
     public HashSet<string> Tags { get; set; } = [];
 
     /// <summary>Provides functionality for this member.</summary>
+    public HashSet<Guid> ReferenceIds { get; set; } = [];
+
+    /// <summary>Provides functionality for this member.</summary>
     public List<string> Notes { get; set; } = [];
 
     /// <summary>Provides functionality for this member.</summary>
@@ -353,6 +356,11 @@ public static class SaveChangesTableItems
             NullableNote = "priority account",
             Preferences = new Dictionary<string, string> { ["language"] = "en", ["tier"] = "gold" },
             Tags = ["vip", "beta"],
+            ReferenceIds =
+            [
+                Guid.Parse("11111111-2222-3333-4444-555555555555"),
+                Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"),
+            ],
             Notes = ["seeded", "newsletter"],
             Profile =
                 new CustomerProfile
@@ -415,6 +423,7 @@ public static class SaveChangesTableItems
             NullableNote = null,
             Preferences = [],
             Tags = ["standard"],
+            ReferenceIds = [],
             Notes = [],
             Profile = null,
             Contacts = [],
@@ -669,6 +678,7 @@ public static class SaveChangesTableItems
 [DynamoField(
     nameof(CustomerItem.Contacts) + "." + nameof(CustomerContact.VerifiedAt),
     Format = "yyyy-MM-dd HH:mm:sszzz")]
+[DynamoIgnore(nameof(CustomerItem.ReferenceIds), Ignore = IgnoreMapping.ToModel)]
 internal static partial class SaveChangesCustomerItemMapper
 {
     internal static partial Dictionary<string, AttributeValue> ToItem(CustomerItem source);
@@ -676,7 +686,16 @@ internal static partial class SaveChangesCustomerItemMapper
     internal static partial CustomerItem FromItem(Dictionary<string, AttributeValue> item);
 
     internal static CustomerItem ToCustomerItem(this Dictionary<string, AttributeValue> item)
-        => FromItem(item);
+    {
+        var customer = FromItem(item);
+
+        if (item.TryGetValue(nameof(CustomerItem.ReferenceIds), out var referenceIds)
+            && referenceIds.NULL != true
+            && referenceIds.SS != null)
+            customer.ReferenceIds = referenceIds.SS.Select(Guid.Parse).ToHashSet();
+
+        return customer;
+    }
 }
 
 [DynamoMapper(Convention = DynamoNamingConvention.Exact, OmitNullValues = false)]
