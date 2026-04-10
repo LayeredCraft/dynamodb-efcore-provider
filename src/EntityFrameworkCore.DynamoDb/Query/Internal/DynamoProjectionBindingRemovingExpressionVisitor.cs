@@ -1130,18 +1130,18 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
             attributeValueVariable,
             Constant(null, typeof(AttributeValue)));
 
-        var isNullFlagExpression = Equal(
-            Property(attributeValueVariable, AttributeValueNullProperty),
-            Constant(true, typeof(bool?)));
+        var isNullFlagExpression = AndAlso(
+            NotEqual(attributeValueVariable, Constant(null, typeof(AttributeValue))),
+            Equal(
+                Property(attributeValueVariable, AttributeValueNullProperty),
+                Constant(true, typeof(bool?))));
 
         var isDynamoNullExpression = OrElse(isAttributeValueNullExpression, isNullFlagExpression);
 
-        Expression valueExpression;
-        var nonNullableType = Nullable.GetUnderlyingType(type) ?? type;
-        var isCollectionType = nonNullableType != typeof(byte[])
-            && (DynamoTypeMappingSource.TryGetDictionaryValueType(type, out _, out _)
-                || DynamoTypeMappingSource.TryGetSetElementType(type, out _)
-                || DynamoTypeMappingSource.TryGetListElementType(type, out _));
+        if (dynamoTypeMapping == null)
+            throw new InvalidOperationException(
+                $"Property '{propertyPath}' does not have a DynamoTypeMapping. "
+                + $"All mapped properties must resolve to a DynamoTypeMapping; got '{typeMapping?.GetType().Name ?? "null"}'.");
 
         var valueExpression = dynamoTypeMapping.CreateReadExpression(
             attributeValueVariable,

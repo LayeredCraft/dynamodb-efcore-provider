@@ -30,16 +30,15 @@ public class DynamoModelValidatorTypeMappingTests
     }
 
     [Fact]
-    public void
-        Validate_ThrowsWithHelpfulMessage_WhenExplicitPrimitiveCollectionHasUnmappedElementType()
+    public void Validate_Succeeds_WhenExplicitPrimitiveCollectionHasMappedElementType()
     {
-        // Guid[] explicitly configured as a primitive collection. The element type (Guid) has no
-        // DynamoDB mapping, so our source returns null for the collection → validator throws.
+        // Guid is supported via string wire representation, so Guid[] configured as a primitive
+        // collection should validate successfully.
         using var context = new ExplicitUnmappedCollectionContext();
 
         var act = () => _ = context.Model;
 
-        act.Should().Throw<InvalidOperationException>().WithMessage("*Tags*");
+        act.Should().NotThrow();
     }
 
     [Fact]
@@ -107,7 +106,6 @@ public class DynamoModelValidatorTypeMappingTests
                 builder.ToTable("Items");
                 builder.HasPartitionKey(x => x.Pk);
                 // Explicitly configure as primitive collection so EF includes it in the model.
-                // The element type (Guid) has no DynamoDB mapping → source returns null.
                 builder.PrimitiveCollection(x => x.Tags);
             });
     }
@@ -116,7 +114,7 @@ public class DynamoModelValidatorTypeMappingTests
     {
         public string Pk { get; set; } = null!;
 
-        /// <summary>Guid has no DynamoDB codec, so Guid[] is also unmappable.</summary>
+        /// <summary>Guid[] maps via Guid string wire representation.</summary>
         public Guid[] Tags { get; set; } = [];
     }
 

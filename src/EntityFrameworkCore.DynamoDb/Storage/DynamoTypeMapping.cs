@@ -1,3 +1,6 @@
+using System.Linq.Expressions;
+using Amazon.DynamoDBv2.Model;
+using EntityFrameworkCore.DynamoDb.Storage.Internal;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -129,9 +132,27 @@ public class DynamoTypeMapping : CoreTypeMapping
 
     private static DynamoValueReaderWriter? CreateReaderWriter(CoreTypeMappingParameters parameters)
     {
-        if (Converter != null && value != null)
-            value = Converter.ConvertToProvider(value);
+        DynamoValueReaderWriter? elementReaderWriter = null;
+        var elementMapping = parameters.ElementTypeMapping as DynamoTypeMapping;
+        if (elementMapping != null)
+            elementReaderWriter = elementMapping.ReaderWriter;
 
-        return DynamoWireValueConversion.GenerateBoxedConstant(value);
+        // Read-only dictionary shape is a CLR-collection concern that the collection reader/writer
+        // needs when materializing results back into the requested collection type.
+        var readOnlyDictionary =
+            DynamoTypeMappingSource.TryGetDictionaryValueType(
+                parameters.ClrType,
+                out _,
+                out var readOnly)
+            && readOnly;
+
+        var readerWriter = DynamoValueReaderWriterFactory.Create(
+            parameters.ClrType,
+            elementReaderWriter,
+            readOnlyDictionary);
+
+        // Apply the converter once after the provider-level reader/writer is known so both read and
+        // write paths share the same composed model <-> provider conversion behavior.
+        return DynamoValueReaderWriterFactory.Compose(parameters.Converter, readerWriter);
     }
 }
