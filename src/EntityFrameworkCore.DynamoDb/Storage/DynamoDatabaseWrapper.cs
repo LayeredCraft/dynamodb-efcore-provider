@@ -90,7 +90,6 @@ public class DynamoDatabaseWrapper(
                         .ExecuteWriteAsync(sql, parameters, cancellationToken)
                         .ConfigureAwait(false);
 
-                    rowsAffected++;
                     break;
                 }
 
@@ -109,15 +108,43 @@ public class DynamoDatabaseWrapper(
                             cancellationToken)
                         .ConfigureAwait(false);
 
-                    rowsAffected++;
                     break;
                 }
+
+                default:
+                    // TODO: handle remaining entity states (e.g. Deleted).
+                    throw new NotSupportedException(
+                        $"SaveChanges for EntityState.{entry.EntityState} is not yet handled "
+                        + $"in the write loop for '{entry.EntityType.DisplayName()}'.");
             }
+
+            rowsAffected++;
         }
 
         return rowsAffected;
     }
 
+    /// <summary>
+    ///     Builds a PartiQL <c>UPDATE</c> statement for a root entity in the
+    ///     <see cref="EntityState.Modified" /> state, covering only scalar (non-collection) property
+    ///     changes.
+    /// </summary>
+    /// <param name="entry">The root entity entry to update.</param>
+    /// <param name="entries">
+    ///     The full change set for this SaveChanges call, used to detect owned mutations
+    ///     on the root.
+    /// </param>
+    /// <returns>
+    ///     A tuple of (tableName, sql, parameters) if there are scalar changes to persist, or
+    ///     <see langword="null" /> if the entity has no scalar property changes (e.g. the root was
+    ///     promoted solely because an owned entry changed).
+    /// </returns>
+    /// <exception cref="NotSupportedException">
+    ///     Thrown when a modified property is a primary key (key
+    ///     mutation is not supported), a collection type (M/L/SS/NS/BS attributes are not yet supported in
+    ///     the update path), or when the root has no scalar changes but does have owned mutations (which
+    ///     would require a full document rewrite — not yet implemented).
+    /// </exception>
     private static (string tableName, string sql, List<AttributeValue> parameters)?
         BuildModifiedScalarUpdateStatement(IUpdateEntry entry, IEnumerable<IUpdateEntry> entries)
     {
@@ -132,6 +159,9 @@ public class DynamoDatabaseWrapper(
             if (!entry.IsModified(property))
                 continue;
 
+            // DynamoDB items are identified by their key — mutating a key would require
+            // deleting the old item and inserting a new one, which is not atomic and is
+            // not supported.
             if (property.IsPrimaryKey())
                 throw new NotSupportedException(
                     $"SaveChanges Modified path does not support key mutation for "
@@ -155,6 +185,11 @@ public class DynamoDatabaseWrapper(
 
         if (setClauses.Count == 0)
         {
+            // The root has no scalar changes of its own. This happens when
+            // PromoteModifiedOwnedRoots
+            // added this root entry because one of its owned entities changed. Owned/nested
+            // mutations require a full document rewrite (read-modify-write), which is not yet
+            // supported — fail explicitly rather than silently no-op'ing.
             if (HasOwnedMutationForRoot((InternalEntityEntry)entry, entries))
                 throw new NotSupportedException(
                     $"SaveChanges Modified path for '{entityType.DisplayName()}' contains owned "
@@ -163,6 +198,8 @@ public class DynamoDatabaseWrapper(
             return null;
         }
 
+        // Parameters are ordered: SET values first, then WHERE key values. The positional ?
+        // placeholders in the PartiQL text must match this parameter order exactly.
         var partitionKeyProperty = entityType.GetPartitionKeyProperty()
             ?? throw new InvalidOperationException(
                 $"Entity type '{entityType.DisplayName()}' does not define a partition key.");
@@ -172,6 +209,8 @@ public class DynamoDatabaseWrapper(
                 $"Partition key property '{entityType.DisplayName()}.{partitionKeyProperty.Name}' "
                 + "requires a DynamoTypeMapping.");
 
+        // Use the original key value for the WHERE clause — the current value is irrelevant
+        // because key mutation is rejected above.
         parameters.Add(
             partitionKeyMapping.CreateAttributeValue(
                 GetOriginalOrCurrentValue(entry, partitionKeyProperty)));
@@ -204,11 +243,29 @@ public class DynamoDatabaseWrapper(
         return (tableName, sql, parameters);
     }
 
+    /// <summary>
+    ///     Returns the original value of <paramref name="property" /> when EF Core is tracking it,
+    ///     falling back to the current value otherwise.
+    /// </summary>
+    /// <remarks>
+    ///     Original values are used for key properties in WHERE clauses so that the correct DynamoDB
+    ///     item is targeted even if the in-memory value has been touched (key mutation is rejected
+    ///     separately before this is called).
+    /// </remarks>
     private static object? GetOriginalOrCurrentValue(IUpdateEntry entry, IProperty property)
         => entry.CanHaveOriginalValue(property)
             ? entry.GetOriginalValue(property)
             : entry.GetCurrentValue(property);
 
+    /// <summary>
+    ///     Returns <see langword="true" /> if <paramref name="property" /> can be written via the
+    ///     scalar <c>SET</c> path — i.e. it is not a DynamoDB collection type (Map, List, Set).
+    /// </summary>
+    /// <remarks>
+    ///     Collection attributes (M, L, SS, NS, BS) require a full document rewrite or DynamoDB
+    ///     update expressions beyond simple scalar assignment and are not supported in this path.
+    ///     <c>byte[]</c> is a binary scalar (B attribute) and is explicitly allowed.
+    /// </remarks>
     private static bool SupportsScalarModifiedProperty(IProperty property)
     {
         var clrType = property.ClrType;
@@ -225,10 +282,26 @@ public class DynamoDatabaseWrapper(
         return true;
     }
 
+    /// <summary>
+    ///     Doubles any double-quote characters in <paramref name="identifier" /> to produce a safe
+    ///     PartiQL quoted identifier.
+    /// </summary>
     private static string EscapeIdentifier(string identifier)
         => identifier.Replace("\"", "\"\"", StringComparison.Ordinal);
 
-#pragma warning disable EF1001 // Internal EF Core API usage
+    /// <summary>
+    ///     Ensures that the aggregate root of every Modified owned entity is also present in
+    ///     <paramref name="entries" /> and is in at least the <see cref="EntityState.Modified" /> state,
+    ///     so that <see cref="BuildModifiedScalarUpdateStatement" /> is called for it and can detect
+    ///     whether the mutation is supported.
+    /// </summary>
+    /// <remarks>
+    ///     EF Core tracks owned entity changes independently from their root. When only an owned
+    ///     property changes, the root entry may still be <see cref="EntityState.Unchanged" /> and absent
+    ///     from the entries list. We promote it here (with <c>modifyProperties: false</c> to avoid marking
+    ///     all scalar properties as dirty) so that the write loop sees it and can either emit an update
+    ///     (if the owned-mutation path is later implemented) or fail with a clear error.
+    /// </remarks>
     private static void PromoteModifiedOwnedRoots(IList<IUpdateEntry> entries)
     {
         var count = entries.Count;
@@ -253,6 +326,15 @@ public class DynamoDatabaseWrapper(
         }
     }
 
+    /// <summary>
+    ///     Returns <see langword="true" /> if any owned entity in <paramref name="entries" /> with an
+    ///     active mutation (Added, Modified, or Deleted) belongs to <paramref name="root" />.
+    /// </summary>
+    /// <remarks>
+    ///     Used to distinguish a root that has no scalar changes because nothing actually changed
+    ///     from one that has no scalar changes because only its owned sub-graph changed. The latter
+    ///     requires a different (not yet implemented) write strategy.
+    /// </remarks>
     private static bool HasOwnedMutationForRoot(
         InternalEntityEntry root,
         IEnumerable<IUpdateEntry> entries)
@@ -273,28 +355,48 @@ public class DynamoDatabaseWrapper(
         return false;
     }
 
+    /// <summary>
+    ///     Walks the EF Core ownership chain to find the non-owned aggregate root of
+    ///     <paramref name="entry" />.
+    /// </summary>
     private static InternalEntityEntry GetRootEntry(InternalEntityEntry entry)
     {
-        if (!entry.EntityType.IsOwned())
-            return entry;
+        while (true)
+        {
+            if (!entry.EntityType.IsOwned())
+                return entry;
 
-        var ownership = entry.EntityType.FindOwnership()
-            ?? throw new InvalidOperationException(
-                $"Owned entity type '{entry.EntityType.DisplayName()}' has no ownership metadata.");
+            var ownership =
+                entry.EntityType.FindOwnership()
+                ?? throw new InvalidOperationException(
+                    $"Owned entity type '{entry.EntityType.DisplayName()}' has no ownership metadata.");
 
-        var principal = entry.StateManager.FindPrincipal(entry, ownership)
-            ?? throw new InvalidOperationException(
-                $"Owned entity '{entry.EntityType.DisplayName()}' is orphaned from its principal "
-                + $"'{ownership.PrincipalEntityType.DisplayName()}'.");
+            var principal =
+                entry.StateManager.FindPrincipal(entry, ownership)
+                ?? throw new InvalidOperationException(
+                    $"Owned entity '{entry.EntityType.DisplayName()}' is orphaned from its principal "
+                    + $"'{ownership.PrincipalEntityType.DisplayName()}'.");
 
-        return principal.EntityType.IsOwned() ? GetRootEntry(principal) : principal;
+            // Recurse in case of multi-level ownership (e.g. Root → Owned → NestedOwned).
+            if (principal.EntityType.IsOwned())
+            {
+                entry = principal;
+                continue;
+            }
+
+            return principal;
+        }
     }
-#pragma warning restore EF1001 // Internal EF Core API usage
 
     /// <summary>
     /// Generates a PartiQL <c>INSERT INTO "table" VALUE {'key': ?, ...}</c> statement with
     /// one positional parameter per top-level attribute in <paramref name="item"/>.
     /// </summary>
+    /// <remarks>
+    /// Attribute keys are emitted as single-quoted string literals inside the <c>VALUE</c> document
+    /// clause. This is safe for reserved words (unlike bare identifiers), so no escaping is needed
+    /// for the keys here. Table names are double-quote escaped separately.
+    /// </remarks>
     private static (string sql, List<AttributeValue> parameters) BuildInsertStatement(
         string tableName,
         Dictionary<string, AttributeValue> item)
