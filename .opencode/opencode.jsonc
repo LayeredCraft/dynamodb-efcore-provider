@@ -13,18 +13,29 @@
         "cleanupcode",
         "--profile=Built-in: Reformat Code",
         "--include=$FILE",
-        "--settings=EntityFrameworkCore.DynamoDb.sln.DotSettings",
+        "--settings=EntityFrameworkCore.DynamoDb.sln.DotSettings"
       ],
       "extensions": [
-        ".cs"
+        ".cs",
+        ".props",
+        ".csproj"
       ]
     },
     "mdformat": {
       "command": [
-        "uv",
-        "run",
+        "uvx",
+        "--with",
+        "mdformat-mkdocs",
+        "--with",
+        "mdformat-frontmatter",
         "mdformat",
-        "$FILE"
+        "$FILE",
+        "--exclude",
+        ".agents/**",
+        "--exclude",
+        ".claude/**",
+        "--exclude",
+        ".opencode/**"
       ],
       "extensions": [
         ".md"

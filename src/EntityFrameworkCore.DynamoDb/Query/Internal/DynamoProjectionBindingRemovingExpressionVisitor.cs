@@ -1136,10 +1136,12 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
 
         var isDynamoNullExpression = OrElse(isAttributeValueNullExpression, isNullFlagExpression);
 
-        if (dynamoTypeMapping == null)
-            throw new InvalidOperationException(
-                $"Property '{propertyPath}' does not have a DynamoTypeMapping. "
-                + $"All mapped properties must resolve to a DynamoTypeMapping; got '{typeMapping?.GetType().Name ?? "null"}'.");
+        Expression valueExpression;
+        var nonNullableType = Nullable.GetUnderlyingType(type) ?? type;
+        var isCollectionType = nonNullableType != typeof(byte[])
+            && (DynamoTypeMappingSource.TryGetDictionaryValueType(type, out _, out _)
+                || DynamoTypeMappingSource.TryGetSetElementType(type, out _)
+                || DynamoTypeMappingSource.TryGetListElementType(type, out _));
 
         var valueExpression = dynamoTypeMapping.CreateReadExpression(
             attributeValueVariable,
@@ -1269,13 +1271,9 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
     ///     <list type="bullet">
     ///         <item>string → attributeValue.S</item>
     ///         <item>bool → attributeValue.BOOL ?? false (non-nullable only)</item>
-    ///         <item>long → long.Parse(attributeValue.N)</item>
-    ///         <item>double → double.Parse(attributeValue.N)</item>
-    ///         <item>decimal → decimal.Parse(attributeValue.N)</item>
+    ///         <item>numeric primitives → Parse(attributeValue.N, InvariantCulture)</item>
     ///         <item>byte[] → attributeValue.B?.ToArray()</item>
     ///     </list>
-    ///     Non-primitive types (Guid,
-    ///     DateTimeOffset, etc.) are handled by EF Core value converters.
     /// </remarks>
     private static Expression CreateAttributeValueToPrimitiveExpression(
         Expression attributeValueExpression,
@@ -1320,7 +1318,7 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
 
         throw new InvalidOperationException(
             $"Cannot create expression for AttributeValue to primitive type '{primitiveType.Name}'. "
-            + $"Supported types: string, bool, numeric types (int, long, float, double, decimal, etc.), byte[]");
+            + "Supported types: string, bool, numeric types (int, long, float, double, decimal, etc.), and byte[].");
     }
 
     /// <summary>Checks whether a CLR type is a non-nullable value type.</summary>

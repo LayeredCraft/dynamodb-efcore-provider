@@ -51,36 +51,29 @@ public class DynamoClientWrapper : IDynamoClientWrapper
         bool singlePageOnly = false)
         => new DynamoAsyncEnumerable(this, statementRequest, singlePageOnly);
 
-    /// <summary>
-    ///     Executes a single PartiQL write statement (INSERT, UPDATE, or DELETE) via
-    ///     <see cref="IAmazonDynamoDB.ExecuteStatementAsync" /> and returns the response.
-    /// </summary>
-    /// <param name="tableName">The target DynamoDB table name, used for diagnostics logging.</param>
-    /// <param name="statementRequest">The write statement with positional parameters.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The <see cref="ExecuteStatementResponse" /> from the DynamoDB service.</returns>
-    public async Task<ExecuteStatementResponse> ExecuteWriteStatementAsync(
-        string tableName,
-        ExecuteStatementRequest statementRequest,
+    /// <summary>Executes a write PartiQL statement (INSERT, UPDATE, DELETE) and discards any result items.</summary>
+    /// <param name="statement">The PartiQL write statement to execute.</param>
+    /// <param name="parameters">Positional parameter values for the statement.</param>
+    /// <param name="cancellationToken">Token to observe for cancellation.</param>
+    public Task ExecuteWriteAsync(
+        string statement,
+        List<AttributeValue> parameters,
         CancellationToken cancellationToken = default)
-    {
-        return await _executionStrategy.ExecuteAsync(
-            (wrapper: this, tableName, request: statementRequest),
-            static async (_, state, ct) =>
+        => _executionStrategy.ExecuteAsync(
+            (statement, parameters),
+            async (_, state, ct) =>
             {
-                state.wrapper._commandLogger.ExecutingPartiQlWrite(
-                    state.tableName,
-                    state.request.Statement);
+                var request = new ExecuteStatementRequest
+                {
+                    Statement = state.statement, Parameters = state.parameters,
+                };
 
-                return await state
-                    .wrapper
-                    .Client
-                    .ExecuteStatementAsync(state.request, ct)
-                    .ConfigureAwait(false);
+                await Client.ExecuteStatementAsync(request, ct).ConfigureAwait(false);
+
+                return true;
             },
             null,
             cancellationToken);
-    }
 
     /// <summary>Builds the effective SDK configuration from extension options in precedence order.</summary>
     private static AmazonDynamoDBConfig BuildAmazonDynamoDbConfig(DynamoDbOptionsExtension? options)

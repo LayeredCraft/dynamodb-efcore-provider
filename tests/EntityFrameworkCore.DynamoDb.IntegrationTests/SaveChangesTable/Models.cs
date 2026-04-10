@@ -1,5 +1,6 @@
 using Amazon.DynamoDBv2.Model;
-using DynamoMapper.Runtime;
+using LayeredCraft.DynamoMapper.Runtime;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SaveChangesTable;
 
@@ -35,6 +36,9 @@ public sealed record CustomerItem
 
     /// <summary>Provides functionality for this member.</summary>
     public HashSet<string> Tags { get; set; } = [];
+
+    /// <summary>Provides functionality for this member.</summary>
+    public HashSet<Guid> ReferenceIds { get; set; } = [];
 
     /// <summary>Provides functionality for this member.</summary>
     public List<string> Notes { get; set; } = [];
@@ -161,6 +165,72 @@ public sealed record SessionItem
 
     /// <summary>Provides functionality for this member.</summary>
     public DateTimeOffset? LastSeenAt { get; set; }
+}
+
+/// <summary>Represents the ConverterCoverageItem type.</summary>
+public sealed record ConverterCoverageItem
+{
+    /// <summary>Provides functionality for this member.</summary>
+    public string Pk { get; set; } = null!;
+
+    /// <summary>Provides functionality for this member.</summary>
+    public string Sk { get; set; } = null!;
+
+    /// <summary>Provides functionality for this member.</summary>
+    public long Version { get; set; }
+
+    /// <summary>Provides functionality for this member.</summary>
+    public Guid ExternalId { get; set; }
+
+    /// <summary>Provides functionality for this member.</summary>
+    public DateTimeOffset OccurredAt { get; set; }
+
+    /// <summary>Provides functionality for this member.</summary>
+    public byte[] Payload { get; set; } = [];
+
+    /// <summary>Provides functionality for this member.</summary>
+    public HashSet<byte[]>? BinaryTags { get; set; }
+
+    /// <summary>Provides functionality for this member.</summary>
+    public List<DateTimeOffset> History { get; set; } = [];
+}
+
+/// <summary>
+///     A user-defined value object that is not in the provider's type-dispatch table. Properties
+///     of this type must use a value converter, and will exercise the boxed fallback write path in
+///     <c>DynamoEntityItemSerializerSource</c>.
+/// </summary>
+public readonly record struct ProductCode(string Value);
+
+/// <summary>
+///     Converts <see cref="ProductCode" /> to and from its <c>string</c> wire representation.
+///     Registered as a custom converter in <see cref="SaveChangesTableDbContext" /> to exercise the
+///     boxed fallback serialization path for non-dispatch-table model types.
+/// </summary>
+public sealed class ProductCodeConverter() : ValueConverter<ProductCode, string>(
+    code => code.Value,
+    str => new ProductCode(str));
+
+/// <summary>
+///     An entity that uses a custom <see cref="ProductCode" /> value type via a user-supplied
+///     converter.
+/// </summary>
+public sealed record CustomConverterItem
+{
+    /// <summary>Provides functionality for this member.</summary>
+    public string Pk { get; set; } = null!;
+
+    /// <summary>Provides functionality for this member.</summary>
+    public string Sk { get; set; } = null!;
+
+    /// <summary>Required custom-type property — exercises the boxed scalar fallback (direct match path).</summary>
+    public ProductCode Code { get; set; }
+
+    /// <summary>
+    ///     Optional custom-type property — exercises the boxed scalar fallback (nullable wrapping
+    ///     path).
+    /// </summary>
+    public ProductCode? OptionalCode { get; set; }
 }
 
 /// <summary>Represents the CustomerProfile type.</summary>
@@ -325,6 +395,11 @@ public static class SaveChangesTableItems
             NullableNote = "priority account",
             Preferences = new Dictionary<string, string> { ["language"] = "en", ["tier"] = "gold" },
             Tags = ["vip", "beta"],
+            ReferenceIds =
+            [
+                Guid.Parse("11111111-2222-3333-4444-555555555555"),
+                Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"),
+            ],
             Notes = ["seeded", "newsletter"],
             Profile =
                 new CustomerProfile
@@ -387,6 +462,7 @@ public static class SaveChangesTableItems
             NullableNote = null,
             Preferences = [],
             Tags = ["standard"],
+            ReferenceIds = [],
             Notes = [],
             Profile = null,
             Contacts = [],
@@ -636,23 +712,43 @@ public static class SaveChangesTableItems
     }
 }
 
-[DynamoMapper(Convention = DynamoNamingConvention.Exact, OmitNullStrings = false)]
+[DynamoMapper(Convention = DynamoNamingConvention.Exact, OmitNullValues = false)]
+[DynamoField(nameof(CustomerItem.CreatedAt), Format = "yyyy-MM-dd HH:mm:sszzz")]
+[DynamoField(
+    nameof(CustomerItem.Contacts) + "." + nameof(CustomerContact.VerifiedAt),
+    Format = "yyyy-MM-dd HH:mm:sszzz")]
+[DynamoIgnore(nameof(CustomerItem.ReferenceIds), Ignore = IgnoreMapping.ToModel)]
 internal static partial class SaveChangesCustomerItemMapper
 {
     internal static partial Dictionary<string, AttributeValue> ToItem(CustomerItem source);
 
     internal static partial CustomerItem FromItem(Dictionary<string, AttributeValue> item);
+
+    internal static CustomerItem ToCustomerItem(this Dictionary<string, AttributeValue> item)
+    {
+        var customer = FromItem(item);
+
+        if (item.TryGetValue(nameof(CustomerItem.ReferenceIds), out var referenceIds)
+            && referenceIds.NULL != true
+            && referenceIds.SS != null)
+            customer.ReferenceIds = referenceIds.SS.Select(Guid.Parse).ToHashSet();
+
+        return customer;
+    }
 }
 
-[DynamoMapper(Convention = DynamoNamingConvention.Exact, OmitNullStrings = false)]
+[DynamoMapper(Convention = DynamoNamingConvention.Exact, OmitNullValues = false)]
 internal static partial class SaveChangesOrderItemMapper
 {
     internal static partial Dictionary<string, AttributeValue> ToItem(OrderItem source);
 
     internal static partial OrderItem FromItem(Dictionary<string, AttributeValue> item);
+
+    internal static OrderItem ToOrderItem(this Dictionary<string, AttributeValue> item)
+        => FromItem(item);
 }
 
-[DynamoMapper(Convention = DynamoNamingConvention.Exact, OmitNullStrings = false)]
+[DynamoMapper(Convention = DynamoNamingConvention.Exact, OmitNullValues = false)]
 internal static partial class SaveChangesProductItemMapper
 {
     internal static partial Dictionary<string, AttributeValue> ToItem(ProductItem source);
@@ -660,10 +756,24 @@ internal static partial class SaveChangesProductItemMapper
     internal static partial ProductItem FromItem(Dictionary<string, AttributeValue> item);
 }
 
-[DynamoMapper(Convention = DynamoNamingConvention.Exact, OmitNullStrings = false)]
+[DynamoMapper(Convention = DynamoNamingConvention.Exact, OmitNullValues = false)]
 internal static partial class SaveChangesSessionItemMapper
 {
     internal static partial Dictionary<string, AttributeValue> ToItem(SessionItem source);
 
     internal static partial SessionItem FromItem(Dictionary<string, AttributeValue> item);
+}
+
+[DynamoMapper(Convention = DynamoNamingConvention.Exact, OmitNullValues = false)]
+[DynamoField(nameof(ConverterCoverageItem.OccurredAt), Format = "yyyy-MM-dd HH:mm:sszzz")]
+[DynamoField(nameof(ConverterCoverageItem.History), Format = "yyyy-MM-dd HH:mm:sszzz")]
+internal static partial class SaveChangesConverterCoverageItemMapper
+{
+    internal static partial Dictionary<string, AttributeValue> ToItem(ConverterCoverageItem source);
+
+    internal static partial ConverterCoverageItem FromItem(Dictionary<string, AttributeValue> item);
+
+    internal static ConverterCoverageItem ToConverterCoverageItem(
+        this Dictionary<string, AttributeValue> item)
+        => FromItem(item);
 }

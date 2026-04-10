@@ -56,6 +56,13 @@ When a story changes query behavior, update the docs in the same story so inform
 - Docs site config is in `zensical.toml` (not `mkdocs.yml`); keep Zensical-related changes there.
 - Verify docs build: `uv run zensical build` (or `task docs:build`).
 
+## Internal EF Core APIs
+
+This is a provider — use of EF Core internal APIs is explicitly permitted and expected. Suppress
+`EF1001` at the file level (`#pragma warning disable EF1001`) in any file that needs them, and
+leave a short comment explaining why (e.g. state manager access, `InternalEntityEntry` navigation).
+Do not suppress warnings globally in the project file.
+
 ## Repo Hygiene
 
 - Do not commit anything under `.claude/do_not_commit/`.
@@ -107,18 +114,18 @@ bd close <id>         # Complete work
 **MANDATORY WORKFLOW:**
 
 1. **File issues for remaining work** - Create issues for anything that needs follow-up
-2. **Run quality gates** (if code changed) - Tests, linters, builds
-3. **Update issue status** - Close finished work, update in-progress items
-4. **PUSH TO REMOTE** - This is MANDATORY:
-   ```bash
-   git pull --rebase
-   bd dolt push
-   git push
-   git status  # MUST show "up to date with origin"
-   ```
-5. **Clean up** - Clear stashes, prune remote branches
-6. **Verify** - All changes committed AND pushed
-7. **Hand off** - Provide context for next session
+1. **Run quality gates** (if code changed) - Tests, linters, builds
+1. **Update issue status** - Close finished work, update in-progress items
+1. **PUSH TO REMOTE** - This is MANDATORY:
+    ```bash
+    git pull --rebase
+    bd dolt push
+    git push
+    git status  # MUST show "up to date with origin"
+    ```
+1. **Clean up** - Clear stashes, prune remote branches
+1. **Verify** - All changes committed AND pushed
+1. **Hand off** - Provide context for next session
 
 **CRITICAL RULES:**
 

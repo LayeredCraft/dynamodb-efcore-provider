@@ -1,80 +1,118 @@
+using System.Text;
 using Amazon.DynamoDBv2.Model;
-using EntityFrameworkCore.DynamoDb.Update.Internal;
+using EntityFrameworkCore.DynamoDb.Diagnostics.Internal;
+using EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.Update;
 
 namespace EntityFrameworkCore.DynamoDb.Storage;
 
-/// <summary>Executes <see cref="SaveChanges" /> by compiling tracked entries to PartiQL write statements.</summary>
+/// <summary>
+/// Translates EF Core <see cref="SaveChanges"/> calls into PartiQL write statements and executes
+/// them against DynamoDB via <see cref="IDynamoClientWrapper"/>.
+/// </summary>
 public class DynamoDatabaseWrapper(
     DatabaseDependencies dependencies,
     IDynamoClientWrapper clientWrapper,
-    IDynamoWriteSqlGeneratorFactory writeSqlGeneratorFactory,
-    ITypeMappingSource typeMappingSource) : Database(dependencies)
+    IDiagnosticsLogger<DbLoggerCategory.Database.Command> commandLogger,
+    DynamoEntityItemSerializerSource serializerSource) : Database(dependencies)
 {
-    /// <inheritdoc />
+    /// <summary>Not supported — DynamoDB only exposes an async API.</summary>
+    /// <exception cref="NotSupportedException">Always thrown.</exception>
     public override int SaveChanges(IList<IUpdateEntry> entries)
-        => SaveChangesAsync(entries).GetAwaiter().GetResult();
+        => throw new NotSupportedException(
+            "DynamoDB does not support synchronous SaveChanges. Use SaveChangesAsync instead.");
 
     /// <summary>
-    ///     Persists all tracked <see cref="IUpdateEntry" /> instances by compiling each root entity
-    ///     to a single PartiQL write statement and executing it via <see cref="IDynamoClientWrapper" />.
+    /// Persists all <see cref="EntityState.Added"/> entries as PartiQL <c>INSERT</c> statements.
+    /// Modified and Deleted entries are not yet supported and will throw.
     /// </summary>
-    /// <param name="entries">The tracked entries to persist.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The total number of root entities written.</returns>
+    /// <param name="entries">The tracked entity changes to persist.</param>
+    /// <param name="cancellationToken">Token to observe for cancellation.</param>
+    /// <returns>The number of root entities written.</returns>
     /// <exception cref="NotSupportedException">
-    ///     Thrown when an entry has an <see cref="EntityState" /> other than <see cref="EntityState.Added" />
-    ///     (Modified/Deleted are added in later stories), or when an owned entity entry is encountered
-    ///     (owned navigation serialization is planned for story 6gu.2).
+    /// Thrown when any entry has a state other than <see cref="EntityState.Added"/>.
     /// </exception>
     public override async Task<int> SaveChangesAsync(
         IList<IUpdateEntry> entries,
         CancellationToken cancellationToken = default)
     {
-        var builder = new InsertExpressionBuilder(typeMappingSource);
-        var count = 0;
+        // Guard: only Added is implemented; fail explicitly for Modified/Deleted.
+        var unsupported = entries.FirstOrDefault(static e
+            => e.EntityState is not EntityState.Added && !e.EntityType.IsOwned());
 
-        foreach (var entry in entries)
+        if (unsupported is not null)
+            throw new NotSupportedException(
+                $"SaveChanges for EntityState.{unsupported.EntityState} is not yet supported. "
+                + "Only Added entities can be persisted in this version.");
+
+        var rootEntries = entries
+            .Where(static e => !e.EntityType.IsOwned() && e.EntityState == EntityState.Added)
+            .ToList();
+
+        foreach (var entry in rootEntries)
         {
-            // Owned entity entries are tracked separately by EF Core, but serializing owned
-            // navigations as nested AttributeValue maps is not yet implemented (story 6gu.2).
-            // Throw rather than silently dropping the owned data.
-            if (entry.EntityType.IsOwned())
-                throw new NotSupportedException(
-                    $"Entity type '{entry.EntityType.Name}' is an owned type. Saving entities "
-                    + "with owned navigations is not yet supported. Planned for story 6gu.2.");
+            // Serialization is handled by the compiled, per-entity-type serializer — no
+            // per-call type dispatch or value-type boxing on the scalar-property hot path.
+            // Owned sub-entries are resolved on-demand via the EF state manager.
+            //
+            // Concurrency note: for Added entities there is no prior version to conflict with.
+            // DynamoDB's PartiQL INSERT will fail with ConditionalCheckFailedException if the
+            // key already exists, which is the correct behavior for inserts. Optimistic
+            // concurrency token validation (version checks) will be required when Modified and
+            // Deleted entity states are implemented.
+            var item = serializerSource.BuildItem(entry);
+            var tableName = (string)entry.EntityType[DynamoAnnotationNames.TableName]!;
+            var (sql, parameters) = BuildInsertStatement(tableName, item);
 
-            switch (entry.EntityState)
-            {
-                case EntityState.Added:
-                {
-                    var plan = builder.Build(entry);
-                    var generator = writeSqlGeneratorFactory.Create();
-                    var query = generator.Generate(plan.Expression, plan.ParameterValues);
+            commandLogger.ExecutingPartiQlQuery(tableName, sql);
 
-                    await clientWrapper
-                        .ExecuteWriteStatementAsync(
-                            plan.Expression.TableName,
-                            new ExecuteStatementRequest
-                            {
-                                Statement = query.Sql, Parameters = [..query.Parameters],
-                            },
-                            cancellationToken)
-                        .ConfigureAwait(false);
-
-                    count++;
-                    break;
-                }
-
-                default:
-                    throw new NotSupportedException(
-                        $"EntityState '{entry.EntityState}' is not yet supported by this provider. "
-                        + "Only EntityState.Added is currently implemented.");
-            }
+            await clientWrapper
+                .ExecuteWriteAsync(sql, parameters, cancellationToken)
+                .ConfigureAwait(false);
         }
 
-        return count;
+        return rootEntries.Count;
+    }
+
+    /// <summary>
+    /// Generates a PartiQL <c>INSERT INTO "table" VALUE {'key': ?, ...}</c> statement with
+    /// one positional parameter per top-level attribute in <paramref name="item"/>.
+    /// </summary>
+    private static (string sql, List<AttributeValue> parameters) BuildInsertStatement(
+        string tableName,
+        Dictionary<string, AttributeValue> item)
+    {
+        // Guard: a double-quote in the table name would break the PartiQL identifier syntax.
+        // DynamoDB table names only allow letters, digits, hyphens, dots, and underscores, so
+        // this should never fire in practice but is a cheap safety net.
+        if (tableName.Contains('"'))
+            throw new ArgumentException(
+                $"Table name '{tableName}' contains an illegal character ('\"'). "
+                + "DynamoDB table names must not contain double-quote characters.",
+                nameof(tableName));
+
+        var sql = new StringBuilder();
+        sql.AppendLine($"INSERT INTO \"{tableName}\"");
+        sql.Append("VALUE {");
+
+        var parameters = new List<AttributeValue>(item.Count);
+        var first = true;
+
+        foreach (var (key, value) in item)
+        {
+            if (!first)
+                sql.Append(", ");
+
+            // Keys are string literals in the VALUE document clause — reserved words are safe here.
+            sql.Append($"'{key}': ?");
+            parameters.Add(value);
+            first = false;
+        }
+
+        sql.Append('}');
+        return (sql.ToString(), parameters);
     }
 }

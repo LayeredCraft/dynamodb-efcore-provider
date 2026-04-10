@@ -444,6 +444,23 @@ public class SecondaryIndexMetadataTests
     /// <summary>Provides functionality for this member.</summary>
     [Fact]
     /// <summary>Provides functionality for this member.</summary>
+    public void HasGlobalSecondaryIndex_DateTimeOffsetWithoutConverter_DoesNotThrow()
+    {
+        var optionsBuilder = new DbContextOptionsBuilder<DateTimeOffsetGlobalPartitionKeyContext>();
+        optionsBuilder.UseDynamo();
+
+        var act = () =>
+        {
+            using var context = new DateTimeOffsetGlobalPartitionKeyContext(optionsBuilder.Options);
+            _ = context.Model;
+        };
+
+        act.Should().NotThrow();
+    }
+
+    /// <summary>Provides functionality for this member.</summary>
+    [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void Model_ContainsRuntimeTableModel_ForConfiguredSecondaryIndexes()
     {
         using var context = CreateContext();
@@ -1088,6 +1105,31 @@ public class SecondaryIndexMetadataTests
 
         /// <summary>Provides functionality for this member.</summary>
         public Guid CustomerId { get; set; }
+    }
+
+    private sealed class DateTimeOffsetGlobalPartitionKeyContext(
+        DbContextOptions<DateTimeOffsetGlobalPartitionKeyContext> options) : DbContext(options)
+    {
+        /// <summary>Provides functionality for this member.</summary>
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<DateTimeOffsetGlobalPartitionKeyOrder>(entity =>
+            {
+                entity.HasPartitionKey(x => x.TenantId);
+                entity.HasSortKey(x => x.OrderId);
+                entity.HasGlobalSecondaryIndex("ByCapturedAt", x => x.CapturedAt);
+            });
+    }
+
+    private sealed class DateTimeOffsetGlobalPartitionKeyOrder
+    {
+        /// <summary>Provides functionality for this member.</summary>
+        public string TenantId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
+        public string OrderId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
+        public DateTimeOffset CapturedAt { get; set; }
     }
 
     private sealed class DerivedUnsupportedGlobalPartitionKeyTypeContext(
