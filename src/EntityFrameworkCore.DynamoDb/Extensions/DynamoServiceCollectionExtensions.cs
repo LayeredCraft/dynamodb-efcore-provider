@@ -4,6 +4,7 @@ using EntityFrameworkCore.DynamoDb.Metadata.Conventions;
 using EntityFrameworkCore.DynamoDb.Query;
 using EntityFrameworkCore.DynamoDb.Query.Internal;
 using EntityFrameworkCore.DynamoDb.Storage;
+using EntityFrameworkCore.DynamoDb.Update.Internal;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
@@ -44,6 +45,8 @@ public static class DynamoServiceCollectionExtensions
                     .TryAddSingleton<ISqlExpressionFactory, SqlExpressionFactory>()
                     .TryAddSingleton<IDynamoQuerySqlGeneratorFactory,
                         DynamoQuerySqlGeneratorFactory>()
+                    .TryAddSingleton<IDynamoWriteSqlGeneratorFactory,
+                        DynamoWriteSqlGeneratorFactory>()
                     // Replaceable via ReplaceService<IDynamoIndexSelectionAnalyzer, T>() for
                     // custom selection logic or test substitution.
                     .TryAddSingleton<IDynamoIndexSelectionAnalyzer,

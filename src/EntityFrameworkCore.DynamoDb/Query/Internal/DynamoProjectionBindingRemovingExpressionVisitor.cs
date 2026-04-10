@@ -1101,7 +1101,7 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
         Expression? contextOverride = null)
     {
         var itemParameter = contextOverride ?? _attributeContextStack.Peek();
-        var converter = typeMapping?.Converter;
+        var dynamoTypeMapping = typeMapping as DynamoTypeMapping;
 
         var attributeValueVariable = Variable(typeof(AttributeValue), "attributeValue");
 
@@ -1143,68 +1143,16 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
                 || DynamoTypeMappingSource.TryGetSetElementType(type, out _)
                 || DynamoTypeMappingSource.TryGetListElementType(type, out _));
 
-        if (isCollectionType)
-        {
-            valueExpression = CreateCollectionValueExpression(
-                attributeValueVariable,
-                type,
-                typeMapping,
-                propertyPath,
-                required,
-                property);
-        }
-        else
-        {
-            // Extract wire primitive: attributeValue.S, long.Parse(attributeValue.N), etc.
-            var primitiveType = converter?.ProviderClrType ?? type;
-            var isNullablePrimitive = Nullable.GetUnderlyingType(primitiveType) != null;
-            var wireType = Nullable.GetUnderlyingType(primitiveType) ?? primitiveType;
-            if (!IsWirePrimitiveType(wireType))
-                throw new InvalidOperationException(
-                    $"Cannot materialize property '{propertyPath}' as CLR type '{type.FullName ?? type.Name}'. "
-                    + $"The effective wire type '{wireType.FullName ?? wireType.Name}' is not a supported DynamoDB primitive. "
-                    + $"Required={required}, HasTypeMapping={typeMapping != null}. "
-                    + "Use an owned entity type for embedded complex objects, or configure a value converter/type mapping to a supported DynamoDB primitive wire type.");
+        var valueExpression = dynamoTypeMapping.CreateReadExpression(
+            attributeValueVariable,
+            propertyPath,
+            required,
+            property);
 
-            var primitiveExpression = CreateAttributeValueToPrimitiveExpression(
-                attributeValueVariable,
-                wireType,
-                isNullablePrimitive);
-
-            if (primitiveExpression.Type != primitiveType)
-                primitiveExpression = Convert(primitiveExpression, primitiveType);
-
-            // Inline converter: DateTime.Parse(...), Guid.Parse(...), (int)long.Parse(...),
-            // etc.
-            valueExpression = primitiveExpression;
-            if (converter != null)
-                valueExpression = ReplacingExpressionVisitor.Replace(
-                    converter.ConvertFromProviderExpression.Parameters.Single(),
-                    primitiveExpression,
-                    converter.ConvertFromProviderExpression.Body);
-
-            if (valueExpression.Type != type)
-                valueExpression = Convert(valueExpression, type);
-
-            var expectedWireMember = GetExpectedWireMemberName(wireType);
-            var missingWireValueReturnExpression = required
-                ? CreateThrow(
-                    $"Required property '{propertyPath}' did not contain a value for expected DynamoDB wire member '{expectedWireMember}'.")
-                : Default(type);
-
-            // Ensure we never parse/convert when the expected wire member isn't present (e.g. N ==
-            // null).
-            // This also makes explicit DynamoDB NULL behave like store null and prevents
-            // long.Parse(null).
-            if (TryCreateHasWireValueExpression(
-                attributeValueVariable,
-                wireType,
-                out var hasWireValueExpression))
-                valueExpression = Condition(
-                    hasWireValueExpression,
-                    valueExpression,
-                    missingWireValueReturnExpression);
-        }
+        // Condition branches must agree on the exact CLR type. Mapping-owned readers may return a
+        // nullable-adapted or provider-compatible expression that still needs normalization here.
+        if (valueExpression.Type != type)
+            valueExpression = Convert(valueExpression, type);
 
         // item.TryGetValue(...) ? (isDynamoNull ? (required?throw:default) : value) :
         // (required?throw:default)
@@ -1483,64 +1431,24 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
         string propertyPath,
         bool required)
     {
-        var converter = typeMapping?.Converter;
-        var providerType = converter?.ProviderClrType ?? modelType;
-        var wireType = Nullable.GetUnderlyingType(providerType) ?? providerType;
-        var allowNullBool = Nullable.GetUnderlyingType(providerType) != null;
+        if (typeMapping is DynamoTypeMapping dynamoTypeMapping)
+        {
+            var valueExpression = dynamoTypeMapping.CreateReadExpression(
+                attributeValueExpression,
+                propertyPath,
+                required,
+                null);
 
-        var providerValueExpression = CreateAttributeValueToPrimitiveExpression(
-            attributeValueExpression,
-            wireType,
-            allowNullBool);
+            return valueExpression.Type != modelType
+                ? Convert(valueExpression, modelType)
+                : valueExpression;
+        }
 
-        if (providerValueExpression.Type != providerType)
-            providerValueExpression = Convert(providerValueExpression, providerType);
-
-        var modelValueExpression = providerValueExpression;
-        if (converter != null)
-            modelValueExpression = ReplacingExpressionVisitor.Replace(
-                converter.ConvertFromProviderExpression.Parameters.Single(),
-                providerValueExpression,
-                converter.ConvertFromProviderExpression.Body);
-
-        if (modelValueExpression.Type != modelType)
-            modelValueExpression = Convert(modelValueExpression, modelType);
-
-        Expression missingWireValueExpression = required
-            ? Throw(
-                New(
-                    InvalidOperationExceptionCtor,
-                    Constant(
-                        $"Required property '{propertyPath}' did not contain a value for expected DynamoDB wire member '{GetExpectedWireMemberName(wireType)}'.")),
-                modelType)
-            : Default(modelType);
-
-        if (TryCreateHasWireValueExpression(
-            attributeValueExpression,
-            wireType,
-            out var hasWireValueExpression))
-            modelValueExpression = Condition(
-                hasWireValueExpression,
-                modelValueExpression,
-                missingWireValueExpression);
-
-        var isAttributeValueNullExpression = Equal(
-            attributeValueExpression,
-            Constant(null, typeof(AttributeValue)));
-        var isNullFlagExpression = Equal(
-            Property(attributeValueExpression, AttributeValueNullProperty),
-            Constant(true, typeof(bool?)));
-        var isDynamoNullExpression = OrElse(isAttributeValueNullExpression, isNullFlagExpression);
-
-        Expression nullReturnExpression = required
-            ? Throw(
-                New(
-                    InvalidOperationExceptionCtor,
-                    Constant($"Required property '{propertyPath}' was set to DynamoDB NULL.")),
-                modelType)
-            : Default(modelType);
-
-        return Condition(isDynamoNullExpression, nullReturnExpression, modelValueExpression);
+        // All element/value type mappings must be DynamoTypeMapping. A non-DynamoDB mapping
+        // reaching here means something was misconfigured in the type mapping source.
+        throw new InvalidOperationException(
+            $"Collection element or map value for property '{propertyPath}' does not have a DynamoTypeMapping. "
+            + $"Got '{typeMapping?.GetType().Name ?? "null"}'.");
     }
 
     /// <summary>
