@@ -35,8 +35,7 @@ public class ModifiedScalarSaveChangesTests(SaveChangesTableDynamoFixture fixtur
             """
             UPDATE "AppItems"
             SET "Email" = ?
-            WHERE "Pk" = ?
-            AND "Sk" = ?
+            WHERE "Pk" = ? AND "Sk" = ?
             """);
     }
 
@@ -71,8 +70,7 @@ public class ModifiedScalarSaveChangesTests(SaveChangesTableDynamoFixture fixtur
             """
             UPDATE "AppItems"
             SET "Email" = ?, "IsPreferred" = ?
-            WHERE "Pk" = ?
-            AND "Sk" = ?
+            WHERE "Pk" = ? AND "Sk" = ?
             """);
     }
 
@@ -106,8 +104,7 @@ public class ModifiedScalarSaveChangesTests(SaveChangesTableDynamoFixture fixtur
             """
             UPDATE "AppItems"
             SET "NullableNote" = ?
-            WHERE "Pk" = ?
-            AND "Sk" = ?
+            WHERE "Pk" = ? AND "Sk" = ?
             """);
     }
 
@@ -174,8 +171,7 @@ public class ModifiedScalarSaveChangesTests(SaveChangesTableDynamoFixture fixtur
             """
             UPDATE "AppItems"
             SET "Email" = ?
-            WHERE "Pk" = ?
-            AND "Sk" = ?
+            WHERE "Pk" = ? AND "Sk" = ?
             """);
     }
 

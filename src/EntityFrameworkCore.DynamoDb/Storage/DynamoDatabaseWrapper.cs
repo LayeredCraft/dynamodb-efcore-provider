@@ -233,9 +233,8 @@ public class DynamoDatabaseWrapper(
                 sortKeyMapping.CreateAttributeValue(
                     GetOriginalOrCurrentValue(entry, sortKeyProperty)));
 
-            sqlBuilder.AppendLine();
             sqlBuilder.Append(
-                $"AND \"{EscapeIdentifier(sortKeyProperty.GetAttributeName())}\" = ?");
+                $" AND \"{EscapeIdentifier(sortKeyProperty.GetAttributeName())}\" = ?");
         }
 
         var sql = sqlBuilder.ToString();
