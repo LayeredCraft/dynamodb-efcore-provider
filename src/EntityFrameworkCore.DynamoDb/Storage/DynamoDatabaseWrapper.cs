@@ -43,9 +43,9 @@ public class DynamoDatabaseWrapper(
         IList<IUpdateEntry> entries,
         CancellationToken cancellationToken = default)
     {
-        PromoteModifiedOwnedRoots(entries);
-
         // Guard: only Added/Modified are implemented; fail explicitly for Deleted and others.
+        // Must run before PromoteModifiedOwnedRoots to avoid mutating DbContext state on a
+        // batch that will ultimately throw.
         var unsupported = entries.FirstOrDefault(static e
             => e.EntityState is not EntityState.Added and not EntityState.Modified
             && !e.EntityType.IsOwned());
@@ -54,6 +54,8 @@ public class DynamoDatabaseWrapper(
             throw new NotSupportedException(
                 $"SaveChanges for EntityState.{unsupported.EntityState} is not yet supported. "
                 + "Only Added and Modified entities can be persisted in this version.");
+
+        PromoteModifiedOwnedRoots(entries);
 
         var rootEntries = entries
             .Where(static e
@@ -74,13 +76,10 @@ public class DynamoDatabaseWrapper(
                     // Owned sub-entries are resolved on-demand via the EF state manager.
                     //
                     // Concurrency note: for Added entities there is no prior version to conflict
-                    // with.
-                    // DynamoDB's PartiQL INSERT will fail with ConditionalCheckFailedException if
-                    // the
-                    // key already exists, which is the correct behavior for inserts. Optimistic
-                    // concurrency token validation (version checks) will be required when Modified
-                    // and
-                    // Deleted entity states are implemented.
+                    // with. DynamoDB's PartiQL INSERT will fail with
+                    // ConditionalCheckFailedException if the key already exists, which is the
+                    // correct behavior for inserts. Optimistic concurrency token validation
+                    // (version checks) will be required when Deleted entity state is implemented.
                     var item = serializerSource.BuildItem(entry);
                     var tableName = (string)entry.EntityType[DynamoAnnotationNames.TableName]!;
                     var (sql, parameters) = BuildInsertStatement(tableName, item);
@@ -213,9 +212,9 @@ public class DynamoDatabaseWrapper(
     private static bool SupportsScalarModifiedProperty(IProperty property)
     {
         var clrType = property.ClrType;
-        var nonNullableType = Nullable.GetUnderlyingType(clrType) ?? clrType;
 
-        if (nonNullableType == typeof(byte[]))
+        // byte[] maps to a binary scalar (B attribute) — allow it before the collection checks.
+        if (clrType == typeof(byte[]))
             return true;
 
         if (DynamoTypeMappingSource.TryGetDictionaryValueType(clrType, out _, out _)
@@ -233,6 +232,8 @@ public class DynamoDatabaseWrapper(
     private static void PromoteModifiedOwnedRoots(IList<IUpdateEntry> entries)
     {
         var count = entries.Count;
+        // Track which roots have already been added to avoid O(n) Contains scans per entry.
+        HashSet<InternalEntityEntry>? addedRoots = null;
 
         for (var i = 0; i < count; i++)
         {
@@ -245,7 +246,9 @@ public class DynamoDatabaseWrapper(
             if (root.EntityState == EntityState.Unchanged)
                 root.SetEntityState(EntityState.Modified, modifyProperties: false);
 
-            if (!entries.Contains(root))
+            addedRoots ??=
+                new HashSet<InternalEntityEntry>(count, ReferenceEqualityComparer.Instance);
+            if (addedRoots.Add(root))
                 entries.Add(root);
         }
     }
