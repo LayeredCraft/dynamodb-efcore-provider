@@ -21,6 +21,9 @@ public class SaveChangesTableDbContext(DbContextOptions options) : DbContext(opt
     /// <summary>Provides functionality for this member.</summary>
     public DbSet<ConverterCoverageItem> ConverterCoverageItems => Set<ConverterCoverageItem>();
 
+    /// <summary>Provides functionality for this member.</summary>
+    public DbSet<CustomConverterItem> CustomConverterItems => Set<CustomConverterItem>();
+
     /// <summary>Creates a context configured to use the provided DynamoDB client instance.</summary>
     public static SaveChangesTableDbContext Create(IAmazonDynamoDB client)
         => new(
@@ -99,6 +102,17 @@ public class SaveChangesTableDbContext(DbContextOptions options) : DbContext(opt
             builder.Property(x => x.ExternalId);
             builder.Property(x => x.OccurredAt);
             builder.PrimitiveCollection(x => x.History).ElementType();
+        });
+
+        // CustomConverterItem uses a user-defined ProductCode type with a custom converter to
+        // exercise the boxed scalar fallback write path.
+        modelBuilder.Entity<CustomConverterItem>(builder =>
+        {
+            builder.ToTable(SaveChangesTableDynamoFixture.TableName);
+            builder.HasPartitionKey(x => x.Pk);
+            builder.HasSortKey(x => x.Sk);
+            builder.Property(x => x.Code).HasConversion<ProductCodeConverter>();
+            builder.Property(x => x.OptionalCode).HasConversion<ProductCodeConverter>();
         });
     }
 }

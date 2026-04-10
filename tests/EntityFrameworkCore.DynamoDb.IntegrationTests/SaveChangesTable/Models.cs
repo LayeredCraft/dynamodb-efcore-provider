@@ -1,5 +1,6 @@
 using Amazon.DynamoDBv2.Model;
 using LayeredCraft.DynamoMapper.Runtime;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SaveChangesTable;
 
@@ -192,6 +193,44 @@ public sealed record ConverterCoverageItem
 
     /// <summary>Provides functionality for this member.</summary>
     public List<DateTimeOffset> History { get; set; } = [];
+}
+
+/// <summary>
+///     A user-defined value object that is not in the provider's type-dispatch table. Properties
+///     of this type must use a value converter, and will exercise the boxed fallback write path in
+///     <c>DynamoEntityItemSerializerSource</c>.
+/// </summary>
+public readonly record struct ProductCode(string Value);
+
+/// <summary>
+///     Converts <see cref="ProductCode" /> to and from its <c>string</c> wire representation.
+///     Registered as a custom converter in <see cref="SaveChangesTableDbContext" /> to exercise the
+///     boxed fallback serialization path for non-dispatch-table model types.
+/// </summary>
+public sealed class ProductCodeConverter() : ValueConverter<ProductCode, string>(
+    code => code.Value,
+    str => new ProductCode(str));
+
+/// <summary>
+///     An entity that uses a custom <see cref="ProductCode" /> value type via a user-supplied
+///     converter.
+/// </summary>
+public sealed record CustomConverterItem
+{
+    /// <summary>Provides functionality for this member.</summary>
+    public string Pk { get; set; } = null!;
+
+    /// <summary>Provides functionality for this member.</summary>
+    public string Sk { get; set; } = null!;
+
+    /// <summary>Required custom-type property — exercises the boxed scalar fallback (direct match path).</summary>
+    public ProductCode Code { get; set; }
+
+    /// <summary>
+    ///     Optional custom-type property — exercises the boxed scalar fallback (nullable wrapping
+    ///     path).
+    /// </summary>
+    public ProductCode? OptionalCode { get; set; }
 }
 
 /// <summary>Represents the CustomerProfile type.</summary>

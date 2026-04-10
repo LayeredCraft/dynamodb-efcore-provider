@@ -16,8 +16,8 @@ namespace EntityFrameworkCore.DynamoDb.Storage;
 /// Builds and caches typed write plans per <see cref="IEntityType"/> for SaveChanges.
 /// Each plan holds one <see cref="Func{IUpdateEntry,AttributeValue}"/> per property,
 /// produced at plan-build time by dispatching on the property's provider CLR type via
-/// <see cref="DispatchType{TFactory}"/>. Write-time execution is just delegate invocation — no
-/// reflection, no expression compilation, and no boxing on the hot path.
+/// <see cref="DispatchWireType{TFactory}"/>. Write-time execution is just delegate invocation — no
+/// reflection, no expression compilation, and no boxing on the hot path for well-known types.
 /// </summary>
 public sealed class DynamoEntityItemSerializerSource
 {
@@ -75,9 +75,9 @@ public sealed class DynamoEntityItemSerializerSource
         {
             var conv = typeMapping.ElementTypeMapping?.Converter;
             if (conv == null)
-                return DispatchType(property, valueType, default(DirectDictionaryFactory));
+                return DispatchWireType(property, valueType, default(DirectDictionaryFactory));
             EnsureSupportedValueProviderType(property, conv.ProviderClrType);
-            return DispatchType(
+            return DispatchWireType(
                 property,
                 conv.ProviderClrType,
                 new ConvertedDictionaryFactory(conv, valueType));
@@ -87,9 +87,9 @@ public sealed class DynamoEntityItemSerializerSource
         {
             var conv = typeMapping.ElementTypeMapping?.Converter;
             if (conv == null)
-                return DispatchType(property, setElementType, default(DirectSetFactory));
+                return DispatchWireType(property, setElementType, default(DirectSetFactory));
             EnsureSupportedSetProviderType(property, conv.ProviderClrType);
-            return DispatchType(
+            return DispatchWireType(
                 property,
                 conv.ProviderClrType,
                 new ConvertedSetFactory(conv, setElementType));
@@ -99,9 +99,9 @@ public sealed class DynamoEntityItemSerializerSource
         {
             var conv = typeMapping.ElementTypeMapping?.Converter;
             if (conv == null)
-                return DispatchType(property, listElementType, default(DirectListFactory));
+                return DispatchWireType(property, listElementType, default(DirectListFactory));
             EnsureSupportedValueProviderType(property, conv.ProviderClrType);
-            return DispatchType(
+            return DispatchWireType(
                 property,
                 conv.ProviderClrType,
                 new ConvertedListFactory(conv, listElementType));
@@ -120,9 +120,9 @@ public sealed class DynamoEntityItemSerializerSource
         ValueConverter? converter)
     {
         if (converter == null)
-            return DispatchType(property, clrType, default(DirectScalarFactory));
+            return DispatchWireType(property, clrType, default(DirectScalarFactory));
         EnsureSupportedValueProviderType(property, converter.ProviderClrType);
-        return DispatchType(
+        return DispatchWireType(
             property,
             converter.ProviderClrType,
             new ConvertedScalarFactory(converter));
@@ -167,18 +167,19 @@ public sealed class DynamoEntityItemSerializerSource
 
     /// <summary>
     /// Dispatches on <paramref name="type"/> to call <c>factory.Create&lt;T&gt;(property)</c>
-    /// with the matching type argument. The if-chain runs once at plan-build time per property;
+    /// for DynamoDB-native wire types only. The if-chain runs once at plan-build time per property;
     /// the resulting delegate has no runtime type dispatch on the write path. The
     /// <c>TFactory : struct</c> constraint lets the JIT devirtualize <c>Create&lt;T&gt;</c>
     /// regardless of whether <paramref name="factory"/> is stateless (direct) or carries a
     /// <see cref="ValueConverter"/> (converter path).
     /// </summary>
     /// <remarks>
-    /// Used for both provider-type dispatch (outer factories, first pass) and model/element-type
-    /// dispatch (inner binders, second pass). The chain covers DynamoDB-native wire types and all
-    /// common CLR model types that EF Core built-in converters use as their model-side type.
+    /// Used for the outer (provider-type) dispatch pass only. The provider type is always a
+    /// DynamoDB wire type — reaching the throw here indicates a bug in the type mapping layer.
+    /// For the inner (model-type) pass use <see cref="TryDispatchModelType{TFactory}"/> instead,
+    /// which covers common EF Core model types and returns <c>null</c> for unknown types.
     /// </remarks>
-    private static Func<IUpdateEntry, AttributeValue> DispatchType<TFactory>(
+    private static Func<IUpdateEntry, AttributeValue> DispatchWireType<TFactory>(
         IProperty property,
         Type type,
         TFactory factory) where TFactory : struct, ISerializerFactory
@@ -235,9 +236,85 @@ public sealed class DynamoEntityItemSerializerSource
             return factory.Create<decimal?>(property);
         if (type == typeof(byte[]))
             return factory.Create<byte[]>(property);
-        // Common CLR model types that EF Core built-in converters use as their model-side type.
-        // These are never valid DynamoDB wire types but may appear as converter.ModelClrType on the
-        // inner (model-type) dispatch pass.
+
+        throw new NotSupportedException(
+            $"Property '{property.DeclaringType.DisplayName()}.{property.Name}' has unsupported "
+            + $"wire type '{type.ShortDisplayName()}' on the write path. This is a provider bug — "
+            + "the type mapping layer should have ensured a DynamoDB-native provider type.");
+    }
+
+    /// <summary>
+    ///     Attempts to dispatch on <paramref name="type" /> for the inner (model-type) pass of the
+    ///     converter pipeline. Covers all DynamoDB wire types plus common EF Core built-in converter model
+    ///     types (<see cref="Guid" />, <see cref="DateTime" />, etc.), handled boxing-free.
+    /// </summary>
+    /// <returns>
+    ///     The serializer delegate, or <c>null</c> when <paramref name="type" /> is not in the known
+    ///     set. Callers should fall back to <c>Boxed*Fallback</c> for custom/user-defined model types.
+    /// </returns>
+    private static Func<IUpdateEntry, AttributeValue>? TryDispatchModelType<TFactory>(
+        IProperty property,
+        Type type,
+        TFactory factory) where TFactory : struct, ISerializerFactory
+    {
+        // DynamoDB wire types — also valid as converter model types.
+        if (type == typeof(string))
+            return factory.Create<string>(property);
+        if (type == typeof(bool))
+            return factory.Create<bool>(property);
+        if (type == typeof(bool?))
+            return factory.Create<bool?>(property);
+        if (type == typeof(byte))
+            return factory.Create<byte>(property);
+        if (type == typeof(byte?))
+            return factory.Create<byte?>(property);
+        if (type == typeof(sbyte))
+            return factory.Create<sbyte>(property);
+        if (type == typeof(sbyte?))
+            return factory.Create<sbyte?>(property);
+        if (type == typeof(short))
+            return factory.Create<short>(property);
+        if (type == typeof(short?))
+            return factory.Create<short?>(property);
+        if (type == typeof(ushort))
+            return factory.Create<ushort>(property);
+        if (type == typeof(ushort?))
+            return factory.Create<ushort?>(property);
+        if (type == typeof(int))
+            return factory.Create<int>(property);
+        if (type == typeof(int?))
+            return factory.Create<int?>(property);
+        if (type == typeof(uint))
+            return factory.Create<uint>(property);
+        if (type == typeof(uint?))
+            return factory.Create<uint?>(property);
+        if (type == typeof(long))
+            return factory.Create<long>(property);
+        if (type == typeof(long?))
+            return factory.Create<long?>(property);
+        if (type == typeof(ulong))
+            return factory.Create<ulong>(property);
+        if (type == typeof(ulong?))
+            return factory.Create<ulong?>(property);
+        if (type == typeof(float))
+            return factory.Create<float>(property);
+        if (type == typeof(float?))
+            return factory.Create<float?>(property);
+        if (type == typeof(double))
+            return factory.Create<double>(property);
+        if (type == typeof(double?))
+            return factory.Create<double?>(property);
+        if (type == typeof(decimal))
+            return factory.Create<decimal>(property);
+        if (type == typeof(decimal?))
+            return factory.Create<decimal?>(property);
+        if (type == typeof(byte[]))
+            return factory.Create<byte[]>(property);
+
+        // Common CLR model types used by EF Core's built-in converters (e.g. GuidToStringConverter,
+        // DateTimeToStringConverter). These are never DynamoDB wire types but are dispatched
+        // boxing-free here to avoid boxing for the most common converter scenarios. Custom/user-
+        // defined model types that don't appear in this list fall through to the boxed fallback.
         if (type == typeof(Guid))
             return factory.Create<Guid>(property);
         if (type == typeof(Guid?))
@@ -263,20 +340,21 @@ public sealed class DynamoEntityItemSerializerSource
         if (type == typeof(TimeOnly?))
             return factory.Create<TimeOnly?>(property);
 
-        throw new NotSupportedException(
-            $"Property '{property.DeclaringType.DisplayName()}.{property.Name}' has unsupported "
-            + $"type '{type.ShortDisplayName()}' on the write path.");
+        return null;
     }
 
     /// <summary>
-    /// Dispatches on a non-nullable value type to call <c>factory.Create&lt;T&gt;(property)</c>
-    /// with a <c>where T : struct</c> constraint. Used for the nullable-wrapping converter path
-    /// where <c>property.ClrType = Nullable&lt;T&gt;</c> and the converter model type is the
-    /// underlying <c>T</c>. The struct constraint on <see cref="IStructSerializerFactory"/> allows
-    /// implementations to read <c>T?</c> (i.e., <c>Nullable&lt;T&gt;</c>) from the entry without
+    /// Attempts to dispatch on a non-nullable struct type for the inner (model-type) pass of the
+    /// nullable-wrapping converter path, where <c>property.ClrType = Nullable&lt;T&gt;</c> and the
+    /// converter model type is <c>T</c>. The <c>where T : struct</c> constraint on
+    /// <see cref="IStructSerializerFactory"/> allows implementations to read <c>T?</c> without
     /// boxing.
     /// </summary>
-    private static Func<IUpdateEntry, AttributeValue> DispatchStructType<TFactory>(
+    /// <returns>
+    /// The serializer delegate, or <c>null</c> for unknown struct types. Callers should fall back
+    /// to the boxed path.
+    /// </returns>
+    private static Func<IUpdateEntry, AttributeValue>? TryDispatchStructModelType<TFactory>(
         IProperty property,
         Type type,
         TFactory factory) where TFactory : struct, IStructSerializerFactory
@@ -318,19 +396,148 @@ public sealed class DynamoEntityItemSerializerSource
         if (type == typeof(TimeOnly))
             return factory.Create<TimeOnly>(property);
 
-        throw new NotSupportedException(
-            $"Property '{property.DeclaringType.DisplayName()}.{property.Name}': "
-            + $"unsupported nullable underlying type '{type.ShortDisplayName()}' on the write path.");
+        return null;
     }
 
     private static AttributeValue NullAttributeValue() => new() { NULL = true };
+
+    // ── Boxed fallbacks ─────────────────────────────────────────────────────────────
+    //
+    // Used when the converter model type is not in TryDispatchModelType /
+    // TryDispatchStructModelType (i.e., a custom/user-defined CLR type). TProvider is still
+    // statically known from the outer DispatchWireType pass, so the final AttributeValue
+    // construction remains unboxed.
+    //
+    // Important: GetCurrentValue<object>(property) cannot be used here because EF Core's
+    // implementation casts the compiled Func<IInternalEntry,TModel> delegate to
+    // Func<IInternalEntry,object>, which fails for value-type model types due to generic delegate
+    // invariance. The scalar fallback uses GetCurrentProviderValue() instead; collection fallbacks
+    // use the InternalEntityEntry indexer (already used elsewhere in this file).
+    //
+    // For well-known EF Core model types (Guid, DateTime, etc.) the typed path is taken instead and
+    // these methods are never called. Custom types with converters that produce unsupported
+    // provider
+    // types are rejected earlier by EnsureSupportedValueProviderType.
+
+    /// <summary>
+    ///     Boxed fallback for scalar properties whose converter model type is not in the dispatch
+    ///     table. Uses <c>IUpdateEntry.GetCurrentProviderValue</c> which boxes the model value and applies
+    ///     the converter internally — avoiding the generic delegate invariance issue with
+    ///     <c>GetCurrentValue&lt;object&gt;</c>. The resulting provider value is cast to
+    ///     <typeparamref name="TProvider" /> (known statically) before constructing the
+    ///     <see cref="AttributeValue" />.
+    /// </summary>
+    private static Func<IUpdateEntry, AttributeValue> BoxedScalarFallback<TProvider>(
+        IProperty property)
+        => entry =>
+        {
+            // GetCurrentProviderValue boxes the model value and applies the converter, returning
+            // the provider-typed value as object? — safe for any model CLR type.
+            var providerValue = entry.GetCurrentProviderValue(property);
+            if (providerValue is null)
+                return NullAttributeValue();
+            return DynamoWireValueConversion.ConvertProviderValueToAttributeValue(
+                (TProvider)providerValue);
+        };
+
+    /// <summary>
+    ///     Boxed fallback for list properties whose converter element model type is not in the
+    ///     dispatch table. Uses the <see cref="InternalEntityEntry" /> indexer to read the raw collection
+    ///     as <c>object?</c>, then boxes each element during iteration and applies the element converter.
+    /// </summary>
+    private static Func<IUpdateEntry, AttributeValue> BoxedListFallback<TProvider>(
+        IProperty property,
+        ValueConverter converter)
+        => entry =>
+        {
+            var raw = ((InternalEntityEntry)entry)[property];
+            if (raw is null)
+                return NullAttributeValue();
+            var list = ((IEnumerable)raw)
+                .Cast<object?>()
+                .Select(element =>
+                {
+                    if (element is null)
+                        return NullAttributeValue();
+                    var providerValue = (TProvider)converter.ConvertToProvider(element)!;
+                    return DynamoWireValueConversion
+                        .ConvertProviderValueToAttributeValue(providerValue);
+                })
+                .ToList();
+            return new AttributeValue { L = list };
+        };
+
+    /// <summary>
+    ///     Boxed fallback for set properties whose converter element model type is not in the
+    ///     dispatch table. Uses the <see cref="InternalEntityEntry" /> indexer to read the raw collection
+    ///     as <c>object?</c>, then boxes each element during iteration and applies the element converter.
+    /// </summary>
+    private static Func<IUpdateEntry, AttributeValue> BoxedSetFallback<TProvider>(
+        IProperty property,
+        ValueConverter converter)
+        => entry =>
+        {
+            var raw = ((InternalEntityEntry)entry)[property];
+            if (raw is null)
+                return NullAttributeValue();
+            var converted = ((IEnumerable)raw)
+                .Cast<object?>()
+                .Select(element =>
+                {
+                    if (element is null)
+                        throw new InvalidOperationException(
+                            $"Property '{property.DeclaringType.DisplayName()}.{property.Name}': "
+                            + "DynamoDB sets cannot contain null values.");
+                    return (TProvider)converter.ConvertToProvider(element)!;
+                });
+            return DynamoAttributeValueCollectionHelpers.SerializeSet(converted);
+        };
+
+    /// <summary>
+    ///     Boxed fallback for dictionary properties whose converter value model type is not in the
+    ///     dispatch table. Uses the <see cref="InternalEntityEntry" /> indexer to read the raw dictionary
+    ///     as <c>object?</c>, then boxes each value via <see cref="IDictionary" /> and applies the element
+    ///     converter.
+    /// </summary>
+    private static Func<IUpdateEntry, AttributeValue> BoxedDictionaryFallback<TProvider>(
+        IProperty property,
+        ValueConverter converter)
+        => entry =>
+        {
+            var raw = ((InternalEntityEntry)entry)[property];
+            if (raw is null)
+                return NullAttributeValue();
+            // Dictionary<string, TValue> implements IDictionary, giving non-generic key/value
+            // access.
+            var dict = (IDictionary)raw;
+            var result = new Dictionary<string, AttributeValue>(dict.Count, StringComparer.Ordinal);
+            foreach (DictionaryEntry kvp in dict)
+            {
+                AttributeValue attributeValue;
+                if (kvp.Value is null)
+                {
+                    attributeValue = NullAttributeValue();
+                }
+                else
+                {
+                    var providerValue = (TProvider)converter.ConvertToProvider(kvp.Value)!;
+                    attributeValue =
+                        DynamoWireValueConversion.ConvertProviderValueToAttributeValue(
+                            providerValue);
+                }
+
+                result[(string)kvp.Key] = attributeValue;
+            }
+
+            return new AttributeValue { M = result };
+        };
 
     // ── Interfaces ──────────────────────────────────────────────────────────────────
 
     /// <summary>
     /// Unified factory interface for both direct (stateless) and converter-path (stateful)
     /// property serializers. The <c>TFactory : struct</c> constraint on
-    /// <see cref="DispatchType{TFactory}"/> lets the JIT devirtualize <c>Create&lt;T&gt;</c> for all
+    /// <see cref="DispatchWireType{TFactory}"/> lets the JIT devirtualize <c>Create&lt;T&gt;</c> for all
     /// implementations without virtual dispatch overhead.
     /// </summary>
     private interface ISerializerFactory
@@ -340,7 +547,7 @@ public sealed class DynamoEntityItemSerializerSource
 
     /// <summary>
     ///     Variant of <see cref="ISerializerFactory" /> whose <c>Create</c> method is constrained to
-    ///     struct (value) types. Used by <see cref="DispatchStructType{TFactory}" /> for the
+    ///     struct (value) types. Used by <see cref="TryDispatchStructModelType{TFactory}" /> for the
     ///     nullable-wrapping converter path so that implementations can write <c>T?</c> (resolved as
     ///     <c>Nullable&lt;T&gt;</c>) without boxing or a secondary helper.
     /// </summary>
@@ -404,9 +611,9 @@ public sealed class DynamoEntityItemSerializerSource
 
     // ── Outer converter-path factories ─────────────────────────────────────────────
     //
-    // DispatchType gives us TProvider. Inside Create<TProvider>, a second dispatch on the converter
-    // model type (or collection element type) produces the final delegate via a typed binder
-    // struct.
+    // DispatchWireType gives us TProvider. Inside Create<TProvider>, a second dispatch on the
+    // converter model type (or collection element type) produces the final delegate via a typed
+    // binder struct (for well-known types) or a boxed fallback (for custom model types).
     // The element type is stored at construction time to avoid re-inspecting the property CLR type.
 
     /// <summary>
@@ -428,18 +635,20 @@ public sealed class DynamoEntityItemSerializerSource
             var propClrType = property.ClrType;
 
             if (propClrType == converterModelType)
-                return DispatchType(
-                    property,
-                    converterModelType,
-                    new ScalarModelBinder<TProvider>(converter));
+                return TryDispatchModelType(
+                        property,
+                        converterModelType,
+                        new ScalarModelBinder<TProvider>(converter))
+                    ?? BoxedScalarFallback<TProvider>(property);
 
             // Nullable wrapping: property is Nullable<TUnderlying>, converter model is TUnderlying.
             var underlying = Nullable.GetUnderlyingType(propClrType);
             if (underlying == converterModelType)
-                return DispatchStructType(
-                    property,
-                    converterModelType,
-                    new ScalarNullableBinder<TProvider>(converter));
+                return TryDispatchStructModelType(
+                        property,
+                        converterModelType,
+                        new ScalarNullableBinder<TProvider>(converter))
+                    ?? BoxedScalarFallback<TProvider>(property);
 
             throw new NotSupportedException(
                 $"Property '{property.DeclaringType.DisplayName()}.{property.Name}': "
@@ -463,17 +672,19 @@ public sealed class DynamoEntityItemSerializerSource
             var converterModelType = converter.ModelClrType;
 
             if (elementType == converterModelType)
-                return DispatchType(
-                    property,
-                    converterModelType,
-                    new ListModelBinder<TProvider>(converter));
+                return TryDispatchModelType(
+                        property,
+                        converterModelType,
+                        new ListModelBinder<TProvider>(converter))
+                    ?? BoxedListFallback<TProvider>(property, converter);
 
             var underlying = Nullable.GetUnderlyingType(elementType);
             if (underlying == converterModelType)
-                return DispatchStructType(
-                    property,
-                    converterModelType,
-                    new ListNullableBinder<TProvider>(converter));
+                return TryDispatchStructModelType(
+                        property,
+                        converterModelType,
+                        new ListNullableBinder<TProvider>(converter))
+                    ?? BoxedListFallback<TProvider>(property, converter);
 
             throw new NotSupportedException(
                 $"Property '{property.DeclaringType.DisplayName()}.{property.Name}': "
@@ -497,17 +708,19 @@ public sealed class DynamoEntityItemSerializerSource
             var converterModelType = converter.ModelClrType;
 
             if (elementType == converterModelType)
-                return DispatchType(
-                    property,
-                    converterModelType,
-                    new SetModelBinder<TProvider>(converter));
+                return TryDispatchModelType(
+                        property,
+                        converterModelType,
+                        new SetModelBinder<TProvider>(converter))
+                    ?? BoxedSetFallback<TProvider>(property, converter);
 
             var underlying = Nullable.GetUnderlyingType(elementType);
             if (underlying == converterModelType)
-                return DispatchStructType(
-                    property,
-                    converterModelType,
-                    new SetNullableBinder<TProvider>(converter));
+                return TryDispatchStructModelType(
+                        property,
+                        converterModelType,
+                        new SetNullableBinder<TProvider>(converter))
+                    ?? BoxedSetFallback<TProvider>(property, converter);
 
             throw new NotSupportedException(
                 $"Property '{property.DeclaringType.DisplayName()}.{property.Name}': "
@@ -529,17 +742,19 @@ public sealed class DynamoEntityItemSerializerSource
             var converterModelType = converter.ModelClrType;
 
             if (valueType == converterModelType)
-                return DispatchType(
-                    property,
-                    converterModelType,
-                    new DictionaryModelBinder<TProvider>(converter));
+                return TryDispatchModelType(
+                        property,
+                        converterModelType,
+                        new DictionaryModelBinder<TProvider>(converter))
+                    ?? BoxedDictionaryFallback<TProvider>(property, converter);
 
             var underlying = Nullable.GetUnderlyingType(valueType);
             if (underlying == converterModelType)
-                return DispatchStructType(
-                    property,
-                    converterModelType,
-                    new DictionaryNullableBinder<TProvider>(converter));
+                return TryDispatchStructModelType(
+                        property,
+                        converterModelType,
+                        new DictionaryNullableBinder<TProvider>(converter))
+                    ?? BoxedDictionaryFallback<TProvider>(property, converter);
 
             throw new NotSupportedException(
                 $"Property '{property.DeclaringType.DisplayName()}.{property.Name}': "
@@ -551,7 +766,8 @@ public sealed class DynamoEntityItemSerializerSource
     // ── Model-type binders ─────────────────────────────────────────────────────────
     //
     // Innermost factories — produced after double dispatch (provider type + model/element type).
-    // Both TProvider (from the outer DispatchType) and TModel/TElement (from the inner dispatch)
+    // Both TProvider (from the outer DispatchWireType) and TModel/TElement (from the inner
+    // dispatch)
     // are resolved as type parameters, so ValueConverter<TModel, TProvider>.ConvertToProviderTyped
     // is accessed with full type safety and no boxing.
     //
