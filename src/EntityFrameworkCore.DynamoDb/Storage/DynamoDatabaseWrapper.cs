@@ -28,39 +28,44 @@ public class DynamoDatabaseWrapper(
             "DynamoDB does not support synchronous SaveChanges. Use SaveChangesAsync instead.");
 
     /// <summary>
-    /// Persists <see cref="EntityState.Added"/> entries as PartiQL <c>INSERT</c> statements and
+    /// Persists <see cref="EntityState.Added"/> entries as PartiQL <c>INSERT</c> statements,
     /// scalar/simple <see cref="EntityState.Modified"/> entries as PartiQL <c>UPDATE</c>
-    /// statements.
+    /// statements, and <see cref="EntityState.Deleted"/> entries as key-targeted PartiQL
+    /// <c>DELETE</c> statements.
     /// </summary>
     /// <param name="entries">The tracked entity changes to persist.</param>
     /// <param name="cancellationToken">Token to observe for cancellation.</param>
     /// <returns>The number of root entities written.</returns>
     /// <exception cref="NotSupportedException">
-    /// Thrown when an entry has an unsupported state (for example
-    /// <see cref="EntityState.Deleted"/>) or when a Modified entry contains unsupported mutations.
+    /// Thrown when an entry has an unsupported state or when a Modified entry contains
+    /// unsupported mutations.
     /// </exception>
     public override async Task<int> SaveChangesAsync(
         IList<IUpdateEntry> entries,
         CancellationToken cancellationToken = default)
     {
-        // Guard: only Added/Modified are implemented; fail explicitly for Deleted and others.
+        // Guard: only Added/Modified/Deleted are implemented; fail explicitly for others.
         // Must run before PromoteModifiedOwnedRoots to avoid mutating DbContext state on a
         // batch that will ultimately throw.
         var unsupported = entries.FirstOrDefault(static e
-            => e.EntityState is not EntityState.Added and not EntityState.Modified
+            => e.EntityState is not EntityState.Added
+                and not EntityState.Modified
+                and not EntityState.Deleted
             && !e.EntityType.IsOwned());
 
         if (unsupported is not null)
             throw new NotSupportedException(
                 $"SaveChanges for EntityState.{unsupported.EntityState} is not yet supported. "
-                + "Only Added and Modified entities can be persisted in this version.");
+                + "Only Added, Modified, and Deleted entities can be persisted in this version.");
 
         PromoteModifiedOwnedRoots(entries);
 
         var rootEntries = entries
             .Where(static e
                 => !e.EntityType.IsOwned()
-                && (e.EntityState == EntityState.Added || e.EntityState == EntityState.Modified))
+                && (e.EntityState == EntityState.Added
+                    || e.EntityState == EntityState.Modified
+                    || e.EntityState == EntityState.Deleted))
             .ToList();
 
         var rowsAffected = 0;
@@ -75,11 +80,9 @@ public class DynamoDatabaseWrapper(
                     // per-call type dispatch or value-type boxing on the scalar-property hot path.
                     // Owned sub-entries are resolved on-demand via the EF state manager.
                     //
-                    // Concurrency note: for Added entities there is no prior version to conflict
-                    // with. DynamoDB's PartiQL INSERT will fail with
-                    // ConditionalCheckFailedException if the key already exists, which is the
-                    // correct behavior for inserts. Optimistic concurrency token validation
-                    // (version checks) will be required when Deleted entity state is implemented.
+                    // Concurrency: no version check needed for inserts — DynamoDB's PartiQL INSERT
+                    // will fail with ConditionalCheckFailedException if the key already exists,
+                    // which is the correct insert-only semantic.
                     var item = serializerSource.BuildItem(entry);
                     var tableName = (string)entry.EntityType[DynamoAnnotationNames.TableName]!;
                     var (sql, parameters) = BuildInsertStatement(tableName, item);
@@ -111,10 +114,26 @@ public class DynamoDatabaseWrapper(
                     break;
                 }
 
+                case EntityState.Deleted:
+                {
+                    // Deleting the root item removes the whole DynamoDB document including all
+                    // owned sub-entities — no separate statement is needed per owned entry.
+                    // DynamoDB DELETE on a missing key is a no-op; concurrency failure mapping
+                    // is deferred to the next story (6gu.5).
+                    var delete = BuildDeleteStatement(entry);
+
+                    commandLogger.ExecutingPartiQlWrite(delete.tableName, delete.sql);
+
+                    await clientWrapper
+                        .ExecuteWriteAsync(delete.sql, delete.parameters, cancellationToken)
+                        .ConfigureAwait(false);
+
+                    break;
+                }
+
                 default:
-                    // TODO: handle remaining entity states (e.g. Deleted).
                     throw new NotSupportedException(
-                        $"SaveChanges for EntityState.{entry.EntityState} is not yet handled "
+                        $"SaveChanges for EntityState.{entry.EntityState} is not handled "
                         + $"in the write loop for '{entry.EntityType.DisplayName()}'.");
             }
 
@@ -385,6 +404,73 @@ public class DynamoDatabaseWrapper(
 
             return principal;
         }
+    }
+
+    /// <summary>
+    /// Generates a key-targeted PartiQL <c>DELETE FROM "table" WHERE "pk" = ? [AND "sk" = ?]</c>
+    /// statement for a root entity in the <see cref="EntityState.Deleted"/> state.
+    /// </summary>
+    /// <param name="entry">The root entity entry to delete.</param>
+    /// <returns>A tuple of (tableName, sql, parameters) for the DELETE statement.</returns>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when the entity type does not define a partition key or when a key property
+    /// lacks a <see cref="DynamoTypeMapping"/>.
+    /// </exception>
+    private static (string tableName, string sql, List<AttributeValue> parameters)
+        BuildDeleteStatement(IUpdateEntry entry)
+    {
+        var tableName = (string)entry.EntityType[DynamoAnnotationNames.TableName]!;
+
+        // Guard: same safety net as BuildInsertStatement — DynamoDB table names cannot contain
+        // double-quotes, but a bad annotation value would otherwise silently corrupt the
+        // identifier.
+        if (tableName.Contains('"'))
+            throw new ArgumentException(
+                $"Table name '{tableName}' contains an illegal character ('\"'). "
+                + "DynamoDB table names must not contain double-quote characters.",
+                nameof(tableName));
+
+        var entityType = entry.EntityType;
+
+        var partitionKeyProperty = entityType.GetPartitionKeyProperty()
+            ?? throw new InvalidOperationException(
+                $"Entity type '{entityType.DisplayName()}' does not define a partition key.");
+
+        var partitionKeyMapping = partitionKeyProperty.GetTypeMapping() as DynamoTypeMapping
+            ?? throw new InvalidOperationException(
+                $"Partition key property '{entityType.DisplayName()}.{partitionKeyProperty.Name}' "
+                + "requires a DynamoTypeMapping.");
+
+        // Use the original key value so that the correct DynamoDB item is targeted even if the
+        // in-memory value was touched before deletion was requested.
+        var parameters = new List<AttributeValue>
+        {
+            partitionKeyMapping.CreateAttributeValue(
+                GetOriginalOrCurrentValue(entry, partitionKeyProperty)),
+        };
+
+        var sqlBuilder = new StringBuilder();
+        sqlBuilder.AppendLine($"DELETE FROM \"{EscapeIdentifier(tableName)}\"");
+        sqlBuilder.Append(
+            $"WHERE \"{EscapeIdentifier(partitionKeyProperty.GetAttributeName())}\" = ?");
+
+        var sortKeyProperty = entityType.GetSortKeyProperty();
+        if (sortKeyProperty is not null)
+        {
+            var sortKeyMapping = sortKeyProperty.GetTypeMapping() as DynamoTypeMapping
+                ?? throw new InvalidOperationException(
+                    $"Sort key property '{entityType.DisplayName()}.{sortKeyProperty.Name}' "
+                    + "requires a DynamoTypeMapping.");
+
+            parameters.Add(
+                sortKeyMapping.CreateAttributeValue(
+                    GetOriginalOrCurrentValue(entry, sortKeyProperty)));
+
+            sqlBuilder.Append(
+                $" AND \"{EscapeIdentifier(sortKeyProperty.GetAttributeName())}\" = ?");
+        }
+
+        return (tableName, sqlBuilder.ToString(), parameters);
     }
 
     /// <summary>

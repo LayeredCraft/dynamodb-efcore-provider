@@ -83,7 +83,8 @@ public abstract class SaveChangesTableTestBase(SaveChangesTableDynamoFixture fix
             },
             cancellationToken);
 
-        return response.Item.Count == 0 ? null : response.Item;
+        // DynamoDB Local returns null (not an empty dict) for missing keys; handle both.
+        return response.Item is { Count: > 0 } item ? item : null;
     }
 
     /// <summary>Writes a batch and retries unprocessed items until completion.</summary>
