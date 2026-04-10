@@ -68,6 +68,12 @@ public class DeletedEntitiesSaveChangesTests(SaveChangesTableDynamoFixture fixtu
         await Db.SaveChangesAsync(CancellationToken);
 
         Db.Entry(customer).State.Should().Be(EntityState.Detached);
+
+        AssertSql(
+            """
+            DELETE FROM "AppItems"
+            WHERE "Pk" = ? AND "Sk" = ?
+            """);
     }
 
     /// <summary>
@@ -167,5 +173,20 @@ public class DeletedEntitiesSaveChangesTests(SaveChangesTableDynamoFixture fixtu
 
         var deletedItem = await GetItemAsync(toDelete.Pk, toDelete.Sk, CancellationToken);
         deletedItem.Should().BeNull();
+
+        AssertSql(
+            """
+            INSERT INTO "AppItems"
+            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'ReferenceIds': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?}
+            """,
+            """
+            UPDATE "AppItems"
+            SET "Email" = ?
+            WHERE "Pk" = ? AND "Sk" = ?
+            """,
+            """
+            DELETE FROM "AppItems"
+            WHERE "Pk" = ? AND "Sk" = ?
+            """);
     }
 }

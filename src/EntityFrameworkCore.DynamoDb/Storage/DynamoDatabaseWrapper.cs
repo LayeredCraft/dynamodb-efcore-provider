@@ -79,6 +79,10 @@ public class DynamoDatabaseWrapper(
                     // Serialization is handled by the compiled, per-entity-type serializer — no
                     // per-call type dispatch or value-type boxing on the scalar-property hot path.
                     // Owned sub-entries are resolved on-demand via the EF state manager.
+                    //
+                    // Concurrency: no version check needed for inserts — DynamoDB's PartiQL INSERT
+                    // will fail with ConditionalCheckFailedException if the key already exists,
+                    // which is the correct insert-only semantic.
                     var item = serializerSource.BuildItem(entry);
                     var tableName = (string)entry.EntityType[DynamoAnnotationNames.TableName]!;
                     var (sql, parameters) = BuildInsertStatement(tableName, item);
@@ -416,6 +420,16 @@ public class DynamoDatabaseWrapper(
         BuildDeleteStatement(IUpdateEntry entry)
     {
         var tableName = (string)entry.EntityType[DynamoAnnotationNames.TableName]!;
+
+        // Guard: same safety net as BuildInsertStatement — DynamoDB table names cannot contain
+        // double-quotes, but a bad annotation value would otherwise silently corrupt the
+        // identifier.
+        if (tableName.Contains('"'))
+            throw new ArgumentException(
+                $"Table name '{tableName}' contains an illegal character ('\"'). "
+                + "DynamoDB table names must not contain double-quote characters.",
+                nameof(tableName));
+
         var entityType = entry.EntityType;
 
         var partitionKeyProperty = entityType.GetPartitionKeyProperty()
