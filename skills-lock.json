@@ -11,6 +11,11 @@
       "sourceType": "github",
       "computedHash": "6835e1559eac2c4d66a9d4eeea277b845f876b2392dcc99666824d9949fee49d"
     },
+    "partiql-dynamodb": {
+      "source": "LayeredCraft/skills",
+      "sourceType": "github",
+      "computedHash": "8b668fa1c2810de21dc5097cccecc6eaeb03799d1950dc3a0ba33bdcdf65a944"
+    },
     "zensical-site": {
       "source": "LayeredCraft/skills",
       "sourceType": "github",
