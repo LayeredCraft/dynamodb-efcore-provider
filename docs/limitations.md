@@ -6,7 +6,6 @@ icon: lucide/triangle-alert
 
 ## Not supported yet
 
-- `SaveChanges` and `SaveChangesAsync`.
 - Synchronous query enumeration.
 - `ToQueryString()` support for the custom querying enumerable.
 - Large parts of LINQ translation surface (see `operators.md`).
@@ -110,6 +109,20 @@ The `AsAsyncEnumerable()` bridge makes the client-side step explicit.
 - Supported dictionary shapes (string keys only): `Dictionary<string,TValue>`,
     `IDictionary<string,TValue>`, `IReadOnlyDictionary<string,TValue>`, and
     `ReadOnlyDictionary<string,TValue>`.
+
+## Optimistic concurrency limitations
+
+### Pre-`$version` items {#pre-version-items}
+
+Every root entity automatically carries a provider-managed `$version` attribute written by
+`SaveChangesAsync`. Items inserted before `$version` support was introduced have no `$version`
+attribute in DynamoDB. On the first `UPDATE` via EF Core, the WHERE predicate uses
+`"$version" = 0`, which does not match a missing attribute — the update will raise
+`DbUpdateConcurrencyException` as if the item were already modified by another writer.
+
+**Resolution:** Re-save those items once via EF Core. The first re-save will write `$version = 1`
+without a concurrency check (because the entity is treated as Added). After that, all subsequent
+updates and deletes are protected by the version predicate.
 
 ## Key mapping validation limits
 

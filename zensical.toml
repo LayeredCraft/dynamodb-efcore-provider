@@ -19,6 +19,7 @@ nav = [
     { "Projections" = "projections.md" },
     { "Owned Types" = "owned-types.md" }
   ] },
+  { "Concurrency" = "concurrency.md" },
   { "Diagnostics" = "diagnostics.md" },
   { "Limitations" = "limitations.md" }
 ]

@@ -31,6 +31,25 @@ icon: lucide/git-branch
     before PartiQL generation. Explicit `.WithIndex()` hints take priority; conservative automatic
     selection runs next if enabled.
 
+## Write pipeline (SaveChangesAsync)
+
+`SaveChangesAsync` processes EF Core change-tracking entries in entity-state order:
+
+1. **Added** — generates a PartiQL `INSERT INTO "Table" VALUE {...}` statement. The provider sets
+    `$version = 1` in the attribute map. A `DuplicateItemException` from DynamoDB is mapped to
+    `DbUpdateException` (duplicate primary key).
+1. **Modified** — generates a `UPDATE "Table" SET col = ? WHERE pk = ? AND "$version" = ?`
+    statement. The provider increments `$version` in the SET clause and checks the original value in
+    the WHERE clause. A `ConditionalCheckFailedException` is mapped to
+    `DbUpdateConcurrencyException` (stale version).
+1. **Deleted** — generates a `DELETE FROM "Table" WHERE pk = ? AND "$version" = ?` statement. Same
+    concurrency check as Modified.
+
+After a successful write, the new `$version` value is propagated back into the change-tracker
+snapshot so that subsequent saves within the same context instance use the correct version.
+
+See [Concurrency](concurrency.md) for optimistic concurrency behavior and exception handling.
+
 ## DynamoDB ExecuteStatement model
 
 - SQL text is generated with positional `?` placeholders and a separate positional `AttributeValue`
