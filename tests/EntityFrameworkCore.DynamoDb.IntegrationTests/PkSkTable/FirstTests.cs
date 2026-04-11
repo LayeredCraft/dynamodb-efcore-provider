@@ -31,7 +31,7 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
 
         AssertSql(
             """
-            SELECT "Pk", "Sk", "Category", "IsTarget"
+            SELECT "Pk", "Sk", "$version", "Category", "IsTarget"
             FROM "PkSkItems"
             """);
     }
@@ -55,7 +55,7 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
 
         AssertSql(
             """
-            SELECT "Pk", "Sk", "Category", "IsTarget"
+            SELECT "Pk", "Sk", "$version", "Category", "IsTarget"
             FROM "PkSkItems"
             WHERE "Pk" = 'P#1'
             ORDER BY "Sk" ASC
@@ -77,7 +77,7 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
 
         AssertSql(
             """
-            SELECT "Pk", "Sk", "Category", "IsTarget"
+            SELECT "Pk", "Sk", "$version", "Category", "IsTarget"
             FROM "PkSkItems"
             WHERE "Pk" = 'P#1' AND "Sk" = '0002'
             """);
@@ -100,7 +100,7 @@ public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixt
 
         AssertSql(
             """
-            SELECT "Pk", "Sk", "Category", "IsTarget"
+            SELECT "Pk", "Sk", "$version", "Category", "IsTarget"
             FROM "PkSkItems"
             WHERE "Pk" = 'P#1' AND "Sk" = '0001'
             """);

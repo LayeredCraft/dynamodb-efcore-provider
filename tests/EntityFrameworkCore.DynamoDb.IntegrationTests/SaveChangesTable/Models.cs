@@ -681,25 +681,25 @@ public static class SaveChangesTableItems
     /// <summary>Builds the raw DynamoDB seed payloads for all shared-table entity types.</summary>
     private static IReadOnlyList<Dictionary<string, AttributeValue>> CreateAttributeValues()
         => Customers
-            .Select(item
-                => WithDiscriminator(
-                    SaveChangesCustomerItemMapper.ToItem(item),
-                    nameof(CustomerItem)))
+            .Select(item => WithVersion(
+                WithDiscriminator(SaveChangesCustomerItemMapper.ToItem(item), nameof(CustomerItem)),
+                1L))
             .Concat(
-                Orders.Select(item
-                    => WithDiscriminator(
-                        SaveChangesOrderItemMapper.ToItem(item),
-                        nameof(OrderItem))))
+                Orders.Select(item => WithVersion(
+                    WithDiscriminator(SaveChangesOrderItemMapper.ToItem(item), nameof(OrderItem)),
+                    1L)))
             .Concat(
-                Products.Select(item
-                    => WithDiscriminator(
+                Products.Select(item => WithVersion(
+                    WithDiscriminator(
                         SaveChangesProductItemMapper.ToItem(item),
-                        nameof(ProductItem))))
+                        nameof(ProductItem)),
+                    1L)))
             .Concat(
-                Sessions.Select(item
-                    => WithDiscriminator(
+                Sessions.Select(item => WithVersion(
+                    WithDiscriminator(
                         SaveChangesSessionItemMapper.ToItem(item),
-                        nameof(SessionItem))))
+                        nameof(SessionItem)),
+                    1L)))
             .ToList();
 
     /// <summary>Adds the shared-table discriminator expected by the provider conventions.</summary>
@@ -708,6 +708,19 @@ public static class SaveChangesTableItems
         string discriminator)
     {
         item["$type"] = new AttributeValue { S = discriminator };
+        return item;
+    }
+
+    /// <summary>
+    ///     Adds the provider-managed version stamp to a seed item. All items seeded before
+    ///     <c>$version</c> support was introduced must have this attribute added or the first EF-driven
+    ///     UPDATE will fail the version WHERE predicate.
+    /// </summary>
+    private static Dictionary<string, AttributeValue> WithVersion(
+        Dictionary<string, AttributeValue> item,
+        long version)
+    {
+        item["$version"] = new AttributeValue { N = version.ToString() };
         return item;
     }
 }

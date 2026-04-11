@@ -32,7 +32,7 @@ public class ConverterAndBinarySerializationTests(SaveChangesTableDynamoFixture 
         AssertSql(
             """
             INSERT INTO "AppItems"
-            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'BinaryTags': ?, 'ExternalId': ?, 'History': ?, 'OccurredAt': ?, 'Payload': ?, 'Version': ?}
+            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, '$version': ?, 'BinaryTags': ?, 'ExternalId': ?, 'History': ?, 'OccurredAt': ?, 'Payload': ?, 'Version': ?}
             """);
 
         var rawItem = await GetItemAsync(entity.Pk, entity.Sk, CancellationToken);

@@ -56,7 +56,7 @@ public class SecondaryIndexAutoSelectionTests(SecondaryIndexDynamoFixture fixtur
 
         AssertSql(
             """
-            SELECT "CustomerId", "OrderId", "CreatedAt", "Priority", "Region", "Status"
+            SELECT "CustomerId", "OrderId", "$version", "CreatedAt", "Priority", "Region", "Status"
             FROM "SecondaryIndexOrders"."ByStatus"
             WHERE "Status" = 'PENDING'
             """);
@@ -85,7 +85,7 @@ public class SecondaryIndexAutoSelectionTests(SecondaryIndexDynamoFixture fixtur
 
         AssertSql(
             """
-            SELECT "CustomerId", "OrderId", "CreatedAt", "Priority", "Region", "Status"
+            SELECT "CustomerId", "OrderId", "$version", "CreatedAt", "Priority", "Region", "Status"
             FROM "SecondaryIndexOrders"."ByRegion"
             WHERE "Region" = 'US-EAST' AND "CreatedAt" >= '2024-01-14'
             """);
@@ -109,7 +109,7 @@ public class SecondaryIndexAutoSelectionTests(SecondaryIndexDynamoFixture fixtur
 
         AssertSql(
             """
-            SELECT "CustomerId", "OrderId", "CreatedAt", "Priority", "Region", "Status"
+            SELECT "CustomerId", "OrderId", "$version", "CreatedAt", "Priority", "Region", "Status"
             FROM "SecondaryIndexOrders"
             WHERE "CustomerId" = 'C#1'
             """);
@@ -152,7 +152,7 @@ public class SecondaryIndexAutoSelectionTests(SecondaryIndexDynamoFixture fixtur
 
         AssertSql(
             """
-            SELECT "CustomerId", "OrderId", "CreatedAt", "Priority", "Region", "Status"
+            SELECT "CustomerId", "OrderId", "$version", "CreatedAt", "Priority", "Region", "Status"
             FROM "SecondaryIndexOrders"."ByPriority"
             WHERE "CustomerId" = 'C#1'
             ORDER BY "Priority" ASC
@@ -185,7 +185,7 @@ public class SecondaryIndexAutoSelectionTests(SecondaryIndexDynamoFixture fixtur
         // No index in the FROM clause — base table is used.
         AssertSql(
             """
-            SELECT "CustomerId", "OrderId", "CreatedAt", "Priority", "Region", "Status"
+            SELECT "CustomerId", "OrderId", "$version", "CreatedAt", "Priority", "Region", "Status"
             FROM "SecondaryIndexOrders"
             WHERE "CustomerId" = 'C#1'
             """);
@@ -224,7 +224,7 @@ public class SecondaryIndexAutoSelectionTests(SecondaryIndexDynamoFixture fixtur
 
         AssertSql(
             """
-            SELECT "CustomerId", "OrderId", "CreatedAt", "Priority", "Region", "Status"
+            SELECT "CustomerId", "OrderId", "$version", "CreatedAt", "Priority", "Region", "Status"
             FROM "SecondaryIndexOrders"."ByStatus"
             WHERE "Status" IN [?, ?]
             """);
@@ -270,7 +270,7 @@ public class SecondaryIndexAutoSelectionTests(SecondaryIndexDynamoFixture fixtur
 
         AssertSql(
             """
-            SELECT "CustomerId", "OrderId", "CreatedAt", "Priority", "Region", "Status"
+            SELECT "CustomerId", "OrderId", "$version", "CreatedAt", "Priority", "Region", "Status"
             FROM "SecondaryIndexOrders"
             WHERE "Status" = 'PENDING' OR "Region" = 'US-EAST'
             """);
@@ -310,7 +310,7 @@ public class SecondaryIndexAutoSelectionTests(SecondaryIndexDynamoFixture fixtur
 
         AssertSql(
             """
-            SELECT "CustomerId", "OrderId", "CreatedAt", "Priority", "Region", "Status"
+            SELECT "CustomerId", "OrderId", "$version", "CreatedAt", "Priority", "Region", "Status"
             FROM "SecondaryIndexOrders"
             WHERE "Priority" = 1
             """);
@@ -350,7 +350,7 @@ public class SecondaryIndexAutoSelectionTests(SecondaryIndexDynamoFixture fixtur
 
         AssertSql(
             """
-            SELECT "CustomerId", "OrderId", "CreatedAt", "Priority", "Region", "Status"
+            SELECT "CustomerId", "OrderId", "$version", "CreatedAt", "Priority", "Region", "Status"
             FROM "SecondaryIndexOrders"."ByStatus"
             WHERE "Status" = 'PENDING'
             """);
@@ -393,7 +393,7 @@ public class SecondaryIndexAutoSelectionTests(SecondaryIndexDynamoFixture fixtur
 
         AssertSql(
             """
-            SELECT "CustomerId", "OrderId", "CreatedAt", "Priority", "Region", "Status"
+            SELECT "CustomerId", "OrderId", "$version", "CreatedAt", "Priority", "Region", "Status"
             FROM "SecondaryIndexOrders"."ByStatus"
             WHERE "Status" = 'PENDING'
             ORDER BY "CreatedAt" ASC
@@ -420,7 +420,7 @@ public class SecondaryIndexAutoSelectionTests(SecondaryIndexDynamoFixture fixtur
 
         AssertSql(
             """
-            SELECT "CustomerId", "OrderId", "CreatedAt", "Priority", "Region", "Status"
+            SELECT "CustomerId", "OrderId", "$version", "CreatedAt", "Priority", "Region", "Status"
             FROM "SecondaryIndexOrders"
             """);
     }

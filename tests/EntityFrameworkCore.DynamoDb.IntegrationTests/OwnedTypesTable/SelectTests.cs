@@ -18,7 +18,7 @@ public class SelectTests(OwnedTypesTableDynamoFixture fixture) : OwnedTypesTable
 
         AssertSql(
             """
-            SELECT "Pk", "CreatedAt", "GuidValue", "IntValue", "Ratings", "StringValue", "Tags", "Orders", "OrderSnapshots", "Profile"
+            SELECT "Pk", "$version", "CreatedAt", "GuidValue", "IntValue", "Ratings", "StringValue", "Tags", "Orders", "OrderSnapshots", "Profile"
             FROM "OwnedTypesItems"
             """);
     }
@@ -123,7 +123,7 @@ public class SelectTests(OwnedTypesTableDynamoFixture fixture) : OwnedTypesTable
 
         AssertSql(
             """
-            SELECT "Pk", "CreatedAt", "GuidValue", "IntValue", "Ratings", "StringValue", "Tags", "Orders", "OrderSnapshots", "Profile"
+            SELECT "Pk", "$version", "CreatedAt", "GuidValue", "IntValue", "Ratings", "StringValue", "Tags", "Orders", "OrderSnapshots", "Profile"
             FROM "OwnedTypesItems"
             WHERE "Pk" = 'OWNED#3'
             """);
@@ -205,7 +205,7 @@ public class SelectTests(OwnedTypesTableDynamoFixture fixture) : OwnedTypesTable
 
         AssertSql(
             """
-            SELECT "Pk", "CreatedAt", "GuidValue", "IntValue", "Ratings", "StringValue", "Tags", "Orders", "OrderSnapshots", "Profile"
+            SELECT "Pk", "$version", "CreatedAt", "GuidValue", "IntValue", "Ratings", "StringValue", "Tags", "Orders", "OrderSnapshots", "Profile"
             FROM "OwnedTypesItems"
             WHERE "Pk" = 'OWNED#3'
             """);
@@ -238,7 +238,7 @@ public class SelectTests(OwnedTypesTableDynamoFixture fixture) : OwnedTypesTable
 
         AssertSql(
             """
-            SELECT "Pk", "CreatedAt", "GuidValue", "IntValue", "Ratings", "StringValue", "Tags", "Orders", "OrderSnapshots", "Profile"
+            SELECT "Pk", "$version", "CreatedAt", "GuidValue", "IntValue", "Ratings", "StringValue", "Tags", "Orders", "OrderSnapshots", "Profile"
             FROM "OwnedTypesItems"
             WHERE "Pk" = 'OWNED#3'
             """);
@@ -263,7 +263,7 @@ public class SelectTests(OwnedTypesTableDynamoFixture fixture) : OwnedTypesTable
 
         AssertSql(
             """
-            SELECT "Pk", "CreatedAt", "GuidValue", "IntValue", "Ratings", "StringValue", "Tags", "Orders", "OrderSnapshots", "Profile"
+            SELECT "Pk", "$version", "CreatedAt", "GuidValue", "IntValue", "Ratings", "StringValue", "Tags", "Orders", "OrderSnapshots", "Profile"
             FROM "OwnedTypesItems"
             WHERE "Pk" = 'OWNED#3'
             """);

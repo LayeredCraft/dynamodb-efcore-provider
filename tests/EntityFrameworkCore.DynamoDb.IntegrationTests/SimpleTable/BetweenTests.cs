@@ -32,7 +32,7 @@ public class BetweenTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBas
 
         AssertSql(
             """
-            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+            SELECT "Pk", "$version", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
             FROM "SimpleItems"
             WHERE "IntValue" BETWEEN ? AND ?
             """);
@@ -58,7 +58,7 @@ public class BetweenTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBas
 
         AssertSql(
             """
-            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+            SELECT "Pk", "$version", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
             FROM "SimpleItems"
             WHERE "IntValue" BETWEEN ? AND ?
             """);
@@ -84,7 +84,7 @@ public class BetweenTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBas
 
         AssertSql(
             """
-            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+            SELECT "Pk", "$version", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
             FROM "SimpleItems"
             WHERE "LongValue" BETWEEN ? AND ?
             """);
@@ -115,7 +115,7 @@ public class BetweenTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBas
         // > and <= must NOT be collapsed into BETWEEN
         AssertSql(
             """
-            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+            SELECT "Pk", "$version", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
             FROM "SimpleItems"
             WHERE "IntValue" > ? AND "IntValue" <= ?
             """);
@@ -142,7 +142,7 @@ public class BetweenTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBas
         // >= and < must NOT be collapsed into BETWEEN
         AssertSql(
             """
-            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+            SELECT "Pk", "$version", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
             FROM "SimpleItems"
             WHERE "IntValue" >= ? AND "IntValue" < ?
             """);
@@ -172,7 +172,7 @@ public class BetweenTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBas
 
         AssertSql(
             """
-            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+            SELECT "Pk", "$version", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
             FROM "SimpleItems"
             WHERE "IntValue" BETWEEN ? AND ? AND "BoolValue" = TRUE
             """);

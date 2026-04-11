@@ -57,7 +57,7 @@ public class SharedTableIndexAutoSelectionTests(SharedTableWithIndexesDynamoFixt
 
         AssertSql(
             """
-            SELECT "Pk", "Sk", "Status", "Priority", "$type"
+            SELECT "Pk", "Sk", "$type", "$version", "Status", "Priority"
             FROM "work-orders-indexed-table"."ByPriority"
             WHERE "Priority" = 3 AND "$type" = 'PriorityWorkOrderEntity'
             """);
@@ -106,7 +106,7 @@ public class SharedTableIndexAutoSelectionTests(SharedTableWithIndexesDynamoFixt
 
         AssertSql(
             """
-            SELECT "Pk", "Sk", "Status", "Priority", "$type"
+            SELECT "Pk", "Sk", "$type", "$version", "Status", "Priority"
             FROM "work-orders-indexed-table"."ByStatus"
             WHERE "Pk" = 'WO#ALPHA' AND ("$type" = 'ArchivedWorkOrderEntity' OR "$type" = 'PriorityWorkOrderEntity')
             """);
@@ -134,7 +134,7 @@ public class SharedTableIndexAutoSelectionTests(SharedTableWithIndexesDynamoFixt
 
         AssertSql(
             """
-            SELECT "Pk", "Sk", "Status", "Priority", "$type"
+            SELECT "Pk", "Sk", "$type", "$version", "Status", "Priority"
             FROM "work-orders-indexed-table"
             WHERE "Status" = 'OPEN' AND ("$type" = 'ArchivedWorkOrderEntity' OR "$type" = 'PriorityWorkOrderEntity')
             """);
@@ -195,7 +195,7 @@ public class SharedTableIndexAutoSelectionTests(SharedTableWithIndexesDynamoFixt
 
         AssertSql(
             """
-            SELECT "Pk", "Sk", "Status", "Priority", "$type"
+            SELECT "Pk", "Sk", "$type", "$version", "Status", "Priority"
             FROM "work-orders-indexed-table"."ByStatus"
             WHERE "Pk" = 'WO#ALPHA' AND ("$type" = 'ArchivedWorkOrderEntity' OR "$type" = 'PriorityWorkOrderEntity')
             """);
@@ -237,7 +237,7 @@ public class SharedTableIndexAutoSelectionTests(SharedTableWithIndexesDynamoFixt
 
         AssertSql(
             """
-            SELECT "Pk", "Sk", "Status", "Priority", "$type"
+            SELECT "Pk", "Sk", "$type", "$version", "Status", "Priority"
             FROM "work-orders-indexed-table"."ByPriority"
             WHERE "Priority" = 5 AND "$type" = 'PriorityWorkOrderEntity'
             """);
@@ -303,7 +303,7 @@ public class SharedTableIndexAutoSelectionTests(SharedTableWithIndexesDynamoFixt
         // SuggestOnly: query executes on base table — no index in FROM clause.
         loggerFactory.AssertBaseline(
             """
-            SELECT "Pk", "Sk", "Status", "Priority", "$type"
+            SELECT "Pk", "Sk", "$type", "$version", "Status", "Priority"
             FROM "work-orders-indexed-table"
             WHERE "Priority" = 3 AND "$type" = 'PriorityWorkOrderEntity'
             """);

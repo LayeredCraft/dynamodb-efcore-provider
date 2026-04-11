@@ -19,7 +19,7 @@ public class NotOperatorTests(SimpleTableDynamoFixture fixture) : SimpleTableTes
 
         AssertSql(
             """
-            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+            SELECT "Pk", "$version", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
             FROM "SimpleItems"
             WHERE NOT ("BoolValue" = TRUE)
             """);
@@ -42,7 +42,7 @@ public class NotOperatorTests(SimpleTableDynamoFixture fixture) : SimpleTableTes
 
         AssertSql(
             """
-            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+            SELECT "Pk", "$version", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
             FROM "SimpleItems"
             WHERE NOT ("BoolValue" = TRUE AND "IntValue" > 50)
             """);
