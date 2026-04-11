@@ -1,3 +1,4 @@
+using EntityFrameworkCore.DynamoDb.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 
@@ -67,7 +68,16 @@ internal static class OwnedProjectionMetadata
         if (!property.IsShadowProperty())
             return property.GetTypeMapping() != null;
 
-        return topLevelOwnedContainingAttributeNames.Contains(property.Name);
+        // Shadow properties that represent owned entity containers (e.g. navigation attribute
+        // names)
+        // are projected so downstream materialization can navigate into the nested map/list.
+        if (topLevelOwnedContainingAttributeNames.Contains(property.Name))
+            return true;
+
+        // Provider-managed scalar shadow properties (e.g. $version) have a DynamoDB type mapping
+        // and must be projected so the compiled shaper can materialize them into the shadow
+        // snapshot.
+        return property.GetTypeMapping() is DynamoTypeMapping;
     }
 
     /// <summary>Gets the scalar properties that should be considered for top-level projection expansion.</summary>

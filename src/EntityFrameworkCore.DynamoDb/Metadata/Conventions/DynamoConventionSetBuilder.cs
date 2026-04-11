@@ -19,6 +19,7 @@ public sealed class DynamoConventionSetBuilder(
         conventionSet.Replace<KeyDiscoveryConvention>(
             new DynamoKeyDiscoveryConvention(Dependencies));
         conventionSet.ModelFinalizingConventions.Add(new DynamoDiscriminatorConvention());
+        conventionSet.ModelFinalizingConventions.Add(new DynamoVersionConvention());
         conventionSet.ModelFinalizingConventions.Add(new DynamoKeyAnnotationConvention());
 
         var keyInPrimaryKeyConvention = new DynamoKeyInPrimaryKeyConvention(Dependencies);
