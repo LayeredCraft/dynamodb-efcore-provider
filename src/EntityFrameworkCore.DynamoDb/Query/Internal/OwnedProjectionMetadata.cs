@@ -82,14 +82,14 @@ internal static class OwnedProjectionMetadata
             return entityType.GetProperties();
 
         HashSet<IProperty> seen = [];
-        List<IProperty> properties = [];
 
-        foreach (var projectionEntityType in GetProjectionEntityTypes(entityType))
-            foreach (var property in projectionEntityType.GetDeclaredProperties())
-                if (seen.Add(property))
-                    properties.Add(property);
-
-        return properties;
+        return GetProjectionEntityTypes(entityType)
+            .SelectMany(
+                projectionEntityType => projectionEntityType.GetDeclaredProperties(),
+                (projectionEntityType, property) => new { projectionEntityType, property })
+            .Where(t => seen.Add(t.property))
+            .Select(t => t.property)
+            .ToList();
     }
 
     /// <summary>Determines whether hierarchy-wide projection is required for inheritance materialization.</summary>
