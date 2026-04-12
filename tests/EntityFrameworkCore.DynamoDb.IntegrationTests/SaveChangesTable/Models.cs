@@ -233,6 +233,38 @@ public sealed record CustomConverterItem
     public ProductCode? OptionalCode { get; set; }
 }
 
+/// <summary>Entity used to validate property-level conversion of a collection-shaped CLR property.</summary>
+public sealed record ConvertedCollectionItem
+{
+    /// <summary>Provides functionality for this member.</summary>
+    public string Pk { get; set; } = null!;
+
+    /// <summary>Provides functionality for this member.</summary>
+    public string Sk { get; set; } = null!;
+
+    /// <summary>Provides functionality for this member.</summary>
+    public long Version { get; set; }
+
+    /// <summary>Provides functionality for this member.</summary>
+    public List<int> Scores { get; set; } = [];
+}
+
+/// <summary>Entity used to validate escaping for custom DynamoDB attribute names.</summary>
+public sealed record QuotedAttributeItem
+{
+    /// <summary>Provides functionality for this member.</summary>
+    public string Pk { get; set; } = null!;
+
+    /// <summary>Provides functionality for this member.</summary>
+    public string Sk { get; set; } = null!;
+
+    /// <summary>Provides functionality for this member.</summary>
+    public long Version { get; set; }
+
+    /// <summary>Provides functionality for this member.</summary>
+    public string DisplayName { get; set; } = null!;
+}
+
 /// <summary>Represents the CustomerProfile type.</summary>
 public sealed record CustomerProfile
 {

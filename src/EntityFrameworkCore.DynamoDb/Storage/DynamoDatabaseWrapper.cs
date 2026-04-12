@@ -48,7 +48,7 @@ public class DynamoDatabaseWrapper(
         CancellationToken cancellationToken = default)
     {
         // Guard: only Added/Modified/Deleted are implemented; fail explicitly for others.
-        // Must run before PromoteModifiedOwnedRoots to avoid mutating DbContext state on a
+        // Must run before PromoteMutatingOwnedRoots to avoid mutating DbContext state on a
         // batch that will ultimately throw.
         var unsupported = entries.FirstOrDefault(static e
             => e.EntityState is not EntityState.Added
@@ -61,7 +61,7 @@ public class DynamoDatabaseWrapper(
                 $"SaveChanges for EntityState.{unsupported.EntityState} is not yet supported. "
                 + "Only Added, Modified, and Deleted entities can be persisted in this version.");
 
-        PromoteModifiedOwnedRoots(entries);
+        PromoteMutatingOwnedRoots(entries);
 
         var rootEntries = entries
             .Where(static e
@@ -325,15 +325,17 @@ public class DynamoDatabaseWrapper(
     /// </remarks>
     private static bool SupportsScalarModifiedProperty(IProperty property)
     {
-        var clrType = property.ClrType;
+        var converter = property.GetTypeMapping().Converter;
+        var shapeType = converter?.ProviderClrType ?? property.ClrType;
+        shapeType = Nullable.GetUnderlyingType(shapeType) ?? shapeType;
 
         // byte[] maps to a binary scalar (B attribute) — allow it before the collection checks.
-        if (clrType == typeof(byte[]))
+        if (shapeType == typeof(byte[]))
             return true;
 
-        if (DynamoTypeMappingSource.TryGetDictionaryValueType(clrType, out _, out _)
-            || DynamoTypeMappingSource.TryGetSetElementType(clrType, out _)
-            || DynamoTypeMappingSource.TryGetListElementType(clrType, out _))
+        if (DynamoTypeMappingSource.TryGetDictionaryValueType(shapeType, out _, out _)
+            || DynamoTypeMappingSource.TryGetSetElementType(shapeType, out _)
+            || DynamoTypeMappingSource.TryGetListElementType(shapeType, out _))
             return false;
 
         return true;
@@ -347,28 +349,35 @@ public class DynamoDatabaseWrapper(
         => identifier.Replace("\"", "\"\"", StringComparison.Ordinal);
 
     /// <summary>
-    ///     Ensures that the aggregate root of every Modified owned entity is also present in
+    ///     Ensures that the aggregate root of every mutating owned entity is also present in
     ///     <paramref name="entries" /> and is in at least the <see cref="EntityState.Modified" /> state,
     ///     so that <see cref="BuildModifiedScalarUpdateStatement" /> is called for it and can detect
     ///     whether the mutation is supported.
     /// </summary>
     /// <remarks>
     ///     EF Core tracks owned entity changes independently from their root. When only an owned
-    ///     property changes, the root entry may still be <see cref="EntityState.Unchanged" /> and absent
-    ///     from the entries list. We promote it here (with <c>modifyProperties: false</c> to avoid marking
-    ///     all scalar properties as dirty) so that the write loop sees it and can either emit an update
-    ///     (if the owned-mutation path is later implemented) or fail with a clear error.
+    ///     sub-entity mutates (Added/Modified/Deleted), the root entry may still be
+    ///     <see cref="EntityState.Unchanged" /> and absent from the entries list. We promote it here
+    ///     (with <c>modifyProperties: false</c> to avoid marking all scalar properties as dirty) so that
+    ///     the write loop sees it and can either emit an update (if the owned-mutation path is later
+    ///     implemented) or fail with a clear error.
     /// </remarks>
-    private static void PromoteModifiedOwnedRoots(IList<IUpdateEntry> entries)
+    private static void PromoteMutatingOwnedRoots(IList<IUpdateEntry> entries)
     {
         var count = entries.Count;
-        // Track which roots have already been added to avoid O(n) Contains scans per entry.
-        HashSet<InternalEntityEntry>? addedRoots = null;
+        var trackedEntries =
+            new HashSet<InternalEntityEntry>(count, ReferenceEqualityComparer.Instance);
+
+        for (var i = 0; i < count; i++)
+            trackedEntries.Add((InternalEntityEntry)entries[i]);
 
         for (var i = 0; i < count; i++)
         {
             var entry = entries[i];
-            if (!entry.EntityType.IsOwned() || entry.EntityState != EntityState.Modified)
+            if (!entry.EntityType.IsOwned()
+                || entry.EntityState is not EntityState.Modified
+                    and not EntityState.Added
+                    and not EntityState.Deleted)
                 continue;
 
             var root = GetRootEntry((InternalEntityEntry)entry);
@@ -376,9 +385,7 @@ public class DynamoDatabaseWrapper(
             if (root.EntityState == EntityState.Unchanged)
                 root.SetEntityState(EntityState.Modified, modifyProperties: false);
 
-            addedRoots ??=
-                new HashSet<InternalEntityEntry>(count, ReferenceEqualityComparer.Instance);
-            if (addedRoots.Add(root))
+            if (trackedEntries.Add(root))
                 entries.Add(root);
         }
     }
@@ -523,8 +530,8 @@ public class DynamoDatabaseWrapper(
     /// </summary>
     /// <remarks>
     /// Attribute keys are emitted as single-quoted string literals inside the <c>VALUE</c> document
-    /// clause. This is safe for reserved words (unlike bare identifiers), so no escaping is needed
-    /// for the keys here. Table names are double-quote escaped separately.
+    /// clause. Embedded single quotes in keys are escaped by doubling (<c>'</c> → <c>''</c>).
+    /// Table names are validated separately.
     /// </remarks>
     private static (string sql, List<AttributeValue> parameters) BuildInsertStatement(
         string tableName,
@@ -551,8 +558,8 @@ public class DynamoDatabaseWrapper(
             if (!first)
                 sql.Append(", ");
 
-            // Keys are string literals in the VALUE document clause — reserved words are safe here.
-            sql.Append($"'{key}': ?");
+            // Keys are string literals in the VALUE document clause. Escape embedded single quotes.
+            sql.Append($"'{EscapeStringLiteral(key)}': ?");
             parameters.Add(value);
             first = false;
         }
@@ -560,6 +567,9 @@ public class DynamoDatabaseWrapper(
         sql.Append('}');
         return (sql.ToString(), parameters);
     }
+
+    private static string EscapeStringLiteral(string value)
+        => value.Replace("'", "''", StringComparison.Ordinal);
 
     /// <summary>
     ///     Returns <see langword="true" /> when <paramref name="ex" /> represents a duplicate primary

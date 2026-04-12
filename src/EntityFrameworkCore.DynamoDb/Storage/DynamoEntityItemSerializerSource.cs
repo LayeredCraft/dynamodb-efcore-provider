@@ -64,12 +64,18 @@ public sealed class DynamoEntityItemSerializerSource
     {
         var clrType = property.ClrType;
         var typeMapping = property.GetTypeMapping();
+        var propertyConverter = typeMapping.Converter;
+
+        // Property-level converters define the store shape for the entire property, even when the
+        // model CLR type itself looks like a collection.
+        if (propertyConverter is not null)
+            return BuildScalarSerializer(property, clrType, propertyConverter);
 
         // byte[] is a reference type that looks like a collection but maps to a single Binary
         // attribute.
         var nonNullableType = Nullable.GetUnderlyingType(clrType) ?? clrType;
         if (nonNullableType == typeof(byte[]))
-            return BuildScalarSerializer(property, clrType, typeMapping.Converter);
+            return BuildScalarSerializer(property, clrType, null);
 
         if (DynamoTypeMappingSource.TryGetDictionaryValueType(clrType, out var valueType, out _))
         {
@@ -107,7 +113,7 @@ public sealed class DynamoEntityItemSerializerSource
                 new ConvertedListFactory(conv, listElementType));
         }
 
-        return BuildScalarSerializer(property, clrType, typeMapping.Converter);
+        return BuildScalarSerializer(property, clrType, null);
     }
 
     /// <summary>
