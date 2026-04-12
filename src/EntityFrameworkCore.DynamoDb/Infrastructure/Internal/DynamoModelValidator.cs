@@ -41,6 +41,7 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
         ValidateTableKeySchemaConsistency(model);
         ValidateSecondaryIndexes(model);
         ValidateDiscriminatorMappings(model);
+        ValidateConcurrencyTokenConfiguration(model);
         ValidateScalarPropertyTypeMappings(model, logger);
     }
 
@@ -835,12 +836,13 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
         {
             // Null-mapping and non-DynamoTypeMapping cases are caught earlier by EF Core's
             // ValidatePropertyMapping via our ThrowPropertyNotMappedException override. Skip
-            // those here; only check CanSerialize as defense-in-depth for mappings that exist
+            // those here; only check CanWriteToAttributeValue as defense-in-depth for mappings that
+            // exist
             // but cannot be serialized to DynamoDB wire format.
             if (property.FindTypeMapping() is not DynamoTypeMapping dynamoMapping)
                 continue;
 
-            if (!dynamoMapping.CanSerialize)
+            if (!dynamoMapping.CanWriteToAttributeValue)
                 throw new InvalidOperationException(
                     $"Property '{typeBase.DisplayName()}.{property.Name}' of CLR type "
                     + $"'{property.ClrType.Name}' cannot be serialized to DynamoDB. "
@@ -853,11 +855,11 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
                 continue;
 
             // For primitive collections, also verify the element type can be serialized.
-            // The collection mapping's CanSerialize already reflects this, but checking
+            // The collection mapping's CanWriteToAttributeValue already reflects this, but checking
             // the element mapping separately produces a more targeted error message.
             var elementType = property.GetElementType();
             if (elementType?.FindTypeMapping() is DynamoTypeMapping elementMapping
-                && !elementMapping.CanSerialize)
+                && !elementMapping.CanWriteToAttributeValue)
                 throw new InvalidOperationException(
                     $"Primitive collection property '{typeBase.DisplayName()}.{property.Name}' "
                     + $"of CLR type '{property.ClrType.Name}' has element type "
@@ -865,6 +867,34 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
                     + "Primitive collection elements must be DynamoDB-supported scalars: string, "
                     + "bool, byte[], and numeric types. Configure a value converter on the "
                     + "element type to map it to a supported scalar.");
+        }
+    }
+
+    /// <summary>Validates DynamoDB optimistic concurrency configuration.</summary>
+    /// <remarks>
+    ///     This provider currently supports manual concurrency tokens only:
+    ///     <c>.IsConcurrencyToken()</c> / <c>[ConcurrencyCheck]</c>. Row-version semantics (
+    ///     <c>ValueGenerated.OnAddOrUpdate</c>, including <c>IsRowVersion()</c>) are not provider-managed
+    ///     yet and are rejected at model-validation time.
+    /// </remarks>
+    private static void ValidateConcurrencyTokenConfiguration(IModel model)
+    {
+        foreach (var entityType in EnumerateRootEntityTypes(model))
+        {
+            foreach (var property in entityType.GetDeclaredProperties())
+            {
+                if (!property.IsConcurrencyToken)
+                    continue;
+
+                if (property.ValueGenerated == ValueGenerated.OnAddOrUpdate)
+                    throw new InvalidOperationException(
+                        $"Property '{entityType.DisplayName()}.{property.Name}' is configured "
+                        + "as a row-version token (ValueGenerated.OnAddOrUpdate / IsRowVersion()), "
+                        + "but the DynamoDB provider does not currently support provider-managed "
+                        + "row-version value generation. Configure this property with "
+                        + "IsConcurrencyToken() only and update the token value in application "
+                        + "code before saving changes.");
+            }
         }
     }
 

@@ -6,7 +6,6 @@ icon: lucide/triangle-alert
 
 ## Not supported yet
 
-- `SaveChanges` and `SaveChangesAsync`.
 - Synchronous query enumeration.
 - `ToQueryString()` support for the custom querying enumerable.
 - Large parts of LINQ translation surface (see `operators.md`).
@@ -19,7 +18,9 @@ icon: lucide/triangle-alert
 
 ## What this means in practice
 
-- The provider is currently query-only.
+- Async writes are supported via `SaveChangesAsync` for Added/Modified/Deleted root entities.
+- Write support is still partial; owned/nested mutation write paths remain limited.
+- Synchronous `SaveChanges` is not supported.
 - Unsupported LINQ shapes fail during translation with `InvalidOperationException` including provider-specific details.
 - Discriminator guardrails for unsupported query shapes are deferred; support is limited to the
     current operator surface in `operators.md`.
@@ -110,6 +111,15 @@ The `AsAsyncEnumerable()` bridge makes the client-side step explicit.
 - Supported dictionary shapes (string keys only): `Dictionary<string,TValue>`,
     `IDictionary<string,TValue>`, `IReadOnlyDictionary<string,TValue>`, and
     `ReadOnlyDictionary<string,TValue>`.
+
+## Optimistic concurrency limitations
+
+- Concurrency is opt-in. Only properties configured with `.IsConcurrencyToken()` (or
+    `[ConcurrencyCheck]`) participate in concurrency predicates.
+- Concurrency token values are application-managed. The provider does not auto-increment or
+    auto-generate token values during `SaveChangesAsync`.
+- `IsRowVersion()` / `ValueGeneratedOnAddOrUpdate` is not supported yet and is rejected during
+    model validation.
 
 ## Key mapping validation limits
 

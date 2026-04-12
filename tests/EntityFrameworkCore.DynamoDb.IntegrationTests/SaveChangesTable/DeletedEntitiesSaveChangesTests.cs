@@ -39,7 +39,7 @@ public class DeletedEntitiesSaveChangesTests(SaveChangesTableDynamoFixture fixtu
         AssertSql(
             """
             DELETE FROM "AppItems"
-            WHERE "Pk" = ? AND "Sk" = ?
+            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
             """);
     }
 
@@ -72,7 +72,7 @@ public class DeletedEntitiesSaveChangesTests(SaveChangesTableDynamoFixture fixtu
         AssertSql(
             """
             DELETE FROM "AppItems"
-            WHERE "Pk" = ? AND "Sk" = ?
+            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
             """);
     }
 
@@ -182,11 +182,11 @@ public class DeletedEntitiesSaveChangesTests(SaveChangesTableDynamoFixture fixtu
             """
             UPDATE "AppItems"
             SET "Email" = ?
-            WHERE "Pk" = ? AND "Sk" = ?
+            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
             """,
             """
             DELETE FROM "AppItems"
-            WHERE "Pk" = ? AND "Sk" = ?
+            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
             """);
     }
 }

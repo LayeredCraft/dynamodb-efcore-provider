@@ -28,7 +28,8 @@ dotnet add package EntityFrameworkCore.DynamoDb
 ## Current Scope
 
 - Async query execution is supported.
-- `SaveChanges` and `SaveChangesAsync` are not implemented yet.
+- `SaveChangesAsync` is implemented for Added/Modified/Deleted root entities.
+- Synchronous `SaveChanges` is not supported (DynamoDB API is async-only).
 - LINQ translation support is partial; [Operators](operators.md) is the source of truth.
 - Includes support for table mapping, key mapping, owned types, and secondary-index metadata.
 
@@ -49,6 +50,7 @@ dotnet add package EntityFrameworkCore.DynamoDb
 - [Configuration](configuration.md)
 - [Indexes](indexes.md)
 - [Architecture](architecture.md)
+- [Concurrency](concurrency.md)
 - [Operators](operators.md)
 - [Pagination](pagination.md)
 - [Projections](projections.md)
@@ -57,7 +59,7 @@ dotnet add package EntityFrameworkCore.DynamoDb
 - [Limitations](limitations.md)
 - [Repository README](https://github.com/LayeredCraft/dynamodb-efcore-provider#readme)
 
-## Current scope
+## Notes
 
-- Current scope is query execution (`ExecuteStatement`) with async query APIs.
-- `SaveChanges` is not implemented yet.
+- `SaveChangesAsync` currently supports scalar root updates. Owned/nested mutation write paths are
+    still limited; see [Limitations](limitations.md).

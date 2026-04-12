@@ -1,3 +1,4 @@
+using System.Globalization;
 using Amazon.DynamoDBv2;
 using Microsoft.EntityFrameworkCore;
 
@@ -23,6 +24,13 @@ public class SaveChangesTableDbContext(DbContextOptions options) : DbContext(opt
 
     /// <summary>Provides functionality for this member.</summary>
     public DbSet<CustomConverterItem> CustomConverterItems => Set<CustomConverterItem>();
+
+    /// <summary>Provides functionality for this member.</summary>
+    public DbSet<ConvertedCollectionItem> ConvertedCollectionItems
+        => Set<ConvertedCollectionItem>();
+
+    /// <summary>Provides functionality for this member.</summary>
+    public DbSet<QuotedAttributeItem> QuotedAttributeItems => Set<QuotedAttributeItem>();
 
     /// <summary>Creates a context configured to use the provided DynamoDB client instance.</summary>
     public static SaveChangesTableDbContext Create(IAmazonDynamoDB client)
@@ -113,6 +121,33 @@ public class SaveChangesTableDbContext(DbContextOptions options) : DbContext(opt
             builder.HasSortKey(x => x.Sk);
             builder.Property(x => x.Code).HasConversion<ProductCodeConverter>();
             builder.Property(x => x.OptionalCode).HasConversion<ProductCodeConverter>();
+        });
+
+        modelBuilder.Entity<ConvertedCollectionItem>(builder =>
+        {
+            builder.ToTable(SaveChangesTableDynamoFixture.TableName);
+            builder.HasPartitionKey(x => x.Pk);
+            builder.HasSortKey(x => x.Sk);
+            builder.Property(x => x.Version).IsConcurrencyToken();
+            builder
+                .Property(x => x.Scores)
+                .HasConversion(
+                    list => string.Join('|', list),
+                    text => string.IsNullOrWhiteSpace(text)
+                        ? new List<int>()
+                        : text
+                            .Split('|', StringSplitOptions.RemoveEmptyEntries)
+                            .Select(static part => int.Parse(part, CultureInfo.InvariantCulture))
+                            .ToList());
+        });
+
+        modelBuilder.Entity<QuotedAttributeItem>(builder =>
+        {
+            builder.ToTable(SaveChangesTableDynamoFixture.TableName);
+            builder.HasPartitionKey(x => x.Pk);
+            builder.HasSortKey(x => x.Sk);
+            builder.Property(x => x.Version).IsConcurrencyToken();
+            builder.Property(x => x.DisplayName).HasAttributeName("O'Brien");
         });
     }
 }

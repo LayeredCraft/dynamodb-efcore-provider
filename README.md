@@ -1,7 +1,7 @@
 # EntityFrameworkCore.DynamoDb
 
 EF Core Provider for AWS DynamoDB
->
+
 > [!WARNING]
 > This provider is not production ready yet. Validate behavior carefully before using it in
 > important workloads, and review the current limitations before adopting it.
@@ -84,7 +84,10 @@ var openOrders = await context.Orders
 ## Current Scope
 
 - Async query execution is supported.
-- `SaveChanges` and `SaveChangesAsync` are not implemented yet.
+- `SaveChangesAsync` is implemented for Added/Modified/Deleted root entities.
+- Synchronous `SaveChanges` is not supported (DynamoDB API is async-only).
 - LINQ support is partial; use `docs/operators.md` as the source of truth for supported query
   shapes.
 - Table mapping, key mapping, owned types, and secondary-index metadata are supported.
+- Optimistic concurrency is opt-in via `.IsConcurrencyToken()` / `[ConcurrencyCheck]`; token
+  values are application-managed.

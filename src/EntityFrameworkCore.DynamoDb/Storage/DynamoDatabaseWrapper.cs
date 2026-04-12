@@ -1,4 +1,5 @@
 using System.Text;
+using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.Diagnostics.Internal;
 using EntityFrameworkCore.DynamoDb.Metadata.Internal;
@@ -8,6 +9,8 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.Update;
+
+#pragma warning disable EF1001 // Internal EF Core API: InternalEntityEntry.SetProperty
 
 namespace EntityFrameworkCore.DynamoDb.Storage;
 
@@ -45,8 +48,6 @@ public class DynamoDatabaseWrapper(
         CancellationToken cancellationToken = default)
     {
         // Guard: only Added/Modified/Deleted are implemented; fail explicitly for others.
-        // Must run before PromoteModifiedOwnedRoots to avoid mutating DbContext state on a
-        // batch that will ultimately throw.
         var unsupported = entries.FirstOrDefault(static e
             => e.EntityState is not EntityState.Added
                 and not EntityState.Modified
@@ -58,15 +59,7 @@ public class DynamoDatabaseWrapper(
                 $"SaveChanges for EntityState.{unsupported.EntityState} is not yet supported. "
                 + "Only Added, Modified, and Deleted entities can be persisted in this version.");
 
-        PromoteModifiedOwnedRoots(entries);
-
-        var rootEntries = entries
-            .Where(static e
-                => !e.EntityType.IsOwned()
-                && (e.EntityState == EntityState.Added
-                    || e.EntityState == EntityState.Modified
-                    || e.EntityState == EntityState.Deleted))
-            .ToList();
+        var rootEntries = BuildRootEntries(entries);
 
         var rowsAffected = 0;
 
@@ -80,18 +73,28 @@ public class DynamoDatabaseWrapper(
                     // per-call type dispatch or value-type boxing on the scalar-property hot path.
                     // Owned sub-entries are resolved on-demand via the EF state manager.
                     //
-                    // Concurrency: no version check needed for inserts — DynamoDB's PartiQL INSERT
-                    // will fail with ConditionalCheckFailedException if the key already exists,
-                    // which is the correct insert-only semantic.
+                    // Concurrency: PartiQL INSERT fails with DuplicateItemException when a key
+                    // already exists. This is the correct insert-only (create-never-replace)
+                    // semantic; we map it to DbUpdateException below.
+
                     var item = serializerSource.BuildItem(entry);
                     var tableName = (string)entry.EntityType[DynamoAnnotationNames.TableName]!;
                     var (sql, parameters) = BuildInsertStatement(tableName, item);
 
-                    commandLogger.ExecutingPartiQlQuery(tableName, sql);
+                    commandLogger.ExecutingPartiQlWrite(tableName, sql);
 
-                    await clientWrapper
-                        .ExecuteWriteAsync(sql, parameters, cancellationToken)
-                        .ConfigureAwait(false);
+                    try
+                    {
+                        await clientWrapper
+                            .ExecuteWriteAsync(sql, parameters, cancellationToken)
+                            .ConfigureAwait(false);
+                    }
+                    catch (Exception ex) when (ex is DuplicateItemException
+                            or TransactionCanceledException
+                        || IsDuplicateKeyException(ex))
+                    {
+                        throw WrapWriteException(ex, EntityState.Added, entry);
+                    }
 
                     break;
                 }
@@ -104,29 +107,52 @@ public class DynamoDatabaseWrapper(
 
                     commandLogger.ExecutingPartiQlWrite(update.Value.tableName, update.Value.sql);
 
-                    await clientWrapper
-                        .ExecuteWriteAsync(
-                            update.Value.sql,
-                            update.Value.parameters,
-                            cancellationToken)
-                        .ConfigureAwait(false);
+                    try
+                    {
+                        await clientWrapper
+                            .ExecuteWriteAsync(
+                                update.Value.sql,
+                                update.Value.parameters,
+                                cancellationToken)
+                            .ConfigureAwait(false);
+                    }
+                    catch (Exception ex) when (ex is ConditionalCheckFailedException
+                        or TransactionCanceledException)
+                    {
+                        throw WrapWriteException(ex, EntityState.Modified, entry);
+                    }
 
                     break;
                 }
+
+                case EntityState.Unchanged:
+                    // This path is only reached for aggregate roots that were discovered from
+                    // mutating owned entries. Running the modified-statement builder here lets it
+                    // throw the explicit unsupported-mutation error without mutating tracker state.
+                    _ = BuildModifiedScalarUpdateStatement(entry, entries);
+                    continue;
 
                 case EntityState.Deleted:
                 {
                     // Deleting the root item removes the whole DynamoDB document including all
                     // owned sub-entities — no separate statement is needed per owned entry.
-                    // DynamoDB DELETE on a missing key is a no-op; concurrency failure mapping
-                    // is deferred to the next story (6gu.5).
+                    // DynamoDB PartiQL DELETE on a missing key is a silent no-op even when
+                    // concurrency-token WHERE predicates are present.
                     var delete = BuildDeleteStatement(entry);
 
                     commandLogger.ExecutingPartiQlWrite(delete.tableName, delete.sql);
 
-                    await clientWrapper
-                        .ExecuteWriteAsync(delete.sql, delete.parameters, cancellationToken)
-                        .ConfigureAwait(false);
+                    try
+                    {
+                        await clientWrapper
+                            .ExecuteWriteAsync(delete.sql, delete.parameters, cancellationToken)
+                            .ConfigureAwait(false);
+                    }
+                    catch (Exception ex) when (ex is ConditionalCheckFailedException
+                        or TransactionCanceledException)
+                    {
+                        throw WrapWriteException(ex, EntityState.Deleted, entry);
+                    }
 
                     break;
                 }
@@ -154,9 +180,9 @@ public class DynamoDatabaseWrapper(
     ///     on the root.
     /// </param>
     /// <returns>
-    ///     A tuple of (tableName, sql, parameters) if there are scalar changes to persist, or
-    ///     <see langword="null" /> if the entity has no scalar property changes (e.g. the root was
-    ///     promoted solely because an owned entry changed).
+    ///     A tuple of (tableName, sql, parameters) if there are scalar changes to
+    ///     persist, or <see langword="null" /> if the entity has no scalar property changes (e.g.
+    ///     the root was included solely because an owned entry changed).
     /// </returns>
     /// <exception cref="NotSupportedException">
     ///     Thrown when a modified property is a primary key (key
@@ -171,7 +197,12 @@ public class DynamoDatabaseWrapper(
         var entityType = entry.EntityType;
 
         var setClauses = new List<string>();
-        var parameters = new List<AttributeValue>();
+
+        // SET and WHERE parameters are kept separate so version management can add to both
+        // independently before they are concatenated. The final parameter list order must match
+        // the positional ? placeholders in the SQL text: SET values first, then WHERE values.
+        var setParameters = new List<AttributeValue>();
+        var whereParameters = new List<AttributeValue>();
 
         foreach (var property in entityType.GetProperties())
         {
@@ -193,22 +224,21 @@ public class DynamoDatabaseWrapper(
                     + "supported yet.");
 
             var mapping = property.GetTypeMapping() as DynamoTypeMapping;
-            if (mapping is null || !mapping.CanSerialize)
+            if (mapping is null || !mapping.CanWriteToAttributeValue)
                 throw new NotSupportedException(
                     $"Property '{entityType.DisplayName()}.{property.Name}' does not have a "
                     + "supported DynamoDB write mapping for Modified entities.");
 
             setClauses.Add($"\"{EscapeIdentifier(property.GetAttributeName())}\" = ?");
-            parameters.Add(mapping.CreateAttributeValue(entry.GetCurrentValue(property)));
+            setParameters.Add(mapping.CreateAttributeValue(entry.GetCurrentValue(property)));
         }
 
         if (setClauses.Count == 0)
         {
             // The root has no scalar changes of its own. This happens when
-            // PromoteModifiedOwnedRoots
-            // added this root entry because one of its owned entities changed. Owned/nested
-            // mutations require a full document rewrite (read-modify-write), which is not yet
-            // supported — fail explicitly rather than silently no-op'ing.
+            // BuildRootEntries added this root entry because one of its owned entities
+            // changed. Owned/nested mutations require a full document rewrite (read-modify-write),
+            // which is not yet supported — fail explicitly rather than silently no-op'ing.
             if (HasOwnedMutationForRoot((InternalEntityEntry)entry, entries))
                 throw new NotSupportedException(
                     $"SaveChanges Modified path for '{entityType.DisplayName()}' contains owned "
@@ -217,8 +247,7 @@ public class DynamoDatabaseWrapper(
             return null;
         }
 
-        // Parameters are ordered: SET values first, then WHERE key values. The positional ?
-        // placeholders in the PartiQL text must match this parameter order exactly.
+        // Key WHERE conditions: use original values so the correct DynamoDB item is targeted.
         var partitionKeyProperty = entityType.GetPartitionKeyProperty()
             ?? throw new InvalidOperationException(
                 $"Entity type '{entityType.DisplayName()}' does not define a partition key.");
@@ -228,17 +257,15 @@ public class DynamoDatabaseWrapper(
                 $"Partition key property '{entityType.DisplayName()}.{partitionKeyProperty.Name}' "
                 + "requires a DynamoTypeMapping.");
 
-        // Use the original key value for the WHERE clause — the current value is irrelevant
-        // because key mutation is rejected above.
-        parameters.Add(
+        whereParameters.Add(
             partitionKeyMapping.CreateAttributeValue(
                 GetOriginalOrCurrentValue(entry, partitionKeyProperty)));
 
-        var sqlBuilder = new StringBuilder();
-        sqlBuilder.AppendLine($"UPDATE \"{EscapeIdentifier(tableName)}\"");
-        sqlBuilder.AppendLine($"SET {string.Join(", ", setClauses)}");
-        sqlBuilder.Append(
-            $"WHERE \"{EscapeIdentifier(partitionKeyProperty.GetAttributeName())}\" = ?");
+        // Build WHERE conditions as a separate list so concurrency predicates can be appended.
+        var whereClauses = new List<string>
+        {
+            $"\"{EscapeIdentifier(partitionKeyProperty.GetAttributeName())}\" = ?",
+        };
 
         var sortKeyProperty = entityType.GetSortKeyProperty();
         if (sortKeyProperty is not null)
@@ -248,15 +275,24 @@ public class DynamoDatabaseWrapper(
                     $"Sort key property '{entityType.DisplayName()}.{sortKeyProperty.Name}' "
                     + "requires a DynamoTypeMapping.");
 
-            parameters.Add(
+            whereParameters.Add(
                 sortKeyMapping.CreateAttributeValue(
                     GetOriginalOrCurrentValue(entry, sortKeyProperty)));
 
-            sqlBuilder.Append(
-                $" AND \"{EscapeIdentifier(sortKeyProperty.GetAttributeName())}\" = ?");
+            whereClauses.Add($"\"{EscapeIdentifier(sortKeyProperty.GetAttributeName())}\" = ?");
         }
 
-        var sql = sqlBuilder.ToString();
+        AppendConcurrencyTokenPredicates(entry, entityType, whereClauses, whereParameters);
+
+        var sql = new StringBuilder()
+            .AppendLine($"UPDATE \"{EscapeIdentifier(tableName)}\"")
+            .AppendLine($"SET {string.Join(", ", setClauses)}")
+            .Append($"WHERE {string.Join(" AND ", whereClauses)}")
+            .ToString();
+
+        var parameters = new List<AttributeValue>(setParameters.Count + whereParameters.Count);
+        parameters.AddRange(setParameters);
+        parameters.AddRange(whereParameters);
 
         return (tableName, sql, parameters);
     }
@@ -286,15 +322,17 @@ public class DynamoDatabaseWrapper(
     /// </remarks>
     private static bool SupportsScalarModifiedProperty(IProperty property)
     {
-        var clrType = property.ClrType;
+        var converter = property.GetTypeMapping().Converter;
+        var shapeType = converter?.ProviderClrType ?? property.ClrType;
+        shapeType = Nullable.GetUnderlyingType(shapeType) ?? shapeType;
 
         // byte[] maps to a binary scalar (B attribute) — allow it before the collection checks.
-        if (clrType == typeof(byte[]))
+        if (shapeType == typeof(byte[]))
             return true;
 
-        if (DynamoTypeMappingSource.TryGetDictionaryValueType(clrType, out _, out _)
-            || DynamoTypeMappingSource.TryGetSetElementType(clrType, out _)
-            || DynamoTypeMappingSource.TryGetListElementType(clrType, out _))
+        if (DynamoTypeMappingSource.TryGetDictionaryValueType(shapeType, out _, out _)
+            || DynamoTypeMappingSource.TryGetSetElementType(shapeType, out _)
+            || DynamoTypeMappingSource.TryGetListElementType(shapeType, out _))
             return false;
 
         return true;
@@ -308,39 +346,60 @@ public class DynamoDatabaseWrapper(
         => identifier.Replace("\"", "\"\"", StringComparison.Ordinal);
 
     /// <summary>
-    ///     Ensures that the aggregate root of every Modified owned entity is also present in
-    ///     <paramref name="entries" /> and is in at least the <see cref="EntityState.Modified" /> state,
-    ///     so that <see cref="BuildModifiedScalarUpdateStatement" /> is called for it and can detect
-    ///     whether the mutation is supported.
+    ///     Builds the set of root entries to process in the write loop.
     /// </summary>
     /// <remarks>
-    ///     EF Core tracks owned entity changes independently from their root. When only an owned
-    ///     property changes, the root entry may still be <see cref="EntityState.Unchanged" /> and absent
-    ///     from the entries list. We promote it here (with <c>modifyProperties: false</c> to avoid marking
-    ///     all scalar properties as dirty) so that the write loop sees it and can either emit an update
-    ///     (if the owned-mutation path is later implemented) or fail with a clear error.
+    ///     Includes all mutating non-owned roots (Added/Modified/Deleted). Also includes aggregate
+    ///     roots for mutating owned entries even when those roots are currently
+    ///     <see cref="EntityState.Unchanged" />, so unsupported owned-only writes are detected.
+    ///     This is a pure projection and does not mutate tracked entity state.
     /// </remarks>
-    private static void PromoteModifiedOwnedRoots(IList<IUpdateEntry> entries)
+    private static List<IUpdateEntry> BuildRootEntries(IList<IUpdateEntry> entries)
+    {
+        var rootEntries = entries
+            .Where(static e
+                => !e.EntityType.IsOwned()
+                && (e.EntityState == EntityState.Added
+                    || e.EntityState == EntityState.Modified
+                    || e.EntityState == EntityState.Deleted))
+            .ToList();
+
+        IncludeMutatingOwnedRoots(entries, rootEntries);
+        return rootEntries;
+    }
+
+    /// <summary>
+    ///     Ensures aggregate roots for mutating owned entries are present in
+    ///     <paramref name="rootEntries" />.
+    /// </summary>
+    /// <remarks>
+    ///     EF Core can track owned entry mutations independently from the root state. For owned-only
+    ///     mutations, the root may remain <see cref="EntityState.Unchanged" /> and otherwise be absent
+    ///     from the write loop, which would hide unsupported operations.
+    /// </remarks>
+    private static void IncludeMutatingOwnedRoots(
+        IList<IUpdateEntry> entries,
+        List<IUpdateEntry> rootEntries)
     {
         var count = entries.Count;
-        // Track which roots have already been added to avoid O(n) Contains scans per entry.
-        HashSet<InternalEntityEntry>? addedRoots = null;
+        var trackedEntries = new HashSet<InternalEntityEntry>(ReferenceEqualityComparer.Instance);
+
+        foreach (var rootEntry in rootEntries)
+            trackedEntries.Add((InternalEntityEntry)rootEntry);
 
         for (var i = 0; i < count; i++)
         {
             var entry = entries[i];
-            if (!entry.EntityType.IsOwned() || entry.EntityState != EntityState.Modified)
+            if (!entry.EntityType.IsOwned()
+                || entry.EntityState is not EntityState.Modified
+                    and not EntityState.Added
+                    and not EntityState.Deleted)
                 continue;
 
             var root = GetRootEntry((InternalEntityEntry)entry);
 
-            if (root.EntityState == EntityState.Unchanged)
-                root.SetEntityState(EntityState.Modified, modifyProperties: false);
-
-            addedRoots ??=
-                new HashSet<InternalEntityEntry>(count, ReferenceEqualityComparer.Instance);
-            if (addedRoots.Add(root))
-                entries.Add(root);
+            if (trackedEntries.Add(root))
+                rootEntries.Add(root);
         }
     }
 
@@ -407,8 +466,11 @@ public class DynamoDatabaseWrapper(
     }
 
     /// <summary>
-    /// Generates a key-targeted PartiQL <c>DELETE FROM "table" WHERE "pk" = ? [AND "sk" = ?]</c>
+    /// Generates a key-targeted PartiQL <c>DELETE FROM "table" WHERE "pk" = ? [AND "sk" = ?] [AND "token" = ?]</c>
     /// statement for a root entity in the <see cref="EntityState.Deleted"/> state.
+    /// Configured concurrency tokens are included in the WHERE predicate with their original
+    /// values. If the store values have changed since the entity was read,
+    /// <c>ConditionalCheckFailedException</c> fires.
     /// </summary>
     /// <param name="entry">The root entity entry to delete.</param>
     /// <returns>A tuple of (tableName, sql, parameters) for the DELETE statement.</returns>
@@ -470,6 +532,8 @@ public class DynamoDatabaseWrapper(
                 $" AND \"{EscapeIdentifier(sortKeyProperty.GetAttributeName())}\" = ?");
         }
 
+        AppendConcurrencyTokenPredicates(entry, entityType, sqlBuilder, parameters);
+
         return (tableName, sqlBuilder.ToString(), parameters);
     }
 
@@ -479,8 +543,8 @@ public class DynamoDatabaseWrapper(
     /// </summary>
     /// <remarks>
     /// Attribute keys are emitted as single-quoted string literals inside the <c>VALUE</c> document
-    /// clause. This is safe for reserved words (unlike bare identifiers), so no escaping is needed
-    /// for the keys here. Table names are double-quote escaped separately.
+    /// clause. Embedded single quotes in keys are escaped by doubling (<c>'</c> → <c>''</c>).
+    /// Table names are validated separately.
     /// </remarks>
     private static (string sql, List<AttributeValue> parameters) BuildInsertStatement(
         string tableName,
@@ -507,13 +571,138 @@ public class DynamoDatabaseWrapper(
             if (!first)
                 sql.Append(", ");
 
-            // Keys are string literals in the VALUE document clause — reserved words are safe here.
-            sql.Append($"'{key}': ?");
+            // Keys are string literals in the VALUE document clause. Escape embedded single quotes.
+            sql.Append($"'{EscapeStringLiteral(key)}': ?");
             parameters.Add(value);
             first = false;
         }
 
         sql.Append('}');
         return (sql.ToString(), parameters);
+    }
+
+    private static string EscapeStringLiteral(string value)
+        => value.Replace("'", "''", StringComparison.Ordinal);
+
+    /// <summary>
+    ///     Returns <see langword="true" /> when <paramref name="ex" /> represents a duplicate primary
+    ///     key error regardless of whether it was surfaced as the typed
+    ///     <see cref="DuplicateItemException" /> or as the generic <see cref="AmazonDynamoDBException" />
+    ///     (which DynamoDB Local emits).
+    /// </summary>
+    private static bool IsDuplicateKeyException(Exception ex)
+        => ex is AmazonDynamoDBException ade
+            && string.Equals(ade.ErrorCode, "DuplicateItem", StringComparison.Ordinal);
+
+    /// <summary>
+    ///     Appends WHERE predicates and parameter values for all configured non-key concurrency token
+    ///     properties on <paramref name="entityType" />, using tracked original values.
+    /// </summary>
+    private static void AppendConcurrencyTokenPredicates(
+        IUpdateEntry entry,
+        IEntityType entityType,
+        List<string> whereClauses,
+        List<AttributeValue> whereParameters)
+    {
+        foreach (var property in entityType.GetProperties())
+        {
+            if (!property.IsConcurrencyToken || property.IsPrimaryKey())
+                continue;
+
+            var mapping = property.GetTypeMapping() as DynamoTypeMapping
+                ?? throw new InvalidOperationException(
+                    $"Property '{entityType.DisplayName()}.{property.Name}' "
+                    + "requires a DynamoTypeMapping.");
+
+            whereParameters.Add(
+                mapping.CreateAttributeValue(GetOriginalOrCurrentValue(entry, property)));
+            whereClauses.Add($"\"{EscapeIdentifier(property.GetAttributeName())}\" = ?");
+        }
+    }
+
+    /// <summary>
+    ///     Appends SQL and parameter values for all configured non-key concurrency tokens to an
+    ///     existing DELETE statement builder.
+    /// </summary>
+    private static void AppendConcurrencyTokenPredicates(
+        IUpdateEntry entry,
+        IEntityType entityType,
+        StringBuilder sqlBuilder,
+        List<AttributeValue> parameters)
+    {
+        List<string> whereClauses = [];
+        List<AttributeValue> whereParameters = [];
+
+        AppendConcurrencyTokenPredicates(entry, entityType, whereClauses, whereParameters);
+
+        foreach (var clause in whereClauses)
+            sqlBuilder.Append($" AND {clause}");
+
+        parameters.AddRange(whereParameters);
+    }
+
+    /// <summary>
+    ///     Maps a raw DynamoDB write exception to the appropriate EF Core exception type.
+    ///     <list type="bullet">
+    ///         <item>
+    ///             <see cref="DuplicateItemException" /> →
+    ///             <see cref="DbUpdateException" /> (INSERT key conflict)
+    ///         </item>
+    ///         <item>
+    ///             <see cref="ConditionalCheckFailedException" /> →
+    ///             <see cref="DbUpdateConcurrencyException" /> (stale concurrency token)
+    ///         </item>
+    ///         <item>
+    ///             <see cref="TransactionCanceledException" /> with <c>ConditionalCheckFailed</c> reason →
+    ///             <see cref="DbUpdateConcurrencyException" />
+    ///         </item>
+    ///         <item>All other exceptions → <see cref="DbUpdateException" /></item>
+    ///     </list>
+    /// </summary>
+    private static DbUpdateException WrapWriteException(
+        Exception ex,
+        EntityState entityState,
+        IUpdateEntry entry)
+    {
+        if (ex is DuplicateItemException || IsDuplicateKeyException(ex))
+            return new DbUpdateException(
+                $"Cannot insert '{entry.EntityType.DisplayName()}': an item with the same primary "
+                + "key already exists.",
+                ex,
+                [entry]);
+
+        if (ex is ConditionalCheckFailedException)
+            return new DbUpdateConcurrencyException(
+                $"The '{entry.EntityType.DisplayName()}' entity could not be "
+                + (entityState == EntityState.Modified ? "updated" : "deleted")
+                + " because one or more concurrency token values have changed since it was last read. "
+                + "Another writer may have modified this item.",
+                ex,
+                [entry]);
+
+        if (ex is TransactionCanceledException tce)
+        {
+            // A transaction may be cancelled for multiple reasons; only map to concurrency if at
+            // least one reason is a ConditionalCheckFailed (i.e. a version predicate mismatch).
+            var hasConcurrency = tce.CancellationReasons?.Any(static r
+                    => string.Equals(r.Code, "ConditionalCheckFailed", StringComparison.Ordinal))
+                ?? false;
+
+            return hasConcurrency
+                ? new DbUpdateConcurrencyException(
+                    $"Transaction cancelled due to a concurrency token conflict on "
+                    + $"'{entry.EntityType.DisplayName()}'.",
+                    tce,
+                    [entry])
+                : new DbUpdateException(
+                    $"Transaction cancelled while saving '{entry.EntityType.DisplayName()}'.",
+                    tce,
+                    [entry]);
+        }
+
+        return new DbUpdateException(
+            $"An error occurred saving '{entry.EntityType.DisplayName()}' to DynamoDB.",
+            ex,
+            [entry]);
     }
 }

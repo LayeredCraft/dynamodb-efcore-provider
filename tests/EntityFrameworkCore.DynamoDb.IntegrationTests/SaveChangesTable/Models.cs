@@ -233,6 +233,38 @@ public sealed record CustomConverterItem
     public ProductCode? OptionalCode { get; set; }
 }
 
+/// <summary>Entity used to validate property-level conversion of a collection-shaped CLR property.</summary>
+public sealed record ConvertedCollectionItem
+{
+    /// <summary>Provides functionality for this member.</summary>
+    public string Pk { get; set; } = null!;
+
+    /// <summary>Provides functionality for this member.</summary>
+    public string Sk { get; set; } = null!;
+
+    /// <summary>Provides functionality for this member.</summary>
+    public long Version { get; set; }
+
+    /// <summary>Provides functionality for this member.</summary>
+    public List<int> Scores { get; set; } = [];
+}
+
+/// <summary>Entity used to validate escaping for custom DynamoDB attribute names.</summary>
+public sealed record QuotedAttributeItem
+{
+    /// <summary>Provides functionality for this member.</summary>
+    public string Pk { get; set; } = null!;
+
+    /// <summary>Provides functionality for this member.</summary>
+    public string Sk { get; set; } = null!;
+
+    /// <summary>Provides functionality for this member.</summary>
+    public long Version { get; set; }
+
+    /// <summary>Provides functionality for this member.</summary>
+    public string DisplayName { get; set; } = null!;
+}
+
 /// <summary>Represents the CustomerProfile type.</summary>
 public sealed record CustomerProfile
 {
@@ -681,25 +713,21 @@ public static class SaveChangesTableItems
     /// <summary>Builds the raw DynamoDB seed payloads for all shared-table entity types.</summary>
     private static IReadOnlyList<Dictionary<string, AttributeValue>> CreateAttributeValues()
         => Customers
-            .Select(item
-                => WithDiscriminator(
-                    SaveChangesCustomerItemMapper.ToItem(item),
-                    nameof(CustomerItem)))
+            .Select(item => WithDiscriminator(
+                SaveChangesCustomerItemMapper.ToItem(item),
+                nameof(CustomerItem)))
             .Concat(
-                Orders.Select(item
-                    => WithDiscriminator(
-                        SaveChangesOrderItemMapper.ToItem(item),
-                        nameof(OrderItem))))
+                Orders.Select(item => WithDiscriminator(
+                    SaveChangesOrderItemMapper.ToItem(item),
+                    nameof(OrderItem))))
             .Concat(
-                Products.Select(item
-                    => WithDiscriminator(
-                        SaveChangesProductItemMapper.ToItem(item),
-                        nameof(ProductItem))))
+                Products.Select(item => WithDiscriminator(
+                    SaveChangesProductItemMapper.ToItem(item),
+                    nameof(ProductItem))))
             .Concat(
-                Sessions.Select(item
-                    => WithDiscriminator(
-                        SaveChangesSessionItemMapper.ToItem(item),
-                        nameof(SessionItem))))
+                Sessions.Select(item => WithDiscriminator(
+                    SaveChangesSessionItemMapper.ToItem(item),
+                    nameof(SessionItem))))
             .ToList();
 
     /// <summary>Adds the shared-table discriminator expected by the provider conventions.</summary>

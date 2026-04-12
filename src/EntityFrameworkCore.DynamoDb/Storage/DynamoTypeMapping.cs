@@ -77,7 +77,7 @@ public class DynamoTypeMapping : CoreTypeMapping
                 elementMapping,
                 jsonValueReaderWriter));
 
-    internal virtual bool CanSerialize => ReaderWriter != null;
+    internal virtual bool CanWriteToAttributeValue => ReaderWriter != null;
 
     /// <summary>Creates the expression-tree fragment used to materialize a single DynamoDB value.</summary>
     internal virtual Expression CreateReadExpression(
