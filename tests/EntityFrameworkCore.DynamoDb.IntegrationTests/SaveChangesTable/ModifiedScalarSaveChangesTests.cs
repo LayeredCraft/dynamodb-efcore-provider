@@ -197,12 +197,17 @@ public class ModifiedScalarSaveChangesTests(SaveChangesTableDynamoFixture fixtur
         product.Dimensions.Should().NotBeNull();
         product.Dimensions!.Height += 1;
 
+        var rootEntry = Db.Entry(product);
+        var rootStateBeforeSave = rootEntry.State;
+
         var act = async () => await Db.SaveChangesAsync(CancellationToken);
 
         await act
             .Should()
             .ThrowAsync<NotSupportedException>()
             .WithMessage("*owned or nested mutations*");
+
+        rootEntry.State.Should().Be(rootStateBeforeSave);
 
         AssertSql();
     }

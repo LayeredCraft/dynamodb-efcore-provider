@@ -48,8 +48,6 @@ public class DynamoDatabaseWrapper(
         CancellationToken cancellationToken = default)
     {
         // Guard: only Added/Modified/Deleted are implemented; fail explicitly for others.
-        // Must run before PromoteMutatingOwnedRoots to avoid mutating DbContext state on a
-        // batch that will ultimately throw.
         var unsupported = entries.FirstOrDefault(static e
             => e.EntityState is not EntityState.Added
                 and not EntityState.Modified
@@ -61,15 +59,7 @@ public class DynamoDatabaseWrapper(
                 $"SaveChanges for EntityState.{unsupported.EntityState} is not yet supported. "
                 + "Only Added, Modified, and Deleted entities can be persisted in this version.");
 
-        PromoteMutatingOwnedRoots(entries);
-
-        var rootEntries = entries
-            .Where(static e
-                => !e.EntityType.IsOwned()
-                && (e.EntityState == EntityState.Added
-                    || e.EntityState == EntityState.Modified
-                    || e.EntityState == EntityState.Deleted))
-            .ToList();
+        var rootEntries = BuildRootEntries(entries);
 
         var rowsAffected = 0;
 
@@ -91,7 +81,7 @@ public class DynamoDatabaseWrapper(
                     var tableName = (string)entry.EntityType[DynamoAnnotationNames.TableName]!;
                     var (sql, parameters) = BuildInsertStatement(tableName, item);
 
-                    commandLogger.ExecutingPartiQlQuery(tableName, sql);
+                    commandLogger.ExecutingPartiQlWrite(tableName, sql);
 
                     try
                     {
@@ -134,6 +124,13 @@ public class DynamoDatabaseWrapper(
 
                     break;
                 }
+
+                case EntityState.Unchanged:
+                    // This path is only reached for aggregate roots that were discovered from
+                    // mutating owned entries. Running the modified-statement builder here lets it
+                    // throw the explicit unsupported-mutation error without mutating tracker state.
+                    _ = BuildModifiedScalarUpdateStatement(entry, entries);
+                    continue;
 
                 case EntityState.Deleted:
                 {
@@ -185,7 +182,7 @@ public class DynamoDatabaseWrapper(
     /// <returns>
     ///     A tuple of (tableName, sql, parameters) if there are scalar changes to
     ///     persist, or <see langword="null" /> if the entity has no scalar property changes (e.g.
-    ///     the root was promoted solely because an owned entry changed).
+    ///     the root was included solely because an owned entry changed).
     /// </returns>
     /// <exception cref="NotSupportedException">
     ///     Thrown when a modified property is a primary key (key
@@ -239,7 +236,7 @@ public class DynamoDatabaseWrapper(
         if (setClauses.Count == 0)
         {
             // The root has no scalar changes of its own. This happens when
-            // PromoteModifiedOwnedRoots added this root entry because one of its owned entities
+            // BuildRootEntries added this root entry because one of its owned entities
             // changed. Owned/nested mutations require a full document rewrite (read-modify-write),
             // which is not yet supported — fail explicitly rather than silently no-op'ing.
             if (HasOwnedMutationForRoot((InternalEntityEntry)entry, entries))
@@ -349,27 +346,46 @@ public class DynamoDatabaseWrapper(
         => identifier.Replace("\"", "\"\"", StringComparison.Ordinal);
 
     /// <summary>
-    ///     Ensures that the aggregate root of every mutating owned entity is also present in
-    ///     <paramref name="entries" /> and is in at least the <see cref="EntityState.Modified" /> state,
-    ///     so that <see cref="BuildModifiedScalarUpdateStatement" /> is called for it and can detect
-    ///     whether the mutation is supported.
+    ///     Builds the set of root entries to process in the write loop.
     /// </summary>
     /// <remarks>
-    ///     EF Core tracks owned entity changes independently from their root. When only an owned
-    ///     sub-entity mutates (Added/Modified/Deleted), the root entry may still be
-    ///     <see cref="EntityState.Unchanged" /> and absent from the entries list. We promote it here
-    ///     (with <c>modifyProperties: false</c> to avoid marking all scalar properties as dirty) so that
-    ///     the write loop sees it and can either emit an update (if the owned-mutation path is later
-    ///     implemented) or fail with a clear error.
+    ///     Includes all mutating non-owned roots (Added/Modified/Deleted). Also includes aggregate
+    ///     roots for mutating owned entries even when those roots are currently
+    ///     <see cref="EntityState.Unchanged" />, so unsupported owned-only writes are detected.
+    ///     This is a pure projection and does not mutate tracked entity state.
     /// </remarks>
-    private static void PromoteMutatingOwnedRoots(IList<IUpdateEntry> entries)
+    private static List<IUpdateEntry> BuildRootEntries(IList<IUpdateEntry> entries)
+    {
+        var rootEntries = entries
+            .Where(static e
+                => !e.EntityType.IsOwned()
+                && (e.EntityState == EntityState.Added
+                    || e.EntityState == EntityState.Modified
+                    || e.EntityState == EntityState.Deleted))
+            .ToList();
+
+        IncludeMutatingOwnedRoots(entries, rootEntries);
+        return rootEntries;
+    }
+
+    /// <summary>
+    ///     Ensures aggregate roots for mutating owned entries are present in
+    ///     <paramref name="rootEntries" />.
+    /// </summary>
+    /// <remarks>
+    ///     EF Core can track owned entry mutations independently from the root state. For owned-only
+    ///     mutations, the root may remain <see cref="EntityState.Unchanged" /> and otherwise be absent
+    ///     from the write loop, which would hide unsupported operations.
+    /// </remarks>
+    private static void IncludeMutatingOwnedRoots(
+        IList<IUpdateEntry> entries,
+        List<IUpdateEntry> rootEntries)
     {
         var count = entries.Count;
-        var trackedEntries =
-            new HashSet<InternalEntityEntry>(count, ReferenceEqualityComparer.Instance);
+        var trackedEntries = new HashSet<InternalEntityEntry>(ReferenceEqualityComparer.Instance);
 
-        for (var i = 0; i < count; i++)
-            trackedEntries.Add((InternalEntityEntry)entries[i]);
+        foreach (var rootEntry in rootEntries)
+            trackedEntries.Add((InternalEntityEntry)rootEntry);
 
         for (var i = 0; i < count; i++)
         {
@@ -382,11 +398,8 @@ public class DynamoDatabaseWrapper(
 
             var root = GetRootEntry((InternalEntityEntry)entry);
 
-            if (root.EntityState == EntityState.Unchanged)
-                root.SetEntityState(EntityState.Modified, modifyProperties: false);
-
             if (trackedEntries.Add(root))
-                entries.Add(root);
+                rootEntries.Add(root);
         }
     }
 
