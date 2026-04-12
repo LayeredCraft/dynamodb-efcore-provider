@@ -1130,6 +1130,9 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
             attributeValueVariable,
             Constant(null, typeof(AttributeValue)));
 
+        // Guard: access to .NULL property would throw NullReferenceException if the
+        // AttributeValue itself is null (item absent from projection). Check for null
+        // first so the outer OrElse short-circuits before reading the flag.
         var isNullFlagExpression = AndAlso(
             NotEqual(attributeValueVariable, Constant(null, typeof(AttributeValue))),
             Equal(

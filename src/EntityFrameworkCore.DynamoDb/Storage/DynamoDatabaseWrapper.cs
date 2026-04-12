@@ -224,7 +224,7 @@ public class DynamoDatabaseWrapper(
                     + "supported yet.");
 
             var mapping = property.GetTypeMapping() as DynamoTypeMapping;
-            if (mapping is null || !mapping.CanSerialize)
+            if (mapping is null || !mapping.CanWriteToAttributeValue)
                 throw new NotSupportedException(
                     $"Property '{entityType.DisplayName()}.{property.Name}' does not have a "
                     + "supported DynamoDB write mapping for Modified entities.");
