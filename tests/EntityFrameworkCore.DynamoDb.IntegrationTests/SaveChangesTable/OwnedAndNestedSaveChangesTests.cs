@@ -389,6 +389,54 @@ public class OwnedAndNestedSaveChangesTests(SaveChangesTableDynamoFixture fixtur
     }
 
     // -------------------------------------------------------------------------
+    // OwnsMany — nullified (collection -> null) emits REMOVE
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    ///     Setting an OwnsMany navigation to <see langword="null" /> emits <c>REMOVE "Contacts"</c>
+    ///     rather than writing an empty list.
+    /// </summary>
+    [Fact]
+    public async Task SaveChangesAsync_OwnedCollection_SetToNull_EmitsRemove()
+    {
+        var item = new CustomerItem
+        {
+            Pk = "TENANT#1",
+            Sk = "CUSTOMER#OWN-9",
+            Version = 1,
+            Email = "own9@example.com",
+            IsPreferred = false,
+            CreatedAt = new DateTimeOffset(2026, 4, 9, 12, 0, 0, TimeSpan.Zero),
+            Contacts =
+            [
+                new CustomerContact
+                {
+                    Kind = "email", Value = "own9@example.com", Verified = true,
+                },
+            ],
+        };
+        Db.Customers.Add(item);
+        await Db.SaveChangesAsync(CancellationToken);
+        LoggerFactory.Clear();
+
+        item.Contacts = null!;
+
+        var affected = await Db.SaveChangesAsync(CancellationToken);
+        affected.Should().Be(1);
+
+        var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
+        raw.Should().NotBeNull();
+        raw!.Should().NotContainKey("Contacts");
+
+        AssertSql(
+            """
+            UPDATE "AppItems"
+            REMOVE "Contacts"
+            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            """);
+    }
+
+    // -------------------------------------------------------------------------
     // Primitive list (L) changed
     // -------------------------------------------------------------------------
 

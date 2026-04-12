@@ -362,9 +362,17 @@ public class DynamoDatabaseWrapper(
                 continue;
 
             var navAttrName = nav.TargetEntityType.GetContainingAttributeName() ?? nav.Name;
-            var elements = BuildOwnedManyElements(entry.GetCurrentValue(nav), nav, stateManager);
+            var path = $"\"{EscapeIdentifier(navAttrName)}\"";
+            var navValue = entry.GetCurrentValue(nav);
+            if (navValue is null)
+            {
+                removeClauses.Add(path);
+                continue;
+            }
 
-            setClauses.Add($"\"{EscapeIdentifier(navAttrName)}\" = ?");
+            var elements = BuildOwnedManyElements(navValue, nav, stateManager);
+
+            setClauses.Add($"{path} = ?");
             setParameters.Add(new AttributeValue { L = elements });
         }
 
@@ -525,10 +533,14 @@ public class DynamoDatabaseWrapper(
             var subNavAttrName =
                 subNav.TargetEntityType.GetContainingAttributeName() ?? subNav.Name;
             var subPath = $"{pathPrefix}.\"{EscapeIdentifier(subNavAttrName)}\"";
-            var elements = BuildOwnedManyElements(
-                ownedEntry.GetCurrentValue(subNav),
-                subNav,
-                stateManager);
+            var subNavValue = ownedEntry.GetCurrentValue(subNav);
+            if (subNavValue is null)
+            {
+                removeClauses.Add(subPath);
+                continue;
+            }
+
+            var elements = BuildOwnedManyElements(subNavValue, subNav, stateManager);
 
             setClauses.Add($"{subPath} = ?");
             setParameters.Add(new AttributeValue { L = elements });
@@ -543,13 +555,15 @@ public class DynamoDatabaseWrapper(
     ///     a safety guard.
     /// </summary>
     private List<AttributeValue> BuildOwnedManyElements(
-        object? navValue,
+        object navValue,
         INavigation nav,
         IStateManager stateManager)
     {
         var elements = new List<AttributeValue>();
         if (navValue is not IEnumerable collection)
-            return elements;
+            throw new InvalidOperationException(
+                $"Owned collection navigation '{nav.DeclaringEntityType.DisplayName()}.{nav.Name}' "
+                + "must be enumerable when non-null.");
 
         foreach (var element in collection)
         {
@@ -720,9 +734,17 @@ public class DynamoDatabaseWrapper(
                 continue;
 
             var navAttrName = nav.TargetEntityType.GetContainingAttributeName() ?? nav.Name;
-            var elements = BuildOwnedManyElements(entry.GetCurrentValue(nav), nav, stateManager);
+            var path = $"\"{EscapeIdentifier(navAttrName)}\"";
+            var navValue = entry.GetCurrentValue(nav);
+            if (navValue is null)
+            {
+                removeClauses.Add(path);
+                continue;
+            }
 
-            setClauses.Add($"\"{EscapeIdentifier(navAttrName)}\" = ?");
+            var elements = BuildOwnedManyElements(navValue, nav, stateManager);
+
+            setClauses.Add($"{path} = ?");
             setParameters.Add(new AttributeValue { L = elements });
         }
 
