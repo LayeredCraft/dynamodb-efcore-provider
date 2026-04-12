@@ -279,4 +279,72 @@ public class ModifiedScalarSaveChangesTests(SaveChangesTableDynamoFixture fixtur
 
         AssertSql();
     }
+
+    [Fact]
+    public async Task SaveChangesAsync_OwnedCollectionAddOnlyMutation_ThrowsNotSupported()
+    {
+        var product = new ProductItem
+        {
+            Pk = "TENANT#1",
+            Sk = "PRODUCT#MOD-OWNED-ADD-1",
+            Version = 1,
+            Name = "Owned Product",
+            Price = 5m,
+            IsActive = true,
+            PublishedAt = null,
+            Variants =
+            [
+                new ProductVariant { Code = "BASE", Color = "Blue", Backordered = false },
+            ],
+        };
+        Db.Products.Add(product);
+        await Db.SaveChangesAsync(CancellationToken);
+        LoggerFactory.Clear();
+
+        product.Variants.Add(
+            new ProductVariant { Code = "NEW", Color = "Red", Backordered = true });
+
+        var act = async () => await Db.SaveChangesAsync(CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<NotSupportedException>()
+            .WithMessage("*owned or nested mutations*");
+
+        AssertSql();
+    }
+
+    [Fact]
+    public async Task SaveChangesAsync_OwnedCollectionDeleteOnlyMutation_ThrowsNotSupported()
+    {
+        var product = new ProductItem
+        {
+            Pk = "TENANT#1",
+            Sk = "PRODUCT#MOD-OWNED-DEL-1",
+            Version = 1,
+            Name = "Owned Product",
+            Price = 5m,
+            IsActive = true,
+            PublishedAt = null,
+            Variants =
+            [
+                new ProductVariant { Code = "DROP", Color = "Blue", Backordered = false },
+                new ProductVariant { Code = "KEEP", Color = "Green", Backordered = false },
+            ],
+        };
+        Db.Products.Add(product);
+        await Db.SaveChangesAsync(CancellationToken);
+        LoggerFactory.Clear();
+
+        product.Variants.RemoveAt(0);
+
+        var act = async () => await Db.SaveChangesAsync(CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<NotSupportedException>()
+            .WithMessage("*owned or nested mutations*");
+
+        AssertSql();
+    }
 }
