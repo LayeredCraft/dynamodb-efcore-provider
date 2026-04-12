@@ -74,9 +74,8 @@ internal static class OwnedProjectionMetadata
         if (topLevelOwnedContainingAttributeNames.Contains(property.Name))
             return true;
 
-        // Provider-managed scalar shadow properties (e.g. $version) have a DynamoDB type mapping
-        // and must be projected so the compiled shaper can materialize them into the shadow
-        // snapshot.
+        // Scalar shadow properties with a DynamoDB type mapping must be projected so the
+        // compiled shaper can materialize them into the shadow snapshot.
         return property.GetTypeMapping() is DynamoTypeMapping;
     }
 

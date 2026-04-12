@@ -41,6 +41,7 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
         ValidateTableKeySchemaConsistency(model);
         ValidateSecondaryIndexes(model);
         ValidateDiscriminatorMappings(model);
+        ValidateConcurrencyTokenConfiguration(model);
         ValidateScalarPropertyTypeMappings(model, logger);
     }
 
@@ -865,6 +866,34 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
                     + "Primitive collection elements must be DynamoDB-supported scalars: string, "
                     + "bool, byte[], and numeric types. Configure a value converter on the "
                     + "element type to map it to a supported scalar.");
+        }
+    }
+
+    /// <summary>Validates DynamoDB optimistic concurrency configuration.</summary>
+    /// <remarks>
+    ///     This provider currently supports manual concurrency tokens only:
+    ///     <c>.IsConcurrencyToken()</c> / <c>[ConcurrencyCheck]</c>. Row-version semantics (
+    ///     <c>ValueGenerated.OnAddOrUpdate</c>, including <c>IsRowVersion()</c>) are not provider-managed
+    ///     yet and are rejected at model-validation time.
+    /// </remarks>
+    private static void ValidateConcurrencyTokenConfiguration(IModel model)
+    {
+        foreach (var entityType in EnumerateRootEntityTypes(model))
+        {
+            foreach (var property in entityType.GetDeclaredProperties())
+            {
+                if (!property.IsConcurrencyToken)
+                    continue;
+
+                if (property.ValueGenerated == ValueGenerated.OnAddOrUpdate)
+                    throw new InvalidOperationException(
+                        $"Property '{entityType.DisplayName()}.{property.Name}' is configured "
+                        + "as a row-version token (ValueGenerated.OnAddOrUpdate / IsRowVersion()), "
+                        + "but the DynamoDB provider does not currently support provider-managed "
+                        + "row-version value generation. Configure this property with "
+                        + "IsConcurrencyToken() only and update the token value in application "
+                        + "code before saving changes.");
+            }
         }
     }
 
