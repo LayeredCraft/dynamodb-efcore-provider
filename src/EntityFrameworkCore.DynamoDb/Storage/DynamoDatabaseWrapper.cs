@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Text;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
@@ -61,6 +62,11 @@ public class DynamoDatabaseWrapper(
 
         var rootEntries = BuildRootEntries(entries);
 
+        // Pre-compute once per save call: for each principal entry, which of its owned
+        // navigations have at least one Add/Modify/Delete mutation in this batch?
+        // Turns HasMutationForOwnedNavigation from O(entries × navs × depth) → O(1) per check.
+        var mutatingNavs = BuildMutatingNavLookup(entries);
+
         var rowsAffected = 0;
 
         foreach (var entry in rootEntries)
@@ -101,7 +107,10 @@ public class DynamoDatabaseWrapper(
 
                 case EntityState.Modified:
                 {
-                    var update = BuildModifiedScalarUpdateStatement(entry, entries);
+                    // Scalar/collection root properties AND/OR owned sub-entities may have
+                    // changed — run all four phases (A: scalars, B: collections, C: OwnsOne,
+                    // D: OwnsMany).
+                    var update = BuildModifiedUpdateStatement(entry, mutatingNavs);
                     if (update is null)
                         continue;
 
@@ -126,11 +135,38 @@ public class DynamoDatabaseWrapper(
                 }
 
                 case EntityState.Unchanged:
-                    // This path is only reached for aggregate roots that were discovered from
-                    // mutating owned entries. Running the modified-statement builder here lets it
-                    // throw the explicit unsupported-mutation error without mutating tracker state.
-                    _ = BuildModifiedScalarUpdateStatement(entry, entries);
-                    continue;
+                {
+                    // Root injected by IncludeMutatingOwnedRoots: its own scalar and collection
+                    // properties have not changed (IsModified is false for all of them).
+                    // Only owned sub-entities mutated — skip directly to phases C+D.
+                    //
+                    // We intentionally do not promote the root to Modified here (unlike the Cosmos
+                    // provider) because our partial-UPDATE strategy depends on IsModified(property)
+                    // being false for untouched root scalars. Promoting the state would mark every
+                    // scalar as modified and generate spurious SET clauses.
+                    var update = BuildOwnedMutationUpdateStatement(entry, mutatingNavs);
+                    if (update is null)
+                        continue;
+
+                    commandLogger.ExecutingPartiQlWrite(update.Value.tableName, update.Value.sql);
+
+                    try
+                    {
+                        await clientWrapper
+                            .ExecuteWriteAsync(
+                                update.Value.sql,
+                                update.Value.parameters,
+                                cancellationToken)
+                            .ConfigureAwait(false);
+                    }
+                    catch (Exception ex) when (ex is ConditionalCheckFailedException
+                        or TransactionCanceledException)
+                    {
+                        throw WrapWriteException(ex, EntityState.Modified, entry);
+                    }
+
+                    break;
+                }
 
                 case EntityState.Deleted:
                 {
@@ -171,30 +207,52 @@ public class DynamoDatabaseWrapper(
 
     /// <summary>
     ///     Builds a PartiQL <c>UPDATE</c> statement for a root entity in the
-    ///     <see cref="EntityState.Modified" /> state, covering only scalar (non-collection) property
-    ///     changes.
+    ///     <see cref="EntityState.Modified" /> or <see cref="EntityState.Unchanged" /> state,
+    ///     covering scalar properties, primitive collection properties (L/M/SS/NS/BS), owned
+    ///     reference mutations, and owned collection mutations.
     /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         For modified scalar properties, a standard <c>SET "Prop" = ?</c> clause is emitted.
+    ///     </para>
+    ///     <para>
+    ///         For primitive collection properties (List, Dictionary, Set), the entire attribute
+    ///         value is replaced: <c>SET "Tags" = ?</c> with the fully serialized SS/NS/BS/L/M
+    ///         value. EF Core tracks these as atomic property values with no element-level delta,
+    ///         so full replacement is the correct strategy.
+    ///     </para>
+    ///     <para>
+    ///         For OwnsOne navigations: Modified refs emit per-property nested-path SET clauses
+    ///         (<c>SET "Profile"."DisplayName" = ?</c>); Added refs emit a full map replacement
+    ///         (<c>SET "Profile" = ?</c>); Deleted refs emit <c>REMOVE "Profile"</c>. All cases
+    ///         recurse into nested OwnsOne chains.
+    ///     </para>
+    ///     <para>
+    ///         For OwnsMany navigations, the entire list attribute is replaced with all
+    ///         non-deleted elements serialized in collection order.
+    ///     </para>
+    /// </remarks>
     /// <param name="entry">The root entity entry to update.</param>
-    /// <param name="entries">
-    ///     The full change set for this SaveChanges call, used to detect owned mutations
-    ///     on the root.
+    /// <param name="mutatingNavs">
+    ///     Pre-built lookup from principal entry → set of owned navigations that have at
+    ///     least one Add/Modify/Delete mutation in this batch. Used for O(1) mutation checks.
     /// </param>
     /// <returns>
-    ///     A tuple of (tableName, sql, parameters) if there are scalar changes to
-    ///     persist, or <see langword="null" /> if the entity has no scalar property changes (e.g.
-    ///     the root was included solely because an owned entry changed).
+    ///     A tuple of (tableName, sql, parameters) when there is something to write,
+    ///     or <see langword="null" /> when the entity has no effective changes.
     /// </returns>
     /// <exception cref="NotSupportedException">
-    ///     Thrown when a modified property is a primary key (key
-    ///     mutation is not supported), a collection type (M/L/SS/NS/BS attributes are not yet supported in
-    ///     the update path), or when the root has no scalar changes but does have owned mutations (which
-    ///     would require a full document rewrite — not yet implemented).
+    ///     Thrown when a modified property is a primary key (key mutation is not supported).
     /// </exception>
-    private static (string tableName, string sql, List<AttributeValue> parameters)?
-        BuildModifiedScalarUpdateStatement(IUpdateEntry entry, IEnumerable<IUpdateEntry> entries)
+    private (string tableName, string sql, List<AttributeValue> parameters)?
+        BuildModifiedUpdateStatement(
+            IUpdateEntry entry,
+            Dictionary<InternalEntityEntry, HashSet<INavigation>> mutatingNavs)
     {
         var tableName = (string)entry.EntityType[DynamoAnnotationNames.TableName]!;
         var entityType = entry.EntityType;
+        var rootEntry = (InternalEntityEntry)entry;
+        var stateManager = rootEntry.StateManager;
 
         var setClauses = new List<string>();
 
@@ -202,8 +260,10 @@ public class DynamoDatabaseWrapper(
         // independently before they are concatenated. The final parameter list order must match
         // the positional ? placeholders in the SQL text: SET values first, then WHERE values.
         var setParameters = new List<AttributeValue>();
+        var removeClauses = new List<string>();
         var whereParameters = new List<AttributeValue>();
 
+        // Phase A — Scalar root properties (existing behavior)
         foreach (var property in entityType.GetProperties())
         {
             if (!entry.IsModified(property))
@@ -217,11 +277,8 @@ public class DynamoDatabaseWrapper(
                     $"SaveChanges Modified path does not support key mutation for "
                     + $"'{entityType.DisplayName()}.{property.Name}'.");
 
-            if (!SupportsScalarModifiedProperty(property))
-                throw new NotSupportedException(
-                    $"SaveChanges Modified path only supports scalar/simple properties in this "
-                    + $"version. Property '{entityType.DisplayName()}.{property.Name}' is not "
-                    + "supported yet.");
+            if (!IsScalarModifiedProperty(property))
+                continue; // Collection properties are handled in Phase B
 
             var mapping = property.GetTypeMapping() as DynamoTypeMapping;
             if (mapping is null || !mapping.CanWriteToAttributeValue)
@@ -233,19 +290,96 @@ public class DynamoDatabaseWrapper(
             setParameters.Add(mapping.CreateAttributeValue(entry.GetCurrentValue(property)));
         }
 
-        if (setClauses.Count == 0)
+        // Phase B — Primitive collection properties (L/M/SS/NS/BS)
+        // Full attribute replacement: EF Core tracks the entire collection as a single property
+        // value with no element-level delta, so SET "attr" = <full serialized value> is correct.
+        foreach (var property in entityType.GetProperties())
         {
-            // The root has no scalar changes of its own. This happens when
-            // BuildRootEntries added this root entry because one of its owned entities
-            // changed. Owned/nested mutations require a full document rewrite (read-modify-write),
-            // which is not yet supported — fail explicitly rather than silently no-op'ing.
-            if (HasOwnedMutationForRoot((InternalEntityEntry)entry, entries))
-                throw new NotSupportedException(
-                    $"SaveChanges Modified path for '{entityType.DisplayName()}' contains owned "
-                    + "or nested mutations, which are not supported in this version.");
+            if (!entry.IsModified(property) || property.IsPrimaryKey())
+                continue;
 
-            return null;
+            if (IsScalarModifiedProperty(property))
+                continue; // Already handled in Phase A
+
+            setClauses.Add($"\"{EscapeIdentifier(property.GetAttributeName())}\" = ?");
+            setParameters.Add(serializerSource.SerializeProperty(entry, property));
         }
+
+        // Phase C — OwnsOne navigations
+        // Modified: nested-path SET per changed property (recurse for deep chains).
+        // Added (null→ref): full M replace — nested SET paths require the parent attribute to
+        // exist.
+        // Deleted (ref→null): REMOVE the attribute entirely.
+        foreach (var nav in entityType
+            .GetNavigations()
+            .Where(static n => !n.IsOnDependent && n.TargetEntityType.IsOwned() && !n.IsCollection))
+        {
+            if (!HasMutationForOwnedNavigation(nav, rootEntry, mutatingNavs))
+                continue;
+
+            var navAttrName = nav.TargetEntityType.GetContainingAttributeName() ?? nav.Name;
+            var pathPrefix = $"\"{EscapeIdentifier(navAttrName)}\"";
+
+            var navValue = entry.GetCurrentValue(nav);
+            var ownedEntry = navValue is not null
+                ? stateManager.TryGetEntry(navValue, nav.TargetEntityType)
+                : null;
+
+            if (ownedEntry is null || ownedEntry.EntityState == EntityState.Deleted)
+            {
+                removeClauses.Add(pathPrefix);
+            }
+            else if (ownedEntry.EntityState == EntityState.Added)
+            {
+                setClauses.Add($"{pathPrefix} = ?");
+                setParameters.Add(
+                    new AttributeValue
+                    {
+                        M = serializerSource.BuildItemFromOwnedEntry(ownedEntry),
+                    });
+            }
+            else
+            {
+                // Modified — emit per-property nested-path SET (and REMOVE for sub-nulled refs)
+                AppendOwnedOneNestedSetClauses(
+                    ownedEntry,
+                    pathPrefix,
+                    setClauses,
+                    setParameters,
+                    removeClauses,
+                    mutatingNavs);
+            }
+        }
+
+        // Phase D — OwnsMany navigations
+        // Full list replacement: serialize all non-Deleted elements in collection order.
+        // list_append / REMOVE [i] are not viable because EF Core has no element-level index delta.
+        foreach (var nav in entityType
+            .GetNavigations()
+            .Where(static n => !n.IsOnDependent && n.TargetEntityType.IsOwned() && n.IsCollection))
+        {
+            if (!HasMutationForOwnedNavigation(nav, rootEntry, mutatingNavs))
+                continue;
+
+            var navAttrName = nav.TargetEntityType.GetContainingAttributeName() ?? nav.Name;
+            var path = $"\"{EscapeIdentifier(navAttrName)}\"";
+            var navValue = entry.GetCurrentValue(nav);
+            if (navValue is null)
+            {
+                removeClauses.Add(path);
+                continue;
+            }
+
+            var elements = BuildOwnedManyElements(navValue, nav, stateManager);
+
+            setClauses.Add($"{path} = ?");
+            setParameters.Add(new AttributeValue { L = elements });
+        }
+
+        // If there is nothing to write (no scalar, collection, owned, or structural change),
+        // return null to signal the caller to skip this entry.
+        if (setClauses.Count == 0 && removeClauses.Count == 0)
+            return null;
 
         // Key WHERE conditions: use original values so the correct DynamoDB item is targeted.
         var partitionKeyProperty = entityType.GetPartitionKeyProperty()
@@ -284,17 +418,391 @@ public class DynamoDatabaseWrapper(
 
         AppendConcurrencyTokenPredicates(entry, entityType, whereClauses, whereParameters);
 
-        var sql = new StringBuilder()
-            .AppendLine($"UPDATE \"{EscapeIdentifier(tableName)}\"")
-            .AppendLine($"SET {string.Join(", ", setClauses)}")
-            .Append($"WHERE {string.Join(" AND ", whereClauses)}")
-            .ToString();
+        var sqlBuilder =
+            new StringBuilder().AppendLine($"UPDATE \"{EscapeIdentifier(tableName)}\"");
+
+        if (setClauses.Count > 0)
+            sqlBuilder.AppendLine($"SET {string.Join(", ", setClauses)}");
+
+        if (removeClauses.Count > 0)
+            sqlBuilder.AppendLine($"REMOVE {string.Join(", ", removeClauses)}");
+
+        sqlBuilder.Append($"WHERE {string.Join(" AND ", whereClauses)}");
 
         var parameters = new List<AttributeValue>(setParameters.Count + whereParameters.Count);
         parameters.AddRange(setParameters);
         parameters.AddRange(whereParameters);
 
-        return (tableName, sql, parameters);
+        return (tableName, sqlBuilder.ToString(), parameters);
+    }
+
+    /// <summary>
+    ///     Recursively appends SET and REMOVE clauses for a Modified OwnsOne entry, emitting
+    ///     fine-grained nested-path expressions such as <c>"Profile"."DisplayName" = ?</c>.
+    /// </summary>
+    /// <remarks>
+    ///     Collection-typed properties within the owned entry are replaced atomically (
+    ///     <c>SET "Profile"."Tags" = ?</c>). Nested OwnsOne sub-navigations follow the same
+    ///     Added/Modified/Deleted branching as the top-level Phase C logic. Nested OwnsMany
+    ///     sub-navigations use full list replacement.
+    /// </remarks>
+    private void AppendOwnedOneNestedSetClauses(
+        InternalEntityEntry ownedEntry,
+        string pathPrefix,
+        List<string> setClauses,
+        List<AttributeValue> setParameters,
+        List<string> removeClauses,
+        Dictionary<InternalEntityEntry, HashSet<INavigation>> mutatingNavs)
+    {
+        var stateManager = ownedEntry.StateManager;
+
+        // Scalar and collection properties on the owned entry
+        foreach (var property in ownedEntry.EntityType.GetProperties())
+        {
+            if (!ownedEntry.IsModified(property) || property.IsPrimaryKey())
+                continue;
+
+            var propPath = $"{pathPrefix}.\"{EscapeIdentifier(property.GetAttributeName())}\"";
+
+            if (IsScalarModifiedProperty(property))
+            {
+                var mapping = property.GetTypeMapping() as DynamoTypeMapping;
+                if (mapping is null || !mapping.CanWriteToAttributeValue)
+                    continue;
+                setClauses.Add($"{propPath} = ?");
+                setParameters.Add(
+                    mapping.CreateAttributeValue(ownedEntry.GetCurrentValue(property)));
+            }
+            else
+            {
+                // Collection property inside OwnsOne: full attribute replacement
+                setClauses.Add($"{propPath} = ?");
+                setParameters.Add(serializerSource.SerializeProperty(ownedEntry, property));
+            }
+        }
+
+        // Nested OwnsOne sub-navigations: recurse
+        foreach (var subNav in ownedEntry
+            .EntityType
+            .GetNavigations()
+            .Where(static n => !n.IsOnDependent && n.TargetEntityType.IsOwned() && !n.IsCollection))
+        {
+            if (!HasMutationForOwnedNavigation(subNav, ownedEntry, mutatingNavs))
+                continue;
+
+            var subNavAttrName =
+                subNav.TargetEntityType.GetContainingAttributeName() ?? subNav.Name;
+            var subPath = $"{pathPrefix}.\"{EscapeIdentifier(subNavAttrName)}\"";
+
+            var subNavValue = ownedEntry.GetCurrentValue(subNav);
+            var subEntry = subNavValue is not null
+                ? stateManager.TryGetEntry(subNavValue, subNav.TargetEntityType)
+                : null;
+
+            if (subEntry is null || subEntry.EntityState == EntityState.Deleted)
+            {
+                removeClauses.Add(subPath);
+            }
+            else if (subEntry.EntityState == EntityState.Added)
+            {
+                setClauses.Add($"{subPath} = ?");
+                setParameters.Add(
+                    new AttributeValue { M = serializerSource.BuildItemFromOwnedEntry(subEntry) });
+            }
+            else
+            {
+                AppendOwnedOneNestedSetClauses(
+                    subEntry,
+                    subPath,
+                    setClauses,
+                    setParameters,
+                    removeClauses,
+                    mutatingNavs);
+            }
+        }
+
+        // Nested OwnsMany sub-navigations: full list replacement
+        foreach (var subNav in ownedEntry
+            .EntityType
+            .GetNavigations()
+            .Where(static n => !n.IsOnDependent && n.TargetEntityType.IsOwned() && n.IsCollection))
+        {
+            if (!HasMutationForOwnedNavigation(subNav, ownedEntry, mutatingNavs))
+                continue;
+
+            var subNavAttrName =
+                subNav.TargetEntityType.GetContainingAttributeName() ?? subNav.Name;
+            var subPath = $"{pathPrefix}.\"{EscapeIdentifier(subNavAttrName)}\"";
+            var subNavValue = ownedEntry.GetCurrentValue(subNav);
+            if (subNavValue is null)
+            {
+                removeClauses.Add(subPath);
+                continue;
+            }
+
+            var elements = BuildOwnedManyElements(subNavValue, subNav, stateManager);
+
+            setClauses.Add($"{subPath} = ?");
+            setParameters.Add(new AttributeValue { L = elements });
+        }
+    }
+
+    /// <summary>
+    ///     Builds the list of serialized <see cref="AttributeValue" /> elements for an OwnsMany
+    ///     navigation by iterating the current CLR collection and serializing all non-Deleted entries.
+    ///     Deleted elements are absent from the CLR collection when EF Core removes them, but any
+    ///     remaining tracked entries whose state is <see cref="EntityState.Deleted" /> are also skipped as
+    ///     a safety guard.
+    /// </summary>
+    private List<AttributeValue> BuildOwnedManyElements(
+        object navValue,
+        INavigation nav,
+        IStateManager stateManager)
+    {
+        var elements = new List<AttributeValue>();
+        if (navValue is not IEnumerable collection)
+            throw new InvalidOperationException(
+                $"Owned collection navigation '{nav.DeclaringEntityType.DisplayName()}.{nav.Name}' "
+                + "must be enumerable when non-null.");
+
+        foreach (var element in collection)
+        {
+            if (element is null)
+                continue;
+            var ownedEntry = stateManager.TryGetEntry(element, nav.TargetEntityType);
+            if (ownedEntry is null || ownedEntry.EntityState == EntityState.Deleted)
+                continue;
+            elements.Add(
+                new AttributeValue { M = serializerSource.BuildItemFromOwnedEntry(ownedEntry) });
+        }
+
+        return elements;
+    }
+
+    /// <summary>
+    ///     Returns <see langword="true" /> if <paramref name="nav" /> has at least one mutating
+    ///     owned entry under <paramref name="principalEntry" /> in the current batch.
+    /// </summary>
+    /// <remarks>
+    ///     O(1) — delegates to the pre-built <paramref name="mutatingNavs" /> lookup built once per
+    ///     save call by <see cref="BuildMutatingNavLookup" />.
+    /// </remarks>
+    private static bool HasMutationForOwnedNavigation(
+        INavigation nav,
+        InternalEntityEntry principalEntry,
+        Dictionary<InternalEntityEntry, HashSet<INavigation>> mutatingNavs)
+        => mutatingNavs.TryGetValue(principalEntry, out var set) && set.Contains(nav);
+
+    /// <summary>
+    ///     Pre-builds a lookup from each principal <see cref="InternalEntityEntry" /> to the set of
+    ///     owned navigations that have at least one Add/Modify/Delete mutation in the current batch.
+    /// </summary>
+    /// <remarks>
+    ///     Built once per <c>SaveChangesAsync</c> call — O(entries × depth). Each subsequent
+    ///     <see cref="HasMutationForOwnedNavigation" /> check is then O(1) instead of O(entries × depth)
+    ///     per navigation.
+    /// </remarks>
+    private static Dictionary<InternalEntityEntry, HashSet<INavigation>> BuildMutatingNavLookup(
+        IList<IUpdateEntry> entries)
+    {
+        var lookup =
+            new Dictionary<InternalEntityEntry, HashSet<INavigation>>(
+                ReferenceEqualityComparer.Instance);
+
+        foreach (var e in entries)
+        {
+            if (!e.EntityType.IsOwned()
+                || e.EntityState is not EntityState.Modified
+                    and not EntityState.Added
+                    and not EntityState.Deleted)
+                continue;
+
+            // Walk the full ownership chain upward so that a mutation deep in the tree (e.g.
+            // Root → Profile → Address → City) marks EVERY ancestor nav as mutating:
+            //   lookup[Profile]   gets {AddressNav}
+            //   lookup[Root]      gets {ProfileNav}
+            // Without full propagation, Phase C at the root level would skip ProfileNav because
+            // it only sees that Root has no direct owned-entry mutations — missing the deeper ones.
+            var current = (InternalEntityEntry)e;
+            while (current.EntityType.IsOwned())
+            {
+                var ownership = current.EntityType.FindOwnership();
+                if (ownership is null)
+                    break;
+
+                var principal = current.StateManager.FindPrincipal(current, ownership);
+                if (principal is null)
+                    break;
+
+                var nav = ownership.PrincipalToDependent;
+                if (nav is null)
+                    break;
+
+                if (!lookup.TryGetValue(principal, out var set))
+                {
+                    set = new HashSet<INavigation>(ReferenceEqualityComparer.Instance);
+                    lookup[principal] = set;
+                }
+
+                set.Add(nav);
+                current = principal;
+            }
+        }
+
+        return lookup;
+    }
+
+    /// <summary>
+    ///     Builds a PartiQL <c>UPDATE</c> statement for an aggregate root that is in the
+    ///     <see cref="EntityState.Unchanged" /> state but whose owned sub-entities have mutations.
+    /// </summary>
+    /// <remarks>
+    ///     Skips phases A and B (scalar/collection root properties) because the root itself has no
+    ///     modified properties — only phases C and D (owned navigation clauses) are run.
+    /// </remarks>
+    /// <param name="entry">The Unchanged aggregate root entry.</param>
+    /// <param name="mutatingNavs">
+    ///     Pre-built lookup from principal entry → set of owned navigations with
+    ///     mutations.
+    /// </param>
+    /// <returns>
+    ///     A tuple of (tableName, sql, parameters) when there is something to write, or
+    ///     <see langword="null" /> when no owned sub-entities have effective changes.
+    /// </returns>
+    private (string tableName, string sql, List<AttributeValue> parameters)?
+        BuildOwnedMutationUpdateStatement(
+            IUpdateEntry entry,
+            Dictionary<InternalEntityEntry, HashSet<INavigation>> mutatingNavs)
+    {
+        var tableName = (string)entry.EntityType[DynamoAnnotationNames.TableName]!;
+        var entityType = entry.EntityType;
+        var rootEntry = (InternalEntityEntry)entry;
+        var stateManager = rootEntry.StateManager;
+
+        var setClauses = new List<string>();
+        var setParameters = new List<AttributeValue>();
+        var removeClauses = new List<string>();
+        var whereParameters = new List<AttributeValue>();
+
+        // Phase C — OwnsOne navigations (same logic as in BuildModifiedUpdateStatement)
+        foreach (var nav in entityType
+            .GetNavigations()
+            .Where(static n => !n.IsOnDependent && n.TargetEntityType.IsOwned() && !n.IsCollection))
+        {
+            if (!HasMutationForOwnedNavigation(nav, rootEntry, mutatingNavs))
+                continue;
+
+            var navAttrName = nav.TargetEntityType.GetContainingAttributeName() ?? nav.Name;
+            var pathPrefix = $"\"{EscapeIdentifier(navAttrName)}\"";
+
+            var navValue = entry.GetCurrentValue(nav);
+            var ownedEntry = navValue is not null
+                ? stateManager.TryGetEntry(navValue, nav.TargetEntityType)
+                : null;
+
+            if (ownedEntry is null || ownedEntry.EntityState == EntityState.Deleted)
+            {
+                removeClauses.Add(pathPrefix);
+            }
+            else if (ownedEntry.EntityState == EntityState.Added)
+            {
+                setClauses.Add($"{pathPrefix} = ?");
+                setParameters.Add(
+                    new AttributeValue
+                    {
+                        M = serializerSource.BuildItemFromOwnedEntry(ownedEntry),
+                    });
+            }
+            else
+            {
+                AppendOwnedOneNestedSetClauses(
+                    ownedEntry,
+                    pathPrefix,
+                    setClauses,
+                    setParameters,
+                    removeClauses,
+                    mutatingNavs);
+            }
+        }
+
+        // Phase D — OwnsMany navigations (same logic as in BuildModifiedUpdateStatement)
+        foreach (var nav in entityType
+            .GetNavigations()
+            .Where(static n => !n.IsOnDependent && n.TargetEntityType.IsOwned() && n.IsCollection))
+        {
+            if (!HasMutationForOwnedNavigation(nav, rootEntry, mutatingNavs))
+                continue;
+
+            var navAttrName = nav.TargetEntityType.GetContainingAttributeName() ?? nav.Name;
+            var path = $"\"{EscapeIdentifier(navAttrName)}\"";
+            var navValue = entry.GetCurrentValue(nav);
+            if (navValue is null)
+            {
+                removeClauses.Add(path);
+                continue;
+            }
+
+            var elements = BuildOwnedManyElements(navValue, nav, stateManager);
+
+            setClauses.Add($"{path} = ?");
+            setParameters.Add(new AttributeValue { L = elements });
+        }
+
+        if (setClauses.Count == 0 && removeClauses.Count == 0)
+            return null;
+
+        // WHERE: key + concurrency tokens (using original values)
+        var partitionKeyProperty = entityType.GetPartitionKeyProperty()
+            ?? throw new InvalidOperationException(
+                $"Entity type '{entityType.DisplayName()}' does not define a partition key.");
+
+        var partitionKeyMapping = partitionKeyProperty.GetTypeMapping() as DynamoTypeMapping
+            ?? throw new InvalidOperationException(
+                $"Partition key property '{entityType.DisplayName()}.{partitionKeyProperty.Name}' "
+                + "requires a DynamoTypeMapping.");
+
+        whereParameters.Add(
+            partitionKeyMapping.CreateAttributeValue(
+                GetOriginalOrCurrentValue(entry, partitionKeyProperty)));
+
+        var whereClauses = new List<string>
+        {
+            $"\"{EscapeIdentifier(partitionKeyProperty.GetAttributeName())}\" = ?",
+        };
+
+        var sortKeyProperty = entityType.GetSortKeyProperty();
+        if (sortKeyProperty is not null)
+        {
+            var sortKeyMapping = sortKeyProperty.GetTypeMapping() as DynamoTypeMapping
+                ?? throw new InvalidOperationException(
+                    $"Sort key property '{entityType.DisplayName()}.{sortKeyProperty.Name}' "
+                    + "requires a DynamoTypeMapping.");
+
+            whereParameters.Add(
+                sortKeyMapping.CreateAttributeValue(
+                    GetOriginalOrCurrentValue(entry, sortKeyProperty)));
+
+            whereClauses.Add($"\"{EscapeIdentifier(sortKeyProperty.GetAttributeName())}\" = ?");
+        }
+
+        AppendConcurrencyTokenPredicates(entry, entityType, whereClauses, whereParameters);
+
+        var sqlBuilder =
+            new StringBuilder().AppendLine($"UPDATE \"{EscapeIdentifier(tableName)}\"");
+
+        if (setClauses.Count > 0)
+            sqlBuilder.AppendLine($"SET {string.Join(", ", setClauses)}");
+
+        if (removeClauses.Count > 0)
+            sqlBuilder.AppendLine($"REMOVE {string.Join(", ", removeClauses)}");
+
+        sqlBuilder.Append($"WHERE {string.Join(" AND ", whereClauses)}");
+
+        var parameters = new List<AttributeValue>(setParameters.Count + whereParameters.Count);
+        parameters.AddRange(setParameters);
+        parameters.AddRange(whereParameters);
+
+        return (tableName, sqlBuilder.ToString(), parameters);
     }
 
     /// <summary>
@@ -312,15 +820,14 @@ public class DynamoDatabaseWrapper(
             : entry.GetCurrentValue(property);
 
     /// <summary>
-    ///     Returns <see langword="true" /> if <paramref name="property" /> can be written via the
-    ///     scalar <c>SET</c> path — i.e. it is not a DynamoDB collection type (Map, List, Set).
+    ///     Returns <see langword="true" /> if <paramref name="property" /> maps to a scalar DynamoDB
+    ///     attribute — i.e. it is not a collection type (M/L/SS/NS/BS).
     /// </summary>
     /// <remarks>
-    ///     Collection attributes (M, L, SS, NS, BS) require a full document rewrite or DynamoDB
-    ///     update expressions beyond simple scalar assignment and are not supported in this path.
-    ///     <c>byte[]</c> is a binary scalar (B attribute) and is explicitly allowed.
+    ///     Collection-typed properties are handled separately with full attribute replacement.
+    ///     <c>byte[]</c> is a binary scalar (B attribute) and is explicitly allowed here.
     /// </remarks>
-    private static bool SupportsScalarModifiedProperty(IProperty property)
+    private static bool IsScalarModifiedProperty(IProperty property)
     {
         var converter = property.GetTypeMapping().Converter;
         var shapeType = converter?.ProviderClrType ?? property.ClrType;
@@ -351,8 +858,8 @@ public class DynamoDatabaseWrapper(
     /// <remarks>
     ///     Includes all mutating non-owned roots (Added/Modified/Deleted). Also includes aggregate
     ///     roots for mutating owned entries even when those roots are currently
-    ///     <see cref="EntityState.Unchanged" />, so unsupported owned-only writes are detected.
-    ///     This is a pure projection and does not mutate tracked entity state.
+    ///     <see cref="EntityState.Unchanged" /> — such roots need an UPDATE statement that covers
+    ///     the owned sub-graph changes. This is a pure projection and does not mutate tracker state.
     /// </remarks>
     private static List<IUpdateEntry> BuildRootEntries(IList<IUpdateEntry> entries)
     {
@@ -375,7 +882,9 @@ public class DynamoDatabaseWrapper(
     /// <remarks>
     ///     EF Core can track owned entry mutations independently from the root state. For owned-only
     ///     mutations, the root may remain <see cref="EntityState.Unchanged" /> and otherwise be absent
-    ///     from the write loop, which would hide unsupported operations.
+    ///     from the write loop. Injected Unchanged roots are handled by the <c>Unchanged</c> case in
+    ///     the write switch alongside <c>Modified</c>; see that case for why state promotion is
+    ///     intentionally avoided here.
     /// </remarks>
     private static void IncludeMutatingOwnedRoots(
         IList<IUpdateEntry> entries,
@@ -401,35 +910,6 @@ public class DynamoDatabaseWrapper(
             if (trackedEntries.Add(root))
                 rootEntries.Add(root);
         }
-    }
-
-    /// <summary>
-    ///     Returns <see langword="true" /> if any owned entity in <paramref name="entries" /> with an
-    ///     active mutation (Added, Modified, or Deleted) belongs to <paramref name="root" />.
-    /// </summary>
-    /// <remarks>
-    ///     Used to distinguish a root that has no scalar changes because nothing actually changed
-    ///     from one that has no scalar changes because only its owned sub-graph changed. The latter
-    ///     requires a different (not yet implemented) write strategy.
-    /// </remarks>
-    private static bool HasOwnedMutationForRoot(
-        InternalEntityEntry root,
-        IEnumerable<IUpdateEntry> entries)
-    {
-        foreach (var entry in entries)
-        {
-            if (!entry.EntityType.IsOwned()
-                || entry.EntityState is not EntityState.Modified
-                    and not EntityState.Added
-                    and not EntityState.Deleted)
-                continue;
-
-            var candidateRoot = GetRootEntry((InternalEntityEntry)entry);
-            if (ReferenceEquals(candidateRoot, root))
-                return true;
-        }
-
-        return false;
     }
 
     /// <summary>

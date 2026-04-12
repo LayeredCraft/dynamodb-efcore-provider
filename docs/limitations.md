@@ -18,8 +18,9 @@ icon: lucide/triangle-alert
 
 ## What this means in practice
 
-- Async writes are supported via `SaveChangesAsync` for Added/Modified/Deleted root entities.
-- Write support is still partial; owned/nested mutation write paths remain limited.
+- Async writes are supported via `SaveChangesAsync` for Added/Modified/Deleted root entities,
+    including mutations to owned references (`OwnsOne`), owned collections (`OwnsMany`), and
+    primitive collection properties (lists, dictionaries, and sets).
 - Synchronous `SaveChanges` is not supported.
 - Unsupported LINQ shapes fail during translation with `InvalidOperationException` including provider-specific details.
 - Discriminator guardrails for unsupported query shapes are deferred; support is limited to the

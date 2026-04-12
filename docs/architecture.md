@@ -38,10 +38,27 @@ icon: lucide/git-branch
 1. **Added** — generates a PartiQL `INSERT INTO "Table" VALUE {...}` statement. The provider sets
     no provider-managed concurrency metadata. A `DuplicateItemException` from DynamoDB is mapped to
     `DbUpdateException` (duplicate primary key).
-1. **Modified** — generates a `UPDATE "Table" SET ... WHERE pk = ? [AND token = ?]` statement.
-    For properties configured with `.IsConcurrencyToken()`, original values are added to the WHERE
-    clause. A `ConditionalCheckFailedException` is mapped to
-    `DbUpdateConcurrencyException` (stale token).
+1. **Modified** — generates a single `UPDATE "Table" SET ... [REMOVE ...] WHERE pk = ?  [AND token = ?]` statement per root entity. The provider uses a hybrid strategy to
+    minimise the write payload:
+    - **Scalar root properties** — `SET "Prop" = ?` (existing behaviour, unchanged).
+    - **Primitive collection properties** (lists, dictionaries, sets) — full attribute
+        replacement: `SET "Tags" = ?` with the fully serialised SS/NS/BS/L/M value.
+        EF Core tracks these as atomic property values with no element-level delta, so
+        full replacement is correct.
+    - **OwnsOne Modified** — per-property nested-path SET:
+        `SET "Profile"."DisplayName" = ?`. Recurses through the full OwnsOne chain,
+        so `SET "Profile"."Address"."City" = ?` is generated for three-level depth.
+    - **OwnsOne Added** (null → ref) — full map replacement:
+        `SET "Profile" = ?` with the entire M value, because a nested-path SET requires
+        the parent attribute to already exist.
+    - **OwnsOne Deleted** (ref → null) — `REMOVE "Profile"` removes the attribute
+        entirely. SET and REMOVE are combined in one statement when both apply.
+    - **OwnsMany** — full list replacement: `SET "Contacts" = ?` with all non-deleted
+        elements serialised as L. EF Core has no element-level index delta, so
+        `list_append` / `REMOVE [i]` are not used.
+        For properties configured with `.IsConcurrencyToken()`, original values are added to
+        the WHERE clause. A `ConditionalCheckFailedException` is mapped to
+        `DbUpdateConcurrencyException` (stale token).
 1. **Deleted** — generates a `DELETE FROM "Table" WHERE pk = ? [AND token = ?]` statement using
     the same concurrency-token WHERE behavior as Modified.
 
