@@ -4,26 +4,42 @@ icon: lucide/shield-check
 
 # Concurrency
 
-## Provider-managed optimistic concurrency
+## Explicit optimistic concurrency (manual tokens)
 
-Every root entity automatically carries a `$version` attribute managed by the provider. You do
-not need to declare a version property or call `.IsConcurrencyToken()` — correct concurrency
-behavior is the default.
+Optimistic concurrency is opt-in and follows EF Core's standard pattern.
 
-| Operation | `$version` behavior                           |
-| --------- | --------------------------------------------- |
-| INSERT    | Written as `1`                                |
-| UPDATE    | Incremented in SET; original checked in WHERE |
-| DELETE    | Original checked in WHERE                     |
+Configure one or more properties as concurrency tokens:
 
-The WHERE predicate on UPDATE and DELETE looks like:
-
-```sql
-WHERE "Pk" = ? AND "$version" = ?
+```csharp
+modelBuilder.Entity<CustomerItem>()
+    .Property(x => x.Version)
+    .IsConcurrencyToken();
 ```
 
-If the version in DynamoDB has advanced since the entity was read, DynamoDB raises
+For configured tokens, UPDATE and DELETE include original token values in the WHERE predicate:
+
+```sql
+WHERE "Pk" = ? AND "Version" = ?
+```
+
+If token values in DynamoDB have changed since the entity was read, DynamoDB raises
 `ConditionalCheckFailedException`, which the provider maps to `DbUpdateConcurrencyException`.
+
+## Manual token updates are required
+
+This provider currently does not generate row-version values. Your application must assign the
+new token value before calling `SaveChangesAsync`.
+
+```csharp
+var customer = await db.Customers.SingleAsync(x => x.Pk == pk && x.Sk == sk, ct);
+
+customer.Email = "updated@example.com";
+customer.Version += 1; // App-managed token mutation
+
+await db.SaveChangesAsync(ct);
+```
+
+`IsRowVersion()` / `ValueGeneratedOnAddOrUpdate` is not supported yet and fails model validation.
 
 ## Handling `DbUpdateConcurrencyException`
 
@@ -54,14 +70,14 @@ async Task SaveWithRetry(MyDbContext db, CancellationToken ct)
 }
 ```
 
-`entry.ReloadAsync` re-reads the item from DynamoDB and resets the tracked values (including
-`$version`) so the next `SaveChangesAsync` uses the current store version.
+`entry.ReloadAsync` re-reads the item from DynamoDB and resets tracked values (including
+concurrency tokens) so the next `SaveChangesAsync` uses current store values.
 
 ## INSERT duplicate key → `DbUpdateException`
 
 When an `Added` entity's primary key already exists in the table, DynamoDB raises
 `DuplicateItemException`. The provider maps this to `DbUpdateException` (not
-`DbUpdateConcurrencyException`, because it is a uniqueness constraint violation, not a version
+`DbUpdateConcurrencyException`, because it is a uniqueness constraint violation, not a concurrency
 mismatch):
 
 ```csharp
@@ -83,16 +99,6 @@ success for a conditional DELETE when the condition evaluates on a missing item.
 design: the goal of a DELETE is for the item to not exist; if it is already gone, the outcome
 is the same.
 
-If the item still exists but its `$version` has changed, `ConditionalCheckFailedException` is
+If the item still exists but its configured concurrency token values have changed,
+`ConditionalCheckFailedException` is
 raised and mapped to `DbUpdateConcurrencyException` as with UPDATE.
-
-## Items written before `$version` support
-
-Items inserted into DynamoDB before `$version` support was added have no `$version` attribute.
-On the first UPDATE via EF Core, the WHERE predicate uses `"$version" = 0`, which does not match
-a missing attribute, and `DbUpdateConcurrencyException` is raised.
-
-**Resolution:** Re-save those items once as Added entities so EF Core writes `$version = 1`.
-After that first write, all subsequent updates and deletes are version-protected normally.
-
-See also [Pre-`$version` items](limitations.md#pre-version-items) in Limitations.

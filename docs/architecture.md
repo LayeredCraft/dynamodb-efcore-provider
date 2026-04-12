@@ -36,17 +36,14 @@ icon: lucide/git-branch
 `SaveChangesAsync` processes EF Core change-tracking entries in entity-state order:
 
 1. **Added** — generates a PartiQL `INSERT INTO "Table" VALUE {...}` statement. The provider sets
-    `$version = 1` in the attribute map. A `DuplicateItemException` from DynamoDB is mapped to
+    no provider-managed concurrency metadata. A `DuplicateItemException` from DynamoDB is mapped to
     `DbUpdateException` (duplicate primary key).
-1. **Modified** — generates a `UPDATE "Table" SET col = ? WHERE pk = ? AND "$version" = ?`
-    statement. The provider increments `$version` in the SET clause and checks the original value in
-    the WHERE clause. A `ConditionalCheckFailedException` is mapped to
-    `DbUpdateConcurrencyException` (stale version).
-1. **Deleted** — generates a `DELETE FROM "Table" WHERE pk = ? AND "$version" = ?` statement. Same
-    concurrency check as Modified.
-
-After a successful write, the new `$version` value is propagated back into the change-tracker
-snapshot so that subsequent saves within the same context instance use the correct version.
+1. **Modified** — generates a `UPDATE "Table" SET ... WHERE pk = ? [AND token = ?]` statement.
+    For properties configured with `.IsConcurrencyToken()`, original values are added to the WHERE
+    clause. A `ConditionalCheckFailedException` is mapped to
+    `DbUpdateConcurrencyException` (stale token).
+1. **Deleted** — generates a `DELETE FROM "Table" WHERE pk = ? [AND token = ?]` statement using
+    the same concurrency-token WHERE behavior as Modified.
 
 See [Concurrency](concurrency.md) for optimistic concurrency behavior and exception handling.
 

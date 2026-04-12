@@ -18,7 +18,9 @@ icon: lucide/triangle-alert
 
 ## What this means in practice
 
-- The provider is currently query-only.
+- Async writes are supported via `SaveChangesAsync` for Added/Modified/Deleted root entities.
+- Write support is still partial; owned/nested mutation write paths remain limited.
+- Synchronous `SaveChanges` is not supported.
 - Unsupported LINQ shapes fail during translation with `InvalidOperationException` including provider-specific details.
 - Discriminator guardrails for unsupported query shapes are deferred; support is limited to the
     current operator surface in `operators.md`.
@@ -112,17 +114,12 @@ The `AsAsyncEnumerable()` bridge makes the client-side step explicit.
 
 ## Optimistic concurrency limitations
 
-### Pre-`$version` items {#pre-version-items}
-
-Every root entity automatically carries a provider-managed `$version` attribute written by
-`SaveChangesAsync`. Items inserted before `$version` support was introduced have no `$version`
-attribute in DynamoDB. On the first `UPDATE` via EF Core, the WHERE predicate uses
-`"$version" = 0`, which does not match a missing attribute — the update will raise
-`DbUpdateConcurrencyException` as if the item were already modified by another writer.
-
-**Resolution:** Re-save those items once via EF Core. The first re-save will write `$version = 1`
-without a concurrency check (because the entity is treated as Added). After that, all subsequent
-updates and deletes are protected by the version predicate.
+- Concurrency is opt-in. Only properties configured with `.IsConcurrencyToken()` (or
+    `[ConcurrencyCheck]`) participate in concurrency predicates.
+- Concurrency token values are application-managed. The provider does not auto-increment or
+    auto-generate token values during `SaveChangesAsync`.
+- `IsRowVersion()` / `ValueGeneratedOnAddOrUpdate` is not supported yet and is rejected during
+    model validation.
 
 ## Key mapping validation limits
 
