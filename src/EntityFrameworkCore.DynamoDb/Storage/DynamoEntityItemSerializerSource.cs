@@ -31,28 +31,53 @@ public sealed class DynamoEntityItemSerializerSource
     public Dictionary<string, AttributeValue> BuildItem(IUpdateEntry rootEntry)
         => GetOrBuildPlan(rootEntry.EntityType).Serialize(rootEntry, this);
 
-    /// <summary>Returns the fully assembled DynamoDB item dictionary for an owned sub-entry.</summary>
-    private Dictionary<string, AttributeValue> BuildItemFromOwnedEntry(IUpdateEntry entry)
+    /// <summary>
+    ///     Returns the fully assembled DynamoDB item dictionary for an owned sub-entry. Exposed as
+    ///     <c>internal</c> so the update path in <see cref="DynamoDatabaseWrapper" /> can serialize
+    ///     OwnsOne and OwnsMany sub-documents for attribute-level replacement.
+    /// </summary>
+    internal Dictionary<string, AttributeValue> BuildItemFromOwnedEntry(IUpdateEntry entry)
         => GetOrBuildPlan(entry.EntityType).Serialize(entry, this);
+
+    /// <summary>
+    ///     Serializes the current value of <paramref name="property" /> on <paramref name="entry" />
+    ///     to an <see cref="AttributeValue" /> using the pre-compiled per-type delegate. Used by the
+    ///     update path to serialize collection-typed properties (L/M/SS/NS/BS) for full attribute-level
+    ///     replacement in UPDATE SET clauses.
+    /// </summary>
+    internal AttributeValue SerializeProperty(IUpdateEntry entry, IProperty property)
+        => GetOrBuildPlan(entry.EntityType).SerializeProperty(entry, property);
 
     private EntityWritePlan GetOrBuildPlan(IEntityType entityType)
         => _cache.GetOrAdd(entityType, BuildPlan);
 
     private static EntityWritePlan BuildPlan(IEntityType entityType)
     {
-        var propertyWriters = entityType
+        var properties = entityType
             .GetProperties()
             .Where(static p => !(p.IsShadowProperty() && p.IsKey()))
-            .Select(static p
-                => new PropertyWriteAction(p.GetAttributeName(), CreatePropertySerializer(p)))
             .ToList();
+
+        // Build both the ordered writer list (for INSERT serialization) and the
+        // property→serializer lookup (for UPDATE per-property serialization) in one pass
+        // to avoid calling CreatePropertySerializer twice per property.
+        var propertyWriters = new List<PropertyWriteAction>(properties.Count);
+        var propertySerializers =
+            new Dictionary<IProperty, Func<IUpdateEntry, AttributeValue>>(properties.Count);
+
+        foreach (var p in properties)
+        {
+            var serializer = CreatePropertySerializer(p);
+            propertyWriters.Add(new PropertyWriteAction(p.GetAttributeName(), serializer));
+            propertySerializers[p] = serializer;
+        }
 
         var ownedNavigations = entityType
             .GetNavigations()
             .Where(static n => !n.IsOnDependent && n.TargetEntityType.IsOwned())
             .ToList();
 
-        return new EntityWritePlan(propertyWriters, ownedNavigations);
+        return new EntityWritePlan(propertyWriters, propertySerializers, ownedNavigations);
     }
 
     /// <summary>
@@ -1002,8 +1027,25 @@ public sealed class DynamoEntityItemSerializerSource
 
     private sealed class EntityWritePlan(
         List<PropertyWriteAction> propertyWriters,
+        Dictionary<IProperty, Func<IUpdateEntry, AttributeValue>> propertySerializers,
         List<INavigation> ownedNavigations)
     {
+        /// <summary>
+        ///     Serializes the current value of <paramref name="property" /> for <paramref name="entry" />
+        ///     using the pre-compiled delegate built at plan-construction time. Used by the UPDATE path to
+        ///     serialize individual properties without rebuilding a full item dictionary.
+        /// </summary>
+        internal AttributeValue SerializeProperty(IUpdateEntry entry, IProperty property)
+        {
+            if (!propertySerializers.TryGetValue(property, out var serializer))
+                throw new InvalidOperationException(
+                    $"No serializer was built for property "
+                    + $"'{property.DeclaringType?.DisplayName()}.{property.Name}'. "
+                    + "Shadow key properties are not serialized.");
+
+            return serializer(entry);
+        }
+
         /// <summary>
         ///     Serializes all scalar properties of <paramref name="entry" /> into a DynamoDB item
         ///     dictionary, then resolves and serializes any owned navigation sub-entries.
