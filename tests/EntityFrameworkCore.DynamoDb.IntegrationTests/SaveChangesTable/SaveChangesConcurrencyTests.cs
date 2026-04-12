@@ -49,6 +49,12 @@ public class SaveChangesConcurrencyTests(SaveChangesTableDynamoFixture fixture)
 
         var act = async () => await Db.SaveChangesAsync(CancellationToken);
         await act.Should().ThrowAsync<DbUpdateException>();
+
+        AssertSql(
+            """
+            INSERT INTO "AppItems"
+            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'ReferenceIds': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?}
+            """);
     }
 
     // ──────────────────────────────────────────────────────────────────────────────
@@ -73,6 +79,7 @@ public class SaveChangesConcurrencyTests(SaveChangesTableDynamoFixture fixture)
         };
         Db.Customers.Add(customer);
         await Db.SaveChangesAsync(CancellationToken);
+        LoggerFactory.Clear();
 
         // Simulate a concurrent writer bumping the version directly.
         await BumpVersionAsync(customer.Pk, customer.Sk, CancellationToken);
@@ -82,6 +89,13 @@ public class SaveChangesConcurrencyTests(SaveChangesTableDynamoFixture fixture)
         customer.Email = "conflicted@example.com";
         var act = async () => await Db.SaveChangesAsync(CancellationToken);
         await act.Should().ThrowAsync<DbUpdateConcurrencyException>();
+
+        AssertSql(
+            """
+            UPDATE "AppItems"
+            SET "Email" = ?, "Version" = ?
+            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            """);
     }
 
     // ──────────────────────────────────────────────────────────────────────────────
@@ -106,6 +120,7 @@ public class SaveChangesConcurrencyTests(SaveChangesTableDynamoFixture fixture)
         };
         Db.Customers.Add(customer);
         await Db.SaveChangesAsync(CancellationToken);
+        LoggerFactory.Clear();
 
         // Simulate a concurrent writer bumping the version directly.
         await BumpVersionAsync(customer.Pk, customer.Sk, CancellationToken);
@@ -114,6 +129,12 @@ public class SaveChangesConcurrencyTests(SaveChangesTableDynamoFixture fixture)
         Db.Customers.Remove(customer);
         var act = async () => await Db.SaveChangesAsync(CancellationToken);
         await act.Should().ThrowAsync<DbUpdateConcurrencyException>();
+
+        AssertSql(
+            """
+            DELETE FROM "AppItems"
+            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            """);
     }
 
     // ──────────────────────────────────────────────────────────────────────────────
@@ -135,6 +156,7 @@ public class SaveChangesConcurrencyTests(SaveChangesTableDynamoFixture fixture)
         };
         Db.Customers.Add(customer);
         await Db.SaveChangesAsync(CancellationToken);
+        LoggerFactory.Clear();
 
         customer.Version = 2;
         customer.Email = "updated@example.com";
@@ -142,6 +164,13 @@ public class SaveChangesConcurrencyTests(SaveChangesTableDynamoFixture fixture)
 
         var itemAfterUpdate = await GetItemAsync(customer.Pk, customer.Sk, CancellationToken);
         itemAfterUpdate!["Version"].N.Should().Be("2");
+
+        AssertSql(
+            """
+            UPDATE "AppItems"
+            SET "Email" = ?, "Version" = ?
+            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            """);
     }
 
     /// <summary>
@@ -162,6 +191,7 @@ public class SaveChangesConcurrencyTests(SaveChangesTableDynamoFixture fixture)
         };
         Db.Customers.Add(customer);
         await Db.SaveChangesAsync(CancellationToken);
+        LoggerFactory.Clear();
 
         // First update: Version 1 -> 2
         customer.Version = 2;
@@ -178,6 +208,18 @@ public class SaveChangesConcurrencyTests(SaveChangesTableDynamoFixture fixture)
 
         var itemV3 = await GetItemAsync(customer.Pk, customer.Sk, CancellationToken);
         itemV3!["Version"].N.Should().Be("3");
+
+        AssertSql(
+            """
+            UPDATE "AppItems"
+            SET "Email" = ?, "Version" = ?
+            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            """,
+            """
+            UPDATE "AppItems"
+            SET "Email" = ?, "Version" = ?
+            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            """);
     }
 
     // ──────────────────────────────────────────────────────────────────────────────
@@ -199,6 +241,7 @@ public class SaveChangesConcurrencyTests(SaveChangesTableDynamoFixture fixture)
         };
         Db.Customers.Add(customer);
         await Db.SaveChangesAsync(CancellationToken);
+        LoggerFactory.Clear();
 
         customer.Version = 2;
         customer.Email = "after@example.com";
@@ -207,6 +250,13 @@ public class SaveChangesConcurrencyTests(SaveChangesTableDynamoFixture fixture)
 
         var item = await GetItemAsync(customer.Pk, customer.Sk, CancellationToken);
         item!["Email"].S.Should().Be("after@example.com");
+
+        AssertSql(
+            """
+            UPDATE "AppItems"
+            SET "Email" = ?, "Version" = ?
+            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            """);
     }
 
     /// <summary>A DELETE with the correct version succeeds and the item is gone.</summary>
@@ -224,6 +274,7 @@ public class SaveChangesConcurrencyTests(SaveChangesTableDynamoFixture fixture)
         };
         Db.Customers.Add(customer);
         await Db.SaveChangesAsync(CancellationToken);
+        LoggerFactory.Clear();
 
         Db.Customers.Remove(customer);
         var act = async () => await Db.SaveChangesAsync(CancellationToken);
@@ -231,6 +282,12 @@ public class SaveChangesConcurrencyTests(SaveChangesTableDynamoFixture fixture)
 
         var item = await GetItemAsync(customer.Pk, customer.Sk, CancellationToken);
         item.Should().BeNull();
+
+        AssertSql(
+            """
+            DELETE FROM "AppItems"
+            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            """);
     }
 
     // ──────────────────────────────────────────────────────────────────────────────
