@@ -1,0 +1,794 @@
+using Microsoft.EntityFrameworkCore;
+
+namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SaveChangesTable;
+
+/// <summary>
+///     Integration tests for SaveChanges behaviour when owned navigations and primitive
+///     collections are mutated.  Each test creates its own item, performs an initial save, clears the
+///     SQL log, mutates, saves again, and then verifies the emitted PartiQL and the persisted DynamoDB
+///     shape.
+/// </summary>
+public class OwnedAndNestedSaveChangesTests(SaveChangesTableDynamoFixture fixture)
+    : SaveChangesTableTestBase(fixture)
+{
+    // -------------------------------------------------------------------------
+    // OwnsOne — scalar property changed
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    ///     A modified scalar on an OwnsOne reference emits a nested-path SET clause (
+    ///     <c>SET "Profile"."DisplayName" = ?</c>), not a full map replacement.
+    /// </summary>
+    [Fact]
+    public async Task SaveChangesAsync_OwnedReference_ScalarPropChanged_EmitsNestedPath()
+    {
+        var item = new CustomerItem
+        {
+            Pk = "TENANT#1",
+            Sk = "CUSTOMER#OWN-1",
+            Version = 1,
+            Email = "own1@example.com",
+            IsPreferred = false,
+            CreatedAt = new DateTimeOffset(2026, 4, 1, 12, 0, 0, TimeSpan.Zero),
+            Profile = new CustomerProfile { DisplayName = "Before", Nickname = null },
+        };
+        Db.Customers.Add(item);
+        await Db.SaveChangesAsync(CancellationToken);
+        LoggerFactory.Clear();
+
+        item.Profile!.DisplayName = "After";
+
+        var affected = await Db.SaveChangesAsync(CancellationToken);
+        affected.Should().Be(1);
+
+        var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
+        raw.Should().NotBeNull();
+        raw!["Profile"].M["DisplayName"].S.Should().Be("After");
+
+        // Nested-path shape — not a full map replace.
+        AssertSql(
+            """
+            UPDATE "AppItems"
+            SET "Profile"."DisplayName" = ?
+            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            """);
+    }
+
+    // -------------------------------------------------------------------------
+    // OwnsOne — nullified (ref → null) emits REMOVE
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    ///     Setting an OwnsOne reference to <see langword="null" /> emits <c>REMOVE "Profile"</c>
+    ///     which deletes the attribute from DynamoDB.
+    /// </summary>
+    [Fact]
+    public async Task SaveChangesAsync_OwnedReference_NullifiedToNull_EmitsRemove()
+    {
+        var item = new CustomerItem
+        {
+            Pk = "TENANT#1",
+            Sk = "CUSTOMER#OWN-2",
+            Version = 1,
+            Email = "own2@example.com",
+            IsPreferred = false,
+            CreatedAt = new DateTimeOffset(2026, 4, 2, 12, 0, 0, TimeSpan.Zero),
+            Profile = new CustomerProfile { DisplayName = "Will be removed", Nickname = null },
+        };
+        Db.Customers.Add(item);
+        await Db.SaveChangesAsync(CancellationToken);
+        LoggerFactory.Clear();
+
+        item.Profile = null;
+
+        var affected = await Db.SaveChangesAsync(CancellationToken);
+        affected.Should().Be(1);
+
+        var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
+        raw.Should().NotBeNull();
+
+        // REMOVE deletes the attribute entirely — key must be absent.
+        raw!.Should().NotContainKey("Profile");
+
+        AssertSql(
+            """
+            UPDATE "AppItems"
+            REMOVE "Profile"
+            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            """);
+    }
+
+    // -------------------------------------------------------------------------
+    // OwnsOne — set from null (null → ref) emits full map SET
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    ///     Assigning an OwnsOne reference that was previously <see langword="null" /> emits
+    ///     <c>SET "Profile" = ?</c> with the full M value, because a nested SET path requires the parent
+    ///     attribute to exist first.
+    /// </summary>
+    [Fact]
+    public async Task SaveChangesAsync_OwnedReference_SetFromNull_EmitsFullMapReplace()
+    {
+        var item = new CustomerItem
+        {
+            Pk = "TENANT#1",
+            Sk = "CUSTOMER#OWN-3",
+            Version = 1,
+            Email = "own3@example.com",
+            IsPreferred = false,
+            CreatedAt = new DateTimeOffset(2026, 4, 3, 12, 0, 0, TimeSpan.Zero),
+            Profile = null,
+        };
+        Db.Customers.Add(item);
+        await Db.SaveChangesAsync(CancellationToken);
+        LoggerFactory.Clear();
+
+        item.Profile = new CustomerProfile { DisplayName = "Newly Added", Nickname = "new" };
+
+        var affected = await Db.SaveChangesAsync(CancellationToken);
+        affected.Should().Be(1);
+
+        var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
+        raw.Should().NotBeNull();
+        raw!.Should().ContainKey("Profile");
+        raw["Profile"].M["DisplayName"].S.Should().Be("Newly Added");
+        raw["Profile"].M["Nickname"].S.Should().Be("new");
+
+        AssertSql(
+            """
+            UPDATE "AppItems"
+            SET "Profile" = ?
+            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            """);
+    }
+
+    // -------------------------------------------------------------------------
+    // OwnsOne — deeply nested path (Profile.PreferredAddress.City)
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    ///     A scalar mutation two levels deep in an OwnsOne chain emits a three-segment nested-path
+    ///     SET clause rather than replacing the entire parent map.
+    /// </summary>
+    [Fact]
+    public async Task SaveChangesAsync_OwnedReference_DeeplyNested_EmitsThreeSegmentPath()
+    {
+        var item = new CustomerItem
+        {
+            Pk = "TENANT#1",
+            Sk = "CUSTOMER#OWN-4",
+            Version = 1,
+            Email = "own4@example.com",
+            IsPreferred = false,
+            CreatedAt = new DateTimeOffset(2026, 4, 4, 12, 0, 0, TimeSpan.Zero),
+            Profile = new CustomerProfile
+            {
+                DisplayName = "Depth Test",
+                PreferredAddress = new Address
+                {
+                    Line1 = "1 Main St", City = "OldCity", Country = "US",
+                },
+            },
+        };
+        Db.Customers.Add(item);
+        await Db.SaveChangesAsync(CancellationToken);
+        LoggerFactory.Clear();
+
+        item.Profile!.PreferredAddress!.City = "NewCity";
+
+        var affected = await Db.SaveChangesAsync(CancellationToken);
+        affected.Should().Be(1);
+
+        var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
+        raw!["Profile"].M["PreferredAddress"].M["City"].S.Should().Be("NewCity");
+
+        AssertSql(
+            """
+            UPDATE "AppItems"
+            SET "Profile"."PreferredAddress"."City" = ?
+            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            """);
+    }
+
+    // -------------------------------------------------------------------------
+    // OwnsMany — element modified
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    ///     Modifying a property on an OwnsMany element replaces the entire list attribute in one
+    ///     <c>SET "Contacts" = ?</c> statement.
+    /// </summary>
+    [Fact]
+    public async Task SaveChangesAsync_OwnedCollection_ElementModified_ReplacesEntireList()
+    {
+        var item = new CustomerItem
+        {
+            Pk = "TENANT#1",
+            Sk = "CUSTOMER#OWN-5",
+            Version = 1,
+            Email = "own5@example.com",
+            IsPreferred = false,
+            CreatedAt = new DateTimeOffset(2026, 4, 5, 12, 0, 0, TimeSpan.Zero),
+            Contacts =
+            [
+                new CustomerContact
+                {
+                    Kind = "email", Value = "own5@example.com", Verified = false,
+                },
+            ],
+        };
+        Db.Customers.Add(item);
+        await Db.SaveChangesAsync(CancellationToken);
+        LoggerFactory.Clear();
+
+        item.Contacts[0].Verified = true;
+
+        var affected = await Db.SaveChangesAsync(CancellationToken);
+        affected.Should().Be(1);
+
+        var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
+        raw!["Contacts"].L.Should().HaveCount(1);
+        raw["Contacts"].L[0].M["Verified"].BOOL.Should().BeTrue();
+
+        AssertSql(
+            """
+            UPDATE "AppItems"
+            SET "Contacts" = ?
+            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            """);
+    }
+
+    // -------------------------------------------------------------------------
+    // OwnsMany — element added
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    ///     Adding a new element to an OwnsMany collection replaces the entire list attribute; the new
+    ///     element appears at the end.
+    /// </summary>
+    [Fact]
+    public async Task SaveChangesAsync_OwnedCollection_ElementAdded_IncludesNewElementInList()
+    {
+        var item = new CustomerItem
+        {
+            Pk = "TENANT#1",
+            Sk = "CUSTOMER#OWN-6",
+            Version = 1,
+            Email = "own6@example.com",
+            IsPreferred = false,
+            CreatedAt = new DateTimeOffset(2026, 4, 6, 12, 0, 0, TimeSpan.Zero),
+            Contacts =
+            [
+                new CustomerContact
+                {
+                    Kind = "email", Value = "own6@example.com", Verified = true,
+                },
+            ],
+        };
+        Db.Customers.Add(item);
+        await Db.SaveChangesAsync(CancellationToken);
+        LoggerFactory.Clear();
+
+        item.Contacts.Add(
+            new CustomerContact { Kind = "phone", Value = "+15550001", Verified = false });
+
+        var affected = await Db.SaveChangesAsync(CancellationToken);
+        affected.Should().Be(1);
+
+        var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
+        raw!["Contacts"].L.Should().HaveCount(2);
+        raw["Contacts"].L[1].M["Kind"].S.Should().Be("phone");
+        raw["Contacts"].L[1].M["Verified"].BOOL.Should().BeFalse();
+
+        AssertSql(
+            """
+            UPDATE "AppItems"
+            SET "Contacts" = ?
+            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            """);
+    }
+
+    // -------------------------------------------------------------------------
+    // OwnsMany — element removed
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    ///     Removing an element from an OwnsMany collection replaces the entire list attribute; the
+    ///     removed element is absent from the persisted list.
+    /// </summary>
+    [Fact]
+    public async Task SaveChangesAsync_OwnedCollection_ElementRemoved_ExcludesRemovedElement()
+    {
+        var contact1 = new CustomerContact { Kind = "email", Value = "a@x.com", Verified = true };
+        var contact2 = new CustomerContact { Kind = "phone", Value = "+10001", Verified = false };
+        var item = new CustomerItem
+        {
+            Pk = "TENANT#1",
+            Sk = "CUSTOMER#OWN-7",
+            Version = 1,
+            Email = "own7@example.com",
+            IsPreferred = false,
+            CreatedAt = new DateTimeOffset(2026, 4, 7, 12, 0, 0, TimeSpan.Zero),
+            Contacts = [contact1, contact2],
+        };
+        Db.Customers.Add(item);
+        await Db.SaveChangesAsync(CancellationToken);
+        LoggerFactory.Clear();
+
+        item.Contacts.Remove(contact1);
+
+        var affected = await Db.SaveChangesAsync(CancellationToken);
+        affected.Should().Be(1);
+
+        var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
+        raw!["Contacts"].L.Should().HaveCount(1);
+        raw["Contacts"].L[0].M["Kind"].S.Should().Be("phone");
+
+        AssertSql(
+            """
+            UPDATE "AppItems"
+            SET "Contacts" = ?
+            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            """);
+    }
+
+    // -------------------------------------------------------------------------
+    // OwnsMany — element with nested OwnsOne modified
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    ///     Mutating a nested owned reference inside an OwnsMany element still replaces the entire
+    ///     parent list attribute — the nested change is captured in the rebuilt L value.
+    /// </summary>
+    [Fact]
+    public async Task
+        SaveChangesAsync_OwnedCollection_WithNestedOwned_ReplacesListWithUpdatedNested()
+    {
+        var item = new CustomerItem
+        {
+            Pk = "TENANT#1",
+            Sk = "CUSTOMER#OWN-8",
+            Version = 1,
+            Email = "own8@example.com",
+            IsPreferred = false,
+            CreatedAt = new DateTimeOffset(2026, 4, 8, 12, 0, 0, TimeSpan.Zero),
+            Contacts =
+            [
+                new CustomerContact
+                {
+                    Kind = "post",
+                    Value = "mailing",
+                    Verified = false,
+                    Address = new Address
+                    {
+                        Line1 = "1 Old Rd", City = "OldCity", Country = "US",
+                    },
+                },
+            ],
+        };
+        Db.Customers.Add(item);
+        await Db.SaveChangesAsync(CancellationToken);
+        LoggerFactory.Clear();
+
+        item.Contacts[0].Address!.City = "NewCity";
+
+        var affected = await Db.SaveChangesAsync(CancellationToken);
+        affected.Should().Be(1);
+
+        var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
+        raw!["Contacts"].L.Should().HaveCount(1);
+        raw["Contacts"].L[0].M["Address"].M["City"].S.Should().Be("NewCity");
+
+        AssertSql(
+            """
+            UPDATE "AppItems"
+            SET "Contacts" = ?
+            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            """);
+    }
+
+    // -------------------------------------------------------------------------
+    // Primitive list (L) changed
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    ///     Replacing a primitive list property replaces the entire L attribute in one
+    ///     <c>SET "AppliedCoupons" = ?</c> statement.
+    /// </summary>
+    [Fact]
+    public async Task SaveChangesAsync_PrimitiveList_Changed_ReplacesListAttribute()
+    {
+        var item = new OrderItem
+        {
+            Pk = "TENANT#1",
+            Sk = "ORDER#OWN-1",
+            Version = 1,
+            CustomerPk = "CUSTOMER#CUST-1",
+            Status = "Placed",
+            Total = 50m,
+            AppliedCoupons = ["WELCOME10"],
+        };
+        Db.Orders.Add(item);
+        await Db.SaveChangesAsync(CancellationToken);
+        LoggerFactory.Clear();
+
+        // Replace the collection reference so EF Core's snapshot comparison detects the change.
+        item.AppliedCoupons = [..item.AppliedCoupons, "SUMMER5"];
+
+        var affected = await Db.SaveChangesAsync(CancellationToken);
+        affected.Should().Be(1);
+
+        var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
+        raw!["AppliedCoupons"].L.Select(a => a.S).Should().Contain("SUMMER5");
+        raw["AppliedCoupons"].L.Should().HaveCount(2);
+
+        AssertSql(
+            """
+            UPDATE "AppItems"
+            SET "AppliedCoupons" = ?
+            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            """);
+    }
+
+    // -------------------------------------------------------------------------
+    // Primitive dictionary (M) changed
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    ///     Replacing a primitive dictionary property replaces the entire M attribute in one
+    ///     <c>SET "ChargesByCode" = ?</c> statement.
+    /// </summary>
+    [Fact]
+    public async Task SaveChangesAsync_PrimitiveDict_Changed_ReplacesMapAttribute()
+    {
+        var item = new OrderItem
+        {
+            Pk = "TENANT#1",
+            Sk = "ORDER#OWN-2",
+            Version = 1,
+            CustomerPk = "CUSTOMER#CUST-1",
+            Status = "Placed",
+            Total = 60m,
+            ChargesByCode = new Dictionary<string, decimal> { ["shipping"] = 9.99m },
+        };
+        Db.Orders.Add(item);
+        await Db.SaveChangesAsync(CancellationToken);
+        LoggerFactory.Clear();
+
+        // Replace the dictionary reference so EF Core's snapshot comparison detects the change.
+        item.ChargesByCode =
+            new Dictionary<string, decimal>(item.ChargesByCode) { ["tax"] = 11.51m };
+
+        var affected = await Db.SaveChangesAsync(CancellationToken);
+        affected.Should().Be(1);
+
+        var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
+        raw!["ChargesByCode"].M.Should().ContainKey("tax");
+        raw["ChargesByCode"].M.Should().ContainKey("shipping");
+
+        AssertSql(
+            """
+            UPDATE "AppItems"
+            SET "ChargesByCode" = ?
+            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            """);
+    }
+
+    // -------------------------------------------------------------------------
+    // Primitive set (SS) changed — string elements
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    ///     Replacing a primitive string set property replaces the entire SS attribute in one
+    ///     <c>SET "Tags" = ?</c> statement.
+    /// </summary>
+    [Fact]
+    public async Task SaveChangesAsync_PrimitiveStringSet_Changed_ReplacesSetAttribute()
+    {
+        var item = new CustomerItem
+        {
+            Pk = "TENANT#1",
+            Sk = "CUSTOMER#OWN-11",
+            Version = 1,
+            Email = "own11@example.com",
+            IsPreferred = false,
+            CreatedAt = new DateTimeOffset(2026, 4, 11, 12, 0, 0, TimeSpan.Zero),
+            Tags = ["vip"],
+        };
+        Db.Customers.Add(item);
+        await Db.SaveChangesAsync(CancellationToken);
+        LoggerFactory.Clear();
+
+        // Replace the set reference so EF Core's snapshot comparison detects the change.
+        item.Tags = new HashSet<string>(item.Tags) { "beta" };
+
+        var affected = await Db.SaveChangesAsync(CancellationToken);
+        affected.Should().Be(1);
+
+        var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
+        raw!["Tags"].SS.Should().Contain("beta");
+        raw["Tags"].SS.Should().Contain("vip");
+
+        AssertSql(
+            """
+            UPDATE "AppItems"
+            SET "Tags" = ?
+            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            """);
+    }
+
+    // -------------------------------------------------------------------------
+    // Primitive set (SS) changed — Guid elements (value-converter path)
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    ///     Replacing a <see cref="HashSet{Guid}" /> property replaces the SS attribute; GUIDs are
+    ///     stored as their canonical string representation via the registered value converter.
+    /// </summary>
+    [Fact]
+    public async Task SaveChangesAsync_PrimitiveGuidSet_Changed_ReplacesSetAttribute()
+    {
+        var guid1 = Guid.Parse("11111111-0000-0000-0000-000000000001");
+        var guid2 = Guid.Parse("11111111-0000-0000-0000-000000000002");
+        var item = new CustomerItem
+        {
+            Pk = "TENANT#1",
+            Sk = "CUSTOMER#OWN-12",
+            Version = 1,
+            Email = "own12@example.com",
+            IsPreferred = false,
+            CreatedAt = new DateTimeOffset(2026, 4, 12, 12, 0, 0, TimeSpan.Zero),
+            ReferenceIds = [guid1],
+        };
+        Db.Customers.Add(item);
+        await Db.SaveChangesAsync(CancellationToken);
+        LoggerFactory.Clear();
+
+        // Replace the set reference so EF Core's snapshot comparison detects the change.
+        item.ReferenceIds = new HashSet<Guid>(item.ReferenceIds) { guid2 };
+
+        var affected = await Db.SaveChangesAsync(CancellationToken);
+        affected.Should().Be(1);
+
+        var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
+        raw!["ReferenceIds"].SS.Should().Contain(guid2.ToString());
+        raw["ReferenceIds"].SS.Should().Contain(guid1.ToString());
+
+        AssertSql(
+            """
+            UPDATE "AppItems"
+            SET "ReferenceIds" = ?
+            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            """);
+    }
+
+    // -------------------------------------------------------------------------
+    // Mixed: scalar + owned reference mutation
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    ///     Simultaneously modifying a scalar root property and a nested OwnsOne property emits a
+    ///     single UPDATE with both the scalar SET and the nested-path SET clause.
+    /// </summary>
+    [Fact]
+    public async Task SaveChangesAsync_Mixed_ScalarAndOwned_EmitsBothInSingleUpdate()
+    {
+        var item = new CustomerItem
+        {
+            Pk = "TENANT#1",
+            Sk = "CUSTOMER#OWN-13",
+            Version = 1,
+            Email = "own13-before@example.com",
+            IsPreferred = false,
+            CreatedAt = new DateTimeOffset(2026, 4, 13, 12, 0, 0, TimeSpan.Zero),
+            Profile = new CustomerProfile { DisplayName = "Test", Nickname = "before-nick" },
+        };
+        Db.Customers.Add(item);
+        await Db.SaveChangesAsync(CancellationToken);
+        LoggerFactory.Clear();
+
+        item.Email = "own13-after@example.com";
+        item.Profile!.Nickname = "after-nick";
+
+        var affected = await Db.SaveChangesAsync(CancellationToken);
+        affected.Should().Be(1);
+
+        var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
+        raw!["Email"].S.Should().Be("own13-after@example.com");
+        raw["Profile"].M["Nickname"].S.Should().Be("after-nick");
+
+        AssertSql(
+            """
+            UPDATE "AppItems"
+            SET "Email" = ?, "Profile"."Nickname" = ?
+            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            """);
+    }
+
+    // -------------------------------------------------------------------------
+    // Mixed: scalar + primitive collection mutation
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    ///     Simultaneously modifying a scalar root property and a primitive set property emits a
+    ///     single UPDATE with both SET clauses.
+    /// </summary>
+    [Fact]
+    public async Task SaveChangesAsync_Mixed_ScalarAndPrimitiveCollection_EmitsBothInSingleUpdate()
+    {
+        var item = new CustomerItem
+        {
+            Pk = "TENANT#1",
+            Sk = "CUSTOMER#OWN-14",
+            Version = 1,
+            Email = "own14-before@example.com",
+            IsPreferred = false,
+            CreatedAt = new DateTimeOffset(2026, 4, 14, 12, 0, 0, TimeSpan.Zero),
+            Tags = ["original"],
+        };
+        Db.Customers.Add(item);
+        await Db.SaveChangesAsync(CancellationToken);
+        LoggerFactory.Clear();
+
+        item.Email = "own14-after@example.com";
+        item.Tags = new HashSet<string>(item.Tags) { "added" };
+
+        var affected = await Db.SaveChangesAsync(CancellationToken);
+        affected.Should().Be(1);
+
+        var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
+        raw!["Email"].S.Should().Be("own14-after@example.com");
+        raw["Tags"].SS.Should().Contain("added");
+
+        AssertSql(
+            """
+            UPDATE "AppItems"
+            SET "Email" = ?, "Tags" = ?
+            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            """);
+    }
+
+    // -------------------------------------------------------------------------
+    // Owned-only mutation — root stays Unchanged
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    ///     When only an owned navigation changes and the root entity stays Unchanged, the provider
+    ///     still emits an UPDATE for the root document — the aggregate root is included in the write loop
+    ///     via <c>IncludeMutatingOwnedRoots</c>.
+    /// </summary>
+    [Fact]
+    public async Task SaveChangesAsync_OwnedOnly_NoRootScalars_EmitsUpdateForUnchangedRoot()
+    {
+        var item = new ProductItem
+        {
+            Pk = "TENANT#1",
+            Sk = "PRODUCT#OWN-1",
+            Version = 1,
+            Name = "Test Product",
+            Price = 10m,
+            IsActive = true,
+            Dimensions = new ProductDimensions { Height = 5m, Width = 3m, Depth = 1m },
+        };
+        Db.Products.Add(item);
+        await Db.SaveChangesAsync(CancellationToken);
+        LoggerFactory.Clear();
+
+        item.Dimensions!.Height = 15m;
+
+        var affected = await Db.SaveChangesAsync(CancellationToken);
+        affected.Should().Be(1);
+
+        var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
+        // Decimal stored as DynamoDB N string.
+        decimal.Parse(raw!["Dimensions"].M["Height"].N).Should().Be(15m);
+
+        AssertSql(
+            """
+            UPDATE "AppItems"
+            SET "Dimensions"."Height" = ?
+            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            """);
+    }
+
+    // -------------------------------------------------------------------------
+    // Concurrency token present in WHERE for owned mutation
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    ///     An UPDATE for an owned navigation mutation includes the concurrency token property (
+    ///     <c>"Version" = ?</c>) in the WHERE clause, ensuring optimistic concurrency is enforced.
+    /// </summary>
+    [Fact]
+    public async Task SaveChangesAsync_ConcurrencyToken_OwnedMutation_IncludesVersionInWhere()
+    {
+        var item = new OrderItem
+        {
+            Pk = "TENANT#1",
+            Sk = "ORDER#OWN-3",
+            Version = 1,
+            CustomerPk = "CUSTOMER#CUST-1",
+            Status = "Placed",
+            Total = 75m,
+            Shipping = new ShippingDetails
+            {
+                Method = "Ground",
+                Address = new Address
+                {
+                    Line1 = "1 Ship St", City = "Portland", Country = "US",
+                },
+            },
+        };
+        Db.Orders.Add(item);
+        await Db.SaveChangesAsync(CancellationToken);
+        LoggerFactory.Clear();
+
+        item.Shipping!.Method = "Express";
+
+        var affected = await Db.SaveChangesAsync(CancellationToken);
+        affected.Should().Be(1);
+
+        var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
+        raw!["Shipping"].M["Method"].S.Should().Be("Express");
+
+        // WHERE must include "Version" = ? for concurrency enforcement.
+        AssertSql(
+            """
+            UPDATE "AppItems"
+            SET "Shipping"."Method" = ?
+            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            """);
+    }
+
+    // -------------------------------------------------------------------------
+    // Change tracker state after owned save
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    ///     After a successful SaveChanges for an owned-property mutation, the owned entry transitions
+    ///     back to <see cref="EntityState.Unchanged" /> and its original values are refreshed to match the
+    ///     new current values, preventing a spurious second write.
+    /// </summary>
+    [Fact]
+    public async Task SaveChangesAsync_ChangeTracker_OwnedEntryIsUnchangedAfterSave()
+    {
+        var item = new CustomerItem
+        {
+            Pk = "TENANT#1",
+            Sk = "CUSTOMER#OWN-17",
+            Version = 1,
+            Email = "own17@example.com",
+            IsPreferred = false,
+            CreatedAt = new DateTimeOffset(2026, 4, 17, 12, 0, 0, TimeSpan.Zero),
+            Profile = new CustomerProfile { DisplayName = "Before", Nickname = null },
+        };
+        Db.Customers.Add(item);
+        await Db.SaveChangesAsync(CancellationToken);
+        LoggerFactory.Clear();
+
+        item.Profile!.DisplayName = "After";
+        var profileEntry = Db.Entry(item.Profile);
+        profileEntry.State.Should().Be(EntityState.Modified);
+
+        var affected = await Db.SaveChangesAsync(CancellationToken);
+        affected.Should().Be(1);
+
+        // Consume the first write's logged statement before checking the no-op save.
+        AssertSql(
+            """
+            UPDATE "AppItems"
+            SET "Profile"."DisplayName" = ?
+            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            """);
+
+        // Owned entry must be Unchanged and original values must be refreshed.
+        profileEntry.State.Should().Be(EntityState.Unchanged);
+        profileEntry.Property(x => x.DisplayName).OriginalValue.Should().Be("After");
+
+        // A second SaveChanges must emit nothing — no spurious re-update.
+        var secondAffected = await Db.SaveChangesAsync(CancellationToken);
+        secondAffected.Should().Be(0);
+        AssertSql();
+    }
+}
