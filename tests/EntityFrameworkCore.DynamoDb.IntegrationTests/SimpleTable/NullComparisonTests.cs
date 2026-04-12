@@ -27,7 +27,7 @@ public class NullComparisonTests(SimpleTableDynamoFixture fixture) : SimpleTable
 
         AssertSql(
             """
-            SELECT "Pk", "$version", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
             FROM "SimpleItems"
             WHERE "NullableStringValue" IS NULL OR "NullableStringValue" IS MISSING
             """);
@@ -50,7 +50,7 @@ public class NullComparisonTests(SimpleTableDynamoFixture fixture) : SimpleTable
 
         AssertSql(
             """
-            SELECT "Pk", "$version", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
             FROM "SimpleItems"
             WHERE "NullableStringValue" IS NOT NULL AND "NullableStringValue" IS NOT MISSING
             """);
@@ -73,7 +73,7 @@ public class NullComparisonTests(SimpleTableDynamoFixture fixture) : SimpleTable
 
         AssertSql(
             """
-            SELECT "Pk", "$version", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
             FROM "SimpleItems"
             WHERE ("NullableStringValue" IS NULL OR "NullableStringValue" IS MISSING) AND "BoolValue" = TRUE
             """);
@@ -96,7 +96,7 @@ public class NullComparisonTests(SimpleTableDynamoFixture fixture) : SimpleTable
 
         AssertSql(
             """
-            SELECT "Pk", "$version", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
             FROM "SimpleItems"
             WHERE NOT ("NullableStringValue" IS NULL OR "NullableStringValue" IS MISSING)
             """);
@@ -121,7 +121,7 @@ public class NullComparisonTests(SimpleTableDynamoFixture fixture) : SimpleTable
 
         AssertSql(
             """
-            SELECT "Pk", "$version", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
             FROM "SimpleItems"
             WHERE "NullableStringValue" IS NULL
             """);
@@ -144,7 +144,7 @@ public class NullComparisonTests(SimpleTableDynamoFixture fixture) : SimpleTable
 
         AssertSql(
             """
-            SELECT "Pk", "$version", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
             FROM "SimpleItems"
             WHERE "NullableStringValue" IS NOT NULL
             """);
@@ -167,7 +167,7 @@ public class NullComparisonTests(SimpleTableDynamoFixture fixture) : SimpleTable
 
         AssertSql(
             """
-            SELECT "Pk", "$version", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
             FROM "SimpleItems"
             WHERE "NullableStringValue" IS MISSING
             """);
@@ -190,7 +190,7 @@ public class NullComparisonTests(SimpleTableDynamoFixture fixture) : SimpleTable
 
         AssertSql(
             """
-            SELECT "Pk", "$version", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
             FROM "SimpleItems"
             WHERE "NullableStringValue" IS NOT MISSING
             """);
@@ -224,7 +224,7 @@ public class NullComparisonTests(SimpleTableDynamoFixture fixture) : SimpleTable
 
         AssertSql(
             """
-            SELECT "Pk", "$version", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
             FROM "SimpleItems"
             WHERE "NullableStringValue" IS MISSING
             """);

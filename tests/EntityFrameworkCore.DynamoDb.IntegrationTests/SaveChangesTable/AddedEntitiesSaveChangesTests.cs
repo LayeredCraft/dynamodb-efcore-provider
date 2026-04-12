@@ -40,7 +40,7 @@ public class AddedEntitiesSaveChangesTests(SaveChangesTableDynamoFixture fixture
         AssertSql(
             """
             INSERT INTO "AppItems"
-            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, '$version': ?, 'CategorySet': ?, 'IsActive': ?, 'Metadata': ?, 'Name': ?, 'Price': ?, 'PublishedAt': ?, 'SearchTerms': ?, 'Version': ?, 'Variants': ?}
+            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CategorySet': ?, 'IsActive': ?, 'Metadata': ?, 'Name': ?, 'Price': ?, 'PublishedAt': ?, 'SearchTerms': ?, 'Version': ?, 'Variants': ?}
             """);
     }
 
@@ -159,7 +159,7 @@ public class AddedEntitiesSaveChangesTests(SaveChangesTableDynamoFixture fixture
         AssertSql(
             """
             INSERT INTO "AppItems"
-            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, '$version': ?, 'Attributes': ?, 'CustomerPk': ?, 'ExpiresAt': ?, 'Flags': ?, 'LastSeenAt': ?, 'Revoked': ?, 'Scopes': ?, 'Version': ?}
+            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'Attributes': ?, 'CustomerPk': ?, 'ExpiresAt': ?, 'Flags': ?, 'LastSeenAt': ?, 'Revoked': ?, 'Scopes': ?, 'Version': ?}
             """);
     }
 

@@ -17,7 +17,7 @@ public class SelectTests(PrimitiveCollectionsDynamoFixture fixture)
 
         AssertSql(
             """
-            SELECT "Pk", "$version", "LabelSet", "Metadata", "OptionalTags", "RatingSet", "ScoresByCategory", "Tags"
+            SELECT "Pk", "LabelSet", "Metadata", "OptionalTags", "RatingSet", "ScoresByCategory", "Tags"
             FROM "PrimitiveCollectionsItems"
             """);
     }

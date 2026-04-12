@@ -52,6 +52,29 @@ public class DynamoModelValidatorTypeMappingTests
         act.Should().NotThrow();
     }
 
+    [Fact]
+    public void Validate_Throws_WhenRowVersionConfigured()
+    {
+        using var context = new RowVersionConcurrencyContext();
+
+        var act = () => _ = context.Model;
+
+        act
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage("*IsRowVersion()*not currently support*application code*");
+    }
+
+    [Fact]
+    public void Validate_Succeeds_WhenManualConcurrencyTokenConfigured()
+    {
+        using var context = new ManualConcurrencyTokenContext();
+
+        var act = () => _ = context.Model;
+
+        act.Should().NotThrow();
+    }
+
     // --- Invalid: explicit scalar property with unmappable CLR type ---
 
     private sealed class ExplicitUnmappedScalarContext : DbContext
@@ -143,5 +166,57 @@ public class DynamoModelValidatorTypeMappingTests
         public string Pk { get; set; } = null!;
 
         public Guid Identifier { get; set; }
+    }
+
+    // --- Concurrency-token validation ---
+
+    private sealed class RowVersionConcurrencyContext : DbContext
+    {
+        public DbSet<RowVersionConcurrencyEntity> Items => Set<RowVersionConcurrencyEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder
+                .UseDynamo()
+                .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning));
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<RowVersionConcurrencyEntity>(builder =>
+            {
+                builder.ToTable("Items");
+                builder.HasPartitionKey(x => x.Pk);
+                builder.Property(x => x.Token).IsConcurrencyToken().ValueGeneratedOnAddOrUpdate();
+            });
+    }
+
+    private sealed class RowVersionConcurrencyEntity
+    {
+        public string Pk { get; set; } = null!;
+
+        public long Token { get; set; }
+    }
+
+    private sealed class ManualConcurrencyTokenContext : DbContext
+    {
+        public DbSet<ManualConcurrencyTokenEntity> Items => Set<ManualConcurrencyTokenEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder
+                .UseDynamo()
+                .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning));
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<ManualConcurrencyTokenEntity>(builder =>
+            {
+                builder.ToTable("Items");
+                builder.HasPartitionKey(x => x.Pk);
+                builder.Property(x => x.Token).IsConcurrencyToken().ValueGeneratedNever();
+            });
+    }
+
+    private sealed class ManualConcurrencyTokenEntity
+    {
+        public string Pk { get; set; } = null!;
+
+        public long Token { get; set; }
     }
 }

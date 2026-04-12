@@ -38,8 +38,8 @@ public class ModifiedScalarSaveChangesTests(SimpleTableDynamoFixture fixture)
         AssertSql(
             """
             UPDATE "SimpleItems"
-            SET "IntValue" = ?, "$version" = ?
-            WHERE "Pk" = ? AND "$version" = ?
+            SET "IntValue" = ?
+            WHERE "Pk" = ?
             """);
     }
 }

@@ -132,15 +132,7 @@ public static class SimpleItems
         CreateAttributeValues();
 
     private static IReadOnlyList<Dictionary<string, AttributeValue>> CreateAttributeValues()
-        => SimpleItemMapper.ToItems(Items).Select(WithVersion).ToList();
-
-    /// <summary>Adds the provider-managed version stamp to a seed item.</summary>
-    private static Dictionary<string, AttributeValue> WithVersion(
-        Dictionary<string, AttributeValue> item)
-    {
-        item["$version"] = new AttributeValue { N = "1" };
-        return item;
-    }
+        => SimpleItemMapper.ToItems(Items);
 }
 
 [DynamoMapper(Convention = DynamoNamingConvention.Exact, OmitNullValues = false)]

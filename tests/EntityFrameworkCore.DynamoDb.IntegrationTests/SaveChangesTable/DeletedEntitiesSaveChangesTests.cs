@@ -39,7 +39,7 @@ public class DeletedEntitiesSaveChangesTests(SaveChangesTableDynamoFixture fixtu
         AssertSql(
             """
             DELETE FROM "AppItems"
-            WHERE "Pk" = ? AND "Sk" = ? AND "$version" = ?
+            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
             """);
     }
 
@@ -72,7 +72,7 @@ public class DeletedEntitiesSaveChangesTests(SaveChangesTableDynamoFixture fixtu
         AssertSql(
             """
             DELETE FROM "AppItems"
-            WHERE "Pk" = ? AND "Sk" = ? AND "$version" = ?
+            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
             """);
     }
 
@@ -177,16 +177,16 @@ public class DeletedEntitiesSaveChangesTests(SaveChangesTableDynamoFixture fixtu
         AssertSql(
             """
             INSERT INTO "AppItems"
-            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, '$version': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'ReferenceIds': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?}
+            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'ReferenceIds': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?}
             """,
             """
             UPDATE "AppItems"
-            SET "Email" = ?, "$version" = ?
-            WHERE "Pk" = ? AND "Sk" = ? AND "$version" = ?
+            SET "Email" = ?
+            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
             """,
             """
             DELETE FROM "AppItems"
-            WHERE "Pk" = ? AND "Sk" = ? AND "$version" = ?
+            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
             """);
     }
 }

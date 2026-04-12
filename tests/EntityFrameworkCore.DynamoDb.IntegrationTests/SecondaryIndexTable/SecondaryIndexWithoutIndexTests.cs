@@ -60,7 +60,7 @@ public class SecondaryIndexWithoutIndexTests(SecondaryIndexDynamoFixture fixture
         // The FROM clause must reference the base table, not any secondary index.
         AssertSql(
             """
-            SELECT "CustomerId", "OrderId", "$version", "CreatedAt", "Priority", "Region", "Status"
+            SELECT "CustomerId", "OrderId", "CreatedAt", "Priority", "Region", "Status"
             FROM "SecondaryIndexOrders"
             WHERE "Status" = 'PENDING'
             """);

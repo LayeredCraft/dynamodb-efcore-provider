@@ -35,7 +35,7 @@ public class SecondaryIndexOffAutoSelectionTests(SecondaryIndexDynamoFixture fix
 
         AssertSql(
             """
-            SELECT "CustomerId", "OrderId", "$version", "CreatedAt", "Priority", "Region", "Status"
+            SELECT "CustomerId", "OrderId", "CreatedAt", "Priority", "Region", "Status"
             FROM "SecondaryIndexOrders"
             WHERE "Status" = 'PENDING'
             """);
