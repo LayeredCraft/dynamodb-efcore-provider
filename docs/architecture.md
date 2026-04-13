@@ -46,7 +46,25 @@ During transactional execution, the provider enforces DynamoDB transaction const
 - Maximum 100 write statements.
 - No multiple operations targeting the same item in one transaction.
 
-If constraints are violated, `SaveChangesAsync` throws a clear error instead of silently downgrading to non-atomic execution.
+If constraints are violated, `SaveChangesAsync` throws a clear error unless overflow chunking is
+explicitly enabled.
+
+Overflow handling is provider-configurable:
+
+- `TransactionOverflowBehavior.Throw` (default): throw when a transactional write unit exceeds the
+    effective `MaxTransactionSize`.
+- `TransactionOverflowBehavior.UseChunking`: split the write unit into multiple
+    `ExecuteTransaction` calls of up to `MaxTransactionSize` operations each.
+
+`AutoTransactionBehavior.Always` still requires a single atomic transactional unit; if the write
+unit exceeds the effective max transaction size, SaveChanges throws.
+
+Chunking semantics are explicit: each chunk is atomic, but the full SaveChanges unit is not
+globally atomic across chunks.
+
+Tracker semantics during chunking are also explicit: after each successful chunk commit, entries
+represented by that chunk are accepted in the current context. If a later chunk fails, already
+committed chunk entries remain accepted while failed/unrun chunk entries remain pending.
 
 Per-root write compilation remains:
 

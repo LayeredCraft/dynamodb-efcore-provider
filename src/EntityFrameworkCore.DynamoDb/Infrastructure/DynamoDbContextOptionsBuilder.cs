@@ -45,6 +45,22 @@ public class DynamoDbContextOptionsBuilder(DbContextOptionsBuilder optionsBuilde
         DynamoAutomaticIndexSelectionMode mode)
         => WithOption(e => e.WithAutomaticIndexSelectionMode(mode));
 
+    /// <summary>
+    /// Configures how transactional SaveChanges should behave when the write unit exceeds max
+    /// transaction size.
+    /// </summary>
+    /// <returns>The builder for chaining.</returns>
+    public virtual DynamoDbContextOptionsBuilder TransactionOverflowBehavior(
+        TransactionOverflowBehavior behavior)
+        => WithOption(e => e.WithTransactionOverflowBehavior(behavior));
+
+    /// <summary>
+    /// Configures the maximum number of write operations sent in a single DynamoDB transaction.
+    /// </summary>
+    /// <returns>The builder for chaining.</returns>
+    public virtual DynamoDbContextOptionsBuilder MaxTransactionSize(int maxTransactionSize)
+        => WithOption(e => e.WithMaxTransactionSize(maxTransactionSize));
+
     /// <summary>Updates the provider options extension with the supplied mutation action.</summary>
     protected virtual DynamoDbContextOptionsBuilder WithOption(
         Func<DynamoDbOptionsExtension, DynamoDbOptionsExtension> setAction)

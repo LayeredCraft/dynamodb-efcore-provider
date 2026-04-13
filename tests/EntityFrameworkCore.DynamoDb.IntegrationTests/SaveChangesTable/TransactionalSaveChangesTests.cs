@@ -1,4 +1,5 @@
 using Amazon.DynamoDBv2.Model;
+using EntityFrameworkCore.DynamoDb.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SaveChangesTable;
@@ -100,7 +101,10 @@ public class TransactionalSaveChangesTests(SaveChangesTableDynamoFixture fixture
         Db.Customers.AddRange(customers);
 
         var act = async () => await Db.SaveChangesAsync(CancellationToken);
-        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*limit of 100*");
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*MaxTransactionSize of 100*");
 
         (await GetItemAsync("TENANT#TXN", "CUSTOMER#ALWAYS-LIMIT-000", CancellationToken))
             .Should()
@@ -161,6 +165,179 @@ public class TransactionalSaveChangesTests(SaveChangesTableDynamoFixture fixture
         Db.Entry(second).State.Should().Be(EntityState.Added);
     }
 
+    [Fact]
+    public async Task WhenNeeded_OverflowWithUseChunking_AcceptsSuccessfulChunkEntries()
+    {
+        Db.Database.AutoTransactionBehavior = AutoTransactionBehavior.WhenNeeded;
+        Db.Database.SetTransactionOverflowBehavior(TransactionOverflowBehavior.UseChunking);
+        Db.Database.SetMaxTransactionSize(2);
+
+        await PutItemAsync(
+            CreateSeedItem(
+                CreateCustomer("TENANT#TXN", "CUSTOMER#CHUNK-DUP", "existing@example.com")),
+            CancellationToken);
+
+        var first = CreateCustomer("TENANT#TXN", "CUSTOMER#CHUNK-FIRST", "first@example.com");
+        var second = CreateCustomer("TENANT#TXN", "CUSTOMER#CHUNK-SECOND", "second@example.com");
+        var duplicate = CreateCustomer("TENANT#TXN", "CUSTOMER#CHUNK-DUP", "duplicate@example.com");
+
+        Db.Customers.Add(first);
+        Db.Customers.Add(second);
+        Db.Customers.Add(duplicate);
+
+        var act = async () => await Db.SaveChangesAsync(CancellationToken);
+        await act.Should().ThrowAsync<DbUpdateException>();
+
+        (await GetItemAsync(first.Pk, first.Sk, CancellationToken)).Should().NotBeNull();
+        (await GetItemAsync(second.Pk, second.Sk, CancellationToken)).Should().NotBeNull();
+        Db.Entry(first).State.Should().Be(EntityState.Unchanged);
+        Db.Entry(second).State.Should().Be(EntityState.Unchanged);
+        Db.Entry(duplicate).State.Should().Be(EntityState.Added);
+    }
+
+    [Fact]
+    public async Task Always_OverflowWithUseChunking_ThrowsInsteadOfChunking()
+    {
+        Db.Database.AutoTransactionBehavior = AutoTransactionBehavior.Always;
+        Db.Database.SetTransactionOverflowBehavior(TransactionOverflowBehavior.UseChunking);
+        Db.Database.SetMaxTransactionSize(2);
+
+        var first = CreateCustomer("TENANT#TXN", "CUSTOMER#ALWAYS-CHUNK-1", "first@example.com");
+        var second = CreateCustomer("TENANT#TXN", "CUSTOMER#ALWAYS-CHUNK-2", "second@example.com");
+        var third = CreateCustomer("TENANT#TXN", "CUSTOMER#ALWAYS-CHUNK-3", "third@example.com");
+
+        Db.Customers.Add(first);
+        Db.Customers.Add(second);
+        Db.Customers.Add(third);
+
+        var act = async () => await Db.SaveChangesAsync(CancellationToken);
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*AutoTransactionBehavior.Always*");
+
+        (await GetItemAsync(first.Pk, first.Sk, CancellationToken)).Should().BeNull();
+    }
+
+    [Fact]
+    public async Task StartupConfiguredChunking_AcceptsSuccessfulChunkEntries()
+    {
+        await PutItemAsync(
+            CreateSeedItem(
+                CreateCustomer("TENANT#TXN", "CUSTOMER#STARTUP-CHUNK-DUP", "existing@example.com")),
+            CancellationToken);
+
+        await using var configuredDb = CreateConfiguredContext(
+            TransactionOverflowBehavior.UseChunking,
+            2);
+        configuredDb.Database.AutoTransactionBehavior = AutoTransactionBehavior.WhenNeeded;
+
+        var first = CreateCustomer("TENANT#TXN", "CUSTOMER#STARTUP-CHUNK-1", "first@example.com");
+        var second = CreateCustomer("TENANT#TXN", "CUSTOMER#STARTUP-CHUNK-2", "second@example.com");
+        var duplicate = CreateCustomer(
+            "TENANT#TXN",
+            "CUSTOMER#STARTUP-CHUNK-DUP",
+            "duplicate@example.com");
+
+        configuredDb.Customers.Add(first);
+        configuredDb.Customers.Add(second);
+        configuredDb.Customers.Add(duplicate);
+
+        var act = async () => await configuredDb.SaveChangesAsync(CancellationToken);
+        await act.Should().ThrowAsync<DbUpdateException>();
+
+        (await GetItemAsync(first.Pk, first.Sk, CancellationToken)).Should().NotBeNull();
+        (await GetItemAsync(second.Pk, second.Sk, CancellationToken)).Should().NotBeNull();
+        configuredDb.Entry(first).State.Should().Be(EntityState.Unchanged);
+        configuredDb.Entry(second).State.Should().Be(EntityState.Unchanged);
+        configuredDb.Entry(duplicate).State.Should().Be(EntityState.Added);
+    }
+
+    [Fact]
+    public async Task
+        WhenNeeded_OverflowWithUseChunking_RetryOnSameContext_ReplaysOnlyPendingEntries()
+    {
+        Db.Database.AutoTransactionBehavior = AutoTransactionBehavior.WhenNeeded;
+        Db.Database.SetTransactionOverflowBehavior(TransactionOverflowBehavior.UseChunking);
+        Db.Database.SetMaxTransactionSize(2);
+
+        await PutItemAsync(
+            CreateSeedItem(
+                CreateCustomer("TENANT#TXN", "CUSTOMER#CHUNK-RETRY-DUP", "existing@example.com")),
+            CancellationToken);
+
+        var first = CreateCustomer("TENANT#TXN", "CUSTOMER#CHUNK-RETRY-1", "first@example.com");
+        var second = CreateCustomer("TENANT#TXN", "CUSTOMER#CHUNK-RETRY-2", "second@example.com");
+        var duplicate = CreateCustomer(
+            "TENANT#TXN",
+            "CUSTOMER#CHUNK-RETRY-DUP",
+            "duplicate@example.com");
+
+        Db.Customers.Add(first);
+        Db.Customers.Add(second);
+        Db.Customers.Add(duplicate);
+
+        var firstSave = async () => await Db.SaveChangesAsync(CancellationToken);
+        await firstSave.Should().ThrowAsync<DbUpdateException>();
+
+        Db.Entry(first).State.Should().Be(EntityState.Unchanged);
+        Db.Entry(second).State.Should().Be(EntityState.Unchanged);
+        Db.Entry(duplicate).State.Should().Be(EntityState.Added);
+
+        duplicate.Sk = "CUSTOMER#CHUNK-RETRY-3";
+        duplicate.Email = "third@example.com";
+
+        await Db.SaveChangesAsync(CancellationToken);
+
+        (await GetItemAsync(first.Pk, first.Sk, CancellationToken)).Should().NotBeNull();
+        (await GetItemAsync(second.Pk, second.Sk, CancellationToken)).Should().NotBeNull();
+        (await GetItemAsync(duplicate.Pk, duplicate.Sk, CancellationToken)).Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task WhenNeeded_OverflowWithUseChunking_SaveChangesFalse_ThrowsClearError()
+    {
+        Db.Database.AutoTransactionBehavior = AutoTransactionBehavior.WhenNeeded;
+        Db.Database.SetTransactionOverflowBehavior(TransactionOverflowBehavior.UseChunking);
+        Db.Database.SetMaxTransactionSize(2);
+
+        var first = CreateCustomer("TENANT#TXN", "CUSTOMER#CHUNK-FALSE-1", "first@example.com");
+        var second = CreateCustomer("TENANT#TXN", "CUSTOMER#CHUNK-FALSE-2", "second@example.com");
+        var third = CreateCustomer("TENANT#TXN", "CUSTOMER#CHUNK-FALSE-3", "third@example.com");
+
+        Db.Customers.Add(first);
+        Db.Customers.Add(second);
+        Db.Customers.Add(third);
+
+        var act = async () => await Db.SaveChangesAsync(false, CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*acceptAllChangesOnSuccess is false*");
+
+        (await GetItemAsync(first.Pk, first.Sk, CancellationToken)).Should().BeNull();
+        (await GetItemAsync(second.Pk, second.Sk, CancellationToken)).Should().BeNull();
+        (await GetItemAsync(third.Pk, third.Sk, CancellationToken)).Should().BeNull();
+    }
+
+    [Fact]
+    public void DatabaseFacade_TransactionOverflowSettings_CanBeOverriddenPerContext()
+    {
+        Db.Database.GetTransactionOverflowBehavior().Should().Be(TransactionOverflowBehavior.Throw);
+        Db.Database.GetMaxTransactionSize().Should().Be(100);
+
+        Db.Database.SetTransactionOverflowBehavior(TransactionOverflowBehavior.UseChunking);
+        Db.Database.SetMaxTransactionSize(25);
+
+        Db
+            .Database
+            .GetTransactionOverflowBehavior()
+            .Should()
+            .Be(TransactionOverflowBehavior.UseChunking);
+        Db.Database.GetMaxTransactionSize().Should().Be(25);
+    }
+
     private static CustomerItem CreateCustomer(string pk, string sk, string email)
         => new()
         {
@@ -171,6 +348,17 @@ public class TransactionalSaveChangesTests(SaveChangesTableDynamoFixture fixture
             IsPreferred = false,
             CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero),
         };
+
+    private SaveChangesTableDbContext CreateConfiguredContext(
+        TransactionOverflowBehavior behavior,
+        int maxTransactionSize)
+        => new(
+            new DbContextOptionsBuilder<SaveChangesTableDbContext>().UseDynamo(options
+                    => options
+                        .DynamoDbClient(Client)
+                        .TransactionOverflowBehavior(behavior)
+                        .MaxTransactionSize(maxTransactionSize))
+                .Options);
 
     private static Dictionary<string, AttributeValue> CreateSeedItem(CustomerItem customer)
     {

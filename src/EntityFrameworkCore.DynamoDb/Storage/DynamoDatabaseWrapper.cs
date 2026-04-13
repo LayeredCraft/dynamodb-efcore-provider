@@ -3,6 +3,8 @@ using System.Text;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.Diagnostics.Internal;
+using EntityFrameworkCore.DynamoDb.Infrastructure;
+using EntityFrameworkCore.DynamoDb.Infrastructure.Internal;
 using EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking.Internal;
@@ -22,11 +24,21 @@ namespace EntityFrameworkCore.DynamoDb.Storage;
 /// </summary>
 public class DynamoDatabaseWrapper(
     DatabaseDependencies dependencies,
+    IDbContextOptions dbContextOptions,
     ICurrentDbContext currentDbContext,
+    DynamoTransactionRuntimeOptions transactionRuntimeOptions,
     IDynamoClientWrapper clientWrapper,
     IDiagnosticsLogger<DbLoggerCategory.Database.Command> commandLogger,
     DynamoEntityItemSerializerSource serializerSource) : Database(dependencies)
 {
+    private readonly DynamoDbOptionsExtension _optionsExtension =
+        dbContextOptions.FindExtension<DynamoDbOptionsExtension>()
+        ?? new DynamoDbOptionsExtension();
+
+    private readonly bool _saveEventsHooked = HookSaveEvents(
+        currentDbContext.Context,
+        transactionRuntimeOptions);
+
     /// <summary>Not supported — DynamoDB only exposes an async API.</summary>
     /// <exception cref="NotSupportedException">Always thrown.</exception>
     public override int SaveChanges(IList<IUpdateEntry> entries)
@@ -50,50 +62,42 @@ public class DynamoDatabaseWrapper(
         IList<IUpdateEntry> entries,
         CancellationToken cancellationToken = default)
     {
-        // Guard: only Added/Modified/Deleted are implemented; fail explicitly for others.
-        var unsupported = entries.FirstOrDefault(static e
-            => e.EntityState is not EntityState.Added
-                and not EntityState.Modified
-                and not EntityState.Deleted
-            && !e.EntityType.IsOwned());
+        _ = _saveEventsHooked;
 
-        if (unsupported is not null)
-            throw new NotSupportedException(
-                $"SaveChanges for EntityState.{unsupported.EntityState} is not yet supported. "
-                + "Only Added, Modified, and Deleted entities can be persisted in this version.");
-
-        var rootEntries = BuildRootEntries(entries);
-
-        // Pre-compute once per save call: for each principal entry, which of its owned
-        // navigations have at least one Add/Modify/Delete mutation in this batch?
-        // Turns HasMutationForOwnedNavigation from O(entries × navs × depth) → O(1) per check.
-        var mutatingNavs = BuildMutatingNavLookup(entries);
-
-        var operations = BuildWriteOperations(rootEntries, mutatingNavs);
-        if (operations.Count == 0)
-            return 0;
-
-        var autoTransactionBehavior = currentDbContext.Context.Database.AutoTransactionBehavior;
-        var shouldUseTransaction = autoTransactionBehavior switch
+        try
         {
-            AutoTransactionBehavior.Never => false,
-            AutoTransactionBehavior.WhenNeeded => operations.Count > 1,
-            AutoTransactionBehavior.Always => operations.Count > 1,
-            _ => throw new InvalidOperationException(
-                $"Invalid AutoTransactionBehavior: {autoTransactionBehavior}"),
-        };
+            // Guard: only Added/Modified/Deleted are implemented; fail explicitly for others.
+            var unsupported = entries.FirstOrDefault(static e
+                => e.EntityState is not EntityState.Added
+                    and not EntityState.Modified
+                    and not EntityState.Deleted
+                && !e.EntityType.IsOwned());
 
-        if (!shouldUseTransaction)
-        {
-            await ExecuteIndependentWritesAsync(operations, cancellationToken)
+            if (unsupported is not null)
+                throw new NotSupportedException(
+                    $"SaveChanges for EntityState.{unsupported.EntityState} is not yet supported. "
+                    + "Only Added, Modified, and Deleted entities can be persisted in this version.");
+
+            var rootEntries = BuildRootEntries(entries);
+
+            // Pre-compute once per save call: for each principal entry, which of its owned
+            // navigations have at least one Add/Modify/Delete mutation in this batch?
+            // Turns HasMutationForOwnedNavigation from O(entries × navs × depth) → O(1) per check.
+            var mutatingNavs = BuildMutatingNavLookup(entries);
+
+            var operations = BuildWriteOperations(rootEntries, mutatingNavs);
+            if (operations.Count == 0)
+                return 0;
+
+            await ExecutePlannedWritesAsync(entries, rootEntries, operations, cancellationToken)
                 .ConfigureAwait(false);
+
             return operations.Count;
         }
-
-        ValidateTransactionalWriteOperations(operations, autoTransactionBehavior);
-        await ExecuteTransactionalWritesAsync(operations, cancellationToken).ConfigureAwait(false);
-
-        return operations.Count;
+        finally
+        {
+            transactionRuntimeOptions.AcceptAllChangesOnSuccess = null;
+        }
     }
 
     private sealed record CompiledWriteOperation(
@@ -125,14 +129,13 @@ public class DynamoDatabaseWrapper(
                     var tableName = (string)entry.EntityType[DynamoAnnotationNames.TableName]!;
                     var (sql, parameters) = BuildInsertStatement(tableName, item);
 
-                    operations.Add(
-                        new CompiledWriteOperation(
-                            entry,
-                            EntityState.Added,
-                            tableName,
-                            sql,
-                            parameters,
-                            BuildTargetItemIdentity(entry, tableName)));
+                    AddCompiledOperation(
+                        operations,
+                        entry,
+                        EntityState.Added,
+                        tableName,
+                        sql,
+                        parameters);
                     break;
                 }
 
@@ -142,14 +145,13 @@ public class DynamoDatabaseWrapper(
                     if (update is null)
                         continue;
 
-                    operations.Add(
-                        new CompiledWriteOperation(
-                            entry,
-                            EntityState.Modified,
-                            update.Value.tableName,
-                            update.Value.sql,
-                            update.Value.parameters,
-                            BuildTargetItemIdentity(entry, update.Value.tableName)));
+                    AddCompiledOperation(
+                        operations,
+                        entry,
+                        EntityState.Modified,
+                        update.Value.tableName,
+                        update.Value.sql,
+                        update.Value.parameters);
                     break;
                 }
 
@@ -159,28 +161,26 @@ public class DynamoDatabaseWrapper(
                     if (update is null)
                         continue;
 
-                    operations.Add(
-                        new CompiledWriteOperation(
-                            entry,
-                            EntityState.Modified,
-                            update.Value.tableName,
-                            update.Value.sql,
-                            update.Value.parameters,
-                            BuildTargetItemIdentity(entry, update.Value.tableName)));
+                    AddCompiledOperation(
+                        operations,
+                        entry,
+                        EntityState.Modified,
+                        update.Value.tableName,
+                        update.Value.sql,
+                        update.Value.parameters);
                     break;
                 }
 
                 case EntityState.Deleted:
                 {
                     var delete = BuildDeleteStatement(entry);
-                    operations.Add(
-                        new CompiledWriteOperation(
-                            entry,
-                            EntityState.Deleted,
-                            delete.tableName,
-                            delete.sql,
-                            delete.parameters,
-                            BuildTargetItemIdentity(entry, delete.tableName)));
+                    AddCompiledOperation(
+                        operations,
+                        entry,
+                        EntityState.Deleted,
+                        delete.tableName,
+                        delete.sql,
+                        delete.parameters);
                     break;
                 }
 
@@ -193,6 +193,115 @@ public class DynamoDatabaseWrapper(
 
         return operations;
     }
+
+    private async Task ExecutePlannedWritesAsync(
+        IList<IUpdateEntry> entries,
+        IReadOnlyList<IUpdateEntry> rootEntries,
+        IReadOnlyList<CompiledWriteOperation> operations,
+        CancellationToken cancellationToken)
+    {
+        var autoTransactionBehavior = currentDbContext.Context.Database.AutoTransactionBehavior;
+        var effectiveTransactionOverflowBehavior =
+            transactionRuntimeOptions.TransactionOverflowBehaviorOverride
+            ?? _optionsExtension.TransactionOverflowBehavior;
+        var effectiveMaxTransactionSize = transactionRuntimeOptions.MaxTransactionSizeOverride
+            ?? _optionsExtension.MaxTransactionSize;
+
+        if (!ShouldUseTransaction(autoTransactionBehavior, operations.Count))
+        {
+            await ExecuteIndependentWritesAsync(operations, cancellationToken)
+                .ConfigureAwait(false);
+            return;
+        }
+
+        if (operations.Count <= effectiveMaxTransactionSize)
+        {
+            ValidateTransactionalWriteOperations(operations, autoTransactionBehavior);
+            await ExecuteTransactionalWritesAsync(operations, cancellationToken)
+                .ConfigureAwait(false);
+            return;
+        }
+
+        if (autoTransactionBehavior == AutoTransactionBehavior.Always)
+            throw CreateAlwaysOverflowException(operations.Count, effectiveMaxTransactionSize);
+
+        if (effectiveTransactionOverflowBehavior == TransactionOverflowBehavior.Throw)
+            throw CreateOverflowExecutionException(
+                operations.Count,
+                effectiveMaxTransactionSize,
+                autoTransactionBehavior,
+                effectiveTransactionOverflowBehavior);
+
+        // Chunking can partially commit; provider must accept successful chunk entries
+        // immediately to keep tracker aligned with persisted state.
+        if (transactionRuntimeOptions.AcceptAllChangesOnSuccess == false)
+            throw CreateChunkingAcceptAllChangesRequiredException();
+
+        var rootAggregateEntries = BuildRootAggregateEntries(entries, rootEntries);
+
+        await ExecuteChunkedTransactionalWritesAsync(
+                operations,
+                rootAggregateEntries,
+                effectiveMaxTransactionSize,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private static bool ShouldUseTransaction(
+        AutoTransactionBehavior autoTransactionBehavior,
+        int operationCount)
+        => autoTransactionBehavior switch
+        {
+            AutoTransactionBehavior.Never => false,
+            AutoTransactionBehavior.WhenNeeded => operationCount > 1,
+            AutoTransactionBehavior.Always => operationCount > 1,
+            _ => throw new InvalidOperationException(
+                $"Invalid AutoTransactionBehavior: {autoTransactionBehavior}"),
+        };
+
+    private static void AddCompiledOperation(
+        ICollection<CompiledWriteOperation> operations,
+        IUpdateEntry entry,
+        EntityState entityState,
+        string tableName,
+        string statement,
+        List<AttributeValue> parameters)
+        => operations.Add(
+            new CompiledWriteOperation(
+                entry,
+                entityState,
+                tableName,
+                statement,
+                parameters,
+                BuildTargetItemIdentity(entry, tableName)));
+
+    private static InvalidOperationException CreateAlwaysOverflowException(
+        int operationCount,
+        int effectiveMaxTransactionSize)
+        => new(
+            "SaveChanges cannot satisfy AutoTransactionBehavior.Always because the "
+            + $"write unit contains {operationCount} root operations, exceeding the "
+            + $"effective MaxTransactionSize of {effectiveMaxTransactionSize}."
+            + " A single atomic transaction cannot represent this save operation.");
+
+    private static InvalidOperationException CreateOverflowExecutionException(
+        int operationCount,
+        int effectiveMaxTransactionSize,
+        AutoTransactionBehavior autoTransactionBehavior,
+        TransactionOverflowBehavior effectiveTransactionOverflowBehavior)
+        => new(
+            "SaveChanges cannot satisfy transactional execution because the write unit "
+            + $"contains {operationCount} root operations, exceeding the effective "
+            + $"MaxTransactionSize of {effectiveMaxTransactionSize}. "
+            + $"Current AutoTransactionBehavior is '{autoTransactionBehavior}' and "
+            + $"TransactionOverflowBehavior is '{effectiveTransactionOverflowBehavior}'.");
+
+    private static InvalidOperationException CreateChunkingAcceptAllChangesRequiredException()
+        => new(
+            "Chunked transactional SaveChanges is not supported when "
+            + "acceptAllChangesOnSuccess is false. Partial chunk commits require "
+            + "per-chunk tracker acceptance to avoid replaying already-persisted "
+            + "writes on retry.");
 
     private async Task ExecuteIndependentWritesAsync(
         IReadOnlyList<CompiledWriteOperation> operations,
@@ -254,6 +363,102 @@ public class DynamoDatabaseWrapper(
         }
     }
 
+    private async Task ExecuteChunkedTransactionalWritesAsync(
+        IReadOnlyList<CompiledWriteOperation> operations,
+        IReadOnlyDictionary<InternalEntityEntry, IReadOnlyList<IUpdateEntry>> rootAggregateEntries,
+        int maxTransactionSize,
+        CancellationToken cancellationToken)
+    {
+        for (var i = 0; i < operations.Count; i += maxTransactionSize)
+        {
+            var chunk = operations.Skip(i).Take(maxTransactionSize).ToList();
+            ValidateTransactionalDuplicateTargets(chunk);
+            await ExecuteTransactionalWritesAsync(chunk, cancellationToken).ConfigureAwait(false);
+            AcceptChunkEntries(chunk, rootAggregateEntries);
+        }
+    }
+
+    /// <summary>
+    ///     Builds mapping from root aggregate entry to all tracked entries represented by that root
+    ///     in current SaveChanges call.
+    /// </summary>
+    private static IReadOnlyDictionary<InternalEntityEntry, IReadOnlyList<IUpdateEntry>>
+        BuildRootAggregateEntries(
+            IList<IUpdateEntry> entries,
+            IReadOnlyList<IUpdateEntry> rootEntries)
+    {
+        var rootToEntries =
+            new Dictionary<InternalEntityEntry, HashSet<IUpdateEntry>>(
+                ReferenceEqualityComparer.Instance);
+
+        foreach (var rootEntry in rootEntries)
+        {
+            var internalRoot = (InternalEntityEntry)rootEntry;
+            rootToEntries[internalRoot] =
+                new HashSet<IUpdateEntry>(ReferenceEqualityComparer.Instance) { rootEntry };
+        }
+
+        foreach (var entry in entries)
+        {
+            var root = GetRootEntry((InternalEntityEntry)entry);
+            if (!rootToEntries.TryGetValue(root, out var relatedEntries))
+            {
+                relatedEntries =
+                    new HashSet<IUpdateEntry>(ReferenceEqualityComparer.Instance) { root };
+                rootToEntries[root] = relatedEntries;
+            }
+
+            relatedEntries.Add(entry);
+        }
+
+        var result =
+            new Dictionary<InternalEntityEntry, IReadOnlyList<IUpdateEntry>>(
+                ReferenceEqualityComparer.Instance);
+
+        foreach (var pair in rootToEntries)
+            result[pair.Key] = pair.Value.ToList();
+
+        return result;
+    }
+
+    /// <summary>
+    ///     Accepts tracked entries represented by successful chunk to prevent replaying committed
+    ///     writes on retry.
+    /// </summary>
+    private static void AcceptChunkEntries(
+        IReadOnlyList<CompiledWriteOperation> chunk,
+        IReadOnlyDictionary<InternalEntityEntry, IReadOnlyList<IUpdateEntry>> rootAggregateEntries)
+    {
+        var entriesToAccept = new HashSet<InternalEntityEntry>(ReferenceEqualityComparer.Instance);
+
+        foreach (var operation in chunk)
+        {
+            var rootEntry = (InternalEntityEntry)operation.Entry;
+            if (!rootAggregateEntries.TryGetValue(rootEntry, out var relatedEntries))
+            {
+                entriesToAccept.Add(rootEntry);
+                continue;
+            }
+
+            foreach (var relatedEntry in relatedEntries)
+                entriesToAccept.Add((InternalEntityEntry)relatedEntry);
+        }
+
+        foreach (var entry in entriesToAccept)
+            entry.AcceptChanges();
+    }
+
+    /// <summary>Hooks SaveChanges events to capture per-call <c>acceptAllChangesOnSuccess</c> mode.</summary>
+    private static bool HookSaveEvents(
+        DbContext context,
+        DynamoTransactionRuntimeOptions transactionRuntimeOptions)
+    {
+        context.SavingChanges += (_, e) => transactionRuntimeOptions.AcceptAllChangesOnSuccess =
+            e.AcceptAllChangesOnSuccess;
+
+        return true;
+    }
+
     private static void ValidateTransactionalWriteOperations(
         IReadOnlyList<CompiledWriteOperation> operations,
         AutoTransactionBehavior autoTransactionBehavior)
@@ -265,15 +470,23 @@ public class DynamoDatabaseWrapper(
                 + "ExecuteTransaction limit of 100 statements. "
                 + $"Current AutoTransactionBehavior is '{autoTransactionBehavior}'.");
 
+        ValidateTransactionalDuplicateTargets(operations);
+    }
+
+    private static void ValidateTransactionalDuplicateTargets(
+        IReadOnlyList<CompiledWriteOperation> operations)
+    {
         var duplicateTarget = operations
             .GroupBy(static x => x.TargetItem)
             .FirstOrDefault(static g => g.Count() > 1);
 
-        if (duplicateTarget is not null)
-            throw new InvalidOperationException(
-                "SaveChanges cannot satisfy transactional atomicity because the unit of work "
-                + "contains multiple operations targeting the same DynamoDB item in a single "
-                + "transaction, which is not allowed by ExecuteTransaction.");
+        if (duplicateTarget is null)
+            return;
+
+        throw new InvalidOperationException(
+            "SaveChanges cannot satisfy transactional atomicity because the unit of work "
+            + "contains multiple operations targeting the same DynamoDB item in a single "
+            + "transaction, which is not allowed by ExecuteTransaction.");
     }
 
     private static TransactionTargetItem BuildTargetItemIdentity(
