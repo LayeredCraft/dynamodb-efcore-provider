@@ -35,6 +35,11 @@ public class DynamoDatabaseWrapper(
         dbContextOptions.FindExtension<DynamoDbOptionsExtension>()
         ?? new DynamoDbOptionsExtension();
 
+    // Side-effect field: subscribes to SavingChanges exactly once during construction (primary
+    // constructor has no body, so field initializers are the only hook point) to capture the
+    // per-call acceptAllChangesOnSuccess flag in transactionRuntimeOptions before
+    // SaveChangesAsync is invoked. _ = _saveEventsHooked in SaveChangesAsync prevents the
+    // "unused private member" compiler warning without adding any runtime cost.
     private readonly bool _saveEventsHooked = HookSaveEvents(
         currentDbContext.Context,
         transactionRuntimeOptions);
@@ -349,9 +354,12 @@ public class DynamoDatabaseWrapper(
         }
         catch (TransactionCanceledException tce)
         {
+            // entityState is not used by WrapWriteException for TransactionCanceledException
+            // (it inspects CancellationReasons instead), but we pass the first operation's
+            // actual state so the parameter remains semantically correct for future callers.
             throw WrapWriteException(
                 tce,
-                EntityState.Modified,
+                operations[0].EntityState,
                 operations.Select(static x => x.Entry).ToList());
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -462,13 +470,9 @@ public class DynamoDatabaseWrapper(
         IReadOnlyList<CompiledWriteOperation> operations,
         AutoTransactionBehavior autoTransactionBehavior)
     {
-        if (operations.Count > 100)
-            throw new InvalidOperationException(
-                "SaveChanges cannot satisfy transactional atomicity because the unit of work "
-                + $"contains {operations.Count} root write operations, exceeding the DynamoDB "
-                + "ExecuteTransaction limit of 100 statements. "
-                + $"Current AutoTransactionBehavior is '{autoTransactionBehavior}'.");
-
+        // Count is already checked against effectiveMaxTransactionSize by the caller; this
+        // validates the remaining constraint DynamoDB imposes: no two operations may target the
+        // same item within a single ExecuteTransaction call.
         ValidateTransactionalDuplicateTargets(operations);
     }
 

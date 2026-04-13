@@ -338,6 +338,88 @@ public class TransactionalSaveChangesTests(SaveChangesTableDynamoFixture fixture
         Db.Database.GetMaxTransactionSize().Should().Be(25);
     }
 
+    [Fact]
+    public async Task Always_SingleRootSave_ExecutesDirectly_WithoutTransaction()
+    {
+        // AutoTransactionBehavior.Always still executes a single-root save directly
+        // (no ExecuteTransaction overhead) — confirmed by the single SQL statement logged.
+        Db.Database.AutoTransactionBehavior = AutoTransactionBehavior.Always;
+
+        var customer = CreateCustomer("TENANT#TXN", "CUSTOMER#ALWAYS-SINGLE", "single@example.com");
+        Db.Customers.Add(customer);
+
+        await Db.SaveChangesAsync(CancellationToken);
+
+        (await GetItemAsync(customer.Pk, customer.Sk, CancellationToken)).Should().NotBeNull();
+
+        AssertSql(
+            """
+            INSERT INTO "AppItems"
+            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'ReferenceIds': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?}
+            """);
+    }
+
+    [Fact]
+    public async Task WhenNeeded_DuplicateTargetInSingleTransaction_ThrowsClearError()
+    {
+        // Two different entity types mapping to the same DynamoDB item key in one save —
+        // ExecuteTransaction rejects multiple operations targeting the same item.
+        Db.Database.AutoTransactionBehavior = AutoTransactionBehavior.WhenNeeded;
+
+        var customer = CreateCustomer("TENANT#TXN", "CUSTOMER#DUP-TARGET", "dup@example.com");
+
+        var product = new ProductItem
+        {
+            // Same PK+SK as customer — both map to AppItems; same DynamoDB item.
+            Pk = "TENANT#TXN",
+            Sk = "CUSTOMER#DUP-TARGET",
+            Version = 1,
+            Name = "Collision",
+            Price = 9.99m,
+            IsActive = true,
+        };
+
+        Db.Customers.Add(customer);
+        Db.Products.Add(product);
+
+        var act = async () => await Db.SaveChangesAsync(CancellationToken);
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*multiple operations targeting the same DynamoDB item*");
+
+        (await GetItemAsync(customer.Pk, customer.Sk, CancellationToken)).Should().BeNull();
+    }
+
+    [Fact]
+    public async Task WhenNeeded_MixedStateTransaction_AllOperationsSucceedAtomically()
+    {
+        // Add + Modify + Delete in a single WhenNeeded save — all three states compile into
+        // one ExecuteTransaction call that commits or rolls back together.
+        Db.Database.AutoTransactionBehavior = AutoTransactionBehavior.WhenNeeded;
+
+        var toModify = CreateCustomer("TENANT#TXN", "CUSTOMER#MIXED-MODIFY", "modify@example.com");
+        var toDelete = CreateCustomer("TENANT#TXN", "CUSTOMER#MIXED-DELETE", "delete@example.com");
+
+        Db.Customers.Add(toModify);
+        Db.Customers.Add(toDelete);
+        await Db.SaveChangesAsync(CancellationToken);
+        LoggerFactory.Clear();
+
+        var toAdd = CreateCustomer("TENANT#TXN", "CUSTOMER#MIXED-ADD", "add@example.com");
+        Db.Customers.Add(toAdd);
+        toModify.Email = "modified@example.com";
+        Db.Customers.Remove(toDelete);
+
+        await Db.SaveChangesAsync(CancellationToken);
+
+        (await GetItemAsync(toAdd.Pk, toAdd.Sk, CancellationToken)).Should().NotBeNull();
+        var modifiedItem = await GetItemAsync(toModify.Pk, toModify.Sk, CancellationToken);
+        modifiedItem.Should().NotBeNull();
+        modifiedItem!["Email"].S.Should().Be("modified@example.com");
+        (await GetItemAsync(toDelete.Pk, toDelete.Sk, CancellationToken)).Should().BeNull();
+    }
+
     private static CustomerItem CreateCustomer(string pk, string sk, string email)
         => new()
         {
