@@ -38,6 +38,10 @@ The provider follows EF Core `Database.AutoTransactionBehavior` for implicit tra
 - `Always`: requires transactional execution for multi-root saves.
 - `Never`: disables implicit transactions and executes multi-root writes using non-atomic DynamoDB `BatchExecuteStatement` chunks.
 
+> **Single-root saves always execute directly**, regardless of `AutoTransactionBehavior`. A single
+> DynamoDB write is implicitly atomic, so wrapping it in `ExecuteTransaction` adds latency with no
+> atomicity benefit. This applies even when `AutoTransactionBehavior.Always` is set.
+
 ```csharp
 context.Database.AutoTransactionBehavior = AutoTransactionBehavior.Never;
 ```
@@ -93,6 +97,11 @@ atomic across all root writes.
 When chunking is active, use normal `SaveChanges`/`SaveChangesAsync` acceptance behavior
 (`acceptAllChangesOnSuccess: true`). Chunking with `acceptAllChangesOnSuccess: false` is rejected
 because successful chunks must be accepted immediately to avoid replaying already persisted writes.
+
+> **Partial-commit risk with chunking:** if chunk *N* fails, chunks *0..N-1* are **permanently
+> committed** and cannot be rolled back or retried without re-querying. Always re-query the affected
+> entities before retrying a chunked `SaveChanges` to avoid replaying writes that were already
+> persisted.
 
 The same acceptance rule applies to non-atomic `BatchExecuteStatement` chunk iteration under
 `AutoTransactionBehavior.Never` for multi-root saves.
