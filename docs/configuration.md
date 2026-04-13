@@ -73,6 +73,10 @@ Configuration precedence:
 `UseChunking` keeps each chunk atomic, but the overall `SaveChanges` call is no longer globally
 atomic across all root writes.
 
+When chunking is active, use normal `SaveChanges`/`SaveChangesAsync` acceptance behavior
+(`acceptAllChangesOnSuccess: true`). Chunking with `acceptAllChangesOnSuccess: false` is rejected
+because successful chunks must be accepted immediately to avoid replaying already persisted writes.
+
 ## Client configuration precedence
 
 - The provider resolves client settings in this order:

@@ -31,6 +31,9 @@ icon: lucide/triangle-alert
 - If `TransactionOverflowBehavior.UseChunking` is configured, overflowing multi-root writes can be
     executed as multiple `ExecuteTransaction` chunks (up to `MaxTransactionSize`, max 100 per
     chunk), but overall SaveChanges atomicity is lost across chunk boundaries.
+- Chunking requires `acceptAllChangesOnSuccess: true`. `SaveChanges(false)`/
+    `SaveChangesAsync(false)` is rejected for chunking overflow paths because successful chunks must
+    be accepted immediately in the tracker.
 - `AutoTransactionBehavior.Always` still throws when one atomic transaction cannot represent the
     full write unit.
 - Unsupported LINQ shapes fail during translation with `InvalidOperationException` including provider-specific details.

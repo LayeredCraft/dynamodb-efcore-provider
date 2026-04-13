@@ -62,6 +62,10 @@ unit exceeds the effective max transaction size, SaveChanges throws.
 Chunking semantics are explicit: each chunk is atomic, but the full SaveChanges unit is not
 globally atomic across chunks.
 
+Tracker semantics during chunking are also explicit: after each successful chunk commit, entries
+represented by that chunk are accepted in the current context. If a later chunk fails, already
+committed chunk entries remain accepted while failed/unrun chunk entries remain pending.
+
 Per-root write compilation remains:
 
 1. **Added** — generates a PartiQL `INSERT INTO "Table" VALUE {...}` statement. The provider sets
