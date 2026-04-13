@@ -57,6 +57,28 @@ public static class DynamoDatabaseFacadeExtensions
             ?? GetDynamoOptionsExtension(databaseFacade).MaxTransactionSize;
     }
 
+    /// <summary>Sets a per-context override for max non-atomic batch write size.</summary>
+    public static void SetMaxBatchWriteSize(
+        this DatabaseFacade databaseFacade,
+        int maxBatchWriteSize)
+    {
+        if (maxBatchWriteSize is <= 0 or > 25)
+            throw new InvalidOperationException(
+                $"The specified 'MaxBatchWriteSize' value '{maxBatchWriteSize}' is not valid. "
+                + "It must be between 1 and 25.");
+
+        GetRuntimeOptions(databaseFacade).MaxBatchWriteSizeOverride = maxBatchWriteSize;
+    }
+
+    /// <summary>Gets the effective max non-atomic batch write size for this context.</summary>
+    public static int GetMaxBatchWriteSize(this DatabaseFacade databaseFacade)
+    {
+        var runtimeOptions = GetRuntimeOptions(databaseFacade);
+
+        return runtimeOptions.MaxBatchWriteSizeOverride
+            ?? GetDynamoOptionsExtension(databaseFacade).MaxBatchWriteSize;
+    }
+
     private static DynamoTransactionRuntimeOptions GetRuntimeOptions(DatabaseFacade databaseFacade)
         => ((IDatabaseFacadeDependenciesAccessor)databaseFacade).Context
             .GetService<DynamoTransactionRuntimeOptions>();

@@ -61,6 +61,14 @@ public class DynamoDbContextOptionsBuilder(DbContextOptionsBuilder optionsBuilde
     public virtual DynamoDbContextOptionsBuilder MaxTransactionSize(int maxTransactionSize)
         => WithOption(e => e.WithMaxTransactionSize(maxTransactionSize));
 
+    /// <summary>
+    ///     Configures default maximum number of write operations sent in a single non-atomic PartiQL
+    ///     batch.
+    /// </summary>
+    /// <returns>The builder for chaining.</returns>
+    public virtual DynamoDbContextOptionsBuilder MaxBatchWriteSize(int maxBatchWriteSize)
+        => WithOption(e => e.WithMaxBatchWriteSize(maxBatchWriteSize));
+
     /// <summary>Updates the provider options extension with the supplied mutation action.</summary>
     protected virtual DynamoDbContextOptionsBuilder WithOption(
         Func<DynamoDbOptionsExtension, DynamoDbOptionsExtension> setAction)

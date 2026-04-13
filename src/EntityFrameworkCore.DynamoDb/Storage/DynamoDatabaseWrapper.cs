@@ -211,10 +211,29 @@ public class DynamoDatabaseWrapper(
             ?? _optionsExtension.TransactionOverflowBehavior;
         var effectiveMaxTransactionSize = transactionRuntimeOptions.MaxTransactionSizeOverride
             ?? _optionsExtension.MaxTransactionSize;
+        var effectiveMaxBatchWriteSize = transactionRuntimeOptions.MaxBatchWriteSizeOverride
+            ?? _optionsExtension.MaxBatchWriteSize;
 
         if (!ShouldUseTransaction(autoTransactionBehavior, operations.Count))
         {
-            await ExecuteIndependentWritesAsync(operations, cancellationToken)
+            if (operations.Count == 1)
+            {
+                await ExecuteIndependentWritesAsync(operations, cancellationToken)
+                    .ConfigureAwait(false);
+                return;
+            }
+
+            // Non-atomic batch chunks can partially commit; provider must accept successful
+            // statements immediately to keep tracker aligned with persisted state.
+            if (transactionRuntimeOptions.AcceptAllChangesOnSuccess == false)
+                throw CreateNonAtomicBatchAcceptAllChangesRequiredException();
+
+            var nonAtomicRootAggregateEntries = BuildRootAggregateEntries(entries, rootEntries);
+            await ExecuteChunkedBatchWritesAsync(
+                    operations,
+                    nonAtomicRootAggregateEntries,
+                    effectiveMaxBatchWriteSize,
+                    cancellationToken)
                 .ConfigureAwait(false);
             return;
         }
@@ -308,6 +327,13 @@ public class DynamoDatabaseWrapper(
             + "per-chunk tracker acceptance to avoid replaying already-persisted "
             + "writes on retry.");
 
+    private static InvalidOperationException CreateNonAtomicBatchAcceptAllChangesRequiredException()
+        => new(
+            "Non-atomic batched SaveChanges is not supported when "
+            + "acceptAllChangesOnSuccess is false. Partial batch commits require "
+            + "per-batch tracker acceptance to avoid replaying already-persisted "
+            + "writes on retry.");
+
     private async Task ExecuteIndependentWritesAsync(
         IReadOnlyList<CompiledWriteOperation> operations,
         CancellationToken cancellationToken)
@@ -384,6 +410,93 @@ public class DynamoDatabaseWrapper(
             AcceptChunkEntries(chunk, rootAggregateEntries);
         }
     }
+
+    private async Task ExecuteChunkedBatchWritesAsync(
+        IReadOnlyList<CompiledWriteOperation> operations,
+        IReadOnlyDictionary<InternalEntityEntry, IReadOnlyList<IUpdateEntry>> rootAggregateEntries,
+        int maxBatchWriteSize,
+        CancellationToken cancellationToken)
+    {
+        foreach (var chunk in operations.Chunk(maxBatchWriteSize))
+        {
+            foreach (var operation in chunk)
+                commandLogger.ExecutingPartiQlWrite(operation.TableName, operation.Statement);
+
+            var statements = chunk
+                .Select(static operation => new BatchStatementRequest
+                {
+                    Statement = operation.Statement, Parameters = operation.Parameters,
+                })
+                .ToList();
+
+            IReadOnlyList<BatchStatementResponse> responses;
+
+            try
+            {
+                responses = await clientWrapper
+                    .ExecuteBatchWriteAsync(statements, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is DuplicateItemException
+                    or ConditionalCheckFailedException
+                    or TransactionCanceledException
+                || IsDuplicateKeyException(ex)
+                || IsConditionalCheckFailedException(ex))
+            {
+                throw WrapWriteException(
+                    ex,
+                    chunk[0].EntityState,
+                    chunk.Select(static x => x.Entry).ToList());
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                throw new DbUpdateException(
+                    "Non-atomic SaveChanges batch failed while executing DynamoDB "
+                    + "BatchExecuteStatement.",
+                    ex,
+                    chunk.Select(static x => x.Entry).ToList());
+            }
+
+            if (responses.Count != chunk.Length)
+                throw new DbUpdateException(
+                    "DynamoDB BatchExecuteStatement returned an unexpected number of "
+                    + "responses. SaveChanges cannot reconcile partial commit state safely.",
+                    null,
+                    chunk.Select(static x => x.Entry).ToList());
+
+            var successfulOperations = new List<CompiledWriteOperation>(chunk.Length);
+            List<IUpdateEntry>? failedEntries = null;
+            EntityState firstFailedState = default;
+            Exception? firstFailure = null;
+
+            for (var i = 0; i < chunk.Length; i++)
+            {
+                var response = responses[i];
+                if (response.Error is null)
+                {
+                    successfulOperations.Add(chunk[i]);
+                    continue;
+                }
+
+                failedEntries ??= [];
+                failedEntries.Add(chunk[i].Entry);
+                firstFailure ??= CreateBatchStatementException(response.Error);
+                firstFailedState = chunk[i].EntityState;
+            }
+
+            if (successfulOperations.Count > 0)
+                AcceptChunkEntries(successfulOperations, rootAggregateEntries);
+
+            if (failedEntries is not null)
+                throw WrapWriteException(firstFailure!, firstFailedState, failedEntries);
+        }
+    }
+
+    private static AmazonDynamoDBException CreateBatchStatementException(BatchStatementError error)
+        => new(error.Message ?? "DynamoDB BatchExecuteStatement reported a statement failure.")
+        {
+            ErrorCode = error.Code,
+        };
 
     /// <summary>
     ///     Builds mapping from root aggregate entry to all tracked entries represented by that root
@@ -1412,6 +1525,14 @@ public class DynamoDatabaseWrapper(
         => ex is AmazonDynamoDBException ade
             && string.Equals(ade.ErrorCode, "DuplicateItem", StringComparison.Ordinal);
 
+    private static bool IsConditionalCheckFailedException(Exception ex)
+        => ex is AmazonDynamoDBException ade
+            && (string.Equals(ade.ErrorCode, "ConditionalCheckFailed", StringComparison.Ordinal)
+                || string.Equals(
+                    ade.ErrorCode,
+                    "ConditionalCheckFailedException",
+                    StringComparison.Ordinal));
+
     /// <summary>
     ///     Appends WHERE predicates and parameter values for all configured non-key concurrency token
     ///     properties on <paramref name="entityType" />, using tracked original values.
@@ -1497,7 +1618,7 @@ public class DynamoDatabaseWrapper(
                 ex,
                 entries);
 
-        if (ex is ConditionalCheckFailedException)
+        if (ex is ConditionalCheckFailedException || IsConditionalCheckFailedException(ex))
             return new DbUpdateConcurrencyException(
                 $"The '{firstEntry.EntityType.DisplayName()}' entity could not be "
                 + (entityState == EntityState.Modified ? "updated" : "deleted")

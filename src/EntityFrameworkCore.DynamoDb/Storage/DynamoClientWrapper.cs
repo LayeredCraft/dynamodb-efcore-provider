@@ -97,6 +97,30 @@ public class DynamoClientWrapper : IDynamoClientWrapper
             null,
             cancellationToken);
 
+    /// <summary>Executes non-atomic PartiQL batch write statements.</summary>
+    /// <param name="statements">Ordered batch statements.</param>
+    /// <param name="cancellationToken">Token to observe for cancellation.</param>
+    /// <returns>Per-statement responses returned by DynamoDB.</returns>
+    public Task<IReadOnlyList<BatchStatementResponse>> ExecuteBatchWriteAsync(
+        IReadOnlyList<BatchStatementRequest> statements,
+        CancellationToken cancellationToken = default)
+        => _executionStrategy.ExecuteAsync(
+            statements,
+            async (_, batchStatements, ct) =>
+            {
+                var request = new BatchExecuteStatementRequest
+                {
+                    Statements = [.. batchStatements],
+                };
+
+                var response =
+                    await Client.BatchExecuteStatementAsync(request, ct).ConfigureAwait(false);
+
+                return (IReadOnlyList<BatchStatementResponse>)(response.Responses ?? []);
+            },
+            null,
+            cancellationToken);
+
     /// <summary>Builds the effective SDK configuration from extension options in precedence order.</summary>
     private static AmazonDynamoDBConfig BuildAmazonDynamoDbConfig(DynamoDbOptionsExtension? options)
     {
