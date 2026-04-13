@@ -7,6 +7,7 @@ using EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking.Internal;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.Update;
@@ -21,6 +22,7 @@ namespace EntityFrameworkCore.DynamoDb.Storage;
 /// </summary>
 public class DynamoDatabaseWrapper(
     DatabaseDependencies dependencies,
+    ICurrentDbContext currentDbContext,
     IDynamoClientWrapper clientWrapper,
     IDiagnosticsLogger<DbLoggerCategory.Database.Command> commandLogger,
     DynamoEntityItemSerializerSource serializerSource) : Database(dependencies)
@@ -67,7 +69,51 @@ public class DynamoDatabaseWrapper(
         // Turns HasMutationForOwnedNavigation from O(entries × navs × depth) → O(1) per check.
         var mutatingNavs = BuildMutatingNavLookup(entries);
 
-        var rowsAffected = 0;
+        var operations = BuildWriteOperations(rootEntries, mutatingNavs);
+        if (operations.Count == 0)
+            return 0;
+
+        var autoTransactionBehavior = currentDbContext.Context.Database.AutoTransactionBehavior;
+        var shouldUseTransaction = autoTransactionBehavior switch
+        {
+            AutoTransactionBehavior.Never => false,
+            AutoTransactionBehavior.WhenNeeded => operations.Count > 1,
+            AutoTransactionBehavior.Always => operations.Count > 1,
+            _ => throw new InvalidOperationException(
+                $"Invalid AutoTransactionBehavior: {autoTransactionBehavior}"),
+        };
+
+        if (!shouldUseTransaction)
+        {
+            await ExecuteIndependentWritesAsync(operations, cancellationToken)
+                .ConfigureAwait(false);
+            return operations.Count;
+        }
+
+        ValidateTransactionalWriteOperations(operations, autoTransactionBehavior);
+        await ExecuteTransactionalWritesAsync(operations, cancellationToken).ConfigureAwait(false);
+
+        return operations.Count;
+    }
+
+    private sealed record CompiledWriteOperation(
+        IUpdateEntry Entry,
+        EntityState EntityState,
+        string TableName,
+        string Statement,
+        List<AttributeValue> Parameters,
+        TransactionTargetItem TargetItem);
+
+    private sealed record TransactionTargetItem(
+        string TableName,
+        string PartitionKey,
+        string SortKey);
+
+    private List<CompiledWriteOperation> BuildWriteOperations(
+        IReadOnlyList<IUpdateEntry> rootEntries,
+        Dictionary<InternalEntityEntry, HashSet<INavigation>> mutatingNavs)
+    {
+        var operations = new List<CompiledWriteOperation>(rootEntries.Count);
 
         foreach (var entry in rootEntries)
         {
@@ -75,121 +121,66 @@ public class DynamoDatabaseWrapper(
             {
                 case EntityState.Added:
                 {
-                    // Serialization is handled by the compiled, per-entity-type serializer — no
-                    // per-call type dispatch or value-type boxing on the scalar-property hot path.
-                    // Owned sub-entries are resolved on-demand via the EF state manager.
-                    //
-                    // Concurrency: PartiQL INSERT fails with DuplicateItemException when a key
-                    // already exists. This is the correct insert-only (create-never-replace)
-                    // semantic; we map it to DbUpdateException below.
-
                     var item = serializerSource.BuildItem(entry);
                     var tableName = (string)entry.EntityType[DynamoAnnotationNames.TableName]!;
                     var (sql, parameters) = BuildInsertStatement(tableName, item);
 
-                    commandLogger.ExecutingPartiQlWrite(tableName, sql);
-
-                    try
-                    {
-                        await clientWrapper
-                            .ExecuteWriteAsync(sql, parameters, cancellationToken)
-                            .ConfigureAwait(false);
-                    }
-                    catch (Exception ex) when (ex is DuplicateItemException
-                            or TransactionCanceledException
-                        || IsDuplicateKeyException(ex))
-                    {
-                        throw WrapWriteException(ex, EntityState.Added, entry);
-                    }
-
+                    operations.Add(
+                        new CompiledWriteOperation(
+                            entry,
+                            EntityState.Added,
+                            tableName,
+                            sql,
+                            parameters,
+                            BuildTargetItemIdentity(entry, tableName)));
                     break;
                 }
 
                 case EntityState.Modified:
                 {
-                    // Scalar/collection root properties AND/OR owned sub-entities may have
-                    // changed — run all four phases (A: scalars, B: collections, C: OwnsOne,
-                    // D: OwnsMany).
                     var update = BuildModifiedUpdateStatement(entry, mutatingNavs);
                     if (update is null)
                         continue;
 
-                    commandLogger.ExecutingPartiQlWrite(update.Value.tableName, update.Value.sql);
-
-                    try
-                    {
-                        await clientWrapper
-                            .ExecuteWriteAsync(
-                                update.Value.sql,
-                                update.Value.parameters,
-                                cancellationToken)
-                            .ConfigureAwait(false);
-                    }
-                    catch (Exception ex) when (ex is ConditionalCheckFailedException
-                        or TransactionCanceledException)
-                    {
-                        throw WrapWriteException(ex, EntityState.Modified, entry);
-                    }
-
+                    operations.Add(
+                        new CompiledWriteOperation(
+                            entry,
+                            EntityState.Modified,
+                            update.Value.tableName,
+                            update.Value.sql,
+                            update.Value.parameters,
+                            BuildTargetItemIdentity(entry, update.Value.tableName)));
                     break;
                 }
 
                 case EntityState.Unchanged:
                 {
-                    // Root injected by IncludeMutatingOwnedRoots: its own scalar and collection
-                    // properties have not changed (IsModified is false for all of them).
-                    // Only owned sub-entities mutated — skip directly to phases C+D.
-                    //
-                    // We intentionally do not promote the root to Modified here (unlike the Cosmos
-                    // provider) because our partial-UPDATE strategy depends on IsModified(property)
-                    // being false for untouched root scalars. Promoting the state would mark every
-                    // scalar as modified and generate spurious SET clauses.
                     var update = BuildOwnedMutationUpdateStatement(entry, mutatingNavs);
                     if (update is null)
                         continue;
 
-                    commandLogger.ExecutingPartiQlWrite(update.Value.tableName, update.Value.sql);
-
-                    try
-                    {
-                        await clientWrapper
-                            .ExecuteWriteAsync(
-                                update.Value.sql,
-                                update.Value.parameters,
-                                cancellationToken)
-                            .ConfigureAwait(false);
-                    }
-                    catch (Exception ex) when (ex is ConditionalCheckFailedException
-                        or TransactionCanceledException)
-                    {
-                        throw WrapWriteException(ex, EntityState.Modified, entry);
-                    }
-
+                    operations.Add(
+                        new CompiledWriteOperation(
+                            entry,
+                            EntityState.Modified,
+                            update.Value.tableName,
+                            update.Value.sql,
+                            update.Value.parameters,
+                            BuildTargetItemIdentity(entry, update.Value.tableName)));
                     break;
                 }
 
                 case EntityState.Deleted:
                 {
-                    // Deleting the root item removes the whole DynamoDB document including all
-                    // owned sub-entities — no separate statement is needed per owned entry.
-                    // DynamoDB PartiQL DELETE on a missing key is a silent no-op even when
-                    // concurrency-token WHERE predicates are present.
                     var delete = BuildDeleteStatement(entry);
-
-                    commandLogger.ExecutingPartiQlWrite(delete.tableName, delete.sql);
-
-                    try
-                    {
-                        await clientWrapper
-                            .ExecuteWriteAsync(delete.sql, delete.parameters, cancellationToken)
-                            .ConfigureAwait(false);
-                    }
-                    catch (Exception ex) when (ex is ConditionalCheckFailedException
-                        or TransactionCanceledException)
-                    {
-                        throw WrapWriteException(ex, EntityState.Deleted, entry);
-                    }
-
+                    operations.Add(
+                        new CompiledWriteOperation(
+                            entry,
+                            EntityState.Deleted,
+                            delete.tableName,
+                            delete.sql,
+                            delete.parameters,
+                            BuildTargetItemIdentity(entry, delete.tableName)));
                     break;
                 }
 
@@ -198,11 +189,163 @@ public class DynamoDatabaseWrapper(
                         $"SaveChanges for EntityState.{entry.EntityState} is not handled "
                         + $"in the write loop for '{entry.EntityType.DisplayName()}'.");
             }
-
-            rowsAffected++;
         }
 
-        return rowsAffected;
+        return operations;
+    }
+
+    private async Task ExecuteIndependentWritesAsync(
+        IReadOnlyList<CompiledWriteOperation> operations,
+        CancellationToken cancellationToken)
+    {
+        foreach (var operation in operations)
+        {
+            commandLogger.ExecutingPartiQlWrite(operation.TableName, operation.Statement);
+
+            try
+            {
+                await clientWrapper
+                    .ExecuteWriteAsync(operation.Statement, operation.Parameters, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is DuplicateItemException
+                    or ConditionalCheckFailedException
+                    or TransactionCanceledException
+                || IsDuplicateKeyException(ex))
+            {
+                throw WrapWriteException(ex, operation.EntityState, operation.Entry);
+            }
+        }
+    }
+
+    private async Task ExecuteTransactionalWritesAsync(
+        IReadOnlyList<CompiledWriteOperation> operations,
+        CancellationToken cancellationToken)
+    {
+        foreach (var operation in operations)
+            commandLogger.ExecutingPartiQlWrite(operation.TableName, operation.Statement);
+
+        var statements = operations
+            .Select(static operation => new ParameterizedStatement
+            {
+                Statement = operation.Statement, Parameters = operation.Parameters,
+            })
+            .ToList();
+
+        try
+        {
+            await clientWrapper
+                .ExecuteTransactionAsync(statements, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (TransactionCanceledException tce)
+        {
+            throw WrapWriteException(
+                tce,
+                EntityState.Modified,
+                operations.Select(static x => x.Entry).ToList());
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            throw new DbUpdateException(
+                "Atomic SaveChanges transaction failed while executing DynamoDB ExecuteTransaction.",
+                ex,
+                operations.Select(static x => x.Entry).ToList());
+        }
+    }
+
+    private static void ValidateTransactionalWriteOperations(
+        IReadOnlyList<CompiledWriteOperation> operations,
+        AutoTransactionBehavior autoTransactionBehavior)
+    {
+        if (operations.Count > 100)
+            throw new InvalidOperationException(
+                "SaveChanges cannot satisfy transactional atomicity because the unit of work "
+                + $"contains {operations.Count} root write operations, exceeding the DynamoDB "
+                + "ExecuteTransaction limit of 100 statements. "
+                + $"Current AutoTransactionBehavior is '{autoTransactionBehavior}'.");
+
+        var duplicateTarget = operations
+            .GroupBy(static x => x.TargetItem)
+            .FirstOrDefault(static g => g.Count() > 1);
+
+        if (duplicateTarget is not null)
+            throw new InvalidOperationException(
+                "SaveChanges cannot satisfy transactional atomicity because the unit of work "
+                + "contains multiple operations targeting the same DynamoDB item in a single "
+                + "transaction, which is not allowed by ExecuteTransaction.");
+    }
+
+    private static TransactionTargetItem BuildTargetItemIdentity(
+        IUpdateEntry entry,
+        string tableName)
+    {
+        var entityType = entry.EntityType;
+
+        var partitionKeyProperty = entityType.GetPartitionKeyProperty()
+            ?? throw new InvalidOperationException(
+                $"Entity type '{entityType.DisplayName()}' does not define a partition key.");
+
+        var partitionKeyValue = SerializeIdentityValue(entry, partitionKeyProperty);
+
+        var sortKeyProperty = entityType.GetSortKeyProperty();
+        var sortKeyValue = sortKeyProperty is null
+            ? ""
+            : SerializeIdentityValue(entry, sortKeyProperty);
+
+        return new TransactionTargetItem(tableName, partitionKeyValue, sortKeyValue);
+    }
+
+    private static string SerializeIdentityValue(IUpdateEntry entry, IProperty keyProperty)
+    {
+        var mapping = keyProperty.GetTypeMapping() as DynamoTypeMapping
+            ?? throw new InvalidOperationException(
+                $"Key property '{entry.EntityType.DisplayName()}.{keyProperty.Name}' "
+                + "requires a DynamoTypeMapping.");
+
+        var value = mapping.CreateAttributeValue(GetOriginalOrCurrentValue(entry, keyProperty));
+        return SerializeAttributeValue(value);
+    }
+
+    private static string SerializeAttributeValue(AttributeValue value)
+    {
+        if (value.S is not null)
+            return "S:" + value.S;
+        if (value.N is not null)
+            return "N:" + value.N;
+        if (value.B is not null)
+            return "B:" + Convert.ToBase64String(value.B.ToArray());
+        if (value.BOOL is true || value.BOOL is false)
+            return "BOOL:" + value.BOOL;
+        if (value.NULL == true)
+            return "NULL";
+        if (value.SS is not null)
+            return "SS:" + string.Join(",", value.SS.Order(StringComparer.Ordinal));
+        if (value.NS is not null)
+            return "NS:" + string.Join(",", value.NS.Order(StringComparer.Ordinal));
+        if (value.BS is not null)
+            return "BS:"
+                + string.Join(
+                    ",",
+                    value
+                        .BS
+                        .Select(static b => Convert.ToBase64String(b.ToArray()))
+                        .Order(StringComparer.Ordinal));
+
+        if (value.L is not null)
+            return "L:[" + string.Join(",", value.L.Select(SerializeAttributeValue)) + "]";
+
+        if (value.M is not null)
+            return "M:{"
+                + string.Join(
+                    ",",
+                    value
+                        .M
+                        .OrderBy(static kv => kv.Key, StringComparer.Ordinal)
+                        .Select(static kv => kv.Key + "=" + SerializeAttributeValue(kv.Value)))
+                + "}";
+
+        return "EMPTY";
     }
 
     /// <summary>
@@ -1143,22 +1286,30 @@ public class DynamoDatabaseWrapper(
         Exception ex,
         EntityState entityState,
         IUpdateEntry entry)
+        => WrapWriteException(ex, entityState, [entry]);
+
+    private static DbUpdateException WrapWriteException(
+        Exception ex,
+        EntityState entityState,
+        IReadOnlyList<IUpdateEntry> entries)
     {
+        var firstEntry = entries[0];
+
         if (ex is DuplicateItemException || IsDuplicateKeyException(ex))
             return new DbUpdateException(
-                $"Cannot insert '{entry.EntityType.DisplayName()}': an item with the same primary "
+                $"Cannot insert '{firstEntry.EntityType.DisplayName()}': an item with the same primary "
                 + "key already exists.",
                 ex,
-                [entry]);
+                entries);
 
         if (ex is ConditionalCheckFailedException)
             return new DbUpdateConcurrencyException(
-                $"The '{entry.EntityType.DisplayName()}' entity could not be "
+                $"The '{firstEntry.EntityType.DisplayName()}' entity could not be "
                 + (entityState == EntityState.Modified ? "updated" : "deleted")
                 + " because one or more concurrency token values have changed since it was last read. "
                 + "Another writer may have modified this item.",
                 ex,
-                [entry]);
+                entries);
 
         if (ex is TransactionCanceledException tce)
         {
@@ -1171,18 +1322,18 @@ public class DynamoDatabaseWrapper(
             return hasConcurrency
                 ? new DbUpdateConcurrencyException(
                     $"Transaction cancelled due to a concurrency token conflict on "
-                    + $"'{entry.EntityType.DisplayName()}'.",
+                    + $"'{firstEntry.EntityType.DisplayName()}'.",
                     tce,
-                    [entry])
+                    entries)
                 : new DbUpdateException(
-                    $"Transaction cancelled while saving '{entry.EntityType.DisplayName()}'.",
+                    $"Transaction cancelled while saving '{firstEntry.EntityType.DisplayName()}'.",
                     tce,
-                    [entry]);
+                    entries);
         }
 
         return new DbUpdateException(
-            $"An error occurred saving '{entry.EntityType.DisplayName()}' to DynamoDB.",
+            $"An error occurred saving '{firstEntry.EntityType.DisplayName()}' to DynamoDB.",
             ex,
-            [entry]);
+            entries);
     }
 }

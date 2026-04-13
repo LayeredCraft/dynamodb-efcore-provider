@@ -22,4 +22,11 @@ public interface IDynamoClientWrapper
         string statement,
         List<AttributeValue> parameters,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Executes an atomic write transaction composed of PartiQL statements.</summary>
+    /// <param name="statements">Ordered transactional statements to execute atomically.</param>
+    /// <param name="cancellationToken">Token to observe for cancellation.</param>
+    Task ExecuteTransactionAsync(
+        IReadOnlyList<ParameterizedStatement> statements,
+        CancellationToken cancellationToken = default);
 }

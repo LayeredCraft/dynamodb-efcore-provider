@@ -75,6 +75,28 @@ public class DynamoClientWrapper : IDynamoClientWrapper
             null,
             cancellationToken);
 
+    /// <summary>Executes an atomic write transaction of PartiQL statements.</summary>
+    /// <param name="statements">Ordered transaction statements.</param>
+    /// <param name="cancellationToken">Token to observe for cancellation.</param>
+    public Task ExecuteTransactionAsync(
+        IReadOnlyList<ParameterizedStatement> statements,
+        CancellationToken cancellationToken = default)
+        => _executionStrategy.ExecuteAsync(
+            statements,
+            async (_, transactionStatements, ct) =>
+            {
+                var request = new ExecuteTransactionRequest
+                {
+                    TransactStatements = [.. transactionStatements],
+                };
+
+                await Client.ExecuteTransactionAsync(request, ct).ConfigureAwait(false);
+
+                return true;
+            },
+            null,
+            cancellationToken);
+
     /// <summary>Builds the effective SDK configuration from extension options in precedence order.</summary>
     private static AmazonDynamoDBConfig BuildAmazonDynamoDbConfig(DynamoDbOptionsExtension? options)
     {
