@@ -369,9 +369,8 @@ public class DynamoDatabaseWrapper(
         int maxTransactionSize,
         CancellationToken cancellationToken)
     {
-        for (var i = 0; i < operations.Count; i += maxTransactionSize)
+        foreach (var chunk in operations.Chunk(maxTransactionSize))
         {
-            var chunk = operations.Skip(i).Take(maxTransactionSize).ToList();
             ValidateTransactionalDuplicateTargets(chunk);
             await ExecuteTransactionalWritesAsync(chunk, cancellationToken).ConfigureAwait(false);
             AcceptChunkEntries(chunk, rootAggregateEntries);
@@ -1201,9 +1200,9 @@ public class DynamoDatabaseWrapper(
         var rootEntries = entries
             .Where(static e
                 => !e.EntityType.IsOwned()
-                && (e.EntityState == EntityState.Added
-                    || e.EntityState == EntityState.Modified
-                    || e.EntityState == EntityState.Deleted))
+                && e.EntityState is EntityState.Added
+                    or EntityState.Modified
+                    or EntityState.Deleted)
             .ToList();
 
         IncludeMutatingOwnedRoots(entries, rootEntries);
