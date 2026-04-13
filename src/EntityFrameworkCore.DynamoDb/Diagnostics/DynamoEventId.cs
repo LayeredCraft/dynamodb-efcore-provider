@@ -17,7 +17,6 @@ public static class DynamoEventId
         ExecutingExecuteStatement = CoreEventId.ProviderBaseId + 101,
         ExecutedExecuteStatement = CoreEventId.ProviderBaseId + 102,
         ExecutingPartiQlWrite = CoreEventId.ProviderBaseId + 110,
-        UntrackedOwnedCollectionElement = CoreEventId.ProviderBaseId + 111,
 
         // Query events
         NoCompatibleSecondaryIndexFound = CoreEventId.ProviderBaseId + 104,
@@ -70,15 +69,6 @@ public static class DynamoEventId
     public static readonly EventId ExecutingPartiQlWrite = new(
         (int)Id.ExecutingPartiQlWrite,
         CommandPrefix + Id.ExecutingPartiQlWrite);
-
-    /// <summary>
-    /// An owned collection element was skipped during SaveChanges because it is not tracked by
-    /// the EF Core change tracker.
-    /// </summary>
-    /// <remarks>This event is in the <c>DbLoggerCategory.Database.Command</c> category.</remarks>
-    public static readonly EventId UntrackedOwnedCollectionElement = new(
-        (int)Id.UntrackedOwnedCollectionElement,
-        CommandPrefix + Id.UntrackedOwnedCollectionElement);
 
     /// <summary>No compatible secondary index was found for automatic selection.</summary>
     /// <remarks>This event is in the <c>DbLoggerCategory.Query</c> category.</remarks>

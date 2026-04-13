@@ -68,14 +68,6 @@ public static class DynamoLoggerExtensions
             DynamoEventId.ExecutingPartiQlWrite,
             "Executing DynamoDB PartiQL write for table '{tableName}'{newLine}{commandText}");
 
-    private static readonly Action<ILogger, string, string, Exception?>
-        LogUntrackedOwnedCollectionElement = LoggerMessage.Define<string, string>(
-            LogLevel.Warning,
-            DynamoEventId.UntrackedOwnedCollectionElement,
-            "Owned collection element of type '{elementType}' in '{navigation}' is not tracked "
-            + "by EF Core and will be skipped during SaveChanges. "
-            + "Add it through the EF change tracker to persist it.");
-
     /// <summary>Provides functionality for this member.</summary>
     public static void ExecutingPartiQlQuery(
         this IDiagnosticsLogger<DbLoggerCategory.Database.Command> diagnostics,
@@ -137,26 +129,6 @@ public static class DynamoLoggerExtensions
             Environment.NewLine,
             commandText,
             null);
-    }
-
-    /// <summary>
-    ///     Logs a warning when an owned collection element is not tracked by EF Core and will be
-    ///     skipped during SaveChanges serialization.
-    /// </summary>
-    /// <param name="diagnostics">The command diagnostics logger.</param>
-    /// <param name="navigation">
-    ///     The full navigation path identifying the collection (e.g. <c>Order.Lines</c>).
-    /// </param>
-    /// <param name="elementType">The CLR type name of the skipped element.</param>
-    public static void UntrackedOwnedCollectionElement(
-        this IDiagnosticsLogger<DbLoggerCategory.Database.Command> diagnostics,
-        string navigation,
-        string elementType)
-    {
-        if (!diagnostics.Logger.IsEnabled(LogLevel.Warning))
-            return;
-
-        LogUntrackedOwnedCollectionElement(diagnostics.Logger, elementType, navigation, null);
     }
 
     /// <summary>Logs a structured query-compilation diagnostic from automatic index selection.</summary>

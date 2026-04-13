@@ -233,6 +233,25 @@ internal sealed class DynamoConvertedValueReaderWriter<TModel, TProvider>(
             : modelValueExpression;
     }
 
+    // ── Object-based (boxed) fallback methods ──────────────────────────────────────
+    //
+    // These three methods use the untyped ValueConverter API and box value types. They are NOT
+    // on any hot path:
+    //
+    //   • The query read path goes through CreateReadExpression, which inlines the converter's
+    //     ConvertFromProviderExpression directly into the compiled query expression tree —
+    //     no runtime boxing.
+    //
+    //   • The SaveChanges write path goes through DynamoEntityItemSerializerSource, which
+    //     dispatches via pre-compiled Func<IUpdateEntry, AttributeValue> delegates that call
+    //     CreateWriteExpression / CreatePartiQlLiteralExpression (expression-tree paths below)
+    //     rather than Write / ToPartiQlLiteral.
+    //
+    //   • ReadValue / Write / ToPartiQlLiteral are only reachable via the
+    //     IDynamoUntypedValueWriter.Write(object) path, which is itself already operating on a
+    //     boxed object — so the additional boxing here is in an already-boxed context and does
+    //     not regress the hot path.
+
     protected override TModel ReadValue(
         AttributeValue attributeValue,
         string propertyPath,

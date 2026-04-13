@@ -282,6 +282,18 @@ public class DynamoDatabaseWrapper(
             .ConfigureAwait(false);
     }
 
+    /// <summary>
+    ///     Returns <see langword="true" /> when the configured
+    ///     <paramref name="autoTransactionBehavior" /> requires a <c>TransactWriteItems</c> call for the
+    ///     given <paramref name="operationCount" />.
+    /// </summary>
+    /// <remarks>
+    ///     <c>Always</c> maps to <c>operationCount &gt; 1</c> rather than the literal "always", which
+    ///     deviates from the EF Core contract name but is intentional: a single DynamoDB write is
+    ///     implicitly atomic and wrapping it in <c>ExecuteTransaction</c> would add latency with no
+    ///     atomicity benefit.  The behaviour is consistent with <c>WhenNeeded</c> for a single root write,
+    ///     and mirrors how the Cosmos DB provider handles the same case.
+    /// </remarks>
     private static bool ShouldUseTransaction(
         AutoTransactionBehavior autoTransactionBehavior,
         int operationCount)
@@ -289,6 +301,8 @@ public class DynamoDatabaseWrapper(
         {
             AutoTransactionBehavior.Never => false,
             AutoTransactionBehavior.WhenNeeded => operationCount > 1,
+            // See remarks above: single-root writes are implicitly atomic, so Always still maps
+            // to operationCount > 1. Only multi-root saves need the explicit transaction wrapper.
             AutoTransactionBehavior.Always => operationCount > 1,
             _ => throw new InvalidOperationException(
                 $"Invalid AutoTransactionBehavior: {autoTransactionBehavior}"),
@@ -923,14 +937,15 @@ public class DynamoDatabaseWrapper(
             var ownedEntry = stateManager.TryGetEntry(element, nav.TargetEntityType);
             if (ownedEntry is null)
             {
-                // The element exists in the CLR collection but is not tracked by EF Core. This
-                // typically means it was added without going through the change tracker (e.g. via
-                // direct list manipulation). Silently skipping it would produce a silent data-loss
-                // bug, so emit a warning before continuing.
-                commandLogger.UntrackedOwnedCollectionElement(
-                    $"{nav.DeclaringEntityType.DisplayName()}.{nav.Name}",
-                    element.GetType().Name);
-                continue;
+                // The element exists in the CLR collection but is not tracked by EF Core —
+                // typically from direct list manipulation bypassing the change tracker. Silently
+                // skipping it would produce data loss; throw to surface the programming error.
+                throw new InvalidOperationException(
+                    $"A collection element of type '{element.GetType().Name}' in navigation "
+                    + $"'{nav.DeclaringEntityType.DisplayName()}.{nav.Name}' is not tracked by "
+                    + "the change tracker. All owned collection elements must be tracked before "
+                    + "calling SaveChanges. Use EF Core navigation fix-up or explicitly "
+                    + "Add/Attach the element through the DbContext.");
             }
 
             if (ownedEntry.EntityState == EntityState.Deleted)

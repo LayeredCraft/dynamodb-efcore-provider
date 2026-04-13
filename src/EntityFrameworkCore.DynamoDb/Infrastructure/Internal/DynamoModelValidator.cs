@@ -880,21 +880,34 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
     private static void ValidateConcurrencyTokenConfiguration(IModel model)
     {
         foreach (var entityType in EnumerateRootEntityTypes(model))
-        {
-            foreach (var property in entityType.GetDeclaredProperties())
-            {
-                if (!property.IsConcurrencyToken)
-                    continue;
+            ValidateConcurrencyTokensOnEntityType(entityType);
 
-                if (property.ValueGenerated == ValueGenerated.OnAddOrUpdate)
-                    throw new InvalidOperationException(
-                        $"Property '{entityType.DisplayName()}.{property.Name}' is configured "
-                        + "as a row-version token (ValueGenerated.OnAddOrUpdate / IsRowVersion()), "
-                        + "but the DynamoDB provider does not currently support provider-managed "
-                        + "row-version value generation. Configure this property with "
-                        + "IsConcurrencyToken() only and update the token value in application "
-                        + "code before saving changes.");
-            }
+        // Owned entity types are excluded from EnumerateRootEntityTypes but can also carry
+        // concurrency tokens — validate them separately.
+        foreach (var ownedType in model.GetEntityTypes().Where(static t => t.IsOwned()))
+            ValidateConcurrencyTokensOnEntityType(ownedType);
+    }
+
+    /// <summary>
+    ///     Throws if any declared concurrency token on <paramref name="entityType" /> uses
+    ///     row-version semantics (<see cref="ValueGenerated.OnAddOrUpdate" />), which the provider does
+    ///     not support.
+    /// </summary>
+    private static void ValidateConcurrencyTokensOnEntityType(IEntityType entityType)
+    {
+        foreach (var property in entityType.GetDeclaredProperties())
+        {
+            if (!property.IsConcurrencyToken)
+                continue;
+
+            if (property.ValueGenerated == ValueGenerated.OnAddOrUpdate)
+                throw new InvalidOperationException(
+                    $"Property '{entityType.DisplayName()}.{property.Name}' is configured "
+                    + "as a row-version token (ValueGenerated.OnAddOrUpdate / IsRowVersion()), "
+                    + "but the DynamoDB provider does not currently support provider-managed "
+                    + "row-version value generation. Configure this property with "
+                    + "IsConcurrencyToken() only and update the token value in application "
+                    + "code before saving changes.");
         }
     }
 
