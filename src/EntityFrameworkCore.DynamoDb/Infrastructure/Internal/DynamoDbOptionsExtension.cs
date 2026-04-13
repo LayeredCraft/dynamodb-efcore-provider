@@ -1,6 +1,5 @@
 using Amazon.DynamoDBv2;
 using EntityFrameworkCore.DynamoDb.Extensions;
-using EntityFrameworkCore.DynamoDb.Infrastructure;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -10,6 +9,7 @@ namespace EntityFrameworkCore.DynamoDb.Infrastructure.Internal;
 public class DynamoDbOptionsExtension : IDbContextOptionsExtension
 {
     private const int DynamoTransactionLimit = 100;
+    private const int DynamoPartiQlBatchLimit = 25;
 
     /// <summary>Provides functionality for this member.</summary>
     public IAmazonDynamoDB? DynamoDbClient { get; private set; }
@@ -32,6 +32,9 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
     /// Maximum number of write operations sent in a single DynamoDB transaction.
     /// </summary>
     public int MaxTransactionSize { get; private set; } = DynamoTransactionLimit;
+
+    /// <summary>Maximum number of write operations sent in a single non-atomic PartiQL batch.</summary>
+    public int MaxBatchWriteSize { get; private set; } = DynamoPartiQlBatchLimit;
 
     /// <summary>Registers provider services in the EF Core internal service container.</summary>
     public virtual void ApplyServices(IServiceCollection services)
@@ -124,6 +127,21 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
         return clone;
     }
 
+    /// <summary>Sets the maximum number of write operations sent in a single non-atomic PartiQL batch.</summary>
+    public virtual DynamoDbOptionsExtension WithMaxBatchWriteSize(int maxBatchWriteSize)
+    {
+        if (maxBatchWriteSize is <= 0 or > DynamoPartiQlBatchLimit)
+            throw new InvalidOperationException(
+                $"The specified 'MaxBatchWriteSize' value '{maxBatchWriteSize}' is not valid. "
+                + $"It must be between 1 and {DynamoPartiQlBatchLimit}.");
+
+        var clone = Clone();
+
+        clone.MaxBatchWriteSize = maxBatchWriteSize;
+
+        return clone;
+    }
+
     /// <summary>Creates a copy of this extension with the current option values.</summary>
     protected virtual DynamoDbOptionsExtension Clone()
         => new()
@@ -134,6 +152,7 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
             AutomaticIndexSelectionMode = AutomaticIndexSelectionMode,
             TransactionOverflowBehavior = TransactionOverflowBehavior,
             MaxTransactionSize = MaxTransactionSize,
+            MaxBatchWriteSize = MaxBatchWriteSize,
         };
 
     /// <summary>Represents the DynamoOptionsExtensionInfo type.</summary>
@@ -157,6 +176,7 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
                 hashCode.Add(Extension.AutomaticIndexSelectionMode);
                 hashCode.Add(Extension.TransactionOverflowBehavior);
                 hashCode.Add(Extension.MaxTransactionSize);
+                hashCode.Add(Extension.MaxBatchWriteSize);
 
                 _serviceProviderHash = hashCode.ToHashCode();
             }
@@ -178,7 +198,8 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
                 == otherInfo.Extension.AutomaticIndexSelectionMode
                 && Extension.TransactionOverflowBehavior
                 == otherInfo.Extension.TransactionOverflowBehavior
-                && Extension.MaxTransactionSize == otherInfo.Extension.MaxTransactionSize;
+                && Extension.MaxTransactionSize == otherInfo.Extension.MaxTransactionSize
+                && Extension.MaxBatchWriteSize == otherInfo.Extension.MaxBatchWriteSize;
 
         /// <summary>Provides functionality for this member.</summary>
         public override void PopulateDebugInfo(IDictionary<string, string> debugInfo) { }
@@ -194,6 +215,7 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
                 field ??= $"AutomaticIndexSelectionMode={Extension.AutomaticIndexSelectionMode},"
                     + $"TransactionOverflowBehavior={Extension.TransactionOverflowBehavior},"
                     + $"MaxTransactionSize={Extension.MaxTransactionSize},"
+                    + $"MaxBatchWriteSize={Extension.MaxBatchWriteSize},"
                     + $"DynamoDbClient={Extension.DynamoDbClient is not null},"
                     + $"DynamoDbClientConfig={Extension.DynamoDbClientConfig is not null},"
                     + $"DynamoDbClientConfigAction={Extension.DynamoDbClientConfigAction is not null}";

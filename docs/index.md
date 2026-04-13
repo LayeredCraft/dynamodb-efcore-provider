@@ -62,4 +62,5 @@ dotnet add package EntityFrameworkCore.DynamoDb
 ## Notes
 
 - `SaveChangesAsync` supports Added/Modified/Deleted root writes, including owned/nested mutations,
-    and follows EF Core `AutoTransactionBehavior` for implicit atomic multi-root execution.
+    and follows EF Core `AutoTransactionBehavior` for execution policy (`WhenNeeded`/`Always`
+    transactional for multi-root, `Never` non-atomic batched for multi-root).

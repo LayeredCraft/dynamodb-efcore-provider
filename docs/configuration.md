@@ -36,7 +36,7 @@ The provider follows EF Core `Database.AutoTransactionBehavior` for implicit tra
 
 - `WhenNeeded` (default): one root write executes directly; multi-root saves execute atomically via DynamoDB `ExecuteTransaction`.
 - `Always`: requires transactional execution for multi-root saves.
-- `Never`: disables implicit transactions and executes root writes independently.
+- `Never`: disables implicit transactions and executes multi-root writes using non-atomic DynamoDB `BatchExecuteStatement` chunks.
 
 ```csharp
 context.Database.AutoTransactionBehavior = AutoTransactionBehavior.Never;
@@ -64,11 +64,28 @@ context.Database.SetTransactionOverflowBehavior(TransactionOverflowBehavior.UseC
 context.Database.SetMaxTransactionSize(25);
 ```
 
+For non-atomic multi-root batching when `AutoTransactionBehavior.Never` is set, configure:
+
+- `MaxBatchWriteSize` (default `25`, valid range `1..25`)
+
+```csharp
+optionsBuilder.UseDynamo(options =>
+{
+    options.MaxBatchWriteSize(20);
+});
+```
+
+Per-context override:
+
+```csharp
+context.Database.SetMaxBatchWriteSize(10);
+```
+
 Configuration precedence:
 
 1. Per-context override (`context.Database.Set...`)
 1. Startup/provider option (`UseDynamo(...)`)
-1. Provider defaults (`Throw`, `100`)
+1. Provider defaults (`Throw`, `100`, `25`)
 
 `UseChunking` keeps each chunk atomic, but the overall `SaveChanges` call is no longer globally
 atomic across all root writes.
@@ -76,6 +93,9 @@ atomic across all root writes.
 When chunking is active, use normal `SaveChanges`/`SaveChangesAsync` acceptance behavior
 (`acceptAllChangesOnSuccess: true`). Chunking with `acceptAllChangesOnSuccess: false` is rejected
 because successful chunks must be accepted immediately to avoid replaying already persisted writes.
+
+The same acceptance rule applies to non-atomic `BatchExecuteStatement` chunk iteration under
+`AutoTransactionBehavior.Never` for multi-root saves.
 
 ## Client configuration precedence
 

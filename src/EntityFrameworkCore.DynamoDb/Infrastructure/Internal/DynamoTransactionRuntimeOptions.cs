@@ -13,6 +13,9 @@ public sealed class DynamoTransactionRuntimeOptions
     /// </summary>
     public int? MaxTransactionSizeOverride { get; set; }
 
+    /// <summary>Optional per-context override for max non-atomic batch write size.</summary>
+    public int? MaxBatchWriteSizeOverride { get; set; }
+
     /// <summary>Captures <c>acceptAllChangesOnSuccess</c> for current SaveChanges call.</summary>
     public bool? AcceptAllChangesOnSuccess { get; set; }
 }

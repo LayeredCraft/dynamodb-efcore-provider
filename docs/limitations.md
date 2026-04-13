@@ -28,12 +28,18 @@ icon: lucide/triangle-alert
 - By default (`TransactionOverflowBehavior.Throw`), when transactional atomicity is required
     (`AutoTransactionBehavior.WhenNeeded` for multi-root saves, or `Always`), the provider throws
     if those constraints are violated; it does not silently downgrade to non-atomic execution.
+- When `AutoTransactionBehavior.Never` is set for multi-root saves, writes run through non-atomic
+    `BatchExecuteStatement` chunk iteration (default max batch size 25, configurable down to 1).
+- `BatchExecuteStatement` can partially succeed within a chunk; successful statements may commit
+    even when other statements fail.
 - If `TransactionOverflowBehavior.UseChunking` is configured, overflowing multi-root writes can be
     executed as multiple `ExecuteTransaction` chunks (up to `MaxTransactionSize`, max 100 per
     chunk), but overall SaveChanges atomicity is lost across chunk boundaries.
 - Chunking requires `acceptAllChangesOnSuccess: true`. `SaveChanges(false)`/
     `SaveChangesAsync(false)` is rejected for chunking overflow paths because successful chunks must
     be accepted immediately in the tracker.
+- Non-atomic batch chunk iteration under `AutoTransactionBehavior.Never` also requires
+    `acceptAllChangesOnSuccess: true` for the same reason.
 - `AutoTransactionBehavior.Always` still throws when one atomic transaction cannot represent the
     full write unit.
 - Unsupported LINQ shapes fail during translation with `InvalidOperationException` including provider-specific details.

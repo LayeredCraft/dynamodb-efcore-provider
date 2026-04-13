@@ -86,6 +86,60 @@ public class TransactionalSaveChangesTests(SaveChangesTableDynamoFixture fixture
     }
 
     [Fact]
+    public async Task Never_MultiRootBatch_SaveChangesFalse_ThrowsClearError()
+    {
+        Db.Database.AutoTransactionBehavior = AutoTransactionBehavior.Never;
+
+        var first = CreateCustomer("TENANT#TXN", "CUSTOMER#NEVER-FALSE-1", "first@example.com");
+        var second = CreateCustomer("TENANT#TXN", "CUSTOMER#NEVER-FALSE-2", "second@example.com");
+
+        Db.Customers.Add(first);
+        Db.Customers.Add(second);
+
+        var act = async () => await Db.SaveChangesAsync(false, CancellationToken);
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*acceptAllChangesOnSuccess is false*");
+
+        Db.Entry(first).State.Should().Be(EntityState.Added);
+        Db.Entry(second).State.Should().Be(EntityState.Added);
+    }
+
+    [Fact]
+    public async Task Never_BatchedChunkFailure_AcceptsSuccessfulPriorChunkEntries()
+    {
+        Db.Database.AutoTransactionBehavior = AutoTransactionBehavior.Never;
+        Db.Database.SetMaxBatchWriteSize(2);
+
+        await PutItemAsync(
+            CreateSeedItem(
+                CreateCustomer("TENANT#TXN", "CUSTOMER#NEVER-CHUNK-DUP", "existing@example.com")),
+            CancellationToken);
+
+        var first = CreateCustomer("TENANT#TXN", "CUSTOMER#NEVER-CHUNK-1", "first@example.com");
+        var second = CreateCustomer("TENANT#TXN", "CUSTOMER#NEVER-CHUNK-2", "second@example.com");
+        var duplicate = CreateCustomer(
+            "TENANT#TXN",
+            "CUSTOMER#NEVER-CHUNK-DUP",
+            "duplicate@example.com");
+
+        Db.Customers.Add(first);
+        Db.Customers.Add(second);
+        Db.Customers.Add(duplicate);
+
+        var act = async () => await Db.SaveChangesAsync(CancellationToken);
+        await act.Should().ThrowAsync<DbUpdateException>();
+
+        Db.Entry(first).State.Should().Be(EntityState.Unchanged);
+        Db.Entry(second).State.Should().Be(EntityState.Unchanged);
+        Db.Entry(duplicate).State.Should().Be(EntityState.Added);
+
+        (await GetItemAsync(first.Pk, first.Sk, CancellationToken)).Should().NotBeNull();
+        (await GetItemAsync(second.Pk, second.Sk, CancellationToken)).Should().NotBeNull();
+    }
+
+    [Fact]
     public async Task Always_MoreThan100RootWrites_ThrowsClearErrorWithoutDowngrade()
     {
         Db.Database.AutoTransactionBehavior = AutoTransactionBehavior.Always;
@@ -326,9 +380,11 @@ public class TransactionalSaveChangesTests(SaveChangesTableDynamoFixture fixture
     {
         Db.Database.GetTransactionOverflowBehavior().Should().Be(TransactionOverflowBehavior.Throw);
         Db.Database.GetMaxTransactionSize().Should().Be(100);
+        Db.Database.GetMaxBatchWriteSize().Should().Be(25);
 
         Db.Database.SetTransactionOverflowBehavior(TransactionOverflowBehavior.UseChunking);
         Db.Database.SetMaxTransactionSize(25);
+        Db.Database.SetMaxBatchWriteSize(10);
 
         Db
             .Database
@@ -336,6 +392,7 @@ public class TransactionalSaveChangesTests(SaveChangesTableDynamoFixture fixture
             .Should()
             .Be(TransactionOverflowBehavior.UseChunking);
         Db.Database.GetMaxTransactionSize().Should().Be(25);
+        Db.Database.GetMaxBatchWriteSize().Should().Be(10);
     }
 
     [Fact]

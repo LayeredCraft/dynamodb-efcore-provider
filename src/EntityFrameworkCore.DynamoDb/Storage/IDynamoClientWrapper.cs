@@ -29,4 +29,12 @@ public interface IDynamoClientWrapper
     Task ExecuteTransactionAsync(
         IReadOnlyList<ParameterizedStatement> statements,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Executes non-atomic PartiQL batch write statements.</summary>
+    /// <param name="statements">Ordered batch statements to execute.</param>
+    /// <param name="cancellationToken">Token to observe for cancellation.</param>
+    /// <returns>Per-statement responses for the submitted batch.</returns>
+    Task<IReadOnlyList<BatchStatementResponse>> ExecuteBatchWriteAsync(
+        IReadOnlyList<BatchStatementRequest> statements,
+        CancellationToken cancellationToken = default);
 }
