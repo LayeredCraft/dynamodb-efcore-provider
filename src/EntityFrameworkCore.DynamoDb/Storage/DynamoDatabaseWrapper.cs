@@ -247,7 +247,7 @@ public class DynamoDatabaseWrapper(
 
         if (operations.Count <= effectiveMaxTransactionSize)
         {
-            ValidateTransactionalWriteOperations(operations, autoTransactionBehavior);
+            ValidateTransactionalDuplicateTargets(operations);
             await ExecuteTransactionalWritesAsync(operations, cancellationToken)
                 .ConfigureAwait(false);
             return;
@@ -311,17 +311,27 @@ public class DynamoDatabaseWrapper(
 
     /// <summary>
     ///     Guards against PartiQL statements that exceed DynamoDB's 8 KB statement-size limit,
-    ///     failing fast before the statement is queued for execution. Mirrors the pattern used by
-    ///     <see cref="ValidateTransactionalDuplicateTargets" />.
+    ///     failing fast before the statement is queued for execution.
     /// </summary>
+    /// <remarks>
+    ///     Uses <see cref="string.Length" /> (O(1) UTF-16 character count) rather than
+    ///     <c>Encoding.UTF8.GetByteCount</c> (O(n)). This is semantically correct because all
+    ///     structural parts of a generated PartiQL statement — SQL keywords, table names, attribute
+    ///     identifiers, and positional <c>?</c> placeholders — are ASCII-only. DynamoDB table names
+    ///     are restricted to <c>[a-zA-Z0-9_.-]</c> and attribute names in practice are ASCII.
+    ///     String values are always emitted as <c>?</c> parameters, never inlined, so they never
+    ///     appear in the statement text. The character count therefore equals the UTF-8 byte count
+    ///     for every statement this provider can generate.
+    /// </remarks>
     private static void ValidateStatementLength(string statement)
     {
         if (statement.Length <= MaxPartiQlStatementLength)
             return;
 
         throw new InvalidOperationException(
-            $"The generated PartiQL statement is {statement.Length} characters, which exceeds "
-            + $"DynamoDB's {MaxPartiQlStatementLength}-character statement-size limit. "
+            $"The generated PartiQL statement is {statement.Length} characters "
+            + $"(ASCII-equivalent bytes), which exceeds DynamoDB's "
+            + $"{MaxPartiQlStatementLength}-byte statement-size limit. "
             + "Consider reducing the number of mapped scalar properties or splitting the "
             + "write unit across multiple SaveChanges calls.");
     }
@@ -611,16 +621,6 @@ public class DynamoDatabaseWrapper(
         return true;
     }
 
-    private static void ValidateTransactionalWriteOperations(
-        IReadOnlyList<CompiledWriteOperation> operations,
-        AutoTransactionBehavior autoTransactionBehavior)
-    {
-        // Count is already checked against effectiveMaxTransactionSize by the caller; this
-        // validates the remaining constraint DynamoDB imposes: no two operations may target the
-        // same item within a single ExecuteTransaction call.
-        ValidateTransactionalDuplicateTargets(operations);
-    }
-
     private static void ValidateTransactionalDuplicateTargets(
         IReadOnlyList<CompiledWriteOperation> operations)
     {
@@ -737,16 +737,13 @@ public class DynamoDatabaseWrapper(
         var rootEntry = (InternalEntityEntry)entry;
         var stateManager = rootEntry.StateManager;
 
+        // SET and WHERE parameters are kept separate so concurrency predicates can be appended
+        // to WHERE independently before they are concatenated. The final parameter list order
+        // must match the positional ? placeholders in the SQL text: SET values first, then WHERE.
         var setClauses = new List<string>();
-
-        // SET and WHERE parameters are kept separate so version management can add to both
-        // independently before they are concatenated. The final parameter list order must match
-        // the positional ? placeholders in the SQL text: SET values first, then WHERE values.
         var setParameters = new List<AttributeValue>();
-        var removeClauses = new List<string>();
-        var whereParameters = new List<AttributeValue>();
 
-        // Phase A — Scalar root properties (existing behavior)
+        // Phase A — Scalar root properties
         foreach (var property in entityType.GetProperties())
         {
             if (!entry.IsModified(property))
@@ -788,135 +785,17 @@ public class DynamoDatabaseWrapper(
             setParameters.Add(serializerSource.SerializeProperty(entry, property));
         }
 
-        // Phase C — OwnsOne navigations
-        // Modified: nested-path SET per changed property (recurse for deep chains).
-        // Added (null→ref): full M replace — nested SET paths require the parent attribute to
-        // exist.
-        // Deleted (ref→null): REMOVE the attribute entirely.
-        foreach (var nav in entityType
-            .GetNavigations()
-            .Where(static n => !n.IsOnDependent && n.TargetEntityType.IsOwned() && !n.IsCollection))
-        {
-            if (!HasMutationForOwnedNavigation(nav, rootEntry, mutatingNavs))
-                continue;
-
-            var navAttrName = nav.TargetEntityType.GetContainingAttributeName() ?? nav.Name;
-            var pathPrefix = $"\"{EscapeIdentifier(navAttrName)}\"";
-
-            var navValue = entry.GetCurrentValue(nav);
-            var ownedEntry = navValue is not null
-                ? stateManager.TryGetEntry(navValue, nav.TargetEntityType)
-                : null;
-
-            if (ownedEntry is null || ownedEntry.EntityState == EntityState.Deleted)
-            {
-                removeClauses.Add(pathPrefix);
-            }
-            else if (ownedEntry.EntityState == EntityState.Added)
-            {
-                setClauses.Add($"{pathPrefix} = ?");
-                setParameters.Add(
-                    new AttributeValue
-                    {
-                        M = serializerSource.BuildItemFromOwnedEntry(ownedEntry),
-                    });
-            }
-            else
-            {
-                // Modified — emit per-property nested-path SET (and REMOVE for sub-nulled refs)
-                AppendOwnedOneNestedSetClauses(
-                    ownedEntry,
-                    pathPrefix,
-                    setClauses,
-                    setParameters,
-                    removeClauses,
-                    mutatingNavs);
-            }
-        }
-
-        // Phase D — OwnsMany navigations
-        // Full list replacement: serialize all non-Deleted elements in collection order.
-        // list_append / REMOVE [i] are not viable because EF Core has no element-level index delta.
-        foreach (var nav in entityType
-            .GetNavigations()
-            .Where(static n => !n.IsOnDependent && n.TargetEntityType.IsOwned() && n.IsCollection))
-        {
-            if (!HasMutationForOwnedNavigation(nav, rootEntry, mutatingNavs))
-                continue;
-
-            var navAttrName = nav.TargetEntityType.GetContainingAttributeName() ?? nav.Name;
-            var path = $"\"{EscapeIdentifier(navAttrName)}\"";
-            var navValue = entry.GetCurrentValue(nav);
-            if (navValue is null)
-            {
-                removeClauses.Add(path);
-                continue;
-            }
-
-            var elements = BuildOwnedManyElements(navValue, nav, stateManager);
-
-            setClauses.Add($"{path} = ?");
-            setParameters.Add(new AttributeValue { L = elements });
-        }
-
-        // If there is nothing to write (no scalar, collection, owned, or structural change),
-        // return null to signal the caller to skip this entry.
-        if (setClauses.Count == 0 && removeClauses.Count == 0)
-            return null;
-
-        // Key WHERE conditions: use original values so the correct DynamoDB item is targeted.
-        var partitionKeyProperty = entityType.GetPartitionKeyProperty()
-            ?? throw new InvalidOperationException(
-                $"Entity type '{entityType.DisplayName()}' does not define a partition key.");
-
-        var partitionKeyMapping = partitionKeyProperty.GetTypeMapping() as DynamoTypeMapping
-            ?? throw new InvalidOperationException(
-                $"Partition key property '{entityType.DisplayName()}.{partitionKeyProperty.Name}' "
-                + "requires a DynamoTypeMapping.");
-
-        whereParameters.Add(
-            partitionKeyMapping.CreateAttributeValue(
-                GetOriginalOrCurrentValue(entry, partitionKeyProperty)));
-
-        // Build WHERE conditions as a separate list so concurrency predicates can be appended.
-        var whereClauses = new List<string>
-        {
-            $"\"{EscapeIdentifier(partitionKeyProperty.GetAttributeName())}\" = ?",
-        };
-
-        var sortKeyProperty = entityType.GetSortKeyProperty();
-        if (sortKeyProperty is not null)
-        {
-            var sortKeyMapping = sortKeyProperty.GetTypeMapping() as DynamoTypeMapping
-                ?? throw new InvalidOperationException(
-                    $"Sort key property '{entityType.DisplayName()}.{sortKeyProperty.Name}' "
-                    + "requires a DynamoTypeMapping.");
-
-            whereParameters.Add(
-                sortKeyMapping.CreateAttributeValue(
-                    GetOriginalOrCurrentValue(entry, sortKeyProperty)));
-
-            whereClauses.Add($"\"{EscapeIdentifier(sortKeyProperty.GetAttributeName())}\" = ?");
-        }
-
-        AppendConcurrencyTokenPredicates(entry, entityType, whereClauses, whereParameters);
-
-        var sqlBuilder =
-            new StringBuilder().AppendLine($"UPDATE \"{EscapeIdentifier(tableName)}\"");
-
-        if (setClauses.Count > 0)
-            sqlBuilder.AppendLine($"SET {string.Join(", ", setClauses)}");
-
-        if (removeClauses.Count > 0)
-            sqlBuilder.AppendLine($"REMOVE {string.Join(", ", removeClauses)}");
-
-        sqlBuilder.Append($"WHERE {string.Join(" AND ", whereClauses)}");
-
-        var parameters = new List<AttributeValue>(setParameters.Count + whereParameters.Count);
-        parameters.AddRange(setParameters);
-        parameters.AddRange(whereParameters);
-
-        return (tableName, sqlBuilder.ToString(), parameters);
+        // Phases C+D (owned navigations), WHERE clause, and SQL assembly are shared with the
+        // Unchanged-root path via FinalizeUpdateStatement.
+        return FinalizeUpdateStatement(
+            entry,
+            entityType,
+            tableName,
+            rootEntry,
+            stateManager,
+            setClauses,
+            setParameters,
+            mutatingNavs);
     }
 
     /// <summary>
@@ -1052,9 +931,23 @@ public class DynamoDatabaseWrapper(
         {
             if (element is null)
                 continue;
+
             var ownedEntry = stateManager.TryGetEntry(element, nav.TargetEntityType);
-            if (ownedEntry is null || ownedEntry.EntityState == EntityState.Deleted)
+            if (ownedEntry is null)
+            {
+                // The element exists in the CLR collection but is not tracked by EF Core. This
+                // typically means it was added without going through the change tracker (e.g. via
+                // direct list manipulation). Silently skipping it would produce a silent data-loss
+                // bug, so emit a warning before continuing.
+                commandLogger.UntrackedOwnedCollectionElement(
+                    $"{nav.DeclaringEntityType.DisplayName()}.{nav.Name}",
+                    element.GetType().Name);
                 continue;
+            }
+
+            if (ownedEntry.EntityState == EntityState.Deleted)
+                continue;
+
             elements.Add(
                 new AttributeValue { M = serializerSource.BuildItemFromOwnedEntry(ownedEntry) });
         }
@@ -1141,12 +1034,12 @@ public class DynamoDatabaseWrapper(
     /// </summary>
     /// <remarks>
     ///     Skips phases A and B (scalar/collection root properties) because the root itself has no
-    ///     modified properties — only phases C and D (owned navigation clauses) are run.
+    ///     modified properties — only phases C and D (owned navigation clauses) are run via
+    ///     <see cref="FinalizeUpdateStatement" />.
     /// </remarks>
     /// <param name="entry">The Unchanged aggregate root entry.</param>
     /// <param name="mutatingNavs">
-    ///     Pre-built lookup from principal entry → set of owned navigations with
-    ///     mutations.
+    ///     Pre-built lookup from principal entry → set of owned navigations with mutations.
     /// </param>
     /// <returns>
     ///     A tuple of (tableName, sql, parameters) when there is something to write, or
@@ -1162,12 +1055,77 @@ public class DynamoDatabaseWrapper(
         var rootEntry = (InternalEntityEntry)entry;
         var stateManager = rootEntry.StateManager;
 
-        var setClauses = new List<string>();
-        var setParameters = new List<AttributeValue>();
+        // Phases A and B are skipped: the root is Unchanged; only owned sub-entities have
+        // mutations. Pass empty clause lists so FinalizeUpdateStatement starts at Phase C.
+        return FinalizeUpdateStatement(
+            entry,
+            entityType,
+            tableName,
+            rootEntry,
+            stateManager,
+            setClauses: [],
+            setParameters: [],
+            mutatingNavs);
+    }
+
+    /// <summary>
+    ///     Appends Phase C (OwnsOne) and Phase D (OwnsMany) navigation clauses to the provided
+    ///     <paramref name="setClauses" /> and <paramref name="setParameters" />, then builds the
+    ///     WHERE clause and assembles the final PartiQL <c>UPDATE</c> statement.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Called by <see cref="BuildModifiedUpdateStatement" /> (after Phases A and B
+    ///         pre-populate the clause lists with scalar and collection property changes) and by
+    ///         <see cref="BuildOwnedMutationUpdateStatement" /> (which passes empty lists because
+    ///         only owned sub-entity mutations are present).
+    ///     </para>
+    ///     <para>
+    ///         SET and WHERE parameters are kept separate so concurrency predicates can be
+    ///         appended to WHERE independently before concatenation. The final parameter list
+    ///         order must match the positional <c>?</c> placeholders in the SQL text: SET values
+    ///         first, then WHERE values.
+    ///     </para>
+    /// </remarks>
+    /// <param name="entry">The root entity entry being updated.</param>
+    /// <param name="entityType">The entity type of the root entry.</param>
+    /// <param name="tableName">The DynamoDB table name.</param>
+    /// <param name="rootEntry">The root entry as an <see cref="InternalEntityEntry" />.</param>
+    /// <param name="stateManager">The EF Core state manager for resolving owned entries.</param>
+    /// <param name="setClauses">
+    ///     SET clauses pre-populated by Phases A and B; empty when called from the Unchanged-root
+    ///     path.
+    /// </param>
+    /// <param name="setParameters">
+    ///     Parameter values for the pre-populated SET clauses; empty when called from the
+    ///     Unchanged-root path.
+    /// </param>
+    /// <param name="mutatingNavs">
+    ///     Pre-built lookup from principal entry → set of owned navigations with mutations.
+    /// </param>
+    /// <returns>
+    ///     A tuple of (tableName, sql, parameters) when there is something to write, or
+    ///     <see langword="null" /> when no effective changes exist after all phases.
+    /// </returns>
+    private (string tableName, string sql, List<AttributeValue> parameters)?
+        FinalizeUpdateStatement(
+            IUpdateEntry entry,
+            IEntityType entityType,
+            string tableName,
+            InternalEntityEntry rootEntry,
+            IStateManager stateManager,
+            List<string> setClauses,
+            List<AttributeValue> setParameters,
+            Dictionary<InternalEntityEntry, HashSet<INavigation>> mutatingNavs)
+    {
         var removeClauses = new List<string>();
         var whereParameters = new List<AttributeValue>();
 
-        // Phase C — OwnsOne navigations (same logic as in BuildModifiedUpdateStatement)
+        // Phase C — OwnsOne navigations
+        // Modified: nested-path SET per changed property (recurse for deep chains).
+        // Added (null→ref): full M replace — nested SET paths require the parent attribute to
+        // exist.
+        // Deleted (ref→null): REMOVE the attribute entirely.
         foreach (var nav in entityType
             .GetNavigations()
             .Where(static n => !n.IsOnDependent && n.TargetEntityType.IsOwned() && !n.IsCollection))
@@ -1198,6 +1156,7 @@ public class DynamoDatabaseWrapper(
             }
             else
             {
+                // Modified — emit per-property nested-path SET (and REMOVE for sub-nulled refs)
                 AppendOwnedOneNestedSetClauses(
                     ownedEntry,
                     pathPrefix,
@@ -1208,7 +1167,9 @@ public class DynamoDatabaseWrapper(
             }
         }
 
-        // Phase D — OwnsMany navigations (same logic as in BuildModifiedUpdateStatement)
+        // Phase D — OwnsMany navigations
+        // Full list replacement: serialize all non-Deleted elements in collection order.
+        // list_append / REMOVE [i] are not viable because EF Core has no element-level index delta.
         foreach (var nav in entityType
             .GetNavigations()
             .Where(static n => !n.IsOnDependent && n.TargetEntityType.IsOwned() && n.IsCollection))
@@ -1231,10 +1192,12 @@ public class DynamoDatabaseWrapper(
             setParameters.Add(new AttributeValue { L = elements });
         }
 
+        // If there is nothing to write (no scalar, collection, owned, or structural change),
+        // return null to signal the caller to skip this entry.
         if (setClauses.Count == 0 && removeClauses.Count == 0)
             return null;
 
-        // WHERE: key + concurrency tokens (using original values)
+        // Key WHERE conditions: use original values so the correct DynamoDB item is targeted.
         var partitionKeyProperty = entityType.GetPartitionKeyProperty()
             ?? throw new InvalidOperationException(
                 $"Entity type '{entityType.DisplayName()}' does not define a partition key.");
@@ -1248,6 +1211,7 @@ public class DynamoDatabaseWrapper(
             partitionKeyMapping.CreateAttributeValue(
                 GetOriginalOrCurrentValue(entry, partitionKeyProperty)));
 
+        // Build WHERE conditions as a separate list so concurrency predicates can be appended.
         var whereClauses = new List<string>
         {
             $"\"{EscapeIdentifier(partitionKeyProperty.GetAttributeName())}\" = ?",

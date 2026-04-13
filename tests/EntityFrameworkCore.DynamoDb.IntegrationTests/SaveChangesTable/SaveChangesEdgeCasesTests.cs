@@ -74,7 +74,7 @@ public class SaveChangesEdgeCasesTests(SaveChangesTableDynamoFixture fixture)
         // This test verifies the provider's PartiQL statement-size guard fires before
         // any write reaches DynamoDB. The LongStatementItem entity maps 15 scalar properties
         // to attribute names that are each 600 characters long. The resulting INSERT statement
-        // comfortably exceeds DynamoDB's 8192-character limit.
+        // comfortably exceeds DynamoDB's 8192-byte statement-size limit.
         const string pk = "TENANT#EDGE";
         const string sk = "ITEM#LONG-STATEMENT";
 
@@ -87,7 +87,7 @@ public class SaveChangesEdgeCasesTests(SaveChangesTableDynamoFixture fixture)
             await context.SaveChangesAsync(CancellationToken);
         };
 
-        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*8192*character*");
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*8192*");
 
         // Guard fired before the write — item must not exist in DynamoDB.
         (await GetItemAsync(pk, sk, CancellationToken)).Should().BeNull();
@@ -105,7 +105,7 @@ public class SaveChangesEdgeCasesTests(SaveChangesTableDynamoFixture fixture)
 
     /// <summary>
     ///     A purpose-built entity whose DynamoDB attribute names are intentionally long so that the
-    ///     generated INSERT statement exceeds 8192 characters.
+    ///     generated INSERT statement exceeds DynamoDB's 8192-byte statement-size limit.
     /// </summary>
     private sealed class LongStatementItem
     {
@@ -141,7 +141,7 @@ public class SaveChangesEdgeCasesTests(SaveChangesTableDynamoFixture fixture)
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             // Each attribute name is 600 characters long. With 15 properties the INSERT
-            // statement will be ~9100 characters, well above the 8192-char guard threshold.
+            // statement will be ~9100 characters (bytes for ASCII), well above the 8192-byte guard.
             const string LongName =
                 "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
                 + // 100
