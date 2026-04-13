@@ -14,6 +14,8 @@ public static class DynamoDatabaseFacadeExtensions
     /// <summary>
     /// Sets a per-context override for transaction overflow behavior.
     /// </summary>
+    /// <param name="databaseFacade">The database facade for the current DbContext.</param>
+    /// <param name="behavior">The overflow behavior to apply for this context instance.</param>
     public static void SetTransactionOverflowBehavior(
         this DatabaseFacade databaseFacade,
         TransactionOverflowBehavior behavior)
@@ -22,6 +24,8 @@ public static class DynamoDatabaseFacadeExtensions
     /// <summary>
     /// Gets the effective transaction overflow behavior for this context.
     /// </summary>
+    /// <param name="databaseFacade">The database facade for the current DbContext.</param>
+    /// <returns>The runtime override when present; otherwise the configured provider default.</returns>
     public static TransactionOverflowBehavior GetTransactionOverflowBehavior(
         this DatabaseFacade databaseFacade)
     {
@@ -34,6 +38,11 @@ public static class DynamoDatabaseFacadeExtensions
     /// <summary>
     /// Sets a per-context override for max transaction size.
     /// </summary>
+    /// <param name="databaseFacade">The database facade for the current DbContext.</param>
+    /// <param name="maxTransactionSize">Maximum operations per ExecuteTransaction call (1-100).</param>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when <paramref name="maxTransactionSize"/> is outside the supported range.
+    /// </exception>
     public static void SetMaxTransactionSize(
         this DatabaseFacade databaseFacade,
         int maxTransactionSize)
@@ -49,6 +58,8 @@ public static class DynamoDatabaseFacadeExtensions
     /// <summary>
     /// Gets the effective max transaction size for this context.
     /// </summary>
+    /// <param name="databaseFacade">The database facade for the current DbContext.</param>
+    /// <returns>The runtime override when present; otherwise the configured provider default.</returns>
     public static int GetMaxTransactionSize(this DatabaseFacade databaseFacade)
     {
         var runtimeOptions = GetRuntimeOptions(databaseFacade);
@@ -58,6 +69,11 @@ public static class DynamoDatabaseFacadeExtensions
     }
 
     /// <summary>Sets a per-context override for max non-atomic batch write size.</summary>
+    /// <param name="databaseFacade">The database facade for the current DbContext.</param>
+    /// <param name="maxBatchWriteSize">Maximum operations per BatchExecuteStatement call (1-25).</param>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when <paramref name="maxBatchWriteSize"/> is outside the supported range.
+    /// </exception>
     public static void SetMaxBatchWriteSize(
         this DatabaseFacade databaseFacade,
         int maxBatchWriteSize)
@@ -71,6 +87,8 @@ public static class DynamoDatabaseFacadeExtensions
     }
 
     /// <summary>Gets the effective max non-atomic batch write size for this context.</summary>
+    /// <param name="databaseFacade">The database facade for the current DbContext.</param>
+    /// <returns>The runtime override when present; otherwise the configured provider default.</returns>
     public static int GetMaxBatchWriteSize(this DatabaseFacade databaseFacade)
     {
         var runtimeOptions = GetRuntimeOptions(databaseFacade);

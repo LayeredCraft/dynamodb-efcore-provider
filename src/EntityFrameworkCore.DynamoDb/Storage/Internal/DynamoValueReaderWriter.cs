@@ -573,6 +573,12 @@ internal static class DynamoValueReaderWriterFactory
             nameof(CreateNullableReaderWriterGeneric),
             BindingFlags.Static | BindingFlags.NonPublic)!;
 
+    /// <summary>Creates a DynamoDB value reader/writer for the specified CLR type.</summary>
+    /// <remarks>
+    ///     Resolution order is scalar primitives (string/bool/binary), numeric primitives (including
+    ///     nullable wrappers), then collection shapes (list/dictionary/set) when an element/value
+    ///     reader/writer is supplied.
+    /// </remarks>
     public static DynamoValueReaderWriter? Create(
         Type clrType,
         DynamoValueReaderWriter? elementReaderWriter = null,
@@ -623,6 +629,12 @@ internal static class DynamoValueReaderWriterFactory
         return null;
     }
 
+    /// <summary>Composes an EF Core value converter over an existing DynamoDB reader/writer.</summary>
+    /// <remarks>
+    ///     If <paramref name="readerWriter" /> is already a converted wrapper, this method unwraps it
+    ///     to avoid nesting converter adapters, then creates one composed reader/writer at
+    ///     mapping-construction time.
+    /// </remarks>
     public static DynamoValueReaderWriter? Compose(
         ValueConverter? converter,
         DynamoValueReaderWriter? readerWriter)

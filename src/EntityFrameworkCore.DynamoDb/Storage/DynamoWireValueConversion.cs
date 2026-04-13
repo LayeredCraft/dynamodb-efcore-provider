@@ -5,14 +5,33 @@ namespace EntityFrameworkCore.DynamoDb.Storage;
 
 internal static class DynamoWireValueConversion
 {
+    /// <summary>Formats numeric values for DynamoDB wire output using invariant culture.</summary>
+    /// <remarks>
+    ///     Uses round-trip (<c>R</c>) formatting for <see cref="float" /> and <see cref="double" />
+    ///     to preserve precision across write/read cycles.
+    /// </remarks>
     public static string FormatNumber<T>(T value) where T : struct, IFormattable
         => value.ToString(
             typeof(T) == typeof(float) || typeof(T) == typeof(double) ? "R" : null,
             CultureInfo.InvariantCulture);
 
+    /// <summary>Creates a binary DynamoDB attribute value from a byte array.</summary>
+    /// <remarks>
+    ///     Wraps the byte array in a non-writable <see cref="MemoryStream" /> so the SDK can stream
+    ///     bytes without mutating the original array.
+    /// </remarks>
     public static AttributeValue CreateBinaryAttributeValue(byte[] value)
         => new() { B = new MemoryStream(value, false) };
 
+    /// <summary>Converts a provider CLR value to a DynamoDB <see cref="AttributeValue" />.</summary>
+    /// <remarks>
+    ///     Null values are represented as <c>{ NULL = true }</c>. Supported provider CLR shapes are
+    ///     string, bool, numeric primitives, and <c>byte[]</c>.
+    /// </remarks>
+    /// <exception cref="NotSupportedException">
+    ///     Thrown when <typeparamref name="T" /> is not a supported
+    ///     DynamoDB wire type.
+    /// </exception>
     public static AttributeValue ConvertProviderValueToAttributeValue<T>(T value)
     {
         if (value is null)
@@ -39,6 +58,11 @@ internal static class DynamoWireValueConversion
         };
     }
 
+    /// <summary>Generates an inline PartiQL constant for a boxed CLR value.</summary>
+    /// <remarks>
+    ///     String values are escaped for single-quoted PartiQL literals. Binary values are rejected
+    ///     because inline binary literals are not supported by this provider path; use parameters instead.
+    /// </remarks>
     public static string GenerateBoxedConstant(object? value)
     {
         if (value == null)

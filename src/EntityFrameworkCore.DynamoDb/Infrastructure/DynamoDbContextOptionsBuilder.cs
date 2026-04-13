@@ -21,11 +21,13 @@ public class DynamoDbContextOptionsBuilder(DbContextOptionsBuilder optionsBuilde
     public DbContextOptionsBuilder OptionsBuilder { get; } = optionsBuilder;
 
     /// <summary>Uses a preconfigured DynamoDB client instance for all provider operations.</summary>
+    /// <param name="client">The DynamoDB SDK client instance to use.</param>
     /// <returns>The builder for chaining.</returns>
     public virtual DynamoDbContextOptionsBuilder DynamoDbClient(IAmazonDynamoDB client)
         => WithOption(e => e.WithDynamoDbClient(client.NotNull()));
 
     /// <summary>Uses the provided DynamoDB client configuration when creating the SDK client.</summary>
+    /// <param name="config">The SDK configuration used when constructing the client.</param>
     /// <returns>The builder for chaining.</returns>
     public virtual DynamoDbContextOptionsBuilder DynamoDbClientConfig(AmazonDynamoDBConfig config)
         => WithOption(e => e.WithDynamoDbClientConfig(config.NotNull()));
@@ -34,12 +36,14 @@ public class DynamoDbContextOptionsBuilder(DbContextOptionsBuilder optionsBuilde
     ///     Applies additional configuration to the DynamoDB client configuration before client
     ///     creation.
     /// </summary>
+    /// <param name="configure">A callback that mutates the SDK configuration.</param>
     /// <returns>The builder for chaining.</returns>
     public virtual DynamoDbContextOptionsBuilder ConfigureDynamoDbClientConfig(
         Action<AmazonDynamoDBConfig> configure)
         => WithOption(e => e.WithDynamoDbClientConfigAction(configure.NotNull()));
 
     /// <summary>Configures how the provider should apply automatic secondary index selection.</summary>
+    /// <param name="mode">The automatic index selection mode.</param>
     /// <returns>The builder for chaining.</returns>
     public virtual DynamoDbContextOptionsBuilder UseAutomaticIndexSelection(
         DynamoAutomaticIndexSelectionMode mode)
@@ -49,6 +53,7 @@ public class DynamoDbContextOptionsBuilder(DbContextOptionsBuilder optionsBuilde
     /// Configures how transactional SaveChanges should behave when the write unit exceeds max
     /// transaction size.
     /// </summary>
+    /// <param name="behavior">The overflow behavior to apply for transactional saves.</param>
     /// <returns>The builder for chaining.</returns>
     public virtual DynamoDbContextOptionsBuilder TransactionOverflowBehavior(
         TransactionOverflowBehavior behavior)
@@ -57,6 +62,7 @@ public class DynamoDbContextOptionsBuilder(DbContextOptionsBuilder optionsBuilde
     /// <summary>
     /// Configures the maximum number of write operations sent in a single DynamoDB transaction.
     /// </summary>
+    /// <param name="maxTransactionSize">Maximum operations per transaction (1-100).</param>
     /// <returns>The builder for chaining.</returns>
     public virtual DynamoDbContextOptionsBuilder MaxTransactionSize(int maxTransactionSize)
         => WithOption(e => e.WithMaxTransactionSize(maxTransactionSize));
@@ -65,6 +71,7 @@ public class DynamoDbContextOptionsBuilder(DbContextOptionsBuilder optionsBuilde
     ///     Configures default maximum number of write operations sent in a single non-atomic PartiQL
     ///     batch.
     /// </summary>
+    /// <param name="maxBatchWriteSize">Maximum operations per non-atomic batch (1-25).</param>
     /// <returns>The builder for chaining.</returns>
     public virtual DynamoDbContextOptionsBuilder MaxBatchWriteSize(int maxBatchWriteSize)
         => WithOption(e => e.WithMaxBatchWriteSize(maxBatchWriteSize));

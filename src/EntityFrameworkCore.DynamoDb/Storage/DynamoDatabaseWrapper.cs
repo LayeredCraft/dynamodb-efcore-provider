@@ -205,6 +205,13 @@ public class DynamoDatabaseWrapper(
         IReadOnlyList<CompiledWriteOperation> operations,
         CancellationToken cancellationToken)
     {
+        // Execution policy matrix:
+        // 1) No transaction requested -> single statement executes independently; multi-statement
+        //    unit uses non-atomic batch chunks.
+        // 2) Transaction requested and within limit -> execute one atomic transaction.
+        // 3) Transaction requested and overflowed -> AutoTransactionBehavior.Always throws;
+        //    otherwise TransactionOverflowBehavior decides throw vs chunked transactions.
+        // Any chunked mode can partially commit, so acceptAllChangesOnSuccess=false is rejected.
         var autoTransactionBehavior = currentDbContext.Context.Database.AutoTransactionBehavior;
         var effectiveTransactionOverflowBehavior =
             transactionRuntimeOptions.TransactionOverflowBehaviorOverride
@@ -440,6 +447,9 @@ public class DynamoDatabaseWrapper(
         int maxBatchWriteSize,
         CancellationToken cancellationToken)
     {
+        // Non-atomic batch semantics:
+        // - accept successes from each chunk immediately to prevent replaying committed writes.
+        // - aggregate failed entries for context, but throw only one mapped exception per chunk.
         foreach (var chunk in operations.Chunk(maxBatchWriteSize))
         {
             foreach (var operation in chunk)
