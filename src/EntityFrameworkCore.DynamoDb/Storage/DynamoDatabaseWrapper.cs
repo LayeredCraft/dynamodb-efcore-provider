@@ -140,7 +140,8 @@ public class DynamoDatabaseWrapper(
                         EntityState.Added,
                         tableName,
                         sql,
-                        parameters);
+                        parameters,
+                        serializerSource);
                     break;
                 }
 
@@ -156,7 +157,8 @@ public class DynamoDatabaseWrapper(
                         EntityState.Modified,
                         update.Value.tableName,
                         update.Value.sql,
-                        update.Value.parameters);
+                        update.Value.parameters,
+                        serializerSource);
                     break;
                 }
 
@@ -172,20 +174,22 @@ public class DynamoDatabaseWrapper(
                         EntityState.Modified,
                         update.Value.tableName,
                         update.Value.sql,
-                        update.Value.parameters);
+                        update.Value.parameters,
+                        serializerSource);
                     break;
                 }
 
                 case EntityState.Deleted:
                 {
-                    var delete = BuildDeleteStatement(entry);
+                    var delete = BuildDeleteStatement(entry, serializerSource);
                     AddCompiledOperation(
                         operations,
                         entry,
                         EntityState.Deleted,
                         delete.tableName,
                         delete.sql,
-                        delete.parameters);
+                        delete.parameters,
+                        serializerSource);
                     break;
                 }
 
@@ -296,7 +300,8 @@ public class DynamoDatabaseWrapper(
         EntityState entityState,
         string tableName,
         string statement,
-        List<AttributeValue> parameters)
+        List<AttributeValue> parameters,
+        DynamoEntityItemSerializerSource serializerSource)
     {
         ValidateStatementLength(statement);
         operations.Add(
@@ -306,7 +311,7 @@ public class DynamoDatabaseWrapper(
                 tableName,
                 statement,
                 parameters,
-                BuildTargetItemIdentity(entry, tableName)));
+                BuildTargetItemIdentity(entry, tableName, serializerSource)));
     }
 
     /// <summary>
@@ -639,7 +644,8 @@ public class DynamoDatabaseWrapper(
 
     private static TransactionTargetItem BuildTargetItemIdentity(
         IUpdateEntry entry,
-        string tableName)
+        string tableName,
+        DynamoEntityItemSerializerSource serializerSource)
     {
         var entityType = entry.EntityType;
 
@@ -647,24 +653,23 @@ public class DynamoDatabaseWrapper(
             ?? throw new InvalidOperationException(
                 $"Entity type '{entityType.DisplayName()}' does not define a partition key.");
 
-        var partitionKeyValue = SerializeIdentityValue(entry, partitionKeyProperty);
+        var partitionKeyValue =
+            SerializeIdentityValue(entry, partitionKeyProperty, serializerSource);
 
         var sortKeyProperty = entityType.GetSortKeyProperty();
         var sortKeyValue = sortKeyProperty is null
             ? ""
-            : SerializeIdentityValue(entry, sortKeyProperty);
+            : SerializeIdentityValue(entry, sortKeyProperty, serializerSource);
 
         return new TransactionTargetItem(tableName, partitionKeyValue, sortKeyValue);
     }
 
-    private static string SerializeIdentityValue(IUpdateEntry entry, IProperty keyProperty)
+    private static string SerializeIdentityValue(
+        IUpdateEntry entry,
+        IProperty keyProperty,
+        DynamoEntityItemSerializerSource serializerSource)
     {
-        var mapping = keyProperty.GetTypeMapping() as DynamoTypeMapping
-            ?? throw new InvalidOperationException(
-                $"Key property '{entry.EntityType.DisplayName()}.{keyProperty.Name}' "
-                + "requires a DynamoTypeMapping.");
-
-        var value = mapping.CreateAttributeValue(GetOriginalOrCurrentValue(entry, keyProperty));
+        var value = serializerSource.GetOrBuildOriginalValueSerializer(keyProperty)(entry);
         return SerializeKeyAttributeValue(value, entry.EntityType, keyProperty);
     }
 
@@ -760,14 +765,8 @@ public class DynamoDatabaseWrapper(
             if (!IsScalarModifiedProperty(property))
                 continue; // Collection properties are handled in Phase B
 
-            var mapping = property.GetTypeMapping() as DynamoTypeMapping;
-            if (mapping is null || !mapping.CanWriteToAttributeValue)
-                throw new NotSupportedException(
-                    $"Property '{entityType.DisplayName()}.{property.Name}' does not have a "
-                    + "supported DynamoDB write mapping for Modified entities.");
-
             setClauses.Add($"\"{EscapeIdentifier(property.GetAttributeName())}\" = ?");
-            setParameters.Add(mapping.CreateAttributeValue(entry.GetCurrentValue(property)));
+            setParameters.Add(serializerSource.SerializeProperty(entry, property));
         }
 
         // Phase B — Primitive collection properties (L/M/SS/NS/BS)
@@ -826,21 +825,10 @@ public class DynamoDatabaseWrapper(
 
             var propPath = $"{pathPrefix}.\"{EscapeIdentifier(property.GetAttributeName())}\"";
 
-            if (IsScalarModifiedProperty(property))
-            {
-                var mapping = property.GetTypeMapping() as DynamoTypeMapping;
-                if (mapping is null || !mapping.CanWriteToAttributeValue)
-                    continue;
-                setClauses.Add($"{propPath} = ?");
-                setParameters.Add(
-                    mapping.CreateAttributeValue(ownedEntry.GetCurrentValue(property)));
-            }
-            else
-            {
-                // Collection property inside OwnsOne: full attribute replacement
-                setClauses.Add($"{propPath} = ?");
-                setParameters.Add(serializerSource.SerializeProperty(ownedEntry, property));
-            }
+            // Both scalar and collection properties route through the serializer source so the
+            // typed delegate path is used in both cases — no boxing on value-type properties.
+            setClauses.Add($"{propPath} = ?");
+            setParameters.Add(serializerSource.SerializeProperty(ownedEntry, property));
         }
 
         // Nested OwnsOne sub-navigations: recurse
@@ -1202,14 +1190,8 @@ public class DynamoDatabaseWrapper(
             ?? throw new InvalidOperationException(
                 $"Entity type '{entityType.DisplayName()}' does not define a partition key.");
 
-        var partitionKeyMapping = partitionKeyProperty.GetTypeMapping() as DynamoTypeMapping
-            ?? throw new InvalidOperationException(
-                $"Partition key property '{entityType.DisplayName()}.{partitionKeyProperty.Name}' "
-                + "requires a DynamoTypeMapping.");
-
         whereParameters.Add(
-            partitionKeyMapping.CreateAttributeValue(
-                GetOriginalOrCurrentValue(entry, partitionKeyProperty)));
+            serializerSource.GetOrBuildOriginalValueSerializer(partitionKeyProperty)(entry));
 
         // Build WHERE conditions as a separate list so concurrency predicates can be appended.
         var whereClauses = new List<string>
@@ -1220,19 +1202,17 @@ public class DynamoDatabaseWrapper(
         var sortKeyProperty = entityType.GetSortKeyProperty();
         if (sortKeyProperty is not null)
         {
-            var sortKeyMapping = sortKeyProperty.GetTypeMapping() as DynamoTypeMapping
-                ?? throw new InvalidOperationException(
-                    $"Sort key property '{entityType.DisplayName()}.{sortKeyProperty.Name}' "
-                    + "requires a DynamoTypeMapping.");
-
             whereParameters.Add(
-                sortKeyMapping.CreateAttributeValue(
-                    GetOriginalOrCurrentValue(entry, sortKeyProperty)));
-
+                serializerSource.GetOrBuildOriginalValueSerializer(sortKeyProperty)(entry));
             whereClauses.Add($"\"{EscapeIdentifier(sortKeyProperty.GetAttributeName())}\" = ?");
         }
 
-        AppendConcurrencyTokenPredicates(entry, entityType, whereClauses, whereParameters);
+        AppendConcurrencyTokenPredicates(
+            entry,
+            entityType,
+            whereClauses,
+            whereParameters,
+            serializerSource);
 
         var sqlBuilder =
             new StringBuilder().AppendLine($"UPDATE \"{EscapeIdentifier(tableName)}\"");
@@ -1251,20 +1231,6 @@ public class DynamoDatabaseWrapper(
 
         return (tableName, sqlBuilder.ToString(), parameters);
     }
-
-    /// <summary>
-    ///     Returns the original value of <paramref name="property" /> when EF Core is tracking it,
-    ///     falling back to the current value otherwise.
-    /// </summary>
-    /// <remarks>
-    ///     Original values are used for key properties in WHERE clauses so that the correct DynamoDB
-    ///     item is targeted even if the in-memory value has been touched (key mutation is rejected
-    ///     separately before this is called).
-    /// </remarks>
-    private static object? GetOriginalOrCurrentValue(IUpdateEntry entry, IProperty property)
-        => entry.CanHaveOriginalValue(property)
-            ? entry.GetOriginalValue(property)
-            : entry.GetCurrentValue(property);
 
     /// <summary>
     ///     Returns <see langword="true" /> if <paramref name="property" /> maps to a scalar DynamoDB
@@ -1400,13 +1366,17 @@ public class DynamoDatabaseWrapper(
     /// <c>ConditionalCheckFailedException</c> fires.
     /// </summary>
     /// <param name="entry">The root entity entry to delete.</param>
+    /// <param name="serializerSource">
+    ///     Used to obtain boxing-free original-value serializer delegates for key and concurrency
+    ///     token WHERE parameters.
+    /// </param>
     /// <returns>A tuple of (tableName, sql, parameters) for the DELETE statement.</returns>
     /// <exception cref="InvalidOperationException">
     /// Thrown when the entity type does not define a partition key or when a key property
     /// lacks a <see cref="DynamoTypeMapping"/>.
     /// </exception>
     private static (string tableName, string sql, List<AttributeValue> parameters)
-        BuildDeleteStatement(IUpdateEntry entry)
+        BuildDeleteStatement(IUpdateEntry entry, DynamoEntityItemSerializerSource serializerSource)
     {
         var tableName = (string)entry.EntityType[DynamoAnnotationNames.TableName]!;
 
@@ -1425,17 +1395,11 @@ public class DynamoDatabaseWrapper(
             ?? throw new InvalidOperationException(
                 $"Entity type '{entityType.DisplayName()}' does not define a partition key.");
 
-        var partitionKeyMapping = partitionKeyProperty.GetTypeMapping() as DynamoTypeMapping
-            ?? throw new InvalidOperationException(
-                $"Partition key property '{entityType.DisplayName()}.{partitionKeyProperty.Name}' "
-                + "requires a DynamoTypeMapping.");
-
         // Use the original key value so that the correct DynamoDB item is targeted even if the
         // in-memory value was touched before deletion was requested.
         var parameters = new List<AttributeValue>
         {
-            partitionKeyMapping.CreateAttributeValue(
-                GetOriginalOrCurrentValue(entry, partitionKeyProperty)),
+            serializerSource.GetOrBuildOriginalValueSerializer(partitionKeyProperty)(entry),
         };
 
         var sqlBuilder = new StringBuilder();
@@ -1446,20 +1410,18 @@ public class DynamoDatabaseWrapper(
         var sortKeyProperty = entityType.GetSortKeyProperty();
         if (sortKeyProperty is not null)
         {
-            var sortKeyMapping = sortKeyProperty.GetTypeMapping() as DynamoTypeMapping
-                ?? throw new InvalidOperationException(
-                    $"Sort key property '{entityType.DisplayName()}.{sortKeyProperty.Name}' "
-                    + "requires a DynamoTypeMapping.");
-
             parameters.Add(
-                sortKeyMapping.CreateAttributeValue(
-                    GetOriginalOrCurrentValue(entry, sortKeyProperty)));
-
+                serializerSource.GetOrBuildOriginalValueSerializer(sortKeyProperty)(entry));
             sqlBuilder.Append(
                 $" AND \"{EscapeIdentifier(sortKeyProperty.GetAttributeName())}\" = ?");
         }
 
-        AppendConcurrencyTokenPredicates(entry, entityType, sqlBuilder, parameters);
+        AppendConcurrencyTokenPredicates(
+            entry,
+            entityType,
+            sqlBuilder,
+            parameters,
+            serializerSource);
 
         return (tableName, sqlBuilder.ToString(), parameters);
     }
@@ -1537,20 +1499,16 @@ public class DynamoDatabaseWrapper(
         IUpdateEntry entry,
         IEntityType entityType,
         List<string> whereClauses,
-        List<AttributeValue> whereParameters)
+        List<AttributeValue> whereParameters,
+        DynamoEntityItemSerializerSource serializerSource)
     {
         foreach (var property in entityType.GetProperties())
         {
             if (!property.IsConcurrencyToken || property.IsPrimaryKey())
                 continue;
 
-            var mapping = property.GetTypeMapping() as DynamoTypeMapping
-                ?? throw new InvalidOperationException(
-                    $"Property '{entityType.DisplayName()}.{property.Name}' "
-                    + "requires a DynamoTypeMapping.");
-
             whereParameters.Add(
-                mapping.CreateAttributeValue(GetOriginalOrCurrentValue(entry, property)));
+                serializerSource.GetOrBuildOriginalValueSerializer(property)(entry));
             whereClauses.Add($"\"{EscapeIdentifier(property.GetAttributeName())}\" = ?");
         }
     }
@@ -1563,12 +1521,18 @@ public class DynamoDatabaseWrapper(
         IUpdateEntry entry,
         IEntityType entityType,
         StringBuilder sqlBuilder,
-        List<AttributeValue> parameters)
+        List<AttributeValue> parameters,
+        DynamoEntityItemSerializerSource serializerSource)
     {
         List<string> whereClauses = [];
         List<AttributeValue> whereParameters = [];
 
-        AppendConcurrencyTokenPredicates(entry, entityType, whereClauses, whereParameters);
+        AppendConcurrencyTokenPredicates(
+            entry,
+            entityType,
+            whereClauses,
+            whereParameters,
+            serializerSource);
 
         foreach (var clause in whereClauses)
             sqlBuilder.Append($" AND {clause}");

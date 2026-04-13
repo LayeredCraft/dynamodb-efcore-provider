@@ -23,6 +23,12 @@ public sealed class DynamoEntityItemSerializerSource
 {
     private readonly ConcurrentDictionary<IEntityType, EntityWritePlan> _cache = new();
 
+    // Separate cache for original-value (WHERE clause) serializers, keyed by property.
+    // These read the original-or-current value via IUpdateEntry.GetOriginalValue<T> /
+    // GetCurrentValue<T> rather than GetCurrentValue<T> used by the INSERT/UPDATE SET path.
+    private readonly ConcurrentDictionary<IProperty, Func<IUpdateEntry, AttributeValue>>
+        _originalValueCache = new();
+
     /// <summary>
     /// Returns the fully assembled DynamoDB item dictionary for a root <see cref="IUpdateEntry"/>.
     /// Owned sub-entries are resolved on-demand via the EF state manager, scoped to what is
@@ -42,11 +48,48 @@ public sealed class DynamoEntityItemSerializerSource
     /// <summary>
     ///     Serializes the current value of <paramref name="property" /> on <paramref name="entry" />
     ///     to an <see cref="AttributeValue" /> using the pre-compiled per-type delegate. Used by the
-    ///     update path to serialize collection-typed properties (L/M/SS/NS/BS) for full attribute-level
-    ///     replacement in UPDATE SET clauses.
+    ///     update path to serialize scalar and collection-typed properties for UPDATE SET clauses.
     /// </summary>
     internal AttributeValue SerializeProperty(IUpdateEntry entry, IProperty property)
         => GetOrBuildPlan(entry.EntityType).SerializeProperty(entry, property);
+
+    /// <summary>
+    ///     Returns a cached delegate that reads the original (or current, if no original is tracked)
+    ///     value of <paramref name="property" /> from an <see cref="IUpdateEntry" /> and serializes it to
+    ///     an <see cref="AttributeValue" /> without boxing.
+    /// </summary>
+    /// <remarks>
+    ///     Used for WHERE clause key and concurrency token parameters in UPDATE and DELETE
+    ///     statements. Original values are required so the correct DynamoDB item is targeted even if the
+    ///     in-memory value was touched before the write was requested. The delegate is compiled once per
+    ///     property and cached.
+    /// </remarks>
+    internal Func<IUpdateEntry, AttributeValue>
+        GetOrBuildOriginalValueSerializer(IProperty property)
+        => _originalValueCache.GetOrAdd(property, BuildOriginalValueSerializer);
+
+    /// <summary>
+    ///     Builds the original-value serializer delegate for <paramref name="property" />. Mirrors
+    ///     <see cref="BuildScalarSerializer" /> but uses <see cref="OriginalValueScalarFactory" /> /
+    ///     <see cref="OriginalValueConvertedScalarFactory" /> so the generated delegate calls
+    ///     <c>GetOriginalValue&lt;T&gt;</c> / <c>GetCurrentValue&lt;T&gt;</c> rather than
+    ///     <c>GetCurrentValue&lt;T&gt;</c>.
+    /// </summary>
+    private static Func<IUpdateEntry, AttributeValue> BuildOriginalValueSerializer(
+        IProperty property)
+    {
+        var clrType = property.ClrType;
+        var converter = property.GetTypeMapping().Converter;
+
+        if (converter == null)
+            return DispatchWireType(property, clrType, default(OriginalValueScalarFactory));
+
+        EnsureSupportedValueProviderType(property, converter.ProviderClrType);
+        return DispatchWireType(
+            property,
+            converter.ProviderClrType,
+            new OriginalValueConvertedScalarFactory(converter));
+    }
 
     private EntityWritePlan GetOrBuildPlan(IEntityType entityType)
         => _cache.GetOrAdd(entityType, BuildPlan);
@@ -600,6 +643,158 @@ public sealed class DynamoEntityItemSerializerSource
             => entry => DynamoWireValueConversion.ConvertProviderValueToAttributeValue(
                 entry.GetCurrentValue<T>(property));
     }
+
+    // ── Original-value (WHERE clause) factories ────────────────────────────────────
+    //
+    // Mirror DirectScalarFactory / ConvertedScalarFactory but read the original-or-current
+    // value via IUpdateEntry.GetOriginalValue<T> / GetCurrentValue<T> so that WHERE clause
+    // key and concurrency token parameters target the correct DynamoDB item even when the
+    // in-memory value has been mutated since the snapshot was taken.
+
+    /// <summary>
+    ///     No-converter original-value factory. Reads the original (or current) value via the typed
+    ///     <c>GetOriginalValue&lt;T&gt;</c> / <c>GetCurrentValue&lt;T&gt;</c> accessors — both are backed
+    ///     by pre-compiled <c>Func&lt;IInternalEntry, T&gt;</c> delegates and do not box value types.
+    /// </summary>
+    private readonly struct OriginalValueScalarFactory : ISerializerFactory
+    {
+        /// <summary>
+        ///     Returns a delegate that reads the original-or-current property value without boxing and
+        ///     converts it to an <see cref="AttributeValue" />.
+        /// </summary>
+        public Func<IUpdateEntry, AttributeValue> Create<T>(IProperty property)
+            => entry => DynamoWireValueConversion.ConvertProviderValueToAttributeValue(
+                entry.CanHaveOriginalValue(property)
+                    ? entry.GetOriginalValue<T>(property)
+                    : entry.GetCurrentValue<T>(property));
+    }
+
+    /// <summary>
+    ///     Converter-path original-value outer factory for scalar properties. On
+    ///     <c>Create&lt;TProvider&gt;</c> dispatches on the converter model type exactly as
+    ///     <see cref="ConvertedScalarFactory" /> does, but uses
+    ///     <see cref="OriginalValueScalarModelBinder{TProvider}" /> /
+    ///     <see cref="OriginalValueScalarNullableBinder{TProvider}" /> so the inner delegate reads the
+    ///     original value rather than the current value.
+    /// </summary>
+    private readonly struct OriginalValueConvertedScalarFactory(ValueConverter converter)
+        : ISerializerFactory
+    {
+        /// <summary>
+        ///     Dispatches on the converter model type to bind a typed original-value scalar delegate.
+        ///     Handles the direct-match and nullable-wrapping cases without boxing. Falls back to a boxed path
+        ///     for custom model types not in the dispatch table.
+        /// </summary>
+        public Func<IUpdateEntry, AttributeValue> Create<TProvider>(IProperty property)
+        {
+            var converterModelType = converter.ModelClrType;
+            var propClrType = property.ClrType;
+
+            if (propClrType == converterModelType)
+                return TryDispatchModelType(
+                        property,
+                        converterModelType,
+                        new OriginalValueScalarModelBinder<TProvider>(converter))
+                    ?? BoxedOriginalValueScalarFallback<TProvider>(property, converter);
+
+            // Nullable wrapping: property is Nullable<TUnderlying>, converter model is TUnderlying.
+            var underlying = Nullable.GetUnderlyingType(propClrType);
+            if (underlying == converterModelType)
+                return TryDispatchStructModelType(
+                        property,
+                        converterModelType,
+                        new OriginalValueScalarNullableBinder<TProvider>(converter))
+                    ?? BoxedOriginalValueScalarFallback<TProvider>(property, converter);
+
+            throw new NotSupportedException(
+                $"Property '{property.DeclaringType.DisplayName()}.{property.Name}': "
+                + $"property CLR type '{propClrType.ShortDisplayName()}' cannot be bound to "
+                + $"converter model type '{converterModelType.ShortDisplayName()}' on the "
+                + "original-value write path. The converter model type must match the property "
+                + "CLR type or be its non-nullable underlying type.");
+        }
+    }
+
+    /// <summary>
+    ///     Inner binder for the direct-match converter + original-value path. Reads the original (or
+    ///     current) model value and converts it to the provider type without boxing.
+    /// </summary>
+    private readonly struct OriginalValueScalarModelBinder<TProvider>(ValueConverter converter)
+        : ISerializerFactory
+    {
+        /// <summary>
+        ///     Returns a delegate that reads the original model value, converts it via
+        ///     <see cref="ValueConverter{TModel,TProvider}.ConvertToProviderTyped" />, and serializes to an
+        ///     <see cref="AttributeValue" /> without boxing.
+        /// </summary>
+        public Func<IUpdateEntry, AttributeValue> Create<TModel>(IProperty property)
+        {
+            var typed = (ValueConverter<TModel, TProvider>)converter;
+            return entry => DynamoWireValueConversion.ConvertProviderValueToAttributeValue(
+                typed.ConvertToProviderTyped(
+                    entry.CanHaveOriginalValue(property)
+                        ? entry.GetOriginalValue<TModel>(property)
+                        : entry.GetCurrentValue<TModel>(property)));
+        }
+    }
+
+    /// <summary>
+    ///     Inner binder for the nullable-wrapping converter + original-value path. Property CLR type
+    ///     is <c>Nullable&lt;TUnderlying&gt;</c>, converter model type is <c>TUnderlying</c>. Reads the
+    ///     original nullable value and converts only when non-null.
+    /// </summary>
+    private readonly struct OriginalValueScalarNullableBinder<TProvider>(ValueConverter converter)
+        : IStructSerializerFactory
+    {
+        /// <summary>
+        ///     Returns a delegate that reads the original nullable value and, when present, converts it
+        ///     to the provider type without boxing.
+        /// </summary>
+        public Func<IUpdateEntry, AttributeValue> Create<TUnderlying>(IProperty property)
+            where TUnderlying : struct
+        {
+            var typed = (ValueConverter<TUnderlying, TProvider>)converter;
+            return entry =>
+            {
+                var value = entry.CanHaveOriginalValue(property)
+                    ? entry.GetOriginalValue<TUnderlying?>(property)
+                    : entry.GetCurrentValue<TUnderlying?>(property);
+                return value.HasValue
+                    ? DynamoWireValueConversion.ConvertProviderValueToAttributeValue(
+                        typed.ConvertToProviderTyped(value.Value))
+                    : NullAttributeValue();
+            };
+        }
+    }
+
+    /// <summary>
+    ///     Boxed fallback for the original-value converter path when the model CLR type is not in the
+    ///     <see cref="TryDispatchModelType{TFactory}" /> dispatch table (i.e. a custom type).
+    ///     <typeparamref name="TProvider" /> is still statically known, so the final
+    ///     <see cref="AttributeValue" /> construction stays unboxed.
+    /// </summary>
+    /// <remarks>
+    ///     Only reached for custom model types; all standard EF Core model types (Guid, DateTime,
+    ///     etc.) are handled by the typed dispatch path above.
+    /// </remarks>
+    private static Func<IUpdateEntry, AttributeValue> BoxedOriginalValueScalarFallback<TProvider>(
+        IProperty property,
+        ValueConverter converter)
+        => entry =>
+        {
+            // GetOriginalValue(property) returns object? — boxes for value types, but only
+            // reachable here for custom model types not in the dispatch table.
+            var originalModelValue = entry.CanHaveOriginalValue(property)
+                ? entry.GetOriginalValue(property)
+                : entry.GetCurrentValue(property);
+            if (originalModelValue is null)
+                return NullAttributeValue();
+            var providerValue = converter.ConvertToProvider(originalModelValue);
+            if (providerValue is null)
+                return NullAttributeValue();
+            return DynamoWireValueConversion.ConvertProviderValueToAttributeValue(
+                (TProvider)providerValue);
+        };
 
     private readonly struct DirectListFactory : ISerializerFactory
     {
