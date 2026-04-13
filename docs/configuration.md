@@ -30,6 +30,18 @@ optionsBuilder.UseDynamo(options =>
 Per-query evaluation budget is controlled by `.Limit(n)` on the query rather than a global default.
 See [Pagination](pagination.md) for the evaluation budget model.
 
+## SaveChanges transaction behavior
+
+The provider follows EF Core `Database.AutoTransactionBehavior` for implicit transaction policy:
+
+- `WhenNeeded` (default): one root write executes directly; multi-root saves execute atomically via DynamoDB `ExecuteTransaction`.
+- `Always`: requires transactional execution for multi-root saves.
+- `Never`: disables implicit transactions and executes root writes independently.
+
+```csharp
+context.Database.AutoTransactionBehavior = AutoTransactionBehavior.Never;
+```
+
 ## Client configuration precedence
 
 - The provider resolves client settings in this order:

@@ -22,6 +22,10 @@ icon: lucide/triangle-alert
     including mutations to owned references (`OwnsOne`), owned collections (`OwnsMany`), and
     primitive collection properties (lists, dictionaries, and sets).
 - Synchronous `SaveChanges` is not supported.
+- Transactional multi-root `SaveChangesAsync` is constrained by DynamoDB `ExecuteTransaction` limits:
+    - maximum 100 write statements,
+    - no multiple operations on the same item in a single transaction.
+- When transactional atomicity is required (`AutoTransactionBehavior.WhenNeeded` for multi-root saves, or `Always`), the provider throws if those constraints are violated; it does not silently downgrade to non-atomic execution.
 - Unsupported LINQ shapes fail during translation with `InvalidOperationException` including provider-specific details.
 - Discriminator guardrails for unsupported query shapes are deferred; support is limited to the
     current operator surface in `operators.md`.
