@@ -89,69 +89,7 @@ public class DynamoDatabaseWrapper(
             if (operations.Count == 0)
                 return 0;
 
-            var autoTransactionBehavior = currentDbContext.Context.Database.AutoTransactionBehavior;
-            var effectiveTransactionOverflowBehavior =
-                transactionRuntimeOptions.TransactionOverflowBehaviorOverride
-                ?? _optionsExtension.TransactionOverflowBehavior;
-            var effectiveMaxTransactionSize = transactionRuntimeOptions.MaxTransactionSizeOverride
-                ?? _optionsExtension.MaxTransactionSize;
-
-            var shouldUseTransaction = autoTransactionBehavior switch
-            {
-                AutoTransactionBehavior.Never => false,
-                AutoTransactionBehavior.WhenNeeded => operations.Count > 1,
-                AutoTransactionBehavior.Always => operations.Count > 1,
-                _ => throw new InvalidOperationException(
-                    $"Invalid AutoTransactionBehavior: {autoTransactionBehavior}"),
-            };
-
-            if (!shouldUseTransaction)
-            {
-                await ExecuteIndependentWritesAsync(operations, cancellationToken)
-                    .ConfigureAwait(false);
-                return operations.Count;
-            }
-
-            if (operations.Count > effectiveMaxTransactionSize)
-            {
-                if (autoTransactionBehavior == AutoTransactionBehavior.Always)
-                    throw new InvalidOperationException(
-                        "SaveChanges cannot satisfy AutoTransactionBehavior.Always because the "
-                        + $"write unit contains {operations.Count} root operations, exceeding the "
-                        + $"effective MaxTransactionSize of {effectiveMaxTransactionSize}."
-                        + " A single atomic transaction cannot represent this save operation.");
-
-                if (effectiveTransactionOverflowBehavior == TransactionOverflowBehavior.Throw)
-                    throw new InvalidOperationException(
-                        "SaveChanges cannot satisfy transactional execution because the write unit "
-                        + $"contains {operations.Count} root operations, exceeding the effective "
-                        + $"MaxTransactionSize of {effectiveMaxTransactionSize}. "
-                        + $"Current AutoTransactionBehavior is '{autoTransactionBehavior}' and "
-                        + $"TransactionOverflowBehavior is '{effectiveTransactionOverflowBehavior}'.");
-
-                // Chunking can partially commit; provider must accept successful chunk entries
-                // immediately to keep tracker aligned with persisted state.
-                if (transactionRuntimeOptions.AcceptAllChangesOnSuccess == false)
-                    throw new InvalidOperationException(
-                        "Chunked transactional SaveChanges is not supported when "
-                        + "acceptAllChangesOnSuccess is false. Partial chunk commits require "
-                        + "per-chunk tracker acceptance to avoid replaying already-persisted "
-                        + "writes on retry.");
-
-                var rootAggregateEntries = BuildRootAggregateEntries(entries, rootEntries);
-
-                await ExecuteChunkedTransactionalWritesAsync(
-                        operations,
-                        rootAggregateEntries,
-                        effectiveMaxTransactionSize,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-
-                return operations.Count;
-            }
-
-            ValidateTransactionalWriteOperations(operations, autoTransactionBehavior);
-            await ExecuteTransactionalWritesAsync(operations, cancellationToken)
+            await ExecutePlannedWritesAsync(entries, rootEntries, operations, cancellationToken)
                 .ConfigureAwait(false);
 
             return operations.Count;
@@ -191,14 +129,13 @@ public class DynamoDatabaseWrapper(
                     var tableName = (string)entry.EntityType[DynamoAnnotationNames.TableName]!;
                     var (sql, parameters) = BuildInsertStatement(tableName, item);
 
-                    operations.Add(
-                        new CompiledWriteOperation(
-                            entry,
-                            EntityState.Added,
-                            tableName,
-                            sql,
-                            parameters,
-                            BuildTargetItemIdentity(entry, tableName)));
+                    AddCompiledOperation(
+                        operations,
+                        entry,
+                        EntityState.Added,
+                        tableName,
+                        sql,
+                        parameters);
                     break;
                 }
 
@@ -208,14 +145,13 @@ public class DynamoDatabaseWrapper(
                     if (update is null)
                         continue;
 
-                    operations.Add(
-                        new CompiledWriteOperation(
-                            entry,
-                            EntityState.Modified,
-                            update.Value.tableName,
-                            update.Value.sql,
-                            update.Value.parameters,
-                            BuildTargetItemIdentity(entry, update.Value.tableName)));
+                    AddCompiledOperation(
+                        operations,
+                        entry,
+                        EntityState.Modified,
+                        update.Value.tableName,
+                        update.Value.sql,
+                        update.Value.parameters);
                     break;
                 }
 
@@ -225,28 +161,26 @@ public class DynamoDatabaseWrapper(
                     if (update is null)
                         continue;
 
-                    operations.Add(
-                        new CompiledWriteOperation(
-                            entry,
-                            EntityState.Modified,
-                            update.Value.tableName,
-                            update.Value.sql,
-                            update.Value.parameters,
-                            BuildTargetItemIdentity(entry, update.Value.tableName)));
+                    AddCompiledOperation(
+                        operations,
+                        entry,
+                        EntityState.Modified,
+                        update.Value.tableName,
+                        update.Value.sql,
+                        update.Value.parameters);
                     break;
                 }
 
                 case EntityState.Deleted:
                 {
                     var delete = BuildDeleteStatement(entry);
-                    operations.Add(
-                        new CompiledWriteOperation(
-                            entry,
-                            EntityState.Deleted,
-                            delete.tableName,
-                            delete.sql,
-                            delete.parameters,
-                            BuildTargetItemIdentity(entry, delete.tableName)));
+                    AddCompiledOperation(
+                        operations,
+                        entry,
+                        EntityState.Deleted,
+                        delete.tableName,
+                        delete.sql,
+                        delete.parameters);
                     break;
                 }
 
@@ -259,6 +193,115 @@ public class DynamoDatabaseWrapper(
 
         return operations;
     }
+
+    private async Task ExecutePlannedWritesAsync(
+        IList<IUpdateEntry> entries,
+        IReadOnlyList<IUpdateEntry> rootEntries,
+        IReadOnlyList<CompiledWriteOperation> operations,
+        CancellationToken cancellationToken)
+    {
+        var autoTransactionBehavior = currentDbContext.Context.Database.AutoTransactionBehavior;
+        var effectiveTransactionOverflowBehavior =
+            transactionRuntimeOptions.TransactionOverflowBehaviorOverride
+            ?? _optionsExtension.TransactionOverflowBehavior;
+        var effectiveMaxTransactionSize = transactionRuntimeOptions.MaxTransactionSizeOverride
+            ?? _optionsExtension.MaxTransactionSize;
+
+        if (!ShouldUseTransaction(autoTransactionBehavior, operations.Count))
+        {
+            await ExecuteIndependentWritesAsync(operations, cancellationToken)
+                .ConfigureAwait(false);
+            return;
+        }
+
+        if (operations.Count <= effectiveMaxTransactionSize)
+        {
+            ValidateTransactionalWriteOperations(operations, autoTransactionBehavior);
+            await ExecuteTransactionalWritesAsync(operations, cancellationToken)
+                .ConfigureAwait(false);
+            return;
+        }
+
+        if (autoTransactionBehavior == AutoTransactionBehavior.Always)
+            throw CreateAlwaysOverflowException(operations.Count, effectiveMaxTransactionSize);
+
+        if (effectiveTransactionOverflowBehavior == TransactionOverflowBehavior.Throw)
+            throw CreateOverflowExecutionException(
+                operations.Count,
+                effectiveMaxTransactionSize,
+                autoTransactionBehavior,
+                effectiveTransactionOverflowBehavior);
+
+        // Chunking can partially commit; provider must accept successful chunk entries
+        // immediately to keep tracker aligned with persisted state.
+        if (transactionRuntimeOptions.AcceptAllChangesOnSuccess == false)
+            throw CreateChunkingAcceptAllChangesRequiredException();
+
+        var rootAggregateEntries = BuildRootAggregateEntries(entries, rootEntries);
+
+        await ExecuteChunkedTransactionalWritesAsync(
+                operations,
+                rootAggregateEntries,
+                effectiveMaxTransactionSize,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private static bool ShouldUseTransaction(
+        AutoTransactionBehavior autoTransactionBehavior,
+        int operationCount)
+        => autoTransactionBehavior switch
+        {
+            AutoTransactionBehavior.Never => false,
+            AutoTransactionBehavior.WhenNeeded => operationCount > 1,
+            AutoTransactionBehavior.Always => operationCount > 1,
+            _ => throw new InvalidOperationException(
+                $"Invalid AutoTransactionBehavior: {autoTransactionBehavior}"),
+        };
+
+    private static void AddCompiledOperation(
+        ICollection<CompiledWriteOperation> operations,
+        IUpdateEntry entry,
+        EntityState entityState,
+        string tableName,
+        string statement,
+        List<AttributeValue> parameters)
+        => operations.Add(
+            new CompiledWriteOperation(
+                entry,
+                entityState,
+                tableName,
+                statement,
+                parameters,
+                BuildTargetItemIdentity(entry, tableName)));
+
+    private static InvalidOperationException CreateAlwaysOverflowException(
+        int operationCount,
+        int effectiveMaxTransactionSize)
+        => new(
+            "SaveChanges cannot satisfy AutoTransactionBehavior.Always because the "
+            + $"write unit contains {operationCount} root operations, exceeding the "
+            + $"effective MaxTransactionSize of {effectiveMaxTransactionSize}."
+            + " A single atomic transaction cannot represent this save operation.");
+
+    private static InvalidOperationException CreateOverflowExecutionException(
+        int operationCount,
+        int effectiveMaxTransactionSize,
+        AutoTransactionBehavior autoTransactionBehavior,
+        TransactionOverflowBehavior effectiveTransactionOverflowBehavior)
+        => new(
+            "SaveChanges cannot satisfy transactional execution because the write unit "
+            + $"contains {operationCount} root operations, exceeding the effective "
+            + $"MaxTransactionSize of {effectiveMaxTransactionSize}. "
+            + $"Current AutoTransactionBehavior is '{autoTransactionBehavior}' and "
+            + $"TransactionOverflowBehavior is '{effectiveTransactionOverflowBehavior}'.");
+
+    private static InvalidOperationException CreateChunkingAcceptAllChangesRequiredException()
+        => new(
+            "Chunked transactional SaveChanges is not supported when "
+            + "acceptAllChangesOnSuccess is false. Partial chunk commits require "
+            + "per-chunk tracker acceptance to avoid replaying already-persisted "
+            + "writes on retry.");
 
     private async Task ExecuteIndependentWritesAsync(
         IReadOnlyList<CompiledWriteOperation> operations,
