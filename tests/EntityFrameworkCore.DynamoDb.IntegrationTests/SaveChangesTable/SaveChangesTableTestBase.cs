@@ -87,6 +87,21 @@ public abstract class SaveChangesTableTestBase(SaveChangesTableDynamoFixture fix
         return response.Item is { Count: > 0 } item ? item : null;
     }
 
+    /// <summary>
+    ///     Directly increments the stored <c>Version</c> attribute on an item to simulate a
+    ///     concurrent writer bumping the concurrency token, without going through EF Core.
+    /// </summary>
+    protected async Task BumpVersionAsync(string pk, string sk, CancellationToken ct)
+    {
+        var item = await GetItemAsync(pk, sk, ct)
+            ?? throw new InvalidOperationException(
+                $"Cannot bump version: item {pk}/{sk} not found.");
+
+        var currentVersion = long.Parse(item["Version"].N);
+        item["Version"] = new AttributeValue { N = (currentVersion + 1).ToString() };
+        await PutItemAsync(item, ct);
+    }
+
     /// <summary>Writes a batch and retries unprocessed items until completion.</summary>
     private async Task BatchWriteWithRetriesAsync(
         List<WriteRequest> writeRequests,

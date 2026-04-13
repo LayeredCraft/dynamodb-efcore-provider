@@ -477,6 +477,49 @@ public class TransactionalSaveChangesTests(SaveChangesTableDynamoFixture fixture
         (await GetItemAsync(toDelete.Pk, toDelete.Sk, CancellationToken)).Should().BeNull();
     }
 
+    /// <summary>
+    ///     When a multi-root <c>SaveChanges</c> uses <c>TransactWriteItems</c> and one of the
+    ///     operations has a stale concurrency token, DynamoDB returns <c>TransactionCanceledException</c>
+    ///     with a <c>ConditionalCheckFailed</c> reason. The provider must map that to
+    ///     <see cref="DbUpdateConcurrencyException" /> and roll back the entire transaction so the
+    ///     un-conflicted write is also not persisted.
+    /// </summary>
+    [Fact]
+    public async Task
+        WhenNeeded_TransactionalStaleConcurrencyToken_ThrowsDbUpdateConcurrencyException()
+    {
+        Db.Database.AutoTransactionBehavior = AutoTransactionBehavior.WhenNeeded;
+
+        // Insert two customers so both are tracked with Version = 1.
+        var first = CreateCustomer("TENANT#TXN", "CUSTOMER#TXN-CONC-1", "first@example.com");
+        var second = CreateCustomer("TENANT#TXN", "CUSTOMER#TXN-CONC-2", "second@example.com");
+
+        Db.Customers.Add(first);
+        Db.Customers.Add(second);
+        await Db.SaveChangesAsync(CancellationToken);
+        LoggerFactory.Clear();
+
+        // Simulate a concurrent writer bumping `second`'s version directly in DynamoDB.
+        // The EF change tracker still holds Version = 1 for `second`.
+        await BumpVersionAsync(second.Pk, second.Sk, CancellationToken);
+
+        // Modify both — the WHERE clause for `second` will include "Version" = 1, which no
+        // longer matches the stored value of 2.
+        first.Email = "first-updated@example.com";
+        second.Email = "second-updated@example.com";
+
+        var act = async () => await Db.SaveChangesAsync(CancellationToken);
+        await act.Should().ThrowAsync<DbUpdateConcurrencyException>();
+
+        // The transaction rolled back atomically: `first` must not have been persisted.
+        var firstItem = await GetItemAsync(first.Pk, first.Sk, CancellationToken);
+        firstItem!["Email"].S.Should().Be("first@example.com");
+
+        // Both entries should remain Modified so the caller can retry after resolving the conflict.
+        Db.Entry(first).State.Should().Be(EntityState.Modified);
+        Db.Entry(second).State.Should().Be(EntityState.Modified);
+    }
+
     private static CustomerItem CreateCustomer(string pk, string sk, string email)
         => new()
         {

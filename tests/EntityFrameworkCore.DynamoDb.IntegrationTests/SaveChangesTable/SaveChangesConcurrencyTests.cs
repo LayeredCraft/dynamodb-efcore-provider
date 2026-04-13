@@ -293,19 +293,4 @@ public class SaveChangesConcurrencyTests(SaveChangesTableDynamoFixture fixture)
     // ──────────────────────────────────────────────────────────────────────────────
     //  Helpers
     // ──────────────────────────────────────────────────────────────────────────────
-
-    /// <summary>
-    ///     Directly increments the stored <c>Version</c> on an item to simulate a concurrent writer,
-    ///     without going through EF Core.
-    /// </summary>
-    private async Task BumpVersionAsync(string pk, string sk, CancellationToken ct)
-    {
-        var item = await GetItemAsync(pk, sk, ct)
-            ?? throw new InvalidOperationException(
-                $"Cannot bump version: item {pk}/{sk} not found.");
-
-        var currentVersion = long.Parse(item["Version"].N);
-        item["Version"] = new AttributeValue { N = (currentVersion + 1).ToString() };
-        await PutItemAsync(item, ct);
-    }
 }
