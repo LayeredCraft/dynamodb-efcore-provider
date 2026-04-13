@@ -61,5 +61,5 @@ dotnet add package EntityFrameworkCore.DynamoDb
 
 ## Notes
 
-- `SaveChangesAsync` currently supports scalar root updates. Owned/nested mutation write paths are
-    still limited; see [Limitations](limitations.md).
+- `SaveChangesAsync` supports Added/Modified/Deleted root writes, including owned/nested mutations,
+    and follows EF Core `AutoTransactionBehavior` for implicit atomic multi-root execution.

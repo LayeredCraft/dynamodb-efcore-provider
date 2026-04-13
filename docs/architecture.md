@@ -33,7 +33,40 @@ icon: lucide/git-branch
 
 ## Write pipeline (SaveChangesAsync)
 
-`SaveChangesAsync` processes EF Core change-tracking entries in entity-state order:
+`SaveChangesAsync` uses a two-phase write pipeline:
+
+1. **Plan**: validate supported states, build root entries, and compile one PartiQL write operation per root item.
+1. **Execute**: pick execution mode from EF Core `Database.AutoTransactionBehavior`:
+    - `WhenNeeded` (default): one root write executes directly; multiple root writes execute via DynamoDB `ExecuteTransaction`.
+    - `Always`: behaves like `WhenNeeded` for a single root write, and requires `ExecuteTransaction` for multi-root writes.
+    - `Never`: executes compiled root writes independently (no implicit transaction).
+
+During transactional execution, the provider enforces DynamoDB transaction constraints before sending any write:
+
+- Maximum 100 write statements.
+- No multiple operations targeting the same item in one transaction.
+
+If constraints are violated, `SaveChangesAsync` throws a clear error unless overflow chunking is
+explicitly enabled.
+
+Overflow handling is provider-configurable:
+
+- `TransactionOverflowBehavior.Throw` (default): throw when a transactional write unit exceeds the
+    effective `MaxTransactionSize`.
+- `TransactionOverflowBehavior.UseChunking`: split the write unit into multiple
+    `ExecuteTransaction` calls of up to `MaxTransactionSize` operations each.
+
+`AutoTransactionBehavior.Always` still requires a single atomic transactional unit; if the write
+unit exceeds the effective max transaction size, SaveChanges throws.
+
+Chunking semantics are explicit: each chunk is atomic, but the full SaveChanges unit is not
+globally atomic across chunks.
+
+Tracker semantics during chunking are also explicit: after each successful chunk commit, entries
+represented by that chunk are accepted in the current context. If a later chunk fails, already
+committed chunk entries remain accepted while failed/unrun chunk entries remain pending.
+
+Per-root write compilation remains:
 
 1. **Added** — generates a PartiQL `INSERT INTO "Table" VALUE {...}` statement. The provider sets
     no provider-managed concurrency metadata. A `DuplicateItemException` from DynamoDB is mapped to

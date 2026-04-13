@@ -22,6 +22,20 @@ icon: lucide/triangle-alert
     including mutations to owned references (`OwnsOne`), owned collections (`OwnsMany`), and
     primitive collection properties (lists, dictionaries, and sets).
 - Synchronous `SaveChanges` is not supported.
+- Transactional multi-root `SaveChangesAsync` is constrained by DynamoDB `ExecuteTransaction` limits:
+    - maximum 100 write statements,
+    - no multiple operations on the same item in a single transaction.
+- By default (`TransactionOverflowBehavior.Throw`), when transactional atomicity is required
+    (`AutoTransactionBehavior.WhenNeeded` for multi-root saves, or `Always`), the provider throws
+    if those constraints are violated; it does not silently downgrade to non-atomic execution.
+- If `TransactionOverflowBehavior.UseChunking` is configured, overflowing multi-root writes can be
+    executed as multiple `ExecuteTransaction` chunks (up to `MaxTransactionSize`, max 100 per
+    chunk), but overall SaveChanges atomicity is lost across chunk boundaries.
+- Chunking requires `acceptAllChangesOnSuccess: true`. `SaveChanges(false)`/
+    `SaveChangesAsync(false)` is rejected for chunking overflow paths because successful chunks must
+    be accepted immediately in the tracker.
+- `AutoTransactionBehavior.Always` still throws when one atomic transaction cannot represent the
+    full write unit.
 - Unsupported LINQ shapes fail during translation with `InvalidOperationException` including provider-specific details.
 - Discriminator guardrails for unsupported query shapes are deferred; support is limited to the
     current operator surface in `operators.md`.
