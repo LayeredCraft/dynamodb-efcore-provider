@@ -1,5 +1,3 @@
-using EntityFrameworkCore.DynamoDb.Infrastructure;
-
 namespace EntityFrameworkCore.DynamoDb.Infrastructure.Internal;
 
 /// <summary>Scoped runtime overrides for transaction overflow execution behavior.</summary>
@@ -14,4 +12,7 @@ public sealed class DynamoTransactionRuntimeOptions
     /// Optional per-context override for max transaction size.
     /// </summary>
     public int? MaxTransactionSizeOverride { get; set; }
+
+    /// <summary>Captures <c>acceptAllChangesOnSuccess</c> for current SaveChanges call.</summary>
+    public bool? AcceptAllChangesOnSuccess { get; set; }
 }

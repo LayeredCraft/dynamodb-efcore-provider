@@ -166,7 +166,7 @@ public class TransactionalSaveChangesTests(SaveChangesTableDynamoFixture fixture
     }
 
     [Fact]
-    public async Task WhenNeeded_OverflowWithUseChunking_AllowsPartialCommitAcrossChunks()
+    public async Task WhenNeeded_OverflowWithUseChunking_AcceptsSuccessfulChunkEntries()
     {
         Db.Database.AutoTransactionBehavior = AutoTransactionBehavior.WhenNeeded;
         Db.Database.SetTransactionOverflowBehavior(TransactionOverflowBehavior.UseChunking);
@@ -190,6 +190,9 @@ public class TransactionalSaveChangesTests(SaveChangesTableDynamoFixture fixture
 
         (await GetItemAsync(first.Pk, first.Sk, CancellationToken)).Should().NotBeNull();
         (await GetItemAsync(second.Pk, second.Sk, CancellationToken)).Should().NotBeNull();
+        Db.Entry(first).State.Should().Be(EntityState.Unchanged);
+        Db.Entry(second).State.Should().Be(EntityState.Unchanged);
+        Db.Entry(duplicate).State.Should().Be(EntityState.Added);
     }
 
     [Fact]
@@ -217,7 +220,7 @@ public class TransactionalSaveChangesTests(SaveChangesTableDynamoFixture fixture
     }
 
     [Fact]
-    public async Task StartupConfiguredChunking_AppliesWithoutPerContextOverride()
+    public async Task StartupConfiguredChunking_AcceptsSuccessfulChunkEntries()
     {
         await PutItemAsync(
             CreateSeedItem(
@@ -245,6 +248,77 @@ public class TransactionalSaveChangesTests(SaveChangesTableDynamoFixture fixture
 
         (await GetItemAsync(first.Pk, first.Sk, CancellationToken)).Should().NotBeNull();
         (await GetItemAsync(second.Pk, second.Sk, CancellationToken)).Should().NotBeNull();
+        configuredDb.Entry(first).State.Should().Be(EntityState.Unchanged);
+        configuredDb.Entry(second).State.Should().Be(EntityState.Unchanged);
+        configuredDb.Entry(duplicate).State.Should().Be(EntityState.Added);
+    }
+
+    [Fact]
+    public async Task
+        WhenNeeded_OverflowWithUseChunking_RetryOnSameContext_ReplaysOnlyPendingEntries()
+    {
+        Db.Database.AutoTransactionBehavior = AutoTransactionBehavior.WhenNeeded;
+        Db.Database.SetTransactionOverflowBehavior(TransactionOverflowBehavior.UseChunking);
+        Db.Database.SetMaxTransactionSize(2);
+
+        await PutItemAsync(
+            CreateSeedItem(
+                CreateCustomer("TENANT#TXN", "CUSTOMER#CHUNK-RETRY-DUP", "existing@example.com")),
+            CancellationToken);
+
+        var first = CreateCustomer("TENANT#TXN", "CUSTOMER#CHUNK-RETRY-1", "first@example.com");
+        var second = CreateCustomer("TENANT#TXN", "CUSTOMER#CHUNK-RETRY-2", "second@example.com");
+        var duplicate = CreateCustomer(
+            "TENANT#TXN",
+            "CUSTOMER#CHUNK-RETRY-DUP",
+            "duplicate@example.com");
+
+        Db.Customers.Add(first);
+        Db.Customers.Add(second);
+        Db.Customers.Add(duplicate);
+
+        var firstSave = async () => await Db.SaveChangesAsync(CancellationToken);
+        await firstSave.Should().ThrowAsync<DbUpdateException>();
+
+        Db.Entry(first).State.Should().Be(EntityState.Unchanged);
+        Db.Entry(second).State.Should().Be(EntityState.Unchanged);
+        Db.Entry(duplicate).State.Should().Be(EntityState.Added);
+
+        duplicate.Sk = "CUSTOMER#CHUNK-RETRY-3";
+        duplicate.Email = "third@example.com";
+
+        await Db.SaveChangesAsync(CancellationToken);
+
+        (await GetItemAsync(first.Pk, first.Sk, CancellationToken)).Should().NotBeNull();
+        (await GetItemAsync(second.Pk, second.Sk, CancellationToken)).Should().NotBeNull();
+        (await GetItemAsync(duplicate.Pk, duplicate.Sk, CancellationToken)).Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task WhenNeeded_OverflowWithUseChunking_SaveChangesFalse_ThrowsClearError()
+    {
+        Db.Database.AutoTransactionBehavior = AutoTransactionBehavior.WhenNeeded;
+        Db.Database.SetTransactionOverflowBehavior(TransactionOverflowBehavior.UseChunking);
+        Db.Database.SetMaxTransactionSize(2);
+
+        var first = CreateCustomer("TENANT#TXN", "CUSTOMER#CHUNK-FALSE-1", "first@example.com");
+        var second = CreateCustomer("TENANT#TXN", "CUSTOMER#CHUNK-FALSE-2", "second@example.com");
+        var third = CreateCustomer("TENANT#TXN", "CUSTOMER#CHUNK-FALSE-3", "third@example.com");
+
+        Db.Customers.Add(first);
+        Db.Customers.Add(second);
+        Db.Customers.Add(third);
+
+        var act = async () => await Db.SaveChangesAsync(false, CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*acceptAllChangesOnSuccess is false*");
+
+        (await GetItemAsync(first.Pk, first.Sk, CancellationToken)).Should().BeNull();
+        (await GetItemAsync(second.Pk, second.Sk, CancellationToken)).Should().BeNull();
+        (await GetItemAsync(third.Pk, third.Sk, CancellationToken)).Should().BeNull();
     }
 
     [Fact]
