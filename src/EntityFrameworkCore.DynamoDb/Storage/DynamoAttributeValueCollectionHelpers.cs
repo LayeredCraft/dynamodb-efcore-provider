@@ -115,6 +115,20 @@ internal static class DynamoAttributeValueCollectionHelpers
         return new AttributeValue { L = elements };
     }
 
+    /// <summary>
+    ///     Serializes a typed enumerable to a DynamoDB list (L) using a per-element
+    ///     <see cref="AttributeValue" /> factory.
+    /// </summary>
+    public static AttributeValue SerializeList<TElement>(
+        IEnumerable<TElement> value,
+        Func<TElement, AttributeValue> serializeElement)
+    {
+        var elements = new List<AttributeValue>();
+        foreach (var item in value)
+            elements.Add(serializeElement(item));
+        return new AttributeValue { L = elements };
+    }
+
     // ──────────────────────────────────────────────────────────────────────────────
     //  Dictionary<string, V>  →  M
     // ──────────────────────────────────────────────────────────────────────────────
@@ -145,6 +159,20 @@ internal static class DynamoAttributeValueCollectionHelpers
         foreach (var (k, v) in value)
             map[k] = DynamoWireValueConversion.ConvertProviderValueToAttributeValue(
                 convertToProvider(v));
+        return new AttributeValue { M = map };
+    }
+
+    /// <summary>
+    ///     Serializes a typed dictionary to a DynamoDB map (M) using a per-value
+    ///     <see cref="AttributeValue" /> factory.
+    /// </summary>
+    public static AttributeValue SerializeDictionary<TValue>(
+        IEnumerable<KeyValuePair<string, TValue>> value,
+        Func<TValue, AttributeValue> serializeValue)
+    {
+        var map = new Dictionary<string, AttributeValue>(StringComparer.Ordinal);
+        foreach (var (k, v) in value)
+            map[k] = serializeValue(v);
         return new AttributeValue { M = map };
     }
 

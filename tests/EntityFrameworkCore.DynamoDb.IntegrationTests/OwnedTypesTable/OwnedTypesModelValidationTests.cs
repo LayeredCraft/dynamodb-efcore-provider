@@ -121,10 +121,8 @@ public class OwnedTypesModelValidationTests : IClassFixture<OwnedTypesTableDynam
             {
                 entity.ToTable(OwnedTypesTableDynamoFixture.TableName);
                 entity.HasPartitionKey(x => x.Pk);
-                entity.OwnsOne(
-                    x => x.Profile,
-                    owned => owned.HasAttributeName(
-                        nameof(OwnerWithPropertyCollision.ProfileData)));
+                entity.Property(x => x.ProfileData).HasAttributeName("ProfilePayload");
+                entity.OwnsOne(x => x.Profile, owned => owned.HasAttributeName("ProfilePayload"));
             });
     }
 

@@ -1078,9 +1078,8 @@ public sealed class DynamoEntityItemSerializerSource
 
     /// <summary>
     /// List binder for the nullable-wrapping path (element type = <c>Nullable&lt;T&gt;</c>,
-    /// converter model type = <c>T</c>). Null elements become <c>default(TProvider)</c>
-    /// (typically <c>null</c> for reference provider types), serialized as <c>{ NULL = true }</c>
-    /// list entries — consistent with the original expression-tree behavior.
+    /// converter model type = <c>T</c>). Null elements are serialized explicitly as
+    /// <c>{ NULL = true }</c> list entries.
     /// </summary>
     private readonly struct ListNullableBinder<TProvider>(ValueConverter converter)
         : IStructSerializerFactory
@@ -1101,8 +1100,9 @@ public sealed class DynamoEntityItemSerializerSource
                     : DynamoAttributeValueCollectionHelpers.SerializeList(
                         value,
                         item => item.HasValue
-                            ? typed.ConvertToProviderTyped(item.Value)
-                            : default!);
+                            ? DynamoWireValueConversion.ConvertProviderValueToAttributeValue(
+                                typed.ConvertToProviderTyped(item.Value))
+                            : NullAttributeValue());
             };
         }
     }
@@ -1131,9 +1131,8 @@ public sealed class DynamoEntityItemSerializerSource
 
     /// <summary>
     ///     Set binder for the nullable-wrapping path (element type = <c>Nullable&lt;T&gt;</c>,
-    ///     converter model type = <c>T</c>). Null elements become <c>default(TProvider)</c>;
-    ///     <see cref="DynamoAttributeValueCollectionHelpers.SerializeSet{TElement,TProvider}"/> will
-    ///     reject null with an informative exception since DynamoDB sets cannot contain null values.
+    ///     converter model type = <c>T</c>). Null elements are rejected because DynamoDB sets
+    ///     cannot contain null values.
     /// </summary>
     private readonly struct SetNullableBinder<TProvider>(ValueConverter converter)
         : IStructSerializerFactory
@@ -1155,7 +1154,8 @@ public sealed class DynamoEntityItemSerializerSource
                         value,
                         item => item.HasValue
                             ? typed.ConvertToProviderTyped(item.Value)
-                            : default!);
+                            : throw new InvalidOperationException(
+                                "DynamoDB sets cannot contain null elements."));
             };
         }
     }
@@ -1186,7 +1186,7 @@ public sealed class DynamoEntityItemSerializerSource
 
     /// <summary>
     ///     Dictionary binder for the nullable-wrapping path (value type = <c>Nullable&lt;T&gt;</c>,
-    ///     converter model type = <c>T</c>). Null values become <c>default(TProvider)</c>, serialized as
+    ///     converter model type = <c>T</c>). Null values are serialized explicitly as
     ///     <c>{ NULL = true }</c> map entries.
     /// </summary>
     private readonly struct DictionaryNullableBinder<TProvider>(ValueConverter converter)
@@ -1210,8 +1210,9 @@ public sealed class DynamoEntityItemSerializerSource
                     : DynamoAttributeValueCollectionHelpers.SerializeDictionary(
                         value,
                         item => item.HasValue
-                            ? typed.ConvertToProviderTyped(item.Value)
-                            : default!);
+                            ? DynamoWireValueConversion.ConvertProviderValueToAttributeValue(
+                                typed.ConvertToProviderTyped(item.Value))
+                            : NullAttributeValue());
             };
         }
     }

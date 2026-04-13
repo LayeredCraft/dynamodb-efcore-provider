@@ -333,26 +333,44 @@ public class DynamoDatabaseWrapper(
     ///     failing fast before the statement is queued for execution.
     /// </summary>
     /// <remarks>
-    ///     Uses <see cref="string.Length" /> (O(1) UTF-16 character count) rather than
-    ///     <c>Encoding.UTF8.GetByteCount</c> (O(n)). This is semantically correct because all
-    ///     structural parts of a generated PartiQL statement — SQL keywords, table names, attribute
-    ///     identifiers, and positional <c>?</c> placeholders — are ASCII-only. DynamoDB table names
-    ///     are restricted to <c>[a-zA-Z0-9_.-]</c> and attribute names in practice are ASCII.
-    ///     String values are always emitted as <c>?</c> parameters, never inlined, so they never
-    ///     appear in the statement text. The character count therefore equals the UTF-8 byte count
-    ///     for every statement this provider can generate.
+    ///     Uses a fast ASCII path (<see cref="string.Length" />) when all statement characters are
+    ///     ASCII. When non-ASCII characters are present, falls back to
+    ///     <c>Encoding.UTF8.GetByteCount</c> so byte-count enforcement remains correct for DynamoDB's
+    ///     8 KB statement-size limit.
     /// </remarks>
     private static void ValidateStatementLength(string statement)
     {
-        if (statement.Length <= MaxPartiQlStatementLength)
+        if (!ContainsNonAscii(statement))
+        {
+            if (statement.Length <= MaxPartiQlStatementLength)
+                return;
+
+            throw new InvalidOperationException(
+                $"The generated PartiQL statement is {statement.Length} characters "
+                + $"(ASCII-equivalent bytes), which exceeds DynamoDB's "
+                + $"{MaxPartiQlStatementLength}-byte statement-size limit. "
+                + "Consider reducing the number of mapped scalar properties or splitting the "
+                + "write unit across multiple SaveChanges calls.");
+        }
+
+        var byteCount = Encoding.UTF8.GetByteCount(statement);
+        if (byteCount <= MaxPartiQlStatementLength)
             return;
 
         throw new InvalidOperationException(
-            $"The generated PartiQL statement is {statement.Length} characters "
-            + $"(ASCII-equivalent bytes), which exceeds DynamoDB's "
+            $"The generated PartiQL statement is {byteCount} UTF-8 bytes, which exceeds DynamoDB's "
             + $"{MaxPartiQlStatementLength}-byte statement-size limit. "
             + "Consider reducing the number of mapped scalar properties or splitting the "
             + "write unit across multiple SaveChanges calls.");
+    }
+
+    private static bool ContainsNonAscii(string value)
+    {
+        foreach (var ch in value)
+            if (ch > 0x7F)
+                return true;
+
+        return false;
     }
 
     /// <summary>The maximum allowed length for a PartiQL statement sent to DynamoDB.</summary>

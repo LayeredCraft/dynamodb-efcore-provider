@@ -918,21 +918,39 @@ internal static class DynamoValueReaderWriterHelpers
             // DynamoDB does not allow empty SS/NS/BS attributes.
             return new AttributeValue { NULL = true };
 
+        if (writtenValues.Any(static attributeValue => attributeValue.NULL == true))
+            throw new InvalidOperationException("DynamoDB sets cannot contain null elements.");
+
         if (setWireMemberName == nameof(AttributeValue.SS))
             return new AttributeValue
             {
-                SS = writtenValues.Select(attributeValue => attributeValue.S).ToList(),
+                SS = writtenValues
+                    .Select(static attributeValue
+                        => attributeValue.S
+                        ?? throw new InvalidOperationException(
+                            "Set element did not serialize to string wire value (S)."))
+                    .ToList(),
             };
 
         if (setWireMemberName == nameof(AttributeValue.NS))
             return new AttributeValue
             {
-                NS = writtenValues.Select(attributeValue => attributeValue.N).ToList(),
+                NS = writtenValues
+                    .Select(static attributeValue
+                        => attributeValue.N
+                        ?? throw new InvalidOperationException(
+                            "Set element did not serialize to number wire value (N)."))
+                    .ToList(),
             };
 
         return new AttributeValue
         {
-            BS = writtenValues.Select(attributeValue => attributeValue.B).ToList(),
+            BS = writtenValues
+                .Select(static attributeValue
+                    => attributeValue.B
+                    ?? throw new InvalidOperationException(
+                        "Set element did not serialize to binary wire value (B)."))
+                .ToList(),
         };
     }
 

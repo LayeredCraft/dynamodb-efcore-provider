@@ -153,13 +153,15 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
     {
         foreach (var property in ownerEntityType.GetDeclaredProperties())
         {
-            if (!string.Equals(property.Name, containingAttributeName, StringComparison.Ordinal))
+            var attributeName = property.GetAttributeName();
+            if (!string.Equals(attributeName, containingAttributeName, StringComparison.Ordinal))
                 continue;
 
             throw new InvalidOperationException(
                 $"Owned entity type '{entityType.DisplayName()}' is configured with containing attribute name "
                 + $"'{containingAttributeName}', which collides with scalar property "
-                + $"'{ownerEntityType.DisplayName()}.{property.Name}'. Containing attribute names must be "
+                + $"'{ownerEntityType.DisplayName()}.{property.Name}' mapped to attribute '{attributeName}'. "
+                + "Containing attribute names must be "
                 + "unique.");
         }
 
