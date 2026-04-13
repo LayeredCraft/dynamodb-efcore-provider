@@ -437,19 +437,12 @@ public class DynamoDatabaseWrapper(
                     .ExecuteBatchWriteAsync(statements, cancellationToken)
                     .ConfigureAwait(false);
             }
-            catch (Exception ex) when (ex is DuplicateItemException
-                    or ConditionalCheckFailedException
-                    or TransactionCanceledException
-                || IsDuplicateKeyException(ex)
-                || IsConditionalCheckFailedException(ex))
-            {
-                throw WrapWriteException(
-                    ex,
-                    chunk[0].EntityState,
-                    chunk.Select(static x => x.Entry).ToList());
-            }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
+                // BatchExecuteStatement returns per-statement errors in the response body
+                // (Responses[i].Error), not as thrown exceptions. Exceptions here are
+                // transport-level failures (network, auth, throttling) where no statements
+                // can have partially succeeded.
                 throw new DbUpdateException(
                     "Non-atomic SaveChanges batch failed while executing DynamoDB "
                     + "BatchExecuteStatement.",
@@ -480,8 +473,14 @@ public class DynamoDatabaseWrapper(
 
                 failedEntries ??= [];
                 failedEntries.Add(chunk[i].Entry);
-                firstFailure ??= CreateBatchStatementException(response.Error);
-                firstFailedState = chunk[i].EntityState;
+
+                // Capture only the first failure — subsequent per-statement errors in the same
+                // chunk are collected into failedEntries but a single exception is thrown.
+                if (firstFailure is null)
+                {
+                    firstFailure = CreateBatchStatementException(response.Error);
+                    firstFailedState = chunk[i].EntityState;
+                }
             }
 
             if (successfulOperations.Count > 0)
