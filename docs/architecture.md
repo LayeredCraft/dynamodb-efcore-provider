@@ -39,7 +39,7 @@ icon: lucide/git-branch
 1. **Execute**: pick execution mode from EF Core `Database.AutoTransactionBehavior`:
     - `WhenNeeded` (default): one root write executes directly; multiple root writes execute via DynamoDB `ExecuteTransaction`.
     - `Always`: behaves like `WhenNeeded` for a single root write, and requires `ExecuteTransaction` for multi-root writes.
-    - `Never`: executes compiled root writes independently (no implicit transaction).
+    - `Never`: executes one root write directly, and executes multi-root writes through non-atomic DynamoDB `BatchExecuteStatement` in chunks.
 
 During transactional execution, the provider enforces DynamoDB transaction constraints before sending any write:
 
@@ -65,6 +65,9 @@ globally atomic across chunks.
 Tracker semantics during chunking are also explicit: after each successful chunk commit, entries
 represented by that chunk are accepted in the current context. If a later chunk fails, already
 committed chunk entries remain accepted while failed/unrun chunk entries remain pending.
+
+Non-atomic batch chunking for `AutoTransactionBehavior.Never` follows the same tracker-acceptance
+model: successful statements are accepted immediately so retries do not replay committed writes.
 
 Per-root write compilation remains:
 
