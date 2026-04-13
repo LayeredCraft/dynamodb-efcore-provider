@@ -3,6 +3,8 @@ using System.Text;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.Diagnostics.Internal;
+using EntityFrameworkCore.DynamoDb.Infrastructure;
+using EntityFrameworkCore.DynamoDb.Infrastructure.Internal;
 using EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking.Internal;
@@ -22,11 +24,17 @@ namespace EntityFrameworkCore.DynamoDb.Storage;
 /// </summary>
 public class DynamoDatabaseWrapper(
     DatabaseDependencies dependencies,
+    IDbContextOptions dbContextOptions,
     ICurrentDbContext currentDbContext,
+    DynamoTransactionRuntimeOptions transactionRuntimeOptions,
     IDynamoClientWrapper clientWrapper,
     IDiagnosticsLogger<DbLoggerCategory.Database.Command> commandLogger,
     DynamoEntityItemSerializerSource serializerSource) : Database(dependencies)
 {
+    private readonly DynamoDbOptionsExtension _optionsExtension =
+        dbContextOptions.FindExtension<DynamoDbOptionsExtension>()
+        ?? new DynamoDbOptionsExtension();
+
     /// <summary>Not supported — DynamoDB only exposes an async API.</summary>
     /// <exception cref="NotSupportedException">Always thrown.</exception>
     public override int SaveChanges(IList<IUpdateEntry> entries)
@@ -74,6 +82,12 @@ public class DynamoDatabaseWrapper(
             return 0;
 
         var autoTransactionBehavior = currentDbContext.Context.Database.AutoTransactionBehavior;
+        var effectiveTransactionOverflowBehavior =
+            transactionRuntimeOptions.TransactionOverflowBehaviorOverride
+            ?? _optionsExtension.TransactionOverflowBehavior;
+        var effectiveMaxTransactionSize = transactionRuntimeOptions.MaxTransactionSizeOverride
+            ?? _optionsExtension.MaxTransactionSize;
+
         var shouldUseTransaction = autoTransactionBehavior switch
         {
             AutoTransactionBehavior.Never => false,
@@ -87,6 +101,32 @@ public class DynamoDatabaseWrapper(
         {
             await ExecuteIndependentWritesAsync(operations, cancellationToken)
                 .ConfigureAwait(false);
+            return operations.Count;
+        }
+
+        if (operations.Count > effectiveMaxTransactionSize)
+        {
+            if (autoTransactionBehavior == AutoTransactionBehavior.Always)
+                throw new InvalidOperationException(
+                    "SaveChanges cannot satisfy AutoTransactionBehavior.Always because the "
+                    + $"write unit contains {operations.Count} root operations, exceeding the "
+                    + $"effective MaxTransactionSize of {effectiveMaxTransactionSize}."
+                    + " A single atomic transaction cannot represent this save operation.");
+
+            if (effectiveTransactionOverflowBehavior == TransactionOverflowBehavior.Throw)
+                throw new InvalidOperationException(
+                    "SaveChanges cannot satisfy transactional execution because the write unit "
+                    + $"contains {operations.Count} root operations, exceeding the effective "
+                    + $"MaxTransactionSize of {effectiveMaxTransactionSize}. "
+                    + $"Current AutoTransactionBehavior is '{autoTransactionBehavior}' and "
+                    + $"TransactionOverflowBehavior is '{effectiveTransactionOverflowBehavior}'.");
+
+            await ExecuteChunkedTransactionalWritesAsync(
+                    operations,
+                    effectiveMaxTransactionSize,
+                    cancellationToken)
+                .ConfigureAwait(false);
+
             return operations.Count;
         }
 
@@ -254,6 +294,19 @@ public class DynamoDatabaseWrapper(
         }
     }
 
+    private async Task ExecuteChunkedTransactionalWritesAsync(
+        IReadOnlyList<CompiledWriteOperation> operations,
+        int maxTransactionSize,
+        CancellationToken cancellationToken)
+    {
+        for (var i = 0; i < operations.Count; i += maxTransactionSize)
+        {
+            var chunk = operations.Skip(i).Take(maxTransactionSize).ToList();
+            ValidateTransactionalDuplicateTargets(chunk);
+            await ExecuteTransactionalWritesAsync(chunk, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
     private static void ValidateTransactionalWriteOperations(
         IReadOnlyList<CompiledWriteOperation> operations,
         AutoTransactionBehavior autoTransactionBehavior)
@@ -265,15 +318,23 @@ public class DynamoDatabaseWrapper(
                 + "ExecuteTransaction limit of 100 statements. "
                 + $"Current AutoTransactionBehavior is '{autoTransactionBehavior}'.");
 
+        ValidateTransactionalDuplicateTargets(operations);
+    }
+
+    private static void ValidateTransactionalDuplicateTargets(
+        IReadOnlyList<CompiledWriteOperation> operations)
+    {
         var duplicateTarget = operations
             .GroupBy(static x => x.TargetItem)
             .FirstOrDefault(static g => g.Count() > 1);
 
-        if (duplicateTarget is not null)
-            throw new InvalidOperationException(
-                "SaveChanges cannot satisfy transactional atomicity because the unit of work "
-                + "contains multiple operations targeting the same DynamoDB item in a single "
-                + "transaction, which is not allowed by ExecuteTransaction.");
+        if (duplicateTarget is null)
+            return;
+
+        throw new InvalidOperationException(
+            "SaveChanges cannot satisfy transactional atomicity because the unit of work "
+            + "contains multiple operations targeting the same DynamoDB item in a single "
+            + "transaction, which is not allowed by ExecuteTransaction.");
     }
 
     private static TransactionTargetItem BuildTargetItemIdentity(

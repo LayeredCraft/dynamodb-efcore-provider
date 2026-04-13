@@ -42,6 +42,37 @@ The provider follows EF Core `Database.AutoTransactionBehavior` for implicit tra
 context.Database.AutoTransactionBehavior = AutoTransactionBehavior.Never;
 ```
 
+For transactional overflow (when one transaction cannot hold the whole write unit), configure:
+
+- `TransactionOverflowBehavior`:
+    - `Throw` (default)
+    - `UseChunking` (splits into multiple `ExecuteTransaction` calls)
+- `MaxTransactionSize` (default `100`, valid range `1..100`)
+
+```csharp
+optionsBuilder.UseDynamo(options =>
+{
+    options.TransactionOverflowBehavior(TransactionOverflowBehavior.UseChunking);
+    options.MaxTransactionSize(50);
+});
+```
+
+Per-context overrides are available on `DatabaseFacade`:
+
+```csharp
+context.Database.SetTransactionOverflowBehavior(TransactionOverflowBehavior.UseChunking);
+context.Database.SetMaxTransactionSize(25);
+```
+
+Configuration precedence:
+
+1. Per-context override (`context.Database.Set...`)
+1. Startup/provider option (`UseDynamo(...)`)
+1. Provider defaults (`Throw`, `100`)
+
+`UseChunking` keeps each chunk atomic, but the overall `SaveChanges` call is no longer globally
+atomic across all root writes.
+
 ## Client configuration precedence
 
 - The provider resolves client settings in this order:

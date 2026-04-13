@@ -18,6 +18,8 @@ public class PaginationConfigurationTests
         extension.DynamoDbClient.Should().BeNull();
         extension.DynamoDbClientConfig.Should().BeNull();
         extension.DynamoDbClientConfigAction.Should().BeNull();
+        extension.TransactionOverflowBehavior.Should().Be(TransactionOverflowBehavior.Throw);
+        extension.MaxTransactionSize.Should().Be(100);
     }
 
     [Fact]
@@ -64,7 +66,9 @@ public class PaginationConfigurationTests
             .WithDynamoDbClient(client)
             .WithDynamoDbClientConfig(config)
             .WithDynamoDbClientConfigAction(callback)
-            .WithAutomaticIndexSelectionMode(DynamoAutomaticIndexSelectionMode.Conservative);
+            .WithAutomaticIndexSelectionMode(DynamoAutomaticIndexSelectionMode.Conservative)
+            .WithTransactionOverflowBehavior(TransactionOverflowBehavior.UseChunking)
+            .WithMaxTransactionSize(42);
 
         // Clone is protected; trigger via a With method.
         var cloned =
@@ -77,6 +81,8 @@ public class PaginationConfigurationTests
             .AutomaticIndexSelectionMode
             .Should()
             .Be(DynamoAutomaticIndexSelectionMode.SuggestOnly);
+        cloned.TransactionOverflowBehavior.Should().Be(TransactionOverflowBehavior.UseChunking);
+        cloned.MaxTransactionSize.Should().Be(42);
     }
 
     [Fact]
@@ -112,6 +118,45 @@ public class PaginationConfigurationTests
     }
 
     [Fact]
+    public void UseDynamo_ConfigureTransactionOverflowBehavior_StoresValueOnOptionsExtension()
+    {
+        var optionsBuilder = new DbContextOptionsBuilder();
+
+        optionsBuilder.UseDynamo(options
+            => options.TransactionOverflowBehavior(TransactionOverflowBehavior.UseChunking));
+
+        var extension = optionsBuilder.Options.FindExtension<DynamoDbOptionsExtension>();
+
+        extension.Should().NotBeNull();
+        extension!.TransactionOverflowBehavior.Should().Be(TransactionOverflowBehavior.UseChunking);
+    }
+
+    [Fact]
+    public void UseDynamo_ConfigureMaxTransactionSize_StoresValueOnOptionsExtension()
+    {
+        var optionsBuilder = new DbContextOptionsBuilder();
+
+        optionsBuilder.UseDynamo(options => options.MaxTransactionSize(12));
+
+        var extension = optionsBuilder.Options.FindExtension<DynamoDbOptionsExtension>();
+
+        extension.Should().NotBeNull();
+        extension!.MaxTransactionSize.Should().Be(12);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(101)]
+    public void WithMaxTransactionSize_InvalidValue_Throws(int invalidValue)
+    {
+        var extension = new DynamoDbOptionsExtension();
+
+        Action act = () => extension.WithMaxTransactionSize(invalidValue);
+
+        act.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
     public void ServiceProviderHash_IncludesAutomaticIndexSelectionMode()
     {
         var extension1 =
@@ -120,6 +165,23 @@ public class PaginationConfigurationTests
         var extension2 =
             new DynamoDbOptionsExtension().WithAutomaticIndexSelectionMode(
                 DynamoAutomaticIndexSelectionMode.Conservative);
+
+        extension1
+            .Info
+            .GetServiceProviderHashCode()
+            .Should()
+            .NotBe(extension2.Info.GetServiceProviderHashCode());
+    }
+
+    [Fact]
+    public void ServiceProviderHash_IncludesTransactionOverflowBehaviorAndMaxTransactionSize()
+    {
+        var extension1 = new DynamoDbOptionsExtension()
+            .WithTransactionOverflowBehavior(TransactionOverflowBehavior.Throw)
+            .WithMaxTransactionSize(100);
+        var extension2 = new DynamoDbOptionsExtension()
+            .WithTransactionOverflowBehavior(TransactionOverflowBehavior.UseChunking)
+            .WithMaxTransactionSize(64);
 
         extension1
             .Info
