@@ -40,16 +40,8 @@ public class TransactionalSaveChangesTests(SaveChangesTableDynamoFixture fixture
         Db.Database.AutoTransactionBehavior = AutoTransactionBehavior.WhenNeeded;
 
         await PutItemAsync(
-            new Dictionary<string, AttributeValue>
-            {
-                ["Pk"] = new() { S = "TENANT#TXN" },
-                ["Sk"] = new() { S = "CUSTOMER#WHENNEEDED-DUP" },
-                ["$type"] = new() { S = "CustomerItem" },
-                ["Email"] = new() { S = "existing@example.com" },
-                ["Version"] = new() { N = "1" },
-                ["IsPreferred"] = new() { BOOL = false },
-                ["CreatedAt"] = new() { S = "2026-04-01 00:00:00+00:00" },
-            },
+            CreateSeedItem(
+                CreateCustomer("TENANT#TXN", "CUSTOMER#WHENNEEDED-DUP", "existing@example.com")),
             CancellationToken);
 
         var first = CreateCustomer(
@@ -76,16 +68,8 @@ public class TransactionalSaveChangesTests(SaveChangesTableDynamoFixture fixture
         Db.Database.AutoTransactionBehavior = AutoTransactionBehavior.Never;
 
         await PutItemAsync(
-            new Dictionary<string, AttributeValue>
-            {
-                ["Pk"] = new() { S = "TENANT#TXN" },
-                ["Sk"] = new() { S = "CUSTOMER#NEVER-DUP" },
-                ["$type"] = new() { S = "CustomerItem" },
-                ["Email"] = new() { S = "existing@example.com" },
-                ["Version"] = new() { N = "1" },
-                ["IsPreferred"] = new() { BOOL = false },
-                ["CreatedAt"] = new() { S = "2026-04-01 00:00:00+00:00" },
-            },
+            CreateSeedItem(
+                CreateCustomer("TENANT#TXN", "CUSTOMER#NEVER-DUP", "existing@example.com")),
             CancellationToken);
 
         var first = CreateCustomer("TENANT#TXN", "CUSTOMER#NEVER-PARTIAL-1", "first@example.com");
@@ -129,16 +113,8 @@ public class TransactionalSaveChangesTests(SaveChangesTableDynamoFixture fixture
         Db.Database.AutoTransactionBehavior = AutoTransactionBehavior.Always;
 
         await PutItemAsync(
-            new Dictionary<string, AttributeValue>
-            {
-                ["Pk"] = new() { S = "TENANT#TXN" },
-                ["Sk"] = new() { S = "CUSTOMER#ALWAYS-DUP" },
-                ["$type"] = new() { S = "CustomerItem" },
-                ["Email"] = new() { S = "existing@example.com" },
-                ["Version"] = new() { N = "1" },
-                ["IsPreferred"] = new() { BOOL = false },
-                ["CreatedAt"] = new() { S = "2026-04-01 00:00:00+00:00" },
-            },
+            CreateSeedItem(
+                CreateCustomer("TENANT#TXN", "CUSTOMER#ALWAYS-DUP", "existing@example.com")),
             CancellationToken);
 
         var first = CreateCustomer("TENANT#TXN", "CUSTOMER#ALWAYS-ROLLBACK-1", "first@example.com");
@@ -195,4 +171,11 @@ public class TransactionalSaveChangesTests(SaveChangesTableDynamoFixture fixture
             IsPreferred = false,
             CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero),
         };
+
+    private static Dictionary<string, AttributeValue> CreateSeedItem(CustomerItem customer)
+    {
+        var item = SaveChangesCustomerItemMapper.ToItem(customer);
+        item["$type"] = new AttributeValue { S = nameof(CustomerItem) };
+        return item;
+    }
 }
