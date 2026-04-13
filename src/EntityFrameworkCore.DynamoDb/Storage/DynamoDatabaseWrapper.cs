@@ -290,7 +290,9 @@ public class DynamoDatabaseWrapper(
         string tableName,
         string statement,
         List<AttributeValue> parameters)
-        => operations.Add(
+    {
+        ValidateStatementLength(statement);
+        operations.Add(
             new CompiledWriteOperation(
                 entry,
                 entityState,
@@ -298,6 +300,27 @@ public class DynamoDatabaseWrapper(
                 statement,
                 parameters,
                 BuildTargetItemIdentity(entry, tableName)));
+    }
+
+    /// <summary>
+    ///     Guards against PartiQL statements that exceed DynamoDB's 8 KB statement-size limit,
+    ///     failing fast before the statement is queued for execution. Mirrors the pattern used by
+    ///     <see cref="ValidateTransactionalDuplicateTargets" />.
+    /// </summary>
+    private static void ValidateStatementLength(string statement)
+    {
+        if (statement.Length <= MaxPartiQlStatementLength)
+            return;
+
+        throw new InvalidOperationException(
+            $"The generated PartiQL statement is {statement.Length} characters, which exceeds "
+            + $"DynamoDB's {MaxPartiQlStatementLength}-character statement-size limit. "
+            + "Consider reducing the number of mapped scalar properties or splitting the "
+            + "write unit across multiple SaveChanges calls.");
+    }
+
+    /// <summary>The maximum allowed length for a PartiQL statement sent to DynamoDB.</summary>
+    internal const int MaxPartiQlStatementLength = 8192;
 
     private static InvalidOperationException CreateAlwaysOverflowException(
         int operationCount,
