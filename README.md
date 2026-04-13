@@ -2,6 +2,8 @@
 
 EF Core Provider for AWS DynamoDB
 
+Documentation: <https://layeredcraft.github.io/dynamodb-efcore-provider/>
+
 > [!WARNING]
 > This provider is not production ready yet. Validate behavior carefully before using it in
 > important workloads, and review the current limitations before adopting it.
