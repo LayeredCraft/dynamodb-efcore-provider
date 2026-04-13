@@ -517,10 +517,15 @@ public class DynamoDatabaseWrapper(
                 + "requires a DynamoTypeMapping.");
 
         var value = mapping.CreateAttributeValue(GetOriginalOrCurrentValue(entry, keyProperty));
-        return SerializeAttributeValue(value);
+        return SerializeKeyAttributeValue(value, entry.EntityType, keyProperty);
     }
 
-    private static string SerializeAttributeValue(AttributeValue value)
+    // Used only for in-memory transaction target identity comparison (duplicate item detection).
+    // Not used for DynamoDB write parameter serialization.
+    private static string SerializeKeyAttributeValue(
+        AttributeValue value,
+        IEntityType entityType,
+        IProperty keyProperty)
     {
         if (value.S is not null)
             return "S:" + value.S;
@@ -528,37 +533,11 @@ public class DynamoDatabaseWrapper(
             return "N:" + value.N;
         if (value.B is not null)
             return "B:" + Convert.ToBase64String(value.B.ToArray());
-        if (value.BOOL is true || value.BOOL is false)
-            return "BOOL:" + value.BOOL;
-        if (value.NULL == true)
-            return "NULL";
-        if (value.SS is not null)
-            return "SS:" + string.Join(",", value.SS.Order(StringComparer.Ordinal));
-        if (value.NS is not null)
-            return "NS:" + string.Join(",", value.NS.Order(StringComparer.Ordinal));
-        if (value.BS is not null)
-            return "BS:"
-                + string.Join(
-                    ",",
-                    value
-                        .BS
-                        .Select(static b => Convert.ToBase64String(b.ToArray()))
-                        .Order(StringComparer.Ordinal));
 
-        if (value.L is not null)
-            return "L:[" + string.Join(",", value.L.Select(SerializeAttributeValue)) + "]";
-
-        if (value.M is not null)
-            return "M:{"
-                + string.Join(
-                    ",",
-                    value
-                        .M
-                        .OrderBy(static kv => kv.Key, StringComparer.Ordinal)
-                        .Select(static kv => kv.Key + "=" + SerializeAttributeValue(kv.Value)))
-                + "}";
-
-        return "EMPTY";
+        throw new InvalidOperationException(
+            $"Key property '{entityType.DisplayName()}.{keyProperty.Name}' produced "
+            + "an unsupported DynamoDB key shape for transaction target identity "
+            + "comparison. Only S, N, and B are supported.");
     }
 
     /// <summary>
