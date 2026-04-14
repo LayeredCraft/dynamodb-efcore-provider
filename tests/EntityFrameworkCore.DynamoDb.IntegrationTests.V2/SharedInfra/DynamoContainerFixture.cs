@@ -5,7 +5,7 @@ using Testcontainers.DynamoDb;
 using Testcontainers.Xunit;
 using Xunit.Sdk;
 
-namespace EntityFrameworkCore.DynamoDb.IntegrationTests.V2.Infra;
+namespace EntityFrameworkCore.DynamoDb.IntegrationTests.V2.SharedInfra;
 
 [UsedImplicitly]
 public sealed class DynamoContainerFixture(IMessageSink messageSink)

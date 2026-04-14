@@ -1,4 +1,4 @@
-using EntityFrameworkCore.DynamoDb.IntegrationTests.V2.Infra;
+using EntityFrameworkCore.DynamoDb.IntegrationTests.V2.SharedInfra;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.V2.SimpleTable;
 
