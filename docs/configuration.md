@@ -113,6 +113,9 @@ The same acceptance rule applies to non-atomic `BatchExecuteStatement` chunk ite
     1. `DynamoDbClientConfig(...)` (base SDK config)
     1. `ConfigureDynamoDbClientConfig(...)` (callback adjustments)
 
+Use `context.Database.GetDynamoClient()` to retrieve the resolved `IAmazonDynamoDB` instance from
+a configured context — useful for direct SDK calls or test assertions.
+
 ```csharp
 var sharedClient = new AmazonDynamoDBClient(new AmazonDynamoDBConfig
 {
