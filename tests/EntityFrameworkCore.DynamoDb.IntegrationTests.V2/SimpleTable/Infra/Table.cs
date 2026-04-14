@@ -5,7 +5,7 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.V2.SimpleTable;
 
 public static class SimpleItemTable
 {
-    public const string TableName = "SimpleItem";
+    public const string TableName = "SimpleItems";
 
     public static async Task CreateTable(
         IAmazonDynamoDB dynamoDb,

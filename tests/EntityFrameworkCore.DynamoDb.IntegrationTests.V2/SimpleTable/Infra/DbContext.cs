@@ -17,5 +17,8 @@ public class SimpleTableDbContext(DbContextOptions options) : DbContext(options)
 
     /// <summary>Provides functionality for this member.</summary>
     protected override void OnModelCreating(ModelBuilder modelBuilder)
-        => modelBuilder.Entity<SimpleItem>().ToTable("SimpleItems").HasPartitionKey(x => x.Pk);
+        => modelBuilder
+            .Entity<SimpleItem>()
+            .ToTable(SimpleItemTable.TableName)
+            .HasPartitionKey(x => x.Pk);
 }
