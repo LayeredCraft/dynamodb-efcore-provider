@@ -35,18 +35,18 @@ public static class SharedItemTable
             },
             cancellationToken);
 
-        await dynamoDb.TransactWriteItemsAsync(
-            new TransactWriteItemsRequest
-            {
-                TransactItems =
-                    SharedItems
-                        .AttributeValues
-                        .Select(a => new TransactWriteItem
-                        {
-                            Put = new Put { TableName = TableName, Item = a },
-                        })
-                        .ToList(),
-            },
-            cancellationToken);
+        foreach (var chunk in SharedItems.AttributeValues.Chunk(100))
+            await dynamoDb.TransactWriteItemsAsync(
+                new TransactWriteItemsRequest
+                {
+                    TransactItems =
+                        chunk
+                            .Select(a => new TransactWriteItem
+                            {
+                                Put = new Put { TableName = TableName, Item = a },
+                            })
+                            .ToList(),
+                },
+                cancellationToken);
     }
 }

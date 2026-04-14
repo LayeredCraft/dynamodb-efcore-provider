@@ -3,7 +3,10 @@ using LayeredCraft.DynamoMapper.Runtime;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.V2.SharedTable;
 
-[DynamoMapper(Convention = DynamoNamingConvention.Exact, OmitNullValues = false)]
+[DynamoMapper(
+    Convention = DynamoNamingConvention.Exact,
+    OmitNullValues = false,
+    IncludeBaseClassProperties = true)]
 internal static partial class UserEntityMapper
 {
     internal static partial Dictionary<string, AttributeValue> ToItem(UserEntity source);
@@ -18,7 +21,10 @@ internal static partial class UserEntityMapper
     }
 }
 
-[DynamoMapper(Convention = DynamoNamingConvention.Exact, OmitNullValues = false)]
+[DynamoMapper(
+    Convention = DynamoNamingConvention.Exact,
+    OmitNullValues = false,
+    IncludeBaseClassProperties = true)]
 internal static partial class OrderEntityMapper
 {
     internal static partial Dictionary<string, AttributeValue> ToItem(OrderEntity source);
@@ -33,7 +39,10 @@ internal static partial class OrderEntityMapper
     }
 }
 
-[DynamoMapper(Convention = DynamoNamingConvention.Exact, OmitNullValues = false)]
+[DynamoMapper(
+    Convention = DynamoNamingConvention.Exact,
+    OmitNullValues = false,
+    IncludeBaseClassProperties = true)]
 internal static partial class EmployeeEntityMapper
 {
     internal static partial Dictionary<string, AttributeValue> ToItem(EmployeeEntity source);
@@ -48,7 +57,10 @@ internal static partial class EmployeeEntityMapper
     }
 }
 
-[DynamoMapper(Convention = DynamoNamingConvention.Exact, OmitNullValues = false)]
+[DynamoMapper(
+    Convention = DynamoNamingConvention.Exact,
+    OmitNullValues = false,
+    IncludeBaseClassProperties = true)]
 [DynamoField("Level", AttributeName = "ManagerLevel")]
 internal static partial class ManagerEntityMapper
 {
