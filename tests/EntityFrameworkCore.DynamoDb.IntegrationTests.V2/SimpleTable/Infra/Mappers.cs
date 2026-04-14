@@ -1,7 +1,7 @@
 using Amazon.DynamoDBv2.Model;
 using LayeredCraft.DynamoMapper.Runtime;
 
-namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SimpleTable;
+namespace EntityFrameworkCore.DynamoDb.IntegrationTests.V2.SimpleTable;
 
 [DynamoMapper(Convention = DynamoNamingConvention.Exact, OmitNullValues = false)]
 internal static partial class SimpleItemMapper

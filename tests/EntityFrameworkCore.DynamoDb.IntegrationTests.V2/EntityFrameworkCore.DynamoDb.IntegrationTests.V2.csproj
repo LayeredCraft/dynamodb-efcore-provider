@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
-    <RootNamespace>EntityFrameworkCore.DynamoDb.IntegrationTests</RootNamespace>
+    <RootNamespace>EntityFrameworkCore.DynamoDb.IntegrationTests.V2</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>

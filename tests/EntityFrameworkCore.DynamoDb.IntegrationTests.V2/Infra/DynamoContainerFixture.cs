@@ -1,11 +1,11 @@
 using Amazon.DynamoDBv2;
-using EntityFrameworkCore.DynamoDb.IntegrationTests.SimpleTable;
+using EntityFrameworkCore.DynamoDb.IntegrationTests.V2.SimpleTable;
 using JetBrains.Annotations;
 using Testcontainers.DynamoDb;
 using Testcontainers.Xunit;
 using Xunit.Sdk;
 
-namespace EntityFrameworkCore.DynamoDb.IntegrationTests.Infra;
+namespace EntityFrameworkCore.DynamoDb.IntegrationTests.V2.Infra;
 
 [UsedImplicitly]
 public sealed class DynamoContainerFixture(IMessageSink messageSink)

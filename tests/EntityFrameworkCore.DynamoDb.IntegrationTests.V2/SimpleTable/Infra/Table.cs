@@ -1,7 +1,7 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 
-namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SimpleTable;
+namespace EntityFrameworkCore.DynamoDb.IntegrationTests.V2.SimpleTable;
 
 public static class SimpleItemTable
 {
