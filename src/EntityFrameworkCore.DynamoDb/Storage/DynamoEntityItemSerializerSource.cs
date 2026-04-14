@@ -1,7 +1,6 @@
 using System.Collections;
 using System.Collections.Concurrent;
 using Amazon.DynamoDBv2.Model;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking.Internal;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
@@ -22,6 +21,7 @@ namespace EntityFrameworkCore.DynamoDb.Storage;
 public sealed class DynamoEntityItemSerializerSource
 {
     private readonly ConcurrentDictionary<IEntityType, EntityWritePlan> _cache = new();
+    private readonly DynamoEntityWritePlanFactory _planFactory = new();
 
     // Separate cache for original-value (WHERE clause) serializers, keyed by property.
     // These read the original-or-current value via IUpdateEntry.GetOriginalValue<T> /
@@ -92,36 +92,10 @@ public sealed class DynamoEntityItemSerializerSource
     }
 
     private EntityWritePlan GetOrBuildPlan(IEntityType entityType)
-        => _cache.GetOrAdd(entityType, BuildPlan);
-
-    private static EntityWritePlan BuildPlan(IEntityType entityType)
-    {
-        var properties = entityType
-            .GetProperties()
-            .Where(static p => !(p.IsShadowProperty() && p.IsKey()))
-            .ToList();
-
-        // Build both the ordered writer list (for INSERT serialization) and the
-        // property→serializer lookup (for UPDATE per-property serialization) in one pass
-        // to avoid calling CreatePropertySerializer twice per property.
-        var propertyWriters = new List<PropertyWriteAction>(properties.Count);
-        var propertySerializers =
-            new Dictionary<IProperty, Func<IUpdateEntry, AttributeValue>>(properties.Count);
-
-        foreach (var p in properties)
-        {
-            var serializer = CreatePropertySerializer(p);
-            propertyWriters.Add(new PropertyWriteAction(p.GetAttributeName(), serializer));
-            propertySerializers[p] = serializer;
-        }
-
-        var ownedNavigations = entityType
-            .GetNavigations()
-            .Where(static n => !n.IsOnDependent && n.TargetEntityType.IsOwned())
-            .ToList();
-
-        return new EntityWritePlan(propertyWriters, propertySerializers, ownedNavigations);
-    }
+        => _cache.GetOrAdd(
+            entityType,
+            static (type, source) => source._planFactory.BuildPlan(type, CreatePropertySerializer),
+            this);
 
     /// <summary>
     /// Selects and builds the typed write delegate for a single property. Detects the collection
@@ -1214,99 +1188,6 @@ public sealed class DynamoEntityItemSerializerSource
                                 typed.ConvertToProviderTyped(item.Value))
                             : NullAttributeValue());
             };
-        }
-    }
-
-    private readonly record struct PropertyWriteAction(
-        string AttributeName,
-        Func<IUpdateEntry, AttributeValue> Serialize);
-
-    private sealed class EntityWritePlan(
-        List<PropertyWriteAction> propertyWriters,
-        Dictionary<IProperty, Func<IUpdateEntry, AttributeValue>> propertySerializers,
-        List<INavigation> ownedNavigations)
-    {
-        /// <summary>
-        ///     Serializes the current value of <paramref name="property" /> for <paramref name="entry" />
-        ///     using the pre-compiled delegate built at plan-construction time. Used by the UPDATE path to
-        ///     serialize individual properties without rebuilding a full item dictionary.
-        /// </summary>
-        internal AttributeValue SerializeProperty(IUpdateEntry entry, IProperty property)
-        {
-            if (!propertySerializers.TryGetValue(property, out var serializer))
-                throw new InvalidOperationException(
-                    $"No serializer was built for property "
-                    + $"'{property.DeclaringType?.DisplayName()}.{property.Name}'. "
-                    + "Shadow key properties are not serialized.");
-
-            return serializer(entry);
-        }
-
-        /// <summary>
-        ///     Serializes all scalar properties of <paramref name="entry" /> into a DynamoDB item
-        ///     dictionary, then resolves and serializes any owned navigation sub-entries.
-        /// </summary>
-        public Dictionary<string, AttributeValue> Serialize(
-            IUpdateEntry entry,
-            DynamoEntityItemSerializerSource source)
-        {
-            var result = new Dictionary<string, AttributeValue>(
-                propertyWriters.Count + ownedNavigations.Count,
-                StringComparer.Ordinal);
-
-            foreach (var writer in propertyWriters)
-                result[writer.AttributeName] = writer.Serialize(entry);
-
-            if (ownedNavigations.Count == 0)
-                return result;
-
-            // Resolve owned entries on-demand via the state manager, scoped to navigations
-            // reachable from this entry. This avoids passing a global owned-entries dictionary
-            // that spans all root entities being saved in a single SaveChanges call.
-            var stateManager = ((InternalEntityEntry)entry).StateManager;
-
-            foreach (var nav in ownedNavigations)
-            {
-                var navValue = entry.GetCurrentValue(nav);
-                if (navValue is null)
-                    continue;
-
-                var attributeName = nav.TargetEntityType.GetContainingAttributeName() ?? nav.Name;
-
-                if (nav.IsCollection)
-                {
-                    var elements = new List<AttributeValue>();
-                    if (navValue is IEnumerable collection)
-                    {
-                        foreach (var element in collection)
-                        {
-                            if (element is null)
-                                continue;
-                            var ownedEntry =
-                                stateManager.TryGetEntry(element, nav.TargetEntityType);
-                            if (ownedEntry is not null)
-                                elements.Add(
-                                    new AttributeValue
-                                    {
-                                        M = source.BuildItemFromOwnedEntry(ownedEntry),
-                                    });
-                        }
-                    }
-
-                    result[attributeName] = new AttributeValue { L = elements };
-                }
-                else
-                {
-                    var ownedEntry = stateManager.TryGetEntry(navValue, nav.TargetEntityType);
-                    if (ownedEntry is not null)
-                        result[attributeName] = new AttributeValue
-                        {
-                            M = source.BuildItemFromOwnedEntry(ownedEntry),
-                        };
-                }
-            }
-
-            return result;
         }
     }
 }
