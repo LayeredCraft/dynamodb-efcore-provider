@@ -5,7 +5,7 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.V2.SimpleTable;
 
 public class SimpleTableDbContext(DbContextOptions options) : DbContext(options)
 {
-    /// <summary>Provides functionality for this member.</summary>
+
     public DbSet<SimpleItem> SimpleItems { get; set; }
 
     /// <summary>Creates a context configured to use the provided DynamoDB client instance.</summary>
@@ -15,7 +15,7 @@ public class SimpleTableDbContext(DbContextOptions options) : DbContext(options)
                     => options.DynamoDbClient(client))
                 .Options);
 
-    /// <summary>Provides functionality for this member.</summary>
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
         => modelBuilder
             .Entity<SimpleItem>()
