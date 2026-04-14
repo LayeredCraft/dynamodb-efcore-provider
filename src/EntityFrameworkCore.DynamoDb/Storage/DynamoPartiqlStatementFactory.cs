@@ -14,24 +14,6 @@ namespace EntityFrameworkCore.DynamoDb.Storage;
 internal sealed class DynamoPartiqlStatementFactory(
     DynamoEntityItemSerializerSource serializerSource)
 {
-    internal TransactionTargetItem BuildTargetItemIdentity(IUpdateEntry entry, string tableName)
-    {
-        var entityType = entry.EntityType;
-
-        var partitionKeyProperty = entityType.GetPartitionKeyProperty()
-            ?? throw new InvalidOperationException(
-                $"Entity type '{entityType.DisplayName()}' does not define a partition key.");
-
-        var partitionKeyValue = SerializeIdentityValue(entry, partitionKeyProperty);
-
-        var sortKeyProperty = entityType.GetSortKeyProperty();
-        var sortKeyValue = sortKeyProperty is null
-            ? ""
-            : SerializeIdentityValue(entry, sortKeyProperty);
-
-        return new TransactionTargetItem(tableName, partitionKeyValue, sortKeyValue);
-    }
-
     internal (string tableName, string sql, List<AttributeValue> parameters)?
         BuildModifiedUpdateStatement(
             IUpdateEntry entry,
@@ -44,6 +26,8 @@ internal sealed class DynamoPartiqlStatementFactory(
 
         var setClauses = new List<string>();
         var setParameters = new List<AttributeValue>();
+        var scalarAssignments = new List<(string Clause, AttributeValue Parameter)>();
+        var nonScalarAssignments = new List<(string Clause, AttributeValue Parameter)>();
 
         foreach (var property in entityType.GetProperties())
         {
@@ -55,23 +39,25 @@ internal sealed class DynamoPartiqlStatementFactory(
                     $"SaveChanges Modified path does not support key mutation for "
                     + $"'{entityType.DisplayName()}.{property.Name}'.");
 
-            if (!IsScalarModifiedProperty(property))
-                continue;
-
-            setClauses.Add($"\"{EscapeIdentifier(property.GetAttributeName())}\" = ?");
-            setParameters.Add(serializerSource.SerializeProperty(entry, property));
-        }
-
-        foreach (var property in entityType.GetProperties())
-        {
-            if (!entry.IsModified(property) || property.IsPrimaryKey())
-                continue;
+            var clause = $"\"{EscapeIdentifier(property.GetAttributeName())}\" = ?";
+            var parameter = serializerSource.SerializeProperty(entry, property);
 
             if (IsScalarModifiedProperty(property))
-                continue;
+                scalarAssignments.Add((clause, parameter));
+            else
+                nonScalarAssignments.Add((clause, parameter));
+        }
 
-            setClauses.Add($"\"{EscapeIdentifier(property.GetAttributeName())}\" = ?");
-            setParameters.Add(serializerSource.SerializeProperty(entry, property));
+        foreach (var assignment in scalarAssignments)
+        {
+            setClauses.Add(assignment.Clause);
+            setParameters.Add(assignment.Parameter);
+        }
+
+        foreach (var assignment in nonScalarAssignments)
+        {
+            setClauses.Add(assignment.Clause);
+            setParameters.Add(assignment.Parameter);
         }
 
         return FinalizeUpdateStatement(
@@ -176,30 +162,6 @@ internal sealed class DynamoPartiqlStatementFactory(
 
         sql.Append('}');
         return (sql.ToString(), parameters);
-    }
-
-    private string SerializeIdentityValue(IUpdateEntry entry, IProperty keyProperty)
-    {
-        var value = serializerSource.GetOrBuildOriginalValueSerializer(keyProperty)(entry);
-        return SerializeKeyAttributeValue(value, entry.EntityType, keyProperty);
-    }
-
-    private static string SerializeKeyAttributeValue(
-        AttributeValue value,
-        IEntityType entityType,
-        IProperty keyProperty)
-    {
-        if (value.S is not null)
-            return "S:" + value.S;
-        if (value.N is not null)
-            return "N:" + value.N;
-        if (value.B is not null)
-            return "B:" + Convert.ToBase64String(value.B.ToArray());
-
-        throw new InvalidOperationException(
-            $"Key property '{entityType.DisplayName()}.{keyProperty.Name}' produced "
-            + "an unsupported DynamoDB key shape for transaction target identity "
-            + "comparison. Only S, N, and B are supported.");
     }
 
     private (string tableName, string sql, List<AttributeValue> parameters)?

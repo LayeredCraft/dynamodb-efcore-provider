@@ -29,7 +29,8 @@ public class DynamoDatabaseWrapper(
         transactionRuntimeOptions,
         clientWrapper,
         commandLogger,
-        new DynamoWriteExceptionMapper());
+        new DynamoWriteExceptionMapper(),
+        new DynamoTransactionTargetIdentityFactory(serializerSource));
 
     private readonly bool _saveEventsHooked = HookSaveEvents(
         currentDbContext.Context,

@@ -126,13 +126,7 @@ internal sealed class DynamoSaveChangesPlanner(
     {
         ValidateStatementLength(statement);
         operations.Add(
-            new CompiledWriteOperation(
-                entry,
-                entityState,
-                tableName,
-                statement,
-                parameters,
-                statementFactory.BuildTargetItemIdentity(entry, tableName)));
+            new CompiledWriteOperation(entry, entityState, tableName, statement, parameters));
     }
 
     private static void ValidateStatementLength(string statement)
@@ -190,6 +184,9 @@ internal sealed class DynamoSaveChangesPlanner(
     {
         var count = entries.Count;
         var trackedEntries = new HashSet<InternalEntityEntry>(ReferenceEqualityComparer.Instance);
+        var rootCache =
+            new Dictionary<InternalEntityEntry, InternalEntityEntry>(
+                ReferenceEqualityComparer.Instance);
 
         foreach (var rootEntry in rootEntries)
             trackedEntries.Add((InternalEntityEntry)rootEntry);
@@ -203,38 +200,10 @@ internal sealed class DynamoSaveChangesPlanner(
                     and not EntityState.Deleted)
                 continue;
 
-            var root = GetRootEntry((InternalEntityEntry)entry);
+            var root = DynamoEntryGraph.GetRootEntry((InternalEntityEntry)entry, rootCache);
 
             if (trackedEntries.Add(root))
                 rootEntries.Add(root);
-        }
-    }
-
-    private static InternalEntityEntry GetRootEntry(InternalEntityEntry entry)
-    {
-        while (true)
-        {
-            if (!entry.EntityType.IsOwned())
-                return entry;
-
-            var ownership =
-                entry.EntityType.FindOwnership()
-                ?? throw new InvalidOperationException(
-                    $"Owned entity type '{entry.EntityType.DisplayName()}' has no ownership metadata.");
-
-            var principal =
-                entry.StateManager.FindPrincipal(entry, ownership)
-                ?? throw new InvalidOperationException(
-                    $"Owned entity '{entry.EntityType.DisplayName()}' is orphaned from its principal "
-                    + $"'{ownership.PrincipalEntityType.DisplayName()}'.");
-
-            if (principal.EntityType.IsOwned())
-            {
-                entry = principal;
-                continue;
-            }
-
-            return principal;
         }
     }
 
@@ -253,30 +222,18 @@ internal sealed class DynamoSaveChangesPlanner(
                     and not EntityState.Deleted)
                 continue;
 
-            var current = (InternalEntityEntry)e;
-            while (current.EntityType.IsOwned())
-            {
-                var ownership = current.EntityType.FindOwnership();
-                if (ownership is null)
-                    break;
-
-                var principal = current.StateManager.FindPrincipal(current, ownership);
-                if (principal is null)
-                    break;
-
-                var nav = ownership.PrincipalToDependent;
-                if (nav is null)
-                    break;
-
-                if (!lookup.TryGetValue(principal, out var set))
+            _ = DynamoEntryGraph.TryVisitOwnershipChain(
+                (InternalEntityEntry)e,
+                (principal, nav) =>
                 {
-                    set = new HashSet<INavigation>(ReferenceEqualityComparer.Instance);
-                    lookup[principal] = set;
-                }
+                    if (!lookup.TryGetValue(principal, out var set))
+                    {
+                        set = new HashSet<INavigation>(ReferenceEqualityComparer.Instance);
+                        lookup[principal] = set;
+                    }
 
-                set.Add(nav);
-                current = principal;
-            }
+                    set.Add(nav);
+                });
         }
 
         return lookup;

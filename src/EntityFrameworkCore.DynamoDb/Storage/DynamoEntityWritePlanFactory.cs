@@ -22,7 +22,9 @@ internal sealed class DynamoEntityWritePlanFactory
 
         var propertyWriters = new List<PropertyWriteAction>(properties.Count);
         var propertySerializers =
-            new Dictionary<IProperty, Func<IUpdateEntry, AttributeValue>>(properties.Count);
+            new Dictionary<IProperty, Func<IUpdateEntry, AttributeValue>>(
+                properties.Count,
+                ReferenceEqualityComparer.Instance);
 
         foreach (var p in properties)
         {

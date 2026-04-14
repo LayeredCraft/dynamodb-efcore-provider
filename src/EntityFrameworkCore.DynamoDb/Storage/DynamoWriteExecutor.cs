@@ -19,7 +19,8 @@ internal sealed class DynamoWriteExecutor(
     DynamoTransactionRuntimeOptions transactionRuntimeOptions,
     IDynamoClientWrapper clientWrapper,
     IDiagnosticsLogger<DbLoggerCategory.Database.Command> commandLogger,
-    DynamoWriteExceptionMapper exceptionMapper)
+    DynamoWriteExceptionMapper exceptionMapper,
+    DynamoTransactionTargetIdentityFactory targetIdentityFactory)
 {
     private readonly DynamoDbOptionsExtension _optionsExtension =
         dbContextOptions.FindExtension<DynamoDbOptionsExtension>()
@@ -172,15 +173,16 @@ internal sealed class DynamoWriteExecutor(
         IReadOnlyList<CompiledWriteOperation> operations,
         CancellationToken cancellationToken)
     {
+        var statements = new List<ParameterizedStatement>(operations.Count);
         foreach (var operation in operations)
+        {
             commandLogger.ExecutingPartiQlWrite(operation.TableName, operation.Statement);
-
-        var statements = operations
-            .Select(static operation => new ParameterizedStatement
-            {
-                Statement = operation.Statement, Parameters = operation.Parameters,
-            })
-            .ToList();
+            statements.Add(
+                new ParameterizedStatement
+                {
+                    Statement = operation.Statement, Parameters = operation.Parameters,
+                });
+        }
 
         try
         {
@@ -206,7 +208,8 @@ internal sealed class DynamoWriteExecutor(
 
     private async Task ExecuteChunkedTransactionalWritesAsync(
         IReadOnlyList<CompiledWriteOperation> operations,
-        IReadOnlyDictionary<InternalEntityEntry, IReadOnlyList<IUpdateEntry>> rootAggregateEntries,
+        IReadOnlyDictionary<InternalEntityEntry, IReadOnlyList<InternalEntityEntry>>
+            rootAggregateEntries,
         int maxTransactionSize,
         CancellationToken cancellationToken)
     {
@@ -220,21 +223,23 @@ internal sealed class DynamoWriteExecutor(
 
     private async Task ExecuteChunkedBatchWritesAsync(
         IReadOnlyList<CompiledWriteOperation> operations,
-        IReadOnlyDictionary<InternalEntityEntry, IReadOnlyList<IUpdateEntry>> rootAggregateEntries,
+        IReadOnlyDictionary<InternalEntityEntry, IReadOnlyList<InternalEntityEntry>>
+            rootAggregateEntries,
         int maxBatchWriteSize,
         CancellationToken cancellationToken)
     {
         foreach (var chunk in operations.Chunk(maxBatchWriteSize))
         {
+            var statements = new List<BatchStatementRequest>(chunk.Length);
             foreach (var operation in chunk)
+            {
                 commandLogger.ExecutingPartiQlWrite(operation.TableName, operation.Statement);
-
-            var statements = chunk
-                .Select(static operation => new BatchStatementRequest
-                {
-                    Statement = operation.Statement, Parameters = operation.Parameters,
-                })
-                .ToList();
+                statements.Add(
+                    new BatchStatementRequest
+                    {
+                        Statement = operation.Statement, Parameters = operation.Parameters,
+                    });
+            }
 
             IReadOnlyList<BatchStatementResponse> responses;
 
@@ -301,37 +306,42 @@ internal sealed class DynamoWriteExecutor(
             ErrorCode = error.Code,
         };
 
-    private static IReadOnlyDictionary<InternalEntityEntry, IReadOnlyList<IUpdateEntry>>
+    private static IReadOnlyDictionary<InternalEntityEntry, IReadOnlyList<InternalEntityEntry>>
         BuildRootAggregateEntries(
             IList<IUpdateEntry> entries,
             IReadOnlyList<IUpdateEntry> rootEntries)
     {
-        var rootToEntries =
-            new Dictionary<InternalEntityEntry, HashSet<IUpdateEntry>>(
+        var rootCache =
+            new Dictionary<InternalEntityEntry, InternalEntityEntry>(
+                ReferenceEqualityComparer.Instance);
+        var rootToEntries = new Dictionary<InternalEntityEntry, HashSet<InternalEntityEntry>>(
                 ReferenceEqualityComparer.Instance);
 
         foreach (var rootEntry in rootEntries)
         {
             var internalRoot = (InternalEntityEntry)rootEntry;
             rootToEntries[internalRoot] =
-                new HashSet<IUpdateEntry>(ReferenceEqualityComparer.Instance) { rootEntry };
+                new HashSet<InternalEntityEntry>(ReferenceEqualityComparer.Instance)
+                    {
+                        internalRoot,
+                    };
         }
 
         foreach (var entry in entries)
         {
-            var root = GetRootEntry((InternalEntityEntry)entry);
+            var internalEntry = (InternalEntityEntry)entry;
+            var root = DynamoEntryGraph.GetRootEntry(internalEntry, rootCache);
             if (!rootToEntries.TryGetValue(root, out var relatedEntries))
             {
                 relatedEntries =
-                    new HashSet<IUpdateEntry>(ReferenceEqualityComparer.Instance) { root };
+                    new HashSet<InternalEntityEntry>(ReferenceEqualityComparer.Instance) { root };
                 rootToEntries[root] = relatedEntries;
             }
 
-            relatedEntries.Add(entry);
+            relatedEntries.Add(internalEntry);
         }
 
-        var result =
-            new Dictionary<InternalEntityEntry, IReadOnlyList<IUpdateEntry>>(
+        var result = new Dictionary<InternalEntityEntry, IReadOnlyList<InternalEntityEntry>>(
                 ReferenceEqualityComparer.Instance);
 
         foreach (var pair in rootToEntries)
@@ -342,66 +352,37 @@ internal sealed class DynamoWriteExecutor(
 
     private static void AcceptChunkEntries(
         IReadOnlyList<CompiledWriteOperation> chunk,
-        IReadOnlyDictionary<InternalEntityEntry, IReadOnlyList<IUpdateEntry>> rootAggregateEntries)
+        IReadOnlyDictionary<InternalEntityEntry, IReadOnlyList<InternalEntityEntry>>
+            rootAggregateEntries)
     {
-        var entriesToAccept = new HashSet<InternalEntityEntry>(ReferenceEqualityComparer.Instance);
-
         foreach (var operation in chunk)
         {
             var rootEntry = (InternalEntityEntry)operation.Entry;
             if (!rootAggregateEntries.TryGetValue(rootEntry, out var relatedEntries))
             {
-                entriesToAccept.Add(rootEntry);
+                rootEntry.AcceptChanges();
                 continue;
             }
 
             foreach (var relatedEntry in relatedEntries)
-                entriesToAccept.Add((InternalEntityEntry)relatedEntry);
+                relatedEntry.AcceptChanges();
         }
-
-        foreach (var entry in entriesToAccept)
-            entry.AcceptChanges();
     }
 
-    private static void ValidateTransactionalDuplicateTargets(
+    private void ValidateTransactionalDuplicateTargets(
         IReadOnlyList<CompiledWriteOperation> operations)
     {
-        var duplicateTarget = operations
-            .GroupBy(static x => x.TargetItem)
-            .FirstOrDefault(static g => g.Count() > 1);
-
-        if (duplicateTarget is null)
-            return;
-
-        throw new InvalidOperationException(
-            "SaveChanges cannot satisfy transactional atomicity because the unit of work "
-            + "contains multiple operations targeting the same DynamoDB item in a single "
-            + "transaction, which is not allowed by ExecuteTransaction.");
-    }
-
-    private static InternalEntityEntry GetRootEntry(InternalEntityEntry entry)
-    {
-        while (true)
+        var targetItems = new HashSet<TransactionTargetItem>();
+        foreach (var operation in operations)
         {
-            if (!entry.EntityType.IsOwned())
-                return entry;
-
-            var ownership = entry.EntityType.FindOwnership()
-                ?? throw new InvalidOperationException(
-                    $"Owned entity type '{entry.EntityType.DisplayName()}' has no ownership metadata.");
-
-            var principal = entry.StateManager.FindPrincipal(entry, ownership)
-                ?? throw new InvalidOperationException(
-                    $"Owned entity '{entry.EntityType.DisplayName()}' is orphaned from its principal "
-                    + $"'{ownership.PrincipalEntityType.DisplayName()}'.");
-
-            if (principal.EntityType.IsOwned())
-            {
-                entry = principal;
+            var targetItem = targetIdentityFactory.Create(operation.Entry, operation.TableName);
+            if (targetItems.Add(targetItem))
                 continue;
-            }
 
-            return principal;
+            throw new InvalidOperationException(
+                "SaveChanges cannot satisfy transactional atomicity because the unit of work "
+                + "contains multiple operations targeting the same DynamoDB item in a single "
+                + "transaction, which is not allowed by ExecuteTransaction.");
         }
     }
 }

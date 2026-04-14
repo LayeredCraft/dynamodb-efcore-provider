@@ -9,10 +9,12 @@ internal sealed record CompiledWriteOperation(
     EntityState EntityState,
     string TableName,
     string Statement,
-    List<AttributeValue> Parameters,
-    TransactionTargetItem TargetItem);
+    List<AttributeValue> Parameters);
 
-internal sealed record TransactionTargetItem(string TableName, string PartitionKey, string SortKey);
+internal readonly record struct TransactionTargetItem(
+    string TableName,
+    string PartitionKey,
+    string SortKey);
 
 internal sealed record DynamoWritePlan(
     IList<IUpdateEntry> Entries,
