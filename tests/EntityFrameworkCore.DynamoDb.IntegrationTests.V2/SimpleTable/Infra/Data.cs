@@ -72,6 +72,6 @@ public static class SimpleItems
         },
     ];
 
-    public static readonly List<Dictionary<string, AttributeValue>> AttributeValue =
+    public static readonly List<Dictionary<string, AttributeValue>> AttributeValues =
         SimpleItemMapper.ToItems(Items);
 }

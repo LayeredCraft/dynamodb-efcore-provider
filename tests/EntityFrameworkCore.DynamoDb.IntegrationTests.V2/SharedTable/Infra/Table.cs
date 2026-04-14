@@ -1,17 +1,16 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 
-namespace EntityFrameworkCore.DynamoDb.IntegrationTests.V2.SimpleTable;
+namespace EntityFrameworkCore.DynamoDb.IntegrationTests.V2.SharedTable;
 
-public static class SimpleItemTable
+public static class SharedItemTable
 {
-    public const string TableName = "SimpleItem";
+    public const string TableName = "app-table";
 
     public static async Task CreateTable(
         IAmazonDynamoDB dynamoDb,
         CancellationToken cancellationToken)
     {
-        // create table
         await dynamoDb.CreateTableAsync(
             new CreateTableRequest
             {
@@ -22,21 +21,25 @@ public static class SimpleItemTable
                     {
                         AttributeName = "Pk", AttributeType = ScalarAttributeType.S,
                     },
+                    new AttributeDefinition
+                    {
+                        AttributeName = "Sk", AttributeType = ScalarAttributeType.S,
+                    },
                 ],
                 KeySchema =
                 [
                     new KeySchemaElement { AttributeName = "Pk", KeyType = KeyType.HASH },
+                    new KeySchemaElement { AttributeName = "Sk", KeyType = KeyType.RANGE },
                 ],
                 BillingMode = BillingMode.PAY_PER_REQUEST,
             },
             cancellationToken);
 
-        // seed data
         await dynamoDb.TransactWriteItemsAsync(
             new TransactWriteItemsRequest
             {
                 TransactItems =
-                    SimpleItems
+                    SharedItems
                         .AttributeValues
                         .Select(a => new TransactWriteItem
                         {

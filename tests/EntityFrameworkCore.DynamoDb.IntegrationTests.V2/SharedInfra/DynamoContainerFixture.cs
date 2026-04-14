@@ -1,4 +1,5 @@
 using Amazon.DynamoDBv2;
+using EntityFrameworkCore.DynamoDb.IntegrationTests.V2.SharedTable;
 using EntityFrameworkCore.DynamoDb.IntegrationTests.V2.SimpleTable;
 using JetBrains.Annotations;
 using Testcontainers.DynamoDb;
@@ -27,6 +28,8 @@ public sealed class DynamoContainerFixture(IMessageSink messageSink)
     {
         await base.InitializeAsync();
 
-        await SimpleItemTable.CreateTable(Client, TestContext.Current.CancellationToken);
+        var ct = TestContext.Current.CancellationToken;
+        await SimpleItemTable.CreateTable(Client, ct);
+        await SharedItemTable.CreateTable(Client, ct);
     }
 }
