@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
+using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.ChangeTracking.Internal;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Metadata;
@@ -41,6 +42,12 @@ public class DynamoTypeMappingSource(TypeMappingSourceDependencies dependencies)
         var clrType = mappingInfo.ClrType;
         if (clrType == null)
             return null;
+
+        // ExecuteStatementResponse is never serialized to DynamoDB — it is held only in the
+        // value buffer as a shadow property. A no-op mapping prevents a null return here which
+        // would cause a model build failure.
+        if (clrType == typeof(ExecuteStatementResponse))
+            return new DynamoTypeMapping(clrType);
 
         var nonNullableType = Nullable.GetUnderlyingType(clrType) ?? clrType;
         if (IsPrimitiveType(nonNullableType))

@@ -9,10 +9,21 @@ public interface IDynamoClientWrapper
     /// <summary>Provides functionality for this member.</summary>
     IAmazonDynamoDB Client { get; }
 
-    /// <summary>Executes a PartiQL statement and streams projected item dictionaries.</summary>
+    /// <summary>Executes a PartiQL statement and streams projected item dictionaries page by page.</summary>
+    /// <param name="statementRequest">The PartiQL statement and execution parameters.</param>
+    /// <param name="singlePageOnly">
+    ///     When <see langword="true" />, stops after the first page regardless of
+    ///     pagination tokens.
+    /// </param>
+    /// <param name="onPageFetched">
+    ///     Optional callback invoked with the raw
+    ///     <see cref="ExecuteStatementResponse" /> immediately after each page is fetched and before its
+    ///     items are yielded.
+    /// </param>
     IAsyncEnumerable<Dictionary<string, AttributeValue>> ExecutePartiQl(
         ExecuteStatementRequest statementRequest,
-        bool singlePageOnly = false);
+        bool singlePageOnly = false,
+        Action<ExecuteStatementResponse>? onPageFetched = null);
 
     /// <summary>Executes a write PartiQL statement (INSERT, UPDATE, DELETE) and discards any result items.</summary>
     /// <param name="statement">The PartiQL write statement to execute.</param>

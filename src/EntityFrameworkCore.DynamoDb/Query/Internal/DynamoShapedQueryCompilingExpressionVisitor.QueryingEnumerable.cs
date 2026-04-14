@@ -139,7 +139,10 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
                             // Maps directly to ExecuteStatementRequest.Limit (evaluation budget).
                             Limit = _limit,
                         },
-                        _singlePageOnly);
+                        _singlePageOnly,
+                        // Store the raw response on the query context so the shaper can bind it
+                        // to the __executeStatementResponse shadow property of each entity.
+                        response => _queryContext.CurrentPageResponse = response);
 
                     _dataEnumerator = asyncEnumerable.GetAsyncEnumerator(_cancellationToken);
                     _queryContext.InitializeStateManager(_standAloneStateManager);

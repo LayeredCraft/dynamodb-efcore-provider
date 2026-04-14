@@ -1,3 +1,4 @@
+using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -20,4 +21,11 @@ public class DynamoQueryContext(
     {
         get;
     } = commandLogger;
+
+    /// <summary>
+    ///     The <see cref="ExecuteStatementResponse" /> from the most recently fetched DynamoDB page.
+    ///     Set by <see cref="DynamoClientWrapper" /> before items from each page are yielded, and read by
+    ///     the shaper expression during materialization to populate the per-entity shadow property.
+    /// </summary>
+    public ExecuteStatementResponse? CurrentPageResponse { get; set; }
 }

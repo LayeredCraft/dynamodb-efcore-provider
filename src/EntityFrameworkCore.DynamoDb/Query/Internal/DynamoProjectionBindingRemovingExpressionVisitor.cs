@@ -1034,6 +1034,23 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
                 var property = (IProperty)((ConstantExpression)node.Arguments[2]).Value!;
                 var targetType = node.Type == typeof(object) ? property.ClrType : node.Type;
 
+                // __executeStatementResponse is not stored in the DynamoDB item dictionary —
+                // it is sourced directly from the per-page SDK response held on the query context.
+                if (property.Name == "__executeStatementResponse")
+                {
+                    // Emit: ((DynamoQueryContext)queryContext).CurrentPageResponse
+                    var ctxExpr = Convert(
+                        QueryCompilationContext.QueryContextParameter,
+                        typeof(DynamoQueryContext));
+                    var responseExpr = Property(
+                        ctxExpr,
+                        nameof(DynamoQueryContext.CurrentPageResponse));
+
+                    return responseExpr.Type != node.Type
+                        ? Convert(responseExpr, node.Type)
+                        : responseExpr;
+                }
+
                 // Get type mapping for converter support
                 var typeMapping = property.GetTypeMapping();
 
