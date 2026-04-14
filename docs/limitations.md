@@ -205,6 +205,26 @@ type or is MISSING, because DynamoDB PartiQL SQL semantics return MISSING (not T
 equality comparisons involving NULL. There is no workaround for this shape at the provider
 level today.
 
+## Per-entity response metadata requires tracking queries
+
+`context.Entry(entity).GetExecuteStatementResponse()` returns `null` for entities loaded via
+`AsNoTracking()` because shadow properties require a tracked `InternalEntityEntry`. The
+`ExecuteStatementResponse` is written into the entity's value buffer during materialization — that
+buffer does not exist for detached entities.
+
+```csharp
+// ✅ Tracking query — response is populated
+var item = await context.Items.Where(x => x.Pk == pk).FirstAsync();
+var response = context.Entry(item).GetExecuteStatementResponse(); // non-null
+
+// ❌ No-tracking query — response is null
+var item = await context.Items.AsNoTracking().Where(x => x.Pk == pk).FirstAsync();
+var response = context.Entry(item).GetExecuteStatementResponse(); // null
+```
+
+To access response metadata on no-tracking queries, use `GetDynamoClient()` to call
+`ExecuteStatementAsync` directly.
+
 ## Owned types query limitations
 
 ### Direct owned collection queries (not supported)

@@ -111,6 +111,54 @@ services.AddLogging(builder =>
 - Query execution emits structured command diagnostics around each `ExecuteStatement` call.
 - Pagination-related warning helps catch unbounded first-page scans on row-limiting queries.
 
+## Response metadata
+
+After a tracking query executes, the raw `ExecuteStatementResponse` from each DynamoDB page is
+accessible on the entity entry:
+
+```csharp
+var item = await context.Items
+    .Where(x => x.Pk == "ITEM#1")
+    .FirstAsync();
+
+var response = context.Entry(item).GetExecuteStatementResponse();
+
+// Always populated — useful for AWS support cases and distributed tracing
+var requestId = response?.ResponseMetadata.RequestId;
+
+// Populated only when ReturnConsumedCapacity was set on the request
+var capacity = response?.ConsumedCapacity;
+```
+
+### Page semantics
+
+- One `ExecuteStatementResponse` is captured per DynamoDB page fetch.
+- Entities from the **same page** share the **same object reference**.
+- Entities from **different pages** hold **different response objects** — useful to correlate
+    cost and request ID by page.
+- The `NextToken` on a non-last-page entity's response has already been consumed by the provider
+    for internally auto-paged queries; do not use it for manual pagination.
+
+### `ConsumedCapacity`
+
+`ConsumedCapacity` is `null` unless `ReturnConsumedCapacity` is set on the underlying
+`ExecuteStatementRequest`. To configure this today, use the low-level client directly:
+
+```csharp
+var client = context.Database.GetDynamoClient();
+// Use client.ExecuteStatementAsync(...) with ReturnConsumedCapacity set
+```
+
+Provider-level configuration for consumed capacity reporting is tracked for a future release.
+
+### `ResponseMetadata.RequestId`
+
+`RequestId` is always populated by DynamoDB. Include it in support tickets or correlation headers:
+
+```csharp
+logger.LogInformation("DynamoDB request {RequestId}", response?.ResponseMetadata.RequestId);
+```
+
 ## External references
 
 - AWS ExecuteStatement API: <https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_ExecuteStatement.html>
