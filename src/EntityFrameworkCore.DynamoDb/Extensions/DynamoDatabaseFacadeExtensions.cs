@@ -1,5 +1,7 @@
+using Amazon.DynamoDBv2;
 using EntityFrameworkCore.DynamoDb.Infrastructure;
 using EntityFrameworkCore.DynamoDb.Infrastructure.Internal;
+using EntityFrameworkCore.DynamoDb.Storage;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
 
@@ -95,6 +97,23 @@ public static class DynamoDatabaseFacadeExtensions
 
         return runtimeOptions.MaxBatchWriteSizeOverride
             ?? GetDynamoOptionsExtension(databaseFacade).MaxBatchWriteSize;
+    }
+
+    /// <summary>Returns the underlying <see cref="IAmazonDynamoDB" /> client used by this context.</summary>
+    /// <param name="databaseFacade">The <see cref="DatabaseFacade" /> for the current context.</param>
+    /// <returns>The <see cref="IAmazonDynamoDB" /> client instance.</returns>
+    public static IAmazonDynamoDB GetDynamoClient(this DatabaseFacade databaseFacade)
+        => GetService<IDynamoClientWrapper>(databaseFacade).Client;
+
+    private static TService GetService<TService>(IInfrastructure<IServiceProvider> databaseFacade)
+        where TService : class
+    {
+        var service = databaseFacade.GetService<TService>();
+        if (service == null)
+            throw new InvalidOperationException(
+                $"Service of type '{typeof(TService).FullName}' is not available.");
+
+        return service;
     }
 
     private static DynamoTransactionRuntimeOptions GetRuntimeOptions(DatabaseFacade databaseFacade)
