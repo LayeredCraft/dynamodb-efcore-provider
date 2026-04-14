@@ -167,7 +167,8 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
     /// <inheritdoc />
     protected override Expression VisitSqlConstant(SqlConstantExpression sqlConstantExpression)
     {
-        // Inline constant values directly into SQL using type mapping
+        // Constants and parameters must go through the same mapping-owned serialization rules so
+        // inline literals and AttributeValue parameters stay behaviorally aligned.
         if (sqlConstantExpression.TypeMapping is DynamoTypeMapping dynamoTypeMapping)
             _sql.Append(dynamoTypeMapping.GenerateConstant(sqlConstantExpression.Value));
         else
@@ -583,42 +584,14 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
     private void AppendParameter(object? value, CoreTypeMapping? typeMapping)
     {
         _sql.Append('?');
-        _parameters.Add(ConvertToAttributeValue(value, typeMapping));
+        _parameters.Add(
+            // Parameter conversion is model-value-facing; the mapping composes any EF converter and
+            // then serializes to the correct DynamoDB wire shape.
+            (typeMapping as DynamoTypeMapping)?.CreateAttributeValue(value)
+            ?? throw new InvalidOperationException(
+                $"Query parameter requires a DynamoTypeMapping. Got: {typeMapping?.GetType().Name ?? "null"}"));
     }
 
     /// <summary>Appends a predicate that is guaranteed to evaluate to false.</summary>
     private void AppendAlwaysFalsePredicate() => _sql.Append("1 = 0");
-
-    /// <summary>
-    /// Converts a CLR value to a DynamoDB AttributeValue.
-    /// </summary>
-    private static AttributeValue ConvertToAttributeValue(
-        object? value,
-        CoreTypeMapping? typeMapping)
-    {
-        // Apply value converter if present
-        if (typeMapping?.Converter != null && value != null)
-            value = typeMapping.Converter.ConvertToProvider(value);
-
-        if (value == null)
-            return new AttributeValue { NULL = true };
-
-        return value switch
-        {
-            string s => new AttributeValue { S = s },
-            bool b => new AttributeValue { BOOL = b },
-            int i => new AttributeValue { N = i.ToString() },
-            long l => new AttributeValue { N = l.ToString() },
-            short sh => new AttributeValue { N = sh.ToString() },
-            byte by => new AttributeValue { N = by.ToString() },
-            double d => new AttributeValue { N = d.ToString("R") },
-            float f => new AttributeValue { N = f.ToString("R") },
-            decimal dec => new AttributeValue { N = dec.ToString() },
-            Guid g => new AttributeValue { S = g.ToString() },
-            DateTime dt => new AttributeValue { S = dt.ToString("O") },
-            DateTimeOffset dto => new AttributeValue { S = dto.ToString("O") },
-            _ => throw new NotSupportedException(
-                $"Type {value.GetType()} is not supported for conversion to AttributeValue"),
-        };
-    }
 }

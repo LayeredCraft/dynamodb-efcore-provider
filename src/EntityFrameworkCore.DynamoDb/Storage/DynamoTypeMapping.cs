@@ -1,29 +1,68 @@
-using System.Globalization;
+using System.Linq.Expressions;
+using Amazon.DynamoDBv2.Model;
+using EntityFrameworkCore.DynamoDb.Storage.Internal;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.Storage.Json;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace EntityFrameworkCore.DynamoDb.Storage;
 
-/// <summary>Represents the DynamoTypeMapping type.</summary>
+/// <summary>
+///     Represents a DynamoDB type mapping that owns both EF Core conversion metadata and the
+///     provider's AttributeValue/PartiQL serialization rules.
+/// </summary>
+/// <remarks>
+///     <para>
+///         Serialization is handled by <see cref="DynamoValueReaderWriter" /> instances owned
+///         by each mapping. This is a DynamoDB-specific codec system — <b>not</b> EF Core's
+///         <c>JsonValueReaderWriter</c> infrastructure. The wire format is DynamoDB
+///         <see cref="Amazon.DynamoDBv2.Model.AttributeValue" />, not JSON, so the JSON
+///         reader/writer slot in <c>CoreTypeMappingParameters</c>
+///         is intentionally left unpopulated. Any <c>JsonValueReaderWriter</c> configured on a
+///         property via model builder is ignored by this provider.
+///     </para>
+///     <para>
+///         Literal generation uses <see cref="GenerateConstant" /> rather than
+///         <c>RelationalTypeMapping.GenerateSqlLiteral</c>. The latter is relational-only and
+///         is neither inherited by <see cref="Microsoft.EntityFrameworkCore.Storage.CoreTypeMapping" />
+///         subclasses nor auto-invoked by EF Core infrastructure for non-relational providers.
+///         This mirrors the pattern used by the EF Core Cosmos provider.
+///     </para>
+/// </remarks>
 public class DynamoTypeMapping : CoreTypeMapping
 {
-    /// <summary>Provides functionality for this member.</summary>
+    internal DynamoValueReaderWriter? ReaderWriter { get; }
+    private readonly IDynamoUntypedValueWriter? _untypedValueWriter;
+
+    /// <summary>Creates a mapping for the given CLR type.</summary>
     public DynamoTypeMapping(
         Type clrType,
         ValueComparer? comparer = null,
         ValueComparer? keyComparer = null) : base(
-        new CoreTypeMappingParameters(clrType, null, comparer, keyComparer)) { }
+        new CoreTypeMappingParameters(clrType, null, comparer, keyComparer))
+    {
+        ReaderWriter = CreateReaderWriter(Parameters);
+        // Cache the untyped adapter once per mapping; EF reaches us with object values, but the
+        // typed codec pipeline resumes immediately behind this boundary.
+        _untypedValueWriter = ReaderWriter?.CreateUntypedValueWriter();
+    }
 
-    /// <summary>Provides functionality for this member.</summary>
-    protected DynamoTypeMapping(CoreTypeMappingParameters parameters) : base(parameters) { }
+    /// <summary>Creates a mapping from a fully-specified EF Core mapping parameter set.</summary>
+    protected DynamoTypeMapping(CoreTypeMappingParameters parameters) : base(parameters)
+    {
+        ReaderWriter = CreateReaderWriter(parameters);
+        // Cache the untyped adapter once per mapping; EF reaches us with object values, but the
+        // typed codec pipeline resumes immediately behind this boundary.
+        _untypedValueWriter = ReaderWriter?.CreateUntypedValueWriter();
+    }
 
-    /// <summary>Provides functionality for this member.</summary>
+    /// <summary>Clones the mapping with updated parameters.</summary>
     protected override CoreTypeMapping Clone(CoreTypeMappingParameters parameters)
         => new DynamoTypeMapping(parameters);
 
-    /// <summary>Provides functionality for this member.</summary>
+    /// <summary>Returns a new mapping that composes the provided converter and element mapping.</summary>
     public override CoreTypeMapping WithComposedConverter(
         ValueConverter? converter,
         ValueComparer? comparer = null,
@@ -38,34 +77,82 @@ public class DynamoTypeMapping : CoreTypeMapping
                 elementMapping,
                 jsonValueReaderWriter));
 
-    /// <summary>
-    /// Generates a SQL literal for a constant value in PartiQL.
-    /// </summary>
-    public virtual string GenerateConstant(object? value)
+    internal virtual bool CanWriteToAttributeValue => ReaderWriter != null;
+
+    /// <summary>Creates the expression-tree fragment used to materialize a single DynamoDB value.</summary>
+    internal virtual Expression CreateReadExpression(
+        Expression attributeValueExpression,
+        string propertyPath,
+        bool required,
+        IProperty? property)
+        => ReaderWriter?.CreateReadExpression(
+                attributeValueExpression,
+                propertyPath,
+                required,
+                property)
+            ?? throw new InvalidOperationException(
+                $"No DynamoDB value reader/writer is configured for CLR type '{ClrType.Name}'.");
+
+    /// <summary>Serializes a model CLR value to an <see cref="AttributeValue" />.</summary>
+    /// <remarks>
+    ///     EF exposes runtime values to mappings as <see cref="object" />. This is the unavoidable
+    ///     untyped provider boundary; the cast happens in the cached adapter and the typed codec
+    ///     pipeline resumes immediately after that handoff.
+    /// </remarks>
+    internal virtual AttributeValue CreateAttributeValue(object? value)
     {
-        // Apply value converter if present
-        if (Converter != null && value != null)
-            value = Converter.ConvertToProvider(value);
-
         if (value == null)
-            return "NULL";
+            return new AttributeValue { NULL = true };
 
-        return value switch
-        {
-            string s => $"'{s.Replace("'", "''")}'", // Escape single quotes
-            bool b => b ? "TRUE" : "FALSE",
-            int i => i.ToString(CultureInfo.InvariantCulture),
-            long l => l.ToString(CultureInfo.InvariantCulture),
-            short sh => sh.ToString(CultureInfo.InvariantCulture),
-            byte by => by.ToString(CultureInfo.InvariantCulture),
-            double d => d.ToString("R", CultureInfo.InvariantCulture),
-            float f => f.ToString("R", CultureInfo.InvariantCulture),
-            decimal dec => dec.ToString(CultureInfo.InvariantCulture),
-            Guid g => $"'{g}'",
-            DateTime dt => $"'{dt:O}'",
-            DateTimeOffset dto => $"'{dto:O}'",
-            _ => throw new NotSupportedException(
-                $"Type {value.GetType()} is not supported for SQL constant generation"),
-        };
+        return _untypedValueWriter?.Write(value)
+            ?? throw new NotSupportedException(
+                $"CLR type '{ClrType.Name}' is not supported for DynamoDB AttributeValue serialization.");
+    }
+
+    /// <summary>Generates a PartiQL literal for a constant value.</summary>
+    /// <remarks>
+    ///     Follows the same template method pattern as <c>RelationalTypeMapping.GenerateSqlLiteral</c>:
+    ///     this public entry point handles null, then delegates to
+    ///     <see cref="GenerateNonNullConstant" /> for non-null values. Subclasses override
+    ///     <see cref="GenerateNonNullConstant" /> rather than this method.
+    /// </remarks>
+    public virtual string GenerateConstant(object? value)
+        => value == null ? "NULL" : GenerateNonNullConstant(value);
+
+    /// <summary>Generates a PartiQL literal for a known non-null value.</summary>
+    /// <remarks>
+    ///     This is the override point for subclasses, mirroring
+    ///     <c>RelationalTypeMapping.GenerateNonNullSqlLiteral</c>. The base implementation delegates to
+    ///     the cached typed adapter in the mapping-owned codec pipeline.
+    /// </remarks>
+    protected virtual string GenerateNonNullConstant(object value)
+        => _untypedValueWriter?.ToPartiQlLiteral(value)
+            ?? throw new NotSupportedException(
+                $"CLR type '{ClrType.Name}' is not supported for PartiQL constant generation.");
+
+    private static DynamoValueReaderWriter? CreateReaderWriter(CoreTypeMappingParameters parameters)
+    {
+        DynamoValueReaderWriter? elementReaderWriter = null;
+        var elementMapping = parameters.ElementTypeMapping as DynamoTypeMapping;
+        if (elementMapping != null)
+            elementReaderWriter = elementMapping.ReaderWriter;
+
+        // Read-only dictionary shape is a CLR-collection concern that the collection reader/writer
+        // needs when materializing results back into the requested collection type.
+        var readOnlyDictionary =
+            DynamoTypeMappingSource.TryGetDictionaryValueType(
+                parameters.ClrType,
+                out _,
+                out var readOnly)
+            && readOnly;
+
+        var readerWriter = DynamoValueReaderWriterFactory.Create(
+            parameters.ClrType,
+            elementReaderWriter,
+            readOnlyDictionary);
+
+        // Apply the converter once after the provider-level reader/writer is known so both read and
+        // write paths share the same composed model <-> provider conversion behavior.
+        return DynamoValueReaderWriterFactory.Compose(parameters.Converter, readerWriter);
     }
 }

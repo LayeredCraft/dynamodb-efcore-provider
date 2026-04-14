@@ -69,3 +69,8 @@ SUB_TODO.md
 knowledge/
 .nupkg/
 **/.env
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key

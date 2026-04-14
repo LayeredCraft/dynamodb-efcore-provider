@@ -1,5 +1,5 @@
 using Amazon.DynamoDBv2.Model;
-using DynamoMapper.Runtime;
+using LayeredCraft.DynamoMapper.Runtime;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.PrimitiveCollectionsTable;
 
@@ -56,7 +56,7 @@ public static class PrimitiveCollectionsItems
         => PrimitiveCollectionsItemMapper.ToItems(Items);
 }
 
-[DynamoMapper(Convention = DynamoNamingConvention.Exact, OmitNullStrings = false)]
+[DynamoMapper(Convention = DynamoNamingConvention.Exact, OmitNullValues = false)]
 internal static partial class PrimitiveCollectionsItemMapper
 {
     internal static List<Dictionary<string, AttributeValue>> ToItems(

@@ -23,7 +23,7 @@ def main():
         print(f"Running code cleanup on: '{eddited_input}' in directory: '{cwd}'")
 
         match ext.lower():
-            case ".cs":
+            case ".cs" | ".csx" | ".csproj" | ".props":
                 csharp(cwd, eddited_input)
             case ".md":
                 markdown(cwd, eddited_input)

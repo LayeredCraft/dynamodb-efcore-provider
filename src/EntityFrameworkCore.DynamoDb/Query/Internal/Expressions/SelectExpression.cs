@@ -241,6 +241,17 @@ public class SelectExpression(string tableName, string? queryEntityTypeName = nu
                         continue;
 
                     var sqlExpr = entityProjection.BindProperty(property);
+
+                    // Shadow properties (no CLR member) only need to appear in the SQL SELECT
+                    // list so the attribute is returned by DynamoDB. The compiled shaper reads
+                    // them via the ValueBufferTryReadValue → VisitMethodCall interception path
+                    // keyed by attribute name — no projection-member entry is required.
+                    if (property.IsShadowProperty())
+                    {
+                        AddProjectionIfNotExists(sqlExpr, property.GetAttributeName());
+                        continue;
+                    }
+
                     var memberInfo = DynamoEntityProjectionExpression.GetMemberInfo(property);
                     var propertyMember = projectionMember.Append(memberInfo);
 

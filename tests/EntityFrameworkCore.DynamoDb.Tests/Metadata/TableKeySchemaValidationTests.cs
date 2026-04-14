@@ -244,6 +244,16 @@ public class TableKeySchemaValidationTests
     /// <summary>Provides functionality for this member.</summary>
     [Fact]
     /// <summary>Provides functionality for this member.</summary>
+    public void HasPartitionKey_DateTimeOffsetWithoutConverter_DoesNotThrow()
+    {
+        var ctx = DateTimeOffsetPartitionKeyWithoutConverterContext.Create(MockClient());
+        var act = () => ctx.Model;
+        act.Should().NotThrow();
+    }
+
+    /// <summary>Provides functionality for this member.</summary>
+    [Fact]
+    /// <summary>Provides functionality for this member.</summary>
     public void HasPartitionKey_ConverterWithNullableProviderType_ThrowsOnValidation()
     {
         var ctx = NullableProviderPartitionKeyContext.Create(MockClient());
@@ -950,6 +960,32 @@ public class TableKeySchemaValidationTests
         /// <summary>Provides functionality for this member.</summary>
         public static GuidPartitionKeyWithConverterContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<GuidPartitionKeyWithConverterContext>(client));
+    }
+
+    private sealed record DateTimeOffsetPartitionKeyEntity
+    {
+        /// <summary>Provides functionality for this member.</summary>
+        public DateTimeOffset Id { get; set; }
+    }
+
+    private sealed class DateTimeOffsetPartitionKeyWithoutConverterContext(DbContextOptions options)
+        : DbContext(options)
+    {
+        /// <summary>Provides functionality for this member.</summary>
+        public DbSet<DateTimeOffsetPartitionKeyEntity> Entities { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<DateTimeOffsetPartitionKeyEntity>(b =>
+            {
+                b.ToTable("DateTimeOffsetPkNoConverter");
+                b.HasPartitionKey(x => x.Id);
+            });
+
+        /// <summary>Provides functionality for this member.</summary>
+        public static DateTimeOffsetPartitionKeyWithoutConverterContext Create(
+            IAmazonDynamoDB client)
+            => new(BuildOptions<DateTimeOffsetPartitionKeyWithoutConverterContext>(client));
     }
 
     private sealed record NullableProviderPartitionKeyEntity

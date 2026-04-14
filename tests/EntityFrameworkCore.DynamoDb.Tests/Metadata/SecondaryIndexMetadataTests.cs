@@ -3,6 +3,7 @@ using EntityFrameworkCore.DynamoDb.Infrastructure.Internal;
 using EntityFrameworkCore.DynamoDb.Metadata;
 using EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
@@ -51,9 +52,15 @@ public class SecondaryIndexMetadataTests
     private static TestDbContext CreateContext()
     {
         var optionsBuilder = new DbContextOptionsBuilder<TestDbContext>();
-        optionsBuilder.UseDynamo();
+        UseTestDynamo(optionsBuilder);
         return new TestDbContext(optionsBuilder.Options);
     }
+
+    private static void UseTestDynamo<TContext>(DbContextOptionsBuilder<TContext> optionsBuilder)
+        where TContext : DbContext
+        => optionsBuilder
+            .UseDynamo()
+            .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning));
 
     /// <summary>Provides functionality for this member.</summary>
     [Fact]
@@ -110,7 +117,7 @@ public class SecondaryIndexMetadataTests
         HasLocalSecondaryIndex_UsesDynamoKeyConventionWhenPartitionKeyIsNotExplicitlyConfigured()
     {
         var optionsBuilder = new DbContextOptionsBuilder<ConventionPartitionKeyContext>();
-        optionsBuilder.UseDynamo();
+        UseTestDynamo(optionsBuilder);
 
         using var context = new ConventionPartitionKeyContext(optionsBuilder.Options);
 
@@ -126,7 +133,7 @@ public class SecondaryIndexMetadataTests
     public void HasLocalSecondaryIndex_BeforeTableKeyConfiguration_IsAllowedUntilModelValidation()
     {
         var optionsBuilder = new DbContextOptionsBuilder<OrderIndependentLsiContext>();
-        optionsBuilder.UseDynamo();
+        UseTestDynamo(optionsBuilder);
 
         using var context = new OrderIndependentLsiContext(optionsBuilder.Options);
 
@@ -144,7 +151,7 @@ public class SecondaryIndexMetadataTests
     public void HasLocalSecondaryIndex_WithoutCompositePrimaryKey_ThrowsHelpfulError()
     {
         var optionsBuilder = new DbContextOptionsBuilder<HashOnlyTableContext>();
-        optionsBuilder.UseDynamo();
+        UseTestDynamo(optionsBuilder);
 
         Action act = () =>
         {
@@ -164,7 +171,7 @@ public class SecondaryIndexMetadataTests
     public void HasLocalSecondaryIndex_UsingTableSortKey_ThrowsHelpfulError()
     {
         var optionsBuilder = new DbContextOptionsBuilder<DuplicateSortKeyContext>();
-        optionsBuilder.UseDynamo();
+        UseTestDynamo(optionsBuilder);
 
         Action act = () =>
         {
@@ -184,7 +191,7 @@ public class SecondaryIndexMetadataTests
     public void DerivedTypeHasLocalSecondaryIndex_UsingTableSortKey_ThrowsHelpfulError()
     {
         var optionsBuilder = new DbContextOptionsBuilder<DerivedDuplicateSortKeyContext>();
-        optionsBuilder.UseDynamo();
+        UseTestDynamo(optionsBuilder);
 
         Action act = () =>
         {
@@ -205,7 +212,7 @@ public class SecondaryIndexMetadataTests
     {
         var optionsBuilder =
             new DbContextOptionsBuilder<UnsupportedGlobalPartitionKeyTypeContext>();
-        optionsBuilder.UseDynamo();
+        UseTestDynamo(optionsBuilder);
 
         Action act = () =>
         {
@@ -227,7 +234,7 @@ public class SecondaryIndexMetadataTests
     public void HasGlobalSecondaryIndex_SortKeyUnsupportedType_ThrowsHelpfulError()
     {
         var optionsBuilder = new DbContextOptionsBuilder<UnsupportedGlobalSortKeyTypeContext>();
-        optionsBuilder.UseDynamo();
+        UseTestDynamo(optionsBuilder);
 
         Action act = () =>
         {
@@ -248,7 +255,7 @@ public class SecondaryIndexMetadataTests
     public void HasLocalSecondaryIndex_SortKeyUnsupportedType_ThrowsHelpfulError()
     {
         var optionsBuilder = new DbContextOptionsBuilder<UnsupportedLocalSortKeyTypeContext>();
-        optionsBuilder.UseDynamo();
+        UseTestDynamo(optionsBuilder);
 
         Action act = () =>
         {
@@ -269,7 +276,7 @@ public class SecondaryIndexMetadataTests
     public void HasLocalSecondaryIndex_UsingTablePartitionKey_ThrowsHelpfulError()
     {
         var optionsBuilder = new DbContextOptionsBuilder<DuplicatePartitionKeyContext>();
-        optionsBuilder.UseDynamo();
+        UseTestDynamo(optionsBuilder);
 
         Action act = () =>
         {
@@ -291,7 +298,7 @@ public class SecondaryIndexMetadataTests
     {
         var optionsBuilder =
             new DbContextOptionsBuilder<DuplicatePartitionKeyAttributeNameContext>();
-        optionsBuilder.UseDynamo();
+        UseTestDynamo(optionsBuilder);
 
         Action act = () =>
         {
@@ -313,7 +320,7 @@ public class SecondaryIndexMetadataTests
     public void HasGlobalSecondaryIndex_SameAttributeNameForPartitionAndSortKey_ThrowsHelpfulError()
     {
         var optionsBuilder = new DbContextOptionsBuilder<DuplicateGlobalKeyAttributeNameContext>();
-        optionsBuilder.UseDynamo();
+        UseTestDynamo(optionsBuilder);
 
         Action act = () =>
         {
@@ -335,7 +342,7 @@ public class SecondaryIndexMetadataTests
     {
         var optionsBuilder =
             new DbContextOptionsBuilder<DerivedUnsupportedGlobalPartitionKeyTypeContext>();
-        optionsBuilder.UseDynamo();
+        UseTestDynamo(optionsBuilder);
 
         Action act = () =>
         {
@@ -361,7 +368,7 @@ public class SecondaryIndexMetadataTests
     public void HasGlobalSecondaryIndex_NullablePartitionKey_IsAllowedForSparseMembership()
     {
         var optionsBuilder = new DbContextOptionsBuilder<NullableGlobalPartitionKeyContext>();
-        optionsBuilder.UseDynamo();
+        UseTestDynamo(optionsBuilder);
 
         using var context = new NullableGlobalPartitionKeyContext(optionsBuilder.Options);
 
@@ -383,7 +390,7 @@ public class SecondaryIndexMetadataTests
     public void HasGlobalSecondaryIndex_NullableSortKey_IsAllowedForSparseMembership()
     {
         var optionsBuilder = new DbContextOptionsBuilder<NullableGlobalSortKeyContext>();
-        optionsBuilder.UseDynamo();
+        UseTestDynamo(optionsBuilder);
 
         using var context = new NullableGlobalSortKeyContext(optionsBuilder.Options);
 
@@ -406,7 +413,7 @@ public class SecondaryIndexMetadataTests
     public void HasLocalSecondaryIndex_NullableSortKey_IsAllowedForSparseMembership()
     {
         var optionsBuilder = new DbContextOptionsBuilder<NullableLocalSortKeyContext>();
-        optionsBuilder.UseDynamo();
+        UseTestDynamo(optionsBuilder);
 
         using var context = new NullableLocalSortKeyContext(optionsBuilder.Options);
 
@@ -423,11 +430,28 @@ public class SecondaryIndexMetadataTests
     public void HasGlobalSecondaryIndex_ConverterToSupportedProviderType_DoesNotThrow()
     {
         var optionsBuilder = new DbContextOptionsBuilder<ConverterGlobalPartitionKeyContext>();
-        optionsBuilder.UseDynamo();
+        UseTestDynamo(optionsBuilder);
 
         Action act = () =>
         {
             using var context = new ConverterGlobalPartitionKeyContext(optionsBuilder.Options);
+            _ = context.Model;
+        };
+
+        act.Should().NotThrow();
+    }
+
+    /// <summary>Provides functionality for this member.</summary>
+    [Fact]
+    /// <summary>Provides functionality for this member.</summary>
+    public void HasGlobalSecondaryIndex_DateTimeOffsetWithoutConverter_DoesNotThrow()
+    {
+        var optionsBuilder = new DbContextOptionsBuilder<DateTimeOffsetGlobalPartitionKeyContext>();
+        optionsBuilder.UseDynamo();
+
+        var act = () =>
+        {
+            using var context = new DateTimeOffsetGlobalPartitionKeyContext(optionsBuilder.Options);
             _ = context.Model;
         };
 
@@ -497,7 +521,7 @@ public class SecondaryIndexMetadataTests
     public void RuntimeTableModel_IncludesDerivedTypeSecondaryIndexes()
     {
         var optionsBuilder = new DbContextOptionsBuilder<DerivedIndexContext>();
-        optionsBuilder.UseDynamo();
+        UseTestDynamo(optionsBuilder);
 
         using var context = new DerivedIndexContext(optionsBuilder.Options);
 
@@ -528,7 +552,7 @@ public class SecondaryIndexMetadataTests
     public void RuntimeTableModel_CanonicalizesSharedTableMappings()
     {
         var optionsBuilder = new DbContextOptionsBuilder<SharedTableContext>();
-        optionsBuilder.UseDynamo();
+        UseTestDynamo(optionsBuilder);
 
         using var context = new SharedTableContext(optionsBuilder.Options);
 
@@ -561,7 +585,7 @@ public class SecondaryIndexMetadataTests
     public void RuntimeTableModel_AllowsSharedTableTypeSpecificSecondaryIndexes()
     {
         var optionsBuilder = new DbContextOptionsBuilder<SharedTableTypeSpecificIndexContext>();
-        optionsBuilder.UseDynamo();
+        UseTestDynamo(optionsBuilder);
 
         using var context = new SharedTableTypeSpecificIndexContext(optionsBuilder.Options);
 
@@ -600,7 +624,7 @@ public class SecondaryIndexMetadataTests
     {
         var optionsBuilder =
             new DbContextOptionsBuilder<SharedTableSameNameDifferentKindsContext>();
-        optionsBuilder.UseDynamo();
+        UseTestDynamo(optionsBuilder);
 
         Action act = () =>
         {
@@ -622,7 +646,7 @@ public class SecondaryIndexMetadataTests
     public void RuntimeTableModel_HierarchyDuplicateIndexNameWithConflictingDefinitions_IsRejected()
     {
         var optionsBuilder = new DbContextOptionsBuilder<HierarchyDuplicateIndexConflictContext>();
-        optionsBuilder.UseDynamo();
+        UseTestDynamo(optionsBuilder);
 
         Action act = () =>
         {
@@ -640,7 +664,7 @@ public class SecondaryIndexMetadataTests
     {
         var optionsBuilder =
             new DbContextOptionsBuilder<HierarchyDuplicateIndexSameDefinitionContext>();
-        optionsBuilder.UseDynamo();
+        UseTestDynamo(optionsBuilder);
 
         using var context =
             new HierarchyDuplicateIndexSameDefinitionContext(optionsBuilder.Options);
@@ -659,7 +683,7 @@ public class SecondaryIndexMetadataTests
     public void RuntimeTableModel_SharedTableSecondaryIndexTypeMismatch_ThrowsHelpfulError()
     {
         var optionsBuilder = new DbContextOptionsBuilder<SharedTableMismatchedIndexTypeContext>();
-        optionsBuilder.UseDynamo();
+        UseTestDynamo(optionsBuilder);
 
         Action act = () =>
         {
@@ -1081,6 +1105,31 @@ public class SecondaryIndexMetadataTests
 
         /// <summary>Provides functionality for this member.</summary>
         public Guid CustomerId { get; set; }
+    }
+
+    private sealed class DateTimeOffsetGlobalPartitionKeyContext(
+        DbContextOptions<DateTimeOffsetGlobalPartitionKeyContext> options) : DbContext(options)
+    {
+        /// <summary>Provides functionality for this member.</summary>
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<DateTimeOffsetGlobalPartitionKeyOrder>(entity =>
+            {
+                entity.HasPartitionKey(x => x.TenantId);
+                entity.HasSortKey(x => x.OrderId);
+                entity.HasGlobalSecondaryIndex("ByCapturedAt", x => x.CapturedAt);
+            });
+    }
+
+    private sealed class DateTimeOffsetGlobalPartitionKeyOrder
+    {
+        /// <summary>Provides functionality for this member.</summary>
+        public string TenantId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
+        public string OrderId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
+        public DateTimeOffset CapturedAt { get; set; }
     }
 
     private sealed class DerivedUnsupportedGlobalPartitionKeyTypeContext(

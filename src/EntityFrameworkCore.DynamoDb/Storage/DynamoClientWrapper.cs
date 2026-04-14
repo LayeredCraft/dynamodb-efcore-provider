@@ -51,6 +51,76 @@ public class DynamoClientWrapper : IDynamoClientWrapper
         bool singlePageOnly = false)
         => new DynamoAsyncEnumerable(this, statementRequest, singlePageOnly);
 
+    /// <summary>Executes a write PartiQL statement (INSERT, UPDATE, DELETE) and discards any result items.</summary>
+    /// <param name="statement">The PartiQL write statement to execute.</param>
+    /// <param name="parameters">Positional parameter values for the statement.</param>
+    /// <param name="cancellationToken">Token to observe for cancellation.</param>
+    public Task ExecuteWriteAsync(
+        string statement,
+        List<AttributeValue> parameters,
+        CancellationToken cancellationToken = default)
+        => _executionStrategy.ExecuteAsync(
+            (statement, parameters),
+            async (_, state, ct) =>
+            {
+                var request = new ExecuteStatementRequest
+                {
+                    Statement = state.statement, Parameters = state.parameters,
+                };
+
+                await Client.ExecuteStatementAsync(request, ct).ConfigureAwait(false);
+
+                return true;
+            },
+            null,
+            cancellationToken);
+
+    /// <summary>Executes an atomic write transaction of PartiQL statements.</summary>
+    /// <param name="statements">Ordered transaction statements.</param>
+    /// <param name="cancellationToken">Token to observe for cancellation.</param>
+    public Task ExecuteTransactionAsync(
+        IReadOnlyList<ParameterizedStatement> statements,
+        CancellationToken cancellationToken = default)
+        => _executionStrategy.ExecuteAsync(
+            statements,
+            async (_, transactionStatements, ct) =>
+            {
+                var request = new ExecuteTransactionRequest
+                {
+                    TransactStatements = [.. transactionStatements],
+                };
+
+                await Client.ExecuteTransactionAsync(request, ct).ConfigureAwait(false);
+
+                return true;
+            },
+            null,
+            cancellationToken);
+
+    /// <summary>Executes non-atomic PartiQL batch write statements.</summary>
+    /// <param name="statements">Ordered batch statements.</param>
+    /// <param name="cancellationToken">Token to observe for cancellation.</param>
+    /// <returns>Per-statement responses returned by DynamoDB.</returns>
+    public Task<IReadOnlyList<BatchStatementResponse>> ExecuteBatchWriteAsync(
+        IReadOnlyList<BatchStatementRequest> statements,
+        CancellationToken cancellationToken = default)
+        => _executionStrategy.ExecuteAsync(
+            statements,
+            async (_, batchStatements, ct) =>
+            {
+                var request = new BatchExecuteStatementRequest
+                {
+                    Statements = [.. batchStatements],
+                };
+
+                var response =
+                    await Client.BatchExecuteStatementAsync(request, ct).ConfigureAwait(false);
+
+                return (IReadOnlyList<BatchStatementResponse>)(response.Responses ?? []);
+            },
+            null,
+            cancellationToken);
+
     /// <summary>Builds the effective SDK configuration from extension options in precedence order.</summary>
     private static AmazonDynamoDBConfig BuildAmazonDynamoDbConfig(DynamoDbOptionsExtension? options)
     {

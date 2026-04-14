@@ -1,3 +1,4 @@
+using EntityFrameworkCore.DynamoDb.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 
@@ -67,7 +68,15 @@ internal static class OwnedProjectionMetadata
         if (!property.IsShadowProperty())
             return property.GetTypeMapping() != null;
 
-        return topLevelOwnedContainingAttributeNames.Contains(property.Name);
+        // Shadow properties that represent owned entity containers (e.g. navigation attribute
+        // names)
+        // are projected so downstream materialization can navigate into the nested map/list.
+        if (topLevelOwnedContainingAttributeNames.Contains(property.Name))
+            return true;
+
+        // Scalar shadow properties with a DynamoDB type mapping must be projected so the
+        // compiled shaper can materialize them into the shadow snapshot.
+        return property.GetTypeMapping() is DynamoTypeMapping;
     }
 
     /// <summary>Gets the scalar properties that should be considered for top-level projection expansion.</summary>
@@ -82,14 +91,14 @@ internal static class OwnedProjectionMetadata
             return entityType.GetProperties();
 
         HashSet<IProperty> seen = [];
-        List<IProperty> properties = [];
 
-        foreach (var projectionEntityType in GetProjectionEntityTypes(entityType))
-            foreach (var property in projectionEntityType.GetDeclaredProperties())
-                if (seen.Add(property))
-                    properties.Add(property);
-
-        return properties;
+        return GetProjectionEntityTypes(entityType)
+            .SelectMany(
+                projectionEntityType => projectionEntityType.GetDeclaredProperties(),
+                (projectionEntityType, property) => new { projectionEntityType, property })
+            .Where(t => seen.Add(t.property))
+            .Select(t => t.property)
+            .ToList();
     }
 
     /// <summary>Determines whether hierarchy-wide projection is required for inheritance materialization.</summary>

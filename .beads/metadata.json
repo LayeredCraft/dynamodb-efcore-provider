@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "dynamodb_efcore_provider",
+  "project_id": "d285f6a8-b6d8-4820-80a3-0e91af526e47"
+}

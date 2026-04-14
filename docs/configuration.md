@@ -30,6 +30,82 @@ optionsBuilder.UseDynamo(options =>
 Per-query evaluation budget is controlled by `.Limit(n)` on the query rather than a global default.
 See [Pagination](pagination.md) for the evaluation budget model.
 
+## SaveChanges transaction behavior
+
+The provider follows EF Core `Database.AutoTransactionBehavior` for implicit transaction policy:
+
+- `WhenNeeded` (default): one root write executes directly; multi-root saves execute atomically via DynamoDB `ExecuteTransaction`.
+- `Always`: requires transactional execution for multi-root saves.
+- `Never`: disables implicit transactions and executes multi-root writes using non-atomic DynamoDB `BatchExecuteStatement` chunks.
+
+> **Single-root saves always execute directly**, regardless of `AutoTransactionBehavior`. A single
+> DynamoDB write is implicitly atomic, so wrapping it in `ExecuteTransaction` adds latency with no
+> atomicity benefit. This applies even when `AutoTransactionBehavior.Always` is set.
+
+```csharp
+context.Database.AutoTransactionBehavior = AutoTransactionBehavior.Never;
+```
+
+For transactional overflow (when one transaction cannot hold the whole write unit), configure:
+
+- `TransactionOverflowBehavior`:
+    - `Throw` (default)
+    - `UseChunking` (splits into multiple `ExecuteTransaction` calls)
+- `MaxTransactionSize` (default `100`, valid range `1..100`)
+
+```csharp
+optionsBuilder.UseDynamo(options =>
+{
+    options.TransactionOverflowBehavior(TransactionOverflowBehavior.UseChunking);
+    options.MaxTransactionSize(50);
+});
+```
+
+Per-context overrides are available on `DatabaseFacade`:
+
+```csharp
+context.Database.SetTransactionOverflowBehavior(TransactionOverflowBehavior.UseChunking);
+context.Database.SetMaxTransactionSize(25);
+```
+
+For non-atomic multi-root batching when `AutoTransactionBehavior.Never` is set, configure:
+
+- `MaxBatchWriteSize` (default `25`, valid range `1..25`)
+
+```csharp
+optionsBuilder.UseDynamo(options =>
+{
+    options.MaxBatchWriteSize(20);
+});
+```
+
+Per-context override:
+
+```csharp
+context.Database.SetMaxBatchWriteSize(10);
+```
+
+Configuration precedence:
+
+1. Per-context override (`context.Database.Set...`)
+1. Startup/provider option (`UseDynamo(...)`)
+1. Provider defaults (`Throw`, `100`, `25`)
+
+`UseChunking` keeps each chunk atomic, but the overall `SaveChanges` call is no longer globally
+atomic across all root writes.
+
+When chunking is active, use normal `SaveChanges`/`SaveChangesAsync` acceptance behavior
+(`acceptAllChangesOnSuccess: true`). Chunking with `acceptAllChangesOnSuccess: false` is rejected
+because successful chunks must be accepted immediately to avoid replaying already persisted writes.
+
+> **Partial-commit risk with chunking:** if chunk *N* fails, chunks *0..N-1* are **permanently
+> committed** and cannot be rolled back or retried without re-querying. Always re-query the affected
+> entities before retrying a chunked `SaveChanges` to avoid replaying writes that were already
+> persisted.
+
+The same acceptance rule applies to non-atomic `BatchExecuteStatement` chunk iteration under
+`AutoTransactionBehavior.Never` for multi-root saves.
+
 ## Client configuration precedence
 
 - The provider resolves client settings in this order:

@@ -41,6 +41,8 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
         ValidateTableKeySchemaConsistency(model);
         ValidateSecondaryIndexes(model);
         ValidateDiscriminatorMappings(model);
+        ValidateConcurrencyTokenConfiguration(model);
+        ValidateScalarPropertyTypeMappings(model, logger);
     }
 
     /// <summary>Rejects explicit EF primary key configuration for root DynamoDB entities.</summary>
@@ -151,13 +153,15 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
     {
         foreach (var property in ownerEntityType.GetDeclaredProperties())
         {
-            if (!string.Equals(property.Name, containingAttributeName, StringComparison.Ordinal))
+            var attributeName = property.GetAttributeName();
+            if (!string.Equals(attributeName, containingAttributeName, StringComparison.Ordinal))
                 continue;
 
             throw new InvalidOperationException(
                 $"Owned entity type '{entityType.DisplayName()}' is configured with containing attribute name "
                 + $"'{containingAttributeName}', which collides with scalar property "
-                + $"'{ownerEntityType.DisplayName()}.{property.Name}'. Containing attribute names must be "
+                + $"'{ownerEntityType.DisplayName()}.{property.Name}' mapped to attribute '{attributeName}'. "
+                + "Containing attribute names must be "
                 + "unique.");
         }
 
@@ -779,6 +783,135 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
     /// <summary>Gets a stable display name for secondary-index validation messages.</summary>
     private static string GetSecondaryIndexDisplayName(IReadOnlyIndex index)
         => index.GetSecondaryIndexName() ?? index.Name ?? "<unnamed>";
+
+    /// <summary>
+    ///     Overrides EF Core's generic unmapped-property error with a DynamoDB-specific message that
+    ///     names supported wire types and suggests <c>HasConversion</c> as the fix.
+    /// </summary>
+    /// <remarks>
+    ///     EF Core's base <c>ValidatePropertyMapping</c> calls this virtual when it finds an
+    ///     explicitly-configured property with no type mapping. Overriding it here lets us surface a
+    ///     DynamoDB-specific message before the generic EF error is emitted.
+    /// </remarks>
+    protected override void
+        ThrowPropertyNotMappedException(
+            string propertyType,
+            IConventionTypeBase structuralType,
+            IConventionProperty unmappedProperty)
+        => throw new InvalidOperationException(
+            $"Property '{structuralType.DisplayName()}.{unmappedProperty.Name}' of CLR type "
+            + $"'{propertyType}' cannot be mapped because DynamoDB does not support this type. "
+            + "DynamoDB supports: string, bool, byte[], numeric types (byte, short, int, long, "
+            + "float, double, decimal), and nullable variants, as well as collections of these types. "
+            + "If this is a custom CLR type, configure a value converter: "
+            + ".HasConversion<string>() or .HasConversion<long>(). "
+            + "Alternatively, exclude the property with [NotMapped] or Ignore().");
+
+    /// <summary>Validates that every scalar property in the model can be serialized by this provider.</summary>
+    private static void ValidateScalarPropertyTypeMappings(
+        IModel model,
+        IDiagnosticsLogger<DbLoggerCategory.Model.Validation> logger)
+    {
+        foreach (var entityType in model.GetEntityTypes())
+        {
+            ValidateTypeBaseScalarMappings(entityType);
+            foreach (var complexProperty in entityType.GetDeclaredComplexProperties())
+                ValidateComplexTypeScalarMappings(complexProperty.ComplexType);
+        }
+    }
+
+    /// <summary>Recursively validates scalar property mappings on a complex type graph.</summary>
+    private static void ValidateComplexTypeScalarMappings(IComplexType complexType)
+    {
+        ValidateTypeBaseScalarMappings(complexType);
+        foreach (var complexProperty in complexType.GetDeclaredComplexProperties())
+            ValidateComplexTypeScalarMappings(complexProperty.ComplexType);
+    }
+
+    /// <summary>
+    ///     Validates that every declared scalar property on a type base has a serializable DynamoDB
+    ///     mapping.
+    /// </summary>
+    private static void ValidateTypeBaseScalarMappings(ITypeBase typeBase)
+    {
+        foreach (var property in typeBase.GetDeclaredProperties())
+        {
+            // Null-mapping and non-DynamoTypeMapping cases are caught earlier by EF Core's
+            // ValidatePropertyMapping via our ThrowPropertyNotMappedException override. Skip
+            // those here; only check CanWriteToAttributeValue as defense-in-depth for mappings that
+            // exist
+            // but cannot be serialized to DynamoDB wire format.
+            if (property.FindTypeMapping() is not DynamoTypeMapping dynamoMapping)
+                continue;
+
+            if (!dynamoMapping.CanWriteToAttributeValue)
+                throw new InvalidOperationException(
+                    $"Property '{typeBase.DisplayName()}.{property.Name}' of CLR type "
+                    + $"'{property.ClrType.Name}' cannot be serialized to DynamoDB. "
+                    + "DynamoDB supports: string, bool, byte[], numeric types (byte, short, int, "
+                    + "long, float, double, decimal), and nullable variants. "
+                    + "To map this type, configure a value converter: "
+                    + ".HasConversion<string>() or another supported provider type.");
+
+            if (!property.IsPrimitiveCollection)
+                continue;
+
+            // For primitive collections, also verify the element type can be serialized.
+            // The collection mapping's CanWriteToAttributeValue already reflects this, but checking
+            // the element mapping separately produces a more targeted error message.
+            var elementType = property.GetElementType();
+            if (elementType?.FindTypeMapping() is DynamoTypeMapping elementMapping
+                && !elementMapping.CanWriteToAttributeValue)
+                throw new InvalidOperationException(
+                    $"Primitive collection property '{typeBase.DisplayName()}.{property.Name}' "
+                    + $"of CLR type '{property.ClrType.Name}' has element type "
+                    + $"'{elementType.ClrType.Name}' which cannot be serialized to DynamoDB. "
+                    + "Primitive collection elements must be DynamoDB-supported scalars: string, "
+                    + "bool, byte[], and numeric types. Configure a value converter on the "
+                    + "element type to map it to a supported scalar.");
+        }
+    }
+
+    /// <summary>Validates DynamoDB optimistic concurrency configuration.</summary>
+    /// <remarks>
+    ///     This provider currently supports manual concurrency tokens only:
+    ///     <c>.IsConcurrencyToken()</c> / <c>[ConcurrencyCheck]</c>. Row-version semantics (
+    ///     <c>ValueGenerated.OnAddOrUpdate</c>, including <c>IsRowVersion()</c>) are not provider-managed
+    ///     yet and are rejected at model-validation time.
+    /// </remarks>
+    private static void ValidateConcurrencyTokenConfiguration(IModel model)
+    {
+        foreach (var entityType in EnumerateRootEntityTypes(model))
+            ValidateConcurrencyTokensOnEntityType(entityType);
+
+        // Owned entity types are excluded from EnumerateRootEntityTypes but can also carry
+        // concurrency tokens — validate them separately.
+        foreach (var ownedType in model.GetEntityTypes().Where(static t => t.IsOwned()))
+            ValidateConcurrencyTokensOnEntityType(ownedType);
+    }
+
+    /// <summary>
+    ///     Throws if any declared concurrency token on <paramref name="entityType" /> uses
+    ///     row-version semantics (<see cref="ValueGenerated.OnAddOrUpdate" />), which the provider does
+    ///     not support.
+    /// </summary>
+    private static void ValidateConcurrencyTokensOnEntityType(IEntityType entityType)
+    {
+        foreach (var property in entityType.GetDeclaredProperties())
+        {
+            if (!property.IsConcurrencyToken)
+                continue;
+
+            if (property.ValueGenerated == ValueGenerated.OnAddOrUpdate)
+                throw new InvalidOperationException(
+                    $"Property '{entityType.DisplayName()}.{property.Name}' is configured "
+                    + "as a row-version token (ValueGenerated.OnAddOrUpdate / IsRowVersion()), "
+                    + "but the DynamoDB provider does not currently support provider-managed "
+                    + "row-version value generation. Configure this property with "
+                    + "IsConcurrencyToken() only and update the token value in application "
+                    + "code before saving changes.");
+        }
+    }
 
     /// <summary>Returns root entity types that participate in top-level DynamoDB table mappings.</summary>
     private static IEnumerable<IEntityType> EnumerateRootEntityTypes(IModel model)

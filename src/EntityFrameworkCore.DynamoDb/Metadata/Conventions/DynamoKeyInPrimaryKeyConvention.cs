@@ -70,7 +70,18 @@ public sealed class DynamoKeyInPrimaryKeyConvention(
             || (skPropertyName is not null
                 && string.Equals(propertyName, skPropertyName, StringComparison.Ordinal));
 
-        if (!isKeyProperty)
+        // When a non-key property is added while the DynamoDB partition key annotation is
+        // already at Explicit/DataAnnotation source (set via HasPartitionKey/HasSortKey),
+        // re-run EF primary key synthesis. Without this, the base KeyDiscoveryConvention
+        // that fires on every property addition can reset the EF PK back to conventional
+        // names, undoing the explicit annotation-driven rebuild that happened earlier.
+        var pkSource = entityType
+            .FindAnnotation(DynamoAnnotationNames.PartitionKeyPropertyName)
+            ?.GetConfigurationSource();
+        var hasExplicitAnnotation =
+            pkSource is ConfigurationSource.Explicit or ConfigurationSource.DataAnnotation;
+
+        if (!isKeyProperty && !hasExplicitAnnotation)
             return;
 
         ProcessPrimaryKey(entityType.Builder);

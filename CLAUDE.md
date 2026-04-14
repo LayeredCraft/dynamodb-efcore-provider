@@ -56,6 +56,13 @@ When a story changes query behavior, update the docs in the same story so inform
 - Docs site config is in `zensical.toml` (not `mkdocs.yml`); keep Zensical-related changes there.
 - Verify docs build: `uv run zensical build` (or `task docs:build`).
 
+## Internal EF Core APIs
+
+This is a provider — use of EF Core internal APIs is explicitly permitted and expected. Suppress
+`EF1001` at the file level (`#pragma warning disable EF1001`) in any file that needs them, and
+leave a short comment explaining why (e.g. state manager access, `InternalEntityEntry` navigation).
+Do not suppress warnings globally in the project file.
+
 ## Repo Hygiene
 
 - Do not commit anything under `.claude/do_not_commit/`.
@@ -76,3 +83,55 @@ When a story changes query behavior, update the docs in the same story so inform
   - Public facing methods should contain a full doc string that documents parameters and return
     value as well as any exceptions that may be thrown, and summary. Remarks may be included but
     should be concise.
+
+<!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:ca08a54f -->
+
+## Beads Issue Tracker
+
+This project uses **bd (beads)** for issue tracking. Run `bd prime` to see full workflow context and
+commands.
+
+### Quick Reference
+
+```bash
+bd ready              # Find available work
+bd show <id>          # View issue details
+bd update <id> --claim  # Claim work
+bd close <id>         # Complete work
+```
+
+### Rules
+
+- Use `bd` for ALL task tracking — do NOT use TodoWrite, TaskCreate, or markdown TODO lists
+- Run `bd prime` for detailed command reference and session close protocol
+- Use `bd remember` for persistent knowledge — do NOT use MEMORY.md files
+
+## Session Completion
+
+**When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until
+`git push` succeeds.
+
+**MANDATORY WORKFLOW:**
+
+1. **File issues for remaining work** - Create issues for anything that needs follow-up
+1. **Run quality gates** (if code changed) - Tests, linters, builds
+1. **Update issue status** - Close finished work, update in-progress items
+1. **PUSH TO REMOTE** - This is MANDATORY:
+    ```bash
+    git pull --rebase
+    bd dolt push
+    git push
+    git status  # MUST show "up to date with origin"
+    ```
+1. **Clean up** - Clear stashes, prune remote branches
+1. **Verify** - All changes committed AND pushed
+1. **Hand off** - Provide context for next session
+
+**CRITICAL RULES:**
+
+- Work is NOT complete until `git push` succeeds
+- NEVER stop before pushing - that leaves work stranded locally
+- NEVER say "ready to push when you are" - YOU must push
+- If push fails, resolve and retry until it succeeds
+
+<!-- END BEADS INTEGRATION -->

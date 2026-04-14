@@ -23,8 +23,7 @@ public class StrictShapeValidationTests : IClassFixture<PrimitiveCollectionsDyna
         act
             .Should()
             .Throw<InvalidOperationException>()
-            .WithMessage(
-                "*DerivedDictionaryItem.Scores*database provider does not support this type*");
+            .WithMessage("*DerivedDictionaryItem.Scores*DynamoDB does not support this type*");
     }
 
     /// <summary>Provides functionality for this member.</summary>
@@ -39,7 +38,7 @@ public class StrictShapeValidationTests : IClassFixture<PrimitiveCollectionsDyna
         act
             .Should()
             .Throw<InvalidOperationException>()
-            .WithMessage("*DerivedSetItem.Labels*database provider does not support this type*");
+            .WithMessage("*DerivedSetItem.Labels*DynamoDB does not support this type*");
     }
 
     private DbContextOptions<TContext> CreateOptions<TContext>() where TContext : DbContext
