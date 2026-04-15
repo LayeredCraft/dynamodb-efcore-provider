@@ -20,8 +20,6 @@
     <Project
       Path="tests/EntityFrameworkCore.DynamoDb.IntegrationTests.V2/EntityFrameworkCore.DynamoDb.IntegrationTests.V2.csproj"/>
     <Project
-      Path="tests\EntityFrameworkCore.DynamoDb.IntegrationTests\EntityFrameworkCore.DynamoDb.IntegrationTests.csproj"/>
-    <Project
       Path="tests\EntityFrameworkCore.DynamoDb.Tests\EntityFrameworkCore.DynamoDb.Tests.csproj"/>
   </Folder>
 </Solution>
