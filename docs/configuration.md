@@ -259,8 +259,10 @@ For owned navigation attribute names (the containing map key in DynamoDB), see
 
 ### Naming conventions
 
-Use `HasAttributeNamingConvention` to automatically transform all CLR property names on an entity
-type to a consistent naming style, without having to call `HasAttributeName` per property.
+By default, the provider transforms CLR property names to `CamelCase` DynamoDB attribute names.
+
+Use `HasAttributeNamingConvention` to override that default on an entity type to a different
+naming style, without having to call `HasAttributeName` per property.
 
 ```csharp
 modelBuilder.Entity<Order>(b =>
@@ -287,6 +289,15 @@ Pass a `Func<string, string>` delegate to apply any transformation:
 
 ```csharp
 b.HasAttributeNamingConvention(name => name.ToLowerInvariant());
+```
+
+#### Opt out per entity
+
+Use `DynamoAttributeNamingConvention.None` to keep CLR property names unchanged for a specific
+entity type:
+
+```csharp
+b.HasAttributeNamingConvention(DynamoAttributeNamingConvention.None);
 ```
 
 #### Property-level override
