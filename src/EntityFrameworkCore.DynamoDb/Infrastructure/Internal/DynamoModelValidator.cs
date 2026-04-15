@@ -836,6 +836,11 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
     {
         foreach (var property in typeBase.GetDeclaredProperties())
         {
+            // Runtime-only provider metadata is populated outside DynamoDB attribute mapping and
+            // never serialized to the store.
+            if (property.IsRuntimeOnly())
+                continue;
+
             // Null-mapping and non-DynamoTypeMapping cases are caught earlier by EF Core's
             // ValidatePropertyMapping via our ThrowPropertyNotMappedException override. Skip
             // those here; only check CanWriteToAttributeValue as defense-in-depth for mappings that

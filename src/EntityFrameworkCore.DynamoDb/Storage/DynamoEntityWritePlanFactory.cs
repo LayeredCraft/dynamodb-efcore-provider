@@ -18,6 +18,9 @@ internal sealed class DynamoEntityWritePlanFactory
         var properties = entityType
             .GetProperties()
             .Where(static p => !(p.IsShadowProperty() && p.IsKey()))
+            // Runtime-only properties are populated by query/runtime pipelines and must never be
+            // serialized to DynamoDB.
+            .Where(static p => !p.IsRuntimeOnly())
             .ToList();
 
         var propertyWriters = new List<PropertyWriteAction>(properties.Count);

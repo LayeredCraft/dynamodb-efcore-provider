@@ -27,6 +27,8 @@ public sealed class DynamoConventionSetBuilder(
 
         conventionSet.ModelFinalizingConventions.Add(new OwnedTypePrimaryKeyConvention());
 
+        conventionSet.EntityTypeAddedConventions.Add(new DynamoResponseShadowPropertyConvention());
+
         return conventionSet;
     }
 }

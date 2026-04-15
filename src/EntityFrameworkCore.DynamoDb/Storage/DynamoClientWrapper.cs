@@ -48,8 +48,9 @@ public class DynamoClientWrapper : IDynamoClientWrapper
     /// <summary>Creates a reusable async enumerable over PartiQL result pages.</summary>
     public IAsyncEnumerable<Dictionary<string, AttributeValue>> ExecutePartiQl(
         ExecuteStatementRequest statementRequest,
-        bool singlePageOnly = false)
-        => new DynamoAsyncEnumerable(this, statementRequest, singlePageOnly);
+        bool singlePageOnly = false,
+        Action<ExecuteStatementResponse>? onPageFetched = null)
+        => new DynamoAsyncEnumerable(this, statementRequest, singlePageOnly, onPageFetched);
 
     /// <summary>Executes a write PartiQL statement (INSERT, UPDATE, DELETE) and discards any result items.</summary>
     /// <param name="statement">The PartiQL write statement to execute.</param>
@@ -152,11 +153,19 @@ public class DynamoClientWrapper : IDynamoClientWrapper
     private sealed class DynamoAsyncEnumerable(
         DynamoClientWrapper dynamoClientWrapper,
         ExecuteStatementRequest statementRequest,
-        bool singlePageOnly) : IAsyncEnumerable<Dictionary<string, AttributeValue>>
+        bool singlePageOnly,
+        Action<ExecuteStatementResponse>? onPageFetched)
+        : IAsyncEnumerable<Dictionary<string, AttributeValue>>
     {
         private readonly DynamoClientWrapper _dynamoClientWrapper = dynamoClientWrapper;
         private readonly bool _singlePageOnly = singlePageOnly;
         private readonly ExecuteStatementRequest _statementRequestPrototype = statementRequest;
+
+        /// <summary>
+        ///     Invoked with the raw SDK response immediately after each page is fetched, before items
+        ///     from that page are yielded. Used to propagate per-page response metadata.
+        /// </summary>
+        private readonly Action<ExecuteStatementResponse>? _onPageFetched = onPageFetched;
 
         /// <summary>Provides functionality for this member.</summary>
         public IAsyncEnumerator<Dictionary<string, AttributeValue>> GetAsyncEnumerator(
@@ -262,6 +271,9 @@ public class DynamoClientWrapper : IDynamoClientWrapper
                 dynamoEnumerable._dynamoClientWrapper._commandLogger.ExecutedExecuteStatement(
                     response.Items?.Count ?? 0,
                     response.NextToken is not null);
+
+                // Notify before items are yielded so callers can capture per-page metadata.
+                dynamoEnumerable._onPageFetched?.Invoke(response);
 
                 _hasExecutedRequest = true;
                 _currentItems = response.Items;

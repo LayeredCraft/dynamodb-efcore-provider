@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Linq.Expressions;
 using System.Reflection;
 using Amazon.DynamoDBv2.Model;
+using EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using EntityFrameworkCore.DynamoDb.Storage;
 using Microsoft.EntityFrameworkCore;
@@ -98,6 +99,16 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
         typeof(DynamoProjectionBindingRemovingExpressionVisitor).GetMethod(
             nameof(PopulateCollectionOnOwner),
             BindingFlags.Static | BindingFlags.NonPublic)!;
+
+    private static readonly IReadOnlyDictionary<string, Func<Expression, Expression>>
+        RuntimeValueSourceFactories =
+            new Dictionary<string, Func<Expression, Expression>>(StringComparer.Ordinal)
+            {
+                [DynamoRuntimeValueSources.CurrentPageResponse] = static queryContextParameter
+                    => Property(
+                        Convert(queryContextParameter, typeof(DynamoQueryContext)),
+                        nameof(DynamoQueryContext.CurrentPageResponse)),
+            };
 
     private readonly Stack<ParameterExpression> _attributeContextStack = new([itemParameter]);
     private readonly Stack<ParameterExpression> _ownerAttributeContextStack = new();
@@ -1033,6 +1044,41 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
             {
                 var property = (IProperty)((ConstantExpression)node.Arguments[2]).Value!;
                 var targetType = node.Type == typeof(object) ? property.ClrType : node.Type;
+
+                // Runtime-only properties are not stored in the DynamoDB item dictionary.
+                // They must be materialized from query/runtime context.
+                if (property.IsRuntimeOnly())
+                {
+                    var runtimeValueSource = property.GetRuntimeValueSource();
+                    if (string.IsNullOrEmpty(runtimeValueSource))
+                        throw new InvalidOperationException(
+                            $"Runtime-only property '{property.DeclaringType.DisplayName()}.{property.Name}' "
+                            + "is missing a runtime value source annotation.");
+
+                    if (!RuntimeValueSourceFactories.TryGetValue(
+                        runtimeValueSource,
+                        out var runtimeValueFactory))
+                        throw new InvalidOperationException(
+                            $"Runtime-only property '{property.DeclaringType.DisplayName()}.{property.Name}' "
+                            + $"references unknown runtime value source '{runtimeValueSource}'.");
+
+                    var runtimeValueExpression = runtimeValueFactory(
+                        QueryCompilationContext.QueryContextParameter);
+                    if (!property.ClrType.IsAssignableFrom(runtimeValueExpression.Type))
+                        throw new InvalidOperationException(
+                            $"Runtime-only property '{property.DeclaringType.DisplayName()}.{property.Name}' "
+                            + $"of type '{property.ClrType.ShortDisplayName()}' cannot be bound from runtime "
+                            + $"value source '{runtimeValueSource}' of type "
+                            + $"'{runtimeValueExpression.Type.ShortDisplayName()}'.");
+
+                    var runtimeBoundExpression = runtimeValueExpression.Type == property.ClrType
+                        ? runtimeValueExpression
+                        : Convert(runtimeValueExpression, property.ClrType);
+
+                    return runtimeBoundExpression.Type != node.Type
+                        ? Convert(runtimeBoundExpression, node.Type)
+                        : runtimeBoundExpression;
+                }
 
                 // Get type mapping for converter support
                 var typeMapping = property.GetTypeMapping();
