@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.OwnedTypesTable;
 
 /// <summary>Represents the OwnedTypesModelValidationTests type.</summary>
-public class OwnedTypesModelValidationTests : IClassFixture<DynamoContainerFixture>
+public class OwnedTypesModelValidationTests
 {
     private readonly DynamoContainerFixture _fixture;
 

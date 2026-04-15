@@ -2,9 +2,13 @@ using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.PrimitiveCollectionsTable;
 
-public abstract class PrimitiveCollectionsTableTestFixture(DynamoContainerFixture fixture)
-    : DynamoTestFixtureBase(fixture), IClassFixture<DynamoContainerFixture>
+public abstract class PrimitiveCollectionsTableTestFixture : DynamoTestFixtureBase
 {
+    protected PrimitiveCollectionsTableTestFixture(DynamoContainerFixture fixture) : base(fixture)
+        => EnsureClassTableInitialized(
+            PrimitiveCollectionsItemTable.TableName,
+            PrimitiveCollectionsItemTable.CreateTable);
+
     public PrimitiveCollectionsDbContext Db
     {
         get
