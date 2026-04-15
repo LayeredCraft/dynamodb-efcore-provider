@@ -13,22 +13,49 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 /// </summary>
 public sealed class TestPartiQlLoggerFactory : ILoggerFactory
 {
-    private readonly TestPartiQlLogger _logger = new();
+    private readonly object _sync = new();
+    private readonly TestPartiQlLogger _logger;
+    private CaptureState _state = new();
     private bool _disposed;
 
+    public TestPartiQlLoggerFactory() => _logger = new TestPartiQlLogger(this);
+
     /// <summary>PartiQL statements captured since the last <see cref="Clear" />.</summary>
-    public IReadOnlyList<string> PartiQlStatements => _logger.PartiQlStatements;
+    public IReadOnlyList<string> PartiQlStatements
+    {
+        get
+        {
+            lock (_sync)
+                return _state.PartiQlStatements.ToArray();
+        }
+    }
 
     /// <summary>ExecuteStatement call metadata captured since the last <see cref="Clear" />.</summary>
     public IReadOnlyList<ExecuteStatementCall> ExecuteStatementCalls
-        => _logger.ExecuteStatementCalls;
+    {
+        get
+        {
+            lock (_sync)
+                return _state.ExecuteStatementCalls.ToArray();
+        }
+    }
 
     /// <summary>Query diagnostic events (index selection) captured since the last <see cref="Clear" />.</summary>
     public IReadOnlyList<QueryDiagnosticEvent> QueryDiagnosticEvents
-        => _logger.QueryDiagnosticEvents;
+    {
+        get
+        {
+            lock (_sync)
+                return _state.QueryDiagnosticEvents.ToArray();
+        }
+    }
 
     /// <summary>Clears all captured state.</summary>
-    public void Clear() => _logger.Clear();
+    public void Clear()
+    {
+        lock (_sync)
+            _state = new CaptureState();
+    }
 
     /// <inheritdoc />
     public ILogger CreateLogger(string categoryName)
@@ -81,19 +108,14 @@ public sealed class TestPartiQlLoggerFactory : ILoggerFactory
         }
     }
 
-    private sealed class TestPartiQlLogger : ILogger
+    private void UpdateState(Action<CaptureState> update)
     {
-        public List<string> PartiQlStatements { get; } = [];
-        public List<ExecuteStatementCall> ExecuteStatementCalls { get; } = [];
-        public List<QueryDiagnosticEvent> QueryDiagnosticEvents { get; } = [];
+        lock (_sync)
+            update(_state);
+    }
 
-        public void Clear()
-        {
-            PartiQlStatements.Clear();
-            ExecuteStatementCalls.Clear();
-            QueryDiagnosticEvents.Clear();
-        }
-
+    private sealed class TestPartiQlLogger(TestPartiQlLoggerFactory factory) : ILogger
+    {
         public bool IsEnabled(LogLevel logLevel) => true;
 
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
@@ -116,7 +138,7 @@ public sealed class TestPartiQlLoggerFactory : ILoggerFactory
                         .FirstOrDefault()
                     ?? string.Empty;
 
-                PartiQlStatements.Add(commandText);
+                factory.UpdateState(s => s.PartiQlStatements.Add(commandText));
             }
 
             if (eventId.Id == DynamoEventId.ExecutingExecuteStatement.Id
@@ -135,8 +157,9 @@ public sealed class TestPartiQlLoggerFactory : ILoggerFactory
                         .FirstOrDefault()
                     ?? false;
 
-                ExecuteStatementCalls.Add(
-                    new ExecuteStatementCall(limit, nextTokenPresent, null, null));
+                factory.UpdateState(s
+                    => s.ExecuteStatementCalls.Add(
+                        new ExecuteStatementCall(limit, nextTokenPresent, null, null)));
             }
 
             if (eventId.Id == DynamoEventId.ExecutedExecuteStatement.Id
@@ -154,15 +177,18 @@ public sealed class TestPartiQlLoggerFactory : ILoggerFactory
                         .Select(i => (bool?)i.Value)
                         .FirstOrDefault();
 
-                if (ExecuteStatementCalls.Count > 0)
+                factory.UpdateState(captureState =>
                 {
-                    var lastIndex = ExecuteStatementCalls.Count - 1;
-                    var existing = ExecuteStatementCalls[lastIndex];
-                    ExecuteStatementCalls[lastIndex] = existing with
+                    if (captureState.ExecuteStatementCalls.Count == 0)
+                        return;
+
+                    var lastIndex = captureState.ExecuteStatementCalls.Count - 1;
+                    var existing = captureState.ExecuteStatementCalls[lastIndex];
+                    captureState.ExecuteStatementCalls[lastIndex] = existing with
                     {
                         ItemsCount = itemsCount, ResponseNextTokenPresent = nextTokenPresent,
                     };
-                }
+                });
             }
 
             if (eventId.Id == DynamoEventId.NoCompatibleSecondaryIndexFound.Id // IDX001
@@ -171,8 +197,9 @@ public sealed class TestPartiQlLoggerFactory : ILoggerFactory
                 || eventId.Id == DynamoEventId.ExplicitIndexSelected.Id // IDX004
                 || eventId.Id == DynamoEventId.SecondaryIndexCandidateRejected.Id // IDX005
                 || eventId.Id == DynamoEventId.ExplicitIndexSelectionDisabled.Id) // IDX006
-                QueryDiagnosticEvents.Add(
-                    new QueryDiagnosticEvent(eventId, logLevel, formatter(state, exception)));
+                factory.UpdateState(s
+                    => s.QueryDiagnosticEvents.Add(
+                        new QueryDiagnosticEvent(eventId, logLevel, formatter(state, exception))));
         }
 
         private static int? ToNullableInt(object? value)
@@ -193,4 +220,11 @@ public sealed class TestPartiQlLoggerFactory : ILoggerFactory
 
     /// <summary>A captured query diagnostic event (e.g. index selection).</summary>
     public sealed record QueryDiagnosticEvent(EventId EventId, LogLevel LogLevel, string Message);
+
+    private sealed class CaptureState
+    {
+        public List<string> PartiQlStatements { get; } = [];
+        public List<ExecuteStatementCall> ExecuteStatementCalls { get; } = [];
+        public List<QueryDiagnosticEvent> QueryDiagnosticEvents { get; } = [];
+    }
 }

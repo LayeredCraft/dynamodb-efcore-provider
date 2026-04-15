@@ -31,21 +31,4 @@ public sealed class DynamoContainerFixture(IMessageSink messageSink)
     }
 
     protected override DynamoDbBuilder Configure() => new("amazon/dynamodb-local:latest");
-
-    protected override async ValueTask InitializeAsync()
-    {
-        await base.InitializeAsync();
-
-        var ct = TestContext.Current.CancellationToken;
-        await SimpleItemTable.CreateTable(Client, ct);
-        await SharedItemTable.CreateTable(Client, ct);
-        await SharedTableWithIndexesItemTable.CreateTable(Client, ct);
-        await CompetingGsiOrdersTable.CreateTable(Client, ct);
-        await OwnedTypesItemTable.CreateTable(Client, ct);
-        await PkSkItemTable.CreateTable(Client, ct);
-        await PrimitiveCollectionsItemTable.CreateTable(Client, ct);
-        await SaveChangesItemTable.CreateTable(Client, ct);
-        await SecondaryIndexOrdersTable.CreateTable(Client, ct);
-        await SecondaryIndexProjectionOrdersTable.CreateTable(Client, ct);
-    }
 }

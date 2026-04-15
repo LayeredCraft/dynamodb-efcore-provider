@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.PrimitiveCollectionsTable;
 
 /// <summary>Represents the StrictShapeValidationTests type.</summary>
-public class StrictShapeValidationTests : IClassFixture<DynamoContainerFixture>
+public class StrictShapeValidationTests
 {
     private readonly DynamoContainerFixture _fixture;
 

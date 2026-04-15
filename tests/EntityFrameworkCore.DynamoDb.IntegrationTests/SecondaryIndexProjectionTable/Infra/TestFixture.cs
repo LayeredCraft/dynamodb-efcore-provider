@@ -3,9 +3,14 @@ using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SecondaryIndexProjectionTable;
 
-public abstract class SecondaryIndexProjectionTableTestFixture(DynamoContainerFixture fixture)
-    : DynamoTestFixtureBase(fixture), IClassFixture<DynamoContainerFixture>
+public abstract class SecondaryIndexProjectionTableTestFixture : DynamoTestFixtureBase
 {
+    protected SecondaryIndexProjectionTableTestFixture(DynamoContainerFixture fixture) :
+        base(fixture)
+        => EnsureClassTableInitialized(
+            SecondaryIndexProjectionOrdersTable.TableName,
+            SecondaryIndexProjectionOrdersTable.CreateTable);
+
     protected virtual DynamoAutomaticIndexSelectionMode AutomaticIndexSelectionMode
         => DynamoAutomaticIndexSelectionMode.Off;
 

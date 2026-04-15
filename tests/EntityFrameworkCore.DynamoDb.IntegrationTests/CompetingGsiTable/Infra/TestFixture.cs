@@ -3,11 +3,17 @@ using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.CompetingGsiTable;
 
-public abstract class CompetingGsiTableTestFixture(DynamoContainerFixture fixture)
-    : DynamoTestFixtureBase(fixture), IClassFixture<DynamoContainerFixture>
+public abstract class CompetingGsiTableTestFixture : DynamoTestFixtureBase
 {
+    protected CompetingGsiTableTestFixture(DynamoContainerFixture fixture) : base(fixture)
+        => EnsureClassTableInitialized(
+            CompetingGsiOrdersTable.TableName,
+            CompetingGsiOrdersTable.CreateTable);
+
     protected virtual DynamoAutomaticIndexSelectionMode AutomaticIndexSelectionMode
         => DynamoAutomaticIndexSelectionMode.Off;
+
+    protected override bool UseSharedInternalServiceProvider => false;
 
     protected TestPartiQlLoggerFactory LoggerFactory => SqlCapture;
 

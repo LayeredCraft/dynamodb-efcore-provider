@@ -1,3 +1,4 @@
+using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 using Microsoft.EntityFrameworkCore;
 
@@ -163,23 +164,39 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
         item.Remove("Profile");
         await PutItemAsync(item, CancellationToken);
 
-        var result =
-            await Db
-                .Items
-                .Where(x => x.Pk == "OWNED#MISSINGPROFILE")
-                .Select(x => new { x.Pk, x.Profile!.Address!.City })
-                .AsAsyncEnumerable()
-                .SingleAsync(CancellationToken);
+        try
+        {
+            var result =
+                await Db
+                    .Items
+                    .Where(x => x.Pk == "OWNED#MISSINGPROFILE")
+                    .Select(x => new { x.Pk, x.Profile!.Address!.City })
+                    .AsAsyncEnumerable()
+                    .SingleAsync(CancellationToken);
 
-        result.Pk.Should().Be("OWNED#MISSINGPROFILE");
-        result.City.Should().BeNull();
+            result.Pk.Should().Be("OWNED#MISSINGPROFILE");
+            result.City.Should().BeNull();
 
-        AssertSql(
-            """
-            SELECT "Pk", "Profile"
-            FROM "OwnedTypesItems"
-            WHERE "Pk" = 'OWNED#MISSINGPROFILE'
-            """);
+            AssertSql(
+                """
+                SELECT "Pk", "Profile"
+                FROM "OwnedTypesItems"
+                WHERE "Pk" = 'OWNED#MISSINGPROFILE'
+                """);
+        }
+        finally
+        {
+            await Client.DeleteItemAsync(
+                new DeleteItemRequest
+                {
+                    TableName = OwnedTypesItemTable.TableName,
+                    Key = new Dictionary<string, AttributeValue>
+                    {
+                        ["Pk"] = new() { S = "OWNED#MISSINGPROFILE" },
+                    },
+                },
+                CancellationToken);
+        }
     }
 
     /// <summary>Provides functionality for this member.</summary>

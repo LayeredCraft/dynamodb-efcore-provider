@@ -3,11 +3,17 @@ using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SecondaryIndexTable;
 
-public abstract class SecondaryIndexTableTestFixture(DynamoContainerFixture fixture)
-    : DynamoTestFixtureBase(fixture), IClassFixture<DynamoContainerFixture>
+public abstract class SecondaryIndexTableTestFixture : DynamoTestFixtureBase
 {
+    protected SecondaryIndexTableTestFixture(DynamoContainerFixture fixture) : base(fixture)
+        => EnsureClassTableInitialized(
+            SecondaryIndexOrdersTable.TableName,
+            SecondaryIndexOrdersTable.CreateTable);
+
     protected virtual DynamoAutomaticIndexSelectionMode AutomaticIndexSelectionMode
         => DynamoAutomaticIndexSelectionMode.Off;
+
+    protected override bool UseSharedInternalServiceProvider => false;
 
     protected TestPartiQlLoggerFactory LoggerFactory => SqlCapture;
 

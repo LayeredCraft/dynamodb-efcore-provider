@@ -7,9 +7,11 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SharedTable;
 ///     <see cref="DbContext" />; use <see cref="DynamoTestFixtureBase.CreateOptions{T}" /> directly
 ///     for the other context variants.
 /// </summary>
-public class SharedTableTestFixture(DynamoContainerFixture fixture)
-    : DynamoTestFixtureBase(fixture), IClassFixture<DynamoContainerFixture>
+public class SharedTableTestFixture : DynamoTestFixtureBase
 {
+    public SharedTableTestFixture(DynamoContainerFixture fixture) : base(fixture)
+        => EnsureClassTableInitialized(SharedItemTable.TableName, SharedItemTable.CreateTable);
+
     /// <summary>A fresh <see cref="SharedTableDbContext" /> wired to the per-test SQL capture logger.</summary>
     public SharedTableDbContext Db
         => new(CreateOptions<SharedTableDbContext>(o => o.DynamoDbClient(Client)));

@@ -2,9 +2,11 @@ using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.PkSkTable;
 
-public abstract class PkSkTableTestFixture(DynamoContainerFixture fixture)
-    : DynamoTestFixtureBase(fixture), IClassFixture<DynamoContainerFixture>
+public abstract class PkSkTableTestFixture : DynamoTestFixtureBase
 {
+    protected PkSkTableTestFixture(DynamoContainerFixture fixture) : base(fixture)
+        => EnsureClassTableInitialized(PkSkItemTable.TableName, PkSkItemTable.CreateTable);
+
     protected TestPartiQlLoggerFactory LoggerFactory => SqlCapture;
 
     public PkSkTableDbContext Db
