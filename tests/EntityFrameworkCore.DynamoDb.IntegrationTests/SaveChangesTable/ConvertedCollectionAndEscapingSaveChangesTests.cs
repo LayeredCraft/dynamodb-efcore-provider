@@ -1,7 +1,9 @@
+using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
+
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SaveChangesTable;
 
-public class ConvertedCollectionAndEscapingSaveChangesTests(SaveChangesTableDynamoFixture fixture)
-    : SaveChangesTableTestBase(fixture)
+public class ConvertedCollectionAndEscapingSaveChangesTests(DynamoContainerFixture fixture)
+    : SaveChangesTableTestFixture(fixture)
 {
     [Fact]
     public async Task SaveChangesAsync_AddedConvertedCollectionProperty_StoresAsScalar()

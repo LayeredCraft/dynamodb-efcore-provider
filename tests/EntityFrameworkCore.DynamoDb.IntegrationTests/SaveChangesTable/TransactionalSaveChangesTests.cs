@@ -1,12 +1,14 @@
 using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.Infrastructure;
+using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SaveChangesTable;
 
 /// <summary>Integration tests for multi-root SaveChanges transactional execution semantics.</summary>
-public class TransactionalSaveChangesTests(SaveChangesTableDynamoFixture fixture)
-    : SaveChangesTableTestBase(fixture)
+public class TransactionalSaveChangesTests(DynamoContainerFixture fixture)
+    : SaveChangesTableTestFixture(fixture)
 {
     [Fact]
     public async Task WhenNeeded_MultiRootSave_SucceedsAtomically()
@@ -535,11 +537,13 @@ public class TransactionalSaveChangesTests(SaveChangesTableDynamoFixture fixture
         TransactionOverflowBehavior behavior,
         int maxTransactionSize)
         => new(
-            new DbContextOptionsBuilder<SaveChangesTableDbContext>().UseDynamo(options
+            new DbContextOptionsBuilder<SaveChangesTableDbContext>()
+                .UseDynamo(options
                     => options
                         .DynamoDbClient(Client)
                         .TransactionOverflowBehavior(behavior)
                         .MaxTransactionSize(maxTransactionSize))
+                .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
                 .Options);
 
     private static Dictionary<string, AttributeValue> CreateSeedItem(CustomerItem customer)

@@ -1,3 +1,4 @@
+using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.OwnedTypesTable;
@@ -6,8 +7,8 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.OwnedTypesTable;
 ///     Integration tests verifying that nested owned navigation property paths and list index
 ///     accesses are correctly translated to PartiQL and executed against DynamoDB.
 /// </summary>
-public class NestedPathWhereTests(OwnedTypesTableDynamoFixture fixture)
-    : OwnedTypesTableTestBase(fixture)
+public class NestedPathWhereTests(DynamoContainerFixture fixture)
+    : OwnedTypesTableTestFixture(fixture)
 {
     /// <summary>Provides functionality for this member.</summary>
     [Fact]

@@ -1,36 +1,18 @@
 using EntityFrameworkCore.DynamoDb.Diagnostics;
 using EntityFrameworkCore.DynamoDb.Infrastructure;
 using EntityFrameworkCore.DynamoDb.IntegrationTests.SecondaryIndexTable;
-using EntityFrameworkCore.DynamoDb.IntegrationTests.TestUtilities;
+using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SecondaryIndexProjectionTable;
 
-/// <summary>
-///     Integration tests for auto-selection behavior when candidate indexes use partial
-///     projections.
-/// </summary>
-public sealed class SecondaryIndexProjectionAutoSelectionTests(
-    SecondaryIndexProjectionDynamoFixture fixture) : SecondaryIndexProjectionTestBase(fixture)
+public sealed class SecondaryIndexProjectionAutoSelectionTests(DynamoContainerFixture fixture)
+    : SecondaryIndexProjectionTableTestFixture(fixture)
 {
-    /// <inheritdoc />
-    protected override DbContextOptions<SecondaryIndexProjectionDbContext> CreateOptions(
-        TestPartiQlLoggerFactory loggerFactory)
-    {
-        var builder =
-            new DbContextOptionsBuilder<SecondaryIndexProjectionDbContext>(
-                base.CreateOptions(loggerFactory));
-        builder.UseDynamo(opt
-            => opt.UseAutomaticIndexSelection(DynamoAutomaticIndexSelectionMode.Conservative));
-        return builder.Options;
-    }
+    protected override DynamoAutomaticIndexSelectionMode AutomaticIndexSelectionMode
+        => DynamoAutomaticIndexSelectionMode.Conservative;
 
-    /// <summary>
-    ///     Verifies that a KEYS_ONLY index candidate is rejected and the query remains on the base
-    ///     table.
-    /// </summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Conservative_WhereOnKeysOnlyGsiPk_RejectsCandidate_UsesBaseTable()
     {
         var results =
@@ -62,12 +44,7 @@ public sealed class SecondaryIndexProjectionAutoSelectionTests(
             """);
     }
 
-    /// <summary>
-    ///     Verifies that an INCLUDE index candidate is rejected and the query remains on the base
-    ///     table.
-    /// </summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Conservative_WhereOnIncludeGsiPk_RejectsCandidate_UsesBaseTable()
     {
         var results =

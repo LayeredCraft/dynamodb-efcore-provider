@@ -1,15 +1,13 @@
 using Amazon.DynamoDBv2.Model;
+using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SimpleTable;
 
-/// <summary>Represents the RequiredPropertyNullHandlingTests type.</summary>
-public class RequiredPropertyNullHandlingTests(SimpleTableDynamoFixture fixture)
-    : SimpleTableTestBase(fixture)
+public class RequiredPropertyNullHandlingTests(DynamoContainerFixture fixture)
+    : SimpleTableTestFixture(fixture)
 {
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Materialization_Throws_WhenRequiredPropertyIsDynamoNull()
     {
         var template = new Dictionary<string, AttributeValue>(SimpleItems.AttributeValues[0]);
@@ -19,7 +17,7 @@ public class RequiredPropertyNullHandlingTests(SimpleTableDynamoFixture fixture)
         };
 
         await Client.PutItemAsync(
-            new PutItemRequest { TableName = SimpleTableDynamoFixture.TableName, Item = item },
+            new PutItemRequest { TableName = SimpleItemTable.TableName, Item = item },
             CancellationToken);
 
         var act = async ()
@@ -35,9 +33,7 @@ public class RequiredPropertyNullHandlingTests(SimpleTableDynamoFixture fixture)
             .WithMessage("*DynamoDB NULL*");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Materialization_Throws_WhenRequiredPropertyIsMissing()
     {
         var template = new Dictionary<string, AttributeValue>(SimpleItems.AttributeValues[0]);
@@ -48,7 +44,7 @@ public class RequiredPropertyNullHandlingTests(SimpleTableDynamoFixture fixture)
         item.Remove("IntValue");
 
         await Client.PutItemAsync(
-            new PutItemRequest { TableName = SimpleTableDynamoFixture.TableName, Item = item },
+            new PutItemRequest { TableName = SimpleItemTable.TableName, Item = item },
             CancellationToken);
 
         var act = async ()
@@ -65,9 +61,7 @@ public class RequiredPropertyNullHandlingTests(SimpleTableDynamoFixture fixture)
             .WithMessage("*not present*");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Materialization_Throws_WhenRequiredReferencePropertyIsDynamoNull()
     {
         var item = CreateValidTemplateItem("ITEM#BAD-NULL-STRING");
@@ -88,9 +82,7 @@ public class RequiredPropertyNullHandlingTests(SimpleTableDynamoFixture fixture)
             .WithMessage("*DynamoDB NULL*");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Materialization_Throws_WhenRequiredBoolPropertyIsDynamoNull()
     {
         var item = CreateValidTemplateItem("ITEM#BAD-NULL-BOOL");
@@ -111,9 +103,7 @@ public class RequiredPropertyNullHandlingTests(SimpleTableDynamoFixture fixture)
             .WithMessage("*DynamoDB NULL*");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Materialization_Throws_WhenRequiredNumericWireMemberIsMissing()
     {
         var item = CreateValidTemplateItem("ITEM#BAD-WIRE-MISSING-N");
@@ -135,9 +125,7 @@ public class RequiredPropertyNullHandlingTests(SimpleTableDynamoFixture fixture)
             .WithMessage("*'N'*");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Materialization_Throws_WhenRequiredBoolWireMemberIsMissing()
     {
         var item = CreateValidTemplateItem("ITEM#BAD-WIRE-MISSING-BOOL");
@@ -159,9 +147,7 @@ public class RequiredPropertyNullHandlingTests(SimpleTableDynamoFixture fixture)
             .WithMessage("*'BOOL'*");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Materialization_ReturnsNull_WhenNullablePropertyIsMissing()
     {
         var item = CreateValidTemplateItem("ITEM#OPTIONAL-MISSING-INT");
@@ -179,9 +165,7 @@ public class RequiredPropertyNullHandlingTests(SimpleTableDynamoFixture fixture)
         results[0].NullableIntValue.Should().BeNull();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Materialization_ReturnsNull_WhenNullablePropertyIsDynamoNull()
     {
         var item = CreateValidTemplateItem("ITEM#OPTIONAL-NULL-INT");
@@ -199,9 +183,7 @@ public class RequiredPropertyNullHandlingTests(SimpleTableDynamoFixture fixture)
         results[0].NullableIntValue.Should().BeNull();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task ScalarProjection_Throws_WhenNonNullableValueTypeProjectionIsMissing()
     {
         var item = CreateValidTemplateItem("ITEM#PROJECTION-MISSING-INT");
@@ -232,6 +214,6 @@ public class RequiredPropertyNullHandlingTests(SimpleTableDynamoFixture fixture)
 
     private Task PutItemAsync(Dictionary<string, AttributeValue> item)
         => Client.PutItemAsync(
-            new PutItemRequest { TableName = SimpleTableDynamoFixture.TableName, Item = item },
+            new PutItemRequest { TableName = SimpleItemTable.TableName, Item = item },
             CancellationToken);
 }

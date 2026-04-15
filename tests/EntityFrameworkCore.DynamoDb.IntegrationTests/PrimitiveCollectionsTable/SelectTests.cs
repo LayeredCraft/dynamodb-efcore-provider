@@ -1,10 +1,11 @@
+using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.PrimitiveCollectionsTable;
 
 /// <summary>Represents the SelectTests type.</summary>
-public class SelectTests(PrimitiveCollectionsDynamoFixture fixture)
-    : PrimitiveCollectionsTestBase(fixture)
+public class SelectTests(DynamoContainerFixture fixture)
+    : PrimitiveCollectionsTableTestFixture(fixture)
 {
     /// <summary>Provides functionality for this member.</summary>
     [Fact]

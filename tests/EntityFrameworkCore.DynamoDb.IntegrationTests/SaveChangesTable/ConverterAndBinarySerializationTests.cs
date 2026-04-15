@@ -1,10 +1,11 @@
 using Amazon.DynamoDBv2.Model;
+using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SaveChangesTable;
 
-public class ConverterAndBinarySerializationTests(SaveChangesTableDynamoFixture fixture)
-    : SaveChangesTableTestBase(fixture)
+public class ConverterAndBinarySerializationTests(DynamoContainerFixture fixture)
+    : SaveChangesTableTestFixture(fixture)
 {
     [Fact]
     public async Task ConverterCoverageItem_SaveChanges_WritesCustomConvertedValuesAndBinaryShapes()

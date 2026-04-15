@@ -1,20 +1,21 @@
+using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SimpleTable;
 
 /// <summary>Integration tests for the pagination model: Limit(n) and key-only First*.</summary>
-public class PaginationTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase(fixture)
+public class PaginationTests(DynamoContainerFixture fixture) : SimpleTableTestFixture(fixture)
 {
     // ── Limit(n) on ToListAsync ──────────────────────────────────────────────
 
     [Fact]
     public async Task Limit_SetsRequestLimit_OnToListAsync()
     {
-        LoggerFactory.Clear();
+        SqlCapture.Clear();
 
         await Db.SimpleItems.Limit(3).ToListAsync(CancellationToken);
 
-        var calls = LoggerFactory.ExecuteStatementCalls.ToList();
+        var calls = SqlCapture.ExecuteStatementCalls.ToList();
         calls.Should().ContainSingle();
         calls[0].Limit.Should().Be(3);
     }
@@ -22,11 +23,11 @@ public class PaginationTests(SimpleTableDynamoFixture fixture) : SimpleTableTest
     [Fact]
     public async Task Limit_ChainedTwice_LastOneWins()
     {
-        LoggerFactory.Clear();
+        SqlCapture.Clear();
 
         await Db.SimpleItems.Limit(10).Limit(20).ToListAsync(CancellationToken);
 
-        var calls = LoggerFactory.ExecuteStatementCalls.ToList();
+        var calls = SqlCapture.ExecuteStatementCalls.ToList();
         calls.Should().ContainSingle();
         calls[0].Limit.Should().Be(20);
     }
@@ -35,11 +36,11 @@ public class PaginationTests(SimpleTableDynamoFixture fixture) : SimpleTableTest
     public async Task Limit_SingleRequest_ToListAsync_NoNextTokenFollowUp()
     {
         // Limit(n) is always a single request — the provider must not follow NextToken.
-        LoggerFactory.Clear();
+        SqlCapture.Clear();
 
         await Db.SimpleItems.Limit(3).ToListAsync(CancellationToken);
 
-        LoggerFactory.ExecuteStatementCalls.Should().HaveCount(1);
+        SqlCapture.ExecuteStatementCalls.Should().HaveCount(1);
     }
 
     // ── First* with key-only path ────────────────────────────────────────────
@@ -48,7 +49,7 @@ public class PaginationTests(SimpleTableDynamoFixture fixture) : SimpleTableTest
     public async Task FirstOrDefault_KeyOnly_UsesImplicitLimit1()
     {
         // PK equality, no sort key → safe, implicit Limit=1.
-        LoggerFactory.Clear();
+        SqlCapture.Clear();
 
         var result =
             await Db
@@ -58,7 +59,7 @@ public class PaginationTests(SimpleTableDynamoFixture fixture) : SimpleTableTest
 
         result.Should().NotBeNull();
 
-        var calls = LoggerFactory.ExecuteStatementCalls.ToList();
+        var calls = SqlCapture.ExecuteStatementCalls.ToList();
         calls.Should().ContainSingle();
         calls[0].Limit.Should().Be(1);
     }
@@ -69,10 +70,10 @@ public class PaginationTests(SimpleTableDynamoFixture fixture) : SimpleTableTest
         // Limit(n) + First* is disallowed — use
         // .Limit(n).AsAsyncEnumerable().FirstOrDefaultAsync(ct).
         var act = async () => await Db
-                .SimpleItems
-                .Where(x => x.Pk == "ITEM#1")
-                .Limit(5)
-                .FirstOrDefaultAsync(CancellationToken);
+            .SimpleItems
+            .Where(x => x.Pk == "ITEM#1")
+            .Limit(5)
+            .FirstOrDefaultAsync(CancellationToken);
 
         await act
             .Should()

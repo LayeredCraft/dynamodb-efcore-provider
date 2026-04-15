@@ -1,17 +1,16 @@
+using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SimpleTable;
 
 /// <summary>
-/// Tests that validate operator precedence and order of operations in generated PartiQL.
-/// These tests ensure that parentheses optimization doesn't break query semantics.
+///     Tests that validate operator precedence and order of operations in generated PartiQL.
+///     These tests ensure that parentheses optimization doesn't break query semantics.
 /// </summary>
-public class OperatorPrecedenceTests(SimpleTableDynamoFixture fixture)
-    : SimpleTableTestBase(fixture)
+public class OperatorPrecedenceTests(DynamoContainerFixture fixture)
+    : SimpleTableTestFixture(fixture)
 {
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task AndHasHigherPrecedenceThanOr()
     {
         // Test: a OR b AND c should be evaluated as a OR (b AND c)
@@ -39,9 +38,7 @@ public class OperatorPrecedenceTests(SimpleTableDynamoFixture fixture)
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task ExplicitParenthesesOverridePrecedence()
     {
         // Test: (a OR b) AND c should keep explicit parentheses
@@ -66,9 +63,7 @@ public class OperatorPrecedenceTests(SimpleTableDynamoFixture fixture)
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task ComparisonHasHigherPrecedenceThanLogical()
     {
         // Test: a > 5 AND b < 10 should not add extra parentheses around comparisons
@@ -90,9 +85,7 @@ public class OperatorPrecedenceTests(SimpleTableDynamoFixture fixture)
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task AssociativeAndChain()
     {
         // Test: a AND b AND c AND d should not add any parentheses
@@ -119,9 +112,7 @@ public class OperatorPrecedenceTests(SimpleTableDynamoFixture fixture)
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task AssociativeOrChain()
     {
         // Test: a OR b OR c OR d should not add any parentheses
@@ -151,9 +142,7 @@ public class OperatorPrecedenceTests(SimpleTableDynamoFixture fixture)
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task ComplexMixedPrecedence()
     {
         // Test: (a OR b) AND (c OR d) AND e
@@ -182,9 +171,7 @@ public class OperatorPrecedenceTests(SimpleTableDynamoFixture fixture)
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task NestedOrInsideAndPreservesSemantics()
     {
         // Critical test: Validates that AND containing OR keeps OR parentheses
@@ -215,9 +202,7 @@ public class OperatorPrecedenceTests(SimpleTableDynamoFixture fixture)
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task AllComparisonOperatorsHaveSamePrecedence()
     {
         // Test: Multiple comparison operators should not need parentheses

@@ -1,25 +1,26 @@
+using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SaveChangesTable;
 
 /// <summary>
-/// Integration tests that verify the DynamoDB AttributeValue shapes written by
-/// <c>SaveChangesAsync</c> for the full range of property shapes in the SaveChangesTable model:
-/// scalars, owned references (OwnsOne → M), owned collections (OwnsMany → L of M), primitive
-/// lists (L), string sets (SS), converter-backed Guid sets (SS), numeric sets (NS), and string-keyed maps (M).
-/// Each test inserts via EF Core and then reads the raw item via the DynamoDB SDK to assert the
-/// wire format rather than re-reading through the provider projection stack.
+///     Integration tests that verify the DynamoDB AttributeValue shapes written by
+///     <c>SaveChangesAsync</c> for the full range of property shapes in the SaveChangesTable model:
+///     scalars, owned references (OwnsOne → M), owned collections (OwnsMany → L of M), primitive lists
+///     (L), string sets (SS), converter-backed Guid sets (SS), numeric sets (NS), and string-keyed
+///     maps (M). Each test inserts via EF Core and then reads the raw item via the DynamoDB SDK to
+///     assert the wire format rather than re-reading through the provider projection stack.
 /// </summary>
-public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
-    : SaveChangesTableTestBase(fixture)
+public class WriteValueSerializationTests(DynamoContainerFixture fixture)
+    : SaveChangesTableTestFixture(fixture)
 {
     // ──────────────────────────────────────────────────────────────────────────────
     //  Scalar properties
     // ──────────────────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// A minimal CustomerItem with only scalar properties (no owned objects, no collections)
-    /// should produce correct S, N, BOOL, and NULL AttributeValue wire representations.
+    ///     A minimal CustomerItem with only scalar properties (no owned objects, no collections)
+    ///     should produce correct S, N, BOOL, and NULL AttributeValue wire representations.
     /// </summary>
     [Fact]
     public async Task CustomerItem_ScalarsOnly_WritesCorrectAttributeValues()
@@ -50,9 +51,7 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
         actual.Should().BeEquivalentTo(entity);
     }
 
-    /// <summary>
-    /// After SaveChanges the EF Core change tracker should reflect the entity as Unchanged.
-    /// </summary>
+    /// <summary>After SaveChanges the EF Core change tracker should reflect the entity as Unchanged.</summary>
     [Fact]
     public async Task CustomerItem_AfterSave_ChangeTrackerStateIsUnchanged()
     {
@@ -86,8 +85,8 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
     // ──────────────────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// A non-null OwnsOne navigation should produce a nested map (M) attribute whose keys
-    /// match the owned type's property names.
+    ///     A non-null OwnsOne navigation should produce a nested map (M) attribute whose keys match
+    ///     the owned type's property names.
     /// </summary>
     [Fact]
     public async Task CustomerItem_WithOwnedProfile_SerializesProfileAsMap()
@@ -123,9 +122,7 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
         actual.Should().BeEquivalentTo(entity);
     }
 
-    /// <summary>
-    /// A null OwnsOne navigation must not produce any attribute key in the item at all.
-    /// </summary>
+    /// <summary>A null OwnsOne navigation must not produce any attribute key in the item at all.</summary>
     [Fact]
     public async Task CustomerItem_WithNullOwnedProfile_OmitsProfileAttribute()
     {
@@ -155,8 +152,8 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
     }
 
     /// <summary>
-    /// A deeply-nested OwnsOne chain (Profile → PreferredAddress → Address scalars) should
-    /// produce nested maps at each level without losing any scalar values.
+    ///     A deeply-nested OwnsOne chain (Profile → PreferredAddress → Address scalars) should
+    ///     produce nested maps at each level without losing any scalar values.
     /// </summary>
     [Fact]
     public async Task CustomerItem_WithNestedAddress_SerializesDeepMap()
@@ -203,8 +200,8 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
     // ──────────────────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// An OwnsMany navigation with two elements should produce a DynamoDB list (L) where each
-    /// element is a map (M) of the owned type's scalar properties.
+    ///     An OwnsMany navigation with two elements should produce a DynamoDB list (L) where each
+    ///     element is a map (M) of the owned type's scalar properties.
     /// </summary>
     [Fact]
     public async Task CustomerItem_WithContacts_SerializesAsListOfMaps()
@@ -264,8 +261,8 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
     // ──────────────────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// A <c>HashSet&lt;string&gt;</c> property must be serialized as a DynamoDB string set (SS),
-    /// not as a list (L).
+    ///     A <c>HashSet&lt;string&gt;</c> property must be serialized as a DynamoDB string set (SS),
+    ///     not as a list (L).
     /// </summary>
     [Fact]
     public async Task CustomerItem_WithStringSet_SerializesAsSS()
@@ -336,8 +333,8 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
     // ──────────────────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// A <c>HashSet&lt;int&gt;</c> property must be serialized as a DynamoDB numeric set (NS)
-    /// where each element is a string-encoded integer — the required DynamoDB wire format.
+    ///     A <c>HashSet&lt;int&gt;</c> property must be serialized as a DynamoDB numeric set (NS)
+    ///     where each element is a string-encoded integer — the required DynamoDB wire format.
     /// </summary>
     [Fact]
     public async Task OrderItem_WithNumericSet_SerializesAsNS()
@@ -371,8 +368,8 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
     // ──────────────────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// A <c>Dictionary&lt;string, string&gt;</c> property must be serialized as a DynamoDB map
-    /// (M) with each value as an S attribute.
+    ///     A <c>Dictionary&lt;string, string&gt;</c> property must be serialized as a DynamoDB map
+    ///     (M) with each value as an S attribute.
     /// </summary>
     [Fact]
     public async Task CustomerItem_WithStringDictionary_SerializesAsMap()
@@ -406,8 +403,8 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
     }
 
     /// <summary>
-    /// A <c>Dictionary&lt;string, decimal&gt;</c> property must be serialized as a DynamoDB map
-    /// (M) with each value as an N attribute.
+    ///     A <c>Dictionary&lt;string, decimal&gt;</c> property must be serialized as a DynamoDB map
+    ///     (M) with each value as an N attribute.
     /// </summary>
     [Fact]
     public async Task OrderItem_WithDecimalDictionary_SerializesAsMapOfN()
@@ -444,8 +441,8 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
     // ──────────────────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// A <c>List&lt;string&gt;</c> property must be serialized as a DynamoDB list (L) where each
-    /// element is an S attribute — not as a string set (SS).
+    ///     A <c>List&lt;string&gt;</c> property must be serialized as a DynamoDB list (L) where each
+    ///     element is an S attribute — not as a string set (SS).
     /// </summary>
     [Fact]
     public async Task CustomerItem_WithPrimitiveList_SerializesAsListOfS()
@@ -565,9 +562,9 @@ public class WriteValueSerializationTests(SaveChangesTableDynamoFixture fixture)
     // ──────────────────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Inserts a rich CustomerItem (all non-trivial fields populated) via SaveChanges, reads the
-    /// raw DynamoDB item, and compares it attribute-by-attribute against the DynamoMapper-generated
-    /// baseline to confirm the provider serializes every shape correctly.
+    ///     Inserts a rich CustomerItem (all non-trivial fields populated) via SaveChanges, reads the
+    ///     raw DynamoDB item, and compares it attribute-by-attribute against the DynamoMapper-generated
+    ///     baseline to confirm the provider serializes every shape correctly.
     /// </summary>
     [Fact]
     public async Task CustomerItem_FullRichShape_MatchesDynamoMapperBaseline()

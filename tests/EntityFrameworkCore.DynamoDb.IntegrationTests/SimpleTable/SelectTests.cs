@@ -1,13 +1,11 @@
+using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SimpleTable;
 
-/// <summary>Represents the SelectTests type.</summary>
-public class SelectTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase(fixture)
+public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixture(fixture)
 {
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Select_AnonymousObjectProjection()
     {
         var results =
@@ -27,9 +25,7 @@ public class SelectTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Select_AnonymousObjectProjection_WithAlias()
     {
         var results =
@@ -49,9 +45,7 @@ public class SelectTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Select_NestedAnonymousObjectProjection_NonCollection()
     {
         var results =
@@ -75,9 +69,7 @@ public class SelectTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Select_NestedClassProjection_NonCollection()
     {
         var results =
@@ -117,9 +109,7 @@ public class SelectTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Select_DtoProjection()
     {
         var results =
@@ -143,9 +133,7 @@ public class SelectTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Select_ScalarProjection()
     {
         var results = await Db.SimpleItems.Select(item => item.Pk).ToListAsync(CancellationToken);
@@ -162,9 +150,8 @@ public class SelectTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase
     }
 
     // Combined Operations Tests
-    /// <summary>Provides functionality for this member.</summary>
+
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Select_WithWhere()
     {
         var results = await Db
@@ -190,9 +177,7 @@ public class SelectTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Select_WithWhereAndOrderBy()
     {
         // Note: DynamoDB PartiQL requires:
@@ -225,9 +210,7 @@ public class SelectTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Select_WithWhereAndOrderByDescending()
     {
         // Note: DynamoDB PartiQL requires:
@@ -261,9 +244,8 @@ public class SelectTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase
     }
 
     // Different Data Types Tests
-    /// <summary>Provides functionality for this member.</summary>
+
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Select_NumericTypes()
     {
         var results =
@@ -303,9 +285,7 @@ public class SelectTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Select_BooleanAndTemporal()
     {
         var results =
@@ -329,9 +309,7 @@ public class SelectTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Select_GuidType()
     {
         var results =
@@ -352,9 +330,8 @@ public class SelectTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase
     }
 
     // Nullable Properties Test
-    /// <summary>Provides functionality for this member.</summary>
+
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Select_NullableProperty()
     {
         var results =
@@ -375,9 +352,7 @@ public class SelectTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Select_NullablePrimitiveProperties()
     {
         var results =
@@ -402,9 +377,8 @@ public class SelectTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase
     }
 
     // Identity Projection Test
-    /// <summary>Provides functionality for this member.</summary>
+
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Select_IdentityProjection()
     {
         var results = await Db.SimpleItems.Select(item => item).ToListAsync(CancellationToken);
@@ -421,9 +395,8 @@ public class SelectTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase
     }
 
     // Multiple Properties of Same Type Test
-    /// <summary>Provides functionality for this member.</summary>
+
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Select_MultipleStrings()
     {
         var results =
@@ -448,9 +421,8 @@ public class SelectTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase
     }
 
     // All Properties Test
-    /// <summary>Provides functionality for this member.</summary>
+
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Select_AllPropertyTypes()
     {
         var results =
@@ -505,9 +477,8 @@ public class SelectTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase
     }
 
     // Error Cases Tests
-    /// <summary>Provides functionality for this member.</summary>
+
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Select_ComputedExpression_ProjectsAttributeOnly()
     {
         var results = await Db
@@ -527,9 +498,7 @@ public class SelectTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Select_MethodCall_ProjectsAttributeOnly()
     {
         var results =
@@ -553,9 +522,7 @@ public class SelectTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Select_MethodCallChain_NullReceiver_ThrowsNullReferenceException()
     {
         var act = async ()
@@ -572,9 +539,7 @@ public class SelectTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase
         await act.Should().ThrowAsync<NullReferenceException>();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Select_MethodCall_NullReceiver_ThrowsNullReferenceException()
     {
         var act = async ()
@@ -586,9 +551,7 @@ public class SelectTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase
         await act.Should().ThrowAsync<NullReferenceException>();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Select_StringConcat_ProjectsAttributeOnly()
     {
         var results =
@@ -612,9 +575,7 @@ public class SelectTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Select_DtoProjection_WithComputedArgument()
     {
         var results =
@@ -638,9 +599,7 @@ public class SelectTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Select_CapturedVariable_ComputedProjection()
     {
         var factor = 2;
@@ -661,9 +620,7 @@ public class SelectTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Select_ProjectionDeduplicatesLeafs()
     {
         var results =
@@ -683,9 +640,7 @@ public class SelectTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Select_ConstructorDtoProjection()
     {
         var results =
@@ -709,9 +664,7 @@ public class SelectTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Select_ConstructorDtoProjection_WithNamedArguments()
     {
         var results =
@@ -736,9 +689,8 @@ public class SelectTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase
     }
 
     // Scalar Variations Tests
-    /// <summary>Provides functionality for this member.</summary>
+
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Select_ScalarInt()
     {
         var results =
@@ -755,9 +707,7 @@ public class SelectTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Select_ScalarBool()
     {
         var results =
@@ -774,9 +724,7 @@ public class SelectTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Select_ScalarGuid()
     {
         var results =
@@ -793,9 +741,7 @@ public class SelectTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Select_ScalarDateTime()
     {
         var results =
@@ -817,44 +763,35 @@ public class SelectTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase
 
     private sealed class SimpleItemDto
     {
-        /// <summary>Provides functionality for this member.</summary>
         public int IntValue { get; set; }
 
-        /// <summary>Provides functionality for this member.</summary>
         public required string Pk { get; set; }
     }
 
     private sealed class NestedProjection
     {
-        /// <summary>Provides functionality for this member.</summary>
         public int IntValue { get; set; }
 
-        /// <summary>Provides functionality for this member.</summary>
         public required NestedSubProjection Sub { get; set; }
     }
 
     private sealed class NestedSubProjection
     {
-        /// <summary>Provides functionality for this member.</summary>
         public bool BoolValue { get; set; }
 
-        /// <summary>Provides functionality for this member.</summary>
         public required string Pk { get; set; }
     }
 
     private sealed class ConstructorItemDto
     {
-        /// <summary>Provides functionality for this member.</summary>
         public ConstructorItemDto(string pk, int intValue)
         {
             Pk = pk + 1;
             IntValue = intValue + 1;
         }
 
-        /// <summary>Provides functionality for this member.</summary>
         public int IntValue { get; }
 
-        /// <summary>Provides functionality for this member.</summary>
         public string Pk { get; }
     }
 }

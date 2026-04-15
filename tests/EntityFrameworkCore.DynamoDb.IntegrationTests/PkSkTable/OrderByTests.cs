@@ -1,3 +1,4 @@
+using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.PkSkTable;
@@ -8,7 +9,7 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.PkSkTable;
 ///     validation is wired through the full LINQ → EF compilation pipeline and that valid queries
 ///     execute correctly against a real DynamoDB endpoint.
 /// </summary>
-public class OrderByTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixture)
+public class OrderByTests(DynamoContainerFixture fixture) : PkSkTableTestFixture(fixture)
 {
     // ── error cases ───────────────────────────────────────────────────────────
 
@@ -26,8 +27,8 @@ public class OrderByTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fi
     }
 
     /// <summary>
-    ///     ORDER BY on a non-key attribute must throw a provider error at query compilation
-    ///     time, even when the WHERE clause has a valid partition key constraint.
+    ///     ORDER BY on a non-key attribute must throw a provider error at query compilation time,
+    ///     even when the WHERE clause has a valid partition key constraint.
     /// </summary>
     [Fact]
     public async Task OrderBy_OnNonSortKeyAttribute_ThrowsProviderError()

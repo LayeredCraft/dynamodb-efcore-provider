@@ -1,13 +1,12 @@
+using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SimpleTable;
 
-/// <summary>Represents the WhereTests type.</summary>
-public class WhereTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase(fixture)
+public class WhereTests(DynamoContainerFixture fixture) : SimpleTableTestFixture(fixture)
+
 {
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task ToListAsync_ReturnsAllItems()
     {
         var resultItems = await Db.SimpleItems.ToListAsync(CancellationToken);
@@ -21,9 +20,7 @@ public class WhereTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase(
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Where_ComplexPredicate_ReturnsFilteredItems()
     {
         // Intentionally mixes comparison operators and boolean logic.
@@ -55,9 +52,7 @@ public class WhereTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase(
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Where_MultipleWhereCalls_CombinePredicates()
     {
         // Use multiple Where calls so the provider has to combine predicates.
@@ -85,9 +80,7 @@ public class WhereTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase(
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Where_BoolColumnPredicate_RendersEqualsTrue()
     {
         var resultItems = await Db
@@ -107,9 +100,7 @@ public class WhereTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase(
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Where_BoolColumnPredicate_WithAnd_RendersEqualsTrue()
     {
         var resultItems = await Db
@@ -129,9 +120,7 @@ public class WhereTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase(
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Where_BoolColumn_EqualsCapturedBoolParameter_RendersColumnEqualsParameter()
     {
         var enabled = true;
@@ -152,9 +141,7 @@ public class WhereTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase(
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task OrderBy_ThenBy_WithOrPredicate_ReturnsItemsInAscendingOrder()
     {
         // DynamoDB PartiQL requires a hash-key condition when using ORDER BY.
@@ -187,9 +174,7 @@ public class WhereTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase(
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task
         OrderByDescending_ThenByDescending_WithAndOrPredicate_ReturnsItemsInExpectedOrder()
     {
@@ -223,9 +208,7 @@ public class WhereTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase(
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Where_WithCapturedVariables_InlinesParametersCorrectly()
     {
         // Use captured variables to test parameter handling
@@ -255,9 +238,7 @@ public class WhereTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase(
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Where_MethodCall_StillThrowsInvalidOperationException()
     {
         var act = async ()
@@ -270,9 +251,7 @@ public class WhereTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase(
         await act.Should().ThrowAsync<InvalidOperationException>();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Where_CustomMethodCall_StillThrowsInvalidOperationException()
     {
         var act = async ()
@@ -285,9 +264,7 @@ public class WhereTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase(
         await act.Should().ThrowAsync<InvalidOperationException>();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Where_DelegateInvocation_StillThrowsInvalidOperationException()
     {
         var normalize = NormalizeString;

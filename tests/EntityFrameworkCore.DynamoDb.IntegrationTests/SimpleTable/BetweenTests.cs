@@ -1,3 +1,4 @@
+using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SimpleTable;
@@ -6,15 +7,13 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SimpleTable;
 ///     Verifies that inclusive range predicates are translated to PartiQL BETWEEN expressions,
 ///     and that mixed (exclusive) bounds fall back to separate comparison operators.
 /// </summary>
-public class BetweenTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase(fixture)
+public class BetweenTests(DynamoContainerFixture fixture) : SimpleTableTestFixture(fixture)
 {
     // ------------------------------------------------------------------
     // Inclusive range → BETWEEN translation
     // ------------------------------------------------------------------
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Where_IntBetween_BothBoundsInclusive_TranslatesToBetween()
     {
         var low = 100;
@@ -38,9 +37,7 @@ public class BetweenTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBas
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Where_IntBetween_NoMatchingItems_ReturnsEmpty()
     {
         var low = 300000;
@@ -64,9 +61,7 @@ public class BetweenTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBas
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Where_LongBetween_BothBoundsInclusive_TranslatesToBetween()
     {
         var low = 1000L;
@@ -94,9 +89,7 @@ public class BetweenTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBas
     // Mixed / exclusive bounds → no BETWEEN rewrite
     // ------------------------------------------------------------------
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Where_IntRange_ExclusiveLowerBound_DoesNotUseBetween()
     {
         var low = 100;
@@ -121,9 +114,7 @@ public class BetweenTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBas
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Where_IntRange_ExclusiveUpperBound_DoesNotUseBetween()
     {
         var low = 100;
@@ -152,9 +143,7 @@ public class BetweenTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBas
     // BETWEEN composed with other predicates
     // ------------------------------------------------------------------
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Where_BetweenComposedWithOtherPredicate_UsesBetweenAndAddsClause()
     {
         var low = 100;

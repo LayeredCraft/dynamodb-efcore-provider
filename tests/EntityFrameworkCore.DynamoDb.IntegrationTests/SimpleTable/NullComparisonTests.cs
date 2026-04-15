@@ -1,5 +1,6 @@
 using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.Extensions;
+using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SimpleTable;
@@ -8,11 +9,9 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SimpleTable;
 ///     Verifies that null comparisons in LINQ predicates are translated to the correct IS NULL /
 ///     IS MISSING PartiQL predicates.
 /// </summary>
-public class NullComparisonTests(SimpleTableDynamoFixture fixture) : SimpleTableTestBase(fixture)
+public class NullComparisonTests(DynamoContainerFixture fixture) : SimpleTableTestFixture(fixture)
 {
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Where_EqualNull_TranslatesToIsNullOrIsMissing()
     {
         var results =
@@ -33,9 +32,7 @@ public class NullComparisonTests(SimpleTableDynamoFixture fixture) : SimpleTable
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Where_NotEqualNull_TranslatesToIsNotNullAndIsNotMissing()
     {
         var results =
@@ -56,9 +53,7 @@ public class NullComparisonTests(SimpleTableDynamoFixture fixture) : SimpleTable
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Where_EqualNull_ComposedWithAnd_AddsParentheses()
     {
         var results =
@@ -79,9 +74,7 @@ public class NullComparisonTests(SimpleTableDynamoFixture fixture) : SimpleTable
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Where_NotOnEqualNull_WrapsWithNot()
     {
         var results =
@@ -102,9 +95,7 @@ public class NullComparisonTests(SimpleTableDynamoFixture fixture) : SimpleTable
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Where_Functions_IsNull_TranslatesToIsNull()
     {
         var results =
@@ -127,9 +118,7 @@ public class NullComparisonTests(SimpleTableDynamoFixture fixture) : SimpleTable
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Where_Functions_IsNotNull_TranslatesToIsNotNull()
     {
         var results =
@@ -150,9 +139,7 @@ public class NullComparisonTests(SimpleTableDynamoFixture fixture) : SimpleTable
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Where_Functions_IsMissing_ReturnsNoResults_WhenAllStoredAsNull()
     {
         // All seeded items store null NullableStringValue as {NULL:true} (OmitNullStrings = false),
@@ -173,9 +160,7 @@ public class NullComparisonTests(SimpleTableDynamoFixture fixture) : SimpleTable
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Where_Functions_IsNotMissing_ReturnsAllItems_WhenAllAttributesPresent()
     {
         // All seeded items have NullableStringValue present in the attribute map
@@ -196,37 +181,53 @@ public class NullComparisonTests(SimpleTableDynamoFixture fixture) : SimpleTable
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Where_Functions_IsMissing_FindsAbsentAttribute()
     {
         // Insert an item via the SDK with NullableStringValue absent from the attribute map.
+        const string missingItemPk = "ITEM#MISSING-STRING";
         var template = new Dictionary<string, AttributeValue>(SimpleItems.AttributeValues[0])
         {
-            ["Pk"] = new() { S = "ITEM#MISSING-STRING" },
+            ["Pk"] = new() { S = missingItemPk },
         };
         template.Remove("NullableStringValue");
 
         await Client.PutItemAsync(
-            new PutItemRequest { TableName = SimpleTableDynamoFixture.TableName, Item = template },
+            new PutItemRequest { TableName = SimpleItemTable.TableName, Item = template },
             CancellationToken);
 
-        var results =
-            await Db
-                .SimpleItems
-                .Where(x => EF.Functions.IsMissing(x.NullableStringValue))
-                .ToListAsync(CancellationToken);
+        try
+        {
+            var results =
+                await Db
+                    .SimpleItems
+                    .Where(x => EF.Functions.IsMissing(x.NullableStringValue))
+                    .ToListAsync(CancellationToken);
 
-        results.Should().HaveCount(1);
-        results[0].Pk.Should().Be("ITEM#MISSING-STRING");
-        results[0].NullableStringValue.Should().BeNull();
+            results.Should().HaveCount(1);
+            results[0].Pk.Should().Be(missingItemPk);
+            results[0].NullableStringValue.Should().BeNull();
 
-        AssertSql(
-            """
-            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
-            FROM "SimpleItems"
-            WHERE "NullableStringValue" IS MISSING
-            """);
+            AssertSql(
+                """
+                SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+                FROM "SimpleItems"
+                WHERE "NullableStringValue" IS MISSING
+                """);
+        }
+        finally
+        {
+            // Delete the item to avoid contaminating other tests in the shared table.
+            await Client.DeleteItemAsync(
+                new DeleteItemRequest
+                {
+                    TableName = SimpleItemTable.TableName,
+                    Key = new Dictionary<string, AttributeValue>
+                    {
+                        ["Pk"] = new() { S = missingItemPk },
+                    },
+                },
+                CancellationToken);
+        }
     }
 }

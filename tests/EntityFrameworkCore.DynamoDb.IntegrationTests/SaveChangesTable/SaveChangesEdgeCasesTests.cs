@@ -1,4 +1,6 @@
+using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SaveChangesTable;
 
@@ -7,8 +9,8 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SaveChangesTable;
 ///     CRUD stories: no-op saves, <c>acceptAllChangesOnSuccess</c> semantics, and the statement-size
 ///     guard.
 /// </summary>
-public class SaveChangesEdgeCasesTests(SaveChangesTableDynamoFixture fixture)
-    : SaveChangesTableTestBase(fixture)
+public class SaveChangesEdgeCasesTests(DynamoContainerFixture fixture)
+    : SaveChangesTableTestFixture(fixture)
 {
     // ── No-op ────────────────────────────────────────────────────────────────
 
@@ -97,8 +99,9 @@ public class SaveChangesEdgeCasesTests(SaveChangesTableDynamoFixture fixture)
 
     private LongStatementContext CreateLongStatementContext()
         => new(
-            new DbContextOptionsBuilder<LongStatementContext>().UseDynamo(options
-                    => options.DynamoDbClient(Client))
+            new DbContextOptionsBuilder<LongStatementContext>()
+                .UseDynamo(options => options.DynamoDbClient(Client))
+                .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
                 .Options);
 
     // ── Private model ─────────────────────────────────────────────────────────
@@ -157,7 +160,7 @@ public class SaveChangesEdgeCasesTests(SaveChangesTableDynamoFixture fixture)
 
             modelBuilder.Entity<LongStatementItem>(builder =>
             {
-                builder.ToTable(SaveChangesTableDynamoFixture.TableName);
+                builder.ToTable(SaveChangesItemTable.TableName);
                 builder.HasPartitionKey(x => x.Pk);
                 builder.HasSortKey(x => x.Sk);
 

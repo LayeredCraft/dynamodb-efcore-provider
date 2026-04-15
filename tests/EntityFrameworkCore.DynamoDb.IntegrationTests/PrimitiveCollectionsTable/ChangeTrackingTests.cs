@@ -1,10 +1,11 @@
+using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.PrimitiveCollectionsTable;
 
 /// <summary>Represents the ChangeTrackingTests type.</summary>
-public class ChangeTrackingTests(PrimitiveCollectionsDynamoFixture fixture)
-    : PrimitiveCollectionsTestBase(fixture)
+public class ChangeTrackingTests(DynamoContainerFixture fixture)
+    : PrimitiveCollectionsTableTestFixture(fixture)
 {
     /// <summary>Provides functionality for this member.</summary>
     [Fact]

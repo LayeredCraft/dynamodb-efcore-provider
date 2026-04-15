@@ -1,16 +1,17 @@
+using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 using EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.OwnedTypesTable;
 
 /// <summary>Represents the OwnedTypesModelValidationTests type.</summary>
-public class OwnedTypesModelValidationTests : IClassFixture<OwnedTypesTableDynamoFixture>
+public class OwnedTypesModelValidationTests : IClassFixture<DynamoContainerFixture>
 {
-    private readonly OwnedTypesTableDynamoFixture _fixture;
+    private readonly DynamoContainerFixture _fixture;
 
     /// <summary>Provides functionality for this member.</summary>
-    public OwnedTypesModelValidationTests(OwnedTypesTableDynamoFixture fixture)
-        => _fixture = fixture;
+    public OwnedTypesModelValidationTests(DynamoContainerFixture fixture) => _fixture = fixture;
 
     /// <summary>Provides functionality for this member.</summary>
     [Fact]
@@ -83,6 +84,7 @@ public class OwnedTypesModelValidationTests : IClassFixture<OwnedTypesTableDynam
     {
         var builder = new DbContextOptionsBuilder<TContext>();
         builder.UseDynamo(options => options.DynamoDbClient(_fixture.Client));
+        builder.ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning));
         return builder.Options;
     }
 
@@ -96,7 +98,7 @@ public class OwnedTypesModelValidationTests : IClassFixture<OwnedTypesTableDynam
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<OwnerWithSingleOwned>(entity =>
             {
-                entity.ToTable(OwnedTypesTableDynamoFixture.TableName);
+                entity.ToTable(OwnedTypesItemTable.TableName);
                 entity.HasPartitionKey(x => x.Pk);
                 entity.OwnsOne(
                     x => x.Profile,
@@ -119,7 +121,7 @@ public class OwnedTypesModelValidationTests : IClassFixture<OwnedTypesTableDynam
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<OwnerWithPropertyCollision>(entity =>
             {
-                entity.ToTable(OwnedTypesTableDynamoFixture.TableName);
+                entity.ToTable(OwnedTypesItemTable.TableName);
                 entity.HasPartitionKey(x => x.Pk);
                 entity.Property(x => x.ProfileData).HasAttributeName("ProfilePayload");
                 entity.OwnsOne(x => x.Profile, owned => owned.HasAttributeName("ProfilePayload"));
@@ -136,7 +138,7 @@ public class OwnedTypesModelValidationTests : IClassFixture<OwnedTypesTableDynam
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<OwnerWithNavigationCollision>(entity =>
             {
-                entity.ToTable(OwnedTypesTableDynamoFixture.TableName);
+                entity.ToTable(OwnedTypesItemTable.TableName);
                 entity.HasPartitionKey(x => x.Pk);
                 entity.OwnsOne(x => x.PrimaryProfile, owned => owned.HasAttributeName("Profile"));
                 entity.OwnsOne(x => x.SecondaryProfile, owned => owned.HasAttributeName("Profile"));
@@ -187,7 +189,7 @@ public class OwnedTypesModelValidationTests : IClassFixture<OwnedTypesTableDynam
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<OwnerWithUnsupportedCollectionShape>(entity =>
             {
-                entity.ToTable(OwnedTypesTableDynamoFixture.TableName);
+                entity.ToTable(OwnedTypesItemTable.TableName);
                 entity.HasPartitionKey(x => x.Pk);
                 entity.OwnsMany(x => x.Profiles);
             });

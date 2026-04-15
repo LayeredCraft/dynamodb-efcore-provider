@@ -1,19 +1,14 @@
 using Amazon.DynamoDBv2;
+using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SecondaryIndexTable;
 
-/// <summary>Integration tests for querying <c>OrderItem</c> via local secondary indexes.</summary>
-public class LsiQueryTests(SecondaryIndexDynamoFixture fixture) : SecondaryIndexTestBase(fixture)
+public class LsiQueryTests(DynamoContainerFixture fixture) : SecondaryIndexTableTestFixture(fixture)
 {
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task ByCreatedAt_Lsi_ReturnsCustomerOrdersInDateOrder()
     {
-        // DynamoDB Local does not support ORDER BY on secondary index sort keys via PartiQL.
-        // This test verifies that the provider generates the correct SQL; result ordering is
-        // verified client-side if DynamoDB Local accepts the query.
         List<OrderItem>? results = null;
         try
         {
@@ -24,10 +19,7 @@ public class LsiQueryTests(SecondaryIndexDynamoFixture fixture) : SecondaryIndex
                 .OrderBy(o => o.CreatedAt)
                 .ToListAsync(CancellationToken);
         }
-        catch (AmazonDynamoDBException)
-        {
-            // DynamoDB Local limitation: ORDER BY on LSI sort keys is not supported.
-        }
+        catch (AmazonDynamoDBException) { }
 
         if (results is not null)
         {
@@ -49,9 +41,7 @@ public class LsiQueryTests(SecondaryIndexDynamoFixture fixture) : SecondaryIndex
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task ByCreatedAt_Lsi_WithSortKeyBetween_ReturnsDateRangeOrders()
     {
         var results =
@@ -81,14 +71,9 @@ public class LsiQueryTests(SecondaryIndexDynamoFixture fixture) : SecondaryIndex
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task ByPriority_Lsi_ReturnsCustomerOrdersInPriorityOrder()
     {
-        // DynamoDB Local does not support ORDER BY on secondary index sort keys via PartiQL.
-        // This test verifies that the provider generates the correct SQL; result ordering is
-        // verified client-side if DynamoDB Local accepts the query.
         List<OrderItem>? results = null;
         try
         {
@@ -99,10 +84,7 @@ public class LsiQueryTests(SecondaryIndexDynamoFixture fixture) : SecondaryIndex
                 .OrderBy(o => o.Priority)
                 .ToListAsync(CancellationToken);
         }
-        catch (AmazonDynamoDBException)
-        {
-            // DynamoDB Local limitation: ORDER BY on LSI sort keys is not supported.
-        }
+        catch (AmazonDynamoDBException) { }
 
         if (results is not null)
         {
@@ -124,9 +106,7 @@ public class LsiQueryTests(SecondaryIndexDynamoFixture fixture) : SecondaryIndex
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task ByPriority_Lsi_WithNumericSortKeyFilter_ReturnsHighPriorityOrders()
     {
         var results =
@@ -149,9 +129,7 @@ public class LsiQueryTests(SecondaryIndexDynamoFixture fixture) : SecondaryIndex
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task ByCreatedAt_Lsi_EmitsCorrectFromSource_ForExecuteStatement()
     {
         _ = await Db

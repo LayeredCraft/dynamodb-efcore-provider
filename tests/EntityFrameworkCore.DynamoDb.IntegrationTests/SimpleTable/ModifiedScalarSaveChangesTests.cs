@@ -1,10 +1,11 @@
 using Amazon.DynamoDBv2.Model;
+using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SimpleTable;
 
-public class ModifiedScalarSaveChangesTests(SimpleTableDynamoFixture fixture)
-    : SimpleTableTestBase(fixture)
+public class ModifiedScalarSaveChangesTests(DynamoContainerFixture fixture)
+    : SimpleTableTestFixture(fixture)
 {
     [Fact]
     public async Task SaveChangesAsync_ModifiedScalar_UsesPartitionKeyOnlyWhere_WhenNoSortKey()
@@ -15,7 +16,7 @@ public class ModifiedScalarSaveChangesTests(SimpleTableDynamoFixture fixture)
             .AsAsyncEnumerable()
             .SingleAsync(CancellationToken);
 
-        LoggerFactory.Clear();
+        SqlCapture.Clear();
 
         item.IntValue = 777;
 
@@ -25,7 +26,7 @@ public class ModifiedScalarSaveChangesTests(SimpleTableDynamoFixture fixture)
         var rawItem = await Client.GetItemAsync(
             new GetItemRequest
             {
-                TableName = SimpleTableDynamoFixture.TableName,
+                TableName = SimpleItemTable.TableName,
                 Key = new Dictionary<string, AttributeValue> { ["Pk"] = new() { S = item.Pk } },
             },
             CancellationToken);

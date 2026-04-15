@@ -1,3 +1,4 @@
+using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SaveChangesTable;
@@ -8,8 +9,8 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SaveChangesTable;
 ///     SQL log, mutates, saves again, and then verifies the emitted PartiQL and the persisted DynamoDB
 ///     shape.
 /// </summary>
-public class OwnedAndNestedSaveChangesTests(SaveChangesTableDynamoFixture fixture)
-    : SaveChangesTableTestBase(fixture)
+public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
+    : SaveChangesTableTestFixture(fixture)
 {
     // -------------------------------------------------------------------------
     // OwnsOne — scalar property changed

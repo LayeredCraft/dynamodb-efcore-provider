@@ -1,10 +1,11 @@
+using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SaveChangesTable;
 
 /// <summary>Integration tests for <c>SaveChangesAsync</c> with <c>EntityState.Deleted</c> entities.</summary>
-public class DeletedEntitiesSaveChangesTests(SaveChangesTableDynamoFixture fixture)
-    : SaveChangesTableTestBase(fixture)
+public class DeletedEntitiesSaveChangesTests(DynamoContainerFixture fixture)
+    : SaveChangesTableTestFixture(fixture)
 {
     /// <summary>
     ///     A tracked entity removed via <c>DbSet.Remove</c> is deleted from DynamoDB and the item is

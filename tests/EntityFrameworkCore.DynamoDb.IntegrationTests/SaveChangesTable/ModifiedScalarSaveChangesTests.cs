@@ -1,9 +1,10 @@
+using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SaveChangesTable;
 
-public class ModifiedScalarSaveChangesTests(SaveChangesTableDynamoFixture fixture)
-    : SaveChangesTableTestBase(fixture)
+public class ModifiedScalarSaveChangesTests(DynamoContainerFixture fixture)
+    : SaveChangesTableTestFixture(fixture)
 {
     [Fact]
     public async Task SaveChangesAsync_ModifiedSingleScalar_PersistsAndEmitsUpdate()

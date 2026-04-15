@@ -1,9 +1,10 @@
+using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.OwnedTypesTable;
 
 /// <summary>Represents the SelectTests type.</summary>
-public class SelectTests(OwnedTypesTableDynamoFixture fixture) : OwnedTypesTableTestBase(fixture)
+public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFixture(fixture)
 {
     /// <summary>Provides functionality for this member.</summary>
     [Fact]

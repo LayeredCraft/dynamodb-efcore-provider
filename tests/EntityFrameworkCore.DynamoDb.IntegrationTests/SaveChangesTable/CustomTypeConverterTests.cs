@@ -1,3 +1,5 @@
+using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
+
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SaveChangesTable;
 
 /// <summary>
@@ -6,8 +8,8 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SaveChangesTable;
 ///     provider's type-dispatch table, so both the non-nullable and nullable property paths must go
 ///     through <c>BoxedScalarFallback</c> in <c>DynamoEntityItemSerializerSource</c>.
 /// </summary>
-public class CustomTypeConverterTests(SaveChangesTableDynamoFixture fixture)
-    : SaveChangesTableTestBase(fixture)
+public class CustomTypeConverterTests(DynamoContainerFixture fixture)
+    : SaveChangesTableTestFixture(fixture)
 {
     [Fact]
     public async Task SaveChanges_NonNullableCustomType_StoresConverterOutput()

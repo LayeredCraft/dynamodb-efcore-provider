@@ -1,11 +1,15 @@
 using Amazon.DynamoDBv2.Model;
+using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SaveChangesTable;
 
-/// <summary>Integration tests for <c>SaveChangesAsync</c> with <c>EntityState.Added</c> entities (scalar properties only).</summary>
-public class AddedEntitiesSaveChangesTests(SaveChangesTableDynamoFixture fixture)
-    : SaveChangesTableTestBase(fixture)
+/// <summary>
+///     Integration tests for <c>SaveChangesAsync</c> with <c>EntityState.Added</c> entities
+///     (scalar properties only).
+/// </summary>
+public class AddedEntitiesSaveChangesTests(DynamoContainerFixture fixture)
+    : SaveChangesTableTestFixture(fixture)
 {
     /// <summary>A newly added scalar-only ProductItem round-trips correctly to DynamoDB.</summary>
     [Fact]
@@ -188,8 +192,8 @@ public class AddedEntitiesSaveChangesTests(SaveChangesTableDynamoFixture fixture
     }
 
     /// <summary>
-    /// Attempting to add an entity with a PK that already exists throws an exception,
-    /// confirming INSERT (create-only) semantics rather than PutItem (replace) semantics.
+    ///     Attempting to add an entity with a PK that already exists throws an exception, confirming
+    ///     INSERT (create-only) semantics rather than PutItem (replace) semantics.
     /// </summary>
     [Fact]
     public async Task AddAsync_DuplicateKey_ThrowsException()

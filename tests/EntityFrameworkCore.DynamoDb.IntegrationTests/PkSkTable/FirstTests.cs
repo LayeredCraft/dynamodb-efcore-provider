@@ -1,9 +1,10 @@
+using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.PkSkTable;
 
 /// <summary>Integration tests for First* query behavior with the ADR-002 pagination model.</summary>
-public class FirstTests(PkSkTableDynamoFixture fixture) : PkSkTableTestBase(fixture)
+public class FirstTests(DynamoContainerFixture fixture) : PkSkTableTestFixture(fixture)
 {
     // ── Model smoke tests ────────────────────────────────────────────────────
 

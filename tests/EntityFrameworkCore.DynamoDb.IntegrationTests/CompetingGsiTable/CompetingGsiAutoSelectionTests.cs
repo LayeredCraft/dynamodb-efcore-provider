@@ -1,29 +1,19 @@
 using EntityFrameworkCore.DynamoDb.Diagnostics;
 using EntityFrameworkCore.DynamoDb.Infrastructure;
 using EntityFrameworkCore.DynamoDb.IntegrationTests.SecondaryIndexTable;
-using EntityFrameworkCore.DynamoDb.IntegrationTests.TestUtilities;
+using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.CompetingGsiTable;
 
-/// <summary>Integration tests for auto-selection behavior when multiple GSIs are eligible.</summary>
-public sealed class CompetingGsiAutoSelectionTests(CompetingGsiDynamoFixture fixture)
-    : CompetingGsiTestBase(fixture)
+public sealed class CompetingGsiAutoSelectionTests(DynamoContainerFixture fixture)
+    : CompetingGsiTableTestFixture(fixture)
 {
-    /// <inheritdoc />
-    protected override DbContextOptions<CompetingGsiDbContext> CreateOptions(
-        TestPartiQlLoggerFactory loggerFactory)
-    {
-        var builder =
-            new DbContextOptionsBuilder<CompetingGsiDbContext>(base.CreateOptions(loggerFactory));
-        builder.UseDynamo(opt
-            => opt.UseAutomaticIndexSelection(DynamoAutomaticIndexSelectionMode.Conservative));
-        return builder.Options;
-    }
+    protected override DynamoAutomaticIndexSelectionMode AutomaticIndexSelectionMode
+        => DynamoAutomaticIndexSelectionMode.Conservative;
 
-    /// <summary>Verifies that when two GSIs tie, the provider emits IDX002 and uses the base table.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Conservative_CompetingGsis_WithEqualScore_EmitsIdx002_UsesBaseTable()
     {
         var results =
@@ -36,6 +26,7 @@ public sealed class CompetingGsiAutoSelectionTests(CompetingGsiDynamoFixture fix
             .Should()
             .Contain(e
                 => e.EventId.Id == DynamoEventId.MultipleCompatibleSecondaryIndexesFound.Id
+                && e.LogLevel == LogLevel.Warning
                 && e.Message.Contains("ByStatusCreatedAt")
                 && e.Message.Contains("ByStatusPriority"));
 
@@ -47,9 +38,7 @@ public sealed class CompetingGsiAutoSelectionTests(CompetingGsiDynamoFixture fix
             """);
     }
 
-    /// <summary>Verifies that ordering on one candidate sort key breaks the tie and selects that index.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Conservative_CompetingGsis_OrderBySortKey_SelectsScoringWinner()
     {
         _ = await Db
@@ -63,8 +52,9 @@ public sealed class CompetingGsiAutoSelectionTests(CompetingGsiDynamoFixture fix
             .Should()
             .ContainSingle(e
                 => e.EventId.Id == DynamoEventId.SecondaryIndexSelected.Id
-                && e.Message.Contains("ByStatusCreatedAt")
-                && e.Message.Contains("was auto-selected"));
+                && e.LogLevel == LogLevel.Information
+                && e.Message.Contains(
+                    "Index 'ByStatusCreatedAt' on table 'CompetingGsiOrders' was auto-selected."));
 
         AssertSql(
             """

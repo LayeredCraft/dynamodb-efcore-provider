@@ -1,15 +1,16 @@
+using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.PrimitiveCollectionsTable;
 
 /// <summary>Represents the StrictShapeValidationTests type.</summary>
-public class StrictShapeValidationTests : IClassFixture<PrimitiveCollectionsDynamoFixture>
+public class StrictShapeValidationTests : IClassFixture<DynamoContainerFixture>
 {
-    private readonly PrimitiveCollectionsDynamoFixture _fixture;
+    private readonly DynamoContainerFixture _fixture;
 
     /// <summary>Provides functionality for this member.</summary>
-    public StrictShapeValidationTests(PrimitiveCollectionsDynamoFixture fixture)
-        => _fixture = fixture;
+    public StrictShapeValidationTests(DynamoContainerFixture fixture) => _fixture = fixture;
 
     /// <summary>Provides functionality for this member.</summary>
     [Fact]
@@ -45,6 +46,7 @@ public class StrictShapeValidationTests : IClassFixture<PrimitiveCollectionsDyna
     {
         var builder = new DbContextOptionsBuilder<TContext>();
         builder.UseDynamo(options => options.DynamoDbClient(_fixture.Client));
+        builder.ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning));
         return builder.Options;
     }
 

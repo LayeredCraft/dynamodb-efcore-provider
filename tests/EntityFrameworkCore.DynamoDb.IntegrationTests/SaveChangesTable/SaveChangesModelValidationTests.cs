@@ -1,4 +1,6 @@
+using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SaveChangesTable;
 
@@ -6,8 +8,8 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SaveChangesTable;
 ///     Integration tests that verify unsupported write model shapes fail before any write is
 ///     sent.
 /// </summary>
-public class SaveChangesModelValidationTests(SaveChangesTableDynamoFixture fixture)
-    : SaveChangesTableTestBase(fixture)
+public class SaveChangesModelValidationTests(DynamoContainerFixture fixture)
+    : SaveChangesTableTestFixture(fixture)
 {
     [Fact]
     public async Task SaveChanges_UnmappedScalarProperty_ThrowsBeforeWrite()
@@ -56,14 +58,16 @@ public class SaveChangesModelValidationTests(SaveChangesTableDynamoFixture fixtu
 
     private UnmappedScalarContext CreateUnmappedScalarContext()
         => new(
-            new DbContextOptionsBuilder<UnmappedScalarContext>().UseDynamo(options
-                    => options.DynamoDbClient(Client))
+            new DbContextOptionsBuilder<UnmappedScalarContext>()
+                .UseDynamo(options => options.DynamoDbClient(Client))
+                .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
                 .Options);
 
     private RowVersionContext CreateRowVersionContext()
         => new(
-            new DbContextOptionsBuilder<RowVersionContext>().UseDynamo(options
-                    => options.DynamoDbClient(Client))
+            new DbContextOptionsBuilder<RowVersionContext>()
+                .UseDynamo(options => options.DynamoDbClient(Client))
+                .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
                 .Options);
 
     private sealed class UnmappedScalarContext(DbContextOptions options) : DbContext(options)
@@ -73,7 +77,7 @@ public class SaveChangesModelValidationTests(SaveChangesTableDynamoFixture fixtu
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<UnmappedScalarItem>(builder =>
             {
-                builder.ToTable(SaveChangesTableDynamoFixture.TableName);
+                builder.ToTable(SaveChangesItemTable.TableName);
                 builder.HasPartitionKey(x => x.Pk);
                 builder.HasSortKey(x => x.Sk);
                 builder.Property(x => x.Metadata);
@@ -87,7 +91,7 @@ public class SaveChangesModelValidationTests(SaveChangesTableDynamoFixture fixtu
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<RowVersionItem>(builder =>
             {
-                builder.ToTable(SaveChangesTableDynamoFixture.TableName);
+                builder.ToTable(SaveChangesItemTable.TableName);
                 builder.HasPartitionKey(x => x.Pk);
                 builder.HasSortKey(x => x.Sk);
                 builder.Property(x => x.Token).IsConcurrencyToken().ValueGeneratedOnAddOrUpdate();

@@ -1,14 +1,12 @@
 using Amazon.DynamoDBv2;
+using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SecondaryIndexTable;
 
-/// <summary>Integration tests for querying <c>OrderItem</c> via global secondary indexes.</summary>
-public class GsiQueryTests(SecondaryIndexDynamoFixture fixture) : SecondaryIndexTestBase(fixture)
+public class GsiQueryTests(DynamoContainerFixture fixture) : SecondaryIndexTableTestFixture(fixture)
 {
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task ByStatus_Gsi_ReturnsAllPendingOrders_AcrossCustomers()
     {
         var results =
@@ -30,9 +28,7 @@ public class GsiQueryTests(SecondaryIndexDynamoFixture fixture) : SecondaryIndex
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task ByStatus_Gsi_WithSortKeyFilter_ReturnsOrdersInDateRange()
     {
         var results =
@@ -59,14 +55,9 @@ public class GsiQueryTests(SecondaryIndexDynamoFixture fixture) : SecondaryIndex
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task ByStatus_Gsi_WithOrderBy_EmitsOrderByClause()
     {
-        // DynamoDB Local does not support ORDER BY on secondary index sort keys via PartiQL.
-        // This test verifies that the provider generates the correct SQL; result ordering is
-        // verified client-side if DynamoDB Local accepts the query.
         List<OrderItem>? results = null;
         try
         {
@@ -77,10 +68,7 @@ public class GsiQueryTests(SecondaryIndexDynamoFixture fixture) : SecondaryIndex
                 .OrderBy(o => o.CreatedAt)
                 .ToListAsync(CancellationToken);
         }
-        catch (AmazonDynamoDBException)
-        {
-            // DynamoDB Local limitation: ORDER BY on GSI sort keys is not supported.
-        }
+        catch (AmazonDynamoDBException) { }
 
         if (results is not null)
         {
@@ -102,9 +90,7 @@ public class GsiQueryTests(SecondaryIndexDynamoFixture fixture) : SecondaryIndex
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task ByRegion_Gsi_ReturnsAllUsEastOrders()
     {
         var results =
@@ -126,7 +112,6 @@ public class GsiQueryTests(SecondaryIndexDynamoFixture fixture) : SecondaryIndex
             """);
     }
 
-    /// <summary>Verifies that Limit(n) sets the evaluation budget when querying a GSI.</summary>
     [Fact]
     public async Task ByRegion_Gsi_WithLimit_ReturnsCorrectCount()
     {
@@ -138,7 +123,6 @@ public class GsiQueryTests(SecondaryIndexDynamoFixture fixture) : SecondaryIndex
                 .Limit(2)
                 .ToListAsync(CancellationToken);
 
-        // Limit(2) evaluates at most 2 items. All seeded US-EAST items match, so 2 are returned.
         results.Should().HaveCount(2);
 
         AssertSql(
@@ -149,9 +133,7 @@ public class GsiQueryTests(SecondaryIndexDynamoFixture fixture) : SecondaryIndex
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task ByStatus_Gsi_EmitsCorrectFromSource_ForExecuteStatement()
     {
         _ = await Db

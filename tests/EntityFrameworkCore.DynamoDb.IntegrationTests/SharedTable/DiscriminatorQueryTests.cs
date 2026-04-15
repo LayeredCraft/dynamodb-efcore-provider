@@ -1,14 +1,12 @@
+using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SharedTable;
 
-/// <summary>Represents the DiscriminatorQueryTests type.</summary>
-public class DiscriminatorQueryTests(SharedTableDynamoFixture fixture)
-    : SharedTableTestBase<SharedTableDbContext>(fixture)
+public class DiscriminatorQueryTests(DynamoContainerFixture fixture)
+    : SharedTableTestFixture(fixture)
 {
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Where_IncludesDiscriminatorPredicate_AndQuotedTableName()
     {
         var results =
@@ -25,17 +23,14 @@ public class DiscriminatorQueryTests(SharedTableDynamoFixture fixture)
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task SelectProjection_StillAppliesDiscriminatorPredicate()
     {
-        var results =
-            await Db
-                .Users
-                .Where(user => user.Pk == "TENANT#U")
-                .Select(user => user.Pk)
-                .ToListAsync(CancellationToken);
+        var results = await Db
+            .Users
+            .Where(user => user.Pk == "TENANT#U")
+            .Select(user => user.Pk)
+            .ToListAsync(CancellationToken);
 
         results.Should().Equal("TENANT#U", "TENANT#U");
 
@@ -48,17 +43,21 @@ public class DiscriminatorQueryTests(SharedTableDynamoFixture fixture)
     }
 }
 
-/// <summary>Represents the DiscriminatorQueryCustomNameTests type.</summary>
-public class DiscriminatorQueryCustomNameTests(SharedTableDynamoFixture fixture)
-    : SharedTableTestBase<SharedTableCustomDiscriminatorNameDbContext>(fixture)
+public class DiscriminatorQueryCustomNameTests(DynamoContainerFixture fixture)
+    : SharedTableTestFixture(fixture)
 {
-    /// <summary>Provides functionality for this member.</summary>
+    private SharedTableCustomDiscriminatorNameDbContext CustomDiscriminatorDb
+        => new(
+            CreateOptions<SharedTableCustomDiscriminatorNameDbContext>(o
+                => o.DynamoDbClient(Client)));
+
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task UsesEmbeddedDiscriminatorNameOverrideInPredicate()
     {
-        var results =
-            await Db.Users.Where(user => user.Pk == "TENANT#U").ToListAsync(CancellationToken);
+        var results = await CustomDiscriminatorDb
+            .Users
+            .Where(user => user.Pk == "TENANT#U")
+            .ToListAsync(CancellationToken);
 
         results.Should().HaveCount(2);
 
@@ -71,17 +70,19 @@ public class DiscriminatorQueryCustomNameTests(SharedTableDynamoFixture fixture)
     }
 }
 
-/// <summary>Represents the DiscriminatorQuerySingleTypeTests type.</summary>
-public class DiscriminatorQuerySingleTypeTests(SharedTableDynamoFixture fixture)
-    : SharedTableTestBase<SharedTableSingleTypeDbContext>(fixture)
+public class DiscriminatorQuerySingleTypeTests(DynamoContainerFixture fixture)
+    : SharedTableTestFixture(fixture)
 {
-    /// <summary>Provides functionality for this member.</summary>
+    private SharedTableSingleTypeDbContext SingleTypeDb
+        => new(CreateOptions<SharedTableSingleTypeDbContext>(o => o.DynamoDbClient(Client)));
+
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task SingleTypeTable_DoesNotInjectDiscriminatorPredicate()
     {
-        var results =
-            await Db.Users.Where(user => user.Pk == "TENANT#U").ToListAsync(CancellationToken);
+        var results = await SingleTypeDb
+            .Users
+            .Where(user => user.Pk == "TENANT#U")
+            .ToListAsync(CancellationToken);
 
         results.Should().HaveCount(2);
 
@@ -94,17 +95,19 @@ public class DiscriminatorQuerySingleTypeTests(SharedTableDynamoFixture fixture)
     }
 }
 
-/// <summary>Represents the DiscriminatorInheritanceQueryTests type.</summary>
-public class DiscriminatorInheritanceQueryTests(SharedTableDynamoFixture fixture)
-    : SharedTableTestBase<SharedTableInheritanceDbContext>(fixture)
+public class DiscriminatorInheritanceQueryTests(DynamoContainerFixture fixture)
+    : SharedTableTestFixture(fixture)
 {
-    /// <summary>Verifies a base-type query materializes all concrete hierarchy types.</summary>
+    private SharedTableInheritanceDbContext InheritanceDb
+        => new(CreateOptions<SharedTableInheritanceDbContext>(o => o.DynamoDbClient(Client)));
+
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task BaseQuery_MaterializesConcreteHierarchyTypes()
     {
-        var results =
-            await Db.People.Where(person => person.Pk == "TENANT#H").ToListAsync(CancellationToken);
+        var results = await InheritanceDb
+            .People
+            .Where(person => person.Pk == "TENANT#H")
+            .ToListAsync(CancellationToken);
 
         results.Should().HaveCount(2);
 
@@ -124,12 +127,10 @@ public class DiscriminatorInheritanceQueryTests(SharedTableDynamoFixture fixture
             """);
     }
 
-    /// <summary>Verifies discriminator OR conditions remain grouped when additional filters are combined.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task BaseQuery_WithAdditionalFilter_UsesGroupedDiscriminatorPredicate()
     {
-        var results = await Db
+        var results = await InheritanceDb
             .People
             .Where(person => person.Pk == "TENANT#H")
             .Where(person => person.Name == "Eve")
@@ -146,16 +147,13 @@ public class DiscriminatorInheritanceQueryTests(SharedTableDynamoFixture fixture
             """);
     }
 
-    /// <summary>Verifies a derived-type query applies a derived discriminator predicate.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task DerivedQuery_UsesDerivedDiscriminatorPredicate()
     {
-        var results =
-            await Db
-                .Employees
-                .Where(employee => employee.Pk == "TENANT#H")
-                .ToListAsync(CancellationToken);
+        var results = await InheritanceDb
+            .Employees
+            .Where(employee => employee.Pk == "TENANT#H")
+            .ToListAsync(CancellationToken);
 
         results.Should().HaveCount(1);
         results[0].Department.Should().Be("Engineering");
@@ -168,15 +166,10 @@ public class DiscriminatorInheritanceQueryTests(SharedTableDynamoFixture fixture
             """);
     }
 
-    /// <summary>
-    ///     Verifies <c>FirstOrDefaultAsync</c> allows derived/shared-table single-item lookups when
-    ///     PK+SK equality uniquely identifies one base-table item before discriminator filtering.
-    /// </summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task DerivedQuery_FirstOrDefault_PkAndSkEquality_ReturnsMatchingDerivedItem()
     {
-        var result = await Db
+        var result = await InheritanceDb
             .Employees
             .Where(employee => employee.Pk == "TENANT#H" && employee.Sk == "PERSON#EMP-1")
             .FirstOrDefaultAsync(CancellationToken);
@@ -192,15 +185,10 @@ public class DiscriminatorInheritanceQueryTests(SharedTableDynamoFixture fixture
             """);
     }
 
-    /// <summary>
-    ///     Verifies <c>FirstOrDefaultAsync</c> rejects derived/shared-table PK-only queries because
-    ///     discriminator filtering on a multi-item source is not a safe server-side <c>First*</c> path.
-    /// </summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task DerivedQuery_FirstOrDefault_PkOnly_ThrowsTranslationFailure()
     {
-        var act = async () => await Db
+        var act = async () => await InheritanceDb
             .Employees
             .Where(employee => employee.Pk == "TENANT#H")
             .FirstOrDefaultAsync(CancellationToken);
@@ -212,20 +200,21 @@ public class DiscriminatorInheritanceQueryTests(SharedTableDynamoFixture fixture
     }
 }
 
-/// <summary>Represents the DiscriminatorInheritanceBaseOnlyToTableQueryTests type.</summary>
-public class DiscriminatorInheritanceBaseOnlyToTableQueryTests(SharedTableDynamoFixture fixture)
-    : SharedTableTestBase<SharedTableInheritanceBaseOnlyToTableDbContext>(fixture)
+public class DiscriminatorInheritanceBaseOnlyToTableQueryTests(DynamoContainerFixture fixture)
+    : SharedTableTestFixture(fixture)
 {
-    /// <summary>
-    ///     Verifies a base-type query materializes all concrete hierarchy types when only the base
-    ///     entity configures table mapping.
-    /// </summary>
+    private SharedTableInheritanceBaseOnlyToTableDbContext BaseOnlyToTableDb
+        => new(
+            CreateOptions<SharedTableInheritanceBaseOnlyToTableDbContext>(o
+                => o.DynamoDbClient(Client)));
+
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task BaseQuery_MaterializesConcreteHierarchyTypes_WhenOnlyBaseConfiguresTable()
     {
-        var results =
-            await Db.People.Where(person => person.Pk == "TENANT#H").ToListAsync(CancellationToken);
+        var results = await BaseOnlyToTableDb
+            .People
+            .Where(person => person.Pk == "TENANT#H")
+            .ToListAsync(CancellationToken);
 
         results.Should().HaveCount(2);
 
@@ -245,15 +234,10 @@ public class DiscriminatorInheritanceBaseOnlyToTableQueryTests(SharedTableDynamo
             """);
     }
 
-    /// <summary>
-    ///     Verifies a derived query uses the root table mapping when only the base type configures
-    ///     the table.
-    /// </summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task DerivedQuery_UsesRootTableMapping_WhenOnlyBaseConfiguresTable()
     {
-        var results = await Db
+        var results = await BaseOnlyToTableDb
             .Employees
             .Where(employee => employee.Pk == "TENANT#H")
             .ToListAsync(CancellationToken);
@@ -270,19 +254,18 @@ public class DiscriminatorInheritanceBaseOnlyToTableQueryTests(SharedTableDynamo
     }
 }
 
-/// <summary>Represents the DiscriminatorInheritanceWithIndexQueryTests type.</summary>
-public class DiscriminatorInheritanceWithIndexQueryTests(SharedTableDynamoFixture fixture)
-    : SharedTableTestBase<SharedTableInheritanceWithIndexesDbContext>(fixture)
+public class DiscriminatorInheritanceWithIndexQueryTests(DynamoContainerFixture fixture)
+    : SharedTableTestFixture(fixture)
 {
-    /// <summary>
-    ///     Verifies explicit index validation for derived queries excludes sibling-only indexes in
-    ///     the same inheritance root.
-    /// </summary>
+    private SharedTableInheritanceWithIndexesDbContext InheritanceWithIndexesDb
+        => new(
+            CreateOptions<SharedTableInheritanceWithIndexesDbContext>(o
+                => o.DynamoDbClient(Client)));
+
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task DerivedQuery_WithSiblingOnlyIndex_ThrowsBeforeExecution()
     {
-        var act = async () => await Db
+        var act = async () => await InheritanceWithIndexesDb
             .ArchivedWorkOrders
             .WithIndex("ByPriority")
             .ToListAsync(CancellationToken);

@@ -1,11 +1,13 @@
 using Amazon.DynamoDBv2.Model;
+using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.PrimitiveCollectionsTable;
 
 /// <summary>Represents the NullHandlingTests type.</summary>
-public class NullHandlingTests(PrimitiveCollectionsDynamoFixture fixture)
-    : PrimitiveCollectionsTestBase(fixture)
+public class NullHandlingTests(DynamoContainerFixture fixture)
+    : PrimitiveCollectionsTableTestFixture(fixture)
 {
     /// <summary>Verifies missing optional dictionary properties materialize as null.</summary>
     [Fact]
@@ -256,6 +258,7 @@ public class NullHandlingTests(PrimitiveCollectionsDynamoFixture fixture)
     {
         var builder = new DbContextOptionsBuilder<OptionalCollectionsContext>();
         builder.UseDynamo(options => options.DynamoDbClient(Client));
+        builder.ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning));
         return builder.Options;
     }
 
@@ -263,7 +266,7 @@ public class NullHandlingTests(PrimitiveCollectionsDynamoFixture fixture)
         => Client.PutItemAsync(
             new PutItemRequest
             {
-                TableName = PrimitiveCollectionsDynamoFixture.TableName, Item = item,
+                TableName = PrimitiveCollectionsItemTable.TableName, Item = item,
             },
             CancellationToken);
 
@@ -277,7 +280,7 @@ public class NullHandlingTests(PrimitiveCollectionsDynamoFixture fixture)
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<OptionalCollectionsItem>(entity =>
             {
-                entity.ToTable(PrimitiveCollectionsDynamoFixture.TableName);
+                entity.ToTable(PrimitiveCollectionsItemTable.TableName);
                 entity.HasPartitionKey(x => x.Pk);
             });
     }

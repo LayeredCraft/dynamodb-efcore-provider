@@ -1,14 +1,15 @@
 using Amazon.DynamoDBv2.Model;
+using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SaveChangesTable;
 
 /// <summary>
-///     Integration tests for explicit concurrency-token optimistic concurrency. Covers duplicate-key
-///     INSERT behavior plus stale-token conflicts on UPDATE and DELETE.
+///     Integration tests for explicit concurrency-token optimistic concurrency. Covers
+///     duplicate-key INSERT behavior plus stale-token conflicts on UPDATE and DELETE.
 /// </summary>
-public class SaveChangesConcurrencyTests(SaveChangesTableDynamoFixture fixture)
-    : SaveChangesTableTestBase(fixture)
+public class SaveChangesConcurrencyTests(DynamoContainerFixture fixture)
+    : SaveChangesTableTestFixture(fixture)
 {
     // ──────────────────────────────────────────────────────────────────────────────
     //  INSERT — duplicate key
