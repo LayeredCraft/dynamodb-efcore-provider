@@ -18,12 +18,62 @@ This provider translates LINQ queries to PartiQL and executes them with the AWS 
 dotnet add package --prerelease EntityFrameworkCore.DynamoDb
 ```
 
-## Quick Start
+## Start here
 
-1. Configure the provider in your `DbContext` via `UseDynamo(...)`; see [Configuration](configuration.md).
-1. Map your entities to DynamoDB tables and key schema; see [Indexes](indexes.md).
-1. Start with supported LINQ operators from [Operators](operators.md).
-1. Review [Limitations](limitations.md) before adopting query patterns.
+1. Follow [Getting Started](getting-started.md) for package install, DynamoDB configuration,
+    `DbContext` setup, entity/table mapping, and first query execution.
+1. Review [Configuration](configuration.md) for client setup and transaction behavior.
+1. Use [Operators](operators.md) to confirm which LINQ shapes translate today.
+1. Read [Limitations](limitations.md) before adopting production query patterns.
+
+## Hello world
+
+Single-file minimal example from model + context to first query:
+
+```csharp
+using Microsoft.EntityFrameworkCore;
+
+public sealed class User
+{
+    public required string PK { get; set; }
+    public required string SK { get; set; }
+    public required string Email { get; set; }
+}
+
+public sealed class AppDbContext : DbContext
+{
+    public DbSet<User> Users => Set<User>();
+
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+        => optionsBuilder.UseDynamo(options =>
+        {
+            options.ConfigureDynamoDbClientConfig(config =>
+            {
+                config.ServiceURL = "http://localhost:8000";
+                config.AuthenticationRegion = "us-east-1";
+                config.UseHttp = true;
+            });
+        });
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<User>(b =>
+        {
+            b.ToTable("App");
+            b.HasPartitionKey(x => x.PK);
+            b.HasSortKey(x => x.SK);
+        });
+    }
+}
+
+await using var context = new AppDbContext();
+
+var profile = await context.Users
+    .Where(x => x.PK == "USER#42" && x.SK == "PROFILE")
+    .FirstOrDefaultAsync();
+```
+
+For the full setup path, use [Getting Started](getting-started.md).
 
 ## Current Scope
 
@@ -44,23 +94,3 @@ dotnet add package --prerelease EntityFrameworkCore.DynamoDb
 
 - Report bugs and request features on [GitHub Issues](https://github.com/LayeredCraft/dynamodb-efcore-provider/issues).
 - For local debugging guidance, use [Diagnostics](diagnostics.md).
-
-## Documentation
-
-- [Configuration](configuration.md)
-- [Indexes](indexes.md)
-- [Architecture](architecture.md)
-- [Concurrency](concurrency.md)
-- [Operators](operators.md)
-- [Pagination](pagination.md)
-- [Projections](projections.md)
-- [Owned Types](owned-types.md)
-- [Diagnostics](diagnostics.md)
-- [Limitations](limitations.md)
-- [Repository README](https://github.com/LayeredCraft/dynamodb-efcore-provider#readme)
-
-## Notes
-
-- `SaveChangesAsync` supports Added/Modified/Deleted root writes, including owned/nested mutations,
-    and follows EF Core `AutoTransactionBehavior` for execution policy (`WhenNeeded`/`Always`
-    transactional for multi-root, `Never` non-atomic batched for multi-root).
