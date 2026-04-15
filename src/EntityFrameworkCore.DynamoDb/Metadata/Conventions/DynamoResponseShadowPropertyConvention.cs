@@ -1,4 +1,5 @@
 using Amazon.DynamoDBv2.Model;
+using EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions;
@@ -17,6 +18,8 @@ namespace EntityFrameworkCore.DynamoDb.Metadata.Conventions;
 /// </remarks>
 public sealed class DynamoResponseShadowPropertyConvention : IEntityTypeAddedConvention
 {
+    internal const string ExecuteStatementResponsePropertyName = "__executeStatementResponse";
+
     /// <summary>
     ///     Adds the <c>__executeStatementResponse</c> shadow property when a root entity type is
     ///     registered in the model.
@@ -33,8 +36,12 @@ public sealed class DynamoResponseShadowPropertyConvention : IEntityTypeAddedCon
         if (entityType.BaseType != null || entityType.IsOwned())
             return;
 
-        builder
-            .Property(typeof(ExecuteStatementResponse), "__executeStatementResponse")
+        var propertyBuilder = builder
+            .Property(typeof(ExecuteStatementResponse), ExecuteStatementResponsePropertyName)
             ?.ValueGenerated(ValueGenerated.OnAddOrUpdate);
+
+        propertyBuilder?.Metadata.SetOrRemoveAnnotation(
+            DynamoAnnotationNames.RuntimeOnlyProperty,
+            true);
     }
 }

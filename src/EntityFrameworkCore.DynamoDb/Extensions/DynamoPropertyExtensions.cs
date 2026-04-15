@@ -33,6 +33,10 @@ public static class DynamoPropertyExtensions
         /// </summary>
         public string GetAttributeName()
             => (string?)property[DynamoAnnotationNames.AttributeName] ?? property.Name;
+
+        /// <summary>Returns whether this property is runtime-only provider metadata.</summary>
+        public bool IsRuntimeOnly()
+            => property[DynamoAnnotationNames.RuntimeOnlyProperty] as bool? == true;
     }
 
     extension(IMutableProperty property)
@@ -40,6 +44,12 @@ public static class DynamoPropertyExtensions
         /// <summary>Sets or clears the DynamoDB attribute name override for this property.</summary>
         public void SetAttributeName(string? name)
             => property.SetOrRemoveAnnotation(DynamoAnnotationNames.AttributeName, name);
+
+        /// <summary>Marks this property as runtime-only provider metadata.</summary>
+        public void SetRuntimeOnly(bool runtimeOnly)
+            => property.SetOrRemoveAnnotation(
+                DynamoAnnotationNames.RuntimeOnlyProperty,
+                runtimeOnly ? true : null);
     }
 
     extension(IConventionProperty property)
@@ -49,6 +59,17 @@ public static class DynamoPropertyExtensions
             => (string?)property.SetOrRemoveAnnotation(
                     DynamoAnnotationNames.AttributeName,
                     name,
+                    fromDataAnnotation)
+                ?.Value;
+
+        /// <summary>
+        ///     Sets whether this property is runtime-only provider metadata, recording the configuration
+        ///     source.
+        /// </summary>
+        public bool? SetRuntimeOnly(bool runtimeOnly, bool fromDataAnnotation = false)
+            => (bool?)property.SetOrRemoveAnnotation(
+                    DynamoAnnotationNames.RuntimeOnlyProperty,
+                    runtimeOnly ? true : null,
                     fromDataAnnotation)
                 ?.Value;
     }

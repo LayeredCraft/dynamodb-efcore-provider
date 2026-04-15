@@ -34,4 +34,11 @@ public static class DynamoAnnotationNames
 
     /// <summary>Provides functionality for this member.</summary>
     public const string RuntimeTableModel = Prefix + "RuntimeTableModel";
+
+    /// <summary>
+    ///     Marks a property as runtime-only provider metadata. Runtime-only properties are not
+    ///     projected from DynamoDB item attributes and are excluded from write serialization and model
+    ///     validation checks.
+    /// </summary>
+    public const string RuntimeOnlyProperty = Prefix + "RuntimeOnlyProperty";
 }

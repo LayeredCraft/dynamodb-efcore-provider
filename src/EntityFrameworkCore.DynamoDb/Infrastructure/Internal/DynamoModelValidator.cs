@@ -836,9 +836,9 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
     {
         foreach (var property in typeBase.GetDeclaredProperties())
         {
-            // __executeStatementResponse is a runtime-only shadow property populated by the query
-            // shaper. It holds per-page SDK response metadata and is never serialized to DynamoDB.
-            if (property.Name == "__executeStatementResponse")
+            // Runtime-only provider metadata is populated outside DynamoDB attribute mapping and
+            // never serialized to the store.
+            if (property.IsRuntimeOnly())
                 continue;
 
             // Null-mapping and non-DynamoTypeMapping cases are caught earlier by EF Core's

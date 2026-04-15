@@ -1034,10 +1034,15 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
                 var property = (IProperty)((ConstantExpression)node.Arguments[2]).Value!;
                 var targetType = node.Type == typeof(object) ? property.ClrType : node.Type;
 
-                // __executeStatementResponse is not stored in the DynamoDB item dictionary —
-                // it is sourced directly from the per-page SDK response held on the query context.
-                if (property.Name == "__executeStatementResponse")
+                // Runtime-only properties are not stored in the DynamoDB item dictionary.
+                // They must be materialized from query/runtime context.
+                if (property.IsRuntimeOnly())
                 {
+                    if (property.ClrType != typeof(ExecuteStatementResponse))
+                        throw new InvalidOperationException(
+                            $"Runtime-only property '{property.DeclaringType.DisplayName()}.{property.Name}' "
+                            + $"of type '{property.ClrType.ShortDisplayName()}' has no materialization source.");
+
                     // Emit: ((DynamoQueryContext)queryContext).CurrentPageResponse
                     var ctxExpr = Convert(
                         QueryCompilationContext.QueryContextParameter,

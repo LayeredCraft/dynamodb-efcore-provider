@@ -65,6 +65,11 @@ internal static class OwnedProjectionMetadata
         if (property.IsOwnedOrdinalKeyProperty())
             return false;
 
+        // Runtime-only metadata is sourced from query/runtime context rather than item attributes,
+        // so it must not be added to SELECT projections.
+        if (property.IsRuntimeOnly())
+            return false;
+
         if (!property.IsShadowProperty())
             return property.GetTypeMapping() != null;
 
