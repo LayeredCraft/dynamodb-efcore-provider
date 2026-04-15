@@ -86,7 +86,7 @@ public class DynamoAttributeNamingConventionApplierTests
             {
                 b.ToTable("Samples");
                 b.HasPartitionKey(x => x.Pk);
-                b.HasAttributeNamingConvention();
+                b.HasAttributeNamingConvention(DynamoAttributeNamingConvention.CamelCase);
             });
     }
 
@@ -270,7 +270,7 @@ public class DynamoAttributeNamingConventionApplierTests
     }
 
     // -------------------------------------------------------------------
-    // No convention — CLR name unchanged
+    // No convention configured — provider default (camelCase)
     // -------------------------------------------------------------------
 
     private sealed class NoConventionContext(DbContextOptions options) : DbContext(options)
@@ -287,20 +287,25 @@ public class DynamoAttributeNamingConventionApplierTests
     }
 
     [Fact]
-    public void NoConvention_PropertyNameUnchanged()
+    public void NoConvention_DefaultsToCamelCase()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
         using var ctx = new NoConventionContext(BuildOptions<NoConventionContext>(client));
         var entityType = ctx.Model.FindEntityType(typeof(SampleEntity))!;
 
+        entityType.FindProperty(nameof(SampleEntity.Pk))!.GetAttributeName().Should().Be("pk");
         entityType.FindProperty(nameof(SampleEntity.FirstName))!
             .GetAttributeName()
             .Should()
-            .Be("FirstName");
+            .Be("firstName");
         entityType.FindProperty(nameof(SampleEntity.ItemCount))!
             .GetAttributeName()
             .Should()
-            .Be("ItemCount");
+            .Be("itemCount");
+        entityType.FindProperty(nameof(SampleEntity.IsActive))!
+            .GetAttributeName()
+            .Should()
+            .Be("isActive");
     }
 
     // -------------------------------------------------------------------
@@ -412,7 +417,7 @@ public class DynamoAttributeNamingConventionApplierTests
                     x => x.HomeAddress,
                     ab =>
                         // Owned type has its own convention — should override root
-                        ab.HasAttributeNamingConvention());
+                        ab.HasAttributeNamingConvention(DynamoAttributeNamingConvention.CamelCase));
             });
     }
 

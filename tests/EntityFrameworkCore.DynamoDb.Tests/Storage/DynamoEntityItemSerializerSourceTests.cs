@@ -46,9 +46,9 @@ public class DynamoEntityItemSerializerSourceTests
         var updateEntry = (IUpdateEntry)db.Entry(entity).GetInfrastructure();
 
         var item = serializer.BuildItem(updateEntry);
-        item["NullableStatuses"].L.Should().HaveCount(2);
-        item["NullableStatuses"].L[0].N.Should().Be("1");
-        item["NullableStatuses"].L[1].NULL.Should().BeTrue();
+        item["nullableStatuses"].L.Should().HaveCount(2);
+        item["nullableStatuses"].L[0].N.Should().Be("1");
+        item["nullableStatuses"].L[1].NULL.Should().BeTrue();
     }
 
     [Fact]
@@ -73,8 +73,8 @@ public class DynamoEntityItemSerializerSourceTests
         var updateEntry = (IUpdateEntry)db.Entry(entity).GetInfrastructure();
 
         var item = serializer.BuildItem(updateEntry);
-        item["NullableStatusByCode"].M["ok"].N.Should().Be("1");
-        item["NullableStatusByCode"].M["missing"].NULL.Should().BeTrue();
+        item["nullableStatusByCode"].M["ok"].N.Should().Be("1");
+        item["nullableStatusByCode"].M["missing"].NULL.Should().BeTrue();
     }
 
     [Fact]
