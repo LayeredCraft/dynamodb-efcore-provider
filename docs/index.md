@@ -15,7 +15,7 @@ This provider translates LINQ queries to PartiQL and executes them with the AWS 
 ## Install
 
 ```bash
-dotnet add package EntityFrameworkCore.DynamoDb
+dotnet add package --prerelease EntityFrameworkCore.DynamoDb
 ```
 
 ## Quick Start
