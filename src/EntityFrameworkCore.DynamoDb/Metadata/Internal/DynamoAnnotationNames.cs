@@ -44,4 +44,11 @@ public static class DynamoAnnotationNames
 
     /// <summary>Identifies the runtime value source used to materialize a runtime-only property.</summary>
     public const string RuntimeValueSource = Prefix + "RuntimeValueSource";
+
+    /// <summary>
+    ///     Annotation key storing the <c>DynamoNamingConventionDescriptor</c> for an entity type. The
+    ///     descriptor object is stored as the annotation value; it is not serialized to a model snapshot,
+    ///     so custom delegate translators are supported freely during model building.
+    /// </summary>
+    public const string AttributeNamingConvention = Prefix + "AttributeNamingConvention";
 }
