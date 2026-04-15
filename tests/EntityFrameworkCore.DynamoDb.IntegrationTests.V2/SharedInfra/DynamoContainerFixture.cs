@@ -1,4 +1,5 @@
 using Amazon.DynamoDBv2;
+using EntityFrameworkCore.DynamoDb.IntegrationTests.V2.SecondaryIndexProjectionTable;
 using EntityFrameworkCore.DynamoDb.IntegrationTests.V2.SecondaryIndexTable;
 using EntityFrameworkCore.DynamoDb.IntegrationTests.V2.SharedTable;
 using EntityFrameworkCore.DynamoDb.IntegrationTests.V2.SimpleTable;
@@ -33,5 +34,6 @@ public sealed class DynamoContainerFixture(IMessageSink messageSink)
         await SimpleItemTable.CreateTable(Client, ct);
         await SharedItemTable.CreateTable(Client, ct);
         await SecondaryIndexOrdersTable.CreateTable(Client, ct);
+        await SecondaryIndexProjectionOrdersTable.CreateTable(Client, ct);
     }
 }
