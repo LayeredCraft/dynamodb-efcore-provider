@@ -36,6 +36,9 @@ line_spans = "__span"
 pygments_lang_class = true
 [project.markdown_extensions.pymdownx.inlinehilite]
 [project.markdown_extensions.pymdownx.snippets]
+[project.markdown_extensions.toc]
+permalink = true
+permalink_title = "Anchor link to this section"
 
 [project.theme]
 logo = "images/icon.png"
