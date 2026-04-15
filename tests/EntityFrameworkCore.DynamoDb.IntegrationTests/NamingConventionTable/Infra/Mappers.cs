@@ -4,25 +4,34 @@ using LayeredCraft.DynamoMapper.Runtime;
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.NamingConventionTable;
 
 /// <summary>
-///     Source-generated mapper for <see cref="NamingConventionItem" />. Uses
-///     <c>DynamoNamingConvention.SnakeCase</c> so that seed attribute names in DynamoDB match the
-///     snake_case names that the EF provider will emit in PartiQL. The <c>ExplicitOverride</c>
-///     property uses a <c>[DynamoField]</c> override to align with the explicit
-///     <c>HasAttributeName("custom_attr")</c> configured in the DbContext.
+///     Source-generated mapper for <see cref="SnakeCaseItem" />. Uses
+///     <c>DynamoNamingConvention.SnakeCase</c> so seed attribute names match the snake_case names
+///     emitted by the EF provider. The <c>ExplicitOverride</c> property uses a
+///     <c>[DynamoField]</c> override to align with the explicit <c>HasAttributeName("custom_attr")</c>
+///     in the DbContext.
 /// </summary>
 [DynamoMapper(Convention = DynamoNamingConvention.SnakeCase, OmitNullValues = false)]
 [DynamoField("ExplicitOverride", AttributeName = "custom_attr")]
-internal static partial class NamingConventionItemMapper
+internal static partial class SnakeCaseItemMapper
 {
-    internal static partial Dictionary<string, AttributeValue> ToItem(NamingConventionItem source);
+    internal static partial Dictionary<string, AttributeValue> ToItem(SnakeCaseItem source);
 
     internal static List<Dictionary<string, AttributeValue>> ToItems(
-        List<NamingConventionItem> sources)
+        IEnumerable<SnakeCaseItem> sources)
         => sources.Select(ToItem).ToList();
+}
 
-    internal static partial NamingConventionItem FromItem(Dictionary<string, AttributeValue> item);
+/// <summary>
+///     Source-generated mapper for <see cref="KebabCaseItem" />. Uses
+///     <c>DynamoNamingConvention.KebabCase</c> so seed attribute names match the kebab-case names
+///     emitted by the EF provider.
+/// </summary>
+[DynamoMapper(Convention = DynamoNamingConvention.KebabCase, OmitNullValues = false)]
+internal static partial class KebabCaseItemMapper
+{
+    internal static partial Dictionary<string, AttributeValue> ToItem(KebabCaseItem source);
 
-    internal static List<NamingConventionItem> FromItems(
-        List<Dictionary<string, AttributeValue>> items)
-        => items.Select(FromItem).ToList();
+    internal static List<Dictionary<string, AttributeValue>> ToItems(
+        IEnumerable<KebabCaseItem> sources)
+        => sources.Select(ToItem).ToList();
 }

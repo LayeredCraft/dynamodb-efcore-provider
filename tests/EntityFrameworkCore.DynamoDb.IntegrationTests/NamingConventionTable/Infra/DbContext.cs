@@ -5,15 +5,18 @@ using Microsoft.EntityFrameworkCore;
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.NamingConventionTable;
 
 /// <summary>
-///     DbContext for naming convention integration tests. Configures
-///     <see cref="DynamoAttributeNamingConvention.SnakeCase" /> on the entity type so that all CLR
-///     property names are transformed to snake_case DynamoDB attribute names, except
-///     <c>ExplicitOverride</c> which has an explicit <c>HasAttributeName</c> override.
+///     DbContext for naming convention integration tests. Maps two entity types to separate
+///     DynamoDB tables — one with <see cref="DynamoAttributeNamingConvention.SnakeCase" /> and one
+///     with <see cref="DynamoAttributeNamingConvention.CamelCase" /> — demonstrating that naming
+///     conventions are applied per-entity, independently of one another.
 /// </summary>
 public class NamingConventionTableDbContext(DbContextOptions options) : DbContext(options)
 {
-    /// <summary>Provides functionality for this member.</summary>
-    public DbSet<NamingConventionItem> Items { get; set; } = null!;
+    /// <summary>Snake_case entity set.</summary>
+    public DbSet<SnakeCaseItem> SnakeCaseItems { get; set; } = null!;
+
+    /// <summary>Kebab-case entity set.</summary>
+    public DbSet<KebabCaseItem> KebabCaseItems { get; set; } = null!;
 
     /// <summary>Creates a context configured to use the provided DynamoDB client instance.</summary>
     public static NamingConventionTableDbContext Create(IAmazonDynamoDB client)
@@ -22,14 +25,23 @@ public class NamingConventionTableDbContext(DbContextOptions options) : DbContex
                 .UseDynamo(options => options.DynamoDbClient(client))
                 .Options);
 
-    /// <summary>Provides functionality for this member.</summary>
+    /// <inheritdoc />
     protected override void OnModelCreating(ModelBuilder modelBuilder)
-        => modelBuilder.Entity<NamingConventionItem>(b =>
+    {
+        modelBuilder.Entity<SnakeCaseItem>(b =>
         {
-            b.ToTable(NamingConventionItemTable.TableName);
+            b.ToTable(SnakeCaseItemTable.TableName);
             b.HasPartitionKey(x => x.Pk);
             b.HasAttributeNamingConvention(DynamoAttributeNamingConvention.SnakeCase);
-            // Explicit override: this property maps to "custom_attr", not "explicit_override"
+            // Explicit per-property override — stored as "custom_attr", not "explicit_override"
             b.Property(x => x.ExplicitOverride).HasAttributeName("custom_attr");
         });
+
+        modelBuilder.Entity<KebabCaseItem>(b =>
+        {
+            b.ToTable(KebabCaseItemTable.TableName);
+            b.HasPartitionKey(x => x.Pk);
+            b.HasAttributeNamingConvention(DynamoAttributeNamingConvention.KebabCase);
+        });
+    }
 }

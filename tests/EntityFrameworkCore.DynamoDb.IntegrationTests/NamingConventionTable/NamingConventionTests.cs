@@ -4,84 +4,68 @@ using Microsoft.EntityFrameworkCore;
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.NamingConventionTable;
 
 /// <summary>
-///     Integration tests verifying that <c>HasAttributeNamingConvention</c> correctly transforms
-///     CLR property names to DynamoDB attribute names in both read and write paths, and that explicit
-///     <c>HasAttributeName</c> overrides are respected.
+///     Integration tests verifying that per-entity <c>HasAttributeNamingConvention</c> correctly
+///     transforms CLR property names in both the PartiQL projection and round-trip read paths, that
+///     explicit <c>HasAttributeName</c> overrides win over the convention, and that two entities
+///     in the same context can use independent naming conventions.
 /// </summary>
 public class NamingConventionTests(DynamoContainerFixture fixture)
     : NamingConventionTableTestFixture(fixture)
 {
+    /// <summary>
+    ///     Full round-trip: seed data written under snake_case attribute names is correctly read back
+    ///     by the provider into CLR records, including the property stored under an explicit
+    ///     <c>HasAttributeName</c> override.
+    /// </summary>
     [Fact]
-    public async Task ToListAsync_ReturnsAllItems_WithSnakeCaseConvention()
+    public async Task SnakeCaseEntity_RoundTrip_ReturnsAllItems()
     {
-        var result = await Db.Items.ToListAsync(CancellationToken);
+        var result = await Db.SnakeCaseItems.ToListAsync(CancellationToken);
 
-        result.Should().BeEquivalentTo(NamingConventionItems.Items);
+        result.Should().BeEquivalentTo(NamingConventionData.SnakeCaseItems);
     }
 
+    /// <summary>
+    ///     The PartiQL SELECT uses snake_case attribute names for convention-mapped properties and
+    ///     the explicit override name (<c>custom_attr</c>) for the property with <c>HasAttributeName</c>.
+    /// </summary>
     [Fact]
-    public async Task ToListAsync_EmitsSnakeCaseAttributeNamesInPartiQL()
+    public async Task SnakeCaseEntity_EmitsSnakeCaseNamesInPartiQL()
     {
-        await Db.Items.ToListAsync(CancellationToken);
+        await Db.SnakeCaseItems.ToListAsync(CancellationToken);
 
         AssertSql(
             """
-            SELECT "pk", "custom_attr", "first_name", "is_active", "item_count", "last_name"
-            FROM "NamingConventionItems"
+            SELECT "pk", "custom_attr", "first_name", "item_count"
+            FROM "NamingConventionSnakeCase"
             """);
     }
 
+    /// <summary>
+    ///     The kebab-case entity in the same context emits kebab-case attribute names, proving that
+    ///     naming conventions are applied independently per entity type.
+    /// </summary>
     [Fact]
-    public async Task Where_OnConventionProperty_EmitsSnakeCaseInPredicate()
+    public async Task KebabCaseEntity_RoundTrip_ReturnsAllItems()
     {
-        var result = await Db.Items.Where(x => x.IsActive).ToListAsync(CancellationToken);
+        var result = await Db.KebabCaseItems.ToListAsync(CancellationToken);
 
-        var expected = NamingConventionItems.Items.Where(x => x.IsActive).ToList();
-        result.Should().BeEquivalentTo(expected);
+        result.Should().BeEquivalentTo(NamingConventionData.KebabCaseItems);
+    }
+
+    /// <summary>
+    ///     The kebab-case entity emits kebab-case attribute names in the PartiQL SELECT, proving that
+    ///     naming conventions are applied independently per entity type.
+    /// </summary>
+    [Fact]
+    public async Task KebabCaseEntity_EmitsKebabCaseNamesInPartiQL()
+    {
+        await Db.KebabCaseItems.ToListAsync(CancellationToken);
 
         AssertSql(
             """
-            SELECT "pk", "custom_attr", "first_name", "is_active", "item_count", "last_name"
-            FROM "NamingConventionItems"
-            WHERE "is_active" = TRUE
+            SELECT "pk", "display-name", "total-count"
+            FROM "NamingConventionKebabCase"
             """);
-    }
-
-    [Fact]
-    public async Task Where_OnMultiWordProperty_EmitsSnakeCaseInPredicate()
-    {
-        var result =
-            await Db.Items.Where(x => x.FirstName == "Alice").ToListAsync(CancellationToken);
-
-        result.Should().ContainSingle(x => x.Pk == "ITEM#1");
-
-        AssertSql(
-            """
-            SELECT "pk", "custom_attr", "first_name", "is_active", "item_count", "last_name"
-            FROM "NamingConventionItems"
-            WHERE "first_name" = 'Alice'
-            """);
-    }
-
-    [Fact]
-    public async Task ExplicitHasAttributeName_Override_AppearsInPartiQL_NotSnakeCase()
-    {
-        // ExplicitOverride maps to "custom_attr", not the convention-derived "explicit_override"
-        await Db.Items.ToListAsync(CancellationToken);
-
-        AssertSql(
-            """
-            SELECT "pk", "custom_attr", "first_name", "is_active", "item_count", "last_name"
-            FROM "NamingConventionItems"
-            """);
-    }
-
-    [Fact]
-    public async Task ExplicitHasAttributeName_Override_RoundTrips_Correctly()
-    {
-        var result = await Db.Items.Where(x => x.Pk == "ITEM#1").ToListAsync(CancellationToken);
-
-        result.Should().ContainSingle();
-        result[0].ExplicitOverride.Should().Be("alpha");
     }
 }

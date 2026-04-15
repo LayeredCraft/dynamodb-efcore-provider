@@ -1,20 +1,39 @@
+using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.NamingConventionTable;
 
 /// <summary>
-///     Test fixture for naming convention integration tests. Creates the DynamoDB table once per
+///     Test fixture for naming convention integration tests. Creates both DynamoDB tables once per
 ///     test class and provides a lazily-initialized <see cref="Db" /> context.
 /// </summary>
 public class NamingConventionTableTestFixture : DynamoTestFixtureBase
 {
-    /// <summary>Provides functionality for this member.</summary>
+    /// <summary>
+    ///     Initializes both the snake_case and camelCase tables. The base class drives delete and
+    ///     active-wait for the snake_case table; the camelCase table is deleted manually inside the lambda
+    ///     before creation.
+    /// </summary>
     public NamingConventionTableTestFixture(DynamoContainerFixture fixture) : base(fixture)
         => EnsureClassTableInitialized(
-            NamingConventionItemTable.TableName,
-            NamingConventionItemTable.CreateTable);
+            SnakeCaseItemTable.TableName,
+            async (client, ct) =>
+            {
+                await SnakeCaseItemTable.CreateTable(client, ct);
 
-    /// <summary>Lazily-initialized DbContext for the naming convention table.</summary>
+                // Recreate the second table manually — base class only manages the first.
+                try
+                {
+                    await client.DeleteTableAsync(
+                        new DeleteTableRequest { TableName = KebabCaseItemTable.TableName },
+                        ct);
+                }
+                catch (ResourceNotFoundException) { }
+
+                await KebabCaseItemTable.CreateTable(client, ct);
+            });
+
+    /// <summary>Lazily-initialized DbContext shared across all tests in the class.</summary>
     public NamingConventionTableDbContext Db
     {
         get

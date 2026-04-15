@@ -3,44 +3,36 @@ using Amazon.DynamoDBv2.Model;
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.NamingConventionTable;
 
 /// <summary>Seed data for naming convention integration tests.</summary>
-public static class NamingConventionItems
+public static class NamingConventionData
 {
-    /// <summary>Provides functionality for this member.</summary>
-    public static readonly List<NamingConventionItem> Items =
+    /// <summary>Snake_case entity seed items.</summary>
+    public static readonly List<SnakeCaseItem> SnakeCaseItems =
     [
         new()
         {
-            Pk = "ITEM#1",
-            FirstName = "Alice",
-            LastName = "Smith",
-            ItemCount = 10,
-            IsActive = true,
-            ExplicitOverride = "alpha",
+            Pk = "SNAKE#1", FirstName = "Alice", ItemCount = 10, ExplicitOverride = "alpha",
         },
-        new()
-        {
-            Pk = "ITEM#2",
-            FirstName = "Bob",
-            LastName = "Jones",
-            ItemCount = 0,
-            IsActive = false,
-            ExplicitOverride = "beta",
-        },
-        new()
-        {
-            Pk = "ITEM#3",
-            FirstName = "Carol",
-            LastName = "White",
-            ItemCount = -5,
-            IsActive = true,
-            ExplicitOverride = "gamma",
-        },
+        new() { Pk = "SNAKE#2", FirstName = "Bob", ItemCount = 0, ExplicitOverride = "beta" },
+    ];
+
+    /// <summary>Kebab-case entity seed items.</summary>
+    public static readonly List<KebabCaseItem> KebabCaseItems =
+    [
+        new() { Pk = "KEBAB#1", DisplayName = "Widget", TotalCount = 5 },
+        new() { Pk = "KEBAB#2", DisplayName = "Gadget", TotalCount = 3 },
     ];
 
     /// <summary>
-    ///     Pre-mapped <see cref="Items" /> as DynamoDB attribute dictionaries using the same
-    ///     snake_case naming convention applied by the EF provider.
+    ///     Pre-mapped <see cref="SnakeCaseItems" /> as DynamoDB attribute dictionaries using
+    ///     snake_case naming to match what the EF provider emits.
     /// </summary>
-    public static readonly List<Dictionary<string, AttributeValue>> AttributeValues =
-        NamingConventionItemMapper.ToItems(Items);
+    public static readonly List<Dictionary<string, AttributeValue>> SnakeCaseAttributeValues =
+        SnakeCaseItemMapper.ToItems(SnakeCaseItems);
+
+    /// <summary>
+    ///     Pre-mapped <see cref="KebabCaseItems" /> as DynamoDB attribute dictionaries using
+    ///     kebab-case naming to match what the EF provider emits.
+    /// </summary>
+    public static readonly List<Dictionary<string, AttributeValue>> KebabCaseAttributeValues =
+        KebabCaseItemMapper.ToItems(KebabCaseItems);
 }

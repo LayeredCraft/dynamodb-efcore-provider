@@ -4,27 +4,23 @@ using Amazon.DynamoDBv2.Model;
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.NamingConventionTable;
 
 /// <summary>
-///     Manages DynamoDB table creation and seed data for naming convention integration tests. The
-///     table key uses the snake_case attribute name <c>pk</c> because the EF provider will derive the
-///     partition key attribute name from <c>GetAttributeName()</c>, which applies the configured
-///     naming convention.
+///     Creates and seeds the snake_case entity table. The partition key attribute name is
+///     <c>pk</c> — the snake_case transform of the CLR property <c>Pk</c>.
 /// </summary>
-public static class NamingConventionItemTable
+public static class SnakeCaseItemTable
 {
-    /// <summary>Provides functionality for this member.</summary>
-    public const string TableName = "NamingConventionItems";
+    /// <summary>DynamoDB table name.</summary>
+    public const string TableName = "NamingConventionSnakeCase";
 
     /// <summary>Creates the DynamoDB table and seeds it with test data.</summary>
     public static async Task CreateTable(
-        IAmazonDynamoDB dynamoDb,
+        IAmazonDynamoDB client,
         CancellationToken cancellationToken)
     {
-        await dynamoDb.CreateTableAsync(
+        await client.CreateTableAsync(
             new CreateTableRequest
             {
                 TableName = TableName,
-                // Partition key uses snake_case attribute name — matches the convention applied
-                // to the CLR property "Pk" by the EF provider.
                 AttributeDefinitions =
                 [
                     new AttributeDefinition
@@ -40,17 +36,64 @@ public static class NamingConventionItemTable
             },
             cancellationToken);
 
-        await dynamoDb.TransactWriteItemsAsync(
+        await client.TransactWriteItemsAsync(
             new TransactWriteItemsRequest
             {
-                TransactItems =
-                    NamingConventionItems
-                        .AttributeValues
-                        .Select(a => new TransactWriteItem
-                        {
-                            Put = new Put { TableName = TableName, Item = a },
-                        })
-                        .ToList(),
+                TransactItems = NamingConventionData
+                    .SnakeCaseAttributeValues
+                    .Select(a => new TransactWriteItem
+                    {
+                        Put = new Put { TableName = TableName, Item = a },
+                    })
+                    .ToList(),
+            },
+            cancellationToken);
+    }
+}
+
+/// <summary>
+///     Creates and seeds the kebab-case entity table. The partition key attribute name is
+///     <c>pk</c> — the kebab-case transform of the CLR property <c>Pk</c>.
+/// </summary>
+public static class KebabCaseItemTable
+{
+    /// <summary>DynamoDB table name.</summary>
+    public const string TableName = "NamingConventionKebabCase";
+
+    /// <summary>Creates the DynamoDB table and seeds it with test data.</summary>
+    public static async Task CreateTable(
+        IAmazonDynamoDB client,
+        CancellationToken cancellationToken)
+    {
+        await client.CreateTableAsync(
+            new CreateTableRequest
+            {
+                TableName = TableName,
+                AttributeDefinitions =
+                [
+                    new AttributeDefinition
+                    {
+                        AttributeName = "pk", AttributeType = ScalarAttributeType.S,
+                    },
+                ],
+                KeySchema =
+                [
+                    new KeySchemaElement { AttributeName = "pk", KeyType = KeyType.HASH },
+                ],
+                BillingMode = BillingMode.PAY_PER_REQUEST,
+            },
+            cancellationToken);
+
+        await client.TransactWriteItemsAsync(
+            new TransactWriteItemsRequest
+            {
+                TransactItems = NamingConventionData
+                    .KebabCaseAttributeValues
+                    .Select(a => new TransactWriteItem
+                    {
+                        Put = new Put { TableName = TableName, Item = a },
+                    })
+                    .ToList(),
             },
             cancellationToken);
     }
