@@ -6,6 +6,8 @@ namespace Microsoft.EntityFrameworkCore;
 /// <summary>DynamoDB-specific extension methods for <see cref="EntityEntry" />.</summary>
 public static class DynamoEntityEntryExtensions
 {
+    private const string ExecuteStatementResponsePropertyName = "__executeStatementResponse";
+
     /// <summary>
     ///     Returns the <see cref="ExecuteStatementResponse" /> from the DynamoDB page that produced
     ///     this entity, or <see langword="null" /> when the entity was not loaded from DynamoDB or was
@@ -36,5 +38,11 @@ public static class DynamoEntityEntryExtensions
     ///     </para>
     /// </remarks>
     public static ExecuteStatementResponse? GetExecuteStatementResponse(this EntityEntry entry)
-        => (ExecuteStatementResponse?)entry.Property("__executeStatementResponse").CurrentValue;
+    {
+        if (entry.Metadata.FindProperty(ExecuteStatementResponsePropertyName) is null)
+            return null;
+
+        return (ExecuteStatementResponse?)entry.Property(ExecuteStatementResponsePropertyName)
+            .CurrentValue;
+    }
 }
