@@ -1,5 +1,6 @@
 using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.Metadata.Internal;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions;
@@ -40,8 +41,8 @@ public sealed class DynamoResponseShadowPropertyConvention : IEntityTypeAddedCon
             .Property(typeof(ExecuteStatementResponse), ExecuteStatementResponsePropertyName)
             ?.ValueGenerated(ValueGenerated.OnAddOrUpdate);
 
-        propertyBuilder?.Metadata.SetOrRemoveAnnotation(
-            DynamoAnnotationNames.RuntimeOnlyProperty,
-            true);
+        propertyBuilder?.Metadata.SetRuntimeOnly(true);
+        propertyBuilder?.Metadata.SetRuntimeValueSource(
+            DynamoRuntimeValueSources.CurrentPageResponse);
     }
 }

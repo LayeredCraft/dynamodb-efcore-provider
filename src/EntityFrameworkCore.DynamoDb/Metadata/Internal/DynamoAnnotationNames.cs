@@ -41,4 +41,7 @@ public static class DynamoAnnotationNames
     ///     validation checks.
     /// </summary>
     public const string RuntimeOnlyProperty = Prefix + "RuntimeOnlyProperty";
+
+    /// <summary>Identifies the runtime value source used to materialize a runtime-only property.</summary>
+    public const string RuntimeValueSource = Prefix + "RuntimeValueSource";
 }
