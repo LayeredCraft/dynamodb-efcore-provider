@@ -18,7 +18,8 @@ namespace EntityFrameworkCore.DynamoDb.Metadata.Conventions;
 ///     </para>
 ///     <para>
 ///         Priority order: explicit <c>HasAttributeName()</c> (Explicit/DataAnnotation source) &gt;
-///         naming convention (Convention source) &gt; CLR property name fallback.
+///         naming convention (Convention source). When no per-entity convention is configured, the
+///         provider default convention is <c>CamelCase</c>.
 ///     </para>
 ///     <para>
 ///         Owned entity types without their own convention inherit the convention from their root
@@ -31,6 +32,9 @@ namespace EntityFrameworkCore.DynamoDb.Metadata.Conventions;
 /// </remarks>
 public sealed class DynamoAttributeNamingConventionApplier : IModelFinalizingConvention
 {
+    private static readonly DynamoNamingConventionDescriptor DefaultDescriptor =
+        DynamoNamingConventionDescriptor.Named(DynamoAttributeNamingConvention.CamelCase);
+
     /// <summary>
     ///     Applies configured naming conventions to all entity types in the model during
     ///     finalization.
@@ -42,9 +46,6 @@ public sealed class DynamoAttributeNamingConventionApplier : IModelFinalizingCon
         foreach (var entityType in modelBuilder.Metadata.GetEntityTypes())
         {
             var descriptor = ResolveDescriptor(entityType);
-            if (descriptor is null)
-                continue;
-
             foreach (var property in entityType.GetDeclaredProperties())
             {
                 // Skip provider-internal shadow properties (owned ordinal keys,
@@ -73,7 +74,7 @@ public sealed class DynamoAttributeNamingConventionApplier : IModelFinalizingCon
     ///     Resolves the naming convention descriptor for an entity type, walking the ownership chain
     ///     so owned types without their own setting inherit the root entity's convention.
     /// </summary>
-    private static DynamoNamingConventionDescriptor? ResolveDescriptor(
+    private static DynamoNamingConventionDescriptor ResolveDescriptor(
         IConventionEntityType entityType)
     {
         var current = (IReadOnlyEntityType)entityType;
@@ -89,6 +90,6 @@ public sealed class DynamoAttributeNamingConventionApplier : IModelFinalizingCon
             current = current.FindOwnership()?.PrincipalEntityType;
         }
 
-        return null;
+        return DefaultDescriptor;
     }
 }

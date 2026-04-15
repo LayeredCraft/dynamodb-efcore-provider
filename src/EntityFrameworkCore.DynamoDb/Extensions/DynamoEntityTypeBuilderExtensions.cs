@@ -139,7 +139,7 @@ public static class DynamoEntityTypeBuilderExtensions
         /// <param name="convention">The naming convention to apply.</param>
         /// <returns>The same builder instance so that multiple calls can be chained.</returns>
         public EntityTypeBuilder HasAttributeNamingConvention(
-            DynamoAttributeNamingConvention convention = DynamoAttributeNamingConvention.CamelCase)
+            DynamoAttributeNamingConvention convention)
         {
             entityTypeBuilder.Metadata.SetAttributeNamingConvention(
                 DynamoNamingConventionDescriptor.Named(convention));
@@ -296,7 +296,7 @@ public static class DynamoEntityTypeBuilderExtensions
         /// <param name="convention">The naming convention to apply.</param>
         /// <returns>The same builder instance so that multiple calls can be chained.</returns>
         public EntityTypeBuilder<TEntity> HasAttributeNamingConvention(
-            DynamoAttributeNamingConvention convention = DynamoAttributeNamingConvention.CamelCase)
+            DynamoAttributeNamingConvention convention)
             => (EntityTypeBuilder<TEntity>)((EntityTypeBuilder)entityTypeBuilder)
                 .HasAttributeNamingConvention(convention);
 
@@ -360,7 +360,7 @@ public static class DynamoEntityTypeBuilderExtensions
         /// <param name="convention">The naming convention to apply.</param>
         /// <returns>The same builder instance so that multiple calls can be chained.</returns>
         public OwnedNavigationBuilder HasAttributeNamingConvention(
-            DynamoAttributeNamingConvention convention = DynamoAttributeNamingConvention.CamelCase)
+            DynamoAttributeNamingConvention convention)
         {
             ownedNavigationBuilder.OwnedEntityType.SetAttributeNamingConvention(
                 DynamoNamingConventionDescriptor.Named(convention));
@@ -410,7 +410,7 @@ public static class DynamoEntityTypeBuilderExtensions
         /// <param name="convention">The naming convention to apply.</param>
         /// <returns>The same builder instance so that multiple calls can be chained.</returns>
         public OwnedNavigationBuilder<TOwnerEntity, TDependentEntity> HasAttributeNamingConvention(
-            DynamoAttributeNamingConvention convention = DynamoAttributeNamingConvention.CamelCase)
+            DynamoAttributeNamingConvention convention)
             => (OwnedNavigationBuilder<TOwnerEntity, TDependentEntity>)
                 ((OwnedNavigationBuilder)ownedNavigationBuilder).HasAttributeNamingConvention(
                     convention);
