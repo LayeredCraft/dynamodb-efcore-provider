@@ -7,6 +7,7 @@ using EntityFrameworkCore.DynamoDb.IntegrationTests.V2.SaveChangesTable;
 using EntityFrameworkCore.DynamoDb.IntegrationTests.V2.SecondaryIndexProjectionTable;
 using EntityFrameworkCore.DynamoDb.IntegrationTests.V2.SecondaryIndexTable;
 using EntityFrameworkCore.DynamoDb.IntegrationTests.V2.SharedTable;
+using EntityFrameworkCore.DynamoDb.IntegrationTests.V2.SharedTable.SharedTableWithIndexes;
 using EntityFrameworkCore.DynamoDb.IntegrationTests.V2.SimpleTable;
 using JetBrains.Annotations;
 using Testcontainers.DynamoDb;
@@ -38,6 +39,7 @@ public sealed class DynamoContainerFixture(IMessageSink messageSink)
         var ct = TestContext.Current.CancellationToken;
         await SimpleItemTable.CreateTable(Client, ct);
         await SharedItemTable.CreateTable(Client, ct);
+        await SharedTableWithIndexesItemTable.CreateTable(Client, ct);
         await CompetingGsiOrdersTable.CreateTable(Client, ct);
         await OwnedTypesItemTable.CreateTable(Client, ct);
         await PkSkItemTable.CreateTable(Client, ct);
