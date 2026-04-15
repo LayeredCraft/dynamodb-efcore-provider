@@ -1,6 +1,7 @@
 using Amazon.DynamoDBv2;
 using EntityFrameworkCore.DynamoDb.Infrastructure;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.V2.SharedInfra;
 
@@ -42,6 +43,7 @@ public abstract class DynamoTestFixtureBase(DynamoContainerFixture container)
         var builder = new DbContextOptionsBuilder<T>();
         builder.UseDynamo(configure);
         builder.UseLoggerFactory(SqlCapture);
+        builder.ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning));
         return builder.Options;
     }
 
