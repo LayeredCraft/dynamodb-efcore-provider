@@ -1,4 +1,5 @@
 using Amazon.DynamoDBv2;
+using EntityFrameworkCore.DynamoDb.IntegrationTests.V2.OwnedTypesTable;
 using EntityFrameworkCore.DynamoDb.IntegrationTests.V2.PkSkTable;
 using EntityFrameworkCore.DynamoDb.IntegrationTests.V2.PrimitiveCollectionsTable;
 using EntityFrameworkCore.DynamoDb.IntegrationTests.V2.SaveChangesTable;
@@ -36,6 +37,7 @@ public sealed class DynamoContainerFixture(IMessageSink messageSink)
         var ct = TestContext.Current.CancellationToken;
         await SimpleItemTable.CreateTable(Client, ct);
         await SharedItemTable.CreateTable(Client, ct);
+        await OwnedTypesItemTable.CreateTable(Client, ct);
         await PkSkItemTable.CreateTable(Client, ct);
         await PrimitiveCollectionsItemTable.CreateTable(Client, ct);
         await SaveChangesItemTable.CreateTable(Client, ct);
