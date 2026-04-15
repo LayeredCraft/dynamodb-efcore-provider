@@ -26,6 +26,7 @@
     <File Path="EntityFrameworkCore.DynamoDb.sln.DotSettings" />
     <File Path="global.json" />
     <File Path="README.md" />
+    <File Path="Taskfile.yml"/>
   </Folder>
   <Folder Name="/src/">
     <File Path="src\Directory.Build.props" />
