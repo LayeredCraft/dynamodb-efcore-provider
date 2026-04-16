@@ -2,7 +2,7 @@ using Amazon.DynamoDBv2;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 
-namespace EntityFrameworkCore.DynamoDb.IntegrationTests.NamingConventions.Infra;
+namespace EntityFrameworkCore.DynamoDb.IntegrationTests.NamingOverrideTable.Infra;
 
 /// <summary>Represents the OwnedTypesTableDbContext type.</summary>
 public class NamingConventionsTableDbContext(DbContextOptions options) : DbContext(options)

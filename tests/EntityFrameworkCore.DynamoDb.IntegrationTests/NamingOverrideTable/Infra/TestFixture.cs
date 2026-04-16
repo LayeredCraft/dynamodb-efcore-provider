@@ -1,7 +1,7 @@
 using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 
-namespace EntityFrameworkCore.DynamoDb.IntegrationTests.NamingConventions.Infra;
+namespace EntityFrameworkCore.DynamoDb.IntegrationTests.NamingOverrideTable.Infra;
 
 public abstract class NamingConventionsTableTestFixture : DynamoTestFixtureBase
 {
@@ -9,6 +9,7 @@ public abstract class NamingConventionsTableTestFixture : DynamoTestFixtureBase
         => EnsureClassTableInitialized(
             NamingConventionsItemTable.TableName,
             NamingConventionsItemTable.CreateTable);
+
     protected TestPartiQlLoggerFactory LoggerFactory => SqlCapture;
 
     public NamingConventionsTableDbContext Db
@@ -16,7 +17,8 @@ public abstract class NamingConventionsTableTestFixture : DynamoTestFixtureBase
         get
         {
             field ??= new NamingConventionsTableDbContext(
-                CreateOptions<NamingConventionsTableDbContext>(options => options.DynamoDbClient(Client)));
+                CreateOptions<NamingConventionsTableDbContext>(options
+                    => options.DynamoDbClient(Client)));
             return field;
         }
     }
