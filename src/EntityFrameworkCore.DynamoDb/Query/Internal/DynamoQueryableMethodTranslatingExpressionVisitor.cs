@@ -24,6 +24,11 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
             nameof(ResolveEffectiveNextToken),
             BindingFlags.Static | BindingFlags.NonPublic)!;
 
+    private static readonly MethodInfo ValidateWithNextTokenMethodInfo =
+        typeof(DynamoQueryableMethodTranslatingExpressionVisitor).GetMethod(
+            nameof(ValidateWithNextToken),
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+
     /// <summary>Provides functionality for this member.</summary>
     public DynamoQueryableMethodTranslatingExpressionVisitor(
         QueryableMethodTranslatingExpressionVisitorDependencies dependencies,
@@ -183,6 +188,26 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
             valueExtractor);
     }
 
+    private QueryParameterExpression RegisterValidatedWithNextTokenRuntimeParameter(
+        Expression nextTokenExpression)
+    {
+        var parameterValuesExpression = Expression.Property(
+            QueryCompilationContext.QueryContextParameter,
+            nameof(QueryContext.Parameters));
+
+        var tokenExpression = CreateRuntimeTokenReadExpression(
+            nextTokenExpression,
+            parameterValuesExpression);
+
+        var valueExtractor = Expression.Lambda(
+            Expression.Call(ValidateWithNextTokenMethodInfo, tokenExpression),
+            QueryCompilationContext.QueryContextParameter);
+
+        return QueryCompilationContext.RegisterRuntimeParameter(
+            $"__dynamo_validated_with_next_token_{_runtimeParameterIndex++}",
+            valueExtractor);
+    }
+
     private static Expression CreateRuntimeTokenReadExpression(
         Expression tokenExpression,
         MemberExpression parameterValuesExpression)
@@ -212,6 +237,17 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
                 "Only one non-null pagination token may be specified. Use either WithNextToken(...) or ToPageAsync(..., nextToken: ...), but not both.");
 
         return toPageToken ?? existingToken;
+    }
+
+    private static string ValidateWithNextToken(string? nextToken)
+    {
+        if (nextToken is null)
+            throw new ArgumentNullException("nextToken");
+
+        if (string.IsNullOrWhiteSpace(nextToken))
+            throw new ArgumentException("Next token must not be empty.", "nextToken");
+
+        return nextToken;
     }
 
     private static bool TryGetNormalizedConstantToken(
@@ -326,10 +362,19 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
 
                 var nextTokenArg = methodCallExpression.Arguments[1];
 
+                if (nextTokenArg is ConstantExpression { Value: null })
+                    throw new ArgumentNullException("nextToken");
+
                 if (nextTokenArg is ConstantExpression { Value: string constantToken })
+                {
+                    if (string.IsNullOrWhiteSpace(constantToken))
+                        throw new ArgumentException("Next token must not be empty.", "nextToken");
+
                     nextTokenSelectExpr.ApplySeedNextToken(constantToken);
+                }
                 else
-                    nextTokenSelectExpr.ApplySeedNextTokenExpression(nextTokenArg);
+                    nextTokenSelectExpr.ApplySeedNextTokenExpression(
+                        RegisterValidatedWithNextTokenRuntimeParameter(nextTokenArg));
 
                 return nextTokenResult;
             }

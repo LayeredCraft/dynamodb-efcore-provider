@@ -1,5 +1,6 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
+using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using NSubstitute;
@@ -77,6 +78,72 @@ public class LimitTranslationTests
             .Should()
             .ThrowAsync<InvalidOperationException>()
             .WithMessage("*WithNextToken*only be applied once*");
+    }
+
+    [Fact]
+    public async Task WithNextToken_TranslatedConstantNull_ThrowsArgumentNullException()
+    {
+        var (client, _) = SetupMockClient();
+        await using var context = LimitTestDbContext.Create(client);
+
+        var query = CreateWithNextTokenQuery(context, Expression.Constant(null, typeof(string)));
+
+        var act = async () => await query.ToListAsync(TestContext.Current.CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<ArgumentNullException>()
+            .Where(ex => ex.ParamName == "nextToken");
+    }
+
+    [Fact]
+    public async Task WithNextToken_TranslatedConstantWhitespace_ThrowsArgumentException()
+    {
+        var (client, _) = SetupMockClient();
+        await using var context = LimitTestDbContext.Create(client);
+
+        var query = CreateWithNextTokenQuery(context, Expression.Constant("   ", typeof(string)));
+
+        var act = async () => await query.ToListAsync(TestContext.Current.CancellationToken);
+
+        await act.Should().ThrowAsync<ArgumentException>().Where(ex => ex.ParamName == "nextToken");
+    }
+
+    [Fact]
+    public async Task WithNextToken_CompiledRuntimeNull_ThrowsArgumentNullException()
+    {
+        var (client, _) = SetupMockClient();
+        await using var context = LimitTestDbContext.Create(client);
+
+        var withNextTokenCompiledQuery =
+            EF.CompileAsyncQuery((LimitTestDbContext ctx, string nextToken)
+                => ctx.Items.WithNextToken(nextToken));
+
+        var act = async () => await DrainAsync(
+            withNextTokenCompiledQuery(context, null!),
+            TestContext.Current.CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<ArgumentNullException>()
+            .Where(ex => ex.ParamName == "nextToken");
+    }
+
+    [Fact]
+    public async Task WithNextToken_CompiledRuntimeWhitespace_ThrowsArgumentException()
+    {
+        var (client, _) = SetupMockClient();
+        await using var context = LimitTestDbContext.Create(client);
+
+        var withNextTokenCompiledQuery =
+            EF.CompileAsyncQuery((LimitTestDbContext ctx, string nextToken)
+                => ctx.Items.WithNextToken(nextToken));
+
+        var act = async () => await DrainAsync(
+            withNextTokenCompiledQuery(context, "   "),
+            TestContext.Current.CancellationToken);
+
+        await act.Should().ThrowAsync<ArgumentException>().Where(ex => ex.ParamName == "nextToken");
     }
 
     [Fact]
@@ -280,6 +347,32 @@ public class LimitTranslationTests
             .Returns(new ExecuteStatementResponse { Items = [], NextToken = null });
 
         return (client, captured);
+    }
+
+    private static IQueryable<LimitTestEntity> CreateWithNextTokenQuery(
+        LimitTestDbContext context,
+        Expression nextTokenExpression)
+    {
+        var source = context.Items.AsQueryable();
+
+        var withNextTokenMethod =
+            ((Func<IQueryable<LimitTestEntity>, string, IQueryable<LimitTestEntity>>)
+                DynamoDbQueryableExtensions.WithNextToken<LimitTestEntity>).Method;
+
+        var withNextTokenCall = Expression.Call(
+            null,
+            withNextTokenMethod,
+            source.Expression,
+            nextTokenExpression);
+
+        return source.Provider.CreateQuery<LimitTestEntity>(withNextTokenCall);
+    }
+
+    private static async Task DrainAsync<T>(
+        IAsyncEnumerable<T> source,
+        CancellationToken cancellationToken)
+    {
+        await foreach (var _ in source.WithCancellation(cancellationToken)) { }
     }
 
     private sealed record LimitTestEntity
