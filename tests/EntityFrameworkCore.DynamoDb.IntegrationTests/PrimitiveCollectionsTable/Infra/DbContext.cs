@@ -6,10 +6,8 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.PrimitiveCollectionsTabl
 public class PrimitiveCollectionsDbContext(DbContextOptions<PrimitiveCollectionsDbContext> options)
     : DbContext(options)
 {
-    /// <summary>Provides functionality for this member.</summary>
     public DbSet<PrimitiveCollectionsItem> Items => Set<PrimitiveCollectionsItem>();
 
-    /// <summary>Provides functionality for this member.</summary>
     protected override void OnModelCreating(ModelBuilder modelBuilder)
         => modelBuilder
             .Entity<PrimitiveCollectionsItem>()

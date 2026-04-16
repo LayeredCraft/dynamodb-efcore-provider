@@ -11,7 +11,6 @@ public class NullHandlingTests(DynamoContainerFixture fixture)
 {
     /// <summary>Verifies missing optional dictionary properties materialize as null.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Materialization_AllowsMissingOptionalDictionaryProperty()
     {
         var item = CreateOptionalCollectionsItem(
@@ -34,7 +33,6 @@ public class NullHandlingTests(DynamoContainerFixture fixture)
 
     /// <summary>Verifies missing optional set properties materialize as null.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Materialization_AllowsMissingOptionalSetProperty()
     {
         var item = CreateOptionalCollectionsItem(
@@ -57,7 +55,6 @@ public class NullHandlingTests(DynamoContainerFixture fixture)
 
     /// <summary>Verifies DynamoDB NULL maps to null for optional collection properties.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Materialization_AllowsDynamoNullForOptionalCollectionProperties()
     {
         var item = CreateOptionalCollectionsItem("ITEM#NULL-OPTIONALS", true, true, true, true);
@@ -77,7 +74,6 @@ public class NullHandlingTests(DynamoContainerFixture fixture)
 
     /// <summary>Verifies optional array properties materialize from DynamoDB list wire values.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Materialization_AllowsOptionalArrayProperty()
     {
         var item = CreateOptionalCollectionsItem("ITEM#OPTIONAL-ARRAY", true, true, true, false);
@@ -97,9 +93,7 @@ public class NullHandlingTests(DynamoContainerFixture fixture)
         result.OptionalArray.Should().Equal("one", "two");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Materialization_Throws_WhenRequiredListPropertyIsMissing()
     {
         var item = CreateValidTemplateItem("ITEM#BAD-MISSING-TAGS");
@@ -120,9 +114,7 @@ public class NullHandlingTests(DynamoContainerFixture fixture)
             .WithMessage("*not present*");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Materialization_Throws_WhenRequiredMapPropertyIsMissing()
     {
         var item = CreateValidTemplateItem("ITEM#BAD-MISSING-SCORES");
@@ -143,9 +135,7 @@ public class NullHandlingTests(DynamoContainerFixture fixture)
             .WithMessage("*not present*");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Materialization_Throws_WhenRequiredSetPropertyIsMissing()
     {
         var item = CreateValidTemplateItem("ITEM#BAD-MISSING-LABELSET");
@@ -166,9 +156,7 @@ public class NullHandlingTests(DynamoContainerFixture fixture)
             .WithMessage("*not present*");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Materialization_Throws_WhenRequiredListPropertyIsDynamoNull()
     {
         var item = CreateValidTemplateItem("ITEM#BAD-NULL-TAGS");
@@ -189,9 +177,7 @@ public class NullHandlingTests(DynamoContainerFixture fixture)
             .WithMessage("*DynamoDB NULL*");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Materialization_AllowsMissingOptionalListProperty()
     {
         var template =
@@ -273,10 +259,8 @@ public class NullHandlingTests(DynamoContainerFixture fixture)
     private sealed class OptionalCollectionsContext(
         DbContextOptions<OptionalCollectionsContext> options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<OptionalCollectionsItem> Items => Set<OptionalCollectionsItem>();
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<OptionalCollectionsItem>(entity =>
             {
@@ -287,19 +271,14 @@ public class NullHandlingTests(DynamoContainerFixture fixture)
 
     private sealed class OptionalCollectionsItem
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string Pk { get; set; } = default!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public List<string>? OptionalList { get; set; }
 
-        /// <summary>Provides functionality for this member.</summary>
         public HashSet<string>? OptionalSet { get; set; }
 
-        /// <summary>Provides functionality for this member.</summary>
         public Dictionary<string, int>? OptionalMap { get; set; }
 
-        /// <summary>Provides functionality for this member.</summary>
         public string[]? OptionalArray { get; set; }
     }
 }

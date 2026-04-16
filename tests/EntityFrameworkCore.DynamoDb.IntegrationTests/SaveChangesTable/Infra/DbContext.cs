@@ -8,29 +8,21 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SaveChangesTable;
 /// <summary>Represents the SaveChangesTableDbContext type.</summary>
 public class SaveChangesTableDbContext(DbContextOptions options) : DbContext(options)
 {
-    /// <summary>Provides functionality for this member.</summary>
     public DbSet<CustomerItem> Customers => Set<CustomerItem>();
 
-    /// <summary>Provides functionality for this member.</summary>
     public DbSet<OrderItem> Orders => Set<OrderItem>();
 
-    /// <summary>Provides functionality for this member.</summary>
     public DbSet<ProductItem> Products => Set<ProductItem>();
 
-    /// <summary>Provides functionality for this member.</summary>
     public DbSet<SessionItem> Sessions => Set<SessionItem>();
 
-    /// <summary>Provides functionality for this member.</summary>
     public DbSet<ConverterCoverageItem> ConverterCoverageItems => Set<ConverterCoverageItem>();
 
-    /// <summary>Provides functionality for this member.</summary>
     public DbSet<CustomConverterItem> CustomConverterItems => Set<CustomConverterItem>();
 
-    /// <summary>Provides functionality for this member.</summary>
     public DbSet<ConvertedCollectionItem> ConvertedCollectionItems
         => Set<ConvertedCollectionItem>();
 
-    /// <summary>Provides functionality for this member.</summary>
     public DbSet<QuotedAttributeItem> QuotedAttributeItems => Set<QuotedAttributeItem>();
 
     /// <summary>Creates a context configured to use the provided DynamoDB client instance.</summary>

@@ -7,9 +7,7 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.PrimitiveCollectionsTabl
 public class SelectTests(DynamoContainerFixture fixture)
     : PrimitiveCollectionsTableTestFixture(fixture)
 {
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task ToListAsync_MaterializesListMapSetProperties()
     {
         var resultItems = await Db.Items.ToListAsync(CancellationToken);
@@ -23,9 +21,7 @@ public class SelectTests(DynamoContainerFixture fixture)
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Skip = "Collection projection rewriting for anonymous types is not implemented yet.")]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Select_AnonymousProjection_WithCollectionProperties()
     {
         var results =

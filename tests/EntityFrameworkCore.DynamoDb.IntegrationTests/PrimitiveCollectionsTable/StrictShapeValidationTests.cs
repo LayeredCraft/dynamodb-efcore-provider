@@ -9,12 +9,9 @@ public class StrictShapeValidationTests
 {
     private readonly DynamoContainerFixture _fixture;
 
-    /// <summary>Provides functionality for this member.</summary>
     public StrictShapeValidationTests(DynamoContainerFixture fixture) => _fixture = fixture;
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public void DerivedDictionaryPrimitiveCollectionType_ThrowsModelValidationError()
     {
         using var context = new DerivedDictionaryContext(CreateOptions<DerivedDictionaryContext>());
@@ -27,9 +24,7 @@ public class StrictShapeValidationTests
             .WithMessage("*DerivedDictionaryItem.Scores*DynamoDB does not support this type*");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public void DerivedSetPrimitiveCollectionType_ThrowsModelValidationError()
     {
         using var context = new DerivedSetContext(CreateOptions<DerivedSetContext>());
@@ -53,10 +48,8 @@ public class StrictShapeValidationTests
     private sealed class DerivedDictionaryContext(
         DbContextOptions<DerivedDictionaryContext> options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<DerivedDictionaryItem> Items => Set<DerivedDictionaryItem>();
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<DerivedDictionaryItem>(entity =>
             {
@@ -69,10 +62,8 @@ public class StrictShapeValidationTests
     private sealed class DerivedSetContext(DbContextOptions<DerivedSetContext> options) : DbContext(
         options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<DerivedSetItem> Items => Set<DerivedSetItem>();
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<DerivedSetItem>(entity =>
             {
@@ -84,19 +75,15 @@ public class StrictShapeValidationTests
 
     private sealed class DerivedDictionaryItem
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string Pk { get; set; } = default!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public CustomDictionary Scores { get; set; } = new();
     }
 
     private sealed class DerivedSetItem
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string Pk { get; set; } = default!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public SortedSet<string> Labels { get; set; } = [];
     }
 

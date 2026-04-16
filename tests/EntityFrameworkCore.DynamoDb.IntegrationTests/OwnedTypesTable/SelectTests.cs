@@ -7,9 +7,7 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.OwnedTypesTable;
 /// <summary>Represents the SelectTests type.</summary>
 public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFixture(fixture)
 {
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task ToListAsync_MaterializesOwnedReferencesAndCollections()
     {
         var results = await Db.Items.ToListAsync(CancellationToken);
@@ -25,9 +23,7 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Select_NestedOwnedReferenceProjection_MaterializesShape()
     {
         var results =
@@ -44,9 +40,7 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Select_NestedOwnedReferencePartialProjection_MaterializesShape()
     {
         var results =
@@ -66,9 +60,7 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Select_NestedOwnedCollectionProjection_MaterializesShape()
     {
         var results =
@@ -94,9 +86,7 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task OwnedCollectionElements_HaveOrdinalKeys()
     {
         var item =
@@ -131,9 +121,7 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Select_OwnedNavigationChain_IntermediateNull_PropagatesNull()
     {
         var results =
@@ -154,9 +142,7 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Select_OwnedNavigationChain_MissingAttribute_PropagatesNull()
     {
         var item = OwnedTypesItemMapper.ToItem(OwnedTypesItems.Items[0]);
@@ -199,9 +185,7 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
         }
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task
         ToListAsync_OwnedCollectionElement_WithOptionalOwnedReference_MixedNullMaterializes()
     {
@@ -229,9 +213,7 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task NestedOwnedCollectionElements_HaveOrdinalKeys_ResetPerParent()
     {
         var item =
@@ -262,9 +244,7 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task ToListAsync_AsNoTracking_OwnedCollections_MaterializeCorrectly()
     {
         var item =
