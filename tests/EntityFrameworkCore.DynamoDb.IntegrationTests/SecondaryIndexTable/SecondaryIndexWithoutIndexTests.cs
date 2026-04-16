@@ -46,7 +46,7 @@ public class SecondaryIndexWithoutIndexTests(DynamoContainerFixture fixture)
         await Db
             .Orders
             .WithoutIndex()
-            .Where(o => o.Status == "PENDING")
+            .Where(o => o.Status == "SHIPPED")
             .ToListAsync(CancellationToken);
 
         LoggerFactory

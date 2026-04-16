@@ -1,4 +1,5 @@
 using Amazon.DynamoDBv2;
+using Amazon.Runtime;
 using JetBrains.Annotations;
 using Testcontainers.DynamoDb;
 using Testcontainers.Xunit;
@@ -15,6 +16,7 @@ public sealed class DynamoContainerFixture(IMessageSink messageSink)
         get
         {
             field ??= new AmazonDynamoDBClient(
+                new BasicAWSCredentials("test", "test"),
                 new AmazonDynamoDBConfig { ServiceURL = Container.GetConnectionString() });
             return field;
         }
