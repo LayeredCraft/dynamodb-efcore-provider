@@ -3,9 +3,12 @@ using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.NamingConventions.Infra;
 
-public abstract class NamingConventionsTableTestFixture(DynamoContainerFixture fixture)
-    : DynamoTestFixtureBase(fixture), IClassFixture<DynamoContainerFixture>
+public abstract class NamingConventionsTableTestFixture : DynamoTestFixtureBase
 {
+    protected NamingConventionsTableTestFixture(DynamoContainerFixture container) : base(container)
+        => EnsureClassTableInitialized(
+            NamingConventionsItemTable.TableName,
+            NamingConventionsItemTable.CreateTable);
     protected TestPartiQlLoggerFactory LoggerFactory => SqlCapture;
 
     public NamingConventionsTableDbContext Db

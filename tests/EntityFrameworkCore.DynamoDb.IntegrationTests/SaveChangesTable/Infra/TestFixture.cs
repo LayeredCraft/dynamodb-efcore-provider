@@ -3,9 +3,13 @@ using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SaveChangesTable;
 
-public abstract class SaveChangesTableTestFixture(DynamoContainerFixture fixture)
-    : DynamoTestFixtureBase(fixture), IClassFixture<DynamoContainerFixture>
+public abstract class SaveChangesTableTestFixture : DynamoTestFixtureBase
 {
+    protected SaveChangesTableTestFixture(DynamoContainerFixture fixture) : base(fixture)
+        => EnsureClassTableInitialized(
+            SaveChangesItemTable.TableName,
+            SaveChangesItemTable.CreateTable);
+
     protected TestPartiQlLoggerFactory LoggerFactory => SqlCapture;
 
     public SaveChangesTableDbContext Db

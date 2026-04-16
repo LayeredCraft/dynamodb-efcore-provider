@@ -3,9 +3,13 @@ using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.OwnedTypesTable;
 
-public abstract class OwnedTypesTableTestFixture(DynamoContainerFixture fixture)
-    : DynamoTestFixtureBase(fixture), IClassFixture<DynamoContainerFixture>
+public abstract class OwnedTypesTableTestFixture : DynamoTestFixtureBase
 {
+    protected OwnedTypesTableTestFixture(DynamoContainerFixture fixture) : base(fixture)
+        => EnsureClassTableInitialized(
+            OwnedTypesItemTable.TableName,
+            OwnedTypesItemTable.CreateTable);
+
     protected TestPartiQlLoggerFactory LoggerFactory => SqlCapture;
 
     public OwnedTypesTableDbContext Db
