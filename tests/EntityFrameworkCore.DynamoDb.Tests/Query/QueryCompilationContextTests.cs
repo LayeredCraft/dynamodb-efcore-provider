@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using EntityFrameworkCore.DynamoDb.Query;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Query;
 
@@ -29,7 +30,9 @@ public class QueryCompilationContextTests
     private static QueryCompilationContextDependencies CreateDependencies()
     {
         var dbContextOptionsBuilder = new DbContextOptionsBuilder<TestDbContext>();
-        dbContextOptionsBuilder.UseDynamo();
+        dbContextOptionsBuilder
+            .UseDynamo()
+            .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning));
         var dbContext = new TestDbContext(dbContextOptionsBuilder.Options);
         return dbContext.GetService<QueryCompilationContextDependencies>();
     }

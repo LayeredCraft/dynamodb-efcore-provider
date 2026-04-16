@@ -447,7 +447,7 @@ public class SecondaryIndexMetadataTests
     public void HasGlobalSecondaryIndex_DateTimeOffsetWithoutConverter_DoesNotThrow()
     {
         var optionsBuilder = new DbContextOptionsBuilder<DateTimeOffsetGlobalPartitionKeyContext>();
-        optionsBuilder.UseDynamo();
+        UseTestDynamo(optionsBuilder);
 
         var act = () =>
         {

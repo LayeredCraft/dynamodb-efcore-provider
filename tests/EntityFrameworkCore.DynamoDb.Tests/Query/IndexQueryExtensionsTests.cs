@@ -248,7 +248,9 @@ public class IndexQueryExtensionsTests
     private static TestDbContext CreateContext()
     {
         var optionsBuilder = new DbContextOptionsBuilder<TestDbContext>();
-        optionsBuilder.UseDynamo();
+        optionsBuilder
+            .UseDynamo()
+            .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning));
         return new TestDbContext(optionsBuilder.Options);
     }
 
