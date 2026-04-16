@@ -1,4 +1,5 @@
 using Amazon.DynamoDBv2;
+using Amazon.Runtime;
 using EntityFrameworkCore.DynamoDb.IntegrationTests.CompetingGsiTable;
 using EntityFrameworkCore.DynamoDb.IntegrationTests.NamingConventions.Infra;
 using EntityFrameworkCore.DynamoDb.IntegrationTests.OwnedTypesTable;
@@ -26,6 +27,7 @@ public sealed class DynamoContainerFixture(IMessageSink messageSink)
         get
         {
             field ??= new AmazonDynamoDBClient(
+                new BasicAWSCredentials("test", "test"),
                 new AmazonDynamoDBConfig { ServiceURL = Container.GetConnectionString() });
             return field;
         }
