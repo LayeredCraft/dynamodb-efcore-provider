@@ -1,7 +1,7 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 
-namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SharedTable.SharedTableWithIndexes;
+namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SharedTableWithIndexes;
 
 public static class SharedTableWithIndexesItemTable
 {
@@ -19,27 +19,27 @@ public static class SharedTableWithIndexesItemTable
                 [
                     new AttributeDefinition
                     {
-                        AttributeName = "Pk", AttributeType = ScalarAttributeType.S,
+                        AttributeName = "pk", AttributeType = ScalarAttributeType.S,
                     },
                     new AttributeDefinition
                     {
-                        AttributeName = "Sk", AttributeType = ScalarAttributeType.S,
+                        AttributeName = "sk", AttributeType = ScalarAttributeType.S,
                     },
                     new AttributeDefinition
                     {
-                        AttributeName = "Status", AttributeType = ScalarAttributeType.S,
+                        AttributeName = "status", AttributeType = ScalarAttributeType.S,
                     },
                     new AttributeDefinition
                     {
                         AttributeName =
-                            "Priority",
+                            "priority",
                         AttributeType = ScalarAttributeType.N,
                     },
                 ],
                 KeySchema =
                 [
-                    new KeySchemaElement { AttributeName = "Pk", KeyType = KeyType.HASH },
-                    new KeySchemaElement { AttributeName = "Sk", KeyType = KeyType.RANGE },
+                    new KeySchemaElement { AttributeName = "pk", KeyType = KeyType.HASH },
+                    new KeySchemaElement { AttributeName = "sk", KeyType = KeyType.RANGE },
                 ],
                 GlobalSecondaryIndexes =
                 [
@@ -51,7 +51,7 @@ public static class SharedTableWithIndexesItemTable
                             new KeySchemaElement
                             {
                                 AttributeName =
-                                    "Priority",
+                                    "priority",
                                 KeyType = KeyType.HASH,
                             },
                         ],
@@ -68,12 +68,12 @@ public static class SharedTableWithIndexesItemTable
                         [
                             new KeySchemaElement
                             {
-                                AttributeName = "Pk", KeyType = KeyType.HASH,
+                                AttributeName = "pk", KeyType = KeyType.HASH,
                             },
                             new KeySchemaElement
                             {
                                 AttributeName =
-                                    "Status",
+                                    "status",
                                 KeyType = KeyType.RANGE,
                             },
                         ],
@@ -85,18 +85,9 @@ public static class SharedTableWithIndexesItemTable
             },
             cancellationToken);
 
-        foreach (var chunk in SharedTableWithIndexesItems.AttributeValues.Chunk(100))
-            await dynamoDb.TransactWriteItemsAsync(
-                new TransactWriteItemsRequest
-                {
-                    TransactItems =
-                        chunk
-                            .Select(attributes => new TransactWriteItem
-                            {
-                                Put = new Put { TableName = TableName, Item = attributes },
-                            })
-                            .ToList(),
-                },
-                cancellationToken);
+        await dynamoDb.SeedItemsAsync(
+            TableName,
+            SharedTableWithIndexesItems.AttributeValues,
+            cancellationToken);
     }
 }

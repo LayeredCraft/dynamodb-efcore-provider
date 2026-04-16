@@ -2,10 +2,8 @@ using Amazon.DynamoDBv2.Model;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.OwnedTypesTable;
 
-/// <summary>Represents the OwnedTypesItems type.</summary>
 public static class OwnedTypesItems
 {
-    /// <summary>Provides functionality for this member.</summary>
     public static readonly List<OwnedShapeItem> Items =
     [
         new()
@@ -43,10 +41,7 @@ public static class OwnedTypesItems
                         new Payment
                         {
                             Provider = "stripe",
-                            Card = new Card
-                            {
-                                Last4 = "4242", ExpMonth = 6, ExpYear = 2030,
-                            },
+                            Card = new Card { Last4 = "4242", ExpMonth = 6, ExpYear = 2030 },
                         },
                     Lines =
                     [
@@ -193,11 +188,9 @@ public static class OwnedTypesItems
         },
     ];
 
-    /// <summary>Provides functionality for this member.</summary>
-    public static readonly IReadOnlyList<Dictionary<string, AttributeValue>> AttributeValues =
-        CreateAttributeValues();
-
-    /// <summary>Converts deterministic test items to DynamoDB attribute maps.</summary>
-    private static IReadOnlyList<Dictionary<string, AttributeValue>> CreateAttributeValues()
-        => OwnedTypesItemMapper.ToItems(Items);
+    public static IReadOnlyList<Dictionary<string, AttributeValue>> AttributeValues()
+    {
+        var x = OwnedTypesItemMapper.ToItems(Items);
+        return x;
+    }
 }

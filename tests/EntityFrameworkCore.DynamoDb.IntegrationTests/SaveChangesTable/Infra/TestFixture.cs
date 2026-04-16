@@ -40,7 +40,7 @@ public abstract class SaveChangesTableTestFixture : DynamoTestFixtureBase
                 TableName = SaveChangesItemTable.TableName,
                 Key = new Dictionary<string, AttributeValue>
                 {
-                    ["Pk"] = new() { S = pk }, ["Sk"] = new() { S = sk },
+                    ["pk"] = new() { S = pk }, ["sk"] = new() { S = sk },
                 },
             },
             cancellationToken);
@@ -54,8 +54,8 @@ public abstract class SaveChangesTableTestFixture : DynamoTestFixtureBase
             ?? throw new InvalidOperationException(
                 $"Cannot bump version: item {pk}/{sk} not found.");
 
-        var currentVersion = long.Parse(item["Version"].N);
-        item["Version"] = new AttributeValue { N = (currentVersion + 1).ToString() };
+        var currentVersion = long.Parse(item["version"].N);
+        item["version"] = new AttributeValue { N = (currentVersion + 1).ToString() };
         await PutItemAsync(item, ct);
     }
 }

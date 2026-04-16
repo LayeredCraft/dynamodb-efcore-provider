@@ -1,7 +1,7 @@
 using EntityFrameworkCore.DynamoDb.Infrastructure;
 using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 
-namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SharedTable.SharedTableWithIndexes;
+namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SharedTableWithIndexes;
 
 public abstract class SharedTableWithIndexesTestFixture : DynamoTestFixtureBase
 {

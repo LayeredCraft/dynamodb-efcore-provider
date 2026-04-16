@@ -1,4 +1,4 @@
-namespace EntityFrameworkCore.DynamoDb.IntegrationTests.NamingConventions.Infra;
+namespace EntityFrameworkCore.DynamoDb.IntegrationTests.NamingOverrideTable.Infra;
 
 /// <summary>Represents the QuestionItem type.</summary>
 public sealed record QuestionItem
@@ -24,6 +24,7 @@ public sealed record QuestionItem
     }
 
     public required string Message { get; set; }
+
     public required string RecordType
     {
         get;
@@ -33,6 +34,7 @@ public sealed record QuestionItem
             RecomputeKeys();
         }
     }
+
     public required string Game
     {
         get;
@@ -50,7 +52,9 @@ public sealed record QuestionItem
         new() { Message = string.Empty },
         new() { Message = string.Empty }
     ];
+
     public DateTimeOffset DateSubmitted { get; set; } = DateTimeOffset.UtcNow;
+
     public string? CategoryId
     {
         get;
@@ -60,12 +64,14 @@ public sealed record QuestionItem
             RecomputeKeys();
         }
     }
+
     // TODO: After migration and ensuring this is always set, make this non-nullable.
     public List<string>? Tags { get; set; } = [];
     public string? Gs1Pk => _gs1Pk;
     public string? Gs1Sk => _gs1Sk;
     public string? Gs2Pk => _gs2Pk;
     public string? Gs2Sk => _gs2Sk;
+
     public int? BucketId
     {
         get;
@@ -85,7 +91,9 @@ public sealed record QuestionItem
             RecomputeKeys();
         }
     }
-    private bool IsQuestionRecordType => string.Equals(RecordType, "question", StringComparison.OrdinalIgnoreCase);
+
+    private bool IsQuestionRecordType
+        => string.Equals(RecordType, "question", StringComparison.OrdinalIgnoreCase);
 
     public void RecomputeKeys()
     {

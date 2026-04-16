@@ -21,9 +21,9 @@ public class StartsWithTests(DynamoContainerFixture fixture) : SimpleTableTestFi
 
         AssertSql(
             """
-            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+            SELECT "pk", "boolValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableIntValue", "nullableStringValue", "stringValue"
             FROM "SimpleItems"
-            WHERE begins_with("StringValue", ?)
+            WHERE begins_with("stringValue", ?)
             """);
     }
 
@@ -41,9 +41,9 @@ public class StartsWithTests(DynamoContainerFixture fixture) : SimpleTableTestFi
 
         AssertSql(
             """
-            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+            SELECT "pk", "boolValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableIntValue", "nullableStringValue", "stringValue"
             FROM "SimpleItems"
-            WHERE begins_with("StringValue", 'ch')
+            WHERE begins_with("stringValue", 'ch')
             """);
     }
 

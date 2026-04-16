@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 
-namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SharedTable.SharedTableWithIndexes;
+namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SharedTableWithIndexes;
 
 public class SharedTableWithIndexesDbContext(DbContextOptions options) : DbContext(options)
 {

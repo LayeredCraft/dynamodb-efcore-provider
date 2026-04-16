@@ -52,6 +52,19 @@ public static class DynamoEntityTypeExtensions
             => entityType.SetOrRemoveAnnotation(
                 DynamoAnnotationNames.DiscriminatorStrategy,
                 strategy?.ToString());
+
+        /// <summary>
+        ///     Sets the attribute naming convention descriptor for this entity type. Stored as a runtime
+        ///     annotation so custom delegate translators are supported without serialization constraints.
+        /// </summary>
+        /// <param name="descriptor">
+        ///     The descriptor to configure, or <c>null</c> to clear the explicit setting
+        ///     and fall back to the ownership chain or CLR property names.
+        /// </param>
+        internal void SetAttributeNamingConvention(DynamoNamingConventionDescriptor? descriptor)
+            => entityType.SetOrRemoveAnnotation(
+                DynamoAnnotationNames.AttributeNamingConvention,
+                descriptor);
     }
 
     extension(IReadOnlyEntityType entityType)
@@ -136,6 +149,22 @@ public static class DynamoEntityTypeExtensions
 
             return DynamoDiscriminatorStrategy.Attribute;
         }
+
+        /// <summary>
+        ///     Gets the directly configured attribute naming convention descriptor for this entity type,
+        ///     or <c>null</c> when none is set.
+        /// </summary>
+        /// <remarks>
+        ///     Does not walk the ownership chain. Inherited resolution (walking ownership to the root
+        ///     entity's convention) is performed by the naming convention applier during model finalization.
+        /// </remarks>
+        /// <returns>
+        ///     The <see cref="DynamoNamingConventionDescriptor" /> set on this entity type, or
+        ///     <c>null</c> if none is configured.
+        /// </returns>
+        internal DynamoNamingConventionDescriptor? GetAttributeNamingConvention()
+            => entityType.FindAnnotation(DynamoAnnotationNames.AttributeNamingConvention)?.Value as
+                DynamoNamingConventionDescriptor;
     }
 
     extension(IEntityType entityType)
@@ -179,6 +208,30 @@ public static class DynamoEntityTypeExtensions
 
     extension(IConventionEntityType entityType)
     {
+        /// <summary>
+        ///     Sets the top-level DynamoDB attribute name used to store this owned navigation at the
+        ///     given configuration source.
+        /// </summary>
+        /// if configured via a data annotation;
+        /// for the fluent API.
+        /// <returns>The configured attribute name, or  if the configuration was not applied.</returns>
+        public string? SetContainingAttributeName(string? name, bool fromDataAnnotation = false)
+            => (string?)entityType.SetOrRemoveAnnotation(
+                    DynamoAnnotationNames.ContainingAttributeName,
+                    name.NullButNotEmpty(),
+                    fromDataAnnotation)
+                ?.Value;
+
+        /// <summary>Returns the configuration source for the containing attribute name annotation.</summary>
+        /// <returns>
+        ///     The <c>ConfigurationSource</c> of the annotation, or  if no containing attribute name has
+        ///     been configured.
+        /// </returns>
+        public ConfigurationSource? GetContainingAttributeNameConfigurationSource()
+            => entityType
+                .FindAnnotation(DynamoAnnotationNames.ContainingAttributeName)
+                ?.GetConfigurationSource();
+
         /// <summary>
         ///     Sets the EF property name designated as the DynamoDB partition key at the given
         ///     configuration source.

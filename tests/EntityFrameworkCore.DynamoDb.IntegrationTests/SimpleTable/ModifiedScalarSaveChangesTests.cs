@@ -27,7 +27,7 @@ public class ModifiedScalarSaveChangesTests(DynamoContainerFixture fixture)
             new GetItemRequest
             {
                 TableName = SimpleItemTable.TableName,
-                Key = new Dictionary<string, AttributeValue> { ["Pk"] = new() { S = item.Pk } },
+                Key = new Dictionary<string, AttributeValue> { ["pk"] = new() { S = item.Pk } },
             },
             CancellationToken);
 
@@ -39,8 +39,8 @@ public class ModifiedScalarSaveChangesTests(DynamoContainerFixture fixture)
         AssertSql(
             """
             UPDATE "SimpleItems"
-            SET "IntValue" = ?
-            WHERE "Pk" = ?
+            SET "intValue" = ?
+            WHERE "pk" = ?
             """);
     }
 }

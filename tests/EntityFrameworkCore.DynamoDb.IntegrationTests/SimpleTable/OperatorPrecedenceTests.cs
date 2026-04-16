@@ -32,9 +32,9 @@ public class OperatorPrecedenceTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+            SELECT "pk", "boolValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableIntValue", "nullableStringValue", "stringValue"
             FROM "SimpleItems"
-            WHERE "IntValue" = 100 OR "IntValue" = 200 AND "BoolValue" = TRUE
+            WHERE "intValue" = 100 OR "intValue" = 200 AND "boolValue" = TRUE
             """);
     }
 
@@ -57,9 +57,9 @@ public class OperatorPrecedenceTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+            SELECT "pk", "boolValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableIntValue", "nullableStringValue", "stringValue"
             FROM "SimpleItems"
-            WHERE ("IntValue" = 100 OR "IntValue" = 200) AND "BoolValue" = TRUE
+            WHERE ("intValue" = 100 OR "intValue" = 200) AND "boolValue" = TRUE
             """);
     }
 
@@ -79,9 +79,9 @@ public class OperatorPrecedenceTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+            SELECT "pk", "boolValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableIntValue", "nullableStringValue", "stringValue"
             FROM "SimpleItems"
-            WHERE "IntValue" > 100 AND "LongValue" < 500
+            WHERE "intValue" > 100 AND "longValue" < 500
             """);
     }
 
@@ -106,9 +106,9 @@ public class OperatorPrecedenceTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+            SELECT "pk", "boolValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableIntValue", "nullableStringValue", "stringValue"
             FROM "SimpleItems"
-            WHERE "IntValue" > 0 AND "LongValue" > 0 AND "DoubleValue" > 0 AND "BoolValue" = TRUE
+            WHERE "intValue" > 0 AND "longValue" > 0 AND "doubleValue" > 0 AND "boolValue" = TRUE
             """);
     }
 
@@ -136,9 +136,9 @@ public class OperatorPrecedenceTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+            SELECT "pk", "boolValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableIntValue", "nullableStringValue", "stringValue"
             FROM "SimpleItems"
-            WHERE "IntValue" = 100 OR "IntValue" = 200 OR "IntValue" = 300 OR "IntValue" = 400
+            WHERE "intValue" = 100 OR "intValue" = 200 OR "intValue" = 300 OR "intValue" = 400
             """);
     }
 
@@ -165,9 +165,9 @@ public class OperatorPrecedenceTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+            SELECT "pk", "boolValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableIntValue", "nullableStringValue", "stringValue"
             FROM "SimpleItems"
-            WHERE ("IntValue" = 100 OR "IntValue" = 200) AND ("LongValue" < 500 OR "LongValue" > 1000) AND "BoolValue" = TRUE
+            WHERE ("intValue" = 100 OR "intValue" = 200) AND ("longValue" < 500 OR "longValue" > 1000) AND "boolValue" = TRUE
             """);
     }
 
@@ -196,9 +196,9 @@ public class OperatorPrecedenceTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+            SELECT "pk", "boolValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableIntValue", "nullableStringValue", "stringValue"
             FROM "SimpleItems"
-            WHERE "IntValue" > 100 AND "StringValue" <> 'test' AND ("BoolValue" = TRUE OR "DoubleValue" < 0) AND "LongValue" < 1000
+            WHERE "intValue" > 100 AND "stringValue" <> 'test' AND ("boolValue" = TRUE OR "doubleValue" < 0) AND "longValue" < 1000
             """);
     }
 
@@ -227,9 +227,9 @@ public class OperatorPrecedenceTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+            SELECT "pk", "boolValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableIntValue", "nullableStringValue", "stringValue"
             FROM "SimpleItems"
-            WHERE "IntValue" BETWEEN 100 AND 500 AND "LongValue" <> 0 AND "DoubleValue" < 100
+            WHERE "intValue" BETWEEN 100 AND 500 AND "longValue" <> 0 AND "doubleValue" < 100
             """);
     }
 }

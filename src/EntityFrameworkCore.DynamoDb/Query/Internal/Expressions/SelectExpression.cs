@@ -348,7 +348,7 @@ public class SelectExpression(string tableName, string? queryEntityTypeName = nu
         // Prefer alias deduplication first so independently-built equivalent SQL expressions still
         // resolve to a stable projection ordinal for the same logical column.
         for (var i = 0; i < _projection.Count; i++)
-            if (string.Equals(_projection[i].Alias, alias, StringComparison.Ordinal))
+            if (string.Equals(_projection[i].Alias, alias, StringComparison.OrdinalIgnoreCase))
             {
                 // When a typed DynamoObjectAccessExpression replaces a placeholder
                 // SqlPropertyExpression(typeof(object), null) that was added by
@@ -393,7 +393,7 @@ public class SelectExpression(string tableName, string? queryEntityTypeName = nu
     private HashSet<string> GetNestedOwnedContainingAttributeNamesFromEntityProjections(
         Dictionary<IEntityType, HashSet<string>> cache)
     {
-        HashSet<string> nestedOwnedContainingAttributeNames = new(StringComparer.Ordinal);
+        HashSet<string> nestedOwnedContainingAttributeNames = new(StringComparer.OrdinalIgnoreCase);
 
         foreach (var entityProjection in _projectionMapping.Values
             .OfType<DynamoEntityProjectionExpression>())

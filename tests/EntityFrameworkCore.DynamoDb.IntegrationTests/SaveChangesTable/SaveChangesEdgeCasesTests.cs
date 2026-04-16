@@ -57,7 +57,7 @@ public class SaveChangesEdgeCasesTests(DynamoContainerFixture fixture)
         AssertSql(
             """
             INSERT INTO "AppItems"
-            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'ReferenceIds': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?}
+            VALUE {'pk': ?, 'sk': ?, '$type': ?, 'createdAt': ?, 'email': ?, 'isPreferred': ?, 'notes': ?, 'nullableNote': ?, 'preferences': ?, 'referenceIds': ?, 'tags': ?, 'version': ?, 'contacts': ?}
             """);
 
         // Entry still in Added state — AcceptAllChanges was not called.

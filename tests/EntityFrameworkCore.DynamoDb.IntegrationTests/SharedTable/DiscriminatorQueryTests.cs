@@ -17,9 +17,9 @@ public class DiscriminatorQueryTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "Pk", "Sk", "$type", "Name"
+            SELECT "pk", "sk", "$type", "name"
             FROM "app-table"
-            WHERE "Pk" = 'TENANT#U' AND "$type" = 'UserEntity'
+            WHERE "pk" = 'TENANT#U' AND "$type" = 'UserEntity'
             """);
     }
 
@@ -36,9 +36,9 @@ public class DiscriminatorQueryTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "Pk"
+            SELECT "pk"
             FROM "app-table"
-            WHERE "Pk" = 'TENANT#U' AND "$type" = 'UserEntity'
+            WHERE "pk" = 'TENANT#U' AND "$type" = 'UserEntity'
             """);
     }
 }
@@ -63,9 +63,9 @@ public class DiscriminatorQueryCustomNameTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "Pk", "Sk", "$kind", "Name"
+            SELECT "pk", "sk", "$kind", "name"
             FROM "app-table"
-            WHERE "Pk" = 'TENANT#U' AND "$kind" = 'UserEntity'
+            WHERE "pk" = 'TENANT#U' AND "$kind" = 'UserEntity'
             """);
     }
 }
@@ -88,9 +88,9 @@ public class DiscriminatorQuerySingleTypeTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "Pk", "Sk", "Name"
+            SELECT "pk", "sk", "name"
             FROM "app-table"
-            WHERE "Pk" = 'TENANT#U'
+            WHERE "pk" = 'TENANT#U'
             """);
     }
 }
@@ -121,9 +121,9 @@ public class DiscriminatorInheritanceQueryTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "Pk", "Sk", "$type", "Name", "Department", "ManagerLevel"
+            SELECT "pk", "sk", "$type", "name", "department", "ManagerLevel"
             FROM "app-table"
-            WHERE "Pk" = 'TENANT#H' AND ("$type" = 'EmployeeEntity' OR "$type" = 'ManagerEntity')
+            WHERE "pk" = 'TENANT#H' AND ("$type" = 'EmployeeEntity' OR "$type" = 'ManagerEntity')
             """);
     }
 
@@ -141,9 +141,9 @@ public class DiscriminatorInheritanceQueryTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "Pk", "Sk", "$type", "Name", "Department", "ManagerLevel"
+            SELECT "pk", "sk", "$type", "name", "department", "ManagerLevel"
             FROM "app-table"
-            WHERE "Pk" = 'TENANT#H' AND "Name" = 'Eve' AND ("$type" = 'EmployeeEntity' OR "$type" = 'ManagerEntity')
+            WHERE "pk" = 'TENANT#H' AND "name" = 'Eve' AND ("$type" = 'EmployeeEntity' OR "$type" = 'ManagerEntity')
             """);
     }
 
@@ -160,9 +160,9 @@ public class DiscriminatorInheritanceQueryTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "Pk", "Sk", "$type", "Name", "Department"
+            SELECT "pk", "sk", "$type", "name", "department"
             FROM "app-table"
-            WHERE "Pk" = 'TENANT#H' AND "$type" = 'EmployeeEntity'
+            WHERE "pk" = 'TENANT#H' AND "$type" = 'EmployeeEntity'
             """);
     }
 
@@ -179,9 +179,9 @@ public class DiscriminatorInheritanceQueryTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "Pk", "Sk", "$type", "Name", "Department"
+            SELECT "pk", "sk", "$type", "name", "department"
             FROM "app-table"
-            WHERE "Pk" = 'TENANT#H' AND "Sk" = 'PERSON#EMP-1' AND "$type" = 'EmployeeEntity'
+            WHERE "pk" = 'TENANT#H' AND "sk" = 'PERSON#EMP-1' AND "$type" = 'EmployeeEntity'
             """);
     }
 
@@ -228,9 +228,9 @@ public class DiscriminatorInheritanceBaseOnlyToTableQueryTests(DynamoContainerFi
 
         AssertSql(
             """
-            SELECT "Pk", "Sk", "$type", "Name", "Department", "ManagerLevel"
+            SELECT "pk", "sk", "$type", "name", "department", "ManagerLevel"
             FROM "app-table"
-            WHERE "Pk" = 'TENANT#H' AND ("$type" = 'EmployeeEntity' OR "$type" = 'ManagerEntity')
+            WHERE "pk" = 'TENANT#H' AND ("$type" = 'EmployeeEntity' OR "$type" = 'ManagerEntity')
             """);
     }
 
@@ -247,9 +247,9 @@ public class DiscriminatorInheritanceBaseOnlyToTableQueryTests(DynamoContainerFi
 
         AssertSql(
             """
-            SELECT "Pk", "Sk", "$type", "Name", "Department"
+            SELECT "pk", "sk", "$type", "name", "department"
             FROM "app-table"
-            WHERE "Pk" = 'TENANT#H' AND "$type" = 'EmployeeEntity'
+            WHERE "pk" = 'TENANT#H' AND "$type" = 'EmployeeEntity'
             """);
     }
 }

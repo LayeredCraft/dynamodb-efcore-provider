@@ -1,8 +1,8 @@
-using EntityFrameworkCore.DynamoDb.IntegrationTests.NamingConventions.Infra;
+using EntityFrameworkCore.DynamoDb.IntegrationTests.NamingOverrideTable.Infra;
 using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 using Microsoft.EntityFrameworkCore;
 
-namespace EntityFrameworkCore.DynamoDb.IntegrationTests.NamingConventions;
+namespace EntityFrameworkCore.DynamoDb.IntegrationTests.NamingOverrideTable;
 
 public class SelectTests(DynamoContainerFixture fixture)
     : NamingConventionsTableTestFixture(fixture)

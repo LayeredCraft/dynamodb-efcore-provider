@@ -3,7 +3,7 @@ using LayeredCraft.DynamoMapper.Runtime;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SimpleTable;
 
-[DynamoMapper(Convention = DynamoNamingConvention.Exact, OmitNullValues = false)]
+[DynamoMapper(Convention = DynamoNamingConvention.CamelCase, OmitNullValues = false)]
 internal static partial class SimpleItemMapper
 {
     internal static partial Dictionary<string, AttributeValue> ToItem(SimpleItem source);

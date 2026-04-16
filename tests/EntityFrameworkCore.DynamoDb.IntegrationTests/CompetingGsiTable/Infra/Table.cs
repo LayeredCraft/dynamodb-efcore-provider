@@ -20,27 +20,27 @@ public static class CompetingGsiOrdersTable
                 [
                     new AttributeDefinition
                     {
-                        AttributeName = nameof(OrderItem.CustomerId),
+                        AttributeName = "customerId",
                         AttributeType = ScalarAttributeType.S,
                     },
                     new AttributeDefinition
                     {
-                        AttributeName = nameof(OrderItem.OrderId),
+                        AttributeName = "orderId",
                         AttributeType = ScalarAttributeType.S,
                     },
                     new AttributeDefinition
                     {
-                        AttributeName = nameof(OrderItem.Status),
+                        AttributeName = "status",
                         AttributeType = ScalarAttributeType.S,
                     },
                     new AttributeDefinition
                     {
-                        AttributeName = nameof(OrderItem.CreatedAt),
+                        AttributeName = "createdAt",
                         AttributeType = ScalarAttributeType.S,
                     },
                     new AttributeDefinition
                     {
-                        AttributeName = nameof(OrderItem.Priority),
+                        AttributeName = "priority",
                         AttributeType = ScalarAttributeType.N,
                     },
                 ],
@@ -48,12 +48,12 @@ public static class CompetingGsiOrdersTable
                 [
                     new KeySchemaElement
                     {
-                        AttributeName = nameof(OrderItem.CustomerId),
+                        AttributeName = "customerId",
                         KeyType = KeyType.HASH,
                     },
                     new KeySchemaElement
                     {
-                        AttributeName = nameof(OrderItem.OrderId),
+                        AttributeName = "orderId",
                         KeyType = KeyType.RANGE,
                     },
                 ],
@@ -66,12 +66,12 @@ public static class CompetingGsiOrdersTable
                         [
                             new KeySchemaElement
                             {
-                                AttributeName = nameof(OrderItem.Status),
+                                AttributeName = "status",
                                 KeyType = KeyType.HASH,
                             },
                             new KeySchemaElement
                             {
-                                AttributeName = nameof(OrderItem.CreatedAt),
+                                AttributeName = "createdAt",
                                 KeyType = KeyType.RANGE,
                             },
                         ],
@@ -85,12 +85,12 @@ public static class CompetingGsiOrdersTable
                         [
                             new KeySchemaElement
                             {
-                                AttributeName = nameof(OrderItem.Status),
+                                AttributeName = "status",
                                 KeyType = KeyType.HASH,
                             },
                             new KeySchemaElement
                             {
-                                AttributeName = nameof(OrderItem.Priority),
+                                AttributeName = "priority",
                                 KeyType = KeyType.RANGE,
                             },
                         ],

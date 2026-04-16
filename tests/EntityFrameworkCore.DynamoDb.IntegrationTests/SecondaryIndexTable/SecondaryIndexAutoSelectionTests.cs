@@ -33,9 +33,9 @@ public class SecondaryIndexAutoSelectionTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "CustomerId", "OrderId", "CreatedAt", "Priority", "Region", "Status"
+            SELECT "customerId", "orderId", "createdAt", "priority", "region", "status"
             FROM "SecondaryIndexOrders"."ByStatus"
-            WHERE "Status" = 'PENDING'
+            WHERE "status" = 'PENDING'
             """);
     }
 
@@ -57,9 +57,9 @@ public class SecondaryIndexAutoSelectionTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "CustomerId", "OrderId", "CreatedAt", "Priority", "Region", "Status"
+            SELECT "customerId", "orderId", "createdAt", "priority", "region", "status"
             FROM "SecondaryIndexOrders"."ByRegion"
-            WHERE "Region" = 'US-EAST' AND "CreatedAt" >= '2024-01-14'
+            WHERE "region" = 'US-EAST' AND "createdAt" >= '2024-01-14'
             """);
     }
 
@@ -74,9 +74,9 @@ public class SecondaryIndexAutoSelectionTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "CustomerId", "OrderId", "CreatedAt", "Priority", "Region", "Status"
+            SELECT "customerId", "orderId", "createdAt", "priority", "region", "status"
             FROM "SecondaryIndexOrders"
-            WHERE "CustomerId" = 'C#1'
+            WHERE "customerId" = 'C#1'
             """);
     }
 
@@ -106,10 +106,10 @@ public class SecondaryIndexAutoSelectionTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "CustomerId", "OrderId", "CreatedAt", "Priority", "Region", "Status"
+            SELECT "customerId", "orderId", "createdAt", "priority", "region", "status"
             FROM "SecondaryIndexOrders"."ByPriority"
-            WHERE "CustomerId" = 'C#1'
-            ORDER BY "Priority" ASC
+            WHERE "customerId" = 'C#1'
+            ORDER BY "priority" ASC
             """);
     }
 
@@ -129,9 +129,9 @@ public class SecondaryIndexAutoSelectionTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "CustomerId", "OrderId", "CreatedAt", "Priority", "Region", "Status"
+            SELECT "customerId", "orderId", "createdAt", "priority", "region", "status"
             FROM "SecondaryIndexOrders"
-            WHERE "CustomerId" = 'C#1'
+            WHERE "customerId" = 'C#1'
             """);
     }
 
@@ -158,9 +158,9 @@ public class SecondaryIndexAutoSelectionTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "CustomerId", "OrderId", "CreatedAt", "Priority", "Region", "Status"
+            SELECT "customerId", "orderId", "createdAt", "priority", "region", "status"
             FROM "SecondaryIndexOrders"."ByStatus"
-            WHERE "Status" IN [?, ?]
+            WHERE "status" IN [?, ?]
             """);
     }
 
@@ -189,9 +189,9 @@ public class SecondaryIndexAutoSelectionTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "CustomerId", "OrderId", "CreatedAt", "Priority", "Region", "Status"
+            SELECT "customerId", "orderId", "createdAt", "priority", "region", "status"
             FROM "SecondaryIndexOrders"
-            WHERE "Status" = 'PENDING' OR "Region" = 'US-EAST'
+            WHERE "status" = 'PENDING' OR "region" = 'US-EAST'
             """);
     }
 
@@ -218,9 +218,9 @@ public class SecondaryIndexAutoSelectionTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "CustomerId", "OrderId", "CreatedAt", "Priority", "Region", "Status"
+            SELECT "customerId", "orderId", "createdAt", "priority", "region", "status"
             FROM "SecondaryIndexOrders"
-            WHERE "Priority" = 1
+            WHERE "priority" = 1
             """);
     }
 
@@ -249,9 +249,9 @@ public class SecondaryIndexAutoSelectionTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "CustomerId", "OrderId", "CreatedAt", "Priority", "Region", "Status"
+            SELECT "customerId", "orderId", "createdAt", "priority", "region", "status"
             FROM "SecondaryIndexOrders"."ByStatus"
-            WHERE "Status" = 'PENDING'
+            WHERE "status" = 'PENDING'
             """);
     }
 
@@ -278,10 +278,10 @@ public class SecondaryIndexAutoSelectionTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "CustomerId", "OrderId", "CreatedAt", "Priority", "Region", "Status"
+            SELECT "customerId", "orderId", "createdAt", "priority", "region", "status"
             FROM "SecondaryIndexOrders"."ByStatus"
-            WHERE "Status" = 'PENDING'
-            ORDER BY "CreatedAt" ASC
+            WHERE "status" = 'PENDING'
+            ORDER BY "createdAt" ASC
             """);
     }
 
@@ -297,7 +297,7 @@ public class SecondaryIndexAutoSelectionTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "CustomerId", "OrderId", "CreatedAt", "Priority", "Region", "Status"
+            SELECT "customerId", "orderId", "createdAt", "priority", "region", "status"
             FROM "SecondaryIndexOrders"
             """);
     }

@@ -1,6 +1,7 @@
 using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.Storage;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Update;
 
@@ -32,7 +33,11 @@ public class DynamoResponseShadowPropertyTests
     }
 
     private static ItemContext CreateContext()
-        => new(new DbContextOptionsBuilder<ItemContext>().UseDynamo().Options);
+        => new(
+            new DbContextOptionsBuilder<ItemContext>()
+                .UseDynamo()
+                .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .Options);
 
     // -----------------------------------------------------------------------
     // Write plan exclusion

@@ -1,5 +1,6 @@
 using EntityFrameworkCore.DynamoDb.Storage;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Update;
 
@@ -19,7 +20,10 @@ public class DynamoEntityItemSerializerSourceTests
     [Fact]
     public async Task SaveChanges_TableNameWithDoubleQuote_ThrowsArgumentException()
     {
-        var options = new DbContextOptionsBuilder<QuotedTableDbContext>().UseDynamo().Options;
+        var options = new DbContextOptionsBuilder<QuotedTableDbContext>()
+            .UseDynamo()
+            .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+            .Options;
 
         await using var db = new QuotedTableDbContext(options);
         db.Gadgets.Add(new Gadget { Pk = "G#1", Sk = "G1" });
@@ -33,7 +37,10 @@ public class DynamoEntityItemSerializerSourceTests
     public void BuildItem_ListWithNullableEnumElements_UsesNullAttributeValueForNullElement()
     {
         using var db = new NullableCollectionDbContext(
-            new DbContextOptionsBuilder<NullableCollectionDbContext>().UseDynamo().Options);
+            new DbContextOptionsBuilder<NullableCollectionDbContext>()
+                .UseDynamo()
+                .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .Options);
 
         var entity = new NullableCollectionEntity
         {
@@ -46,16 +53,19 @@ public class DynamoEntityItemSerializerSourceTests
         var updateEntry = (IUpdateEntry)db.Entry(entity).GetInfrastructure();
 
         var item = serializer.BuildItem(updateEntry);
-        item["NullableStatuses"].L.Should().HaveCount(2);
-        item["NullableStatuses"].L[0].N.Should().Be("1");
-        item["NullableStatuses"].L[1].NULL.Should().BeTrue();
+        item["nullableStatuses"].L.Should().HaveCount(2);
+        item["nullableStatuses"].L[0].N.Should().Be("1");
+        item["nullableStatuses"].L[1].NULL.Should().BeTrue();
     }
 
     [Fact]
     public void BuildItem_DictionaryWithNullableEnumValues_UsesNullAttributeValueForNullValue()
     {
         using var db = new NullableCollectionDbContext(
-            new DbContextOptionsBuilder<NullableCollectionDbContext>().UseDynamo().Options);
+            new DbContextOptionsBuilder<NullableCollectionDbContext>()
+                .UseDynamo()
+                .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .Options);
 
         var entity = new NullableCollectionEntity
         {
@@ -73,15 +83,18 @@ public class DynamoEntityItemSerializerSourceTests
         var updateEntry = (IUpdateEntry)db.Entry(entity).GetInfrastructure();
 
         var item = serializer.BuildItem(updateEntry);
-        item["NullableStatusByCode"].M["ok"].N.Should().Be("1");
-        item["NullableStatusByCode"].M["missing"].NULL.Should().BeTrue();
+        item["nullableStatusByCode"].M["ok"].N.Should().Be("1");
+        item["nullableStatusByCode"].M["missing"].NULL.Should().BeTrue();
     }
 
     [Fact]
     public void BuildItem_SetWithNullableEnumElements_ThrowsWhenElementIsNull()
     {
         using var db = new NullableCollectionDbContext(
-            new DbContextOptionsBuilder<NullableCollectionDbContext>().UseDynamo().Options);
+            new DbContextOptionsBuilder<NullableCollectionDbContext>()
+                .UseDynamo()
+                .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .Options);
 
         var entity = new NullableCollectionEntity
         {

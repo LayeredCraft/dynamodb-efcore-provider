@@ -4,7 +4,7 @@ using LayeredCraft.DynamoMapper.Runtime;
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SharedTable;
 
 [DynamoMapper(
-    Convention = DynamoNamingConvention.Exact,
+    Convention = DynamoNamingConvention.CamelCase,
     OmitNullValues = false,
     IncludeBaseClassProperties = true)]
 internal static partial class UserEntityMapper
@@ -22,7 +22,7 @@ internal static partial class UserEntityMapper
 }
 
 [DynamoMapper(
-    Convention = DynamoNamingConvention.Exact,
+    Convention = DynamoNamingConvention.CamelCase,
     OmitNullValues = false,
     IncludeBaseClassProperties = true)]
 internal static partial class OrderEntityMapper
@@ -40,7 +40,7 @@ internal static partial class OrderEntityMapper
 }
 
 [DynamoMapper(
-    Convention = DynamoNamingConvention.Exact,
+    Convention = DynamoNamingConvention.CamelCase,
     OmitNullValues = false,
     IncludeBaseClassProperties = true)]
 internal static partial class EmployeeEntityMapper
@@ -58,7 +58,7 @@ internal static partial class EmployeeEntityMapper
 }
 
 [DynamoMapper(
-    Convention = DynamoNamingConvention.Exact,
+    Convention = DynamoNamingConvention.CamelCase,
     OmitNullValues = false,
     IncludeBaseClassProperties = true)]
 [DynamoField("Level", AttributeName = "ManagerLevel")]

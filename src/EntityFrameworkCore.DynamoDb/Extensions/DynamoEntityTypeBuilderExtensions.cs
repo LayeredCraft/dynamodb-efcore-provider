@@ -1,6 +1,7 @@
 using System.Linq.Expressions;
 using EntityFrameworkCore.DynamoDb.Metadata;
 using EntityFrameworkCore.DynamoDb.Metadata.Builders;
+using EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using EntityFrameworkCore.DynamoDb.Utilities;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -119,6 +120,60 @@ public static class DynamoEntityTypeBuilderExtensions
 
             return new DynamoSecondaryIndexBuilder(indexBuilder);
         }
+
+        /// <summary>
+        ///     Configures an automatic attribute naming convention for all scalar properties on this
+        ///     entity type.
+        /// </summary>
+        /// <remarks>
+        ///     <para>
+        ///         At model finalization, the convention is applied to every declared scalar property that
+        ///         does not already have an explicit <c>HasAttributeName(...)</c> override. Shadow properties
+        ///         (provider-internal) are not affected.
+        ///     </para>
+        ///     <para>
+        ///         Owned entity types without their own convention configured inherit this entity's
+        ///         convention automatically.
+        ///     </para>
+        /// </remarks>
+        /// <param name="convention">The naming convention to apply.</param>
+        /// <returns>The same builder instance so that multiple calls can be chained.</returns>
+        public EntityTypeBuilder HasAttributeNamingConvention(
+            DynamoAttributeNamingConvention convention)
+        {
+            entityTypeBuilder.Metadata.SetAttributeNamingConvention(
+                DynamoNamingConventionDescriptor.Named(convention));
+            return entityTypeBuilder;
+        }
+
+        /// <summary>
+        ///     Configures a custom attribute naming function for all scalar properties on this entity
+        ///     type.
+        /// </summary>
+        /// <remarks>
+        ///     <para>
+        ///         At model finalization, <paramref name="translator" /> is called with each declared scalar
+        ///         property's CLR name and the return value is used as the DynamoDB attribute name. Properties
+        ///         with an explicit <c>HasAttributeName(...)</c> override are not affected. Shadow properties
+        ///         (provider-internal) are not affected.
+        ///     </para>
+        ///     <para>
+        ///         Owned entity types without their own convention configured inherit this entity's
+        ///         convention automatically.
+        ///     </para>
+        /// </remarks>
+        /// <param name="translator">
+        ///     A function that receives the CLR property name and returns the desired
+        ///     DynamoDB attribute name.
+        /// </param>
+        /// <returns>The same builder instance so that multiple calls can be chained.</returns>
+        public EntityTypeBuilder HasAttributeNamingConvention(Func<string, string> translator)
+        {
+            translator.NotNull();
+            entityTypeBuilder.Metadata.SetAttributeNamingConvention(
+                DynamoNamingConventionDescriptor.Custom(translator));
+            return entityTypeBuilder;
+        }
     }
 
     extension<TEntity>(EntityTypeBuilder<TEntity> entityTypeBuilder) where TEntity : class
@@ -223,6 +278,54 @@ public static class DynamoEntityTypeBuilderExtensions
             return new DynamoSecondaryIndexBuilder<TEntity>(indexBuilder);
         }
 
+        /// <summary>
+        ///     Configures an automatic attribute naming convention for all scalar properties on this
+        ///     entity type.
+        /// </summary>
+        /// <remarks>
+        ///     <para>
+        ///         At model finalization, the convention is applied to every declared scalar property that
+        ///         does not already have an explicit <c>HasAttributeName(...)</c> override. Shadow properties
+        ///         (provider-internal) are not affected.
+        ///     </para>
+        ///     <para>
+        ///         Owned entity types without their own convention configured inherit this entity's
+        ///         convention automatically.
+        ///     </para>
+        /// </remarks>
+        /// <param name="convention">The naming convention to apply.</param>
+        /// <returns>The same builder instance so that multiple calls can be chained.</returns>
+        public EntityTypeBuilder<TEntity> HasAttributeNamingConvention(
+            DynamoAttributeNamingConvention convention)
+            => (EntityTypeBuilder<TEntity>)((EntityTypeBuilder)entityTypeBuilder)
+                .HasAttributeNamingConvention(convention);
+
+        /// <summary>
+        ///     Configures a custom attribute naming function for all scalar properties on this entity
+        ///     type.
+        /// </summary>
+        /// <remarks>
+        ///     <para>
+        ///         At model finalization, <paramref name="translator" /> is called with each declared scalar
+        ///         property's CLR name and the return value is used as the DynamoDB attribute name. Properties
+        ///         with an explicit <c>HasAttributeName(...)</c> override are not affected. Shadow properties
+        ///         (provider-internal) are not affected.
+        ///     </para>
+        ///     <para>
+        ///         Owned entity types without their own convention configured inherit this entity's
+        ///         convention automatically.
+        ///     </para>
+        /// </remarks>
+        /// <param name="translator">
+        ///     A function that receives the CLR property name and returns the desired
+        ///     DynamoDB attribute name.
+        /// </param>
+        /// <returns>The same builder instance so that multiple calls can be chained.</returns>
+        public EntityTypeBuilder<TEntity>
+            HasAttributeNamingConvention(Func<string, string> translator)
+            => (EntityTypeBuilder<TEntity>)((EntityTypeBuilder)entityTypeBuilder)
+                .HasAttributeNamingConvention(translator);
+
         private static string GetPropertyName(Expression<Func<TEntity, object?>> expression)
         {
             var body = expression.Body;
@@ -245,6 +348,45 @@ public static class DynamoEntityTypeBuilderExtensions
             ownedNavigationBuilder.OwnedEntityType.SetContainingAttributeName(name);
             return ownedNavigationBuilder;
         }
+
+        /// <summary>
+        ///     Configures an automatic attribute naming convention for all scalar properties of this
+        ///     owned entity type.
+        /// </summary>
+        /// <remarks>
+        ///     Overrides any convention inherited from the root entity for this owned type's properties.
+        ///     Properties with an explicit <c>HasAttributeName(...)</c> override are not affected.
+        /// </remarks>
+        /// <param name="convention">The naming convention to apply.</param>
+        /// <returns>The same builder instance so that multiple calls can be chained.</returns>
+        public OwnedNavigationBuilder HasAttributeNamingConvention(
+            DynamoAttributeNamingConvention convention)
+        {
+            ownedNavigationBuilder.OwnedEntityType.SetAttributeNamingConvention(
+                DynamoNamingConventionDescriptor.Named(convention));
+            return ownedNavigationBuilder;
+        }
+
+        /// <summary>
+        ///     Configures a custom attribute naming function for all scalar properties of this owned
+        ///     entity type.
+        /// </summary>
+        /// <remarks>
+        ///     Overrides any convention inherited from the root entity for this owned type's properties.
+        ///     Properties with an explicit <c>HasAttributeName(...)</c> override are not affected.
+        /// </remarks>
+        /// <param name="translator">
+        ///     A function that receives the CLR property name and returns the desired
+        ///     DynamoDB attribute name.
+        /// </param>
+        /// <returns>The same builder instance so that multiple calls can be chained.</returns>
+        public OwnedNavigationBuilder HasAttributeNamingConvention(Func<string, string> translator)
+        {
+            translator.NotNull();
+            ownedNavigationBuilder.OwnedEntityType.SetAttributeNamingConvention(
+                DynamoNamingConventionDescriptor.Custom(translator));
+            return ownedNavigationBuilder;
+        }
     }
 
     extension<TOwnerEntity, TDependentEntity>(
@@ -256,5 +398,40 @@ public static class DynamoEntityTypeBuilderExtensions
         public OwnedNavigationBuilder<TOwnerEntity, TDependentEntity> HasAttributeName(string? name)
             => (OwnedNavigationBuilder<TOwnerEntity, TDependentEntity>)
                 ((OwnedNavigationBuilder)ownedNavigationBuilder).HasAttributeName(name);
+
+        /// <summary>
+        ///     Configures an automatic attribute naming convention for all scalar properties of this
+        ///     owned entity type.
+        /// </summary>
+        /// <remarks>
+        ///     Overrides any convention inherited from the root entity for this owned type's properties.
+        ///     Properties with an explicit <c>HasAttributeName(...)</c> override are not affected.
+        /// </remarks>
+        /// <param name="convention">The naming convention to apply.</param>
+        /// <returns>The same builder instance so that multiple calls can be chained.</returns>
+        public OwnedNavigationBuilder<TOwnerEntity, TDependentEntity> HasAttributeNamingConvention(
+            DynamoAttributeNamingConvention convention)
+            => (OwnedNavigationBuilder<TOwnerEntity, TDependentEntity>)
+                ((OwnedNavigationBuilder)ownedNavigationBuilder).HasAttributeNamingConvention(
+                    convention);
+
+        /// <summary>
+        ///     Configures a custom attribute naming function for all scalar properties of this owned
+        ///     entity type.
+        /// </summary>
+        /// <remarks>
+        ///     Overrides any convention inherited from the root entity for this owned type's properties.
+        ///     Properties with an explicit <c>HasAttributeName(...)</c> override are not affected.
+        /// </remarks>
+        /// <param name="translator">
+        ///     A function that receives the CLR property name and returns the desired
+        ///     DynamoDB attribute name.
+        /// </param>
+        /// <returns>The same builder instance so that multiple calls can be chained.</returns>
+        public OwnedNavigationBuilder<TOwnerEntity, TDependentEntity> HasAttributeNamingConvention(
+            Func<string, string> translator)
+            => (OwnedNavigationBuilder<TOwnerEntity, TDependentEntity>)
+                ((OwnedNavigationBuilder)ownedNavigationBuilder).HasAttributeNamingConvention(
+                    translator);
     }
 }

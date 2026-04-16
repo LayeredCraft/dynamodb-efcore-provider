@@ -5,7 +5,6 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.PkSkTable;
 /// <summary>Represents the PkSkItems type.</summary>
 public static class PkSkItems
 {
-    /// <summary>Provides functionality for this member.</summary>
     public static readonly List<PkSkItem> Items =
     [
         new()
@@ -30,7 +29,6 @@ public static class PkSkItems
         },
     ];
 
-    /// <summary>Provides functionality for this member.</summary>
     public static readonly IReadOnlyList<Dictionary<string, AttributeValue>> AttributeValues =
         CreateAttributeValues();
 

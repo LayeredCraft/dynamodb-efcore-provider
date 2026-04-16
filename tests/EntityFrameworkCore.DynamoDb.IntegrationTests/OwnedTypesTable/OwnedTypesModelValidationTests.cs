@@ -10,12 +10,9 @@ public class OwnedTypesModelValidationTests
 {
     private readonly DynamoContainerFixture _fixture;
 
-    /// <summary>Provides functionality for this member.</summary>
     public OwnedTypesModelValidationTests(DynamoContainerFixture fixture) => _fixture = fixture;
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public void OwnedTypeWithExplicitTableName_ThrowsModelValidationError()
     {
         using var context =
@@ -30,9 +27,7 @@ public class OwnedTypesModelValidationTests
                 "*Owned entity type*explicit table name*cannot have separate table mappings*");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public void
         OwnedContainingAttributeName_CollidingWithScalarProperty_ThrowsModelValidationError()
     {
@@ -47,9 +42,7 @@ public class OwnedTypesModelValidationTests
             .WithMessage("*containing attribute name*collides with scalar property*");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public void
         OwnedContainingAttributeName_CollidingWithOwnedNavigation_ThrowsModelValidationError()
     {
@@ -64,9 +57,7 @@ public class OwnedTypesModelValidationTests
             .WithMessage("*containing attribute name*collides with owned navigation*");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public void EmbeddedOwnedCollectionWithUnsupportedClrShape_ThrowsModelValidationError()
     {
         using var context = new UnsupportedOwnedCollectionShapeContext(
@@ -91,10 +82,8 @@ public class OwnedTypesModelValidationTests
     private sealed class OwnedTypeWithTableNameContext(
         DbContextOptions<OwnedTypeWithTableNameContext> options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<OwnerWithSingleOwned> Items => Set<OwnerWithSingleOwned>();
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<OwnerWithSingleOwned>(entity =>
             {
@@ -114,10 +103,8 @@ public class OwnedTypesModelValidationTests
     private sealed class OwnedNameCollidesWithPropertyContext(
         DbContextOptions<OwnedNameCollidesWithPropertyContext> options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<OwnerWithPropertyCollision> Items => Set<OwnerWithPropertyCollision>();
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<OwnerWithPropertyCollision>(entity =>
             {
@@ -131,61 +118,49 @@ public class OwnedTypesModelValidationTests
     private sealed class OwnedNameCollidesWithNavigationContext(
         DbContextOptions<OwnedNameCollidesWithNavigationContext> options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<OwnerWithNavigationCollision> Items => Set<OwnerWithNavigationCollision>();
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<OwnerWithNavigationCollision>(entity =>
             {
                 entity.ToTable(OwnedTypesItemTable.TableName);
                 entity.HasPartitionKey(x => x.Pk);
-                entity.OwnsOne(x => x.PrimaryProfile, owned => owned.HasAttributeName("Profile"));
-                entity.OwnsOne(x => x.SecondaryProfile, owned => owned.HasAttributeName("Profile"));
+                entity.OwnsOne(x => x.PrimaryProfile, owned => owned.HasAttributeName("profile"));
+                entity.OwnsOne(x => x.SecondaryProfile, owned => owned.HasAttributeName("profile"));
             });
     }
 
     private sealed class OwnerWithSingleOwned
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string Pk { get; set; } = string.Empty;
 
-        /// <summary>Provides functionality for this member.</summary>
         public Profile Profile { get; set; } = new();
     }
 
     private sealed class OwnerWithPropertyCollision
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string Pk { get; set; } = string.Empty;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string ProfileData { get; set; } = string.Empty;
 
-        /// <summary>Provides functionality for this member.</summary>
         public Profile Profile { get; set; } = new();
     }
 
     private sealed class OwnerWithNavigationCollision
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string Pk { get; set; } = string.Empty;
 
-        /// <summary>Provides functionality for this member.</summary>
         public Profile PrimaryProfile { get; set; } = new();
 
-        /// <summary>Provides functionality for this member.</summary>
         public Profile SecondaryProfile { get; set; } = new();
     }
 
     private sealed class UnsupportedOwnedCollectionShapeContext(
         DbContextOptions<UnsupportedOwnedCollectionShapeContext> options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<OwnerWithUnsupportedCollectionShape> Items
             => Set<OwnerWithUnsupportedCollectionShape>();
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<OwnerWithUnsupportedCollectionShape>(entity =>
             {
@@ -197,16 +172,13 @@ public class OwnedTypesModelValidationTests
 
     private sealed class OwnerWithUnsupportedCollectionShape
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string Pk { get; set; } = string.Empty;
 
-        /// <summary>Provides functionality for this member.</summary>
         public ICollection<Profile> Profiles { get; set; } = new List<Profile>();
     }
 
     private sealed class Profile
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string DisplayName { get; set; } = string.Empty;
     }
 }

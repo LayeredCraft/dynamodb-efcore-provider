@@ -13,7 +13,7 @@ public class RequiredPropertyNullHandlingTests(DynamoContainerFixture fixture)
         var template = new Dictionary<string, AttributeValue>(SimpleItems.AttributeValues[0]);
         var item = new Dictionary<string, AttributeValue>(template)
         {
-            ["Pk"] = new() { S = "ITEM#BAD-NULL-INT" }, ["IntValue"] = new() { NULL = true },
+            ["pk"] = new() { S = "ITEM#BAD-NULL-INT" }, ["intValue"] = new() { NULL = true },
         };
 
         await Client.PutItemAsync(
@@ -39,9 +39,9 @@ public class RequiredPropertyNullHandlingTests(DynamoContainerFixture fixture)
         var template = new Dictionary<string, AttributeValue>(SimpleItems.AttributeValues[0]);
         var item = new Dictionary<string, AttributeValue>(template)
         {
-            ["Pk"] = new() { S = "ITEM#BAD-MISSING-INT" },
+            ["pk"] = new() { S = "ITEM#BAD-MISSING-INT" },
         };
-        item.Remove("IntValue");
+        item.Remove("intValue");
 
         await Client.PutItemAsync(
             new PutItemRequest { TableName = SimpleItemTable.TableName, Item = item },
@@ -65,7 +65,7 @@ public class RequiredPropertyNullHandlingTests(DynamoContainerFixture fixture)
     public async Task Materialization_Throws_WhenRequiredReferencePropertyIsDynamoNull()
     {
         var item = CreateValidTemplateItem("ITEM#BAD-NULL-STRING");
-        item["StringValue"] = new AttributeValue { NULL = true };
+        item["stringValue"] = new AttributeValue { NULL = true };
 
         await PutItemAsync(item);
 
@@ -86,7 +86,7 @@ public class RequiredPropertyNullHandlingTests(DynamoContainerFixture fixture)
     public async Task Materialization_Throws_WhenRequiredBoolPropertyIsDynamoNull()
     {
         var item = CreateValidTemplateItem("ITEM#BAD-NULL-BOOL");
-        item["BoolValue"] = new AttributeValue { NULL = true };
+        item["boolValue"] = new AttributeValue { NULL = true };
 
         await PutItemAsync(item);
 
@@ -107,7 +107,7 @@ public class RequiredPropertyNullHandlingTests(DynamoContainerFixture fixture)
     public async Task Materialization_Throws_WhenRequiredNumericWireMemberIsMissing()
     {
         var item = CreateValidTemplateItem("ITEM#BAD-WIRE-MISSING-N");
-        item["IntValue"] = new AttributeValue { S = "123" };
+        item["intValue"] = new AttributeValue { S = "123" };
 
         await PutItemAsync(item);
 
@@ -129,7 +129,7 @@ public class RequiredPropertyNullHandlingTests(DynamoContainerFixture fixture)
     public async Task Materialization_Throws_WhenRequiredBoolWireMemberIsMissing()
     {
         var item = CreateValidTemplateItem("ITEM#BAD-WIRE-MISSING-BOOL");
-        item["BoolValue"] = new AttributeValue { S = "true" };
+        item["boolValue"] = new AttributeValue { S = "true" };
 
         await PutItemAsync(item);
 
@@ -151,7 +151,7 @@ public class RequiredPropertyNullHandlingTests(DynamoContainerFixture fixture)
     public async Task Materialization_ReturnsNull_WhenNullablePropertyIsMissing()
     {
         var item = CreateValidTemplateItem("ITEM#OPTIONAL-MISSING-INT");
-        item.Remove("NullableIntValue");
+        item.Remove("nullableIntValue");
 
         await PutItemAsync(item);
 
@@ -169,7 +169,7 @@ public class RequiredPropertyNullHandlingTests(DynamoContainerFixture fixture)
     public async Task Materialization_ReturnsNull_WhenNullablePropertyIsDynamoNull()
     {
         var item = CreateValidTemplateItem("ITEM#OPTIONAL-NULL-INT");
-        item["NullableIntValue"] = new AttributeValue { NULL = true };
+        item["nullableIntValue"] = new AttributeValue { NULL = true };
 
         await PutItemAsync(item);
 
@@ -187,7 +187,7 @@ public class RequiredPropertyNullHandlingTests(DynamoContainerFixture fixture)
     public async Task ScalarProjection_Throws_WhenNonNullableValueTypeProjectionIsMissing()
     {
         var item = CreateValidTemplateItem("ITEM#PROJECTION-MISSING-INT");
-        item.Remove("IntValue");
+        item.Remove("intValue");
 
         await PutItemAsync(item);
 
@@ -208,7 +208,7 @@ public class RequiredPropertyNullHandlingTests(DynamoContainerFixture fixture)
     private static Dictionary<string, AttributeValue> CreateValidTemplateItem(string pk)
     {
         var template = new Dictionary<string, AttributeValue>(SimpleItems.AttributeValues[0]);
-        template["Pk"] = new AttributeValue { S = pk };
+        template["pk"] = new AttributeValue { S = pk };
         return template;
     }
 

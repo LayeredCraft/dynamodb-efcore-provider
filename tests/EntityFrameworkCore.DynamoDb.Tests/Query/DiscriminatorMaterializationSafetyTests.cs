@@ -207,9 +207,9 @@ public class DiscriminatorMaterializationSafetyTests
         [
             new Dictionary<string, AttributeValue>
             {
-                ["PK"] = new() { S = "TENANT#1" },
-                ["SK"] = new() { S = "USER#1" },
-                ["Name"] = new() { S = "Ada" },
+                ["pK"] = new() { S = "TENANT#1" },
+                ["sK"] = new() { S = "USER#1" },
+                ["name"] = new() { S = "Ada" },
             },
         ]);
 
@@ -236,9 +236,9 @@ public class DiscriminatorMaterializationSafetyTests
         [
             new Dictionary<string, AttributeValue>
             {
-                ["PK"] = new() { S = "TENANT#1" },
-                ["SK"] = new() { S = "ORDER#1" },
-                ["Name"] = new() { S = "Ada" },
+                ["pK"] = new() { S = "TENANT#1" },
+                ["sK"] = new() { S = "ORDER#1" },
+                ["name"] = new() { S = "Ada" },
                 ["$type"] = new() { S = "OrderEntity" },
             },
         ]);
@@ -264,18 +264,18 @@ public class DiscriminatorMaterializationSafetyTests
         [
             new Dictionary<string, AttributeValue>
             {
-                ["PK"] = new() { S = "TENANT#H" },
-                ["SK"] = new() { S = "PERSON#EMP-1" },
-                ["Name"] = new() { S = "Eve" },
-                ["Department"] = new() { S = "Engineering" },
+                ["pK"] = new() { S = "TENANT#H" },
+                ["sK"] = new() { S = "PERSON#EMP-1" },
+                ["name"] = new() { S = "Eve" },
+                ["department"] = new() { S = "Engineering" },
                 ["$type"] = new() { S = "EmployeeEntity" },
             },
             new Dictionary<string, AttributeValue>
             {
-                ["PK"] = new() { S = "TENANT#H" },
-                ["SK"] = new() { S = "PERSON#MGR-1" },
-                ["Name"] = new() { S = "Max" },
-                ["Level"] = new() { N = "7" },
+                ["pK"] = new() { S = "TENANT#H" },
+                ["sK"] = new() { S = "PERSON#MGR-1" },
+                ["name"] = new() { S = "Max" },
+                ["level"] = new() { N = "7" },
                 ["$type"] = new() { S = "ManagerEntity" },
             },
         ]);

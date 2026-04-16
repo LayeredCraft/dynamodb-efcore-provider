@@ -42,7 +42,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
         AssertSql(
             """
             INSERT INTO "AppItems"
-            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'ReferenceIds': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?}
+            VALUE {'pk': ?, 'sk': ?, '$type': ?, 'createdAt': ?, 'email': ?, 'isPreferred': ?, 'notes': ?, 'nullableNote': ?, 'preferences': ?, 'referenceIds': ?, 'tags': ?, 'version': ?, 'contacts': ?}
             """);
 
         var actual =
@@ -74,7 +74,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
         AssertSql(
             """
             INSERT INTO "AppItems"
-            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'ReferenceIds': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?}
+            VALUE {'pk': ?, 'sk': ?, '$type': ?, 'createdAt': ?, 'email': ?, 'isPreferred': ?, 'notes': ?, 'nullableNote': ?, 'preferences': ?, 'referenceIds': ?, 'tags': ?, 'version': ?, 'contacts': ?}
             """);
 
         Db.Entry(entity).State.Should().Be(EntityState.Unchanged);
@@ -113,7 +113,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
         AssertSql(
             """
             INSERT INTO "AppItems"
-            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'ReferenceIds': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?, 'Profile': ?}
+            VALUE {'pk': ?, 'sk': ?, '$type': ?, 'createdAt': ?, 'email': ?, 'isPreferred': ?, 'notes': ?, 'nullableNote': ?, 'preferences': ?, 'referenceIds': ?, 'tags': ?, 'version': ?, 'contacts': ?, 'profile': ?}
             """);
 
         var actual =
@@ -142,7 +142,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
         AssertSql(
             """
             INSERT INTO "AppItems"
-            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'ReferenceIds': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?}
+            VALUE {'pk': ?, 'sk': ?, '$type': ?, 'createdAt': ?, 'email': ?, 'isPreferred': ?, 'notes': ?, 'nullableNote': ?, 'preferences': ?, 'referenceIds': ?, 'tags': ?, 'version': ?, 'contacts': ?}
             """);
 
         var actual =
@@ -186,7 +186,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
         AssertSql(
             """
             INSERT INTO "AppItems"
-            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'ReferenceIds': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?, 'Profile': ?}
+            VALUE {'pk': ?, 'sk': ?, '$type': ?, 'createdAt': ?, 'email': ?, 'isPreferred': ?, 'notes': ?, 'nullableNote': ?, 'preferences': ?, 'referenceIds': ?, 'tags': ?, 'version': ?, 'contacts': ?, 'profile': ?}
             """);
 
         var actual =
@@ -247,7 +247,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
         AssertSql(
             """
             INSERT INTO "AppItems"
-            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'ReferenceIds': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?}
+            VALUE {'pk': ?, 'sk': ?, '$type': ?, 'createdAt': ?, 'email': ?, 'isPreferred': ?, 'notes': ?, 'nullableNote': ?, 'preferences': ?, 'referenceIds': ?, 'tags': ?, 'version': ?, 'contacts': ?}
             """);
 
         var actual =
@@ -283,7 +283,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
         AssertSql(
             """
             INSERT INTO "AppItems"
-            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'ReferenceIds': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?}
+            VALUE {'pk': ?, 'sk': ?, '$type': ?, 'createdAt': ?, 'email': ?, 'isPreferred': ?, 'notes': ?, 'nullableNote': ?, 'preferences': ?, 'referenceIds': ?, 'tags': ?, 'version': ?, 'contacts': ?}
             """);
 
         var actual =
@@ -319,13 +319,19 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
         AssertSql(
             """
             INSERT INTO "AppItems"
-            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'ReferenceIds': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?}
+            VALUE {'pk': ?, 'sk': ?, '$type': ?, 'createdAt': ?, 'email': ?, 'isPreferred': ?, 'notes': ?, 'nullableNote': ?, 'preferences': ?, 'referenceIds': ?, 'tags': ?, 'version': ?, 'contacts': ?}
             """);
 
-        var actual =
-            (await GetItemAsync(entity.Pk, entity.Sk, CancellationToken))?.ToCustomerItem();
+        var raw = await GetItemAsync(entity.Pk, entity.Sk, CancellationToken);
+        raw.Should().NotBeNull();
+        raw!["referenceIds"]
+            .SS
+            .Should()
+            .BeEquivalentTo(entity.ReferenceIds.Select(static x => x.ToString()));
+
+        var actual = raw.ToCustomerItem();
         actual.Should().NotBeNull();
-        actual.Should().BeEquivalentTo(entity);
+        actual.Should().BeEquivalentTo(entity, options => options.Excluding(x => x.ReferenceIds));
     }
 
     // ──────────────────────────────────────────────────────────────────────────────
@@ -355,7 +361,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
         AssertSql(
             """
             INSERT INTO "AppItems"
-            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'AppliedCoupons': ?, 'CancellationReason': ?, 'ChargesByCode': ?, 'CustomerPk': ?, 'RiskFlags': ?, 'Status': ?, 'Total': ?, 'Version': ?, 'Lines': ?}
+            VALUE {'pk': ?, 'sk': ?, '$type': ?, 'appliedCoupons': ?, 'cancellationReason': ?, 'chargesByCode': ?, 'customerPk': ?, 'riskFlags': ?, 'status': ?, 'total': ?, 'version': ?, 'lines': ?}
             """);
 
         var actual = (await GetItemAsync(entity.Pk, entity.Sk, CancellationToken))?.ToOrderItem();
@@ -393,7 +399,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
         AssertSql(
             """
             INSERT INTO "AppItems"
-            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'ReferenceIds': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?}
+            VALUE {'pk': ?, 'sk': ?, '$type': ?, 'createdAt': ?, 'email': ?, 'isPreferred': ?, 'notes': ?, 'nullableNote': ?, 'preferences': ?, 'referenceIds': ?, 'tags': ?, 'version': ?, 'contacts': ?}
             """);
 
         var actual =
@@ -428,7 +434,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
         AssertSql(
             """
             INSERT INTO "AppItems"
-            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'AppliedCoupons': ?, 'CancellationReason': ?, 'ChargesByCode': ?, 'CustomerPk': ?, 'RiskFlags': ?, 'Status': ?, 'Total': ?, 'Version': ?, 'Lines': ?}
+            VALUE {'pk': ?, 'sk': ?, '$type': ?, 'appliedCoupons': ?, 'cancellationReason': ?, 'chargesByCode': ?, 'customerPk': ?, 'riskFlags': ?, 'status': ?, 'total': ?, 'version': ?, 'lines': ?}
             """);
 
         var actual = (await GetItemAsync(entity.Pk, entity.Sk, CancellationToken))?.ToOrderItem();
@@ -463,7 +469,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
         AssertSql(
             """
             INSERT INTO "AppItems"
-            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'ReferenceIds': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?}
+            VALUE {'pk': ?, 'sk': ?, '$type': ?, 'createdAt': ?, 'email': ?, 'isPreferred': ?, 'notes': ?, 'nullableNote': ?, 'preferences': ?, 'referenceIds': ?, 'tags': ?, 'version': ?, 'contacts': ?}
             """);
 
         var actual =
@@ -645,12 +651,18 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
         AssertSql(
             """
             INSERT INTO "AppItems"
-            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'ReferenceIds': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?, 'Profile': ?}
+            VALUE {'pk': ?, 'sk': ?, '$type': ?, 'createdAt': ?, 'email': ?, 'isPreferred': ?, 'notes': ?, 'nullableNote': ?, 'preferences': ?, 'referenceIds': ?, 'tags': ?, 'version': ?, 'contacts': ?, 'profile': ?}
             """);
 
-        var actual =
-            (await GetItemAsync(entity.Pk, entity.Sk, CancellationToken))?.ToCustomerItem();
+        var raw = await GetItemAsync(entity.Pk, entity.Sk, CancellationToken);
+        raw.Should().NotBeNull();
+        raw!["referenceIds"]
+            .SS
+            .Should()
+            .BeEquivalentTo(entity.ReferenceIds.Select(static x => x.ToString()));
+
+        var actual = raw.ToCustomerItem();
         actual.Should().NotBeNull();
-        actual.Should().BeEquivalentTo(entity);
+        actual.Should().BeEquivalentTo(entity, options => options.Excluding(x => x.ReferenceIds));
     }
 }
