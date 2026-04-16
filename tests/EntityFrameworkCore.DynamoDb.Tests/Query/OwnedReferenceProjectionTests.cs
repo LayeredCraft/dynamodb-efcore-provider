@@ -47,10 +47,10 @@ public class OwnedReferenceProjectionTests
         bool includeProfileAttribute = true,
         bool profileIsNull = false)
     {
-        var item = new Dictionary<string, AttributeValue> { ["Pk"] = new() { S = pk } };
+        var item = new Dictionary<string, AttributeValue> { ["pk"] = new() { S = pk } };
 
         if (includeProfileAttribute)
-            item["Profile"] = profileIsNull
+            item["profile"] = profileIsNull
                 ? new AttributeValue { NULL = true }
                 : new AttributeValue { M = profileMap ?? new Dictionary<string, AttributeValue>() };
 
@@ -85,12 +85,12 @@ public class OwnedReferenceProjectionTests
         // Arrange: build item representing an EntityA row with a Profile map attribute.
         var item = new Dictionary<string, AttributeValue>
         {
-            ["Pk"] = new() { S = "A#1" },
-            ["Profile"] = new()
+            ["pk"] = new() { S = "A#1" },
+            ["profile"] = new()
             {
                 M = new Dictionary<string, AttributeValue>
                 {
-                    ["DisplayName"] = new() { S = "Ada" }, ["Age"] = new() { N = "39" },
+                    ["displayName"] = new() { S = "Ada" }, ["age"] = new() { N = "39" },
                 },
             },
         };
@@ -125,12 +125,12 @@ public class OwnedReferenceProjectionTests
         // Arrange: item representing an EntityB row with a Profile map attribute.
         var item = new Dictionary<string, AttributeValue>
         {
-            ["Pk"] = new() { S = "B#1" },
-            ["Profile"] = new()
+            ["pk"] = new() { S = "B#1" },
+            ["profile"] = new()
             {
                 M = new Dictionary<string, AttributeValue>
                 {
-                    ["DisplayName"] = new() { S = "Bob" }, ["Age"] = new() { N = "25" },
+                    ["displayName"] = new() { S = "Bob" }, ["age"] = new() { N = "25" },
                 },
             },
         };
@@ -161,13 +161,12 @@ public class OwnedReferenceProjectionTests
         // Arrange: anonymous type projection { Pk, Profile } — exercises index-based binding.
         var item = new Dictionary<string, AttributeValue>
         {
-            ["Pk"] = new() { S = "A#2" },
-            ["Profile"] = new()
+            ["pk"] = new() { S = "A#2" },
+            ["profile"] = new()
             {
                 M = new Dictionary<string, AttributeValue>
                 {
-                    ["DisplayName"] = new() { S = "Cleo" },
-                    ["Age"] = new() { N = "42" },
+                    ["displayName"] = new() { S = "Cleo" }, ["age"] = new() { N = "42" },
                 },
             },
         };
@@ -197,7 +196,7 @@ public class OwnedReferenceProjectionTests
             "A#3",
             new Dictionary<string, AttributeValue>
             {
-                ["DisplayName"] = new() { S = "Dora" }, ["Age"] = new() { N = "31" },
+                ["displayName"] = new() { S = "Dora" }, ["age"] = new() { N = "31" },
             });
 
         var client = CreateMockClientReturning(item);
@@ -226,7 +225,7 @@ public class OwnedReferenceProjectionTests
             "A#4",
             new Dictionary<string, AttributeValue>
             {
-                ["DisplayName"] = new() { S = "Eve" }, ["Age"] = new() { N = "28" },
+                ["displayName"] = new() { S = "Eve" }, ["age"] = new() { N = "28" },
             });
 
         var client = CreateMockClientReturning(item);
@@ -310,8 +309,8 @@ public class OwnedReferenceProjectionTests
 
         results.Should().Equal("A#7");
         capturedRequest.Should().NotBeNull();
-        capturedRequest!.Statement.Should().Contain("\"Profile\" IS NULL");
-        capturedRequest.Statement.Should().Contain("\"Profile\" IS MISSING");
+        capturedRequest!.Statement.Should().Contain("\"profile\" IS NULL");
+        capturedRequest.Statement.Should().Contain("\"profile\" IS MISSING");
     }
 
     /// <summary>Provides functionality for this member.</summary>
@@ -336,8 +335,8 @@ public class OwnedReferenceProjectionTests
 
         results.Should().Equal("A#8");
         capturedRequest.Should().NotBeNull();
-        capturedRequest!.Statement.Should().Contain("\"Profile\" IS NULL");
-        capturedRequest.Statement.Should().Contain("\"Profile\" IS MISSING");
+        capturedRequest!.Statement.Should().Contain("\"profile\" IS NULL");
+        capturedRequest.Statement.Should().Contain("\"profile\" IS MISSING");
     }
 
     /// <summary>Provides functionality for this member.</summary>

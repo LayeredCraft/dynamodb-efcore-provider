@@ -18,7 +18,7 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
 
     /// <summary>
     ///     A modified scalar on an OwnsOne reference emits a nested-path SET clause (
-    ///     <c>SET "Profile"."DisplayName" = ?</c>), not a full map replacement.
+    ///     <c>SET "profile"."displayName" = ?</c>), not a full map replacement.
     /// </summary>
     [Fact]
     public async Task SaveChangesAsync_OwnedReference_ScalarPropChanged_EmitsNestedPath()
@@ -44,14 +44,14 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
 
         var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
         raw.Should().NotBeNull();
-        raw!["Profile"].M["DisplayName"].S.Should().Be("After");
+        raw!["profile"].M["displayName"].S.Should().Be("After");
 
         // Nested-path shape — not a full map replace.
         AssertSql(
             """
             UPDATE "AppItems"
-            SET "Profile"."DisplayName" = ?
-            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            SET "profile"."displayName" = ?
+            WHERE "pk" = ? AND "sk" = ? AND "version" = ?
             """);
     }
 
@@ -60,7 +60,7 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
     // -------------------------------------------------------------------------
 
     /// <summary>
-    ///     Setting an OwnsOne reference to <see langword="null" /> emits <c>REMOVE "Profile"</c>
+    ///     Setting an OwnsOne reference to <see langword="null" /> emits <c>REMOVE "profile"</c>
     ///     which deletes the attribute from DynamoDB.
     /// </summary>
     [Fact]
@@ -89,13 +89,13 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
         raw.Should().NotBeNull();
 
         // REMOVE deletes the attribute entirely — key must be absent.
-        raw!.Should().NotContainKey("Profile");
+        raw!.Should().NotContainKey("profile");
 
         AssertSql(
             """
             UPDATE "AppItems"
-            REMOVE "Profile"
-            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            REMOVE "profile"
+            WHERE "pk" = ? AND "sk" = ? AND "version" = ?
             """);
     }
 
@@ -105,7 +105,7 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
 
     /// <summary>
     ///     Assigning an OwnsOne reference that was previously <see langword="null" /> emits
-    ///     <c>SET "Profile" = ?</c> with the full M value, because a nested SET path requires the parent
+    ///     <c>SET "profile" = ?</c> with the full M value, because a nested SET path requires the parent
     ///     attribute to exist first.
     /// </summary>
     [Fact]
@@ -132,20 +132,20 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
 
         var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
         raw.Should().NotBeNull();
-        raw!.Should().ContainKey("Profile");
-        raw["Profile"].M["DisplayName"].S.Should().Be("Newly Added");
-        raw["Profile"].M["Nickname"].S.Should().Be("new");
+        raw!.Should().ContainKey("profile");
+        raw["profile"].M["displayName"].S.Should().Be("Newly Added");
+        raw["profile"].M["nickname"].S.Should().Be("new");
 
         AssertSql(
             """
             UPDATE "AppItems"
-            SET "Profile" = ?
-            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            SET "profile" = ?
+            WHERE "pk" = ? AND "sk" = ? AND "version" = ?
             """);
     }
 
     // -------------------------------------------------------------------------
-    // OwnsOne — deeply nested path (Profile.PreferredAddress.City)
+    // OwnsOne — deeply nested path (profile.preferredAddress.city)
     // -------------------------------------------------------------------------
 
     /// <summary>
@@ -182,13 +182,13 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
         affected.Should().Be(1);
 
         var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
-        raw!["Profile"].M["PreferredAddress"].M["City"].S.Should().Be("NewCity");
+        raw!["profile"].M["preferredAddress"].M["city"].S.Should().Be("NewCity");
 
         AssertSql(
             """
             UPDATE "AppItems"
-            SET "Profile"."PreferredAddress"."City" = ?
-            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            SET "profile"."preferredAddress"."city" = ?
+            WHERE "pk" = ? AND "sk" = ? AND "version" = ?
             """);
     }
 
@@ -198,7 +198,7 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
 
     /// <summary>
     ///     Modifying a property on an OwnsMany element replaces the entire list attribute in one
-    ///     <c>SET "Contacts" = ?</c> statement.
+    ///     <c>SET "contacts" = ?</c> statement.
     /// </summary>
     [Fact]
     public async Task SaveChangesAsync_OwnedCollection_ElementModified_ReplacesEntireList()
@@ -229,14 +229,14 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
         affected.Should().Be(1);
 
         var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
-        raw!["Contacts"].L.Should().HaveCount(1);
-        raw["Contacts"].L[0].M["Verified"].BOOL.Should().BeTrue();
+        raw!["contacts"].L.Should().HaveCount(1);
+        raw["contacts"].L[0].M["verified"].BOOL.Should().BeTrue();
 
         AssertSql(
             """
             UPDATE "AppItems"
-            SET "Contacts" = ?
-            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            SET "contacts" = ?
+            WHERE "pk" = ? AND "sk" = ? AND "version" = ?
             """);
     }
 
@@ -278,15 +278,15 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
         affected.Should().Be(1);
 
         var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
-        raw!["Contacts"].L.Should().HaveCount(2);
-        raw["Contacts"].L[1].M["Kind"].S.Should().Be("phone");
-        raw["Contacts"].L[1].M["Verified"].BOOL.Should().BeFalse();
+        raw!["contacts"].L.Should().HaveCount(2);
+        raw["contacts"].L[1].M["kind"].S.Should().Be("phone");
+        raw["contacts"].L[1].M["verified"].BOOL.Should().BeFalse();
 
         AssertSql(
             """
             UPDATE "AppItems"
-            SET "Contacts" = ?
-            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            SET "contacts" = ?
+            WHERE "pk" = ? AND "sk" = ? AND "version" = ?
             """);
     }
 
@@ -323,14 +323,14 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
         affected.Should().Be(1);
 
         var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
-        raw!["Contacts"].L.Should().HaveCount(1);
-        raw["Contacts"].L[0].M["Kind"].S.Should().Be("phone");
+        raw!["contacts"].L.Should().HaveCount(1);
+        raw["contacts"].L[0].M["kind"].S.Should().Be("phone");
 
         AssertSql(
             """
             UPDATE "AppItems"
-            SET "Contacts" = ?
-            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            SET "contacts" = ?
+            WHERE "pk" = ? AND "sk" = ? AND "version" = ?
             """);
     }
 
@@ -378,14 +378,14 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
         affected.Should().Be(1);
 
         var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
-        raw!["Contacts"].L.Should().HaveCount(1);
-        raw["Contacts"].L[0].M["Address"].M["City"].S.Should().Be("NewCity");
+        raw!["contacts"].L.Should().HaveCount(1);
+        raw["contacts"].L[0].M["address"].M["city"].S.Should().Be("NewCity");
 
         AssertSql(
             """
             UPDATE "AppItems"
-            SET "Contacts" = ?
-            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            SET "contacts" = ?
+            WHERE "pk" = ? AND "sk" = ? AND "version" = ?
             """);
     }
 
@@ -394,7 +394,7 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
     // -------------------------------------------------------------------------
 
     /// <summary>
-    ///     Setting an OwnsMany navigation to <see langword="null" /> emits <c>REMOVE "Contacts"</c>
+    ///     Setting an OwnsMany navigation to <see langword="null" /> emits <c>REMOVE "contacts"</c>
     ///     rather than writing an empty list.
     /// </summary>
     [Fact]
@@ -427,13 +427,13 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
 
         var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
         raw.Should().NotBeNull();
-        raw!.Should().NotContainKey("Contacts");
+        raw!.Should().NotContainKey("contacts");
 
         AssertSql(
             """
             UPDATE "AppItems"
-            REMOVE "Contacts"
-            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            REMOVE "contacts"
+            WHERE "pk" = ? AND "sk" = ? AND "version" = ?
             """);
     }
 
@@ -443,7 +443,7 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
 
     /// <summary>
     ///     Replacing a primitive list property replaces the entire L attribute in one
-    ///     <c>SET "AppliedCoupons" = ?</c> statement.
+    ///     <c>SET "appliedCoupons" = ?</c> statement.
     /// </summary>
     [Fact]
     public async Task SaveChangesAsync_PrimitiveList_Changed_ReplacesListAttribute()
@@ -469,14 +469,14 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
         affected.Should().Be(1);
 
         var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
-        raw!["AppliedCoupons"].L.Select(a => a.S).Should().Contain("SUMMER5");
-        raw["AppliedCoupons"].L.Should().HaveCount(2);
+        raw!["appliedCoupons"].L.Select(a => a.S).Should().Contain("SUMMER5");
+        raw["appliedCoupons"].L.Should().HaveCount(2);
 
         AssertSql(
             """
             UPDATE "AppItems"
-            SET "AppliedCoupons" = ?
-            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            SET "appliedCoupons" = ?
+            WHERE "pk" = ? AND "sk" = ? AND "version" = ?
             """);
     }
 
@@ -486,7 +486,7 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
 
     /// <summary>
     ///     Replacing a primitive dictionary property replaces the entire M attribute in one
-    ///     <c>SET "ChargesByCode" = ?</c> statement.
+    ///     <c>SET "chargesByCode" = ?</c> statement.
     /// </summary>
     [Fact]
     public async Task SaveChangesAsync_PrimitiveDict_Changed_ReplacesMapAttribute()
@@ -513,14 +513,14 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
         affected.Should().Be(1);
 
         var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
-        raw!["ChargesByCode"].M.Should().ContainKey("tax");
-        raw["ChargesByCode"].M.Should().ContainKey("shipping");
+        raw!["chargesByCode"].M.Should().ContainKey("tax");
+        raw["chargesByCode"].M.Should().ContainKey("shipping");
 
         AssertSql(
             """
             UPDATE "AppItems"
-            SET "ChargesByCode" = ?
-            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            SET "chargesByCode" = ?
+            WHERE "pk" = ? AND "sk" = ? AND "version" = ?
             """);
     }
 
@@ -530,7 +530,7 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
 
     /// <summary>
     ///     Replacing a primitive string set property replaces the entire SS attribute in one
-    ///     <c>SET "Tags" = ?</c> statement.
+    ///     <c>SET "tags" = ?</c> statement.
     /// </summary>
     [Fact]
     public async Task SaveChangesAsync_PrimitiveStringSet_Changed_ReplacesSetAttribute()
@@ -556,14 +556,14 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
         affected.Should().Be(1);
 
         var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
-        raw!["Tags"].SS.Should().Contain("beta");
-        raw["Tags"].SS.Should().Contain("vip");
+        raw!["tags"].SS.Should().Contain("beta");
+        raw["tags"].SS.Should().Contain("vip");
 
         AssertSql(
             """
             UPDATE "AppItems"
-            SET "Tags" = ?
-            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            SET "tags" = ?
+            WHERE "pk" = ? AND "sk" = ? AND "version" = ?
             """);
     }
 
@@ -601,14 +601,14 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
         affected.Should().Be(1);
 
         var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
-        raw!["ReferenceIds"].SS.Should().Contain(guid2.ToString());
-        raw["ReferenceIds"].SS.Should().Contain(guid1.ToString());
+        raw!["referenceIds"].SS.Should().Contain(guid2.ToString());
+        raw["referenceIds"].SS.Should().Contain(guid1.ToString());
 
         AssertSql(
             """
             UPDATE "AppItems"
-            SET "ReferenceIds" = ?
-            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            SET "referenceIds" = ?
+            WHERE "pk" = ? AND "sk" = ? AND "version" = ?
             """);
     }
 
@@ -644,14 +644,14 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
         affected.Should().Be(1);
 
         var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
-        raw!["Email"].S.Should().Be("own13-after@example.com");
-        raw["Profile"].M["Nickname"].S.Should().Be("after-nick");
+        raw!["email"].S.Should().Be("own13-after@example.com");
+        raw["profile"].M["nickname"].S.Should().Be("after-nick");
 
         AssertSql(
             """
             UPDATE "AppItems"
-            SET "Email" = ?, "Profile"."Nickname" = ?
-            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            SET "email" = ?, "profile"."nickname" = ?
+            WHERE "pk" = ? AND "sk" = ? AND "version" = ?
             """);
     }
 
@@ -687,14 +687,14 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
         affected.Should().Be(1);
 
         var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
-        raw!["Email"].S.Should().Be("own14-after@example.com");
-        raw["Tags"].SS.Should().Contain("added");
+        raw!["email"].S.Should().Be("own14-after@example.com");
+        raw["tags"].SS.Should().Contain("added");
 
         AssertSql(
             """
             UPDATE "AppItems"
-            SET "Email" = ?, "Tags" = ?
-            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            SET "email" = ?, "tags" = ?
+            WHERE "pk" = ? AND "sk" = ? AND "version" = ?
             """);
     }
 
@@ -731,13 +731,13 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
 
         var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
         // Decimal stored as DynamoDB N string.
-        decimal.Parse(raw!["Dimensions"].M["Height"].N).Should().Be(15m);
+        decimal.Parse(raw!["dimensions"].M["height"].N).Should().Be(15m);
 
         AssertSql(
             """
             UPDATE "AppItems"
-            SET "Dimensions"."Height" = ?
-            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            SET "dimensions"."height" = ?
+            WHERE "pk" = ? AND "sk" = ? AND "version" = ?
             """);
     }
 
@@ -747,7 +747,7 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
 
     /// <summary>
     ///     An UPDATE for an owned navigation mutation includes the concurrency token property (
-    ///     <c>"Version" = ?</c>) in the WHERE clause, ensuring optimistic concurrency is enforced.
+    ///     <c>"version" = ?</c>) in the WHERE clause, ensuring optimistic concurrency is enforced.
     /// </summary>
     [Fact]
     public async Task SaveChangesAsync_ConcurrencyToken_OwnedMutation_IncludesVersionInWhere()
@@ -779,14 +779,14 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
         affected.Should().Be(1);
 
         var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
-        raw!["Shipping"].M["Method"].S.Should().Be("Express");
+        raw!["shipping"].M["method"].S.Should().Be("Express");
 
-        // WHERE must include "Version" = ? for concurrency enforcement.
+        // WHERE must include "version" = ? for concurrency enforcement.
         AssertSql(
             """
             UPDATE "AppItems"
-            SET "Shipping"."Method" = ?
-            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            SET "shipping"."method" = ?
+            WHERE "pk" = ? AND "sk" = ? AND "version" = ?
             """);
     }
 
@@ -827,8 +827,8 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
         AssertSql(
             """
             UPDATE "AppItems"
-            SET "Profile"."DisplayName" = ?
-            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            SET "profile"."displayName" = ?
+            WHERE "pk" = ? AND "sk" = ? AND "version" = ?
             """);
 
         // Owned entry must be Unchanged and original values must be refreshed.

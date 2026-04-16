@@ -19,17 +19,17 @@ public static class SaveChangesItemTable
                 [
                     new AttributeDefinition
                     {
-                        AttributeName = "Pk", AttributeType = ScalarAttributeType.S,
+                        AttributeName = "pk", AttributeType = ScalarAttributeType.S,
                     },
                     new AttributeDefinition
                     {
-                        AttributeName = "Sk", AttributeType = ScalarAttributeType.S,
+                        AttributeName = "sk", AttributeType = ScalarAttributeType.S,
                     },
                 ],
                 KeySchema =
                 [
-                    new KeySchemaElement { AttributeName = "Pk", KeyType = KeyType.HASH },
-                    new KeySchemaElement { AttributeName = "Sk", KeyType = KeyType.RANGE },
+                    new KeySchemaElement { AttributeName = "pk", KeyType = KeyType.HASH },
+                    new KeySchemaElement { AttributeName = "sk", KeyType = KeyType.RANGE },
                 ],
                 BillingMode = BillingMode.PAY_PER_REQUEST,
             },

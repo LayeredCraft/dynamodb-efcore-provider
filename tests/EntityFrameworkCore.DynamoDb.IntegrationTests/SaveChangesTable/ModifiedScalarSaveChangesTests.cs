@@ -35,8 +35,8 @@ public class ModifiedScalarSaveChangesTests(DynamoContainerFixture fixture)
         AssertSql(
             """
             UPDATE "AppItems"
-            SET "Email" = ?
-            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            SET "email" = ?
+            WHERE "pk" = ? AND "sk" = ? AND "version" = ?
             """);
     }
 
@@ -70,8 +70,8 @@ public class ModifiedScalarSaveChangesTests(DynamoContainerFixture fixture)
         AssertSql(
             """
             UPDATE "AppItems"
-            SET "Email" = ?, "IsPreferred" = ?
-            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            SET "email" = ?, "isPreferred" = ?
+            WHERE "pk" = ? AND "sk" = ? AND "version" = ?
             """);
     }
 
@@ -104,8 +104,8 @@ public class ModifiedScalarSaveChangesTests(DynamoContainerFixture fixture)
         AssertSql(
             """
             UPDATE "AppItems"
-            SET "NullableNote" = ?
-            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            SET "nullableNote" = ?
+            WHERE "pk" = ? AND "sk" = ? AND "version" = ?
             """);
     }
 
@@ -171,8 +171,8 @@ public class ModifiedScalarSaveChangesTests(DynamoContainerFixture fixture)
         AssertSql(
             """
             UPDATE "AppItems"
-            SET "Email" = ?
-            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            SET "email" = ?
+            WHERE "pk" = ? AND "sk" = ? AND "version" = ?
             """);
     }
 }

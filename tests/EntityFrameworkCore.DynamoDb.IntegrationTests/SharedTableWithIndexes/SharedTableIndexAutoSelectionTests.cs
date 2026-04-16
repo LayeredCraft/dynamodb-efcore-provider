@@ -4,7 +4,7 @@ using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
-namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SharedTable.SharedTableWithIndexes;
+namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SharedTableWithIndexes;
 
 public class SharedTableIndexAutoSelectionTests(DynamoContainerFixture fixture)
     : SharedTableWithIndexesTestFixture(fixture)
@@ -37,9 +37,9 @@ public class SharedTableIndexAutoSelectionTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "Pk", "Sk", "$type", "Status", "Priority"
+            SELECT "pk", "sk", "$type", "status", "priority"
             FROM "work-orders-indexed-table"."ByPriority"
-            WHERE "Priority" = 3 AND "$type" = 'PriorityWorkOrderEntity'
+            WHERE "priority" = 3 AND "$type" = 'PriorityWorkOrderEntity'
             """);
     }
 
@@ -71,9 +71,9 @@ public class SharedTableIndexAutoSelectionTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "Pk", "Sk", "$type", "Status", "Priority"
+            SELECT "pk", "sk", "$type", "status", "priority"
             FROM "work-orders-indexed-table"."ByStatus"
-            WHERE "Pk" = 'WO#ALPHA' AND ("$type" = 'ArchivedWorkOrderEntity' OR "$type" = 'PriorityWorkOrderEntity')
+            WHERE "pk" = 'WO#ALPHA' AND ("$type" = 'ArchivedWorkOrderEntity' OR "$type" = 'PriorityWorkOrderEntity')
             """);
     }
 
@@ -89,9 +89,9 @@ public class SharedTableIndexAutoSelectionTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "Pk", "Sk", "$type", "Status", "Priority"
+            SELECT "pk", "sk", "$type", "status", "priority"
             FROM "work-orders-indexed-table"
-            WHERE "Status" = 'OPEN' AND ("$type" = 'ArchivedWorkOrderEntity' OR "$type" = 'PriorityWorkOrderEntity')
+            WHERE "status" = 'OPEN' AND ("$type" = 'ArchivedWorkOrderEntity' OR "$type" = 'PriorityWorkOrderEntity')
             """);
     }
 
@@ -129,9 +129,9 @@ public class SharedTableIndexAutoSelectionTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "Pk", "Sk", "$type", "Status", "Priority"
+            SELECT "pk", "sk", "$type", "status", "priority"
             FROM "work-orders-indexed-table"."ByStatus"
-            WHERE "Pk" = 'WO#ALPHA' AND ("$type" = 'ArchivedWorkOrderEntity' OR "$type" = 'PriorityWorkOrderEntity')
+            WHERE "pk" = 'WO#ALPHA' AND ("$type" = 'ArchivedWorkOrderEntity' OR "$type" = 'PriorityWorkOrderEntity')
             """);
     }
 
@@ -165,9 +165,9 @@ public class SharedTableIndexAutoSelectionTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "Pk", "Sk", "$type", "Status", "Priority"
+            SELECT "pk", "sk", "$type", "status", "priority"
             FROM "work-orders-indexed-table"."ByPriority"
-            WHERE "Priority" = 5 AND "$type" = 'PriorityWorkOrderEntity'
+            WHERE "priority" = 5 AND "$type" = 'PriorityWorkOrderEntity'
             """);
     }
 
@@ -200,9 +200,9 @@ public class SharedTableIndexAutoSelectionTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "Pk", "Sk", "$type", "Status", "Priority"
+            SELECT "pk", "sk", "$type", "status", "priority"
             FROM "work-orders-indexed-table"
-            WHERE "Priority" = 3 AND "$type" = 'PriorityWorkOrderEntity'
+            WHERE "priority" = 3 AND "$type" = 'PriorityWorkOrderEntity'
             """);
     }
 }

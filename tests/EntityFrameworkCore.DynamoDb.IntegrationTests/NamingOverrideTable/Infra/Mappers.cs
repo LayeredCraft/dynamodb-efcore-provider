@@ -1,8 +1,7 @@
 using Amazon.DynamoDBv2.Model;
 using LayeredCraft.DynamoMapper.Runtime;
 
-namespace EntityFrameworkCore.DynamoDb.IntegrationTests.NamingConventions.Infra;
-
+namespace EntityFrameworkCore.DynamoDb.IntegrationTests.NamingOverrideTable.Infra;
 
 [DynamoMapper]
 [DynamoField(nameof(QuestionItem.Gs1Pk), AttributeName = "gs1-pk")]

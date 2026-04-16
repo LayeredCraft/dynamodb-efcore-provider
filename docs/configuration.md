@@ -257,6 +257,97 @@ key property (falling back to the CLR property name). The same applies to the so
 For owned navigation attribute names (the containing map key in DynamoDB), see
 [Owned Types](owned-types.md).
 
+### Naming conventions
+
+By default, the provider transforms CLR property names to `CamelCase` DynamoDB attribute names.
+
+Use `HasAttributeNamingConvention` to override that default on an entity type to a different
+naming style, without having to call `HasAttributeName` per property.
+
+```csharp
+modelBuilder.Entity<Order>(b =>
+{
+    b.ToTable("Orders");
+    b.HasPartitionKey(x => x.CustomerId);
+    b.HasAttributeNamingConvention(DynamoAttributeNamingConvention.SnakeCase);
+});
+```
+
+Available built-in conventions:
+
+| Value            | Example                                                           |
+| ---------------- | ----------------------------------------------------------------- |
+| `None`           | `OrderDate` → `OrderDate` (CLR name unchanged — explicit opt-out) |
+| `SnakeCase`      | `OrderDate` → `order_date`                                        |
+| `CamelCase`      | `OrderDate` → `orderDate`                                         |
+| `KebabCase`      | `OrderDate` → `order-date`                                        |
+| `UpperSnakeCase` | `OrderDate` → `ORDER_DATE`                                        |
+
+#### Custom naming function
+
+Pass a `Func<string, string>` delegate to apply any transformation:
+
+```csharp
+b.HasAttributeNamingConvention(name => name.ToLowerInvariant());
+```
+
+#### Opt out per entity
+
+Use `DynamoAttributeNamingConvention.None` to keep CLR property names unchanged for a specific
+entity type:
+
+```csharp
+b.HasAttributeNamingConvention(DynamoAttributeNamingConvention.None);
+```
+
+#### Property-level override
+
+An explicit `HasAttributeName` call on an individual property always wins over the entity-level
+convention, regardless of order:
+
+```csharp
+modelBuilder.Entity<Order>(b =>
+{
+    b.ToTable("Orders");
+    b.HasPartitionKey(x => x.CustomerId);
+    b.HasAttributeNamingConvention(DynamoAttributeNamingConvention.SnakeCase);
+    // This property stores as "PK" even though convention would produce "customer_id"
+    b.Property(x => x.CustomerId).HasAttributeName("PK");
+});
+```
+
+#### Partition and sort key attribute names
+
+The naming convention also applies to partition key and sort key properties. Ensure your DynamoDB
+table's key schema uses the convention-transformed name:
+
+```csharp
+// CLR property "CustomerId" → "customer_id" with SnakeCase
+// DynamoDB table must have AttributeName = "customer_id" as the hash key
+b.HasPartitionKey(x => x.CustomerId);
+b.HasAttributeNamingConvention(DynamoAttributeNamingConvention.SnakeCase);
+```
+
+#### Owned types
+
+Owned entity types inherit the convention from their root entity when no convention is configured
+directly on the owned type. Use `HasAttributeNamingConvention` on the owned navigation builder
+to override for a specific owned type:
+
+```csharp
+modelBuilder.Entity<Order>(b =>
+{
+    b.ToTable("Orders");
+    b.HasPartitionKey(x => x.CustomerId);
+    b.HasAttributeNamingConvention(DynamoAttributeNamingConvention.SnakeCase);
+    b.OwnsOne(x => x.ShippingAddress, ab =>
+    {
+        // Override to camelCase for this owned type only
+        ab.HasAttributeNamingConvention(DynamoAttributeNamingConvention.CamelCase);
+    });
+});
+```
+
 ## Shared-table discriminator (`$type`)
 
 When multiple instantiable concrete entity types map to the same DynamoDB table, the provider

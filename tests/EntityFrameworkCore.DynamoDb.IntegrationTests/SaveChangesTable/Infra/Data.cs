@@ -5,7 +5,6 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SaveChangesTable;
 /// <summary>Represents the SaveChangesTableItems type.</summary>
 public static class SaveChangesTableItems
 {
-    /// <summary>Provides functionality for this member.</summary>
     public static readonly List<CustomerItem> Customers =
     [
         new()
@@ -93,7 +92,6 @@ public static class SaveChangesTableItems
         },
     ];
 
-    /// <summary>Provides functionality for this member.</summary>
     public static readonly List<OrderItem> Orders =
     [
         new()
@@ -194,7 +192,6 @@ public static class SaveChangesTableItems
         },
     ];
 
-    /// <summary>Provides functionality for this member.</summary>
     public static readonly List<ProductItem> Products =
     [
         new()
@@ -249,7 +246,6 @@ public static class SaveChangesTableItems
         },
     ];
 
-    /// <summary>Provides functionality for this member.</summary>
     public static readonly List<SessionItem> Sessions =
     [
         new()
@@ -298,7 +294,6 @@ public static class SaveChangesTableItems
         },
     ];
 
-    /// <summary>Provides functionality for this member.</summary>
     public static readonly IReadOnlyList<Dictionary<string, AttributeValue>> AttributeValues =
         CreateAttributeValues();
 

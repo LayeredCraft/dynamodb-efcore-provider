@@ -31,9 +31,9 @@ public class BetweenTests(DynamoContainerFixture fixture) : SimpleTableTestFixtu
 
         AssertSql(
             """
-            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+            SELECT "pk", "boolValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableIntValue", "nullableStringValue", "stringValue"
             FROM "SimpleItems"
-            WHERE "IntValue" BETWEEN ? AND ?
+            WHERE "intValue" BETWEEN ? AND ?
             """);
     }
 
@@ -55,9 +55,9 @@ public class BetweenTests(DynamoContainerFixture fixture) : SimpleTableTestFixtu
 
         AssertSql(
             """
-            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+            SELECT "pk", "boolValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableIntValue", "nullableStringValue", "stringValue"
             FROM "SimpleItems"
-            WHERE "IntValue" BETWEEN ? AND ?
+            WHERE "intValue" BETWEEN ? AND ?
             """);
     }
 
@@ -79,9 +79,9 @@ public class BetweenTests(DynamoContainerFixture fixture) : SimpleTableTestFixtu
 
         AssertSql(
             """
-            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+            SELECT "pk", "boolValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableIntValue", "nullableStringValue", "stringValue"
             FROM "SimpleItems"
-            WHERE "LongValue" BETWEEN ? AND ?
+            WHERE "longValue" BETWEEN ? AND ?
             """);
     }
 
@@ -108,9 +108,9 @@ public class BetweenTests(DynamoContainerFixture fixture) : SimpleTableTestFixtu
         // > and <= must NOT be collapsed into BETWEEN
         AssertSql(
             """
-            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+            SELECT "pk", "boolValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableIntValue", "nullableStringValue", "stringValue"
             FROM "SimpleItems"
-            WHERE "IntValue" > ? AND "IntValue" <= ?
+            WHERE "intValue" > ? AND "intValue" <= ?
             """);
     }
 
@@ -133,9 +133,9 @@ public class BetweenTests(DynamoContainerFixture fixture) : SimpleTableTestFixtu
         // >= and < must NOT be collapsed into BETWEEN
         AssertSql(
             """
-            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+            SELECT "pk", "boolValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableIntValue", "nullableStringValue", "stringValue"
             FROM "SimpleItems"
-            WHERE "IntValue" >= ? AND "IntValue" < ?
+            WHERE "intValue" >= ? AND "intValue" < ?
             """);
     }
 
@@ -161,9 +161,9 @@ public class BetweenTests(DynamoContainerFixture fixture) : SimpleTableTestFixtu
 
         AssertSql(
             """
-            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+            SELECT "pk", "boolValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableIntValue", "nullableStringValue", "stringValue"
             FROM "SimpleItems"
-            WHERE "IntValue" BETWEEN ? AND ? AND "BoolValue" = TRUE
+            WHERE "intValue" BETWEEN ? AND ? AND "boolValue" = TRUE
             """);
     }
 }

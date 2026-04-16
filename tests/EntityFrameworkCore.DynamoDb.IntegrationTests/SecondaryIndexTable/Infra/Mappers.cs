@@ -3,7 +3,7 @@ using LayeredCraft.DynamoMapper.Runtime;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SecondaryIndexTable;
 
-[DynamoMapper(Convention = DynamoNamingConvention.Exact, OmitNullValues = false)]
+[DynamoMapper(Convention = DynamoNamingConvention.CamelCase, OmitNullValues = false)]
 internal static partial class OrderItemMapper
 {
     internal static partial Dictionary<string, AttributeValue> ToItem(OrderItem source);

@@ -7,9 +7,7 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.PrimitiveCollectionsTabl
 public class ChangeTrackingTests(DynamoContainerFixture fixture)
     : PrimitiveCollectionsTableTestFixture(fixture)
 {
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task MutatingListMarksPropertyModified()
     {
         var entity =
@@ -23,9 +21,7 @@ public class ChangeTrackingTests(DynamoContainerFixture fixture)
         Db.Entry(entity).Property(e => e.Tags).IsModified.Should().BeTrue();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task MutatingDictionaryMarksPropertyModified()
     {
         var entity =
@@ -39,9 +35,7 @@ public class ChangeTrackingTests(DynamoContainerFixture fixture)
         Db.Entry(entity).Property(e => e.ScoresByCategory).IsModified.Should().BeTrue();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task MutatingSetMarksPropertyModified()
     {
         var entity =

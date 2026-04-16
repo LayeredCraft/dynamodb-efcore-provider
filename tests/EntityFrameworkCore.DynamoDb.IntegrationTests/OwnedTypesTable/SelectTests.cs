@@ -7,9 +7,7 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.OwnedTypesTable;
 /// <summary>Represents the SelectTests type.</summary>
 public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFixture(fixture)
 {
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task ToListAsync_MaterializesOwnedReferencesAndCollections()
     {
         var results = await Db.Items.ToListAsync(CancellationToken);
@@ -20,14 +18,12 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
 
         AssertSql(
             """
-            SELECT "Pk", "CreatedAt", "GuidValue", "IntValue", "Ratings", "StringValue", "Tags", "Orders", "OrderSnapshots", "Profile"
+            SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "orders", "orderSnapshots", "profile"
             FROM "OwnedTypesItems"
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Select_NestedOwnedReferenceProjection_MaterializesShape()
     {
         var results =
@@ -39,14 +35,12 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
 
         AssertSql(
             """
-            SELECT "Pk", "Profile"
+            SELECT "pk", "profile"
             FROM "OwnedTypesItems"
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Select_NestedOwnedReferencePartialProjection_MaterializesShape()
     {
         var results =
@@ -61,14 +55,12 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
 
         AssertSql(
             """
-            SELECT "Pk", "Profile"
+            SELECT "pk", "profile"
             FROM "OwnedTypesItems"
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Select_NestedOwnedCollectionProjection_MaterializesShape()
     {
         var results =
@@ -89,14 +81,12 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
 
         AssertSql(
             """
-            SELECT "Pk", "Orders", "OrderSnapshots"
+            SELECT "pk", "orders", "orderSnapshots"
             FROM "OwnedTypesItems"
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task OwnedCollectionElements_HaveOrdinalKeys()
     {
         var item =
@@ -125,15 +115,13 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
 
         AssertSql(
             """
-            SELECT "Pk", "CreatedAt", "GuidValue", "IntValue", "Ratings", "StringValue", "Tags", "Orders", "OrderSnapshots", "Profile"
+            SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "orders", "orderSnapshots", "profile"
             FROM "OwnedTypesItems"
-            WHERE "Pk" = 'OWNED#3'
+            WHERE "pk" = 'OWNED#3'
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Select_OwnedNavigationChain_IntermediateNull_PropagatesNull()
     {
         var results =
@@ -149,19 +137,17 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
 
         AssertSql(
             """
-            SELECT "Pk", "Profile"
+            SELECT "pk", "profile"
             FROM "OwnedTypesItems"
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Select_OwnedNavigationChain_MissingAttribute_PropagatesNull()
     {
         var item = OwnedTypesItemMapper.ToItem(OwnedTypesItems.Items[0]);
-        item["Pk"].S = "OWNED#MISSINGPROFILE";
-        item.Remove("Profile");
+        item["pk"].S = "OWNED#MISSINGPROFILE";
+        item.Remove("profile");
         await PutItemAsync(item, CancellationToken);
 
         try
@@ -179,9 +165,9 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
 
             AssertSql(
                 """
-                SELECT "Pk", "Profile"
+                SELECT "pk", "profile"
                 FROM "OwnedTypesItems"
-                WHERE "Pk" = 'OWNED#MISSINGPROFILE'
+                WHERE "pk" = 'OWNED#MISSINGPROFILE'
                 """);
         }
         finally
@@ -192,16 +178,14 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
                     TableName = OwnedTypesItemTable.TableName,
                     Key = new Dictionary<string, AttributeValue>
                     {
-                        ["Pk"] = new() { S = "OWNED#MISSINGPROFILE" },
+                        ["pk"] = new() { S = "OWNED#MISSINGPROFILE" },
                     },
                 },
                 CancellationToken);
         }
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task
         ToListAsync_OwnedCollectionElement_WithOptionalOwnedReference_MixedNullMaterializes()
     {
@@ -223,15 +207,13 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
 
         AssertSql(
             """
-            SELECT "Pk", "CreatedAt", "GuidValue", "IntValue", "Ratings", "StringValue", "Tags", "Orders", "OrderSnapshots", "Profile"
+            SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "orders", "orderSnapshots", "profile"
             FROM "OwnedTypesItems"
-            WHERE "Pk" = 'OWNED#3'
+            WHERE "pk" = 'OWNED#3'
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task NestedOwnedCollectionElements_HaveOrdinalKeys_ResetPerParent()
     {
         var item =
@@ -256,15 +238,13 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
 
         AssertSql(
             """
-            SELECT "Pk", "CreatedAt", "GuidValue", "IntValue", "Ratings", "StringValue", "Tags", "Orders", "OrderSnapshots", "Profile"
+            SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "orders", "orderSnapshots", "profile"
             FROM "OwnedTypesItems"
-            WHERE "Pk" = 'OWNED#3'
+            WHERE "pk" = 'OWNED#3'
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task ToListAsync_AsNoTracking_OwnedCollections_MaterializeCorrectly()
     {
         var item =
@@ -281,9 +261,9 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
 
         AssertSql(
             """
-            SELECT "Pk", "CreatedAt", "GuidValue", "IntValue", "Ratings", "StringValue", "Tags", "Orders", "OrderSnapshots", "Profile"
+            SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "orders", "orderSnapshots", "profile"
             FROM "OwnedTypesItems"
-            WHERE "Pk" = 'OWNED#3'
+            WHERE "pk" = 'OWNED#3'
             """);
     }
 }

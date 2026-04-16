@@ -22,9 +22,9 @@ public class GsiQueryTests(DynamoContainerFixture fixture) : SecondaryIndexTable
 
         AssertSql(
             """
-            SELECT "CustomerId", "OrderId", "CreatedAt", "Priority", "Region", "Status"
+            SELECT "customerId", "orderId", "createdAt", "priority", "region", "status"
             FROM "SecondaryIndexOrders"."ByStatus"
-            WHERE "Status" = 'PENDING'
+            WHERE "status" = 'PENDING'
             """);
     }
 
@@ -49,9 +49,9 @@ public class GsiQueryTests(DynamoContainerFixture fixture) : SecondaryIndexTable
 
         AssertSql(
             """
-            SELECT "CustomerId", "OrderId", "CreatedAt", "Priority", "Region", "Status"
+            SELECT "customerId", "orderId", "createdAt", "priority", "region", "status"
             FROM "SecondaryIndexOrders"."ByStatus"
-            WHERE "Status" = 'SHIPPED' AND "CreatedAt" >= '2024-01-15'
+            WHERE "status" = 'SHIPPED' AND "createdAt" >= '2024-01-15'
             """);
     }
 
@@ -83,10 +83,10 @@ public class GsiQueryTests(DynamoContainerFixture fixture) : SecondaryIndexTable
 
         AssertSql(
             """
-            SELECT "CustomerId", "OrderId", "CreatedAt", "Priority", "Region", "Status"
+            SELECT "customerId", "orderId", "createdAt", "priority", "region", "status"
             FROM "SecondaryIndexOrders"."ByStatus"
-            WHERE "Status" = 'PENDING'
-            ORDER BY "CreatedAt" ASC
+            WHERE "status" = 'PENDING'
+            ORDER BY "createdAt" ASC
             """);
     }
 
@@ -106,9 +106,9 @@ public class GsiQueryTests(DynamoContainerFixture fixture) : SecondaryIndexTable
 
         AssertSql(
             """
-            SELECT "CustomerId", "OrderId", "CreatedAt", "Priority", "Region", "Status"
+            SELECT "customerId", "orderId", "createdAt", "priority", "region", "status"
             FROM "SecondaryIndexOrders"."ByRegion"
-            WHERE "Region" = 'US-EAST'
+            WHERE "region" = 'US-EAST'
             """);
     }
 
@@ -127,9 +127,9 @@ public class GsiQueryTests(DynamoContainerFixture fixture) : SecondaryIndexTable
 
         AssertSql(
             """
-            SELECT "CustomerId", "OrderId", "CreatedAt", "Priority", "Region", "Status"
+            SELECT "customerId", "orderId", "createdAt", "priority", "region", "status"
             FROM "SecondaryIndexOrders"."ByRegion"
-            WHERE "Region" = 'US-EAST'
+            WHERE "region" = 'US-EAST'
             """);
     }
 
@@ -144,9 +144,9 @@ public class GsiQueryTests(DynamoContainerFixture fixture) : SecondaryIndexTable
 
         AssertSql(
             """
-            SELECT "CustomerId", "OrderId", "CreatedAt", "Priority", "Region", "Status"
+            SELECT "customerId", "orderId", "createdAt", "priority", "region", "status"
             FROM "SecondaryIndexOrders"."ByStatus"
-            WHERE "Status" = 'DELIVERED'
+            WHERE "status" = 'DELIVERED'
             """);
     }
 }

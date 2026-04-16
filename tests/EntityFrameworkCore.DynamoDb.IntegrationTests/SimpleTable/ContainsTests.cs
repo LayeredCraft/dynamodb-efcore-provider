@@ -21,9 +21,9 @@ public class ContainsTests(DynamoContainerFixture fixture) : SimpleTableTestFixt
 
         AssertSql(
             """
-            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+            SELECT "pk", "boolValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableIntValue", "nullableStringValue", "stringValue"
             FROM "SimpleItems"
-            WHERE contains("StringValue", ?)
+            WHERE contains("stringValue", ?)
             """);
     }
 
@@ -43,9 +43,9 @@ public class ContainsTests(DynamoContainerFixture fixture) : SimpleTableTestFixt
 
         AssertSql(
             """
-            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+            SELECT "pk", "boolValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableIntValue", "nullableStringValue", "stringValue"
             FROM "SimpleItems"
-            WHERE "Pk" IN [?, ?]
+            WHERE "pk" IN [?, ?]
             """);
     }
 
@@ -65,9 +65,9 @@ public class ContainsTests(DynamoContainerFixture fixture) : SimpleTableTestFixt
 
         AssertSql(
             """
-            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+            SELECT "pk", "boolValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableIntValue", "nullableStringValue", "stringValue"
             FROM "SimpleItems"
-            WHERE "StringValue" IN [?, ?]
+            WHERE "stringValue" IN [?, ?]
             """);
     }
 
@@ -87,9 +87,9 @@ public class ContainsTests(DynamoContainerFixture fixture) : SimpleTableTestFixt
 
         AssertSql(
             """
-            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+            SELECT "pk", "boolValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableIntValue", "nullableStringValue", "stringValue"
             FROM "SimpleItems"
-            WHERE "IntValue" IN [?, ?]
+            WHERE "intValue" IN [?, ?]
             """);
     }
 
@@ -109,9 +109,9 @@ public class ContainsTests(DynamoContainerFixture fixture) : SimpleTableTestFixt
 
         AssertSql(
             """
-            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+            SELECT "pk", "boolValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableIntValue", "nullableStringValue", "stringValue"
             FROM "SimpleItems"
-            WHERE "IntValue" IN [?, ?]
+            WHERE "intValue" IN [?, ?]
             """);
     }
 
@@ -131,7 +131,7 @@ public class ContainsTests(DynamoContainerFixture fixture) : SimpleTableTestFixt
 
         AssertSql(
             """
-            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+            SELECT "pk", "boolValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableIntValue", "nullableStringValue", "stringValue"
             FROM "SimpleItems"
             WHERE 1 = 0
             """);
@@ -153,7 +153,7 @@ public class ContainsTests(DynamoContainerFixture fixture) : SimpleTableTestFixt
 
         AssertSql(
             """
-            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+            SELECT "pk", "boolValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableIntValue", "nullableStringValue", "stringValue"
             FROM "SimpleItems"
             WHERE 1 = 0
             """);
@@ -175,7 +175,7 @@ public class ContainsTests(DynamoContainerFixture fixture) : SimpleTableTestFixt
 
         AssertSql(
             """
-            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+            SELECT "pk", "boolValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableIntValue", "nullableStringValue", "stringValue"
             FROM "SimpleItems"
             WHERE 1 = 0
             """);
@@ -198,9 +198,9 @@ public class ContainsTests(DynamoContainerFixture fixture) : SimpleTableTestFixt
 
         AssertSql(
             """
-            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+            SELECT "pk", "boolValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableIntValue", "nullableStringValue", "stringValue"
             FROM "SimpleItems"
-            WHERE "NullableStringValue" IN [?, ?]
+            WHERE "nullableStringValue" IN [?, ?]
             """);
     }
 
@@ -222,9 +222,9 @@ public class ContainsTests(DynamoContainerFixture fixture) : SimpleTableTestFixt
 
         AssertSql(
             """
-            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+            SELECT "pk", "boolValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableIntValue", "nullableStringValue", "stringValue"
             FROM "SimpleItems"
-            WHERE "NullableIntValue" IN [?, ?]
+            WHERE "nullableIntValue" IN [?, ?]
             """);
     }
 

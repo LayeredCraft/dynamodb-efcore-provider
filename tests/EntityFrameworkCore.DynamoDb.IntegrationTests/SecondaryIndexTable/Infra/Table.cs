@@ -19,32 +19,30 @@ public static class SecondaryIndexOrdersTable
                 [
                     new AttributeDefinition
                     {
-                        AttributeName = nameof(OrderItem.CustomerId),
+                        AttributeName = "customerId",
                         AttributeType = ScalarAttributeType.S,
                     },
                     new AttributeDefinition
                     {
-                        AttributeName = nameof(OrderItem.OrderId),
+                        AttributeName = "orderId",
                         AttributeType = ScalarAttributeType.S,
                     },
                     new AttributeDefinition
                     {
-                        AttributeName = nameof(OrderItem.Status),
+                        AttributeName = "status", AttributeType = ScalarAttributeType.S,
+                    },
+                    new AttributeDefinition
+                    {
+                        AttributeName = "createdAt",
                         AttributeType = ScalarAttributeType.S,
                     },
                     new AttributeDefinition
                     {
-                        AttributeName = nameof(OrderItem.CreatedAt),
-                        AttributeType = ScalarAttributeType.S,
+                        AttributeName = "region", AttributeType = ScalarAttributeType.S,
                     },
                     new AttributeDefinition
                     {
-                        AttributeName = nameof(OrderItem.Region),
-                        AttributeType = ScalarAttributeType.S,
-                    },
-                    new AttributeDefinition
-                    {
-                        AttributeName = nameof(OrderItem.Priority),
+                        AttributeName = "priority",
                         AttributeType = ScalarAttributeType.N,
                     },
                 ],
@@ -52,13 +50,11 @@ public static class SecondaryIndexOrdersTable
                 [
                     new KeySchemaElement
                     {
-                        AttributeName = nameof(OrderItem.CustomerId),
-                        KeyType = KeyType.HASH,
+                        AttributeName = "customerId", KeyType = KeyType.HASH,
                     },
                     new KeySchemaElement
                     {
-                        AttributeName = nameof(OrderItem.OrderId),
-                        KeyType = KeyType.RANGE,
+                        AttributeName = "orderId", KeyType = KeyType.RANGE,
                     },
                 ],
                 GlobalSecondaryIndexes =
@@ -70,12 +66,12 @@ public static class SecondaryIndexOrdersTable
                         [
                             new KeySchemaElement
                             {
-                                AttributeName = nameof(OrderItem.Status),
+                                AttributeName = "status",
                                 KeyType = KeyType.HASH,
                             },
                             new KeySchemaElement
                             {
-                                AttributeName = nameof(OrderItem.CreatedAt),
+                                AttributeName = "createdAt",
                                 KeyType = KeyType.RANGE,
                             },
                         ],
@@ -89,12 +85,12 @@ public static class SecondaryIndexOrdersTable
                         [
                             new KeySchemaElement
                             {
-                                AttributeName = nameof(OrderItem.Region),
+                                AttributeName = "region",
                                 KeyType = KeyType.HASH,
                             },
                             new KeySchemaElement
                             {
-                                AttributeName = nameof(OrderItem.CreatedAt),
+                                AttributeName = "createdAt",
                                 KeyType = KeyType.RANGE,
                             },
                         ],
@@ -111,12 +107,12 @@ public static class SecondaryIndexOrdersTable
                         [
                             new KeySchemaElement
                             {
-                                AttributeName = nameof(OrderItem.CustomerId),
+                                AttributeName = "customerId",
                                 KeyType = KeyType.HASH,
                             },
                             new KeySchemaElement
                             {
-                                AttributeName = nameof(OrderItem.CreatedAt),
+                                AttributeName = "createdAt",
                                 KeyType = KeyType.RANGE,
                             },
                         ],
@@ -130,12 +126,12 @@ public static class SecondaryIndexOrdersTable
                         [
                             new KeySchemaElement
                             {
-                                AttributeName = nameof(OrderItem.CustomerId),
+                                AttributeName = "customerId",
                                 KeyType = KeyType.HASH,
                             },
                             new KeySchemaElement
                             {
-                                AttributeName = nameof(OrderItem.Priority),
+                                AttributeName = "priority",
                                 KeyType = KeyType.RANGE,
                             },
                         ],
@@ -147,18 +143,6 @@ public static class SecondaryIndexOrdersTable
             },
             cancellationToken);
 
-        foreach (var chunk in OrderItems.AttributeValues.Chunk(100))
-            await dynamoDb.TransactWriteItemsAsync(
-                new TransactWriteItemsRequest
-                {
-                    TransactItems =
-                        chunk
-                            .Select(a => new TransactWriteItem
-                            {
-                                Put = new Put { TableName = TableName, Item = a },
-                            })
-                            .ToList(),
-                },
-                cancellationToken);
+        await dynamoDb.SeedItemsAsync(TableName, OrderItems.AttributeValues, cancellationToken);
     }
 }

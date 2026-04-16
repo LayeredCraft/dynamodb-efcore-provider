@@ -38,9 +38,9 @@ public sealed class SecondaryIndexProjectionAutoSelectionTests(DynamoContainerFi
 
         AssertSql(
             """
-            SELECT "CustomerId", "OrderId", "CreatedAt", "Priority", "Region", "Status"
+            SELECT "customerId", "orderId", "createdAt", "priority", "region", "status"
             FROM "SecondaryIndexProjectionOrders"
-            WHERE "Status" = 'PENDING'
+            WHERE "status" = 'PENDING'
             """);
     }
 
@@ -70,9 +70,9 @@ public sealed class SecondaryIndexProjectionAutoSelectionTests(DynamoContainerFi
 
         AssertSql(
             """
-            SELECT "CustomerId", "OrderId", "CreatedAt", "Priority", "Region", "Status"
+            SELECT "customerId", "orderId", "createdAt", "priority", "region", "status"
             FROM "SecondaryIndexProjectionOrders"
-            WHERE "Region" = 'US-EAST'
+            WHERE "region" = 'US-EAST'
             """);
     }
 }

@@ -32,9 +32,9 @@ public sealed class CompetingGsiAutoSelectionTests(DynamoContainerFixture fixtur
 
         AssertSql(
             """
-            SELECT "CustomerId", "OrderId", "CreatedAt", "Priority", "Region", "Status"
+            SELECT "customerId", "orderId", "createdAt", "priority", "region", "status"
             FROM "CompetingGsiOrders"
-            WHERE "Status" = 'PENDING'
+            WHERE "status" = 'PENDING'
             """);
     }
 
@@ -58,10 +58,10 @@ public sealed class CompetingGsiAutoSelectionTests(DynamoContainerFixture fixtur
 
         AssertSql(
             """
-            SELECT "CustomerId", "OrderId", "CreatedAt", "Priority", "Region", "Status"
+            SELECT "customerId", "orderId", "createdAt", "priority", "region", "status"
             FROM "CompetingGsiOrders"."ByStatusCreatedAt"
-            WHERE "Status" = 'PENDING'
-            ORDER BY "CreatedAt" ASC
+            WHERE "status" = 'PENDING'
+            ORDER BY "createdAt" ASC
             """);
     }
 }

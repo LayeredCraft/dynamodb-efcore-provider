@@ -10,9 +10,7 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.OwnedTypesTable;
 public class NestedPathWhereTests(DynamoContainerFixture fixture)
     : OwnedTypesTableTestFixture(fixture)
 {
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Where_NestedEfPropertyChain_ReturnsMatchingItems()
     {
         var results =
@@ -30,15 +28,13 @@ public class NestedPathWhereTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "Pk", "CreatedAt", "GuidValue", "IntValue", "Ratings", "StringValue", "Tags", "Orders", "OrderSnapshots", "Profile"
+            SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "orders", "orderSnapshots", "profile"
             FROM "OwnedTypesItems"
-            WHERE "Profile"."DisplayName" = 'Ada'
+            WHERE "profile"."displayName" = 'Ada'
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Where_SingleLevelOwnedProperty_ReturnsMatchingItems()
     {
         var results =
@@ -53,15 +49,13 @@ public class NestedPathWhereTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "Pk", "CreatedAt", "GuidValue", "IntValue", "Ratings", "StringValue", "Tags", "Orders", "OrderSnapshots", "Profile"
+            SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "orders", "orderSnapshots", "profile"
             FROM "OwnedTypesItems"
-            WHERE "Profile"."DisplayName" = 'Ada'
+            WHERE "profile"."displayName" = 'Ada'
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Where_TwoLevelOwnedProperty_ReturnsMatchingItems()
     {
         var results =
@@ -77,15 +71,13 @@ public class NestedPathWhereTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "Pk", "CreatedAt", "GuidValue", "IntValue", "Ratings", "StringValue", "Tags", "Orders", "OrderSnapshots", "Profile"
+            SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "orders", "orderSnapshots", "profile"
             FROM "OwnedTypesItems"
-            WHERE "Profile"."Address"."City" = 'Seattle'
+            WHERE "profile"."address"."city" = 'Seattle'
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Where_ThreeLevelOwnedProperty_ReturnsMatchingItems()
     {
         var results =
@@ -101,15 +93,13 @@ public class NestedPathWhereTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "Pk", "CreatedAt", "GuidValue", "IntValue", "Ratings", "StringValue", "Tags", "Orders", "OrderSnapshots", "Profile"
+            SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "orders", "orderSnapshots", "profile"
             FROM "OwnedTypesItems"
-            WHERE "Profile"."Address"."Geo"."Latitude" > 0
+            WHERE "profile"."address"."geo"."latitude" > 0
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Where_TopLevelStringListIndex_ReturnsMatchingItems()
     {
         var results =
@@ -122,15 +112,13 @@ public class NestedPathWhereTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "Pk", "CreatedAt", "GuidValue", "IntValue", "Ratings", "StringValue", "Tags", "Orders", "OrderSnapshots", "Profile"
+            SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "orders", "orderSnapshots", "profile"
             FROM "OwnedTypesItems"
-            WHERE "Tags"[0] = 'featured'
+            WHERE "tags"[0] = 'featured'
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Where_TopLevelIntListIndex_ReturnsMatchingItems()
     {
         var results = await Db.Items.Where(x => x.Ratings[0] > 3).ToListAsync(CancellationToken);
@@ -142,15 +130,13 @@ public class NestedPathWhereTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "Pk", "CreatedAt", "GuidValue", "IntValue", "Ratings", "StringValue", "Tags", "Orders", "OrderSnapshots", "Profile"
+            SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "orders", "orderSnapshots", "profile"
             FROM "OwnedTypesItems"
-            WHERE "Ratings"[0] > 3
+            WHERE "ratings"[0] > 3
             """);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task Where_NonZeroListIndex_ReturnsMatchingItems()
     {
         var results = await Db.Items.Where(x => x.Tags[1] == "vip").ToListAsync(CancellationToken);
@@ -162,9 +148,9 @@ public class NestedPathWhereTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "Pk", "CreatedAt", "GuidValue", "IntValue", "Ratings", "StringValue", "Tags", "Orders", "OrderSnapshots", "Profile"
+            SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "orders", "orderSnapshots", "profile"
             FROM "OwnedTypesItems"
-            WHERE "Tags"[1] = 'vip'
+            WHERE "tags"[1] = 'vip'
             """);
     }
 }

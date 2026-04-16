@@ -33,7 +33,7 @@ public class ConverterAndBinarySerializationTests(DynamoContainerFixture fixture
         AssertSql(
             """
             INSERT INTO "AppItems"
-            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'BinaryTags': ?, 'ExternalId': ?, 'History': ?, 'OccurredAt': ?, 'Payload': ?, 'Version': ?}
+            VALUE {'pk': ?, 'sk': ?, '$type': ?, 'binaryTags': ?, 'externalId': ?, 'history': ?, 'occurredAt': ?, 'payload': ?, 'version': ?}
             """);
 
         var rawItem = await GetItemAsync(entity.Pk, entity.Sk, CancellationToken);
@@ -58,13 +58,13 @@ public class ConverterAndBinarySerializationTests(DynamoContainerFixture fixture
         await PutItemAsync(
             new Dictionary<string, AttributeValue>
             {
-                ["Pk"] = new() { S = pk },
-                ["Sk"] = new() { S = sk },
-                ["Version"] = new() { N = "1" },
-                ["ExternalId"] = new() { S = externalId.ToString("N") },
-                ["OccurredAt"] = new() { S = occurredAt.ToString("yyyy-MM-dd HH:mm:sszzz") },
-                ["Payload"] = new() { B = new MemoryStream(payload, false) },
-                ["BinaryTags"] =
+                ["pk"] = new() { S = pk },
+                ["sk"] = new() { S = sk },
+                ["version"] = new() { N = "1" },
+                ["externalId"] = new() { S = externalId.ToString("N") },
+                ["occurredAt"] = new() { S = occurredAt.ToString("yyyy-MM-dd HH:mm:sszzz") },
+                ["payload"] = new() { B = new MemoryStream(payload, false) },
+                ["binaryTags"] =
                     new()
                     {
                         BS =
@@ -73,7 +73,7 @@ public class ConverterAndBinarySerializationTests(DynamoContainerFixture fixture
                             new MemoryStream(secondTag, false),
                         ],
                     },
-                ["History"] = new()
+                ["history"] = new()
                 {
                     L =
                     [

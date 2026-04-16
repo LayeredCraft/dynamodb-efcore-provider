@@ -3,7 +3,7 @@ using LayeredCraft.DynamoMapper.Runtime;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.PrimitiveCollectionsTable;
 
-[DynamoMapper(Convention = DynamoNamingConvention.Exact, OmitNullValues = false)]
+[DynamoMapper(Convention = DynamoNamingConvention.CamelCase, OmitNullValues = false)]
 internal static partial class PrimitiveCollectionsItemMapper
 {
     internal static List<Dictionary<string, AttributeValue>> ToItems(

@@ -5,7 +5,6 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.PrimitiveCollectionsTabl
 /// <summary>Represents the PrimitiveCollectionsItems type.</summary>
 public static class PrimitiveCollectionsItems
 {
-    /// <summary>Provides functionality for this member.</summary>
     public static readonly List<PrimitiveCollectionsItem> Items =
     [
         new(
@@ -37,7 +36,6 @@ public static class PrimitiveCollectionsItems
             ["only"]),
     ];
 
-    /// <summary>Provides functionality for this member.</summary>
     public static readonly IReadOnlyList<Dictionary<string, AttributeValue>> AttributeValues =
         CreateAttributeValues();
 

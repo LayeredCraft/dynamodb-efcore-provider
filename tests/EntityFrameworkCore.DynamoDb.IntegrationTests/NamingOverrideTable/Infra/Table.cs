@@ -1,7 +1,7 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 
-namespace EntityFrameworkCore.DynamoDb.IntegrationTests.NamingConventions.Infra;
+namespace EntityFrameworkCore.DynamoDb.IntegrationTests.NamingOverrideTable.Infra;
 
 public static class NamingConventionsItemTable
 {

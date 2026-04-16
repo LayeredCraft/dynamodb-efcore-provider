@@ -20,7 +20,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
 
         AssertSql(
             """
-            SELECT "Pk", "IntValue"
+            SELECT "pk", "intValue"
             FROM "SimpleItems"
             """);
     }
@@ -40,7 +40,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
 
         AssertSql(
             """
-            SELECT "StringValue"
+            SELECT "stringValue"
             FROM "SimpleItems"
             """);
     }
@@ -64,7 +64,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
 
         AssertSql(
             """
-            SELECT "IntValue", "Pk", "BoolValue"
+            SELECT "intValue", "pk", "boolValue"
             FROM "SimpleItems"
             """);
     }
@@ -104,7 +104,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
 
         AssertSql(
             """
-            SELECT "IntValue", "Pk", "BoolValue"
+            SELECT "intValue", "pk", "boolValue"
             FROM "SimpleItems"
             """);
     }
@@ -128,7 +128,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
 
         AssertSql(
             """
-            SELECT "Pk", "IntValue"
+            SELECT "pk", "intValue"
             FROM "SimpleItems"
             """);
     }
@@ -144,7 +144,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
 
         AssertSql(
             """
-            SELECT "Pk"
+            SELECT "pk"
             FROM "SimpleItems"
             """);
     }
@@ -171,9 +171,9 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
 
         AssertSql(
             """
-            SELECT "Pk", "IntValue"
+            SELECT "pk", "intValue"
             FROM "SimpleItems"
-            WHERE "IntValue" > 100
+            WHERE "intValue" > 100
             """);
     }
 
@@ -203,10 +203,10 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
 
         AssertSql(
             """
-            SELECT "Pk", "StringValue"
+            SELECT "pk", "stringValue"
             FROM "SimpleItems"
-            WHERE "Pk" = 'ITEM#1' OR "Pk" = 'ITEM#2'
-            ORDER BY "Pk" ASC
+            WHERE "pk" = 'ITEM#1' OR "pk" = 'ITEM#2'
+            ORDER BY "pk" ASC
             """);
     }
 
@@ -236,10 +236,10 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
 
         AssertSql(
             """
-            SELECT "Pk", "StringValue"
+            SELECT "pk", "stringValue"
             FROM "SimpleItems"
-            WHERE "Pk" = 'ITEM#1' OR "Pk" = 'ITEM#2'
-            ORDER BY "Pk" DESC
+            WHERE "pk" = 'ITEM#1' OR "pk" = 'ITEM#2'
+            ORDER BY "pk" DESC
             """);
     }
 
@@ -280,7 +280,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
 
         AssertSql(
             """
-            SELECT "IntValue", "LongValue", "FloatValue", "DoubleValue", "DecimalValue"
+            SELECT "intValue", "longValue", "floatValue", "doubleValue", "decimalValue"
             FROM "SimpleItems"
             """);
     }
@@ -304,7 +304,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
 
         AssertSql(
             """
-            SELECT "Pk", "BoolValue", "DateTimeOffsetValue"
+            SELECT "pk", "boolValue", "dateTimeOffsetValue"
             FROM "SimpleItems"
             """);
     }
@@ -324,7 +324,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
 
         AssertSql(
             """
-            SELECT "Pk", "GuidValue"
+            SELECT "pk", "guidValue"
             FROM "SimpleItems"
             """);
     }
@@ -347,7 +347,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
 
         AssertSql(
             """
-            SELECT "Pk", "NullableStringValue"
+            SELECT "pk", "nullableStringValue"
             FROM "SimpleItems"
             """);
     }
@@ -371,7 +371,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
 
         AssertSql(
             """
-            SELECT "Pk", "NullableBoolValue", "NullableIntValue"
+            SELECT "pk", "nullableBoolValue", "nullableIntValue"
             FROM "SimpleItems"
             """);
     }
@@ -389,7 +389,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
 
         AssertSql(
             """
-            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+            SELECT "pk", "boolValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableIntValue", "nullableStringValue", "stringValue"
             FROM "SimpleItems"
             """);
     }
@@ -415,7 +415,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
 
         AssertSql(
             """
-            SELECT "Pk", "StringValue", "NullableStringValue"
+            SELECT "pk", "stringValue", "nullableStringValue"
             FROM "SimpleItems"
             """);
     }
@@ -471,7 +471,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
 
         AssertSql(
             """
-            SELECT "Pk", "BoolValue", "IntValue", "LongValue", "FloatValue", "DoubleValue", "DecimalValue", "StringValue", "GuidValue", "DateTimeOffsetValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue"
+            SELECT "pk", "boolValue", "intValue", "longValue", "floatValue", "doubleValue", "decimalValue", "stringValue", "guidValue", "dateTimeOffsetValue", "nullableBoolValue", "nullableIntValue", "nullableStringValue"
             FROM "SimpleItems"
             """);
     }
@@ -493,7 +493,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
 
         AssertSql(
             """
-            SELECT "Pk", "IntValue"
+            SELECT "pk", "intValue"
             FROM "SimpleItems"
             """);
     }
@@ -517,7 +517,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
 
         AssertSql(
             """
-            SELECT "Pk", "StringValue"
+            SELECT "pk", "stringValue"
             FROM "SimpleItems"
             """);
     }
@@ -570,7 +570,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
 
         AssertSql(
             """
-            SELECT "Pk", "StringValue"
+            SELECT "pk", "stringValue"
             FROM "SimpleItems"
             """);
     }
@@ -594,7 +594,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
 
         AssertSql(
             """
-            SELECT "Pk", "IntValue"
+            SELECT "pk", "intValue"
             FROM "SimpleItems"
             """);
     }
@@ -615,7 +615,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
 
         AssertSql(
             """
-            SELECT "IntValue"
+            SELECT "intValue"
             FROM "SimpleItems"
             """);
     }
@@ -635,7 +635,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
 
         AssertSql(
             """
-            SELECT "Pk"
+            SELECT "pk"
             FROM "SimpleItems"
             """);
     }
@@ -659,7 +659,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
 
         AssertSql(
             """
-            SELECT "Pk", "IntValue"
+            SELECT "pk", "intValue"
             FROM "SimpleItems"
             """);
     }
@@ -683,7 +683,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
 
         AssertSql(
             """
-            SELECT "Pk", "IntValue"
+            SELECT "pk", "intValue"
             FROM "SimpleItems"
             """);
     }
@@ -702,7 +702,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
 
         AssertSql(
             """
-            SELECT "IntValue"
+            SELECT "intValue"
             FROM "SimpleItems"
             """);
     }
@@ -719,7 +719,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
 
         AssertSql(
             """
-            SELECT "BoolValue"
+            SELECT "boolValue"
             FROM "SimpleItems"
             """);
     }
@@ -736,7 +736,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
 
         AssertSql(
             """
-            SELECT "GuidValue"
+            SELECT "guidValue"
             FROM "SimpleItems"
             """);
     }
@@ -756,7 +756,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
 
         AssertSql(
             """
-            SELECT "DateTimeOffsetValue"
+            SELECT "dateTimeOffsetValue"
             FROM "SimpleItems"
             """);
     }

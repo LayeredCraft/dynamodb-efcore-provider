@@ -2,7 +2,7 @@ using Amazon.DynamoDBv2;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 
-namespace EntityFrameworkCore.DynamoDb.IntegrationTests.NamingConventions.Infra;
+namespace EntityFrameworkCore.DynamoDb.IntegrationTests.NamingOverrideTable.Infra;
 
 /// <summary>Represents the OwnedTypesTableDbContext type.</summary>
 public class NamingConventionsTableDbContext(DbContextOptions options) : DbContext(options)
@@ -33,22 +33,5 @@ public class NamingConventionsTableDbContext(DbContextOptions options) : DbConte
             builder.Property(x => x.Gs1Sk).HasAttributeName("gs1-sk");
             builder.Property(x => x.Gs2Pk).HasAttributeName("gs2-pk");
             builder.Property(x => x.Gs2Sk).HasAttributeName("gs2-sk");
-
-            builder.Property(x => x.Id).HasAttributeName("id");
-            builder.Property(x => x.Message).HasAttributeName("message");
-            builder.Property(x => x.RecordType).HasAttributeName("recordType");
-            builder.Property(x => x.DateSubmitted).HasAttributeName("dateSubmitted");
-            builder.Property(x => x.Game).HasAttributeName("game");
-            builder.Property(x => x.CategoryId).HasAttributeName("categoryId");
-            builder.Property(x => x.Tags).HasAttributeName("tags");
-            builder.Property(x => x.BucketId).HasAttributeName("bucketId");
-            builder.Property(x => x.BucketKey).HasAttributeName("bucketKey");
-            builder.OwnsMany(x => x.Answers, answer =>
-            {
-                answer.HasAttributeName("answers");
-                answer.Property(a => a.Message).HasAttributeName("message");
-            });
-
-            // Intentionally rely on EF Core convention-based owned type discovery in this suite.
         });
 }

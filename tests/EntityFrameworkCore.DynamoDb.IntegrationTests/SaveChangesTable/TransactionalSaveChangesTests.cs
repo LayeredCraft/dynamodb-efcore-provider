@@ -29,11 +29,11 @@ public class TransactionalSaveChangesTests(DynamoContainerFixture fixture)
         AssertSql(
             """
             INSERT INTO "AppItems"
-            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'ReferenceIds': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?}
+            VALUE {'pk': ?, 'sk': ?, '$type': ?, 'createdAt': ?, 'email': ?, 'isPreferred': ?, 'notes': ?, 'nullableNote': ?, 'preferences': ?, 'referenceIds': ?, 'tags': ?, 'version': ?, 'contacts': ?}
             """,
             """
             INSERT INTO "AppItems"
-            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'ReferenceIds': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?}
+            VALUE {'pk': ?, 'sk': ?, '$type': ?, 'createdAt': ?, 'email': ?, 'isPreferred': ?, 'notes': ?, 'nullableNote': ?, 'preferences': ?, 'referenceIds': ?, 'tags': ?, 'version': ?, 'contacts': ?}
             """);
     }
 
@@ -414,7 +414,7 @@ public class TransactionalSaveChangesTests(DynamoContainerFixture fixture)
         AssertSql(
             """
             INSERT INTO "AppItems"
-            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'ReferenceIds': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?}
+            VALUE {'pk': ?, 'sk': ?, '$type': ?, 'createdAt': ?, 'email': ?, 'isPreferred': ?, 'notes': ?, 'nullableNote': ?, 'preferences': ?, 'referenceIds': ?, 'tags': ?, 'version': ?, 'contacts': ?}
             """);
     }
 
@@ -475,7 +475,7 @@ public class TransactionalSaveChangesTests(DynamoContainerFixture fixture)
         (await GetItemAsync(toAdd.Pk, toAdd.Sk, CancellationToken)).Should().NotBeNull();
         var modifiedItem = await GetItemAsync(toModify.Pk, toModify.Sk, CancellationToken);
         modifiedItem.Should().NotBeNull();
-        modifiedItem!["Email"].S.Should().Be("modified@example.com");
+        modifiedItem!["email"].S.Should().Be("modified@example.com");
         (await GetItemAsync(toDelete.Pk, toDelete.Sk, CancellationToken)).Should().BeNull();
     }
 
@@ -505,7 +505,7 @@ public class TransactionalSaveChangesTests(DynamoContainerFixture fixture)
         // The EF change tracker still holds Version = 1 for `second`.
         await BumpVersionAsync(second.Pk, second.Sk, CancellationToken);
 
-        // Modify both — the WHERE clause for `second` will include "Version" = 1, which no
+        // Modify both — the WHERE clause for `second` will include "version" = 1, which no
         // longer matches the stored value of 2.
         first.Email = "first-updated@example.com";
         second.Email = "second-updated@example.com";
@@ -515,7 +515,7 @@ public class TransactionalSaveChangesTests(DynamoContainerFixture fixture)
 
         // The transaction rolled back atomically: `first` must not have been persisted.
         var firstItem = await GetItemAsync(first.Pk, first.Sk, CancellationToken);
-        firstItem!["Email"].S.Should().Be("first@example.com");
+        firstItem!["email"].S.Should().Be("first@example.com");
 
         // Both entries should remain Modified so the caller can retry after resolving the conflict.
         Db.Entry(first).State.Should().Be(EntityState.Modified);

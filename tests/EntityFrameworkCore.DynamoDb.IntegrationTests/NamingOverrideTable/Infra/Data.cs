@@ -1,6 +1,6 @@
 using Amazon.DynamoDBv2.Model;
 
-namespace EntityFrameworkCore.DynamoDb.IntegrationTests.NamingConventions.Infra;
+namespace EntityFrameworkCore.DynamoDb.IntegrationTests.NamingOverrideTable.Infra;
 
 /// <summary>Deterministic seed items for naming convention tests.</summary>
 public static class NamingConventionsItems
