@@ -290,6 +290,8 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
                     $"The partition key property '{pkName}' configured on entity type "
                     + $"'{entityType.DisplayName()}' does not exist.");
 
+            ValidateConfiguredKeyPropertyIsSupported(entityType, pkName, "partition key");
+
             if (entityType[DynamoAnnotationNames.SortKeyPropertyName] is not string skName)
                 continue;
 
@@ -297,7 +299,30 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
                 ?? throw new InvalidOperationException(
                     $"The sort key property '{skName}' configured on entity type "
                     + $"'{entityType.DisplayName()}' does not exist.");
+
+            ValidateConfiguredKeyPropertyIsSupported(entityType, skName, "sort key");
         }
+    }
+
+    private static void ValidateConfiguredKeyPropertyIsSupported(
+        IEntityType entityType,
+        string propertyName,
+        string keyRole)
+    {
+        var property = entityType.FindProperty(propertyName);
+        if (property is null)
+            return;
+
+        if (property.IsRuntimeOnly())
+            throw new InvalidOperationException(
+                $"Entity type '{entityType.DisplayName()}' configures property '{propertyName}' as DynamoDB {keyRole}, "
+                + "but the property is runtime-only provider metadata and cannot be used as a table key.");
+
+        if (property.IsShadowProperty())
+            throw new InvalidOperationException(
+                $"Entity type '{entityType.DisplayName()}' configures property '{propertyName}' as DynamoDB {keyRole}, "
+                + "but shadow key properties are not supported. Map the key to a CLR property (optionally with "
+                + "a backing field) and call HasPartitionKey(...) / HasSortKey(...) on that member.");
     }
 
     /// <summary>
@@ -790,8 +815,7 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
     /// </summary>
     /// <remarks>
     ///     EF Core's base <c>ValidatePropertyMapping</c> calls this virtual when it finds an
-    ///     explicitly-configured property with no type mapping. Overriding it here lets us surface a
-    ///     DynamoDB-specific message before the generic EF error is emitted.
+    ///     explicitly-configured property with no type mapping. Overriding it here lets usDbLoggerCategory.Model.Validationpecific message before the generic EF error is emitted.
     /// </remarks>
     protected override void
         ThrowPropertyNotMappedException(

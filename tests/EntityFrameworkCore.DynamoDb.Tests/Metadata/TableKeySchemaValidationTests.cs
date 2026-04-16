@@ -1,6 +1,7 @@
 using Amazon.DynamoDBv2;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NSubstitute;
 
@@ -155,27 +156,33 @@ public class TableKeySchemaValidationTests
     /// <summary>Provides functionality for this member.</summary>
     [Fact]
     /// <summary>Provides functionality for this member.</summary>
-    public void HasPartitionKey_ShadowProperty_DoesNotThrow()
+    public void HasPartitionKey_ShadowProperty_ThrowsOnValidation()
     {
         var ctx = ShadowPartitionKeyContext.Create(MockClient());
         var act = () => ctx.Model;
-        act.Should().NotThrow();
+        act
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage("*shadow key properties are not supported*");
     }
 
     /// <summary>Provides functionality for this member.</summary>
     [Fact]
     /// <summary>Provides functionality for this member.</summary>
-    public void HasPartitionKeyAndSortKey_ShadowProperties_DoesNotThrow()
+    public void HasPartitionKeyAndSortKey_ShadowProperties_ThrowOnValidation()
     {
         var ctx = ShadowPartitionAndSortKeyContext.Create(MockClient());
         var act = () => ctx.Model;
-        act.Should().NotThrow();
+        act
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage("*shadow key properties are not supported*");
     }
 
     /// <summary>Provides functionality for this member.</summary>
     [Fact]
     /// <summary>Provides functionality for this member.</summary>
-    public void SharedTable_ShadowKeyProperties_WithMatchingAttributeNames_DoesNotThrow()
+    public void SharedTable_KeyProperties_WithMatchingAttributeNames_DoesNotThrow()
     {
         var ctx = SharedTableShadowKeyConsistentContext.Create(MockClient());
         var act = () => ctx.Model;
@@ -185,7 +192,7 @@ public class TableKeySchemaValidationTests
     /// <summary>Provides functionality for this member.</summary>
     [Fact]
     /// <summary>Provides functionality for this member.</summary>
-    public void SharedTable_ShadowKeyProperties_WithConflictingPartitionAttributeNames_Throws()
+    public void SharedTable_KeyProperties_WithConflictingPartitionAttributeNames_Throws()
     {
         var ctx = SharedTableShadowKeyConflictingPkContext.Create(MockClient());
         var act = () => ctx.Model;
@@ -319,13 +326,13 @@ public class TableKeySchemaValidationTests
         {
             modelBuilder.Entity<EntityA>(b =>
             {
-                b.ToTable("SharedTable");
+                DynamoEntityTypeBuilderExtensions.ToTable((EntityTypeBuilder)b, "SharedTable");
                 b.HasPartitionKey(x => x.Id);
                 b.Property(x => x.Id).HasAttributeName("PK1");
             });
             modelBuilder.Entity<EntityB>(b =>
             {
-                b.ToTable("SharedTable");
+                DynamoEntityTypeBuilderExtensions.ToTable((EntityTypeBuilder)b, "SharedTable");
                 b.HasPartitionKey(x => x.Id);
                 b.Property(x => x.Id).HasAttributeName("PK2");
             });
@@ -368,7 +375,7 @@ public class TableKeySchemaValidationTests
         {
             modelBuilder.Entity<EntityC>(b =>
             {
-                b.ToTable("SharedTable2");
+                DynamoEntityTypeBuilderExtensions.ToTable((EntityTypeBuilder)b, "SharedTable2");
                 b.HasPartitionKey(x => x.Id);
                 // Map to "PK" so both entities share the same partition key attribute name
                 b.Property(x => x.Id).HasAttributeName("PK");
@@ -376,7 +383,7 @@ public class TableKeySchemaValidationTests
             });
             modelBuilder.Entity<EntityD>(b =>
             {
-                b.ToTable("SharedTable2");
+                DynamoEntityTypeBuilderExtensions.ToTable((EntityTypeBuilder)b, "SharedTable2");
                 b.HasPartitionKey(x => x.PartId);
                 b.HasSortKey(x => x.SortId);
                 // Map first PK property to "PK" so partition key names match
@@ -425,7 +432,7 @@ public class TableKeySchemaValidationTests
         {
             modelBuilder.Entity<EntityE>(b =>
             {
-                b.ToTable("SharedTable3");
+                DynamoEntityTypeBuilderExtensions.ToTable((EntityTypeBuilder)b, "SharedTable3");
                 b.HasPartitionKey(x => x.PartId);
                 b.HasSortKey(x => x.SortId);
                 // Both share same PK attribute name; differ on SK
@@ -433,7 +440,7 @@ public class TableKeySchemaValidationTests
             });
             modelBuilder.Entity<EntityF>(b =>
             {
-                b.ToTable("SharedTable3");
+                DynamoEntityTypeBuilderExtensions.ToTable((EntityTypeBuilder)b, "SharedTable3");
                 b.HasPartitionKey(x => x.PartId);
                 b.HasSortKey(x => x.SortId);
                 b.Property(x => x.SortId).HasAttributeName("SK2");
@@ -474,13 +481,13 @@ public class TableKeySchemaValidationTests
         {
             modelBuilder.Entity<EntityG>(b =>
             {
-                b.ToTable("SharedTable4");
+                DynamoEntityTypeBuilderExtensions.ToTable((EntityTypeBuilder)b, "SharedTable4");
                 b.HasPartitionKey(x => x.Id);
                 // Both auto-detect "Id" as the PK attribute name (same CLR property name)
             });
             modelBuilder.Entity<EntityH>(b =>
             {
-                b.ToTable("SharedTable4");
+                DynamoEntityTypeBuilderExtensions.ToTable((EntityTypeBuilder)b, "SharedTable4");
                 b.HasPartitionKey(x => x.Id);
             });
         }
@@ -525,14 +532,14 @@ public class TableKeySchemaValidationTests
         {
             modelBuilder.Entity<EntityI>(b =>
             {
-                b.ToTable("SharedTable5");
+                DynamoEntityTypeBuilderExtensions.ToTable((EntityTypeBuilder)b, "SharedTable5");
                 b.HasPartitionKey(x => x.PartId);
                 b.HasSortKey(x => x.SortId);
                 // Both auto-detect "PartId"/"SortId" as PK/SK attribute names
             });
             modelBuilder.Entity<EntityJ>(b =>
             {
-                b.ToTable("SharedTable5");
+                DynamoEntityTypeBuilderExtensions.ToTable((EntityTypeBuilder)b, "SharedTable5");
                 b.HasPartitionKey(x => x.PartId);
                 b.HasSortKey(x => x.SortId);
             });
@@ -575,13 +582,13 @@ public class TableKeySchemaValidationTests
         {
             modelBuilder.Entity<EntityK>(b =>
             {
-                b.ToTable("TableAlpha");
+                DynamoEntityTypeBuilderExtensions.ToTable((EntityTypeBuilder)b, "TableAlpha");
                 b.HasPartitionKey(x => x.Id);
                 b.Property(x => x.Id).HasAttributeName("MY_PK");
             });
             modelBuilder.Entity<EntityL>(b =>
             {
-                b.ToTable("TableBeta");
+                DynamoEntityTypeBuilderExtensions.ToTable((EntityTypeBuilder)b, "TableBeta");
                 b.HasPartitionKey(x => x.PartId);
                 b.HasSortKey(x => x.SortId);
                 b.Property(x => x.PartId).HasAttributeName("HASH");
@@ -613,7 +620,7 @@ public class TableKeySchemaValidationTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<GhostPropEntity>(b =>
             {
-                b.ToTable("GhostPkTable");
+                DynamoEntityTypeBuilderExtensions.ToTable((EntityTypeBuilder)b, "GhostPkTable");
                 b.HasPartitionKey("Ghost");
             });
 
@@ -631,7 +638,7 @@ public class TableKeySchemaValidationTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<GhostPropEntity>(b =>
             {
-                b.ToTable("GhostSkTable");
+                DynamoEntityTypeBuilderExtensions.ToTable((EntityTypeBuilder)b, "GhostSkTable");
                 b.HasPartitionKey(x => x.Id);
                 b.HasSortKey("Ghost");
             });
@@ -664,7 +671,7 @@ public class TableKeySchemaValidationTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<KeyMismatchEntity>(b =>
             {
-                b.ToTable("MismatchPkTable");
+                DynamoEntityTypeBuilderExtensions.ToTable((EntityTypeBuilder)b, "MismatchPkTable");
                 b.HasKey(x => x.Id);
                 // SomeProp exists but is NOT in the EF primary key
                 b.HasPartitionKey(x => x.SomeProp);
@@ -684,7 +691,7 @@ public class TableKeySchemaValidationTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<KeyMismatchEntity>(b =>
             {
-                b.ToTable("MismatchSkTable");
+                DynamoEntityTypeBuilderExtensions.ToTable((EntityTypeBuilder)b, "MismatchSkTable");
                 b.HasKey(x => x.Id);
                 b.HasPartitionKey(x => x.Id);
                 // SomeProp exists but is NOT in the EF primary key
@@ -723,7 +730,7 @@ public class TableKeySchemaValidationTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<NoDiscoverablePkEntity>(b =>
             {
-                b.ToTable("SortKeyOnlyTable");
+                DynamoEntityTypeBuilderExtensions.ToTable((EntityTypeBuilder)b, "SortKeyOnlyTable");
                 // HasSortKey set, but no HasPartitionKey and no auto-discoverable PK property.
                 b.HasSortKey(x => x.RangeAttr);
             });
@@ -734,7 +741,7 @@ public class TableKeySchemaValidationTests
     }
 
     // -------------------------------------------------------------------
-    // Shadow key properties
+    // Shadow key properties (unsupported)
     // -------------------------------------------------------------------
 
     private sealed record ShadowKeyEntity;
@@ -748,7 +755,7 @@ public class TableKeySchemaValidationTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ShadowKeyEntity>(b =>
             {
-                b.ToTable("ShadowPkTable");
+                DynamoEntityTypeBuilderExtensions.ToTable((EntityTypeBuilder)b, "ShadowPkTable");
                 b.Property<string>("PK");
                 b.HasPartitionKey("PK");
             });
@@ -768,7 +775,7 @@ public class TableKeySchemaValidationTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ShadowKeyEntity>(b =>
             {
-                b.ToTable("ShadowPkSkTable");
+                DynamoEntityTypeBuilderExtensions.ToTable((EntityTypeBuilder)b, "ShadowPkSkTable");
                 b.Property<string>("PK");
                 b.Property<string>("SK");
                 b.HasPartitionKey("PK");
@@ -780,9 +787,17 @@ public class TableKeySchemaValidationTests
             => new(BuildOptions<ShadowPartitionAndSortKeyContext>(client));
     }
 
-    private sealed record SharedShadowEntityA;
+    private sealed record SharedShadowEntityA
+    {
+        public string InternalPK { get; set; } = null!;
+        public string InternalSK { get; set; } = null!;
+    }
 
-    private sealed record SharedShadowEntityB;
+    private sealed record SharedShadowEntityB
+    {
+        public string OtherPk { get; set; } = null!;
+        public string OtherSk { get; set; } = null!;
+    }
 
     private sealed class SharedTableShadowKeyConsistentContext(DbContextOptions options)
         : DbContext(options)
@@ -798,18 +813,18 @@ public class TableKeySchemaValidationTests
         {
             modelBuilder.Entity<SharedShadowEntityA>(b =>
             {
-                b.ToTable("SharedShadowTable");
-                b.Property<string>("InternalPK").HasAttributeName("PK");
-                b.Property<string>("InternalSK").HasAttributeName("SK");
+                ((EntityTypeBuilder)b).ToTable("SharedShadowTable");
+                b.Property(x => x.InternalPK).HasAttributeName("PK");
+                b.Property(x => x.InternalSK).HasAttributeName("SK");
                 b.HasPartitionKey("InternalPK");
                 b.HasSortKey("InternalSK");
             });
 
             modelBuilder.Entity<SharedShadowEntityB>(b =>
             {
-                b.ToTable("SharedShadowTable");
-                b.Property<string>("OtherPk").HasAttributeName("PK");
-                b.Property<string>("OtherSk").HasAttributeName("SK");
+                ((EntityTypeBuilder)b).ToTable("SharedShadowTable");
+                b.Property(x => x.OtherPk).HasAttributeName("PK");
+                b.Property(x => x.OtherSk).HasAttributeName("SK");
                 b.HasPartitionKey("OtherPk");
                 b.HasSortKey("OtherSk");
             });
@@ -834,18 +849,18 @@ public class TableKeySchemaValidationTests
         {
             modelBuilder.Entity<SharedShadowEntityA>(b =>
             {
-                b.ToTable("SharedShadowConflictTable");
-                b.Property<string>("InternalPK").HasAttributeName("PK");
-                b.Property<string>("InternalSK").HasAttributeName("SK");
+                ((EntityTypeBuilder)b).ToTable("SharedShadowConflictTable");
+                b.Property(x => x.InternalPK).HasAttributeName("PK");
+                b.Property(x => x.InternalSK).HasAttributeName("SK");
                 b.HasPartitionKey("InternalPK");
                 b.HasSortKey("InternalSK");
             });
 
             modelBuilder.Entity<SharedShadowEntityB>(b =>
             {
-                b.ToTable("SharedShadowConflictTable");
-                b.Property<string>("OtherPk").HasAttributeName("PK2");
-                b.Property<string>("OtherSk").HasAttributeName("SK");
+                ((EntityTypeBuilder)b).ToTable("SharedShadowConflictTable");
+                b.Property(x => x.OtherPk).HasAttributeName("PK2");
+                b.Property(x => x.OtherSk).HasAttributeName("SK");
                 b.HasPartitionKey("OtherPk");
                 b.HasSortKey("OtherSk");
             });
@@ -875,7 +890,7 @@ public class TableKeySchemaValidationTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<BoolPartitionKeyEntity>(b =>
             {
-                b.ToTable("BoolPkTable");
+                DynamoEntityTypeBuilderExtensions.ToTable((EntityTypeBuilder)b, "BoolPkTable");
                 b.HasPartitionKey(x => x.Id);
             });
 
@@ -902,7 +917,7 @@ public class TableKeySchemaValidationTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<BoolSortKeyEntity>(b =>
             {
-                b.ToTable("BoolSkTable");
+                DynamoEntityTypeBuilderExtensions.ToTable((EntityTypeBuilder)b, "BoolSkTable");
                 b.HasPartitionKey(x => x.PK);
                 b.HasSortKey(x => x.SK);
             });
@@ -928,7 +943,7 @@ public class TableKeySchemaValidationTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<GuidPartitionKeyEntity>(b =>
             {
-                b.ToTable("GuidPkNoConverter");
+                ((EntityTypeBuilder)b).ToTable("GuidPkNoConverter");
                 b.HasPartitionKey(x => x.Id);
             });
 
@@ -947,7 +962,7 @@ public class TableKeySchemaValidationTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<GuidPartitionKeyEntity>(b =>
             {
-                b.ToTable("GuidPkWithConverter");
+                ((EntityTypeBuilder)b).ToTable("GuidPkWithConverter");
                 b.HasPartitionKey(x => x.Id);
                 b
                     .Property(x => x.Id)
@@ -978,7 +993,7 @@ public class TableKeySchemaValidationTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<DateTimeOffsetPartitionKeyEntity>(b =>
             {
-                b.ToTable("DateTimeOffsetPkNoConverter");
+                ((EntityTypeBuilder)b).ToTable("DateTimeOffsetPkNoConverter");
                 b.HasPartitionKey(x => x.Id);
             });
 
@@ -1004,7 +1019,7 @@ public class TableKeySchemaValidationTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<NullableProviderPartitionKeyEntity>(b =>
             {
-                b.ToTable("NullableProviderPkTable");
+                ((EntityTypeBuilder)b).ToTable("NullableProviderPkTable");
                 b.HasPartitionKey(x => x.Id);
                 b
                     .Property(x => x.Id)
@@ -1049,14 +1064,14 @@ public class TableKeySchemaValidationTests
         {
             modelBuilder.Entity<SharedPartitionTypeEntityA>(b =>
             {
-                b.ToTable("SharedPartitionTypeMismatchTable");
+                ((EntityTypeBuilder)b).ToTable("SharedPartitionTypeMismatchTable");
                 b.HasPartitionKey(x => x.Id);
                 b.Property(x => x.Id).HasAttributeName("PK");
             });
 
             modelBuilder.Entity<SharedPartitionTypeEntityB>(b =>
             {
-                b.ToTable("SharedPartitionTypeMismatchTable");
+                ((EntityTypeBuilder)b).ToTable("SharedPartitionTypeMismatchTable");
                 b.HasPartitionKey(x => x.Id);
                 b.Property(x => x.Id).HasAttributeName("PK");
             });
@@ -1099,7 +1114,7 @@ public class TableKeySchemaValidationTests
         {
             modelBuilder.Entity<SharedSortTypeEntityA>(b =>
             {
-                b.ToTable("SharedSortTypeMismatchTable");
+                ((EntityTypeBuilder)b).ToTable("SharedSortTypeMismatchTable");
                 b.HasPartitionKey(x => x.PartId);
                 b.HasSortKey(x => x.SortId);
                 b.Property(x => x.PartId).HasAttributeName("PK");
@@ -1108,7 +1123,7 @@ public class TableKeySchemaValidationTests
 
             modelBuilder.Entity<SharedSortTypeEntityB>(b =>
             {
-                b.ToTable("SharedSortTypeMismatchTable");
+                ((EntityTypeBuilder)b).ToTable("SharedSortTypeMismatchTable");
                 b.HasPartitionKey(x => x.PartId);
                 b.HasSortKey(x => x.SortId);
                 b.Property(x => x.PartId).HasAttributeName("PK");

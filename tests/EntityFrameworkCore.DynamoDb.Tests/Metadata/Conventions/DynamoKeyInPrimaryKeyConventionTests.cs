@@ -1,6 +1,7 @@
 using Amazon.DynamoDBv2;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using NSubstitute;
 
 // ReSharper disable AutoPropertyCanBeMadeGetOnly.Local
@@ -122,7 +123,7 @@ public class DynamoKeyInPrimaryKeyConventionTests
     }
 
     // -------------------------------------------------------------------
-    // Shadow properties added after key annotations — synthesis should retry
+    // Shadow properties used as configured table keys are rejected
     // -------------------------------------------------------------------
 
     private sealed record LateShadowKeyEntity;
@@ -136,7 +137,7 @@ public class DynamoKeyInPrimaryKeyConventionTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<LateShadowKeyEntity>(b =>
             {
-                b.ToTable("LateShadowKeyTable");
+                DynamoEntityTypeBuilderExtensions.ToTable((EntityTypeBuilder)b, "LateShadowKeyTable");
                 b.HasPartitionKey("PK");
                 b.HasSortKey("SK");
                 b.Property<string>("PK");
@@ -151,19 +152,17 @@ public class DynamoKeyInPrimaryKeyConventionTests
     /// <summary>Provides functionality for this member.</summary>
     [Fact]
     /// <summary>Provides functionality for this member.</summary>
-    public void HasPartitionAndSortKey_BeforeShadowProperties_AutoConfiguresCompositeEfPrimaryKey()
+    public void HasPartitionAndSortKey_BeforeShadowProperties_ThrowsValidationError()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
-        using var ctx = LateShadowKeyContext.Create(client);
+        var ctx = LateShadowKeyContext.Create(client);
 
-        var entityType = ctx.Model.FindEntityType(typeof(LateShadowKeyEntity))!;
-        var primaryKey = entityType.FindPrimaryKey()!;
+        var act = () => ctx.Model;
 
-        primaryKey.Properties.Should().HaveCount(2);
-        primaryKey.Properties[0].Name.Should().Be("PK");
-        primaryKey.Properties[1].Name.Should().Be("SK");
-        entityType.GetPartitionKeyPropertyName().Should().Be("PK");
-        entityType.GetSortKeyPropertyName().Should().Be("SK");
+        act
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage("*shadow key properties are not supported*");
     }
 
     // -------------------------------------------------------------------
@@ -189,7 +188,7 @@ public class DynamoKeyInPrimaryKeyConventionTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<SortKeyWithAutoDiscoveredPkEntity>(b =>
             {
-                b.ToTable("AutoDiscoveredPkTable");
+                DynamoEntityTypeBuilderExtensions.ToTable((EntityTypeBuilder)b, "AutoDiscoveredPkTable");
                 b.HasSortKey(x => x.Category);
                 // No HasKey, no HasPartitionKey — 'Id' is auto-discovered as the partition key
             });
@@ -238,7 +237,7 @@ public class DynamoKeyInPrimaryKeyConventionTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<RedundantAnnotationEntity>(b =>
             {
-                b.ToTable("RedundantAnnotationTable");
+                DynamoEntityTypeBuilderExtensions.ToTable((EntityTypeBuilder)b, "RedundantAnnotationTable");
                 b.HasPartitionKey(x => x.Id);
                 // EF would have auto-discovered 'Id' anyway
             });
@@ -286,7 +285,7 @@ public class DynamoKeyInPrimaryKeyConventionTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ExplicitKeyEntity>(b =>
             {
-                b.ToTable("ExplicitKeyTable");
+                DynamoEntityTypeBuilderExtensions.ToTable((EntityTypeBuilder)b, "ExplicitKeyTable");
                 b.HasKey(x => new { x.PkProp, x.SkProp });
                 b.HasPartitionKey(x => x.PkProp);
                 b.HasSortKey(x => x.SkProp);
@@ -340,7 +339,7 @@ public class DynamoKeyInPrimaryKeyConventionTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<OwnerWithAnnotationEntity>(b =>
             {
-                b.ToTable("OwnedPartTable");
+                DynamoEntityTypeBuilderExtensions.ToTable((EntityTypeBuilder)b, "OwnedPartTable");
                 b.HasPartitionKey(x => x.Id);
                 b.OwnsOne(x => x.Detail);
             });

@@ -128,8 +128,8 @@ public static class DynamoEntityTypeBuilderExtensions
         /// <remarks>
         ///     <para>
         ///         At model finalization, the convention is applied to every declared scalar property that
-        ///         does not already have an explicit <c>HasAttributeName(...)</c> override. Shadow properties
-        ///         (provider-internal) are not affected.
+        ///         does not already have an explicit <c>HasAttributeName(...)</c> override. Provider-internal
+        ///         runtime-only and owned-ordinal shadow properties are not affected.
         ///     </para>
         ///     <para>
         ///         Owned entity types without their own convention configured inherit this entity's
@@ -154,8 +154,8 @@ public static class DynamoEntityTypeBuilderExtensions
         ///     <para>
         ///         At model finalization, <paramref name="translator" /> is called with each declared scalar
         ///         property's CLR name and the return value is used as the DynamoDB attribute name. Properties
-        ///         with an explicit <c>HasAttributeName(...)</c> override are not affected. Shadow properties
-        ///         (provider-internal) are not affected.
+        ///         with an explicit <c>HasAttributeName(...)</c> override are not affected. Provider-internal
+        ///         runtime-only and owned-ordinal shadow properties are not affected.
         ///     </para>
         ///     <para>
         ///         Owned entity types without their own convention configured inherit this entity's
@@ -199,8 +199,11 @@ public static class DynamoEntityTypeBuilderExtensions
         /// <returns>The same builder instance so that multiple calls can be chained.</returns>
         public EntityTypeBuilder<TEntity> HasPartitionKey(
             Expression<Func<TEntity, object?>> keyExpression)
-            => (EntityTypeBuilder<TEntity>)entityTypeBuilder.HasPartitionKey(
-                EntityTypeBuilder<TEntity>.GetPropertyName(keyExpression));
+        {
+            var propertyName = EntityTypeBuilder<TEntity>.GetPropertyName(keyExpression);
+            _ = entityTypeBuilder.Property(keyExpression);
+            return (EntityTypeBuilder<TEntity>)entityTypeBuilder.HasPartitionKey(propertyName);
+        }
 
         /// <summary>
         ///     Configures which property provides the DynamoDB sort key attribute name for this entity
@@ -217,8 +220,11 @@ public static class DynamoEntityTypeBuilderExtensions
         /// <returns>The same builder instance so that multiple calls can be chained.</returns>
         public EntityTypeBuilder<TEntity> HasSortKey(
             Expression<Func<TEntity, object?>> keyExpression)
-            => (EntityTypeBuilder<TEntity>)entityTypeBuilder.HasSortKey(
-                EntityTypeBuilder<TEntity>.GetPropertyName(keyExpression));
+        {
+            var propertyName = EntityTypeBuilder<TEntity>.GetPropertyName(keyExpression);
+            _ = entityTypeBuilder.Property(keyExpression);
+            return (EntityTypeBuilder<TEntity>)entityTypeBuilder.HasSortKey(propertyName);
+        }
 
         /// <summary>Configures a DynamoDB global secondary index that uses only a partition key.</summary>
         /// <returns>A builder for chaining DynamoDB secondary index configuration.</returns>

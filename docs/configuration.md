@@ -170,6 +170,10 @@ Properties named `PK` or `PartitionKey` are automatically designated as the Dyna
 key. Properties named `SK` or `SortKey` are automatically designated as the sort key. The
 comparison is case-insensitive (ordinal ignore-case).
 
+Convention-based key discovery only evaluates mapped EF properties. Getter-only/computed members
+are often not included by EF conventions, so configure keys explicitly with
+`HasPartitionKey(...)` / `HasSortKey(...)` for those models.
+
 ```csharp
 public class Order
 {
@@ -234,6 +238,31 @@ modelBuilder.Entity<Order>(b =>
 ```csharp
 b.HasPartitionKey("CustomerId");
 b.HasSortKey("OrderId");
+```
+
+### Key property requirements
+
+Partition/sort key properties must be mapped as real EF properties that can be materialized.
+
+- Supported: normal settable properties, private-set properties, or getter-only properties with a
+    mapped backing field.
+- Not supported: getter-only computed properties with no setter/backing field (for example
+    `public string Pk => $"game#{Game}";`).
+- Not supported: shadow properties as table keys.
+
+Recommended patterns:
+
+```csharp
+private string _pk = null!;
+public string Pk => _pk;
+
+private void RecomputeKeys() => _pk = $"game#{Game}";
+```
+
+```csharp
+public string Pk { get; private set; } = null!;
+
+private void RecomputeKeys() => Pk = $"game#{Game}";
 ```
 
 ## Attribute names
@@ -393,6 +422,8 @@ The provider validates the key configuration during model finalization and raise
 `InvalidOperationException` for:
 
 - A partition or sort key property that does not exist on the entity type.
+- A partition or sort key mapped to a runtime-only provider property.
+- A partition or sort key mapped to a shadow property.
 - An explicit root EF primary key configured with `HasKey(...)` or `[Key]`.
 - An internally derived EF primary key that does not match the configured DynamoDB key shape.
 - Entity types sharing a DynamoDB table that disagree on the partition key attribute name or
