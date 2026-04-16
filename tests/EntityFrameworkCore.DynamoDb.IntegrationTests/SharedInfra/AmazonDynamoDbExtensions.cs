@@ -1,5 +1,5 @@
-using System.Linq.Enumerable;
 using Amazon.DynamoDBv2.Model;
+using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 
 namespace Amazon.DynamoDBv2;
 

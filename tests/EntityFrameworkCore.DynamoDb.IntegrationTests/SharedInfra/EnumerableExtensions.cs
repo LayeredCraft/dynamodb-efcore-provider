@@ -1,4 +1,4 @@
-namespace System.Linq.Enumerable;
+namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 
 public static class EnumerableExtensions
 {
