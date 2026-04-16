@@ -1,5 +1,6 @@
 using Amazon.DynamoDBv2;
 using EntityFrameworkCore.DynamoDb.IntegrationTests.CompetingGsiTable;
+using EntityFrameworkCore.DynamoDb.IntegrationTests.NamingConventions.Infra;
 using EntityFrameworkCore.DynamoDb.IntegrationTests.OwnedTypesTable;
 using EntityFrameworkCore.DynamoDb.IntegrationTests.PkSkTable;
 using EntityFrameworkCore.DynamoDb.IntegrationTests.PrimitiveCollectionsTable;
@@ -47,5 +48,6 @@ public sealed class DynamoContainerFixture(IMessageSink messageSink)
         await SaveChangesItemTable.CreateTable(Client, ct);
         await SecondaryIndexOrdersTable.CreateTable(Client, ct);
         await SecondaryIndexProjectionOrdersTable.CreateTable(Client, ct);
+        await NamingConventionsItemTable.CreateTable(Client, ct);
     }
 }

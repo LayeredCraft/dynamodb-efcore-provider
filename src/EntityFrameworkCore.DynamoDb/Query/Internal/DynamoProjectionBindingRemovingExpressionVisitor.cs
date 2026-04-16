@@ -1279,7 +1279,7 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
         }
 
         valueExpression = CreateGetValueExpression(
-            principalProperty.Name,
+            principalProperty.GetAttributeName(),
             targetType,
             principalProperty.GetTypeMapping(),
             !principalProperty.IsNullable,
