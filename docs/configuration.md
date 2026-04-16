@@ -170,6 +170,10 @@ Properties named `PK` or `PartitionKey` are automatically designated as the Dyna
 key. Properties named `SK` or `SortKey` are automatically designated as the sort key. The
 comparison is case-insensitive (ordinal ignore-case).
 
+Convention-based key discovery only evaluates mapped EF properties. Getter-only/computed members
+are often not included by EF conventions, so configure keys explicitly with
+`HasPartitionKey(...)` / `HasSortKey(...)` for those models.
+
 ```csharp
 public class Order
 {
