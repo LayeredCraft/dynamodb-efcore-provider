@@ -40,7 +40,7 @@ public class DeletedEntitiesSaveChangesTests(DynamoContainerFixture fixture)
         AssertSql(
             """
             DELETE FROM "AppItems"
-            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            WHERE "pk" = ? AND "sk" = ? AND "version" = ?
             """);
     }
 
@@ -73,7 +73,7 @@ public class DeletedEntitiesSaveChangesTests(DynamoContainerFixture fixture)
         AssertSql(
             """
             DELETE FROM "AppItems"
-            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            WHERE "pk" = ? AND "sk" = ? AND "version" = ?
             """);
     }
 
@@ -166,11 +166,11 @@ public class DeletedEntitiesSaveChangesTests(DynamoContainerFixture fixture)
         // Raw DynamoDB verification.
         var addedItem = await GetItemAsync(toAdd.Pk, toAdd.Sk, CancellationToken);
         addedItem.Should().NotBeNull();
-        addedItem!["Email"].S.Should().Be("new@example.com");
+        addedItem!["email"].S.Should().Be("new@example.com");
 
         var modifiedItem = await GetItemAsync(toModify.Pk, toModify.Sk, CancellationToken);
         modifiedItem.Should().NotBeNull();
-        modifiedItem!["Email"].S.Should().Be("after-modify@example.com");
+        modifiedItem!["email"].S.Should().Be("after-modify@example.com");
 
         var deletedItem = await GetItemAsync(toDelete.Pk, toDelete.Sk, CancellationToken);
         deletedItem.Should().BeNull();
@@ -178,16 +178,16 @@ public class DeletedEntitiesSaveChangesTests(DynamoContainerFixture fixture)
         AssertSql(
             """
             INSERT INTO "AppItems"
-            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'ReferenceIds': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?}
+            VALUE {'pk': ?, 'sk': ?, '$type': ?, 'createdAt': ?, 'email': ?, 'isPreferred': ?, 'notes': ?, 'nullableNote': ?, 'preferences': ?, 'referenceIds': ?, 'tags': ?, 'version': ?, 'Contacts': ?}
             """,
             """
             UPDATE "AppItems"
-            SET "Email" = ?
-            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            SET "email" = ?
+            WHERE "pk" = ? AND "sk" = ? AND "version" = ?
             """,
             """
             DELETE FROM "AppItems"
-            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            WHERE "pk" = ? AND "sk" = ? AND "version" = ?
             """);
     }
 }

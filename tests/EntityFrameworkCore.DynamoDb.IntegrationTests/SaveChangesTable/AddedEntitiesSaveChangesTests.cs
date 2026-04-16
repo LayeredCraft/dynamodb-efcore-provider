@@ -32,19 +32,19 @@ public class AddedEntitiesSaveChangesTests(DynamoContainerFixture fixture)
 
         var item = await GetItemAsync(product.Pk, product.Sk, CancellationToken);
         item.Should().NotBeNull();
-        item!["Pk"].S.Should().Be("PROD#round-trip");
-        item["Sk"].S.Should().Be("PRODUCT");
-        item["Version"].N.Should().Be("1");
-        item["Name"].S.Should().Be("Widget");
-        item["Price"].N.Should().Be("9.99");
-        item["IsActive"].BOOL.Should().BeTrue();
-        item["PublishedAt"].S.Should().Be("2024-06-01 00:00:00+00:00");
+        item!["pk"].S.Should().Be("PROD#round-trip");
+        item["sk"].S.Should().Be("PRODUCT");
+        item["version"].N.Should().Be("1");
+        item["name"].S.Should().Be("Widget");
+        item["price"].N.Should().Be("9.99");
+        item["isActive"].BOOL.Should().BeTrue();
+        item["publishedAt"].S.Should().Be("2024-06-01 00:00:00+00:00");
         item["$type"].S.Should().Be("ProductItem");
 
         AssertSql(
             """
             INSERT INTO "AppItems"
-            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CategorySet': ?, 'IsActive': ?, 'Metadata': ?, 'Name': ?, 'Price': ?, 'PublishedAt': ?, 'SearchTerms': ?, 'Version': ?, 'Variants': ?}
+            VALUE {'pk': ?, 'sk': ?, '$type': ?, 'categorySet': ?, 'isActive': ?, 'metadata': ?, 'name': ?, 'price': ?, 'publishedAt': ?, 'searchTerms': ?, 'version': ?, 'Variants': ?}
             """);
     }
 
@@ -126,7 +126,7 @@ public class AddedEntitiesSaveChangesTests(DynamoContainerFixture fixture)
 
         var item = await GetItemAsync(product.Pk, product.Sk, CancellationToken);
         item.Should().NotBeNull();
-        item!["PublishedAt"].NULL.Should().BeTrue();
+        item!["publishedAt"].NULL.Should().BeTrue();
     }
 
     /// <summary>A newly added entity with primitive collections persists list, map, and set wire shapes.</summary>
@@ -155,15 +155,15 @@ public class AddedEntitiesSaveChangesTests(DynamoContainerFixture fixture)
 
         var item = await GetItemAsync(session.Pk, session.Sk, CancellationToken);
         item.Should().NotBeNull();
-        item!["Scopes"].L.Select(x => x.S).Should().Equal("read", "write");
-        item["Attributes"].M["device"].S.Should().Be("ios");
-        item["Attributes"].M["region"].S.Should().Be("eu-west-1");
-        item["Flags"].SS.Should().BeEquivalentTo("trusted", "mfa");
+        item!["scopes"].L.Select(x => x.S).Should().Equal("read", "write");
+        item["attributes"].M["device"].S.Should().Be("ios");
+        item["attributes"].M["region"].S.Should().Be("eu-west-1");
+        item["flags"].SS.Should().BeEquivalentTo("trusted", "mfa");
 
         AssertSql(
             """
             INSERT INTO "AppItems"
-            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'Attributes': ?, 'CustomerPk': ?, 'ExpiresAt': ?, 'Flags': ?, 'LastSeenAt': ?, 'Revoked': ?, 'Scopes': ?, 'Version': ?}
+            VALUE {'pk': ?, 'sk': ?, '$type': ?, 'attributes': ?, 'customerPk': ?, 'expiresAt': ?, 'flags': ?, 'lastSeenAt': ?, 'revoked': ?, 'scopes': ?, 'version': ?}
             """);
     }
 
@@ -202,13 +202,13 @@ public class AddedEntitiesSaveChangesTests(DynamoContainerFixture fixture)
         await PutItemAsync(
             new Dictionary<string, AttributeValue>
             {
-                ["Pk"] = new() { S = "PROD#dup-test" },
-                ["Sk"] = new() { S = "PRODUCT" },
+                ["pk"] = new() { S = "PROD#dup-test" },
+                ["sk"] = new() { S = "PRODUCT" },
                 ["$type"] = new() { S = "ProductItem" },
-                ["Name"] = new() { S = "Existing" },
-                ["Version"] = new() { N = "1" },
-                ["Price"] = new() { N = "5" },
-                ["IsActive"] = new() { BOOL = true },
+                ["name"] = new() { S = "Existing" },
+                ["version"] = new() { N = "1" },
+                ["price"] = new() { N = "5" },
+                ["isActive"] = new() { BOOL = true },
             },
             CancellationToken);
 

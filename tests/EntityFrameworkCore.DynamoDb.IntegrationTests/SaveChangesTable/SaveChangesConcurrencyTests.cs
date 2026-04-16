@@ -27,13 +27,13 @@ public class SaveChangesConcurrencyTests(DynamoContainerFixture fixture)
         await PutItemAsync(
             new Dictionary<string, AttributeValue>
             {
-                ["Pk"] = new() { S = "TENANT#CONC" },
-                ["Sk"] = new() { S = "CUSTOMER#DUP-1" },
+                ["pk"] = new() { S = "TENANT#CONC" },
+                ["sk"] = new() { S = "CUSTOMER#DUP-1" },
                 ["$type"] = new() { S = "CustomerItem" },
-                ["Email"] = new() { S = "existing@example.com" },
-                ["Version"] = new() { N = "1" },
-                ["IsPreferred"] = new() { BOOL = false },
-                ["CreatedAt"] = new() { S = "2026-04-01 00:00:00+00:00" },
+                ["email"] = new() { S = "existing@example.com" },
+                ["version"] = new() { N = "1" },
+                ["isPreferred"] = new() { BOOL = false },
+                ["createdAt"] = new() { S = "2026-04-01 00:00:00+00:00" },
             },
             CancellationToken);
 
@@ -54,7 +54,7 @@ public class SaveChangesConcurrencyTests(DynamoContainerFixture fixture)
         AssertSql(
             """
             INSERT INTO "AppItems"
-            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'CreatedAt': ?, 'Email': ?, 'IsPreferred': ?, 'Notes': ?, 'NullableNote': ?, 'Preferences': ?, 'ReferenceIds': ?, 'Tags': ?, 'Version': ?, 'Contacts': ?}
+            VALUE {'pk': ?, 'sk': ?, '$type': ?, 'createdAt': ?, 'email': ?, 'isPreferred': ?, 'notes': ?, 'nullableNote': ?, 'preferences': ?, 'referenceIds': ?, 'tags': ?, 'version': ?, 'Contacts': ?}
             """);
     }
 
@@ -85,7 +85,7 @@ public class SaveChangesConcurrencyTests(DynamoContainerFixture fixture)
         // Simulate a concurrent writer bumping the version directly.
         await BumpVersionAsync(customer.Pk, customer.Sk, CancellationToken);
 
-        // Modify and attempt to save — the WHERE "Version" = 1 predicate no longer matches.
+        // Modify and attempt to save — the WHERE "version" = 1 predicate no longer matches.
         customer.Version = 2;
         customer.Email = "conflicted@example.com";
         var act = async () => await Db.SaveChangesAsync(CancellationToken);
@@ -94,8 +94,8 @@ public class SaveChangesConcurrencyTests(DynamoContainerFixture fixture)
         AssertSql(
             """
             UPDATE "AppItems"
-            SET "Email" = ?, "Version" = ?
-            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            SET "email" = ?, "version" = ?
+            WHERE "pk" = ? AND "sk" = ? AND "version" = ?
             """);
     }
 
@@ -126,7 +126,7 @@ public class SaveChangesConcurrencyTests(DynamoContainerFixture fixture)
         // Simulate a concurrent writer bumping the version directly.
         await BumpVersionAsync(customer.Pk, customer.Sk, CancellationToken);
 
-        // Attempt delete — the WHERE "Version" = 1 predicate no longer matches.
+        // Attempt delete — the WHERE "version" = 1 predicate no longer matches.
         Db.Customers.Remove(customer);
         var act = async () => await Db.SaveChangesAsync(CancellationToken);
         await act.Should().ThrowAsync<DbUpdateConcurrencyException>();
@@ -134,7 +134,7 @@ public class SaveChangesConcurrencyTests(DynamoContainerFixture fixture)
         AssertSql(
             """
             DELETE FROM "AppItems"
-            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            WHERE "pk" = ? AND "sk" = ? AND "version" = ?
             """);
     }
 
@@ -164,13 +164,13 @@ public class SaveChangesConcurrencyTests(DynamoContainerFixture fixture)
         await Db.SaveChangesAsync(CancellationToken);
 
         var itemAfterUpdate = await GetItemAsync(customer.Pk, customer.Sk, CancellationToken);
-        itemAfterUpdate!["Version"].N.Should().Be("2");
+        itemAfterUpdate!["version"].N.Should().Be("2");
 
         AssertSql(
             """
             UPDATE "AppItems"
-            SET "Email" = ?, "Version" = ?
-            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            SET "email" = ?, "version" = ?
+            WHERE "pk" = ? AND "sk" = ? AND "version" = ?
             """);
     }
 
@@ -200,7 +200,7 @@ public class SaveChangesConcurrencyTests(DynamoContainerFixture fixture)
         await Db.SaveChangesAsync(CancellationToken);
 
         var itemV2 = await GetItemAsync(customer.Pk, customer.Sk, CancellationToken);
-        itemV2!["Version"].N.Should().Be("2");
+        itemV2!["version"].N.Should().Be("2");
 
         // Second update: Version 2 -> 3
         customer.Version = 3;
@@ -208,18 +208,18 @@ public class SaveChangesConcurrencyTests(DynamoContainerFixture fixture)
         await Db.SaveChangesAsync(CancellationToken);
 
         var itemV3 = await GetItemAsync(customer.Pk, customer.Sk, CancellationToken);
-        itemV3!["Version"].N.Should().Be("3");
+        itemV3!["version"].N.Should().Be("3");
 
         AssertSql(
             """
             UPDATE "AppItems"
-            SET "Email" = ?, "Version" = ?
-            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            SET "email" = ?, "version" = ?
+            WHERE "pk" = ? AND "sk" = ? AND "version" = ?
             """,
             """
             UPDATE "AppItems"
-            SET "Email" = ?, "Version" = ?
-            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            SET "email" = ?, "version" = ?
+            WHERE "pk" = ? AND "sk" = ? AND "version" = ?
             """);
     }
 
@@ -250,13 +250,13 @@ public class SaveChangesConcurrencyTests(DynamoContainerFixture fixture)
         await act.Should().NotThrowAsync();
 
         var item = await GetItemAsync(customer.Pk, customer.Sk, CancellationToken);
-        item!["Email"].S.Should().Be("after@example.com");
+        item!["email"].S.Should().Be("after@example.com");
 
         AssertSql(
             """
             UPDATE "AppItems"
-            SET "Email" = ?, "Version" = ?
-            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            SET "email" = ?, "version" = ?
+            WHERE "pk" = ? AND "sk" = ? AND "version" = ?
             """);
     }
 
@@ -287,7 +287,7 @@ public class SaveChangesConcurrencyTests(DynamoContainerFixture fixture)
         AssertSql(
             """
             DELETE FROM "AppItems"
-            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            WHERE "pk" = ? AND "sk" = ? AND "version" = ?
             """);
     }
 

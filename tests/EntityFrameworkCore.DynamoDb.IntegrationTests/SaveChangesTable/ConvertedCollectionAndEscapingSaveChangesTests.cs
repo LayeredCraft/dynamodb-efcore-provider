@@ -18,12 +18,12 @@ public class ConvertedCollectionAndEscapingSaveChangesTests(DynamoContainerFixtu
 
         var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
         raw.Should().NotBeNull();
-        raw!["Scores"].S.Should().Be("1|2|3");
+        raw!["scores"].S.Should().Be("1|2|3");
 
         AssertSql(
             """
             INSERT INTO "AppItems"
-            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'Scores': ?, 'Version': ?}
+            VALUE {'pk': ?, 'sk': ?, '$type': ?, 'scores': ?, 'version': ?}
             """);
     }
 
@@ -46,13 +46,13 @@ public class ConvertedCollectionAndEscapingSaveChangesTests(DynamoContainerFixtu
 
         var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
         raw.Should().NotBeNull();
-        raw!["Scores"].S.Should().Be("8|13|21");
+        raw!["scores"].S.Should().Be("8|13|21");
 
         AssertSql(
             """
             UPDATE "AppItems"
-            SET "Scores" = ?
-            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            SET "scores" = ?
+            WHERE "pk" = ? AND "sk" = ? AND "version" = ?
             """);
     }
 
@@ -75,7 +75,7 @@ public class ConvertedCollectionAndEscapingSaveChangesTests(DynamoContainerFixtu
         AssertSql(
             """
             INSERT INTO "AppItems"
-            VALUE {'Pk': ?, 'Sk': ?, '$type': ?, 'O''Brien': ?, 'Version': ?}
+            VALUE {'pk': ?, 'sk': ?, '$type': ?, 'O''Brien': ?, 'version': ?}
             """);
     }
 
@@ -108,7 +108,7 @@ public class ConvertedCollectionAndEscapingSaveChangesTests(DynamoContainerFixtu
             """
             UPDATE "AppItems"
             SET "O'Brien" = ?
-            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            WHERE "pk" = ? AND "sk" = ? AND "version" = ?
             """);
     }
 
@@ -139,7 +139,7 @@ public class ConvertedCollectionAndEscapingSaveChangesTests(DynamoContainerFixtu
         AssertSql(
             """
             DELETE FROM "AppItems"
-            WHERE "Pk" = ? AND "Sk" = ? AND "Version" = ?
+            WHERE "pk" = ? AND "sk" = ? AND "version" = ?
             """);
     }
 }
