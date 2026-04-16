@@ -19,50 +19,22 @@ public static class PkSkItemTable
                 [
                     new AttributeDefinition
                     {
-                        AttributeName = "Pk", AttributeType = ScalarAttributeType.S,
+                        AttributeName = "pk", AttributeType = ScalarAttributeType.S,
                     },
                     new AttributeDefinition
                     {
-                        AttributeName = "Sk", AttributeType = ScalarAttributeType.S,
+                        AttributeName = "sk", AttributeType = ScalarAttributeType.S,
                     },
                 ],
                 KeySchema =
                 [
-                    new KeySchemaElement { AttributeName = "Pk", KeyType = KeyType.HASH },
-                    new KeySchemaElement { AttributeName = "Sk", KeyType = KeyType.RANGE },
+                    new KeySchemaElement { AttributeName = "pk", KeyType = KeyType.HASH },
+                    new KeySchemaElement { AttributeName = "sk", KeyType = KeyType.RANGE },
                 ],
                 BillingMode = BillingMode.PAY_PER_REQUEST,
             },
             cancellationToken);
 
-        var writeRequests =
-            PkSkItems
-                .AttributeValues
-                .Select(item => new WriteRequest { PutRequest = new PutRequest { Item = item } })
-                .ToList();
-
-        for (var i = 0; i < writeRequests.Count; i += 25)
-        {
-            var batch = writeRequests.Skip(i).Take(25).ToList();
-            await BatchWriteWithRetriesAsync(dynamoDb, batch, cancellationToken);
-        }
-    }
-
-    private static async Task BatchWriteWithRetriesAsync(
-        IAmazonDynamoDB dynamoDb,
-        List<WriteRequest> writeRequests,
-        CancellationToken cancellationToken)
-    {
-        var request = new BatchWriteItemRequest
-        {
-            RequestItems =
-                new Dictionary<string, List<WriteRequest>> { [TableName] = writeRequests },
-        };
-
-        while (request.RequestItems.Count > 0)
-        {
-            var response = await dynamoDb.BatchWriteItemAsync(request, cancellationToken);
-            request.RequestItems = response.UnprocessedItems;
-        }
+        await dynamoDb.SeedItemsAsync(TableName, PkSkItems.AttributeValues, cancellationToken);
     }
 }

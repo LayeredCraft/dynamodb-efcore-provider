@@ -66,10 +66,10 @@ public class OrderByTests(DynamoContainerFixture fixture) : PkSkTableTestFixture
 
         AssertSql(
             """
-            SELECT "Pk", "Sk", "Category", "IsTarget"
+            SELECT "pk", "sk", "category", "isTarget"
             FROM "PkSkItems"
-            WHERE "Pk" = 'P#1'
-            ORDER BY "Sk" ASC
+            WHERE "pk" = 'P#1'
+            ORDER BY "sk" ASC
             """);
     }
 
@@ -98,10 +98,10 @@ public class OrderByTests(DynamoContainerFixture fixture) : PkSkTableTestFixture
 
         AssertSql(
             """
-            SELECT "Pk", "Sk", "Category", "IsTarget"
+            SELECT "pk", "sk", "category", "isTarget"
             FROM "PkSkItems"
-            WHERE "Pk" = 'P#1'
-            ORDER BY "Sk" DESC
+            WHERE "pk" = 'P#1'
+            ORDER BY "sk" DESC
             """);
     }
 
@@ -128,10 +128,10 @@ public class OrderByTests(DynamoContainerFixture fixture) : PkSkTableTestFixture
 
         AssertSql(
             """
-            SELECT "Pk", "Sk", "Category", "IsTarget"
+            SELECT "pk", "sk", "category", "isTarget"
             FROM "PkSkItems"
-            WHERE "Pk" = 'P#1'
-            ORDER BY "Pk" ASC
+            WHERE "pk" = 'P#1'
+            ORDER BY "pk" ASC
             """);
     }
 
@@ -159,10 +159,10 @@ public class OrderByTests(DynamoContainerFixture fixture) : PkSkTableTestFixture
 
         AssertSql(
             """
-            SELECT "Pk", "Sk", "Category", "IsTarget"
+            SELECT "pk", "sk", "category", "isTarget"
             FROM "PkSkItems"
-            WHERE "Pk" = 'P#1'
-            ORDER BY "Pk" ASC, "Sk" ASC
+            WHERE "pk" = 'P#1'
+            ORDER BY "pk" ASC, "sk" ASC
             """);
     }
 
@@ -193,10 +193,10 @@ public class OrderByTests(DynamoContainerFixture fixture) : PkSkTableTestFixture
 
         AssertSql(
             """
-            SELECT "Pk", "Sk", "Category", "IsTarget"
+            SELECT "pk", "sk", "category", "isTarget"
             FROM "PkSkItems"
-            WHERE "Pk" = 'P#1'
-            ORDER BY "Pk" DESC, "Sk" DESC
+            WHERE "pk" = 'P#1'
+            ORDER BY "pk" DESC, "sk" DESC
             """);
     }
 
@@ -231,10 +231,10 @@ public class OrderByTests(DynamoContainerFixture fixture) : PkSkTableTestFixture
 
         AssertSql(
             """
-            SELECT "Pk", "Sk", "Category", "IsTarget"
+            SELECT "pk", "sk", "category", "isTarget"
             FROM "PkSkItems"
-            WHERE "Pk" IN [?, ?]
-            ORDER BY "Pk" ASC, "Sk" ASC
+            WHERE "pk" IN [?, ?]
+            ORDER BY "pk" ASC, "sk" ASC
             """);
     }
 
@@ -267,10 +267,10 @@ public class OrderByTests(DynamoContainerFixture fixture) : PkSkTableTestFixture
 
         AssertSql(
             """
-            SELECT "Pk", "Sk", "Category", "IsTarget"
+            SELECT "pk", "sk", "category", "isTarget"
             FROM "PkSkItems"
-            WHERE "Pk" IN [?, ?]
-            ORDER BY "Pk" DESC, "Sk" DESC
+            WHERE "pk" IN [?, ?]
+            ORDER BY "pk" DESC, "sk" DESC
             """);
     }
 
