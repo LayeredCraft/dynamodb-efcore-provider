@@ -20,7 +20,7 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
 
         AssertSql(
             """
-            SELECT "Pk", "CreatedAt", "GuidValue", "IntValue", "Ratings", "StringValue", "Tags", "Orders", "OrderSnapshots", "Profile"
+            SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "Orders", "OrderSnapshots", "Profile"
             FROM "OwnedTypesItems"
             """);
     }
@@ -39,7 +39,7 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
 
         AssertSql(
             """
-            SELECT "Pk", "Profile"
+            SELECT "pk", "Profile"
             FROM "OwnedTypesItems"
             """);
     }
@@ -61,7 +61,7 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
 
         AssertSql(
             """
-            SELECT "Pk", "Profile"
+            SELECT "pk", "Profile"
             FROM "OwnedTypesItems"
             """);
     }
@@ -89,7 +89,7 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
 
         AssertSql(
             """
-            SELECT "Pk", "Orders", "OrderSnapshots"
+            SELECT "pk", "Orders", "OrderSnapshots"
             FROM "OwnedTypesItems"
             """);
     }
@@ -125,9 +125,9 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
 
         AssertSql(
             """
-            SELECT "Pk", "CreatedAt", "GuidValue", "IntValue", "Ratings", "StringValue", "Tags", "Orders", "OrderSnapshots", "Profile"
+            SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "Orders", "OrderSnapshots", "Profile"
             FROM "OwnedTypesItems"
-            WHERE "Pk" = 'OWNED#3'
+            WHERE "pk" = 'OWNED#3'
             """);
     }
 
@@ -149,7 +149,7 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
 
         AssertSql(
             """
-            SELECT "Pk", "Profile"
+            SELECT "pk", "Profile"
             FROM "OwnedTypesItems"
             """);
     }
@@ -160,7 +160,7 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
     public async Task Select_OwnedNavigationChain_MissingAttribute_PropagatesNull()
     {
         var item = OwnedTypesItemMapper.ToItem(OwnedTypesItems.Items[0]);
-        item["Pk"].S = "OWNED#MISSINGPROFILE";
+        item["pk"].S = "OWNED#MISSINGPROFILE";
         item.Remove("Profile");
         await PutItemAsync(item, CancellationToken);
 
@@ -179,9 +179,9 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
 
             AssertSql(
                 """
-                SELECT "Pk", "Profile"
+                SELECT "pk", "Profile"
                 FROM "OwnedTypesItems"
-                WHERE "Pk" = 'OWNED#MISSINGPROFILE'
+                WHERE "pk" = 'OWNED#MISSINGPROFILE'
                 """);
         }
         finally
@@ -192,7 +192,7 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
                     TableName = OwnedTypesItemTable.TableName,
                     Key = new Dictionary<string, AttributeValue>
                     {
-                        ["Pk"] = new() { S = "OWNED#MISSINGPROFILE" },
+                        ["pk"] = new() { S = "OWNED#MISSINGPROFILE" },
                     },
                 },
                 CancellationToken);
@@ -223,9 +223,9 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
 
         AssertSql(
             """
-            SELECT "Pk", "CreatedAt", "GuidValue", "IntValue", "Ratings", "StringValue", "Tags", "Orders", "OrderSnapshots", "Profile"
+            SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "Orders", "OrderSnapshots", "Profile"
             FROM "OwnedTypesItems"
-            WHERE "Pk" = 'OWNED#3'
+            WHERE "pk" = 'OWNED#3'
             """);
     }
 
@@ -256,9 +256,9 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
 
         AssertSql(
             """
-            SELECT "Pk", "CreatedAt", "GuidValue", "IntValue", "Ratings", "StringValue", "Tags", "Orders", "OrderSnapshots", "Profile"
+            SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "Orders", "OrderSnapshots", "Profile"
             FROM "OwnedTypesItems"
-            WHERE "Pk" = 'OWNED#3'
+            WHERE "pk" = 'OWNED#3'
             """);
     }
 
@@ -281,9 +281,9 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
 
         AssertSql(
             """
-            SELECT "Pk", "CreatedAt", "GuidValue", "IntValue", "Ratings", "StringValue", "Tags", "Orders", "OrderSnapshots", "Profile"
+            SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "Orders", "OrderSnapshots", "Profile"
             FROM "OwnedTypesItems"
-            WHERE "Pk" = 'OWNED#3'
+            WHERE "pk" = 'OWNED#3'
             """);
     }
 }

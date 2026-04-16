@@ -140,8 +140,8 @@ public class OwnedTypesModelValidationTests
             {
                 entity.ToTable(OwnedTypesItemTable.TableName);
                 entity.HasPartitionKey(x => x.Pk);
-                entity.OwnsOne(x => x.PrimaryProfile, owned => owned.HasAttributeName("Profile"));
-                entity.OwnsOne(x => x.SecondaryProfile, owned => owned.HasAttributeName("Profile"));
+                entity.OwnsOne(x => x.PrimaryProfile, owned => owned.HasAttributeName("profile"));
+                entity.OwnsOne(x => x.SecondaryProfile, owned => owned.HasAttributeName("profile"));
             });
     }
 
