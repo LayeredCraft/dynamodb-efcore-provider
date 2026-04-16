@@ -31,7 +31,6 @@ public class NamingConventionTableDbContext(DbContextOptions options) : DbContex
         modelBuilder.Entity<SnakeCaseItem>(b =>
         {
             b.ToTable(SnakeCaseItemTable.TableName);
-            b.HasPartitionKey(x => x.Pk);
             b.HasAttributeNamingConvention(DynamoAttributeNamingConvention.SnakeCase);
             // Explicit per-property override — stored as "custom_attr", not "explicit_override"
             b.Property(x => x.ExplicitOverride).HasAttributeName("custom_attr");
@@ -40,7 +39,6 @@ public class NamingConventionTableDbContext(DbContextOptions options) : DbContex
         modelBuilder.Entity<KebabCaseItem>(b =>
         {
             b.ToTable(KebabCaseItemTable.TableName);
-            b.HasPartitionKey(x => x.Pk);
             b.HasAttributeNamingConvention(DynamoAttributeNamingConvention.KebabCase);
         });
     }

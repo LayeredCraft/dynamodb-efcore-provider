@@ -27,7 +27,8 @@ public class NamingConventionTests(DynamoContainerFixture fixture)
 
     /// <summary>
     ///     The PartiQL SELECT uses snake_case attribute names for convention-mapped properties and
-    ///     the explicit override name (<c>custom_attr</c>) for the property with <c>HasAttributeName</c>.
+    ///     the explicit override name (<c>custom_attr</c>) for the property with <c>HasAttributeName</c>,
+    ///     and includes the owned container as <c>profile</c>.
     /// </summary>
     [Fact]
     public async Task SnakeCaseEntity_EmitsSnakeCaseNamesInPartiQL()
@@ -36,8 +37,35 @@ public class NamingConventionTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "pk", "custom_attr", "first_name", "item_count"
+            SELECT "pk", "custom_attr", "first_name", "item_count", "profile"
             FROM "NamingConventionSnakeCase"
+            """);
+    }
+
+    /// <summary>
+    ///     Multi-level owned paths under a snake_case entity should be translated using snake_case
+    ///     container/property names at every level.
+    /// </summary>
+    [Fact]
+    public async Task SnakeCaseEntity_OwnedNestedPath_UsesSnakeCaseAtAllLevels()
+    {
+        var results = await Db
+            .SnakeCaseItems
+            .Where(x => x.Profile!.PreferredAddress!.GeoPoint!.LatitudeValue > 46m)
+            .ToListAsync(CancellationToken);
+
+        var expected = NamingConventionData
+            .SnakeCaseItems
+            .Where(x => x.Profile?.PreferredAddress?.GeoPoint?.LatitudeValue > 46m)
+            .ToList();
+
+        results.Should().BeEquivalentTo(expected);
+
+        AssertSql(
+            """
+            SELECT "pk", "custom_attr", "first_name", "item_count", "profile"
+            FROM "NamingConventionSnakeCase"
+            WHERE "profile"."preferred_address"."geo_point"."latitude_value" > 46
             """);
     }
 

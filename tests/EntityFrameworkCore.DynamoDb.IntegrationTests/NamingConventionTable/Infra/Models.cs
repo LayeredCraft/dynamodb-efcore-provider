@@ -21,6 +21,36 @@ public sealed record SnakeCaseItem
     ///     the entity-level snake_case convention.
     /// </summary>
     public string ExplicitOverride { get; set; } = null!;
+
+    /// <summary>Maps to <c>profile</c> as an owned nested map via snake_case convention.</summary>
+    public SnakeCaseProfile? Profile { get; set; }
+}
+
+/// <summary>Owned profile shape for <see cref="SnakeCaseItem" />.</summary>
+public sealed record SnakeCaseProfile
+{
+    /// <summary>Maps to <c>display_name</c> via snake_case convention.</summary>
+    public string DisplayName { get; set; } = null!;
+
+    /// <summary>Maps to <c>preferred_address</c> as a nested owned map.</summary>
+    public SnakeCaseAddress? PreferredAddress { get; set; }
+}
+
+/// <summary>Owned address shape for <see cref="SnakeCaseProfile" />.</summary>
+public sealed record SnakeCaseAddress
+{
+    /// <summary>Maps to <c>city_name</c> via snake_case convention.</summary>
+    public string CityName { get; set; } = null!;
+
+    /// <summary>Maps to <c>geo_point</c> as a nested owned map.</summary>
+    public SnakeCaseGeoPoint? GeoPoint { get; set; }
+}
+
+/// <summary>Owned geo shape for <see cref="SnakeCaseAddress" />.</summary>
+public sealed record SnakeCaseGeoPoint
+{
+    /// <summary>Maps to <c>latitude_value</c> via snake_case convention.</summary>
+    public decimal LatitudeValue { get; set; }
 }
 
 /// <summary>

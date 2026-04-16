@@ -10,9 +10,37 @@ public static class NamingConventionData
     [
         new()
         {
-            Pk = "SNAKE#1", FirstName = "Alice", ItemCount = 10, ExplicitOverride = "alpha",
+            Pk = "SNAKE#1",
+            FirstName = "Alice",
+            ItemCount = 10,
+            ExplicitOverride = "alpha",
+            Profile = new SnakeCaseProfile
+            {
+                DisplayName = "Alice Cooper",
+                PreferredAddress =
+                    new SnakeCaseAddress
+                    {
+                        CityName = "Seattle",
+                        GeoPoint = new SnakeCaseGeoPoint { LatitudeValue = 47.6062m },
+                    },
+            },
         },
-        new() { Pk = "SNAKE#2", FirstName = "Bob", ItemCount = 0, ExplicitOverride = "beta" },
+        new()
+        {
+            Pk = "SNAKE#2",
+            FirstName = "Bob",
+            ItemCount = 0,
+            ExplicitOverride = "beta",
+            Profile = new SnakeCaseProfile
+            {
+                DisplayName = "Bob Ross",
+                PreferredAddress = new SnakeCaseAddress
+                {
+                    CityName = "Portland",
+                    GeoPoint = new SnakeCaseGeoPoint { LatitudeValue = 45.5152m },
+                },
+            },
+        },
     ];
 
     /// <summary>Kebab-case entity seed items.</summary>
