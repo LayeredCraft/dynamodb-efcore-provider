@@ -20,30 +20,17 @@ public static class SimpleItemTable
                 [
                     new AttributeDefinition
                     {
-                        AttributeName = "Pk", AttributeType = ScalarAttributeType.S,
+                        AttributeName = "pk", AttributeType = ScalarAttributeType.S,
                     },
                 ],
                 KeySchema =
                 [
-                    new KeySchemaElement { AttributeName = "Pk", KeyType = KeyType.HASH },
+                    new KeySchemaElement { AttributeName = "pk", KeyType = KeyType.HASH },
                 ],
                 BillingMode = BillingMode.PAY_PER_REQUEST,
             },
             cancellationToken);
 
-        // seed data
-        await dynamoDb.TransactWriteItemsAsync(
-            new TransactWriteItemsRequest
-            {
-                TransactItems =
-                    SimpleItems
-                        .AttributeValues
-                        .Select(a => new TransactWriteItem
-                        {
-                            Put = new Put { TableName = TableName, Item = a },
-                        })
-                        .ToList(),
-            },
-            cancellationToken);
+        await dynamoDb.SeedItemsAsync(TableName, SimpleItems.AttributeValues, cancellationToken);
     }
 }

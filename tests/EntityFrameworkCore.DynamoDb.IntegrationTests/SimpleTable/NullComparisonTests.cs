@@ -26,9 +26,9 @@ public class NullComparisonTests(DynamoContainerFixture fixture) : SimpleTableTe
 
         AssertSql(
             """
-            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+            SELECT "pk", "boolValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableIntValue", "nullableStringValue", "stringValue"
             FROM "SimpleItems"
-            WHERE "NullableStringValue" IS NULL OR "NullableStringValue" IS MISSING
+            WHERE "nullableStringValue" IS NULL OR "nullableStringValue" IS MISSING
             """);
     }
 
@@ -47,9 +47,9 @@ public class NullComparisonTests(DynamoContainerFixture fixture) : SimpleTableTe
 
         AssertSql(
             """
-            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+            SELECT "pk", "boolValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableIntValue", "nullableStringValue", "stringValue"
             FROM "SimpleItems"
-            WHERE "NullableStringValue" IS NOT NULL AND "NullableStringValue" IS NOT MISSING
+            WHERE "nullableStringValue" IS NOT NULL AND "nullableStringValue" IS NOT MISSING
             """);
     }
 
@@ -68,9 +68,9 @@ public class NullComparisonTests(DynamoContainerFixture fixture) : SimpleTableTe
 
         AssertSql(
             """
-            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+            SELECT "pk", "boolValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableIntValue", "nullableStringValue", "stringValue"
             FROM "SimpleItems"
-            WHERE ("NullableStringValue" IS NULL OR "NullableStringValue" IS MISSING) AND "BoolValue" = TRUE
+            WHERE ("nullableStringValue" IS NULL OR "nullableStringValue" IS MISSING) AND "boolValue" = TRUE
             """);
     }
 
@@ -89,9 +89,9 @@ public class NullComparisonTests(DynamoContainerFixture fixture) : SimpleTableTe
 
         AssertSql(
             """
-            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+            SELECT "pk", "boolValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableIntValue", "nullableStringValue", "stringValue"
             FROM "SimpleItems"
-            WHERE NOT ("NullableStringValue" IS NULL OR "NullableStringValue" IS MISSING)
+            WHERE NOT ("nullableStringValue" IS NULL OR "nullableStringValue" IS MISSING)
             """);
     }
 
@@ -112,9 +112,9 @@ public class NullComparisonTests(DynamoContainerFixture fixture) : SimpleTableTe
 
         AssertSql(
             """
-            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+            SELECT "pk", "boolValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableIntValue", "nullableStringValue", "stringValue"
             FROM "SimpleItems"
-            WHERE "NullableStringValue" IS NULL
+            WHERE "nullableStringValue" IS NULL
             """);
     }
 
@@ -133,9 +133,9 @@ public class NullComparisonTests(DynamoContainerFixture fixture) : SimpleTableTe
 
         AssertSql(
             """
-            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+            SELECT "pk", "boolValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableIntValue", "nullableStringValue", "stringValue"
             FROM "SimpleItems"
-            WHERE "NullableStringValue" IS NOT NULL
+            WHERE "nullableStringValue" IS NOT NULL
             """);
     }
 
@@ -154,9 +154,9 @@ public class NullComparisonTests(DynamoContainerFixture fixture) : SimpleTableTe
 
         AssertSql(
             """
-            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+            SELECT "pk", "boolValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableIntValue", "nullableStringValue", "stringValue"
             FROM "SimpleItems"
-            WHERE "NullableStringValue" IS MISSING
+            WHERE "nullableStringValue" IS MISSING
             """);
     }
 
@@ -175,9 +175,9 @@ public class NullComparisonTests(DynamoContainerFixture fixture) : SimpleTableTe
 
         AssertSql(
             """
-            SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+            SELECT "pk", "boolValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableIntValue", "nullableStringValue", "stringValue"
             FROM "SimpleItems"
-            WHERE "NullableStringValue" IS NOT MISSING
+            WHERE "nullableStringValue" IS NOT MISSING
             """);
     }
 
@@ -188,9 +188,9 @@ public class NullComparisonTests(DynamoContainerFixture fixture) : SimpleTableTe
         const string missingItemPk = "ITEM#MISSING-STRING";
         var template = new Dictionary<string, AttributeValue>(SimpleItems.AttributeValues[0])
         {
-            ["Pk"] = new() { S = missingItemPk },
+            ["pk"] = new() { S = missingItemPk },
         };
-        template.Remove("NullableStringValue");
+        template.Remove("nullableStringValue");
 
         await Client.PutItemAsync(
             new PutItemRequest { TableName = SimpleItemTable.TableName, Item = template },
@@ -210,9 +210,9 @@ public class NullComparisonTests(DynamoContainerFixture fixture) : SimpleTableTe
 
             AssertSql(
                 """
-                SELECT "Pk", "BoolValue", "DateTimeOffsetValue", "DecimalValue", "DoubleValue", "FloatValue", "GuidValue", "IntValue", "LongValue", "NullableBoolValue", "NullableIntValue", "NullableStringValue", "StringValue"
+                SELECT "pk", "boolValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableIntValue", "nullableStringValue", "stringValue"
                 FROM "SimpleItems"
-                WHERE "NullableStringValue" IS MISSING
+                WHERE "nullableStringValue" IS MISSING
                 """);
         }
         finally
@@ -224,7 +224,7 @@ public class NullComparisonTests(DynamoContainerFixture fixture) : SimpleTableTe
                     TableName = SimpleItemTable.TableName,
                     Key = new Dictionary<string, AttributeValue>
                     {
-                        ["Pk"] = new() { S = missingItemPk },
+                        ["pk"] = new() { S = missingItemPk },
                     },
                 },
                 CancellationToken);
