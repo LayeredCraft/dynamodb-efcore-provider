@@ -30,9 +30,9 @@ public class NestedPathWhereTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "Orders", "OrderSnapshots", "Profile"
+            SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "orders", "orderSnapshots", "profile"
             FROM "OwnedTypesItems"
-            WHERE "Profile"."displayName" = 'Ada'
+            WHERE "profile"."displayName" = 'Ada'
             """);
     }
 
@@ -53,9 +53,9 @@ public class NestedPathWhereTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "Orders", "OrderSnapshots", "Profile"
+            SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "orders", "orderSnapshots", "profile"
             FROM "OwnedTypesItems"
-            WHERE "Profile"."displayName" = 'Ada'
+            WHERE "profile"."displayName" = 'Ada'
             """);
     }
 
@@ -77,9 +77,9 @@ public class NestedPathWhereTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "Orders", "OrderSnapshots", "Profile"
+            SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "orders", "orderSnapshots", "profile"
             FROM "OwnedTypesItems"
-            WHERE "Profile"."Address"."city" = 'Seattle'
+            WHERE "profile"."address"."city" = 'Seattle'
             """);
     }
 
@@ -101,9 +101,9 @@ public class NestedPathWhereTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "Orders", "OrderSnapshots", "Profile"
+            SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "orders", "orderSnapshots", "profile"
             FROM "OwnedTypesItems"
-            WHERE "Profile"."Address"."Geo"."latitude" > 0
+            WHERE "profile"."address"."geo"."latitude" > 0
             """);
     }
 
@@ -122,7 +122,7 @@ public class NestedPathWhereTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "Orders", "OrderSnapshots", "Profile"
+            SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "orders", "orderSnapshots", "profile"
             FROM "OwnedTypesItems"
             WHERE "tags"[0] = 'featured'
             """);
@@ -142,7 +142,7 @@ public class NestedPathWhereTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "Orders", "OrderSnapshots", "Profile"
+            SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "orders", "orderSnapshots", "profile"
             FROM "OwnedTypesItems"
             WHERE "ratings"[0] > 3
             """);
@@ -162,7 +162,7 @@ public class NestedPathWhereTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "Orders", "OrderSnapshots", "Profile"
+            SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "orders", "orderSnapshots", "profile"
             FROM "OwnedTypesItems"
             WHERE "tags"[1] = 'vip'
             """);

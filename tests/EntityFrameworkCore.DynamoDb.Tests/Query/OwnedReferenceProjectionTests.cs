@@ -50,7 +50,7 @@ public class OwnedReferenceProjectionTests
         var item = new Dictionary<string, AttributeValue> { ["pk"] = new() { S = pk } };
 
         if (includeProfileAttribute)
-            item["Profile"] = profileIsNull
+            item["profile"] = profileIsNull
                 ? new AttributeValue { NULL = true }
                 : new AttributeValue { M = profileMap ?? new Dictionary<string, AttributeValue>() };
 
@@ -86,7 +86,7 @@ public class OwnedReferenceProjectionTests
         var item = new Dictionary<string, AttributeValue>
         {
             ["pk"] = new() { S = "A#1" },
-            ["Profile"] = new()
+            ["profile"] = new()
             {
                 M = new Dictionary<string, AttributeValue>
                 {
@@ -126,7 +126,7 @@ public class OwnedReferenceProjectionTests
         var item = new Dictionary<string, AttributeValue>
         {
             ["pk"] = new() { S = "B#1" },
-            ["Profile"] = new()
+            ["profile"] = new()
             {
                 M = new Dictionary<string, AttributeValue>
                 {
@@ -162,7 +162,7 @@ public class OwnedReferenceProjectionTests
         var item = new Dictionary<string, AttributeValue>
         {
             ["pk"] = new() { S = "A#2" },
-            ["Profile"] = new()
+            ["profile"] = new()
             {
                 M = new Dictionary<string, AttributeValue>
                 {
@@ -309,8 +309,8 @@ public class OwnedReferenceProjectionTests
 
         results.Should().Equal("A#7");
         capturedRequest.Should().NotBeNull();
-        capturedRequest!.Statement.Should().Contain("\"Profile\" IS NULL");
-        capturedRequest.Statement.Should().Contain("\"Profile\" IS MISSING");
+        capturedRequest!.Statement.Should().Contain("\"profile\" IS NULL");
+        capturedRequest.Statement.Should().Contain("\"profile\" IS MISSING");
     }
 
     /// <summary>Provides functionality for this member.</summary>
@@ -335,8 +335,8 @@ public class OwnedReferenceProjectionTests
 
         results.Should().Equal("A#8");
         capturedRequest.Should().NotBeNull();
-        capturedRequest!.Statement.Should().Contain("\"Profile\" IS NULL");
-        capturedRequest.Statement.Should().Contain("\"Profile\" IS MISSING");
+        capturedRequest!.Statement.Should().Contain("\"profile\" IS NULL");
+        capturedRequest.Statement.Should().Contain("\"profile\" IS MISSING");
     }
 
     /// <summary>Provides functionality for this member.</summary>

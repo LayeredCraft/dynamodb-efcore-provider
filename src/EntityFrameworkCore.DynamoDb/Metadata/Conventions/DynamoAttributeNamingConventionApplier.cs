@@ -46,6 +46,10 @@ public sealed class DynamoAttributeNamingConventionApplier : IModelFinalizingCon
         foreach (var entityType in modelBuilder.Metadata.GetEntityTypes())
         {
             var descriptor = ResolveDescriptor(entityType);
+
+            if (entityType.IsOwned())
+                ApplyOwnedContainingAttributeNameConvention(entityType, descriptor);
+
             foreach (var property in entityType.GetDeclaredProperties())
             {
                 // Skip provider-internal shadow properties (owned ordinal keys,
@@ -68,6 +72,21 @@ public sealed class DynamoAttributeNamingConventionApplier : IModelFinalizingCon
                 property.Builder.HasAttributeName(descriptor.Translate(property.Name), false);
             }
         }
+    }
+
+    private static void ApplyOwnedContainingAttributeNameConvention(
+        IConventionEntityType entityType,
+        DynamoNamingConventionDescriptor descriptor)
+    {
+        var source = entityType.GetContainingAttributeNameConfigurationSource();
+        if (source is ConfigurationSource.Explicit or ConfigurationSource.DataAnnotation)
+            return;
+
+        var navigationName = entityType.FindOwnership()?.PrincipalToDependent?.Name;
+        if (string.IsNullOrWhiteSpace(navigationName))
+            return;
+
+        entityType.SetContainingAttributeName(descriptor.Translate(navigationName));
     }
 
     /// <summary>

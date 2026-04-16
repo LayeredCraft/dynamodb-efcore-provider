@@ -14,7 +14,7 @@ internal static class OwnedProjectionMetadata
     /// <summary>Gets immediate owned container attribute names for a root entity type.</summary>
     internal static HashSet<string> GetTopLevelOwnedContainingAttributeNames(IEntityType entityType)
     {
-        HashSet<string> topLevelNames = new(StringComparer.Ordinal);
+        HashSet<string> topLevelNames = new(StringComparer.OrdinalIgnoreCase);
         if (!IsRootEntity(entityType))
             return topLevelNames;
 
@@ -35,7 +35,7 @@ internal static class OwnedProjectionMetadata
     /// <summary>Gets nested owned container attribute names for a root entity type.</summary>
     internal static HashSet<string> GetNestedOwnedContainingAttributeNames(IEntityType entityType)
     {
-        HashSet<string> nestedNames = new(StringComparer.Ordinal);
+        HashSet<string> nestedNames = new(StringComparer.OrdinalIgnoreCase);
         if (!IsRootEntity(entityType))
             return nestedNames;
 
@@ -73,11 +73,18 @@ internal static class OwnedProjectionMetadata
         if (!property.IsShadowProperty())
             return property.GetTypeMapping() != null;
 
-        // Shadow properties that represent owned entity containers (e.g. navigation attribute
-        // names)
-        // are projected so downstream materialization can navigate into the nested map/list.
-        if (topLevelOwnedContainingAttributeNames.Contains(property.Name))
-            return true;
+        // Shadow properties that represent owned entity containers (for example, a shadow property
+        // named after an owned navigation) are projected separately from
+        // GetTopLevelOwnedContainingAttributeNames. Skip them here to avoid duplicate SELECT
+        // identifiers when the configured containing attribute name casing differs from the shadow
+        // property name.
+        if (ContainsOwnedContainingAttributeName(
+                topLevelOwnedContainingAttributeNames,
+                property.Name)
+            || ContainsOwnedContainingAttributeName(
+                topLevelOwnedContainingAttributeNames,
+                property.GetAttributeName()))
+            return false;
 
         // Scalar shadow properties with a DynamoDB type mapping must be projected so the
         // compiled shaper can materialize them into the shadow snapshot.
@@ -152,5 +159,22 @@ internal static class OwnedProjectionMetadata
             nestedNames.Add(containingAttributeName);
             CollectNestedOwnedContainingAttributeNames(navigation.TargetEntityType, nestedNames);
         }
+    }
+
+    private static bool ContainsOwnedContainingAttributeName(
+        HashSet<string> containingAttributeNames,
+        string candidate)
+    {
+        if (containingAttributeNames.Contains(candidate))
+            return true;
+
+        foreach (var containingAttributeName in containingAttributeNames)
+            if (string.Equals(
+                containingAttributeName,
+                candidate,
+                StringComparison.OrdinalIgnoreCase))
+                return true;
+
+        return false;
     }
 }

@@ -188,6 +188,9 @@ public static class OwnedTypesItems
         },
     ];
 
-    public static readonly IReadOnlyList<Dictionary<string, AttributeValue>> AttributeValues =
-        OwnedTypesItemMapper.ToItems(Items);
+    public static IReadOnlyList<Dictionary<string, AttributeValue>> AttributeValues()
+    {
+        var x = OwnedTypesItemMapper.ToItems(Items);
+        return x;
+    }
 }

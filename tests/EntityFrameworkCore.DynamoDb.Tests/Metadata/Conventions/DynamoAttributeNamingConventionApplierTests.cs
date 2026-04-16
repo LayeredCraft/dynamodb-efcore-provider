@@ -397,6 +397,7 @@ public class DynamoAttributeNamingConventionApplierTests
             .GetAttributeName()
             .Should()
             .Be("city_name");
+        addressType.GetContainingAttributeName().Should().Be("home_address");
     }
 
     // -------------------------------------------------------------------
@@ -441,6 +442,34 @@ public class DynamoAttributeNamingConventionApplierTests
             .GetAttributeName()
             .Should()
             .Be("cityName");
+        addressType.GetContainingAttributeName().Should().Be("homeAddress");
+    }
+
+    private sealed class OwnedContainingAttributeOverrideContext(DbContextOptions options)
+        : DbContext(options)
+    {
+        public DbSet<PersonEntity> People { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<PersonEntity>(b =>
+            {
+                b.ToTable("People");
+                b.HasPartitionKey(x => x.Pk);
+                b.HasAttributeNamingConvention(DynamoAttributeNamingConvention.SnakeCase);
+                b.OwnsOne(x => x.HomeAddress, ab => ab.HasAttributeName("home_payload"));
+            });
+    }
+
+    [Fact]
+    public void OwnedType_ContainingAttribute_ExplicitOverrideWinsOverConvention()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var ctx =
+            new OwnedContainingAttributeOverrideContext(
+                BuildOptions<OwnedContainingAttributeOverrideContext>(client));
+
+        var addressType = ctx.Model.FindEntityType(typeof(Address))!;
+        addressType.GetContainingAttributeName().Should().Be("home_payload");
     }
 
     // -------------------------------------------------------------------

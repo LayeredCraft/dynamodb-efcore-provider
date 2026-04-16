@@ -44,7 +44,7 @@ public class AddedEntitiesSaveChangesTests(DynamoContainerFixture fixture)
         AssertSql(
             """
             INSERT INTO "AppItems"
-            VALUE {'pk': ?, 'sk': ?, '$type': ?, 'categorySet': ?, 'isActive': ?, 'metadata': ?, 'name': ?, 'price': ?, 'publishedAt': ?, 'searchTerms': ?, 'version': ?, 'Variants': ?}
+            VALUE {'pk': ?, 'sk': ?, '$type': ?, 'categorySet': ?, 'isActive': ?, 'metadata': ?, 'name': ?, 'price': ?, 'publishedAt': ?, 'searchTerms': ?, 'version': ?, 'variants': ?}
             """);
     }
 

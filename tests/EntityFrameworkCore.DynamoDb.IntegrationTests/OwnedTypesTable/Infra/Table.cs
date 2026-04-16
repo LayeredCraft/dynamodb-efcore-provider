@@ -32,7 +32,7 @@ public static class OwnedTypesItemTable
 
         await dynamoDb.SeedItemsAsync(
             TableName,
-            OwnedTypesItems.AttributeValues,
+            OwnedTypesItems.AttributeValues(),
             cancellationToken);
     }
 }
