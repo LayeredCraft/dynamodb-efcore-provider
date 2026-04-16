@@ -25,8 +25,6 @@ public class NamingConventionsTableDbContext(DbContextOptions options) : DbConte
             builder.ToTable(NamingConventionsItemTable.TableName);
             builder.HasPartitionKey(x => x.Pk);
             builder.HasSortKey(x => x.Sk);
-            builder.Property(x => x.Pk).HasAttributeName("pk");
-            builder.Property(x => x.Sk).HasAttributeName("sk");
             builder.HasGlobalSecondaryIndex("gs1-index", x => x.Gs1Pk, x => x.Gs1Sk);
             builder.HasGlobalSecondaryIndex("gs2-index", x => x.Gs2Pk, x => x.Gs2Sk);
             builder.Property(x => x.Gs1Pk).HasAttributeName("gs1-pk");

@@ -52,10 +52,9 @@ public sealed class DynamoAttributeNamingConventionApplier : IModelFinalizingCon
 
             foreach (var property in entityType.GetDeclaredProperties())
             {
-                // Skip provider-internal shadow properties (owned ordinal keys,
-                // ExecuteStatementResponse metadata, etc.) — they are not DynamoDB
-                // item attributes and should not be renamed.
-                if (property.IsShadowProperty())
+                // Skip provider-internal properties that are never persisted as
+                // user-facing DynamoDB item attributes.
+                if (property.IsRuntimeOnly() || property.IsOwnedOrdinalKeyProperty())
                     continue;
 
                 // Explicit HasAttributeName() or a data annotation always wins —
@@ -99,11 +98,8 @@ public sealed class DynamoAttributeNamingConventionApplier : IModelFinalizingCon
         var current = (IReadOnlyEntityType)entityType;
         while (current is not null)
         {
-            var descriptor =
-                current.FindAnnotation(DynamoAnnotationNames.AttributeNamingConvention)?.Value as
-                    DynamoNamingConventionDescriptor;
-
-            if (descriptor is not null)
+            if (current.FindAnnotation(DynamoAnnotationNames.AttributeNamingConvention)?.Value is
+                DynamoNamingConventionDescriptor descriptor)
                 return descriptor;
 
             current = current.FindOwnership()?.PrincipalEntityType;

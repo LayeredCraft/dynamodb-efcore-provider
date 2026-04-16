@@ -473,7 +473,7 @@ public class DynamoAttributeNamingConventionApplierTests
     }
 
     // -------------------------------------------------------------------
-    // Shadow properties are skipped
+    // Provider-internal shadow properties are skipped
     // -------------------------------------------------------------------
 
     private sealed record OwnedItem
@@ -502,7 +502,7 @@ public class DynamoAttributeNamingConventionApplierTests
     }
 
     [Fact]
-    public void ShadowProperty_IsSkipped_ByNamingConvention()
+    public void ProviderInternalShadowProperty_IsSkipped_ByNamingConvention()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
         using var ctx = new ShadowPropertyContext(BuildOptions<ShadowPropertyContext>(client));
@@ -512,10 +512,137 @@ public class DynamoAttributeNamingConventionApplierTests
         // CLR property gets snake_case applied
         ownedType.FindProperty(nameof(OwnedItem.Label))!.GetAttributeName().Should().Be("label");
 
-        // The shadow ordinal key (__OwnedOrdinal) must not be renamed — it stays as-is
-        var shadowProps = ownedType.GetProperties().Where(p => p.IsShadowProperty()).ToList();
-        foreach (var shadow in shadowProps)
-            // Shadow property attribute name should equal its original (untransformed) name
-            shadow.GetAttributeName().Should().Be(shadow.Name);
+        // Provider-internal owned ordinal key must not be renamed — it stays as-is
+        var ownedOrdinalProperty =
+            ownedType.GetProperties().Single(p => p.IsOwnedOrdinalKeyProperty());
+        ownedOrdinalProperty.GetAttributeName().Should().Be(ownedOrdinalProperty.Name);
+    }
+
+    private sealed record UserShadowEntity
+    {
+        public string Pk { get; set; } = null!;
+    }
+
+    private sealed class UserShadowPropertyContext(DbContextOptions options) : DbContext(options)
+    {
+        public DbSet<UserShadowEntity> Entities { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<UserShadowEntity>(b =>
+            {
+                b.ToTable("UserShadow");
+                b.HasPartitionKey(x => x.Pk);
+                b.HasAttributeNamingConvention(DynamoAttributeNamingConvention.SnakeCase);
+                b.Property<string>("ShadowValue");
+            });
+    }
+
+    [Fact]
+    public void UserShadowProperty_GetsNamingConventionTranslation()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var ctx =
+            new UserShadowPropertyContext(BuildOptions<UserShadowPropertyContext>(client));
+        var entityType = ctx.Model.FindEntityType(typeof(UserShadowEntity))!;
+
+        entityType.FindProperty("ShadowValue")!.GetAttributeName().Should().Be("shadow_value");
+    }
+
+    private sealed class UserShadowPropertyOverrideContext(DbContextOptions options) : DbContext(
+        options)
+    {
+        public DbSet<UserShadowEntity> Entities { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<UserShadowEntity>(b =>
+            {
+                b.ToTable("UserShadow");
+                b.HasPartitionKey(x => x.Pk);
+                b.HasAttributeNamingConvention(DynamoAttributeNamingConvention.SnakeCase);
+                b.Property<string>("ShadowValue").HasAttributeName("shadow");
+            });
+    }
+
+    [Fact]
+    public void UserShadowProperty_ExplicitOverride_WinsOverConvention()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var ctx =
+            new UserShadowPropertyOverrideContext(
+                BuildOptions<UserShadowPropertyOverrideContext>(client));
+        var entityType = ctx.Model.FindEntityType(typeof(UserShadowEntity))!;
+
+        entityType.FindProperty("ShadowValue")!.GetAttributeName().Should().Be("shadow");
+    }
+
+    private sealed record AcronymEntity
+    {
+        public string PK { get; set; } = null!;
+        public string SK { get; set; } = null!;
+        public string URLValue { get; set; } = null!;
+    }
+
+    private sealed class AcronymSnakeCaseContext(DbContextOptions options) : DbContext(options)
+    {
+        public DbSet<AcronymEntity> Entities { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<AcronymEntity>(b =>
+            {
+                b.ToTable("Acronyms");
+                b.HasPartitionKey(x => x.PK);
+                b.HasSortKey(x => x.SK);
+                b.HasAttributeNamingConvention(DynamoAttributeNamingConvention.SnakeCase);
+            });
+    }
+
+    [Fact]
+    public void Acronyms_UseHumanizerTranslationBehavior()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var ctx = new AcronymSnakeCaseContext(BuildOptions<AcronymSnakeCaseContext>(client));
+        var entityType = ctx.Model.FindEntityType(typeof(AcronymEntity))!;
+
+        entityType.FindProperty(nameof(AcronymEntity.PK))!.GetAttributeName().Should().Be("pk");
+        entityType.FindProperty(nameof(AcronymEntity.SK))!.GetAttributeName().Should().Be("sk");
+        entityType.FindProperty(nameof(AcronymEntity.URLValue))!
+            .GetAttributeName()
+            .Should()
+            .Be("url_value");
+    }
+
+    private sealed class ReadOnlyKeyEntity
+    {
+        public string Pk { get; } = string.Empty;
+
+        public string Sk { get; } = string.Empty;
+
+        public string Value { get; set; } = null!;
+    }
+
+    private sealed class ReadOnlyKeyEntityContext(DbContextOptions options) : DbContext(options)
+    {
+        public DbSet<ReadOnlyKeyEntity> Entities { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<ReadOnlyKeyEntity>(b =>
+            {
+                b.ToTable("ReadOnlyKeyEntity");
+                b.HasPartitionKey(x => x.Pk);
+                b.HasSortKey(x => x.Sk);
+                b.HasAttributeNamingConvention(DynamoAttributeNamingConvention.SnakeCase);
+            });
+    }
+
+    [Fact]
+    public void HasPartitionKeyAndSortKey_LambdaOverloads_MapReadOnlyMembers()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var ctx =
+            new ReadOnlyKeyEntityContext(BuildOptions<ReadOnlyKeyEntityContext>(client));
+        var entityType = ctx.Model.FindEntityType(typeof(ReadOnlyKeyEntity))!;
+
+        entityType.FindProperty(nameof(ReadOnlyKeyEntity.Pk))!.GetAttributeName().Should().Be("pk");
+        entityType.FindProperty(nameof(ReadOnlyKeyEntity.Sk))!.GetAttributeName().Should().Be("sk");
     }
 }
