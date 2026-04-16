@@ -18,7 +18,7 @@ public class SelectTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "Pk", "LabelSet", "Metadata", "OptionalTags", "RatingSet", "ScoresByCategory", "Tags"
+            SELECT "pk", "labelSet", "metadata", "optionalTags", "ratingSet", "scoresByCategory", "tags"
             FROM "PrimitiveCollectionsItems"
             """);
     }
@@ -44,7 +44,7 @@ public class SelectTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "Pk", "Tags", "LabelSet"
+            SELECT "pk", "tags", "labelSet"
             FROM "PrimitiveCollectionsItems"
             """);
     }

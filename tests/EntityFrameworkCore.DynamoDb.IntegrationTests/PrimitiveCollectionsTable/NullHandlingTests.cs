@@ -81,7 +81,7 @@ public class NullHandlingTests(DynamoContainerFixture fixture)
     public async Task Materialization_AllowsOptionalArrayProperty()
     {
         var item = CreateOptionalCollectionsItem("ITEM#OPTIONAL-ARRAY", true, true, true, false);
-        item["OptionalArray"] = new AttributeValue
+        item["optionalArray"] = new AttributeValue
         {
             L = [new AttributeValue { S = "one" }, new AttributeValue { S = "two" }],
         };
@@ -103,7 +103,7 @@ public class NullHandlingTests(DynamoContainerFixture fixture)
     public async Task Materialization_Throws_WhenRequiredListPropertyIsMissing()
     {
         var item = CreateValidTemplateItem("ITEM#BAD-MISSING-TAGS");
-        item.Remove("Tags");
+        item.Remove("tags");
 
         await PutItemAsync(item);
 
@@ -126,7 +126,7 @@ public class NullHandlingTests(DynamoContainerFixture fixture)
     public async Task Materialization_Throws_WhenRequiredMapPropertyIsMissing()
     {
         var item = CreateValidTemplateItem("ITEM#BAD-MISSING-SCORES");
-        item.Remove("ScoresByCategory");
+        item.Remove("scoresByCategory");
 
         await PutItemAsync(item);
 
@@ -149,7 +149,7 @@ public class NullHandlingTests(DynamoContainerFixture fixture)
     public async Task Materialization_Throws_WhenRequiredSetPropertyIsMissing()
     {
         var item = CreateValidTemplateItem("ITEM#BAD-MISSING-LABELSET");
-        item.Remove("LabelSet");
+        item.Remove("labelSet");
 
         await PutItemAsync(item);
 
@@ -172,7 +172,7 @@ public class NullHandlingTests(DynamoContainerFixture fixture)
     public async Task Materialization_Throws_WhenRequiredListPropertyIsDynamoNull()
     {
         var item = CreateValidTemplateItem("ITEM#BAD-NULL-TAGS");
-        item["Tags"] = new AttributeValue { NULL = true };
+        item["tags"] = new AttributeValue { NULL = true };
 
         await PutItemAsync(item);
 
@@ -198,9 +198,9 @@ public class NullHandlingTests(DynamoContainerFixture fixture)
             new Dictionary<string, AttributeValue>(PrimitiveCollectionsItems.AttributeValues[1]);
         var item = new Dictionary<string, AttributeValue>(template)
         {
-            ["Pk"] = new() { S = "ITEM#MISSING-OPTIONAL" },
+            ["pk"] = new() { S = "ITEM#MISSING-OPTIONAL" },
         };
-        item.Remove("OptionalTags");
+        item.Remove("optionalTags");
 
         await PutItemAsync(item);
 
@@ -214,7 +214,7 @@ public class NullHandlingTests(DynamoContainerFixture fixture)
     {
         var template =
             new Dictionary<string, AttributeValue>(PrimitiveCollectionsItems.AttributeValues[0]);
-        var item = new Dictionary<string, AttributeValue>(template) { ["Pk"] = new() { S = pk } };
+        var item = new Dictionary<string, AttributeValue>(template) { ["pk"] = new() { S = pk } };
 
         return item;
     }
@@ -227,20 +227,20 @@ public class NullHandlingTests(DynamoContainerFixture fixture)
         bool includeOptionalDictionary,
         bool useDynamoNull)
     {
-        var item = new Dictionary<string, AttributeValue> { ["Pk"] = new() { S = pk } };
+        var item = new Dictionary<string, AttributeValue> { ["pk"] = new() { S = pk } };
 
         if (includeOptionalList)
-            item["OptionalList"] = useDynamoNull
+            item["optionalList"] = useDynamoNull
                 ? new AttributeValue { NULL = true }
                 : new AttributeValue { L = [new AttributeValue { S = "a" }] };
 
         if (includeOptionalSet)
-            item["OptionalSet"] = useDynamoNull
+            item["optionalSet"] = useDynamoNull
                 ? new AttributeValue { NULL = true }
                 : new AttributeValue { SS = ["x", "y"] };
 
         if (includeOptionalDictionary)
-            item["OptionalMap"] = useDynamoNull
+            item["optionalMap"] = useDynamoNull
                 ? new AttributeValue { NULL = true }
                 : new AttributeValue
                 {
