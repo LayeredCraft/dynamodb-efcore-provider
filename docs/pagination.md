@@ -34,6 +34,23 @@ the evaluation budget per query.
 
 - Single request, `Limit = n`. No paging.
 
+### `ToPageAsync(limit, nextToken)`
+
+- Executes exactly **one** DynamoDB request and returns `DynamoPage<T>`.
+- `limit` is DynamoDB evaluation budget (`ExecuteStatementRequest.Limit`), not guaranteed returned item count.
+- `nextToken` resumes from a previously saved cursor (`null` means start from beginning).
+- Completion is determined **only** by `page.NextToken == null`.
+- A page may return fewer than `limit` items (including `0`) and still have a non-null `NextToken`
+    when evaluated items were filtered out.
+
+### `WithNextToken(token)`
+
+- Seeds only the **first** request of the query with `token`.
+- Subsequent requests (if any) use server continuation tokens as usual.
+- `WithNextToken(token).ToListAsync()` resumes full enumeration from the saved cursor.
+- `WithNextToken(token).Limit(n).ToListAsync()` performs **one request** from the saved cursor.
+- `WithNextToken(token).ToPageAsync(limit, null)` is supported and executes one request from the saved cursor.
+
 ## Unsafe First\* — use AsAsyncEnumerable()
 
 When a `First*` query cannot use the safe key-only path (non-key predicate, scan-like,
@@ -60,14 +77,17 @@ There is no `DefaultPageSize` option. Use `.Limit(n)` per query.
 
 ## Evaluation budget reference
 
-| Shape                                          | `ExecuteStatementRequest.Limit` | Pages? |
-| ---------------------------------------------- | ------------------------------- | ------ |
-| `.Limit(n)` + `ToListAsync()`                  | `n`                             | No     |
-| `First*` (key-only, no explicit limit)         | `1`                             | No     |
-| `First*` + any `Limit(n)`                      | **Translation failure**         | —      |
-| `First*` on non-key/scan-like path             | **Translation failure**         | —      |
-| `.Limit(n)` + `AsAsyncEnumerable()` + `First*` | `n` (client-side selection)     | No     |
-| `ToListAsync()` (no limit)                     | `null` (1MB per page)           | Yes    |
+| Shape                                          | `ExecuteStatementRequest.Limit` | Pages?      |
+| ---------------------------------------------- | ------------------------------- | ----------- |
+| `.Limit(n)` + `ToListAsync()`                  | `n`                             | No          |
+| `.ToPageAsync(n, token)`                       | `n`                             | One request |
+| `.WithNextToken(token)` + `ToListAsync()`      | `null` (1MB per page)           | Yes         |
+| `.WithNextToken(token)` + `.Limit(n)`          | `n`                             | No          |
+| `First*` (key-only, no explicit limit)         | `1`                             | No          |
+| `First*` + any `Limit(n)`                      | **Translation failure**         | —           |
+| `First*` on non-key/scan-like path             | **Translation failure**         | —           |
+| `.Limit(n)` + `AsAsyncEnumerable()` + `First*` | `n` (client-side selection)     | No          |
+| `ToListAsync()` (no limit)                     | `null` (1MB per page)           | Yes         |
 
 ## Examples
 
@@ -97,6 +117,17 @@ var active = await db.Orders
 ```csharp
 // Effective limit is 20.
 await db.Orders.Limit(10).Limit(20).ToListAsync(cancellationToken);
+```
+
+### Filtered page can return zero items and still continue
+
+```csharp
+var page = await db.Orders
+    .Where(x => x.IsActive)
+    .ToPageAsync(25, nextToken, cancellationToken);
+
+// Valid: page.Items.Count == 0 while page.NextToken is non-null.
+// Continue until NextToken is null.
 ```
 
 ### Compiled query with runtime parameter

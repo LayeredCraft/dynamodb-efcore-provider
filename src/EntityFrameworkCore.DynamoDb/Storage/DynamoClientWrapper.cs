@@ -257,9 +257,13 @@ public class DynamoClientWrapper : IDynamoClientWrapper
             {
                 _request.NextToken = _nextToken;
 
+                var isFirstRequest = !_hasExecutedRequest;
+                var seedNextTokenPresent = isFirstRequest && _request.NextToken is not null;
+
                 dynamoEnumerable._dynamoClientWrapper._commandLogger.ExecutingExecuteStatement(
                     _request.Limit,
-                    _request.NextToken is not null);
+                    _request.NextToken is not null,
+                    seedNextTokenPresent);
 
                 var response =
                     await dynamoEnumerable

@@ -80,6 +80,12 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
             /// </summary>
             private readonly bool _singlePageOnly;
 
+            /// <summary>
+            ///     The optional first-request continuation token resolved from
+            ///     <c>SelectExpression.SeedNextTokenExpression</c>.
+            /// </summary>
+            private readonly string? _seedNextToken;
+
             private IAsyncEnumerator<Dictionary<string, AttributeValue>>? _dataEnumerator;
 
             /// <summary>Provides functionality for this member.</summary>
@@ -97,6 +103,11 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
                 _limit = ResolveIntExpression(
                     enumerable._selectExpression.LimitExpression,
                     enumerable._selectExpression.Limit,
+                    _queryContext);
+
+                _seedNextToken = ResolveStringExpression(
+                    enumerable._selectExpression.SeedNextTokenExpression,
+                    enumerable._selectExpression.SeedNextToken,
                     _queryContext);
 
                 if (_limit is <= 0)
@@ -138,6 +149,7 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
                             Parameters = sqlQuery.Parameters.ToList(),
                             // Maps directly to ExecuteStatementRequest.Limit (evaluation budget).
                             Limit = _limit,
+                            NextToken = _seedNextToken,
                         },
                         _singlePageOnly,
                         // Store the raw response on the query context so the shaper can bind it
@@ -189,6 +201,186 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
                 throw new InvalidOperationException(
                     "Limit expression must be normalized before execution.");
             }
+
+            private static string? ResolveStringExpression(
+                Expression? expression,
+                string? fallback,
+                DynamoQueryContext queryContext)
+            {
+                if (expression is null)
+                    return fallback;
+
+                if (expression is ConstantExpression { Value: string constantValue })
+                    return constantValue;
+
+                if (expression is QueryParameterExpression parameterExpression)
+                    return queryContext.Parameters[parameterExpression.Name] as string;
+
+                throw new InvalidOperationException(
+                    "Seed next-token expression must be normalized before execution.");
+            }
         }
     }
+
+#pragma warning disable EF9102
+    private sealed class PagingQueryingEnumerable<T>(
+        DynamoQueryContext queryContext,
+        SelectExpression selectExpression,
+        IDynamoQuerySqlGeneratorFactory sqlGeneratorFactory,
+        Func<DynamoQueryContext, Dictionary<string, AttributeValue>, T> shaper,
+        bool standAloneStateManager,
+        bool threadSafetyChecksEnabled) : IEnumerable<DynamoPage<T>>,
+        IAsyncEnumerable<DynamoPage<T>>,
+        IQueryingEnumerable
+    {
+        private readonly IDynamoClientWrapper _client = queryContext.Client;
+        private readonly DynamoQueryContext _queryContext = queryContext;
+        private readonly SelectExpression _selectExpression = selectExpression;
+        private readonly IDynamoQuerySqlGeneratorFactory _sqlGeneratorFactory = sqlGeneratorFactory;
+
+        private readonly Func<DynamoQueryContext, Dictionary<string, AttributeValue>, T> _shaper =
+            shaper;
+
+        private readonly bool _standAloneStateManager = standAloneStateManager;
+        private readonly bool _threadSafetyChecksEnabled = threadSafetyChecksEnabled;
+
+        public IAsyncEnumerator<DynamoPage<T>> GetAsyncEnumerator(
+            CancellationToken cancellationToken = default)
+            => new AsyncEnumerator(this, cancellationToken);
+
+        public IEnumerator<DynamoPage<T>> GetEnumerator()
+            => throw new InvalidOperationException(
+                "Sync enumerating is not supported for DynamoDB.");
+
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+        public string ToQueryString() => throw new NotImplementedException();
+
+        private DynamoPartiQlQuery GenerateQuery()
+            => _sqlGeneratorFactory.Create().Generate(_selectExpression, _queryContext.Parameters);
+
+        private sealed class AsyncEnumerator : IAsyncEnumerator<DynamoPage<T>>
+        {
+            private readonly PagingQueryingEnumerable<T> _queryingEnumerable;
+            private readonly DynamoQueryContext _queryContext;
+            private readonly CancellationToken _cancellationToken;
+            private readonly IConcurrencyDetector? _concurrencyDetector;
+            private readonly int _limit;
+            private readonly string? _seedNextToken;
+
+            private bool _emitted;
+
+            public AsyncEnumerator(
+                PagingQueryingEnumerable<T> queryingEnumerable,
+                CancellationToken cancellationToken)
+            {
+                _queryingEnumerable = queryingEnumerable;
+                _queryContext = queryingEnumerable._queryContext;
+                _cancellationToken = cancellationToken;
+
+                _limit = ResolveIntExpression(
+                        queryingEnumerable._selectExpression.LimitExpression,
+                        queryingEnumerable._selectExpression.Limit,
+                        _queryContext)
+                    ?? throw new InvalidOperationException(
+                        "ToPageAsync requires a resolved limit.");
+
+                if (_limit <= 0)
+                    throw new ArgumentOutOfRangeException(
+                        "limit",
+                        "Limit must be a positive integer.");
+
+                _seedNextToken = NormalizeToken(
+                    ResolveStringExpression(
+                        queryingEnumerable._selectExpression.SeedNextTokenExpression,
+                        queryingEnumerable._selectExpression.SeedNextToken,
+                        _queryContext));
+
+                _concurrencyDetector = queryingEnumerable._threadSafetyChecksEnabled
+                    ? _queryContext.ConcurrencyDetector
+                    : null;
+            }
+
+            public DynamoPage<T> Current { get; private set; } = default!;
+
+            public async ValueTask<bool> MoveNextAsync()
+            {
+                using var _ = _concurrencyDetector?.EnterCriticalSection();
+
+                if (_emitted)
+                {
+                    Current = default!;
+                    return false;
+                }
+
+                var sqlQuery = _queryingEnumerable.GenerateQuery();
+                var items = new List<T>();
+
+                var asyncEnumerable = _queryingEnumerable._client.ExecutePartiQl(
+                    new ExecuteStatementRequest
+                    {
+                        Statement = sqlQuery.Sql,
+                        Parameters = sqlQuery.Parameters.ToList(),
+                        Limit = _limit,
+                        NextToken = _seedNextToken,
+                    },
+                    singlePageOnly: true,
+                    response => _queryContext.CurrentPageResponse = response);
+
+                _queryContext.InitializeStateManager(_queryingEnumerable._standAloneStateManager);
+
+                await using var dataEnumerator =
+                    asyncEnumerable.GetAsyncEnumerator(_cancellationToken);
+                while (await dataEnumerator.MoveNextAsync().ConfigureAwait(false))
+                    items.Add(_queryingEnumerable._shaper(_queryContext, dataEnumerator.Current));
+
+                var nextToken = NormalizeToken(_queryContext.CurrentPageResponse?.NextToken);
+                Current = new DynamoPage<T>(items, nextToken);
+                _emitted = true;
+                return true;
+            }
+
+            public ValueTask DisposeAsync() => default;
+
+            private static int? ResolveIntExpression(
+                Expression? expression,
+                int? fallback,
+                DynamoQueryContext queryContext)
+            {
+                if (expression is null)
+                    return fallback;
+
+                if (expression is ConstantExpression { Value: int constantValue })
+                    return constantValue;
+
+                if (expression is QueryParameterExpression parameterExpression)
+                    return Convert.ToInt32(queryContext.Parameters[parameterExpression.Name]);
+
+                throw new InvalidOperationException(
+                    "Limit expression must be normalized before execution.");
+            }
+
+            private static string? ResolveStringExpression(
+                Expression? expression,
+                string? fallback,
+                DynamoQueryContext queryContext)
+            {
+                if (expression is null)
+                    return fallback;
+
+                if (expression is ConstantExpression { Value: string constantValue })
+                    return constantValue;
+
+                if (expression is QueryParameterExpression parameterExpression)
+                    return queryContext.Parameters[parameterExpression.Name] as string;
+
+                throw new InvalidOperationException(
+                    "Seed next-token expression must be normalized before execution.");
+            }
+
+            private static string? NormalizeToken(string? token)
+                => string.IsNullOrWhiteSpace(token) ? null : token;
+        }
+    }
+#pragma warning restore EF9102
 }
