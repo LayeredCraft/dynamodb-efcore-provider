@@ -24,6 +24,7 @@ dotnet add package --prerelease EntityFrameworkCore.DynamoDb
     `DbContext` setup, entity/table mapping, and first query execution.
 1. Review [Configuration](configuration.md) for client setup and transaction behavior.
 1. Use [Operators](operators.md) to confirm which LINQ shapes translate today.
+1. See [Pagination](pagination.md) for `Limit(n)`, `ToPageAsync`, and `WithNextToken` semantics.
 1. Read [Limitations](limitations.md) before adopting production query patterns.
 
 ## Hello world
