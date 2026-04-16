@@ -361,7 +361,18 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
             return constantValue;
 
         if (expression is QueryParameterExpression parameterExpression)
-            return queryContext.Parameters[parameterExpression.Name] as string;
+        {
+            var value = queryContext.Parameters[parameterExpression.Name];
+
+            // Guard against a wrongly-typed runtime parameter. Without this check, `value as
+            // string`
+            // silently returns null, which degrades into "start from beginning" with no diagnostic.
+            if (value is not null and not string)
+                throw new InvalidOperationException(
+                    $"Parameter '{parameterExpression.Name}' was expected to be a string (next-token) but was {value.GetType().Name}.");
+
+            return (string?)value;
+        }
 
         throw new InvalidOperationException(
             "Seed next-token expression must be normalized before execution.");
