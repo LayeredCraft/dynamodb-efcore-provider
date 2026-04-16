@@ -34,10 +34,10 @@ public class LsiQueryTests(DynamoContainerFixture fixture) : SecondaryIndexTable
 
         AssertSql(
             """
-            SELECT "CustomerId", "OrderId", "CreatedAt", "Priority", "Region", "Status"
+            SELECT "customerId", "orderId", "createdAt", "priority", "region", "status"
             FROM "SecondaryIndexOrders"."ByCreatedAt"
-            WHERE "CustomerId" = 'C#1'
-            ORDER BY "CreatedAt" ASC
+            WHERE "customerId" = 'C#1'
+            ORDER BY "createdAt" ASC
             """);
     }
 
@@ -65,9 +65,9 @@ public class LsiQueryTests(DynamoContainerFixture fixture) : SecondaryIndexTable
 
         AssertSql(
             """
-            SELECT "CustomerId", "OrderId", "CreatedAt", "Priority", "Region", "Status"
+            SELECT "customerId", "orderId", "createdAt", "priority", "region", "status"
             FROM "SecondaryIndexOrders"."ByCreatedAt"
-            WHERE "CustomerId" = 'C#1' AND "CreatedAt" >= '2024-01-12' AND "CreatedAt" <= '2024-01-18'
+            WHERE "customerId" = 'C#1' AND "createdAt" >= '2024-01-12' AND "createdAt" <= '2024-01-18'
             """);
     }
 
@@ -99,10 +99,10 @@ public class LsiQueryTests(DynamoContainerFixture fixture) : SecondaryIndexTable
 
         AssertSql(
             """
-            SELECT "CustomerId", "OrderId", "CreatedAt", "Priority", "Region", "Status"
+            SELECT "customerId", "orderId", "createdAt", "priority", "region", "status"
             FROM "SecondaryIndexOrders"."ByPriority"
-            WHERE "CustomerId" = 'C#1'
-            ORDER BY "Priority" ASC
+            WHERE "customerId" = 'C#1'
+            ORDER BY "priority" ASC
             """);
     }
 
@@ -123,9 +123,9 @@ public class LsiQueryTests(DynamoContainerFixture fixture) : SecondaryIndexTable
 
         AssertSql(
             """
-            SELECT "CustomerId", "OrderId", "CreatedAt", "Priority", "Region", "Status"
+            SELECT "customerId", "orderId", "createdAt", "priority", "region", "status"
             FROM "SecondaryIndexOrders"."ByPriority"
-            WHERE "CustomerId" = 'C#1' AND "Priority" >= 3
+            WHERE "customerId" = 'C#1' AND "priority" >= 3
             """);
     }
 
@@ -140,9 +140,9 @@ public class LsiQueryTests(DynamoContainerFixture fixture) : SecondaryIndexTable
 
         AssertSql(
             """
-            SELECT "CustomerId", "OrderId", "CreatedAt", "Priority", "Region", "Status"
+            SELECT "customerId", "orderId", "createdAt", "priority", "region", "status"
             FROM "SecondaryIndexOrders"."ByCreatedAt"
-            WHERE "CustomerId" = 'C#2'
+            WHERE "customerId" = 'C#2'
             """);
     }
 }
