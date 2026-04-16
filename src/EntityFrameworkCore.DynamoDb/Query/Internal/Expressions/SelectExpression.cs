@@ -51,6 +51,18 @@ public class SelectExpression(string tableName, string? queryEntityTypeName = nu
     public bool IsFirstTerminal { get; private set; }
 
     /// <summary>
+    ///     The optional continuation token to seed on the first DynamoDB request when
+    ///     <c>.WithNextToken(...)</c> is used.
+    /// </summary>
+    public string? SeedNextToken { get; private set; }
+
+    /// <summary>
+    ///     Supports parameterized continuation-token expressions for compiled queries.
+    ///     Takes precedence over <see cref="SeedNextToken"/> when present.
+    /// </summary>
+    public Expression? SeedNextTokenExpression { get; private set; }
+
+    /// <summary>
     ///     The list of projected columns for the SELECT clause. Must have at least one projection -
     ///     SELECT * is not supported.
     /// </summary>
@@ -164,6 +176,26 @@ public class SelectExpression(string tableName, string? queryEntityTypeName = nu
 
     /// <summary>Marks this query as having a <c>First*</c> terminal.</summary>
     public void MarkAsFirstTerminal() => IsFirstTerminal = true;
+
+    /// <summary>
+    ///     Sets the first-request continuation token from a constant value.
+    /// </summary>
+    public void ApplySeedNextToken(string seedNextToken)
+    {
+        SeedNextToken = seedNextToken;
+        SeedNextTokenExpression = Constant(seedNextToken);
+    }
+
+    /// <summary>
+    ///     Sets the first-request continuation token from a parameterized expression.
+    /// </summary>
+    public void ApplySeedNextTokenExpression(Expression seedNextTokenExpression)
+    {
+        SeedNextTokenExpression = seedNextTokenExpression;
+        SeedNextToken = seedNextTokenExpression is ConstantExpression { Value: string token }
+            ? token
+            : null;
+    }
 
     /// <summary>Adds a projection to the SELECT clause.</summary>
     public void AddToProjection(ProjectionExpression projectionExpression)

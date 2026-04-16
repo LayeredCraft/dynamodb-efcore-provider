@@ -14,11 +14,11 @@ public static class DynamoLoggerExtensions
             DynamoEventId.ExecutingPartiQlQuery,
             "Executing DynamoDB PartiQL query for table '{tableName}'{newLine}{commandText}");
 
-    private static readonly Action<ILogger, int?, bool, Exception?> LogExecutingExecuteStatement =
-        LoggerMessage.Define<int?, bool>(
+    private static readonly Action<ILogger, int?, bool, bool, Exception?>
+        LogExecutingExecuteStatement = LoggerMessage.Define<int?, bool, bool>(
             LogLevel.Information,
             DynamoEventId.ExecutingExecuteStatement,
-            "Executing DynamoDB ExecuteStatement request (limit: {limit}, nextTokenPresent: {nextTokenPresent})");
+            "Executing DynamoDB ExecuteStatement request (limit: {limit}, nextTokenPresent: {nextTokenPresent}, seedNextTokenPresent: {seedNextTokenPresent})");
 
     private static readonly Action<ILogger, int, bool, Exception?> LogExecutedExecuteStatement =
         LoggerMessage.Define<int, bool>(
@@ -89,12 +89,18 @@ public static class DynamoLoggerExtensions
     public static void ExecutingExecuteStatement(
         this IDiagnosticsLogger<DbLoggerCategory.Database.Command> diagnostics,
         int? limit,
-        bool nextTokenPresent)
+        bool nextTokenPresent,
+        bool seedNextTokenPresent = false)
     {
         if (!diagnostics.Logger.IsEnabled(LogLevel.Information))
             return;
 
-        LogExecutingExecuteStatement(diagnostics.Logger, limit, nextTokenPresent, null);
+        LogExecutingExecuteStatement(
+            diagnostics.Logger,
+            limit,
+            nextTokenPresent,
+            seedNextTokenPresent,
+            null);
     }
 
     /// <summary>Provides functionality for this member.</summary>

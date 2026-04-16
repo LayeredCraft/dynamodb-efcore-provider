@@ -157,9 +157,21 @@ public sealed class TestPartiQlLoggerFactory : ILoggerFactory
                         .FirstOrDefault()
                     ?? false;
 
+                var seedNextTokenPresent =
+                    executingStructure
+                        .Where(i => i.Key == "seedNextTokenPresent")
+                        .Select(i => (bool?)i.Value)
+                        .FirstOrDefault()
+                    ?? false;
+
                 factory.UpdateState(s
                     => s.ExecuteStatementCalls.Add(
-                        new ExecuteStatementCall(limit, nextTokenPresent, null, null)));
+                        new ExecuteStatementCall(
+                            limit,
+                            nextTokenPresent,
+                            seedNextTokenPresent,
+                            null,
+                            null)));
             }
 
             if (eventId.Id == DynamoEventId.ExecutedExecuteStatement.Id
@@ -215,6 +227,7 @@ public sealed class TestPartiQlLoggerFactory : ILoggerFactory
     public sealed record ExecuteStatementCall(
         int? Limit,
         bool RequestNextTokenPresent,
+        bool SeedNextTokenPresent,
         int? ItemsCount,
         bool? ResponseNextTokenPresent);
 

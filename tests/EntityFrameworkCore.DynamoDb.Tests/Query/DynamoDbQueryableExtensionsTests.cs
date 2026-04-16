@@ -1,13 +1,66 @@
+using System.Collections;
+using System.Linq.Expressions;
 using Amazon.DynamoDBv2;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Query;
 using NSubstitute;
+
+#pragma warning disable EF9102
 
 namespace EntityFrameworkCore.DynamoDb.Tests.Query;
 
 /// <summary>Unit tests for DynamoDbQueryableExtensions — Limit, WithIndex, WithoutIndex.</summary>
 public class DynamoDbQueryableExtensionsTests
 {
+    // ── ToPageAsync / WithNextToken argument validation ───────────────────────
+
+    [Fact]
+    public void WithNextToken_Null_ThrowsArgumentNullException()
+    {
+        var source = new[] { new TestEntity() }.AsQueryable();
+
+        var act = () => source.WithNextToken(null!);
+
+        act.Should().Throw<ArgumentNullException>().WithParameterName("nextToken");
+    }
+
+    [Fact]
+    public void WithNextToken_Whitespace_ThrowsArgumentException()
+    {
+        var source = new[] { new TestEntity() }.AsQueryable();
+
+        var act = () => source.WithNextToken("   ");
+
+        act.Should().Throw<ArgumentException>().WithParameterName("nextToken");
+    }
+
+    [Fact]
+    public async Task ToPageAsync_ZeroLimit_ThrowsArgumentOutOfRangeException()
+    {
+        var source = new[] { new TestEntity() }.AsQueryable();
+
+        var act = async ()
+            => await source.ToPageAsync(0, null, TestContext.Current.CancellationToken);
+
+        await act.Should().ThrowAsync<ArgumentOutOfRangeException>().WithParameterName("limit");
+    }
+
+    [Fact]
+    public async Task ToPageAsync_WhitespaceToken_NormalizesToNullInProviderCall()
+    {
+        var provider = new CapturingAsyncQueryProvider();
+        var source = new CapturingAsyncQueryable<TestEntity>(provider);
+
+        _ = await source.ToPageAsync(5, "   ", TestContext.Current.CancellationToken);
+
+        var call =
+            provider.LastExecutedExpression.Should().BeAssignableTo<MethodCallExpression>().Subject;
+        var tokenArg = call.Arguments[2].Should().BeAssignableTo<ConstantExpression>().Subject;
+        tokenArg.Type.Should().Be(typeof(string));
+        tokenArg.Value.Should().BeNull();
+    }
+
     // ── Limit ────────────────────────────────────────────────────────────────
 
     [Fact]
@@ -82,6 +135,59 @@ public class DynamoDbQueryableExtensionsTests
 
     private sealed class TestEntity;
 
+    private sealed class CapturingAsyncQueryable<T>(CapturingAsyncQueryProvider provider)
+        : IQueryable<T>
+    {
+        public Type ElementType => typeof(T);
+
+        public Expression Expression { get; } = Expression.Constant(Array.Empty<T>().AsQueryable());
+
+        public IQueryProvider Provider { get; } = provider;
+
+        public IEnumerator<T> GetEnumerator() => throw new NotSupportedException();
+
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+    }
+
+    private sealed class CapturingAsyncQueryProvider : IAsyncQueryProvider
+    {
+        public Expression? LastExecutedExpression { get; private set; }
+
+        public IQueryable CreateQuery(Expression expression) => throw new NotSupportedException();
+
+        public IQueryable<TElement> CreateQuery<TElement>(Expression expression)
+            => throw new NotSupportedException();
+
+        public object? Execute(Expression expression) => throw new NotSupportedException();
+
+        public TResult Execute<TResult>(Expression expression) => throw new NotSupportedException();
+
+        public TResult ExecuteAsync<TResult>(
+            Expression expression,
+            CancellationToken cancellationToken = default)
+        {
+            LastExecutedExpression = expression;
+
+            if (typeof(TResult).IsGenericType
+                && typeof(TResult).GetGenericTypeDefinition() == typeof(Task<>))
+            {
+                var innerType = typeof(TResult).GetGenericArguments()[0];
+                var defaultInnerValue =
+                    innerType.IsValueType ? Activator.CreateInstance(innerType) : null;
+
+                var fromResultMethod = typeof(Task)
+                    .GetMethods()
+                    .Single(m => m.Name == nameof(Task.FromResult))
+                    .MakeGenericMethod(innerType);
+
+                return (TResult)fromResultMethod.Invoke(null, [defaultInnerValue])!;
+            }
+
+            throw new NotSupportedException(
+                "Only Task<T> ExecuteAsync results are supported in this test provider.");
+        }
+    }
+
     private sealed record LimitEntity
     {
         /// <summary>Provides functionality for this member.</summary>
@@ -111,3 +217,5 @@ public class DynamoDbQueryableExtensionsTests
                     .Options);
     }
 }
+
+#pragma warning restore EF9102

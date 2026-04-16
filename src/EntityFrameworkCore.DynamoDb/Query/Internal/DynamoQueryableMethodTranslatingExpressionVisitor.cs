@@ -1,4 +1,5 @@
 using System.Linq.Expressions;
+using System.Reflection;
 using EntityFrameworkCore.DynamoDb.Extensions;
 using EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using Microsoft.EntityFrameworkCore;
@@ -12,9 +13,21 @@ namespace EntityFrameworkCore.DynamoDb.Query.Internal;
 public class DynamoQueryableMethodTranslatingExpressionVisitor
     : QueryableMethodTranslatingExpressionVisitor
 {
+    private readonly bool _subquery;
     private readonly DynamoSqlTranslatingExpressionVisitor _sqlTranslator;
     private readonly DynamoProjectionBindingExpressionVisitor _projectionBindingExpressionVisitor;
     private readonly ISqlExpressionFactory _sqlExpressionFactory;
+    private int _runtimeParameterIndex;
+
+    private static readonly MethodInfo ResolveEffectiveNextTokenMethodInfo =
+        typeof(DynamoQueryableMethodTranslatingExpressionVisitor).GetMethod(
+            nameof(ResolveEffectiveNextToken),
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+
+    private static readonly MethodInfo ValidateWithNextTokenMethodInfo =
+        typeof(DynamoQueryableMethodTranslatingExpressionVisitor).GetMethod(
+            nameof(ValidateWithNextToken),
+            BindingFlags.Static | BindingFlags.NonPublic)!;
 
     /// <summary>Provides functionality for this member.</summary>
     public DynamoQueryableMethodTranslatingExpressionVisitor(
@@ -23,6 +36,7 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
         ISqlExpressionFactory sqlExpressionFactory,
         bool subquery = false) : base(dependencies, queryCompilationContext, subquery)
     {
+        _subquery = subquery;
         _sqlExpressionFactory = sqlExpressionFactory;
         _sqlTranslator = new DynamoSqlTranslatingExpressionVisitor(
             sqlExpressionFactory,
@@ -40,6 +54,223 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
             QueryCompilationContext,
             _sqlExpressionFactory,
             true);
+
+    /// <summary>Provides functionality for this member.</summary>
+    public override Expression Translate(Expression expression)
+    {
+        // Handle ToPageAsync(), which can only ever be the top-level node in the query tree.
+        if (expression is MethodCallExpression { Method: var method, Arguments: var arguments, }
+            && method.DeclaringType == typeof(DynamoDbQueryableExtensions)
+            && method.Name == nameof(DynamoDbQueryableExtensions.ToPageAsync))
+        {
+            if (_subquery)
+            {
+                AddTranslationErrorDetails(
+                    $"'{nameof(DynamoDbQueryableExtensions.ToPageAsync)}' can only be used as the top-level terminal operation.");
+
+                return QueryCompilationContext.NotTranslatedExpression;
+            }
+
+            var source = base.Translate(arguments[0]);
+            if (source == QueryCompilationContext.NotTranslatedExpression)
+                return source;
+
+            if (source is not ShapedQueryExpression
+                {
+                    QueryExpression: SelectExpression selectExpression,
+                } shapedQuery)
+                throw new InvalidOperationException(
+                    $"Expected a {nameof(ShapedQueryExpression)} when translating {nameof(DynamoDbQueryableExtensions.ToPageAsync)}.");
+
+            // Per issue contract, ToPageAsync cannot be combined with Limit(n) on the same query.
+            if (selectExpression.HasUserLimit)
+                throw new InvalidOperationException(
+                    $"'{nameof(DynamoDbQueryableExtensions.ToPageAsync)}' cannot be combined with '{nameof(DynamoDbQueryableExtensions.Limit)}'.");
+
+            var limitArg = arguments[1];
+            if (limitArg is ConstantExpression { Value: int constantLimit })
+            {
+                if (constantLimit <= 0)
+                    throw new ArgumentOutOfRangeException(
+                        "limit",
+                        "Limit must be a positive integer.");
+
+                selectExpression.ApplyUserLimit(constantLimit);
+            }
+            else
+            {
+                selectExpression.ApplyUserLimitExpression(limitArg);
+            }
+
+            ApplyToPageNextToken(selectExpression, arguments[2]);
+
+#pragma warning disable EF9102
+            return shapedQuery
+                .UpdateShaperExpression(
+                    new DynamoPagingExpression(
+                        shapedQuery.ShaperExpression,
+                        selectExpression.LimitExpression
+                        ?? throw new InvalidOperationException(
+                            $"'{nameof(DynamoDbQueryableExtensions.ToPageAsync)}' did not produce a limit expression."),
+                        selectExpression.SeedNextTokenExpression,
+                        typeof(DynamoPage<>).MakeGenericType(shapedQuery.ShaperExpression.Type)))
+                .UpdateResultCardinality(ResultCardinality.Single);
+#pragma warning restore EF9102
+        }
+
+        return base.Translate(expression);
+    }
+
+    private void ApplyToPageNextToken(
+        SelectExpression selectExpression,
+        Expression toPageNextTokenExpression)
+    {
+        var hasExistingSeed = selectExpression.SeedNextTokenExpression is not null;
+        var hasConstantToken = TryGetNormalizedConstantToken(
+            toPageNextTokenExpression,
+            out var normalizedConstantToken);
+
+        if (hasExistingSeed)
+        {
+            // Ambiguous only when ToPageAsync contributes a definitely non-null token.
+            if (hasConstantToken && normalizedConstantToken is not null)
+                throw new InvalidOperationException(
+                    "Only one non-null pagination token may be specified. Use either WithNextToken(...) or ToPageAsync(..., nextToken: ...), but not both.");
+
+            if (hasConstantToken)
+                return;
+
+            // Parameterized method token: resolve ambiguity at runtime so explicit null can flow
+            // through while non-null still fails.
+            selectExpression.ApplySeedNextTokenExpression(
+                RegisterEffectiveNextTokenRuntimeParameter(
+                    selectExpression.SeedNextTokenExpression!,
+                    toPageNextTokenExpression));
+
+            return;
+        }
+
+        if (hasConstantToken)
+        {
+            if (normalizedConstantToken is not null)
+                selectExpression.ApplySeedNextToken(normalizedConstantToken);
+
+            return;
+        }
+
+        selectExpression.ApplySeedNextTokenExpression(toPageNextTokenExpression);
+    }
+
+    private QueryParameterExpression RegisterEffectiveNextTokenRuntimeParameter(
+        Expression existingSeedExpression,
+        Expression toPageNextTokenExpression)
+    {
+        var parameterValuesExpression = Expression.Property(
+            QueryCompilationContext.QueryContextParameter,
+            nameof(QueryContext.Parameters));
+
+        var existingTokenExpression = CreateRuntimeTokenReadExpression(
+            existingSeedExpression,
+            parameterValuesExpression);
+        var toPageTokenExpression = CreateRuntimeTokenReadExpression(
+            toPageNextTokenExpression,
+            parameterValuesExpression);
+
+        var valueExtractor = Expression.Lambda(
+            Expression.Call(
+                ResolveEffectiveNextTokenMethodInfo,
+                existingTokenExpression,
+                toPageTokenExpression),
+            QueryCompilationContext.QueryContextParameter);
+
+        return QueryCompilationContext.RegisterRuntimeParameter(
+            $"__dynamo_effective_next_token_{_runtimeParameterIndex++}",
+            valueExtractor);
+    }
+
+    private QueryParameterExpression RegisterValidatedWithNextTokenRuntimeParameter(
+        Expression nextTokenExpression)
+    {
+        var parameterValuesExpression = Expression.Property(
+            QueryCompilationContext.QueryContextParameter,
+            nameof(QueryContext.Parameters));
+
+        var tokenExpression = CreateRuntimeTokenReadExpression(
+            nextTokenExpression,
+            parameterValuesExpression);
+
+        var valueExtractor = Expression.Lambda(
+            Expression.Call(ValidateWithNextTokenMethodInfo, tokenExpression),
+            QueryCompilationContext.QueryContextParameter);
+
+        return QueryCompilationContext.RegisterRuntimeParameter(
+            $"__dynamo_validated_with_next_token_{_runtimeParameterIndex++}",
+            valueExtractor);
+    }
+
+    private static Expression CreateRuntimeTokenReadExpression(
+        Expression tokenExpression,
+        MemberExpression parameterValuesExpression)
+    {
+        if (TryGetNormalizedConstantToken(tokenExpression, out var normalizedConstantToken))
+            return Expression.Constant(normalizedConstantToken, typeof(string));
+
+        if (tokenExpression is QueryParameterExpression parameterExpression)
+            return Expression.TypeAs(
+                Expression.Property(
+                    parameterValuesExpression,
+                    "Item",
+                    Expression.Constant(parameterExpression.Name)),
+                typeof(string));
+
+        throw new InvalidOperationException(
+            "Next-token expression must be normalized before translation.");
+    }
+
+    private static string? ResolveEffectiveNextToken(string? existingToken, string? toPageToken)
+    {
+        existingToken = string.IsNullOrWhiteSpace(existingToken) ? null : existingToken;
+        toPageToken = string.IsNullOrWhiteSpace(toPageToken) ? null : toPageToken;
+
+        if (existingToken is not null && toPageToken is not null)
+            throw new InvalidOperationException(
+                "Only one non-null pagination token may be specified. Use either WithNextToken(...) or ToPageAsync(..., nextToken: ...), but not both.");
+
+        return toPageToken ?? existingToken;
+    }
+
+    private static string ValidateWithNextToken(string? nextToken)
+    {
+        if (nextToken is null)
+            throw new ArgumentNullException("nextToken");
+
+        if (string.IsNullOrWhiteSpace(nextToken))
+            throw new ArgumentException("Next token must not be empty.", "nextToken");
+
+        return nextToken;
+    }
+
+    private static bool TryGetNormalizedConstantToken(
+        Expression tokenExpression,
+        out string? normalizedToken)
+    {
+        if (tokenExpression is ConstantExpression)
+        {
+            normalizedToken = tokenExpression switch
+            {
+                ConstantExpression { Value: string token } => string.IsNullOrWhiteSpace(token)
+                    ? null
+                    : token,
+                ConstantExpression { Value: null } => null,
+                _ => null,
+            };
+
+            return true;
+        }
+
+        normalizedToken = null;
+        return false;
+    }
 
     /// <summary>Provides functionality for this member.</summary>
     protected override Expression VisitMethodCall(MethodCallExpression methodCallExpression)
@@ -112,6 +343,40 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
                 }
 
                 return Visit(methodCallExpression.Arguments[0]);
+            }
+
+            if (method.Name == nameof(DynamoDbQueryableExtensions.WithNextToken))
+            {
+                // Visit inner source first so SelectExpression exists before applying the seed
+                // token.
+                var nextTokenResult = Visit(methodCallExpression.Arguments[0]);
+                if (nextTokenResult is not ShapedQueryExpression
+                    {
+                        QueryExpression: SelectExpression nextTokenSelectExpr,
+                    })
+                    return nextTokenResult;
+
+                if (nextTokenSelectExpr.SeedNextTokenExpression is not null)
+                    throw new InvalidOperationException(
+                        $"'{nameof(DynamoDbQueryableExtensions.WithNextToken)}' can only be applied once per query.");
+
+                var nextTokenArg = methodCallExpression.Arguments[1];
+
+                if (nextTokenArg is ConstantExpression { Value: null })
+                    throw new ArgumentNullException("nextToken");
+
+                if (nextTokenArg is ConstantExpression { Value: string constantToken })
+                {
+                    if (string.IsNullOrWhiteSpace(constantToken))
+                        throw new ArgumentException("Next token must not be empty.", "nextToken");
+
+                    nextTokenSelectExpr.ApplySeedNextToken(constantToken);
+                }
+                else
+                    nextTokenSelectExpr.ApplySeedNextTokenExpression(
+                        RegisterValidatedWithNextTokenRuntimeParameter(nextTokenArg));
+
+                return nextTokenResult;
             }
         }
 
@@ -326,6 +591,10 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
         }
 
         var selectExpression = (SelectExpression)source.QueryExpression;
+
+        if (selectExpression.SeedNextTokenExpression is not null)
+            throw new InvalidOperationException(
+                $"'{nameof(DynamoDbQueryableExtensions.WithNextToken)}' is not supported with First/FirstOrDefault query shapes.");
 
         // Mark as First* terminal — drives single-page execution and safe-path validation in the
         // postprocessor.

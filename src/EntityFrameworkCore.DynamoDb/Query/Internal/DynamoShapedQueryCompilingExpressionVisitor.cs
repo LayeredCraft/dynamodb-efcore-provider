@@ -27,6 +27,9 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
     protected override Expression VisitShapedQuery(ShapedQueryExpression shapedQueryExpression)
     {
         var selectExpression = (SelectExpression)shapedQueryExpression.QueryExpression;
+        var pagingExpression = shapedQueryExpression.ShaperExpression as DynamoPagingExpression;
+        var itemShaperExpression =
+            pagingExpression?.InnerShaper ?? shapedQueryExpression.ShaperExpression;
 
         // Discriminator-predicate finalisation, projection finalisation, and index selection are
         // performed earlier in the pipeline by DynamoQueryTranslationPostprocessor so the analyzer
@@ -40,7 +43,7 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
             selectExpression.ApplyUserLimitExpression(
                 NormalizeLimitExpression(selectExpression.LimitExpression));
 
-        var shaperBody = shapedQueryExpression.ShaperExpression;
+        var shaperBody = itemShaperExpression;
 
         // create shaper
         var itemParameter =
@@ -78,6 +81,14 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
             throw new InvalidOperationException(
                 "Synchronous query execution is not supported for DynamoDB. Use async methods (e.g. ToListAsync). ");
 
+        if (pagingExpression is not null)
+            return CreatePagingEnumerableExpression(
+                shaperBody.Type,
+                queryContextParameter,
+                selectExpression,
+                shaperLambda,
+                standAloneStateManager);
+
         return Expression.New(
             typeof(QueryingEnumerable<>)
                 .MakeGenericType(shaperBody.Type)
@@ -91,6 +102,25 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
             Expression.Constant(standAloneStateManager),
             Expression.Constant(_dependencies.CoreSingletonOptions.AreThreadSafetyChecksEnabled));
     }
+
+    private Expression CreatePagingEnumerableExpression(
+        Type shaperType,
+        UnaryExpression queryContextParameter,
+        SelectExpression selectExpression,
+        LambdaExpression shaperLambda,
+        bool standAloneStateManager)
+        => Expression.New(
+            typeof(PagingQueryingEnumerable<>)
+                .MakeGenericType(shaperType)
+                .GetConstructors(
+                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+                .Single(c => c.GetParameters().Length == 6),
+            queryContextParameter,
+            Expression.Constant(selectExpression),
+            Expression.Constant(sqlGeneratorFactory),
+            shaperLambda,
+            Expression.Constant(standAloneStateManager),
+            Expression.Constant(_dependencies.CoreSingletonOptions.AreThreadSafetyChecksEnabled));
 
     /// <summary>
     ///     Normalizes a parameterized <c>Limit(n)</c> expression for runtime evaluation. Constants
