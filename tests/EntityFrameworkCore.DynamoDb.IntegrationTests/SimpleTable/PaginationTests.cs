@@ -12,8 +12,6 @@ public class PaginationTests(DynamoContainerFixture fixture) : SimpleTableTestFi
     [Fact]
     public async Task Limit_SetsRequestLimit_OnToListAsync()
     {
-        SqlCapture.Clear();
-
         await Db.SimpleItems.Limit(3).ToListAsync(CancellationToken);
 
         var calls = SqlCapture.ExecuteStatementCalls.ToList();
@@ -24,8 +22,6 @@ public class PaginationTests(DynamoContainerFixture fixture) : SimpleTableTestFi
     [Fact]
     public async Task Limit_ChainedTwice_LastOneWins()
     {
-        SqlCapture.Clear();
-
         await Db.SimpleItems.Limit(10).Limit(20).ToListAsync(CancellationToken);
 
         var calls = SqlCapture.ExecuteStatementCalls.ToList();
@@ -37,8 +33,6 @@ public class PaginationTests(DynamoContainerFixture fixture) : SimpleTableTestFi
     public async Task Limit_SingleRequest_ToListAsync_NoNextTokenFollowUp()
     {
         // Limit(n) is always a single request — the provider must not follow NextToken.
-        SqlCapture.Clear();
-
         await Db.SimpleItems.Limit(3).ToListAsync(CancellationToken);
 
         SqlCapture.ExecuteStatementCalls.Should().HaveCount(1);
@@ -47,8 +41,6 @@ public class PaginationTests(DynamoContainerFixture fixture) : SimpleTableTestFi
     [Fact]
     public async Task ToPageAsync_ResumeFromToken_SeedsNextRequest()
     {
-        SqlCapture.Clear();
-
         var firstPage = await Db.SimpleItems.ToPageAsync(1, null, CancellationToken);
 
         firstPage.NextToken.Should().NotBeNull();
@@ -70,8 +62,6 @@ public class PaginationTests(DynamoContainerFixture fixture) : SimpleTableTestFi
     [Fact]
     public async Task WithNextToken_AndLimit_PerformsSingleRequestFromSavedCursor()
     {
-        SqlCapture.Clear();
-
         var firstPage = await Db.SimpleItems.ToPageAsync(1, null, CancellationToken);
         firstPage.NextToken.Should().NotBeNull();
 
@@ -92,8 +82,6 @@ public class PaginationTests(DynamoContainerFixture fixture) : SimpleTableTestFi
     [Fact]
     public async Task ToPageAsync_FinalPage_ReturnsNullNextToken()
     {
-        SqlCapture.Clear();
-
         var firstPage = await Db.SimpleItems.ToPageAsync(3, null, CancellationToken);
         firstPage.NextToken.Should().NotBeNull();
 
@@ -108,8 +96,6 @@ public class PaginationTests(DynamoContainerFixture fixture) : SimpleTableTestFi
     [Fact]
     public async Task WithNextToken_ToListAsync_ResumesFromSavedCursor()
     {
-        SqlCapture.Clear();
-
         var firstPage = await Db.SimpleItems.ToPageAsync(1, null, CancellationToken);
         firstPage.NextToken.Should().NotBeNull();
 
@@ -134,8 +120,6 @@ public class PaginationTests(DynamoContainerFixture fixture) : SimpleTableTestFi
     [Fact]
     public async Task WithNextToken_ThenToPageAsync_SeedsSingleRequest()
     {
-        SqlCapture.Clear();
-
         var firstPage = await Db.SimpleItems.ToPageAsync(1, null, CancellationToken);
         firstPage.NextToken.Should().NotBeNull();
 
@@ -156,8 +140,6 @@ public class PaginationTests(DynamoContainerFixture fixture) : SimpleTableTestFi
     [Fact]
     public async Task WithNextToken_Reenumeration_ReseedsFirstRequestEachRun()
     {
-        SqlCapture.Clear();
-
         var firstPage = await Db.SimpleItems.ToPageAsync(1, null, CancellationToken);
         firstPage.NextToken.Should().NotBeNull();
 
@@ -244,14 +226,25 @@ public class PaginationTests(DynamoContainerFixture fixture) : SimpleTableTestFi
         }
     }
 
+    [Fact]
+    public async Task ToPageAsync_Items_MatchInMemoryTakeSemantics()
+    {
+        // Fetch all seeded items in a single page and verify the returned entities match the
+        // known seed data. DynamoDB scan order is nondeterministic, so comparison is
+        // order-insensitive.
+        var page =
+            await Db.SimpleItems.ToPageAsync(SimpleItems.Items.Count, null, CancellationToken);
+
+        page.Items.Should().HaveCount(SimpleItems.Items.Count);
+        page.Items.Should().BeEquivalentTo(SimpleItems.Items);
+    }
+
     // ── First* with key-only path ────────────────────────────────────────────
 
     [Fact]
     public async Task FirstOrDefault_KeyOnly_UsesImplicitLimit1()
     {
         // PK equality, no sort key → safe, implicit Limit=1.
-        SqlCapture.Clear();
-
         var result =
             await Db
                 .SimpleItems

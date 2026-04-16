@@ -86,6 +86,29 @@ This page covers three related APIs:
     - Allowed if only one source contributes a non-null token.
     - Fails when both `WithNextToken(...)` and `ToPageAsync(..., nextToken: ...)` provide non-null tokens.
 
+## NextToken from response metadata
+
+For queries that use `ToListAsync()` or `AsAsyncEnumerable()` (rather than `ToPageAsync`), the raw
+`ExecuteStatementResponse` for each entity's page is available via the `GetExecuteStatementResponse()`
+extension on the tracked entity entry:
+
+```csharp
+var items = await db.Orders
+    .Where(x => x.Status == "Active")
+    .Limit(25)
+    .ToListAsync(cancellationToken);
+
+// NextToken on this response is the cursor after this page's evaluation budget.
+// For Limit(n) queries the provider does not follow it automatically.
+var response = db.Entry(items[0]).GetExecuteStatementResponse();
+var cursorAfterPage = response?.NextToken;
+```
+
+All entities from the same page share the same response object reference. For multi-request
+`ToListAsync()` (no `Limit`), continuation tokens have already been consumed by the provider, so
+`NextToken` on the response is the cursor to the next pending page, not a saved resume point.
+Use `ToPageAsync` when you need explicit cursor control.
+
 ## Token semantics
 
 - Tokens are opaque application data from DynamoDB; treat them as pass-through values.

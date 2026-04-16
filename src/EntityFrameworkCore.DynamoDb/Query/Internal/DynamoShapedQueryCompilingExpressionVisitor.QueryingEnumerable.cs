@@ -183,42 +183,6 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
                 _dataEnumerator = null;
                 return enumerator.DisposeAsync();
             }
-
-            private static int? ResolveIntExpression(
-                Expression? expression,
-                int? fallback,
-                DynamoQueryContext queryContext)
-            {
-                if (expression is null)
-                    return fallback;
-
-                if (expression is ConstantExpression { Value: int constantValue })
-                    return constantValue;
-
-                if (expression is QueryParameterExpression parameterExpression)
-                    return Convert.ToInt32(queryContext.Parameters[parameterExpression.Name]);
-
-                throw new InvalidOperationException(
-                    "Limit expression must be normalized before execution.");
-            }
-
-            private static string? ResolveStringExpression(
-                Expression? expression,
-                string? fallback,
-                DynamoQueryContext queryContext)
-            {
-                if (expression is null)
-                    return fallback;
-
-                if (expression is ConstantExpression { Value: string constantValue })
-                    return constantValue;
-
-                if (expression is QueryParameterExpression parameterExpression)
-                    return queryContext.Parameters[parameterExpression.Name] as string;
-
-                throw new InvalidOperationException(
-                    "Seed next-token expression must be normalized before execution.");
-            }
         }
     }
 
@@ -234,6 +198,10 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
         IQueryingEnumerable
     {
         private readonly IDynamoClientWrapper _client = queryContext.Client;
+
+        private readonly IDiagnosticsLogger<DbLoggerCategory.Database.Command> _commandLogger =
+            queryContext.CommandDiagnosticsLogger;
+
         private readonly DynamoQueryContext _queryContext = queryContext;
         private readonly SelectExpression _selectExpression = selectExpression;
         private readonly IDynamoQuerySqlGeneratorFactory _sqlGeneratorFactory = sqlGeneratorFactory;
@@ -314,6 +282,11 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
                 }
 
                 var sqlQuery = _queryingEnumerable.GenerateQuery();
+
+                _queryingEnumerable._commandLogger.ExecutingPartiQlQuery(
+                    _queryingEnumerable._selectExpression.TableName,
+                    sqlQuery.Sql);
+
                 var items = new List<T>();
 
                 var asyncEnumerable = _queryingEnumerable._client.ExecutePartiQl(
@@ -341,46 +314,60 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
             }
 
             public ValueTask DisposeAsync() => default;
-
-            private static int? ResolveIntExpression(
-                Expression? expression,
-                int? fallback,
-                DynamoQueryContext queryContext)
-            {
-                if (expression is null)
-                    return fallback;
-
-                if (expression is ConstantExpression { Value: int constantValue })
-                    return constantValue;
-
-                if (expression is QueryParameterExpression parameterExpression)
-                    return Convert.ToInt32(queryContext.Parameters[parameterExpression.Name]);
-
-                throw new InvalidOperationException(
-                    "Limit expression must be normalized before execution.");
-            }
-
-            private static string? ResolveStringExpression(
-                Expression? expression,
-                string? fallback,
-                DynamoQueryContext queryContext)
-            {
-                if (expression is null)
-                    return fallback;
-
-                if (expression is ConstantExpression { Value: string constantValue })
-                    return constantValue;
-
-                if (expression is QueryParameterExpression parameterExpression)
-                    return queryContext.Parameters[parameterExpression.Name] as string;
-
-                throw new InvalidOperationException(
-                    "Seed next-token expression must be normalized before execution.");
-            }
-
-            private static string? NormalizeToken(string? token)
-                => string.IsNullOrWhiteSpace(token) ? null : token;
         }
     }
 #pragma warning restore EF9102
+
+    /// <summary>
+    ///     Resolves an integer expression to its runtime value. Handles constant literals and compiled-query
+    ///     parameter expressions; falls back to the pre-resolved scalar when no expression is present.
+    /// </summary>
+    private static int? ResolveIntExpression(
+        Expression? expression,
+        int? fallback,
+        DynamoQueryContext queryContext)
+    {
+        if (expression is null)
+            return fallback;
+
+        if (expression is ConstantExpression { Value: int constantValue })
+            return constantValue;
+
+        if (expression is QueryParameterExpression parameterExpression)
+            return Convert.ToInt32(queryContext.Parameters[parameterExpression.Name]);
+
+        throw new InvalidOperationException(
+            "Limit expression must be normalized before execution.");
+    }
+
+    /// <summary>
+    ///     Resolves a string expression to its runtime value. Handles constant literals and compiled-query
+    ///     parameter expressions; falls back to the pre-resolved scalar when no expression is present.
+    /// </summary>
+    /// <remarks>
+    ///     Compiled queries store token arguments as <see cref="QueryParameterExpression" /> nodes rather
+    ///     than <see cref="ConstantExpression" /> nodes, so the lookup into
+    ///     <c>DynamoQueryContext.Parameters</c> is required for those code paths.
+    /// </remarks>
+    private static string? ResolveStringExpression(
+        Expression? expression,
+        string? fallback,
+        DynamoQueryContext queryContext)
+    {
+        if (expression is null)
+            return fallback;
+
+        if (expression is ConstantExpression { Value: string constantValue })
+            return constantValue;
+
+        if (expression is QueryParameterExpression parameterExpression)
+            return queryContext.Parameters[parameterExpression.Name] as string;
+
+        throw new InvalidOperationException(
+            "Seed next-token expression must be normalized before execution.");
+    }
+
+    /// <summary>Normalizes empty or whitespace-only tokens to <see langword="null" />.</summary>
+    private static string? NormalizeToken(string? token)
+        => string.IsNullOrWhiteSpace(token) ? null : token;
 }
