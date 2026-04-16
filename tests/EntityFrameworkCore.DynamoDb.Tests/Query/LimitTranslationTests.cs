@@ -174,7 +174,7 @@ public class LimitTranslationTests
                     [
                         new Dictionary<string, AttributeValue>
                         {
-                            ["Pk"] = new AttributeValue { S = "P#1" },
+                            ["pk"] = new AttributeValue { S = "P#1" },
                         },
                     ],
                     NextToken = "next-page-token",
