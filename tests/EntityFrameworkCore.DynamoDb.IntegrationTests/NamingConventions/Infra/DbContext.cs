@@ -39,7 +39,6 @@ public class NamingConventionsTableDbContext(DbContextOptions options) : DbConte
             builder.Property(x => x.RecordType).HasAttributeName("recordType");
             builder.Property(x => x.DateSubmitted).HasAttributeName("dateSubmitted");
             builder.Property(x => x.Game).HasAttributeName("game");
-            // b.Property(x => x.Answers).HasAttributeName("answers");
             builder.Property(x => x.CategoryId).HasAttributeName("categoryId");
             builder.Property(x => x.Tags).HasAttributeName("tags");
             builder.Property(x => x.BucketId).HasAttributeName("bucketId");
