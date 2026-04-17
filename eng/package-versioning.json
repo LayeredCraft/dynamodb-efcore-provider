@@ -1,0 +1,15 @@
+{
+  "$schema": "https://raw.githubusercontent.com/LayeredCraft/devops-templates/main/eng/package-versioning.schema.json",
+  "packages": {
+    "EntityFrameworkCore.DynamoDb": {
+      "strategy": "by-profile",
+      "profiles": {
+        "net10": {
+          "versionPrefix": "0.0.2",
+          "versionSuffix": "alpha",
+          "dotnetSdk": "10.0.x"
+        }
+      }
+    }
+  }
+}

@@ -1,4 +1,9 @@
 <Solution>
+  <Folder Name="/git/">
+    <File Path=".github/workflows/pr-build.yaml" />
+    <File Path=".github/workflows/publish-preview.yaml" />
+    <File Path=".github/workflows/publish-release.yaml" />
+  </Folder>
   <Folder Name="/docs/">
     <File Path="docs\architecture.md" />
     <File Path="docs\concurrency.md" />
@@ -23,6 +28,7 @@
     <File Path="CLAUDE.md" />
     <File Path="Directory.Build.props" />
     <File Path="Directory.Packages.props" />
+    <File Path="eng/package-versioning.json" />
     <File Path="EntityFrameworkCore.DynamoDb.sln.DotSettings" />
     <File Path="global.json" />
     <File Path="README.md" />
