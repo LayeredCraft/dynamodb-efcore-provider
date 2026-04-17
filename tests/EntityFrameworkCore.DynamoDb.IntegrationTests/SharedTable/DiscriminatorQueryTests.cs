@@ -95,6 +95,32 @@ public class DiscriminatorQuerySingleTypeTests(DynamoContainerFixture fixture)
     }
 }
 
+public class DiscriminatorQueryHasNoDiscriminatorTests(DynamoContainerFixture fixture)
+    : SharedTableTestFixture(fixture)
+{
+    private SharedTableHasNoDiscriminatorDbContext HasNoDiscriminatorDb
+        => new(
+            CreateOptions<SharedTableHasNoDiscriminatorDbContext>(o => o.DynamoDbClient(Client)));
+
+    [Fact]
+    public async Task SharedTableWithHasNoDiscriminator_DoesNotInjectDiscriminatorPredicate()
+    {
+        var results = await HasNoDiscriminatorDb
+            .Users
+            .Where(user => user.Pk == "TENANT#U")
+            .ToListAsync(CancellationToken);
+
+        results.Should().HaveCount(2);
+
+        AssertSql(
+            """
+            SELECT "pk", "sk", "name"
+            FROM "app-table"
+            WHERE "pk" = 'TENANT#U'
+            """);
+    }
+}
+
 public class DiscriminatorInheritanceQueryTests(DynamoContainerFixture fixture)
     : SharedTableTestFixture(fixture)
 {
