@@ -120,7 +120,6 @@ public class SharedTableHasNoDiscriminatorDbContext(DbContextOptions options) : 
             builder.ToTable(SharedItemTable.TableName);
             builder.HasPartitionKey(x => x.Pk);
             builder.HasSortKey(x => x.Sk);
-            builder.HasNoDiscriminator();
         });
     }
 }
