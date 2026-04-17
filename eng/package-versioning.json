@@ -5,7 +5,7 @@
       "strategy": "by-profile",
       "profiles": {
         "net10": {
-          "versionPrefix": "0.0.0",
+          "versionPrefix": "0.0.2",
           "versionSuffix": "alpha",
           "dotnetSdk": "10.0.x"
         }
