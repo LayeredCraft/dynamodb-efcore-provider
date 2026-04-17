@@ -1,0 +1,38 @@
+name: Publish Preview
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'docs/**'
+      - 'README.md'
+      - 'ROADMAP.md'
+      - 'mkdocs.yml'
+      - 'requirements.txt'
+
+permissions: write-all
+
+jobs:
+  # To add a new .NET profile (e.g. net9, net11):
+  #   1. Add the profile to eng/package-versioning.json
+  #   2. Add a new job below mirroring publish-net10, changing versionProfile
+  # Example:
+  #   publish-net9:
+  #     uses: LayeredCraft/devops-templates/.github/workflows/publish-preview.yml@main
+  #     with:
+  #       solution: EntityFrameworkCore.DynamoDb.slnx
+  #       packageId: EntityFrameworkCore.DynamoDb
+  #       versionProfile: net9
+  #       hasTests: true
+  #     secrets: inherit
+
+  publish-net10:
+    uses: LayeredCraft/devops-templates/.github/workflows/publish-preview.yml@main
+    with:
+      solution: EntityFrameworkCore.DynamoDb.slnx
+      packageId: EntityFrameworkCore.DynamoDb
+      versionProfile: net10
+      hasTests: true
+    secrets: inherit
