@@ -521,11 +521,11 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
                 + "Call HasNoDiscriminator() for the table group to explicitly opt out.");
         }
 
-        if (concreteTypesWithDiscriminator.Count != concreteTypes.Count)
-            throw new InvalidOperationException(
-                $"Entity types mapped to shared DynamoDB table '{tableName}' have mixed discriminator configuration. "
-                + "Either configure a discriminator for all concrete entity types sharing the table, "
-                + "or call HasNoDiscriminator() consistently for the table group.");
+        // Mixed state (some with discriminator, some without) is normalized by
+        // DynamoDiscriminatorConvention before finalization — if any root in the group has an
+        // explicit no-discriminator signal, the convention propagates HasNoDiscriminator() to the
+        // entire group. By the time validation runs, all concrete types either have a discriminator
+        // property or none do, so concreteTypesWithDiscriminator.Count == concreteTypes.Count here.
 
         var first = concreteTypesWithDiscriminator[0];
         var expectedDiscriminatorProperty = first.FindDiscriminatorProperty()

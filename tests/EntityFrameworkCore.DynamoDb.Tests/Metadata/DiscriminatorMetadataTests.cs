@@ -283,9 +283,7 @@ public class DiscriminatorMetadataTests
         orderEntityType.FindDiscriminatorProperty()!.Name.Should().Be("$type");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
     public void SharedTableHasNoDiscriminator_EarlyCall_DisablesDiscriminatorForGroup()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
