@@ -93,3 +93,5 @@ template: |
   ## Changes
 
   $CHANGES
+
+prerelease-identifier: 'alpha'
