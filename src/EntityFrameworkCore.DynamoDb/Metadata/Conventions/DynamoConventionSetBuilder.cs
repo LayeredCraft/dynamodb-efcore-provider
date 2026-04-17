@@ -18,7 +18,8 @@ public sealed class DynamoConventionSetBuilder(
             new DynamoRelationshipDiscoveryConvention(Dependencies));
         conventionSet.Replace<KeyDiscoveryConvention>(
             new DynamoKeyDiscoveryConvention(Dependencies));
-        conventionSet.ModelFinalizingConventions.Add(new DynamoDiscriminatorConvention());
+        conventionSet.Replace<DiscriminatorConvention>(
+            new DynamoDiscriminatorConvention(Dependencies));
         // Must run before DynamoKeyAnnotationConvention so PK/SK attribute names are already
         // transformed when key validation reads them via GetAttributeName().
         conventionSet.ModelFinalizingConventions.Add(new DynamoAttributeNamingConventionApplier());
