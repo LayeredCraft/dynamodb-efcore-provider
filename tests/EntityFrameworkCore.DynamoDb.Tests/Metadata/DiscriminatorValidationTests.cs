@@ -246,17 +246,15 @@ public class DiscriminatorValidationTests
     /// <summary>Provides functionality for this member.</summary>
     [Fact]
     /// <summary>Provides functionality for this member.</summary>
-    public void SharedTableMultipleTypes_WithMissingDiscriminatorProperty_Throws()
+    public void
+        SharedTableMultipleTypes_WithMissingDiscriminatorProperty_IsValidWhenDiscriminatorDisabled()
     {
         var client = MockClient();
         using var context = MissingDiscriminatorPropertyContext.Create(client);
 
         var act = () => context.Model;
 
-        act
-            .Should()
-            .Throw<InvalidOperationException>()
-            .WithMessage("*does not define a discriminator property*");
+        act.Should().NotThrow();
     }
 
     /// <summary>Provides functionality for this member.</summary>
