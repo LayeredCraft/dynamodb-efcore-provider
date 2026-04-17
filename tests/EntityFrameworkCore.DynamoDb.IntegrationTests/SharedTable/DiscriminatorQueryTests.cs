@@ -119,6 +119,25 @@ public class DiscriminatorQueryHasNoDiscriminatorTests(DynamoContainerFixture fi
             WHERE "pk" = 'TENANT#U'
             """);
     }
+
+    [Fact]
+    public async Task
+        SharedTableWithHasNoDiscriminator_DoesNotInjectDiscriminatorPredicate_ForOrders()
+    {
+        var results = await HasNoDiscriminatorDb
+            .Orders
+            .Where(order => order.Pk == "TENANT#O")
+            .ToListAsync(CancellationToken);
+
+        results.Should().HaveCount(2);
+
+        AssertSql(
+            """
+            SELECT "pk", "sk", "description"
+            FROM "app-table"
+            WHERE "pk" = 'TENANT#O'
+            """);
+    }
 }
 
 public class DiscriminatorInheritanceQueryTests(DynamoContainerFixture fixture)

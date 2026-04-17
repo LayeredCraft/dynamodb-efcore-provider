@@ -1,4 +1,5 @@
 using Amazon.DynamoDBv2;
+using EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using NSubstitute;
@@ -295,5 +296,7 @@ public class DiscriminatorMetadataTests
 
         userEntityType.FindDiscriminatorProperty().Should().BeNull();
         orderEntityType.FindDiscriminatorProperty().Should().BeNull();
+        userEntityType[DynamoAnnotationNames.DiscriminatorDisabled].Should().Be(true);
+        orderEntityType[DynamoAnnotationNames.DiscriminatorDisabled].Should().Be(true);
     }
 }

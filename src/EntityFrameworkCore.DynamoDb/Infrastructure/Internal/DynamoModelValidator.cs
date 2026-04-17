@@ -507,10 +507,19 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
 
         var concreteTypesWithDiscriminator = concreteTypes
             .Where(static entityType => entityType.FindDiscriminatorProperty() is not null)
+            .OrderBy(static entityType => entityType.DisplayName(), StringComparer.Ordinal)
             .ToList();
 
         if (concreteTypesWithDiscriminator.Count == 0)
-            return;
+        {
+            if (rootEntityTypes.All(IsDiscriminatorDisabled))
+                return;
+
+            throw new InvalidOperationException(
+                $"Entity types mapped to shared DynamoDB table '{tableName}' do not define a discriminator property. "
+                + "Shared-table mappings with multiple entity types require a discriminator by default. "
+                + "Call HasNoDiscriminator() for the table group to explicitly opt out.");
+        }
 
         if (concreteTypesWithDiscriminator.Count != concreteTypes.Count)
             throw new InvalidOperationException(
@@ -571,6 +580,9 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
             rootEntityTypes,
             expectedDiscriminatorAttributeName);
     }
+
+    private static bool IsDiscriminatorDisabled(IEntityType entityType)
+        => entityType[DynamoAnnotationNames.DiscriminatorDisabled] as bool? == true;
 
     /// <summary>
     ///     Validates that the shared-table discriminator attribute does not collide with PK/SK
