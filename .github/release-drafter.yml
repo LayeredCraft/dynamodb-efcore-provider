@@ -47,7 +47,7 @@ autolabeler:
       - '/^revert(\(.+\))?(!)?:/i'
   - label: 'breaking-change'
     title:
-      - '/^.+!:/i'
+      - '/^(feat|fix|docs|refactor|test|chore|ci|revert)(\([^)]*\))?!:/i'
 
 categories:
   - title: '⚠️ Breaking Changes'
@@ -93,3 +93,5 @@ template: |
   ## Changes
 
   $CHANGES
+
+prerelease-identifier: 'alpha'
