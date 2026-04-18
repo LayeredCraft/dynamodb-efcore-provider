@@ -15,24 +15,13 @@ on:
 permissions: write-all
 
 jobs:
-  # To add a new .NET profile (e.g. net9, net11):
-  #   1. Add the profile to eng/package-versioning.json
-  #   2. Add a new job below mirroring publish-net10, changing versionProfile
-  # Example:
-  #   publish-net9:
-  #     uses: LayeredCraft/devops-templates/.github/workflows/publish-preview.yml@main
-  #     with:
-  #       solution: EntityFrameworkCore.DynamoDb.slnx
-  #       packageId: EntityFrameworkCore.DynamoDb
-  #       versionProfile: net9
-  #       hasTests: true
-  #     secrets: inherit
+  # To add support for additional .NET versions (e.g. net9, net11), add release branches
+  # (e.g. release/net9) and wire up separate caller workflows targeting those branches.
 
-  publish-net10:
+  publish:
     uses: LayeredCraft/devops-templates/.github/workflows/publish-preview.yml@main
     with:
       solution: EntityFrameworkCore.DynamoDb.slnx
-      packageId: EntityFrameworkCore.DynamoDb
-      versionProfile: net10
+      dotnetVersion: 10.0.x
       hasTests: true
     secrets: inherit
