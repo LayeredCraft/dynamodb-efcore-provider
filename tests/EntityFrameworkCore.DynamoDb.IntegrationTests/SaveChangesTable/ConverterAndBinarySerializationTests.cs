@@ -119,6 +119,44 @@ public class ConverterAndBinarySerializationTests(DynamoContainerFixture fixture
                     .WhenTypeIs<byte[]>());
     }
 
+    [Fact]
+    public async Task ConverterCoverageItem_QueryByBinaryPayload_UsesParameterizedPredicate()
+    {
+        const string pk = "TEST#CONV";
+        const string sk = "CONVERTER#BINARY-WHERE-1";
+        var payload = new byte[] { 0xDE, 0xAD, 0xBE, 0xEF };
+
+        await PutItemAsync(
+            new Dictionary<string, AttributeValue>
+            {
+                ["pk"] = new() { S = pk },
+                ["sk"] = new() { S = sk },
+                ["version"] = new() { N = "1" },
+                ["externalId"] = new() { S = Guid.Empty.ToString("N") },
+                ["occurredAt"] = new() { S = "2026-01-01 00:00:00+00:00" },
+                ["payload"] = new() { B = new MemoryStream(payload, false) },
+                ["history"] = new() { L = [] },
+                ["$type"] = new() { S = nameof(ConverterCoverageItem) },
+            },
+            CancellationToken);
+
+        var entity =
+            await Db
+                .ConverterCoverageItems
+                .Where(x => x.Pk == pk && x.Sk == sk && x.Payload == payload)
+                .AsAsyncEnumerable()
+                .SingleAsync(CancellationToken);
+
+        AssertSql(
+            """
+            SELECT "pk", "sk", "$type", "binaryTags", "externalId", "history", "occurredAt", "payload", "version"
+            FROM "AppItems"
+            WHERE "pk" = 'TEST#CONV' AND "sk" = 'CONVERTER#BINARY-WHERE-1' AND "payload" = ? AND "$type" = 'ConverterCoverageItem'
+            """);
+
+        entity.Payload.Should().Equal(payload);
+    }
+
     private sealed class ByteArrayComparer : IEqualityComparer<byte[]>
     {
         public static ByteArrayComparer Instance { get; } = new();
