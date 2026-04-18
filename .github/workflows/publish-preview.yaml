@@ -23,5 +23,6 @@ jobs:
     with:
       solution: EntityFrameworkCore.DynamoDb.slnx
       dotnetVersion: 10.0.x
+      prereleaseIdentifier: alpha
       hasTests: true
     secrets: inherit
