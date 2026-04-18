@@ -30,8 +30,7 @@
     <File Path="CLAUDE.md" />
     <File Path="Directory.Build.props" />
     <File Path="Directory.Packages.props" />
-    <File Path="eng/package-versioning.json" />
-    <File Path="EntityFrameworkCore.DynamoDb.sln.DotSettings" />
+<File Path="EntityFrameworkCore.DynamoDb.sln.DotSettings" />
     <File Path="global.json" />
     <File Path="README.md" />
     <File Path="Taskfile.yml"/>
