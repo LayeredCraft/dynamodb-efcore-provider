@@ -1,4 +1,5 @@
 using Amazon.DynamoDBv2;
+using EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using NSubstitute;
@@ -142,6 +143,31 @@ public class DiscriminatorMetadataTests
             => new(BuildOptions<SharedTableThenSplitContext>(client));
     }
 
+    private sealed class SharedTableHasNoDiscriminatorEarlyContext(DbContextOptions options)
+        : DbContext(options)
+    {
+        /// <summary>Provides functionality for this member.</summary>
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<UserEntity>(b =>
+            {
+                b.HasNoDiscriminator();
+                b.ToTable("App");
+                b.HasPartitionKey(x => x.Id);
+            });
+
+            modelBuilder.Entity<OrderEntity>(b =>
+            {
+                b.ToTable("App");
+                b.HasPartitionKey(x => x.Id);
+            });
+        }
+
+        /// <summary>Provides functionality for this member.</summary>
+        public static SharedTableHasNoDiscriminatorEarlyContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<SharedTableHasNoDiscriminatorEarlyContext>(client));
+    }
+
     private sealed class SplitThenSharedTableContext(DbContextOptions options) : DbContext(options)
     {
         /// <summary>Provides functionality for this member.</summary>
@@ -255,5 +281,20 @@ public class DiscriminatorMetadataTests
 
         userEntityType.FindDiscriminatorProperty()!.Name.Should().Be("$type");
         orderEntityType.FindDiscriminatorProperty()!.Name.Should().Be("$type");
+    }
+
+    [Fact]
+    public void SharedTableHasNoDiscriminator_EarlyCall_DisablesDiscriminatorForGroup()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var context = SharedTableHasNoDiscriminatorEarlyContext.Create(client);
+
+        var userEntityType = context.Model.FindEntityType(typeof(UserEntity))!;
+        var orderEntityType = context.Model.FindEntityType(typeof(OrderEntity))!;
+
+        userEntityType.FindDiscriminatorProperty().Should().BeNull();
+        orderEntityType.FindDiscriminatorProperty().Should().BeNull();
+        userEntityType[DynamoAnnotationNames.DiscriminatorDisabled].Should().Be(true);
+        orderEntityType[DynamoAnnotationNames.DiscriminatorDisabled].Should().Be(true);
     }
 }

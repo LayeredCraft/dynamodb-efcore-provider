@@ -505,7 +505,29 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
         if (concreteTypes.Count <= 1)
             return;
 
-        var first = concreteTypes.First();
+        var concreteTypesWithDiscriminator = concreteTypes
+            .Where(static entityType => entityType.FindDiscriminatorProperty() is not null)
+            .OrderBy(static entityType => entityType.DisplayName(), StringComparer.Ordinal)
+            .ToList();
+
+        if (concreteTypesWithDiscriminator.Count == 0)
+        {
+            if (rootEntityTypes.All(IsDiscriminatorDisabled))
+                return;
+
+            throw new InvalidOperationException(
+                $"Entity types mapped to shared DynamoDB table '{tableName}' do not define a discriminator property. "
+                + "Shared-table mappings with multiple entity types require a discriminator by default. "
+                + "Call HasNoDiscriminator() for the table group to explicitly opt out.");
+        }
+
+        // Mixed state (some with discriminator, some without) is normalized by
+        // DynamoDiscriminatorConvention before finalization — if any root in the group has an
+        // explicit no-discriminator signal, the convention propagates HasNoDiscriminator() to the
+        // entire group. By the time validation runs, all concrete types either have a discriminator
+        // property or none do, so concreteTypesWithDiscriminator.Count == concreteTypes.Count here.
+
+        var first = concreteTypesWithDiscriminator[0];
         var expectedDiscriminatorProperty = first.FindDiscriminatorProperty()
             ?? throw new InvalidOperationException(
                 $"Entity type '{first.DisplayName()}' is mapped to shared DynamoDB table '{tableName}' but does not define a discriminator property. "
@@ -522,7 +544,7 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
             expectedDiscriminatorProperty.GetKeyValueComparer());
         valuesByEntityType[expectedDiscriminatorValue] = first;
 
-        foreach (var entityType in concreteTypes.Skip(1))
+        foreach (var entityType in concreteTypesWithDiscriminator.Skip(1))
         {
             var discriminatorProperty = entityType.FindDiscriminatorProperty()
                 ?? throw new InvalidOperationException(
@@ -558,6 +580,9 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
             rootEntityTypes,
             expectedDiscriminatorAttributeName);
     }
+
+    private static bool IsDiscriminatorDisabled(IEntityType entityType)
+        => entityType[DynamoAnnotationNames.DiscriminatorDisabled] as bool? == true;
 
     /// <summary>
     ///     Validates that the shared-table discriminator attribute does not collide with PK/SK

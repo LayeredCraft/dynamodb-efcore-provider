@@ -89,6 +89,41 @@ public class SharedTableSingleTypeDbContext(DbContextOptions options) : DbContex
         });
 }
 
+/// <summary>
+///     Context with two unrelated entity types sharing the same table while explicitly removing
+///     the discriminator metadata via <c>HasNoDiscriminator()</c>.
+/// </summary>
+public class SharedTableHasNoDiscriminatorDbContext(DbContextOptions options) : DbContext(options)
+{
+    public DbSet<UserEntity> Users => Set<UserEntity>();
+    public DbSet<OrderEntity> Orders => Set<OrderEntity>();
+
+    /// <summary>Creates a context configured to use the provided DynamoDB client instance.</summary>
+    public static SharedTableHasNoDiscriminatorDbContext Create(IAmazonDynamoDB client)
+        => new(
+            new DbContextOptionsBuilder<SharedTableHasNoDiscriminatorDbContext>()
+                .UseDynamo(o => o.DynamoDbClient(client))
+                .Options);
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<UserEntity>(builder =>
+        {
+            builder.ToTable(SharedItemTable.TableName);
+            builder.HasPartitionKey(x => x.Pk);
+            builder.HasSortKey(x => x.Sk);
+            builder.HasNoDiscriminator();
+        });
+
+        modelBuilder.Entity<OrderEntity>(builder =>
+        {
+            builder.ToTable(SharedItemTable.TableName);
+            builder.HasPartitionKey(x => x.Pk);
+            builder.HasSortKey(x => x.Sk);
+        });
+    }
+}
+
 /// <summary>Context with a TPH inheritance hierarchy mapped to the shared table.</summary>
 public class SharedTableInheritanceDbContext(DbContextOptions options) : DbContext(options)
 {

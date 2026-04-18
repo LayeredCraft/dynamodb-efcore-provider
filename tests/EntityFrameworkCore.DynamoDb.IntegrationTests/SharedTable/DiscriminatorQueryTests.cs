@@ -95,6 +95,51 @@ public class DiscriminatorQuerySingleTypeTests(DynamoContainerFixture fixture)
     }
 }
 
+public class DiscriminatorQueryHasNoDiscriminatorTests(DynamoContainerFixture fixture)
+    : SharedTableTestFixture(fixture)
+{
+    private SharedTableHasNoDiscriminatorDbContext HasNoDiscriminatorDb
+        => new(
+            CreateOptions<SharedTableHasNoDiscriminatorDbContext>(o => o.DynamoDbClient(Client)));
+
+    [Fact]
+    public async Task SharedTableWithHasNoDiscriminator_DoesNotInjectDiscriminatorPredicate()
+    {
+        var results = await HasNoDiscriminatorDb
+            .Users
+            .Where(user => user.Pk == "TENANT#U")
+            .ToListAsync(CancellationToken);
+
+        results.Should().HaveCount(2);
+
+        AssertSql(
+            """
+            SELECT "pk", "sk", "name"
+            FROM "app-table"
+            WHERE "pk" = 'TENANT#U'
+            """);
+    }
+
+    [Fact]
+    public async Task
+        SharedTableWithHasNoDiscriminator_DoesNotInjectDiscriminatorPredicate_ForOrders()
+    {
+        var results = await HasNoDiscriminatorDb
+            .Orders
+            .Where(order => order.Pk == "TENANT#O")
+            .ToListAsync(CancellationToken);
+
+        results.Should().HaveCount(2);
+
+        AssertSql(
+            """
+            SELECT "pk", "sk", "description"
+            FROM "app-table"
+            WHERE "pk" = 'TENANT#O'
+            """);
+    }
+}
+
 public class DiscriminatorInheritanceQueryTests(DynamoContainerFixture fixture)
     : SharedTableTestFixture(fixture)
 {

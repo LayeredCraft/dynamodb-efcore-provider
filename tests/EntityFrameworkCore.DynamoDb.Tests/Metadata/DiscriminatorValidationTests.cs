@@ -115,6 +115,60 @@ public class DiscriminatorValidationTests
             => new(BuildOptions<MissingDiscriminatorValueContext>(client));
     }
 
+    private sealed class HasNoDiscriminatorContext(DbContextOptions options) : DbContext(options)
+    {
+        /// <summary>Provides functionality for this member.</summary>
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<UserEntity>(b =>
+            {
+                b.ToTable("App");
+                b.HasPartitionKey(x => x.PK);
+                b.HasSortKey(x => x.SK);
+                b.HasNoDiscriminator();
+            });
+
+            modelBuilder.Entity<OrderEntity>(b =>
+            {
+                b.ToTable("App");
+                b.HasPartitionKey(x => x.PK);
+                b.HasSortKey(x => x.SK);
+            });
+        }
+
+        /// <summary>Provides functionality for this member.</summary>
+        public static HasNoDiscriminatorContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<HasNoDiscriminatorContext>(client));
+    }
+
+    private sealed class HasNoDiscriminatorOnEveryTypeContext(DbContextOptions options) : DbContext(
+        options)
+    {
+        /// <summary>Provides functionality for this member.</summary>
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<UserEntity>(b =>
+            {
+                b.ToTable("App");
+                b.HasPartitionKey(x => x.PK);
+                b.HasSortKey(x => x.SK);
+                b.HasNoDiscriminator();
+            });
+
+            modelBuilder.Entity<OrderEntity>(b =>
+            {
+                b.ToTable("App");
+                b.HasPartitionKey(x => x.PK);
+                b.HasSortKey(x => x.SK);
+                b.HasNoDiscriminator();
+            });
+        }
+
+        /// <summary>Provides functionality for this member.</summary>
+        public static HasNoDiscriminatorOnEveryTypeContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<HasNoDiscriminatorOnEveryTypeContext>(client));
+    }
+
     private sealed class DuplicateDiscriminatorValueContext(DbContextOptions options) : DbContext(
         options)
     {
@@ -243,20 +297,43 @@ public class DiscriminatorValidationTests
         act.Should().NotThrow();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
+    // MissingDiscriminatorPropertyContext calls HasDiscriminator() explicitly then nulls the
+    // property via SetDiscriminatorProperty(null). Because HasDiscriminator() was called with an
+    // explicit configuration source, HasExplicitNoDiscriminator() returns true and the convention
+    // treats the whole group as opted out — no throw is expected.
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public void SharedTableMultipleTypes_WithMissingDiscriminatorProperty_Throws()
+    public void SharedTableMultipleTypes_WithMissingDiscriminatorProperty_RemainsValid()
     {
         var client = MockClient();
         using var context = MissingDiscriminatorPropertyContext.Create(client);
 
         var act = () => context.Model;
 
-        act
-            .Should()
-            .Throw<InvalidOperationException>()
-            .WithMessage("*does not define a discriminator property*");
+        act.Should().NotThrow();
+    }
+
+    [Fact]
+    public void SharedTableMultipleTypes_WithHasNoDiscriminator_IsValid()
+    {
+        var client = MockClient();
+        using var context = HasNoDiscriminatorContext.Create(client);
+
+        var act = () => context.Model;
+
+        act.Should().NotThrow();
+    }
+
+    /// <summary>Provides functionality for this member.</summary>
+    [Fact]
+    /// <summary>Provides functionality for this member.</summary>
+    public void SharedTableMultipleTypes_WithHasNoDiscriminatorOnEveryType_IsValid()
+    {
+        var client = MockClient();
+        using var context = HasNoDiscriminatorOnEveryTypeContext.Create(client);
+
+        var act = () => context.Model;
+
+        act.Should().NotThrow();
     }
 
     /// <summary>Provides functionality for this member.</summary>

@@ -23,6 +23,9 @@ public static class DynamoAnnotationNames
     /// <summary>Provides functionality for this member.</summary>
     public const string DiscriminatorStrategy = Prefix + "DiscriminatorStrategy";
 
+    /// <summary>Marks a shared-table mapping group as explicitly opting out of discriminator metadata.</summary>
+    public const string DiscriminatorDisabled = Prefix + "DiscriminatorDisabled";
+
     /// <summary>Provides functionality for this member.</summary>
     public const string SecondaryIndexName = Prefix + "SecondaryIndexName";
 
