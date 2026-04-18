@@ -416,6 +416,44 @@ semantics:
 To support correct derived-type materialization for base queries, the provider projects hierarchy
 attributes needed by concrete derived types.
 
+## Supported property types
+
+The provider maps CLR property types to DynamoDB `AttributeValue` wire members as follows:
+
+| CLR type                       | DynamoDB wire type | Notes                                                                |
+| ------------------------------ | ------------------ | -------------------------------------------------------------------- |
+| `string`                       | `S`                |                                                                      |
+| `bool`                         | `BOOL`             | Not valid as a key type                                              |
+| `byte`, `short`, `int`, `long` | `N`                | Stored as invariant-culture string per DynamoDB wire format          |
+| `ushort`, `uint`, `ulong`      | `N`                |                                                                      |
+| `float`, `double`              | `N`                | Formatted with round-trip (`R`) specifier to preserve precision      |
+| `decimal`                      | `N`                |                                                                      |
+| `byte[]`                       | `B`                | No PartiQL literal syntax — always sent as a statement parameter     |
+| `Guid`                         | `S`                | Stored as lowercase 32-hex (`N` format) via built-in value converter |
+| `DateTime`, `DateTimeOffset`   | `S`                | Format determined by value converter                                 |
+
+### Binary (`byte[]`)
+
+Binary values have no inline literal syntax in PartiQL. When a `byte[]` value appears in a
+`Where` predicate, the provider always transmits it as a statement parameter (`?`) rather than
+inlining it as a constant. Attempting to force a binary value into a literal context (for example,
+a captured constant with no corresponding query parameter slot) throws `NotSupportedException` at
+query compilation time.
+
+Null `byte[]` properties are stored as `{ NULL = true }`.
+
+### Primitive collections
+
+| CLR shape                    | DynamoDB wire type |
+| ---------------------------- | ------------------ |
+| `List<T>`                    | `L` (list)         |
+| `HashSet<string>`            | `SS` (string set)  |
+| `HashSet<byte[]>`            | `BS` (binary set)  |
+| `HashSet<numeric>`           | `NS` (number set)  |
+| `Dictionary<string, TValue>` | `M` (map)          |
+
+See [Owned and embedded types](#owned-and-embedded-types) for complex nested shapes.
+
 ## Model validation
 
 The provider validates the key configuration during model finalization and raises
