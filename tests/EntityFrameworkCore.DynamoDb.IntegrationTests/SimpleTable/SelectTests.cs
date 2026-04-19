@@ -389,7 +389,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
 
         AssertSql(
             """
-            SELECT "pk", "boolValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableIntValue", "nullableStringValue", "stringValue"
+            SELECT "pk", "boolValue", "dateOnlyValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableIntValue", "nullableStringValue", "stringValue", "timeOnlyValue", "timeSpanValue"
             FROM "SimpleItems"
             """);
     }
@@ -443,6 +443,9 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
                     item.NullableBoolValue,
                     item.NullableIntValue,
                     item.NullableStringValue,
+                    item.DateOnlyValue,
+                    item.TimeOnlyValue,
+                    item.TimeSpanValue,
                 })
                 .ToListAsync(CancellationToken);
 
@@ -464,6 +467,9 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
                     item.NullableBoolValue,
                     item.NullableIntValue,
                     item.NullableStringValue,
+                    item.DateOnlyValue,
+                    item.TimeOnlyValue,
+                    item.TimeSpanValue,
                 })
                 .ToList();
 
@@ -471,8 +477,129 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
 
         AssertSql(
             """
-            SELECT "pk", "boolValue", "intValue", "longValue", "floatValue", "doubleValue", "decimalValue", "stringValue", "guidValue", "dateTimeOffsetValue", "nullableBoolValue", "nullableIntValue", "nullableStringValue"
+            SELECT "pk", "boolValue", "intValue", "longValue", "floatValue", "doubleValue", "decimalValue", "stringValue", "guidValue", "dateTimeOffsetValue", "nullableBoolValue", "nullableIntValue", "nullableStringValue", "dateOnlyValue", "timeOnlyValue", "timeSpanValue"
             FROM "SimpleItems"
+            """);
+    }
+
+    [Fact]
+    public async Task Select_DateOnlyType_RoundTrips()
+    {
+        var results =
+            await Db
+                .SimpleItems
+                .Select(item => new { item.Pk, item.DateOnlyValue })
+                .ToListAsync(CancellationToken);
+
+        var expected =
+            SimpleItems.Items.Select(item => new { item.Pk, item.DateOnlyValue }).ToList();
+
+        results.Should().BeEquivalentTo(expected);
+
+        AssertSql(
+            """
+            SELECT "pk", "dateOnlyValue"
+            FROM "SimpleItems"
+            """);
+    }
+
+    [Fact]
+    public async Task Select_TimeOnlyType_RoundTrips()
+    {
+        var results =
+            await Db
+                .SimpleItems
+                .Select(item => new { item.Pk, item.TimeOnlyValue })
+                .ToListAsync(CancellationToken);
+
+        var expected =
+            SimpleItems.Items.Select(item => new { item.Pk, item.TimeOnlyValue }).ToList();
+
+        results.Should().BeEquivalentTo(expected);
+
+        AssertSql(
+            """
+            SELECT "pk", "timeOnlyValue"
+            FROM "SimpleItems"
+            """);
+    }
+
+    [Fact]
+    public async Task Select_TimeSpanType_RoundTrips()
+    {
+        var results =
+            await Db
+                .SimpleItems
+                .Select(item => new { item.Pk, item.TimeSpanValue })
+                .ToListAsync(CancellationToken);
+
+        var expected =
+            SimpleItems.Items.Select(item => new { item.Pk, item.TimeSpanValue }).ToList();
+
+        results.Should().BeEquivalentTo(expected);
+
+        AssertSql(
+            """
+            SELECT "pk", "timeSpanValue"
+            FROM "SimpleItems"
+            """);
+    }
+
+    [Fact]
+    public async Task Where_DateOnlyParameter_FiltersCorrectly()
+    {
+        var cutoff = new DateOnly(2026, 1, 1);
+
+        var results =
+            await Db
+                .SimpleItems
+                .Where(item => item.DateOnlyValue == cutoff)
+                .Select(item => new { item.Pk, item.DateOnlyValue })
+                .ToListAsync(CancellationToken);
+
+        var expected =
+            SimpleItems
+                .Items
+                .Where(item => item.DateOnlyValue == cutoff)
+                .Select(item => new { item.Pk, item.DateOnlyValue })
+                .ToList();
+
+        results.Should().BeEquivalentTo(expected);
+
+        AssertSql(
+            """
+            SELECT "pk", "dateOnlyValue"
+            FROM "SimpleItems"
+            WHERE "dateOnlyValue" = ?
+            """);
+    }
+
+    [Fact]
+    public async Task Where_TimeSpanParameter_FiltersCorrectly()
+    {
+        var cutoff = TimeSpan.FromHours(1);
+
+        var results =
+            await Db
+                .SimpleItems
+                .Where(item => item.TimeSpanValue == cutoff)
+                .Select(item => new { item.Pk, item.TimeSpanValue })
+                .ToListAsync(CancellationToken);
+
+        var expected =
+            SimpleItems
+                .Items
+                .Where(item => item.TimeSpanValue == cutoff)
+                .Select(item => new { item.Pk, item.TimeSpanValue })
+                .ToList();
+
+        results.Should().BeEquivalentTo(expected);
+
+        AssertSql(
+            """
+            SELECT "pk", "timeSpanValue"
+            FROM "SimpleItems"
+            WHERE "timeSpanValue" = ?
             """);
     }
 
