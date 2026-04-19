@@ -8,9 +8,9 @@
     <PackageVersion Include="AutoFixture.AutoNSubstitute" Version="4.18.1" />
     <PackageVersion Include="AutoFixture.Xunit3" Version="4.19.0" />
     <PackageVersion Include="AwesomeAssertions" Version="9.4.0" />
-    <PackageVersion Include="AWSSDK.DynamoDBv2" Version="4.0.17.8" />
+    <PackageVersion Include="AWSSDK.DynamoDBv2" Version="4.0.17.9"/>
     <PackageVersion Include="Humanizer.Core" Version="3.0.10" />
-    <PackageVersion Include="LayeredCraft.DynamoMapper" Version="1.4.2.38" />
+    <PackageVersion Include="LayeredCraft.DynamoMapper" Version="1.5.0"/>
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.202" />
     <!-- Testing Libraries -->
     <PackageVersion Include="coverlet.collector" Version="6.0.4" />
