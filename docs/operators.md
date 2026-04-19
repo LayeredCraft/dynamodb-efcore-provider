@@ -76,6 +76,29 @@ should keep in mind. Add to these sections as support expands.
 | `WithIndex(name)`                                     | Sets query source to `"Table"."Index"`            | N/A                                           | Name must resolve to an index on the queried entity type or its base types                            |
 | `WithoutIndex()`                                      | Suppresses index selection                        | N/A                                           | Forces base-table execution and logs `DYNAMO_IDX006`; cannot be combined with `WithIndex(...)`        |
 
+## Scalar property types
+
+The following CLR scalar types are supported as entity properties. Types without a native DynamoDB
+wire type are mapped through EF Core's built-in value converters.
+
+| CLR type                                    | DynamoDB wire type | Wire format / notes                                |
+| ------------------------------------------- | ------------------ | -------------------------------------------------- |
+| `string`                                    | `S`                | —                                                  |
+| `bool`                                      | `BOOL`             | —                                                  |
+| `int`, `long`, `float`, `double`, `decimal` | `N`                | Numeric string                                     |
+| `ushort`, `uint`, `ulong`                   | `N`                | Numeric string                                     |
+| `byte[]`                                    | `B`                | Binary                                             |
+| `Guid`                                      | `S`                | `"D"` format, e.g. `"550e8400-e29b-41d4-a716-..."` |
+| `DateTime`                                  | `S`                | ISO 8601 round-trip (`"O"`)                        |
+| `DateTimeOffset`                            | `S`                | ISO 8601 round-trip (`"O"`)                        |
+| `DateOnly`                                  | `S`                | `"yyyy-MM-dd"`, e.g. `"2026-04-19"`                |
+| `TimeOnly`                                  | `S`                | `"HH:mm:ss"` (whole-second) or `"o"` (sub-second)  |
+| `TimeSpan`                                  | `S`                | Constant (`"c"`) format, e.g. `"01:30:00"`         |
+| Enum                                        | `S`                | Name string by default                             |
+
+Nullable variants of all types above are supported. Custom types can be mapped via EF Core
+[value converters](https://learn.microsoft.com/en-us/ef/core/modeling/value-conversions).
+
 ## General paging model
 
 DynamoDB `ExecuteStatementRequest.Limit` controls evaluation (how many items are read), not the
