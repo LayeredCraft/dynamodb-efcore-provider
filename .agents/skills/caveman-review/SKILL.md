@@ -15,14 +15,12 @@ throat-clearing.
 **Format:** `L<line>: <problem>. <fix>.` — or `<file>:L<line>: ...` when reviewing multi-file diffs.
 
 **Severity prefix (optional, when mixed):**
-
 - `🔴 bug:` — broken behavior, will cause incident
 - `🟡 risk:` — works but fragile (race, missing null check, swallowed error)
 - `🔵 nit:` — style, naming, micro-optim. Author can ignore
 - `❓ q:` — genuine question, not a suggestion
 
 **Drop:**
-
 - "I noticed that...", "It seems like...", "You might want to consider..."
 - "This is just a suggestion but..." — use `nit:` instead
 - "Great work!", "Looks good overall but..." — say it once at the top, not per comment
@@ -30,7 +28,6 @@ throat-clearing.
 - Hedging ("perhaps", "maybe", "I think") — if unsure use `q:`
 
 **Keep:**
-
 - Exact line numbers
 - Exact symbol/function/variable names in backticks
 - Concrete fix, not "consider refactoring this"
