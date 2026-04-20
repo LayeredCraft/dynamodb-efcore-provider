@@ -21,6 +21,9 @@ public static class SimpleItems
             NullableBoolValue = null,
             NullableIntValue = null,
             NullableStringValue = null,
+            DateOnlyValue = new DateOnly(2026, 1, 1),
+            TimeOnlyValue = new TimeOnly(10, 0, 0),
+            TimeSpanValue = TimeSpan.FromHours(1),
         },
         new()
         {
@@ -37,6 +40,9 @@ public static class SimpleItems
             NullableBoolValue = true,
             NullableIntValue = 42,
             NullableStringValue = "Null String",
+            DateOnlyValue = new DateOnly(2026, 6, 15),
+            TimeOnlyValue = new TimeOnly(14, 30, 0),
+            TimeSpanValue = TimeSpan.FromMinutes(90),
         },
         new()
         {
@@ -53,6 +59,9 @@ public static class SimpleItems
             NullableBoolValue = false,
             NullableIntValue = -1,
             NullableStringValue = null,
+            DateOnlyValue = new DateOnly(2025, 12, 31),
+            TimeOnlyValue = new TimeOnly(23, 59, 59),
+            TimeSpanValue = TimeSpan.FromDays(1),
         },
         new()
         {
@@ -69,6 +78,9 @@ public static class SimpleItems
             NullableBoolValue = null,
             NullableIntValue = null,
             NullableStringValue = null,
+            DateOnlyValue = new DateOnly(2000, 1, 1),
+            TimeOnlyValue = new TimeOnly(0, 0, 0),
+            TimeSpanValue = TimeSpan.Zero,
         },
     ];
 

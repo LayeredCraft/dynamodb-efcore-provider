@@ -42,13 +42,11 @@ Say "stop caveman" or "normal mode". Resume anytime with `/caveman`.
 Default mode = `full`. Change it:
 
 **Environment variable** (highest priority):
-
 ```bash
 export CAVEMAN_DEFAULT_MODE=ultra
 ```
 
 **Config file** (`~/.config/caveman/config.json`):
-
 ```json
 { "defaultMode": "lite" }
 ```

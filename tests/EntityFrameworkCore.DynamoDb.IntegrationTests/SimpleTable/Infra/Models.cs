@@ -27,4 +27,10 @@ public sealed record SimpleItem
     public int? NullableIntValue { get; set; }
 
     public string? NullableStringValue { get; set; }
+
+    public DateOnly DateOnlyValue { get; set; }
+
+    public TimeOnly TimeOnlyValue { get; set; }
+
+    public TimeSpan TimeSpanValue { get; set; }
 }
