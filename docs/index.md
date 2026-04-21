@@ -8,23 +8,33 @@ description: Entity Framework Core provider for Amazon DynamoDB — write LINQ q
 
 _Use EF Core's familiar LINQ API against Amazon DynamoDB. Queries are translated to PartiQL and executed via the AWS SDK — no manual AttributeValue wrangling required._
 
+[![NuGet](https://img.shields.io/nuget/v/EntityFrameworkCore.DynamoDb.svg)](https://www.nuget.org/packages/EntityFrameworkCore.DynamoDb)
+
+## Requirements
+
+| Dependency        | Version      |
+| ----------------- | ------------ |
+| .NET              | 10.0+        |
+| EF Core           | 10.0+        |
+| AWSSDK.DynamoDBv2 | (transitive) |
+
 ## Install
 
 ```bash
 dotnet add package EntityFrameworkCore.DynamoDb
 ```
 
+See [Getting Started](getting-started.md) for full setup instructions.
+
 ## Quick Example
 
 ```csharp
-// Define your model
-// pk/sk use generic DynamoDB attribute names for single-table design
+// Define your entity
 public class Order
 {
     public string Pk { get; set; } = null!;   // e.g. "CUSTOMER#cust-42"
     public string Sk { get; set; } = null!;   // e.g. "ORDER#ord-99"
     public decimal Total { get; set; }
-    public List<OrderLine> Lines { get; set; } = [];
 }
 
 // Configure your DbContext
@@ -43,10 +53,10 @@ public class ShopContext(DbContextOptions<ShopContext> options) : DbContext(opti
     }
 }
 
-// Register and query
-services.AddDbContext<ShopContext>(options =>
-    options.UseDynamoDb(dynamo => dynamo.UseAmazonDynamoDB()));
+// Create a DbContext
+await using var context = new ShopContext();
 
+// Query
 var orders = await context.Orders
     .Where(o => o.Pk == "CUSTOMER#cust-42" && o.Sk.StartsWith("ORDER#") && o.Total > 100m)
     .OrderBy(o => o.Sk)
