@@ -18,10 +18,11 @@ dotnet add package EntityFrameworkCore.DynamoDb
 
 ```csharp
 // Define your model
+// pk/sk use generic DynamoDB attribute names for single-table design
 public class Order
 {
-    public string CustomerId { get; set; } = null!;
-    public string OrderId { get; set; } = null!;
+    public string Pk { get; set; } = null!;   // e.g. "CUSTOMER#cust-42"
+    public string Sk { get; set; } = null!;   // e.g. "ORDER#ord-99"
     public decimal Total { get; set; }
     public List<OrderLine> Lines { get; set; } = [];
 }
@@ -35,8 +36,8 @@ public class ShopContext(DbContextOptions<ShopContext> options) : DbContext(opti
     {
         modelBuilder.Entity<Order>(b =>
         {
-            b.HasPartitionKey(o => o.CustomerId);
-            b.HasSortKey(o => o.OrderId);
+            b.HasPartitionKey(o => o.Pk);
+            b.HasSortKey(o => o.Sk);
             b.OwnsMany(o => o.Lines);
         });
     }
@@ -47,8 +48,8 @@ services.AddDbContext<ShopContext>(options =>
     options.UseDynamoDb(dynamo => dynamo.UseAmazonDynamoDB()));
 
 var orders = await context.Orders
-    .Where(o => o.CustomerId == "cust-42" && o.Total > 100m)
-    .OrderBy(o => o.OrderId)
+    .Where(o => o.Pk == "CUSTOMER#cust-42" && o.Sk.StartsWith("ORDER#") && o.Total > 100m)
+    .OrderBy(o => o.Sk)
     .ToListAsync();
 ```
 
@@ -65,27 +66,27 @@ var orders = await context.Orders
 
 <div class="grid cards" markdown>
 
-- **[Getting Started](getting-started.md)**
+- :lucide-rocket: **[Getting Started](getting-started.md)**
 
     Install the package, configure your `DbContext`, and run your first query.
 
-- **[DynamoDB Concepts for EF Developers](dynamodb-concepts.md)**
+- :lucide-book-open: **[DynamoDB Concepts for EF Developers](dynamodb-concepts.md)**
 
     Understand how DynamoDB's partition model maps to EF Core concepts.
 
-- **[Configuration](configuration/index.md)**
+- :lucide-settings: **[Configuration](configuration/index.md)**
 
     Client setup, table and key mapping, attribute naming, and `DbContext` options.
 
-- **[Data Modeling](modeling/index.md)**
+- :lucide-database: **[Data Modeling](modeling/index.md)**
 
     Entities, keys, owned types, secondary indexes, and inheritance.
 
-- **[Querying](querying/index.md)**
+- :lucide-search: **[Querying](querying/index.md)**
 
     Supported LINQ operators, filtering, projection, ordering, and pagination.
 
-- **[Saving Data](saving/index.md)**
+- :lucide-save: **[Saving Data](saving/index.md)**
 
     Add, update, delete, transactions, and optimistic concurrency.
 
