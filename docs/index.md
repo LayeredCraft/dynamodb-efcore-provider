@@ -10,6 +10,14 @@ _Use EF Core's familiar LINQ API against Amazon DynamoDB. Queries are translated
 
 [![NuGet](https://img.shields.io/nuget/v/EntityFrameworkCore.DynamoDb.svg)](https://www.nuget.org/packages/EntityFrameworkCore.DynamoDb)
 
+!!! note "Community project"
+
+    This is an independent, community-maintained library. It is not affiliated with, endorsed by, or supported by Amazon Web Services or Microsoft.
+
+!!! warning "Under active development"
+
+    This library is not yet stable. APIs may change between releases without notice.
+
 ## Requirements
 
 | Dependency        | Version      |
