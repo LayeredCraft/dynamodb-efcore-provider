@@ -134,11 +134,74 @@ db.Orders.Where(o => ids.Contains(o.CustomerId));
 
 An empty collection translates to a constant-false predicate (`1 = 0`), which returns no results without executing a DynamoDB request. DynamoDB enforces limits on `IN` list size: up to 50 values when the property is a partition key, up to 100 values for non-key attributes. Exceeding the limit throws at execution time.
 
+## Queries vs Scans
+
+Every DynamoDB `ExecuteStatement` request is either a **Query** or a **Scan**. A Query reads only the items in a specific partition; a Scan reads every item in the table (or index). Scans are expensive — they consume read capacity across all partitions and slow down as the table grows.
+
+**The rule:** the `WHERE` clause must include an equality (`=`) or `IN` condition on the partition key to produce a Query. Anything else is a Scan.
+
+```csharp
+// ✅ Query — partition key equality
+db.Orders.Where(o => o.Pk == customerId);
+
+// ✅ Query — partition key IN (one Query per value)
+db.Orders.Where(o => ids.Contains(o.Pk));
+
+// ✅ Query — PK equality + non-key filter (filter runs after read, still a Query)
+db.Orders.Where(o => o.Pk == customerId && o.Status == "PENDING");
+
+// ❌ Scan — comparison on partition key, not equality
+db.Orders.Where(o => o.Pk != customerId);
+
+// ❌ Scan — no partition key condition at all
+db.Orders.Where(o => o.Status == "PENDING");
+```
+
+### Multiple conditions on the partition key
+
+Applying more than one condition to the partition key is almost always a mistake. The only safe forms are a single equality or a single `IN`. Comparisons (`>`, `<`, `>=`, `<=`), `BETWEEN`, or `begins_with` on the partition key do not narrow to a partition — they produce a Scan.
+
+Multiple equality conditions combined with `OR` are a special case: `WHERE pk = X OR pk = Y` is treated as two separate Query operations and is safe. However, if the `OR` includes any non-key attribute — `WHERE pk = X OR status = 'PENDING'` — DynamoDB cannot satisfy the non-key side with a key lookup and falls back to a Scan.
+
+```csharp
+// ✅ PK OR PK — two Queries, not a scan
+db.Orders.Where(o => o.Pk == id1 || o.Pk == id2);
+
+// ❌ Scan — OR mixes PK with a non-key attribute
+db.Orders.Where(o => o.Pk == id1 || o.Status == "PENDING");
+```
+
+### Sort key conditions
+
+A sort key condition narrows results *within* a partition — it is only meaningful when a PK equality condition is already present. Valid sort key conditions are `=`, `<`, `<=`, `>`, `>=`, `BETWEEN`, and `begins_with`. DynamoDB allows **exactly one** sort key condition per request.
+
+```csharp
+// ✅ One sort key condition
+db.Orders.Where(o => o.Pk == customerId && string.Compare(o.Sk, "ORDER#2026") >= 0);
+
+// ✅ BETWEEN counts as one condition (provider rewrites >= + <= automatically)
+db.Orders.Where(o => o.Pk == customerId
+                  && string.Compare(o.Sk, "ORDER#2026-01") >= 0
+                  && string.Compare(o.Sk, "ORDER#2026-01~") <= 0);
+// WHERE "Pk" = ? AND "Sk" BETWEEN ? AND ?
+```
+
+Two sort key conditions that cannot be collapsed into `BETWEEN` — for example, a `>=` and a `<` on the same property — are both emitted as separate comparisons. DynamoDB rejects this as an invalid key condition combination and falls back to treating the sort key predicates as filter expressions, which means all items in the partition are read first.
+
+```csharp
+// ❌ Two separate SK conditions — NOT collapsed to BETWEEN (exclusive lower bound)
+//    DynamoDB treats both as filter expressions; all items in the partition are read
+db.Orders.Where(o => o.Pk == customerId
+                  && string.Compare(o.Sk, "ORDER#2026-01") > 0   // exclusive — no BETWEEN rewrite
+                  && string.Compare(o.Sk, "ORDER#2026-01~") <= 0);
+// WHERE "Pk" = ? AND "Sk" > ? AND "Sk" <= ?
+```
+
 ## Key Conditions vs Filter Expressions
 
 !!! note
 
-    DynamoDB distinguishes between *key conditions* (predicates on the partition key or sort key) and *filter expressions* (predicates on other attributes). Key conditions are evaluated during index traversal before items are read. Filter expressions are applied *after* items are read — they do not reduce read capacity unit consumption.
+    DynamoDB distinguishes between *key conditions* (predicates on the partition key or sort key evaluated during index traversal) and *filter expressions* (predicates on non-key attributes applied after items are read). Filter expressions do not reduce read capacity unit consumption — DynamoDB reads the items first, then discards the ones that don't match.
 
 In practice, this means a `Limit(n)` query evaluates `n` items and then applies the filter. If only a small fraction of the evaluated items match, fewer results are returned — but DynamoDB consumed read capacity for all `n` evaluated items. With highly selective non-key filters, a page may return zero matching items while still producing a non-null `NextToken`.
 
