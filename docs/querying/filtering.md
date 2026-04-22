@@ -63,53 +63,33 @@ Only the `string`-parameter overload is supported. Overloads that accept `char`,
 
 ## String Comparisons
 
-DynamoDB compares strings lexicographically (UTF-8 code-point order), which aligns with C#'s default ordinal string ordering. Three expression forms are supported and all translate to a direct PartiQL comparison operator:
-
-**Direct property comparison** — use `<`, `<=`, `>`, `>=` on any `string` property:
+DynamoDB compares strings lexicographically (UTF-8 code-point order). C# does not define `<`, `<=`, `>`, `>=` for `string` directly, so use `string.Compare` or `.CompareTo` compared against `0`. Both translate to a direct PartiQL comparison operator and are interchangeable:
 
 ```csharp
-// All orders after a checkpoint sort key
-db.Events
-    .Where(e => e.Pk == streamId && e.Sk > lastProcessedSk)
+// string.Compare — static form
+var events = await db.Events
+    .Where(e => e.Pk == streamId && string.Compare(e.Sk, lastProcessedSk) > 0)
     .OrderBy(e => e.Sk)
     .ToListAsync(cancellationToken);
 // WHERE "Pk" = ? AND "Sk" > ?
-// ORDER BY "Sk" ASC
+
+// .CompareTo — instance form; identical result
+var events2 = await db.Events
+    .Where(e => e.Pk == streamId && e.Sk.CompareTo(lastProcessedSk) > 0)
+    .OrderBy(e => e.Sk)
+    .ToListAsync(cancellationToken);
+// WHERE "Pk" = ? AND "Sk" > ?
 ```
 
-**`string.Compare(a, b) OP 0`** — static two-argument form:
+Both forms accept any comparison against the literal `0` (`==`, `!=`, `<`, `<=`, `>`, `>=`). Writing the constant on the left — `0 < e.Sk.CompareTo(bound)` — is also valid; the operator is mirrored automatically.
+
+Combining a lower and upper bound on the same property triggers the `BETWEEN` rewrite. A common pattern uses `~` (ASCII 126, sorts after all alphanumeric characters) as a sentinel upper bound to capture all items within a prefix:
 
 ```csharp
-db.Orders
-    .Where(o => o.Pk == tenantId && string.Compare(o.Sk, bound) >= 0)
-    .ToListAsync(cancellationToken);
-// WHERE "Pk" = ? AND "Sk" >= ?
-```
-
-**`a.CompareTo(b) OP 0`** — instance form; writing `0 OP a.CompareTo(b)` with the constant on the left is also supported and the operator is flipped automatically:
-
-```csharp
-db.Orders
-    .Where(o => o.Pk == tenantId && o.Sk.CompareTo(bound) < 0)
-    .ToListAsync(cancellationToken);
-// WHERE "Pk" = ? AND "Sk" < ?
-
-// Constant on the left — operands are mirrored automatically
-db.Orders
-    .Where(o => o.Pk == tenantId && 0 <= o.Sk.CompareTo(bound))
-    .ToListAsync(cancellationToken);
-// WHERE "Pk" = ? AND "Sk" >= ?
-```
-
-All three forms produce identical PartiQL. String comparisons are particularly useful for sort key range patterns where the SK encodes a sortable value such as an ISO 8601 timestamp or a hierarchical prefix.
-
-Combining `>=` and `<=` on the same string property triggers the `BETWEEN` rewrite described in the next section. A common pattern is to use a sentinel upper-bound character such as `~` (ASCII 126, higher than all alphanumeric characters) to bound a prefix range:
-
-```csharp
-db.Orders
+var orders = await db.Orders
     .Where(o => o.Pk == tenantId
-             && o.Sk >= "ORDER#2026-01"
-             && o.Sk <= "ORDER#2026-01~")
+             && string.Compare(o.Sk, "ORDER#2026-01") >= 0
+             && string.Compare(o.Sk, "ORDER#2026-01~") <= 0)
     .ToListAsync(cancellationToken);
 // WHERE "Pk" = ? AND "Sk" BETWEEN ? AND ?
 ```

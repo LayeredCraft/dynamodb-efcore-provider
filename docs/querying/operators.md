@@ -9,24 +9,24 @@ _This page is the authoritative reference for which LINQ operators translate to 
 
 ## Filtering Operators
 
-| LINQ Operator                                         | PartiQL Translation              | Notes                                                                       |
-| ----------------------------------------------------- | -------------------------------- | --------------------------------------------------------------------------- |
-| `Where`                                               | `WHERE`                          | Boolean properties normalized to `= true`                                   |
-| `==`, `!=`                                            | `=`, `<>`                        | Works on all scalar types                                                   |
-| `<`, `<=`, `>`, `>=`                                  | `<`, `<=`, `>`, `>=`             | Numeric: arithmetic order; string: lexicographic (UTF-8 code-point)         |
-| `string.Compare(a, b) > 0` (any comparison against 0) | `a > b`                          | Works with `==`, `!=`, `<`, `<=`, `>`, `>=` against the literal `0`         |
-| `a.CompareTo(b) > 0` (any comparison against 0)       | `a > b`                          | Same as above; `0 < a.CompareTo(b)` form also supported (operands mirrored) |
-| `== null`                                             | `IS NULL OR IS MISSING`          | Covers both DynamoDB null representations                                   |
-| `!= null`                                             | `IS NOT NULL AND IS NOT MISSING` | De Morgan inverse of `== null`                                              |
-| `EF.Functions.IsNull(prop)`                           | `prop IS NULL`                   | Explicit: NULL type only                                                    |
-| `EF.Functions.IsNotNull(prop)`                        | `prop IS NOT NULL`               | Explicit: not NULL type                                                     |
-| `EF.Functions.IsMissing(prop)`                        | `prop IS MISSING`                | Explicit: attribute absent from item                                        |
-| `EF.Functions.IsNotMissing(prop)`                     | `prop IS NOT MISSING`            | Explicit: attribute present                                                 |
-| `!expr`                                               | `NOT (expr)`                     | Operand always parenthesized                                                |
-| `prop >= a && prop <= b`                              | `prop BETWEEN a AND b`           | Both bounds must be inclusive (`>=` and `<=`)                               |
-| `string.Contains(s)`                                  | `contains(attr, ?)`              | Case-sensitive substring; no `char`/culture overloads                       |
-| `string.StartsWith(s)`                                | `begins_with(attr, ?)`           | Case-sensitive prefix; no `char`/`StringComparison` overloads               |
-| `collection.Contains(prop)`                           | `prop IN [?, ...]`               | In-memory collection membership; max 50 PK values, 100 non-key values       |
+| LINQ Operator                                         | PartiQL Translation              | Notes                                                                                                                               |
+| ----------------------------------------------------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `Where`                                               | `WHERE`                          | Boolean properties normalized to `= true`                                                                                           |
+| `==`, `!=`                                            | `=`, `<>`                        | Works on all scalar types                                                                                                           |
+| `<`, `<=`, `>`, `>=`                                  | `<`, `<=`, `>`, `>=`             | Numeric and date/time properties only; C# does not define these operators on `string` — use `string.Compare` or `CompareTo` instead |
+| `string.Compare(a, b) > 0` (any comparison against 0) | `a > b`                          | Required for string range comparisons; works with `==`, `!=`, `<`, `<=`, `>`, `>=` against the literal `0`                          |
+| `a.CompareTo(b) > 0` (any comparison against 0)       | `a > b`                          | Same as above; `0 < a.CompareTo(b)` form also supported (operands mirrored)                                                         |
+| `== null`                                             | `IS NULL OR IS MISSING`          | Covers both DynamoDB null representations                                                                                           |
+| `!= null`                                             | `IS NOT NULL AND IS NOT MISSING` | De Morgan inverse of `== null`                                                                                                      |
+| `EF.Functions.IsNull(prop)`                           | `prop IS NULL`                   | Explicit: NULL type only                                                                                                            |
+| `EF.Functions.IsNotNull(prop)`                        | `prop IS NOT NULL`               | Explicit: not NULL type                                                                                                             |
+| `EF.Functions.IsMissing(prop)`                        | `prop IS MISSING`                | Explicit: attribute absent from item                                                                                                |
+| `EF.Functions.IsNotMissing(prop)`                     | `prop IS NOT MISSING`            | Explicit: attribute present                                                                                                         |
+| `!expr`                                               | `NOT (expr)`                     | Operand always parenthesized                                                                                                        |
+| `prop >= a && prop <= b`                              | `prop BETWEEN a AND b`           | Both bounds must be inclusive (`>=` and `<=`)                                                                                       |
+| `string.Contains(s)`                                  | `contains(attr, ?)`              | Case-sensitive substring; no `char`/culture overloads                                                                               |
+| `string.StartsWith(s)`                                | `begins_with(attr, ?)`           | Case-sensitive prefix; no `char`/`StringComparison` overloads                                                                       |
+| `collection.Contains(prop)`                           | `prop IN [?, ...]`               | In-memory collection membership; max 50 PK values, 100 non-key values                                                               |
 
 ## Projection Operators
 
