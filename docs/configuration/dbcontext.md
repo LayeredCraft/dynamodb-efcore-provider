@@ -43,7 +43,12 @@ Pass `UseDynamo` inside `AddDbContext` when you want to supply a pre-configured
 
 ```csharp
 services.AddDbContext<ShopContext>(options =>
-    options.UseDynamo(o => o.DynamoDbClient(dynamoClient)));
+{
+    options.UseDynamo(o =>
+    {
+        o.DynamoDbClient(dynamoClient);
+    });
+});
 ```
 
 A context that configures itself via `OnConfiguring` can still be registered in the container —
@@ -60,22 +65,32 @@ services. You do not need to call it directly.
 
 All options are set on the `DynamoDbContextOptionsBuilder` passed to the `UseDynamo` callback.
 
-### Transaction overflow
+### `TransactionOverflowBehavior`
 
-DynamoDB's `ExecuteTransaction` API accepts at most 100 items per call. When a single
-`SaveChangesAsync` produces more write operations than `MaxTransactionSize`, the provider applies
-the configured `TransactionOverflowBehavior`:
+When a transactional `SaveChangesAsync` write unit exceeds the effective `MaxTransactionSize`, the
+provider applies the configured `TransactionOverflowBehavior`.
+
+This option exists because DynamoDB caps a single `ExecuteTransaction` request at 100 write
+operations. If your unit of work can cross that boundary (for example, aggregate updates that touch
+many root entities at once), you need to decide whether the provider should fail before sending
+anything or continue in smaller transactional chunks.
 
 | Value             | Behavior                                                       |
 | ----------------- | -------------------------------------------------------------- |
 | `Throw` (default) | Throws `InvalidOperationException` before any writes are sent  |
 | `UseChunking`     | Splits the write unit into multiple `ExecuteTransaction` calls |
 
+Choose based on your consistency requirements:
+
+- Use `Throw` when the whole save must behave as one all-or-nothing unit.
+- Use `UseChunking` when large saves are expected and your application can recover from
+    partially completed saves (idempotent commands, compensating actions, or explicit re-query +
+    retry flows).
+
 ```csharp
 optionsBuilder.UseDynamo(options =>
 {
     options.TransactionOverflowBehavior(TransactionOverflowBehavior.UseChunking);
-    options.MaxTransactionSize(50); // cap each transaction at 50 items; default is 100
 });
 ```
 
@@ -85,10 +100,35 @@ optionsBuilder.UseDynamo(options =>
     fails, chunks _0..N-1_ are permanently committed and cannot be rolled back. Always re-query the
     affected entities before retrying a chunked save.
 
-`MaxTransactionSize` must be between 1 and 100 (inclusive). Values outside this range throw
-`InvalidOperationException` at startup.
+!!! warning "Chunking requires `acceptAllChangesOnSuccess=true`"
 
-### Batch write size
+    Chunked transactional saves are not supported for `SaveChangesAsync(false, ...)`. The provider
+    throws `InvalidOperationException` before any chunk is sent.
+
+### `MaxTransactionSize`
+
+`MaxTransactionSize` caps how many write operations the provider sends in a single
+`ExecuteTransaction` call. DynamoDB's hard maximum is 100 and the provider default is 100:
+
+This limit applies only to transactional multi-root save paths that use `ExecuteTransaction`.
+Single-root direct saves (`ExecuteStatement`) are not affected.
+
+```csharp
+optionsBuilder.UseDynamo(options =>
+{
+    options.MaxTransactionSize(50);
+});
+```
+
+Lower this when you intentionally want large saves to split earlier, usually to keep transaction
+size predictable or to combine with `UseChunking` so overflow happens at a boundary you control.
+Leave it at `100` when your main goal is maximizing the amount of work that can stay in one atomic
+transaction.
+
+`MaxTransactionSize` must be between 1 and 100 (inclusive). Values outside this range throw
+`InvalidOperationException` during options configuration (or when setting per-context overrides).
+
+### `MaxBatchWriteSize`
 
 When EF Core's `AutoTransactionBehavior` is set to `Never`, multi-root saves use DynamoDB's
 non-atomic `BatchExecuteStatement` API instead of `ExecuteTransaction`. `MaxBatchWriteSize` caps
@@ -96,12 +136,25 @@ the number of write operations per batch call (DynamoDB's hard maximum is 25):
 
 ```csharp
 optionsBuilder.UseDynamo(options =>
-    options.MaxBatchWriteSize(10));
+{
+    options.MaxBatchWriteSize(10);
+});
 ```
+
+This mainly matters when you have explicitly opted out of automatic transactions. Lower values can
+reduce the blast radius of a failed non-atomic batch and make large writes easier to reason about,
+at the cost of more round trips. Leave it at the default when throughput matters more than smaller
+batch boundaries.
 
 `MaxBatchWriteSize` must be between 1 and 25 (inclusive).
 
-### Automatic index selection
+!!! warning "Batched multi-root saves require `acceptAllChangesOnSuccess=true`"
+
+    With `AutoTransactionBehavior.Never`, multi-root batched saves are not supported for
+    `SaveChangesAsync(false, ...)`. The provider throws `InvalidOperationException` before writes
+    are sent.
+
+### `DynamoAutomaticIndexSelectionMode`
 
 By default the provider executes every query against the base table. Enable automatic index
 selection to let the provider route compatible queries to a Global or Local Secondary Index:
@@ -112,34 +165,50 @@ selection to let the provider route compatible queries to a Global or Local Seco
 | `SuggestOnly`   | Analyzes candidate indexes and emits `DYNAMO_IDX*` diagnostics; does not change the query |
 | `Conservative`  | Automatically routes queries to an unambiguous matching index                             |
 
+Use `Off` when you want query behavior to stay completely explicit in application code. Use
+`SuggestOnly` while validating a schema or rolling the feature out, because it shows where an index
+would help without changing production behavior. Use `Conservative` when you want safer automatic
+routing for obvious matches, but still want the provider to avoid guessing between multiple
+plausible indexes.
+
 ```csharp
 optionsBuilder.UseDynamo(options =>
-    options.UseAutomaticIndexSelection(DynamoAutomaticIndexSelectionMode.Conservative));
+{
+    options.UseAutomaticIndexSelection(DynamoAutomaticIndexSelectionMode.Conservative);
+});
 ```
 
 See [Index Selection](../querying/index-selection.md) for details on how the provider chooses
 an index and what diagnostics it emits.
 
-### AutoTransactionBehavior (EF Core standard)
+### `AutoTransactionBehavior` (EF Core standard)
 
 `AutoTransactionBehavior` is a standard EF Core setting — not DynamoDB-specific — but it directly
-affects which DynamoDB API the provider uses for multi-root saves:
+affects which DynamoDB API the provider uses:
 
-| Value                     | Multi-root save behavior                                                                                                                     |
-| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `WhenNeeded` (EF default) | Single-root: direct `ExecuteStatement`. Multi-root: `ExecuteTransaction`                                                                     |
-| `Always`                  | Always uses `ExecuteTransaction` (single-root saves still go direct — wrapping a single write in a transaction adds latency with no benefit) |
-| `Never`                   | Non-atomic `BatchExecuteStatement`; `MaxBatchWriteSize` applies                                                                              |
+| Value                     | Single-root save behavior | Multi-root save behavior                                                                             |
+| ------------------------- | ------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `WhenNeeded` (EF default) | Direct `ExecuteStatement` | `ExecuteTransaction` (or chunked `ExecuteTransaction` calls when overflow + `UseChunking`)           |
+| `Always`                  | Direct `ExecuteStatement` | `ExecuteTransaction`; if root writes exceed `MaxTransactionSize`, throws `InvalidOperationException` |
+| `Never`                   | Direct `ExecuteStatement` | Non-atomic `BatchExecuteStatement`; `MaxBatchWriteSize` applies                                      |
 
 ```csharp
 context.Database.AutoTransactionBehavior = AutoTransactionBehavior.Never;
 ```
+
+In practice, `WhenNeeded` is the balanced default for most apps because it preserves atomicity only
+when the save shape requires it. Choose `Always` when you want stricter, more predictable
+transaction usage for multi-root saves and prefer hard failures over fallback behavior. Choose
+`Never` only when you explicitly want to trade atomicity for batch-style throughput.
 
 ## Per-Context Runtime Overrides
 
 The `context.Database` facade lets you override transaction and batch settings for a specific
 context instance, without changing the startup configuration. Overrides take effect immediately and
 apply to all subsequent `SaveChangesAsync` calls on that instance.
+
+Overrides are scoped to that `DbContext` instance only and are discarded when the instance is
+disposed.
 
 ```csharp
 // Override for this context instance only
