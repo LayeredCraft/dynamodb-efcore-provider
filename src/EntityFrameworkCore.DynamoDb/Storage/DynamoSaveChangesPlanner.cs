@@ -49,6 +49,21 @@ internal sealed class DynamoSaveChangesPlanner(
                 {
                     var item = serializerSource.BuildItem(entry);
                     var tableName = (string)entry.EntityType[DynamoAnnotationNames.TableName]!;
+
+                    // DynamoDB rejects { NULL: true } for GSI key attributes via PartiQL INSERT.
+                    // Sparse GSIs require these attributes to simply be absent when not applicable.
+                    foreach (var index in entry.EntityType.GetIndexes())
+                    {
+                        if (index.GetSecondaryIndexKind() is null)
+                            continue;
+                        foreach (var property in index.Properties)
+                        {
+                            var attrName = property.GetAttributeName();
+                            if (item.TryGetValue(attrName, out var val) && val.NULL == true)
+                                item.Remove(attrName);
+                        }
+                    }
+
                     var (sql, parameters) = statementFactory.BuildInsertStatement(tableName, item);
 
                     AddCompiledOperation(
