@@ -25,7 +25,7 @@ nav = [
     { "Entities and Keys" = "modeling/entities-keys.md" },
     { "Secondary Indexes" = "modeling/secondary-indexes.md" },
     { "Owned Types and Collections" = "modeling/owned-types.md" },
-    { "Inheritance and Discriminators" = "modeling/inheritance.md" }
+    { "Single-Table Design and Discriminators" = "modeling/single-table-design.md" }
   ] },
   { "Querying" = [
     { "Overview" = "querying/index.md" },
