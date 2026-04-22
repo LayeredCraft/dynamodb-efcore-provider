@@ -23,38 +23,35 @@ resolved in priority order at startup:
 When `DynamoDbClient` is set, the other two options are ignored — the provider uses the injected
 client as-is.
 
-### Injecting a pre-built client
+!!! note
 
-Use `DynamoDbClient` when you need full control over the AWS SDK client — for example, to attach a
-custom retry policy, share a client across multiple contexts, or inject a mock in tests:
-
-```csharp
-var dynamoClient = new AmazonDynamoDBClient(new AmazonDynamoDBConfig
-{
-    RegionEndpoint = RegionEndpoint.USEast1,
-});
-
-services.AddDbContext<ShopContext>(options =>
-    options.UseDynamo(o => o.DynamoDbClient(dynamoClient)));
-```
+    These options are set inside the `UseDynamo` callback. The callback itself works identically
+    whether you call `UseDynamo` from `OnConfiguring` or from `AddDbContext` — the choice of
+    registration style does not affect which client method you use. See
+    [DbContext Options](dbcontext.md) if you are deciding between those two approaches.
 
 ### Inline callback configuration
 
-`ConfigureDynamoDbClientConfig` is the lightest option — you receive an `AmazonDynamoDBConfig`
-and mutate it before the provider creates the client:
+`ConfigureDynamoDbClientConfig` is the lightest option — the provider creates the client for you
+after you configure the `AmazonDynamoDBConfig`:
 
 ```csharp
-optionsBuilder.UseDynamo(options =>
-    options.ConfigureDynamoDbClientConfig(config =>
-    {
-        config.RegionEndpoint = RegionEndpoint.EUWest1;
-    }));
+protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    => optionsBuilder.UseDynamo(options =>
+        options.ConfigureDynamoDbClientConfig(config =>
+        {
+            config.RegionEndpoint = RegionEndpoint.EUWest1;
+        }));
 ```
+
+Use this for simple cases where you only need to set a region or endpoint and do not need to share
+the client with other services.
 
 ### Supplying a base config object
 
 `DynamoDbClientConfig` accepts a fully constructed `AmazonDynamoDBConfig`. Use this when the
-config object is built elsewhere (for example, from application settings):
+config object is built elsewhere — for example, deserialized from application settings — and you
+want the provider to create the client from it:
 
 ```csharp
 var sdkConfig = new AmazonDynamoDBConfig
@@ -62,14 +59,46 @@ var sdkConfig = new AmazonDynamoDBConfig
     RegionEndpoint = RegionEndpoint.APSoutheast1,
 };
 
-optionsBuilder.UseDynamo(o => o.DynamoDbClientConfig(sdkConfig));
+protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    => optionsBuilder.UseDynamo(o => o.DynamoDbClientConfig(sdkConfig));
+```
+
+### Injecting a pre-built client
+
+Use `DynamoDbClient` when you need full control over the client — attaching a custom retry policy,
+sharing a single instance across multiple contexts, or swapping in a mock during tests:
+
+```csharp
+var dynamoClient = new AmazonDynamoDBClient(new AmazonDynamoDBConfig
+{
+    RegionEndpoint = RegionEndpoint.USEast1,
+});
+
+protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    => optionsBuilder.UseDynamo(o => o.DynamoDbClient(dynamoClient));
+```
+
+In an ASP.NET Core app, you typically register `IAmazonDynamoDB` in the DI container and pass it
+through `AddDbContext`, so both the context and other services share the same client instance:
+
+```csharp
+// Program.cs
+builder.Services.AddSingleton<IAmazonDynamoDB>(new AmazonDynamoDBClient(new AmazonDynamoDBConfig
+{
+    RegionEndpoint = RegionEndpoint.USEast1,
+}));
+
+builder.Services.AddDbContext<ShopContext>((serviceProvider, options) =>
+{
+    var client = serviceProvider.GetRequiredService<IAmazonDynamoDB>();
+    options.UseDynamo(o => o.DynamoDbClient(client));
+});
 ```
 
 ### Retrieving the resolved client
 
 After the context is configured you can retrieve the `IAmazonDynamoDB` instance the provider is
-using. This is useful for raw SDK calls or test assertions without having to keep a separate
-reference:
+using — useful for raw SDK calls or test assertions without keeping a separate reference:
 
 ```csharp
 var client = context.Database.GetDynamoClient();
@@ -78,34 +107,46 @@ var client = context.Database.GetDynamoClient();
 ## Using DynamoDB Local
 
 [DynamoDB Local](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DynamoDBLocal.html)
-runs an in-process DynamoDB server on your machine — useful for local development and integration
+runs a DynamoDB-compatible server on your machine, useful for local development and integration
 tests without hitting AWS.
 
 Point the provider at it by setting `ServiceURL` and disabling HTTPS:
 
 ```csharp
-optionsBuilder.UseDynamo(options =>
-    options.ConfigureDynamoDbClientConfig(config =>
-    {
-        config.ServiceURL = "http://localhost:8000";
-        config.AuthenticationRegion = "us-east-1";
-        config.UseHttp = true;
-    }));
+protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    => optionsBuilder.UseDynamo(options =>
+        options.ConfigureDynamoDbClientConfig(config =>
+        {
+            config.ServiceURL = "http://localhost:8000";
+            config.AuthenticationRegion = "us-east-1";
+            config.UseHttp = true;
+        }));
 ```
 
 !!! tip "Credentials for DynamoDB Local"
 
-    DynamoDB Local does not validate credentials. Any non-empty string works. If the standard
-    credential chain cannot resolve real AWS credentials in your environment, set dummy values via
-    environment variables:
+    DynamoDB Local does not validate credentials — any non-empty string works. You have two options:
+
+    **Option 1 — environment variables.** Set these before running your app or tests and the
+    standard AWS credential chain will pick them up automatically:
 
     ```bash
     AWS_ACCESS_KEY_ID=local
     AWS_SECRET_ACCESS_KEY=local
     ```
 
-If you want to share the same `AmazonDynamoDBClient` across multiple test contexts, inject it via
-`DynamoDbClient` instead:
+    **Option 2 — pass credentials explicitly via `BasicAWSCredentials`.** Use this when you cannot
+    or do not want to set environment variables — for example, in a test fixture that manages its
+    own client:
+
+    ```csharp
+    new AmazonDynamoDBClient(
+        new BasicAWSCredentials("test", "test"),
+        new AmazonDynamoDBConfig { ServiceURL = "http://localhost:8000" });
+    ```
+
+When multiple test contexts need to share a single connection — for example, in a test fixture that
+resets tables between tests — register a shared client via `DynamoDbClient`:
 
 ```csharp
 var localClient = new AmazonDynamoDBClient(
@@ -116,7 +157,8 @@ var localClient = new AmazonDynamoDBClient(
         UseHttp = true,
     });
 
-optionsBuilder.UseDynamo(o => o.DynamoDbClient(localClient));
+protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    => optionsBuilder.UseDynamo(o => o.DynamoDbClient(localClient));
 ```
 
 ## Authentication and Region
@@ -135,16 +177,16 @@ options.ConfigureDynamoDbClientConfig(config =>
     config.RegionEndpoint = RegionEndpoint.USWest2);
 ```
 
-To use explicit credentials — for example, from a secrets store or injected at runtime:
+To use explicit credentials — for example, read from a secrets store at startup:
 
 ```csharp
 var credentials = new BasicAWSCredentials(accessKey, secretKey);
-var client = new AmazonDynamoDBClient(credentials, new AmazonDynamoDBConfig
+var dynamoClient = new AmazonDynamoDBClient(credentials, new AmazonDynamoDBConfig
 {
     RegionEndpoint = RegionEndpoint.USEast1,
 });
 
-optionsBuilder.UseDynamo(o => o.DynamoDbClient(client));
+optionsBuilder.UseDynamo(o => o.DynamoDbClient(dynamoClient));
 ```
 
 ## See also
