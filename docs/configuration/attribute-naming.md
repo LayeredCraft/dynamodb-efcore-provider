@@ -5,15 +5,16 @@ description: How property names map to DynamoDB attribute names and how to custo
 
 # Attribute Naming
 
-_By default the provider applies CamelCase to all CLR property names when writing to DynamoDB.
+_By default the provider applies CamelCase to property names in the model when resolving DynamoDB
+attribute names.
 You can switch to a different built-in convention, supply a custom naming function, or pin
 individual properties to an explicit attribute name._
 
 ## Default Naming Convention
 
-The provider applies **CamelCase** to every scalar property that has no explicit attribute name
+The provider applies **CamelCase** to every declared property that has no explicit attribute name
 configured. This happens automatically at model finalization — you do not need to call anything to
-get it:
+get it.
 
 | CLR property name | DynamoDB attribute name (default) |
 | ----------------- | --------------------------------- |
@@ -54,6 +55,9 @@ Available values:
 | `KebabCase`               | `OrderDate` → `order-date`                     |
 | `UpperSnakeCase`          | `OrderDate` → `ORDER_DATE`                     |
 
+Built-in conventions use Humanizer-style word splitting, so acronyms map naturally (for example,
+`URLValue` → `url_value`, `PK` → `pk`).
+
 Use `None` to opt out of all automatic transformation and keep CLR names as-is:
 
 ```csharp
@@ -68,8 +72,15 @@ Pass a `Func<string, string>` delegate for transformations not covered by the bu
 b.HasAttributeNamingConvention(name => name.ToUpperInvariant());
 ```
 
-The delegate receives the CLR property name and returns the DynamoDB attribute name. It is called
-once per property during model finalization.
+The delegate receives the model property name (including user-defined shadow properties) and
+returns the DynamoDB attribute name. It is called once per declared property during model
+finalization.
+
+!!! note "Scope of convention-based renaming"
+
+    Convention-based renaming applies to EF model members (entity properties, key properties, and
+    owned-type containing/member attributes). It does not rewrite ad-hoc nested map keys provided
+    as runtime data values (for example, dictionary entry keys).
 
 ## Per-Property Override
 
@@ -94,7 +105,7 @@ This is the recommended pattern when your DynamoDB table uses short, generic key
 ## Owned Types
 
 Owned entity types inherit the naming convention from their root entity. If the root uses
-SnakeCase, all owned scalar properties also use SnakeCase unless explicitly overridden on the
+SnakeCase, all owned declared properties also use SnakeCase unless explicitly overridden on the
 owned type:
 
 ```csharp
