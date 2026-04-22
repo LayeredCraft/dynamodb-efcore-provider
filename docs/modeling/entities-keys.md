@@ -76,8 +76,7 @@ Explicit composite-key mapping:
 
 ```csharp
 modelBuilder.Entity<Order>(b =>
-{
-    b.ToTable("Orders");
+h    b.ToTable("Orders");
     b.HasPartitionKey(x => x.CustomerId);
     b.HasSortKey(x => x.OrderId);
 });
