@@ -9,10 +9,34 @@ _The provider communicates with DynamoDB through the AWS SDK's `IAmazonDynamoDB`
 control which client it uses — and how that client is configured — through the `UseDynamo` options
 builder._
 
+## Default behavior
+
+Calling `UseDynamo()` with no arguments is all you need to get started. The provider creates an
+`AmazonDynamoDBClient` automatically using the standard AWS credential chain and the region
+configured in your environment:
+
+**OnConfiguring:**
+
+```csharp
+protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    => optionsBuilder.UseDynamo();
+```
+
+**Dependency injection (`AddDbContext`):**
+
+```csharp
+// Program.cs
+builder.Services.AddDbContext<ShopContext>(options => options.UseDynamo());
+```
+
+Region and credentials are resolved from environment variables, `~/.aws/credentials`, or the
+IAM instance profile — see [Authentication and Region](#authentication-and-region) for the full
+precedence order.
+
 ## Configuring the DynamoDB Client
 
-The options builder exposes three methods for client configuration. They are mutually usable and
-resolved in priority order at startup:
+If the defaults are not enough — for example, you need to pin a region, point at DynamoDB Local,
+or attach custom retry behavior — the options builder exposes three methods:
 
 | Priority    | Method                                                        | When to use                                                                        |
 | ----------- | ------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
@@ -23,17 +47,15 @@ resolved in priority order at startup:
 When `DynamoDbClient` is set, the other two options are ignored — the provider uses the injected
 client as-is.
 
-!!! note
-
-    These options are set inside the `UseDynamo` callback. The callback itself works identically
-    whether you call `UseDynamo` from `OnConfiguring` or from `AddDbContext` — the choice of
-    registration style does not affect which client method you use. See
-    [DbContext Options](dbcontext.md) if you are deciding between those two approaches.
+Each subsection below shows both the `OnConfiguring` and `AddDbContext` forms. The `UseDynamo`
+callback is identical in both — the registration style is covered in [DbContext Options](dbcontext.md).
 
 ### Inline callback configuration
 
 `ConfigureDynamoDbClientConfig` is the lightest option — the provider creates the client for you
-after you configure the `AmazonDynamoDBConfig`:
+after you configure the `AmazonDynamoDBConfig`.
+
+**OnConfiguring:**
 
 ```csharp
 protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
@@ -44,14 +66,28 @@ protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         }));
 ```
 
+**Dependency injection (`AddDbContext`):**
+
+```csharp
+// Program.cs
+builder.Services.AddDbContext<ShopContext>(options =>
+    options.UseDynamo(o =>
+        o.ConfigureDynamoDbClientConfig(config =>
+        {
+            config.RegionEndpoint = RegionEndpoint.EUWest1;
+        })));
+```
+
 Use this for simple cases where you only need to set a region or endpoint and do not need to share
 the client with other services.
 
 ### Supplying a base config object
 
-`DynamoDbClientConfig` accepts a fully constructed `AmazonDynamoDBConfig`. Use this when the
-config object is built elsewhere — for example, deserialized from application settings — and you
-want the provider to create the client from it:
+`DynamoDbClientConfig` accepts a fully constructed `AmazonDynamoDBConfig`. This fits naturally
+with dependency injection when the config values come from `IConfiguration` or the options pattern,
+since `AddDbContext` gives you access to the service provider.
+
+**OnConfiguring:**
 
 ```csharp
 var sdkConfig = new AmazonDynamoDBConfig
@@ -63,10 +99,27 @@ protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     => optionsBuilder.UseDynamo(o => o.DynamoDbClientConfig(sdkConfig));
 ```
 
+**Dependency injection (`AddDbContext`) — reading from `IConfiguration`:**
+
+```csharp
+// Program.cs
+builder.Services.AddDbContext<ShopContext>((serviceProvider, options) =>
+{
+    var config = serviceProvider.GetRequiredService<IConfiguration>();
+    var sdkConfig = new AmazonDynamoDBConfig
+    {
+        RegionEndpoint = RegionEndpoint.GetBySystemName(config["AWS:Region"]),
+    };
+    options.UseDynamo(o => o.DynamoDbClientConfig(sdkConfig));
+});
+```
+
 ### Injecting a pre-built client
 
 Use `DynamoDbClient` when you need full control over the client — attaching a custom retry policy,
-sharing a single instance across multiple contexts, or swapping in a mock during tests:
+sharing a single instance across multiple contexts, or swapping in a mock during tests.
+
+**OnConfiguring:**
 
 ```csharp
 var dynamoClient = new AmazonDynamoDBClient(new AmazonDynamoDBConfig
@@ -78,21 +131,18 @@ protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     => optionsBuilder.UseDynamo(o => o.DynamoDbClient(dynamoClient));
 ```
 
-In an ASP.NET Core app, you typically register `IAmazonDynamoDB` in the DI container and pass it
-through `AddDbContext`, so both the context and other services share the same client instance:
+**Dependency injection (`AddDbContext`) — there is no need to register the client separately in
+the container:**
 
 ```csharp
 // Program.cs
-builder.Services.AddSingleton<IAmazonDynamoDB>(new AmazonDynamoDBClient(new AmazonDynamoDBConfig
+var dynamoClient = new AmazonDynamoDBClient(new AmazonDynamoDBConfig
 {
     RegionEndpoint = RegionEndpoint.USEast1,
-}));
-
-builder.Services.AddDbContext<ShopContext>((serviceProvider, options) =>
-{
-    var client = serviceProvider.GetRequiredService<IAmazonDynamoDB>();
-    options.UseDynamo(o => o.DynamoDbClient(client));
 });
+
+builder.Services.AddDbContext<ShopContext>(options =>
+    options.UseDynamo(o => o.DynamoDbClient(dynamoClient)));
 ```
 
 ### Retrieving the resolved client
