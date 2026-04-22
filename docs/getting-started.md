@@ -35,6 +35,7 @@ Each C# class maps to items in a DynamoDB table. Properties map to DynamoDB attr
 public class Product
 {
     public required string Id { get; set; }
+    public required string Category { get; set; }
     public required string Name { get; set; }
     public decimal Price { get; set; }
 }
@@ -75,28 +76,26 @@ public class ShopContext : DbContext
 }
 ```
 
-!!! tip "Using DI with `OnConfiguring`"
+!!! tip "Using dependency injection"
 
-    These two approaches are not mutually exclusive. A context that configures itself via
-    `OnConfiguring` can still be registered with a DI container using `AddDbContext<T>()` — the
-    container handles lifetime, and the inline configuration handles provider options.
+    `OnConfiguring` and DI are not mutually exclusive. A context with `OnConfiguring` can be
+    registered as-is — the container handles lifetime, and the inline configuration handles provider
+    options:
 
     ```csharp
     services.AddDbContext<ShopContext>();
     ```
 
-### Dependency injection
+    You can also pass the provider options through `AddDbContext` directly, which is useful when you
+    want to supply a pre-configured `IAmazonDynamoDB` instance (for custom retry policies, endpoints,
+    or credentials):
 
-For ASP.NET Core or hosted services, pass the provider options through `AddDbContext`:
+    ```csharp
+    services.AddDbContext<ShopContext>(options =>
+        options.UseDynamo(o => o.DynamoDbClient(dynamoClient)));
+    ```
 
-```csharp
-services.AddDbContext<ShopContext>(options =>
-    options.UseDynamo(o => o.DynamoDbClient(dynamoClient)));
-```
-
-`DynamoDbClient` accepts a pre-configured `IAmazonDynamoDB` instance — useful when you need full
-control over the AWS SDK client (retries, endpoint, credentials). See
-[Configuration](configuration/index.md) for all available options.
+    See [Configuration](configuration/index.md) for all available options.
 
 ## Map the Entity
 
@@ -128,9 +127,7 @@ await using var context = new ShopContext();
 var all = await context.Products.ToListAsync();
 
 // Filter by partition key — efficient; hits a single partition
-var product = await context.Products
-    .Where(p => p.Id == "prod-42")
-    .FirstOrDefaultAsync();
+var product = await context.Products.FirstOrDefaultAsync(p => p.Id == "prod-42");
 ```
 
 Always filter on the partition key when possible. Queries without a partition key condition perform
@@ -141,7 +138,7 @@ a full table scan, which is slow and expensive on large tables.
 **Add**
 
 ```csharp
-var product = new Product { Id = "prod-99", Name = "Widget", Price = 9.99m };
+var product = new Product { Id = "prod-99", Category = "hardware", Name = "Widget", Price = 9.99m };
 context.Products.Add(product);
 await context.SaveChangesAsync();
 ```
@@ -152,9 +149,7 @@ Mutate a tracked entity — one returned from a query on the same context — an
 `SaveChangesAsync`. EF Core's change tracker detects the modified properties and issues an UPDATE.
 
 ```csharp
-var product = await context.Products
-    .Where(p => p.Id == "prod-99")
-    .FirstOrDefaultAsync();
+var product = await context.Products.FirstOrDefaultAsync(p => p.Id == "prod-99");
 
 product!.Price = 12.99m;
 await context.SaveChangesAsync();
@@ -163,17 +158,18 @@ await context.SaveChangesAsync();
 **Delete**
 
 ```csharp
-var product = await context.Products
-    .Where(p => p.Id == "prod-99")
-    .FirstOrDefaultAsync();
+var product = await context.Products.FirstOrDefaultAsync(p => p.Id == "prod-99");
 
 context.Products.Remove(product!);
 await context.SaveChangesAsync();
 ```
 
-!!! warning "All save operations are async"
+!!! warning "Everything is async"
 
-    `SaveChanges()` (synchronous) is not supported — always use `SaveChangesAsync()`.
+    The DynamoDB SDK has no synchronous I/O. All operations — queries and writes alike — must use
+    their async counterparts: `ToListAsync`, `FirstOrDefaultAsync`, `SingleOrDefaultAsync`,
+    `SaveChangesAsync`, and so on. `ToList()`, `SaveChanges()`, and other synchronous methods are
+    not supported and will throw.
 
 ## See Also
 
