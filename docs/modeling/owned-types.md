@@ -11,7 +11,8 @@ _Owned types are stored inline within the owning entity's DynamoDB item as neste
 
 `OwnsOne<T>()` maps a navigation to a DynamoDB Map (`AttributeValue.M`) embedded within the
 owning item. Any non-primitive, non-collection navigation that EF Core can discover by convention
-is automatically treated as owned — you don't always need to call `OwnsOne` explicitly.
+is typically treated as owned by this provider's relationship-discovery convention, so you don't
+always need to call `OwnsOne` explicitly.
 
 ```csharp
 modelBuilder.Entity<Customer>(builder =>
@@ -86,6 +87,12 @@ Supported CLR collection shapes: `T[]`, `List<T>`, `IList<T>`, `IReadOnlyList<T>
     type for change tracking identity. It does not appear in DynamoDB and is not affected by
     attribute naming conventions.
 
+!!! note "Collection updates replace the full list"
+
+    Owned collection updates are written as full-list replacements of the containing DynamoDB
+    attribute. Modifying, adding, or removing an element updates the entire list value, not an
+    in-place list element delta.
+
 ## Query Behavior
 
 ### Filtering
@@ -133,6 +140,11 @@ SELECT "pk", "profile" FROM "Customers"
 
 ## Nesting Limits and Constraints
 
+### Nesting and Size Limits
+
+Owned types are embedded in the same DynamoDB item as the root entity. That means all nested
+owned data shares one item-size budget and is read/written as part of that root item.
+
 !!! warning "DynamoDB item size limit"
 
     DynamoDB imposes a maximum item size of 400 KB. Deeply nested or large owned collections
@@ -140,6 +152,9 @@ SELECT "pk", "profile" FROM "Customers"
 
 Owned types can be nested to any depth — an owned collection can contain owned references, which
 can themselves contain further owned types:
+
+In practice, keep nesting depth and collection size intentional: deeper/larger graphs are valid,
+but they increase item size and payload cost for every read/write of the owning entity.
 
 ```csharp
 builder.OwnsOne(x => x.Profile, profile =>
@@ -151,6 +166,12 @@ builder.OwnsOne(x => x.Profile, profile =>
 builder.OwnsMany(x => x.Contacts, contact =>
     contact.OwnsOne(x => x.Address));
 ```
+
+### Null and Missing Attribute Behavior
+
+When reading owned navigations, the provider distinguishes optional vs required semantics from the
+EF model and applies them consistently for both missing attributes and explicit DynamoDB `NULL`
+values.
 
 Null and missing attribute handling:
 
