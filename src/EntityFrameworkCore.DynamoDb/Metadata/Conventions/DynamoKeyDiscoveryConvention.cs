@@ -27,10 +27,70 @@ namespace EntityFrameworkCore.DynamoDb.Metadata.Conventions;
 ///     conventional partition key name do not fall back to EF Core's <c>Id</c>/<c>[Key]</c> discovery.
 ///     Annotation-setting and ambiguity validation are handled separately by
 ///     <c>DynamoKeyAnnotationConvention</c>.
+///     <para>
+///         For owned collection element types (<c>OwnsMany</c>), EF Core 10's base
+///         <c>DiscoverKeyProperties</c> calls <c>CreateUniqueProperty(int, "Id")</c> when no
+///         naming-convention candidates are found, producing a shadow int property named "Id".
+///         If the user later explicitly configures a CLR property also named "Id" (e.g.,
+///         <c>results.Property(r =&gt; r.Id).HasAttributeName("id")</c>), the shadow and CLR
+///         properties conflict, triggering repeated convention invocations until EF Core hits
+///         its recursion limit. This convention overrides <c>DiscoverKeyProperties</c> for
+///         <c>OwnsMany</c> types to bypass that path entirely; ordinal shadow key creation
+///         is left to <c>OwnedTypePrimaryKeyConvention</c> during model finalization.
+///     </para>
 /// </remarks>
 public class DynamoKeyDiscoveryConvention(ProviderConventionSetBuilderDependencies dependencies)
     : KeyDiscoveryConvention(dependencies)
 {
+    /// <summary>
+    ///     Returns the candidate key properties for the entity type, bypassing EF Core's
+    ///     naming-convention discovery for owned collection elements.
+    /// </summary>
+    /// <remarks>
+    ///     For <c>OwnsMany</c> entity types, returns the ownership FK properties plus an ordinal
+    ///     shadow int property. If no ordinal exists yet, one is created immediately using the
+    ///     <c>__OwnedOrdinal</c> base name via <c>CreateUniqueProperty</c>. Creating the ordinal
+    ///     here (during model building) rather than in <c>OwnedTypePrimaryKeyConvention</c>
+    ///     (finalization) avoids exceeding EF Core's convention-invocation recursion limit.
+    ///     Using a non-<c>Id</c> base name prevents conflicts with user-defined CLR <c>Id</c>
+    ///     properties that would otherwise cause convention ping-pong when EF Core's base
+    ///     implementation calls <c>CreateUniqueProperty(int, "Id")</c>.
+    ///     For all other entity types (root, <c>OwnsOne</c>), delegates to the base implementation.
+    /// </remarks>
+    protected override List<IConventionProperty>? DiscoverKeyProperties(IConventionEntityType entityType)
+    {
+        if (entityType.IsOwned())
+        {
+            var ownership = entityType.FindOwnership();
+            if (ownership?.DeclaringEntityType == entityType && !ownership.IsUnique)
+            {
+                var keyProps = ownership.Properties.ToList();
+                var ordinal = entityType.GetProperties()
+                    .FirstOrDefault(p => p.IsShadowProperty()
+                        && p.ClrType == typeof(int)
+                        && !ownership.Properties.Contains(p));
+                if (ordinal != null)
+                {
+                    keyProps.Add(ordinal);
+                    return keyProps;
+                }
+
+                // No ordinal yet — create one now using a name that cannot conflict with a
+                // user-defined CLR "Id" property. Creating it during model building (rather
+                // than deferring to OwnedTypePrimaryKeyConvention at finalization) keeps
+                // total convention invocations within EF Core's recursion limit: the
+                // IPropertyAddedConvention this triggers re-enters DiscoverKeyProperties,
+                // finds the newly-created ordinal, and returns immediately.
+                var ordinalBuilder = entityType.Builder.CreateUniqueProperty(typeof(int), "__OwnedOrdinal", true);
+                if (ordinalBuilder != null)
+                    keyProps.Add(ordinalBuilder.Metadata);
+                return keyProps;
+            }
+        }
+
+        return base.DiscoverKeyProperties(entityType);
+    }
+
     /// <summary>Configures EF key candidates from DynamoDB conventional-name properties.</summary>
     /// <remarks>
     ///     For root entity types, key discovery requires a conventional partition key property (
@@ -39,6 +99,8 @@ public class DynamoKeyDiscoveryConvention(ProviderConventionSetBuilderDependenci
     ///     conventional partition key leave key discovery empty so EF does not implicitly promote
     ///     <c>Id</c> as the table key. Annotations are not set here — that is the responsibility of
     ///     <c>DynamoKeyAnnotationConvention</c>.
+    ///     For owned entity types, delegates to the base implementation (deduplicate only), since
+    ///     <c>DiscoverKeyProperties</c> already returns the correct FK + ordinal list.
     /// </remarks>
     protected override void ProcessKeyProperties(
         IList<IConventionProperty> keyProperties,
@@ -46,23 +108,6 @@ public class DynamoKeyDiscoveryConvention(ProviderConventionSetBuilderDependenci
     {
         if (entityType.IsOwned())
         {
-            var ownership = entityType.FindOwnership();
-            if (ownership is { IsUnique: false })
-            {
-                // For owned collection elements (OwnsMany), let base deduplicate the
-                // pre-populated [FK..., shadow_ordinal] list, then strip any non-FK,
-                // non-int candidates (e.g. a CLR 'Id' property discovered by EF naming
-                // conventions). DynamoDB owned collection PKs are FK props + int ordinal only.
-                base.ProcessKeyProperties(keyProperties, entityType);
-                var fkSet = new HashSet<IConventionProperty>(ownership.Properties);
-                for (var i = keyProperties.Count - 1; i >= 0; i--)
-                {
-                    if (!fkSet.Contains(keyProperties[i]) && keyProperties[i].ClrType != typeof(int))
-                        keyProperties.RemoveAt(i);
-                }
-                return;
-            }
-
             base.ProcessKeyProperties(keyProperties, entityType);
             return;
         }
