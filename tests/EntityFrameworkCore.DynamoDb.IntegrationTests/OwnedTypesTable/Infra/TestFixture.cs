@@ -3,6 +3,25 @@ using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.OwnedTypesTable;
 
+public abstract class OwnedCollectionWithIdPropertyTestFixture : DynamoTestFixtureBase
+{
+    protected OwnedCollectionWithIdPropertyTestFixture(DynamoContainerFixture fixture) : base(fixture)
+        => EnsureClassTableInitialized(
+            AnalysisReportTable.TableName,
+            AnalysisReportTable.CreateTable);
+
+    public OwnedCollectionWithIdPropertyDbContext Db
+    {
+        get
+        {
+            field ??= new OwnedCollectionWithIdPropertyDbContext(
+                CreateOptions<OwnedCollectionWithIdPropertyDbContext>(
+                    options => options.DynamoDbClient(Client)));
+            return field;
+        }
+    }
+}
+
 public abstract class OwnedTypesTableTestFixture : DynamoTestFixtureBase
 {
     protected OwnedTypesTableTestFixture(DynamoContainerFixture fixture) : base(fixture)

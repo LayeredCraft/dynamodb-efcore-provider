@@ -46,9 +46,24 @@ public class DynamoKeyDiscoveryConvention(ProviderConventionSetBuilderDependenci
     {
         if (entityType.IsOwned())
         {
-            // DynamoDB has no Id-based key convention. Owned type keys are managed
-            // by EF FK conventions (OwnsOne) and OwnedTypePrimaryKeyConvention (OwnsMany).
-            keyProperties.Clear();
+            var ownership = entityType.FindOwnership();
+            if (ownership is { IsUnique: false })
+            {
+                // For owned collection elements (OwnsMany), let base deduplicate the
+                // pre-populated [FK..., shadow_ordinal] list, then strip any non-FK,
+                // non-int candidates (e.g. a CLR 'Id' property discovered by EF naming
+                // conventions). DynamoDB owned collection PKs are FK props + int ordinal only.
+                base.ProcessKeyProperties(keyProperties, entityType);
+                var fkSet = new HashSet<IConventionProperty>(ownership.Properties);
+                for (var i = keyProperties.Count - 1; i >= 0; i--)
+                {
+                    if (!fkSet.Contains(keyProperties[i]) && keyProperties[i].ClrType != typeof(int))
+                        keyProperties.RemoveAt(i);
+                }
+                return;
+            }
+
+            base.ProcessKeyProperties(keyProperties, entityType);
             return;
         }
 
