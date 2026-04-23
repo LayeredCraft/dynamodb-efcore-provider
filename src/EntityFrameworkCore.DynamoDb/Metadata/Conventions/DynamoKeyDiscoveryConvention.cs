@@ -46,7 +46,9 @@ public class DynamoKeyDiscoveryConvention(ProviderConventionSetBuilderDependenci
     {
         if (entityType.IsOwned())
         {
-            base.ProcessKeyProperties(keyProperties, entityType);
+            // DynamoDB has no Id-based key convention. Owned type keys are managed
+            // by EF FK conventions (OwnsOne) and OwnedTypePrimaryKeyConvention (OwnsMany).
+            keyProperties.Clear();
             return;
         }
 
