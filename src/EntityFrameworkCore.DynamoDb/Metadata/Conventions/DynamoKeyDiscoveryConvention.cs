@@ -1,3 +1,4 @@
+using EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
@@ -66,24 +67,24 @@ public class DynamoKeyDiscoveryConvention(ProviderConventionSetBuilderDependenci
             {
                 var keyProps = ownership.Properties.ToList();
                 var ordinal = entityType.GetProperties()
-                    .FirstOrDefault(p => p.IsShadowProperty()
-                        && p.ClrType == typeof(int)
-                        && !ownership.Properties.Contains(p));
+                    .FirstOrDefault(p => p[DynamoAnnotationNames.OwnedOrdinalKey] as bool? == true);
                 if (ordinal != null)
                 {
                     keyProps.Add(ordinal);
                     return keyProps;
                 }
 
-                // No ordinal yet — create one now using a name that cannot conflict with a
-                // user-defined CLR "Id" property. Creating it during model building (rather
-                // than deferring to OwnedTypePrimaryKeyConvention at finalization) keeps
-                // total convention invocations within EF Core's recursion limit: the
-                // IPropertyAddedConvention this triggers re-enters DiscoverKeyProperties,
-                // finds the newly-created ordinal, and returns immediately.
+                // No provider-stamped ordinal yet — create one using a name that cannot conflict
+                // with user-defined CLR or shadow "Id" properties. Stamp the annotation immediately
+                // so subsequent calls (triggered by IPropertyAddedConvention) find it and return
+                // without recursing further. Creating it here (during model building, not
+                // finalization) keeps total convention invocations within EF Core's recursion limit.
                 var ordinalBuilder = entityType.Builder.CreateUniqueProperty(typeof(int), "__OwnedOrdinal", true);
                 if (ordinalBuilder != null)
+                {
+                    ordinalBuilder.HasAnnotation(DynamoAnnotationNames.OwnedOrdinalKey, true);
                     keyProps.Add(ordinalBuilder.Metadata);
+                }
                 return keyProps;
             }
         }

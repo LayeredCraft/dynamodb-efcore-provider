@@ -12,20 +12,7 @@ public static class DynamoPropertyExtensions
     {
         /// <summary>Determines whether this property is the ordinal key part for an owned collection element.</summary>
         public bool IsOwnedOrdinalKeyProperty()
-        {
-            if (property.DeclaringType is not IReadOnlyEntityType entityType)
-                return false;
-
-            var ownership = entityType.FindOwnership();
-            if (ownership == null || ownership.IsUnique)
-                return false;
-
-            if (property.ClrType != typeof(int) || !property.IsPrimaryKey())
-                return false;
-
-            var fkProperties = ownership.Properties;
-            return !fkProperties.Contains(property);
-        }
+            => property[DynamoAnnotationNames.OwnedOrdinalKey] as bool? == true;
 
         /// <summary>
         ///     Returns the DynamoDB attribute name for this property, falling back to the CLR property
