@@ -44,20 +44,7 @@ nav = [
     { "Optimistic Concurrency" = "saving/concurrency.md" }
   ] },
   { "Diagnostics and Logging" = "diagnostics.md" },
-  { "Limitations" = "limitations.md" },
-  { "Archive" = [
-    { "Getting Started" = "archive/getting-started.md" },
-    { "Configuration" = "archive/configuration.md" },
-    { "Architecture" = "archive/architecture.md" },
-    { "Operators" = "archive/operators.md" },
-    { "Pagination" = "archive/pagination.md" },
-    { "Projections" = "archive/projections.md" },
-    { "Owned Types" = "archive/owned-types.md" },
-    { "Concurrency" = "archive/concurrency.md" },
-    { "Diagnostics" = "archive/diagnostics.md" },
-    { "Indexes" = "archive/indexes.md" },
-    { "Limitations" = "archive/limitations.md" }
-  ] }
+  { "Limitations" = "limitations.md" }
 ]
 
 [project.markdown_extensions.attr_list]
