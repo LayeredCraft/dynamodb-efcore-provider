@@ -1,3 +1,4 @@
+using EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using EntityFrameworkCore.DynamoDb.ValueGeneration.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
@@ -49,6 +50,9 @@ public sealed class OwnedTypePrimaryKeyConvention : IModelFinalizingConvention
             typeof(int),
             OwnedOrdinalPropertyBaseName,
             true);
+
+        if (propertyBuilder != null)
+            propertyBuilder.HasAnnotation(DynamoAnnotationNames.OwnedOrdinalKey, true);
 
         return propertyBuilder?.Metadata;
     }
