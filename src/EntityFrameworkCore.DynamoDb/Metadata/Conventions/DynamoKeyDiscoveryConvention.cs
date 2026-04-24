@@ -80,11 +80,15 @@ public class DynamoKeyDiscoveryConvention(ProviderConventionSetBuilderDependenci
                 // without recursing further. Creating it here (during model building, not
                 // finalization) keeps total convention invocations within EF Core's recursion limit.
                 var ordinalBuilder = entityType.Builder.CreateUniqueProperty(typeof(int), "__OwnedOrdinal", true);
-                if (ordinalBuilder != null)
-                {
-                    ordinalBuilder.HasAnnotation(DynamoAnnotationNames.OwnedOrdinalKey, true);
-                    keyProps.Add(ordinalBuilder.Metadata);
-                }
+                if (ordinalBuilder == null)
+                    throw new InvalidOperationException(
+                        $"The DynamoDB provider could not create the ordinal shadow key property for owned " +
+                        $"collection element type '{entityType.ClrType.Name}'. The entity type builder " +
+                        $"rejected the property, which would produce a primary key containing only the " +
+                        $"foreign key properties and break change tracking for the owned collection.");
+
+                ordinalBuilder.HasAnnotation(DynamoAnnotationNames.OwnedOrdinalKey, true);
+                keyProps.Add(ordinalBuilder.Metadata);
                 return keyProps;
             }
         }
