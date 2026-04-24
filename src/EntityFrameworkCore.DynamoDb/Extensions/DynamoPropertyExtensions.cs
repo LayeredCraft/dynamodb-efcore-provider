@@ -12,7 +12,8 @@ public static class DynamoPropertyExtensions
     {
         /// <summary>Determines whether this property is the ordinal key part for an owned collection element.</summary>
         public bool IsOwnedOrdinalKeyProperty()
-            => property[DynamoAnnotationNames.OwnedOrdinalKey] as bool? == true;
+            => property[DynamoAnnotationNames.OwnedOrdinalKey] as bool? == true
+                && property.IsPrimaryKey();
 
         /// <summary>
         ///     Returns the DynamoDB attribute name for this property, falling back to the CLR property
