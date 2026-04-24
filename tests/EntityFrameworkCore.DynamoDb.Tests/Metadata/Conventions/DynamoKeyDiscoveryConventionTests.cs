@@ -754,4 +754,60 @@ public class DynamoKeyDiscoveryConventionTests
         var ownedType = ctx.Model.FindEntityType(typeof(OwnedPart))!;
         ownedType["Dynamo:SortKeyPropertyName"].Should().BeNull();
     }
+
+    // -------------------------------------------------------------------
+    // User-defined shadow int on OwnsMany must not be promoted as ordinal
+    // -------------------------------------------------------------------
+
+    private sealed record OwnedItemWithUserShadowInt
+    {
+        public string Label { get; set; } = null!;
+    }
+
+    private sealed record OwnerWithUserShadowInt
+    {
+        public string PK { get; set; } = null!;
+        public List<OwnedItemWithUserShadowInt> Items { get; set; } = null!;
+    }
+
+    private sealed class UserShadowIntOnOwnedContext(DbContextOptions options) : DbContext(options)
+    {
+        public DbSet<OwnerWithUserShadowInt> Owners { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<OwnerWithUserShadowInt>(b =>
+            {
+                b.ToTable("UserShadowIntTable");
+                b.HasPartitionKey(x => x.PK);
+                b.OwnsMany(x => x.Items, items =>
+                {
+                    items.Property<int>("Revision");
+                });
+            });
+    }
+
+    [Fact]
+    public void UserShadowIntProperty_OnOwnedCollection_IsNotTreatedAsOrdinal()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var ctx = new UserShadowIntOnOwnedContext(
+            BuildOptions<UserShadowIntOnOwnedContext>(client));
+
+        var ownedType = ctx.Model.FindEntityType(typeof(OwnedItemWithUserShadowInt))!;
+
+        // User shadow int must NOT be the owned ordinal
+        var revisionProperty = ownedType.FindProperty("Revision")!;
+        revisionProperty.IsOwnedOrdinalKeyProperty().Should().BeFalse();
+
+        // The provider-created ordinal must exist and be the only ordinal
+        var ordinalProperty = ownedType.GetProperties().Single(p => p.IsOwnedOrdinalKeyProperty());
+        ordinalProperty.Name.Should().StartWith("__OwnedOrdinal");
+        ordinalProperty.IsShadowProperty().Should().BeTrue();
+        ordinalProperty.ClrType.Should().Be(typeof(int));
+
+        // The ordinal must be in the primary key; Revision must not be
+        var pk = ownedType.FindPrimaryKey()!;
+        pk.Properties.Should().Contain(ordinalProperty);
+        pk.Properties.Should().NotContain(revisionProperty);
+    }
 }

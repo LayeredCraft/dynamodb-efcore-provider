@@ -25,6 +25,8 @@ public class SaveChangesTableDbContext(DbContextOptions options) : DbContext(opt
 
     public DbSet<QuotedAttributeItem> QuotedAttributeItems => Set<QuotedAttributeItem>();
 
+    public DbSet<SparseGsiItem> SparseGsiItems => Set<SparseGsiItem>();
+
     /// <summary>Creates a context configured to use the provided DynamoDB client instance.</summary>
     public static SaveChangesTableDbContext Create(IAmazonDynamoDB client)
         => new(
@@ -142,6 +144,20 @@ public class SaveChangesTableDbContext(DbContextOptions options) : DbContext(opt
             builder.HasSortKey(x => x.Sk);
             builder.Property(x => x.Version).IsConcurrencyToken();
             builder.Property(x => x.DisplayName).HasAttributeName("O'Brien");
+        });
+
+        modelBuilder.Entity<SparseGsiItem>(builder =>
+        {
+            builder.ToTable(SaveChangesItemTable.TableName);
+            builder.HasPartitionKey(x => x.Pk);
+            builder.HasSortKey(x => x.Sk);
+            builder.Property(x => x.Version).IsConcurrencyToken();
+            builder.Property(x => x.Gs1Pk).HasAttributeName("gs1-pk");
+            builder.Property(x => x.Gs1Sk).HasAttributeName("gs1-sk");
+            builder.HasGlobalSecondaryIndex(
+                "gs1-index",
+                nameof(SparseGsiItem.Gs1Pk),
+                nameof(SparseGsiItem.Gs1Sk));
         });
     }
 }

@@ -119,3 +119,22 @@ public sealed record OrderSnapshot
 //
 //     public int Priority { get; set; }
 // }
+
+/// <summary>Root entity that owns a collection of <see cref="ScoredResult"/> elements.</summary>
+public sealed record AnalysisReport
+{
+    public string Pk { get; set; } = null!;
+
+    public List<ScoredResult> Results { get; set; } = [];
+}
+
+/// <summary>
+///     Owned collection element with a CLR property named <c>Id</c> — mirrors the real-world
+///     scenario that triggered the fix in <c>DynamoKeyDiscoveryConvention</c>.
+/// </summary>
+public sealed record ScoredResult
+{
+    public string Id { get; set; } = null!;
+
+    public float Score { get; set; }
+}

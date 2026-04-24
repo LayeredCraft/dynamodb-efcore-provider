@@ -194,6 +194,67 @@ public class DynamoClientWrapperTests
         wrapper.Client.Config.UseHttp.Should().BeTrue();
     }
 
+    [Fact]
+    public async Task ExecuteWriteAsync_WithEmptyParameters_OmitsParametersFromRequest()
+    {
+        var diagnosticsLogger =
+            Substitute.For<IDiagnosticsLogger<DbLoggerCategory.Database.Command>>();
+        diagnosticsLogger.Logger.Returns(NullLogger.Instance);
+
+        var executionStrategy = new TestExecutionStrategy();
+        var dbContextOptions = new DbContextOptionsBuilder<DbContext>().UseDynamo().Options;
+
+        var client = Substitute.For<IAmazonDynamoDB>();
+        client
+            .ExecuteStatementAsync(Arg.Any<ExecuteStatementRequest>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new ExecuteStatementResponse()));
+
+        var wrapper = new TestDynamoClientWrapper(
+            dbContextOptions,
+            executionStrategy,
+            diagnosticsLogger,
+            client);
+
+        await wrapper.ExecuteWriteAsync("INSERT INTO \"Test\" VALUE {'pk': 'a', 'sk': 'b'}", []);
+
+        await client
+            .Received(1)
+            .ExecuteStatementAsync(
+                Arg.Is<ExecuteStatementRequest>(r => r.Parameters == null),
+                Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ExecuteWriteAsync_WithNonEmptyParameters_SendsParametersInRequest()
+    {
+        var diagnosticsLogger =
+            Substitute.For<IDiagnosticsLogger<DbLoggerCategory.Database.Command>>();
+        diagnosticsLogger.Logger.Returns(NullLogger.Instance);
+
+        var executionStrategy = new TestExecutionStrategy();
+        var dbContextOptions = new DbContextOptionsBuilder<DbContext>().UseDynamo().Options;
+
+        var client = Substitute.For<IAmazonDynamoDB>();
+        client
+            .ExecuteStatementAsync(Arg.Any<ExecuteStatementRequest>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new ExecuteStatementResponse()));
+
+        var wrapper = new TestDynamoClientWrapper(
+            dbContextOptions,
+            executionStrategy,
+            diagnosticsLogger,
+            client);
+
+        var parameters = new List<AttributeValue> { new() { S = "val" } };
+        await wrapper.ExecuteWriteAsync("INSERT INTO \"Test\" VALUE {'pk': ?}", parameters);
+
+        await client
+            .Received(1)
+            .ExecuteStatementAsync(
+                Arg.Is<ExecuteStatementRequest>(r => r.Parameters != null && r.Parameters.Count == 1),
+                Arg.Any<CancellationToken>());
+    }
+
     private static async Task<List<Dictionary<string, AttributeValue>>> EnumerateAsync(
         IAsyncEnumerable<Dictionary<string, AttributeValue>> enumerable)
     {

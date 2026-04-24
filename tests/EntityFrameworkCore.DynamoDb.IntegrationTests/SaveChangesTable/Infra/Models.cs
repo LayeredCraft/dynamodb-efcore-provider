@@ -305,3 +305,24 @@ public sealed record Address
 
     public string? PostalCode { get; set; }
 }
+
+/// <summary>
+///     Entity for testing sparse GSI inserts. <c>Gs1Pk</c> and <c>Gs1Sk</c> are nullable so only
+///     items that explicitly populate them participate in the index.
+/// </summary>
+public sealed record SparseGsiItem
+{
+    public string Pk { get; set; } = null!;
+
+    public string Sk { get; set; } = null!;
+
+    public long Version { get; set; }
+
+    public string Name { get; set; } = null!;
+
+    public string? OptionalNote { get; set; }
+
+    public string? Gs1Pk { get; set; }
+
+    public string? Gs1Sk { get; set; }
+}
