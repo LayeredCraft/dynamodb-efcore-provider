@@ -41,7 +41,7 @@ touching the DI container:
 protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
 {
     optionsBuilder
-        .UseDynamoDb(...)
+        .UseDynamo(...)
         .LogTo(Console.WriteLine, LogLevel.Information);
 }
 ```

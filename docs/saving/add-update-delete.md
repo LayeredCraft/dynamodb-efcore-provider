@@ -90,7 +90,9 @@ records which properties changed from their snapshot values.
 
 ```csharp
 var order = await db.Orders
-    .SingleAsync(o => o.Pk == "CUSTOMER#42" && o.Sk == "ORDER#2026-001", cancellationToken);
+    .Where(o => o.Pk == "CUSTOMER#42" && o.Sk == "ORDER#2026-001")
+    .AsAsyncEnumerable()
+    .SingleAsync(cancellationToken);
 
 order.Status = "shipped";
 order.ShippedAt = DateTimeOffset.UtcNow;
@@ -144,7 +146,9 @@ Call `db.Remove(entity)` (or set `db.Entry(entity).State = EntityState.Deleted`)
 
 ```csharp
 var order = await db.Orders
-    .SingleAsync(o => o.Pk == "CUSTOMER#42" && o.Sk == "ORDER#2026-001", cancellationToken);
+    .Where(o => o.Pk == "CUSTOMER#42" && o.Sk == "ORDER#2026-001")
+    .AsAsyncEnumerable()
+    .SingleAsync(cancellationToken);
 
 db.Orders.Remove(order);
 await db.SaveChangesAsync(cancellationToken);
