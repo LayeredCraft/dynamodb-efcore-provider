@@ -146,7 +146,7 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
                         new ExecuteStatementRequest
                         {
                             Statement = sqlQuery.Sql,
-                            Parameters = sqlQuery.Parameters.ToList(),
+                            Parameters = sqlQuery.Parameters.Count > 0 ? sqlQuery.Parameters.ToList() : null,
                             // Maps directly to ExecuteStatementRequest.Limit (evaluation budget).
                             Limit = _limit,
                             NextToken = _seedNextToken,
@@ -293,7 +293,7 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
                     new ExecuteStatementRequest
                     {
                         Statement = sqlQuery.Sql,
-                        Parameters = sqlQuery.Parameters.ToList(),
+                        Parameters = sqlQuery.Parameters.Count > 0 ? sqlQuery.Parameters.ToList() : null,
                         Limit = _limit,
                         NextToken = _seedNextToken,
                     },

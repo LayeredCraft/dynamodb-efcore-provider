@@ -66,7 +66,8 @@ public class DynamoClientWrapper : IDynamoClientWrapper
             {
                 var request = new ExecuteStatementRequest
                 {
-                    Statement = state.statement, Parameters = state.parameters,
+                    Statement = state.statement,
+                    Parameters = state.parameters?.Count > 0 ? state.parameters : null,
                 };
 
                 await Client.ExecuteStatementAsync(request, ct).ConfigureAwait(false);
