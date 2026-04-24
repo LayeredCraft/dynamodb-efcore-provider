@@ -1,131 +1,180 @@
 ---
+title: Getting Started
+description: Install and configure the DynamoDB EF Core provider.
 icon: lucide/rocket
 ---
 
 # Getting Started
 
-This guide walks through the first end-to-end setup for the provider: install the package, configure DynamoDB, define your context and entity mapping, then execute your first query.
+_This page walks through installing the provider, configuring a `DbContext`, mapping an entity to a
+DynamoDB table, and running your first query and write._
 
-## Add package
+## Prerequisites
+
+- **.NET 10** and **EF Core 10**
+- An **AWS account** with a DynamoDB table already created, or
+    [DynamoDB Local](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DynamoDBLocal.html)
+    running locally for development
+- **AWS credentials** resolvable by the standard credential chain — environment variables,
+    `~/.aws/credentials`, an IAM instance profile, etc.
+
+The DynamoDB table must exist before the provider can query it. The provider does not create or
+migrate tables.
+
+## Installation
 
 ```bash
-dotnet add package --prerelease EntityFrameworkCore.DynamoDb
+dotnet add package EntityFrameworkCore.DynamoDb
 ```
 
-## Configure DynamoDB
+## Define an Entity
 
-Configure the provider once in your application startup (for example `Program.cs`) using `UseDynamo(...)`.
-
-For local development (for example DynamoDB Local), configure the AWS SDK client endpoint in `AddDbContext`:
+Each C# class maps to items in a DynamoDB table. Properties map to DynamoDB attributes.
 
 ```csharp
-using Microsoft.EntityFrameworkCore;
-
-builder.Services.AddDbContext<AppDbContext>(optionsBuilder =>
-    optionsBuilder.UseDynamo(options =>
-    {
-        options.ConfigureDynamoDbClientConfig(config =>
-        {
-            config.ServiceURL = "http://localhost:8000";
-            config.AuthenticationRegion = "us-east-1";
-            config.UseHttp = true;
-        });
-    }));
-```
-
-!!! note
-
-    Use one configuration location for your app. Prefer startup/DI (`AddDbContext`) and keep
-    `DbContext` focused on model mapping. Use `OnConfiguring` only for special cases such as
-    small samples or tests where DI is not used.
-
-See [Configuration](configuration.md) for client precedence, advanced options, and transaction settings.
-
-## Create context
-
-Define a `DbContext` and register your `DbSet`.
-
-```csharp
-using Microsoft.EntityFrameworkCore;
-
-public sealed class AppDbContext : DbContext
+public class Product
 {
-    public DbSet<User> Users => Set<User>();
+    public required string Id { get; set; }
+    public required string Category { get; set; }
+    public required string Name { get; set; }
+    public decimal Price { get; set; }
+}
+```
 
-    public AppDbContext(DbContextOptions<AppDbContext> options)
-        : base(options)
-    {
-    }
+Property names map to attribute names as-is by default. See
+[Attribute Naming](configuration/attribute-naming.md) for conventions and overrides.
+
+## Configure DbContext
+
+### Direct configuration
+
+Override `OnConfiguring` to set up the provider inline. This is the quickest path and works well for
+console apps or tests pointing at DynamoDB Local:
+
+```csharp
+public class ShopContext : DbContext
+{
+    public DbSet<Product> Products => Set<Product>();
+
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+        => optionsBuilder.UseDynamo(options =>
+            options.ConfigureDynamoDbClientConfig(config =>
+            {
+                config.ServiceURL = "http://localhost:8000"; // DynamoDB Local
+                config.AuthenticationRegion = "us-east-1";
+                config.UseHttp = true;
+            }));
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.Entity<User>(b =>
+        modelBuilder.Entity<Product>(b =>
         {
-            b.ToTable("App");
-            b.HasPartitionKey(x => x.PK);
-            b.HasSortKey(x => x.SK);
+            b.ToTable("Products");
+            b.HasPartitionKey(p => p.Id);
         });
     }
 }
 ```
 
-## Define table/entity
+!!! tip "Using dependency injection"
 
-The provider maps to an existing DynamoDB table. Create the table in AWS (or DynamoDB Local) and map the entity to that table name and key schema.
+    `OnConfiguring` and DI are not mutually exclusive. A context with `OnConfiguring` can be
+    registered as-is — the container handles lifetime, and the inline configuration handles provider
+    options:
+
+    ```csharp
+    services.AddDbContext<ShopContext>();
+    ```
+
+    You can also pass the provider options through `AddDbContext` directly, which is useful when you
+    want to supply a pre-configured `IAmazonDynamoDB` instance (for custom retry policies, endpoints,
+    or credentials):
+
+    ```csharp
+    services.AddDbContext<ShopContext>(options =>
+        options.UseDynamo(o => o.DynamoDbClient(dynamoClient)));
+    ```
+
+    See [Configuration](configuration/index.md) for all available options.
+
+## Map the Entity
+
+Inside `OnModelCreating`, every entity needs at minimum a table name and a partition key:
 
 ```csharp
-public sealed class User
+modelBuilder.Entity<Product>(b =>
 {
-    public required string PK { get; set; }
-    public required string SK { get; set; }
-    public required string Email { get; set; }
-    public required string DisplayName { get; set; }
-}
-```
-
-```csharp
-modelBuilder.Entity<User>(b =>
-{
-    b.ToTable("App");
-    b.HasPartitionKey(x => x.PK);
-    b.HasSortKey(x => x.SK);
+    b.ToTable("Products");          // DynamoDB table name — must already exist
+    b.HasPartitionKey(p => p.Id);   // partition key attribute
 });
 ```
 
-!!! note
-
-    Root DynamoDB entities should use `HasPartitionKey(...)` / `HasSortKey(...)`.
-    Do not configure `HasKey(...)` directly on root entities.
-
-See [Indexes](indexes.md) for key conventions and secondary index configuration.
-
-## Execute query
-
-Start with key-based query shapes for predictable behavior.
-Assuming `context` is resolved from DI:
+If your table has a sort key, declare it too:
 
 ```csharp
-var profile = await context.Users
-    .Where(x => x.PK == "USER#42" && x.SK == "PROFILE")
-    .FirstOrDefaultAsync();
+b.HasSortKey(p => p.Category);
 ```
+
+See [Entities and Keys](modeling/entities-keys.md) for composite keys, secondary indexes, and owned
+types.
+
+## Run a Query
 
 ```csharp
-var users = await context.Users
-    .Where(x => x.PK == "ORG#7" && x.SK.StartsWith("USER#"))
-    .OrderBy(x => x.SK)
-    .ToListAsync();
+await using var context = new ShopContext();
+
+// Retrieve all products (full scan — avoid on large tables)
+var all = await context.Products.ToListAsync();
+
+// Filter by partition key — efficient; hits a single partition
+var product = await context.Products.FirstOrDefaultAsync(p => p.Id == "prod-42");
 ```
 
-!!! note
+Always filter on the partition key when possible. Queries without a partition key condition perform
+a full table scan, which is slow and expensive on large tables.
 
-    Operator support is intentionally strict. If a LINQ shape is unsupported, translation fails rather than silently switching to client evaluation.
-    Use [Operators](operators.md) as the source of truth.
+## Save Data
 
-## Next steps
+**Add**
 
-- [Configuration](configuration.md)
-- [Indexes](indexes.md)
-- [Operators](operators.md)
-- [Limitations](limitations.md)
-- [Diagnostics](diagnostics.md)
+```csharp
+var product = new Product { Id = "prod-99", Category = "hardware", Name = "Widget", Price = 9.99m };
+context.Products.Add(product);
+await context.SaveChangesAsync();
+```
+
+**Update**
+
+Mutate a tracked entity — one returned from a query on the same context — and call
+`SaveChangesAsync`. EF Core's change tracker detects the modified properties and issues an UPDATE.
+
+```csharp
+var product = await context.Products.FirstOrDefaultAsync(p => p.Id == "prod-99");
+
+product!.Price = 12.99m;
+await context.SaveChangesAsync();
+```
+
+**Delete**
+
+```csharp
+var product = await context.Products.FirstOrDefaultAsync(p => p.Id == "prod-99");
+
+context.Products.Remove(product!);
+await context.SaveChangesAsync();
+```
+
+!!! warning "Everything is async"
+
+    The DynamoDB SDK has no synchronous I/O. All operations — queries and writes alike — must use
+    their async counterparts: `ToListAsync`, `FirstOrDefaultAsync`, `SingleOrDefaultAsync`,
+    `SaveChangesAsync`, and so on. `ToList()`, `SaveChanges()`, and other synchronous methods are
+    not supported and will throw.
+
+## See Also
+
+- [DynamoDB Concepts for EF Developers](dynamodb-concepts.md) — read this if DynamoDB is new to you
+- [Configuration](configuration/index.md) — client setup, options, and `DbContext` registration
+- [Data Modeling](modeling/index.md) — keys, owned types, secondary indexes, and inheritance
+- [Querying](querying/index.md) — supported LINQ operators, filtering, projection, and pagination
+- [Limitations](limitations.md) — what is not supported and why

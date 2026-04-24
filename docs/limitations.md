@@ -1,273 +1,321 @@
 ---
+title: Limitations
+description: Known limitations and unsupported features in the DynamoDB EF Core provider.
 icon: lucide/triangle-alert
 ---
 
 # Limitations
 
-## Not supported yet
+_The DynamoDB EF Core provider does not support all standard EF Core features. This page is the
+authoritative reference for what is not supported, why, and what workaround (if any) applies._
 
-- Synchronous query enumeration.
-- `ToQueryString()` support for the custom querying enumerable.
-- Large parts of LINQ translation surface (see `operators.md`).
-- Method calls in `Where` predicates except supported `Contains` patterns (`string.Contains(string)` and in-memory collection membership); other `string.Contains` overloads (such as `char` or `StringComparison`) are not translated.
-- Provider-side key encoding helpers (prefix/suffix composition).
-- Provider option for `ConsistentRead`.
-- `Take`: removed. Use `.Limit(n)` for evaluation budget.
-- `Limit(n)` combined with `First*`: throws at translation time. Use `.AsAsyncEnumerable().FirstOrDefaultAsync(ct)`.
-- `Last` / `LastOrDefault`: deferred (requires reverse traversal).
+## Unsupported LINQ Operators
 
-## What this means in practice
+The following operators throw `InvalidOperationException` at translation time. The provider does
+not fall back to in-process evaluation for these — the exception surfaces before any DynamoDB
+request is sent.
 
-- Async writes are supported via `SaveChangesAsync` for Added/Modified/Deleted root entities,
-    including mutations to owned references (`OwnsOne`), owned collections (`OwnsMany`), and
-    primitive collection properties (lists, dictionaries, and sets).
-- Synchronous `SaveChanges` is not supported.
-- Transactional multi-root `SaveChangesAsync` is constrained by DynamoDB `ExecuteTransaction` limits:
-    - maximum 100 write statements,
-    - no multiple operations on the same item in a single transaction.
-- By default (`TransactionOverflowBehavior.Throw`), when transactional atomicity is required
-    (`AutoTransactionBehavior.WhenNeeded` for multi-root saves, or `Always`), the provider throws
-    if those constraints are violated; it does not silently downgrade to non-atomic execution.
-- When `AutoTransactionBehavior.Never` is set for multi-root saves, writes run through non-atomic
-    `BatchExecuteStatement` chunk iteration (default max batch size 25, configurable down to 1).
-- `BatchExecuteStatement` can partially succeed within a chunk; successful statements may commit
-    even when other statements fail.
-- If `TransactionOverflowBehavior.UseChunking` is configured, overflowing multi-root writes can be
-    executed as multiple `ExecuteTransaction` chunks (up to `MaxTransactionSize`, max 100 per
-    chunk), but overall SaveChanges atomicity is lost across chunk boundaries.
-- Chunking requires `acceptAllChangesOnSuccess: true`. `SaveChanges(false)`/
-    `SaveChangesAsync(false)` is rejected for chunking overflow paths because successful chunks must
-    be accepted immediately in the tracker.
-- Non-atomic batch chunk iteration under `AutoTransactionBehavior.Never` also requires
-    `acceptAllChangesOnSuccess: true` for the same reason.
-- `AutoTransactionBehavior.Always` still throws when one atomic transaction cannot represent the
-    full write unit.
-- Unsupported LINQ shapes fail during translation with `InvalidOperationException` including provider-specific details.
-- Discriminator guardrails for unsupported query shapes are deferred; support is limited to the
-    current operator surface in `operators.md`.
+See [Supported Operators](querying/operators.md) for the full list of what does translate.
 
-## First\* safe-path requirement
+| Category             | Operators                                                                    | Why                                                                         |
+| -------------------- | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Aggregation          | `Count`, `LongCount`, `Sum`, `Average`, `Min`, `Max`                         | DynamoDB PartiQL has no aggregate functions                                 |
+| Grouping             | `GroupBy`                                                                    | `GROUP BY` is not supported in DynamoDB PartiQL                             |
+| Joins                | `Join`, `GroupJoin`, `LeftJoin`, `RightJoin`, `SelectMany`, `DefaultIfEmpty` | DynamoDB does not support cross-item joins                                  |
+| Set operations       | `Union`, `Concat`, `Except`, `Intersect`                                     | Not supported in DynamoDB PartiQL                                           |
+| Offset / paging      | `Skip`, `Take`, `ElementAt`, `ElementAtOrDefault`                            | DynamoDB has no offset semantics — use `Limit(n)` for an evaluation budget  |
+| Element operators    | `Single`, `SingleOrDefault`, `Any`, `All`                                    | Not supported server-side                                                   |
+| Reverse traversal    | `Last`, `LastOrDefault`, `Reverse`                                           | Requires reverse index traversal, not implemented                           |
+| Deduplication        | `Distinct`                                                                   | `SELECT DISTINCT` is not supported in DynamoDB PartiQL                      |
+| Type filtering       | `OfType<T>`, `Cast<T>`                                                       | Not supported                                                               |
+| Conditional skipping | `SkipWhile`, `TakeWhile`                                                     | Not supported                                                               |
+| Queryable `Contains` | `Queryable.Contains(source, item)`                                           | Not supported; in-memory `collection.Contains(property)` translates to `IN` |
 
-`First*` (`FirstAsync`, `FirstOrDefaultAsync`) works server-side **only** on safe key-only queries:
-
-1. No user-specified `Limit(n)`.
-1. The `WHERE` clause contains a partition-key equality condition.
-1. The `WHERE` clause uses only key attributes, and any sort-key predicate is a valid DynamoDB
-    key condition (`=`, `<`, `<=`, `>`, `>=`, `BETWEEN`, `begins_with`).
-
-Any query that does not meet all three conditions fails at translation time with
-`InvalidOperationException`. Use `.AsAsyncEnumerable()` to evaluate client-side instead:
+**Workaround for unsupported operators:** switch to `AsAsyncEnumerable()` before the unsupported
+operator to move evaluation in-process:
 
 ```csharp
-// Non-key filter or Limit(n) present — use AsAsyncEnumerable():
-var result = await db.Orders
-    .Where(x => x.UserId == userId && x.IsActive)
-    .Limit(50)
-    .AsAsyncEnumerable()
-    .FirstOrDefaultAsync(cancellationToken);
+// ❌ Throws at translation time
+var count = await context.Orders.CountAsync();
+
+// ✅ In-process
+var count = await context.Orders.AsAsyncEnumerable().CountAsync();
 ```
 
-**Sort-key filter expressions are not safe**: `SK IN (...)` and `SK = A || SK = B` reference only
-key attributes but are DynamoDB **filter expressions**, not key conditions. DynamoDB's `Limit`
-counts *evaluated* items (not matched items), so `Limit=1` on a filter predicate can silently miss
-matching rows later in the partition. These shapes throw at translation time — use
-`.AsAsyncEnumerable().FirstOrDefaultAsync()` instead.
+In-process evaluation fetches all matching pages from DynamoDB before applying the operator.
+Use with care on large result sets.
+
+### `Take` vs `Limit(n)`
+
+`Take(n)` is not translated — use the DynamoDB-specific `Limit(n)` extension instead. The
+distinction matters: `Limit(n)` maps to `ExecuteStatementRequest.Limit`, which is an *evaluation
+budget* (DynamoDB reads up to `n` items then filters). It is not a result count. See
+[Ordering and Limiting](querying/ordering-limiting.md) for details.
+
+## Query Shape Constraints
+
+### `First` / `FirstOrDefault` — Key-Only Safe Path
+
+`FirstAsync` and `FirstOrDefaultAsync` set an implicit `Limit=1` on the server request. Because
+DynamoDB counts *evaluated* items against `Limit` (not matched items), this is only safe when the
+`WHERE` clause guarantees at most one evaluation pass before a match:
+
+1. No user-specified `Limit(n)` on the query.
+1. The `WHERE` clause includes a partition-key equality condition.
+1. Any sort-key predicate is a valid DynamoDB key condition (`=`, `<`, `<=`, `>`, `>=`,
+    `BETWEEN`, `begins_with`).
+
+Queries that do not meet all three conditions throw `InvalidOperationException` at translation
+time.
+
+**Sort-key filter expressions are unsafe.** `SK IN (...)` and `SK = A OR SK = B` reference only
+key attributes but are DynamoDB *filter expressions*, not key conditions. `Limit=1` on a filter
+predicate can silently miss matching rows later in the partition:
 
 ```csharp
 var skValues = new[] { "ORDER#1", "ORDER#2" };
 
-// ❌ Throws — SK IN is a filter expression, not a key condition
-await db.Orders
+// ❌ Throws — SK IN is a filter expression
+await context.Orders
     .Where(x => x.Pk == pk && skValues.Contains(x.Sk))
     .FirstOrDefaultAsync(ct);
 
-// ✅ Correct — client-side selection (add Limit(n) only when you want a bounded sample)
-var result = await db.Orders
+// ✅ Client-side selection via AsAsyncEnumerable()
+var result = await context.Orders
     .Where(x => x.Pk == pk && skValues.Contains(x.Sk))
     .AsAsyncEnumerable()
     .FirstOrDefaultAsync(ct);
 ```
 
-**Exception — no sort key**: When the queried base-table source has no sort key, each partition
-contains at most one item. `First*` with PK equality is safe.
+**Exception — PK-only table.** When the base table has no sort key, each partition holds at most
+one item and `First*` with a PK equality condition is always safe.
 
-**Inheritance / shared-table**: The provider injects a discriminator predicate automatically (for
-example, `$type = 'OrderEntity'`). For server-side `First*`, this is considered safe only when the
-query is guaranteed to evaluate at most one base-table item before filtering:
+**Shared-table / inheritance.** The provider injects a discriminator predicate automatically.
+Server-side `First*` is safe only when the query evaluates at most one base-table item before
+filtering: a PK-only lookup on a PK-only table, or a PK+SK equality on a PK+SK table. All
+other shapes throw — use `AsAsyncEnumerable().FirstOrDefaultAsync()`.
 
-- PK-only lookup on a PK-only table, or
-- PK+SK equality lookup on a PK+SK base table.
+### `WithNextToken` Cannot Combine with `First*`
 
-Derived/shared-table PK-only queries on PK+SK tables now fail translation to avoid false
-`null`/empty results caused by DynamoDB evaluating `Limit=1` before discriminator filtering.
-Use `.AsAsyncEnumerable().FirstOrDefaultAsync()` for those shapes.
+Combining `.WithNextToken(token)` with `FirstAsync` or `FirstOrDefaultAsync` throws
+`InvalidOperationException`. A seeded continuation token implies resuming an arbitrary position in
+a result set, which is incompatible with the server-side `Limit=1` required by `First*`.
 
-**Why**: DynamoDB evaluates a bounded number of items per request. A non-safe `First*` server-side
-would silently discard matching items beyond the evaluation range, hiding client-side selection.
-The `AsAsyncEnumerable()` bridge makes the client-side step explicit.
+### `OrderBy` — Only Key Columns
 
-## Operator-specific status
+`OrderBy` and `OrderByDescending` only accept partition-key and sort-key column expressions.
+Non-key attribute ordering throws at translation time. For multi-partition queries, the partition
+key must be the first `ORDER BY` column.
 
-- Use `operators.md` as the canonical source for supported and unsupported operators.
+### Automatic Index Selection — `ALL` Projection Only
 
-## Single-table mapping constraints
+Automatic index selection (`Conservative` or `SuggestOnly` mode) rejects GSI/LSI candidates
+whose projection type is not `ALL`. `KEYS_ONLY` and `INCLUDE` index candidates are logged as
+rejected (`DYNAMO_IDX005`) and excluded from selection. Use an explicit `.WithIndex("name")`
+hint to route to a non-ALL index.
 
-- A "table group" is the set of entity types mapped to the same DynamoDB table name.
-- Only the table primary key (partition key and optional sort key) is modeled today.
-- Secondary indexes (GSI/LSI) can be configured and queried. Explicit `.WithIndex("name")`
-    rewrites the PartiQL `FROM` clause to `FROM "Table"."Index"`. Conservative automatic index
-    selection is opt-in via `UseAutomaticIndexSelection(...)`.
-- Key encoding is not implemented as a provider feature; construct PK/SK values in your domain model.
-- For table groups containing multiple concrete entity types, a discriminator is required and is
-    validated at startup.
-- For inheritance hierarchies, querying a base type can materialize derived CLR types; base-type
-    hierarchy queries project hierarchy attributes needed for derived-type materialization.
+### No `string.StartsWith` or `string.Contains` Overloads with Culture / Char
 
-## Primitive collection CLR shape limits
+`string.StartsWith(s)` and `string.Contains(s)` translate to `begins_with` and `contains` in
+PartiQL only for the single-`string`-argument overloads. Overloads that accept a `char`, a
+`StringComparison`, or a `CultureInfo` argument throw at translation time.
 
-- Primitive collections are supported only for specific CLR shapes.
-- Custom or derived concrete collection types are rejected during model validation.
-- Supported list shapes: `T[]`, `List<T>`, `IList<T>`, `IReadOnlyList<T>`.
-- Supported set shapes: `HashSet<T>`, `ISet<T>`, `IReadOnlySet<T>`.
-- Supported dictionary shapes (string keys only): `Dictionary<string,TValue>`,
-    `IDictionary<string,TValue>`, `IReadOnlyDictionary<string,TValue>`, and
-    `ReadOnlyDictionary<string,TValue>`.
+### `SELECT *` Never Emitted
 
-## Optimistic concurrency limitations
+The provider always emits an explicit column list. This means projected types must have
+all required attributes available in the index or table projection. See
+[Projection](querying/projection.md).
 
-- Concurrency is opt-in. Only properties configured with `.IsConcurrencyToken()` (or
-    `[ConcurrencyCheck]`) participate in concurrency predicates.
-- Concurrency token values are application-managed. The provider does not auto-increment or
-    auto-generate token values during `SaveChangesAsync`.
-- `IsRowVersion()` / `ValueGeneratedOnAddOrUpdate` is not supported yet and is rejected during
-    model validation.
+## Write Constraints
 
-## Key mapping validation limits
+### Synchronous `SaveChanges` Not Supported
 
-- Root entities cannot use `HasKey(...)` to configure table keys; use `HasPartitionKey(...)` and optional `HasSortKey(...)` instead.
-- Shared-table mappings must agree on key shape: all entity types mapped to the same table must be either PK-only or PK+SK.
-- Shared-table mappings must use consistent physical PK/SK attribute names across entity types.
-- Key properties must resolve to DynamoDB key-compatible provider types: string, number, or binary (`byte[]`).
-- `bool` key mappings are rejected.
-- Converter-backed key mappings are validated against the converter provider CLR type.
-- Table partition/sort key properties must be required/non-nullable, and converter provider types for table keys must also be non-nullable.
-- Secondary-index key properties must resolve to key-compatible provider types, but may be nullable (items without key-compatible scalar secondary-key attributes are not indexed).
+`SaveChanges()` throws `InvalidOperationException`. Use `SaveChangesAsync()`.
 
-Practical implication:
+The AWS SDK for .NET exposes only async I/O for DynamoDB; the provider does not wrap async calls
+synchronously to avoid deadlocks in ASP.NET Core and other async-first hosts.
+
+### Key Mutation Not Supported
+
+Changing a primary key (partition key or sort key) value on an entity and calling
+`SaveChangesAsync` throws `NotSupportedException`. DynamoDB items are identified by their key
+attributes; updating a key requires deleting the old item and inserting a new one. The provider
+does not perform this two-step operation automatically — detach and re-add the entity with the
+new key instead.
+
+### DynamoDB Transaction Limits
+
+DynamoDB `ExecuteTransaction` enforces two hard limits:
+
+1. **Maximum 100 write statements per transaction.** When `AutoTransactionBehavior` is
+    `WhenNeeded` or `Always` and the save unit exceeds `MaxTransactionSize` (default 100,
+    max 100), the provider throws `InvalidOperationException` unless
+    `TransactionOverflowBehavior.UseChunking` is configured.
+
+1. **No duplicate items within a single transaction.** Writing the same DynamoDB item more than
+    once in a single transaction throws `InvalidOperationException` — the provider validates this
+    client-side before sending the request to DynamoDB.
+
+See [Transactions](saving/transactions.md) for configuration details.
+
+### `acceptAllChangesOnSuccess: false` Restrictions
+
+Chunked transactional writes (`TransactionOverflowBehavior.UseChunking`) and non-atomic batched
+writes (`AutoTransactionBehavior.Never`) both require `acceptAllChangesOnSuccess: true`.
+Calling `SaveChangesAsync(acceptAllChangesOnSuccess: false)` with either path throws, because
+partial chunk commits must be accepted immediately in the change tracker to avoid replaying
+already-persisted writes on retry.
+
+### PartiQL Statement Length Limit
+
+DynamoDB enforces an 8 192-byte limit on `ExecuteStatement` statement text. The provider
+validates statement length before sending and throws `InvalidOperationException` if the limit is
+exceeded. This can happen with entities that have a large number of scalar properties. Consider
+splitting such entities across multiple `SaveChanges` calls or reducing the number of mapped
+properties.
+
+### EF Core Bulk Operations Not Supported
+
+`ExecuteUpdateAsync()` and `ExecuteDeleteAsync()` (EF Core 7+ bulk operations) are not
+implemented. Bulk mutations must be performed by loading entities, modifying them in the change
+tracker, and calling `SaveChangesAsync()`.
+
+### `BatchExecuteStatement` Partial Success
+
+When `AutoTransactionBehavior.Never` is set, the provider executes writes via `BatchExecuteStatement`.
+DynamoDB executes each statement independently — a batch can partially succeed, meaning some
+writes commit while others fail. The provider throws if the response contains any failed
+operations, but successful statements within that batch have already been persisted.
+
+## Modeling Constraints
+
+### Key Configuration
+
+Root entities must use `HasPartitionKey(...)` and, when needed, `HasSortKey(...)`. Using
+`HasKey(...)` or `[Key]` on a root entity throws during model validation.
+
+Key properties must be non-nullable and resolve to a DynamoDB key-compatible provider type:
+`string`, a numeric type (`int`, `long`, `decimal`, etc.), or `byte[]`. `bool` key properties
+are rejected — `bool` has no built-in converter to a key-compatible type. Other non-primitive
+types such as `Guid`, `DateTime`, and `enum` work because EF Core's built-in converters map
+them to key-compatible store types (for example `Guid`/`DateTime` to `string`, and enum to
+its numeric underlying value).
+
+All entity types mapped to the same table must agree on key shape (PK-only or PK+SK) and must
+use identical physical attribute names for the partition key and sort key.
+
+See [Entities and Keys](modeling/entities-keys.md).
+
+### Secondary-Index Key Constraints
+
+Secondary-index key properties follow the same type requirements as table keys but may be nullable
+(items without a scalar key-compatible value for a GSI/LSI key attribute are simply not indexed).
+
+Local secondary indexes additionally require the table to define a sort key.
+
+See [Secondary Indexes](modeling/secondary-indexes.md).
+
+### Primitive Collection CLR Shapes
+
+Primitive collection properties are supported only for specific CLR shapes. Custom or derived
+collection types throw during model validation.
+
+| Collection kind | Supported CLR shapes                                                                                                                     |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| List            | `T[]`, `List<T>`, `IList<T>`, `IReadOnlyList<T>`                                                                                         |
+| Set             | `HashSet<T>`, `ISet<T>`, `IReadOnlySet<T>`                                                                                               |
+| Dictionary      | `Dictionary<string, TValue>`, `IDictionary<string, TValue>`, `IReadOnlyDictionary<string, TValue>`, `ReadOnlyDictionary<string, TValue>` |
+
+Dictionary keys must be `string`. Non-string-keyed dictionary types are not supported.
+
+### Concurrency Tokens — Application-Managed Only
+
+Concurrency tokens (`IsConcurrencyToken()` / `[ConcurrencyCheck]`) are supported, but the
+provider does not generate or increment token values automatically. Your application code must
+update the token value before calling `SaveChangesAsync`.
+
+`IsRowVersion()` and `ValueGenerated.OnAddOrUpdate` throw during model validation because the
+provider cannot guarantee auto-increment semantics on DynamoDB item writes.
+
+### Shared-Table Discriminator Constraints
+
+When multiple entity types share the same DynamoDB table, a discriminator is required. The
+following constraints are validated at startup:
+
+- Discriminator values must be unique within the table group.
+- All entity types in the group must use the same discriminator attribute name.
+- The discriminator attribute name must not collide with the partition key or sort key attribute
+    names.
+
+The default discriminator attribute name is `$type`.
+
+See [Single-Table Design](modeling/single-table-design.md).
+
+## Behavioral Differences from Standard EF Core
+
+### Async-Only Execution
+
+Synchronous query execution throws `InvalidOperationException`. This applies to all query
+enumeration, not just `SaveChanges`. Methods like `ToList()`, `First()`, and `Count()` on a
+`DbSet` will throw. Use `ToListAsync()`, `FirstAsync()`, `AsAsyncEnumerable()`, etc.
+
+### `ToQueryString()` Not Implemented
+
+`IQueryable<T>.ToQueryString()` throws `NotImplementedException`. To inspect generated PartiQL,
+enable command logging at `Information` level and read the `ExecutingPartiQlQuery` event. See
+[Diagnostics and Logging](diagnostics.md).
+
+### Parameterized Null Inconsistency
+
+When a nullable variable is `null` at runtime in a comparison (`x.Prop == someVar` where
+`someVar` is `null`), the provider parameterizes the query as `WHERE "Prop" = ?` with an
+`AttributeValue { NULL = true }`. This matches attributes stored with the DynamoDB NULL type but
+does **not** match MISSING attributes (attributes absent from the item).
+
+By contrast, a constant null comparison (`x.Prop == null`) translates to
+`"Prop" IS NULL OR "Prop" IS MISSING`, which covers both representations.
+
+DynamoDB PartiQL does not support `attr IS ?` (parameterized IS), so the two behaviors cannot
+be unified. If you need to match both NULL and MISSING via a runtime variable, use explicit
+functions:
 
 ```csharp
-// Invalid for root DynamoDB entities
-modelBuilder.Entity<Order>()
-    .HasKey(x => new { x.CustomerId, x.OrderId });
-
-// Required DynamoDB-specific mapping
-modelBuilder.Entity<Order>(b =>
-{
-    b.HasPartitionKey(x => x.CustomerId);
-    b.HasSortKey(x => x.OrderId);
-});
+// Explicit: matches both NULL and MISSING at runtime
+.Where(x => EF.Functions.IsNull(x.Prop) || EF.Functions.IsMissing(x.Prop))
 ```
 
-## Shared-table discriminator limits
-
-- Shared-table mappings with multiple concrete entity types require a discriminator.
-- The default discriminator attribute name is `$type` (configurable via EF Core
-    `HasEmbeddedDiscriminatorName`).
-- Default discriminator values are EF Core type short names (for example `UserEntity`).
-- Discriminator values must be unique within a shared table group.
-- Discriminator attribute names must be consistent across all entity types in a shared table group.
-- Discriminator attribute names must not collide with resolved PK/SK attribute names.
-- Missing or unknown discriminator values in returned items throw during materialization.
-- Inheritance queries follow EF Core discriminator semantics:
-    - `DbSet<BaseType>` materializes concrete types in that hierarchy.
-    - `DbSet<DerivedType>` materializes the derived subtree.
-    - Abstract types are never materialized.
-- Base-type hierarchy queries project hierarchy attributes needed for derived-type materialization.
-
-## Null comparison limitations
-
-### Parameterized null inconsistency {#parameterized-null-inconsistency}
-
-When a nullable variable is null at runtime (`x.Prop == someVar` where `someVar` is null),
-the query is parameterized as `WHERE "Prop" = ?` with `AttributeValue { NULL = true }`.
-This only matches attributes stored with the DynamoDB NULL type — it does **not** match
-MISSING attributes. DynamoDB PartiQL does not support `attr IS ?` (parameterized IS), so
-the consistent behavior of `== null` (constant) cannot be replicated for parameterized paths.
-
-This is a DynamoDB engine limitation. If you need to match both NULL and MISSING via a
-runtime variable, use `EF.Functions.IsNull(x.Prop) || EF.Functions.IsMissing(x.Prop)`.
-
-### Two-column nullable comparison {#null-column-comparison}
+### Two-Column Nullable Comparison
 
 Comparing two nullable columns directly (`x.A == x.B` where both are nullable) generates a
-binary `=` predicate. This will not return correct results when either column holds a NULL
-type or is MISSING, because DynamoDB PartiQL SQL semantics return MISSING (not TRUE) for
-equality comparisons involving NULL. There is no workaround for this shape at the provider
-level today.
+binary `=` predicate. When either column holds a NULL type or is MISSING, DynamoDB PartiQL
+returns MISSING (not TRUE) for the equality comparison — the row is excluded from results.
+There is no provider-level workaround for this shape.
 
-## Per-entity response metadata requires tracking queries
+### `ConsistentRead` Not Configurable via Provider
+
+The provider always sends `ConsistentRead = false` (eventually consistent reads). There is no
+provider-level option to enable consistent reads. To use consistent reads, obtain the raw client
+via `context.Database.GetDynamoClient()` and issue `ExecuteStatementAsync` requests directly with
+`ConsistentRead = true`.
+
+Provider-level `ConsistentRead` configuration is tracked for a future release.
+
+### Per-Entity Response Metadata Requires Tracking
 
 `context.Entry(entity).GetExecuteStatementResponse()` returns `null` for entities loaded via
-`AsNoTracking()` because shadow properties require a tracked `InternalEntityEntry`. The
-`ExecuteStatementResponse` is written into the entity's value buffer during materialization — that
-buffer does not exist for detached entities.
+`AsNoTracking()`. The `ExecuteStatementResponse` is stored in a shadow property that only exists
+on tracked entity entries. See [Diagnostics and Logging](diagnostics.md#response-metadata).
 
-```csharp
-// ✅ Tracking query — response is populated
-var item = await context.Items.Where(x => x.Pk == pk).FirstAsync();
-var response = context.Entry(item).GetExecuteStatementResponse(); // non-null
+### Owned Types in `Select` Project the Full Container
 
-// ❌ No-tracking query — response is null
-var item = await context.Items.AsNoTracking().Where(x => x.Pk == pk).FirstAsync();
-var response = context.Entry(item).GetExecuteStatementResponse(); // null
-```
+Accessing a nested owned property path in a `Select` projection
+(`x.Profile.Address.City`) triggers client-side extraction: the full owned container attribute
+(`"Profile"`) is fetched from DynamoDB and the nested value is read in-process. The path does
+translate server-side in `Where` predicates.
 
-To access response metadata on no-tracking queries, use `GetDynamoClient()` to call
-`ExecuteStatementAsync` directly.
+## See Also
 
-## Owned types query limitations
-
-### Direct owned collection queries (not supported)
-
-You cannot query an owned collection directly:
-
-```csharp
-// ❌ Not supported
-context.Items.SelectMany(x => x.Orders).Where(o => o.Total > 100)
-```
-
-**Workaround:** Use `AsAsyncEnumerable()` to switch to LINQ-to-objects:
-
-```csharp
-// ✅ Supported
-var orders = await context.Items
-    .AsAsyncEnumerable()
-    .SelectMany(x => x.Orders)
-    .Where(o => o.Total > 100)
-    .ToListAsync();
-```
-
-### Nested path access in Select (not supported)
-
-Nested owned property paths (`x.Profile.Address.City`) and list index access (`x.Tags[0]`) are
-translated to PartiQL in `Where` predicates only. Using them in a `Select` projection falls back
-to client-side extraction from the top-level owned container — the full owned container is
-fetched from DynamoDB rather than projecting just the nested attribute.
-
-```csharp
-// ✅ Supported: translates to WHERE "Profile"."Address"."City" = 'Seattle'
-context.Items.Where(x => x.Profile.Address.City == "Seattle")
-
-// ✅ Supported: translates to WHERE "Tags"[0] = 'featured'
-context.Items.Where(x => x.Tags[0] == "featured")
-
-// ⚠️ Client-side only: fetches full "Profile" attribute, extracts City in memory
-context.Items.Select(x => new { x.Pk, x.Profile.Address.City })
-```
-
-### Owned types and Include (not applicable)
-
-Owned types are always included in the root entity query; explicit `.Include()` is not needed
-(and will be ignored).
-
-For complete owned type behavior and examples, see [Owned Types](owned-types.md).
+- [Supported Operators](querying/operators.md)
+- [Querying](querying/index.md)
+- [Saving Data](saving/index.md)
+- [Diagnostics and Logging](diagnostics.md)

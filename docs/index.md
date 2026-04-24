@@ -1,97 +1,122 @@
 ---
 icon: lucide/house
+title: EntityFrameworkCore.DynamoDb
+description: Entity Framework Core provider for Amazon DynamoDB — write LINQ queries, get PartiQL.
 ---
 
 # EntityFrameworkCore.DynamoDb
 
-Entity Framework Core provider for AWS DynamoDB.
+_Use EF Core's familiar LINQ API against Amazon DynamoDB. Queries are translated to PartiQL and executed via the AWS SDK — no manual AttributeValue wrangling required._
 
-This provider translates LINQ queries to PartiQL and executes them with the AWS SDK.
+[![NuGet](https://img.shields.io/nuget/v/EntityFrameworkCore.DynamoDb.svg)](https://www.nuget.org/packages/EntityFrameworkCore.DynamoDb)
 
-!!! warning
+!!! note "Community project"
 
-    This project is still under active development and is not production-ready yet.
+    This is an independent, community-maintained library. It is not affiliated with, endorsed by, or supported by Amazon Web Services or Microsoft.
+
+!!! warning "Under active development"
+
+    This library is not yet stable. APIs may change between releases without notice.
+
+## Requirements
+
+| Dependency        | Version      |
+| ----------------- | ------------ |
+| .NET              | 10.0+        |
+| EF Core           | 10.0+        |
+| AWSSDK.DynamoDBv2 | (transitive) |
 
 ## Install
 
 ```bash
-dotnet add package --prerelease EntityFrameworkCore.DynamoDb
+dotnet add package EntityFrameworkCore.DynamoDb
 ```
 
-## Start here
+See [Getting Started](getting-started.md) for full setup instructions.
 
-1. Follow [Getting Started](getting-started.md) for package install, DynamoDB configuration,
-    `DbContext` setup, entity/table mapping, and first query execution.
-1. Review [Configuration](configuration.md) for client setup and transaction behavior.
-1. Use [Operators](operators.md) to confirm which LINQ shapes translate today.
-1. See [Pagination](pagination.md) for `Limit(n)`, `ToPageAsync`, and `WithNextToken` semantics.
-1. Read [Limitations](limitations.md) before adopting production query patterns.
-
-## Hello world
-
-Single-file minimal example from model + context to first query:
+## Quick Example
 
 ```csharp
-using Microsoft.EntityFrameworkCore;
-
-public sealed class User
+// Define your entity
+public class Order
 {
-    public required string PK { get; set; }
-    public required string SK { get; set; }
-    public required string Email { get; set; }
+    public string Pk { get; set; } = null!;   // e.g. "CUSTOMER#cust-42"
+    public string Sk { get; set; } = null!;   // e.g. "ORDER#ord-99"
+    public decimal Total { get; set; }
 }
 
-public sealed class AppDbContext : DbContext
+// Configure your DbContext
+public class ShopContext(DbContextOptions<ShopContext> options) : DbContext(options)
 {
-    public DbSet<User> Users => Set<User>();
-
-    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-        => optionsBuilder.UseDynamo(options =>
-        {
-            options.ConfigureDynamoDbClientConfig(config =>
-            {
-                config.ServiceURL = "http://localhost:8000";
-                config.AuthenticationRegion = "us-east-1";
-                config.UseHttp = true;
-            });
-        });
+    public DbSet<Order> Orders => Set<Order>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.Entity<User>(b =>
+        modelBuilder.Entity<Order>(b =>
         {
-            b.ToTable("App");
-            b.HasPartitionKey(x => x.PK);
-            b.HasSortKey(x => x.SK);
+            b.HasPartitionKey(o => o.Pk);
+            b.HasSortKey(o => o.Sk);
         });
     }
 }
 
-await using var context = new AppDbContext();
+// Create a DbContext
+var options = new DbContextOptionsBuilder<ShopContext>()
+    .UseDynamo()
+    .Options;
 
-var profile = await context.Users
-    .Where(x => x.PK == "USER#42" && x.SK == "PROFILE")
-    .FirstOrDefaultAsync();
+await using var context = new ShopContext(options);
+
+// Query
+var orders = await context.Orders
+    .Where(o => o.Pk == "CUSTOMER#cust-42" && o.Sk.StartsWith("ORDER#") && o.Total > 100m)
+    .OrderBy(o => o.Sk)
+    .ToListAsync();
 ```
 
-For the full setup path, use [Getting Started](getting-started.md).
+## Key Features
 
-## Current Scope
+- **LINQ to PartiQL** — `Where`, `Select`, `OrderBy`, `Limit(n)`, and more translated server-side
+- **Owned types and collections** — map nested documents as owned entities or owned collections
+- **Secondary indexes** — query GSIs and LSIs with index hints
+- **Optimistic concurrency** — version tokens via EF Core's `IsConcurrencyToken`
+- **Pagination** — cursor-based pagination using DynamoDB's `NextToken`
+- **Type mappings** — `Guid`, `DateTime`, `DateOnly`, `TimeOnly`, `enum`, `byte[]`, and more
 
-- Async query execution is supported.
-- `SaveChangesAsync` is implemented for Added/Modified/Deleted root entities.
-- Synchronous `SaveChanges` is not supported (DynamoDB API is async-only).
-- LINQ translation support is partial; [Operators](operators.md) is the source of truth.
-- Includes support for table mapping, key mapping, owned types, and secondary-index metadata.
+## Explore the Docs
 
-## Compatibility
+<div class="grid cards" markdown>
 
-- .NET target framework: `net10.0`
-- EF Core version: `10.0.x`
-- AWS SDK dependency: `AWSSDK.DynamoDBv2` `4.x`
-- Works with Amazon DynamoDB and DynamoDB Local.
+- :lucide-rocket: **[Getting Started](getting-started.md)**
 
-## Issues and Help
+    Install the package, configure your `DbContext`, and run your first query.
 
-- Report bugs and request features on [GitHub Issues](https://github.com/LayeredCraft/dynamodb-efcore-provider/issues).
-- For local debugging guidance, use [Diagnostics](diagnostics.md).
+- :lucide-book-open: **[DynamoDB Concepts for EF Developers](dynamodb-concepts.md)**
+
+    Understand how DynamoDB's partition model maps to EF Core concepts.
+
+- :lucide-settings: **[Configuration](configuration/index.md)**
+
+    Client setup, table and key mapping, attribute naming, and `DbContext` options.
+
+- :lucide-database: **[Data Modeling](modeling/index.md)**
+
+    Entities, keys, owned types, secondary indexes, and inheritance.
+
+- :lucide-search: **[Querying](querying/index.md)**
+
+    Supported LINQ operators, filtering, projection, ordering, and pagination.
+
+- :lucide-save: **[Saving Data](saving/index.md)**
+
+    Add, update, delete, transactions, and optimistic concurrency.
+
+</div>
+
+## Limitations
+
+This provider does not support all EF Core features. DynamoDB's access-pattern model means some LINQ shapes cannot be translated. See [Limitations](limitations.md) for the authoritative list of what is not supported and why.
+
+## License
+
+MIT. See [LICENSE](https://github.com/LayeredCraft/dynamodb-efcore-provider/blob/main/LICENSE) on GitHub.

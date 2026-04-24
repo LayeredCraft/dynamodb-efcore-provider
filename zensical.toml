@@ -12,21 +12,46 @@ docs_dir = "docs"
 nav = [
   { "Home" = "index.md" },
   { "Getting Started" = "getting-started.md" },
-  { "Configuration" = "configuration.md" },
-  { "Architecture" = "architecture.md" },
-  { "Querying" = [
-    { "Operators" = "operators.md" },
-    { "Pagination" = "pagination.md" },
-    { "Projections" = "projections.md" },
-    { "Owned Types" = "owned-types.md" }
+  { "DynamoDB Concepts for EF Developers" = "dynamodb-concepts.md" },
+  { "Configuration" = [
+    { "Overview" = "configuration/index.md" },
+    { "Client Setup" = "configuration/client-setup.md" },
+    { "DbContext Options" = "configuration/dbcontext.md" },
+    { "Table and Key Mapping" = "configuration/table-key-mapping.md" },
+    { "Attribute Naming" = "configuration/attribute-naming.md" }
   ] },
-  { "Concurrency" = "concurrency.md" },
-  { "Diagnostics" = "diagnostics.md" },
+  { "Data Modeling" = [
+    { "Overview" = "modeling/index.md" },
+    { "Entities and Keys" = "modeling/entities-keys.md" },
+    { "Secondary Indexes" = "modeling/secondary-indexes.md" },
+    { "Owned Types and Collections" = "modeling/owned-types.md" },
+    { "Single-Table Design and Discriminators" = "modeling/single-table-design.md" }
+  ] },
+  { "Querying" = [
+    { "Overview" = "querying/index.md" },
+    { "How Queries Execute" = "querying/how-queries-execute.md" },
+    { "Supported Operators" = "querying/operators.md" },
+    { "Filtering" = "querying/filtering.md" },
+    { "Projection" = "querying/projection.md" },
+    { "Ordering and Limiting" = "querying/ordering-limiting.md" },
+    { "Pagination" = "querying/pagination.md" },
+    { "Index Selection" = "querying/index-selection.md" }
+  ] },
+  { "Saving Data" = [
+    { "Overview" = "saving/index.md" },
+    { "Add, Update, and Delete" = "saving/add-update-delete.md" },
+    { "Transactions" = "saving/transactions.md" },
+    { "Optimistic Concurrency" = "saving/concurrency.md" }
+  ] },
+  { "Diagnostics and Logging" = "diagnostics.md" },
   { "Limitations" = "limitations.md" }
 ]
 
 [project.markdown_extensions.attr_list]
+[project.markdown_extensions.md_in_html]
 [project.markdown_extensions.pymdownx.emoji]
+emoji_index = "zensical.extensions.emoji.twemoji"
+emoji_generator = "zensical.extensions.emoji.to_svg"
 [project.markdown_extensions.admonition]
 [project.markdown_extensions.pymdownx.details]
 [project.markdown_extensions.pymdownx.superfences]
@@ -45,6 +70,7 @@ logo = "images/icon.png"
 favicon = "images/icon.png"
 features = [
   "navigation.footer",
+  "navigation.indexes",
   "content.action.edit",
   "content.action.view",
   "content.code.copy",
