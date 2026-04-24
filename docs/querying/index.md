@@ -14,7 +14,7 @@ This section covers how queries are executed, which LINQ operators are supported
 - [Supported Operators](operators.md) — Reference table of supported LINQ operators and their PartiQL equivalents.
 - [Filtering](filtering.md) — How `Where` clauses translate to PartiQL filter expressions.
 - [Projection](projection.md) — How `Select` expressions are evaluated server-side vs client-side.
-- [Ordering and Limiting](ordering-limiting.md) — How `OrderBy` and `Take` are handled.
+- [Ordering and Limiting](ordering-limiting.md) — How `OrderBy` and `Limit(n)` are handled.
 - [Pagination](pagination.md) — Continuation tokens and the `ToPageAsync` pattern.
 - [Index Selection](index-selection.md) — Targeting a specific GSI or LSI in a query.
 

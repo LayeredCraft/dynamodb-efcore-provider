@@ -24,11 +24,11 @@ overhead). There are no user-initiated transactions — there is no `BeginTransa
 The provider respects EF Core's standard `AutoTransactionBehavior` property, which controls when
 automatic transactions are applied:
 
-| Value                  | Behavior                                                                                                                                      |
-| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| `WhenNeeded` (default) | Uses `ExecuteTransaction` when there is more than one operation; single operations use `ExecuteStatement` directly.                           |
-| `Always`               | Always attempts a transaction, even for a single operation, when there is more than one op. Throws if the count exceeds `MaxTransactionSize`. |
-| `Never`                | Skips transactions entirely; uses `BatchExecuteStatement` instead. Operations execute independently — partial success is possible.            |
+| Value                  | Behavior                                                                                                                                                               |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `WhenNeeded` (default) | Uses `ExecuteTransaction` when there is more than one operation; single operations use `ExecuteStatement` directly.                                                    |
+| `Always`               | Enforces transactional execution for multi-operation saves; single operations still use `ExecuteStatement` directly. Throws if the count exceeds `MaxTransactionSize`. |
+| `Never`                | Skips transactions entirely; uses `BatchExecuteStatement` instead. Operations execute independently — partial success is possible.                                     |
 
 Set it on the `DatabaseFacade` instance, typically in the DbContext constructor or when
 configuring the context:

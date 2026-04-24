@@ -107,7 +107,9 @@ With a highly selective filter, DynamoDB may evaluate the entire budget without 
 
 ## Accessing the Raw Response Token
 
-For `Limit(n) + ToListAsync()` queries, the provider does not follow `NextToken` automatically — the query is a single request. If you want to continue from where the evaluation budget stopped, retrieve the response token from the tracked entity entry and use it to seed the next query:
+For `Limit(n) + ToListAsync()` queries, the provider does not follow `NextToken` automatically — the query is a single request. If you want to continue from where the evaluation budget stopped, retrieve the response token from a tracked entity entry and use it to seed the next query.
+
+This pattern requires that at least one item is materialized, because response metadata is attached to entity entries:
 
 ```csharp
 var items = await db.Orders
@@ -115,9 +117,13 @@ var items = await db.Orders
     .Limit(25)
     .ToListAsync(cancellationToken);
 
-// Cursor at the end of this evaluation range
-var response = db.Entry(items[0]).GetExecuteStatementResponse();
-var nextCursor = response?.NextToken;
+string? nextCursor = null;
+
+// Cursor at the end of this evaluation range (when at least one entity was returned)
+if (items.Count > 0)
+{
+    nextCursor = db.Entry(items[0]).GetExecuteStatementResponse()?.NextToken;
+}
 
 // Resume with WithNextToken on a subsequent query
 if (nextCursor != null)
@@ -129,6 +135,10 @@ if (nextCursor != null)
         .ToListAsync(cancellationToken);
 }
 ```
+
+!!! note
+
+    If you need a continuation token even when a page returns zero items, use `ToPageAsync(limit, token)` instead. `ToPageAsync` always returns `DynamoPage<T>.NextToken`, while entry metadata is only available when at least one tracked entity is materialized.
 
 All items from the same request share the same response object reference. For `ToListAsync()` without `Limit`, the provider follows all continuation tokens internally; by the time `ToListAsync` returns, those tokens have already been consumed. Use `ToPageAsync` when you need explicit cursor control across requests.
 

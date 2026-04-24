@@ -56,13 +56,16 @@ public class ShopContext(DbContextOptions<ShopContext> options) : DbContext(opti
         {
             b.HasPartitionKey(o => o.Pk);
             b.HasSortKey(o => o.Sk);
-            b.OwnsMany(o => o.Lines);
         });
     }
 }
 
 // Create a DbContext
-await using var context = new ShopContext();
+var options = new DbContextOptionsBuilder<ShopContext>()
+    .UseDynamo()
+    .Options;
+
+await using var context = new ShopContext(options);
 
 // Query
 var orders = await context.Orders
@@ -73,11 +76,11 @@ var orders = await context.Orders
 
 ## Key Features
 
-- **LINQ to PartiQL** — `Where`, `Select`, `OrderBy`, `Take`, and more translated server-side
+- **LINQ to PartiQL** — `Where`, `Select`, `OrderBy`, `Limit(n)`, and more translated server-side
 - **Owned types and collections** — map nested documents as owned entities or owned collections
 - **Secondary indexes** — query GSIs and LSIs with index hints
 - **Optimistic concurrency** — version tokens via EF Core's `IsConcurrencyToken`
-- **Pagination** — cursor-based pagination using DynamoDB's `LastEvaluatedKey`
+- **Pagination** — cursor-based pagination using DynamoDB's `NextToken`
 - **Type mappings** — `Guid`, `DateTime`, `DateOnly`, `TimeOnly`, `enum`, `byte[]`, and more
 
 ## Explore the Docs

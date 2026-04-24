@@ -97,7 +97,7 @@ All scalar entity properties must map to a DynamoDB attribute type. Types withou
 | `DateOnly`                                  | `S`                     | `"yyyy-MM-dd"`, e.g. `"2026-04-19"`                         |
 | `TimeOnly`                                  | `S`                     | `"HH:mm:ss"` (whole-second) or `"o"` (sub-second)           |
 | `TimeSpan`                                  | `S`                     | Constant (`"c"`) format, e.g. `"01:30:00"`                  |
-| Enum                                        | `S`                     | Name string by default                                      |
+| Enum                                        | `N`                     | Underlying numeric value (string names require a converter) |
 
 Nullable variants of all types above are supported. Custom types can be mapped using EF Core [value converters](https://learn.microsoft.com/en-us/ef/core/modeling/value-conversions).
 

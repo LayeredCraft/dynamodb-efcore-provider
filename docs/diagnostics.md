@@ -127,9 +127,9 @@ Fields:
 | `nextTokenPresent`     | `True` when this is a continuation call — the provider is fetching the next page using a token from the previous response.     |
 | `seedNextTokenPresent` | `True` when the *first* request used a user-supplied pagination token (e.g. from a manual pagination call).                    |
 
-The `limit` value is set by your [page-size configuration](configuration/dbcontext.md) or a LINQ
-`Take(n)` operator. If it is `null` and your query can return many items, you will typically see
-multiple round-trips as the provider auto-pages through DynamoDB results.
+The `limit` value is set by a query-level `Limit(n)` call or by `ToPageAsync(limit, token)`. If it
+is `null` and your query can return many items, you will typically see multiple round-trips as the
+provider auto-pages through DynamoDB results.
 
 ### `ExecutedExecuteStatement` — 30102
 
@@ -310,8 +310,8 @@ than 1 MB of data and stopped early. The provider fetched the continuation autom
 the remaining 6 items. Total: 18 items in two round-trips.
 
 If you see many round-trips with `nextTokenPresent: True`, your filter is very selective relative
-to the data stored in DynamoDB (or the index). Either configure a page size to cap individual
-result sets, or restructure the query to target a narrower key prefix.
+to the data stored in DynamoDB (or the index). Either apply `Limit(n)` / `ToPageAsync(limit, ...)`
+to bound per-request evaluation, or restructure the query to target a narrower key prefix.
 
 ## Response Metadata
 
@@ -403,7 +403,7 @@ logs. Parameter values in PartiQL statements are always omitted from log output 
 this setting.
 
 **Row-limiting query warning** — A warning for queries that can return many rows but have no
-configured page size is planned but not yet emitted. Use the `ExecutedExecuteStatement` events to
+explicit `Limit(n)` is planned but not yet emitted. Use the `ExecutedExecuteStatement` events to
 monitor round-trip counts and item counts in the meantime.
 
 ## See Also

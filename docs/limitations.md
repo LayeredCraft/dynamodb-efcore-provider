@@ -198,7 +198,8 @@ Key properties must be non-nullable and resolve to a DynamoDB key-compatible pro
 `string`, a numeric type (`int`, `long`, `decimal`, etc.), or `byte[]`. `bool` key properties
 are rejected — `bool` has no built-in converter to a key-compatible type. Other non-primitive
 types such as `Guid`, `DateTime`, and `enum` work because EF Core's built-in converters map
-them to `string`, which is key-compatible.
+them to key-compatible store types (for example `Guid`/`DateTime` to `string`, and enum to
+its numeric underlying value).
 
 All entity types mapped to the same table must agree on key shape (PK-only or PK+SK) and must
 use identical physical attribute names for the partition key and sort key.
