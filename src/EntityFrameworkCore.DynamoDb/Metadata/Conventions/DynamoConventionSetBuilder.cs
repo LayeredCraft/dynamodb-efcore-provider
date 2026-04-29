@@ -13,9 +13,15 @@ public sealed class DynamoConventionSetBuilder(
     {
         var conventionSet = base.CreateConventionSet();
 
+        // Owned entity types and foreign-key entity relationships are not supported.
+        // Remove [Owned] processing and the base relationship-discovery convention so that
+        // navigation properties to non-[ComplexType] types do not silently create spurious entity
+        // relationships. ComplexPropertyDiscoveryConvention (inherited from base) handles
+        // navigation properties pointing to [ComplexType]-decorated CLR types correctly.
+        conventionSet.Remove(typeof(OwnedAttributeConvention));
+        conventionSet.Remove(typeof(RelationshipDiscoveryConvention));
         conventionSet.Remove(typeof(ForeignKeyIndexConvention));
-        conventionSet.Replace<RelationshipDiscoveryConvention>(
-            new DynamoRelationshipDiscoveryConvention(Dependencies));
+
         conventionSet.Replace<KeyDiscoveryConvention>(
             new DynamoKeyDiscoveryConvention(Dependencies));
         conventionSet.Replace<DiscriminatorConvention>(
@@ -28,8 +34,6 @@ public sealed class DynamoConventionSetBuilder(
         var keyInPrimaryKeyConvention = new DynamoKeyInPrimaryKeyConvention(Dependencies);
         conventionSet.EntityTypeAnnotationChangedConventions.Add(keyInPrimaryKeyConvention);
         conventionSet.PropertyAddedConventions.Add(keyInPrimaryKeyConvention);
-
-        conventionSet.ModelFinalizingConventions.Add(new OwnedTypePrimaryKeyConvention());
 
         conventionSet.EntityTypeAddedConventions.Add(new DynamoResponseShadowPropertyConvention());
 

@@ -26,15 +26,19 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
 
         base.Validate(model, logger);
 
+        // Owned entity types are not supported by the DynamoDB provider.
         foreach (var entityType in model.GetEntityTypes())
         {
             if (!entityType.IsOwned())
                 continue;
 
-            ValidateOwnedEntityType(entityType);
+            throw new InvalidOperationException(
+                $"Entity type '{entityType.DisplayName()}' is configured as an owned entity type, "
+                + "which is not supported by the DynamoDB provider. Use EF Core complex types "
+                + "instead: annotate the CLR type with [ComplexType] and replace OwnsOne/OwnsMany "
+                + "fluent calls with ComplexProperty()/ComplexCollection().");
         }
 
-        ValidateEmbeddedOwnedCollectionNavigationShapes(model);
         ValidateKeyPropertyNames(model);
         ValidateKeyPropertyTypes(model);
         ValidateKeyPropertyNullability(model);
@@ -113,119 +117,6 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
                 + "Supported dictionary shapes: Dictionary<string,TValue>, IDictionary<string,TValue>, "
                 + "IReadOnlyDictionary<string,TValue>, ReadOnlyDictionary<string,TValue>. "
                 + "Custom or derived concrete collection types are not supported.");
-        }
-    }
-
-    /// <summary>Validates a single owned entity type for DynamoDB-specific mapping constraints.</summary>
-    private static void ValidateOwnedEntityType(IEntityType entityType)
-    {
-        var tableName = GetTableName(entityType);
-        if (!string.IsNullOrWhiteSpace(tableName))
-            throw new InvalidOperationException(
-                $"Owned entity type '{entityType.DisplayName()}' is configured with explicit table name "
-                + $"'{tableName}'. Owned types must be embedded in their owner's DynamoDB "
-                + "item and cannot have separate table mappings.");
-
-        var ownership = entityType.FindOwnership();
-        if (ownership?.PrincipalEntityType is not { } ownerEntityType)
-            return;
-
-        var containingAttributeName = entityType.GetContainingAttributeName();
-        if (string.IsNullOrWhiteSpace(containingAttributeName))
-            throw new InvalidOperationException(
-                $"Owned entity type '{entityType.DisplayName()}' has an empty containing attribute name. "
-                + "Containing attribute names must be non-empty.");
-
-        ValidateContainingAttributeNameCollisions(
-            entityType,
-            ownerEntityType,
-            containingAttributeName);
-
-        if (!ownership.IsUnique)
-            ValidateOwnedCollectionOrdinalKey(entityType);
-    }
-
-    /// <summary>Validates that an owned containing attribute name is unique within its owner entity type.</summary>
-    private static void ValidateContainingAttributeNameCollisions(
-        IEntityType entityType,
-        IEntityType ownerEntityType,
-        string containingAttributeName)
-    {
-        foreach (var property in ownerEntityType.GetDeclaredProperties())
-        {
-            var attributeName = property.GetAttributeName();
-            if (!string.Equals(attributeName, containingAttributeName, StringComparison.Ordinal))
-                continue;
-
-            throw new InvalidOperationException(
-                $"Owned entity type '{entityType.DisplayName()}' is configured with containing attribute name "
-                + $"'{containingAttributeName}', which collides with scalar property "
-                + $"'{ownerEntityType.DisplayName()}.{property.Name}' mapped to attribute '{attributeName}'. "
-                + "Containing attribute names must be "
-                + "unique.");
-        }
-
-        var currentOwnership = entityType.FindOwnership();
-
-        foreach (var navigation in ownerEntityType.GetDeclaredNavigations())
-        {
-            if (!navigation.TargetEntityType.IsOwned())
-                continue;
-
-            if (navigation == currentOwnership?.PrincipalToDependent)
-                continue;
-
-            var otherContainingAttributeName =
-                navigation.TargetEntityType.GetContainingAttributeName();
-            if (!string.Equals(
-                otherContainingAttributeName,
-                containingAttributeName,
-                StringComparison.Ordinal))
-                continue;
-
-            throw new InvalidOperationException(
-                $"Owned entity type '{entityType.DisplayName()}' is configured with containing attribute name "
-                + $"'{containingAttributeName}', which collides with owned navigation '{navigation.Name}' on "
-                + $"'{ownerEntityType.DisplayName()}'. Containing attribute names must be unique.");
-        }
-    }
-
-    /// <summary>Validates that owned collection element types include an ordinal key property.</summary>
-    private static void ValidateOwnedCollectionOrdinalKey(IEntityType entityType)
-    {
-        var hasOrdinalKey = entityType
-            .GetProperties()
-            .Any(static property => property.IsOwnedOrdinalKeyProperty());
-
-        if (hasOrdinalKey)
-            return;
-
-        throw new InvalidOperationException(
-            $"Owned collection element entity type '{entityType.DisplayName()}' does not have an ordinal "
-            + "key property. Owned collection elements require a synthetic ordinal key for stable "
-            + "identity and change tracking.");
-    }
-
-    /// <summary>Validates embedded owned collection navigations use provider-supported list CLR shapes.</summary>
-    private static void ValidateEmbeddedOwnedCollectionNavigationShapes(IModel model)
-    {
-        foreach (var entityType in model.GetEntityTypes())
-        {
-            foreach (var navigation in entityType.GetDeclaredNavigations())
-            {
-                if (!navigation.IsCollection
-                    || !navigation.IsEmbedded()
-                    || !navigation.TargetEntityType.IsOwned())
-                    continue;
-
-                if (DynamoTypeMappingSource.TryGetListElementType(navigation.ClrType, out _))
-                    continue;
-
-                throw new InvalidOperationException(
-                    $"Embedded owned collection navigation '{entityType.DisplayName()}.{navigation.Name}' uses CLR type "
-                    + $"'{navigation.ClrType.Name}', which is not supported by the DynamoDB provider. "
-                    + "Supported list shapes: T[], List<T>, IList<T>, IReadOnlyList<T>.");
-            }
         }
     }
 
@@ -492,7 +383,7 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
         {
             foreach (var concreteType in rootEntityType.GetConcreteDerivedTypesInclusive())
             {
-                if (concreteType.IsOwned() || concreteType.FindOwnership() is not null)
+                if (concreteType.FindOwnership() is not null)
                     continue;
 
                 if (concreteType.ClrType.IsAbstract)
@@ -937,11 +828,6 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
     {
         foreach (var entityType in EnumerateRootEntityTypes(model))
             ValidateConcurrencyTokensOnEntityType(entityType);
-
-        // Owned entity types are excluded from EnumerateRootEntityTypes but can also carry
-        // concurrency tokens — validate them separately.
-        foreach (var ownedType in model.GetEntityTypes().Where(static t => t.IsOwned()))
-            ValidateConcurrencyTokensOnEntityType(ownedType);
     }
 
     /// <summary>
@@ -972,9 +858,7 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
         => model
             .GetEntityTypes()
             .Where(static entityType
-                => !entityType.IsOwned()
-                && entityType.FindOwnership() == null
-                && entityType.BaseType == null);
+                => entityType.FindOwnership() == null && entityType.BaseType == null);
 
     /// <summary>Returns the effective provider CLR type with nullable wrappers removed.</summary>
     private static Type GetEffectiveProviderClrType(IReadOnlyProperty property)
