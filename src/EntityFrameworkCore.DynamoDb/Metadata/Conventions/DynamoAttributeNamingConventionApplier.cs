@@ -54,7 +54,7 @@ public sealed class DynamoAttributeNamingConventionApplier : IModelFinalizingCon
             {
                 // Skip provider-internal properties that are never persisted as
                 // user-facing DynamoDB item attributes.
-                if (property.IsRuntimeOnly() || property.IsOwnedOrdinalKeyProperty())
+                if (property.IsRuntimeOnly())
                     continue;
 
                 // Explicit HasAttributeName() or a data annotation always wins —

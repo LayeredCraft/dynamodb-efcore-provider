@@ -836,16 +836,13 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
                 : ((FieldInfo)memberInfo).FieldType;
 
             Expression? valueExpression;
-            if (property.IsOwnedOrdinalKeyProperty())
-                valueExpression = ordinalExpression;
-            else
-                valueExpression = CreateGetValueExpression(
-                    property.GetAttributeName(),
-                    property.ClrType,
-                    property.GetTypeMapping(),
-                    !property.IsNullable,
-                    entityType.DisplayName(),
-                    property);
+            valueExpression = CreateGetValueExpression(
+                property.GetAttributeName(),
+                property.ClrType,
+                property.GetTypeMapping(),
+                !property.IsNullable,
+                entityType.DisplayName(),
+                property);
 
             if (valueExpression == null)
                 continue;
@@ -1096,16 +1093,8 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
                     entityTypeDisplayName,
                     property);
 
-                if (property.IsOwnedOrdinalKeyProperty())
-                {
-                    if (_ordinalParameterBindings.TryGetValue(
-                        _attributeContextStack.Peek(),
-                        out var boundOrdinal))
-                        valueExpression = boundOrdinal.Type == node.Type
-                            ? boundOrdinal
-                            : Convert(boundOrdinal, node.Type);
-                }
-                else if (TryCreateOwnedPrincipalKeyExpression(
+                // IsOwnedOrdinalKeyProperty is always false — owned types are no longer supported.
+                if (TryCreateOwnedPrincipalKeyExpression(
                     property,
                     targetType,
                     out var ownerKeyExpression))
@@ -1267,16 +1256,7 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
 
         var ownerContext = ownerContexts[Math.Min(depth, ownerContexts.Length - 1)];
 
-        // If the resolved principal is an ordinal key on an owned entity it is not stored as a
-        // DynamoDB attribute — its value lives in the parent collection's ordinal binding.
-        if (principalProperty.IsOwnedOrdinalKeyProperty()
-            && _ordinalParameterBindings.TryGetValue(ownerContext, out var ordinalBinding))
-        {
-            valueExpression = ordinalBinding.Type == targetType
-                ? ordinalBinding
-                : Convert(ordinalBinding, targetType);
-            return true;
-        }
+        // Owned ordinal key properties no longer exist — owned types are not supported.
 
         valueExpression = CreateGetValueExpression(
             principalProperty.GetAttributeName(),
