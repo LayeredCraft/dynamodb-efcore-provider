@@ -7,14 +7,14 @@ using Microsoft.EntityFrameworkCore.Metadata.Conventions;
 namespace EntityFrameworkCore.DynamoDb.Metadata.Conventions;
 
 /// <summary>
-///     Applies per-entity attribute naming conventions to all declared scalar properties during
-///     model finalization.
+///     Applies per-entity attribute naming conventions to all declared scalar properties and complex
+///     properties during model finalization.
 /// </summary>
 /// <remarks>
 ///     <para>
 ///         Reads the <see cref="DynamoNamingConventionDescriptor" /> stored as a runtime annotation
 ///         on each entity type and writes convention-source <c>AttributeName</c> annotations on
-///         properties that do not already have an explicit name configured.
+///         properties and complex properties that do not already have an explicit name configured.
 ///     </para>
 ///     <para>
 ///         Priority order: explicit <c>HasAttributeName()</c> (Explicit/DataAnnotation source) &gt;
@@ -22,8 +22,8 @@ namespace EntityFrameworkCore.DynamoDb.Metadata.Conventions;
 ///         provider default convention is <c>CamelCase</c>.
 ///     </para>
 ///     <para>
-///         Owned entity types without their own convention inherit the convention from their root
-///         entity by walking the ownership chain. Shadow properties (provider-internal) are skipped.
+///         Complex properties and their nested scalar/complex properties inherit the naming
+///         convention from the root entity type.
 ///     </para>
 ///     <para>
 ///         This convention must run before <see cref="DynamoKeyAnnotationConvention" /> so that
@@ -47,9 +47,6 @@ public sealed class DynamoAttributeNamingConventionApplier : IModelFinalizingCon
         {
             var descriptor = ResolveDescriptor(entityType);
 
-            if (entityType.IsOwned())
-                ApplyOwnedContainingAttributeNameConvention(entityType, descriptor);
-
             foreach (var property in entityType.GetDeclaredProperties())
             {
                 // Skip provider-internal properties that are never persisted as
@@ -70,40 +67,57 @@ public sealed class DynamoAttributeNamingConventionApplier : IModelFinalizingCon
                 // will override this via EF Core's annotation precedence rules.
                 property.Builder.HasAttributeName(descriptor.Translate(property.Name), false);
             }
+
+            ApplyComplexPropertiesConvention(entityType, descriptor);
         }
-    }
-
-    private static void ApplyOwnedContainingAttributeNameConvention(
-        IConventionEntityType entityType,
-        DynamoNamingConventionDescriptor descriptor)
-    {
-        var source = entityType.GetContainingAttributeNameConfigurationSource();
-        if (source is ConfigurationSource.Explicit or ConfigurationSource.DataAnnotation)
-            return;
-
-        var navigationName = entityType.FindOwnership()?.PrincipalToDependent?.Name;
-        if (string.IsNullOrWhiteSpace(navigationName))
-            return;
-
-        entityType.SetContainingAttributeName(descriptor.Translate(navigationName));
     }
 
     /// <summary>
-    ///     Resolves the naming convention descriptor for an entity type, walking the ownership chain
-    ///     so owned types without their own setting inherit the root entity's convention.
+    ///     Recursively applies the naming convention to all complex properties declared on a type
+    ///     base (entity type or complex type), including the complex property's own attribute name
+    ///     (the map key) and all leaf scalar properties.
     /// </summary>
+    private static void ApplyComplexPropertiesConvention(
+        IConventionTypeBase typeBase,
+        DynamoNamingConventionDescriptor descriptor)
+    {
+        foreach (var cp in typeBase.GetDeclaredComplexProperties())
+        {
+            // Apply naming convention to the complex property itself (the DynamoDB map key).
+            var cpSource = cp.GetAttributeNameConfigurationSource();
+            if (cpSource is not ConfigurationSource.Explicit
+                and not ConfigurationSource.DataAnnotation)
+                cp.SetAttributeName(descriptor.Translate(cp.Name), fromDataAnnotation: false);
+
+            // Apply naming convention to scalar leaf properties inside the complex type.
+            foreach (var lp in cp.ComplexType.GetDeclaredProperties())
+            {
+                if (lp.IsRuntimeOnly())
+                    continue;
+
+                var lpSource =
+                    lp
+                        .FindAnnotation(DynamoAnnotationNames.AttributeName)
+                        ?.GetConfigurationSource();
+
+                if (lpSource is ConfigurationSource.Explicit or ConfigurationSource.DataAnnotation)
+                    continue;
+
+                lp.Builder.HasAttributeName(descriptor.Translate(lp.Name), false);
+            }
+
+            // Recurse into nested complex types.
+            ApplyComplexPropertiesConvention(cp.ComplexType, descriptor);
+        }
+    }
+
+    /// <summary>Resolves the naming convention descriptor for an entity type.</summary>
     private static DynamoNamingConventionDescriptor ResolveDescriptor(
         IConventionEntityType entityType)
     {
-        var current = (IReadOnlyEntityType)entityType;
-        while (current is not null)
-        {
-            if (current.FindAnnotation(DynamoAnnotationNames.AttributeNamingConvention)?.Value is
-                DynamoNamingConventionDescriptor descriptor)
-                return descriptor;
-
-            current = current.FindOwnership()?.PrincipalEntityType;
-        }
+        if (entityType.FindAnnotation(DynamoAnnotationNames.AttributeNamingConvention)?.Value is
+            DynamoNamingConventionDescriptor descriptor)
+            return descriptor;
 
         return DefaultDescriptor;
     }
