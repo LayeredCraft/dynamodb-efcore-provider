@@ -54,12 +54,4 @@ public static class DynamoAnnotationNames
     ///     so custom delegate translators are supported freely during model building.
     /// </summary>
     public const string AttributeNamingConvention = Prefix + "AttributeNamingConvention";
-
-    /// <summary>
-    ///     Marks the provider-created shadow int property that serves as the ordinal key for an owned
-    ///     collection element (<c>OwnsMany</c>). Only properties stamped with this annotation are
-    ///     treated as the ordinal; user-defined shadow int properties on the same entity type are not
-    ///     affected.
-    /// </summary>
-    public const string OwnedOrdinalKey = Prefix + "OwnedOrdinalKey";
 }

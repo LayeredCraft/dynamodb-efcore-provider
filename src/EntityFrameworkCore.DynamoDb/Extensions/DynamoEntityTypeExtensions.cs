@@ -19,14 +19,6 @@ public static class DynamoEntityTypeExtensions
                 DynamoAnnotationNames.TableName,
                 name.NullButNotEmpty());
 
-        /// <summary>Sets the containing top-level attribute name for an embedded owned entity type.</summary>
-        ///     The top-level DynamoDB attribute name under which this owned entity is stored.
-        ///     Pass  to revert to the navigation property name.
-        public void SetContainingAttributeName(string? name)
-            => entityType.SetOrRemoveAnnotation(
-                DynamoAnnotationNames.ContainingAttributeName,
-                name.NullButNotEmpty());
-
         /// <summary>
         ///     Sets the EF property name designated as the DynamoDB partition key.
         /// </summary>
@@ -208,30 +200,6 @@ public static class DynamoEntityTypeExtensions
 
     extension(IConventionEntityType entityType)
     {
-        /// <summary>
-        ///     Sets the top-level DynamoDB attribute name used to store this owned navigation at the
-        ///     given configuration source.
-        /// </summary>
-        /// if configured via a data annotation;
-        /// for the fluent API.
-        /// <returns>The configured attribute name, or  if the configuration was not applied.</returns>
-        public string? SetContainingAttributeName(string? name, bool fromDataAnnotation = false)
-            => (string?)entityType.SetOrRemoveAnnotation(
-                    DynamoAnnotationNames.ContainingAttributeName,
-                    name.NullButNotEmpty(),
-                    fromDataAnnotation)
-                ?.Value;
-
-        /// <summary>Returns the configuration source for the containing attribute name annotation.</summary>
-        /// <returns>
-        ///     The <c>ConfigurationSource</c> of the annotation, or  if no containing attribute name has
-        ///     been configured.
-        /// </returns>
-        public ConfigurationSource? GetContainingAttributeNameConfigurationSource()
-            => entityType
-                .FindAnnotation(DynamoAnnotationNames.ContainingAttributeName)
-                ?.GetConfigurationSource();
-
         /// <summary>
         ///     Sets the EF property name designated as the DynamoDB partition key at the given
         ///     configuration source.
