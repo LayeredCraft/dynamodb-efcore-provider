@@ -39,6 +39,7 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
                 + "fluent calls with ComplexProperty()/ComplexCollection().");
         }
 
+        ValidateComplexCollectionShapes(model);
         ValidateKeyPropertyNames(model);
         ValidateKeyPropertyTypes(model);
         ValidateKeyPropertyNullability(model);
@@ -47,6 +48,31 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
         ValidateDiscriminatorMappings(model);
         ValidateConcurrencyTokenConfiguration(model);
         ValidateScalarPropertyTypeMappings(model, logger);
+    }
+
+    /// <summary>
+    ///     Validates that every complex collection property in the model uses a list-compatible CLR
+    ///     type (e.g. <c>List&lt;T&gt;</c>, <c>IList&lt;T&gt;</c>, <c>IReadOnlyList&lt;T&gt;</c>).
+    /// </summary>
+    private static void ValidateComplexCollectionShapes(IModel model)
+    {
+        foreach (var entityType in model.GetEntityTypes())
+            ValidateComplexCollectionShapesOnTypeBase(entityType);
+
+        static void ValidateComplexCollectionShapesOnTypeBase(ITypeBase typeBase)
+        {
+            foreach (var cp in typeBase.GetDeclaredComplexProperties())
+            {
+                if (cp.IsCollection
+                    && !DynamoTypeMappingSource.TryGetListElementType(cp.ClrType, out _))
+                    throw new InvalidOperationException(
+                        $"Complex collection property '{typeBase.DisplayName()}.{cp.Name}' "
+                        + $"has unsupported CLR type '{cp.ClrType.Name}'. "
+                        + "Use List<T>, IList<T>, or IReadOnlyList<T> for complex collections.");
+
+                ValidateComplexCollectionShapesOnTypeBase(cp.ComplexType);
+            }
+        }
     }
 
     /// <summary>Rejects explicit EF primary key configuration for root DynamoDB entities.</summary>
