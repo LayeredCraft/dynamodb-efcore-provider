@@ -35,15 +35,7 @@ public sealed class DynamoEntityItemSerializerSource
     /// reachable from <paramref name="rootEntry"/> — no global owned-entries dictionary is needed.
     /// </summary>
     public Dictionary<string, AttributeValue> BuildItem(IUpdateEntry rootEntry)
-        => GetOrBuildPlan(rootEntry.EntityType).Serialize(rootEntry, this);
-
-    /// <summary>
-    ///     Returns the fully assembled DynamoDB item dictionary for an owned sub-entry. Exposed as
-    ///     <c>internal</c> so the update path in <see cref="DynamoDatabaseWrapper" /> can serialize
-    ///     OwnsOne and OwnsMany sub-documents for attribute-level replacement.
-    /// </summary>
-    internal Dictionary<string, AttributeValue> BuildItemFromOwnedEntry(IUpdateEntry entry)
-        => GetOrBuildPlan(entry.EntityType).Serialize(entry, this);
+        => GetOrBuildPlan(rootEntry.EntityType).Serialize(rootEntry);
 
     /// <summary>
     ///     Serializes the current value of <paramref name="property" /> on <paramref name="entry" />

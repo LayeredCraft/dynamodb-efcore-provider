@@ -311,41 +311,18 @@ internal sealed class DynamoWriteExecutor(
             IList<IUpdateEntry> entries,
             IReadOnlyList<IUpdateEntry> rootEntries)
     {
-        var rootCache =
-            new Dictionary<InternalEntityEntry, InternalEntityEntry>(
-                ReferenceEqualityComparer.Instance);
-        var rootToEntries = new Dictionary<InternalEntityEntry, HashSet<InternalEntityEntry>>(
-                ReferenceEqualityComparer.Instance);
-
-        foreach (var rootEntry in rootEntries)
-        {
-            var internalRoot = (InternalEntityEntry)rootEntry;
-            rootToEntries[internalRoot] =
-                new HashSet<InternalEntityEntry>(ReferenceEqualityComparer.Instance)
-                    {
-                        internalRoot,
-                    };
-        }
+        // Complex types do not produce separate change-tracker entries — all entries are root
+        // entity entries. Each root entry maps to exactly itself.
+        var result = new Dictionary<InternalEntityEntry, IReadOnlyList<InternalEntityEntry>>(
+            entries.Count,
+            ReferenceEqualityComparer.Instance);
 
         foreach (var entry in entries)
         {
             var internalEntry = (InternalEntityEntry)entry;
-            var root = DynamoEntryGraph.GetRootEntry(internalEntry, rootCache);
-            if (!rootToEntries.TryGetValue(root, out var relatedEntries))
-            {
-                relatedEntries =
-                    new HashSet<InternalEntityEntry>(ReferenceEqualityComparer.Instance) { root };
-                rootToEntries[root] = relatedEntries;
-            }
-
-            relatedEntries.Add(internalEntry);
+            if (!result.TryGetValue(internalEntry, out _))
+                result[internalEntry] = [internalEntry];
         }
-
-        var result = new Dictionary<InternalEntityEntry, IReadOnlyList<InternalEntityEntry>>(
-                ReferenceEqualityComparer.Instance);
-
-        foreach (var pair in rootToEntries)
-            result[pair.Key] = pair.Value.ToList();
 
         return result;
     }

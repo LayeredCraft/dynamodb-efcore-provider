@@ -15,14 +15,11 @@ internal sealed class DynamoPartiqlStatementFactory(
     DynamoEntityItemSerializerSource serializerSource)
 {
     internal (string tableName, string sql, List<AttributeValue> parameters)?
-        BuildModifiedUpdateStatement(
-            IUpdateEntry entry,
-            Dictionary<InternalEntityEntry, HashSet<INavigation>> mutatingNavs)
+        BuildModifiedUpdateStatement(IUpdateEntry entry)
     {
         var tableName = (string)entry.EntityType[DynamoAnnotationNames.TableName]!;
         var entityType = entry.EntityType;
         var rootEntry = (InternalEntityEntry)entry;
-        var stateManager = rootEntry.StateManager;
 
         var setClauses = new List<string>();
         var setParameters = new List<AttributeValue>();
@@ -60,36 +57,21 @@ internal sealed class DynamoPartiqlStatementFactory(
             setParameters.Add(assignment.Parameter);
         }
 
-        return FinalizeUpdateStatement(
-            entry,
-            entityType,
-            tableName,
-            rootEntry,
-            stateManager,
-            setClauses,
-            setParameters,
-            mutatingNavs);
-    }
+        // Complex properties are fully replaced when any of their nested scalars changed.
+        // The entire M / L attribute is written atomically — no partial nested update.
+        var entity = rootEntry.Entity;
+        foreach (var cp in entityType.GetComplexProperties())
+        {
+            if (!IsComplexPropertyModified(entry, cp))
+                continue;
 
-    internal (string tableName, string sql, List<AttributeValue> parameters)?
-        BuildOwnedMutationUpdateStatement(
-            IUpdateEntry entry,
-            Dictionary<InternalEntityEntry, HashSet<INavigation>> mutatingNavs)
-    {
-        var tableName = (string)entry.EntityType[DynamoAnnotationNames.TableName]!;
-        var entityType = entry.EntityType;
-        var rootEntry = (InternalEntityEntry)entry;
-        var stateManager = rootEntry.StateManager;
+            var cpKey = ((IReadOnlyComplexProperty)cp).GetAttributeName();
+            var cpValue = cp.GetGetter().GetClrValue(entity);
+            setClauses.Add($"\"{EscapeIdentifier(cpKey)}\" = ?");
+            setParameters.Add(EntityWritePlan.SerializeComplexProperty(cpValue, cp));
+        }
 
-        return FinalizeUpdateStatement(
-            entry,
-            entityType,
-            tableName,
-            rootEntry,
-            stateManager,
-            [],
-            [],
-            mutatingNavs);
+        return FinalizeUpdateStatement(entry, entityType, tableName, setClauses, setParameters);
     }
 
     internal (string tableName, string sql, List<AttributeValue> parameters) BuildDeleteStatement(
@@ -169,79 +151,13 @@ internal sealed class DynamoPartiqlStatementFactory(
             IUpdateEntry entry,
             IEntityType entityType,
             string tableName,
-            InternalEntityEntry rootEntry,
-            IStateManager stateManager,
             List<string> setClauses,
-            List<AttributeValue> setParameters,
-            Dictionary<InternalEntityEntry, HashSet<INavigation>> mutatingNavs)
+            List<AttributeValue> setParameters)
     {
-        var removeClauses = new List<string>();
-        var whereParameters = new List<AttributeValue>();
-
-        foreach (var nav in entityType
-            .GetNavigations()
-            .Where(static n => !n.IsOnDependent && n.TargetEntityType.IsOwned() && !n.IsCollection))
-        {
-            if (!HasMutationForOwnedNavigation(nav, rootEntry, mutatingNavs))
-                continue;
-
-            var navAttrName = nav.TargetEntityType.GetContainingAttributeName() ?? nav.Name;
-            var pathPrefix = $"\"{EscapeIdentifier(navAttrName)}\"";
-
-            var navValue = entry.GetCurrentValue(nav);
-            var ownedEntry = navValue is not null
-                ? stateManager.TryGetEntry(navValue, nav.TargetEntityType)
-                : null;
-
-            if (ownedEntry is null || ownedEntry.EntityState == EntityState.Deleted)
-            {
-                removeClauses.Add(pathPrefix);
-            }
-            else if (ownedEntry.EntityState == EntityState.Added)
-            {
-                setClauses.Add($"{pathPrefix} = ?");
-                setParameters.Add(
-                    new AttributeValue
-                    {
-                        M = serializerSource.BuildItemFromOwnedEntry(ownedEntry),
-                    });
-            }
-            else
-            {
-                AppendOwnedOneNestedSetClauses(
-                    ownedEntry,
-                    pathPrefix,
-                    setClauses,
-                    setParameters,
-                    removeClauses,
-                    mutatingNavs);
-            }
-        }
-
-        foreach (var nav in entityType
-            .GetNavigations()
-            .Where(static n => !n.IsOnDependent && n.TargetEntityType.IsOwned() && n.IsCollection))
-        {
-            if (!HasMutationForOwnedNavigation(nav, rootEntry, mutatingNavs))
-                continue;
-
-            var navAttrName = nav.TargetEntityType.GetContainingAttributeName() ?? nav.Name;
-            var path = $"\"{EscapeIdentifier(navAttrName)}\"";
-            var navValue = entry.GetCurrentValue(nav);
-            if (navValue is null)
-            {
-                removeClauses.Add(path);
-                continue;
-            }
-
-            var elements = BuildOwnedManyElements(navValue, nav, stateManager);
-
-            setClauses.Add($"{path} = ?");
-            setParameters.Add(new AttributeValue { L = elements });
-        }
-
-        if (setClauses.Count == 0 && removeClauses.Count == 0)
+        if (setClauses.Count == 0)
             return null;
+
+        var whereParameters = new List<AttributeValue>();
 
         var partitionKeyProperty = entityType.GetPartitionKeyProperty()
             ?? throw new InvalidOperationException(
@@ -268,12 +184,7 @@ internal sealed class DynamoPartiqlStatementFactory(
         var sqlBuilder =
             new StringBuilder().AppendLine($"UPDATE \"{EscapeIdentifier(tableName)}\"");
 
-        if (setClauses.Count > 0)
-            sqlBuilder.AppendLine($"SET {string.Join(", ", setClauses)}");
-
-        if (removeClauses.Count > 0)
-            sqlBuilder.AppendLine($"REMOVE {string.Join(", ", removeClauses)}");
-
+        sqlBuilder.AppendLine($"SET {string.Join(", ", setClauses)}");
         sqlBuilder.Append($"WHERE {string.Join(" AND ", whereClauses)}");
 
         var parameters = new List<AttributeValue>(setParameters.Count + whereParameters.Count);
@@ -283,131 +194,25 @@ internal sealed class DynamoPartiqlStatementFactory(
         return (tableName, sqlBuilder.ToString(), parameters);
     }
 
-    private void AppendOwnedOneNestedSetClauses(
-        InternalEntityEntry ownedEntry,
-        string pathPrefix,
-        List<string> setClauses,
-        List<AttributeValue> setParameters,
-        List<string> removeClauses,
-        Dictionary<InternalEntityEntry, HashSet<INavigation>> mutatingNavs)
+    /// <summary>
+    ///     Returns <see langword="true" /> when a complex property (or any of its nested scalar
+    ///     properties) is modified in the current entry snapshot.
+    /// </summary>
+    private static bool IsComplexPropertyModified(IUpdateEntry entry, IComplexProperty cp)
+        => IsComplexTypeModified(entry, cp.ComplexType);
+
+    private static bool IsComplexTypeModified(IUpdateEntry entry, IComplexType complexType)
     {
-        var stateManager = ownedEntry.StateManager;
+        foreach (var property in complexType.GetProperties())
+            if (!property.IsRuntimeOnly() && entry.IsModified(property))
+                return true;
 
-        foreach (var property in ownedEntry.EntityType.GetProperties())
-        {
-            if (!ownedEntry.IsModified(property) || property.IsPrimaryKey())
-                continue;
+        foreach (var nestedCp in complexType.GetComplexProperties())
+            if (IsComplexTypeModified(entry, nestedCp.ComplexType))
+                return true;
 
-            var propPath = $"{pathPrefix}.\"{EscapeIdentifier(property.GetAttributeName())}\"";
-
-            setClauses.Add($"{propPath} = ?");
-            setParameters.Add(serializerSource.SerializeProperty(ownedEntry, property));
-        }
-
-        foreach (var subNav in ownedEntry
-            .EntityType
-            .GetNavigations()
-            .Where(static n => !n.IsOnDependent && n.TargetEntityType.IsOwned() && !n.IsCollection))
-        {
-            if (!HasMutationForOwnedNavigation(subNav, ownedEntry, mutatingNavs))
-                continue;
-
-            var subNavAttrName =
-                subNav.TargetEntityType.GetContainingAttributeName() ?? subNav.Name;
-            var subPath = $"{pathPrefix}.\"{EscapeIdentifier(subNavAttrName)}\"";
-
-            var subNavValue = ownedEntry.GetCurrentValue(subNav);
-            var subEntry = subNavValue is not null
-                ? stateManager.TryGetEntry(subNavValue, subNav.TargetEntityType)
-                : null;
-
-            if (subEntry is null || subEntry.EntityState == EntityState.Deleted)
-            {
-                removeClauses.Add(subPath);
-            }
-            else if (subEntry.EntityState == EntityState.Added)
-            {
-                setClauses.Add($"{subPath} = ?");
-                setParameters.Add(
-                    new AttributeValue { M = serializerSource.BuildItemFromOwnedEntry(subEntry) });
-            }
-            else
-            {
-                AppendOwnedOneNestedSetClauses(
-                    subEntry,
-                    subPath,
-                    setClauses,
-                    setParameters,
-                    removeClauses,
-                    mutatingNavs);
-            }
-        }
-
-        foreach (var subNav in ownedEntry
-            .EntityType
-            .GetNavigations()
-            .Where(static n => !n.IsOnDependent && n.TargetEntityType.IsOwned() && n.IsCollection))
-        {
-            if (!HasMutationForOwnedNavigation(subNav, ownedEntry, mutatingNavs))
-                continue;
-
-            var subNavAttrName =
-                subNav.TargetEntityType.GetContainingAttributeName() ?? subNav.Name;
-            var subPath = $"{pathPrefix}.\"{EscapeIdentifier(subNavAttrName)}\"";
-            var subNavValue = ownedEntry.GetCurrentValue(subNav);
-            if (subNavValue is null)
-            {
-                removeClauses.Add(subPath);
-                continue;
-            }
-
-            var elements = BuildOwnedManyElements(subNavValue, subNav, stateManager);
-
-            setClauses.Add($"{subPath} = ?");
-            setParameters.Add(new AttributeValue { L = elements });
-        }
+        return false;
     }
-
-    private List<AttributeValue> BuildOwnedManyElements(
-        object navValue,
-        INavigation nav,
-        IStateManager stateManager)
-    {
-        var elements = new List<AttributeValue>();
-        if (navValue is not IEnumerable collection)
-            throw new InvalidOperationException(
-                $"Owned collection navigation '{nav.DeclaringEntityType.DisplayName()}.{nav.Name}' "
-                + "must be enumerable when non-null.");
-
-        foreach (var element in collection)
-        {
-            if (element is null)
-                continue;
-
-            var ownedEntry = stateManager.TryGetEntry(element, nav.TargetEntityType);
-            if (ownedEntry is null)
-                throw new InvalidOperationException(
-                    $"A collection element of type '{element.GetType().Name}' in navigation "
-                    + $"'{nav.DeclaringEntityType.DisplayName()}.{nav.Name}' is not tracked by "
-                    + "the change tracker. All owned collection elements must be tracked before "
-                    + "calling SaveChanges. Use EF Core navigation fix-up or explicitly "
-                    + "Add/Attach the element through the DbContext.");
-
-            if (ownedEntry.EntityState == EntityState.Deleted)
-                continue;
-
-            elements.Add(
-                new AttributeValue { M = serializerSource.BuildItemFromOwnedEntry(ownedEntry) });
-        }
-
-        return elements;
-    }
-
-    private static bool HasMutationForOwnedNavigation(
-        INavigation nav,
-        InternalEntityEntry principalEntry,
-        Dictionary<InternalEntityEntry, HashSet<INavigation>> mutatingNavs)
-        => mutatingNavs.TryGetValue(principalEntry, out var set) && set.Contains(nav);
 
     private static bool IsScalarModifiedProperty(IProperty property)
     {
