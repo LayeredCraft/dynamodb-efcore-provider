@@ -359,9 +359,7 @@ public static class DynamoEntityTypeBuilderExtensions
         /// <returns>The same builder instance so that multiple calls can be chained.</returns>
         public ComplexPropertyBuilder HasAttributeName(string? name)
         {
-            ((IConventionComplexProperty)complexPropertyBuilder.Metadata).SetAttributeName(
-                name,
-                fromDataAnnotation: false);
+            ((IMutableComplexProperty)complexPropertyBuilder.Metadata).SetAttributeName(name);
             return complexPropertyBuilder;
         }
     }
