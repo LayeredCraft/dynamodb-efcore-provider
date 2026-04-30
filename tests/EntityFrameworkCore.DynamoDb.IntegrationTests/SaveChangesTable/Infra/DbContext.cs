@@ -45,15 +45,17 @@ public class SaveChangesTableDbContext(DbContextOptions options) : DbContext(opt
             builder.HasSortKey(x => x.Sk);
             builder.Property(x => x.Version).IsConcurrencyToken();
 
-            builder.OwnsOne(
+            builder.ComplexProperty(
                 x => x.Profile,
                 profile =>
                 {
-                    profile.OwnsOne(x => x.PreferredAddress);
-                    profile.OwnsOne(x => x.BillingAddress);
+                    profile.ComplexProperty(x => x.PreferredAddress);
+                    profile.ComplexProperty(x => x.BillingAddress);
                 });
 
-            builder.OwnsMany(x => x.Contacts, contact => contact.OwnsOne(x => x.Address));
+            builder.ComplexCollection(
+                x => x.Contacts,
+                contact => contact.ComplexProperty(x => x.Address));
         });
 
         modelBuilder.Entity<OrderItem>(builder =>
@@ -63,17 +65,19 @@ public class SaveChangesTableDbContext(DbContextOptions options) : DbContext(opt
             builder.HasSortKey(x => x.Sk);
             builder.Property(x => x.Version).IsConcurrencyToken();
 
-            builder.OwnsOne(
+            builder.ComplexProperty(
                 x => x.Shipping,
                 shipping =>
                 {
-                    shipping.OwnsOne(x => x.Address);
-                    shipping.OwnsOne(x => x.DeliveryWindow);
+                    shipping.ComplexProperty(x => x.Address);
+                    shipping.ComplexProperty(x => x.DeliveryWindow);
                 });
 
-            builder.OwnsOne(x => x.Billing, billing => billing.OwnsOne(x => x.Address));
+            builder.ComplexProperty(
+                x => x.Billing,
+                billing => billing.ComplexProperty(x => x.Address));
 
-            builder.OwnsMany(x => x.Lines);
+            builder.ComplexCollection(x => x.Lines);
         });
 
         modelBuilder.Entity<ProductItem>(builder =>
@@ -83,8 +87,8 @@ public class SaveChangesTableDbContext(DbContextOptions options) : DbContext(opt
             builder.HasSortKey(x => x.Sk);
             builder.Property(x => x.Version).IsConcurrencyToken();
 
-            builder.OwnsOne(x => x.Dimensions);
-            builder.OwnsMany(x => x.Variants);
+            builder.ComplexProperty(x => x.Dimensions);
+            builder.ComplexCollection(x => x.Variants);
         });
 
         modelBuilder.Entity<SessionItem>(builder =>
@@ -94,7 +98,9 @@ public class SaveChangesTableDbContext(DbContextOptions options) : DbContext(opt
             builder.HasSortKey(x => x.Sk);
             builder.Property(x => x.Version).IsConcurrencyToken();
 
-            builder.OwnsOne(x => x.Device, device => device.OwnsOne(x => x.LastKnownAddress));
+            builder.ComplexProperty(
+                x => x.Device,
+                device => device.ComplexProperty(x => x.LastKnownAddress));
         });
 
         modelBuilder.Entity<ConverterCoverageItem>(builder =>
