@@ -76,8 +76,9 @@ builder.ComplexProperty(x => x.Profile, profile =>
 
 `ComplexCollection(...)` maps a collection property to a DynamoDB list (`AttributeValue.L`).
 Plain collection properties whose element type is a nested POCO are auto-discovered by
-convention. Use `ComplexCollection(...)` when you need to customize the discovered collection or
-its element members.
+convention for the provider's supported complex collection CLR shapes: `List<T>` and `IList<T>`.
+Use `ComplexCollection(...)` when you need to customize the discovered collection or its element
+members.
 
 Collection elements can themselves contain nested complex properties.
 
@@ -99,8 +100,8 @@ The collection is stored as a List:
 }
 ```
 
-Supported CLR collection shapes: `T[]`, `List<T>`, `IList<T>`, `IReadOnlyList<T>`. Using
-`ICollection<T>` throws at model finalization.
+Supported CLR collection shapes: `List<T>`, `IList<T>`. `ICollection<T>`,
+`IReadOnlyList<T>`, and arrays are not supported for complex collections.
 
 !!! note "Collection updates replace the full list"
 

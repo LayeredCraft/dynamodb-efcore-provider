@@ -63,7 +63,7 @@ Entity properties typed as collections materialize from DynamoDB set and list at
 
 | Property CLR Type                                           | DynamoDB Attribute Type | Materializes As                      |
 | ----------------------------------------------------------- | ----------------------- | ------------------------------------ |
-| `List<T>`, `IList<T>`, `IReadOnlyList<T>`                   | `L`                     | `List<T>`                            |
+| `List<T>`, `IList<T>`                                       | `L`                     | `List<T>`                            |
 | `T[]`                                                       | `L`                     | `T[]`                                |
 | `HashSet<T>`, `ISet<T>`, `IReadOnlySet<T>`                  | `SS` / `NS` / `BS`      | `HashSet<T>`                         |
 | `Dictionary<string, TValue>`, `IDictionary<string, TValue>` | `M`                     | `Dictionary<string, TValue>`         |

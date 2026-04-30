@@ -238,7 +238,7 @@ collection types throw during model validation.
 
 | Collection kind | Supported CLR shapes                                                                                                                     |
 | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| List            | `T[]`, `List<T>`, `IList<T>`, `IReadOnlyList<T>`                                                                                         |
+| List            | `T[]`, `List<T>`, `IList<T>`                                                                                                              |
 | Set             | `HashSet<T>`, `ISet<T>`, `IReadOnlySet<T>`                                                                                               |
 | Dictionary      | `Dictionary<string, TValue>`, `IDictionary<string, TValue>`, `IReadOnlyDictionary<string, TValue>`, `ReadOnlyDictionary<string, TValue>` |
 
