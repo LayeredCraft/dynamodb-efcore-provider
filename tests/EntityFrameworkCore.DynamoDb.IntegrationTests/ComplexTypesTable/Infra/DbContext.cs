@@ -67,6 +67,34 @@ public class ConventionOnlyComplexTypesDbContext(DbContextOptions options) : DbC
         });
 }
 
+/// <summary>
+///     Context used to verify convention-only support for the provider's advertised complex
+///     collection CLR shapes.
+/// </summary>
+public class ConventionOnlyCollectionShapeDbContext(DbContextOptions options) : DbContext(options)
+{
+    public DbSet<CollectionShapeItem> Items => Set<CollectionShapeItem>();
+
+    /// <summary>Creates a context configured to use the provided DynamoDB client instance.</summary>
+    public static ConventionOnlyCollectionShapeDbContext Create(IAmazonDynamoDB client)
+        => new(
+            new DbContextOptionsBuilder<ConventionOnlyCollectionShapeDbContext>()
+                .UseDynamo(options => options.DynamoDbClient(client))
+                .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .Options);
+
+    /// <summary>
+    ///     Configures only the root entity table and key so complex collection members must be
+    ///     discovered by convention.
+    /// </summary>
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+        => modelBuilder.Entity<CollectionShapeItem>(builder =>
+        {
+            builder.ToTable(CollectionShapeItemTable.TableName);
+            builder.HasPartitionKey(x => x.Pk);
+        });
+}
+
 /// <summary>Represents the ComplexTypesTableDbContext type.</summary>
 public class ComplexTypesTableDbContext(DbContextOptions options) : DbContext(options)
 {

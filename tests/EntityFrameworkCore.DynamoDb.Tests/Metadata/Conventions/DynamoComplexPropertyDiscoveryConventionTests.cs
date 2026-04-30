@@ -31,6 +31,7 @@ public class DynamoComplexPropertyDiscoveryConventionTests
         public string Pk { get; set; } = null!;
         public Address Profile { get; set; } = null!;
         public List<Address> PreviousAddresses { get; set; } = [];
+        public IList<Address> InterfaceAddresses { get; set; } = [];
     }
 
     private sealed class PlainNestedPocoContext(DbContextOptions options) : DbContext(options)
@@ -80,6 +81,24 @@ public class DynamoComplexPropertyDiscoveryConventionTests
         ctx.Model.FindEntityType(typeof(Address)).Should().BeNull();
     }
 
+    /// <summary>Verifies that an <see cref="IList{T}" /> of POCOs is discovered as a complex collection.</summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void PlainNestedPocoIList_IsDiscoveredAsComplexCollection()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var ctx = new PlainNestedPocoContext(BuildOptions<PlainNestedPocoContext>(client));
+
+        var customerType = ctx.Model.FindEntityType(typeof(Customer))!;
+        var complexProperty = customerType
+            .GetComplexProperties()
+            .Single(p => p.Name == nameof(Customer.InterfaceAddresses));
+
+        complexProperty.IsCollection.Should().BeTrue();
+        complexProperty.ClrType.Should().Be(typeof(IList<Address>));
+        complexProperty.ComplexType.ClrType.Should().Be(typeof(Address));
+        ctx.Model.FindEntityType(typeof(Address)).Should().BeNull();
+    }
+
     private sealed record Employee
     {
         public string Pk { get; set; } = null!;
@@ -114,6 +133,18 @@ public class DynamoComplexPropertyDiscoveryConventionTests
         public List<Address> Offices { get; set; } = [];
     }
 
+    private sealed record UnsupportedCollectionCustomer
+    {
+        public string Pk { get; set; } = null!;
+        public ICollection<Address> Addresses { get; set; } = [];
+    }
+
+    private sealed record UnsupportedReadOnlyListCustomer
+    {
+        public string Pk { get; set; } = null!;
+        public IReadOnlyList<Address> Addresses { get; set; } = [];
+    }
+
     private sealed class AddressCollectionEntityContext(DbContextOptions options) : DbContext(
         options)
     {
@@ -134,6 +165,35 @@ public class DynamoComplexPropertyDiscoveryConventionTests
                 b.HasPartitionKey(x => x.Street);
             });
         }
+    }
+
+    private sealed class UnsupportedCollectionContext(DbContextOptions options) : DbContext(options)
+    {
+        public DbSet<UnsupportedCollectionCustomer> Customers
+            => Set<UnsupportedCollectionCustomer>();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<UnsupportedCollectionCustomer>(b =>
+            {
+                b.ToTable("unsupported-collection-customers");
+                b.HasPartitionKey(x => x.Pk);
+                b.ComplexCollection(x => x.Addresses);
+            });
+    }
+
+    private sealed class UnsupportedReadOnlyListContext(DbContextOptions options) : DbContext(
+        options)
+    {
+        public DbSet<UnsupportedReadOnlyListCustomer> Customers
+            => Set<UnsupportedReadOnlyListCustomer>();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<UnsupportedReadOnlyListCustomer>(b =>
+            {
+                b.ToTable("unsupported-readonly-list-customers");
+                b.HasPartitionKey(x => x.Pk);
+                b.ComplexCollection(x => x.Addresses);
+            });
     }
 
     /// <summary>
@@ -171,5 +231,42 @@ public class DynamoComplexPropertyDiscoveryConventionTests
             .Throw<InvalidOperationException>()
             .WithMessage(
                 "*Unable to determine the relationship represented by navigation 'Team.Offices'*");
+    }
+
+    /// <summary>Verifies that unsupported collection abstractions remain rejected at model validation.</summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ICollectionShape_RemainsUnsupportedForComplexCollections()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        var ctx = new UnsupportedCollectionContext(
+            BuildOptions<UnsupportedCollectionContext>(client));
+        var act = () => ctx.Model;
+
+        act
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage(
+                "*complex collection 'UnsupportedCollectionCustomer'.'Addresses' is of type "
+                + "'ICollection<Address>' which does not implement 'IList<Address>'*");
+    }
+
+    /// <summary>
+    ///     Verifies that <see cref="IReadOnlyList{T}" /> remains outside the supported complex
+    ///     collection shape set.
+    /// </summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void IReadOnlyListShape_RemainsUnsupportedForComplexCollections()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        var ctx = new UnsupportedReadOnlyListContext(
+            BuildOptions<UnsupportedReadOnlyListContext>(client));
+        var act = () => ctx.Model;
+
+        act
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage(
+                "*complex collection 'UnsupportedReadOnlyListCustomer'.'Addresses' is of type "
+                + "'IReadOnlyList<Address>' which does not implement 'IList<Address>'*");
     }
 }

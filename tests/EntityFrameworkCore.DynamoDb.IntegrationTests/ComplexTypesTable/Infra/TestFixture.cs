@@ -51,6 +51,28 @@ public abstract class ConventionOnlyComplexTypesTableTestFixture : DynamoTestFix
             cancellationToken);
 }
 
+public abstract class ConventionOnlyCollectionShapeTableTestFixture : DynamoTestFixtureBase
+{
+    protected ConventionOnlyCollectionShapeTableTestFixture(DynamoContainerFixture fixture) :
+        base(fixture)
+        => EnsureClassTableInitialized(
+            CollectionShapeItemTable.TableName,
+            CollectionShapeItemTable.CreateTable);
+
+    protected TestPartiQlLoggerFactory LoggerFactory => SqlCapture;
+
+    public ConventionOnlyCollectionShapeDbContext Db
+    {
+        get
+        {
+            field ??= new ConventionOnlyCollectionShapeDbContext(
+                CreateOptions<ConventionOnlyCollectionShapeDbContext>(options
+                    => options.DynamoDbClient(Client)));
+            return field;
+        }
+    }
+}
+
 public abstract class ComplexTypesTableTestFixture : DynamoTestFixtureBase
 {
     protected ComplexTypesTableTestFixture(DynamoContainerFixture fixture) : base(fixture)
