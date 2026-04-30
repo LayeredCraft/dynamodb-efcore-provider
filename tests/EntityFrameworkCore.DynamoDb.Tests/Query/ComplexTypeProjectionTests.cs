@@ -208,6 +208,29 @@ public class ComplexTypeProjectionTests
         results[0].Profile!.Age.Should().Be(28);
     }
 
+    /// <summary>
+    ///     Nested scalar projection from a nullable complex property returns null when the complex
+    ///     map attribute is missing.
+    /// </summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task SelectNestedScalarFromComplexProperty_AttributeMissing_ReturnsNull()
+    {
+        var item = CreateItem("A#4b", null, false);
+
+        var client = CreateMockClientReturning(item);
+        await using var ctx = SharedProfileDbContext.Create(client);
+
+        var displayNames =
+            await ctx
+                .EntityAs
+                .Select(a => a.Profile!.DisplayName)
+                .AsAsyncEnumerable()
+                .ToListAsync(TestContext.Current.CancellationToken);
+
+        displayNames.Should().HaveCount(1);
+        displayNames[0].Should().BeNull();
+    }
+
     /// <summary>When the complex property map attribute is absent, null is returned for a nullable property.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SelectComplexProperty_AttributeMissing_ReturnsNullForNullableProperty()
@@ -246,6 +269,37 @@ public class ComplexTypeProjectionTests
 
         profiles.Should().HaveCount(1);
         profiles[0].Should().BeNull();
+    }
+
+    /// <summary>
+    ///     Nested predicate access on an explicitly configured complex property includes the root
+    ///     map attribute in the generated PartiQL path.
+    /// </summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Where_NestedComplexProperty_UsesRootAttributeName()
+    {
+        ExecuteStatementRequest? capturedRequest = null;
+        var item = CreateItem(
+            "A#6b",
+            new Dictionary<string, AttributeValue>
+            {
+                ["displayName"] = new() { S = "Ada" }, ["age"] = new() { N = "39" },
+            });
+
+        var client = CreateMockClientReturning(item, r => capturedRequest = r);
+        await using var ctx = SharedProfileDbContext.Create(client);
+
+        var results =
+            await ctx
+                .EntityAs
+                .Where(a => a.Profile!.DisplayName == "Ada")
+                .Select(a => a.Pk)
+                .AsAsyncEnumerable()
+                .ToListAsync(TestContext.Current.CancellationToken);
+
+        results.Should().Equal("A#6b");
+        capturedRequest.Should().NotBeNull();
+        capturedRequest!.Statement.Should().Contain("\"profile\".\"displayName\" = 'Ada'");
     }
 
     /// <summary>WHERE clause comparing a nullable complex property to null translates to IS NULL OR IS MISSING.</summary>

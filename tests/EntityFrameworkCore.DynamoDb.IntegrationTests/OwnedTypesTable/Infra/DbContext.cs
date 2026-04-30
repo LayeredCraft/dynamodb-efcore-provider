@@ -55,13 +55,31 @@ public class OwnedTypesTableDbContext(DbContextOptions options) : DbContext(opti
                 .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
                 .Options);
 
-    /// <summary>Configures the owned-shape model used by materialization tests.</summary>
+    /// <summary>Configures the complex-shape model used by query and materialization tests.</summary>
     protected override void OnModelCreating(ModelBuilder modelBuilder)
         => modelBuilder.Entity<OwnedShapeItem>(builder =>
         {
             builder.ToTable(OwnedTypesItemTable.TableName);
             builder.HasPartitionKey(x => x.Pk);
+            builder.ComplexProperty(
+                x => x.Profile,
+                profile =>
+                {
+                    profile.ComplexProperty(
+                        x => x.Address,
+                        address => address.ComplexProperty(x => x.Geo));
+                });
 
-            // Intentionally rely on EF Core convention-based owned type discovery in this suite.
+            builder.ComplexCollection(
+                x => x.Orders,
+                order =>
+                {
+                    order.ComplexProperty(
+                        x => x.Payment,
+                        payment => payment.ComplexProperty(x => x.Card));
+                    order.ComplexCollection(x => x.Lines);
+                });
+
+            builder.ComplexCollection(x => x.OrderSnapshots);
         });
 }

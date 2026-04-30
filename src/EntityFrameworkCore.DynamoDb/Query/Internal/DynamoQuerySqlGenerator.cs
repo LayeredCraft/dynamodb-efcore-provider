@@ -258,6 +258,16 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
         return sqlPropertyExpression;
     }
 
+    /// <summary>
+    ///     Emits the root segment of a complex-property path as the mapped DynamoDB attribute name.
+    /// </summary>
+    protected override Expression VisitDynamoComplexPropertyAccess(
+        DynamoComplexPropertyAccessExpression complexPropertyAccessExpression)
+    {
+        AppendIdentifier(complexPropertyAccessExpression.AttributeName);
+        return complexPropertyAccessExpression;
+    }
+
     /// <inheritdoc />
     protected override Expression VisitProjection(ProjectionExpression projectionExpression)
     {

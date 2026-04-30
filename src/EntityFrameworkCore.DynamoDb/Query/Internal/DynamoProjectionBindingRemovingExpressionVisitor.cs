@@ -154,6 +154,24 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
     }
 
     /// <summary>
+    ///     Rewrites nested member access to preserve null propagation when the containing complex
+    ///     instance materializes as <see langword="null" />.
+    /// </summary>
+    protected override Expression VisitMember(MemberExpression node)
+    {
+        if (node.Expression == null)
+            return base.VisitMember(node);
+
+        var instanceExpression = Visit(node.Expression);
+        if (instanceExpression == QueryCompilationContext.NotTranslatedExpression
+            || instanceExpression == null)
+            return QueryCompilationContext.NotTranslatedExpression;
+
+        var memberAccess = node.Update(instanceExpression);
+        return ApplyNullPropagation(instanceExpression, memberAccess, node.Type);
+    }
+
+    /// <summary>
     ///     Handles projection-binding and complex-type marker nodes. Converts member-based
     ///     bindings to indexed dictionary access and expands complex property markers with the
     ///     correct nested map context.
@@ -168,6 +186,9 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
         // }).
         if (node is DynamoComplexTypeProjectionExpression complexTypeProjection)
             return VisitComplexTypeProjection(complexTypeProjection);
+
+        if (node is DynamoComplexCollectionProjectionExpression complexCollectionProjection)
+            return VisitComplexCollectionProjection(complexCollectionProjection);
 
         if (node is DynamoComplexCollectionInitializationExpression complexCollInit)
             return VisitComplexCollectionInitialization(complexCollInit);
@@ -369,19 +390,48 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
     }
 
     /// <summary>
+    ///     Visits a direct complex-collection projection expression by reading the list attribute
+    ///     from the current context and materializing each element map into the target CLR
+    ///     collection type.
+    /// </summary>
+    private Expression VisitComplexCollectionProjection(
+        DynamoComplexCollectionProjectionExpression projection)
+    {
+        var complexCollectionMaterializer = VisitComplexCollectionCore(
+            projection.ComplexProperty,
+            projection.ElementInnerShaper);
+
+        return complexCollectionMaterializer;
+    }
+
+    /// <summary>
     ///     Visits complex collection initialization markers by reading the L attribute and
     ///     materializing each element map under its own pushed context.
     /// </summary>
     private Expression VisitComplexCollectionInitialization(
         DynamoComplexCollectionInitializationExpression complexCollInit)
-    {
-        var cp = complexCollInit.ComplexProperty;
-        var attributeName = ((IReadOnlyComplexProperty)cp).GetAttributeName();
-        var path = $"{cp.DeclaringType.DisplayName()}.{cp.Name}";
+        => Assign(
+            complexCollInit.MemberAccess,
+            VisitComplexCollectionCore(
+                complexCollInit.ComplexProperty,
+                complexCollInit.ElementInjectedMaterializer));
 
-        if (!DynamoTypeMappingSource.TryGetListElementType(cp.ClrType, out var elementType))
+    /// <summary>
+    ///     Reads a complex collection from the current attribute context and materializes it into
+    ///     the configured CLR collection type.
+    /// </summary>
+    private Expression VisitComplexCollectionCore(
+        IComplexProperty complexProperty,
+        Expression elementMaterializer)
+    {
+        var attributeName = ((IReadOnlyComplexProperty)complexProperty).GetAttributeName();
+        var path = $"{complexProperty.DeclaringType.DisplayName()}.{complexProperty.Name}";
+
+        if (!DynamoTypeMappingSource.TryGetListElementType(
+                complexProperty.ClrType,
+                out var elementType))
             throw new InvalidOperationException(
-                $"Complex collection '{path}' CLR type '{cp.ClrType.Name}' is not a supported "
+                $"Complex collection '{path}' CLR type '{complexProperty.ClrType.Name}' is not a supported "
                 + "collection type. Use List<T>, IList<T>, or IReadOnlyList<T>.");
 
         var wireListVariable =
@@ -400,7 +450,7 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
             $"complexElement_{attributeName}_map");
 
         _attributeContextStack.Push(elementMapVariable);
-        var visitedElementMaterializer = Visit(complexCollInit.ElementInjectedMaterializer);
+        var visitedElementMaterializer = Visit(elementMaterializer);
         _attributeContextStack.Pop();
 
         if (visitedElementMaterializer.Type != elementType)
@@ -447,8 +497,10 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
             entitiesEnumerable);
 
         Expression populatedResult =
-            ConvertCollectionMaterialization(entitiesExpression, cp.ClrType);
-        Expression emptyResult = ConvertCollectionMaterialization(New(resultListType), cp.ClrType);
+            ConvertCollectionMaterialization(entitiesExpression, complexProperty.ClrType);
+        Expression emptyResult = ConvertCollectionMaterialization(
+            New(resultListType),
+            complexProperty.ClrType);
 
         var collectionExpression = Block(
             [wireListVariable],
@@ -457,27 +509,7 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
                 Equal(wireListVariable, Constant(null, typeof(List<AttributeValue>))),
                 emptyResult,
                 populatedResult));
-
-        return Assign(complexCollInit.MemberAccess, collectionExpression);
-    }
-
-    /// <summary>
-    ///     Visits member access expressions, forwarding the visited instance without additional
-    ///     null-propagation (complex type instances are never null-checked at the member level;
-    ///     nullability is handled at the map-context level in
-    ///     <see cref="VisitComplexPropertyInitialization" />).
-    /// </summary>
-    protected override Expression VisitMember(MemberExpression node)
-    {
-        if (node.Expression == null)
-            return base.VisitMember(node);
-
-        var instanceExpression = Visit(node.Expression);
-        if (instanceExpression == QueryCompilationContext.NotTranslatedExpression
-            || instanceExpression == null)
-            return QueryCompilationContext.NotTranslatedExpression;
-
-        return node.Update(instanceExpression);
+        return collectionExpression;
     }
 
     /// <summary>
@@ -585,6 +617,30 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
         }
 
         return base.VisitMethodCall(node);
+    }
+
+    /// <summary>
+    ///     Wraps a member-access result in a null check when the containing instance can be
+    ///     <see langword="null" />, returning the default member value instead of throwing a CLR
+    ///     null-reference exception during projection materialization.
+    /// </summary>
+    /// <param name="instanceExpression">The visited instance expression that owns the accessed member.</param>
+    /// <param name="memberAccess">The rewritten member-access expression.</param>
+    /// <param name="memberType">The accessed member CLR type.</param>
+    /// <returns>The original access or a null-propagating conditional wrapper.</returns>
+    private static Expression ApplyNullPropagation(
+        Expression instanceExpression,
+        Expression memberAccess,
+        Type memberType)
+    {
+        if (instanceExpression.Type.IsValueType
+            && Nullable.GetUnderlyingType(instanceExpression.Type) == null)
+            return memberAccess;
+
+        return Condition(
+            Equal(instanceExpression, Constant(null, instanceExpression.Type)),
+            Default(memberType),
+            memberAccess);
     }
 
     /// <summary>

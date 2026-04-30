@@ -18,7 +18,7 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
 
         AssertSql(
             """
-            SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "orders", "orderSnapshots", "profile"
+            SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "orderSnapshots", "orders", "profile"
             FROM "OwnedTypesItems"
             """);
     }
@@ -172,7 +172,7 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
 
         AssertSql(
             """
-            SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "orders", "orderSnapshots", "profile"
+            SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "orderSnapshots", "orders", "profile"
             FROM "OwnedTypesItems"
             WHERE "pk" = 'OWNED#3'
             """);
@@ -195,7 +195,7 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
 
         AssertSql(
             """
-            SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "orders", "orderSnapshots", "profile"
+            SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "orderSnapshots", "orders", "profile"
             FROM "OwnedTypesItems"
             WHERE "pk" = 'OWNED#3'
             """);

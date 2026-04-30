@@ -36,7 +36,7 @@ public class OwnedTypesModelValidationTests
         act
             .Should()
             .Throw<InvalidOperationException>()
-            .WithMessage("*Complex collection property*unsupported CLR type*");
+            .WithMessage("*complex collection*ICollection<ComplexProfile>*does not implement*IList<ComplexProfile>*");
     }
 
     private DbContextOptions<TContext> CreateOptions<TContext>() where TContext : DbContext

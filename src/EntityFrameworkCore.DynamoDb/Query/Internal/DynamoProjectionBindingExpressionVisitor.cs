@@ -319,6 +319,18 @@ public class DynamoProjectionBindingExpressionVisitor(
                 var attributeName = ((IReadOnlyComplexProperty)complexProperty).GetAttributeName();
                 _selectExpression.AddEmbeddedAttributeToProjection(attributeName);
 
+                if (complexProperty.IsCollection)
+                {
+                    var elementShaper = new StructuralTypeShaperExpression(
+                        complexProperty.ComplexType,
+                        Expression.Constant(ValueBuffer.Empty),
+                        false);
+
+                    return new DynamoComplexCollectionProjectionExpression(
+                        complexProperty,
+                        elementShaper);
+                }
+
                 var innerShaper = new StructuralTypeShaperExpression(
                     complexProperty.ComplexType,
                     Expression.Constant(ValueBuffer.Empty),
@@ -408,6 +420,18 @@ public class DynamoProjectionBindingExpressionVisitor(
 
                 var attributeName = ((IReadOnlyComplexProperty)complexProperty).GetAttributeName();
                 _selectExpression.AddEmbeddedAttributeToProjection(attributeName);
+
+                if (complexProperty.IsCollection)
+                {
+                    var elementShaper = new StructuralTypeShaperExpression(
+                        complexProperty.ComplexType,
+                        Expression.Constant(ValueBuffer.Empty),
+                        false);
+
+                    return new DynamoComplexCollectionProjectionExpression(
+                        complexProperty,
+                        elementShaper);
+                }
 
                 var innerShaper = new StructuralTypeShaperExpression(
                     complexProperty.ComplexType,
