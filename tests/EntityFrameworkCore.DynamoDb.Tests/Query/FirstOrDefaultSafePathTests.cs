@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations.Schema;
 using Amazon.DynamoDBv2;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -230,7 +231,7 @@ public class FirstOrDefaultSafePathTests
     // DynamoListIndexExpression regression) ──
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public async Task FirstOrDefault_NestedOwnedPropertyPredicate_ThrowsTranslationFailure()
+    public async Task FirstOrDefault_NestedComplexPropertyPredicate_ThrowsTranslationFailure()
     {
         // Regression: ContainsNonKeyProperty() does not descend into DynamoScalarAccessExpression,
         // so x.Profile.City == "Seattle" (which becomes DynamoScalarAccessExpression wrapping a
@@ -278,7 +279,7 @@ public class FirstOrDefaultSafePathTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public async Task FirstOrDefault_DeepNestedOwnedPropertyPredicate_ThrowsTranslationFailure()
+    public async Task FirstOrDefault_DeepNestedComplexPropertyPredicate_ThrowsTranslationFailure()
     {
         // Regression: a two-level nested path (x.Profile.Address.City) produces a chain of
         // DynamoScalarAccessExpression nodes. The guard must walk the whole chain and still
@@ -426,28 +427,31 @@ public class FirstOrDefaultSafePathTests
 
     // ── Nested-path / list-index support types ──────────────────────────────
 
-    /// <summary>Single-level owned reference — used to exercise DynamoScalarAccessExpression in the guard.</summary>
+    /// <summary>Single-level complex type — used to exercise DynamoScalarAccessExpression in the guard.</summary>
+    [ComplexType]
     private sealed record FlatProfile
     {
         /// <summary>Non-key nested attribute.</summary>
-        public string City { get; } = null!;
+        public string City { get; set; } = null!;
     }
 
-    /// <summary>Two-level owned reference — wraps a second owned type to exercise deep nesting.</summary>
+    /// <summary>Two-level complex type — wraps a second complex type to exercise deep nesting.</summary>
+    [ComplexType]
     private sealed record Address
     {
         /// <summary>Non-key nested attribute.</summary>
-        public string City { get; } = null!;
+        public string City { get; set; } = null!;
     }
 
-    /// <summary>Outer owned reference — contains a nested owned reference for deep-path tests.</summary>
+    /// <summary>Outer complex type — contains a nested complex type for deep-path tests.</summary>
+    [ComplexType]
     private sealed record DeepProfile
     {
-        /// <summary>Nested owned reference.</summary>
+        /// <summary>Nested complex type.</summary>
         public Address? Address { get; set; }
     }
 
-    /// <summary>Entity with PK, SK, an owned reference, and a primitive string list.</summary>
+    /// <summary>Entity with PK, SK, a complex property, and a primitive string list.</summary>
     private sealed record NestedPathItem
     {
         /// <summary>Partition key.</summary>
@@ -456,14 +460,14 @@ public class FirstOrDefaultSafePathTests
         /// <summary>Sort key — required so the no-sort-key bypass does not mask the bug.</summary>
         public string Sk { get; set; } = null!;
 
-        /// <summary>Single-level owned reference whose properties are non-key attributes.</summary>
+        /// <summary>Single-level complex property whose properties are non-key attributes.</summary>
         public FlatProfile? Profile { get; set; }
 
         /// <summary>Primitive collection — element access becomes DynamoListIndexExpression.</summary>
         public List<string> Tags { get; set; } = [];
     }
 
-    /// <summary>Entity with PK, SK, and a two-level owned reference for deep-nesting tests.</summary>
+    /// <summary>Entity with PK, SK, and a two-level complex property for deep-nesting tests.</summary>
     private sealed record DeepNestedItem
     {
         /// <summary>Partition key.</summary>
@@ -472,7 +476,7 @@ public class FirstOrDefaultSafePathTests
         /// <summary>Sort key — required so the no-sort-key bypass does not mask the bug.</summary>
         public string Sk { get; set; } = null!;
 
-        /// <summary>Two-level owned reference whose leaf property is a non-key attribute.</summary>
+        /// <summary>Two-level complex property whose leaf property is a non-key attribute.</summary>
         public DeepProfile? Profile { get; set; }
     }
 
@@ -488,7 +492,7 @@ public class FirstOrDefaultSafePathTests
                 b.ToTable("NestedPathTable");
                 b.HasPartitionKey(x => x.Pk);
                 b.HasSortKey(x => x.Sk);
-                b.OwnsOne(x => x.Profile);
+                b.ComplexProperty(x => x.Profile);
             });
 
         /// <summary>Provides functionality for this member.</summary>
@@ -513,7 +517,7 @@ public class FirstOrDefaultSafePathTests
                 b.ToTable("DeepNestedTable");
                 b.HasPartitionKey(x => x.Pk);
                 b.HasSortKey(x => x.Sk);
-                b.OwnsOne(x => x.Profile, pb => pb.OwnsOne(p => p.Address));
+                b.ComplexProperty(x => x.Profile, pb => pb.ComplexProperty(p => p.Address));
             });
 
         /// <summary>Provides functionality for this member.</summary>

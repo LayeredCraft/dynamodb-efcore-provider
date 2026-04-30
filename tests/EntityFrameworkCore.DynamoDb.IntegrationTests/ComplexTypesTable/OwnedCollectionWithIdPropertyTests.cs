@@ -1,7 +1,7 @@
 using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 using Microsoft.EntityFrameworkCore;
 
-namespace EntityFrameworkCore.DynamoDb.IntegrationTests.OwnedTypesTable;
+namespace EntityFrameworkCore.DynamoDb.IntegrationTests.ComplexTypesTable;
 
 /// <summary>
 ///     Regression tests for the scenario where a complex collection element has a CLR property
@@ -9,8 +9,8 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.OwnedTypesTable;
 ///     the fix in <c>DynamoKeyDiscoveryConvention</c>, EF Core's <c>Id</c>-based key discovery
 ///     would interfere with complex type element configuration.
 /// </summary>
-public class OwnedCollectionWithIdPropertyTests(DynamoContainerFixture fixture)
-    : OwnedCollectionWithIdPropertyTestFixture(fixture)
+public class ComplexCollectionWithIdPropertyTests(DynamoContainerFixture fixture)
+    : ComplexCollectionWithIdPropertyTestFixture(fixture)
 {
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void ModelBuilds_WithoutException_WhenComplexCollectionElementHasIdProperty()
@@ -47,7 +47,7 @@ public class OwnedCollectionWithIdPropertyTests(DynamoContainerFixture fixture)
         await Db.AddAsync(report, CancellationToken);
         await Db.SaveChangesAsync(CancellationToken);
 
-        using var readCtx = OwnedCollectionWithIdPropertyDbContext.Create(Client);
+        using var readCtx = ComplexCollectionWithIdPropertyDbContext.Create(Client);
         var loaded =
             await readCtx
                 .Reports
@@ -71,7 +71,7 @@ public class OwnedCollectionWithIdPropertyTests(DynamoContainerFixture fixture)
         await Db.AddAsync(report, CancellationToken);
         await Db.SaveChangesAsync(CancellationToken);
 
-        using var readCtx = OwnedCollectionWithIdPropertyDbContext.Create(Client);
+        using var readCtx = ComplexCollectionWithIdPropertyDbContext.Create(Client);
         var loaded =
             await readCtx
                 .Reports

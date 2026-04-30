@@ -2,24 +2,24 @@ using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 using Microsoft.EntityFrameworkCore;
 
-namespace EntityFrameworkCore.DynamoDb.IntegrationTests.OwnedTypesTable;
+namespace EntityFrameworkCore.DynamoDb.IntegrationTests.ComplexTypesTable;
 
 /// <summary>Represents the SelectTests type.</summary>
-public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFixture(fixture)
+public class SelectTests(DynamoContainerFixture fixture) : ComplexTypesTableTestFixture(fixture)
 {
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ToListAsync_MaterializesOwnedReferencesAndCollections()
     {
         var results = await Db.Items.ToListAsync(CancellationToken);
 
-        var expected = OwnedTypesItems.Items.ToList();
+        var expected = ComplexTypesItems.Items.ToList();
 
         results.Should().BeEquivalentTo(expected);
 
         AssertSql(
             """
             SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "orderSnapshots", "orders", "profile"
-            FROM "OwnedTypesItems"
+            FROM "ComplexTypesItems"
             """);
     }
 
@@ -29,14 +29,14 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
         var results =
             await Db.Items.Select(x => new { x.Pk, x.Profile }).ToListAsync(CancellationToken);
 
-        var expected = OwnedTypesItems.Items.Select(x => new { x.Pk, x.Profile }).ToList();
+        var expected = ComplexTypesItems.Items.Select(x => new { x.Pk, x.Profile }).ToList();
 
         results.Should().BeEquivalentTo(expected);
 
         AssertSql(
             """
             SELECT "pk", "profile"
-            FROM "OwnedTypesItems"
+            FROM "ComplexTypesItems"
             """);
     }
 
@@ -49,14 +49,14 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
                 .Select(x => new { x.Pk, Age = x.Profile == null ? null : x.Profile.Age })
                 .ToListAsync(CancellationToken);
 
-        var expected = OwnedTypesItems.Items.Select(x => new { x.Pk, x.Profile?.Age }).ToList();
+        var expected = ComplexTypesItems.Items.Select(x => new { x.Pk, x.Profile?.Age }).ToList();
 
         results.Should().BeEquivalentTo(expected);
 
         AssertSql(
             """
             SELECT "pk", "profile"
-            FROM "OwnedTypesItems"
+            FROM "ComplexTypesItems"
             """);
     }
 
@@ -71,7 +71,7 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
                 .ToListAsync(CancellationToken);
 
         var expected =
-            OwnedTypesItems
+            ComplexTypesItems
                 .Items
                 .OrderBy(x => x.Pk)
                 .Select(x => new { x.Pk, x.Orders, x.OrderSnapshots })
@@ -82,7 +82,7 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
         AssertSql(
             """
             SELECT "pk", "orders", "orderSnapshots"
-            FROM "OwnedTypesItems"
+            FROM "ComplexTypesItems"
             """);
     }
 
@@ -96,21 +96,21 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
                 .ToListAsync(CancellationToken);
 
         var expected =
-            OwnedTypesItems.Items.Select(x => new { x.Pk, x.Profile?.Address?.City }).ToList();
+            ComplexTypesItems.Items.Select(x => new { x.Pk, x.Profile?.Address?.City }).ToList();
 
         results.Should().BeEquivalentTo(expected);
 
         AssertSql(
             """
             SELECT "pk", "profile"
-            FROM "OwnedTypesItems"
+            FROM "ComplexTypesItems"
             """);
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Select_OwnedNavigationChain_MissingAttribute_PropagatesNull()
     {
-        var item = OwnedTypesItemMapper.ToItem(OwnedTypesItems.Items[0]);
+        var item = ComplexTypesItemMapper.ToItem(ComplexTypesItems.Items[0]);
         item["pk"].S = "OWNED#MISSINGPROFILE";
         item.Remove("profile");
         await PutItemAsync(item, CancellationToken);
@@ -131,7 +131,7 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
             AssertSql(
                 """
                 SELECT "pk", "profile"
-                FROM "OwnedTypesItems"
+                FROM "ComplexTypesItems"
                 WHERE "pk" = 'OWNED#MISSINGPROFILE'
                 """);
         }
@@ -140,7 +140,7 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
             await Client.DeleteItemAsync(
                 new DeleteItemRequest
                 {
-                    TableName = OwnedTypesItemTable.TableName,
+                    TableName = ComplexTypesItemTable.TableName,
                     Key = new Dictionary<string, AttributeValue>
                     {
                         ["pk"] = new() { S = "OWNED#MISSINGPROFILE" },
@@ -173,7 +173,7 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
         AssertSql(
             """
             SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "orderSnapshots", "orders", "profile"
-            FROM "OwnedTypesItems"
+            FROM "ComplexTypesItems"
             WHERE "pk" = 'OWNED#3'
             """);
     }
@@ -196,7 +196,7 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
         AssertSql(
             """
             SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "orderSnapshots", "orders", "profile"
-            FROM "OwnedTypesItems"
+            FROM "ComplexTypesItems"
             WHERE "pk" = 'OWNED#3'
             """);
     }

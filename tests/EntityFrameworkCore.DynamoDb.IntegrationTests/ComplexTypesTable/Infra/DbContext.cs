@@ -4,20 +4,20 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
-namespace EntityFrameworkCore.DynamoDb.IntegrationTests.OwnedTypesTable;
+namespace EntityFrameworkCore.DynamoDb.IntegrationTests.ComplexTypesTable;
 
 /// <summary>
 ///     Context used to verify that a complex collection element with a CLR property named
 ///     <c>Id</c> (mapped to a custom attribute name) does not trigger EF Core's Id-based key
 ///     discovery, since complex types have no key concept.
 /// </summary>
-public class OwnedCollectionWithIdPropertyDbContext(DbContextOptions options) : DbContext(options)
+public class ComplexCollectionWithIdPropertyDbContext(DbContextOptions options) : DbContext(options)
 {
     public DbSet<AnalysisReport> Reports => Set<AnalysisReport>();
 
-    public static OwnedCollectionWithIdPropertyDbContext Create(IAmazonDynamoDB client)
+    public static ComplexCollectionWithIdPropertyDbContext Create(IAmazonDynamoDB client)
         => new(
-            new DbContextOptionsBuilder<OwnedCollectionWithIdPropertyDbContext>()
+            new DbContextOptionsBuilder<ComplexCollectionWithIdPropertyDbContext>()
                 .UseDynamo(options => options.DynamoDbClient(client))
                 .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
                 .Options);
@@ -42,24 +42,24 @@ public class OwnedCollectionWithIdPropertyDbContext(DbContextOptions options) : 
         });
 }
 
-/// <summary>Represents the OwnedTypesTableDbContext type.</summary>
-public class OwnedTypesTableDbContext(DbContextOptions options) : DbContext(options)
+/// <summary>Represents the ComplexTypesTableDbContext type.</summary>
+public class ComplexTypesTableDbContext(DbContextOptions options) : DbContext(options)
 {
-    public DbSet<OwnedShapeItem> Items => Set<OwnedShapeItem>();
+    public DbSet<ComplexShapeItem> Items => Set<ComplexShapeItem>();
 
     /// <summary>Creates a context configured to use the provided DynamoDB client instance.</summary>
-    public static OwnedTypesTableDbContext Create(IAmazonDynamoDB client)
+    public static ComplexTypesTableDbContext Create(IAmazonDynamoDB client)
         => new(
-            new DbContextOptionsBuilder<OwnedTypesTableDbContext>()
+            new DbContextOptionsBuilder<ComplexTypesTableDbContext>()
                 .UseDynamo(options => options.DynamoDbClient(client))
                 .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
                 .Options);
 
     /// <summary>Configures the complex-shape model used by query and materialization tests.</summary>
     protected override void OnModelCreating(ModelBuilder modelBuilder)
-        => modelBuilder.Entity<OwnedShapeItem>(builder =>
+        => modelBuilder.Entity<ComplexShapeItem>(builder =>
         {
-            builder.ToTable(OwnedTypesItemTable.TableName);
+            builder.ToTable(ComplexTypesItemTable.TableName);
             builder.HasPartitionKey(x => x.Pk);
             builder.ComplexProperty(
                 x => x.Profile,

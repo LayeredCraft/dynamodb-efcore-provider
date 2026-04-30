@@ -26,6 +26,18 @@ public class DynamoEntityEntryExtensionsTests
         response.Should().BeSameAs(expected);
     }
 
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ComplexPropertyMetadata_DoesNotExposeExecuteStatementResponseShadowProperty()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var context = TestDbContext.Create(client);
+
+        var entityType = context.Model.FindEntityType(typeof(RootEntity))!;
+        var complexType = entityType.FindComplexProperty(nameof(RootEntity.Address))!.ComplexType;
+
+        complexType.FindProperty("__executeStatementResponse").Should().BeNull();
+    }
+
     [ComplexType]
     private sealed record Address
     {

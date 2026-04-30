@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations.Schema;
 using Amazon.DynamoDBv2;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -312,7 +313,7 @@ public class DynamoKeyInPrimaryKeyConventionTests
     }
 
     // -------------------------------------------------------------------
-    // Owned entity types — convention must not modify their keys
+    // Complex types — convention must not add key annotations
     // -------------------------------------------------------------------
 
     private sealed record OwnerWithAnnotationEntity
@@ -321,16 +322,17 @@ public class DynamoKeyInPrimaryKeyConventionTests
         public string Id { get; set; } = null!;
 
         /// <summary>Provides functionality for this member.</summary>
-        public OwnedPart Detail { get; set; } = null!;
+        public ComplexPart Detail { get; set; } = null!;
     }
 
-    private sealed record OwnedPart
+    [ComplexType]
+    private sealed record ComplexPart
     {
         /// <summary>Provides functionality for this member.</summary>
         public string Value { get; set; } = null!;
     }
 
-    private sealed class OwnedPartContext(DbContextOptions options) : DbContext(options)
+    private sealed class ComplexPartContext(DbContextOptions options) : DbContext(options)
     {
         /// <summary>Provides functionality for this member.</summary>
         public DbSet<OwnerWithAnnotationEntity> Owners { get; set; } = null!;
@@ -341,26 +343,26 @@ public class DynamoKeyInPrimaryKeyConventionTests
             {
                 DynamoEntityTypeBuilderExtensions.ToTable((EntityTypeBuilder)b, "OwnedPartTable");
                 b.HasPartitionKey(x => x.Id);
-                b.OwnsOne(x => x.Detail);
+                b.ComplexProperty(x => x.Detail);
             });
 
         /// <summary>Provides functionality for this member.</summary>
-        public static OwnedPartContext Create(IAmazonDynamoDB client)
-            => new(BuildOptions<OwnedPartContext>(client));
+        public static ComplexPartContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<ComplexPartContext>(client));
     }
 
     /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
-    public void OwnedEntityType_ConventionDoesNotApply_NoChange()
+    public void ComplexType_ConventionDoesNotApply_NoChange()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
-        using var ctx = OwnedPartContext.Create(client);
+        using var ctx = ComplexPartContext.Create(client);
 
-        // Owned types have no DynamoDB key annotations — their PK is managed by
-        // OwnedTypePrimaryKeyConvention
-        var ownedType = ctx.Model.FindEntityType(typeof(OwnedPart))!;
-        ownedType["Dynamo:PartitionKeyPropertyName"].Should().BeNull();
-        ownedType["Dynamo:SortKeyPropertyName"].Should().BeNull();
+        var ownerType = ctx.Model.FindEntityType(typeof(OwnerWithAnnotationEntity))!;
+        var complexType = ownerType.FindComplexProperty(nameof(OwnerWithAnnotationEntity.Detail))!
+            .ComplexType;
+        complexType["Dynamo:PartitionKeyPropertyName"].Should().BeNull();
+        complexType["Dynamo:SortKeyPropertyName"].Should().BeNull();
     }
 }

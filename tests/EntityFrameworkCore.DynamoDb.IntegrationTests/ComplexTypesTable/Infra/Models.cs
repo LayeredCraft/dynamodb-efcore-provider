@@ -1,9 +1,9 @@
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace EntityFrameworkCore.DynamoDb.IntegrationTests.OwnedTypesTable;
+namespace EntityFrameworkCore.DynamoDb.IntegrationTests.ComplexTypesTable;
 
-/// <summary>Represents the OwnedShapeItem type.</summary>
-public sealed record OwnedShapeItem
+/// <summary>Represents the ComplexShapeItem type.</summary>
+public sealed record ComplexShapeItem
 {
     public DateTimeOffset CreatedAt { get; set; }
 

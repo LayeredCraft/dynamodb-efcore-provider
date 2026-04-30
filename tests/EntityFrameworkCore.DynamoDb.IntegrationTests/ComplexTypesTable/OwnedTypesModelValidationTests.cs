@@ -3,14 +3,14 @@ using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 
-namespace EntityFrameworkCore.DynamoDb.IntegrationTests.OwnedTypesTable;
+namespace EntityFrameworkCore.DynamoDb.IntegrationTests.ComplexTypesTable;
 
 /// <summary>Validates that the DynamoDB provider rejects owned entity types and unsupported complex collection shapes.</summary>
-public class OwnedTypesModelValidationTests
+public class ComplexTypesModelValidationTests
 {
     private readonly DynamoContainerFixture _fixture;
 
-    public OwnedTypesModelValidationTests(DynamoContainerFixture fixture) => _fixture = fixture;
+    public ComplexTypesModelValidationTests(DynamoContainerFixture fixture) => _fixture = fixture;
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void OwnedEntityType_ThrowsNotSupported()
@@ -55,7 +55,7 @@ public class OwnedTypesModelValidationTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<OwnerWithOwnedProfile>(entity =>
             {
-                entity.ToTable(OwnedTypesItemTable.TableName);
+                entity.ToTable(ComplexTypesItemTable.TableName);
                 entity.HasPartitionKey(x => x.Pk);
                 entity.OwnsOne(x => x.Profile);
             });
@@ -70,7 +70,7 @@ public class OwnedTypesModelValidationTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<OwnerWithUnsupportedCollectionShape>(entity =>
             {
-                entity.ToTable(OwnedTypesItemTable.TableName);
+                entity.ToTable(ComplexTypesItemTable.TableName);
                 entity.HasPartitionKey(x => x.Pk);
                 entity.ComplexCollection(x => x.Profiles);
             });

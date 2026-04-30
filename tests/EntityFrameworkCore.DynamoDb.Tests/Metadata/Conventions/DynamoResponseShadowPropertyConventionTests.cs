@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations.Schema;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using Microsoft.EntityFrameworkCore;
@@ -53,9 +54,10 @@ public class DynamoResponseShadowPropertyConventionTests
     }
 
     // -----------------------------------------------------------------------
-    // Owned entity types do NOT receive the shadow property
+    // Complex types do NOT receive the shadow property
     // -----------------------------------------------------------------------
 
+    [ComplexType]
     private sealed record Address
     {
         public string Street { get; set; } = null!;
@@ -75,21 +77,21 @@ public class DynamoResponseShadowPropertyConventionTests
             => modelBuilder.Entity<OrderEntity>(b =>
             {
                 b.ToTable("Orders");
-                b.OwnsOne(o => o.ShippingAddress);
+                b.ComplexProperty(o => o.ShippingAddress);
             });
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public void Convention_DoesNotAdd_ToOwnedEntityTypes()
+    public void Convention_DoesNotAdd_ToComplexTypes()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
         using var ctx = new OrderContext(BuildOptions<OrderContext>(client));
 
-        var ownedType = ctx.Model.FindEntityType(typeof(Address));
-        ownedType.Should().NotBeNull();
-        ownedType!.IsOwned().Should().BeTrue();
+        var orderType = ctx.Model.FindEntityType(typeof(OrderEntity))!;
+        var complexProperty = orderType.FindComplexProperty(nameof(OrderEntity.ShippingAddress))!;
+        var complexType = complexProperty.ComplexType;
 
-        var property = ownedType.FindProperty("__executeStatementResponse");
+        var property = complexType.FindProperty("__executeStatementResponse");
         property.Should().BeNull();
     }
 
