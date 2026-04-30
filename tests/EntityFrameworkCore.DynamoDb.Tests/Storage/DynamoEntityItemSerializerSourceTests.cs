@@ -17,7 +17,7 @@ public class DynamoEntityItemSerializerSourceTests
     ///     <c>BuildInsertStatement</c> must reject a table name containing a double-quote because
     ///     that character would break the PartiQL identifier syntax.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SaveChanges_TableNameWithDoubleQuote_ThrowsArgumentException()
     {
         var options = new DbContextOptionsBuilder<QuotedTableDbContext>()
@@ -33,7 +33,7 @@ public class DynamoEntityItemSerializerSourceTests
         ex.Message.Should().Contain("\"");
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void BuildItem_ListWithNullableEnumElements_UsesNullAttributeValueForNullElement()
     {
         using var db = new NullableCollectionDbContext(
@@ -58,7 +58,7 @@ public class DynamoEntityItemSerializerSourceTests
         item["nullableStatuses"].L[1].NULL.Should().BeTrue();
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void BuildItem_DictionaryWithNullableEnumValues_UsesNullAttributeValueForNullValue()
     {
         using var db = new NullableCollectionDbContext(
@@ -87,7 +87,7 @@ public class DynamoEntityItemSerializerSourceTests
         item["nullableStatusByCode"].M["missing"].NULL.Should().BeTrue();
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void BuildItem_SetWithNullableEnumElements_ThrowsWhenElementIsNull()
     {
         using var db = new NullableCollectionDbContext(

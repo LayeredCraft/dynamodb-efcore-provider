@@ -37,7 +37,7 @@ public class DynamoResponseShadowPropertyConventionTests
             => modelBuilder.Entity<RootEntity>(b => b.ToTable("RootTable"));
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void Convention_AddsShadowProperty_ToRootEntityTypes()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -79,7 +79,7 @@ public class DynamoResponseShadowPropertyConventionTests
             });
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void Convention_DoesNotAdd_ToOwnedEntityTypes()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -116,7 +116,7 @@ public class DynamoResponseShadowPropertyConventionTests
             => modelBuilder.Entity<AnimalBase>(b => b.ToTable("Animals"));
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void Convention_DoesNotAdd_ToDerivedEntityTypes()
     {
         var client = Substitute.For<IAmazonDynamoDB>();

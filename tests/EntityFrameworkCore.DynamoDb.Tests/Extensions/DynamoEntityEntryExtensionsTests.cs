@@ -9,7 +9,7 @@ namespace EntityFrameworkCore.DynamoDb.Tests.Extensions;
 
 public class DynamoEntityEntryExtensionsTests
 {
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void GetExecuteStatementResponse_ReturnsShadowPropertyValue_ForRootEntity()
     {
         var client = Substitute.For<IAmazonDynamoDB>();

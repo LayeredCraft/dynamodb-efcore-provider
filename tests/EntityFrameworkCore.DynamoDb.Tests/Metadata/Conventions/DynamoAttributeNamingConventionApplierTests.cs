@@ -52,7 +52,7 @@ public class DynamoAttributeNamingConventionApplierTests
             });
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void SnakeCase_TransformsAllDeclaredProperties()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -91,7 +91,7 @@ public class DynamoAttributeNamingConventionApplierTests
             });
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void CamelCase_TransformsAllDeclaredProperties()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -130,7 +130,7 @@ public class DynamoAttributeNamingConventionApplierTests
             });
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void KebabCase_TransformsAllDeclaredProperties()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -168,7 +168,7 @@ public class DynamoAttributeNamingConventionApplierTests
             });
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void UpperSnakeCase_TransformsAllDeclaredProperties()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -207,7 +207,7 @@ public class DynamoAttributeNamingConventionApplierTests
             });
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void CustomDelegate_AppliesTransformation()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -250,7 +250,7 @@ public class DynamoAttributeNamingConventionApplierTests
             });
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void ExplicitHasAttributeName_WinsOverConvention()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -287,7 +287,7 @@ public class DynamoAttributeNamingConventionApplierTests
             });
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void NoConvention_DefaultsToCamelCase()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -326,7 +326,7 @@ public class DynamoAttributeNamingConventionApplierTests
             });
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void None_PropertyNameUnchanged()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -379,7 +379,7 @@ public class DynamoAttributeNamingConventionApplierTests
             });
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void ComplexType_InheritsRootEntityConvention()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -424,7 +424,7 @@ public class DynamoAttributeNamingConventionApplierTests
             });
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void ComplexType_ExplicitHasAttributeName_WinsOverConvention()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -468,7 +468,7 @@ public class DynamoAttributeNamingConventionApplierTests
             });
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void ComplexCollectionElementProperty_IsRenamed_ByNamingConvention()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -505,7 +505,7 @@ public class DynamoAttributeNamingConventionApplierTests
             });
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void UserShadowProperty_GetsNamingConventionTranslation()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -531,7 +531,7 @@ public class DynamoAttributeNamingConventionApplierTests
             });
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void UserShadowProperty_ExplicitOverride_WinsOverConvention()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -564,7 +564,7 @@ public class DynamoAttributeNamingConventionApplierTests
             });
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void Acronyms_UseHumanizerTranslationBehavior()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -602,7 +602,7 @@ public class DynamoAttributeNamingConventionApplierTests
             });
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void HasPartitionKeyAndSortKey_LambdaOverloads_MapReadOnlyMembers()
     {
         var client = Substitute.For<IAmazonDynamoDB>();

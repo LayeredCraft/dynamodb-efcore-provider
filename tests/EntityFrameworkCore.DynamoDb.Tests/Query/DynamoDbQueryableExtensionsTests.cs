@@ -15,7 +15,7 @@ public class DynamoDbQueryableExtensionsTests
 {
     // ── ToPageAsync / WithNextToken argument validation ───────────────────────
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void WithNextToken_Null_ThrowsArgumentNullException()
     {
         var source = new[] { new TestEntity() }.AsQueryable();
@@ -25,7 +25,7 @@ public class DynamoDbQueryableExtensionsTests
         act.Should().Throw<ArgumentNullException>().WithParameterName("nextToken");
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void WithNextToken_Whitespace_ThrowsArgumentException()
     {
         var source = new[] { new TestEntity() }.AsQueryable();
@@ -35,7 +35,7 @@ public class DynamoDbQueryableExtensionsTests
         act.Should().Throw<ArgumentException>().WithParameterName("nextToken");
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ToPageAsync_ZeroLimit_ThrowsArgumentOutOfRangeException()
     {
         var source = new[] { new TestEntity() }.AsQueryable();
@@ -46,7 +46,7 @@ public class DynamoDbQueryableExtensionsTests
         await act.Should().ThrowAsync<ArgumentOutOfRangeException>().WithParameterName("limit");
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ToPageAsync_WhitespaceToken_NormalizesToNullInProviderCall()
     {
         var provider = new CapturingAsyncQueryProvider();
@@ -63,7 +63,7 @@ public class DynamoDbQueryableExtensionsTests
 
     // ── Limit ────────────────────────────────────────────────────────────────
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void Limit_Zero_ThrowsArgumentOutOfRangeException()
     {
         var source = new[] { new TestEntity() }.AsQueryable();
@@ -73,7 +73,7 @@ public class DynamoDbQueryableExtensionsTests
         act.Should().Throw<ArgumentOutOfRangeException>().WithParameterName("limit");
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void Limit_Negative_ThrowsArgumentOutOfRangeException()
     {
         var source = new[] { new TestEntity() }.AsQueryable();
@@ -83,7 +83,7 @@ public class DynamoDbQueryableExtensionsTests
         act.Should().Throw<ArgumentOutOfRangeException>().WithParameterName("limit");
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void Limit_Positive_ReturnsNewQueryable()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -96,7 +96,7 @@ public class DynamoDbQueryableExtensionsTests
         limited.Should().NotBeSameAs(original);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void Limit_OnNonEntityQueryProvider_ReturnsSourceUnchanged()
     {
         // Array.AsQueryable() uses EnumerableQuery<T>, not EntityQueryProvider.
@@ -109,7 +109,7 @@ public class DynamoDbQueryableExtensionsTests
 
     // ── WithIndex / WithoutIndex (regression) ────────────────────────────────
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void WithIndex_EmptyString_ThrowsArgumentException()
     {
         var source = new[] { new TestEntity() }.AsQueryable();
@@ -119,7 +119,7 @@ public class DynamoDbQueryableExtensionsTests
         act.Should().Throw<ArgumentException>().WithParameterName("indexName");
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void WithoutIndex_ReturnsNewQueryable()
     {
         var client = Substitute.For<IAmazonDynamoDB>();

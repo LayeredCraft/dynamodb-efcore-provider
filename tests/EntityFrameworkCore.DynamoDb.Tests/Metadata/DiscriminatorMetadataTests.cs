@@ -195,7 +195,7 @@ public class DiscriminatorMetadataTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void SingleTableSingleType_DoesNotConfigureDiscriminatorByConvention()
     {
@@ -207,7 +207,7 @@ public class DiscriminatorMetadataTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void SharedTableMultipleTypes_UsesDefaultDiscriminatorByConvention()
     {
@@ -224,7 +224,7 @@ public class DiscriminatorMetadataTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void SharedTableMultipleTypes_UsesEmbeddedDiscriminatorNameOverride()
     {
@@ -239,7 +239,7 @@ public class DiscriminatorMetadataTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void SharedTableMultipleTypes_UsesLateEmbeddedDiscriminatorNameOverride()
     {
@@ -254,7 +254,7 @@ public class DiscriminatorMetadataTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void SharedTableThenSplit_DoesNotConfigureDiscriminatorFromStaleIntermediateState()
     {
@@ -269,7 +269,7 @@ public class DiscriminatorMetadataTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void SplitThenSharedTable_ConfiguresDiscriminatorFromFinalTableMapping()
     {
@@ -283,7 +283,7 @@ public class DiscriminatorMetadataTests
         orderEntityType.FindDiscriminatorProperty()!.Name.Should().Be("$type");
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void SharedTableHasNoDiscriminator_EarlyCall_DisablesDiscriminatorForGroup()
     {
         var client = Substitute.For<IAmazonDynamoDB>();

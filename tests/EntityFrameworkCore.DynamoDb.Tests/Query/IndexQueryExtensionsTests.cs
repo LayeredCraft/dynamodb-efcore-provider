@@ -264,7 +264,7 @@ public class IndexQueryExtensionsTests
     // ── WithoutIndex extension tests ─────────────────────────────────────────
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void WithoutIndex_EntityQueryProvider_WrapsExpressionInMethodCall()
     {
@@ -280,7 +280,7 @@ public class IndexQueryExtensionsTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void WithoutIndex_NonEntityQueryProvider_ReturnsOriginalSource()
     {
@@ -295,7 +295,7 @@ public class IndexQueryExtensionsTests
     ///     Ensures <c>.WithoutIndex()</c> propagates index-selection suppression into query
     ///     compilation.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public async Task WithoutIndex_SetsIndexSelectionDisabledOnContext()
     {
@@ -328,7 +328,7 @@ public class IndexQueryExtensionsTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public async Task WithoutIndex_WithIndex_BothPresent_ThrowsInvalidOperationException()
     {
@@ -351,7 +351,7 @@ public class IndexQueryExtensionsTests
     // ── WithIndex extension tests ─────────────────────────────────────────────
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void WithIndex_EmptyName_ThrowsArgumentException()
     {
@@ -363,7 +363,7 @@ public class IndexQueryExtensionsTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void WithIndex_EntityQueryProvider_WrapsExpressionInMethodCall()
     {
@@ -379,7 +379,7 @@ public class IndexQueryExtensionsTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void WithIndex_NonEntityQueryProvider_ReturnsOriginalQuery()
     {
@@ -391,7 +391,7 @@ public class IndexQueryExtensionsTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public async Task WithIndex_NonConstantExpression_ThrowsInvalidOperationException()
     {
@@ -422,7 +422,7 @@ public class IndexQueryExtensionsTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public async Task WithIndex_UnknownIndexName_ThrowsInvalidOperationException()
     {
@@ -443,7 +443,7 @@ public class IndexQueryExtensionsTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public async Task WithIndex_SharedTable_IndexOnlyOnOneEntityType_ThrowsForOtherEntityType()
     {
@@ -465,7 +465,7 @@ public class IndexQueryExtensionsTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public async Task
         WithIndex_SharedTable_IndexOnlyOnOneEntityType_ProjectedQuery_ThrowsForOtherEntityType()
@@ -487,7 +487,7 @@ public class IndexQueryExtensionsTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public async Task WithIndex_SharedTable_ProjectedQuery_OnOwningEntityType_UsesIndexSource()
     {
@@ -514,7 +514,7 @@ public class IndexQueryExtensionsTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public async Task
         WithIndex_SharedTable_DerivedTypeFromOtherRoot_IndexOnlyOnOneEntityType_Throws()
@@ -535,7 +535,7 @@ public class IndexQueryExtensionsTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public async Task WithIndex_BaseQuery_DerivedDefinedIndex_Throws()
     {
@@ -552,7 +552,7 @@ public class IndexQueryExtensionsTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public async Task WithIndex_GsiPartitionKey_Contains_51Items_ThrowsPartitionKeyLimitError()
     {
@@ -580,7 +580,7 @@ public class IndexQueryExtensionsTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public async Task
         WithIndex_GsiPartitionKey_Contains_50Items_DoesNotThrowPartitionKeyLimitError()
@@ -606,7 +606,7 @@ public class IndexQueryExtensionsTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public async Task
         AutoSelectedIndex_GsiPartitionKey_Contains_51Items_ThrowsPartitionKeyLimitError()
@@ -634,7 +634,7 @@ public class IndexQueryExtensionsTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public async Task
         AutoSelectedIndex_GsiPartitionKey_Contains_50Items_DoesNotThrowPartitionKeyLimitError()
@@ -658,7 +658,7 @@ public class IndexQueryExtensionsTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public async Task
         AutoSelectedIndex_BaseTablePartitionKey_Contains_51Items_DoesNotThrowPartitionKeyLimitError()
@@ -685,7 +685,7 @@ public class IndexQueryExtensionsTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public async Task
         AutoSelectedIndex_BaseTablePartitionKey_Contains_101Items_ThrowsNonKeyLimitError()

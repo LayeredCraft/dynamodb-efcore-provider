@@ -4,7 +4,7 @@ namespace EntityFrameworkCore.DynamoDb.Tests.Storage;
 
 public class DynamoWireValueConversionTests
 {
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void ConvertProviderValueToAttributeValue_ByteArray_WritesBinaryMember()
     {
         var bytes = new byte[] { 1, 2, 3, 4 };
@@ -17,7 +17,7 @@ public class DynamoWireValueConversionTests
         attributeValue.N.Should().BeNull();
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void SerializeSet_ByteArrayValues_WritesBinarySet()
     {
         var first = new byte[] { 1, 2 };
@@ -35,7 +35,7 @@ public class DynamoWireValueConversionTests
             .BeEquivalentTo([first, second]);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void SerializeList_WithConverter_UsesConvertedProviderValues()
     {
         var values = new List<DateTimeOffset>
@@ -53,7 +53,7 @@ public class DynamoWireValueConversionTests
         attributeValue.L[1].S.Should().Be(values[1].ToUnixTimeSeconds().ToString());
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void SerializeDictionary_WithConverter_UsesConvertedProviderValues()
     {
         var values = new Dictionary<string, Guid>
@@ -70,7 +70,7 @@ public class DynamoWireValueConversionTests
         attributeValue.M["second"].S.Should().Be("22222222222222222222222222222222");
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void SerializeList_WithConverterReturningNull_WritesNullElement()
     {
         var attributeValue = DynamoAttributeValueCollectionHelpers.SerializeList(

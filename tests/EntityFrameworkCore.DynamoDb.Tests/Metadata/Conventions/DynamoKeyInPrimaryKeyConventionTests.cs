@@ -54,7 +54,7 @@ public class DynamoKeyInPrimaryKeyConventionTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void HasPartitionKey_WithoutExplicitHasKey_AutoConfiguresEfPrimaryKey()
     {
@@ -104,7 +104,7 @@ public class DynamoKeyInPrimaryKeyConventionTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void
         HasPartitionKeyAndSortKey_WithoutExplicitHasKey_AutoConfiguresCompositeEfPrimaryKey()
@@ -150,7 +150,7 @@ public class DynamoKeyInPrimaryKeyConventionTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void HasPartitionAndSortKey_BeforeShadowProperties_ThrowsValidationError()
     {
@@ -199,7 +199,7 @@ public class DynamoKeyInPrimaryKeyConventionTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void HasSortKey_WithoutPartitionKey_ThrowsValidationError()
     {
@@ -248,7 +248,7 @@ public class DynamoKeyInPrimaryKeyConventionTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void HasPartitionKey_MatchingAutoDiscoveredPk_EfPrimaryKeyIsUnchanged()
     {
@@ -297,7 +297,7 @@ public class DynamoKeyInPrimaryKeyConventionTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void ExplicitHasKey_WithAnnotations_IsRejected()
     {
@@ -350,7 +350,7 @@ public class DynamoKeyInPrimaryKeyConventionTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void OwnedEntityType_ConventionDoesNotApply_NoChange()
     {

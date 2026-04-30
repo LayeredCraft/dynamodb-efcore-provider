@@ -14,7 +14,7 @@ public class FirstOrDefaultSafePathTests
 {
     // ── Unsafe paths: always throw ──────────────────────────────────────────
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task FirstOrDefault_NonKeyFilter_WithoutOptIn_ThrowsTranslationFailure()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -34,7 +34,7 @@ public class FirstOrDefaultSafePathTests
         await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task FirstOrDefault_ScanLike_WithoutOptIn_ThrowsTranslationFailure()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -55,7 +55,7 @@ public class FirstOrDefaultSafePathTests
         await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task FirstOrDefault_KeyOnly_WithUserLimit_ThrowsTranslationFailure()
     {
         // Limit(n) + First* is always disallowed — use AsAsyncEnumerable() instead.
@@ -79,7 +79,7 @@ public class FirstOrDefaultSafePathTests
 
     // ── Safe paths: key-only ─────────────────────────────────────────────────
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task FirstOrDefault_KeyOnly_PkEquality_Succeeds()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -96,7 +96,7 @@ public class FirstOrDefaultSafePathTests
         await act.Should().NotThrowAsync<InvalidOperationException>();
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task FirstOrDefault_KeyOnly_PkAndSkEquality_Succeeds()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -111,7 +111,7 @@ public class FirstOrDefaultSafePathTests
         await act.Should().NotThrowAsync<InvalidOperationException>();
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task FirstOrDefault_KeyOnly_PkEqualitySkStartsWith_Succeeds()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -129,7 +129,7 @@ public class FirstOrDefaultSafePathTests
 
     // ── SK filter predicates: unsafe (IN/OR are filter expressions, not key conditions) ──
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task FirstOrDefault_SkIn_WithoutOptIn_ThrowsTranslationFailure()
     {
         // SK IN (...) is a filter expression, not a DynamoDB key condition. DynamoDB Limit
@@ -152,7 +152,7 @@ public class FirstOrDefaultSafePathTests
         await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task FirstOrDefault_SkOrEquality_WithoutOptIn_ThrowsTranslationFailure()
     {
         // SK = A OR SK = B is a filter expression on the sort key, not a key condition.
@@ -176,7 +176,7 @@ public class FirstOrDefaultSafePathTests
 
     // ── No-sort-key special case ─────────────────────────────────────────────
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task FirstOrDefault_PkOnlyEntity_NonKeyFilter_ThrowsTranslationFailure()
     {
         // Even on a no-sort-key table, a non-key filter is not allowed with First*.
@@ -202,7 +202,7 @@ public class FirstOrDefaultSafePathTests
 
     // ── Partition-only GSI: non-key filter must throw ────────────────────────
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task FirstOrDefault_PartitionOnlyGsi_NonKeyFilter_ThrowsTranslationFailure()
     {
         // A partition-only GSI can hold many items per partition — Limit=1 with a non-key
@@ -229,7 +229,7 @@ public class FirstOrDefaultSafePathTests
     // ── Nested-path / list-index predicates: unsafe (DynamoScalarAccessExpression /
     // DynamoListIndexExpression regression) ──
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task FirstOrDefault_NestedOwnedPropertyPredicate_ThrowsTranslationFailure()
     {
         // Regression: ContainsNonKeyProperty() does not descend into DynamoScalarAccessExpression,
@@ -253,7 +253,7 @@ public class FirstOrDefaultSafePathTests
         await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task FirstOrDefault_ListIndexPredicate_ThrowsTranslationFailure()
     {
         // Regression: ContainsNonKeyProperty() does not descend into DynamoListIndexExpression,
@@ -277,7 +277,7 @@ public class FirstOrDefaultSafePathTests
         await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task FirstOrDefault_DeepNestedOwnedPropertyPredicate_ThrowsTranslationFailure()
     {
         // Regression: a two-level nested path (x.Profile.Address.City) produces a chain of
@@ -302,7 +302,7 @@ public class FirstOrDefaultSafePathTests
 
     // ── Inheritance / shared-table (discriminator regression) ───────────────
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task FirstOrDefault_InheritanceHierarchy_PkAndSkEquality_Succeeds()
     {
         // Regression: the provider-injected discriminator predicate (Discriminator = 'ChildItem')
@@ -319,7 +319,7 @@ public class FirstOrDefaultSafePathTests
         await act.Should().NotThrowAsync<InvalidOperationException>();
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task FirstOrDefault_InheritanceHierarchy_PkOnly_ThrowsTranslationFailure()
     {
         // Derived/shared-table PK-only queries include a discriminator filter over a multi-item
@@ -342,7 +342,7 @@ public class FirstOrDefaultSafePathTests
         await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task FirstOrDefault_InheritanceHierarchy_NonKeyUserFilter_Throws()
     {
         // User-supplied non-key filter must still throw even on an inheritance hierarchy.

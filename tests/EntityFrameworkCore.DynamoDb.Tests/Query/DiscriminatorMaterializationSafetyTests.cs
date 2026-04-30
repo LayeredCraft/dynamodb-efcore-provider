@@ -199,7 +199,7 @@ public class DiscriminatorMaterializationSafetyTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public async Task SharedTableQuery_MissingDiscriminatorAttribute_Throws()
     {
@@ -228,7 +228,7 @@ public class DiscriminatorMaterializationSafetyTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public async Task SharedTableQuery_WrongDiscriminatorValue_Throws()
     {
@@ -255,7 +255,7 @@ public class DiscriminatorMaterializationSafetyTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public async Task
         SharedTableInheritanceQuery_ProjectsHierarchyAttributes_ForDerivedMaterialization()

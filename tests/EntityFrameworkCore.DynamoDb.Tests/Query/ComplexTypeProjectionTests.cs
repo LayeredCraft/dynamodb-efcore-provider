@@ -56,7 +56,7 @@ public class ComplexTypeProjectionTests
     }
 
     /// <summary>Selecting a complex property from EntityA materialises the nested map correctly.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SelectComplexProperty_EntityA_ReturnsCorrectProfile()
     {
         var item = new Dictionary<string, AttributeValue>
@@ -88,7 +88,7 @@ public class ComplexTypeProjectionTests
     }
 
     /// <summary>Selecting from EntityB resolves its own complex property, not EntityA's.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SelectComplexProperty_EntityB_ReturnsCorrectProfile()
     {
         var item = new Dictionary<string, AttributeValue>
@@ -120,7 +120,7 @@ public class ComplexTypeProjectionTests
     }
 
     /// <summary>Anonymous type projection { Pk, Profile } exercises index-based binding.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SelectAnonymousWithComplexProperty_MaterialisesCorrectly()
     {
         var item = new Dictionary<string, AttributeValue>
@@ -154,7 +154,7 @@ public class ComplexTypeProjectionTests
     }
 
     /// <summary>EF.Property&lt;T&gt; access to a complex property materialises it correctly.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SelectComplexProperty_WithEfProperty_ReturnsCorrectProfile()
     {
         var item = CreateItem(
@@ -181,7 +181,7 @@ public class ComplexTypeProjectionTests
     }
 
     /// <summary>Anonymous type with EF.Property access to a complex property materialises correctly.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SelectAnonymousWithEfPropertyComplexProperty_MaterialisesCorrectly()
     {
         var item = CreateItem(
@@ -209,7 +209,7 @@ public class ComplexTypeProjectionTests
     }
 
     /// <summary>When the complex property map attribute is absent, null is returned for a nullable property.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SelectComplexProperty_AttributeMissing_ReturnsNullForNullableProperty()
     {
         var item = CreateItem("A#5", null, false);
@@ -229,7 +229,7 @@ public class ComplexTypeProjectionTests
     }
 
     /// <summary>When the complex property map attribute is DynamoDB NULL, null is returned for a nullable property.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SelectComplexProperty_AttributeIsNull_ReturnsNullForNullableProperty()
     {
         var item = CreateItem("A#6", null, true, true);
@@ -249,7 +249,7 @@ public class ComplexTypeProjectionTests
     }
 
     /// <summary>WHERE clause comparing a nullable complex property to null translates to IS NULL OR IS MISSING.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Where_NullableComplexPropertyIsNull_TranslatesToNullOrMissingPredicate()
     {
         ExecuteStatementRequest? capturedRequest = null;
@@ -273,7 +273,7 @@ public class ComplexTypeProjectionTests
     }
 
     /// <summary>WHERE via EF.Property comparing a nullable complex property to null translates to IS NULL OR IS MISSING.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task
         Where_EfPropertyNullableComplexPropertyIsNull_TranslatesToNullOrMissingPredicate()
     {
@@ -298,7 +298,7 @@ public class ComplexTypeProjectionTests
     }
 
     /// <summary>Required (non-nullable) complex property missing from the DynamoDB item throws a clear error.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SelectComplexProperty_RequiredAttributeMissing_ThrowsClearError()
     {
         var item = CreateItem("R#1", null, false);

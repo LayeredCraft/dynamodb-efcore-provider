@@ -15,7 +15,7 @@ namespace EntityFrameworkCore.DynamoDb.Tests.Query;
 public class AttributeNameOverrideTests
 {
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public async Task PartiQL_UsesAttributeName_NotClrPropertyName()
     {
@@ -44,7 +44,7 @@ public class AttributeNameOverrideTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public async Task Materialization_ReadsFromAttributeName_NotClrPropertyName()
     {
@@ -74,7 +74,7 @@ public class AttributeNameOverrideTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public async Task Materialization_ItemKeyedByClrName_DoesNotPopulateProperty()
     {
@@ -104,7 +104,7 @@ public class AttributeNameOverrideTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public async Task ScalarProjection_PartiQL_UsesAttributeName_NotClrPropertyName()
     {
@@ -131,7 +131,7 @@ public class AttributeNameOverrideTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public async Task ScalarProjection_Materialization_ReadsFromAttributeName()
     {

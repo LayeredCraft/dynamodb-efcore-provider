@@ -9,7 +9,7 @@ namespace EntityFrameworkCore.DynamoDb.Tests.Query;
 /// <summary>Tests for DynamoDbOptionsExtension configuration (excluding removed DefaultPageSize).</summary>
 public class PaginationConfigurationTests
 {
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void DynamoDbOptionsExtension_DefaultValues_AreCorrect()
     {
         var extension = new DynamoDbOptionsExtension();
@@ -23,7 +23,7 @@ public class PaginationConfigurationTests
         extension.MaxBatchWriteSize.Should().Be(25);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void WithDynamoDbClient_SetsClient()
     {
         var extension = new DynamoDbOptionsExtension();
@@ -34,7 +34,7 @@ public class PaginationConfigurationTests
         updated.DynamoDbClient.Should().BeSameAs(client);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void WithDynamoDbClientConfig_SetsConfig()
     {
         var extension = new DynamoDbOptionsExtension();
@@ -45,7 +45,7 @@ public class PaginationConfigurationTests
         updated.DynamoDbClientConfig.Should().BeSameAs(config);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void WithDynamoDbClientConfigAction_SetsCallback()
     {
         var extension = new DynamoDbOptionsExtension();
@@ -57,7 +57,7 @@ public class PaginationConfigurationTests
         updated.DynamoDbClientConfigAction.Should().BeSameAs(callback);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void Clone_PreservesAllProperties()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -88,7 +88,7 @@ public class PaginationConfigurationTests
         cloned.MaxBatchWriteSize.Should().Be(11);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void WithAutomaticIndexSelectionMode_SetsMode()
     {
         var extension = new DynamoDbOptionsExtension();
@@ -103,7 +103,7 @@ public class PaginationConfigurationTests
             .Be(DynamoAutomaticIndexSelectionMode.SuggestOnly);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void UseDynamo_ConfigureAutomaticIndexSelection_StoresModeOnOptionsExtension()
     {
         var optionsBuilder = new DbContextOptionsBuilder();
@@ -120,7 +120,7 @@ public class PaginationConfigurationTests
             .Be(DynamoAutomaticIndexSelectionMode.Conservative);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void UseDynamo_ConfigureTransactionOverflowBehavior_StoresValueOnOptionsExtension()
     {
         var optionsBuilder = new DbContextOptionsBuilder();
@@ -134,7 +134,7 @@ public class PaginationConfigurationTests
         extension!.TransactionOverflowBehavior.Should().Be(TransactionOverflowBehavior.UseChunking);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void UseDynamo_ConfigureMaxTransactionSize_StoresValueOnOptionsExtension()
     {
         var optionsBuilder = new DbContextOptionsBuilder();
@@ -147,7 +147,7 @@ public class PaginationConfigurationTests
         extension!.MaxTransactionSize.Should().Be(12);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void UseDynamo_ConfigureMaxBatchWriteSize_StoresValueOnOptionsExtension()
     {
         var optionsBuilder = new DbContextOptionsBuilder();
@@ -184,7 +184,7 @@ public class PaginationConfigurationTests
         act.Should().Throw<InvalidOperationException>();
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void ServiceProviderHash_IncludesAutomaticIndexSelectionMode()
     {
         var extension1 =
@@ -201,7 +201,7 @@ public class PaginationConfigurationTests
             .NotBe(extension2.Info.GetServiceProviderHashCode());
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void ServiceProviderHash_IncludesTransactionAndBatchSizingOptions()
     {
         var extension1 = new DynamoDbOptionsExtension()
@@ -220,7 +220,7 @@ public class PaginationConfigurationTests
             .NotBe(extension2.Info.GetServiceProviderHashCode());
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void ShouldUseSameServiceProvider_SameSettings_ReturnsTrue()
     {
         var extension1 =
@@ -233,7 +233,7 @@ public class PaginationConfigurationTests
         extension1.Info.ShouldUseSameServiceProvider(extension2.Info).Should().BeTrue();
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void ShouldUseSameServiceProvider_DifferentClient_ReturnsFalse()
     {
         var extension1 =
@@ -244,7 +244,7 @@ public class PaginationConfigurationTests
         extension1.Info.ShouldUseSameServiceProvider(extension2.Info).Should().BeFalse();
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void ShouldUseSameServiceProvider_DifferentConfig_ReturnsFalse()
     {
         var extension1 = new DynamoDbOptionsExtension().WithDynamoDbClientConfig(
@@ -255,7 +255,7 @@ public class PaginationConfigurationTests
         extension1.Info.ShouldUseSameServiceProvider(extension2.Info).Should().BeFalse();
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void ShouldUseSameServiceProvider_DifferentConfigCallback_ReturnsFalse()
     {
         Action<AmazonDynamoDBConfig> callback1 = c => c.ServiceURL = "http://localhost:8000";

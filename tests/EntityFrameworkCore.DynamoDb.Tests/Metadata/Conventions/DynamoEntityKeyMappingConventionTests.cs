@@ -41,7 +41,7 @@ public class DynamoEntityKeyMappingConventionTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void ConventionalPkSkNames_AreInferredAsDynamoKeyMapping()
     {
@@ -81,7 +81,7 @@ public class DynamoEntityKeyMappingConventionTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void ExplicitHasKey_OnRootEntity_IsRejected()
     {
@@ -124,7 +124,7 @@ public class DynamoEntityKeyMappingConventionTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void ExplicitPartitionKey_TakesPrecedenceOverConventionalPkNamedProperty()
     {
@@ -165,7 +165,7 @@ public class DynamoEntityKeyMappingConventionTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void ExplicitMultiPropertyHasKey_OnRootEntity_IsRejected()
     {
