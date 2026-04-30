@@ -1,4 +1,3 @@
-using System.ComponentModel.DataAnnotations.Schema;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using Microsoft.EntityFrameworkCore;
@@ -272,6 +271,51 @@ public class ComplexTypeProjectionTests
     }
 
     /// <summary>
+    ///     When a nullable complex collection attribute is absent, projecting the collection returns
+    ///     <see langword="null" /> rather than an empty list.
+    /// </summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task SelectComplexCollection_AttributeMissing_ReturnsNullForNullableProperty()
+    {
+        var item = new Dictionary<string, AttributeValue> { ["pk"] = new() { S = "C#1" } };
+
+        var client = CreateMockClientReturning(item);
+        await using var ctx = NullableComplexCollectionDbContext.Create(client);
+
+        var addresses =
+            await ctx
+                .Items
+                .Select(x => x.Addresses)
+                .AsAsyncEnumerable()
+                .ToListAsync(TestContext.Current.CancellationToken);
+
+        addresses.Should().HaveCount(1);
+        addresses[0].Should().BeNull();
+    }
+
+    /// <summary>
+    ///     When a nullable complex collection attribute is DynamoDB NULL, entity materialization
+    ///     preserves <see langword="null" /> on the CLR property.
+    /// </summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task MaterializeEntity_ComplexCollectionAttributeIsNull_PreservesNull()
+    {
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["pk"] = new() { S = "C#2" }, ["addresses"] = new() { NULL = true },
+        };
+
+        var client = CreateMockClientReturning(item);
+        await using var ctx = NullableComplexCollectionDbContext.Create(client);
+
+        var entities =
+            await ctx.Items.AsAsyncEnumerable().ToListAsync(TestContext.Current.CancellationToken);
+
+        entities.Should().HaveCount(1);
+        entities[0].Addresses.Should().BeNull();
+    }
+
+    /// <summary>
     ///     Nested predicate access on an explicitly configured complex property includes the root
     ///     map attribute in the generated PartiQL path.
     /// </summary>
@@ -410,6 +454,21 @@ public class ComplexTypeProjectionTests
         public SharedProfile Profile { get; set; } = null!;
     }
 
+    private sealed record SharedAddress
+    {
+        /// <summary>City of the address.</summary>
+        public string City { get; set; } = null!;
+    }
+
+    private sealed record NullableComplexCollectionEntity
+    {
+        /// <summary>Partition key.</summary>
+        public string Pk { get; set; } = null!;
+
+        /// <summary>Nullable complex collection property.</summary>
+        public List<SharedAddress>? Addresses { get; set; }
+    }
+
     // DbContext with EntityA and EntityB each declaring a complex property of the same CLR type.
     private sealed class SharedProfileDbContext(DbContextOptions options) : DbContext(options)
     {
@@ -467,6 +526,32 @@ public class ComplexTypeProjectionTests
         public static RequiredComplexPropertyDbContext Create(IAmazonDynamoDB client)
             => new(
                 new DbContextOptionsBuilder<RequiredComplexPropertyDbContext>()
+                    .UseDynamo(o => o.DynamoDbClient(client))
+                    .ConfigureWarnings(w
+                        => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                    .Options);
+    }
+
+    /// <summary>DbContext used to validate nullable complex collection materialization semantics.</summary>
+    private sealed class NullableComplexCollectionDbContext(DbContextOptions options) : DbContext(
+        options)
+    {
+        /// <summary>Entity set.</summary>
+        public DbSet<NullableComplexCollectionEntity> Items { get; set; }
+
+        /// <inheritdoc />
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<NullableComplexCollectionEntity>(b =>
+            {
+                b.ToTable("NullableComplexCollectionTable");
+                b.HasPartitionKey(x => x.Pk);
+                b.ComplexCollection(x => x.Addresses);
+            });
+
+        /// <summary>Creates a context backed by the given mock DynamoDB client.</summary>
+        public static NullableComplexCollectionDbContext Create(IAmazonDynamoDB client)
+            => new(
+                new DbContextOptionsBuilder<NullableComplexCollectionDbContext>()
                     .UseDynamo(o => o.DynamoDbClient(client))
                     .ConfigureWarnings(w
                         => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))

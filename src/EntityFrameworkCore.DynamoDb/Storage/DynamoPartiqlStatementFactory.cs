@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Text;
 using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.Metadata.Internal;
@@ -329,7 +328,7 @@ internal sealed class DynamoPartiqlStatementFactory(
         ComplexPropertyEntry complexEntry,
         IComplexProperty complexProperty)
     {
-        var hasModifiedScalar = false;
+        var hasModifiedMember = false;
 
         foreach (var property in complexProperty.ComplexType.GetProperties())
         {
@@ -340,7 +339,7 @@ internal sealed class DynamoPartiqlStatementFactory(
             if (!propertyEntry.IsModified)
                 continue;
 
-            hasModifiedScalar = true;
+            hasModifiedMember = true;
             if (!IsDefaultOrNull(propertyEntry.OriginalValue, property.ClrType))
                 return false;
         }
@@ -348,18 +347,26 @@ internal sealed class DynamoPartiqlStatementFactory(
         foreach (var nestedComplexProperty in complexProperty.ComplexType.GetComplexProperties())
         {
             if (nestedComplexProperty.IsCollection)
-                continue;
+            {
+                var nestedCollectionEntry = complexEntry.ComplexCollection(nestedComplexProperty);
+                if (!nestedCollectionEntry.IsModified)
+                    continue;
 
-            var nestedEntry = complexEntry.ComplexProperty(nestedComplexProperty);
-            if (!nestedEntry.IsModified)
-                continue;
+                hasModifiedMember = true;
+            }
+            else
+            {
+                var nestedEntry = complexEntry.ComplexProperty(nestedComplexProperty);
+                if (!nestedEntry.IsModified)
+                    continue;
 
-            hasModifiedScalar = true;
-            if (!ShouldReplaceWholeComplexProperty(nestedEntry, nestedComplexProperty))
-                return false;
+                hasModifiedMember = true;
+                if (!ShouldReplaceWholeComplexProperty(nestedEntry, nestedComplexProperty))
+                    return false;
+            }
         }
 
-        return hasModifiedScalar;
+        return hasModifiedMember;
     }
 
     private static bool IsDefaultOrNull(object? value, Type clrType)

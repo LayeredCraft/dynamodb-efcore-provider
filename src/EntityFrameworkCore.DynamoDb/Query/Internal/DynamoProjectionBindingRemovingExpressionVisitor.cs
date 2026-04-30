@@ -439,11 +439,12 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
         var wireListVariable =
             Variable(typeof(List<AttributeValue>), $"complexList_{attributeName}");
         var resultListType = typeof(List<>).MakeGenericType(elementType);
+        var required = !complexProperty.IsNullable;
 
         var readListExpression = CreateReadComplexListExpression(
             _attributeContextStack.Peek(),
             attributeName,
-            false,
+            required,
             path);
 
         var avParameter = Parameter(typeof(AttributeValue), "complexElementAv");
@@ -500,7 +501,9 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
 
         Expression populatedResult =
             ConvertCollectionMaterialization(entitiesExpression, complexProperty.ClrType);
-        Expression emptyResult = ConvertCollectionMaterialization(
+        Expression missingResult = complexProperty.IsNullable
+            ? Constant(null, complexProperty.ClrType)
+            : ConvertCollectionMaterialization(
             New(resultListType),
             complexProperty.ClrType);
 
@@ -509,7 +512,7 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
             Assign(wireListVariable, readListExpression),
             Condition(
                 Equal(wireListVariable, Constant(null, typeof(List<AttributeValue>))),
-                emptyResult,
+                missingResult,
                 populatedResult));
         return collectionExpression;
     }

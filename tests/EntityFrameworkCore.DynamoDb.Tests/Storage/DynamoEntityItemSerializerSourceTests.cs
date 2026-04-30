@@ -114,6 +114,33 @@ public class DynamoEntityItemSerializerSourceTests
             .WithMessage("*DynamoDB sets cannot contain null*");
     }
 
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void BuildItem_ComplexCollectionWithNullElement_ThrowsWhenElementIsNull()
+    {
+        using var db = new ComplexCollectionDbContext(
+            new DbContextOptionsBuilder<ComplexCollectionDbContext>()
+                .UseDynamo()
+                .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .Options);
+
+        var entity = new ComplexCollectionEntity
+        {
+            Pk = "C#1", Sk = "C1", Contacts = [new ComplexContact { Value = "ok" }, null!],
+        };
+
+        db.Add(entity);
+
+        var serializer = db.GetService<DynamoEntityItemSerializerSource>();
+        var updateEntry = (IUpdateEntry)db.Entry(entity).GetInfrastructure();
+
+        var act = () => serializer.BuildItem(updateEntry);
+
+        act
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage("*Complex collection*contains null element*");
+    }
+
     // ──────────────────────────────────────────────────────────────────────────────
     //  Fixtures
     // ──────────────────────────────────────────────────────────────────────────────
@@ -140,6 +167,18 @@ public class DynamoEntityItemSerializerSourceTests
             new(StringComparer.Ordinal);
 
         public HashSet<NullableStatus?> NullableStatusSet { get; set; } = [];
+    }
+
+    private sealed class ComplexCollectionEntity
+    {
+        public string Pk { get; set; } = null!;
+        public string Sk { get; set; } = null!;
+        public List<ComplexContact> Contacts { get; set; } = [];
+    }
+
+    private sealed class ComplexContact
+    {
+        public string Value { get; set; } = null!;
     }
 
     private sealed class QuotedTableDbContext(DbContextOptions options) : DbContext(options)
@@ -169,6 +208,20 @@ public class DynamoEntityItemSerializerSourceTests
                 b.Property(x => x.NullableStatuses);
                 b.Property(x => x.NullableStatusByCode);
                 b.Property(x => x.NullableStatusSet);
+            });
+    }
+
+    private sealed class ComplexCollectionDbContext(DbContextOptions options) : DbContext(options)
+    {
+        public DbSet<ComplexCollectionEntity> Items => Set<ComplexCollectionEntity>();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<ComplexCollectionEntity>(b =>
+            {
+                b.ToTable("ComplexCollections");
+                b.HasPartitionKey(x => x.Pk);
+                b.HasSortKey(x => x.Sk);
+                b.ComplexCollection(x => x.Contacts);
             });
     }
 }

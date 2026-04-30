@@ -109,10 +109,9 @@ internal sealed class EntityWritePlan(
             foreach (var element in (IEnumerable)value)
             {
                 if (element is null)
-                {
-                    elements.Add(new AttributeValue { NULL = true });
-                    continue;
-                }
+                    throw new InvalidOperationException(
+                        $"Complex collection '{cp.DeclaringType.DisplayName()}.{cp.Name}' "
+                        + "contains null element. Elements must be non-null complex objects.");
 
                 var map = new Dictionary<string, AttributeValue>(StringComparer.Ordinal);
                 SerializeComplexTypeIntoMap(element, cp.ComplexType, map);
