@@ -51,7 +51,3 @@ execution.
   - Always include `<summary>`.
   - Include `<param>`/`<returns>` where names are not self-explanatory.
   - Public methods should fully document parameters, returns, and thrown exceptions where relevant.
-
-## Testing Rule
-
-- Prefer `[Fact(Timeout = TestConfiguration.DefaultTimeout)]` over plain `[Fact]`.
