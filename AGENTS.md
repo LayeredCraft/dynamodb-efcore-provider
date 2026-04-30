@@ -41,6 +41,7 @@ execution.
 ## Repo Rules
 
 - Keep docs paths repo-relative.
+- When using the Beads workflow, see `BEADS.md` for command conventions and session protocol.
 
 ## Style Rules
 
