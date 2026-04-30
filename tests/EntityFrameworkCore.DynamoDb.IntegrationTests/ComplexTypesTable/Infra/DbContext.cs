@@ -38,6 +38,35 @@ public class ComplexCollectionWithIdPropertyDbContext(DbContextOptions options) 
         });
 }
 
+/// <summary>
+///     Context used to verify convention-only complex discovery. The model intentionally relies
+///     on provider discovery for nested complex properties and collections, with only the root table
+///     and key configured explicitly.
+/// </summary>
+public class ConventionOnlyComplexTypesDbContext(DbContextOptions options) : DbContext(options)
+{
+    public DbSet<ComplexShapeItem> Items => Set<ComplexShapeItem>();
+
+    /// <summary>Creates a context configured to use the provided DynamoDB client instance.</summary>
+    public static ConventionOnlyComplexTypesDbContext Create(IAmazonDynamoDB client)
+        => new(
+            new DbContextOptionsBuilder<ConventionOnlyComplexTypesDbContext>()
+                .UseDynamo(options => options.DynamoDbClient(client))
+                .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .Options);
+
+    /// <summary>
+    ///     Configures only the root entity table and key so complex members must be discovered by
+    ///     convention.
+    /// </summary>
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+        => modelBuilder.Entity<ComplexShapeItem>(builder =>
+        {
+            builder.ToTable(ComplexTypesItemTable.TableName);
+            builder.HasPartitionKey(x => x.Pk);
+        });
+}
+
 /// <summary>Represents the ComplexTypesTableDbContext type.</summary>
 public class ComplexTypesTableDbContext(DbContextOptions options) : DbContext(options)
 {

@@ -22,6 +22,35 @@ public abstract class ComplexCollectionWithIdPropertyTestFixture : DynamoTestFix
     }
 }
 
+public abstract class ConventionOnlyComplexTypesTableTestFixture : DynamoTestFixtureBase
+{
+    protected ConventionOnlyComplexTypesTableTestFixture(DynamoContainerFixture fixture) :
+        base(fixture)
+        => EnsureClassTableInitialized(
+            ComplexTypesItemTable.TableName,
+            ComplexTypesItemTable.CreateTable);
+
+    protected TestPartiQlLoggerFactory LoggerFactory => SqlCapture;
+
+    public ConventionOnlyComplexTypesDbContext Db
+    {
+        get
+        {
+            field ??= new ConventionOnlyComplexTypesDbContext(
+                CreateOptions<ConventionOnlyComplexTypesDbContext>(options
+                    => options.DynamoDbClient(Client)));
+            return field;
+        }
+    }
+
+    protected Task PutItemAsync(
+        Dictionary<string, AttributeValue> item,
+        CancellationToken cancellationToken)
+        => Client.PutItemAsync(
+            new PutItemRequest { TableName = ComplexTypesItemTable.TableName, Item = item },
+            cancellationToken);
+}
+
 public abstract class ComplexTypesTableTestFixture : DynamoTestFixtureBase
 {
     protected ComplexTypesTableTestFixture(DynamoContainerFixture fixture) : base(fixture)

@@ -11,8 +11,12 @@ lists, with no separate table or key._
 ## Complex Properties
 
 `ComplexProperty(...)` maps a value-object-style member to a DynamoDB map (`AttributeValue.M`)
-embedded within the owning item. The CLR type should be configured as an EF Core complex type,
-typically with `[ComplexType]` or `modelBuilder.ComplexType<T>()`.
+embedded within the owning item. Plain nested POCO members are auto-discovered by convention; use
+`ComplexProperty(...)` when you want to customize the discovered member or configure it explicitly.
+
+The CLR type may be declared as an EF Core complex type explicitly, typically with
+`[ComplexType]` or `modelBuilder.ComplexType<T>()`, but that is not required for basic provider
+discovery.
 
 ```csharp
 [ComplexType]
@@ -62,9 +66,19 @@ builder.ComplexProperty(x => x.Profile, profile =>
     builder to override it. See [Attribute Naming](../configuration/attribute-naming.md) for how
     conventions propagate to nested complex properties.
 
+!!! note "Explicit configuration is optional for basic discovery"
+
+    Use `ComplexProperty(...)` when you need nested configuration such as explicit attribute names,
+    converters, or other metadata overrides. For a plain nested POCO member, the provider
+    discovers it automatically as a complex property.
+
 ## Complex Collections
 
 `ComplexCollection(...)` maps a collection property to a DynamoDB list (`AttributeValue.L`).
+Plain collection properties whose element type is a nested POCO are auto-discovered by
+convention. Use `ComplexCollection(...)` when you need to customize the discovered collection or
+its element members.
+
 Collection elements can themselves contain nested complex properties.
 
 ```csharp

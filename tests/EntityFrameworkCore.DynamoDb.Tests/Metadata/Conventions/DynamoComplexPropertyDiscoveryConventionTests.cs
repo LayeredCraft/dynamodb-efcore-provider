@@ -30,6 +30,7 @@ public class DynamoComplexPropertyDiscoveryConventionTests
     {
         public string Pk { get; set; } = null!;
         public Address Profile { get; set; } = null!;
+        public List<Address> PreviousAddresses { get; set; } = [];
     }
 
     private sealed class PlainNestedPocoContext(DbContextOptions options) : DbContext(options)
@@ -61,10 +62,29 @@ public class DynamoComplexPropertyDiscoveryConventionTests
         ctx.Model.FindEntityType(typeof(Address)).Should().BeNull();
     }
 
+    /// <summary>Verifies that an unannotated list of POCOs is discovered as a complex collection.</summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void PlainNestedPocoList_IsDiscoveredAsComplexCollection()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var ctx = new PlainNestedPocoContext(BuildOptions<PlainNestedPocoContext>(client));
+
+        var customerType = ctx.Model.FindEntityType(typeof(Customer))!;
+        var complexProperty = customerType
+            .GetComplexProperties()
+            .Single(p => p.Name == nameof(Customer.PreviousAddresses));
+
+        complexProperty.IsCollection.Should().BeTrue();
+        complexProperty.ClrType.Should().Be(typeof(List<Address>));
+        complexProperty.ComplexType.ClrType.Should().Be(typeof(Address));
+        ctx.Model.FindEntityType(typeof(Address)).Should().BeNull();
+    }
+
     private sealed record Employee
     {
         public string Pk { get; set; } = null!;
         public Address WorkAddress { get; set; } = null!;
+        public List<Address> WorkAddresses { get; set; } = [];
     }
 
     private sealed class AddressEntityContext(DbContextOptions options) : DbContext(options)
@@ -77,6 +97,34 @@ public class DynamoComplexPropertyDiscoveryConventionTests
             modelBuilder.Entity<Employee>(b =>
             {
                 b.ToTable("employees");
+                b.HasPartitionKey(x => x.Pk);
+            });
+
+            modelBuilder.Entity<Address>(b =>
+            {
+                b.ToTable("addresses");
+                b.HasPartitionKey(x => x.Street);
+            });
+        }
+    }
+
+    private sealed record Team
+    {
+        public string Pk { get; set; } = null!;
+        public List<Address> Offices { get; set; } = [];
+    }
+
+    private sealed class AddressCollectionEntityContext(DbContextOptions options) : DbContext(
+        options)
+    {
+        public DbSet<Team> Teams => Set<Team>();
+        public DbSet<Address> Addresses => Set<Address>();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<Team>(b =>
+            {
+                b.ToTable("teams");
                 b.HasPartitionKey(x => x.Pk);
             });
 
@@ -104,5 +152,24 @@ public class DynamoComplexPropertyDiscoveryConventionTests
             .Throw<InvalidOperationException>()
             .WithMessage(
                 "*Unable to determine the relationship represented by navigation 'Employee.WorkAddress'*");
+    }
+
+    /// <summary>
+    ///     Verifies that CLR types explicitly configured as entity types are not auto-converted to
+    ///     complex collections either.
+    /// </summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void EntityTypeClrType_IsNotAutoConvertedToComplexCollection()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        var ctx = new AddressCollectionEntityContext(
+            BuildOptions<AddressCollectionEntityContext>(client));
+        var act = () => ctx.Model;
+
+        act
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage(
+                "*Unable to determine the relationship represented by navigation 'Team.Offices'*");
     }
 }
