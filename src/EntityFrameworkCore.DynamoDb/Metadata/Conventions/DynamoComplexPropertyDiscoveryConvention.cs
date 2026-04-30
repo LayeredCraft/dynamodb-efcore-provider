@@ -1,5 +1,6 @@
-using System.Reflection;
 using System.Diagnostics.CodeAnalysis;
+using System.Reflection;
+using EntityFrameworkCore.DynamoDb.Storage;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
@@ -28,17 +29,36 @@ public sealed class DynamoComplexPropertyDiscoveryConvention(
         [NotNullWhen(true)] out Type? targetClrType,
         out bool isCollection)
     {
+        var memberType = GetMemberType(memberInfo);
+
         if (!structuralType.IsInModel
             || structuralType.IsIgnored(memberInfo.Name)
             || structuralType.FindMember(memberInfo.Name) != null
             || (memberInfo is PropertyInfo propertyInfo
-                && propertyInfo.GetIndexParameters().Length != 0)
-            || !Dependencies.MemberClassifier.IsCandidateComplexProperty(
-                memberInfo,
-                structuralType.Model,
-                UseAttributes,
-                out var elementType,
-                out _))
+                && propertyInfo.GetIndexParameters().Length != 0))
+        {
+            isCollection = false;
+            targetClrType = null;
+            return false;
+        }
+
+        var isComplexCandidate = Dependencies.MemberClassifier.IsCandidateComplexProperty(
+            memberInfo,
+            structuralType.Model,
+            UseAttributes,
+            out var elementType,
+            out _);
+
+        if (!isComplexCandidate
+            && (memberInfo is not PropertyInfo
+                || !DynamoTypeMappingSource.TryGetComplexCollectionElementType(
+                    memberType,
+                    out elementType)
+                || Dependencies.MemberClassifier.IsCandidatePrimitiveProperty(
+                    memberInfo,
+                    structuralType.Model,
+                    UseAttributes,
+                    out _)))
         {
             isCollection = false;
             targetClrType = null;
@@ -46,13 +66,17 @@ public sealed class DynamoComplexPropertyDiscoveryConvention(
         }
 
         isCollection = elementType != null;
-        targetClrType = UnwrapNullableType(elementType ?? GetMemberType(memberInfo));
+        targetClrType = UnwrapNullableType(elementType ?? memberType);
 
-        if (structuralType.Model.Builder.IsIgnored(targetClrType)
+        if (DynamoTypeMappingSource.IsPrimitiveType(targetClrType)
+            || DynamoTypeMappingSource.IsSupportedPrimitiveCollectionShape(targetClrType)
+            || structuralType.Model.Builder.IsIgnored(targetClrType)
             || structuralType.Model.FindEntityType(targetClrType) != null
             || (structuralType is IReadOnlyComplexType complexType
                 && complexType.IsContainedBy(targetClrType)))
         {
+            isCollection = false;
+            targetClrType = null;
             return false;
         }
 

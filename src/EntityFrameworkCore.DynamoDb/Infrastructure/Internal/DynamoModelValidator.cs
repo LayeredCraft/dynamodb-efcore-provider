@@ -54,7 +54,7 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
 
     /// <summary>
     ///     Validates that every complex collection property in the model uses a list-compatible CLR
-    ///     type (e.g. <c>List&lt;T&gt;</c>, <c>IList&lt;T&gt;</c>, <c>IReadOnlyList&lt;T&gt;</c>).
+    ///     type (e.g. <c>List&lt;T&gt;</c> or <c>IList&lt;T&gt;</c>).
     /// </summary>
     private static void ValidateComplexCollectionShapes(IModel model)
     {
@@ -66,11 +66,13 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
             foreach (var cp in typeBase.GetDeclaredComplexProperties())
             {
                 if (cp.IsCollection
-                    && !DynamoTypeMappingSource.TryGetListElementType(cp.ClrType, out _))
+                    && !DynamoTypeMappingSource.TryGetComplexCollectionElementType(
+                        cp.ClrType,
+                        out _))
                     throw new InvalidOperationException(
                         $"Complex collection property '{typeBase.DisplayName()}.{cp.Name}' "
                         + $"has unsupported CLR type '{cp.ClrType.Name}'. "
-                        + "Use List<T>, IList<T>, or IReadOnlyList<T> for complex collections.");
+                        + "Use List<T> or IList<T> for complex collections.");
 
                 ValidateComplexCollectionShapesOnTypeBase(cp.ComplexType);
             }
@@ -140,7 +142,7 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
             throw new InvalidOperationException(
                 $"Property '{typeBase.DisplayName()}.{property.Name}' uses primitive collection CLR type "
                 + $"'{property.ClrType.Name}', which is not supported by the DynamoDB provider. "
-                + "Supported list shapes: T[], List<T>, IList<T>, IReadOnlyList<T>. "
+                + "Supported list shapes: T[], List<T>, IList<T>. "
                 + "Supported set shapes: HashSet<T>, ISet<T>, IReadOnlySet<T>. "
                 + "Supported dictionary shapes: Dictionary<string,TValue>, IDictionary<string,TValue>, "
                 + "IReadOnlyDictionary<string,TValue>, ReadOnlyDictionary<string,TValue>. "

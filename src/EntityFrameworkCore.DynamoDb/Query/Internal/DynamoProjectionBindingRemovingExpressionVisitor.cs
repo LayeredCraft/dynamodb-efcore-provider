@@ -429,12 +429,12 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
         var attributeName = ((IReadOnlyComplexProperty)complexProperty).GetAttributeName();
         var path = $"{complexProperty.DeclaringType.DisplayName()}.{complexProperty.Name}";
 
-        if (!DynamoTypeMappingSource.TryGetListElementType(
+        if (!DynamoTypeMappingSource.TryGetComplexCollectionElementType(
                 complexProperty.ClrType,
                 out var elementType))
             throw new InvalidOperationException(
                 $"Complex collection '{path}' CLR type '{complexProperty.ClrType.Name}' is not a supported "
-                + "collection type. Use List<T>, IList<T>, or IReadOnlyList<T>.");
+                + "collection type. Use List<T> or IList<T>.");
 
         var wireListVariable =
             Variable(typeof(List<AttributeValue>), $"complexList_{attributeName}");
@@ -873,7 +873,9 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
         if (expression.Type == targetType)
             return expression;
 
-        if (!DynamoTypeMappingSource.TryGetListElementType(targetType, out var elementType))
+        if (!DynamoTypeMappingSource.TryGetComplexCollectionElementType(
+            targetType,
+            out var elementType))
             return expression.Type != targetType ? Convert(expression, targetType) : expression;
 
         var enumerableType = typeof(IEnumerable<>).MakeGenericType(elementType);
@@ -881,15 +883,6 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
 
         if (!enumerableType.IsAssignableFrom(enumerableExpression.Type))
             enumerableExpression = Convert(enumerableExpression, enumerableType);
-
-        if (targetType.IsArray)
-        {
-            var toArrayMethod = EnumerableMethods.ToArray.MakeGenericMethod(elementType);
-            var arrayExpression = Call(toArrayMethod, enumerableExpression);
-            return arrayExpression.Type == targetType
-                ? arrayExpression
-                : Convert(arrayExpression, targetType);
-        }
 
         var toListMethod = EnumerableMethods.ToList.MakeGenericMethod(elementType);
         var listExpression = Call(toListMethod, enumerableExpression);
