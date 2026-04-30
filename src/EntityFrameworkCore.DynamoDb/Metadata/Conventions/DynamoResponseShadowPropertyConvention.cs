@@ -33,7 +33,7 @@ public sealed class DynamoResponseShadowPropertyConvention : IEntityTypeAddedCon
     {
         var entityType = builder.Metadata;
 
-        // Only root, non-owned types — owned types share the page that materialized their owner.
+        // Only root entity types get the page-response shadow property.
         if (entityType.BaseType != null || entityType.IsOwned())
             return;
 

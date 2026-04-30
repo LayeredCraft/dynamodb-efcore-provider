@@ -123,9 +123,9 @@ The primitive types. Only `String`, `Number`, and `Binary` can be used as primar
 Structured types for nesting data within an item.
 
 - **Map** (`M`) — a nested key-value structure, equivalent to a JSON object. Nesting is supported
-    up to 32 levels deep. Maps directly to EF Core owned entity types and complex types.
+    up to 32 levels deep. Maps directly to EF Core complex properties.
 - **List** (`L`) — an ordered collection that can hold values of mixed types. Maps to
-    `List<T>` properties on owned types.
+    primitive lists and complex collections in the EF model.
 
 ### Set types
 
@@ -264,7 +264,7 @@ The practical consequences for EF Core:
     and eagerly load its `Order` entities via `.Include()`. Structure your schema so that related
     data is co-located in the same partition.
 
-See [Owned Types and Collections](modeling/owned-types.md) for supported nesting patterns, and
+See [Complex Properties and Collections](modeling/owned-types.md) for supported nesting patterns, and
 [Limitations](limitations.md) for a complete list of unsupported EF Core features.
 
 ## Read Consistency
@@ -318,12 +318,13 @@ designs where multiple entity types share a table.
 b.HasSortKey(c => c.EntityType);
 ```
 
-**Owned types model nested document attributes** — use `OwnsOne` / `OwnsMany` to map C# objects
-to DynamoDB Maps and Lists. These are stored within the same item and require no join.
+**Complex properties model nested document attributes** — use `ComplexProperty` /
+`ComplexCollection` to map C# objects to DynamoDB Maps and Lists. These are stored within the same
+item and require no join.
 
 ```csharp
-b.OwnsOne(o => o.Address);
-b.OwnsMany(o => o.LineItems, li => { /* configure keys, owned properties, etc. */ });
+b.ComplexProperty(o => o.Address);
+b.ComplexCollection(o => o.LineItems, li => { /* configure nested members */ });
 ```
 
 **Secondary indexes enable alternate query patterns** — declare them in `OnModelCreating`, then use
@@ -338,13 +339,13 @@ Queries without one result in a full table scan. See [How Queries Execute](query
 
 **Navigation properties across entity roots are not supported** — `.Include()` does not work
 across separately rooted entities. Design your schema so that data you need together is in the
-same item (owned types) or the same partition (single-table design).
+same item (complex properties) or the same partition (single-table design).
 
 ## See Also
 
 - [Getting Started](getting-started.md) — install, configure, and run your first query
 - [Entities and Keys](modeling/entities-keys.md) — partition keys, sort keys, and composite keys
 - [Secondary Indexes](modeling/secondary-indexes.md) — GSI and LSI configuration
-- [Owned Types and Collections](modeling/owned-types.md) — nested Maps and Lists
+- [Complex Properties and Collections](modeling/owned-types.md) — nested Maps and Lists
 - [How Queries Execute](querying/how-queries-execute.md) — LINQ to PartiQL pipeline
 - [Limitations](limitations.md) — unsupported EF Core features and why

@@ -189,6 +189,22 @@ operations, but successful statements within that batch have already been persis
 
 ## Modeling Constraints
 
+### Owned Entity Types Are Not Supported
+
+The provider does not support EF Core owned entity types. `OwnsOne(...)`, `OwnsMany(...)`, and
+other owned-type configuration paths throw during model validation with guidance to switch to
+complex types instead.
+
+Use EF Core complex types for embedded document data:
+
+```csharp
+modelBuilder.Entity<Customer>(b =>
+{
+    b.ComplexProperty(x => x.Profile);
+    b.ComplexCollection(x => x.Contacts);
+});
+```
+
 ### Key Configuration
 
 Root entities must use `HasPartitionKey(...)` and, when needed, `HasSortKey(...)`. Using

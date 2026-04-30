@@ -77,7 +77,7 @@ var orders = await context.Orders
 ## Key Features
 
 - **LINQ to PartiQL** — `Where`, `Select`, `OrderBy`, `Limit(n)`, and more translated server-side
-- **Owned types and collections** — map nested documents as owned entities or owned collections
+- **Complex properties and collections** — map nested documents as complex types and complex collections
 - **Secondary indexes** — query GSIs and LSIs with index hints
 - **Optimistic concurrency** — version tokens via EF Core's `IsConcurrencyToken`
 - **Pagination** — cursor-based pagination using DynamoDB's `NextToken`
@@ -101,7 +101,7 @@ var orders = await context.Orders
 
 - :lucide-database: **[Data Modeling](modeling/index.md)**
 
-    Entities, keys, owned types, secondary indexes, and inheritance.
+    Entities, keys, complex properties, secondary indexes, and inheritance.
 
 - :lucide-search: **[Querying](querying/index.md)**
 

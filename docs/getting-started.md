@@ -175,6 +175,6 @@ await context.SaveChangesAsync();
 
 - [DynamoDB Concepts for EF Developers](dynamodb-concepts.md) — read this if DynamoDB is new to you
 - [Configuration](configuration/index.md) — client setup, options, and `DbContext` registration
-- [Data Modeling](modeling/index.md) — keys, owned types, secondary indexes, and inheritance
+- [Data Modeling](modeling/index.md) — keys, complex properties, secondary indexes, and inheritance
 - [Querying](querying/index.md) — supported LINQ operators, filtering, projection, and pagination
 - [Limitations](limitations.md) — what is not supported and why

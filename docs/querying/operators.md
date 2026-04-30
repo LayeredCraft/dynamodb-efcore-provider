@@ -32,7 +32,7 @@ _This page is the authoritative reference for which LINQ operators translate to 
 
 | LINQ Operator | PartiQL Translation  | Notes                                                                  |
 | ------------- | -------------------- | ---------------------------------------------------------------------- |
-| `Select`      | Explicit column list | `SELECT *` is never emitted; computed expressions evaluate client-side |
+| `Select`      | Explicit column list | `SELECT *` is never emitted; computed expressions and nested complex-property shaping evaluate client-side |
 
 ## Ordering Operators
 

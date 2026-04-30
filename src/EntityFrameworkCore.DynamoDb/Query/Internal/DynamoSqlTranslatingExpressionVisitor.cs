@@ -688,12 +688,11 @@ public class DynamoSqlTranslatingExpressionVisitor(
     ///     Translates <c>Enumerable.ElementAt(source, index)</c> or
     ///     <c>Queryable.ElementAt(source, index)</c> to a list index access expression. EF Core normalises
     ///     <c>list[i]</c> to this form, wrapping the source in <c>.AsQueryable()</c> when the collection
-    ///     is an owned navigation property.
+    ///     is a complex collection property.
     /// </summary>
     private Expression TranslateElementAt(MethodCallExpression node)
     {
-        // Strip .AsQueryable() wrapper that EF Core adds when the source is an owned collection
-        // property
+        // Strip the .AsQueryable() wrapper that EF Core adds around complex collection sources.
         var sourceArg = node.Arguments[0];
         if (sourceArg is MethodCallExpression { Method.Name: "AsQueryable" } asq)
             sourceArg = asq.Arguments[0];

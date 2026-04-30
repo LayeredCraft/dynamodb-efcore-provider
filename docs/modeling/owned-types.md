@@ -1,25 +1,32 @@
 ---
-title: Owned Types and Collections
-description: How owned entities and owned collections are stored and queried in DynamoDB.
+title: Complex Properties and Collections
+description: How complex properties and complex collections are stored and queried in DynamoDB.
 ---
 
-# Owned Types and Collections
+# Complex Properties and Collections
 
-_Owned types are stored inline within the owning entity's DynamoDB item as nested maps or lists, with no separate table or key._
+_Complex properties are stored inline within the owning entity's DynamoDB item as nested maps or
+lists, with no separate table or key._
 
-## Owned Entities
+## Complex Properties
 
-`OwnsOne<T>()` maps a navigation to a DynamoDB Map (`AttributeValue.M`) embedded within the
-owning item. Any non-primitive, non-collection navigation that EF Core can discover by convention
-is typically treated as owned by this provider's relationship-discovery convention, so you don't
-always need to call `OwnsOne` explicitly.
+`ComplexProperty(...)` maps a value-object-style member to a DynamoDB map (`AttributeValue.M`)
+embedded within the owning item. The CLR type should be configured as an EF Core complex type,
+typically with `[ComplexType]` or `modelBuilder.ComplexType<T>()`.
 
 ```csharp
+[ComplexType]
+public class CustomerProfile
+{
+    public string? DisplayName { get; set; }
+    public int? Age { get; set; }
+}
+
 modelBuilder.Entity<Customer>(builder =>
 {
     builder.ToTable("Customers");
     builder.HasPartitionKey(x => x.Pk);
-    builder.OwnsOne(x => x.Profile);
+    builder.ComplexProperty(x => x.Profile);
 });
 ```
 
@@ -38,31 +45,31 @@ DynamoDB:
 }
 ```
 
-To store the owned type under a different attribute name, use `HasAttributeName(...)` on the
-navigation:
+To store the complex property under a different attribute name, use `HasAttributeName(...)` on
+the complex-property builder:
 
 ```csharp
-builder.OwnsOne(x => x.Profile, profile =>
+builder.ComplexProperty(x => x.Profile, profile =>
 {
     profile.HasAttributeName("userProfile");
 });
 ```
 
-!!! note "Containing attribute name follows the naming convention"
+!!! note "Container attribute names follow the naming convention"
 
-    The DynamoDB attribute key for the owned Map — `"profile"` for a `Profile` property — is
-    subject to the root entity's naming convention, just like any other property. Use
-    `HasAttributeName(...)` on the navigation builder to override it. See
-    [Attribute Naming](../configuration/attribute-naming.md) for how conventions propagate to
-    owned types.
+    The DynamoDB attribute key for the complex-property map is subject to the root entity's naming
+    convention, just like any other property. Use `HasAttributeName(...)` on the complex-property
+    builder to override it. See [Attribute Naming](../configuration/attribute-naming.md) for how
+    conventions propagate to nested complex properties.
 
-## Owned Collections
+## Complex Collections
 
-`OwnsMany<T>()` maps a collection navigation to a DynamoDB List of Maps (`AttributeValue.L`).
+`ComplexCollection(...)` maps a collection property to a DynamoDB list (`AttributeValue.L`).
+Collection elements can themselves contain nested complex properties.
 
 ```csharp
-builder.OwnsMany(x => x.Contacts, contact =>
-    contact.OwnsOne(x => x.Address));
+builder.ComplexCollection(x => x.Contacts, contact =>
+    contact.ComplexProperty(x => x.Address));
 ```
 
 The collection is stored as a List:
@@ -81,15 +88,9 @@ The collection is stored as a List:
 Supported CLR collection shapes: `T[]`, `List<T>`, `IList<T>`, `IReadOnlyList<T>`. Using
 `ICollection<T>` throws at model finalization.
 
-!!! note "Shadow ordinal property"
-
-    The provider adds a shadow property `__OwnedOrdinal` (`int`) to each owned collection element
-    type for change tracking identity. It does not appear in DynamoDB and is not affected by
-    attribute naming conventions.
-
 !!! note "Collection updates replace the full list"
 
-    Owned collection updates are written as full-list replacements of the containing DynamoDB
+    Complex collection updates are written as full-list replacements of the containing DynamoDB
     attribute. Modifying, adding, or removing an element updates the entire list value, not an
     in-place list element delta.
 
@@ -97,8 +98,8 @@ Supported CLR collection shapes: `T[]`, `List<T>`, `IList<T>`, `IReadOnlyList<T>
 
 ### Filtering
 
-Nested owned property paths translate to dot-notation in PartiQL, and list index access translates
-to bracket-notation:
+Nested complex-property paths translate to dot-notation in PartiQL, and list index access
+translates to bracket-notation:
 
 ```csharp
 context.Customers.Where(x => x.Profile.Address.City == "Seattle")
@@ -119,7 +120,7 @@ WHERE "tags"[0] = 'featured'
 ### Projections
 
 Nested path access in `Select` is not supported server-side. The provider projects the top-level
-owned container and extracts nested values on the client:
+complex-property container and extracts nested values on the client:
 
 ```csharp
 context.Customers.Select(x => new { x.Pk, City = x.Profile.Address.City })
@@ -135,56 +136,56 @@ SELECT "pk", "profile" FROM "Customers"
 
 !!! warning "SelectMany is not translated"
 
-    Direct querying of owned collections via `SelectMany` is not supported. `.Include()` has no
-    effect on owned types and can be omitted.
+    Direct querying of complex collections via `SelectMany` is not supported. `.Include()` has no
+    effect on complex properties and can be omitted.
 
 ## Nesting Limits and Constraints
 
 ### Nesting and Size Limits
 
-Owned types are embedded in the same DynamoDB item as the root entity. That means all nested
-owned data shares one item-size budget and is read/written as part of that root item.
+Complex properties are embedded in the same DynamoDB item as the root entity. That means all
+nested data shares one item-size budget and is read or written as part of that root item.
 
 !!! warning "DynamoDB item size limit"
 
-    DynamoDB imposes a maximum item size of 400 KB. Deeply nested or large owned collections
+    DynamoDB imposes a maximum item size of 400 KB. Deeply nested or large complex collections
     count against this limit.
 
-Owned types can be nested to any depth — an owned collection can contain owned references, which
-can themselves contain further owned types:
+Complex types can be nested to any depth. A complex collection can contain nested complex
+properties, which can themselves contain further complex properties.
 
-In practice, keep nesting depth and collection size intentional: deeper/larger graphs are valid,
-but they increase item size and payload cost for every read/write of the owning entity.
+In practice, keep nesting depth and collection size intentional: deeper or larger graphs are
+valid, but they increase item size and payload cost for every read and write of the owning entity.
 
 ```csharp
-builder.OwnsOne(x => x.Profile, profile =>
+builder.ComplexProperty(x => x.Profile, profile =>
 {
-    profile.OwnsOne(x => x.PreferredAddress);
-    profile.OwnsOne(x => x.BillingAddress);
+    profile.ComplexProperty(x => x.PreferredAddress);
+    profile.ComplexProperty(x => x.BillingAddress);
 });
 
-builder.OwnsMany(x => x.Contacts, contact =>
-    contact.OwnsOne(x => x.Address));
+builder.ComplexCollection(x => x.Contacts, contact =>
+    contact.ComplexProperty(x => x.Address));
 ```
 
 ### Null and Missing Attribute Behavior
 
-When reading owned navigations, the provider distinguishes optional vs required semantics from the
-EF model and applies them consistently for both missing attributes and explicit DynamoDB `NULL`
-values.
+When reading complex properties, the provider distinguishes optional vs required semantics from
+the EF model and applies them consistently for both missing attributes and explicit DynamoDB
+`NULL` values.
 
 Null and missing attribute handling:
 
-| Scenario                                                 | Behavior                           |
-| -------------------------------------------------------- | ---------------------------------- |
-| Optional navigation missing or `NULL` in DynamoDB        | Materializes as `null`             |
-| Required navigation missing or `NULL` in DynamoDB        | Throws `InvalidOperationException` |
-| Optional navigation chain null-propagates in projections | `null`, not an error               |
+| Scenario                                               | Behavior                           |
+| ------------------------------------------------------ | ---------------------------------- |
+| Optional complex property missing or `NULL` in DynamoDB | Materializes as `null`             |
+| Required complex property missing or `NULL` in DynamoDB | Throws `InvalidOperationException` |
+| Optional complex path null-propagates in projections    | `null`, not an error               |
 
 !!! warning "Strict materialization"
 
     Unlike the Cosmos DB EF provider, this provider does not silently skip missing required
-    properties on owned types. If the DynamoDB attribute is absent or is a DynamoDB `NULL` and
+    properties on complex types. If the DynamoDB attribute is absent or is a DynamoDB `NULL` and
     the EF property is required, materialization throws. Design your schemas accordingly.
 
 ## See also
@@ -192,5 +193,5 @@ Null and missing attribute handling:
 - [Entities and Keys](entities-keys.md)
 - [Attribute Naming](../configuration/attribute-naming.md)
 - [Limitations](../limitations.md)
-- [EF Core Owned Entity Types](https://learn.microsoft.com/en-us/ef/core/modeling/owned-entities)
+- [EF Core Complex Types](https://learn.microsoft.com/en-us/ef/core/what-is-new/ef-core-8.0/whatsnew#value-objects-using-complex-types)
 - [DynamoDB AttributeValue](https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_AttributeValue.html)

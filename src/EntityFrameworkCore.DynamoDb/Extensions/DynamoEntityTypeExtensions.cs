@@ -51,7 +51,7 @@ public static class DynamoEntityTypeExtensions
         /// </summary>
         /// <param name="descriptor">
         ///     The descriptor to configure, or <c>null</c> to clear the explicit setting
-        ///     and fall back to the ownership chain or CLR property names.
+        ///     and fall back to the provider default naming convention.
         /// </param>
         internal void SetAttributeNamingConvention(DynamoNamingConventionDescriptor? descriptor)
             => entityType.SetOrRemoveAnnotation(
@@ -61,21 +61,6 @@ public static class DynamoEntityTypeExtensions
 
     extension(IReadOnlyEntityType entityType)
     {
-        /// <summary>Gets the top-level DynamoDB attribute name used to store this owned entity type.</summary>
-        /// <returns>
-        ///     The explicitly configured attribute name, or the navigation property name as a fallback.
-        ///     Returns  if no containing attribute name can be determined.
-        /// </returns>
-        public string? GetContainingAttributeName()
-        {
-            var configuredName =
-                entityType[DynamoAnnotationNames.ContainingAttributeName] as string;
-            if (!string.IsNullOrWhiteSpace(configuredName))
-                return configuredName;
-
-            return entityType.FindOwnership()?.PrincipalToDependent?.Name;
-        }
-
         /// <summary>Gets the name of the EF property that maps to the DynamoDB partition key.</summary>
         /// <remarks>
         ///     Returns the configured partition key property annotation when present.
@@ -147,8 +132,9 @@ public static class DynamoEntityTypeExtensions
         ///     or <c>null</c> when none is set.
         /// </summary>
         /// <remarks>
-        ///     Does not walk the ownership chain. Inherited resolution (walking ownership to the root
-        ///     entity's convention) is performed by the naming convention applier during model finalization.
+        ///     Does not walk any containing complex-property chain. Inherited resolution from the
+        ///     root entity type is applied later by the naming convention applier during model
+        ///     finalization.
         /// </remarks>
         /// <returns>
         ///     The <see cref="DynamoNamingConventionDescriptor" /> set on this entity type, or

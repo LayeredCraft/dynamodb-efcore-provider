@@ -33,7 +33,9 @@ The provider never emits `SELECT *`. Every projection results in an explicit col
 
 Property reads for entity, scalar, and DTO leaf attributes execute server-side: the generated PartiQL lists each attribute by name, and DynamoDB returns only those attributes in the response. Duplicate attributes in a projection are deduplicated before the SQL is generated.
 
-Shadow properties — such as the discriminator column for shared-table entities or the synthetic ordinal key for owned collections — are included in the projection automatically when the materializer needs them, even if they have no corresponding CLR member.
+Shadow properties — such as the discriminator column for shared-table entities — are included in
+the projection automatically when the materializer needs them, even if they have no corresponding
+CLR member.
 
 ## Client-Side Projections
 
@@ -69,12 +71,15 @@ Entity properties typed as collections materialize from DynamoDB set and list at
 
 Interface-typed properties receive a concrete instance that implements the declared interface. Collection properties are selected by name like any scalar; their contents are deserialized from the `AttributeValue` during shaping.
 
-## Owned Type Projections
+## Complex Property Projections
 
-Owned references (`OwnsOne`) are stored as a DynamoDB map attribute (`M`). Owned collections (`OwnsMany`) are stored as a list attribute (`L`). In both cases, the query projects the top-level attribute name; the provider extracts and materializes the nested structure client-side during shaping.
+Complex properties are stored as DynamoDB map attributes (`M`), and complex collections are stored
+as DynamoDB lists (`L`) whose elements contain nested maps when needed. In both cases, the query
+projects the top-level attribute name and the provider materializes the nested structure
+client-side during shaping.
 
 ```csharp
-// "Profile" is an owned reference — stored as a map attribute
+// "Profile" is a complex property stored as a map attribute
 var profiles = await db.Users
     .Select(u => new { u.UserId, u.Profile.DisplayName })
     .ToListAsync(cancellationToken);
@@ -83,10 +88,13 @@ var profiles = await db.Users
 
 !!! note
 
-    Nested owned property paths (`u.Profile.Address.City`) are supported in `Where` predicates, translating to dot-notation in PartiQL (`"Profile"."Address"."City"`). In `Select` projections, however, only the top-level owned attribute is projected by the server; deeper extraction happens client-side.
+    Nested complex-property paths (`u.Profile.Address.City`) are supported in `Where` predicates,
+    translating to dot-notation in PartiQL (`"Profile"."Address"."City"`). In `Select`
+    projections, however, only the top-level complex attribute is projected by the server; deeper
+    extraction happens client-side.
 
 ## See also
 
 - [Supported Operators](operators.md)
 - [How Queries Execute](how-queries-execute.md)
-- [Owned Types and Collections](../modeling/owned-types.md)
+- [Complex Properties and Collections](../modeling/owned-types.md)

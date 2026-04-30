@@ -35,7 +35,8 @@ at finalization.
 
 Control how CLR property names translate to DynamoDB attribute names. The provider applies
 CamelCase by default; you can switch to a different built-in convention, supply a custom naming
-function, or override individual properties with an explicit attribute name.
+function, or override individual scalar, complex-property, or complex-collection attribute names
+explicitly.
 
 ## See also
 
