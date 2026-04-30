@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations.Schema;
 using Amazon.DynamoDBv2;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -509,7 +510,7 @@ public class DynamoKeyDiscoveryConventionTests
     }
 
     // -------------------------------------------------------------------
-    // Owned entity types — convention does not apply
+    // Complex types — sort key convention does not apply to their properties
     // -------------------------------------------------------------------
 
     private sealed record OwnerEntity
@@ -518,12 +519,14 @@ public class DynamoKeyDiscoveryConventionTests
         public string PK { get; set; } = null!;
 
         /// <summary>Provides functionality for this member.</summary>
-        public OwnedPart Detail { get; set; } = null!;
+        public ComplexPart Detail { get; set; } = null!;
     }
 
-    private sealed record OwnedPart
+    [ComplexType]
+    private sealed record ComplexPart
     {
-        // This property's name would normally trigger discovery, but owned types are excluded
+        // This property's name would normally trigger discovery on an entity type, but complex
+        // types are not entity types, so the convention skips them.
         /// <summary>Provides functionality for this member.</summary>
         public string SK { get; set; } = null!;
 
@@ -531,7 +534,7 @@ public class DynamoKeyDiscoveryConventionTests
         public string Value { get; set; } = null!;
     }
 
-    private sealed class OwnedConventionContext(DbContextOptions options) : DbContext(options)
+    private sealed class ComplexConventionContext(DbContextOptions options) : DbContext(options)
     {
         /// <summary>Provides functionality for this member.</summary>
         public DbSet<OwnerEntity> Owners { get; set; } = null!;
@@ -540,13 +543,13 @@ public class DynamoKeyDiscoveryConventionTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<OwnerEntity>(b =>
             {
-                b.ToTable("OwnedConventionTable");
-                b.OwnsOne(x => x.Detail);
+                b.ToTable("ComplexConventionTable");
+                b.ComplexProperty(x => x.Detail);
             });
 
         /// <summary>Provides functionality for this member.</summary>
-        public static OwnedConventionContext Create(IAmazonDynamoDB client)
-            => new(BuildOptions<OwnedConventionContext>(client));
+        public static ComplexConventionContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<ComplexConventionContext>(client));
     }
 
     // -------------------------------------------------------------------
@@ -737,77 +740,22 @@ public class DynamoKeyDiscoveryConventionTests
 
     // -------------------------------------------------------------------
 
-    /// <summary>Provides functionality for this member.</summary>
+    /// <summary>
+    ///     SK-named properties inside a complex type are not promoted to sort-key annotations on the
+    ///     owning entity, because the convention only processes top-level entity types.
+    /// </summary>
     [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public void OwnedEntityType_WithSkProperty_IsNotAutoDiscoveredAsSortKey()
+    public void ComplexType_WithSkProperty_IsNotAutoDiscoveredAsSortKey()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
-        using var ctx = OwnedConventionContext.Create(client);
+        using var ctx = ComplexConventionContext.Create(client);
 
         // Owner: PK discovered as partition key, no sort key
         var ownerType = ctx.Model.FindEntityType(typeof(OwnerEntity))!;
         ownerType.GetPartitionKeyPropertyName().Should().Be("PK");
         ownerType.GetSortKeyPropertyName().Should().BeNull();
 
-        // Owned: sort key annotation is NOT set (owned types are excluded)
-        var ownedType = ctx.Model.FindEntityType(typeof(OwnedPart))!;
-        ownedType["Dynamo:SortKeyPropertyName"].Should().BeNull();
-    }
-
-    // -------------------------------------------------------------------
-    // User-defined shadow int on OwnsMany must not be promoted as ordinal
-    // -------------------------------------------------------------------
-
-    private sealed record OwnedItemWithUserShadowInt
-    {
-        public string Label { get; set; } = null!;
-    }
-
-    private sealed record OwnerWithUserShadowInt
-    {
-        public string PK { get; set; } = null!;
-        public List<OwnedItemWithUserShadowInt> Items { get; set; } = null!;
-    }
-
-    private sealed class UserShadowIntOnOwnedContext(DbContextOptions options) : DbContext(options)
-    {
-        public DbSet<OwnerWithUserShadowInt> Owners { get; set; } = null!;
-
-        protected override void OnModelCreating(ModelBuilder modelBuilder)
-            => modelBuilder.Entity<OwnerWithUserShadowInt>(b =>
-            {
-                b.ToTable("UserShadowIntTable");
-                b.HasPartitionKey(x => x.PK);
-                b.OwnsMany(x => x.Items, items =>
-                {
-                    items.Property<int>("Revision");
-                });
-            });
-    }
-
-    [Fact]
-    public void UserShadowIntProperty_OnOwnedCollection_IsNotTreatedAsOrdinal()
-    {
-        var client = Substitute.For<IAmazonDynamoDB>();
-        using var ctx = new UserShadowIntOnOwnedContext(
-            BuildOptions<UserShadowIntOnOwnedContext>(client));
-
-        var ownedType = ctx.Model.FindEntityType(typeof(OwnedItemWithUserShadowInt))!;
-
-        // User shadow int must NOT be the owned ordinal
-        var revisionProperty = ownedType.FindProperty("Revision")!;
-        revisionProperty.IsOwnedOrdinalKeyProperty().Should().BeFalse();
-
-        // The provider-created ordinal must exist and be the only ordinal
-        var ordinalProperty = ownedType.GetProperties().Single(p => p.IsOwnedOrdinalKeyProperty());
-        ordinalProperty.Name.Should().StartWith("__OwnedOrdinal");
-        ordinalProperty.IsShadowProperty().Should().BeTrue();
-        ordinalProperty.ClrType.Should().Be(typeof(int));
-
-        // The ordinal must be in the primary key; Revision must not be
-        var pk = ownedType.FindPrimaryKey()!;
-        pk.Properties.Should().Contain(ordinalProperty);
-        pk.Properties.Should().NotContain(revisionProperty);
+        // The complex property SK sub-property must NOT cause a sort-key annotation on the owner.
+        ownerType["Dynamo:SortKeyPropertyName"].Should().BeNull();
     }
 }

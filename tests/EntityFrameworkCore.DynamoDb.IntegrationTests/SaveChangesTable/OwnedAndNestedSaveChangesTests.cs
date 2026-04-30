@@ -20,7 +20,7 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
     ///     A modified scalar on an OwnsOne reference emits a nested-path SET clause (
     ///     <c>SET "profile"."displayName" = ?</c>), not a full map replacement.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = 10_000)]
     public async Task SaveChangesAsync_OwnedReference_ScalarPropChanged_EmitsNestedPath()
     {
         var item = new CustomerItem
@@ -63,7 +63,7 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
     ///     Setting an OwnsOne reference to <see langword="null" /> emits <c>REMOVE "profile"</c>
     ///     which deletes the attribute from DynamoDB.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = 10_000)]
     public async Task SaveChangesAsync_OwnedReference_NullifiedToNull_EmitsRemove()
     {
         var item = new CustomerItem
@@ -108,7 +108,7 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
     ///     <c>SET "profile" = ?</c> with the full M value, because a nested SET path requires the parent
     ///     attribute to exist first.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = 10_000)]
     public async Task SaveChangesAsync_OwnedReference_SetFromNull_EmitsFullMapReplace()
     {
         var item = new CustomerItem
@@ -152,7 +152,7 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
     ///     A scalar mutation two levels deep in an OwnsOne chain emits a three-segment nested-path
     ///     SET clause rather than replacing the entire parent map.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = 10_000)]
     public async Task SaveChangesAsync_OwnedReference_DeeplyNested_EmitsThreeSegmentPath()
     {
         var item = new CustomerItem
@@ -200,7 +200,7 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
     ///     Modifying a property on an OwnsMany element replaces the entire list attribute in one
     ///     <c>SET "contacts" = ?</c> statement.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = 10_000)]
     public async Task SaveChangesAsync_OwnedCollection_ElementModified_ReplacesEntireList()
     {
         var item = new CustomerItem
@@ -248,7 +248,7 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
     ///     Adding a new element to an OwnsMany collection replaces the entire list attribute; the new
     ///     element appears at the end.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = 10_000)]
     public async Task SaveChangesAsync_OwnedCollection_ElementAdded_IncludesNewElementInList()
     {
         var item = new CustomerItem
@@ -298,7 +298,7 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
     ///     Removing an element from an OwnsMany collection replaces the entire list attribute; the
     ///     removed element is absent from the persisted list.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = 10_000)]
     public async Task SaveChangesAsync_OwnedCollection_ElementRemoved_ExcludesRemovedElement()
     {
         var contact1 = new CustomerContact { Kind = "email", Value = "a@x.com", Verified = true };
@@ -342,7 +342,7 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
     ///     Mutating a nested owned reference inside an OwnsMany element still replaces the entire
     ///     parent list attribute — the nested change is captured in the rebuilt L value.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = 10_000)]
     public async Task
         SaveChangesAsync_OwnedCollection_WithNestedOwned_ReplacesListWithUpdatedNested()
     {
@@ -397,7 +397,7 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
     ///     Setting an OwnsMany navigation to <see langword="null" /> emits <c>REMOVE "contacts"</c>
     ///     rather than writing an empty list.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = 10_000)]
     public async Task SaveChangesAsync_OwnedCollection_SetToNull_EmitsRemove()
     {
         var item = new CustomerItem
@@ -445,7 +445,7 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
     ///     Replacing a primitive list property replaces the entire L attribute in one
     ///     <c>SET "appliedCoupons" = ?</c> statement.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = 10_000)]
     public async Task SaveChangesAsync_PrimitiveList_Changed_ReplacesListAttribute()
     {
         var item = new OrderItem
@@ -488,7 +488,7 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
     ///     Replacing a primitive dictionary property replaces the entire M attribute in one
     ///     <c>SET "chargesByCode" = ?</c> statement.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = 10_000)]
     public async Task SaveChangesAsync_PrimitiveDict_Changed_ReplacesMapAttribute()
     {
         var item = new OrderItem
@@ -532,7 +532,7 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
     ///     Replacing a primitive string set property replaces the entire SS attribute in one
     ///     <c>SET "tags" = ?</c> statement.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = 10_000)]
     public async Task SaveChangesAsync_PrimitiveStringSet_Changed_ReplacesSetAttribute()
     {
         var item = new CustomerItem
@@ -575,7 +575,7 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
     ///     Replacing a <see cref="HashSet{Guid}" /> property replaces the SS attribute; GUIDs are
     ///     stored as their canonical string representation via the registered value converter.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = 10_000)]
     public async Task SaveChangesAsync_PrimitiveGuidSet_Changed_ReplacesSetAttribute()
     {
         var guid1 = Guid.Parse("11111111-0000-0000-0000-000000000001");
@@ -620,7 +620,7 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
     ///     Simultaneously modifying a scalar root property and a nested OwnsOne property emits a
     ///     single UPDATE with both the scalar SET and the nested-path SET clause.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = 10_000)]
     public async Task SaveChangesAsync_Mixed_ScalarAndOwned_EmitsBothInSingleUpdate()
     {
         var item = new CustomerItem
@@ -663,7 +663,7 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
     ///     Simultaneously modifying a scalar root property and a primitive set property emits a
     ///     single UPDATE with both SET clauses.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = 10_000)]
     public async Task SaveChangesAsync_Mixed_ScalarAndPrimitiveCollection_EmitsBothInSingleUpdate()
     {
         var item = new CustomerItem
@@ -707,7 +707,7 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
     ///     still emits an UPDATE for the root document — the aggregate root is included in the write loop
     ///     via <c>IncludeMutatingOwnedRoots</c>.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = 10_000)]
     public async Task SaveChangesAsync_OwnedOnly_NoRootScalars_EmitsUpdateForUnchangedRoot()
     {
         var item = new ProductItem
@@ -749,7 +749,7 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
     ///     An UPDATE for an owned navigation mutation includes the concurrency token property (
     ///     <c>"version" = ?</c>) in the WHERE clause, ensuring optimistic concurrency is enforced.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = 10_000)]
     public async Task SaveChangesAsync_ConcurrencyToken_OwnedMutation_IncludesVersionInWhere()
     {
         var item = new OrderItem
@@ -799,7 +799,7 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
     ///     back to <see cref="EntityState.Unchanged" /> and its original values are refreshed to match the
     ///     new current values, preventing a spurious second write.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = 10_000)]
     public async Task SaveChangesAsync_ChangeTracker_OwnedEntryIsUnchangedAfterSave()
     {
         var item = new CustomerItem

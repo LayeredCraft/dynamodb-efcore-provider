@@ -11,7 +11,7 @@ public class DeletedEntitiesSaveChangesTests(DynamoContainerFixture fixture)
     ///     A tracked entity removed via <c>DbSet.Remove</c> is deleted from DynamoDB and the item is
     ///     absent on a subsequent raw SDK read.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = 10_000)]
     public async Task DeleteAsync_TrackedEntity_RemovesItemFromDynamoDB()
     {
         // Insert a fresh customer — avoid seeded entities whose Preferences map cannot yet be
@@ -45,7 +45,7 @@ public class DeletedEntitiesSaveChangesTests(DynamoContainerFixture fixture)
     }
 
     /// <summary>After a successful delete, EF transitions the entry state to Detached.</summary>
-    [Fact]
+    [Fact(Timeout = 10_000)]
     public async Task DeleteAsync_EntityStateTransitionsToDetached()
     {
         var customer = new CustomerItem
@@ -81,7 +81,7 @@ public class DeletedEntitiesSaveChangesTests(DynamoContainerFixture fixture)
     ///     Deleting a stub entity whose key doesn't exist in DynamoDB is a no-op — the DynamoDB
     ///     PartiQL DELETE is idempotent. No exception is thrown and the entry transitions to Detached.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = 10_000)]
     public async Task DeleteAsync_NonExistentKey_IsNoOp()
     {
         var stub = new CustomerItem
@@ -113,7 +113,7 @@ public class DeletedEntitiesSaveChangesTests(DynamoContainerFixture fixture)
     ///     processes all three and returns the correct affected count with correct post-save tracking
     ///     states.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = 10_000)]
     public async Task SaveChangesAsync_MixedAddedModifiedDeleted_BatchAllStates()
     {
         // Pre-insert two entities to serve as modify and delete targets.

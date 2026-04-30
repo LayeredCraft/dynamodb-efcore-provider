@@ -15,7 +15,7 @@ public class SparseGsiSaveChangesTests(DynamoContainerFixture fixture)
     ///     item that does not contain the GSI key attributes at all. DynamoDB rejects
     ///     <c>{ NULL: true }</c> for attributes that participate in a GSI key definition.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = 10_000)]
     public async Task AddAsync_WithNullGsiKeys_GsiKeyAttributesAbsentFromItem()
     {
         var item = new SparseGsiItem
@@ -42,7 +42,7 @@ public class SparseGsiSaveChangesTests(DynamoContainerFixture fixture)
     ///     <c>{ NULL: true }</c>. The GSI-key omission must not bleed into unrelated nullable
     ///     properties.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = 10_000)]
     public async Task AddAsync_WithNullGsiKeys_NullableScalar_IsWrittenAsNullType()
     {
         var item = new SparseGsiItem
@@ -70,7 +70,7 @@ public class SparseGsiSaveChangesTests(DynamoContainerFixture fixture)
     ///     When GSI key properties are populated the item must contain the GSI key attributes with
     ///     the correct string values so the item is visible in the sparse index.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = 10_000)]
     public async Task AddAsync_WithPopulatedGsiKeys_WritesGsiKeyAttributesToItem()
     {
         var item = new SparseGsiItem
