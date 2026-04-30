@@ -26,19 +26,6 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
 
         base.Validate(model, logger);
 
-        // Owned entity types are not supported by the DynamoDB provider.
-        foreach (var entityType in model.GetEntityTypes())
-        {
-            if (!entityType.IsOwned())
-                continue;
-
-            throw new InvalidOperationException(
-                $"Entity type '{entityType.DisplayName()}' is configured as an owned entity type, "
-                + "which is not supported by the DynamoDB provider. Use EF Core complex types "
-                + "instead: annotate the CLR type with [ComplexType] and replace OwnsOne/OwnsMany "
-                + "fluent calls with ComplexProperty()/ComplexCollection().");
-        }
-
         ValidateComplexCollectionShapes(model);
         ValidateKeyPropertyNames(model);
         ValidateKeyPropertyTypes(model);
@@ -48,6 +35,21 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
         ValidateDiscriminatorMappings(model);
         ValidateConcurrencyTokenConfiguration(model);
         ValidateScalarPropertyTypeMappings(model, logger);
+    }
+
+    /// <summary>
+    ///     Replaces EF Core's generic owned-type validation with the provider-specific unsupported
+    ///     feature error.
+    /// </summary>
+    protected override void ValidateOwnership(
+        IModel model,
+        IDiagnosticsLogger<DbLoggerCategory.Model.Validation> logger)
+    {
+        foreach (var entityType in model.GetEntityTypes())
+            if (((IConventionModel)model).IsOwned(entityType.ClrType)
+                || entityType.IsOwned()
+                || entityType.FindOwnership() != null)
+                throw DynamoModelValidationErrors.OwnedEntityTypesNotSupported(entityType);
     }
 
     /// <summary>

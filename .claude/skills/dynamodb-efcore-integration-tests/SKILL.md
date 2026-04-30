@@ -19,6 +19,7 @@ Use this skill when you:
 
 1. Pick an existing suite under `tests/LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests/` (or create a new one).
 2. In a test:
+  - prefer `[Fact(Timeout = TestConfiguration.DefaultTimeout)]` over plain `[Fact]`
    - execute the query on `Db` using `CancellationToken`
    - compute `expected` from the suite seed data (null-safe)
    - assert results with FluentAssertions
@@ -30,6 +31,8 @@ Use this skill when you:
 - Always compare against in-memory seed collections; avoid hardcoded keys.
 - Mirror EF null-propagation in expected queries (`?.`), and guard list indexing.
 - For single-item queries, use `query.AsAsyncEnumerable().SingleAsync(CancellationToken)`.
+- For xUnit tests, use `[Fact(Timeout = TestConfiguration.DefaultTimeout)]` unless there is a
+  documented reason not to.
 - Prefer `AsNoTracking()` unless the test is explicitly about tracking.
 - PartiQL baselines must be the full statement; parameterized values appear as `?`.
 

@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations.Schema;
 using Amazon.DynamoDBv2;
 using EntityFrameworkCore.DynamoDb.Metadata;
 using Microsoft.EntityFrameworkCore;
@@ -51,7 +52,7 @@ public class DynamoAttributeNamingConventionApplierTests
             });
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void SnakeCase_TransformsAllDeclaredProperties()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -90,7 +91,7 @@ public class DynamoAttributeNamingConventionApplierTests
             });
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void CamelCase_TransformsAllDeclaredProperties()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -129,7 +130,7 @@ public class DynamoAttributeNamingConventionApplierTests
             });
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void KebabCase_TransformsAllDeclaredProperties()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -167,7 +168,7 @@ public class DynamoAttributeNamingConventionApplierTests
             });
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void UpperSnakeCase_TransformsAllDeclaredProperties()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -206,7 +207,7 @@ public class DynamoAttributeNamingConventionApplierTests
             });
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void CustomDelegate_AppliesTransformation()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -249,7 +250,7 @@ public class DynamoAttributeNamingConventionApplierTests
             });
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void ExplicitHasAttributeName_WinsOverConvention()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -286,7 +287,7 @@ public class DynamoAttributeNamingConventionApplierTests
             });
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void NoConvention_DefaultsToCamelCase()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -325,7 +326,7 @@ public class DynamoAttributeNamingConventionApplierTests
             });
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void None_PropertyNameUnchanged()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -350,6 +351,7 @@ public class DynamoAttributeNamingConventionApplierTests
     // Owned type inherits root entity convention
     // -------------------------------------------------------------------
 
+    [ComplexType]
     private sealed record Address
     {
         public string Street { get; set; } = null!;
@@ -363,7 +365,7 @@ public class DynamoAttributeNamingConventionApplierTests
         public Address HomeAddress { get; set; } = null!;
     }
 
-    private sealed class OwnedInheritContext(DbContextOptions options) : DbContext(options)
+    private sealed class ComplexInheritContext(DbContextOptions options) : DbContext(options)
     {
         public DbSet<PersonEntity> People { get; set; } = null!;
 
@@ -373,15 +375,15 @@ public class DynamoAttributeNamingConventionApplierTests
                 b.ToTable("People");
                 b.HasPartitionKey(x => x.Pk);
                 b.HasAttributeNamingConvention(DynamoAttributeNamingConvention.SnakeCase);
-                b.OwnsOne(x => x.HomeAddress);
+                b.ComplexProperty(x => x.HomeAddress);
             });
     }
 
-    [Fact]
-    public void OwnedType_InheritsRootEntityConvention()
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ComplexType_InheritsRootEntityConvention()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
-        using var ctx = new OwnedInheritContext(BuildOptions<OwnedInheritContext>(client));
+        using var ctx = new ComplexInheritContext(BuildOptions<ComplexInheritContext>(client));
 
         // Root entity properties get snake_case
         var personType = ctx.Model.FindEntityType(typeof(PersonEntity))!;
@@ -390,21 +392,25 @@ public class DynamoAttributeNamingConventionApplierTests
             .Should()
             .Be("full_name");
 
-        // Owned entity properties also get snake_case from root
-        var addressType = ctx.Model.FindEntityType(typeof(Address))!;
+        // Complex type properties also get snake_case from root
+        var addressProperty =
+            personType.GetComplexProperties().Single(cp => cp.ClrType == typeof(Address));
+        var addressType = addressProperty.ComplexType;
         addressType.FindProperty(nameof(Address.Street))!.GetAttributeName().Should().Be("street");
         addressType.FindProperty(nameof(Address.CityName))!
             .GetAttributeName()
             .Should()
             .Be("city_name");
-        addressType.GetContainingAttributeName().Should().Be("home_address");
+        // The complex property attribute name itself is also snake_cased
+        addressProperty.GetAttributeName().Should().Be("home_address");
     }
 
     // -------------------------------------------------------------------
-    // Owned type own convention overrides root
+    // Complex type explicit HasAttributeName overrides convention
     // -------------------------------------------------------------------
 
-    private sealed class OwnedOwnConventionContext(DbContextOptions options) : DbContext(options)
+    private sealed class ComplexAttributeOverrideContext(DbContextOptions options) : DbContext(
+        options)
     {
         public DbSet<PersonEntity> People { get; set; } = null!;
 
@@ -414,69 +420,30 @@ public class DynamoAttributeNamingConventionApplierTests
                 b.ToTable("People");
                 b.HasPartitionKey(x => x.Pk);
                 b.HasAttributeNamingConvention(DynamoAttributeNamingConvention.SnakeCase);
-                b.OwnsOne(
-                    x => x.HomeAddress,
-                    ab =>
-                        // Owned type has its own convention — should override root
-                        ab.HasAttributeNamingConvention(DynamoAttributeNamingConvention.CamelCase));
+                b.ComplexProperty(x => x.HomeAddress).HasAttributeName("home_payload");
             });
     }
 
-    [Fact]
-    public void OwnedType_OwnConventionOverridesRoot()
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ComplexType_ExplicitHasAttributeName_WinsOverConvention()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
         using var ctx =
-            new OwnedOwnConventionContext(BuildOptions<OwnedOwnConventionContext>(client));
+            new ComplexAttributeOverrideContext(
+                BuildOptions<ComplexAttributeOverrideContext>(client));
 
-        // Root still snake_case
         var personType = ctx.Model.FindEntityType(typeof(PersonEntity))!;
-        personType.FindProperty(nameof(PersonEntity.FullName))!
-            .GetAttributeName()
-            .Should()
-            .Be("full_name");
-
-        // Owned type uses its own camelCase, not root's snake_case
-        var addressType = ctx.Model.FindEntityType(typeof(Address))!;
-        addressType.FindProperty(nameof(Address.CityName))!
-            .GetAttributeName()
-            .Should()
-            .Be("cityName");
-        addressType.GetContainingAttributeName().Should().Be("homeAddress");
-    }
-
-    private sealed class OwnedContainingAttributeOverrideContext(DbContextOptions options)
-        : DbContext(options)
-    {
-        public DbSet<PersonEntity> People { get; set; } = null!;
-
-        protected override void OnModelCreating(ModelBuilder modelBuilder)
-            => modelBuilder.Entity<PersonEntity>(b =>
-            {
-                b.ToTable("People");
-                b.HasPartitionKey(x => x.Pk);
-                b.HasAttributeNamingConvention(DynamoAttributeNamingConvention.SnakeCase);
-                b.OwnsOne(x => x.HomeAddress, ab => ab.HasAttributeName("home_payload"));
-            });
-    }
-
-    [Fact]
-    public void OwnedType_ContainingAttribute_ExplicitOverrideWinsOverConvention()
-    {
-        var client = Substitute.For<IAmazonDynamoDB>();
-        using var ctx =
-            new OwnedContainingAttributeOverrideContext(
-                BuildOptions<OwnedContainingAttributeOverrideContext>(client));
-
-        var addressType = ctx.Model.FindEntityType(typeof(Address))!;
-        addressType.GetContainingAttributeName().Should().Be("home_payload");
+        var addressProperty =
+            personType.GetComplexProperties().Single(cp => cp.ClrType == typeof(Address));
+        addressProperty.GetAttributeName().Should().Be("home_payload");
     }
 
     // -------------------------------------------------------------------
-    // Provider-internal shadow properties are skipped
+    // Complex collection element properties get convention applied
     // -------------------------------------------------------------------
 
-    private sealed record OwnedItem
+    [ComplexType]
+    private sealed record ComplexItem
     {
         public string Label { get; set; } = null!;
     }
@@ -484,10 +451,10 @@ public class DynamoAttributeNamingConventionApplierTests
     private sealed record CollectionOwner
     {
         public string Pk { get; set; } = null!;
-        public List<OwnedItem> Items { get; set; } = null!;
+        public List<ComplexItem> Items { get; set; } = null!;
     }
 
-    private sealed class ShadowPropertyContext(DbContextOptions options) : DbContext(options)
+    private sealed class ComplexCollectionContext(DbContextOptions options) : DbContext(options)
     {
         public DbSet<CollectionOwner> Owners { get; set; } = null!;
 
@@ -497,25 +464,26 @@ public class DynamoAttributeNamingConventionApplierTests
                 b.ToTable("Owners");
                 b.HasPartitionKey(x => x.Pk);
                 b.HasAttributeNamingConvention(DynamoAttributeNamingConvention.SnakeCase);
-                b.OwnsMany(x => x.Items);
+                b.ComplexCollection(x => x.Items);
             });
     }
 
-    [Fact]
-    public void ProviderInternalShadowProperty_IsSkipped_ByNamingConvention()
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ComplexCollectionElementProperty_IsRenamed_ByNamingConvention()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
-        using var ctx = new ShadowPropertyContext(BuildOptions<ShadowPropertyContext>(client));
+        using var ctx =
+            new ComplexCollectionContext(BuildOptions<ComplexCollectionContext>(client));
 
-        var ownedType = ctx.Model.FindEntityType(typeof(OwnedItem))!;
+        var ownerType = ctx.Model.FindEntityType(typeof(CollectionOwner))!;
+        var itemsProperty = ownerType.GetComplexProperties().Single(cp => cp.Name == "Items");
+        var complexType = itemsProperty.ComplexType;
 
         // CLR property gets snake_case applied
-        ownedType.FindProperty(nameof(OwnedItem.Label))!.GetAttributeName().Should().Be("label");
-
-        // Provider-internal owned ordinal key must not be renamed — it stays as-is
-        var ownedOrdinalProperty =
-            ownedType.GetProperties().Single(p => p.IsOwnedOrdinalKeyProperty());
-        ownedOrdinalProperty.GetAttributeName().Should().Be(ownedOrdinalProperty.Name);
+        complexType.FindProperty(nameof(ComplexItem.Label))!
+            .GetAttributeName()
+            .Should()
+            .Be("label");
     }
 
     private sealed record UserShadowEntity
@@ -537,7 +505,7 @@ public class DynamoAttributeNamingConventionApplierTests
             });
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void UserShadowProperty_GetsNamingConventionTranslation()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -563,7 +531,7 @@ public class DynamoAttributeNamingConventionApplierTests
             });
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void UserShadowProperty_ExplicitOverride_WinsOverConvention()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -596,7 +564,7 @@ public class DynamoAttributeNamingConventionApplierTests
             });
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void Acronyms_UseHumanizerTranslationBehavior()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -634,7 +602,7 @@ public class DynamoAttributeNamingConventionApplierTests
             });
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void HasPartitionKeyAndSortKey_LambdaOverloads_MapReadOnlyMembers()
     {
         var client = Substitute.For<IAmazonDynamoDB>();

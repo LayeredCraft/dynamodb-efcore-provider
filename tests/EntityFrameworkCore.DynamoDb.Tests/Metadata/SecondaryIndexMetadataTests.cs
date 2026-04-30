@@ -63,7 +63,7 @@ public class SecondaryIndexMetadataTests
             .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning));
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void HasGlobalSecondaryIndex_PartitionKeyOnly_ConfiguresSecondaryIndexMetadata()
     {
@@ -79,7 +79,7 @@ public class SecondaryIndexMetadataTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void HasGlobalSecondaryIndex_PartitionAndSortKey_ConfiguresSecondaryIndexMetadata()
     {
@@ -95,7 +95,7 @@ public class SecondaryIndexMetadataTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void HasLocalSecondaryIndex_UsesConfiguredPartitionKeyAndSortKey()
     {
@@ -111,7 +111,7 @@ public class SecondaryIndexMetadataTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void
         HasLocalSecondaryIndex_UsesDynamoKeyConventionWhenPartitionKeyIsNotExplicitlyConfigured()
@@ -128,7 +128,7 @@ public class SecondaryIndexMetadataTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void HasLocalSecondaryIndex_BeforeTableKeyConfiguration_IsAllowedUntilModelValidation()
     {
@@ -146,7 +146,7 @@ public class SecondaryIndexMetadataTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void HasLocalSecondaryIndex_WithoutCompositePrimaryKey_ThrowsHelpfulError()
     {
@@ -166,7 +166,7 @@ public class SecondaryIndexMetadataTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void HasLocalSecondaryIndex_UsingTableSortKey_ThrowsHelpfulError()
     {
@@ -186,7 +186,7 @@ public class SecondaryIndexMetadataTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void DerivedTypeHasLocalSecondaryIndex_UsingTableSortKey_ThrowsHelpfulError()
     {
@@ -206,7 +206,7 @@ public class SecondaryIndexMetadataTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void HasGlobalSecondaryIndex_PartitionKeyUnsupportedType_ThrowsHelpfulError()
     {
@@ -229,7 +229,7 @@ public class SecondaryIndexMetadataTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void HasGlobalSecondaryIndex_SortKeyUnsupportedType_ThrowsHelpfulError()
     {
@@ -250,7 +250,7 @@ public class SecondaryIndexMetadataTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void HasLocalSecondaryIndex_SortKeyUnsupportedType_ThrowsHelpfulError()
     {
@@ -271,7 +271,7 @@ public class SecondaryIndexMetadataTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void HasLocalSecondaryIndex_UsingTablePartitionKey_ThrowsHelpfulError()
     {
@@ -291,7 +291,7 @@ public class SecondaryIndexMetadataTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void
         HasLocalSecondaryIndex_AlternateSortKeyWithPartitionKeyAttributeName_ThrowsHelpfulError()
@@ -315,7 +315,7 @@ public class SecondaryIndexMetadataTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void HasGlobalSecondaryIndex_SameAttributeNameForPartitionAndSortKey_ThrowsHelpfulError()
     {
@@ -336,7 +336,7 @@ public class SecondaryIndexMetadataTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void DerivedTypeHasUnsupportedGlobalIndexKeyType_ErrorMentionsDeclaringType()
     {
@@ -363,7 +363,7 @@ public class SecondaryIndexMetadataTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void HasGlobalSecondaryIndex_NullablePartitionKey_IsAllowedForSparseMembership()
     {
@@ -385,7 +385,7 @@ public class SecondaryIndexMetadataTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void HasGlobalSecondaryIndex_NullableSortKey_IsAllowedForSparseMembership()
     {
@@ -408,7 +408,7 @@ public class SecondaryIndexMetadataTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void HasLocalSecondaryIndex_NullableSortKey_IsAllowedForSparseMembership()
     {
@@ -425,7 +425,7 @@ public class SecondaryIndexMetadataTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void HasGlobalSecondaryIndex_ConverterToSupportedProviderType_DoesNotThrow()
     {
@@ -442,7 +442,7 @@ public class SecondaryIndexMetadataTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void HasGlobalSecondaryIndex_DateTimeOffsetWithoutConverter_DoesNotThrow()
     {
@@ -459,7 +459,7 @@ public class SecondaryIndexMetadataTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void Model_ContainsRuntimeTableModel_ForConfiguredSecondaryIndexes()
     {
@@ -477,7 +477,7 @@ public class SecondaryIndexMetadataTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void RuntimeTableModel_BuildsOrderedSourcesWithResolvedMetadataObjects()
     {
@@ -516,7 +516,7 @@ public class SecondaryIndexMetadataTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void RuntimeTableModel_IncludesDerivedTypeSecondaryIndexes()
     {
@@ -547,7 +547,7 @@ public class SecondaryIndexMetadataTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void RuntimeTableModel_CanonicalizesSharedTableMappings()
     {
@@ -580,7 +580,7 @@ public class SecondaryIndexMetadataTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void RuntimeTableModel_AllowsSharedTableTypeSpecificSecondaryIndexes()
     {
@@ -618,7 +618,7 @@ public class SecondaryIndexMetadataTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void RuntimeTableModel_SharedTableSameNameDifferentKinds_ThrowsHelpfulError()
     {
@@ -641,7 +641,7 @@ public class SecondaryIndexMetadataTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void RuntimeTableModel_HierarchyDuplicateIndexNameWithConflictingDefinitions_IsRejected()
     {
@@ -658,7 +658,7 @@ public class SecondaryIndexMetadataTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void RuntimeTableModel_HierarchyDuplicateIndexNameWithSameDefinition_IsDeduplicated()
     {
@@ -678,7 +678,7 @@ public class SecondaryIndexMetadataTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void RuntimeTableModel_SharedTableSecondaryIndexTypeMismatch_ThrowsHelpfulError()
     {
@@ -699,7 +699,7 @@ public class SecondaryIndexMetadataTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void ProviderServices_RegisterCustomModelRuntimeInitializer()
     {

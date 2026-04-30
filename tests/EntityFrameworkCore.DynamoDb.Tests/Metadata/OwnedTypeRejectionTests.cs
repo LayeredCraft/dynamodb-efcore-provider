@@ -20,7 +20,7 @@ public class OwnedTypeRejectionTests
             .Options;
 
     /// <summary>OwnsOne fluent call throws with a message directing to [ComplexType].</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void OwnsOne_Throws_WithClearMessage()
     {
         var ctx = new OwnsOneContext(BuildOptions<OwnsOneContext>(MockClient()));
@@ -33,7 +33,7 @@ public class OwnedTypeRejectionTests
     }
 
     /// <summary>OwnsMany fluent call throws with a message directing to [ComplexType].</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void OwnsMany_Throws_WithClearMessage()
     {
         var ctx = new OwnsManyContext(BuildOptions<OwnsManyContext>(MockClient()));

@@ -7,7 +7,7 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.OwnedTypesTable;
 /// <summary>Represents the SelectTests type.</summary>
 public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFixture(fixture)
 {
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ToListAsync_MaterializesOwnedReferencesAndCollections()
     {
         var results = await Db.Items.ToListAsync(CancellationToken);
@@ -18,12 +18,12 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
 
         AssertSql(
             """
-            SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "orders", "orderSnapshots", "profile"
+            SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "orderSnapshots", "orders", "profile"
             FROM "OwnedTypesItems"
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Select_NestedOwnedReferenceProjection_MaterializesShape()
     {
         var results =
@@ -40,7 +40,7 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Select_NestedOwnedReferencePartialProjection_MaterializesShape()
     {
         var results =
@@ -60,7 +60,7 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Select_NestedOwnedCollectionProjection_MaterializesShape()
     {
         var results =
@@ -86,42 +86,7 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
             """);
     }
 
-    [Fact]
-    public async Task OwnedCollectionElements_HaveOrdinalKeys()
-    {
-        var item =
-            await Db
-                .Items
-                .Where(x => x.Pk == "OWNED#3")
-                .AsAsyncEnumerable()
-                .SingleAsync(CancellationToken);
-
-        Db.ChangeTracker.QueryTrackingBehavior.Should().Be(QueryTrackingBehavior.TrackAll);
-        Db.Entry(item).State.Should().NotBe(EntityState.Detached);
-
-        item.Orders.Should().NotBeNull();
-        item.Orders.Should().NotBeEmpty();
-
-        for (var i = 0; i < item.Orders.Count; i++)
-        {
-            var orderEntry = Db.Entry(item.Orders[i]);
-            orderEntry.State.Should().NotBe(EntityState.Detached);
-            var ordinalProperty =
-                orderEntry.Metadata.GetProperties().Single(p => p.IsOwnedOrdinalKeyProperty());
-
-            orderEntry.Metadata.FindPrimaryKey()!.Properties.Should().Contain(ordinalProperty);
-            orderEntry.Property(ordinalProperty.Name).CurrentValue.Should().Be(i + 1);
-        }
-
-        AssertSql(
-            """
-            SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "orders", "orderSnapshots", "profile"
-            FROM "OwnedTypesItems"
-            WHERE "pk" = 'OWNED#3'
-            """);
-    }
-
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Select_OwnedNavigationChain_IntermediateNull_PropagatesNull()
     {
         var results =
@@ -142,7 +107,7 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Select_OwnedNavigationChain_MissingAttribute_PropagatesNull()
     {
         var item = OwnedTypesItemMapper.ToItem(OwnedTypesItems.Items[0]);
@@ -185,7 +150,7 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
         }
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task
         ToListAsync_OwnedCollectionElement_WithOptionalOwnedReference_MixedNullMaterializes()
     {
@@ -207,44 +172,13 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
 
         AssertSql(
             """
-            SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "orders", "orderSnapshots", "profile"
+            SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "orderSnapshots", "orders", "profile"
             FROM "OwnedTypesItems"
             WHERE "pk" = 'OWNED#3'
             """);
     }
 
-    [Fact]
-    public async Task NestedOwnedCollectionElements_HaveOrdinalKeys_ResetPerParent()
-    {
-        var item =
-            await Db
-                .Items
-                .Where(x => x.Pk == "OWNED#3")
-                .AsAsyncEnumerable()
-                .SingleAsync(CancellationToken);
-
-        foreach (var order in item.Orders)
-            for (var i = 0; i < order.Lines.Count; i++)
-            {
-                var lineEntry = Db.Entry(order.Lines[i]);
-
-                var ordinalProperty =
-                    lineEntry.Metadata.GetProperties().Single(p => p.IsOwnedOrdinalKeyProperty());
-
-                lineEntry.Metadata.FindPrimaryKey()!.Properties.Should().Contain(ordinalProperty);
-                var id = lineEntry.Property(ordinalProperty.Name).CurrentValue;
-                id.Should().Be(i + 1);
-            }
-
-        AssertSql(
-            """
-            SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "orders", "orderSnapshots", "profile"
-            FROM "OwnedTypesItems"
-            WHERE "pk" = 'OWNED#3'
-            """);
-    }
-
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ToListAsync_AsNoTracking_OwnedCollections_MaterializeCorrectly()
     {
         var item =
@@ -261,7 +195,7 @@ public class SelectTests(DynamoContainerFixture fixture) : OwnedTypesTableTestFi
 
         AssertSql(
             """
-            SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "orders", "orderSnapshots", "profile"
+            SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "orderSnapshots", "orders", "profile"
             FROM "OwnedTypesItems"
             WHERE "pk" = 'OWNED#3'
             """);

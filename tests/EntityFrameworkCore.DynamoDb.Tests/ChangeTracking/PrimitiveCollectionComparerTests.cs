@@ -7,7 +7,7 @@ namespace EntityFrameworkCore.DynamoDb.Tests.ChangeTracking;
 public class PrimitiveCollectionComparerTests
 {
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void SetComparer_Snapshot_InterfaceSet_ReturnsHashSet_AndPreservesComparer()
     {
@@ -25,7 +25,7 @@ public class PrimitiveCollectionComparerTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void DictionaryComparer_Snapshot_InterfaceDictionary_ReturnsDictionary()
     {
@@ -47,7 +47,7 @@ public class PrimitiveCollectionComparerTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void NullableDictionaryComparer_Snapshot_ReadOnlyDictionary_ReturnsDictionary()
     {
@@ -68,7 +68,7 @@ public class PrimitiveCollectionComparerTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void DictionaryComparer_EqualValues_HaveSameHashCode_WhenInsertionOrderDiffers()
     {

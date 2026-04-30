@@ -6,7 +6,7 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SimpleTable;
 /// <summary>Verifies that the logical NOT operator is translated to PartiQL NOT predicates.</summary>
 public class NotOperatorTests(DynamoContainerFixture fixture) : SimpleTableTestFixture(fixture)
 {
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Where_NotBoolColumn_TranslatesToPartiQlNot()
     {
         var resultItems =
@@ -24,7 +24,7 @@ public class NotOperatorTests(DynamoContainerFixture fixture) : SimpleTableTestF
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Where_NotCompoundPredicate_TranslatesToPartiQlNotWithParentheses()
     {
         var resultItems =

@@ -6,7 +6,7 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SecondaryIndexTable;
 
 public class GsiQueryTests(DynamoContainerFixture fixture) : SecondaryIndexTableTestFixture(fixture)
 {
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ByStatus_Gsi_ReturnsAllPendingOrders_AcrossCustomers()
     {
         var results =
@@ -28,7 +28,7 @@ public class GsiQueryTests(DynamoContainerFixture fixture) : SecondaryIndexTable
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ByStatus_Gsi_WithSortKeyFilter_ReturnsOrdersInDateRange()
     {
         var results =
@@ -55,7 +55,7 @@ public class GsiQueryTests(DynamoContainerFixture fixture) : SecondaryIndexTable
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ByStatus_Gsi_WithOrderBy_EmitsOrderByClause()
     {
         List<OrderItem>? results = null;
@@ -90,7 +90,7 @@ public class GsiQueryTests(DynamoContainerFixture fixture) : SecondaryIndexTable
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ByRegion_Gsi_ReturnsAllUsEastOrders()
     {
         var results =
@@ -112,7 +112,7 @@ public class GsiQueryTests(DynamoContainerFixture fixture) : SecondaryIndexTable
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ByRegion_Gsi_WithLimit_ReturnsCorrectCount()
     {
         var results =
@@ -133,7 +133,7 @@ public class GsiQueryTests(DynamoContainerFixture fixture) : SecondaryIndexTable
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ByStatus_Gsi_EmitsCorrectFromSource_ForExecuteStatement()
     {
         _ = await Db

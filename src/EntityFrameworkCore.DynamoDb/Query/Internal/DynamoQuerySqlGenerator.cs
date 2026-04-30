@@ -258,6 +258,16 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
         return sqlPropertyExpression;
     }
 
+    /// <summary>
+    ///     Emits the root segment of a complex-property path as the mapped DynamoDB attribute name.
+    /// </summary>
+    protected override Expression VisitDynamoComplexPropertyAccess(
+        DynamoComplexPropertyAccessExpression complexPropertyAccessExpression)
+    {
+        AppendIdentifier(complexPropertyAccessExpression.AttributeName);
+        return complexPropertyAccessExpression;
+    }
+
     /// <inheritdoc />
     protected override Expression VisitProjection(ProjectionExpression projectionExpression)
     {
@@ -266,18 +276,8 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
         return projectionExpression;
     }
 
-    /// <summary>Emits <c>DynamoObjectAccessExpression</c> as a bare attribute name.</summary>
-    protected override Expression VisitExtension(Expression node)
-    {
-        if (node is DynamoObjectAccessExpression objectAccess)
-        {
-            AppendIdentifier(objectAccess.PropertyName);
-
-            return objectAccess;
-        }
-
-        return base.VisitExtension(node);
-    }
+    /// <inheritdoc />
+    protected override Expression VisitExtension(Expression node) => base.VisitExtension(node);
 
     /// <summary>
     ///     Emits a nested scalar path segment as <c>"Parent"."PropertyName"</c> by recursively

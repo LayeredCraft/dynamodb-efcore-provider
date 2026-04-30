@@ -54,7 +54,7 @@ public class TableKeySchemaTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void GetPartitionKeyPropertyName_SingleKey_ReturnsConfiguredPropertyName()
     {
@@ -67,7 +67,7 @@ public class TableKeySchemaTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void GetPartitionKeyProperty_SingleKey_ReturnsConfiguredProperty()
     {
@@ -79,7 +79,7 @@ public class TableKeySchemaTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void GetSortKeyPropertyName_SingleKey_ReturnsNull()
     {
@@ -91,7 +91,7 @@ public class TableKeySchemaTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void GetSortKeyProperty_SingleKey_ReturnsNull()
     {
@@ -133,7 +133,7 @@ public class TableKeySchemaTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void GetPartitionKeyPropertyName_SingleKey_WithHasAttributeName_ReturnsClrPropertyName()
     {
@@ -146,7 +146,7 @@ public class TableKeySchemaTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void GetPartitionKeyProperty_SingleKey_WithHasAttributeName_ReturnsPkProperty()
     {
@@ -197,7 +197,7 @@ public class TableKeySchemaTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void GetPartitionKeyPropertyName_TwoPartKey_ReturnsPartitionPropertyName()
     {
@@ -209,7 +209,7 @@ public class TableKeySchemaTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void GetPartitionKeyProperty_TwoPartKey_ReturnsPartitionProperty()
     {
@@ -224,7 +224,7 @@ public class TableKeySchemaTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void GetSortKeyPropertyName_TwoPartKey_ReturnsSortPropertyName()
     {
@@ -236,7 +236,7 @@ public class TableKeySchemaTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void GetSortKeyProperty_TwoPartKey_ReturnsSortProperty()
     {
@@ -280,7 +280,7 @@ public class TableKeySchemaTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void HasPartitionKey_Lambda_OverridesDefaultDetection()
     {
@@ -312,7 +312,7 @@ public class TableKeySchemaTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void HasSortKey_Lambda_OverridesDefaultDetection()
     {
@@ -355,7 +355,7 @@ public class TableKeySchemaTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void HasPartitionKey_WithHasAttributeName_PropertyDerivesPhysicalName()
     {
@@ -406,7 +406,7 @@ public class TableKeySchemaTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void OwnedEntityType_NoAutoDetection_ReturnsNull()
     {
@@ -456,7 +456,7 @@ public class TableKeySchemaTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void GetSortKeyProperty_TwoPartKey_WithHasAttributeName_ReturnsMappedProperty()
     {
@@ -501,7 +501,7 @@ public class TableKeySchemaTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void HasPartitionKey_StringOverride_ReturnsPropertyClrName()
     {
@@ -534,7 +534,7 @@ public class TableKeySchemaTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void HasPartitionKey_StringOverride_WithHasAttributeName_PropertyDerivesPhysicalName()
     {
@@ -581,7 +581,7 @@ public class TableKeySchemaTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void HasSortKey_Lambda_WithHasAttributeName_PropertyDerivesPhysicalName()
     {
@@ -627,7 +627,7 @@ public class TableKeySchemaTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void HasSortKey_StringOverride_ReturnsPropertyClrName()
     {
@@ -661,7 +661,7 @@ public class TableKeySchemaTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void HasSortKey_StringOverride_WithHasAttributeName_PropertyDerivesPhysicalName()
     {
@@ -720,7 +720,7 @@ public class TableKeySchemaTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void GetPartitionKeyPropertyNameConfigurationSource_FluentApi_ReportsExplicitSource()
     {
@@ -761,7 +761,7 @@ public class TableKeySchemaTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void GetSortKeyPropertyNameConfigurationSource_FluentApi_ReportsExplicitSource()
     {
@@ -814,7 +814,7 @@ public class TableKeySchemaTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void
         GetPartitionKeyPropertyNameConfigurationSource_Convention_IsNotAvailableDuringOnModelCreating()
@@ -827,7 +827,7 @@ public class TableKeySchemaTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void
         GetSortKeyPropertyNameConfigurationSource_Convention_IsNotAvailableDuringOnModelCreating()

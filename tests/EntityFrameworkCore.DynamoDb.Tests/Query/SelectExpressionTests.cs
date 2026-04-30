@@ -6,7 +6,7 @@ namespace EntityFrameworkCore.DynamoDb.Tests.Query;
 /// <summary>Unit tests for the new Limit/IsFirstTerminal API on SelectExpression.</summary>
 public class SelectExpressionTests
 {
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void DefaultValues_LimitIsNull_HasUserLimitFalse_IsFirstTerminalFalse()
     {
         var expr = new SelectExpression("TestTable");
@@ -17,7 +17,7 @@ public class SelectExpressionTests
         expr.IsFirstTerminal.Should().BeFalse();
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void ApplyUserLimit_SetsLimitAndHasUserLimit()
     {
         var expr = new SelectExpression("TestTable");
@@ -29,7 +29,7 @@ public class SelectExpressionTests
         expr.HasUserLimit.Should().BeTrue();
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void ApplyUserLimit_ChainedTwice_LastOneWins()
     {
         var expr = new SelectExpression("TestTable");
@@ -41,7 +41,7 @@ public class SelectExpressionTests
         expr.HasUserLimit.Should().BeTrue();
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void ApplyImplicitLimit_WhenNoUserLimit_SetsLimit()
     {
         var expr = new SelectExpression("TestTable");
@@ -52,7 +52,7 @@ public class SelectExpressionTests
         expr.HasUserLimit.Should().BeFalse();
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void ApplyImplicitLimit_WhenUserLimitAlreadySet_IsNoOp()
     {
         var expr = new SelectExpression("TestTable");
@@ -65,7 +65,7 @@ public class SelectExpressionTests
         expr.HasUserLimit.Should().BeTrue();
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void MarkAsFirstTerminal_SetsFlag()
     {
         var expr = new SelectExpression("TestTable");
@@ -75,7 +75,7 @@ public class SelectExpressionTests
         expr.IsFirstTerminal.Should().BeTrue();
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void ApplyUserLimitExpression_WithNonConstant_SetsExpressionOnly()
     {
         var expr = new SelectExpression("TestTable");
@@ -88,7 +88,7 @@ public class SelectExpressionTests
         expr.HasUserLimit.Should().BeTrue();
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void ApplyPredicate_StillWorks()
     {
         var expr = new SelectExpression("TestTable");

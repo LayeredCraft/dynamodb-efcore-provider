@@ -7,7 +7,7 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SimpleTable;
 public class ModifiedScalarSaveChangesTests(DynamoContainerFixture fixture)
     : SimpleTableTestFixture(fixture)
 {
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SaveChangesAsync_ModifiedScalar_UsesPartitionKeyOnlyWhere_WhenNoSortKey()
     {
         var item = await Db
@@ -44,7 +44,7 @@ public class ModifiedScalarSaveChangesTests(DynamoContainerFixture fixture)
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SaveChangesAsync_ModifiedDateOnly_WritesCorrectWireFormat()
     {
         var item = await Db
@@ -83,7 +83,7 @@ public class ModifiedScalarSaveChangesTests(DynamoContainerFixture fixture)
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SaveChangesAsync_ModifiedTimeOnly_WritesCorrectWireFormat()
     {
         var item = await Db
@@ -122,7 +122,7 @@ public class ModifiedScalarSaveChangesTests(DynamoContainerFixture fixture)
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SaveChangesAsync_ModifiedTimeSpan_WritesCorrectWireFormat()
     {
         var item = await Db

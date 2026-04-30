@@ -7,7 +7,7 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SecondaryIndexTable;
 public class ModelConfigurationTests(DynamoContainerFixture fixture)
     : SecondaryIndexTableTestFixture(fixture)
 {
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void PartitionKey_And_SortKey_AreConfiguredCorrectly()
     {
         var entityType = Db.Model.FindEntityType(typeof(OrderItem))!;
@@ -21,7 +21,7 @@ public class ModelConfigurationTests(DynamoContainerFixture fixture)
             .Equal(nameof(OrderItem.CustomerId), nameof(OrderItem.OrderId));
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void FourSecondaryIndexes_AreRegisteredOnEntityType()
     {
         var entityType = Db.Model.FindEntityType(typeof(OrderItem))!;
@@ -33,7 +33,7 @@ public class ModelConfigurationTests(DynamoContainerFixture fixture)
             .HaveCount(4);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void GsiByStatus_HasCorrectMetadata()
     {
         var entityType = Db.Model.FindEntityType(typeof(OrderItem))!;
@@ -48,7 +48,7 @@ public class ModelConfigurationTests(DynamoContainerFixture fixture)
             .Equal(nameof(OrderItem.Status), nameof(OrderItem.CreatedAt));
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void GsiByRegion_HasCorrectMetadata()
     {
         var entityType = Db.Model.FindEntityType(typeof(OrderItem))!;
@@ -63,7 +63,7 @@ public class ModelConfigurationTests(DynamoContainerFixture fixture)
             .Equal(nameof(OrderItem.Region), nameof(OrderItem.CreatedAt));
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void LsiByCreatedAt_HasCorrectMetadata()
     {
         var entityType = Db.Model.FindEntityType(typeof(OrderItem))!;
@@ -74,7 +74,7 @@ public class ModelConfigurationTests(DynamoContainerFixture fixture)
         index.Properties.Select(p => p.Name).Should().Equal(nameof(OrderItem.CreatedAt));
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void LsiByPriority_HasCorrectMetadata()
     {
         var entityType = Db.Model.FindEntityType(typeof(OrderItem))!;

@@ -6,7 +6,7 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SecondaryIndexTable;
 
 public class LsiQueryTests(DynamoContainerFixture fixture) : SecondaryIndexTableTestFixture(fixture)
 {
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ByCreatedAt_Lsi_ReturnsCustomerOrdersInDateOrder()
     {
         List<OrderItem>? results = null;
@@ -41,7 +41,7 @@ public class LsiQueryTests(DynamoContainerFixture fixture) : SecondaryIndexTable
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ByCreatedAt_Lsi_WithSortKeyBetween_ReturnsDateRangeOrders()
     {
         var results =
@@ -71,7 +71,7 @@ public class LsiQueryTests(DynamoContainerFixture fixture) : SecondaryIndexTable
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ByPriority_Lsi_ReturnsCustomerOrdersInPriorityOrder()
     {
         List<OrderItem>? results = null;
@@ -106,7 +106,7 @@ public class LsiQueryTests(DynamoContainerFixture fixture) : SecondaryIndexTable
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ByPriority_Lsi_WithNumericSortKeyFilter_ReturnsHighPriorityOrders()
     {
         var results =
@@ -129,7 +129,7 @@ public class LsiQueryTests(DynamoContainerFixture fixture) : SecondaryIndexTable
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ByCreatedAt_Lsi_EmitsCorrectFromSource_ForExecuteStatement()
     {
         _ = await Db

@@ -1,74 +1,42 @@
+using System.ComponentModel.DataAnnotations.Schema;
 using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
-using EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.OwnedTypesTable;
 
-/// <summary>Represents the OwnedTypesModelValidationTests type.</summary>
+/// <summary>Validates that the DynamoDB provider rejects owned entity types and unsupported complex collection shapes.</summary>
 public class OwnedTypesModelValidationTests
 {
     private readonly DynamoContainerFixture _fixture;
 
     public OwnedTypesModelValidationTests(DynamoContainerFixture fixture) => _fixture = fixture;
 
-    [Fact]
-    public void OwnedTypeWithExplicitTableName_ThrowsModelValidationError()
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void OwnedEntityType_ThrowsNotSupported()
     {
-        using var context =
-            new OwnedTypeWithTableNameContext(CreateOptions<OwnedTypeWithTableNameContext>());
+        using var context = new OwnedTypeContext(CreateOptions<OwnedTypeContext>());
 
         var act = () => _ = context.Model;
 
         act
             .Should()
             .Throw<InvalidOperationException>()
-            .WithMessage(
-                "*Owned entity type*explicit table name*cannot have separate table mappings*");
+            .WithMessage("*not supported by the DynamoDB provider*Use EF Core complex types*");
     }
 
-    [Fact]
-    public void
-        OwnedContainingAttributeName_CollidingWithScalarProperty_ThrowsModelValidationError()
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ComplexCollectionWithUnsupportedClrShape_ThrowsModelValidationError()
     {
-        using var context = new OwnedNameCollidesWithPropertyContext(
-            CreateOptions<OwnedNameCollidesWithPropertyContext>());
+        using var context = new UnsupportedComplexCollectionShapeContext(
+            CreateOptions<UnsupportedComplexCollectionShapeContext>());
 
         var act = () => _ = context.Model;
 
         act
             .Should()
             .Throw<InvalidOperationException>()
-            .WithMessage("*containing attribute name*collides with scalar property*");
-    }
-
-    [Fact]
-    public void
-        OwnedContainingAttributeName_CollidingWithOwnedNavigation_ThrowsModelValidationError()
-    {
-        using var context = new OwnedNameCollidesWithNavigationContext(
-            CreateOptions<OwnedNameCollidesWithNavigationContext>());
-
-        var act = () => _ = context.Model;
-
-        act
-            .Should()
-            .Throw<InvalidOperationException>()
-            .WithMessage("*containing attribute name*collides with owned navigation*");
-    }
-
-    [Fact]
-    public void EmbeddedOwnedCollectionWithUnsupportedClrShape_ThrowsModelValidationError()
-    {
-        using var context = new UnsupportedOwnedCollectionShapeContext(
-            CreateOptions<UnsupportedOwnedCollectionShapeContext>());
-
-        var act = () => _ = context.Model;
-
-        act
-            .Should()
-            .Throw<InvalidOperationException>()
-            .WithMessage("*Embedded owned collection navigation*Supported list shapes*");
+            .WithMessage("*complex collection*ICollection<ComplexProfile>*does not implement*IList<ComplexProfile>*");
     }
 
     private DbContextOptions<TContext> CreateOptions<TContext>() where TContext : DbContext
@@ -79,84 +47,22 @@ public class OwnedTypesModelValidationTests
         return builder.Options;
     }
 
-    private sealed class OwnedTypeWithTableNameContext(
-        DbContextOptions<OwnedTypeWithTableNameContext> options) : DbContext(options)
+    private sealed class OwnedTypeContext(DbContextOptions<OwnedTypeContext> options) : DbContext(
+        options)
     {
-        public DbSet<OwnerWithSingleOwned> Items => Set<OwnerWithSingleOwned>();
+        public DbSet<OwnerWithOwnedProfile> Items => Set<OwnerWithOwnedProfile>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
-            => modelBuilder.Entity<OwnerWithSingleOwned>(entity =>
+            => modelBuilder.Entity<OwnerWithOwnedProfile>(entity =>
             {
                 entity.ToTable(OwnedTypesItemTable.TableName);
                 entity.HasPartitionKey(x => x.Pk);
-                entity.OwnsOne(
-                    x => x.Profile,
-                    owned =>
-                    {
-                        owned.OwnedEntityType.SetAnnotation(
-                            DynamoAnnotationNames.TableName,
-                            "OwnedTable");
-                    });
+                entity.OwnsOne(x => x.Profile);
             });
     }
 
-    private sealed class OwnedNameCollidesWithPropertyContext(
-        DbContextOptions<OwnedNameCollidesWithPropertyContext> options) : DbContext(options)
-    {
-        public DbSet<OwnerWithPropertyCollision> Items => Set<OwnerWithPropertyCollision>();
-
-        protected override void OnModelCreating(ModelBuilder modelBuilder)
-            => modelBuilder.Entity<OwnerWithPropertyCollision>(entity =>
-            {
-                entity.ToTable(OwnedTypesItemTable.TableName);
-                entity.HasPartitionKey(x => x.Pk);
-                entity.Property(x => x.ProfileData).HasAttributeName("ProfilePayload");
-                entity.OwnsOne(x => x.Profile, owned => owned.HasAttributeName("ProfilePayload"));
-            });
-    }
-
-    private sealed class OwnedNameCollidesWithNavigationContext(
-        DbContextOptions<OwnedNameCollidesWithNavigationContext> options) : DbContext(options)
-    {
-        public DbSet<OwnerWithNavigationCollision> Items => Set<OwnerWithNavigationCollision>();
-
-        protected override void OnModelCreating(ModelBuilder modelBuilder)
-            => modelBuilder.Entity<OwnerWithNavigationCollision>(entity =>
-            {
-                entity.ToTable(OwnedTypesItemTable.TableName);
-                entity.HasPartitionKey(x => x.Pk);
-                entity.OwnsOne(x => x.PrimaryProfile, owned => owned.HasAttributeName("profile"));
-                entity.OwnsOne(x => x.SecondaryProfile, owned => owned.HasAttributeName("profile"));
-            });
-    }
-
-    private sealed class OwnerWithSingleOwned
-    {
-        public string Pk { get; set; } = string.Empty;
-
-        public Profile Profile { get; set; } = new();
-    }
-
-    private sealed class OwnerWithPropertyCollision
-    {
-        public string Pk { get; set; } = string.Empty;
-
-        public string ProfileData { get; set; } = string.Empty;
-
-        public Profile Profile { get; set; } = new();
-    }
-
-    private sealed class OwnerWithNavigationCollision
-    {
-        public string Pk { get; set; } = string.Empty;
-
-        public Profile PrimaryProfile { get; set; } = new();
-
-        public Profile SecondaryProfile { get; set; } = new();
-    }
-
-    private sealed class UnsupportedOwnedCollectionShapeContext(
-        DbContextOptions<UnsupportedOwnedCollectionShapeContext> options) : DbContext(options)
+    private sealed class UnsupportedComplexCollectionShapeContext(
+        DbContextOptions<UnsupportedComplexCollectionShapeContext> options) : DbContext(options)
     {
         public DbSet<OwnerWithUnsupportedCollectionShape> Items
             => Set<OwnerWithUnsupportedCollectionShape>();
@@ -166,18 +72,33 @@ public class OwnedTypesModelValidationTests
             {
                 entity.ToTable(OwnedTypesItemTable.TableName);
                 entity.HasPartitionKey(x => x.Pk);
-                entity.OwnsMany(x => x.Profiles);
+                entity.ComplexCollection(x => x.Profiles);
             });
+    }
+
+    private sealed class OwnerWithOwnedProfile
+    {
+        public string Pk { get; set; } = string.Empty;
+
+        public NonComplexProfile Profile { get; set; } = new();
     }
 
     private sealed class OwnerWithUnsupportedCollectionShape
     {
         public string Pk { get; set; } = string.Empty;
 
-        public ICollection<Profile> Profiles { get; set; } = new List<Profile>();
+        public ICollection<ComplexProfile> Profiles { get; set; } = new List<ComplexProfile>();
     }
 
-    private sealed class Profile
+    /// <summary>Plain class — not marked [ComplexType], used with OwnsOne to verify owned-type rejection.</summary>
+    private sealed class NonComplexProfile
+    {
+        public string DisplayName { get; set; } = string.Empty;
+    }
+
+    /// <summary>Complex type — used in collection shape validation test.</summary>
+    [ComplexType]
+    private sealed class ComplexProfile
     {
         public string DisplayName { get; set; } = string.Empty;
     }

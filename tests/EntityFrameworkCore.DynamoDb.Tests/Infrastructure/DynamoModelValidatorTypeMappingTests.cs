@@ -9,7 +9,7 @@ namespace EntityFrameworkCore.DynamoDb.Tests.Infrastructure;
 /// </summary>
 public class DynamoModelValidatorTypeMappingTests
 {
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void Validate_ThrowsWithHelpfulMessage_WhenExplicitScalarPropertyHasUnmappedClrType()
     {
         // CustomPayload has no DynamoDB mapping and no EF Core built-in auto-converter.
@@ -29,7 +29,7 @@ public class DynamoModelValidatorTypeMappingTests
             .ContainAny("HasConversion", "value converter");
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void Validate_Succeeds_WhenExplicitPrimitiveCollectionHasMappedElementType()
     {
         // Guid is supported via string wire representation, so Guid[] configured as a primitive
@@ -41,7 +41,7 @@ public class DynamoModelValidatorTypeMappingTests
         act.Should().NotThrow();
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void Validate_Succeeds_WhenScalarPropertyHasConverter()
     {
         // Guid with HasConversion<string>() — provider type is string (mappable) → passes.
@@ -52,7 +52,7 @@ public class DynamoModelValidatorTypeMappingTests
         act.Should().NotThrow();
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void Validate_Throws_WhenRowVersionConfigured()
     {
         using var context = new RowVersionConcurrencyContext();
@@ -65,7 +65,7 @@ public class DynamoModelValidatorTypeMappingTests
             .WithMessage("*IsRowVersion()*not currently support*application code*");
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void Validate_Succeeds_WhenManualConcurrencyTokenConfigured()
     {
         using var context = new ManualConcurrencyTokenContext();

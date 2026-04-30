@@ -12,7 +12,7 @@ public class AddedEntitiesSaveChangesTests(DynamoContainerFixture fixture)
     : SaveChangesTableTestFixture(fixture)
 {
     /// <summary>A newly added scalar-only ProductItem round-trips correctly to DynamoDB.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task AddAsync_ProductItem_ScalarsOnly_Persists()
     {
         var product = new ProductItem
@@ -49,7 +49,7 @@ public class AddedEntitiesSaveChangesTests(DynamoContainerFixture fixture)
     }
 
     /// <summary>The discriminator attribute is written correctly for each entity type in the shared table.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task AddAsync_WritesDiscriminator_ForEachEntityType()
     {
         var customer = new CustomerItem
@@ -107,7 +107,7 @@ public class AddedEntitiesSaveChangesTests(DynamoContainerFixture fixture)
     }
 
     /// <summary>A nullable scalar written as null is persisted as a DynamoDB NULL attribute.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task AddAsync_NullableScalar_IsWrittenAsNull()
     {
         var product = new ProductItem
@@ -130,7 +130,7 @@ public class AddedEntitiesSaveChangesTests(DynamoContainerFixture fixture)
     }
 
     /// <summary>A newly added entity with primitive collections persists list, map, and set wire shapes.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task AddAsync_SessionItem_PrimitiveCollections_Persist()
     {
         var session = new SessionItem
@@ -168,7 +168,7 @@ public class AddedEntitiesSaveChangesTests(DynamoContainerFixture fixture)
     }
 
     /// <summary>Entity state transitions from Added to Unchanged after a successful SaveChanges.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task AddAsync_EntityStateTransitionsToUnchanged()
     {
         var session = new SessionItem
@@ -195,7 +195,7 @@ public class AddedEntitiesSaveChangesTests(DynamoContainerFixture fixture)
     ///     Attempting to add an entity with a PK that already exists throws an exception, confirming
     ///     INSERT (create-only) semantics rather than PutItem (replace) semantics.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task AddAsync_DuplicateKey_ThrowsException()
     {
         // Seed the item directly so a duplicate is guaranteed
@@ -230,7 +230,7 @@ public class AddedEntitiesSaveChangesTests(DynamoContainerFixture fixture)
     }
 
     /// <summary>SaveChangesAsync returns the count of added entities.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SaveChangesAsync_ReturnsCorrectCount_ForMultipleAdds()
     {
         var orders =

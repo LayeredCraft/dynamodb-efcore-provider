@@ -11,7 +11,7 @@ public class DynamoDatabaseFacadeExtensionsTests
 {
     // ── GetDynamoClient ──────────────────────────────────────────────────────
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void GetDynamoClient_ReturnsDynamoClientFromWrapper()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -24,7 +24,7 @@ public class DynamoDatabaseFacadeExtensionsTests
 
     // ── TransactionOverflowBehavior ──────────────────────────────────────────
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void SetTransactionOverflowBehavior_OverridesConfiguredDefault()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -39,7 +39,7 @@ public class DynamoDatabaseFacadeExtensionsTests
             .Be(TransactionOverflowBehavior.UseChunking);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void GetTransactionOverflowBehavior_FallsBackToConfiguredDefault_WhenNoOverride()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -54,7 +54,7 @@ public class DynamoDatabaseFacadeExtensionsTests
 
     // ── MaxTransactionSize ───────────────────────────────────────────────────
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void SetMaxTransactionSize_OverridesConfiguredDefault()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -65,7 +65,7 @@ public class DynamoDatabaseFacadeExtensionsTests
         context.Database.GetMaxTransactionSize().Should().Be(10);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void GetMaxTransactionSize_FallsBackToConfiguredDefault_WhenNoOverride()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -90,7 +90,7 @@ public class DynamoDatabaseFacadeExtensionsTests
 
     // ── MaxBatchWriteSize ────────────────────────────────────────────────────
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void SetMaxBatchWriteSize_OverridesConfiguredDefault()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -101,7 +101,7 @@ public class DynamoDatabaseFacadeExtensionsTests
         context.Database.GetMaxBatchWriteSize().Should().Be(5);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void GetMaxBatchWriteSize_FallsBackToConfiguredDefault_WhenNoOverride()
     {
         var client = Substitute.For<IAmazonDynamoDB>();

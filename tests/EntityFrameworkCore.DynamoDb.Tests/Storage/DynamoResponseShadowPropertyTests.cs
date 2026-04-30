@@ -43,7 +43,7 @@ public class DynamoResponseShadowPropertyTests
     // Write plan exclusion
     // -----------------------------------------------------------------------
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void BuildPlan_Excludes_ResponseShadowProperty()
     {
         using var ctx = CreateContext();
@@ -64,7 +64,7 @@ public class DynamoResponseShadowPropertyTests
     // Type mapping: ExecuteStatementResponse shadow property gets a non-null mapping
     // -----------------------------------------------------------------------
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void TypeMapping_FindMapping_ReturnsNonNull_ForExecuteStatementResponse()
     {
         using var ctx = CreateContext();
@@ -84,7 +84,7 @@ public class DynamoResponseShadowPropertyTests
     // Model builds without error
     // -----------------------------------------------------------------------
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void Model_BuildsWithoutError_WithResponseShadowProperty()
     {
         using var ctx = CreateContext();

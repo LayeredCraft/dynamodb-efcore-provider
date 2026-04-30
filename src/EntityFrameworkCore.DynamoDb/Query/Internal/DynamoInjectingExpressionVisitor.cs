@@ -24,16 +24,6 @@ public class DynamoInjectingExpressionVisitor : ExpressionVisitor
         if (node is QueryParameterExpression queryParameterExpression)
             return CreateParameterValueExpression(queryParameterExpression);
 
-        if (node is DynamoCollectionShaperExpression collectionShaperExpression)
-            return collectionShaperExpression.Update(
-                Visit(collectionShaperExpression.Projection),
-                Visit(collectionShaperExpression.InnerShaper));
-
-        // Projection placeholders are consumed later during projection-binding removal; there is
-        // no query-context injection work to perform for them at this stage.
-        if (node is DynamoObjectArrayProjectionExpression)
-            return node;
-
         // Keep EF Core's sentinel untouched so upstream translation fallback still works.
         if (ReferenceEquals(node, QueryCompilationContext.NotTranslatedExpression))
             return node;

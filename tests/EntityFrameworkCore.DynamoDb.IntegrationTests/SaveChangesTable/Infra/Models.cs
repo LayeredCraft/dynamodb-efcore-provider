@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SaveChangesTable;
@@ -196,6 +197,7 @@ public sealed record QuotedAttributeItem
     public string DisplayName { get; set; } = null!;
 }
 
+[ComplexType]
 /// <summary>Represents the CustomerProfile type.</summary>
 public sealed record CustomerProfile
 {
@@ -208,6 +210,7 @@ public sealed record CustomerProfile
     public Address? BillingAddress { get; set; }
 }
 
+[ComplexType]
 /// <summary>Represents the CustomerContact type.</summary>
 public sealed record CustomerContact
 {
@@ -222,6 +225,7 @@ public sealed record CustomerContact
     public Address? Address { get; set; }
 }
 
+[ComplexType]
 /// <summary>Represents the ShippingDetails type.</summary>
 public sealed record ShippingDetails
 {
@@ -232,6 +236,7 @@ public sealed record ShippingDetails
     public DeliveryWindow? DeliveryWindow { get; set; }
 }
 
+[ComplexType]
 /// <summary>Represents the BillingDetails type.</summary>
 public sealed record BillingDetails
 {
@@ -240,6 +245,7 @@ public sealed record BillingDetails
     public Address? Address { get; set; }
 }
 
+[ComplexType]
 /// <summary>Represents the OrderLine type.</summary>
 public sealed record OrderLine
 {
@@ -252,6 +258,7 @@ public sealed record OrderLine
     public Dictionary<string, string> Metadata { get; set; } = [];
 }
 
+[ComplexType]
 /// <summary>Represents the DeliveryWindow type.</summary>
 public sealed record DeliveryWindow
 {
@@ -260,6 +267,7 @@ public sealed record DeliveryWindow
     public DateTimeOffset End { get; set; }
 }
 
+[ComplexType]
 /// <summary>Represents the ProductDimensions type.</summary>
 public sealed record ProductDimensions
 {
@@ -272,6 +280,7 @@ public sealed record ProductDimensions
     public decimal? Weight { get; set; }
 }
 
+[ComplexType]
 /// <summary>Represents the ProductVariant type.</summary>
 public sealed record ProductVariant
 {
@@ -284,6 +293,7 @@ public sealed record ProductVariant
     public List<string> AlternateCodes { get; set; } = [];
 }
 
+[ComplexType]
 /// <summary>Represents the SessionDevice type.</summary>
 public sealed record SessionDevice
 {
@@ -294,6 +304,7 @@ public sealed record SessionDevice
     public Address? LastKnownAddress { get; set; }
 }
 
+[ComplexType]
 /// <summary>Represents the Address type.</summary>
 public sealed record Address
 {

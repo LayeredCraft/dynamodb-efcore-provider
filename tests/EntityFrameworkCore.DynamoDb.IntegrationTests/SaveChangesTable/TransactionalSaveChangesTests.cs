@@ -10,7 +10,7 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SaveChangesTable;
 public class TransactionalSaveChangesTests(DynamoContainerFixture fixture)
     : SaveChangesTableTestFixture(fixture)
 {
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task WhenNeeded_MultiRootSave_SucceedsAtomically()
     {
         Db.Database.AutoTransactionBehavior = AutoTransactionBehavior.WhenNeeded;
@@ -37,7 +37,7 @@ public class TransactionalSaveChangesTests(DynamoContainerFixture fixture)
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task WhenNeeded_MultiRootFailure_RollsBackAndKeepsEntriesPending()
     {
         Db.Database.AutoTransactionBehavior = AutoTransactionBehavior.WhenNeeded;
@@ -65,7 +65,7 @@ public class TransactionalSaveChangesTests(DynamoContainerFixture fixture)
         Db.Entry(duplicate).State.Should().Be(EntityState.Added);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Never_MultiRootFailure_AllowsPartialCommit()
     {
         Db.Database.AutoTransactionBehavior = AutoTransactionBehavior.Never;
@@ -87,7 +87,7 @@ public class TransactionalSaveChangesTests(DynamoContainerFixture fixture)
         (await GetItemAsync(first.Pk, first.Sk, CancellationToken)).Should().NotBeNull();
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Never_MultiRootBatch_SaveChangesFalse_ThrowsClearError()
     {
         Db.Database.AutoTransactionBehavior = AutoTransactionBehavior.Never;
@@ -108,7 +108,7 @@ public class TransactionalSaveChangesTests(DynamoContainerFixture fixture)
         Db.Entry(second).State.Should().Be(EntityState.Added);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Never_BatchedChunkFailure_AcceptsSuccessfulPriorChunkEntries()
     {
         Db.Database.AutoTransactionBehavior = AutoTransactionBehavior.Never;
@@ -141,7 +141,7 @@ public class TransactionalSaveChangesTests(DynamoContainerFixture fixture)
         (await GetItemAsync(second.Pk, second.Sk, CancellationToken)).Should().NotBeNull();
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Always_MoreThan100RootWrites_ThrowsClearErrorWithoutDowngrade()
     {
         Db.Database.AutoTransactionBehavior = AutoTransactionBehavior.Always;
@@ -167,7 +167,7 @@ public class TransactionalSaveChangesTests(DynamoContainerFixture fixture)
             .BeNull();
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Always_MultiRootFailure_RollsBackAndKeepsEntriesPending()
     {
         Db.Database.AutoTransactionBehavior = AutoTransactionBehavior.Always;
@@ -192,7 +192,7 @@ public class TransactionalSaveChangesTests(DynamoContainerFixture fixture)
         Db.Entry(duplicate).State.Should().Be(EntityState.Added);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task WhenNeeded_CancelledSave_DoesNotPersistAnyItemAndKeepsEntriesPending()
     {
         Db.Database.AutoTransactionBehavior = AutoTransactionBehavior.WhenNeeded;
@@ -221,7 +221,7 @@ public class TransactionalSaveChangesTests(DynamoContainerFixture fixture)
         Db.Entry(second).State.Should().Be(EntityState.Added);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task WhenNeeded_OverflowWithUseChunking_AcceptsSuccessfulChunkEntries()
     {
         Db.Database.AutoTransactionBehavior = AutoTransactionBehavior.WhenNeeded;
@@ -251,7 +251,7 @@ public class TransactionalSaveChangesTests(DynamoContainerFixture fixture)
         Db.Entry(duplicate).State.Should().Be(EntityState.Added);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Always_OverflowWithUseChunking_ThrowsInsteadOfChunking()
     {
         Db.Database.AutoTransactionBehavior = AutoTransactionBehavior.Always;
@@ -275,7 +275,7 @@ public class TransactionalSaveChangesTests(DynamoContainerFixture fixture)
         (await GetItemAsync(first.Pk, first.Sk, CancellationToken)).Should().BeNull();
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task StartupConfiguredChunking_AcceptsSuccessfulChunkEntries()
     {
         await PutItemAsync(
@@ -309,7 +309,7 @@ public class TransactionalSaveChangesTests(DynamoContainerFixture fixture)
         configuredDb.Entry(duplicate).State.Should().Be(EntityState.Added);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task
         WhenNeeded_OverflowWithUseChunking_RetryOnSameContext_ReplaysOnlyPendingEntries()
     {
@@ -350,7 +350,7 @@ public class TransactionalSaveChangesTests(DynamoContainerFixture fixture)
         (await GetItemAsync(duplicate.Pk, duplicate.Sk, CancellationToken)).Should().NotBeNull();
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task WhenNeeded_OverflowWithUseChunking_SaveChangesFalse_ThrowsClearError()
     {
         Db.Database.AutoTransactionBehavior = AutoTransactionBehavior.WhenNeeded;
@@ -377,7 +377,7 @@ public class TransactionalSaveChangesTests(DynamoContainerFixture fixture)
         (await GetItemAsync(third.Pk, third.Sk, CancellationToken)).Should().BeNull();
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void DatabaseFacade_TransactionOverflowSettings_CanBeOverriddenPerContext()
     {
         Db.Database.GetTransactionOverflowBehavior().Should().Be(TransactionOverflowBehavior.Throw);
@@ -397,7 +397,7 @@ public class TransactionalSaveChangesTests(DynamoContainerFixture fixture)
         Db.Database.GetMaxBatchWriteSize().Should().Be(10);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Always_SingleRootSave_ExecutesDirectly_WithoutTransaction()
     {
         // AutoTransactionBehavior.Always still executes a single-root save directly
@@ -418,7 +418,7 @@ public class TransactionalSaveChangesTests(DynamoContainerFixture fixture)
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task WhenNeeded_DuplicateTargetInSingleTransaction_ThrowsClearError()
     {
         // Two different entity types mapping to the same DynamoDB item key in one save —
@@ -450,7 +450,7 @@ public class TransactionalSaveChangesTests(DynamoContainerFixture fixture)
         (await GetItemAsync(customer.Pk, customer.Sk, CancellationToken)).Should().BeNull();
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task WhenNeeded_MixedStateTransaction_AllOperationsSucceedAtomically()
     {
         // Add + Modify + Delete in a single WhenNeeded save — all three states compile into
@@ -486,7 +486,7 @@ public class TransactionalSaveChangesTests(DynamoContainerFixture fixture)
     ///     <see cref="DbUpdateConcurrencyException" /> and roll back the entire transaction so the
     ///     un-conflicted write is also not persisted.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task
         WhenNeeded_TransactionalStaleConcurrencyToken_ThrowsDbUpdateConcurrencyException()
     {

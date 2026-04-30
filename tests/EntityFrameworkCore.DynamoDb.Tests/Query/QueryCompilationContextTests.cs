@@ -37,7 +37,7 @@ public class QueryCompilationContextTests
         return dbContext.GetService<QueryCompilationContextDependencies>();
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void DefaultValues_AreCorrect()
     {
         var dependencies = CreateDependencies();
@@ -48,7 +48,7 @@ public class QueryCompilationContextTests
         context.IndexSelectionDisabled.Should().BeFalse();
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void ExplicitIndexName_CanBeSet()
     {
         var dependencies = CreateDependencies();

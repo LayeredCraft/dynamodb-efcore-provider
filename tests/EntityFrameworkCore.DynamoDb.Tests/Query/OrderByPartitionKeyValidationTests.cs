@@ -78,7 +78,7 @@ public class OrderByPartitionKeyValidationTests
     // ── pass cases ────────────────────────────────────────────────────────────
 
     /// <summary>No ORDER BY — validation is skipped entirely.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void NoOrderBy_DoesNotThrow()
     {
         var sel = new SelectExpression("TestTable");
@@ -91,7 +91,7 @@ public class OrderByPartitionKeyValidationTests
     }
 
     /// <summary>Design-time path: null constraints means runtime model is unavailable — skip.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void OrderBy_WhenQueryConstraintsNull_DoesNotThrow()
     {
         var sel = MakeSelectWithOrdering("PK", "SK");
@@ -102,7 +102,7 @@ public class OrderByPartitionKeyValidationTests
     }
 
     /// <summary>Empty effective PK set (no descriptor resolved) — skip silently.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void OrderBy_WhenEffectivePkNamesEmpty_DoesNotThrow()
     {
         var sel = new SelectExpression("TestTable");
@@ -116,7 +116,7 @@ public class OrderByPartitionKeyValidationTests
     }
 
     /// <summary>ORDER BY sort key with equality PK constraint — valid.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void OrderBy_WithEqualityPkConstraint_DoesNotThrow()
     {
         var sel = MakeSelectWithOrdering("PK", "SK");
@@ -131,7 +131,7 @@ public class OrderByPartitionKeyValidationTests
     ///     ORDER BY sort key with IN PK constraint on a multi-partition query — must throw. PK must
     ///     lead the ORDER BY chain when the query spans multiple partitions.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void OrderBy_WithInPkConstraint_Throws()
     {
         var sel = MakeSelectWithOrdering("PK", "SK");
@@ -146,7 +146,7 @@ public class OrderByPartitionKeyValidationTests
     ///     PK-only source (no sort key): ordering on the partition key with an IN constraint is
     ///     valid. This is the DynamoDB shape for multi-partition ordering: WHERE PK IN (...) ORDER BY PK.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void OrderBy_OnPkAttr_WhenNoSortKey_AndInConstraint_DoesNotThrow()
     {
         var sel = MakeSelectWithOrdering("PK", "PK");
@@ -161,7 +161,7 @@ public class OrderByPartitionKeyValidationTests
     // ── fail cases ────────────────────────────────────────────────────────────
 
     /// <summary>ORDER BY on the sort key but no PK constraint in WHERE — must throw.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void OrderBy_WithNoPkConstraint_Throws()
     {
         var sel = MakeSelectWithOrdering("PK", "SK");
@@ -173,7 +173,7 @@ public class OrderByPartitionKeyValidationTests
     }
 
     /// <summary>ORDER BY on a non-key attribute when a sort key exists — must throw.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void OrderBy_OnNonSortKeyAttribute_Throws()
     {
         var sel = MakeSelectWithOrdering("PK", "OtherAttr");
@@ -185,7 +185,7 @@ public class OrderByPartitionKeyValidationTests
     }
 
     /// <summary>PK-only source: ORDER BY on a non-PK attribute — must throw.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void OrderBy_OnNonPkAttribute_WhenNoSortKey_Throws()
     {
         var sel = MakeSelectWithOrdering("PK", "OtherAttr");
@@ -199,7 +199,7 @@ public class OrderByPartitionKeyValidationTests
     // ── new pass cases: PK and PK+SK orderings ────────────────────────────────
 
     /// <summary>ORDER BY on PK ASC with equality PK constraint — valid.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void OrderBy_OnPkAttr_WithEqualityPkConstraint_DoesNotThrow()
     {
         var sel = MakeSelectWithOrdering("PK", "PK");
@@ -211,7 +211,7 @@ public class OrderByPartitionKeyValidationTests
     }
 
     /// <summary>ORDER BY on PK DESC with equality PK constraint — valid.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void OrderByDescending_OnPkAttr_WithEqualityPkConstraint_DoesNotThrow()
     {
         var sel = new SelectExpression("TestTable");
@@ -227,7 +227,7 @@ public class OrderByPartitionKeyValidationTests
     }
 
     /// <summary>ORDER BY PK ASC, SK ASC with equality PK constraint — valid.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void OrderBy_PkThenSk_WithEqualityPkConstraint_DoesNotThrow()
     {
         var sel = MakeSelectWithMultipleOrderings("PK", ("PK", true), ("SK", true));
@@ -239,7 +239,7 @@ public class OrderByPartitionKeyValidationTests
     }
 
     /// <summary>ORDER BY PK DESC, SK DESC with equality PK constraint — valid.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void OrderByDescending_PkThenByDescendingSk_WithEqualityPkConstraint_DoesNotThrow()
     {
         var sel = MakeSelectWithMultipleOrderings("PK", ("PK", false), ("SK", false));
@@ -251,7 +251,7 @@ public class OrderByPartitionKeyValidationTests
     }
 
     /// <summary>ORDER BY PK ASC, SK DESC with equality PK constraint — valid.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void OrderBy_PkThenByDescendingSk_WithEqualityPkConstraint_DoesNotThrow()
     {
         var sel = MakeSelectWithMultipleOrderings("PK", ("PK", true), ("SK", false));
@@ -263,7 +263,7 @@ public class OrderByPartitionKeyValidationTests
     }
 
     /// <summary>ORDER BY PK DESC, SK ASC with equality PK constraint — valid.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void OrderByDescending_PkThenBySk_WithEqualityPkConstraint_DoesNotThrow()
     {
         var sel = MakeSelectWithMultipleOrderings("PK", ("PK", false), ("SK", true));
@@ -275,7 +275,7 @@ public class OrderByPartitionKeyValidationTests
     }
 
     /// <summary>ORDER BY PK ASC, SK ASC with IN PK constraint (multi-partition) — valid.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void OrderBy_PkThenSk_WithInPkConstraint_DoesNotThrow()
     {
         var sel = MakeSelectWithMultipleOrderings("PK", ("PK", true), ("SK", true));
@@ -287,7 +287,7 @@ public class OrderByPartitionKeyValidationTests
     }
 
     /// <summary>ORDER BY PK DESC, SK DESC with IN PK constraint (multi-partition) — valid.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void OrderByDescending_PkThenByDescendingSk_WithInPkConstraint_DoesNotThrow()
     {
         var sel = MakeSelectWithMultipleOrderings("PK", ("PK", false), ("SK", false));
@@ -301,7 +301,7 @@ public class OrderByPartitionKeyValidationTests
     // ── new fail cases: multi-partition ordering violations ───────────────────
 
     /// <summary>ORDER BY SK (not PK) on a multi-partition query — must throw with partition key message.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void OrderBy_OnSk_WhenMultiPartition_Throws()
     {
         var sel = MakeSelectWithOrdering("PK", "SK");
@@ -316,7 +316,7 @@ public class OrderByPartitionKeyValidationTests
     ///     ORDER BY SK DESC (not PK) on a multi-partition query — must throw with partition key
     ///     message.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void OrderByDescending_OnSk_WhenMultiPartition_Throws()
     {
         var sel = new SelectExpression("TestTable");
@@ -335,7 +335,7 @@ public class OrderByPartitionKeyValidationTests
     ///     ORDER BY non-key attribute first on a multi-partition query — must throw with key
     ///     attribute message.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void OrderBy_NonKeyFirst_WhenMultiPartition_Throws()
     {
         var sel = MakeSelectWithOrdering("PK", "NonKey");

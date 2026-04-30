@@ -26,6 +26,8 @@ public abstract class SqlExpressionVisitor : ExpressionVisitor
             SqlBetweenExpression sqlBetweenExpression => VisitSqlBetween(sqlBetweenExpression),
             ProjectionExpression projectionExpression => VisitProjection(projectionExpression),
             SelectExpression selectExpression => VisitSelect(selectExpression),
+            DynamoComplexPropertyAccessExpression complexPropertyAccess =>
+                VisitDynamoComplexPropertyAccess(complexPropertyAccess),
             DynamoScalarAccessExpression scalarAccess => VisitDynamoScalarAccess(scalarAccess),
             DynamoListIndexExpression listIndex => VisitDynamoListIndex(listIndex),
             SqlDiscriminatorPredicateExpression discriminatorPredicate =>
@@ -81,6 +83,10 @@ public abstract class SqlExpressionVisitor : ExpressionVisitor
     /// Visits a SELECT expression.
     /// </summary>
     protected abstract Expression VisitSelect(SelectExpression selectExpression);
+
+    /// <summary>Visits a nested scalar document path access expression.</summary>
+    protected abstract Expression VisitDynamoComplexPropertyAccess(
+        DynamoComplexPropertyAccessExpression complexPropertyAccessExpression);
 
     /// <summary>Visits a nested scalar document path access expression.</summary>
     protected abstract Expression VisitDynamoScalarAccess(

@@ -5,7 +5,7 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SimpleTable;
 
 public class ContainsTests(DynamoContainerFixture fixture) : SimpleTableTestFixture(fixture)
 {
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Where_StringContains_WithCapturedParameter_TranslatesToPartiQlContains()
     {
         var term = "ha";
@@ -27,7 +27,7 @@ public class ContainsTests(DynamoContainerFixture fixture) : SimpleTableTestFixt
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Where_CollectionContains_OnPartitionKey_TranslatesToInPredicate()
     {
         var keys = new[] { "ITEM#1", "ITEM#3" };
@@ -49,7 +49,7 @@ public class ContainsTests(DynamoContainerFixture fixture) : SimpleTableTestFixt
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Where_CollectionContains_OnNonKeyProperty_TranslatesToInPredicate()
     {
         var values = new[] { "alpha", "delta" };
@@ -71,7 +71,7 @@ public class ContainsTests(DynamoContainerFixture fixture) : SimpleTableTestFixt
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Where_CollectionContains_OnIntProperty_WithArray_TranslatesToInPredicate()
     {
         var values = new[] { 100, -100 };
@@ -93,7 +93,7 @@ public class ContainsTests(DynamoContainerFixture fixture) : SimpleTableTestFixt
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Where_CollectionContains_OnIntProperty_WithList_TranslatesToInPredicate()
     {
         IReadOnlyList<int> values = new List<int> { 100, 987654 };
@@ -115,7 +115,7 @@ public class ContainsTests(DynamoContainerFixture fixture) : SimpleTableTestFixt
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Where_CollectionContains_WithEmptyCollection_RendersFalsePredicate()
     {
         var keys = Array.Empty<string>();
@@ -138,7 +138,7 @@ public class ContainsTests(DynamoContainerFixture fixture) : SimpleTableTestFixt
     }
 
     /// <summary>Verifies inline Array.Empty values translate to an always-false predicate.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Where_CollectionContains_WithInlineArrayEmpty_RendersFalsePredicate()
     {
         var resultItems = await Db
@@ -160,7 +160,7 @@ public class ContainsTests(DynamoContainerFixture fixture) : SimpleTableTestFixt
     }
 
     /// <summary>Verifies inline Enumerable.Empty values translate to an always-false predicate.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Where_CollectionContains_WithInlineEnumerableEmpty_RendersFalsePredicate()
     {
         var resultItems = await Db
@@ -181,7 +181,7 @@ public class ContainsTests(DynamoContainerFixture fixture) : SimpleTableTestFixt
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Where_CollectionContains_WithNullElement_ExecutesWithInPredicate()
     {
         string?[] values = [null, "Null String"];
@@ -204,7 +204,7 @@ public class ContainsTests(DynamoContainerFixture fixture) : SimpleTableTestFixt
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task
         Where_CollectionContains_OnNullableIntProperty_WithNullElement_ExecutesWithInPredicate()
     {
@@ -228,7 +228,7 @@ public class ContainsTests(DynamoContainerFixture fixture) : SimpleTableTestFixt
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Where_CollectionContains_OnPartitionKey_ThrowsWhenListExceedsLimit()
     {
         var keys = Enumerable.Range(1, 51).Select(i => $"ITEM#{i}").ToArray();
@@ -245,7 +245,7 @@ public class ContainsTests(DynamoContainerFixture fixture) : SimpleTableTestFixt
             .WithMessage("*IN limit of 50 values for partition key comparisons*");
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Where_CollectionContains_OnNonKeyProperty_ThrowsWhenListExceedsLimit()
     {
         var values = Enumerable.Range(1, 101).Select(i => $"value-{i}").ToArray();
@@ -262,7 +262,7 @@ public class ContainsTests(DynamoContainerFixture fixture) : SimpleTableTestFixt
             .WithMessage("*IN limit of 100 values for non-key comparisons*");
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Where_InlineCollectionContains_OnPartitionKey_ThrowsWhenListExceedsLimit()
     {
         var act = async ()
@@ -330,7 +330,7 @@ public class ContainsTests(DynamoContainerFixture fixture) : SimpleTableTestFixt
             .WithMessage("*IN limit of 50 values for partition key comparisons*");
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Where_StringContains_WithStringComparisonOverload_StillThrows()
     {
         var act = async ()
@@ -346,7 +346,7 @@ public class ContainsTests(DynamoContainerFixture fixture) : SimpleTableTestFixt
             .WithMessage("*Only string.Contains(string) is supported*");
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task QueryableContains_StillThrowsInvalidOperationException()
     {
         var act = async ()

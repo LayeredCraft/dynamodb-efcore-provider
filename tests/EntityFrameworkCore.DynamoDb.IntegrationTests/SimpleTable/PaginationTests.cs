@@ -9,7 +9,7 @@ public class PaginationTests(DynamoContainerFixture fixture) : SimpleTableTestFi
 {
     // ── Limit(n) on ToListAsync ──────────────────────────────────────────────
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Limit_SetsRequestLimit_OnToListAsync()
     {
         await Db.SimpleItems.Limit(3).ToListAsync(CancellationToken);
@@ -19,7 +19,7 @@ public class PaginationTests(DynamoContainerFixture fixture) : SimpleTableTestFi
         calls[0].Limit.Should().Be(3);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Limit_ChainedTwice_LastOneWins()
     {
         await Db.SimpleItems.Limit(10).Limit(20).ToListAsync(CancellationToken);
@@ -29,7 +29,7 @@ public class PaginationTests(DynamoContainerFixture fixture) : SimpleTableTestFi
         calls[0].Limit.Should().Be(20);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Limit_SingleRequest_ToListAsync_NoNextTokenFollowUp()
     {
         // Limit(n) is always a single request — the provider must not follow NextToken.
@@ -38,7 +38,7 @@ public class PaginationTests(DynamoContainerFixture fixture) : SimpleTableTestFi
         SqlCapture.ExecuteStatementCalls.Should().HaveCount(1);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ToPageAsync_ResumeFromToken_SeedsNextRequest()
     {
         var firstPage = await Db.SimpleItems.ToPageAsync(1, null, CancellationToken);
@@ -59,7 +59,7 @@ public class PaginationTests(DynamoContainerFixture fixture) : SimpleTableTestFi
         SqlCapture.ExecuteStatementCalls[0].SeedNextTokenPresent.Should().BeTrue();
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task WithNextToken_AndLimit_PerformsSingleRequestFromSavedCursor()
     {
         var firstPage = await Db.SimpleItems.ToPageAsync(1, null, CancellationToken);
@@ -79,7 +79,7 @@ public class PaginationTests(DynamoContainerFixture fixture) : SimpleTableTestFi
         SqlCapture.ExecuteStatementCalls[0].SeedNextTokenPresent.Should().BeTrue();
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ToPageAsync_FinalPage_ReturnsNullNextToken()
     {
         var firstPage = await Db.SimpleItems.ToPageAsync(3, null, CancellationToken);
@@ -93,7 +93,7 @@ public class PaginationTests(DynamoContainerFixture fixture) : SimpleTableTestFi
         finalPage.HasMoreResults.Should().BeFalse();
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task WithNextToken_ToListAsync_ResumesFromSavedCursor()
     {
         var firstPage = await Db.SimpleItems.ToPageAsync(1, null, CancellationToken);
@@ -117,7 +117,7 @@ public class PaginationTests(DynamoContainerFixture fixture) : SimpleTableTestFi
             .OnlyContain(call => call.SeedNextTokenPresent == false);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task WithNextToken_ThenToPageAsync_SeedsSingleRequest()
     {
         var firstPage = await Db.SimpleItems.ToPageAsync(1, null, CancellationToken);
@@ -137,7 +137,7 @@ public class PaginationTests(DynamoContainerFixture fixture) : SimpleTableTestFi
         resumedPage.Items.Should().HaveCount(1);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task WithNextToken_Reenumeration_ReseedsFirstRequestEachRun()
     {
         var firstPage = await Db.SimpleItems.ToPageAsync(1, null, CancellationToken);
@@ -168,7 +168,7 @@ public class PaginationTests(DynamoContainerFixture fixture) : SimpleTableTestFi
             .OnlyContain(call => call.SeedNextTokenPresent == false);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ToListAsync_MultiRequestWithoutSeed_KeepsSeedNextTokenFalse()
     {
         var marker = $"seed-next-token-{Guid.NewGuid():N}";
@@ -226,7 +226,7 @@ public class PaginationTests(DynamoContainerFixture fixture) : SimpleTableTestFi
         }
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ToPageAsync_Items_MatchInMemoryTakeSemantics()
     {
         // Fetch all seeded items in a single page and verify the returned entities match the
@@ -241,7 +241,7 @@ public class PaginationTests(DynamoContainerFixture fixture) : SimpleTableTestFi
 
     // ── First* with key-only path ────────────────────────────────────────────
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task FirstOrDefault_KeyOnly_UsesImplicitLimit1()
     {
         // PK equality, no sort key → safe, implicit Limit=1.
@@ -258,7 +258,7 @@ public class PaginationTests(DynamoContainerFixture fixture) : SimpleTableTestFi
         calls[0].Limit.Should().Be(1);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task FirstOrDefault_KeyOnly_WithUserLimit_ThrowsTranslationFailure()
     {
         // Limit(n) + First* is disallowed — use
@@ -277,7 +277,7 @@ public class PaginationTests(DynamoContainerFixture fixture) : SimpleTableTestFi
 
     // ── Take is removed — must throw ─────────────────────────────────────────
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Take_ThrowsTranslationFailurePointingToLimit()
     {
         var act = async () => await Db.SimpleItems.Take(3).ToListAsync(CancellationToken);

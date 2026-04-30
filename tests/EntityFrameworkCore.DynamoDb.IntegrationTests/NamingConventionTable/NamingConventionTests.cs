@@ -17,7 +17,7 @@ public class NamingConventionTests(DynamoContainerFixture fixture)
     ///     by the provider into CLR records, including the property stored under an explicit
     ///     <c>HasAttributeName</c> override.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SnakeCaseEntity_RoundTrip_ReturnsAllItems()
     {
         var result = await Db.SnakeCaseItems.ToListAsync(CancellationToken);
@@ -30,7 +30,7 @@ public class NamingConventionTests(DynamoContainerFixture fixture)
     ///     the explicit override name (<c>custom_attr</c>) for the property with <c>HasAttributeName</c>,
     ///     and includes the owned container as <c>profile</c>.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SnakeCaseEntity_EmitsSnakeCaseNamesInPartiQL()
     {
         await Db.SnakeCaseItems.ToListAsync(CancellationToken);
@@ -46,7 +46,7 @@ public class NamingConventionTests(DynamoContainerFixture fixture)
     ///     Multi-level owned paths under a snake_case entity should be translated using snake_case
     ///     container/property names at every level.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SnakeCaseEntity_OwnedNestedPath_UsesSnakeCaseAtAllLevels()
     {
         var results = await Db
@@ -73,7 +73,7 @@ public class NamingConventionTests(DynamoContainerFixture fixture)
     ///     The kebab-case entity in the same context emits kebab-case attribute names, proving that
     ///     naming conventions are applied independently per entity type.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task KebabCaseEntity_RoundTrip_ReturnsAllItems()
     {
         var result = await Db.KebabCaseItems.ToListAsync(CancellationToken);
@@ -85,7 +85,7 @@ public class NamingConventionTests(DynamoContainerFixture fixture)
     ///     The kebab-case entity emits kebab-case attribute names in the PartiQL SELECT, proving that
     ///     naming conventions are applied independently per entity type.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task KebabCaseEntity_EmitsKebabCaseNamesInPartiQL()
     {
         await Db.KebabCaseItems.ToListAsync(CancellationToken);

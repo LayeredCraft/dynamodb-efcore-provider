@@ -124,10 +124,10 @@ public class DynamoSqlTranslatingExpressionVisitor(
         {
             SqlExpression? operand = null;
             if (node.Right is ConstantExpression { Value: null })
-                operand = TryTranslateOwnedNavigationOperandForNullComparison(node.Left)
+                operand = TryTranslateComplexPropertyForNullComparison(node.Left)
                     ?? TranslateInternal(node.Left);
             else if (node.Left is ConstantExpression { Value: null })
-                operand = TryTranslateOwnedNavigationOperandForNullComparison(node.Right)
+                operand = TryTranslateComplexPropertyForNullComparison(node.Right)
                     ?? TranslateInternal(node.Right);
 
             if (operand != null)
@@ -162,10 +162,11 @@ public class DynamoSqlTranslatingExpressionVisitor(
     }
 
     /// <summary>
-    ///     Translates a single-segment owned reference navigation operand for null comparisons in
-    ///     predicates.
+    ///     Translates a single-segment nullable complex property operand for null comparisons in
+    ///     predicates. Returns a property expression for the complex map attribute so that
+    ///     <c>== null</c> generates <c>IS NULL OR IS MISSING</c> against the map key.
     /// </summary>
-    private SqlExpression? TryTranslateOwnedNavigationOperandForNullComparison(Expression operand)
+    private SqlExpression? TryTranslateComplexPropertyForNullComparison(Expression operand)
     {
         string? memberName = null;
         Type? memberType = null;
@@ -193,13 +194,14 @@ public class DynamoSqlTranslatingExpressionVisitor(
             return null;
 
         var rootEntityType = ResolveRootEntityType(sourceExpression);
-        if (rootEntityType?.FindNavigation(memberName) is not { IsCollection: false } navigation
-            || !navigation.IsEmbedded())
+        if (rootEntityType?.FindComplexProperty(memberName) is not
+            {
+                IsCollection: false
+            } complexProperty)
             return null;
 
-        var navigationAttributeName =
-            navigation.TargetEntityType.GetContainingAttributeName() ?? navigation.Name;
-        return sqlExpressionFactory.Property(navigationAttributeName, memberType);
+        var cpAttributeName = ((IReadOnlyComplexProperty)complexProperty).GetAttributeName();
+        return sqlExpressionFactory.Property(cpAttributeName, memberType);
     }
 
     /// <inheritdoc />
@@ -269,9 +271,10 @@ public class DynamoSqlTranslatingExpressionVisitor(
                     isPartitionKey);
             }
 
-            // When entity type is known but FindProperty returned null the member is a navigation
-            // or other non-scalar — the binding visitor handles those via
-            // DynamoObjectAccessExpression.
+            // When entity type is known but FindProperty returned null the member is a non-scalar
+            // (complex property, or unsupported navigation). Complex property chains go through
+            // TranslateNestedMemberChain for multi-segment access; single-segment access is
+            // unsupported.
             if (rootEntityType != null)
             {
                 AddTranslationErrorDetails(DynamoStrings.MemberAccessNotSupported);
@@ -291,8 +294,8 @@ public class DynamoSqlTranslatingExpressionVisitor(
     }
 
     /// <summary>
-    ///     Translates a multi-segment owned navigation chain to a nested path expression by walking
-    ///     intermediate owned navigations and resolving the leaf scalar property through the EF model.
+    ///     Translates a multi-segment complex property chain to a nested path expression by walking
+    ///     intermediate complex properties and resolving the leaf scalar property through the EF model.
     /// </summary>
     private Expression TranslateNestedMemberChain(
         List<string> names,
@@ -300,7 +303,7 @@ public class DynamoSqlTranslatingExpressionVisitor(
         Type leafType)
     {
         Expression? sqlExpr = null;
-        var currentEntityType = rootEntityType;
+        ITypeBase currentType = rootEntityType;
 
         for (var i = 0; i < names.Count; i++)
         {
@@ -309,8 +312,8 @@ public class DynamoSqlTranslatingExpressionVisitor(
 
             if (isLast)
             {
-                // Leaf must be a scalar property — whole-entity leaf navigation is not supported
-                var property = currentEntityType.FindProperty(memberName);
+                // Leaf must be a scalar property — whole-complex-type leaf access is not supported
+                var property = currentType.FindProperty(memberName);
                 if (property == null)
                 {
                     AddTranslationErrorDetails(DynamoStrings.MemberAccessNotSupported);
@@ -328,19 +331,19 @@ public class DynamoSqlTranslatingExpressionVisitor(
                         typeMapping);
             }
 
-            // Intermediate segment: must be an embedded, non-collection owned navigation
-            var nav = currentEntityType.FindNavigation(memberName);
-            if (nav == null || !nav.IsEmbedded() || nav.IsCollection)
+            // Intermediate segment: must be a non-collection complex property
+            var complexProperty = currentType.FindComplexProperty(memberName);
+            if (complexProperty == null || complexProperty.IsCollection)
             {
                 AddTranslationErrorDetails(DynamoStrings.MemberAccessNotSupported);
                 return QueryCompilationContext.NotTranslatedExpression;
             }
 
-            var navAttributeName = nav.TargetEntityType.GetContainingAttributeName() ?? nav.Name;
+            var cpAttributeName = ((IReadOnlyComplexProperty)complexProperty).GetAttributeName();
             sqlExpr = sqlExpr == null
-                ? sqlExpressionFactory.Property(navAttributeName, typeof(object))
-                : new DynamoScalarAccessExpression(sqlExpr, navAttributeName, typeof(object));
-            currentEntityType = nav.TargetEntityType;
+                ? new DynamoComplexPropertyAccessExpression(complexProperty)
+                : new DynamoScalarAccessExpression(sqlExpr, cpAttributeName, typeof(object));
+            currentType = complexProperty.ComplexType;
         }
 
         // Unreachable — chain is always non-empty, loop always returns from leaf branch

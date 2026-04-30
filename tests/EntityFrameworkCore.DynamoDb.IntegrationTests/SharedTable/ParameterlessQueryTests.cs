@@ -1,6 +1,5 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
-using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 using Microsoft.EntityFrameworkCore;
 using NSubstitute;
 
@@ -25,7 +24,7 @@ public class ParameterlessQueryTests
         return client;
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ToListAsync_SharedTableWithDiscriminator_SendsNullParameters()
     {
         var captured = new List<ExecuteStatementRequest>();
@@ -39,7 +38,7 @@ public class ParameterlessQueryTests
             "DynamoDB rejects Parameters = [] — must be null or absent when there are no placeholders");
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task FirstOrDefaultAsync_SharedTableWithDiscriminator_SendsNullParameters()
     {
         var captured = new List<ExecuteStatementRequest>();

@@ -13,7 +13,7 @@ public sealed class CompetingGsiAutoSelectionTests(DynamoContainerFixture fixtur
     protected override DynamoAutomaticIndexSelectionMode AutomaticIndexSelectionMode
         => DynamoAutomaticIndexSelectionMode.Conservative;
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Conservative_CompetingGsis_WithEqualScore_EmitsIdx002_UsesBaseTable()
     {
         var results =
@@ -38,7 +38,7 @@ public sealed class CompetingGsiAutoSelectionTests(DynamoContainerFixture fixtur
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Conservative_CompetingGsis_OrderBySortKey_SelectsScoringWinner()
     {
         _ = await Db

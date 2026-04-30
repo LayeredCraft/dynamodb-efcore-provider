@@ -12,7 +12,7 @@ public class SecondaryIndexWithoutIndexTests(DynamoContainerFixture fixture)
     protected override DynamoAutomaticIndexSelectionMode AutomaticIndexSelectionMode
         => DynamoAutomaticIndexSelectionMode.Conservative;
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task WithoutIndex_ConservativeMode_UsesBaseTable_AndEmitsDiagnosticIDX006()
     {
         var results = await Db
@@ -40,7 +40,7 @@ public class SecondaryIndexWithoutIndexTests(DynamoContainerFixture fixture)
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task WithoutIndex_DoesNotEmitAutoSelectionDiagnostics()
     {
         await Db
@@ -59,7 +59,7 @@ public class SecondaryIndexWithoutIndexTests(DynamoContainerFixture fixture)
                 || e.EventId.Id == DynamoEventId.SecondaryIndexCandidateRejected.Id);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task WithoutIndex_WithExplicitHint_ThrowsInvalidOperationException()
     {
         var act = async ()

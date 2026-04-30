@@ -95,6 +95,13 @@ public static class DynamoPropertyExtensions
                 ?? complexProperty.Name;
     }
 
+    extension(IMutableComplexProperty complexProperty)
+    {
+        /// <summary>Sets or clears the DynamoDB attribute name override for this complex property.</summary>
+        public void SetAttributeName(string? name)
+            => complexProperty.SetOrRemoveAnnotation(DynamoAnnotationNames.AttributeName, name);
+    }
+
     extension(IConventionComplexProperty complexProperty)
     {
         /// <summary>Sets the DynamoDB attribute name for this complex property, recording the configuration source.</summary>

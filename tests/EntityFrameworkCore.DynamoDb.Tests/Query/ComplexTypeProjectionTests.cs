@@ -1,11 +1,8 @@
-using System.Linq.Expressions;
+using System.ComponentModel.DataAnnotations.Schema;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
-using EntityFrameworkCore.DynamoDb.Query.Internal;
-using EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.EntityFrameworkCore.Query;
 using NSubstitute;
 
 // ReSharper disable AutoPropertyCanBeMadeGetOnly.Local
@@ -13,10 +10,11 @@ using NSubstitute;
 namespace EntityFrameworkCore.DynamoDb.Tests.Query;
 
 /// <summary>
-///     Tests for owned reference navigation projection, specifically covering the ambiguity
-///     scenario where multiple entity types declare a navigation with the same name and CLR type.
+///     Tests for complex type property projection, covering materialisation of nullable and required
+///     complex properties, anonymous type projections, WHERE null comparisons, and entities sharing
+///     the same CLR type for their complex property.
 /// </summary>
-public class OwnedReferenceProjectionTests
+public class ComplexTypeProjectionTests
 {
     private static IAmazonDynamoDB CreateMockClientReturning(
         Dictionary<string, AttributeValue> item)
@@ -57,32 +55,10 @@ public class OwnedReferenceProjectionTests
         return item;
     }
 
-    /// <summary>Provides functionality for this member.</summary>
-    [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public void Model_EntityA_HasEmbeddedProfileNavigation()
+    /// <summary>Selecting a complex property from EntityA materialises the nested map correctly.</summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task SelectComplexProperty_EntityA_ReturnsCorrectProfile()
     {
-        using var ctx = AmbiguousModelDbContext.Create(Substitute.For<IAmazonDynamoDB>());
-        var entityAType = ctx.Model.FindEntityType(typeof(EntityA))!;
-        Assert.NotNull(entityAType);
-
-        var nav = entityAType.FindNavigation("Profile");
-        Assert.NotNull(nav);
-        Assert.False(nav.IsCollection, "Profile should not be a collection");
-        Assert.True(
-            nav.TargetEntityType.IsOwned(),
-            $"SharedProfile should be owned (IsOwned={nav.TargetEntityType.IsOwned()})");
-        Assert.True(
-            nav.IsEmbedded(),
-            $"Profile should be embedded (IsOnDependent={nav.IsOnDependent}, TargetIsOwned={nav.TargetEntityType.IsOwned()})");
-    }
-
-    /// <summary>Provides functionality for this member.</summary>
-    [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public async Task SelectOwnedReference_WithAmbiguousModel_ReturnsCorrectProfile()
-    {
-        // Arrange: build item representing an EntityA row with a Profile map attribute.
         var item = new Dictionary<string, AttributeValue>
         {
             ["pk"] = new() { S = "A#1" },
@@ -96,12 +72,8 @@ public class OwnedReferenceProjectionTests
         };
 
         var client = CreateMockClientReturning(item);
-        await using var ctx = AmbiguousModelDbContext.Create(client);
+        await using var ctx = SharedProfileDbContext.Create(client);
 
-        // Act: Select the owned reference navigation.
-        // Before the fix, TryResolveOwnedEmbeddedReferenceNavigation would find two candidates
-        // (EntityA.Profile and EntityB.Profile), return false (ambiguous), and fall back to
-        // scalar extraction — throwing at materialisation time.
         var profiles =
             await ctx
                 .EntityAs
@@ -109,20 +81,16 @@ public class OwnedReferenceProjectionTests
                 .AsAsyncEnumerable()
                 .ToListAsync(TestContext.Current.CancellationToken);
 
-        // Assert: navigation resolved to EntityA.Profile and materialised correctly.
         profiles.Should().HaveCount(1);
         profiles[0].Should().NotBeNull();
         profiles[0]!.DisplayName.Should().Be("Ada");
         profiles[0]!.Age.Should().Be(39);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
-    [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public async Task
-        SelectOwnedReference_WithAmbiguousModel_SelectingEntityB_ReturnsCorrectProfile()
+    /// <summary>Selecting from EntityB resolves its own complex property, not EntityA's.</summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task SelectComplexProperty_EntityB_ReturnsCorrectProfile()
     {
-        // Arrange: item representing an EntityB row with a Profile map attribute.
         var item = new Dictionary<string, AttributeValue>
         {
             ["pk"] = new() { S = "B#1" },
@@ -136,9 +104,8 @@ public class OwnedReferenceProjectionTests
         };
 
         var client = CreateMockClientReturning(item);
-        await using var ctx = AmbiguousModelDbContext.Create(client);
+        await using var ctx = SharedProfileDbContext.Create(client);
 
-        // Act: Select Profile from EntityB — must resolve EntityB.Profile, not EntityA.Profile.
         var profiles =
             await ctx
                 .EntityBs
@@ -146,19 +113,16 @@ public class OwnedReferenceProjectionTests
                 .AsAsyncEnumerable()
                 .ToListAsync(TestContext.Current.CancellationToken);
 
-        // Assert
         profiles.Should().HaveCount(1);
         profiles[0].Should().NotBeNull();
         profiles[0]!.DisplayName.Should().Be("Bob");
         profiles[0]!.Age.Should().Be(25);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
-    [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public async Task SelectAnonymousWithOwnedReference_WithAmbiguousModel_MaterialisesCorrectly()
+    /// <summary>Anonymous type projection { Pk, Profile } exercises index-based binding.</summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task SelectAnonymousWithComplexProperty_MaterialisesCorrectly()
     {
-        // Arrange: anonymous type projection { Pk, Profile } — exercises index-based binding.
         var item = new Dictionary<string, AttributeValue>
         {
             ["pk"] = new() { S = "A#2" },
@@ -166,13 +130,15 @@ public class OwnedReferenceProjectionTests
             {
                 M = new Dictionary<string, AttributeValue>
                 {
-                    ["displayName"] = new() { S = "Cleo" }, ["age"] = new() { N = "42" },
+                    ["displayName"] =
+                        new() { S = "Cleo" },
+                    ["age"] = new() { N = "42" },
                 },
             },
         };
 
         var client = CreateMockClientReturning(item);
-        await using var ctx = AmbiguousModelDbContext.Create(client);
+        await using var ctx = SharedProfileDbContext.Create(client);
 
         var results =
             await ctx
@@ -187,10 +153,9 @@ public class OwnedReferenceProjectionTests
         results[0].Profile!.Age.Should().Be(42);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
-    [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public async Task SelectOwnedReference_WithEfProperty_InAmbiguousModel_ReturnsCorrectProfile()
+    /// <summary>EF.Property&lt;T&gt; access to a complex property materialises it correctly.</summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task SelectComplexProperty_WithEfProperty_ReturnsCorrectProfile()
     {
         var item = CreateItem(
             "A#3",
@@ -200,7 +165,7 @@ public class OwnedReferenceProjectionTests
             });
 
         var client = CreateMockClientReturning(item);
-        await using var ctx = AmbiguousModelDbContext.Create(client);
+        await using var ctx = SharedProfileDbContext.Create(client);
 
         var profiles =
             await ctx
@@ -215,11 +180,9 @@ public class OwnedReferenceProjectionTests
         profiles[0]!.Age.Should().Be(31);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
-    [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public async Task
-        SelectAnonymousWithOwnedReferenceEfProperty_WithAmbiguousModel_MaterialisesCorrectly()
+    /// <summary>Anonymous type with EF.Property access to a complex property materialises correctly.</summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task SelectAnonymousWithEfPropertyComplexProperty_MaterialisesCorrectly()
     {
         var item = CreateItem(
             "A#4",
@@ -229,7 +192,7 @@ public class OwnedReferenceProjectionTests
             });
 
         var client = CreateMockClientReturning(item);
-        await using var ctx = AmbiguousModelDbContext.Create(client);
+        await using var ctx = SharedProfileDbContext.Create(client);
 
         var results =
             await ctx
@@ -245,16 +208,37 @@ public class OwnedReferenceProjectionTests
         results[0].Profile!.Age.Should().Be(28);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
-    [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public async Task
-        SelectOwnedReference_ProfileAttributeMissing_ReturnsNullForOptionalNavigation()
+    /// <summary>
+    ///     Nested scalar projection from a nullable complex property returns null when the complex
+    ///     map attribute is missing.
+    /// </summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task SelectNestedScalarFromComplexProperty_AttributeMissing_ReturnsNull()
+    {
+        var item = CreateItem("A#4b", null, false);
+
+        var client = CreateMockClientReturning(item);
+        await using var ctx = SharedProfileDbContext.Create(client);
+
+        var displayNames =
+            await ctx
+                .EntityAs
+                .Select(a => a.Profile!.DisplayName)
+                .AsAsyncEnumerable()
+                .ToListAsync(TestContext.Current.CancellationToken);
+
+        displayNames.Should().HaveCount(1);
+        displayNames[0].Should().BeNull();
+    }
+
+    /// <summary>When the complex property map attribute is absent, null is returned for a nullable property.</summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task SelectComplexProperty_AttributeMissing_ReturnsNullForNullableProperty()
     {
         var item = CreateItem("A#5", null, false);
 
         var client = CreateMockClientReturning(item);
-        await using var ctx = AmbiguousModelDbContext.Create(client);
+        await using var ctx = SharedProfileDbContext.Create(client);
 
         var profiles =
             await ctx
@@ -267,15 +251,14 @@ public class OwnedReferenceProjectionTests
         profiles[0].Should().BeNull();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
-    [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public async Task SelectOwnedReference_ProfileAttributeNull_ReturnsNullForOptionalNavigation()
+    /// <summary>When the complex property map attribute is DynamoDB NULL, null is returned for a nullable property.</summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task SelectComplexProperty_AttributeIsNull_ReturnsNullForNullableProperty()
     {
         var item = CreateItem("A#6", null, true, true);
 
         var client = CreateMockClientReturning(item);
-        await using var ctx = AmbiguousModelDbContext.Create(client);
+        await using var ctx = SharedProfileDbContext.Create(client);
 
         var profiles =
             await ctx
@@ -288,16 +271,46 @@ public class OwnedReferenceProjectionTests
         profiles[0].Should().BeNull();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
-    [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public async Task Where_OwnedReferenceIsNull_TranslatesToProfileNullOrMissingPredicate()
+    /// <summary>
+    ///     Nested predicate access on an explicitly configured complex property includes the root
+    ///     map attribute in the generated PartiQL path.
+    /// </summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Where_NestedComplexProperty_UsesRootAttributeName()
+    {
+        ExecuteStatementRequest? capturedRequest = null;
+        var item = CreateItem(
+            "A#6b",
+            new Dictionary<string, AttributeValue>
+            {
+                ["displayName"] = new() { S = "Ada" }, ["age"] = new() { N = "39" },
+            });
+
+        var client = CreateMockClientReturning(item, r => capturedRequest = r);
+        await using var ctx = SharedProfileDbContext.Create(client);
+
+        var results =
+            await ctx
+                .EntityAs
+                .Where(a => a.Profile!.DisplayName == "Ada")
+                .Select(a => a.Pk)
+                .AsAsyncEnumerable()
+                .ToListAsync(TestContext.Current.CancellationToken);
+
+        results.Should().Equal("A#6b");
+        capturedRequest.Should().NotBeNull();
+        capturedRequest!.Statement.Should().Contain("\"profile\".\"displayName\" = 'Ada'");
+    }
+
+    /// <summary>WHERE clause comparing a nullable complex property to null translates to IS NULL OR IS MISSING.</summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Where_NullableComplexPropertyIsNull_TranslatesToNullOrMissingPredicate()
     {
         ExecuteStatementRequest? capturedRequest = null;
         var item = CreateItem("A#7", null, false);
 
         var client = CreateMockClientReturning(item, r => capturedRequest = r);
-        await using var ctx = AmbiguousModelDbContext.Create(client);
+        await using var ctx = SharedProfileDbContext.Create(client);
 
         var results =
             await ctx
@@ -313,17 +326,16 @@ public class OwnedReferenceProjectionTests
         capturedRequest.Statement.Should().Contain("\"profile\" IS MISSING");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
-    [Fact]
-    /// <summary>Provides functionality for this member.</summary>
+    /// <summary>WHERE via EF.Property comparing a nullable complex property to null translates to IS NULL OR IS MISSING.</summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task
-        Where_EfPropertyOwnedReferenceIsNull_TranslatesToProfileNullOrMissingPredicate()
+        Where_EfPropertyNullableComplexPropertyIsNull_TranslatesToNullOrMissingPredicate()
     {
         ExecuteStatementRequest? capturedRequest = null;
         var item = CreateItem("A#8", null, false);
 
         var client = CreateMockClientReturning(item, r => capturedRequest = r);
-        await using var ctx = AmbiguousModelDbContext.Create(client);
+        await using var ctx = SharedProfileDbContext.Create(client);
 
         var results =
             await ctx
@@ -339,15 +351,14 @@ public class OwnedReferenceProjectionTests
         capturedRequest.Statement.Should().Contain("\"profile\" IS MISSING");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
-    [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public async Task SelectOwnedReference_RequiredProfileMissing_ThrowsClearError()
+    /// <summary>Required (non-nullable) complex property missing from the DynamoDB item throws a clear error.</summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task SelectComplexProperty_RequiredAttributeMissing_ThrowsClearError()
     {
         var item = CreateItem("R#1", null, false);
 
         var client = CreateMockClientReturning(item);
-        await using var ctx = RequiredOwnedDbContext.Create(client);
+        await using var ctx = RequiredComplexPropertyDbContext.Create(client);
 
         var act = async ()
             => await ctx
@@ -359,143 +370,104 @@ public class OwnedReferenceProjectionTests
         await act
             .Should()
             .ThrowAsync<InvalidOperationException>()
-            .WithMessage("*Required owned navigation*missing or NULL*");
+            .WithMessage("*Required complex property*missing or NULL*");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
-    [Fact]
-    /// <summary>Provides functionality for this member.</summary>
-    public void ProjectionBinding_ForOwnedType_WithoutNavigationMetadata_ThrowsClearError()
-    {
-        using var ctx = AmbiguousModelDbContext.Create(Substitute.For<IAmazonDynamoDB>());
-        var model = ctx.Model;
-
-        var selectExpression = new SelectExpression("EntityATable");
-        var projectionMember = new ProjectionMember();
-        selectExpression.ReplaceProjectionMapping(
-            new Dictionary<ProjectionMember, Expression>
-            {
-                [projectionMember] = Expression.Constant(0),
-            });
-        selectExpression.AddToProjection(
-            new ProjectionExpression(
-                new SqlPropertyExpression("Profile", typeof(SharedProfile), null),
-                "Profile"));
-
-        var visitor = new DynamoProjectionBindingRemovingExpressionVisitor(
-            Expression.Parameter(typeof(Dictionary<string, AttributeValue>), "item"),
-            selectExpression,
-            model);
-
-        var act = ()
-            => visitor.Visit(
-                new ProjectionBindingExpression(
-                    selectExpression,
-                    projectionMember,
-                    typeof(SharedProfile)));
-
-        act
-            .Should()
-            .Throw<InvalidOperationException>()
-            .WithMessage("*without navigation metadata*DynamoObjectAccessExpression*");
-    }
-
-    // Shared owned CLR type used by both root entities to trigger the ambiguity scenario.
+    // Shared complex CLR type used by both root entity types.
+    [ComplexType]
     private sealed record SharedProfile
     {
-        /// <summary>Provides functionality for this member.</summary>
+        /// <summary>Age of the profile subject.</summary>
         public int? Age { get; set; }
 
-        /// <summary>Provides functionality for this member.</summary>
+        /// <summary>Display name of the profile subject.</summary>
         public string DisplayName { get; set; } = null!;
     }
 
     private sealed record EntityA
     {
-        /// <summary>Provides functionality for this member.</summary>
+        /// <summary>Partition key.</summary>
         public string Pk { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
+        /// <summary>Nullable complex property.</summary>
         public SharedProfile? Profile { get; set; }
     }
 
     private sealed record EntityB
     {
-        /// <summary>Provides functionality for this member.</summary>
+        /// <summary>Partition key.</summary>
         public string Pk { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
+        /// <summary>Nullable complex property.</summary>
         public SharedProfile? Profile { get; set; }
     }
 
     private sealed record RequiredEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
+        /// <summary>Partition key.</summary>
         public string Pk { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
+        /// <summary>Non-nullable complex property — required in the DynamoDB item.</summary>
         public SharedProfile Profile { get; set; } = null!;
     }
 
-    // DbContext that registers both EntityA and EntityB, both owning SharedProfile.
-    // This creates the ambiguous model: two navigations named "Profile" targeting the same CLR
-    // type.
-    private sealed class AmbiguousModelDbContext(DbContextOptions options) : DbContext(options)
+    // DbContext with EntityA and EntityB each declaring a complex property of the same CLR type.
+    private sealed class SharedProfileDbContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
+        /// <summary>EntityA set.</summary>
         public DbSet<EntityA> EntityAs { get; set; }
 
-        /// <summary>Provides functionality for this member.</summary>
+        /// <summary>EntityB set.</summary>
         public DbSet<EntityB> EntityBs { get; set; }
 
-        /// <summary>Provides functionality for this member.</summary>
+        /// <inheritdoc />
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<EntityA>(b =>
             {
                 b.ToTable("EntityATable");
                 b.HasPartitionKey(x => x.Pk);
-                b.OwnsOne(x => x.Profile);
+                b.ComplexProperty(x => x.Profile);
             });
 
             modelBuilder.Entity<EntityB>(b =>
             {
                 b.ToTable("EntityBTable");
                 b.HasPartitionKey(x => x.Pk);
-                b.OwnsOne(x => x.Profile);
+                b.ComplexProperty(x => x.Profile);
             });
         }
 
-        /// <summary>Provides functionality for this member.</summary>
-        public static AmbiguousModelDbContext Create(IAmazonDynamoDB client)
+        /// <summary>Creates a context backed by the given mock DynamoDB client.</summary>
+        public static SharedProfileDbContext Create(IAmazonDynamoDB client)
             => new(
-                new DbContextOptionsBuilder<AmbiguousModelDbContext>()
+                new DbContextOptionsBuilder<SharedProfileDbContext>()
                     .UseDynamo(o => o.DynamoDbClient(client))
                     .ConfigureWarnings(w
                         => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
                     .Options);
     }
 
-    /// <summary>DbContext with a required owned-reference navigation used to validate requiredness errors.</summary>
-    private sealed class RequiredOwnedDbContext(DbContextOptions options) : DbContext(options)
+    /// <summary>DbContext with a required (non-nullable) complex property to validate requiredness errors.</summary>
+    private sealed class RequiredComplexPropertyDbContext(DbContextOptions options) : DbContext(
+        options)
     {
-        /// <summary>Provides functionality for this member.</summary>
+        /// <summary>RequiredEntity set.</summary>
         public DbSet<RequiredEntity> RequiredEntities { get; set; }
 
-        /// <summary>Provides functionality for this member.</summary>
+        /// <inheritdoc />
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<RequiredEntity>(b =>
             {
                 b.ToTable("RequiredEntityTable");
                 b.HasPartitionKey(x => x.Pk);
-                b.OwnsOne(x => x.Profile);
-                b.Navigation(x => x.Profile).IsRequired();
+                b.ComplexProperty(x => x.Profile);
             });
 
-        /// <summary>Provides functionality for this member.</summary>
-        public static RequiredOwnedDbContext Create(IAmazonDynamoDB client)
+        /// <summary>Creates a context backed by the given mock DynamoDB client.</summary>
+        public static RequiredComplexPropertyDbContext Create(IAmazonDynamoDB client)
             => new(
-                new DbContextOptionsBuilder<RequiredOwnedDbContext>()
+                new DbContextOptionsBuilder<RequiredComplexPropertyDbContext>()
                     .UseDynamo(o => o.DynamoDbClient(client))
                     .ConfigureWarnings(w
                         => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))

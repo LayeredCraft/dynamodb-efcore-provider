@@ -285,7 +285,7 @@ public class DiscriminatorValidationTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void SharedTableMultipleTypes_WithConventionDiscriminator_IsValid()
     {
@@ -301,7 +301,7 @@ public class DiscriminatorValidationTests
     // property via SetDiscriminatorProperty(null). Because HasDiscriminator() was called with an
     // explicit configuration source, HasExplicitNoDiscriminator() returns true and the convention
     // treats the whole group as opted out — no throw is expected.
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void SharedTableMultipleTypes_WithMissingDiscriminatorProperty_RemainsValid()
     {
         var client = MockClient();
@@ -312,7 +312,7 @@ public class DiscriminatorValidationTests
         act.Should().NotThrow();
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void SharedTableMultipleTypes_WithHasNoDiscriminator_IsValid()
     {
         var client = MockClient();
@@ -324,7 +324,7 @@ public class DiscriminatorValidationTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void SharedTableMultipleTypes_WithHasNoDiscriminatorOnEveryType_IsValid()
     {
@@ -337,7 +337,7 @@ public class DiscriminatorValidationTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void SharedTableMultipleTypes_WithMissingDiscriminatorValue_Throws()
     {
@@ -350,7 +350,7 @@ public class DiscriminatorValidationTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void SharedTableMultipleTypes_WithDuplicateDiscriminatorValue_Throws()
     {
@@ -366,7 +366,7 @@ public class DiscriminatorValidationTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void SharedTableMultipleTypes_WithDiscriminatorAttributeNameMismatch_Throws()
     {
@@ -382,7 +382,7 @@ public class DiscriminatorValidationTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void SharedTableMultipleTypes_WhenDiscriminatorNameCollidesWithPartitionKey_Throws()
     {
@@ -398,7 +398,7 @@ public class DiscriminatorValidationTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void SharedTableMultipleTypes_WhenDiscriminatorNameCollidesWithSortKey_Throws()
     {

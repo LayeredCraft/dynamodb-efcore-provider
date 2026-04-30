@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
 using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.EntityFrameworkCore.Query.Internal;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -24,6 +25,7 @@ public static class DynamoServiceCollectionExtensions
             var builder = new EntityFrameworkServicesBuilder(serviceCollection)
                 .TryAdd<LoggingDefinitions, DynamoLoggingDefinition>()
                 .TryAdd<IDatabaseProvider, DatabaseProvider<DynamoDbOptionsExtension>>()
+                .TryAdd<IStructuralTypeMaterializerSource, DynamoStructuralTypeMaterializerSource>()
                 .TryAdd<IDatabase, DynamoDatabaseWrapper>()
                 .TryAdd<IQueryContextFactory, DynamoQueryContextFactory>()
                 .TryAdd<IProviderConventionSetBuilder, DynamoConventionSetBuilder>()
