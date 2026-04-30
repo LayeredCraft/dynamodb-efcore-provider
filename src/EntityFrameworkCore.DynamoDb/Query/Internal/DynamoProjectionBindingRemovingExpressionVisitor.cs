@@ -168,7 +168,9 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
             return QueryCompilationContext.NotTranslatedExpression;
 
         var memberAccess = node.Update(instanceExpression);
-        return ApplyNullPropagation(instanceExpression, memberAccess, node.Type);
+        return ShouldApplyNullPropagation(instanceExpression.Type)
+            ? ApplyNullPropagation(instanceExpression, memberAccess, node.Type)
+            : memberAccess;
     }
 
     /// <summary>
@@ -621,8 +623,8 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
 
     /// <summary>
     ///     Wraps a member-access result in a null check when the containing instance can be
-    ///     <see langword="null" />, returning the default member value instead of throwing a CLR
-    ///     null-reference exception during projection materialization.
+    ///     <see langword="null" />, returning the default member value instead of throwing during
+    ///     complex-property projection materialization.
     /// </summary>
     /// <param name="instanceExpression">The visited instance expression that owns the accessed member.</param>
     /// <param name="memberAccess">The rewritten member-access expression.</param>
@@ -641,6 +643,20 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
             Equal(instanceExpression, Constant(null, instanceExpression.Type)),
             Default(memberType),
             memberAccess);
+    }
+
+    /// <summary>Determines whether member access should null-propagate for a materialized receiver type.</summary>
+    private static bool ShouldApplyNullPropagation(Type instanceType)
+    {
+        if (instanceType == typeof(string) || instanceType == typeof(byte[]))
+            return false;
+
+        if (instanceType.IsValueType
+            || DynamoTypeMappingSource.IsPrimitiveType(instanceType)
+            || DynamoTypeMappingSource.IsSupportedPrimitiveCollectionShape(instanceType))
+            return false;
+
+        return true;
     }
 
     /// <summary>

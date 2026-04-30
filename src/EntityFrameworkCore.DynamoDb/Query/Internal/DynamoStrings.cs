@@ -112,7 +112,7 @@ internal static class DynamoStrings
 
     /// <summary>Provides functionality for this member.</summary>
     public const string MemberAccessNotSupported =
-        "Only entity scalar property access and owned-type nested member paths are supported for server-side DynamoDB translation.";
+        "Only entity scalar property access and complex-type nested member paths are supported for server-side DynamoDB translation.";
 
     /// <summary>Provides functionality for this member.</summary>
     public const string ListIndexMustBeConstant =
