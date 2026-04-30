@@ -12,8 +12,8 @@ namespace EntityFrameworkCore.DynamoDb.Tests.Metadata.Conventions;
 /// <summary>
 ///     Tests for <c>DynamoAttributeNamingConventionApplier</c> — verifies that per-entity naming
 ///     conventions transform CLR property names to DynamoDB attribute names correctly, that explicit
-///     <c>HasAttributeName</c> overrides are preserved, and that shadow properties and owned type
-///     inheritance behave correctly.
+///     <c>HasAttributeName</c> overrides are preserved, and that shadow properties and complex
+///     property naming behave correctly.
 /// </summary>
 public class DynamoAttributeNamingConventionApplierTests
 {
@@ -348,7 +348,7 @@ public class DynamoAttributeNamingConventionApplierTests
     }
 
     // -------------------------------------------------------------------
-    // Owned type inherits root entity convention
+    // Complex type inherits root entity convention
     // -------------------------------------------------------------------
 
     [ComplexType]
@@ -393,8 +393,7 @@ public class DynamoAttributeNamingConventionApplierTests
             .Be("full_name");
 
         // Complex type properties also get snake_case from root
-        var addressProperty =
-            personType.GetComplexProperties().Single(cp => cp.ClrType == typeof(Address));
+        var addressProperty = personType.FindComplexProperty(nameof(PersonEntity.HomeAddress))!;
         var addressType = addressProperty.ComplexType;
         addressType.FindProperty(nameof(Address.Street))!.GetAttributeName().Should().Be("street");
         addressType.FindProperty(nameof(Address.CityName))!
@@ -433,8 +432,7 @@ public class DynamoAttributeNamingConventionApplierTests
                 BuildOptions<ComplexAttributeOverrideContext>(client));
 
         var personType = ctx.Model.FindEntityType(typeof(PersonEntity))!;
-        var addressProperty =
-            personType.GetComplexProperties().Single(cp => cp.ClrType == typeof(Address));
+        var addressProperty = personType.FindComplexProperty(nameof(PersonEntity.HomeAddress))!;
         addressProperty.GetAttributeName().Should().Be("home_payload");
     }
 
