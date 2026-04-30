@@ -10,7 +10,7 @@ public class SecondaryIndexOffAutoSelectionTests(DynamoContainerFixture fixture)
     protected override DynamoAutomaticIndexSelectionMode AutomaticIndexSelectionMode
         => DynamoAutomaticIndexSelectionMode.Off;
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Off_WhereOnGsiPk_DoesNotAutoSelect()
     {
         _ = await Db.Orders.Where(o => o.Status == "PENDING").ToListAsync(CancellationToken);

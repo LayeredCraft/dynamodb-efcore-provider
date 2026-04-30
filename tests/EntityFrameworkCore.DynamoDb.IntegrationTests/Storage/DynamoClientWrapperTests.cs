@@ -12,7 +12,7 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.Storage;
 
 public class DynamoClientWrapperTests
 {
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ExecutePartiQl_Reenumeration_UsesFreshContinuationToken()
     {
         var diagnosticsLogger =
@@ -95,7 +95,7 @@ public class DynamoClientWrapperTests
         nextTokens[3].Should().Be("t1");
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void Client_WhenConfiguredClientProvided_UsesConfiguredClient()
     {
         var diagnosticsLogger =
@@ -114,7 +114,7 @@ public class DynamoClientWrapperTests
         wrapper.Client.Should().BeSameAs(configuredClient);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void Client_WhenOnlyConfigProvided_UsesConfiguredValues()
     {
         var diagnosticsLogger =
@@ -137,7 +137,7 @@ public class DynamoClientWrapperTests
         wrapper.Client.Config.AuthenticationRegion.Should().Be("us-east-1");
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void Client_WhenConfigAndCallbackProvided_UsesConfigOnly()
     {
         var diagnosticsLogger =
@@ -167,7 +167,7 @@ public class DynamoClientWrapperTests
         wrapper.Client.Config.AuthenticationRegion.Should().Be("us-west-1");
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void Client_WhenConfigCallbackProvided_InvokesCallback()
     {
         var diagnosticsLogger =
@@ -194,7 +194,7 @@ public class DynamoClientWrapperTests
         wrapper.Client.Config.UseHttp.Should().BeTrue();
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ExecuteWriteAsync_WithEmptyParameters_OmitsParametersFromRequest()
     {
         var diagnosticsLogger =
@@ -224,7 +224,7 @@ public class DynamoClientWrapperTests
                 Arg.Any<CancellationToken>());
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ExecuteWriteAsync_WithNonEmptyParameters_SendsParametersInRequest()
     {
         var diagnosticsLogger =

@@ -9,7 +9,7 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SharedTableWithIndexes;
 public class SharedTableIndexAutoSelectionTests(DynamoContainerFixture fixture)
     : SharedTableWithIndexesTestFixture(fixture)
 {
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Conservative_DerivedTypeQuery_AutoSelects_ByPriorityGsi()
     {
         var results =
@@ -43,7 +43,7 @@ public class SharedTableIndexAutoSelectionTests(DynamoContainerFixture fixture)
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Conservative_BaseTypeQuery_OrDiscriminatorIsSafe_AutoSelects_ByStatusLsi()
     {
         var results = await Db
@@ -77,7 +77,7 @@ public class SharedTableIndexAutoSelectionTests(DynamoContainerFixture fixture)
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Conservative_BaseTypeQuery_NoIndexPkConstraint_FallsBackToBaseTable()
     {
         _ = await Db.WorkOrders.Where(o => o.Status == "OPEN").ToListAsync(CancellationToken);
@@ -95,7 +95,7 @@ public class SharedTableIndexAutoSelectionTests(DynamoContainerFixture fixture)
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Conservative_ArchivedWorkOrderQuery_ByPriorityGsiIsNotACandidate()
     {
         _ = await Db
@@ -109,7 +109,7 @@ public class SharedTableIndexAutoSelectionTests(DynamoContainerFixture fixture)
             .NotContain(e => e.Message.Contains("ByPriority"));
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ExplicitHint_ByStatus_OnWorkOrders_EmitsIdx004()
     {
         _ = await Db
@@ -135,7 +135,7 @@ public class SharedTableIndexAutoSelectionTests(DynamoContainerFixture fixture)
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ExplicitHint_ByPriority_OnPriorityWorkOrders_EmitsIdx004()
     {
         var results = await Db
@@ -171,7 +171,7 @@ public class SharedTableIndexAutoSelectionTests(DynamoContainerFixture fixture)
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ExplicitHint_SiblingEntityIndex_OnArchivedWorkOrders_Throws()
     {
         var act = async ()
@@ -180,7 +180,7 @@ public class SharedTableIndexAutoSelectionTests(DynamoContainerFixture fixture)
         await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*ByPriority*");
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SuggestOnly_DerivedTypeQuery_EmitsDiagnosticButStaysOnBaseTable()
     {
         await using var suggestDb = CreateDbContext(DynamoAutomaticIndexSelectionMode.SuggestOnly);

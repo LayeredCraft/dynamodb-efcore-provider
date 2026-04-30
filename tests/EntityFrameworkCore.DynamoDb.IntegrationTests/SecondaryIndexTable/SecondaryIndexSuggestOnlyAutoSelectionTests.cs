@@ -12,7 +12,7 @@ public class SecondaryIndexSuggestOnlyAutoSelectionTests(DynamoContainerFixture 
     protected override DynamoAutomaticIndexSelectionMode AutomaticIndexSelectionMode
         => DynamoAutomaticIndexSelectionMode.SuggestOnly;
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SuggestOnly_WhereOnGsiPk_EmitsDiagnosticButStaysOnBaseTable()
     {
         _ = await Db.Orders.Where(o => o.Status == "PENDING").ToListAsync(CancellationToken);

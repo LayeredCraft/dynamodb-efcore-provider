@@ -8,7 +8,7 @@ public class FirstTests(DynamoContainerFixture fixture) : PkSkTableTestFixture(f
 {
     // ── Model smoke tests ────────────────────────────────────────────────────
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void PkAndSkProperlyConfiguredAsKeys()
     {
         var entityType = Db.Model.FindEntityType(typeof(PkSkItem))!;
@@ -23,7 +23,7 @@ public class FirstTests(DynamoContainerFixture fixture) : PkSkTableTestFixture(f
 
     // ── ToListAsync — baseline ───────────────────────────────────────────────
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ToListAsync_ReturnsAllItems()
     {
         var results = await Db.Items.ToListAsync(CancellationToken);
@@ -39,7 +39,7 @@ public class FirstTests(DynamoContainerFixture fixture) : PkSkTableTestFixture(f
 
     // ── Key-only First* — safe path ──────────────────────────────────────────
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task OrderBy_Sk_FirstAsync_ReturnsLowestSkWithinPartition()
     {
         var result =
@@ -63,7 +63,7 @@ public class FirstTests(DynamoContainerFixture fixture) : PkSkTableTestFixture(f
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task FirstAsync_KeyOnly_PkAndSkEquality_ReturnsMatchingItem()
     {
         var result =
@@ -84,7 +84,7 @@ public class FirstTests(DynamoContainerFixture fixture) : PkSkTableTestFixture(f
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task FirstAsync_KeyOnly_SetsImplicitLimit1_OnRequest()
     {
         // Key-only First* sets implicit Limit=1 on the ExecuteStatement request.
@@ -107,7 +107,7 @@ public class FirstTests(DynamoContainerFixture fixture) : PkSkTableTestFixture(f
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task FirstOrDefault_KeyOnly_WithUserLimit_ThrowsTranslationFailure()
     {
         // Limit(n) + First* is disallowed — use
@@ -125,7 +125,7 @@ public class FirstTests(DynamoContainerFixture fixture) : PkSkTableTestFixture(f
             .WithMessage("*AsAsyncEnumerable*");
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task FirstAsync_KeyOnly_ThrowsWhenNoMatch()
     {
         // Key-only path, no match — First throws, no translation failure.
@@ -137,7 +137,7 @@ public class FirstTests(DynamoContainerFixture fixture) : PkSkTableTestFixture(f
         await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*no elements*");
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task FirstOrDefault_KeyOnly_ReturnsNullWhenNoMatch()
     {
         var result = await Db
@@ -150,7 +150,7 @@ public class FirstTests(DynamoContainerFixture fixture) : PkSkTableTestFixture(f
 
     // ── SK filter predicates — always throws ────────────────────────────────
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task FirstOrDefault_SkIn_ThrowsTranslationFailure()
     {
         // SK IN (...) is a filter expression in DynamoDB — not a key condition. Limit=1 counts
@@ -167,7 +167,7 @@ public class FirstTests(DynamoContainerFixture fixture) : PkSkTableTestFixture(f
             .WithMessage("*AsAsyncEnumerable*");
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task FirstOrDefault_SkOrEquality_ThrowsTranslationFailure()
     {
         // SK = A OR SK = B is a filter expression — not a key condition. Same Limit=1 hazard.
@@ -184,7 +184,7 @@ public class FirstTests(DynamoContainerFixture fixture) : PkSkTableTestFixture(f
 
     // ── Non-key First* — always throws ──────────────────────────────────────
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task FirstOrDefault_NonKeyFilter_WithoutOptIn_ThrowsTranslationFailure()
     {
         // IsTarget is a non-key attribute — unsafe path always throws.
@@ -201,7 +201,7 @@ public class FirstTests(DynamoContainerFixture fixture) : PkSkTableTestFixture(f
 
     // ── Take is removed — must throw ─────────────────────────────────────────
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Take_ThrowsTranslationFailurePointingToLimit()
     {
         var act = async () => await Db

@@ -7,7 +7,7 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.NamingOverrideTable;
 public class SelectTests(DynamoContainerFixture fixture)
     : NamingConventionsTableTestFixture(fixture)
 {
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ToListAsync_MaterializesNamingConventionsAndCollections()
     {
         var results = await Db.Items.ToListAsync(CancellationToken);

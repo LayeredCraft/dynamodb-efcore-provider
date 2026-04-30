@@ -7,7 +7,7 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SimpleTable;
 public class RequiredPropertyNullHandlingTests(DynamoContainerFixture fixture)
     : SimpleTableTestFixture(fixture)
 {
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Materialization_Throws_WhenRequiredPropertyIsDynamoNull()
     {
         var template = new Dictionary<string, AttributeValue>(SimpleItems.AttributeValues[0]);
@@ -33,7 +33,7 @@ public class RequiredPropertyNullHandlingTests(DynamoContainerFixture fixture)
             .WithMessage("*DynamoDB NULL*");
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Materialization_Throws_WhenRequiredPropertyIsMissing()
     {
         var template = new Dictionary<string, AttributeValue>(SimpleItems.AttributeValues[0]);
@@ -61,7 +61,7 @@ public class RequiredPropertyNullHandlingTests(DynamoContainerFixture fixture)
             .WithMessage("*not present*");
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Materialization_Throws_WhenRequiredReferencePropertyIsDynamoNull()
     {
         var item = CreateValidTemplateItem("ITEM#BAD-NULL-STRING");
@@ -82,7 +82,7 @@ public class RequiredPropertyNullHandlingTests(DynamoContainerFixture fixture)
             .WithMessage("*DynamoDB NULL*");
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Materialization_Throws_WhenRequiredBoolPropertyIsDynamoNull()
     {
         var item = CreateValidTemplateItem("ITEM#BAD-NULL-BOOL");
@@ -103,7 +103,7 @@ public class RequiredPropertyNullHandlingTests(DynamoContainerFixture fixture)
             .WithMessage("*DynamoDB NULL*");
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Materialization_Throws_WhenRequiredNumericWireMemberIsMissing()
     {
         var item = CreateValidTemplateItem("ITEM#BAD-WIRE-MISSING-N");
@@ -125,7 +125,7 @@ public class RequiredPropertyNullHandlingTests(DynamoContainerFixture fixture)
             .WithMessage("*'N'*");
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Materialization_Throws_WhenRequiredBoolWireMemberIsMissing()
     {
         var item = CreateValidTemplateItem("ITEM#BAD-WIRE-MISSING-BOOL");
@@ -147,7 +147,7 @@ public class RequiredPropertyNullHandlingTests(DynamoContainerFixture fixture)
             .WithMessage("*'BOOL'*");
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Materialization_ReturnsNull_WhenNullablePropertyIsMissing()
     {
         var item = CreateValidTemplateItem("ITEM#OPTIONAL-MISSING-INT");
@@ -165,7 +165,7 @@ public class RequiredPropertyNullHandlingTests(DynamoContainerFixture fixture)
         results[0].NullableIntValue.Should().BeNull();
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Materialization_ReturnsNull_WhenNullablePropertyIsDynamoNull()
     {
         var item = CreateValidTemplateItem("ITEM#OPTIONAL-NULL-INT");
@@ -183,7 +183,7 @@ public class RequiredPropertyNullHandlingTests(DynamoContainerFixture fixture)
         results[0].NullableIntValue.Should().BeNull();
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ScalarProjection_Throws_WhenNonNullableValueTypeProjectionIsMissing()
     {
         var item = CreateValidTemplateItem("ITEM#PROJECTION-MISSING-INT");

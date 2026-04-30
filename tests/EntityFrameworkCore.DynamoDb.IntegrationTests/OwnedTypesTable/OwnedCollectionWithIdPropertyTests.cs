@@ -12,7 +12,7 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.OwnedTypesTable;
 public class OwnedCollectionWithIdPropertyTests(DynamoContainerFixture fixture)
     : OwnedCollectionWithIdPropertyTestFixture(fixture)
 {
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void ModelBuilds_WithoutException_WhenComplexCollectionElementHasIdProperty()
     {
         var model = Db.Model;
@@ -31,7 +31,7 @@ public class OwnedCollectionWithIdPropertyTests(DynamoContainerFixture fixture)
         complexCollection.ComplexType.ClrType.Should().Be(typeof(ScoredResult));
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SaveAndLoad_AnalysisReport_RoundTrips_WithIdAttributeNameMapping()
     {
         var report = new AnalysisReport
@@ -63,7 +63,7 @@ public class OwnedCollectionWithIdPropertyTests(DynamoContainerFixture fixture)
         loaded.Results[1].Score.Should().BeApproximately(0.7431f, 0.0001f);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SaveAndLoad_AnalysisReport_WithEmptyResults_RoundTrips()
     {
         var report = new AnalysisReport { Pk = "ANALYSIS#EMPTY1", Results = [], };

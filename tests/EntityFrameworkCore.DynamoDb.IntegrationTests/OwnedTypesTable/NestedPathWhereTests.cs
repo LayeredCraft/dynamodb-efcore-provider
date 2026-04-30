@@ -10,7 +10,7 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.OwnedTypesTable;
 public class NestedPathWhereTests(DynamoContainerFixture fixture)
     : OwnedTypesTableTestFixture(fixture)
 {
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Where_NestedEfPropertyChain_ReturnsMatchingItems()
     {
         var results =
@@ -34,7 +34,7 @@ public class NestedPathWhereTests(DynamoContainerFixture fixture)
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Where_SingleLevelOwnedProperty_ReturnsMatchingItems()
     {
         var results =
@@ -55,7 +55,7 @@ public class NestedPathWhereTests(DynamoContainerFixture fixture)
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Where_TwoLevelOwnedProperty_ReturnsMatchingItems()
     {
         var results =
@@ -77,7 +77,7 @@ public class NestedPathWhereTests(DynamoContainerFixture fixture)
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Where_ThreeLevelOwnedProperty_ReturnsMatchingItems()
     {
         var results =
@@ -99,7 +99,7 @@ public class NestedPathWhereTests(DynamoContainerFixture fixture)
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Where_TopLevelStringListIndex_ReturnsMatchingItems()
     {
         var results =
@@ -118,7 +118,7 @@ public class NestedPathWhereTests(DynamoContainerFixture fixture)
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Where_TopLevelIntListIndex_ReturnsMatchingItems()
     {
         var results = await Db.Items.Where(x => x.Ratings[0] > 3).ToListAsync(CancellationToken);
@@ -136,7 +136,7 @@ public class NestedPathWhereTests(DynamoContainerFixture fixture)
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Where_NonZeroListIndex_ReturnsMatchingItems()
     {
         var results = await Db.Items.Where(x => x.Tags[1] == "vip").ToListAsync(CancellationToken);

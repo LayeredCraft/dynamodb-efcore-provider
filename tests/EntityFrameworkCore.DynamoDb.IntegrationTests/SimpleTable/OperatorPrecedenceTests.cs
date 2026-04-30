@@ -10,7 +10,7 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SimpleTable;
 public class OperatorPrecedenceTests(DynamoContainerFixture fixture)
     : SimpleTableTestFixture(fixture)
 {
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task AndHasHigherPrecedenceThanOr()
     {
         // Test: a OR b AND c should be evaluated as a OR (b AND c)
@@ -38,7 +38,7 @@ public class OperatorPrecedenceTests(DynamoContainerFixture fixture)
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ExplicitParenthesesOverridePrecedence()
     {
         // Test: (a OR b) AND c should keep explicit parentheses
@@ -63,7 +63,7 @@ public class OperatorPrecedenceTests(DynamoContainerFixture fixture)
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ComparisonHasHigherPrecedenceThanLogical()
     {
         // Test: a > 5 AND b < 10 should not add extra parentheses around comparisons
@@ -85,7 +85,7 @@ public class OperatorPrecedenceTests(DynamoContainerFixture fixture)
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task AssociativeAndChain()
     {
         // Test: a AND b AND c AND d should not add any parentheses
@@ -112,7 +112,7 @@ public class OperatorPrecedenceTests(DynamoContainerFixture fixture)
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task AssociativeOrChain()
     {
         // Test: a OR b OR c OR d should not add any parentheses
@@ -142,7 +142,7 @@ public class OperatorPrecedenceTests(DynamoContainerFixture fixture)
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ComplexMixedPrecedence()
     {
         // Test: (a OR b) AND (c OR d) AND e
@@ -171,7 +171,7 @@ public class OperatorPrecedenceTests(DynamoContainerFixture fixture)
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task NestedOrInsideAndPreservesSemantics()
     {
         // Critical test: Validates that AND containing OR keeps OR parentheses
@@ -202,7 +202,7 @@ public class OperatorPrecedenceTests(DynamoContainerFixture fixture)
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task AllComparisonOperatorsHaveSamePrecedence()
     {
         // Test: Multiple comparison operators should not need parentheses

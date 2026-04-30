@@ -12,7 +12,7 @@ public class OwnedTypesModelValidationTests
 
     public OwnedTypesModelValidationTests(DynamoContainerFixture fixture) => _fixture = fixture;
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void OwnedEntityType_ThrowsNotSupported()
     {
         using var context = new OwnedTypeContext(CreateOptions<OwnedTypeContext>());
@@ -25,7 +25,7 @@ public class OwnedTypesModelValidationTests
             .WithMessage("*not supported by the DynamoDB provider*Use EF Core complex types*");
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void ComplexCollectionWithUnsupportedClrShape_ThrowsModelValidationError()
     {
         using var context = new UnsupportedComplexCollectionShapeContext(
