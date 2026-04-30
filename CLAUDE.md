@@ -68,6 +68,10 @@ Do not suppress warnings globally in the project file.
 - Do not commit anything under `.claude/do_not_commit/`.
 - Keep docs repo-relative (avoid machine-specific absolute paths).
 
+## Testing Guidance
+
+- For xUnit tests, prefer `[Fact(Timeout = TestConfiguration.DefaultTimeout)]` over plain `[Fact]`.
+
 ## Code Style
 
 - Prefer pattern matching over chained logical comparisons where possible.
@@ -83,4 +87,3 @@ Do not suppress warnings globally in the project file.
   - Public facing methods should contain a full doc string that documents parameters and return
     value as well as any exceptions that may be thrown, and summary. Remarks may be included but
     should be concise.
-    
