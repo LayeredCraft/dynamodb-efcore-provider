@@ -817,8 +817,8 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
         LoggerFactory.Clear();
 
         item.Profile!.DisplayName = "After";
-        var profileEntry = Db.Entry(item.Profile);
-        profileEntry.State.Should().Be(EntityState.Modified);
+        var profileEntry = Db.Entry(item).ComplexProperty("Profile");
+        profileEntry.IsModified.Should().BeTrue();
 
         var affected = await Db.SaveChangesAsync(CancellationToken);
         affected.Should().Be(1);
@@ -831,9 +831,9 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
             WHERE "pk" = ? AND "sk" = ? AND "version" = ?
             """);
 
-        // Owned entry must be Unchanged and original values must be refreshed.
-        profileEntry.State.Should().Be(EntityState.Unchanged);
-        profileEntry.Property(x => x.DisplayName).OriginalValue.Should().Be("After");
+        // Complex property entry must be reset and original values refreshed after SaveChanges.
+        profileEntry.IsModified.Should().BeFalse();
+        profileEntry.Property("DisplayName").OriginalValue.Should().Be("After");
 
         // A second SaveChanges must emit nothing — no spurious re-update.
         var secondAffected = await Db.SaveChangesAsync(CancellationToken);

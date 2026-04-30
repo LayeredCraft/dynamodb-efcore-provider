@@ -20,7 +20,7 @@ public sealed record CustomerItem
 
     public CustomerProfile? Profile { get; set; }
 
-    public List<CustomerContact> Contacts { get; set; } = [];
+    public List<CustomerContact>? Contacts { get; set; } = [];
 
     public Dictionary<string, string> Preferences { get; set; } = [];
 

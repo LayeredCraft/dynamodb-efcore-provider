@@ -84,6 +84,9 @@ internal sealed class EntityWritePlan(
         foreach (var cp in complexProperties)
         {
             var value = cp.GetGetter().GetClrValue(entity);
+            if (value is null && !cp.IsCollection)
+                continue;
+
             result[((IReadOnlyComplexProperty)cp).GetAttributeName()] =
                 SerializeComplexProperty(value, cp);
         }
@@ -154,7 +157,7 @@ internal sealed class EntityWritePlan(
     ///     Used only on the complex-type path; root entity scalar properties use the typed delegates
     ///     compiled at plan-build time.
     /// </summary>
-    private static AttributeValue SerializeScalarPropertyValue(object? value, IProperty property)
+    internal static AttributeValue SerializeScalarPropertyValue(object? value, IProperty property)
     {
         if (value is null)
             return new AttributeValue { NULL = true };

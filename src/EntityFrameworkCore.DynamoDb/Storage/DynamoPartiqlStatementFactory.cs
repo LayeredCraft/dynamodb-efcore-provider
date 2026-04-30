@@ -3,6 +3,7 @@ using System.Text;
 using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.ChangeTracking.Internal;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Update;
@@ -23,8 +24,10 @@ internal sealed class DynamoPartiqlStatementFactory(
 
         var setClauses = new List<string>();
         var setParameters = new List<AttributeValue>();
+        var removeClauses = new List<string>();
         var scalarAssignments = new List<(string Clause, AttributeValue Parameter)>();
         var nonScalarAssignments = new List<(string Clause, AttributeValue Parameter)>();
+        var publicEntry = rootEntry.Context.Entry(rootEntry.Entity);
 
         foreach (var property in entityType.GetProperties())
         {
@@ -58,20 +61,36 @@ internal sealed class DynamoPartiqlStatementFactory(
         }
 
         // Complex properties are fully replaced when any of their nested scalars changed.
-        // The entire M / L attribute is written atomically — no partial nested update.
         var entity = rootEntry.Entity;
         foreach (var cp in entityType.GetComplexProperties())
-        {
-            if (!IsComplexPropertyModified(entry, cp))
-                continue;
+            if (cp.IsCollection)
+            {
+                AppendComplexCollectionMutations(
+                    publicEntry.ComplexCollection(cp),
+                    cp,
+                    $"\"{EscapeIdentifier(((IReadOnlyComplexProperty)cp).GetAttributeName())}\"",
+                    setClauses,
+                    setParameters,
+                    removeClauses);
+            }
+            else
+            {
+                AppendComplexPropertyMutations(
+                    publicEntry.ComplexProperty(cp),
+                    cp,
+                    $"\"{EscapeIdentifier(((IReadOnlyComplexProperty)cp).GetAttributeName())}\"",
+                    setClauses,
+                    setParameters,
+                    removeClauses);
+            }
 
-            var cpKey = ((IReadOnlyComplexProperty)cp).GetAttributeName();
-            var cpValue = cp.GetGetter().GetClrValue(entity);
-            setClauses.Add($"\"{EscapeIdentifier(cpKey)}\" = ?");
-            setParameters.Add(EntityWritePlan.SerializeComplexProperty(cpValue, cp));
-        }
-
-        return FinalizeUpdateStatement(entry, entityType, tableName, setClauses, setParameters);
+        return FinalizeUpdateStatement(
+            entry,
+            entityType,
+            tableName,
+            setClauses,
+            removeClauses,
+            setParameters);
     }
 
     internal (string tableName, string sql, List<AttributeValue> parameters) BuildDeleteStatement(
@@ -152,9 +171,10 @@ internal sealed class DynamoPartiqlStatementFactory(
             IEntityType entityType,
             string tableName,
             List<string> setClauses,
+            List<string> removeClauses,
             List<AttributeValue> setParameters)
     {
-        if (setClauses.Count == 0)
+        if (setClauses.Count == 0 && removeClauses.Count == 0)
             return null;
 
         var whereParameters = new List<AttributeValue>();
@@ -184,7 +204,12 @@ internal sealed class DynamoPartiqlStatementFactory(
         var sqlBuilder =
             new StringBuilder().AppendLine($"UPDATE \"{EscapeIdentifier(tableName)}\"");
 
-        sqlBuilder.AppendLine($"SET {string.Join(", ", setClauses)}");
+        if (setClauses.Count > 0)
+            sqlBuilder.AppendLine($"SET {string.Join(", ", setClauses)}");
+
+        if (removeClauses.Count > 0)
+            sqlBuilder.AppendLine($"REMOVE {string.Join(", ", removeClauses)}");
+
         sqlBuilder.Append($"WHERE {string.Join(" AND ", whereClauses)}");
 
         var parameters = new List<AttributeValue>(setParameters.Count + whereParameters.Count);
@@ -195,23 +220,158 @@ internal sealed class DynamoPartiqlStatementFactory(
     }
 
     /// <summary>
-    ///     Returns <see langword="true" /> when a complex property (or any of its nested scalar
-    ///     properties) is modified in the current entry snapshot.
+    ///     Appends the UPDATE clauses required to persist a top-level or nested complex property.
+    ///     Complex references use nested-path SET/REMOVE clauses where possible, while complex
+    ///     collections are always replaced atomically when any tracked child entry changes.
     /// </summary>
-    private static bool IsComplexPropertyModified(IUpdateEntry entry, IComplexProperty cp)
-        => IsComplexTypeModified(entry, cp.ComplexType);
-
-    private static bool IsComplexTypeModified(IUpdateEntry entry, IComplexType complexType)
+    private void AppendComplexPropertyMutations(
+        ComplexPropertyEntry complexEntry,
+        IComplexProperty complexProperty,
+        string path,
+        List<string> setClauses,
+        List<AttributeValue> setParameters,
+        List<string> removeClauses)
     {
-        foreach (var property in complexType.GetProperties())
-            if (!property.IsRuntimeOnly() && entry.IsModified(property))
-                return true;
+        if (!complexEntry.IsModified)
+            return;
 
-        foreach (var nestedCp in complexType.GetComplexProperties())
-            if (IsComplexTypeModified(entry, nestedCp.ComplexType))
-                return true;
+        var currentValue = complexEntry.CurrentValue;
+        if (currentValue is null)
+        {
+            removeClauses.Add(path);
+            return;
+        }
 
-        return false;
+        if (ShouldReplaceWholeComplexProperty(complexEntry, complexProperty))
+        {
+            setClauses.Add($"{path} = ?");
+            setParameters.Add(EntityWritePlan.SerializeComplexProperty(currentValue, complexProperty));
+            return;
+        }
+
+        foreach (var property in complexProperty.ComplexType.GetProperties())
+        {
+            if (property.IsRuntimeOnly())
+                continue;
+
+            var propertyEntry = complexEntry.Property(property);
+            if (!propertyEntry.IsModified)
+                continue;
+
+            setClauses.Add($"{path}.\"{EscapeIdentifier(property.GetAttributeName())}\" = ?");
+            setParameters.Add(
+                EntityWritePlan.SerializeScalarPropertyValue(propertyEntry.CurrentValue, property));
+        }
+
+        foreach (var nestedComplexProperty in complexProperty.ComplexType.GetComplexProperties())
+        {
+            var nestedPath =
+                $"{path}.\"{EscapeIdentifier(((IReadOnlyComplexProperty)nestedComplexProperty).GetAttributeName())}\"";
+
+            if (nestedComplexProperty.IsCollection)
+            {
+                AppendComplexCollectionMutations(
+                    complexEntry.ComplexCollection(nestedComplexProperty),
+                    nestedComplexProperty,
+                    nestedPath,
+                    setClauses,
+                    setParameters,
+                    removeClauses);
+            }
+            else
+            {
+                AppendComplexPropertyMutations(
+                    complexEntry.ComplexProperty(nestedComplexProperty),
+                    nestedComplexProperty,
+                    nestedPath,
+                    setClauses,
+                    setParameters,
+                    removeClauses);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Appends the UPDATE clauses for a complex collection. Any tracked mutation within the
+    ///     collection replaces the whole list attribute; null removes the attribute entirely.
+    /// </summary>
+    private static void AppendComplexCollectionMutations(
+        ComplexCollectionEntry complexCollectionEntry,
+        IComplexProperty complexProperty,
+        string path,
+        List<string> setClauses,
+        List<AttributeValue> setParameters,
+        List<string> removeClauses)
+    {
+        if (!complexCollectionEntry.IsModified)
+            return;
+
+        if (complexCollectionEntry.CurrentValue is null)
+        {
+            removeClauses.Add(path);
+            return;
+        }
+
+        setClauses.Add($"{path} = ?");
+        setParameters.Add(
+            EntityWritePlan.SerializeComplexProperty(
+                complexCollectionEntry.CurrentValue,
+                complexProperty));
+    }
+
+    /// <summary>
+    ///     Returns <see langword="true" /> when a complex reference should be replaced as a full
+    ///     map instead of emitting nested-path scalar updates. This is needed when the original
+    ///     reference was effectively missing (all tracked scalar originals are null/default), so a
+    ///     nested path would target an absent DynamoDB parent attribute.
+    /// </summary>
+    private static bool ShouldReplaceWholeComplexProperty(
+        ComplexPropertyEntry complexEntry,
+        IComplexProperty complexProperty)
+    {
+        var hasModifiedScalar = false;
+
+        foreach (var property in complexProperty.ComplexType.GetProperties())
+        {
+            if (property.IsRuntimeOnly())
+                continue;
+
+            var propertyEntry = complexEntry.Property(property);
+            if (!propertyEntry.IsModified)
+                continue;
+
+            hasModifiedScalar = true;
+            if (!IsDefaultOrNull(propertyEntry.OriginalValue, property.ClrType))
+                return false;
+        }
+
+        foreach (var nestedComplexProperty in complexProperty.ComplexType.GetComplexProperties())
+        {
+            if (nestedComplexProperty.IsCollection)
+                continue;
+
+            var nestedEntry = complexEntry.ComplexProperty(nestedComplexProperty);
+            if (!nestedEntry.IsModified)
+                continue;
+
+            hasModifiedScalar = true;
+            if (!ShouldReplaceWholeComplexProperty(nestedEntry, nestedComplexProperty))
+                return false;
+        }
+
+        return hasModifiedScalar;
+    }
+
+    private static bool IsDefaultOrNull(object? value, Type clrType)
+    {
+        if (value is null)
+            return true;
+
+        var nonNullableType = Nullable.GetUnderlyingType(clrType) ?? clrType;
+        if (!nonNullableType.IsValueType)
+            return false;
+
+        return value.Equals(Activator.CreateInstance(nonNullableType));
     }
 
     private static bool IsScalarModifiedProperty(IProperty property)

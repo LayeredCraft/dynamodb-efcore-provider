@@ -625,25 +625,27 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
                                 },
                     },
             Contacts =
-                source
-                    .Contacts
-                    .Select(c => new CustomerContact
-                    {
-                        Kind = c.Kind,
-                        Value = c.Value,
-                        Verified = c.Verified,
-                        VerifiedAt = c.VerifiedAt,
-                        Address = c.Address is null
-                            ? null
-                            : new Address
-                            {
-                                Line1 = c.Address.Line1,
-                                City = c.Address.City,
-                                Country = c.Address.Country,
-                                PostalCode = c.Address.PostalCode,
-                            },
-                    })
-                    .ToList(),
+                source.Contacts is null
+                    ? null
+                    : source
+                        .Contacts
+                        .Select(c => new CustomerContact
+                        {
+                            Kind = c.Kind,
+                            Value = c.Value,
+                            Verified = c.Verified,
+                            VerifiedAt = c.VerifiedAt,
+                            Address = c.Address is null
+                                ? null
+                                : new Address
+                                {
+                                    Line1 = c.Address.Line1,
+                                    City = c.Address.City,
+                                    Country = c.Address.Country,
+                                    PostalCode = c.Address.PostalCode,
+                                },
+                        })
+                        .ToList(),
         };
 
         Db.Customers.Add(entity);
