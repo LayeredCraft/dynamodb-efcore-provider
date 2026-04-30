@@ -38,7 +38,6 @@ public class DynamoEntityEntryExtensionsTests
         complexType.FindProperty("__executeStatementResponse").Should().BeNull();
     }
 
-    [ComplexType]
     private sealed record Address
     {
         public string Street { get; set; } = null!;

@@ -29,7 +29,6 @@ public sealed record ComplexShapeItem
 }
 
 /// <summary>Represents the Profile type.</summary>
-[ComplexType]
 public sealed record Profile
 {
     public Address? Address { get; set; }
@@ -42,7 +41,6 @@ public sealed record Profile
 }
 
 /// <summary>Represents the Address type.</summary>
-[ComplexType]
 public sealed record Address
 {
     public string City { get; set; } = null!;
@@ -53,7 +51,6 @@ public sealed record Address
 }
 
 /// <summary>Represents the Geo type.</summary>
-[ComplexType]
 public sealed record Geo
 {
     public decimal Latitude { get; set; }
@@ -62,7 +59,6 @@ public sealed record Geo
 }
 
 /// <summary>Represents the Order type.</summary>
-[ComplexType]
 public sealed record Order
 {
     public List<OrderLine> Lines { get; set; } = [];
@@ -75,7 +71,6 @@ public sealed record Order
 }
 
 /// <summary>Represents the Payment type.</summary>
-[ComplexType]
 public sealed record Payment
 {
     public Card? Card { get; set; }
@@ -84,7 +79,6 @@ public sealed record Payment
 }
 
 /// <summary>Represents the Card type.</summary>
-[ComplexType]
 public sealed record Card
 {
     public int ExpMonth { get; set; }
@@ -95,7 +89,6 @@ public sealed record Card
 }
 
 /// <summary>Represents the OrderLine type.</summary>
-[ComplexType]
 public sealed record OrderLine
 {
     public int Quantity { get; set; }
@@ -104,7 +97,6 @@ public sealed record OrderLine
 }
 
 /// <summary>Represents the OrderSnapshot type.</summary>
-[ComplexType]
 public sealed record OrderSnapshot
 {
     public string SnapshotNumber { get; set; } = null!;
@@ -142,7 +134,6 @@ public sealed record AnalysisReport
 ///     Complex collection element with a CLR property named <c>Id</c> — mirrors the real-world
 ///     scenario that triggered the fix in <c>DynamoKeyDiscoveryConvention</c>.
 /// </summary>
-[ComplexType]
 public sealed record ScoredResult
 {
     public string Id { get; set; } = null!;

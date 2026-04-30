@@ -29,16 +29,12 @@ public class ComplexCollectionWithIdPropertyDbContext(DbContextOptions options) 
             builder.HasPartitionKey(x => x.Pk);
             builder.ComplexCollection(
                 x => x.Results,
-                results =>
-                {
-                    results.Property(r => r.Id).HasAttributeName("id");
-                    results
-                        .Property(r => r.Score)
-                        .HasConversion(
-                            new ValueConverter<float, string>(
-                                v => v.ToString("F4", CultureInfo.InvariantCulture),
-                                s => float.Parse(s, CultureInfo.InvariantCulture)));
-                });
+                results => results
+                    .Property(r => r.Score)
+                    .HasConversion(
+                        new ValueConverter<float, string>(
+                            v => v.ToString("F4", CultureInfo.InvariantCulture),
+                            s => float.Parse(s, CultureInfo.InvariantCulture))));
         });
 }
 

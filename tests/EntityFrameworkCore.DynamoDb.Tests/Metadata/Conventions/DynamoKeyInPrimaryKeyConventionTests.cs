@@ -1,4 +1,3 @@
-using System.ComponentModel.DataAnnotations.Schema;
 using Amazon.DynamoDBv2;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -138,7 +137,7 @@ public class DynamoKeyInPrimaryKeyConventionTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<LateShadowKeyEntity>(b =>
             {
-                DynamoEntityTypeBuilderExtensions.ToTable((EntityTypeBuilder)b, "LateShadowKeyTable");
+                ((EntityTypeBuilder)b).ToTable("LateShadowKeyTable");
                 b.HasPartitionKey("PK");
                 b.HasSortKey("SK");
                 b.Property<string>("PK");
@@ -189,7 +188,7 @@ public class DynamoKeyInPrimaryKeyConventionTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<SortKeyWithAutoDiscoveredPkEntity>(b =>
             {
-                DynamoEntityTypeBuilderExtensions.ToTable((EntityTypeBuilder)b, "AutoDiscoveredPkTable");
+                ((EntityTypeBuilder)b).ToTable("AutoDiscoveredPkTable");
                 b.HasSortKey(x => x.Category);
                 // No HasKey, no HasPartitionKey — 'Id' is auto-discovered as the partition key
             });
@@ -238,7 +237,7 @@ public class DynamoKeyInPrimaryKeyConventionTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<RedundantAnnotationEntity>(b =>
             {
-                DynamoEntityTypeBuilderExtensions.ToTable((EntityTypeBuilder)b, "RedundantAnnotationTable");
+                ((EntityTypeBuilder)b).ToTable("RedundantAnnotationTable");
                 b.HasPartitionKey(x => x.Id);
                 // EF would have auto-discovered 'Id' anyway
             });
@@ -325,7 +324,6 @@ public class DynamoKeyInPrimaryKeyConventionTests
         public ComplexPart Detail { get; set; } = null!;
     }
 
-    [ComplexType]
     private sealed record ComplexPart
     {
         /// <summary>Provides functionality for this member.</summary>

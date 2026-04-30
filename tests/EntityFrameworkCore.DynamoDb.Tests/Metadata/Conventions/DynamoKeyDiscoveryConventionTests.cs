@@ -522,7 +522,6 @@ public class DynamoKeyDiscoveryConventionTests
         public ComplexPart Detail { get; set; } = null!;
     }
 
-    [ComplexType]
     private sealed record ComplexPart
     {
         // This property's name would normally trigger discovery on an entity type, but complex

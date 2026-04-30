@@ -374,7 +374,6 @@ public class ComplexTypeProjectionTests
     }
 
     // Shared complex CLR type used by both root entity types.
-    [ComplexType]
     private sealed record SharedProfile
     {
         /// <summary>Age of the profile subject.</summary>

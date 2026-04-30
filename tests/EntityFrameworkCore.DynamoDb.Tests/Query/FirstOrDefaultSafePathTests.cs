@@ -428,7 +428,6 @@ public class FirstOrDefaultSafePathTests
     // ── Nested-path / list-index support types ──────────────────────────────
 
     /// <summary>Single-level complex type — used to exercise DynamoScalarAccessExpression in the guard.</summary>
-    [ComplexType]
     private sealed record FlatProfile
     {
         /// <summary>Non-key nested attribute.</summary>
@@ -436,7 +435,6 @@ public class FirstOrDefaultSafePathTests
     }
 
     /// <summary>Two-level complex type — wraps a second complex type to exercise deep nesting.</summary>
-    [ComplexType]
     private sealed record Address
     {
         /// <summary>Non-key nested attribute.</summary>
@@ -444,7 +442,6 @@ public class FirstOrDefaultSafePathTests
     }
 
     /// <summary>Outer complex type — contains a nested complex type for deep-path tests.</summary>
-    [ComplexType]
     private sealed record DeepProfile
     {
         /// <summary>Nested complex type.</summary>

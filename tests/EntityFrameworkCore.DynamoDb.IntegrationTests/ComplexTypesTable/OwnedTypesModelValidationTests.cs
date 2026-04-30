@@ -1,4 +1,3 @@
-using System.ComponentModel.DataAnnotations.Schema;
 using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -36,7 +35,8 @@ public class ComplexTypesModelValidationTests
         act
             .Should()
             .Throw<InvalidOperationException>()
-            .WithMessage("*complex collection*ICollection<ComplexProfile>*does not implement*IList<ComplexProfile>*");
+            .WithMessage(
+                "*complex collection*ICollection<ComplexProfile>*does not implement*IList<ComplexProfile>*");
     }
 
     private DbContextOptions<TContext> CreateOptions<TContext>() where TContext : DbContext
@@ -97,7 +97,6 @@ public class ComplexTypesModelValidationTests
     }
 
     /// <summary>Complex type — used in collection shape validation test.</summary>
-    [ComplexType]
     private sealed class ComplexProfile
     {
         public string DisplayName { get; set; } = string.Empty;

@@ -381,7 +381,6 @@ public class TableKeySchemaTests
         public ComplexDetail Detail { get; set; } = null!;
     }
 
-    [ComplexType]
     private sealed record ComplexDetail
     {
         /// <summary>Provides functionality for this member.</summary>

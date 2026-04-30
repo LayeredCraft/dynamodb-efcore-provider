@@ -351,7 +351,6 @@ public class DynamoAttributeNamingConventionApplierTests
     // Complex type inherits root entity convention
     // -------------------------------------------------------------------
 
-    [ComplexType]
     private sealed record Address
     {
         public string Street { get; set; } = null!;
@@ -440,7 +439,6 @@ public class DynamoAttributeNamingConventionApplierTests
     // Complex collection element properties get convention applied
     // -------------------------------------------------------------------
 
-    [ComplexType]
     private sealed record ComplexItem
     {
         public string Label { get; set; } = null!;

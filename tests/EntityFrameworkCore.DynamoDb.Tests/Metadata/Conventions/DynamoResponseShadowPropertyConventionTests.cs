@@ -57,7 +57,6 @@ public class DynamoResponseShadowPropertyConventionTests
     // Complex types do NOT receive the shadow property
     // -----------------------------------------------------------------------
 
-    [ComplexType]
     private sealed record Address
     {
         public string Street { get; set; } = null!;

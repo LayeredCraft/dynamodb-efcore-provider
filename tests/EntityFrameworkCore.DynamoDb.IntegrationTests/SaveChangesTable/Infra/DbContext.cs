@@ -41,28 +41,12 @@ public class SaveChangesTableDbContext(DbContextOptions options) : DbContext(opt
         modelBuilder.Entity<CustomerItem>(builder =>
         {
             builder.ToTable(SaveChangesItemTable.TableName);
-            builder.HasPartitionKey(x => x.Pk);
-            builder.HasSortKey(x => x.Sk);
             builder.Property(x => x.Version).IsConcurrencyToken();
-
-            builder.ComplexProperty(
-                x => x.Profile,
-                profile =>
-                {
-                    profile.ComplexProperty(x => x.PreferredAddress);
-                    profile.ComplexProperty(x => x.BillingAddress);
-                });
-
-            builder.ComplexCollection(
-                x => x.Contacts,
-                contact => contact.ComplexProperty(x => x.Address));
         });
 
         modelBuilder.Entity<OrderItem>(builder =>
         {
             builder.ToTable(SaveChangesItemTable.TableName);
-            builder.HasPartitionKey(x => x.Pk);
-            builder.HasSortKey(x => x.Sk);
             builder.Property(x => x.Version).IsConcurrencyToken();
 
             builder.ComplexProperty(
@@ -83,35 +67,19 @@ public class SaveChangesTableDbContext(DbContextOptions options) : DbContext(opt
         modelBuilder.Entity<ProductItem>(builder =>
         {
             builder.ToTable(SaveChangesItemTable.TableName);
-            builder.HasPartitionKey(x => x.Pk);
-            builder.HasSortKey(x => x.Sk);
             builder.Property(x => x.Version).IsConcurrencyToken();
-
-            builder.ComplexProperty(x => x.Dimensions);
-            builder.ComplexCollection(x => x.Variants);
         });
 
         modelBuilder.Entity<SessionItem>(builder =>
         {
             builder.ToTable(SaveChangesItemTable.TableName);
-            builder.HasPartitionKey(x => x.Pk);
-            builder.HasSortKey(x => x.Sk);
             builder.Property(x => x.Version).IsConcurrencyToken();
-
-            builder.ComplexProperty(
-                x => x.Device,
-                device => device.ComplexProperty(x => x.LastKnownAddress));
         });
 
         modelBuilder.Entity<ConverterCoverageItem>(builder =>
         {
             builder.ToTable(SaveChangesItemTable.TableName);
-            builder.HasPartitionKey(x => x.Pk);
-            builder.HasSortKey(x => x.Sk);
             builder.Property(x => x.Version).IsConcurrencyToken();
-            builder.Property(x => x.ExternalId);
-            builder.Property(x => x.OccurredAt);
-            builder.PrimitiveCollection(x => x.History).ElementType();
         });
 
         // CustomConverterItem uses a user-defined ProductCode type with a custom converter to
@@ -119,8 +87,6 @@ public class SaveChangesTableDbContext(DbContextOptions options) : DbContext(opt
         modelBuilder.Entity<CustomConverterItem>(builder =>
         {
             builder.ToTable(SaveChangesItemTable.TableName);
-            builder.HasPartitionKey(x => x.Pk);
-            builder.HasSortKey(x => x.Sk);
             builder.Property(x => x.Code).HasConversion<ProductCodeConverter>();
             builder.Property(x => x.OptionalCode).HasConversion<ProductCodeConverter>();
         });
@@ -128,8 +94,6 @@ public class SaveChangesTableDbContext(DbContextOptions options) : DbContext(opt
         modelBuilder.Entity<ConvertedCollectionItem>(builder =>
         {
             builder.ToTable(SaveChangesItemTable.TableName);
-            builder.HasPartitionKey(x => x.Pk);
-            builder.HasSortKey(x => x.Sk);
             builder.Property(x => x.Version).IsConcurrencyToken();
             builder
                 .Property(x => x.Scores)
@@ -146,8 +110,6 @@ public class SaveChangesTableDbContext(DbContextOptions options) : DbContext(opt
         modelBuilder.Entity<QuotedAttributeItem>(builder =>
         {
             builder.ToTable(SaveChangesItemTable.TableName);
-            builder.HasPartitionKey(x => x.Pk);
-            builder.HasSortKey(x => x.Sk);
             builder.Property(x => x.Version).IsConcurrencyToken();
             builder.Property(x => x.DisplayName).HasAttributeName("O'Brien");
         });
@@ -155,8 +117,6 @@ public class SaveChangesTableDbContext(DbContextOptions options) : DbContext(opt
         modelBuilder.Entity<SparseGsiItem>(builder =>
         {
             builder.ToTable(SaveChangesItemTable.TableName);
-            builder.HasPartitionKey(x => x.Pk);
-            builder.HasSortKey(x => x.Sk);
             builder.Property(x => x.Version).IsConcurrencyToken();
             builder.Property(x => x.Gs1Pk).HasAttributeName("gs1-pk");
             builder.Property(x => x.Gs1Sk).HasAttributeName("gs1-sk");
