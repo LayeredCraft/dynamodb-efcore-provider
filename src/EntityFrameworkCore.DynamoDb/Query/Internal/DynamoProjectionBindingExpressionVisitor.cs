@@ -241,7 +241,7 @@ public class DynamoProjectionBindingExpressionVisitor(
             var entityProjection =
                 new DynamoEntityProjectionExpression(entityType, sqlExpressionFactory);
 
-            foreach (var property in entityType.GetProperties())
+            foreach (var property in GetProjectedProperties(entityType))
             {
                 if (property.IsRuntimeOnly())
                     continue;
@@ -277,7 +277,7 @@ public class DynamoProjectionBindingExpressionVisitor(
             throw new InvalidOperationException(
                 $"Expected DynamoEntityProjectionExpression but got {mappedProjection.GetType().Name}");
 
-        foreach (var property in entityType.GetProperties())
+        foreach (var property in GetProjectedProperties(entityType))
         {
             if (property.IsRuntimeOnly())
                 continue;
@@ -307,6 +307,25 @@ public class DynamoProjectionBindingExpressionVisitor(
         {
             var shaperEntityType = shaperExpression.StructuralType as IEntityType;
             var propertyName = node.Member.Name;
+
+            // Complex property access (e.g. Select(e => e.Profile)): delegate to context-aware
+            // complex type projection so the removing visitor can push the correct map context.
+            var complexProperty = shaperExpression.StructuralType.FindComplexProperty(propertyName);
+            if (complexProperty != null)
+            {
+                if (!_indexBasedBinding)
+                    return QueryCompilationContext.NotTranslatedExpression;
+
+                var attributeName = ((IReadOnlyComplexProperty)complexProperty).GetAttributeName();
+                _selectExpression.AddEmbeddedAttributeToProjection(attributeName);
+
+                var innerShaper = new StructuralTypeShaperExpression(
+                    complexProperty.ComplexType,
+                    Expression.Constant(ValueBuffer.Empty),
+                    complexProperty.IsNullable);
+
+                return new DynamoComplexTypeProjectionExpression(complexProperty, innerShaper);
+            }
 
             var sqlProperty =
                 ResolveScalarPropertyExpression(shaperEntityType, propertyName)
@@ -375,10 +394,30 @@ public class DynamoProjectionBindingExpressionVisitor(
             && node.Arguments.Count == 2
             && node.Arguments[1] is ConstantExpression { Value: string propertyName })
         {
-            var ownerEntityType =
-                (node.Arguments[0] as StructuralTypeShaperExpression)
-                ?.StructuralType as IEntityType;
-            ownerEntityType ??= model.FindEntityType(node.Arguments[0].Type);
+            var ownerStructuralType =
+                (node.Arguments[0] as StructuralTypeShaperExpression)?.StructuralType
+                ?? (ITypeBase?)model.FindEntityType(node.Arguments[0].Type);
+
+            // Complex property via EF.Property<T>(e, "Profile"): same context-push logic as
+            // VisitMember.
+            var complexProperty = ownerStructuralType?.FindComplexProperty(propertyName);
+            if (complexProperty != null)
+            {
+                if (!_indexBasedBinding)
+                    return QueryCompilationContext.NotTranslatedExpression;
+
+                var attributeName = ((IReadOnlyComplexProperty)complexProperty).GetAttributeName();
+                _selectExpression.AddEmbeddedAttributeToProjection(attributeName);
+
+                var innerShaper = new StructuralTypeShaperExpression(
+                    complexProperty.ComplexType,
+                    Expression.Constant(ValueBuffer.Empty),
+                    complexProperty.IsNullable);
+
+                return new DynamoComplexTypeProjectionExpression(complexProperty, innerShaper);
+            }
+
+            var ownerEntityType = ownerStructuralType as IEntityType;
 
             var sqlProperty =
                 ResolveScalarPropertyExpression(ownerEntityType, propertyName)
@@ -544,5 +583,37 @@ public class DynamoProjectionBindingExpressionVisitor(
             sqlExpressionFactory.Property(property.GetAttributeName(), property.ClrType);
 
         return sqlProperty.ApplyTypeMapping(property.GetTypeMapping());
+    }
+
+    /// <summary>
+    ///     Gets properties that should be projected for entity materialization, including
+    ///     base-type and descendant declared properties required for shared-table inheritance
+    ///     materialization.
+    /// </summary>
+    private static IEnumerable<IProperty> GetProjectedProperties(IEntityType entityType)
+        => GetProjectedEntityTypes(entityType).SelectMany(static t => t.GetDeclaredProperties());
+
+    /// <summary>
+    ///     Gets the hierarchy entity types whose declared members must be projected for the current
+    ///     query shape.
+    /// </summary>
+    /// <remarks>
+    ///     For root/shared-table queries we include each concrete descendant so discriminator-based
+    ///     materialization can bind derived properties. For derived-type queries we include the
+    ///     queried type, its base chain, and only its own descendants (not siblings).
+    /// </remarks>
+    private static IEnumerable<IEntityType> GetProjectedEntityTypes(IEntityType entityType)
+    {
+        HashSet<IEntityType> projectedTypes = [];
+
+        var concreteTypes = entityType.GetConcreteDerivedTypesInclusive().ToList();
+        if (concreteTypes.Count == 0)
+            concreteTypes.Add(entityType);
+
+        foreach (var concreteType in concreteTypes)
+            foreach (var hierarchyType in concreteType.GetAllBaseTypesInclusive())
+                projectedTypes.Add(hierarchyType);
+
+        return projectedTypes;
     }
 }

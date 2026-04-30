@@ -255,7 +255,7 @@ public class SelectExpression(string tableName, string? queryEntityTypeName = nu
             // Handle entity projections specially - expand into individual properties
             if (expression is DynamoEntityProjectionExpression entityProjection)
             {
-                foreach (var property in entityProjection.EntityType.GetProperties())
+                foreach (var property in GetProjectedProperties(entityProjection.EntityType))
                 {
                     if (property.IsRuntimeOnly())
                         continue;
@@ -280,7 +280,8 @@ public class SelectExpression(string tableName, string? queryEntityTypeName = nu
                 }
 
                 // Add complex property map attributes so they are included in the SELECT list
-                foreach (var complexProperty in entityProjection.EntityType.GetComplexProperties())
+                foreach (var complexProperty in GetProjectedComplexProperties(
+                    entityProjection.EntityType))
                 {
                     var attributeName =
                         ((IReadOnlyComplexProperty)complexProperty).GetAttributeName();
@@ -325,6 +326,47 @@ public class SelectExpression(string tableName, string? queryEntityTypeName = nu
         var index = _projection.Count;
         _projection.Add(projection);
         return index;
+    }
+
+    /// <summary>
+    ///     Gets scalar properties that must be projected for entity materialization, including
+    ///     declared properties across the query-relevant inheritance hierarchy.
+    /// </summary>
+    private static IEnumerable<IProperty> GetProjectedProperties(IEntityType entityType)
+        => GetProjectedEntityTypes(entityType)
+            .SelectMany(static type => type.GetDeclaredProperties());
+
+    /// <summary>
+    ///     Gets complex properties that must be projected for entity materialization, including
+    ///     declared complex properties across the query-relevant inheritance hierarchy.
+    /// </summary>
+    private static IEnumerable<IComplexProperty>
+        GetProjectedComplexProperties(IEntityType entityType)
+        => GetProjectedEntityTypes(entityType)
+            .SelectMany(static type => type.GetDeclaredComplexProperties());
+
+    /// <summary>
+    ///     Gets hierarchy entity types whose declared members must be projected for the current
+    ///     query entity type.
+    /// </summary>
+    /// <remarks>
+    ///     Includes the queried entity, its base chain, and any concrete descendants (plus their
+    ///     base chains) so discriminator-based materialization has every attribute needed, while
+    ///     avoiding sibling-only members for leaf derived queries.
+    /// </remarks>
+    private static IEnumerable<IEntityType> GetProjectedEntityTypes(IEntityType entityType)
+    {
+        HashSet<IEntityType> projectedTypes = [];
+
+        var concreteTypes = entityType.GetConcreteDerivedTypesInclusive().ToList();
+        if (concreteTypes.Count == 0)
+            concreteTypes.Add(entityType);
+
+        foreach (var concreteType in concreteTypes)
+            foreach (var hierarchyType in concreteType.GetAllBaseTypesInclusive())
+                projectedTypes.Add(hierarchyType);
+
+        return projectedTypes;
     }
 
     /// <inheritdoc />

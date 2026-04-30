@@ -341,7 +341,7 @@ public class DynamoSqlTranslatingExpressionVisitor(
 
             var cpAttributeName = ((IReadOnlyComplexProperty)complexProperty).GetAttributeName();
             sqlExpr = sqlExpr == null
-                ? sqlExpressionFactory.Property(cpAttributeName, typeof(object))
+                ? new DynamoComplexPropertyAccessExpression(complexProperty)
                 : new DynamoScalarAccessExpression(sqlExpr, cpAttributeName, typeof(object));
             currentType = complexProperty.ComplexType;
         }

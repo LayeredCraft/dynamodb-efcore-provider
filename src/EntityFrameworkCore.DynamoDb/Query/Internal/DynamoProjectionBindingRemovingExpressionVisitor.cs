@@ -164,6 +164,11 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
         if (node is DynamoComplexPropertyInitializationExpression complexPropInit)
             return VisitComplexPropertyInitialization(complexPropInit);
 
+        // Direct complex-type projection from Select(e => e.Profile) or Select(e => new { e.Profile
+        // }).
+        if (node is DynamoComplexTypeProjectionExpression complexTypeProjection)
+            return VisitComplexTypeProjection(complexTypeProjection);
+
         if (node is DynamoComplexCollectionInitializationExpression complexCollInit)
             return VisitComplexCollectionInitialization(complexCollInit);
 
@@ -319,6 +324,48 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
             [complexMapVariable],
             Assign(complexMapVariable, readComplexMapExpression),
             Assign(complexInit.MemberAccess, complexInstance));
+    }
+
+    /// <summary>
+    ///     Visits a direct complex-type projection expression (<c>Select(e =&gt; e.Profile)</c>).
+    ///     Reads the complex property's map attribute from the current context, pushes it as the
+    ///     new attribute context for the inner materializer, and returns the materialized value
+    ///     directly (nullable-guarded when the property is nullable).
+    /// </summary>
+    private Expression VisitComplexTypeProjection(DynamoComplexTypeProjectionExpression projection)
+    {
+        var cp = projection.ComplexProperty;
+        var attributeName = ((IReadOnlyComplexProperty)cp).GetAttributeName();
+        var required = !cp.IsNullable;
+        var path = $"{cp.DeclaringType.DisplayName()}.{cp.Name}";
+
+        var complexMapVariable = Variable(
+            typeof(Dictionary<string, AttributeValue>),
+            $"complex_{attributeName}_map");
+
+        var readComplexMapExpression = CreateReadComplexMapExpression(
+            _attributeContextStack.Peek(),
+            attributeName,
+            required,
+            path);
+
+        _attributeContextStack.Push(complexMapVariable);
+        var visitedMaterializer = Visit(projection.InnerShaper);
+        _attributeContextStack.Pop();
+
+        Expression complexInstance = cp.IsNullable
+            ? Condition(
+                Equal(
+                    complexMapVariable,
+                    Constant(null, typeof(Dictionary<string, AttributeValue>))),
+                Constant(null, cp.ClrType),
+                Convert(visitedMaterializer, cp.ClrType))
+            : Convert(visitedMaterializer, cp.ClrType);
+
+        return Block(
+            [complexMapVariable],
+            Assign(complexMapVariable, readComplexMapExpression),
+            complexInstance);
     }
 
     /// <summary>
