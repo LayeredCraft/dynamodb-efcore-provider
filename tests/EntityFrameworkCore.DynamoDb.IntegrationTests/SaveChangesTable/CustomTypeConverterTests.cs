@@ -11,7 +11,7 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SaveChangesTable;
 public class CustomTypeConverterTests(DynamoContainerFixture fixture)
     : SaveChangesTableTestFixture(fixture)
 {
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SaveChanges_NonNullableCustomType_StoresConverterOutput()
     {
         // ProductCode → string via ProductCodeConverter, taking the boxed fallback path.
@@ -34,7 +34,7 @@ public class CustomTypeConverterTests(DynamoContainerFixture fixture)
         raw["optionalCode"].NULL.Should().BeTrue();
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SaveChanges_NullableCustomTypeWithValue_StoresConverterOutput()
     {
         // Nullable<ProductCode> with a value — exercises the nullable wrapping boxed fallback path.

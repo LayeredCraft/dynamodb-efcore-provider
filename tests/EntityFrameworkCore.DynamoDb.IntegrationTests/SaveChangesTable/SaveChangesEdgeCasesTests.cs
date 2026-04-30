@@ -14,7 +14,7 @@ public class SaveChangesEdgeCasesTests(DynamoContainerFixture fixture)
 {
     // ── No-op ────────────────────────────────────────────────────────────────
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ZeroChanges_ReturnsZero_AndNoWritesEmitted()
     {
         // Fresh context with nothing tracked — SaveChanges should be a no-op.
@@ -26,7 +26,7 @@ public class SaveChangesEdgeCasesTests(DynamoContainerFixture fixture)
 
     // ── acceptAllChangesOnSuccess = false ─────────────────────────────────────
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task AcceptAllChangesFalse_SingleRoot_PersistsButKeepsEntryPending()
     {
         // EF Core standard behavior: SaveChanges(false) persists the write but skips the
@@ -70,7 +70,7 @@ public class SaveChangesEdgeCasesTests(DynamoContainerFixture fixture)
 
     // ── Statement-length guard ────────────────────────────────────────────────
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Insert_WithStatementExceeding8192Chars_ThrowsBeforeAnyWrite()
     {
         // This test verifies the provider's PartiQL statement-size guard fires before

@@ -5,7 +5,7 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SaveChangesTable;
 public class ConvertedCollectionAndEscapingSaveChangesTests(DynamoContainerFixture fixture)
     : SaveChangesTableTestFixture(fixture)
 {
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SaveChangesAsync_AddedConvertedCollectionProperty_StoresAsScalar()
     {
         var item = new ConvertedCollectionItem
@@ -27,7 +27,7 @@ public class ConvertedCollectionAndEscapingSaveChangesTests(DynamoContainerFixtu
             """);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SaveChangesAsync_ModifiedConvertedCollectionProperty_PersistsAndEmitsUpdate()
     {
         var item = new ConvertedCollectionItem
@@ -56,7 +56,7 @@ public class ConvertedCollectionAndEscapingSaveChangesTests(DynamoContainerFixtu
             """);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SaveChangesAsync_InsertAttributeNameWithSingleQuote_EscapesStringLiteral()
     {
         var item = new QuotedAttributeItem
@@ -79,7 +79,7 @@ public class ConvertedCollectionAndEscapingSaveChangesTests(DynamoContainerFixtu
             """);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task
         SaveChangesAsync_UpdateAttributeNameWithSingleQuote_EmitsDoubleQuotedIdentifier()
     {
@@ -112,7 +112,7 @@ public class ConvertedCollectionAndEscapingSaveChangesTests(DynamoContainerFixtu
             """);
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task
         SaveChangesAsync_DeleteAttributeNameWithSingleQuote_EmitsDoubleQuotedIdentifier()
     {

@@ -11,7 +11,7 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SaveChangesTable;
 public class SaveChangesModelValidationTests(DynamoContainerFixture fixture)
     : SaveChangesTableTestFixture(fixture)
 {
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SaveChanges_UnmappedScalarProperty_ThrowsBeforeWrite()
     {
         var item = new UnmappedScalarItem
@@ -33,7 +33,7 @@ public class SaveChangesModelValidationTests(DynamoContainerFixture fixture)
         (await GetItemAsync(item.Pk, item.Sk, CancellationToken)).Should().BeNull();
     }
 
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SaveChanges_RowVersionConcurrencyShape_ThrowsBeforeWrite()
     {
         var item = new RowVersionItem

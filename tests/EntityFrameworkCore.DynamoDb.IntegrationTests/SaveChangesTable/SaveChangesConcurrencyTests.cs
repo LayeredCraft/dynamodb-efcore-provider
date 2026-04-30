@@ -20,7 +20,7 @@ public class SaveChangesConcurrencyTests(DynamoContainerFixture fixture)
     ///     <see cref="DbUpdateException" /> (inner: <c>DuplicateItemException</c>) — the provider maps the
     ///     AWS SDK exception to the appropriate EF exception type.
     /// </summary>
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task AddAsync_DuplicateKey_ThrowsDbUpdateException()
     {
         // Seed the item directly so the key already exists before the EF INSERT.
@@ -66,7 +66,7 @@ public class SaveChangesConcurrencyTests(DynamoContainerFixture fixture)
     ///     An out-of-band write that bumps <c>Version</c> while the application holds a stale entity
     ///     snapshot causes <see cref="DbUpdateConcurrencyException" /> on the next UPDATE.
     /// </summary>
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task UpdateAsync_StaleVersion_ThrowsDbUpdateConcurrencyException()
     {
         var customer = new CustomerItem
@@ -107,7 +107,7 @@ public class SaveChangesConcurrencyTests(DynamoContainerFixture fixture)
     ///     An out-of-band write that bumps <c>Version</c> while the application holds a stale entity
     ///     snapshot causes <see cref="DbUpdateConcurrencyException" /> on the next DELETE.
     /// </summary>
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task DeleteAsync_StaleVersion_ThrowsDbUpdateConcurrencyException()
     {
         var customer = new CustomerItem
@@ -143,7 +143,7 @@ public class SaveChangesConcurrencyTests(DynamoContainerFixture fixture)
     // ──────────────────────────────────────────────────────────────────────────────
 
     /// <summary>After a successful UPDATE, the manually assigned <c>Version</c> is persisted.</summary>
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task UpdateAsync_ManualTokenMutation_PersistsAssignedVersion()
     {
         var customer = new CustomerItem
@@ -178,7 +178,7 @@ public class SaveChangesConcurrencyTests(DynamoContainerFixture fixture)
     ///     Two sequential SaveChanges calls on the same entity both succeed when the application
     ///     advances the concurrency token from 1 → 2 → 3.
     /// </summary>
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task UpdateAsync_ConsecutiveSaves_TrackManualVersionCorrectly()
     {
         var customer = new CustomerItem
@@ -228,7 +228,7 @@ public class SaveChangesConcurrencyTests(DynamoContainerFixture fixture)
     // ──────────────────────────────────────────────────────────────────────────────
 
     /// <summary>An UPDATE with correct original token and new token value succeeds.</summary>
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task UpdateAsync_CorrectVersion_Succeeds()
     {
         var customer = new CustomerItem
@@ -261,7 +261,7 @@ public class SaveChangesConcurrencyTests(DynamoContainerFixture fixture)
     }
 
     /// <summary>A DELETE with the correct version succeeds and the item is gone.</summary>
-    [Fact(Timeout = 10_000)]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task DeleteAsync_CorrectVersion_Succeeds()
     {
         var customer = new CustomerItem
