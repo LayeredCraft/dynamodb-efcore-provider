@@ -26,6 +26,13 @@ public sealed class DynamoConventionSetBuilder(
             new DynamoKeyDiscoveryConvention(Dependencies));
         conventionSet.Replace<DiscriminatorConvention>(
             new DynamoDiscriminatorConvention(Dependencies));
+        var ownedEntityTypeValidationConvention = new DynamoOwnedEntityTypeValidationConvention();
+        conventionSet.EntityTypeAddedConventions.Add(ownedEntityTypeValidationConvention);
+        conventionSet.ForeignKeyOwnershipChangedConventions.Add(
+            ownedEntityTypeValidationConvention);
+        conventionSet.ModelFinalizingConventions.Add(ownedEntityTypeValidationConvention);
+        conventionSet.ModelFinalizingConventions.Add(
+            new DynamoComplexContainmentValidationConvention());
         // Must run before DynamoKeyAnnotationConvention so PK/SK attribute names are already
         // transformed when key validation reads them via GetAttributeName().
         conventionSet.ModelFinalizingConventions.Add(new DynamoAttributeNamingConventionApplier());
