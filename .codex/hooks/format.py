@@ -1,11 +1,13 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.11"
+# dependencies = ["loguru>=0.7.3"]
 # ///
 
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import sys
@@ -14,7 +16,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 from time import perf_counter
 
+from loguru import logger
+
 DOTSETTINGS_FILE_NAME = "EntityFrameworkCore.DynamoDb.sln.DotSettings"
+LOG_LEVEL_ENV = "CODEX_HOOK_LOG_LEVEL"
+LOG_RETENTION_ENV = "CODEX_HOOK_LOG_RETENTION"
+LOG_ROTATION_ENV = "CODEX_HOOK_LOG_ROTATION"
+DEFAULT_LOG_LEVEL = "ERROR"
+DEFAULT_LOG_RETENTION = "14 days"
+DEFAULT_LOG_ROTATION = "10 MB"
 
 
 def _read_hook_input(raw_input: str) -> dict:
@@ -52,14 +62,24 @@ def _log_file_name(session_id: object) -> str:
     return f"{safe_session_id}.jsonl"
 
 
-def _write_log_entry(session_id: object, entry: dict) -> None:
+def _configure_logger(session_id: object) -> None:
     logs_dir = _logs_dir()
     logs_dir.mkdir(parents=True, exist_ok=True)
     log_path = logs_dir / _log_file_name(session_id)
 
-    with log_path.open("a", encoding="utf-8") as log_file:
-        log_file.write(json.dumps(entry, ensure_ascii=False, sort_keys=True))
-        log_file.write("\n")
+    logger.remove()
+    logger.add(
+        log_path,
+        level=os.environ.get(LOG_LEVEL_ENV, DEFAULT_LOG_LEVEL),
+        retention=os.environ.get(LOG_RETENTION_ENV, DEFAULT_LOG_RETENTION),
+        rotation=os.environ.get(LOG_ROTATION_ENV, DEFAULT_LOG_ROTATION),
+        serialize=True,
+        enqueue=False,
+    )
+
+
+def _log_entry(level: str, message: str, entry: dict) -> None:
+    logger.bind(**entry).log(level, message)
 
 
 def _absolute_edited_file(cwd: object, edited_file: str) -> str:
@@ -140,6 +160,7 @@ def main() -> int:
         entry = {
             "logged_at": datetime.now(timezone.utc).isoformat(),
             "cwd": cwd,
+            "level": "INFO",
             "session_id": session_id,
             "turn_id": payload.get("turn_id"),
             "tool_use_id": payload.get("tool_use_id"),
@@ -147,10 +168,13 @@ def main() -> int:
             "format_results": [_run_formatter(cwd, edited_file) for edited_file in edited_files],
             "duration_seconds": round(perf_counter() - hook_started_at, 6),
         }
+        level = "INFO"
+        message = "Formatted edited files"
     except Exception as error:
         entry = {
             "logged_at": datetime.now(timezone.utc).isoformat(),
             "cwd": cwd,
+            "level": "ERROR",
             "session_id": session_id,
             "error": {
                 "type": type(error).__name__,
@@ -160,8 +184,11 @@ def main() -> int:
             "raw_input": raw_input,
             "duration_seconds": round(perf_counter() - hook_started_at, 6),
         }
+        level = "ERROR"
+        message = "Codex format hook failed"
 
-    _write_log_entry(session_id, entry)
+    _configure_logger(session_id)
+    _log_entry(level, message, entry)
     return 0
 
 
