@@ -11,15 +11,20 @@ public class SecondaryIndexAutoSelectionTests(DynamoContainerFixture fixture)
     : SecondaryIndexTableTestFixture(fixture)
 {
     protected override DynamoAutomaticIndexSelectionMode AutomaticIndexSelectionMode
-        => DynamoAutomaticIndexSelectionMode.Conservative;
+        => DynamoAutomaticIndexSelectionMode.On;
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public async Task Conservative_WhereOnGsiPk_AutoSelects_ByStatusIndex()
+    public async Task On_WhereOnGsiPkAndSk_AutoSelects_ByStatusIndex_AndEmitsDiagnostic()
     {
-        var results =
-            await Db.Orders.Where(o => o.Status == "PENDING").ToListAsync(CancellationToken);
+        var results = await Db
+            .Orders
+            .Where(o => o.Status == "PENDING" && o.CreatedAt == "2024-01-10")
+            .ToListAsync(CancellationToken);
 
-        var expected = OrderItems.Items.Where(o => o.Status == "PENDING").ToList();
+        var expected = OrderItems
+            .Items
+            .Where(o => o.Status == "PENDING" && o.CreatedAt == "2024-01-10")
+            .ToList();
         results.Should().BeEquivalentTo(expected);
 
         LoggerFactory
@@ -35,12 +40,32 @@ public class SecondaryIndexAutoSelectionTests(DynamoContainerFixture fixture)
             """
             SELECT "customerId", "orderId", "createdAt", "priority", "region", "status"
             FROM "SecondaryIndexOrders"."ByStatus"
+            WHERE "status" = 'PENDING' AND "createdAt" = '2024-01-10'
+            """);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task DefaultMode_WhereOnGsiPk_AutoSelects_ByStatusIndex()
+    {
+        await using var db = new SecondaryIndexDbContext(
+            CreateOptions<SecondaryIndexDbContext>(options => options.DynamoDbClient(Client)));
+
+        var results =
+            await db.Orders.Where(o => o.Status == "PENDING").ToListAsync(CancellationToken);
+
+        var expected = OrderItems.Items.Where(o => o.Status == "PENDING").ToList();
+        results.Should().BeEquivalentTo(expected);
+
+        AssertSql(
+            """
+            SELECT "customerId", "orderId", "createdAt", "priority", "region", "status"
+            FROM "SecondaryIndexOrders"."ByStatus"
             WHERE "status" = 'PENDING'
             """);
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public async Task Conservative_WhereOnGsiPk_WithSkRange_AutoSelects_AndProducesCorrectResults()
+    public async Task On_WhereOnGsiPk_WithSkRange_AutoSelects_AndProducesCorrectResults()
     {
         var results = await Db
             .Orders
@@ -64,7 +89,7 @@ public class SecondaryIndexAutoSelectionTests(DynamoContainerFixture fixture)
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public async Task Conservative_WhereOnTablePk_DoesNotAutoSelectGsi_StaysOnBaseTable()
+    public async Task On_WhereOnTablePk_DoesNotAutoSelectGsi_StaysOnBaseTable()
     {
         var results =
             await Db.Orders.Where(o => o.CustomerId == "C#1").ToListAsync(CancellationToken);
@@ -81,7 +106,7 @@ public class SecondaryIndexAutoSelectionTests(DynamoContainerFixture fixture)
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public async Task Conservative_WhereOnTablePk_LsiCandidates_AutoSelects_WhenOrderingMatches()
+    public async Task On_WhereOnTablePk_LsiCandidates_AutoSelects_WhenOrderingMatches()
     {
         List<OrderItem>? results = null;
         try
@@ -114,7 +139,7 @@ public class SecondaryIndexAutoSelectionTests(DynamoContainerFixture fixture)
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public async Task Conservative_WhereOnTablePk_AmbiguousLsi_FallsBackToBaseTable()
+    public async Task On_WhereOnTablePk_AmbiguousLsi_FallsBackToBaseTable()
     {
         var results =
             await Db.Orders.Where(o => o.CustomerId == "C#1").ToListAsync(CancellationToken);
@@ -136,7 +161,7 @@ public class SecondaryIndexAutoSelectionTests(DynamoContainerFixture fixture)
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public async Task Conservative_ContainsOnGsiPk_AutoSelects_ByStatusIndex()
+    public async Task On_ContainsOnGsiPk_AutoSelects_ByStatusIndex()
     {
         var statusList = new List<string> { "PENDING", "SHIPPED" };
 
@@ -165,7 +190,7 @@ public class SecondaryIndexAutoSelectionTests(DynamoContainerFixture fixture)
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public async Task Conservative_UnsafeOrPredicate_BlocksAutoSelection_EmitsRejectionDiagnostics()
+    public async Task On_UnsafeOrPredicate_BlocksAutoSelection_EmitsRejectionDiagnostics()
     {
         _ = await Db
             .Orders
@@ -196,8 +221,7 @@ public class SecondaryIndexAutoSelectionTests(DynamoContainerFixture fixture)
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public async Task
-        Conservative_WhereOnNonIndexPkAttribute_AllCandidatesRejected_EmitsIdxDiagnostics()
+    public async Task On_WhereOnNonIndexPkAttribute_AllCandidatesRejected_EmitsIdxDiagnostics()
     {
         _ = await Db.Orders.Where(o => o.Priority == 1).ToListAsync(CancellationToken);
 
@@ -230,7 +254,7 @@ public class SecondaryIndexAutoSelectionTests(DynamoContainerFixture fixture)
         _ = await Db
             .Orders
             .WithIndex("ByStatus")
-            .Where(o => o.Status == "PENDING")
+            .Where(o => o.Status == "PENDING" && o.CreatedAt == "2024-01-10")
             .ToListAsync(CancellationToken);
 
         LoggerFactory
@@ -251,12 +275,12 @@ public class SecondaryIndexAutoSelectionTests(DynamoContainerFixture fixture)
             """
             SELECT "customerId", "orderId", "createdAt", "priority", "region", "status"
             FROM "SecondaryIndexOrders"."ByStatus"
-            WHERE "status" = 'PENDING'
+            WHERE "status" = 'PENDING' AND "createdAt" = '2024-01-10'
             """);
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public async Task Conservative_GsiPkWithOrderBySk_AutoSelects_ScoringWinner()
+    public async Task On_GsiPkWithOrderBySk_AutoSelects_ScoringWinner()
     {
         try
         {
@@ -286,7 +310,7 @@ public class SecondaryIndexAutoSelectionTests(DynamoContainerFixture fixture)
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public async Task Conservative_NoPredicate_EmitsNoCompatibleIndex_StaysOnBaseTable()
+    public async Task On_NoPredicate_EmitsNoCompatibleIndex_StaysOnBaseTable()
     {
         _ = await Db.Orders.ToListAsync(CancellationToken);
 

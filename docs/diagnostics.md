@@ -218,9 +218,9 @@ info: Microsoft.EntityFrameworkCore.Query[30106]
       Index 'ByStatus-index' on table 'Orders' was auto-selected.
 ```
 
-In `Conservative` mode the message reads "was auto-selected" and the query is rewritten to target
-the index. In `SuggestOnly` mode the message reads "would be selected in Conservative mode" and
-the query is not rewritten — useful for auditing which indexes would fire without changing
+In `On` mode the message reads "was auto-selected" and the query is rewritten to target the index.
+In `SuggestOnly` mode the message reads "would be auto-selected if automatic index selection were
+On" and the query is not rewritten — useful for auditing which indexes would fire without changing
 production query routing.
 
 ______________________________________________________________________

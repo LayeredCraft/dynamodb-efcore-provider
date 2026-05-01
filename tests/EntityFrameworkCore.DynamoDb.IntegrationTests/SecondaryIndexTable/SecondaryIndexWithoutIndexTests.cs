@@ -10,10 +10,10 @@ public class SecondaryIndexWithoutIndexTests(DynamoContainerFixture fixture)
     : SecondaryIndexTableTestFixture(fixture)
 {
     protected override DynamoAutomaticIndexSelectionMode AutomaticIndexSelectionMode
-        => DynamoAutomaticIndexSelectionMode.Conservative;
+        => DynamoAutomaticIndexSelectionMode.On;
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public async Task WithoutIndex_ConservativeMode_UsesBaseTable_AndEmitsDiagnosticIDX006()
+    public async Task WithoutIndex_OnMode_UsesBaseTable_AndEmitsDiagnosticIDX006()
     {
         var results = await Db
             .Orders

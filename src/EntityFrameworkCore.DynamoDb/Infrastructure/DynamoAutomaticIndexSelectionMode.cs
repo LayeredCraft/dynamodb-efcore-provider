@@ -4,11 +4,11 @@ namespace EntityFrameworkCore.DynamoDb.Infrastructure;
 public enum DynamoAutomaticIndexSelectionMode
 {
     /// <summary>Disables automatic index selection and uses only explicit hints.</summary>
-    Off,
+    Off = 0,
 
     /// <summary>Analyzes candidate indexes and emits diagnostics without changing the query source.</summary>
-    SuggestOnly,
+    SuggestOnly = 1,
 
-    /// <summary>Allows conservative automatic index selection when the query shape is unambiguous.</summary>
-    Conservative,
+    /// <summary>Automatically selects an unambiguous compatible secondary index.</summary>
+    On = 2,
 }

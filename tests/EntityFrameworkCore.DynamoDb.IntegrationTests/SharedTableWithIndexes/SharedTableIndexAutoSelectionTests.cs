@@ -10,7 +10,7 @@ public class SharedTableIndexAutoSelectionTests(DynamoContainerFixture fixture)
     : SharedTableWithIndexesTestFixture(fixture)
 {
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public async Task Conservative_DerivedTypeQuery_AutoSelects_ByPriorityGsi()
+    public async Task On_DerivedTypeQuery_AutoSelects_ByPriorityGsi()
     {
         var results =
             await Db.PriorityWorkOrders.Where(o => o.Priority == 3).ToListAsync(CancellationToken);
@@ -44,7 +44,7 @@ public class SharedTableIndexAutoSelectionTests(DynamoContainerFixture fixture)
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public async Task Conservative_BaseTypeQuery_OrDiscriminatorIsSafe_AutoSelects_ByStatusLsi()
+    public async Task On_BaseTypeQuery_OrDiscriminatorIsSafe_AutoSelects_ByStatusLsi()
     {
         var results = await Db
             .WorkOrders
@@ -78,7 +78,7 @@ public class SharedTableIndexAutoSelectionTests(DynamoContainerFixture fixture)
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public async Task Conservative_BaseTypeQuery_NoIndexPkConstraint_FallsBackToBaseTable()
+    public async Task On_BaseTypeQuery_NoIndexPkConstraint_FallsBackToBaseTable()
     {
         _ = await Db.WorkOrders.Where(o => o.Status == "OPEN").ToListAsync(CancellationToken);
 
@@ -96,7 +96,7 @@ public class SharedTableIndexAutoSelectionTests(DynamoContainerFixture fixture)
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public async Task Conservative_ArchivedWorkOrderQuery_ByPriorityGsiIsNotACandidate()
+    public async Task On_ArchivedWorkOrderQuery_ByPriorityGsiIsNotACandidate()
     {
         _ = await Db
             .ArchivedWorkOrders
@@ -196,7 +196,7 @@ public class SharedTableIndexAutoSelectionTests(DynamoContainerFixture fixture)
             .ContainSingle(e
                 => e.EventId.Id == DynamoEventId.SecondaryIndexSelected.Id
                 && e.Message.Contains(
-                    "Index 'ByPriority' on table 'work-orders-indexed-table' would be selected in Conservative mode."));
+                    "Index 'ByPriority' on table 'work-orders-indexed-table' would be auto-selected if automatic index selection were On."));
 
         AssertSql(
             """

@@ -8,7 +8,7 @@ public class SecondaryIndexFirstTests(DynamoContainerFixture fixture)
     : SecondaryIndexTableTestFixture(fixture)
 {
     protected override DynamoAutomaticIndexSelectionMode AutomaticIndexSelectionMode
-        => DynamoAutomaticIndexSelectionMode.Conservative;
+        => DynamoAutomaticIndexSelectionMode.On;
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task FirstAsync_AutoSelects_ByStatusGsi_PkEquality_SetsLimit1_ReturnsOneItem()

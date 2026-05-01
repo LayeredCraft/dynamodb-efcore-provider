@@ -171,9 +171,9 @@ mode controls behavior:
 
 - `Off`: no automatic routing.
 - `SuggestOnly`: analyzes candidates and emits diagnostics, but does not change query source.
-- `Conservative`: routes compatible queries to an unambiguous index.
+- `On`: routes compatible queries to an unambiguous index. This is the default.
 
-In `Conservative`, automatic selection is conservative:
+Automatic selection uses conservative guardrails:
 
 - it requires the query's filter to cover the index partition key,
 - it only considers `All`-projection indexes,
