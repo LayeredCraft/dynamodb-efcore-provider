@@ -25,20 +25,15 @@ namespace EntityFrameworkCore.DynamoDb.Query.Internal;
 ///     Builds expression trees at query compilation time, inlining all type conversions to
 ///     eliminate runtime boxing. The compiled query executes AttributeValue deserialization and EF
 ///     Core value conversions as pure IL with zero boxing overhead.
+///     Complex type properties are handled via
+///     <see cref="DynamoComplexPropertyInitializationExpression" /> and
+///     <see cref="DynamoComplexCollectionInitializationExpression" /> markers emitted by
+///     <see cref="DynamoShapedQueryCompilingExpressionVisitor.AddStructuralTypeInitialization" />.
 /// </remarks>
 public class DynamoProjectionBindingRemovingExpressionVisitor(
     ParameterExpression itemParameter,
-    SelectExpression selectExpression,
-    IModel model,
-    Func<Expression, Expression>? injectStructuralTypeMaterializers = null) : ExpressionVisitor
+    SelectExpression selectExpression) : ExpressionVisitor
 {
-    private readonly HashSet<Type> _ownedClrTypes =
-        model
-            .GetEntityTypes()
-            .Where(entityType => entityType.IsOwned())
-            .Select(entityType => entityType.ClrType)
-            .ToHashSet();
-
     // Reflection cache for efficient expression tree construction
     private static readonly PropertyInfo AttributeValueSProperty =
         typeof(AttributeValue).GetProperty(nameof(AttributeValue.S))!;
@@ -90,16 +85,6 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
     private static readonly MethodInfo MemoryStreamToArrayMethod =
         typeof(MemoryStream).GetMethod(nameof(MemoryStream.ToArray))!;
 
-    private static readonly MethodInfo PopulateCollectionMethodInfo =
-        typeof(DynamoProjectionBindingRemovingExpressionVisitor).GetMethod(
-            nameof(PopulateCollection),
-            BindingFlags.Static | BindingFlags.NonPublic)!;
-
-    private static readonly MethodInfo PopulateCollectionOnOwnerMethodInfo =
-        typeof(DynamoProjectionBindingRemovingExpressionVisitor).GetMethod(
-            nameof(PopulateCollectionOnOwner),
-            BindingFlags.Static | BindingFlags.NonPublic)!;
-
     private static readonly IReadOnlyDictionary<string, Func<Expression, Expression>>
         RuntimeValueSourceFactories =
             new Dictionary<string, Func<Expression, Expression>>(StringComparer.Ordinal)
@@ -110,9 +95,11 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
                         nameof(DynamoQueryContext.CurrentPageResponse)),
             };
 
+    /// <summary>
+    ///     Stack of the current dictionary context being deserialized. The bottom entry is the root
+    ///     item dictionary; each pushed entry is a nested complex type or owned reference map.
+    /// </summary>
     private readonly Stack<ParameterExpression> _attributeContextStack = new([itemParameter]);
-    private readonly Stack<ParameterExpression> _ownerAttributeContextStack = new();
-    private readonly Dictionary<ParameterExpression, Expression> _ordinalParameterBindings = new();
 
     /// <summary>
     ///     Intercepts MaterializationContext constructor calls to replace ProjectionBindingExpression
@@ -162,55 +149,51 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
     }
 
     /// <summary>
-    ///     Handles ProjectionBindingExpression for custom Select projections. Converts member-based
-    ///     bindings to indexed dictionary access and supports index-based bindings.
+    ///     Rewrites nested member access to preserve null propagation when the containing complex
+    ///     instance materializes as <see langword="null" />.
+    /// </summary>
+    protected override Expression VisitMember(MemberExpression node)
+    {
+        if (node.Expression == null)
+            return base.VisitMember(node);
+
+        var instanceExpression = Visit(node.Expression);
+        if (instanceExpression == QueryCompilationContext.NotTranslatedExpression
+            || instanceExpression == null)
+            return QueryCompilationContext.NotTranslatedExpression;
+
+        var memberAccess = node.Update(instanceExpression);
+        return ShouldApplyNullPropagation(instanceExpression.Type)
+            ? ApplyNullPropagation(instanceExpression, memberAccess, node.Type)
+            : memberAccess;
+    }
+
+    /// <summary>
+    ///     Handles projection-binding and complex-type marker nodes. Converts member-based
+    ///     bindings to indexed dictionary access and expands complex property markers with the
+    ///     correct nested map context.
     /// </summary>
     protected override Expression VisitExtension(Expression node)
     {
-        if (node is StructuralTypeShaperExpression shaperExpression
-            && shaperExpression.StructuralType is IEntityType entityType
-            && entityType.IsOwned())
-            return VisitOwnedStructuralTypeShaperExpression(shaperExpression, entityType);
+        // Complex property initialization markers emitted by AddStructuralTypeInitialization.
+        if (node is DynamoComplexPropertyInitializationExpression complexPropInit)
+            return VisitComplexPropertyInitialization(complexPropInit);
 
-        if (node is DynamoCollectionShaperExpression collectionShaperExpression
-            && collectionShaperExpression.Navigation is INavigation collectionNavigation
-            && collectionNavigation.IsEmbedded())
-        {
-            var containingAttributeName =
-                collectionShaperExpression.Projection is DynamoObjectArrayProjectionExpression
-                    objectArrayProjection
-                    ? objectArrayProjection.AttributeName
-                    : collectionNavigation.TargetEntityType.GetContainingAttributeName()
-                    ?? collectionNavigation.Name;
+        // Direct complex-type projection from Select(e => e.Profile) or Select(e => new { e.Profile
+        // }).
+        if (node is DynamoComplexTypeProjectionExpression complexTypeProjection)
+            return VisitComplexTypeProjection(complexTypeProjection);
 
-            return CreateOwnedCollectionMaterializationExpression(
-                collectionNavigation,
-                null,
-                collectionShaperExpression.InnerShaper,
-                containingAttributeName);
-        }
+        if (node is DynamoComplexCollectionProjectionExpression complexCollectionProjection)
+            return VisitComplexCollectionProjection(complexCollectionProjection);
+
+        if (node is DynamoComplexCollectionInitializationExpression complexCollInit)
+            return VisitComplexCollectionInitialization(complexCollInit);
 
         if (node is MaterializeCollectionNavigationExpression
             materializeCollectionNavigationExpression)
         {
             var navigation = materializeCollectionNavigationExpression.Navigation;
-
-            if (navigation is INavigation embeddedNavigation && embeddedNavigation.IsEmbedded())
-            {
-                var elementShaperExpression =
-                    TryExtractElementShaperExpression(
-                        materializeCollectionNavigationExpression.Subquery,
-                        embeddedNavigation.TargetEntityType)
-                    ?? throw new InvalidOperationException(
-                        $"Embedded collection navigation '{embeddedNavigation.DeclaringEntityType.DisplayName()}.{embeddedNavigation.Name}' reached projection-binding removal without a '{nameof(DynamoCollectionShaperExpression)}' and without a shaped subquery fallback.");
-
-                return CreateOwnedCollectionMaterializationExpression(
-                    embeddedNavigation,
-                    null,
-                    elementShaperExpression,
-                    embeddedNavigation.TargetEntityType.GetContainingAttributeName()
-                    ?? embeddedNavigation.Name);
-            }
 
             var navigationExpression = CreateGetValueExpression(
                 navigation.Name,
@@ -231,7 +214,6 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
                 return QueryCompilationContext.NotTranslatedExpression;
 
             if (includeExpression.Navigation is not INavigation navigation
-                || navigation.DeclaringEntityType.IsOwned()
                 || navigation.PropertyInfo is null
                 || !navigation.PropertyInfo.CanWrite)
                 return entityExpression;
@@ -243,22 +225,9 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
                 || visitedNavigationExpression == null)
                 return QueryCompilationContext.NotTranslatedExpression;
 
-            var navigationExpression =
-                navigation.TargetEntityType.IsOwned() && navigation.IsEmbedded()
-                    ? navigation.IsCollection
-                        ? visitedNavigationExpression
-                        : CreateOwnedReferenceMaterializationExpression(navigation)
-                    : CreateGetValueExpression(
-                        navigation.Name,
-                        navigation.ClrType,
-                        null,
-                        false,
-                        navigation.DeclaringEntityType.DisplayName(),
-                        null);
-
             var navigationAssignment = Assign(
                 Property(entityVariable, navigation.PropertyInfo),
-                ConvertCollectionMaterialization(navigationExpression, navigation.ClrType));
+                ConvertCollectionMaterialization(visitedNavigationExpression, navigation.ClrType));
 
             var includeBody = Block(navigationAssignment, entityVariable);
 
@@ -283,15 +252,7 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
                     projectionBinding.ProjectionMember);
                 var index = (int)indexConstant.Value!;
 
-                // Get projection at this index
                 var projection = selectExpression.Projection[index];
-
-                // Primary path: owned reference navigation with INavigation preserved in the
-                // expression.
-                // This avoids the model-wide scan and is unambiguous even when multiple entities
-                // share the same navigation name and CLR type.
-                if (projection.Expression is DynamoObjectAccessExpression objectAccess)
-                    return CreateOwnedReferenceMaterializationExpression(objectAccess.Navigation);
 
                 var propertyName = projection.Expression is SqlPropertyExpression propertyExpression
                     ? propertyExpression.PropertyName
@@ -299,18 +260,12 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
 
                 // Get type mapping from SQL expression for converter support
                 var typeMapping = projection.Expression.TypeMapping;
-                EnsureOwnedProjectionHasNavigationMetadata(
-                    propertyName,
-                    projectionBinding.Type,
-                    typeMapping);
 
                 // For custom projections, we only have the CLR type, not IProperty metadata.
                 // Enforce strict requiredness for non-nullable value types to align with
-                // relational-style
-                // materialization semantics.
+                // relational-style materialization semantics.
                 var required = IsNonNullableValueType(projectionBinding.Type);
 
-                // Use unified code path with converter support
                 return CreateGetValueExpression(
                     propertyName,
                     projectionBinding.Type,
@@ -323,23 +278,13 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
             if (projectionBinding.Index != null)
             {
                 var index = projectionBinding.Index.Value;
-
                 var projection = selectExpression.Projection[index];
-
-                // Primary path: owned reference navigation with INavigation preserved in the
-                // expression.
-                if (projection.Expression is DynamoObjectAccessExpression objectAccess)
-                    return CreateOwnedReferenceMaterializationExpression(objectAccess.Navigation);
 
                 var propertyName = projection.Expression is SqlPropertyExpression propertyExpression
                     ? propertyExpression.PropertyName
                     : projection.Alias;
 
                 var typeMapping = projection.Expression.TypeMapping;
-                EnsureOwnedProjectionHasNavigationMetadata(
-                    propertyName,
-                    projectionBinding.Type,
-                    typeMapping);
                 var required = IsNonNullableValueType(projectionBinding.Type);
 
                 return CreateGetValueExpression(
@@ -359,277 +304,161 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
     }
 
     /// <summary>
-    ///     Enforces that owned-reference projections carry navigation metadata via
-    ///     <c>DynamoObjectAccessExpression</c>.
+    ///     Visits complex property initialization markers by switching to the nested attribute map
+    ///     context for the duration of the injected scalar materializer.
     /// </summary>
-    private void EnsureOwnedProjectionHasNavigationMetadata(
-        string propertyName,
-        Type projectionType,
-        CoreTypeMapping? typeMapping)
+    private Expression VisitComplexPropertyInitialization(
+        DynamoComplexPropertyInitializationExpression complexInit)
     {
-        if (typeMapping != null || !_ownedClrTypes.Contains(projectionType))
-            return;
+        var cp = complexInit.ComplexProperty;
+        var attributeName = ((IReadOnlyComplexProperty)cp).GetAttributeName();
+        var required = !cp.IsNullable;
+        var path = $"{cp.DeclaringType.DisplayName()}.{cp.Name}";
 
-        throw new InvalidOperationException(
-            $"Owned reference projection '{propertyName}' for CLR type '{projectionType.Name}' "
-            + $"reached materialization without navigation metadata. Ensure translation emits '{nameof(DynamoObjectAccessExpression)}' for owned embedded references.");
-    }
-
-    /// <summary>Adds null-propagation for member access over owned-reference instances.</summary>
-    protected override Expression VisitMember(MemberExpression node)
-    {
-        if (node.Expression == null)
-            return base.VisitMember(node);
-
-        var instanceExpression = Visit(node.Expression);
-        if (instanceExpression == QueryCompilationContext.NotTranslatedExpression
-            || instanceExpression == null)
-            return QueryCompilationContext.NotTranslatedExpression;
-
-        var memberExpression = node.Update(instanceExpression);
-        if (instanceExpression.Type.IsValueType
-            || !_ownedClrTypes.Contains(instanceExpression.Type))
-            return memberExpression;
-
-        return Condition(
-            Equal(instanceExpression, Constant(null, instanceExpression.Type)),
-            Default(node.Type),
-            memberExpression);
-    }
-
-    /// <summary>
-    ///     Visits owned entity shapers by switching the current attribute-map context to the owned
-    ///     navigation container map.
-    /// </summary>
-    private Expression VisitOwnedStructuralTypeShaperExpression(
-        StructuralTypeShaperExpression shaperExpression,
-        IEntityType entityType)
-    {
-        var ownership = entityType.FindOwnership();
-        if (ownership is { IsUnique: false }
-                && _ordinalParameterBindings.ContainsKey(_attributeContextStack.Peek()))
-            // A raw StructuralTypeShaperExpression for a collection-element owned type should never
-            // reach this visitor: InjectStructuralTypeMaterializers must replace all such shapers
-            // with injected block expressions before this visitor runs. If this fires, the pipeline
-            // order is wrong or a shaper was constructed without going through injection.
-            throw new InvalidOperationException(
-                $"Unexpected raw '{nameof(StructuralTypeShaperExpression)}' for collection-element "
-                + $"owned type '{entityType.DisplayName()}' encountered during projection-binding "
-                + "removal. Ensure 'InjectStructuralTypeMaterializers' runs before this visitor.");
-
-        var containingAttributeName = GetOwnedContainingAttributeName(entityType);
-        if (string.IsNullOrWhiteSpace(containingAttributeName))
-            return base.VisitExtension(shaperExpression);
-
-        var required = ownership is { IsRequiredDependent: true };
-        var navigationPath = ownership?.PrincipalEntityType is null
-            ? entityType.DisplayName()
-            : $"{ownership.PrincipalEntityType.DisplayName()}.{ownership.PrincipalToDependent?.Name ?? entityType.DisplayName()}";
-
-        var ownedMapVariable = Variable(
+        var complexMapVariable = Variable(
             typeof(Dictionary<string, AttributeValue>),
-            $"owned_{containingAttributeName}_map");
+            $"complex_{attributeName}_map");
 
-        var readOwnedMapExpression = CreateReadOwnedMapExpression(
+        var readComplexMapExpression = CreateReadComplexMapExpression(
             _attributeContextStack.Peek(),
-            containingAttributeName,
+            attributeName,
             required,
-            navigationPath);
+            path);
 
-        _attributeContextStack.Push(ownedMapVariable);
-        var visitedOwnedShaper = base.VisitExtension(shaperExpression);
+        _attributeContextStack.Push(complexMapVariable);
+        var visitedMaterializer = Visit(complexInit.InjectedMaterializer);
         _attributeContextStack.Pop();
 
-        var assignOwnedMap = Assign(ownedMapVariable, readOwnedMapExpression);
-        if (required)
-            return Block([ownedMapVariable], assignOwnedMap, visitedOwnedShaper);
+        Expression complexInstance = cp.IsNullable
+            ? Condition(
+                Equal(
+                    complexMapVariable,
+                    Constant(null, typeof(Dictionary<string, AttributeValue>))),
+                Constant(null, cp.ClrType),
+                Convert(visitedMaterializer, cp.ClrType))
+            : Convert(visitedMaterializer, cp.ClrType);
 
         return Block(
-            [ownedMapVariable],
-            assignOwnedMap,
-            Condition(
-                Equal(ownedMapVariable, Constant(null, ownedMapVariable.Type)),
-                Constant(null, shaperExpression.Type),
-                visitedOwnedShaper));
+            [complexMapVariable],
+            Assign(complexMapVariable, readComplexMapExpression),
+            Assign(complexInit.MemberAccess, complexInstance));
     }
 
     /// <summary>
-    ///     Builds an expression that reads an owned reference from a map attribute (
-    ///     <c>AttributeValue.M</c>) and validates null/missing shape semantics.
+    ///     Visits a direct complex-type projection expression (<c>Select(e =&gt; e.Profile)</c>).
+    ///     Reads the complex property's map attribute from the current context, pushes it as the
+    ///     new attribute context for the inner materializer, and returns the materialized value
+    ///     directly (nullable-guarded when the property is nullable).
     /// </summary>
-    private static Expression CreateReadOwnedMapExpression(
-        Expression parentMapExpression,
-        string containingAttributeName,
-        bool required,
-        string navigationPath)
+    private Expression VisitComplexTypeProjection(DynamoComplexTypeProjectionExpression projection)
     {
-        var attributeValueVariable = Variable(typeof(AttributeValue), "ownedRefAv");
+        var cp = projection.ComplexProperty;
+        var attributeName = ((IReadOnlyComplexProperty)cp).GetAttributeName();
+        var required = !cp.IsNullable;
+        var path = $"{cp.DeclaringType.DisplayName()}.{cp.Name}";
 
-        var tryGetValueExpression = Call(
-            parentMapExpression,
-            DictionaryTryGetValueMethod,
-            Constant(containingAttributeName),
-            attributeValueVariable);
+        var complexMapVariable = Variable(
+            typeof(Dictionary<string, AttributeValue>),
+            $"complex_{attributeName}_map");
 
-        var isNullExpression = OrElse(
-            Equal(attributeValueVariable, Constant(null, typeof(AttributeValue))),
-            Equal(
-                Property(attributeValueVariable, AttributeValueNullProperty),
-                Constant(true, typeof(bool?))));
+        var readComplexMapExpression = CreateReadComplexMapExpression(
+            _attributeContextStack.Peek(),
+            attributeName,
+            required,
+            path);
 
-        var mapExpression = Property(attributeValueVariable, AttributeValueMProperty);
+        _attributeContextStack.Push(complexMapVariable);
+        var visitedMaterializer = Visit(projection.InnerShaper);
+        _attributeContextStack.Pop();
 
-        Expression missingExpression = required
-            ? Throw(
-                New(
-                    InvalidOperationExceptionCtor,
-                    Constant($"Required owned navigation '{navigationPath}' is missing or NULL.")),
-                typeof(Dictionary<string, AttributeValue>))
-            : Constant(null, typeof(Dictionary<string, AttributeValue>));
+        Expression complexInstance = cp.IsNullable
+            ? Condition(
+                Equal(
+                    complexMapVariable,
+                    Constant(null, typeof(Dictionary<string, AttributeValue>))),
+                Constant(null, cp.ClrType),
+                Convert(visitedMaterializer, cp.ClrType))
+            : Convert(visitedMaterializer, cp.ClrType);
 
-        Expression wrongShapeExpression = required
-            ? Throw(
-                New(
-                    InvalidOperationExceptionCtor,
-                    Constant($"Owned navigation '{navigationPath}' attribute is not a map (M).")),
-                typeof(Dictionary<string, AttributeValue>))
-            : Constant(null, typeof(Dictionary<string, AttributeValue>));
-
-        var resultExpression = Condition(
-            Not(tryGetValueExpression),
-            missingExpression,
-            Condition(
-                isNullExpression,
-                missingExpression,
-                Condition(
-                    Equal(
-                        mapExpression,
-                        Constant(null, typeof(Dictionary<string, AttributeValue>))),
-                    wrongShapeExpression,
-                    mapExpression)));
-
-        return Block([attributeValueVariable], resultExpression);
+        return Block(
+            [complexMapVariable],
+            Assign(complexMapVariable, readComplexMapExpression),
+            complexInstance);
     }
 
-    /// <summary>Gets the configured containing attribute name for an owned entity type.</summary>
-    private static string? GetOwnedContainingAttributeName(IEntityType entityType)
-        => entityType.GetContainingAttributeName()
-            ?? entityType.FindOwnership()?.PrincipalToDependent?.Name;
+    /// <summary>
+    ///     Visits a direct complex-collection projection expression by reading the list attribute
+    ///     from the current context and materializing each element map into the target CLR
+    ///     collection type.
+    /// </summary>
+    private Expression VisitComplexCollectionProjection(
+        DynamoComplexCollectionProjectionExpression projection)
+        => VisitComplexCollectionCore(projection.ComplexProperty, projection.ElementInnerShaper);
 
     /// <summary>
-    ///     Builds typed materialization for an owned collection navigation without object casts or
-    ///     reflection assignment.
+    ///     Visits complex collection initialization markers by reading the L attribute and
+    ///     materializing each element map under its own pushed context.
     /// </summary>
-    private Expression CreateOwnedCollectionMaterializationExpression(
-        INavigation navigation,
-        Expression? ownerEntityExpression = null,
-        Expression? elementShaperExpression = null,
-        string? containingAttributeNameOverride = null)
+    private Expression VisitComplexCollectionInitialization(
+        DynamoComplexCollectionInitializationExpression complexCollInit)
+        => Assign(
+            complexCollInit.MemberAccess,
+            VisitComplexCollectionCore(
+                complexCollInit.ComplexProperty,
+                complexCollInit.ElementInjectedMaterializer));
+
+    /// <summary>
+    ///     Reads a complex collection from the current attribute context and materializes it into
+    ///     the configured CLR collection type.
+    /// </summary>
+    private Expression VisitComplexCollectionCore(
+        IComplexProperty complexProperty,
+        Expression elementMaterializer)
     {
-        if (!DynamoTypeMappingSource.TryGetListElementType(navigation.ClrType, out var elementType))
+        var attributeName = ((IReadOnlyComplexProperty)complexProperty).GetAttributeName();
+        var path = $"{complexProperty.DeclaringType.DisplayName()}.{complexProperty.Name}";
+
+        if (!DynamoTypeMappingSource.TryGetComplexCollectionElementType(
+            complexProperty.ClrType,
+            out var elementType))
             throw new InvalidOperationException(
-                $"Owned collection '{navigation.DeclaringEntityType.DisplayName()}.{navigation.Name}' CLR type '{navigation.ClrType.Name}' is not a supported collection type.");
+                $"Complex collection '{path}' CLR type '{complexProperty.ClrType.Name}' is not a supported "
+                + "collection type. Use List<T> or IList<T>.");
 
-        // EF Core does not expose collection accessors for array navigations.
-        var collectionAccessor = navigation.ClrType.IsArray
-            ? null
-            : navigation.GetCollectionAccessor();
-
-        var containingAttributeName = containingAttributeNameOverride
-            ?? navigation.TargetEntityType.GetContainingAttributeName() ?? navigation.Name;
-        var navigationPath = $"{navigation.DeclaringEntityType.DisplayName()}.{navigation.Name}";
-        var required = navigation.ForeignKey.IsRequiredDependent;
-
-        var wireListVariable = Variable(typeof(List<AttributeValue>), "ownedWireList");
+        var wireListVariable =
+            Variable(typeof(List<AttributeValue>), $"complexList_{attributeName}");
         var resultListType = typeof(List<>).MakeGenericType(elementType);
+        var required = !complexProperty.IsNullable;
 
-        var assignWireList = Assign(
-            wireListVariable,
-            CreateReadOwnedListExpression(
-                _attributeContextStack.Peek(),
-                containingAttributeName,
-                required,
-                navigationPath));
+        var readListExpression = CreateReadComplexListExpression(
+            _attributeContextStack.Peek(),
+            attributeName,
+            required,
+            path);
 
-        var ownerContext = _attributeContextStack.Peek();
-        var avParameter = Parameter(typeof(AttributeValue), "ownedElementAv");
+        var avParameter = Parameter(typeof(AttributeValue), "complexElementAv");
         var elementMapVariable = Variable(
             typeof(Dictionary<string, AttributeValue>),
-            "ownedElementMap");
-        var ordinalParameter = Parameter(typeof(int), "ownedOrdinal");
-        var ordinalExpression = Add(ordinalParameter, Constant(1));
+            $"complexElement_{attributeName}_map");
 
-        // Element materialization executes under the element-map context, but dependent key
-        // propagation still needs access to owner maps and collection ordinals for shadow keys.
-        _ownerAttributeContextStack.Push(ownerContext);
         _attributeContextStack.Push(elementMapVariable);
-        _ordinalParameterBindings[elementMapVariable] = ordinalExpression;
-
-        Expression elementMaterializationExpression;
-        if (elementShaperExpression == null && injectStructuralTypeMaterializers != null)
-        {
-            // No pre-built shaper was found for this nested collection element type in the
-            // current expression tree (e.g. OrderLine inside Order.Lines when the injected
-            // Order block does not embed DynamoCollectionShaperExpression(Lines) because
-            // StructuralTypeShaperExpression has no navigation sub-expressions). Create a
-            // synthetic shaper and inject a full EF Core materializer so that shadow
-            // properties — including the shadow ordinal key property — are handled correctly
-            // via ISnapshot + StartTracking.
-            var syntheticShaper = new StructuralTypeShaperExpression(
-                navigation.TargetEntityType,
-                Constant(ValueBuffer.Empty),
-                false);
-
-            var injectedMaterializer = injectStructuralTypeMaterializers(syntheticShaper);
-            elementShaperExpression = injectedMaterializer;
-        }
-
-        if (elementShaperExpression == null)
-        {
-            elementMaterializationExpression = CreateOwnedEntityMaterializationExpression(
-                navigation.TargetEntityType,
-                navigationPath,
-                ordinalExpression,
-                true);
-        }
-        else
-        {
-            elementMaterializationExpression = Visit(elementShaperExpression);
-
-            if (navigation
-                .TargetEntityType
-                .GetNavigations()
-                .Any(static innerNavigation => innerNavigation.TargetEntityType.IsOwned()))
-                elementMaterializationExpression = CreateOwnedNavigationHydrationExpression(
-                    navigation.TargetEntityType,
-                    elementMaterializationExpression,
-                    elementType,
-                    elementShaperExpression);
-        }
-
-        _ordinalParameterBindings.Remove(elementMapVariable);
+        var visitedElementMaterializer = Visit(elementMaterializer);
         _attributeContextStack.Pop();
-        _ownerAttributeContextStack.Pop();
 
-        if (elementMaterializationExpression == QueryCompilationContext.NotTranslatedExpression)
-            throw new InvalidOperationException(
-                $"Failed to materialize owned collection '{navigationPath}' using the embedded element shaper.");
+        if (visitedElementMaterializer.Type != elementType)
+            visitedElementMaterializer = Convert(visitedElementMaterializer, elementType);
 
-        if (elementMaterializationExpression.Type != elementType)
-            elementMaterializationExpression =
-                Convert(elementMaterializationExpression, elementType);
-
-        // Inline validation into the lambda body — eliminates the yield iterator allocation
-        // and intermediate IEnumerable<Dictionary<,>> from the old
-        // ValidateAndExtractOwnedElementMaps.
+        // Validate each element is a non-null map.
         var avIsNull = OrElse(
             Equal(avParameter, Constant(null, typeof(AttributeValue))),
             Equal(
                 Property(avParameter, AttributeValueNullProperty),
                 Constant(true, typeof(bool?))));
+
         var mapIsNull = Equal(
             elementMapVariable,
             Constant(null, typeof(Dictionary<string, AttributeValue>)));
+
         var lambdaBody = Block(
             [elementMapVariable],
             IfThen(
@@ -638,7 +467,8 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
                     New(
                         InvalidOperationExceptionCtor,
                         Constant(
-                            $"Owned collection '{navigationPath}' contains NULL element. Elements must be map (M) values.")))),
+                            $"Complex collection '{path}' contains NULL element. "
+                            + "Elements must be map (M) values.")))),
             Assign(elementMapVariable, Property(avParameter, AttributeValueMProperty)),
             IfThen(
                 mapIsNull,
@@ -646,356 +476,32 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
                     New(
                         InvalidOperationExceptionCtor,
                         Constant(
-                            $"Owned collection '{navigationPath}' contains an element that is not a map (M).")))),
-            elementMaterializationExpression);
+                            $"Complex collection '{path}' contains an element that is not a map (M).")))),
+            visitedElementMaterializer);
 
-        // Iterate wireList (List<AttributeValue>) directly — no intermediate
-        // IEnumerable<Dictionary<,>>.
         var entitiesEnumerable = Call(
-            EnumerableMethods.SelectWithOrdinal.MakeGenericMethod(
-                typeof(AttributeValue),
-                elementType),
+            EnumerableMethods.Select.MakeGenericMethod(typeof(AttributeValue), elementType),
             wireListVariable,
-            Lambda(lambdaBody, avParameter, ordinalParameter));
+            Lambda(lambdaBody, avParameter));
 
-        // Eager materialization is required for correctness: elementMapVariable is a block variable
-        // (not a lambda parameter) that may be captured by nested owned-navigation lambdas (e.g.,
-        // for FK propagation). Consuming the lazy IEnumerable<T> produced by Select after those
-        // closures are built causes element duplication; forcing evaluation before any nested
-        // consumers run prevents this.
-        // For array targets, ToArray() forces evaluation directly; no intermediate List<T> needed.
-        // For all other targets, ToList() forces evaluation and ConvertCollectionMaterialization
-        // converts the result to the requested CLR type.
-        var entitiesExpression = navigation.ClrType.IsArray
-            ? Call(EnumerableMethods.ToArray.MakeGenericMethod(elementType), entitiesEnumerable)
-            : Call(EnumerableMethods.ToList.MakeGenericMethod(elementType), entitiesEnumerable);
+        var entitiesExpression = Call(
+            EnumerableMethods.ToList.MakeGenericMethod(elementType),
+            entitiesEnumerable);
 
-        Expression emptyResultExpression;
-        Expression populatedResultExpression;
+        Expression populatedResult =
+            ConvertCollectionMaterialization(entitiesExpression, complexProperty.ClrType);
+        Expression missingResult = complexProperty.IsNullable
+            ? Constant(null, complexProperty.ClrType)
+            : ConvertCollectionMaterialization(New(resultListType), complexProperty.ClrType);
 
-        if (collectionAccessor == null)
-        {
-            emptyResultExpression =
-                ConvertCollectionMaterialization(New(resultListType), navigation.ClrType);
-            populatedResultExpression =
-                ConvertCollectionMaterialization(entitiesExpression, navigation.ClrType);
-        }
-        else
-        {
-            var populateCollectionMethod = ownerEntityExpression == null
-                ? PopulateCollectionMethodInfo.MakeGenericMethod(elementType, navigation.ClrType)
-                : PopulateCollectionOnOwnerMethodInfo.MakeGenericMethod(
-                    elementType,
-                    navigation.ClrType);
-            var collectionAccessorExpression =
-                Constant(collectionAccessor, typeof(IClrCollectionAccessor));
-            var ownerExpression = ownerEntityExpression == null
-                ? null
-                : Convert(ownerEntityExpression, typeof(object));
-
-            // Keep optional/missing owned collection semantics as empty collection while still
-            // routing final collection construction through IClrCollectionAccessor when available.
-            emptyResultExpression = ownerExpression == null
-                ? Call(populateCollectionMethod, collectionAccessorExpression, New(resultListType))
-                : Call(
-                    populateCollectionMethod,
-                    collectionAccessorExpression,
-                    ownerExpression,
-                    New(resultListType));
-            populatedResultExpression = ownerExpression == null
-                ? Call(populateCollectionMethod, collectionAccessorExpression, entitiesExpression)
-                : Call(
-                    populateCollectionMethod,
-                    collectionAccessorExpression,
-                    ownerExpression,
-                    entitiesExpression);
-        }
-
-        return Block(
+        var collectionExpression = Block(
             [wireListVariable],
-            assignWireList,
+            Assign(wireListVariable, readListExpression),
             Condition(
                 Equal(wireListVariable, Constant(null, typeof(List<AttributeValue>))),
-                emptyResultExpression,
-                populatedResultExpression));
-    }
-
-    /// <summary>
-    ///     Builds typed materialization for an owned reference navigation by switching to the owned
-    ///     map context.
-    /// </summary>
-    private Expression CreateOwnedReferenceMaterializationExpression(INavigation navigation)
-    {
-        var containingAttributeName =
-            navigation.TargetEntityType.GetContainingAttributeName() ?? navigation.Name;
-        var required = navigation.ForeignKey.IsRequiredDependent;
-        var navigationPath = $"{navigation.DeclaringEntityType.DisplayName()}.{navigation.Name}";
-
-        var ownedMapVariable = Variable(
-            typeof(Dictionary<string, AttributeValue>),
-            $"owned_{containingAttributeName}_map");
-
-        var assignOwnedMap = Assign(
-            ownedMapVariable,
-            CreateReadOwnedMapExpression(
-                _attributeContextStack.Peek(),
-                containingAttributeName,
-                required,
-                navigationPath));
-
-        _attributeContextStack.Push(ownedMapVariable);
-        var ownedEntityExpression = CreateOwnedEntityMaterializationExpression(
-            navigation.TargetEntityType,
-            navigationPath,
-            null);
-        _attributeContextStack.Pop();
-
-        return Block(
-            [ownedMapVariable],
-            assignOwnedMap,
-            Condition(
-                Equal(ownedMapVariable, Constant(null, ownedMapVariable.Type)),
-                Constant(null, navigation.ClrType),
-                Convert(ownedEntityExpression, navigation.ClrType)));
-    }
-
-    /// <summary>Hydrates owned navigations on an element that came from a synthetic structural shaper.</summary>
-    private Expression CreateOwnedNavigationHydrationExpression(
-        IEntityType entityType,
-        Expression elementExpression,
-        Type elementType,
-        Expression sourceShaperExpression)
-    {
-        var elementVariable = Variable(elementType, $"hydrated_{elementType.Name}");
-        List<Expression> hydrationExpressions = [Assign(elementVariable, elementExpression)];
-
-        foreach (var navigation in entityType.GetNavigations())
-        {
-            if (!navigation.TargetEntityType.IsOwned()
-                || navigation.PropertyInfo is null
-                || !navigation.PropertyInfo.CanWrite)
-                continue;
-
-            var nestedCollectionElementShaper = navigation.IsCollection
-                ? TryExtractCollectionNavigationElementShaperExpression(
-                    sourceShaperExpression,
-                    navigation)
-                ?? TryExtractElementShaperExpression(
-                    sourceShaperExpression,
-                    navigation.TargetEntityType)
-                : null;
-
-            var navigationValueExpression = navigation.IsCollection
-                ? CreateOwnedCollectionMaterializationExpression(
-                    navigation,
-                    elementVariable,
-                    nestedCollectionElementShaper)
-                : CreateOwnedReferenceMaterializationExpression(navigation);
-
-            var memberExpression = Property(elementVariable, navigation.PropertyInfo);
-            if (navigationValueExpression.Type != memberExpression.Type)
-                navigationValueExpression =
-                    Convert(navigationValueExpression, memberExpression.Type);
-
-            hydrationExpressions.Add(Assign(memberExpression, navigationValueExpression));
-        }
-
-        hydrationExpressions.Add(elementVariable);
-        return Block([elementVariable], hydrationExpressions);
-    }
-
-    /// <summary>
-    ///     Builds typed owned entity materialization using the current attribute-map context and the
-    ///     existing scalar value pipeline.
-    /// </summary>
-    private Expression CreateOwnedEntityMaterializationExpression(
-        IEntityType entityType,
-        string navigationPath,
-        Expression? ordinalExpression,
-        bool includeNavigations = true)
-    {
-        var constructor = entityType.ClrType.GetConstructor(Type.EmptyTypes);
-        if (constructor == null)
-            throw new InvalidOperationException(
-                $"Could not construct owned CLR type '{entityType.ClrType.Name}'.");
-
-        var instanceVariable = Variable(entityType.ClrType, $"owned_{entityType.ClrType.Name}");
-        List<Expression> expressions = [Assign(instanceVariable, New(constructor))];
-
-        foreach (var property in entityType.GetProperties())
-        {
-            if (property.IsShadowProperty())
-                continue;
-
-            var memberInfo = property.PropertyInfo as MemberInfo ?? property.FieldInfo;
-            if (memberInfo == null)
-                continue;
-
-            var memberType = memberInfo is PropertyInfo propertyInfo
-                ? propertyInfo.PropertyType
-                : ((FieldInfo)memberInfo).FieldType;
-
-            Expression? valueExpression;
-            if (property.IsOwnedOrdinalKeyProperty())
-                valueExpression = ordinalExpression;
-            else
-                valueExpression = CreateGetValueExpression(
-                    property.GetAttributeName(),
-                    property.ClrType,
-                    property.GetTypeMapping(),
-                    !property.IsNullable,
-                    entityType.DisplayName(),
-                    property);
-
-            if (valueExpression == null)
-                continue;
-
-            if (valueExpression.Type != memberType)
-                valueExpression = Convert(valueExpression, memberType);
-
-            expressions.Add(
-                Assign(MakeMemberAccess(instanceVariable, memberInfo), valueExpression));
-        }
-
-        if (includeNavigations)
-        {
-            foreach (var navigation in entityType.GetNavigations())
-            {
-                if (!navigation.TargetEntityType.IsOwned()
-                    || navigation.PropertyInfo is null
-                    || !navigation.PropertyInfo.CanWrite)
-                    continue;
-
-                var navigationValueExpression = navigation.IsCollection
-                    ? CreateOwnedCollectionMaterializationExpression(navigation, instanceVariable)
-                    : CreateOwnedReferenceMaterializationExpression(navigation);
-
-                var memberExpression = Property(instanceVariable, navigation.PropertyInfo);
-                if (navigationValueExpression.Type != memberExpression.Type)
-                    navigationValueExpression =
-                        Convert(navigationValueExpression, memberExpression.Type);
-
-                expressions.Add(Assign(memberExpression, navigationValueExpression));
-            }
-        }
-
-        expressions.Add(instanceVariable);
-        return Block([instanceVariable], expressions);
-    }
-
-    /// <summary>
-    ///     Builds an expression that reads an owned collection from a list attribute (
-    ///     <c>AttributeValue.L</c>) and validates null/missing shape semantics.
-    /// </summary>
-    private static Expression CreateReadOwnedListExpression(
-        Expression parentMapExpression,
-        string containingAttributeName,
-        bool required,
-        string navigationPath)
-    {
-        var attributeValueVariable = Variable(typeof(AttributeValue), "ownedCollectionAv");
-
-        var tryGetValueExpression = Call(
-            parentMapExpression,
-            DictionaryTryGetValueMethod,
-            Constant(containingAttributeName),
-            attributeValueVariable);
-
-        var isNullExpression = OrElse(
-            Equal(attributeValueVariable, Constant(null, typeof(AttributeValue))),
-            Equal(
-                Property(attributeValueVariable, AttributeValueNullProperty),
-                Constant(true, typeof(bool?))));
-
-        var listExpression = Property(attributeValueVariable, AttributeValueLProperty);
-
-        Expression missingExpression = required
-            ? Throw(
-                New(
-                    InvalidOperationExceptionCtor,
-                    Constant($"Required owned collection '{navigationPath}' is missing or NULL.")),
-                typeof(List<AttributeValue>))
-            : Constant(null, typeof(List<AttributeValue>));
-
-        Expression wrongShapeExpression = Throw(
-            New(
-                InvalidOperationExceptionCtor,
-                Constant($"Owned collection '{navigationPath}' attribute is not a list (L).")),
-            typeof(List<AttributeValue>));
-
-        var resultExpression = Condition(
-            Not(tryGetValueExpression),
-            missingExpression,
-            Condition(
-                isNullExpression,
-                missingExpression,
-                Condition(
-                    Equal(listExpression, Constant(null, typeof(List<AttributeValue>))),
-                    wrongShapeExpression,
-                    listExpression)));
-
-        return Block([attributeValueVariable], resultExpression);
-    }
-
-    /// <summary>Converts navigation materialization expressions to the requested collection CLR shape.</summary>
-    private static Expression ConvertCollectionMaterialization(
-        Expression expression,
-        Type targetType)
-    {
-        if (expression.Type == targetType)
-            return expression;
-
-        if (!DynamoTypeMappingSource.TryGetListElementType(targetType, out var elementType))
-            return expression.Type != targetType ? Convert(expression, targetType) : expression;
-
-        var enumerableType = typeof(IEnumerable<>).MakeGenericType(elementType);
-        var enumerableExpression = expression;
-        if (!enumerableType.IsAssignableFrom(enumerableExpression.Type))
-            enumerableExpression = Convert(enumerableExpression, enumerableType);
-
-        if (targetType.IsArray)
-        {
-            var toArrayMethod = EnumerableMethods.ToArray.MakeGenericMethod(elementType);
-            var arrayExpression = Call(toArrayMethod, enumerableExpression);
-            return arrayExpression.Type == targetType
-                ? arrayExpression
-                : Convert(arrayExpression, targetType);
-        }
-
-        var toListMethod = EnumerableMethods.ToList.MakeGenericMethod(elementType);
-        var listExpression = Call(toListMethod, enumerableExpression);
-        return listExpression.Type == targetType
-            ? listExpression
-            : Convert(listExpression, targetType);
-    }
-
-    /// <summary>Creates and populates a navigation collection instance via EF Core's collection accessor.</summary>
-    private static TCollection PopulateCollection<TEntity, TCollection>(
-        IClrCollectionAccessor accessor,
-        IEnumerable<TEntity> entities)
-    {
-        var collection = (ICollection<TEntity>)accessor.Create();
-        foreach (var entity in entities)
-            collection.Add(entity);
-
-        return (TCollection)collection;
-    }
-
-    /// <summary>
-    ///     Populates an existing owner collection instance (or creates one) via EF Core's collection
-    ///     accessor.
-    /// </summary>
-    private static TCollection PopulateCollectionOnOwner<TEntity, TCollection>(
-        IClrCollectionAccessor accessor,
-        object owner,
-        IEnumerable<TEntity> entities)
-    {
-        var collection = (ICollection<TEntity>)accessor.GetOrCreate(owner, true);
-        collection.Clear();
-        foreach (var entity in entities)
-            collection.Add(entity);
-
-        return (TCollection)collection;
+                missingResult,
+                populatedResult));
+        return collectionExpression;
     }
 
     /// <summary>
@@ -1096,23 +602,6 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
                     entityTypeDisplayName,
                     property);
 
-                if (property.IsOwnedOrdinalKeyProperty())
-                {
-                    if (_ordinalParameterBindings.TryGetValue(
-                        _attributeContextStack.Peek(),
-                        out var boundOrdinal))
-                        valueExpression = boundOrdinal.Type == node.Type
-                            ? boundOrdinal
-                            : Convert(boundOrdinal, node.Type);
-                }
-                else if (TryCreateOwnedPrincipalKeyExpression(
-                    property,
-                    targetType,
-                    out var ownerKeyExpression))
-                {
-                    valueExpression = ownerKeyExpression;
-                }
-
                 return valueExpression.Type != node.Type
                     ? Convert(valueExpression, node.Type)
                     : valueExpression;
@@ -1120,6 +609,44 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
         }
 
         return base.VisitMethodCall(node);
+    }
+
+    /// <summary>
+    ///     Wraps a member-access result in a null check when the containing instance can be
+    ///     <see langword="null" />, returning the default member value instead of throwing during
+    ///     complex-property projection materialization.
+    /// </summary>
+    /// <param name="instanceExpression">The visited instance expression that owns the accessed member.</param>
+    /// <param name="memberAccess">The rewritten member-access expression.</param>
+    /// <param name="memberType">The accessed member CLR type.</param>
+    /// <returns>The original access or a null-propagating conditional wrapper.</returns>
+    private static Expression ApplyNullPropagation(
+        Expression instanceExpression,
+        Expression memberAccess,
+        Type memberType)
+    {
+        if (instanceExpression.Type.IsValueType
+            && Nullable.GetUnderlyingType(instanceExpression.Type) == null)
+            return memberAccess;
+
+        return Condition(
+            Equal(instanceExpression, Constant(null, instanceExpression.Type)),
+            Default(memberType),
+            memberAccess);
+    }
+
+    /// <summary>Determines whether member access should null-propagate for a materialized receiver type.</summary>
+    private static bool ShouldApplyNullPropagation(Type instanceType)
+    {
+        if (instanceType == typeof(string) || instanceType == typeof(byte[]))
+            return false;
+
+        if (instanceType.IsValueType
+            || DynamoTypeMappingSource.IsPrimitiveType(instanceType)
+            || DynamoTypeMappingSource.IsSupportedPrimitiveCollectionShape(instanceType))
+            return false;
+
+        return true;
     }
 
     /// <summary>
@@ -1217,208 +744,144 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
     }
 
     /// <summary>
-    ///     Creates an expression that reads an owned dependent key property from the owner context
-    ///     when the dependent key is propagated from the principal key.
+    ///     Builds an expression that reads a complex property reference from a map attribute
+    ///     (<c>AttributeValue.M</c>) and validates null/missing shape semantics.
     /// </summary>
-    /// <remarks>
-    ///     For deeply-nested owned entities the FK chain may span multiple ownership levels (e.g.
-    ///     <c>OrderLine.OwnedShapeItemPk → Order.OwnedShapeItemPk → OwnedShapeItem.Pk</c>). This method
-    ///     follows the chain through successive entries of <c>_ownerAttributeContextStack</c>
-    ///     until it reaches a non-shadow principal, or an ordinal key property that must be resolved from
-    ///     the parent collection's ordinal binding.
-    /// </remarks>
-    private bool TryCreateOwnedPrincipalKeyExpression(
-        IProperty property,
-        Type targetType,
-        out Expression valueExpression)
+    private static Expression CreateReadComplexMapExpression(
+        Expression parentMapExpression,
+        string attributeName,
+        bool required,
+        string path)
     {
-        valueExpression = default!;
+        var attributeValueVariable = Variable(typeof(AttributeValue), "complexRefAv");
 
-        if (property.DeclaringType is not IEntityType declaringEntityType)
-            return false;
+        var tryGetValueExpression = Call(
+            parentMapExpression,
+            DictionaryTryGetValueMethod,
+            Constant(attributeName),
+            attributeValueVariable);
 
-        var ownership = declaringEntityType.FindOwnership();
-        if (ownership == null || !ownership.Properties.Contains(property))
-            return false;
+        var isNullExpression = OrElse(
+            Equal(attributeValueVariable, Constant(null, typeof(AttributeValue))),
+            Equal(
+                Property(attributeValueVariable, AttributeValueNullProperty),
+                Constant(true, typeof(bool?))));
 
-        if (_ownerAttributeContextStack.Count == 0)
-            return false;
+        var mapExpression = Property(attributeValueVariable, AttributeValueMProperty);
 
-        // Stack.ToArray() returns elements in LIFO order: index 0 = top = immediate owner.
-        var ownerContexts = _ownerAttributeContextStack.ToArray();
+        Expression missingExpression = required
+            ? Throw(
+                New(
+                    InvalidOperationExceptionCtor,
+                    Constant($"Required complex property '{path}' is missing or NULL.")),
+                typeof(Dictionary<string, AttributeValue>))
+            : Constant(null, typeof(Dictionary<string, AttributeValue>));
 
-        // Walk the principal chain. Each hop through a shadow FK on an owned entity
-        // corresponds to moving one level deeper (further from the leaf) in the owner stack.
-        var depth = 0;
-        var principalProperty = property.FindFirstPrincipal();
-        while (principalProperty != null
-            && principalProperty.IsShadowProperty()
-            && principalProperty.DeclaringType is IEntityType principalEntityType
-            && principalEntityType.FindOwnership() is { } principalOwnership
-            && principalOwnership.Properties.Contains(principalProperty)
-            && depth + 1 < ownerContexts.Length)
-        {
-            principalProperty = principalProperty.FindFirstPrincipal();
-            depth++;
-        }
+        Expression wrongShapeExpression = Throw(
+            New(
+                InvalidOperationExceptionCtor,
+                Constant($"Complex property '{path}' attribute is not a map (M).")),
+            typeof(Dictionary<string, AttributeValue>));
 
-        if (principalProperty == null)
-            return false;
+        var resultExpression = Condition(
+            Not(tryGetValueExpression),
+            missingExpression,
+            Condition(
+                isNullExpression,
+                missingExpression,
+                Condition(
+                    Equal(
+                        mapExpression,
+                        Constant(null, typeof(Dictionary<string, AttributeValue>))),
+                    wrongShapeExpression,
+                    mapExpression)));
 
-        var ownerContext = ownerContexts[Math.Min(depth, ownerContexts.Length - 1)];
-
-        // If the resolved principal is an ordinal key on an owned entity it is not stored as a
-        // DynamoDB attribute — its value lives in the parent collection's ordinal binding.
-        if (principalProperty.IsOwnedOrdinalKeyProperty()
-            && _ordinalParameterBindings.TryGetValue(ownerContext, out var ordinalBinding))
-        {
-            valueExpression = ordinalBinding.Type == targetType
-                ? ordinalBinding
-                : Convert(ordinalBinding, targetType);
-            return true;
-        }
-
-        valueExpression = CreateGetValueExpression(
-            principalProperty.GetAttributeName(),
-            targetType,
-            principalProperty.GetTypeMapping(),
-            !principalProperty.IsNullable,
-            principalProperty.DeclaringType.DisplayName(),
-            principalProperty,
-            ownerContext);
-
-        return true;
-    }
-
-    /// <summary>Determines whether a type is directly read from DynamoDB primitive wire members.</summary>
-    private static bool IsWirePrimitiveType(Type type)
-    {
-        var nonNullableType = Nullable.GetUnderlyingType(type) ?? type;
-
-        return nonNullableType == typeof(string)
-            || nonNullableType == typeof(bool)
-            || nonNullableType == typeof(byte[])
-            || nonNullableType == typeof(short)
-            || nonNullableType == typeof(ushort)
-            || nonNullableType == typeof(sbyte)
-            || nonNullableType == typeof(byte)
-            || nonNullableType == typeof(int)
-            || nonNullableType == typeof(uint)
-            || nonNullableType == typeof(long)
-            || nonNullableType == typeof(ulong)
-            || nonNullableType == typeof(float)
-            || nonNullableType == typeof(double)
-            || nonNullableType == typeof(decimal);
+        return Block([attributeValueVariable], resultExpression);
     }
 
     /// <summary>
-    ///     Builds an expression tree that deserializes AttributeValue wire format to a CLR primitive
-    ///     type.
+    ///     Builds an expression that reads a complex collection from a list attribute
+    ///     (<c>AttributeValue.L</c>) and validates null/missing shape semantics.
     /// </summary>
-    /// <remarks>
-    ///     Maps AttributeValue properties to wire primitive CLR types:
-    ///     <list type="bullet">
-    ///         <item>string → attributeValue.S</item>
-    ///         <item>bool → attributeValue.BOOL ?? false (non-nullable only)</item>
-    ///         <item>numeric primitives → Parse(attributeValue.N, InvariantCulture)</item>
-    ///         <item>byte[] → attributeValue.B?.ToArray()</item>
-    ///     </list>
-    /// </remarks>
-    private static Expression CreateAttributeValueToPrimitiveExpression(
-        Expression attributeValueExpression,
-        Type primitiveType,
-        bool allowNullBool)
+    private static Expression CreateReadComplexListExpression(
+        Expression parentMapExpression,
+        string attributeName,
+        bool required,
+        string path)
     {
-        // attributeValue.S
-        if (primitiveType == typeof(string))
-            return Property(attributeValueExpression, AttributeValueSProperty);
+        var attributeValueVariable = Variable(typeof(AttributeValue), "complexListAv");
 
-        // attributeValue.BOOL (nullable) or attributeValue.BOOL ?? false
-        if (primitiveType == typeof(bool))
-        {
-            var boolProperty = Property(attributeValueExpression, AttributeValueBoolProperty);
-            return allowNullBool ? boolProperty : Coalesce(boolProperty, Constant(false));
-        }
+        var tryGetValueExpression = Call(
+            parentMapExpression,
+            DictionaryTryGetValueMethod,
+            Constant(attributeName),
+            attributeValueVariable);
 
-        // attributeValue.B == null ? null : attributeValue.B.ToArray()
-        if (primitiveType == typeof(byte[]))
-        {
-            var bProperty = Property(attributeValueExpression, AttributeValueBProperty);
-            return Condition(
-                Equal(bProperty, Constant(null, typeof(MemoryStream))),
-                Constant(null, typeof(byte[])),
-                Call(bProperty, MemoryStreamToArrayMethod));
-        }
+        var isNullExpression = OrElse(
+            Equal(attributeValueVariable, Constant(null, typeof(AttributeValue))),
+            Equal(
+                Property(attributeValueVariable, AttributeValueNullProperty),
+                Constant(true, typeof(bool?))));
 
-        var nProperty = Property(attributeValueExpression, AttributeValueNProperty);
+        var listExpression = Property(attributeValueVariable, AttributeValueLProperty);
 
-        if (primitiveType == typeof(short)
-            || primitiveType == typeof(ushort)
-            || primitiveType == typeof(sbyte)
-            || primitiveType == typeof(byte)
-            || primitiveType == typeof(int)
-            || primitiveType == typeof(uint)
-            || primitiveType == typeof(long)
-            || primitiveType == typeof(ulong)
-            || primitiveType == typeof(float)
-            || primitiveType == typeof(double)
-            || primitiveType == typeof(decimal))
-            return CreateNumericStringParseExpression(nProperty, primitiveType);
+        Expression missingExpression = required
+            ? Throw(
+                New(
+                    InvalidOperationExceptionCtor,
+                    Constant($"Required complex collection '{path}' is missing or NULL.")),
+                typeof(List<AttributeValue>))
+            : Constant(null, typeof(List<AttributeValue>));
 
-        throw new InvalidOperationException(
-            $"Cannot create expression for AttributeValue to primitive type '{primitiveType.Name}'. "
-            + "Supported types: string, bool, numeric types (int, long, float, double, decimal, etc.), and byte[].");
+        Expression wrongShapeExpression = Throw(
+            New(
+                InvalidOperationExceptionCtor,
+                Constant($"Complex collection '{path}' attribute is not a list (L).")),
+            typeof(List<AttributeValue>));
+
+        var resultExpression = Condition(
+            Not(tryGetValueExpression),
+            missingExpression,
+            Condition(
+                isNullExpression,
+                missingExpression,
+                Condition(
+                    Equal(listExpression, Constant(null, typeof(List<AttributeValue>))),
+                    wrongShapeExpression,
+                    listExpression)));
+
+        return Block([attributeValueVariable], resultExpression);
     }
 
-    /// <summary>Checks whether a CLR type is a non-nullable value type.</summary>
+    /// <summary>Converts navigation materialization expressions to the requested collection CLR shape.</summary>
+    private static Expression ConvertCollectionMaterialization(
+        Expression expression,
+        Type targetType)
+    {
+        if (expression.Type == targetType)
+            return expression;
+
+        if (!DynamoTypeMappingSource.TryGetComplexCollectionElementType(
+            targetType,
+            out var elementType))
+            return expression.Type != targetType ? Convert(expression, targetType) : expression;
+
+        var enumerableType = typeof(IEnumerable<>).MakeGenericType(elementType);
+        var enumerableExpression = expression;
+
+        if (!enumerableType.IsAssignableFrom(enumerableExpression.Type))
+            enumerableExpression = Convert(enumerableExpression, enumerableType);
+
+        var toListMethod = EnumerableMethods.ToList.MakeGenericMethod(elementType);
+        var listExpression = Call(toListMethod, enumerableExpression);
+        return listExpression.Type == targetType
+            ? listExpression
+            : Convert(listExpression, targetType);
+    }
+
+    /// <summary>Determines whether a CLR type is a non-nullable value type.</summary>
     private static bool IsNonNullableValueType(Type type)
         => type.IsValueType && Nullable.GetUnderlyingType(type) == null;
-
-    /// <summary>
-    ///     Returns the expected primitive <c>AttributeValue</c> wire member for a wire CLR
-    ///     type.
-    /// </summary>
-    private static string GetExpectedWireMemberName(Type wireType)
-        => wireType == typeof(string) ? nameof(AttributeValue.S) :
-            wireType == typeof(bool) ? nameof(AttributeValue.BOOL) :
-            wireType == typeof(byte[]) ? nameof(AttributeValue.B) : nameof(AttributeValue.N);
-
-    /// <summary>Builds an expression that checks whether the expected primitive wire member is present.</summary>
-    private static bool TryCreateHasWireValueExpression(
-        Expression attributeValueExpression,
-        Type wireType,
-        out Expression hasWireValueExpression)
-    {
-        if (wireType == typeof(string))
-        {
-            hasWireValueExpression = NotEqual(
-                Property(attributeValueExpression, AttributeValueSProperty),
-                Constant(null, typeof(string)));
-            return true;
-        }
-
-        if (wireType == typeof(bool))
-        {
-            hasWireValueExpression = NotEqual(
-                Property(attributeValueExpression, AttributeValueBoolProperty),
-                Constant(null, typeof(bool?)));
-            return true;
-        }
-
-        if (wireType == typeof(byte[]))
-        {
-            hasWireValueExpression = NotEqual(
-                Property(attributeValueExpression, AttributeValueBProperty),
-                Constant(null, typeof(MemoryStream)));
-            return true;
-        }
-
-        // All numeric wire primitives use AttributeValue.N (string)
-        hasWireValueExpression = NotEqual(
-            Property(attributeValueExpression, AttributeValueNProperty),
-            Constant(null, typeof(string)));
-        return true;
-    }
 
     /// <summary>
     ///     Builds a typed collection materialization expression for strict list/set/dictionary
@@ -1859,164 +1322,4 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
     private static string GetExpectedSetWireMemberName(Type providerType)
         => providerType == typeof(string) ? nameof(AttributeValue.SS) :
             providerType == typeof(byte[]) ? nameof(AttributeValue.BS) : nameof(AttributeValue.NS);
-
-    /// <summary>Finds an owned-collection element shaper expression nested within an expression tree.</summary>
-    private static Expression? TryExtractElementShaperExpression(
-        Expression? expression,
-        IEntityType targetEntityType)
-    {
-        if (expression == null)
-            return null;
-
-        if (expression is ShapedQueryExpression shapedQueryExpression)
-            return TryExtractElementShaperExpression(
-                shapedQueryExpression.ShaperExpression,
-                targetEntityType);
-
-        if (IsTargetShaper(expression, targetEntityType))
-            return expression;
-
-        var finder = new ElementShaperExpressionFinder(targetEntityType);
-        finder.Visit(expression);
-        return finder.Result;
-    }
-
-    /// <summary>Finds an element shaper for a specific collection navigation inside a source shaper tree.</summary>
-    private static Expression? TryExtractCollectionNavigationElementShaperExpression(
-        Expression? expression,
-        INavigation navigation)
-    {
-        if (expression == null)
-            return null;
-
-        var finder = new NavigationCollectionShaperFinder(navigation);
-        finder.Visit(expression);
-        return finder.Result;
-    }
-
-    /// <summary>
-    ///     Determines whether an expression represents a structural shaper for the target entity
-    ///     type.
-    /// </summary>
-    private static bool IsTargetShaper(Expression expression, IEntityType targetEntityType)
-        => expression is StructuralTypeShaperExpression
-            {
-                StructuralType: IEntityType { ClrType: var clrType },
-            }
-            && clrType == targetEntityType.ClrType;
-
-    /// <summary>Traverses an expression tree to locate a nested collection element shaper.</summary>
-    /// <remarks>
-    ///     A copy of this class also lives in <c>DynamoProjectionBindingExpressionVisitor</c>
-    ///     ; the duplication is deliberate to avoid cross-visitor coupling.
-    /// </remarks>
-    private sealed class ElementShaperExpressionFinder : ExpressionVisitor
-    {
-        private readonly IEntityType _targetEntityType;
-
-        /// <summary>Creates a finder scoped to a specific target entity type.</summary>
-        public ElementShaperExpressionFinder(IEntityType targetEntityType)
-            => _targetEntityType = targetEntityType;
-
-        /// <summary>Gets the first collection element shaper expression found during traversal.</summary>
-        public Expression? Result { get; private set; }
-
-        /// <summary>Visits expressions until a shaped query expression is discovered.</summary>
-        public override Expression? Visit(Expression? node)
-        {
-            if (node == null || Result != null)
-                return node;
-
-            if (node is ShapedQueryExpression shapedQueryExpression)
-                return Visit(shapedQueryExpression.ShaperExpression);
-
-            if (node is StructuralTypeShaperExpression
-                {
-                    StructuralType: IEntityType { ClrType: var clrType },
-                } structuralTypeShaperExpression
-                && clrType == _targetEntityType.ClrType)
-            {
-                Result = structuralTypeShaperExpression;
-                return node;
-            }
-
-            return base.Visit(node);
-        }
-    }
-
-    /// <summary>Finds a specific nested collection navigation shaper within a parent shaper expression.</summary>
-    private sealed class NavigationCollectionShaperFinder(INavigation navigation)
-        : ExpressionVisitor
-    {
-        /// <summary>Gets the discovered element shaper expression for the requested navigation.</summary>
-        public Expression? Result { get; private set; }
-
-        /// <summary>Visits nodes until the requested collection navigation shaper is found.</summary>
-        public override Expression? Visit(Expression? node)
-        {
-            if (node == null || Result != null)
-                return node;
-
-            // In the removal phase the caller needs the concrete element shaper so it can be
-            // passed directly to CreateOwnedCollectionMaterializationExpression. Unlike the
-            // companion finder in DynamoProjectionBindingExpressionVisitor — which returns the
-            // full ShapedQueryExpression.ShaperExpression — we drill one level deeper here via
-            // TryExtractElementShaperExpression to extract the actual element shaper.
-            if (
-                node is MaterializeCollectionNavigationExpression
-                    materializeCollectionNavigationExpression
-                && materializeCollectionNavigationExpression.Navigation is INavigation
-                    candidateNavigation
-                && candidateNavigation.Name == navigation.Name
-                && candidateNavigation.TargetEntityType.ClrType
-                == navigation.TargetEntityType.ClrType)
-            {
-                Result = TryExtractElementShaperExpression(
-                    materializeCollectionNavigationExpression.Subquery,
-                    navigation.TargetEntityType);
-                return node;
-            }
-
-            if (node is DynamoCollectionShaperExpression
-                {
-                    Navigation: INavigation collectionNavigation, InnerShaper: var innerShaper,
-                }
-                && collectionNavigation.Name == navigation.Name
-                && collectionNavigation.TargetEntityType.ClrType
-                == navigation.TargetEntityType.ClrType)
-            {
-                Result = innerShaper;
-                return node;
-            }
-
-            return base.Visit(node);
-        }
-    }
-
-    /// <summary>Finds whether a target structural shaper exists within a tree.</summary>
-    /// <remarks>
-    ///     A copy of this class also lives in <c>DynamoProjectionBindingExpressionVisitor</c>
-    ///     ; the duplication is deliberate to avoid cross-visitor coupling.
-    /// </remarks>
-    private sealed class TargetShaperPresenceFinder(IEntityType targetEntityType)
-        : ExpressionVisitor
-    {
-        /// <summary>Gets whether a target structural shaper has been found.</summary>
-        public bool Found { get; private set; }
-
-        /// <summary>Visits nodes until a matching structural shaper is found.</summary>
-        public override Expression? Visit(Expression? node)
-        {
-            if (node == null || Found)
-                return node;
-
-            if (IsTargetShaper(node, targetEntityType))
-            {
-                Found = true;
-                return node;
-            }
-
-            return base.Visit(node);
-        }
-    }
 }

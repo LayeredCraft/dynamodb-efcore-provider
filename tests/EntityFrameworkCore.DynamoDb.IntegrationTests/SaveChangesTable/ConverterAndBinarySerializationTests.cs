@@ -7,7 +7,7 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SaveChangesTable;
 public class ConverterAndBinarySerializationTests(DynamoContainerFixture fixture)
     : SaveChangesTableTestFixture(fixture)
 {
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ConverterCoverageItem_SaveChanges_WritesCustomConvertedValuesAndBinaryShapes()
     {
         var payload = new byte[] { 0, 1, 2, 3 };
@@ -42,7 +42,7 @@ public class ConverterAndBinarySerializationTests(DynamoContainerFixture fixture
         actual.Should().BeEquivalentTo(entity);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ConverterCoverageItem_Query_MaterializesCustomConvertedValuesAndBinaryShapes()
     {
         var payload = new byte[] { 5, 6, 7, 8 };
@@ -119,7 +119,7 @@ public class ConverterAndBinarySerializationTests(DynamoContainerFixture fixture
                     .WhenTypeIs<byte[]>());
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ConverterCoverageItem_QueryByBinaryPayload_UsesParameterizedPredicate()
     {
         const string pk = "TEST#CONV";

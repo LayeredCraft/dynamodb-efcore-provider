@@ -10,11 +10,6 @@ public static class DynamoPropertyExtensions
 {
     extension(IReadOnlyProperty property)
     {
-        /// <summary>Determines whether this property is the ordinal key part for an owned collection element.</summary>
-        public bool IsOwnedOrdinalKeyProperty()
-            => property[DynamoAnnotationNames.OwnedOrdinalKey] as bool? == true
-                && property.IsPrimaryKey();
-
         /// <summary>
         ///     Returns the DynamoDB attribute name for this property, falling back to the CLR property
         ///     name.
@@ -83,5 +78,44 @@ public static class DynamoPropertyExtensions
                     runtimeValueSource,
                     fromDataAnnotation)
                 ?.Value;
+    }
+
+    extension(IReadOnlyComplexProperty complexProperty)
+    {
+        /// <summary>
+        ///     Returns the DynamoDB attribute name for this complex property (the map key in the parent
+        ///     document), falling back to the CLR property name.
+        /// </summary>
+        /// <remarks>
+        ///     Reuses <see cref="DynamoAnnotationNames.AttributeName" /> — EF Core annotation storage
+        ///     is per-object so there is no collision with <see cref="IReadOnlyProperty" />.
+        /// </remarks>
+        public string GetAttributeName()
+            => (string?)complexProperty[DynamoAnnotationNames.AttributeName]
+                ?? complexProperty.Name;
+    }
+
+    extension(IMutableComplexProperty complexProperty)
+    {
+        /// <summary>Sets or clears the DynamoDB attribute name override for this complex property.</summary>
+        public void SetAttributeName(string? name)
+            => complexProperty.SetOrRemoveAnnotation(DynamoAnnotationNames.AttributeName, name);
+    }
+
+    extension(IConventionComplexProperty complexProperty)
+    {
+        /// <summary>Sets the DynamoDB attribute name for this complex property, recording the configuration source.</summary>
+        public string? SetAttributeName(string? name, bool fromDataAnnotation = false)
+            => (string?)complexProperty.SetOrRemoveAnnotation(
+                    DynamoAnnotationNames.AttributeName,
+                    name,
+                    fromDataAnnotation)
+                ?.Value;
+
+        /// <summary>Returns the configuration source for the complex property attribute name, or null if not set.</summary>
+        public ConfigurationSource? GetAttributeNameConfigurationSource()
+            => complexProperty
+                .FindAnnotation(DynamoAnnotationNames.AttributeName)
+                ?.GetConfigurationSource();
     }
 }

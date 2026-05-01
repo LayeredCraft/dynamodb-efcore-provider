@@ -12,7 +12,7 @@ public sealed class SecondaryIndexProjectionAutoSelectionTests(DynamoContainerFi
     protected override DynamoAutomaticIndexSelectionMode AutomaticIndexSelectionMode
         => DynamoAutomaticIndexSelectionMode.Conservative;
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Conservative_WhereOnKeysOnlyGsiPk_RejectsCandidate_UsesBaseTable()
     {
         var results =
@@ -44,7 +44,7 @@ public sealed class SecondaryIndexProjectionAutoSelectionTests(DynamoContainerFi
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Conservative_WhereOnIncludeGsiPk_RejectsCandidate_UsesBaseTable()
     {
         var results =

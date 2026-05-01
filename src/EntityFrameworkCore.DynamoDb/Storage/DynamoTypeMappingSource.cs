@@ -205,9 +205,27 @@ public class DynamoTypeMappingSource(TypeMappingSourceDependencies dependencies)
         }
 
         var genericDefinition = clrType.GetGenericTypeDefinition();
-        if (genericDefinition == typeof(List<>)
-            || genericDefinition == typeof(IList<>)
-            || genericDefinition == typeof(IReadOnlyList<>))
+        if (genericDefinition == typeof(List<>) || genericDefinition == typeof(IList<>))
+        {
+            elementType = clrType.GetGenericArguments()[0];
+            return true;
+        }
+
+        elementType = null!;
+        return false;
+    }
+
+    /// <summary>Returns the element type when the CLR type is a supported complex collection shape.</summary>
+    internal static bool TryGetComplexCollectionElementType(Type clrType, out Type elementType)
+    {
+        if (!clrType.IsGenericType)
+        {
+            elementType = null!;
+            return false;
+        }
+
+        var genericDefinition = clrType.GetGenericTypeDefinition();
+        if (genericDefinition == typeof(List<>) || genericDefinition == typeof(IList<>))
         {
             elementType = clrType.GetGenericArguments()[0];
             return true;

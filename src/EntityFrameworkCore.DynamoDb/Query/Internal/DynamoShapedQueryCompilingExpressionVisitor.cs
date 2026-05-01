@@ -3,7 +3,10 @@ using System.Reflection;
 using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.EntityFrameworkCore.Storage;
+using static System.Linq.Expressions.Expression;
 
 namespace EntityFrameworkCore.DynamoDb.Query.Internal;
 
@@ -61,9 +64,7 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
         // This converts abstract ProjectionBindingExpression to concrete property access
         shaperBody = new DynamoProjectionBindingRemovingExpressionVisitor(
             itemParameter,
-            selectExpression,
-            QueryCompilationContext.Model,
-            InjectStructuralTypeMaterializers).Visit(shaperBody);
+            selectExpression).Visit(shaperBody);
 
         var shaperLambda = Expression.Lambda(
             shaperBody,
@@ -147,6 +148,63 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
         var valueExtractor = Expression.Lambda(body, QueryCompilationContext.QueryContextParameter);
 
         return QueryCompilationContext.RegisterRuntimeParameter(parameterName, valueExtractor);
+    }
+
+    /// <summary>
+    ///     Emits complex property and complex collection initialization markers for each
+    ///     complex property on the structural type being materialized.
+    /// </summary>
+    /// <remarks>
+    ///     Called by <see cref="DynamoStructuralTypeMaterializerSource" /> for each structural type when
+    ///     <c>ReadComplexTypeDirectly</c> returns <see langword="false" />.
+    ///     The markers are later processed by
+    ///     <see cref="DynamoProjectionBindingRemovingExpressionVisitor" />, which pushes the correct
+    ///     nested <c>Dictionary&lt;string, AttributeValue&gt;</c> context onto the attribute stack
+    ///     before visiting the injected scalar materializer.
+    /// </remarks>
+    public override void AddStructuralTypeInitialization(
+        StructuralTypeShaperExpression shaper,
+        ParameterExpression instanceVariable,
+        List<ParameterExpression> variables,
+        List<System.Linq.Expressions.Expression> expressions)
+    {
+        foreach (var complexProperty in shaper.StructuralType.GetComplexProperties())
+        {
+            var member = MakeMemberAccess(
+                instanceVariable,
+                complexProperty.GetMemberInfo(forMaterialization: true, forSet: true));
+
+            if (complexProperty.IsCollection)
+            {
+                // Inject per-element materializer for the complex element type.
+                var elementShaper = new StructuralTypeShaperExpression(
+                    complexProperty.ComplexType,
+                    Constant(ValueBuffer.Empty),
+                    false);
+                var elementMaterializer = InjectStructuralTypeMaterializers(elementShaper);
+                expressions.Add(
+                    new DynamoComplexCollectionInitializationExpression(
+                        complexProperty,
+                        elementMaterializer,
+                        member));
+            }
+            else
+            {
+                // Inject the scalar materializer for the complex type's own properties.
+                // Nested complex properties within this type will recursively emit further markers
+                // via AddStructuralTypeInitialization calls during injection.
+                var complexShaper = new StructuralTypeShaperExpression(
+                    complexProperty.ComplexType,
+                    Constant(ValueBuffer.Empty),
+                    complexProperty.IsNullable);
+                var injectedMaterializer = InjectStructuralTypeMaterializers(complexShaper);
+                expressions.Add(
+                    new DynamoComplexPropertyInitializationExpression(
+                        complexProperty,
+                        injectedMaterializer,
+                        member));
+            }
+        }
     }
 
     /// <summary>Validates that the runtime Limit value is positive.</summary>

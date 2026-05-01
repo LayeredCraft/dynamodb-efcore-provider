@@ -10,7 +10,7 @@ public class SecondaryIndexFirstTests(DynamoContainerFixture fixture)
     protected override DynamoAutomaticIndexSelectionMode AutomaticIndexSelectionMode
         => DynamoAutomaticIndexSelectionMode.Conservative;
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task FirstAsync_AutoSelects_ByStatusGsi_PkEquality_SetsLimit1_ReturnsOneItem()
     {
         LoggerFactory.Clear();
@@ -34,7 +34,7 @@ public class SecondaryIndexFirstTests(DynamoContainerFixture fixture)
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task FirstAsync_AutoSelects_ByStatusGsi_PkAndSkEquality_ReturnsExactItem()
     {
         LoggerFactory.Clear();
@@ -61,7 +61,7 @@ public class SecondaryIndexFirstTests(DynamoContainerFixture fixture)
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task FirstOrDefaultAsync_AutoSelects_ByStatusGsi_ReturnsNullWhenNoMatch()
     {
         var result = await Db
@@ -79,7 +79,7 @@ public class SecondaryIndexFirstTests(DynamoContainerFixture fixture)
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task FirstAsync_AutoSelects_ByCreatedAtLsi_PkAndSkEquality_ReturnsExactItem()
     {
         LoggerFactory.Clear();
@@ -106,7 +106,7 @@ public class SecondaryIndexFirstTests(DynamoContainerFixture fixture)
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task FirstAsync_AutoSelects_ByPriorityLsi_PkAndSkEquality_ReturnsExactItem()
     {
         LoggerFactory.Clear();
@@ -132,7 +132,7 @@ public class SecondaryIndexFirstTests(DynamoContainerFixture fixture)
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task
         FirstOrDefaultAsync_AutoSelects_ByStatusGsi_NonKeyFilter_ThrowsTranslationFailure()
     {
@@ -147,7 +147,7 @@ public class SecondaryIndexFirstTests(DynamoContainerFixture fixture)
             .WithMessage("*AsAsyncEnumerable*");
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task
         FirstOrDefaultAsync_AutoSelects_ByCreatedAtLsi_NonKeyFilter_ThrowsTranslationFailure()
     {
@@ -163,7 +163,7 @@ public class SecondaryIndexFirstTests(DynamoContainerFixture fixture)
             .WithMessage("*AsAsyncEnumerable*");
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task FirstAsync_ExplicitHint_ByRegionGsi_PkEquality_SetsLimit1_ReturnsItem()
     {
         LoggerFactory.Clear();

@@ -189,6 +189,22 @@ operations, but successful statements within that batch have already been persis
 
 ## Modeling Constraints
 
+### Owned Entity Types Are Not Supported
+
+The provider does not support EF Core owned entity types. `OwnsOne(...)`, `OwnsMany(...)`, and
+other owned-type configuration paths throw during model validation with guidance to switch to
+complex types instead.
+
+Use EF Core complex types for embedded document data:
+
+```csharp
+modelBuilder.Entity<Customer>(b =>
+{
+    b.ComplexProperty(x => x.Profile);
+    b.ComplexCollection(x => x.Contacts);
+});
+```
+
 ### Key Configuration
 
 Root entities must use `HasPartitionKey(...)` and, when needed, `HasSortKey(...)`. Using
@@ -222,11 +238,16 @@ collection types throw during model validation.
 
 | Collection kind | Supported CLR shapes                                                                                                                     |
 | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| List            | `T[]`, `List<T>`, `IList<T>`, `IReadOnlyList<T>`                                                                                         |
+| List            | `T[]`, `List<T>`, `IList<T>`                                                                                                              |
 | Set             | `HashSet<T>`, `ISet<T>`, `IReadOnlySet<T>`                                                                                               |
 | Dictionary      | `Dictionary<string, TValue>`, `IDictionary<string, TValue>`, `IReadOnlyDictionary<string, TValue>`, `ReadOnlyDictionary<string, TValue>` |
 
 Dictionary keys must be `string`. Non-string-keyed dictionary types are not supported.
+
+Complex collection properties use a narrower CLR shape set than primitive collections. Complex
+collections support only `List<T>` and `IList<T>`. `ICollection<T>`, `IReadOnlyList<T>`, and
+arrays are not supported for complex collections. See [Complex Types](modeling/complex-types.md)
+for complex collection mapping details.
 
 ### Concurrency Tokens — Application-Managed Only
 

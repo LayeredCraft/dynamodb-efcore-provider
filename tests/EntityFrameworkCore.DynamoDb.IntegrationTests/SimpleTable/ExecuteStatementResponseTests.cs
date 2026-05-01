@@ -6,7 +6,7 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SimpleTable;
 public class ExecuteStatementResponseTests(DynamoContainerFixture fixture)
     : SimpleTableTestFixture(fixture)
 {
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task FirstAsync_PopulatesResponseOnEntry()
     {
         var item = await Db.SimpleItems.Where(x => x.Pk == "ITEM#1").FirstAsync(CancellationToken);
@@ -21,7 +21,7 @@ public class ExecuteStatementResponseTests(DynamoContainerFixture fixture)
             .NotBeNullOrEmpty("RequestId is always populated by DynamoDB");
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ToListAsync_AllEntitiesFromSinglePage_ShareSameResponseReference()
     {
         var items = await Db.SimpleItems.ToListAsync(CancellationToken);
@@ -35,7 +35,7 @@ public class ExecuteStatementResponseTests(DynamoContainerFixture fixture)
         responses.Should().AllSatisfy(r => r.Should().BeSameAs(first));
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ToListAsync_WithLimit_PopulatesResponseOnEntities()
     {
         var items = await Db.SimpleItems.Limit(2).ToListAsync(CancellationToken);
@@ -49,7 +49,7 @@ public class ExecuteStatementResponseTests(DynamoContainerFixture fixture)
         }
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task NoTracking_GetExecuteStatementResponse_ReturnsNull()
     {
         var items = await Db.SimpleItems.AsNoTracking().ToListAsync(CancellationToken);
@@ -62,7 +62,7 @@ public class ExecuteStatementResponseTests(DynamoContainerFixture fixture)
         }
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SuccessiveQueries_EachEntityCarriesItsOwnResponse()
     {
         var first = await Db.SimpleItems.Where(x => x.Pk == "ITEM#1").FirstAsync(CancellationToken);

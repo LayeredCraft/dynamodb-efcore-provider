@@ -1,6 +1,6 @@
+using System.Linq.Expressions;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
-using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using NSubstitute;
@@ -14,7 +14,7 @@ namespace EntityFrameworkCore.DynamoDb.Tests.Query;
 public class LimitTranslationTests
 {
 #pragma warning disable EF9102
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Limit_SetsRequestLimit_OnToListAsync()
     {
         var (client, captured) = SetupMockClient();
@@ -25,7 +25,7 @@ public class LimitTranslationTests
         captured.Single().Limit.Should().Be(10);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Limit_ChainedTwice_LastOneWins()
     {
         var (client, captured) = SetupMockClient();
@@ -36,7 +36,7 @@ public class LimitTranslationTests
         captured.Single().Limit.Should().Be(20);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Limit_OnToListAsync_SingleRequest()
     {
         // Limit(n) always stops after one request — no follow-up page calls.
@@ -48,7 +48,7 @@ public class LimitTranslationTests
         captured.Should().HaveCount(1);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task WithNextToken_SetsRequestNextToken_OnFirstRequest()
     {
         var (client, captured) = SetupMockClient();
@@ -62,7 +62,7 @@ public class LimitTranslationTests
         captured.Single().NextToken.Should().Be("seed-token");
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task WithNextToken_CalledTwice_ThrowsTranslationFailure()
     {
         var (client, _) = SetupMockClient();
@@ -80,7 +80,7 @@ public class LimitTranslationTests
             .WithMessage("*WithNextToken*only be applied once*");
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task WithNextToken_TranslatedConstantNull_ThrowsArgumentNullException()
     {
         var (client, _) = SetupMockClient();
@@ -96,7 +96,7 @@ public class LimitTranslationTests
             .Where(ex => ex.ParamName == "nextToken");
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task WithNextToken_TranslatedConstantWhitespace_ThrowsArgumentException()
     {
         var (client, _) = SetupMockClient();
@@ -109,7 +109,7 @@ public class LimitTranslationTests
         await act.Should().ThrowAsync<ArgumentException>().Where(ex => ex.ParamName == "nextToken");
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task WithNextToken_CompiledRuntimeNull_ThrowsArgumentNullException()
     {
         var (client, _) = SetupMockClient();
@@ -129,7 +129,7 @@ public class LimitTranslationTests
             .Where(ex => ex.ParamName == "nextToken");
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task WithNextToken_CompiledRuntimeWhitespace_ThrowsArgumentException()
     {
         var (client, _) = SetupMockClient();
@@ -146,7 +146,7 @@ public class LimitTranslationTests
         await act.Should().ThrowAsync<ArgumentException>().Where(ex => ex.ParamName == "nextToken");
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ToPageAsync_InSubqueryShape_FailsFast()
     {
         var (client, _) = SetupMockClient();
@@ -163,7 +163,7 @@ public class LimitTranslationTests
         await act.Should().ThrowAsync<ArgumentException>();
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ToPageAsync_WithLimit_ThrowsTranslationFailure()
     {
         var (client, _) = SetupMockClient();
@@ -180,7 +180,7 @@ public class LimitTranslationTests
             .WithMessage("*ToPageAsync*Limit*");
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ToPageAsync_WithNonNullTokenAndWithNextToken_ThrowsTranslationFailure()
     {
         var (client, _) = SetupMockClient();
@@ -197,7 +197,7 @@ public class LimitTranslationTests
             .WithMessage("*Only one non-null pagination token may be specified*");
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task
         ToPageAsync_WithParameterizedTokenAndWithNextToken_ResolvesAmbiguityAtRuntime()
     {
@@ -224,7 +224,7 @@ public class LimitTranslationTests
             .WithMessage("*Only one non-null pagination token may be specified*");
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ToPageAsync_ReturnsSinglePage_WithItemsAndNextToken()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -261,7 +261,7 @@ public class LimitTranslationTests
         page.HasMoreResults.Should().BeTrue();
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ToPageAsync_EmptyResponseToken_NormalizesToNull()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -278,7 +278,7 @@ public class LimitTranslationTests
         page.HasMoreResults.Should().BeFalse();
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Limit_WithFirstOrDefault_ThrowsTranslationFailure()
     {
         // Limit(n) + First* is disallowed — use
@@ -298,7 +298,7 @@ public class LimitTranslationTests
             .WithMessage("*AsAsyncEnumerable*");
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task FirstOrDefault_KeyOnly_ImplicitLimit1_SetOnRequest()
     {
         // No user Limit → First* should use implicit Limit=1.
@@ -313,7 +313,7 @@ public class LimitTranslationTests
         captured.Single().Limit.Should().Be(1);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task WithNextToken_WithFirstOrDefault_ThrowsTranslationFailure()
     {
         var (client, _) = SetupMockClient();

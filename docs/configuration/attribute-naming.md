@@ -79,7 +79,7 @@ finalization.
 !!! note "Scope of convention-based renaming"
 
     Convention-based renaming applies to EF model members (entity properties, key properties, and
-    owned-type containing/member attributes). It does not rewrite ad-hoc nested map keys provided
+    complex-property container/member attributes). It does not rewrite ad-hoc nested map keys provided
     as runtime data values (for example, dictionary entry keys).
 
 ## Per-Property Override
@@ -102,11 +102,11 @@ modelBuilder.Entity<Order>(b =>
 This is the recommended pattern when your DynamoDB table uses short, generic key names (`PK`,
 `SK`) but your CLR model uses descriptive property names.
 
-## Owned Types
+## Complex Properties
 
-Owned entity types inherit the naming convention from their root entity. If the root uses
-SnakeCase, all owned declared properties also use SnakeCase unless explicitly overridden on the
-owned type:
+Complex properties inherit the naming convention from their root entity. If the root uses
+SnakeCase, nested complex members also use SnakeCase unless you override the complex property
+itself:
 
 ```csharp
 modelBuilder.Entity<Order>(b =>
@@ -115,23 +115,22 @@ modelBuilder.Entity<Order>(b =>
     b.HasPartitionKey(x => x.CustomerId);
     b.HasAttributeNamingConvention(DynamoAttributeNamingConvention.SnakeCase);
 
-    b.OwnsOne(x => x.ShippingAddress, ab =>
+    b.ComplexProperty(x => x.ShippingAddress, ab =>
     {
-        // Override for this owned type only — its properties use CamelCase
-        ab.HasAttributeNamingConvention(DynamoAttributeNamingConvention.CamelCase);
+        ab.HasAttributeName("shipping_address");
     });
 });
 ```
 
-The **containing attribute name** — the DynamoDB map key that holds the owned object (for example
-`"shippingAddress"`) — is also transformed by the inherited convention. Override it with
-`HasAttributeName` on the owned navigation builder:
+The complex property's own container attribute name is also convention-transformed. In the example
+above, the root convention would normally produce `"shippingAddress"`, but the explicit
+`HasAttributeName("shipping_address")` override wins.
+
+Nested scalar members still inherit the root naming convention:
 
 ```csharp
-b.OwnsOne(x => x.ShippingAddress, ab =>
-{
-    ab.HasAttributeName("shipping_address"); // explicit map key name
-});
+// ShippingAddress.City -> "city"
+// ShippingAddress.PostalCode -> "postal_code" when SnakeCase is active
 ```
 
 ## Precedence
@@ -141,7 +140,7 @@ order (highest to lowest):
 
 1. Explicit `HasAttributeName(...)` on the property
 1. Entity-level `HasAttributeNamingConvention(...)` set directly on the entity type
-1. Convention inherited from the root entity (for owned types without their own setting)
+1. Convention inherited by nested complex properties from the root entity
 1. Provider default: **CamelCase**
 
 ## See also

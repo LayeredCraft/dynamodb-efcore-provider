@@ -5,7 +5,7 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SimpleTable;
 
 public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixture(fixture)
 {
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Select_AnonymousObjectProjection()
     {
         var results =
@@ -25,7 +25,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Select_AnonymousObjectProjection_WithAlias()
     {
         var results =
@@ -45,7 +45,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Select_NestedAnonymousObjectProjection_NonCollection()
     {
         var results =
@@ -69,7 +69,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Select_NestedClassProjection_NonCollection()
     {
         var results =
@@ -109,7 +109,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Select_DtoProjection()
     {
         var results =
@@ -133,7 +133,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Select_ScalarProjection()
     {
         var results = await Db.SimpleItems.Select(item => item.Pk).ToListAsync(CancellationToken);
@@ -151,7 +151,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
 
     // Combined Operations Tests
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Select_WithWhere()
     {
         var results = await Db
@@ -177,7 +177,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Select_WithWhereAndOrderBy()
     {
         // Note: DynamoDB PartiQL requires:
@@ -210,7 +210,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Select_WithWhereAndOrderByDescending()
     {
         // Note: DynamoDB PartiQL requires:
@@ -245,7 +245,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
 
     // Different Data Types Tests
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Select_NumericTypes()
     {
         var results =
@@ -285,7 +285,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Select_BooleanAndTemporal()
     {
         var results =
@@ -309,7 +309,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Select_GuidType()
     {
         var results =
@@ -331,7 +331,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
 
     // Nullable Properties Test
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Select_NullableProperty()
     {
         var results =
@@ -352,7 +352,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Select_NullablePrimitiveProperties()
     {
         var results =
@@ -378,7 +378,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
 
     // Identity Projection Test
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Select_IdentityProjection()
     {
         var results = await Db.SimpleItems.Select(item => item).ToListAsync(CancellationToken);
@@ -396,7 +396,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
 
     // Multiple Properties of Same Type Test
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Select_MultipleStrings()
     {
         var results =
@@ -422,7 +422,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
 
     // All Properties Test
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Select_AllPropertyTypes()
     {
         var results =
@@ -482,7 +482,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Select_DateOnlyType_RoundTrips()
     {
         var results =
@@ -503,7 +503,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Select_TimeOnlyType_RoundTrips()
     {
         var results =
@@ -524,7 +524,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Select_TimeSpanType_RoundTrips()
     {
         var results =
@@ -545,7 +545,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Where_DateOnlyParameter_FiltersCorrectly()
     {
         var cutoff = new DateOnly(2026, 1, 1);
@@ -574,7 +574,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Where_TimeSpanParameter_FiltersCorrectly()
     {
         var cutoff = TimeSpan.FromHours(1);
@@ -605,7 +605,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
 
     // Error Cases Tests
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Select_ComputedExpression_ProjectsAttributeOnly()
     {
         var results = await Db
@@ -625,7 +625,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Select_MethodCall_ProjectsAttributeOnly()
     {
         var results =
@@ -649,7 +649,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Select_MethodCallChain_NullReceiver_ThrowsNullReferenceException()
     {
         var act = async ()
@@ -666,7 +666,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
         await act.Should().ThrowAsync<NullReferenceException>();
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Select_MethodCall_NullReceiver_ThrowsNullReferenceException()
     {
         var act = async ()
@@ -678,7 +678,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
         await act.Should().ThrowAsync<NullReferenceException>();
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Select_StringConcat_ProjectsAttributeOnly()
     {
         var results =
@@ -702,7 +702,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Select_DtoProjection_WithComputedArgument()
     {
         var results =
@@ -726,7 +726,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Select_CapturedVariable_ComputedProjection()
     {
         var factor = 2;
@@ -747,7 +747,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Select_ProjectionDeduplicatesLeafs()
     {
         var results =
@@ -767,7 +767,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Select_ConstructorDtoProjection()
     {
         var results =
@@ -791,7 +791,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Select_ConstructorDtoProjection_WithNamedArguments()
     {
         var results =
@@ -817,7 +817,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
 
     // Scalar Variations Tests
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Select_ScalarInt()
     {
         var results =
@@ -834,7 +834,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Select_ScalarBool()
     {
         var results =
@@ -851,7 +851,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Select_ScalarGuid()
     {
         var results =
@@ -868,7 +868,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Select_ScalarDateTime()
     {
         var results =

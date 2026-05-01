@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations.Schema;
 using Amazon.DynamoDBv2;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -54,7 +55,7 @@ public class TableKeySchemaTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void GetPartitionKeyPropertyName_SingleKey_ReturnsConfiguredPropertyName()
     {
@@ -67,7 +68,7 @@ public class TableKeySchemaTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void GetPartitionKeyProperty_SingleKey_ReturnsConfiguredProperty()
     {
@@ -79,7 +80,7 @@ public class TableKeySchemaTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void GetSortKeyPropertyName_SingleKey_ReturnsNull()
     {
@@ -91,7 +92,7 @@ public class TableKeySchemaTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void GetSortKeyProperty_SingleKey_ReturnsNull()
     {
@@ -133,7 +134,7 @@ public class TableKeySchemaTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void GetPartitionKeyPropertyName_SingleKey_WithHasAttributeName_ReturnsClrPropertyName()
     {
@@ -146,7 +147,7 @@ public class TableKeySchemaTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void GetPartitionKeyProperty_SingleKey_WithHasAttributeName_ReturnsPkProperty()
     {
@@ -197,7 +198,7 @@ public class TableKeySchemaTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void GetPartitionKeyPropertyName_TwoPartKey_ReturnsPartitionPropertyName()
     {
@@ -209,7 +210,7 @@ public class TableKeySchemaTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void GetPartitionKeyProperty_TwoPartKey_ReturnsPartitionProperty()
     {
@@ -224,7 +225,7 @@ public class TableKeySchemaTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void GetSortKeyPropertyName_TwoPartKey_ReturnsSortPropertyName()
     {
@@ -236,7 +237,7 @@ public class TableKeySchemaTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void GetSortKeyProperty_TwoPartKey_ReturnsSortProperty()
     {
@@ -280,7 +281,7 @@ public class TableKeySchemaTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void HasPartitionKey_Lambda_OverridesDefaultDetection()
     {
@@ -312,7 +313,7 @@ public class TableKeySchemaTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void HasSortKey_Lambda_OverridesDefaultDetection()
     {
@@ -355,7 +356,7 @@ public class TableKeySchemaTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void HasPartitionKey_WithHasAttributeName_PropertyDerivesPhysicalName()
     {
@@ -368,7 +369,7 @@ public class TableKeySchemaTests
     }
 
     // -------------------------------------------------------------------
-    // Owned entity types — no auto-detection (no EF primary key)
+    // Complex types — no auto-detection
     // -------------------------------------------------------------------
 
     private sealed record OwnerEntity
@@ -377,16 +378,16 @@ public class TableKeySchemaTests
         public string Id { get; set; } = null!;
 
         /// <summary>Provides functionality for this member.</summary>
-        public OwnedDetail Detail { get; set; } = null!;
+        public ComplexDetail Detail { get; set; } = null!;
     }
 
-    private sealed record OwnedDetail
+    private sealed record ComplexDetail
     {
         /// <summary>Provides functionality for this member.</summary>
         public string Value { get; set; } = null!;
     }
 
-    private sealed class OwnedContext(DbContextOptions options) : DbContext(options)
+    private sealed class ComplexContext(DbContextOptions options) : DbContext(options)
     {
         /// <summary>Provides functionality for this member.</summary>
         public DbSet<OwnerEntity> Owners { get; set; } = null!;
@@ -397,26 +398,25 @@ public class TableKeySchemaTests
             {
                 b.ToTable("OwnedTable");
                 b.HasPartitionKey(x => x.Id);
-                b.OwnsOne(x => x.Detail);
+                b.ComplexProperty(x => x.Detail);
             });
 
         /// <summary>Provides functionality for this member.</summary>
-        public static OwnedContext Create(IAmazonDynamoDB client)
-            => new(BuildOptions<OwnedContext>(client));
+        public static ComplexContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<ComplexContext>(client));
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
-    public void OwnedEntityType_NoAutoDetection_ReturnsNull()
+    public void ComplexType_NoAutoDetection_ReturnsNull()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
-        using var ctx = OwnedContext.Create(client);
+        using var ctx = ComplexContext.Create(client);
 
-        var ownedType = ctx.Model.FindEntityType(typeof(OwnedDetail))!;
-        // No explicit PartitionKeyPropertyName annotation is set on owned types — the
-        // derivation is not configured for them, so the annotation should be absent.
-        ownedType["Dynamo:PartitionKeyPropertyName"].Should().BeNull();
+        var ownerType = ctx.Model.FindEntityType(typeof(OwnerEntity))!;
+        var complexType = ownerType.FindComplexProperty(nameof(OwnerEntity.Detail))!.ComplexType;
+        complexType["Dynamo:PartitionKeyPropertyName"].Should().BeNull();
     }
 
     // -------------------------------------------------------------------
@@ -456,7 +456,7 @@ public class TableKeySchemaTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void GetSortKeyProperty_TwoPartKey_WithHasAttributeName_ReturnsMappedProperty()
     {
@@ -501,7 +501,7 @@ public class TableKeySchemaTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void HasPartitionKey_StringOverride_ReturnsPropertyClrName()
     {
@@ -534,7 +534,7 @@ public class TableKeySchemaTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void HasPartitionKey_StringOverride_WithHasAttributeName_PropertyDerivesPhysicalName()
     {
@@ -581,7 +581,7 @@ public class TableKeySchemaTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void HasSortKey_Lambda_WithHasAttributeName_PropertyDerivesPhysicalName()
     {
@@ -627,7 +627,7 @@ public class TableKeySchemaTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void HasSortKey_StringOverride_ReturnsPropertyClrName()
     {
@@ -661,7 +661,7 @@ public class TableKeySchemaTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void HasSortKey_StringOverride_WithHasAttributeName_PropertyDerivesPhysicalName()
     {
@@ -720,7 +720,7 @@ public class TableKeySchemaTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void GetPartitionKeyPropertyNameConfigurationSource_FluentApi_ReportsExplicitSource()
     {
@@ -761,7 +761,7 @@ public class TableKeySchemaTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void GetSortKeyPropertyNameConfigurationSource_FluentApi_ReportsExplicitSource()
     {
@@ -814,7 +814,7 @@ public class TableKeySchemaTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void
         GetPartitionKeyPropertyNameConfigurationSource_Convention_IsNotAvailableDuringOnModelCreating()
@@ -827,7 +827,7 @@ public class TableKeySchemaTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void
         GetSortKeyPropertyNameConfigurationSource_Convention_IsNotAvailableDuringOnModelCreating()

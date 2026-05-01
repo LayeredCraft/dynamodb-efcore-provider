@@ -124,10 +124,10 @@ public class DynamoSqlTranslatingExpressionVisitor(
         {
             SqlExpression? operand = null;
             if (node.Right is ConstantExpression { Value: null })
-                operand = TryTranslateOwnedNavigationOperandForNullComparison(node.Left)
+                operand = TryTranslateComplexPropertyForNullComparison(node.Left)
                     ?? TranslateInternal(node.Left);
             else if (node.Left is ConstantExpression { Value: null })
-                operand = TryTranslateOwnedNavigationOperandForNullComparison(node.Right)
+                operand = TryTranslateComplexPropertyForNullComparison(node.Right)
                     ?? TranslateInternal(node.Right);
 
             if (operand != null)
@@ -162,44 +162,96 @@ public class DynamoSqlTranslatingExpressionVisitor(
     }
 
     /// <summary>
-    ///     Translates a single-segment owned reference navigation operand for null comparisons in
-    ///     predicates.
+    ///     Translates a nullable complex property operand for null comparisons in predicates.
+    ///     Returns the SQL path for the complex map attribute so that <c>== null</c> and
+    ///     <c>!= null</c> compose against the correct nested document path.
     /// </summary>
-    private SqlExpression? TryTranslateOwnedNavigationOperandForNullComparison(Expression operand)
+    private SqlExpression? TryTranslateComplexPropertyForNullComparison(Expression operand)
     {
-        string? memberName = null;
-        Type? memberType = null;
-        Expression? sourceExpression = null;
-
-        if (operand is MemberExpression memberExpression)
-        {
-            memberName = memberExpression.Member.Name;
-            memberType = memberExpression.Type;
-            sourceExpression = memberExpression.Expression;
-        }
-        else if (operand is MethodCallExpression
-            {
-                Method.IsGenericMethod: true,
-                Arguments: [var source, ConstantExpression { Value: string efPropertyName }],
-            } methodCall
-            && methodCall.Method.GetGenericMethodDefinition() == EfPropertyMethod)
-        {
-            memberName = efPropertyName;
-            memberType = methodCall.Type;
-            sourceExpression = source;
-        }
-
-        if (memberName == null || memberType == null)
+        if (!TryGetMemberAccessChain(operand, out var names, out var sourceExpression))
             return null;
 
         var rootEntityType = ResolveRootEntityType(sourceExpression);
-        if (rootEntityType?.FindNavigation(memberName) is not { IsCollection: false } navigation
-            || !navigation.IsEmbedded())
+        if (rootEntityType == null)
             return null;
 
-        var navigationAttributeName =
-            navigation.TargetEntityType.GetContainingAttributeName() ?? navigation.Name;
-        return sqlExpressionFactory.Property(navigationAttributeName, memberType);
+        return TryTranslateComplexPropertyPath(names, rootEntityType, operand.Type);
+    }
+
+    /// <summary>
+    ///     Extracts a root-first member-access chain from plain member access or nested
+    ///     <c>EF.Property&lt;T&gt;</c> calls.
+    /// </summary>
+    private bool TryGetMemberAccessChain(
+        Expression operand,
+        out List<string> names,
+        out Expression? sourceExpression)
+    {
+        names = [];
+        sourceExpression = operand;
+
+        while (true)
+            if (sourceExpression is MemberExpression memberExpression)
+            {
+                names.Add(memberExpression.Member.Name);
+                sourceExpression = memberExpression.Expression;
+            }
+            else if (sourceExpression is MethodCallExpression
+                {
+                    Method.IsGenericMethod: true,
+                    Arguments:
+                    [
+                        var source, ConstantExpression { Value: string efPropertyName },
+                    ],
+                } methodCall
+                && methodCall.Method.GetGenericMethodDefinition() == EfPropertyMethod)
+            {
+                names.Add(efPropertyName);
+                sourceExpression = source;
+            }
+            else
+            {
+                break;
+            }
+
+        names.Reverse();
+        return names.Count > 0;
+    }
+
+    /// <summary>
+    ///     Walks a root-first member chain and returns the SQL path for the final complex property
+    ///     when the chain resolves exclusively through non-collection complex members.
+    /// </summary>
+    private SqlExpression? TryTranslateComplexPropertyPath(
+        List<string> names,
+        IEntityType rootEntityType,
+        Type resultType)
+    {
+        SqlExpression? sqlExpression = null;
+        ITypeBase currentType = rootEntityType;
+
+        for (var i = 0; i < names.Count; i++)
+        {
+            if (currentType.FindComplexProperty(names[i]) is not
+                {
+                    IsCollection: false,
+                } complexProperty)
+                return null;
+
+            var attributeName = complexProperty.GetAttributeName();
+            sqlExpression = sqlExpression == null
+                ? sqlExpressionFactory.Property(
+                    attributeName,
+                    i == names.Count - 1 ? resultType : complexProperty.ClrType)
+                : new DynamoScalarAccessExpression(
+                    sqlExpression,
+                    attributeName,
+                    i == names.Count - 1 ? resultType : complexProperty.ClrType);
+
+            currentType = complexProperty.ComplexType;
+        }
+
+        return sqlExpression;
     }
 
     /// <inheritdoc />
@@ -269,9 +321,10 @@ public class DynamoSqlTranslatingExpressionVisitor(
                     isPartitionKey);
             }
 
-            // When entity type is known but FindProperty returned null the member is a navigation
-            // or other non-scalar — the binding visitor handles those via
-            // DynamoObjectAccessExpression.
+            // When entity type is known but FindProperty returned null the member is a non-scalar
+            // (complex property, or unsupported navigation). Complex property chains go through
+            // TranslateNestedMemberChain for multi-segment access; single-segment access is
+            // unsupported.
             if (rootEntityType != null)
             {
                 AddTranslationErrorDetails(DynamoStrings.MemberAccessNotSupported);
@@ -291,8 +344,8 @@ public class DynamoSqlTranslatingExpressionVisitor(
     }
 
     /// <summary>
-    ///     Translates a multi-segment owned navigation chain to a nested path expression by walking
-    ///     intermediate owned navigations and resolving the leaf scalar property through the EF model.
+    ///     Translates a multi-segment complex property chain to a nested path expression by walking
+    ///     intermediate complex properties and resolving the leaf scalar property through the EF model.
     /// </summary>
     private Expression TranslateNestedMemberChain(
         List<string> names,
@@ -300,7 +353,7 @@ public class DynamoSqlTranslatingExpressionVisitor(
         Type leafType)
     {
         Expression? sqlExpr = null;
-        var currentEntityType = rootEntityType;
+        ITypeBase currentType = rootEntityType;
 
         for (var i = 0; i < names.Count; i++)
         {
@@ -309,8 +362,8 @@ public class DynamoSqlTranslatingExpressionVisitor(
 
             if (isLast)
             {
-                // Leaf must be a scalar property — whole-entity leaf navigation is not supported
-                var property = currentEntityType.FindProperty(memberName);
+                // Leaf must be a scalar property — whole-complex-type leaf access is not supported
+                var property = currentType.FindProperty(memberName);
                 if (property == null)
                 {
                     AddTranslationErrorDetails(DynamoStrings.MemberAccessNotSupported);
@@ -328,19 +381,19 @@ public class DynamoSqlTranslatingExpressionVisitor(
                         typeMapping);
             }
 
-            // Intermediate segment: must be an embedded, non-collection owned navigation
-            var nav = currentEntityType.FindNavigation(memberName);
-            if (nav == null || !nav.IsEmbedded() || nav.IsCollection)
+            // Intermediate segment: must be a non-collection complex property
+            var complexProperty = currentType.FindComplexProperty(memberName);
+            if (complexProperty == null || complexProperty.IsCollection)
             {
                 AddTranslationErrorDetails(DynamoStrings.MemberAccessNotSupported);
                 return QueryCompilationContext.NotTranslatedExpression;
             }
 
-            var navAttributeName = nav.TargetEntityType.GetContainingAttributeName() ?? nav.Name;
+            var cpAttributeName = ((IReadOnlyComplexProperty)complexProperty).GetAttributeName();
             sqlExpr = sqlExpr == null
-                ? sqlExpressionFactory.Property(navAttributeName, typeof(object))
-                : new DynamoScalarAccessExpression(sqlExpr, navAttributeName, typeof(object));
-            currentEntityType = nav.TargetEntityType;
+                ? new DynamoComplexPropertyAccessExpression(complexProperty)
+                : new DynamoScalarAccessExpression(sqlExpr, cpAttributeName, typeof(object));
+            currentType = complexProperty.ComplexType;
         }
 
         // Unreachable — chain is always non-empty, loop always returns from leaf branch
@@ -685,12 +738,11 @@ public class DynamoSqlTranslatingExpressionVisitor(
     ///     Translates <c>Enumerable.ElementAt(source, index)</c> or
     ///     <c>Queryable.ElementAt(source, index)</c> to a list index access expression. EF Core normalises
     ///     <c>list[i]</c> to this form, wrapping the source in <c>.AsQueryable()</c> when the collection
-    ///     is an owned navigation property.
+    ///     is a complex collection property.
     /// </summary>
     private Expression TranslateElementAt(MethodCallExpression node)
     {
-        // Strip .AsQueryable() wrapper that EF Core adds when the source is an owned collection
-        // property
+        // Strip the .AsQueryable() wrapper that EF Core adds around complex collection sources.
         var sourceArg = node.Arguments[0];
         if (sourceArg is MethodCallExpression { Method.Name: "AsQueryable" } asq)
             sourceArg = asq.Arguments[0];

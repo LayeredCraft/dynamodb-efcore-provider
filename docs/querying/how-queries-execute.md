@@ -59,7 +59,10 @@ var active = await db.Orders
     .FirstOrDefaultAsync(cancellationToken);
 ```
 
-Some projection shaping also runs client-side — computed expressions in `Select` (string methods, arithmetic, constructor calls) are applied by the shaper lambda after the server returns the raw `AttributeValue` rows. This is expected behavior and is documented per operator on the [Projection](projection.md) page.
+Some projection shaping also runs client-side. Computed expressions in `Select` (string methods,
+arithmetic, constructor calls) and nested complex-property materialization are applied by the
+shaper lambda after the server returns the raw `AttributeValue` rows. This is expected behavior
+and is documented per operator on the [Projection](projection.md) page.
 
 ## Async Execution
 

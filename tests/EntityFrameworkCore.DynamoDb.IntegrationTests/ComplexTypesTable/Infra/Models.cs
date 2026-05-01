@@ -1,7 +1,7 @@
-namespace EntityFrameworkCore.DynamoDb.IntegrationTests.OwnedTypesTable;
+namespace EntityFrameworkCore.DynamoDb.IntegrationTests.ComplexTypesTable;
 
-/// <summary>Represents the OwnedShapeItem type.</summary>
-public sealed record OwnedShapeItem
+/// <summary>Represents the ComplexShapeItem type.</summary>
+public sealed record ComplexShapeItem
 {
     public DateTimeOffset CreatedAt { get; set; }
 
@@ -129,7 +129,7 @@ public sealed record AnalysisReport
 }
 
 /// <summary>
-///     Owned collection element with a CLR property named <c>Id</c> — mirrors the real-world
+///     Complex collection element with a CLR property named <c>Id</c> — mirrors the real-world
 ///     scenario that triggered the fix in <c>DynamoKeyDiscoveryConvention</c>.
 /// </summary>
 public sealed record ScoredResult
@@ -137,4 +137,31 @@ public sealed record ScoredResult
     public string Id { get; set; } = null!;
 
     public float Score { get; set; }
+}
+
+/// <summary>
+///     Root entity used to verify convention-only support for advertised complex collection
+///     shapes.
+/// </summary>
+public sealed record CollectionShapeItem
+{
+    public string Pk { get; set; } = null!;
+
+    public IList<ShapeContact> InterfaceContacts { get; set; } = [];
+
+    public List<ShapeContact> MutableContacts { get; set; } = [];
+}
+
+/// <summary>Complex collection element used by collection-shape convention tests.</summary>
+public sealed record ShapeContact
+{
+    public string Label { get; set; } = null!;
+
+    public ShapeAddress? Address { get; set; }
+}
+
+/// <summary>Nested complex type under <see cref="ShapeContact" />.</summary>
+public sealed record ShapeAddress
+{
+    public string City { get; set; } = null!;
 }

@@ -8,7 +8,7 @@ public class BinaryDynamoValueReaderWriterTests
 {
     private readonly BinaryDynamoValueReaderWriter _sut = new();
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void Write_ByteArray_WrapsInNonWritableMemoryStream()
     {
         var bytes = new byte[] { 1, 2, 3 };
@@ -23,7 +23,7 @@ public class BinaryDynamoValueReaderWriterTests
         av.BOOL.Should().BeNull();
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void Write_EmptyByteArray_WritesEmptyBinaryMember()
     {
         var av = _sut.Write([]);
@@ -32,7 +32,7 @@ public class BinaryDynamoValueReaderWriterTests
         av.B.ToArray().Should().BeEmpty();
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void Read_AttributeValueWithB_ReturnsByteArray()
     {
         var bytes = new byte[] { 4, 5, 6 };
@@ -43,7 +43,7 @@ public class BinaryDynamoValueReaderWriterTests
         result.Should().Equal(bytes);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void Read_RequiredMissingB_ThrowsInvalidOperationException()
     {
         var av = new AttributeValue { S = "not binary" };
@@ -53,7 +53,7 @@ public class BinaryDynamoValueReaderWriterTests
         act.Should().Throw<InvalidOperationException>().WithMessage("*'payload'*");
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void Read_OptionalMissingB_ReturnsNull()
     {
         var av = new AttributeValue { S = "not binary" };
@@ -63,7 +63,7 @@ public class BinaryDynamoValueReaderWriterTests
         result.Should().BeNull();
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void ToPartiQlLiteral_Throws_NotSupportedException()
     {
         var act = () => _sut.ToPartiQlLiteral(new byte[] { 1 });
@@ -71,7 +71,7 @@ public class BinaryDynamoValueReaderWriterTests
         act.Should().Throw<NotSupportedException>();
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void ConvertProviderValueToAttributeValue_NullByteArray_WritesNullMember()
     {
         var av = DynamoWireValueConversion.ConvertProviderValueToAttributeValue<byte[]?>(null);
@@ -80,7 +80,7 @@ public class BinaryDynamoValueReaderWriterTests
         av.B.Should().BeNull();
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void WireMemberName_IsBinaryMember()
     {
         _sut.WireMemberName.Should().Be(nameof(AttributeValue.B));

@@ -7,7 +7,7 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.PrimitiveCollectionsTabl
 public class SelectTests(DynamoContainerFixture fixture)
     : PrimitiveCollectionsTableTestFixture(fixture)
 {
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ToListAsync_MaterializesListMapSetProperties()
     {
         var resultItems = await Db.Items.ToListAsync(CancellationToken);

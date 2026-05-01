@@ -471,10 +471,14 @@ internal sealed class DynamoQueryTranslationPostprocessor(
             SqlDiscriminatorPredicateExpression => false,
             // Nested path access (e.g. x.Profile.City → DynamoScalarAccessExpression): recurse
             // into the parent chain. The root of the chain is a SqlPropertyExpression whose name
-            // identifies the top-level DynamoDB attribute. PK and SK are always scalar types and
+            // identifies the top-level DynamoDB attribute or a DynamoComplexPropertyAccessExpression
+            // when the chain starts from a complex property. PK and SK are always scalar types and
             // can never host nested properties, so any nested path is inherently non-key.
             DynamoScalarAccessExpression scalar => scalar.Parent is not SqlExpression parentSql
                 || ContainsNonKeyProperty(parentSql, keyAttributes),
+            // Root complex-property access (e.g. x.Profile in x.Profile.City) is always non-key:
+            // DynamoDB key attributes are scalar and cannot be complex documents.
+            DynamoComplexPropertyAccessExpression => true,
             // List-index access (e.g. x.Tags[0] → DynamoListIndexExpression): recurse into the
             // source expression. PK and SK are never list types, so any list-index access is
             // inherently non-key.

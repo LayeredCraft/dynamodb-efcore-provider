@@ -40,7 +40,7 @@ sets it to `{ NULL: true }`.
 ## In This Section
 
 - **[Add, Update, and Delete](add-update-delete.md)** — How each entity state translates to a
-    PartiQL statement, what the generated SQL looks like, how owned types are handled in updates,
+    PartiQL statement, what the generated SQL looks like, how complex properties are handled in updates,
     and the 8,192-byte statement size limit.
 - **[Transactions](transactions.md)** — Auto-transaction wrapping via `ExecuteTransaction`,
     the 100-item limit, overflow behavior (throw vs. chunking), and non-transactional batch writes.

@@ -13,7 +13,7 @@ public class BetweenTests(DynamoContainerFixture fixture) : SimpleTableTestFixtu
     // Inclusive range → BETWEEN translation
     // ------------------------------------------------------------------
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Where_IntBetween_BothBoundsInclusive_TranslatesToBetween()
     {
         var low = 100;
@@ -37,7 +37,7 @@ public class BetweenTests(DynamoContainerFixture fixture) : SimpleTableTestFixtu
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Where_IntBetween_NoMatchingItems_ReturnsEmpty()
     {
         var low = 300000;
@@ -61,7 +61,7 @@ public class BetweenTests(DynamoContainerFixture fixture) : SimpleTableTestFixtu
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Where_LongBetween_BothBoundsInclusive_TranslatesToBetween()
     {
         var low = 1000L;
@@ -89,7 +89,7 @@ public class BetweenTests(DynamoContainerFixture fixture) : SimpleTableTestFixtu
     // Mixed / exclusive bounds → no BETWEEN rewrite
     // ------------------------------------------------------------------
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Where_IntRange_ExclusiveLowerBound_DoesNotUseBetween()
     {
         var low = 100;
@@ -114,7 +114,7 @@ public class BetweenTests(DynamoContainerFixture fixture) : SimpleTableTestFixtu
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Where_IntRange_ExclusiveUpperBound_DoesNotUseBetween()
     {
         var low = 100;
@@ -143,7 +143,7 @@ public class BetweenTests(DynamoContainerFixture fixture) : SimpleTableTestFixtu
     // BETWEEN composed with other predicates
     // ------------------------------------------------------------------
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Where_BetweenComposedWithOtherPredicate_UsesBetweenAndAddsClause()
     {
         var low = 100;

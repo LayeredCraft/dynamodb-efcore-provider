@@ -6,7 +6,7 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SharedTable;
 public class DiscriminatorQueryTests(DynamoContainerFixture fixture)
     : SharedTableTestFixture(fixture)
 {
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Where_IncludesDiscriminatorPredicate_AndQuotedTableName()
     {
         var results =
@@ -23,7 +23,7 @@ public class DiscriminatorQueryTests(DynamoContainerFixture fixture)
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SelectProjection_StillAppliesDiscriminatorPredicate()
     {
         var results = await Db
@@ -51,7 +51,7 @@ public class DiscriminatorQueryCustomNameTests(DynamoContainerFixture fixture)
             CreateOptions<SharedTableCustomDiscriminatorNameDbContext>(o
                 => o.DynamoDbClient(Client)));
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task UsesEmbeddedDiscriminatorNameOverrideInPredicate()
     {
         var results = await CustomDiscriminatorDb
@@ -76,7 +76,7 @@ public class DiscriminatorQuerySingleTypeTests(DynamoContainerFixture fixture)
     private SharedTableSingleTypeDbContext SingleTypeDb
         => new(CreateOptions<SharedTableSingleTypeDbContext>(o => o.DynamoDbClient(Client)));
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SingleTypeTable_DoesNotInjectDiscriminatorPredicate()
     {
         var results = await SingleTypeDb
@@ -102,7 +102,7 @@ public class DiscriminatorQueryHasNoDiscriminatorTests(DynamoContainerFixture fi
         => new(
             CreateOptions<SharedTableHasNoDiscriminatorDbContext>(o => o.DynamoDbClient(Client)));
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SharedTableWithHasNoDiscriminator_DoesNotInjectDiscriminatorPredicate()
     {
         var results = await HasNoDiscriminatorDb
@@ -120,7 +120,7 @@ public class DiscriminatorQueryHasNoDiscriminatorTests(DynamoContainerFixture fi
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task
         SharedTableWithHasNoDiscriminator_DoesNotInjectDiscriminatorPredicate_ForOrders()
     {
@@ -146,7 +146,7 @@ public class DiscriminatorInheritanceQueryTests(DynamoContainerFixture fixture)
     private SharedTableInheritanceDbContext InheritanceDb
         => new(CreateOptions<SharedTableInheritanceDbContext>(o => o.DynamoDbClient(Client)));
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task BaseQuery_MaterializesConcreteHierarchyTypes()
     {
         var results = await InheritanceDb
@@ -172,7 +172,7 @@ public class DiscriminatorInheritanceQueryTests(DynamoContainerFixture fixture)
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task BaseQuery_WithAdditionalFilter_UsesGroupedDiscriminatorPredicate()
     {
         var results = await InheritanceDb
@@ -192,7 +192,7 @@ public class DiscriminatorInheritanceQueryTests(DynamoContainerFixture fixture)
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task DerivedQuery_UsesDerivedDiscriminatorPredicate()
     {
         var results = await InheritanceDb
@@ -211,7 +211,7 @@ public class DiscriminatorInheritanceQueryTests(DynamoContainerFixture fixture)
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task DerivedQuery_FirstOrDefault_PkAndSkEquality_ReturnsMatchingDerivedItem()
     {
         var result = await InheritanceDb
@@ -230,7 +230,7 @@ public class DiscriminatorInheritanceQueryTests(DynamoContainerFixture fixture)
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task DerivedQuery_FirstOrDefault_PkOnly_ThrowsTranslationFailure()
     {
         var act = async () => await InheritanceDb
@@ -253,7 +253,7 @@ public class DiscriminatorInheritanceBaseOnlyToTableQueryTests(DynamoContainerFi
             CreateOptions<SharedTableInheritanceBaseOnlyToTableDbContext>(o
                 => o.DynamoDbClient(Client)));
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task BaseQuery_MaterializesConcreteHierarchyTypes_WhenOnlyBaseConfiguresTable()
     {
         var results = await BaseOnlyToTableDb
@@ -279,7 +279,7 @@ public class DiscriminatorInheritanceBaseOnlyToTableQueryTests(DynamoContainerFi
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task DerivedQuery_UsesRootTableMapping_WhenOnlyBaseConfiguresTable()
     {
         var results = await BaseOnlyToTableDb
@@ -307,7 +307,7 @@ public class DiscriminatorInheritanceWithIndexQueryTests(DynamoContainerFixture 
             CreateOptions<SharedTableInheritanceWithIndexesDbContext>(o
                 => o.DynamoDbClient(Client)));
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task DerivedQuery_WithSiblingOnlyIndex_ThrowsBeforeExecution()
     {
         var act = async () => await InheritanceWithIndexesDb

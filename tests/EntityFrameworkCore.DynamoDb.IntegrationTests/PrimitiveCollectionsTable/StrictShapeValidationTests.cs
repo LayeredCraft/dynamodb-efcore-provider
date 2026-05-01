@@ -11,7 +11,7 @@ public class StrictShapeValidationTests
 
     public StrictShapeValidationTests(DynamoContainerFixture fixture) => _fixture = fixture;
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void DerivedDictionaryPrimitiveCollectionType_ThrowsModelValidationError()
     {
         using var context = new DerivedDictionaryContext(CreateOptions<DerivedDictionaryContext>());
@@ -24,7 +24,7 @@ public class StrictShapeValidationTests
             .WithMessage("*DerivedDictionaryItem.Scores*DynamoDB does not support this type*");
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void DerivedSetPrimitiveCollectionType_ThrowsModelValidationError()
     {
         using var context = new DerivedSetContext(CreateOptions<DerivedSetContext>());

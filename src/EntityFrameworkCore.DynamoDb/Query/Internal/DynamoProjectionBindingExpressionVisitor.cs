@@ -2,7 +2,6 @@ using System.Collections.ObjectModel;
 using System.Linq.Expressions;
 using System.Reflection;
 using EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
-using EntityFrameworkCore.DynamoDb.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Query;
@@ -22,53 +21,52 @@ public class DynamoProjectionBindingExpressionVisitor(
     private readonly Dictionary<ProjectionMember, Expression> _projectionMapping = new();
     private readonly Stack<ProjectionMember> _projectionMembers = new();
 
-    private readonly Dictionary<IEntityType, HashSet<string>> _topLevelOwnedContainerNameCache =
-        new();
-
-    private readonly Dictionary<IEntityType, HashSet<string>>
-        _nestedOwnedContainerNameCache = new();
-
     private bool _indexBasedBinding;
     private SelectExpression _selectExpression = null!;
 
     /// <summary>Translates a Select lambda body into a projection mapping and returns a shaper expression.</summary>
     public Expression Translate(SelectExpression selectExpression, Expression expression)
     {
-        _selectExpression = selectExpression;
-        _projectionMembers.Push(new ProjectionMember());
+        try
+        {
+            _selectExpression = selectExpression;
+            _projectionMembers.Push(new ProjectionMember());
 
-        // Clear any existing concrete projections - we're rebuilding from scratch
-        _selectExpression.ClearProjection();
+            // Clear any existing concrete projections - we're rebuilding from scratch
+            _selectExpression.ClearProjection();
 
-        _indexBasedBinding = false;
-        var result = Visit(expression);
+            _indexBasedBinding = false;
+            var result = Visit(expression);
 
-        if (result == QueryCompilationContext.NotTranslatedExpression)
+            if (result == QueryCompilationContext.NotTranslatedExpression)
+            {
+                _projectionMapping.Clear();
+                _projectionMembers.Clear();
+                _projectionMembers.Push(new ProjectionMember());
+                _selectExpression.ClearProjection();
+                _indexBasedBinding = true;
+                result = Visit(expression);
+            }
+
+            if (result == null)
+                throw new InvalidOperationException("Failed to translate Select projection.");
+
+            if (result == QueryCompilationContext.NotTranslatedExpression)
+                throw new InvalidOperationException(
+                    "Failed to translate Select projection to client evaluation.");
+
+            if (!_indexBasedBinding)
+                _selectExpression.ReplaceProjectionMapping(_projectionMapping);
+
+            return result;
+        }
+        finally
         {
             _projectionMapping.Clear();
+            _selectExpression = null!;
             _projectionMembers.Clear();
-            _projectionMembers.Push(new ProjectionMember());
-            _selectExpression.ClearProjection();
-            _indexBasedBinding = true;
-            result = Visit(expression);
+            _indexBasedBinding = false;
         }
-
-        if (result == null)
-            throw new InvalidOperationException("Failed to translate Select projection.");
-
-        if (result == QueryCompilationContext.NotTranslatedExpression)
-            throw new InvalidOperationException(
-                "Failed to translate Select projection to client evaluation.");
-
-        if (!_indexBasedBinding)
-            _selectExpression.ReplaceProjectionMapping(_projectionMapping);
-
-        _projectionMapping.Clear();
-        _selectExpression = null!;
-        _projectionMembers.Clear();
-        _indexBasedBinding = false;
-
-        return result;
     }
 
     /// <summary>Handles anonymous type projections: new { x.Id, x.Name }</summary>
@@ -207,56 +205,21 @@ public class DynamoProjectionBindingExpressionVisitor(
         return node.Update((NewExpression)newExpression, newBindings);
     }
 
-    /// <summary>Handles StructuralTypeShaperExpression (entity shapers from previous query stage).</summary>
+    /// <summary>Handles StructuralTypeShaperExpression (entity and complex type shapers from previous query stage).</summary>
     protected override Expression VisitExtension(Expression node)
     {
         if (node is QueryParameterExpression)
             return node;
+
+        // Complex type shapers pass through to base; EF Core handles structural materialization
+        if (node is StructuralTypeShaperExpression { StructuralType: IComplexType })
+            return base.VisitExtension(node);
 
         if (node is MaterializeCollectionNavigationExpression
             materializeCollectionNavigationExpression)
         {
             if (!_indexBasedBinding)
                 return QueryCompilationContext.NotTranslatedExpression;
-
-            if (materializeCollectionNavigationExpression.Navigation is INavigation
-                    embeddedNavigation
-                && embeddedNavigation.IsEmbedded())
-            {
-                // Embedded collections are projected as their containing DynamoDB list attribute.
-                // We retain the best available element shaper so downstream materialization can
-                // still populate owned members and shadow state consistently.
-                var elementShaperExpression =
-                    TryExtractCollectionNavigationElementShaperExpression(
-                        materializeCollectionNavigationExpression.Subquery,
-                        embeddedNavigation)
-                    ?? TryExtractElementShaperExpression(
-                        materializeCollectionNavigationExpression.Subquery,
-                        embeddedNavigation.TargetEntityType);
-                elementShaperExpression ??= new StructuralTypeShaperExpression(
-                    embeddedNavigation.TargetEntityType,
-                    Expression.Constant(ValueBuffer.Empty),
-                    true);
-
-                var elementType =
-                    DynamoTypeMappingSource.TryGetListElementType(
-                        embeddedNavigation.ClrType,
-                        out var resolvedElementType)
-                        ? resolvedElementType
-                        : embeddedNavigation.TargetEntityType.ClrType;
-
-                var attributeName =
-                    embeddedNavigation.TargetEntityType.GetContainingAttributeName()
-                    ?? embeddedNavigation.Name;
-
-                _selectExpression.AddEmbeddedAttributeToProjection(attributeName);
-
-                return new DynamoCollectionShaperExpression(
-                    new DynamoObjectArrayProjectionExpression(embeddedNavigation, attributeName),
-                    elementShaperExpression,
-                    embeddedNavigation,
-                    elementType);
-            }
 
             return base.VisitExtension(materializeCollectionNavigationExpression);
         }
@@ -272,54 +235,29 @@ public class DynamoProjectionBindingExpressionVisitor(
         if (node is not StructuralTypeShaperExpression entityShaperExpression)
             return base.VisitExtension(node);
 
-        var shaperEntityType = entityShaperExpression.StructuralType as IEntityType;
-        var isOwnedShaper = shaperEntityType?.IsOwned() == true;
-
-        if (isOwnedShaper)
-        {
-            if (!_indexBasedBinding)
-                return QueryCompilationContext.NotTranslatedExpression;
-
-            return entityShaperExpression;
-        }
+        var entityType = entityShaperExpression.StructuralType as IEntityType;
+        if (entityType == null)
+            throw new InvalidOperationException(
+                $"Expected IEntityType but got {entityShaperExpression.StructuralType.GetType().Name}");
 
         if (_indexBasedBinding)
         {
-            var indexEntityType = entityShaperExpression.StructuralType as IEntityType;
-            if (indexEntityType == null)
-                throw new InvalidOperationException(
-                    $"Expected IEntityType but got {entityShaperExpression.StructuralType.GetType().Name}");
+            var entityProjection =
+                new DynamoEntityProjectionExpression(entityType, sqlExpressionFactory);
 
-            var indexEntityProjection =
-                new DynamoEntityProjectionExpression(indexEntityType, sqlExpressionFactory);
-            var topLevelOwnedContainingAttributeNames =
-                GetTopLevelOwnedContainingAttributeNames(indexEntityType);
-
-            foreach (var property in OwnedProjectionMetadata.GetTopLevelProjectionProperties(
-                indexEntityType))
+            foreach (var property in GetProjectedProperties(entityType))
             {
-                if (!OwnedProjectionMetadata.ShouldProjectTopLevelProperty(
-                    indexEntityType,
-                    property,
-                    topLevelOwnedContainingAttributeNames))
+                if (property.IsRuntimeOnly())
                     continue;
-
-                var sqlProperty = indexEntityProjection.BindProperty(property);
+                var sqlProperty = entityProjection.BindProperty(property);
                 _selectExpression.AddToProjection(sqlProperty, property.Name);
             }
 
-            foreach (var containingAttributeName in topLevelOwnedContainingAttributeNames)
-                _selectExpression.AddEmbeddedAttributeToProjection(containingAttributeName);
-
-            var discriminatorProperty = indexEntityType.FindDiscriminatorProperty();
-            if (discriminatorProperty is not null)
+            // Add complex property map attributes so they are fetched in the projection
+            foreach (var complexProperty in entityType.GetComplexProperties())
             {
-                var discriminatorAttributeName = discriminatorProperty.GetAttributeName();
-                var discriminatorPropertyExpression =
-                    indexEntityProjection.BindProperty(discriminatorProperty);
-                _selectExpression.AddToProjection(
-                    discriminatorPropertyExpression,
-                    discriminatorAttributeName);
+                var attributeName = ((IReadOnlyComplexProperty)complexProperty).GetAttributeName();
+                _selectExpression.AddEmbeddedAttributeToProjection(attributeName);
             }
 
             return entityShaperExpression;
@@ -328,7 +266,6 @@ public class DynamoProjectionBindingExpressionVisitor(
         var projectionBindingExpression =
             (ProjectionBindingExpression)entityShaperExpression.ValueBufferExpression;
 
-        // Verify it belongs to our SelectExpression
         if (projectionBindingExpression.QueryExpression != _selectExpression)
             throw new InvalidOperationException(
                 "ProjectionBindingExpression belongs to a different SelectExpression.");
@@ -337,38 +274,30 @@ public class DynamoProjectionBindingExpressionVisitor(
             throw new InvalidOperationException(
                 "ProjectionBindingExpression has null ProjectionMember.");
 
-        // Get the entity projection expression (single source of truth)
-        var entityProjection =
+        var mappedProjection =
             _selectExpression.GetMappedProjection(projectionBindingExpression.ProjectionMember);
 
-        if (entityProjection is not DynamoEntityProjectionExpression dynamoEntityProjection)
+        if (mappedProjection is not DynamoEntityProjectionExpression dynamoEntityProjection)
             throw new InvalidOperationException(
-                $"Expected DynamoEntityProjectionExpression but got {entityProjection.GetType().Name}");
+                $"Expected DynamoEntityProjectionExpression but got {mappedProjection.GetType().Name}");
 
-        var entityType = entityShaperExpression.StructuralType as IEntityType;
-        if (entityType == null)
-            throw new InvalidOperationException(
-                $"Expected IEntityType but got {entityShaperExpression.StructuralType.GetType().Name}");
-
-        // Use entity projection to bind each property (single source of truth)
-        var mappingTopLevelOwnedContainingAttributeNames =
-            GetTopLevelOwnedContainingAttributeNames(entityType);
-        foreach (var property in
-            OwnedProjectionMetadata.GetTopLevelProjectionProperties(entityType))
+        foreach (var property in GetProjectedProperties(entityType))
         {
-            if (!OwnedProjectionMetadata.ShouldProjectTopLevelProperty(
-                entityType,
-                property,
-                mappingTopLevelOwnedContainingAttributeNames))
+            if (property.IsRuntimeOnly())
                 continue;
-
             var sqlProperty = dynamoEntityProjection.BindProperty(property);
             var memberInfo = DynamoEntityProjectionExpression.GetMemberInfo(property);
             var projectionMember = _projectionMembers.Peek().Append(memberInfo);
             _projectionMapping[projectionMember] = sqlProperty;
         }
 
-        // Return a projection binding with the current member
+        // Add complex property map attributes so they are fetched in the projection
+        foreach (var complexProperty in entityType.GetComplexProperties())
+        {
+            var attributeName = ((IReadOnlyComplexProperty)complexProperty).GetAttributeName();
+            _selectExpression.AddEmbeddedAttributeToProjection(attributeName);
+        }
+
         return new ProjectionBindingExpression(
             _selectExpression,
             _projectionMembers.Peek(),
@@ -378,61 +307,40 @@ public class DynamoProjectionBindingExpressionVisitor(
     /// <summary>Handles property access expressions (e.g., item.Pk, item.Name).</summary>
     protected override Expression VisitMember(MemberExpression node)
     {
-        // If it's accessing a property on an entity shaper, translate to SQL property
-        // Do NOT visit the inner expression to avoid expanding all entity properties
         if (node.Expression is StructuralTypeShaperExpression shaperExpression)
         {
             var shaperEntityType = shaperExpression.StructuralType as IEntityType;
-            if (shaperEntityType?.IsOwned() == true)
+            var propertyName = node.Member.Name;
+
+            // Complex property access (e.g. Select(e => e.Profile)): delegate to context-aware
+            // complex type projection so the removing visitor can push the correct map context.
+            var complexProperty = shaperExpression.StructuralType.FindComplexProperty(propertyName);
+            if (complexProperty != null)
             {
                 if (!_indexBasedBinding)
                     return QueryCompilationContext.NotTranslatedExpression;
 
-                var ownedInstance = Visit(node.Expression);
-                if (ownedInstance == QueryCompilationContext.NotTranslatedExpression
-                    || ownedInstance == null)
-                    return QueryCompilationContext.NotTranslatedExpression;
+                var attributeName = ((IReadOnlyComplexProperty)complexProperty).GetAttributeName();
+                _selectExpression.AddEmbeddedAttributeToProjection(attributeName);
 
-                var ownedAccess = node.Update(ownedInstance);
-                if (ownedInstance.Type.IsValueType)
-                    return ownedAccess;
-
-                return Expression.Condition(
-                    Expression.Equal(ownedInstance, Expression.Constant(null, ownedInstance.Type)),
-                    Expression.Default(node.Type),
-                    ownedAccess);
-            }
-
-            var propertyName = node.Member.Name;
-            if (shaperEntityType != null
-                && IsNestedOwnedContainingAttributeName(shaperEntityType, propertyName))
-                throw new InvalidOperationException(
-                    $"Cannot project nested owned container '{propertyName}' from entity '{shaperEntityType.DisplayName()}' as a top-level attribute. "
-                    + "Project the top-level owned container and access nested members via dot notation.");
-
-            // Detect owned embedded reference navigations and preserve INavigation so the
-            // projection-binding removal visitor can materialise them without a model-wide scan.
-            if (shaperEntityType != null)
-            {
-                var nav = shaperEntityType.FindNavigation(propertyName);
-                if (nav != null
-                    && !nav.IsCollection
-                    && nav.IsEmbedded()
-                    && nav.TargetEntityType.IsOwned())
+                if (complexProperty.IsCollection)
                 {
-                    var objectAccess = new DynamoObjectAccessExpression(nav);
-                    if (_indexBasedBinding)
-                    {
-                        var idx = _selectExpression.AddToProjection(objectAccess, propertyName);
-                        return new ProjectionBindingExpression(_selectExpression, idx, node.Type);
-                    }
+                    var elementShaper = new StructuralTypeShaperExpression(
+                        complexProperty.ComplexType,
+                        Expression.Constant(ValueBuffer.Empty),
+                        false);
 
-                    _projectionMapping[_projectionMembers.Peek()] = objectAccess;
-                    return new ProjectionBindingExpression(
-                        _selectExpression,
-                        _projectionMembers.Peek(),
-                        node.Type);
+                    return new DynamoComplexCollectionProjectionExpression(
+                        complexProperty,
+                        elementShaper);
                 }
+
+                var innerShaper = new StructuralTypeShaperExpression(
+                    complexProperty.ComplexType,
+                    Expression.Constant(ValueBuffer.Empty),
+                    complexProperty.IsNullable);
+
+                return new DynamoComplexTypeProjectionExpression(complexProperty, innerShaper);
             }
 
             var sqlProperty =
@@ -452,10 +360,8 @@ public class DynamoProjectionBindingExpressionVisitor(
                     : Expression.Convert(projectionBinding, node.Type);
             }
 
-            // Store mapping: ProjectionMember → SqlExpression
             _projectionMapping[_projectionMembers.Peek()] = sqlProperty;
 
-            // Return ProjectionBindingExpression as placeholder
             var memberProjectionBinding = new ProjectionBindingExpression(
                 _selectExpression,
                 _projectionMembers.Peek(),
@@ -493,35 +399,10 @@ public class DynamoProjectionBindingExpressionVisitor(
         if (instance == null)
             return QueryCompilationContext.NotTranslatedExpression;
 
-        var memberAccess = node.Update(instance);
-        if (!instance.Type.IsValueType && IsOwnedNavigationAccess(node.Expression))
-            return Expression.Condition(
-                Expression.Equal(instance, Expression.Constant(null, instance.Type)),
-                Expression.Default(node.Type),
-                memberAccess);
-
-        return memberAccess;
+        return node.Update(instance);
     }
 
-    /// <summary>Determines whether a member-access chain originates from an owned navigation.</summary>
-    private static bool IsOwnedNavigationAccess(Expression expression)
-    {
-        if (expression is not MemberExpression memberExpression)
-            return false;
-
-        if (memberExpression.Expression is StructuralTypeShaperExpression shaperExpression
-            && shaperExpression.StructuralType is IEntityType entityType)
-            return entityType
-                    .FindNavigation(memberExpression.Member.Name)
-                    ?.TargetEntityType
-                    .IsOwned()
-                == true;
-
-        return memberExpression.Expression != null
-            && IsOwnedNavigationAccess(memberExpression.Expression);
-    }
-
-    /// <summary>Provides functionality for this member.</summary>
+    /// <summary>Handles EF.Property&lt;T&gt; calls and general method call expressions.</summary>
     protected override Expression VisitMethodCall(MethodCallExpression node)
     {
         if (node.Method.DeclaringType == typeof(EF)
@@ -529,79 +410,46 @@ public class DynamoProjectionBindingExpressionVisitor(
             && node.Arguments.Count == 2
             && node.Arguments[1] is ConstantExpression { Value: string propertyName })
         {
-            var ownerEntityType =
-                (node.Arguments[0] as StructuralTypeShaperExpression)
-                ?.StructuralType as IEntityType;
-            ownerEntityType ??= model.FindEntityType(node.Arguments[0].Type);
+            var ownerStructuralType =
+                (node.Arguments[0] as StructuralTypeShaperExpression)?.StructuralType
+                ?? (ITypeBase?)model.FindEntityType(node.Arguments[0].Type);
 
-            if (ownerEntityType is { } ownedEntityType && ownedEntityType.IsOwned())
+            // Complex property via EF.Property<T>(e, "Profile"): same context-push logic as
+            // VisitMember.
+            var complexProperty = ownerStructuralType?.FindComplexProperty(propertyName);
+            if (complexProperty != null)
             {
                 if (!_indexBasedBinding)
                     return QueryCompilationContext.NotTranslatedExpression;
 
-                var ownedInstance = Visit(node.Arguments[0]);
-                if (ownedInstance == QueryCompilationContext.NotTranslatedExpression
-                    || ownedInstance == null)
-                    return QueryCompilationContext.NotTranslatedExpression;
+                var attributeName = ((IReadOnlyComplexProperty)complexProperty).GetAttributeName();
+                _selectExpression.AddEmbeddedAttributeToProjection(attributeName);
 
-                var ownedMember =
-                    ownedInstance.Type.GetProperty(propertyName) is not null
-                        ?
-                        Expression.Property(ownedInstance, propertyName)
-                        : ownedInstance.Type.GetField(propertyName) is not null
-                            ? Expression.Field(ownedInstance, propertyName)
-                            : QueryCompilationContext.NotTranslatedExpression;
-
-                if (ownedMember == QueryCompilationContext.NotTranslatedExpression)
-                    return QueryCompilationContext.NotTranslatedExpression;
-
-                var ownedValue = ownedMember;
-                if (!ownedInstance.Type.IsValueType)
-                    ownedValue = Expression.Condition(
-                        Expression.Equal(
-                            ownedInstance,
-                            Expression.Constant(null, ownedInstance.Type)),
-                        Expression.Default(ownedMember.Type),
-                        ownedMember);
-
-                return ownedValue.Type != node.Type
-                    ? Expression.Convert(ownedValue, node.Type)
-                    : ownedValue;
-            }
-
-            // When NEEV reduces OwnedNavigationReference → EF.Property(shaper, "Profile"),
-            // preserve INavigation so the removing visitor can materialise unambiguously.
-            if (ownerEntityType != null)
-            {
-                var nav = ownerEntityType.FindNavigation(propertyName);
-                if (nav != null
-                    && !nav.IsCollection
-                    && nav.IsEmbedded()
-                    && nav.TargetEntityType.IsOwned())
+                if (complexProperty.IsCollection)
                 {
-                    var objectAccess = new DynamoObjectAccessExpression(nav);
-                    if (_indexBasedBinding)
-                    {
-                        var idx = _selectExpression.AddToProjection(objectAccess, propertyName);
-                        return new ProjectionBindingExpression(_selectExpression, idx, node.Type);
-                    }
+                    var elementShaper = new StructuralTypeShaperExpression(
+                        complexProperty.ComplexType,
+                        Expression.Constant(ValueBuffer.Empty),
+                        false);
 
-                    _projectionMapping[_projectionMembers.Peek()] = objectAccess;
-                    return new ProjectionBindingExpression(
-                        _selectExpression,
-                        _projectionMembers.Peek(),
-                        node.Type);
+                    return new DynamoComplexCollectionProjectionExpression(
+                        complexProperty,
+                        elementShaper);
                 }
+
+                var innerShaper = new StructuralTypeShaperExpression(
+                    complexProperty.ComplexType,
+                    Expression.Constant(ValueBuffer.Empty),
+                    complexProperty.IsNullable);
+
+                return new DynamoComplexTypeProjectionExpression(complexProperty, innerShaper);
             }
+
+            var ownerEntityType = ownerStructuralType as IEntityType;
 
             var sqlProperty =
                 ResolveScalarPropertyExpression(ownerEntityType, propertyName)
                 ?? sqlExpressionFactory.Property(propertyName, node.Type);
-            if (ownerEntityType != null
-                && IsNestedOwnedContainingAttributeName(ownerEntityType, propertyName))
-                throw new InvalidOperationException(
-                    $"Cannot project nested owned container '{propertyName}' from entity '{ownerEntityType.DisplayName()}' as a top-level attribute. "
-                    + "Project the top-level owned container and access nested members via dot notation.");
 
             if (_indexBasedBinding)
             {
@@ -630,9 +478,9 @@ public class DynamoProjectionBindingExpressionVisitor(
         if (!_indexBasedBinding)
             return QueryCompilationContext.NotTranslatedExpression;
 
-        var instance = node.Object == null ? null : Visit(node.Object);
-        if (instance == QueryCompilationContext.NotTranslatedExpression)
-            return instance;
+        var objInstance = node.Object == null ? null : Visit(node.Object);
+        if (objInstance == QueryCompilationContext.NotTranslatedExpression)
+            return objInstance;
 
         var arguments = new Expression[node.Arguments.Count];
         for (var i = 0; i < arguments.Length; i++)
@@ -645,7 +493,7 @@ public class DynamoProjectionBindingExpressionVisitor(
             arguments[i] = visitedArgument;
         }
 
-        return node.Update(instance, arguments);
+        return node.Update(objInstance, arguments);
     }
 
     /// <summary>Builds client-side computed projections (e.g. arithmetic, concat).</summary>
@@ -742,40 +590,6 @@ public class DynamoProjectionBindingExpressionVisitor(
             node.Type);
     }
 
-    /// <summary>Gets top-level owned containing-attribute names for a root entity, using a local cache.</summary>
-    private HashSet<string> GetTopLevelOwnedContainingAttributeNames(IEntityType entityType)
-    {
-        if (_topLevelOwnedContainerNameCache.TryGetValue(entityType, out var cached))
-            return cached;
-
-        var topLevelNames =
-            OwnedProjectionMetadata.GetTopLevelOwnedContainingAttributeNames(entityType);
-
-        _topLevelOwnedContainerNameCache[entityType] = topLevelNames;
-        return topLevelNames;
-    }
-
-    /// <summary>Gets nested owned containing-attribute names for a root entity, using a local cache.</summary>
-    private HashSet<string> GetNestedOwnedContainingAttributeNames(IEntityType entityType)
-    {
-        if (_nestedOwnedContainerNameCache.TryGetValue(entityType, out var cached))
-            return cached;
-
-        var nestedNames =
-            OwnedProjectionMetadata.GetNestedOwnedContainingAttributeNames(entityType);
-
-        _nestedOwnedContainerNameCache[entityType] = nestedNames;
-        return nestedNames;
-    }
-
-    /// <summary>Determines whether a property name is a nested owned containing attribute for an entity.</summary>
-    private bool IsNestedOwnedContainingAttributeName(IEntityType entityType, string propertyName)
-    {
-        var nestedOwnedContainingAttributeNames =
-            GetNestedOwnedContainingAttributeNames(entityType);
-        return nestedOwnedContainingAttributeNames.Contains(propertyName);
-    }
-
     /// <summary>
     ///     Resolves a scalar projection to a metadata-backed SQL property expression when the member
     ///     maps to an EF property.
@@ -799,157 +613,35 @@ public class DynamoProjectionBindingExpressionVisitor(
         return sqlProperty.ApplyTypeMapping(property.GetTypeMapping());
     }
 
-    /// <summary>Finds an owned-collection element shaper expression within an expression tree.</summary>
-    private static Expression? TryExtractElementShaperExpression(
-        Expression expression,
-        IEntityType targetEntityType)
-    {
-        if (expression is ShapedQueryExpression shapedQueryExpression)
-            return TryExtractElementShaperExpression(
-                shapedQueryExpression.ShaperExpression,
-                targetEntityType);
-
-        if (IsTargetShaper(expression, targetEntityType))
-            return expression;
-
-        var finder = new ElementShaperExpressionFinder(targetEntityType);
-        finder.Visit(expression);
-        return finder.Result;
-    }
-
-    /// <summary>Finds an owned collection element shaper expression for a specific collection navigation.</summary>
-    private static Expression? TryExtractCollectionNavigationElementShaperExpression(
-        Expression expression,
-        INavigation navigation)
-    {
-        var finder = new NavigationCollectionShaperFinder(navigation);
-        finder.Visit(expression);
-        return finder.Result;
-    }
+    /// <summary>
+    ///     Gets properties that should be projected for entity materialization, including
+    ///     base-type and descendant declared properties required for shared-table inheritance
+    ///     materialization.
+    /// </summary>
+    private static IEnumerable<IProperty> GetProjectedProperties(IEntityType entityType)
+        => GetProjectedEntityTypes(entityType).SelectMany(static t => t.GetDeclaredProperties());
 
     /// <summary>
-    ///     Determines whether an expression represents a structural shaper for the target entity
-    ///     type.
+    ///     Gets the hierarchy entity types whose declared members must be projected for the current
+    ///     query shape.
     /// </summary>
-    private static bool IsTargetShaper(Expression expression, IEntityType targetEntityType)
-        => expression is StructuralTypeShaperExpression
-            {
-                StructuralType: IEntityType { ClrType: var clrType },
-            }
-            && clrType == targetEntityType.ClrType;
-
-    /// <summary>Traverses an expression tree to locate a nested collection element shaper.</summary>
     /// <remarks>
-    ///     A copy of this class also lives in
-    ///     <c>DynamoProjectionBindingRemovingExpressionVisitor</c>; the duplication is deliberate
-    ///     to avoid cross-visitor coupling.
+    ///     For root/shared-table queries we include each concrete descendant so discriminator-based
+    ///     materialization can bind derived properties. For derived-type queries we include the
+    ///     queried type, its base chain, and only its own descendants (not siblings).
     /// </remarks>
-    private sealed class ElementShaperExpressionFinder : ExpressionVisitor
+    private static IEnumerable<IEntityType> GetProjectedEntityTypes(IEntityType entityType)
     {
-        private readonly IEntityType _targetEntityType;
+        HashSet<IEntityType> projectedTypes = [];
 
-        /// <summary>Creates a finder scoped to a specific target entity type.</summary>
-        public ElementShaperExpressionFinder(IEntityType targetEntityType)
-            => _targetEntityType = targetEntityType;
+        var concreteTypes = entityType.GetConcreteDerivedTypesInclusive().ToList();
+        if (concreteTypes.Count == 0)
+            concreteTypes.Add(entityType);
 
-        /// <summary>Gets the first element shaper expression found during traversal.</summary>
-        public Expression? Result { get; private set; }
+        foreach (var concreteType in concreteTypes)
+            foreach (var hierarchyType in concreteType.GetAllBaseTypesInclusive())
+                projectedTypes.Add(hierarchyType);
 
-        /// <summary>Visits expressions until a shaped query expression is discovered.</summary>
-        public override Expression? Visit(Expression? node)
-        {
-            if (node == null || Result != null)
-                return node;
-
-            if (node is ShapedQueryExpression shapedQueryExpression)
-                return Visit(shapedQueryExpression.ShaperExpression);
-
-            if (node is StructuralTypeShaperExpression
-                {
-                    StructuralType: IEntityType { ClrType: var clrType },
-                } structuralTypeShaperExpression
-                && clrType == _targetEntityType.ClrType)
-            {
-                Result = structuralTypeShaperExpression;
-                return node;
-            }
-
-            return base.Visit(node);
-        }
-    }
-
-    /// <summary>Finds whether a target structural shaper exists within a tree.</summary>
-    /// <remarks>
-    ///     A copy of this class also lives in
-    ///     <c>DynamoProjectionBindingRemovingExpressionVisitor</c>; the duplication is deliberate
-    ///     to avoid cross-visitor coupling.
-    /// </remarks>
-    private sealed class TargetShaperPresenceFinder(IEntityType targetEntityType)
-        : ExpressionVisitor
-    {
-        /// <summary>Gets whether a target structural shaper has been found.</summary>
-        public bool Found { get; private set; }
-
-        /// <summary>Visits nodes until a matching structural shaper is found.</summary>
-        public override Expression? Visit(Expression? node)
-        {
-            if (node == null || Found)
-                return node;
-
-            if (IsTargetShaper(node, targetEntityType))
-            {
-                Found = true;
-                return node;
-            }
-
-            return base.Visit(node);
-        }
-    }
-
-    /// <summary>Finds a nested collection element shaper for a specific collection navigation.</summary>
-    private sealed class NavigationCollectionShaperFinder(INavigation navigation)
-        : ExpressionVisitor
-    {
-        /// <summary>Gets the first matching element shaper expression found during traversal.</summary>
-        public Expression? Result { get; private set; }
-
-        /// <summary>Visits nodes until a matching collection-shaper expression is discovered.</summary>
-        public override Expression? Visit(Expression? node)
-        {
-            if (node == null || Result != null)
-                return node;
-
-            // In the projection-binding phase the full ShapedQueryExpression.ShaperExpression is
-            // returned. Callers (TryExtractCollectionNavigationElementShaperExpression) pass this
-            // on to DynamoCollectionShaperExpression construction; the removing visitor receives it
-            // as InnerShaper and drills deeper at that stage via its own finder.
-            if (node is MaterializeCollectionNavigationExpression
-                {
-                    Navigation: INavigation candidateNavigation,
-                    Subquery: ShapedQueryExpression { ShaperExpression: var shaperExpression },
-                }
-                && candidateNavigation.Name == navigation.Name
-                && candidateNavigation.TargetEntityType.ClrType
-                == navigation.TargetEntityType.ClrType)
-            {
-                Result = shaperExpression;
-                return node;
-            }
-
-            if (node is DynamoCollectionShaperExpression
-                {
-                    Navigation: INavigation candidateDynamoNavigation,
-                    InnerShaper: var dynamoShaperExpression,
-                }
-                && candidateDynamoNavigation.Name == navigation.Name
-                && candidateDynamoNavigation.TargetEntityType.ClrType
-                == navigation.TargetEntityType.ClrType)
-            {
-                Result = dynamoShaperExpression;
-                return node;
-            }
-
-            return base.Visit(node);
-        }
+        return projectedTypes;
     }
 }

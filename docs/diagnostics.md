@@ -165,7 +165,7 @@ This event fires per-statement, not per-batch. When a `SaveChangesAsync` call pr
 write operations — whether transactional or non-transactional — each one generates its own
 `ExecutingPartiQlWrite` event before the batch is submitted.
 
-Use this event to verify that owned types, primitive collections, and discriminator values are
+Use this event to verify that complex properties, primitive collections, and discriminator values are
 being serialized into the expected PartiQL parameter positions.
 
 ## Index Selection Events

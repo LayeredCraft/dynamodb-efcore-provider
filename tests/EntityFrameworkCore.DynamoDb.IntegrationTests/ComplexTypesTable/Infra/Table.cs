@@ -1,7 +1,7 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 
-namespace EntityFrameworkCore.DynamoDb.IntegrationTests.OwnedTypesTable;
+namespace EntityFrameworkCore.DynamoDb.IntegrationTests.ComplexTypesTable;
 
 public static class AnalysisReportTable
 {
@@ -32,9 +32,36 @@ public static class AnalysisReportTable
     }
 }
 
-public static class OwnedTypesItemTable
+public static class CollectionShapeItemTable
 {
-    public const string TableName = "OwnedTypesItems";
+    public const string TableName = "CollectionShapeItems";
+
+    public static async Task CreateTable(
+        IAmazonDynamoDB dynamoDb,
+        CancellationToken cancellationToken)
+        => await dynamoDb.CreateTableAsync(
+            new CreateTableRequest
+            {
+                TableName = TableName,
+                AttributeDefinitions =
+                [
+                    new AttributeDefinition
+                    {
+                        AttributeName = "pk", AttributeType = ScalarAttributeType.S,
+                    },
+                ],
+                KeySchema =
+                [
+                    new KeySchemaElement { AttributeName = "pk", KeyType = KeyType.HASH },
+                ],
+                BillingMode = BillingMode.PAY_PER_REQUEST,
+            },
+            cancellationToken);
+}
+
+public static class ComplexTypesItemTable
+{
+    public const string TableName = "ComplexTypesItems";
 
     public static async Task CreateTable(
         IAmazonDynamoDB dynamoDb,
@@ -61,7 +88,7 @@ public static class OwnedTypesItemTable
 
         await dynamoDb.SeedItemsAsync(
             TableName,
-            OwnedTypesItems.AttributeValues(),
+            ComplexTypesItems.AttributeValues(),
             cancellationToken);
     }
 }

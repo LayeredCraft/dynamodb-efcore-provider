@@ -24,7 +24,7 @@ public class TableKeySchemaValidationTests
             .Options;
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void SharedTable_ConflictingPartitionKeyNames_Throws()
     {
@@ -37,7 +37,7 @@ public class TableKeySchemaValidationTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void SharedTable_OneHasSortKeyOtherDoesNot_Throws()
     {
@@ -47,7 +47,7 @@ public class TableKeySchemaValidationTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void SharedTable_ConflictingSortKeyNames_Throws()
     {
@@ -57,7 +57,7 @@ public class TableKeySchemaValidationTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void SharedTable_ConsistentPkOnly_DoesNotThrow()
     {
@@ -67,7 +67,7 @@ public class TableKeySchemaValidationTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void SharedTable_ConsistentPkSk_DoesNotThrow()
     {
@@ -77,7 +77,7 @@ public class TableKeySchemaValidationTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void DifferentTables_DifferentKeySchemas_DoesNotThrow()
     {
@@ -87,7 +87,7 @@ public class TableKeySchemaValidationTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void HasPartitionKey_NonExistentProperty_ThrowsOnValidation()
     {
@@ -100,7 +100,7 @@ public class TableKeySchemaValidationTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void HasSortKey_NonExistentProperty_ThrowsOnValidation()
     {
@@ -113,7 +113,7 @@ public class TableKeySchemaValidationTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void ExplicitHasKey_WithPartitionKey_OnRootEntity_ThrowsOnValidation()
     {
@@ -127,7 +127,7 @@ public class TableKeySchemaValidationTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void ExplicitHasKey_WithSortKey_OnRootEntity_ThrowsOnValidation()
     {
@@ -141,7 +141,7 @@ public class TableKeySchemaValidationTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void HasSortKey_WithNoResolvablePartitionKey_ThrowsDynamoSpecificError()
     {
@@ -154,7 +154,7 @@ public class TableKeySchemaValidationTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void HasPartitionKey_ShadowProperty_ThrowsOnValidation()
     {
@@ -167,7 +167,7 @@ public class TableKeySchemaValidationTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void HasPartitionKeyAndSortKey_ShadowProperties_ThrowOnValidation()
     {
@@ -180,7 +180,7 @@ public class TableKeySchemaValidationTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void SharedTable_KeyProperties_WithMatchingAttributeNames_DoesNotThrow()
     {
@@ -190,7 +190,7 @@ public class TableKeySchemaValidationTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void SharedTable_KeyProperties_WithConflictingPartitionAttributeNames_Throws()
     {
@@ -203,7 +203,7 @@ public class TableKeySchemaValidationTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void HasPartitionKey_BoolType_ThrowsOnValidation()
     {
@@ -216,7 +216,7 @@ public class TableKeySchemaValidationTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void HasSortKey_BoolType_ThrowsOnValidation()
     {
@@ -229,7 +229,7 @@ public class TableKeySchemaValidationTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void HasPartitionKey_GuidWithoutConverter_DoesNotThrow()
     {
@@ -239,7 +239,7 @@ public class TableKeySchemaValidationTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void HasPartitionKey_GuidWithStringConverter_DoesNotThrow()
     {
@@ -249,7 +249,7 @@ public class TableKeySchemaValidationTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void HasPartitionKey_DateTimeOffsetWithoutConverter_DoesNotThrow()
     {
@@ -259,7 +259,7 @@ public class TableKeySchemaValidationTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void HasPartitionKey_ConverterWithNullableProviderType_ThrowsOnValidation()
     {
@@ -272,7 +272,7 @@ public class TableKeySchemaValidationTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void SharedTable_PartitionKeyTypeCategoryMismatch_Throws()
     {
@@ -285,7 +285,7 @@ public class TableKeySchemaValidationTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void SharedTable_SortKeyTypeCategoryMismatch_Throws()
     {

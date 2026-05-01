@@ -12,7 +12,7 @@ namespace EntityFrameworkCore.DynamoDb.Tests.Query;
 public class UnsupportedOperatorTranslationTests
 {
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public async Task AnyAsync_ThrowsTranslationFailureWithDetails()
     {
@@ -30,7 +30,7 @@ public class UnsupportedOperatorTranslationTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public async Task AllAsync_ThrowsTranslationFailureWithDetails()
     {
@@ -49,7 +49,7 @@ public class UnsupportedOperatorTranslationTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public async Task SingleOrDefaultAsync_ThrowsTranslationFailureWithDetails()
     {
@@ -69,7 +69,7 @@ public class UnsupportedOperatorTranslationTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public async Task SingleAsync_UsesSingleOperatorNameInFailureDetails()
     {
@@ -92,7 +92,7 @@ public class UnsupportedOperatorTranslationTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public async Task BitwiseComplementInPredicate_ThrowsTranslationFailureWithDetails()
     {
@@ -114,7 +114,7 @@ public class UnsupportedOperatorTranslationTests
     }
 
     /// <summary>Verifies Take throws a translation failure that directs the user to Limit(n).</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Take_ThrowsTranslationFailurePointingToLimit()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -129,7 +129,7 @@ public class UnsupportedOperatorTranslationTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public async Task
         StringCompareWithStringComparisonInPredicate_ThrowsTranslationFailureWithDetails()

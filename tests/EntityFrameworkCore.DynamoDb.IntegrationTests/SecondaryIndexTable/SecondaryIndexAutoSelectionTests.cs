@@ -13,7 +13,7 @@ public class SecondaryIndexAutoSelectionTests(DynamoContainerFixture fixture)
     protected override DynamoAutomaticIndexSelectionMode AutomaticIndexSelectionMode
         => DynamoAutomaticIndexSelectionMode.Conservative;
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Conservative_WhereOnGsiPk_AutoSelects_ByStatusIndex()
     {
         var results =
@@ -39,7 +39,7 @@ public class SecondaryIndexAutoSelectionTests(DynamoContainerFixture fixture)
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Conservative_WhereOnGsiPk_WithSkRange_AutoSelects_AndProducesCorrectResults()
     {
         var results = await Db
@@ -63,7 +63,7 @@ public class SecondaryIndexAutoSelectionTests(DynamoContainerFixture fixture)
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Conservative_WhereOnTablePk_DoesNotAutoSelectGsi_StaysOnBaseTable()
     {
         var results =
@@ -80,7 +80,7 @@ public class SecondaryIndexAutoSelectionTests(DynamoContainerFixture fixture)
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Conservative_WhereOnTablePk_LsiCandidates_AutoSelects_WhenOrderingMatches()
     {
         List<OrderItem>? results = null;
@@ -113,7 +113,7 @@ public class SecondaryIndexAutoSelectionTests(DynamoContainerFixture fixture)
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Conservative_WhereOnTablePk_AmbiguousLsi_FallsBackToBaseTable()
     {
         var results =
@@ -135,7 +135,7 @@ public class SecondaryIndexAutoSelectionTests(DynamoContainerFixture fixture)
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Conservative_ContainsOnGsiPk_AutoSelects_ByStatusIndex()
     {
         var statusList = new List<string> { "PENDING", "SHIPPED" };
@@ -164,7 +164,7 @@ public class SecondaryIndexAutoSelectionTests(DynamoContainerFixture fixture)
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Conservative_UnsafeOrPredicate_BlocksAutoSelection_EmitsRejectionDiagnostics()
     {
         _ = await Db
@@ -195,7 +195,7 @@ public class SecondaryIndexAutoSelectionTests(DynamoContainerFixture fixture)
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task
         Conservative_WhereOnNonIndexPkAttribute_AllCandidatesRejected_EmitsIdxDiagnostics()
     {
@@ -224,7 +224,7 @@ public class SecondaryIndexAutoSelectionTests(DynamoContainerFixture fixture)
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ExplicitHint_WithIndex_EmitsExplicitIndexSelectedDiagnostic()
     {
         _ = await Db
@@ -255,7 +255,7 @@ public class SecondaryIndexAutoSelectionTests(DynamoContainerFixture fixture)
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Conservative_GsiPkWithOrderBySk_AutoSelects_ScoringWinner()
     {
         try
@@ -285,7 +285,7 @@ public class SecondaryIndexAutoSelectionTests(DynamoContainerFixture fixture)
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Conservative_NoPredicate_EmitsNoCompatibleIndex_StaysOnBaseTable()
     {
         _ = await Db.Orders.ToListAsync(CancellationToken);

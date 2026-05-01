@@ -439,7 +439,7 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
         SqlExpression? predicate = null;
         foreach (var concreteType in entityType.GetConcreteDerivedTypesInclusive())
         {
-            if (concreteType.IsOwned() || concreteType.ClrType.IsAbstract)
+            if (concreteType.ClrType.IsAbstract)
                 continue;
 
             var discriminatorValue = concreteType.GetDiscriminatorValue();
@@ -489,7 +489,7 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
         {
             foreach (var concreteType in rootEntityType.GetConcreteDerivedTypesInclusive())
             {
-                if (concreteType.IsOwned() || concreteType.ClrType.IsAbstract)
+                if (concreteType.ClrType.IsAbstract)
                     continue;
 
                 concreteTypes.Add(concreteType);

@@ -6,7 +6,7 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SaveChangesTable;
 public class ModifiedScalarSaveChangesTests(DynamoContainerFixture fixture)
     : SaveChangesTableTestFixture(fixture)
 {
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SaveChangesAsync_ModifiedSingleScalar_PersistsAndEmitsUpdate()
     {
         var item = new CustomerItem
@@ -40,7 +40,7 @@ public class ModifiedScalarSaveChangesTests(DynamoContainerFixture fixture)
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SaveChangesAsync_ModifiedMultipleScalars_PersistsInSingleStatement()
     {
         var item = new CustomerItem
@@ -75,7 +75,7 @@ public class ModifiedScalarSaveChangesTests(DynamoContainerFixture fixture)
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SaveChangesAsync_ModifiedNullableScalar_NullTransitionPersists()
     {
         var item = new CustomerItem
@@ -109,7 +109,7 @@ public class ModifiedScalarSaveChangesTests(DynamoContainerFixture fixture)
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SaveChangesAsync_NoTrackedChanges_DoesNotEmitWrites()
     {
         var item = new CustomerItem
@@ -136,7 +136,7 @@ public class ModifiedScalarSaveChangesTests(DynamoContainerFixture fixture)
         AssertSql();
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task
         SaveChangesAsync_ModifiedScalar_TransitionsToUnchangedAndRefreshesOriginalValues()
     {

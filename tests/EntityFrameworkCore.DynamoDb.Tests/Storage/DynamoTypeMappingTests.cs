@@ -10,7 +10,7 @@ namespace EntityFrameworkCore.DynamoDb.Tests.Storage;
 
 public class DynamoTypeMappingTests
 {
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void CreateAttributeValue_UsesComposedConverter_ForGuid()
     {
         using var context = CreateContext();
@@ -24,7 +24,7 @@ public class DynamoTypeMappingTests
         attributeValue.S.Should().Be(value.ToString());
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void GenerateConstant_UsesInvariantCulture_ForDecimal()
     {
         using var context = CreateContext();
@@ -36,7 +36,7 @@ public class DynamoTypeMappingTests
         mapping.GenerateConstant(9.99m).Should().Be("9.99");
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void CreateAttributeValue_SerializesPrimitiveCollections()
     {
         using var context = CreateContext();
@@ -62,7 +62,7 @@ public class DynamoTypeMappingTests
         flags.NS.Should().BeEquivalentTo("7", "11");
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void CreateReadExpression_RoundTripsConvertedAndCollectionValues()
     {
         using var context = CreateContext();
@@ -91,7 +91,7 @@ public class DynamoTypeMappingTests
             .Equal(1, 2, 3);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void CreateAttributeValue_AndReadExpression_SupportNullableCollectionElements()
     {
         using var context = CreateContext();

@@ -1,41 +1,44 @@
 namespace EntityFrameworkCore.DynamoDb.Metadata.Internal;
 
-/// <summary>Represents the DynamoAnnotationNames type.</summary>
+/// <summary>Well-known annotation keys used by the DynamoDB EF Core provider.</summary>
 public static class DynamoAnnotationNames
 {
     private const string Prefix = "Dynamo:";
 
-    /// <summary>Provides functionality for this member.</summary>
+    /// <summary>Annotation key for the DynamoDB table name on an entity type.</summary>
     public const string TableName = Prefix + "TableName";
 
-    /// <summary>Provides functionality for this member.</summary>
-    public const string ContainingAttributeName = Prefix + "ContainingAttributeName";
-
-    /// <summary>Provides functionality for this member.</summary>
+    /// <summary>Annotation key for the DynamoDB attribute name on a property or complex property.</summary>
     public const string AttributeName = Prefix + "AttributeName";
 
-    /// <summary>Provides functionality for this member.</summary>
+    /// <summary>Annotation key storing the partition key property name on an entity type.</summary>
     public const string PartitionKeyPropertyName = Prefix + "PartitionKeyPropertyName";
 
-    /// <summary>Provides functionality for this member.</summary>
+    /// <summary>Annotation key storing the sort key property name on an entity type.</summary>
     public const string SortKeyPropertyName = Prefix + "SortKeyPropertyName";
 
-    /// <summary>Provides functionality for this member.</summary>
+    /// <summary>Annotation key for the discriminator strategy applied to a shared-table entity type.</summary>
     public const string DiscriminatorStrategy = Prefix + "DiscriminatorStrategy";
 
     /// <summary>Marks a shared-table mapping group as explicitly opting out of discriminator metadata.</summary>
     public const string DiscriminatorDisabled = Prefix + "DiscriminatorDisabled";
 
-    /// <summary>Provides functionality for this member.</summary>
+    /// <summary>Annotation key for the secondary index name on an entity type or property.</summary>
     public const string SecondaryIndexName = Prefix + "SecondaryIndexName";
 
-    /// <summary>Provides functionality for this member.</summary>
+    /// <summary>Annotation key for the secondary index kind (GSI or LSI) on an entity type.</summary>
     public const string SecondaryIndexKind = Prefix + "SecondaryIndexKind";
 
-    /// <summary>Provides functionality for this member.</summary>
+    /// <summary>
+    ///     Annotation key for the secondary index projection type (All, KeysOnly, Include) on an
+    ///     entity type.
+    /// </summary>
     public const string SecondaryIndexProjectionType = Prefix + "SecondaryIndexProjectionType";
 
-    /// <summary>Provides functionality for this member.</summary>
+    /// <summary>
+    ///     Annotation key for the compiled runtime table model cached on an entity type after model
+    ///     finalization.
+    /// </summary>
     public const string RuntimeTableModel = Prefix + "RuntimeTableModel";
 
     /// <summary>
@@ -54,12 +57,4 @@ public static class DynamoAnnotationNames
     ///     so custom delegate translators are supported freely during model building.
     /// </summary>
     public const string AttributeNamingConvention = Prefix + "AttributeNamingConvention";
-
-    /// <summary>
-    ///     Marks the provider-created shadow int property that serves as the ordinal key for an owned
-    ///     collection element (<c>OwnsMany</c>). Only properties stamped with this annotation are
-    ///     treated as the ordinal; user-defined shadow int properties on the same entity type are not
-    ///     affected.
-    /// </summary>
-    public const string OwnedOrdinalKey = Prefix + "OwnedOrdinalKey";
 }

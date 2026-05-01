@@ -1,10 +1,10 @@
 using Amazon.DynamoDBv2.Model;
 
-namespace EntityFrameworkCore.DynamoDb.IntegrationTests.OwnedTypesTable;
+namespace EntityFrameworkCore.DynamoDb.IntegrationTests.ComplexTypesTable;
 
-public static class OwnedTypesItems
+public static class ComplexTypesItems
 {
-    public static readonly List<OwnedShapeItem> Items =
+    public static readonly List<ComplexShapeItem> Items =
     [
         new()
         {
@@ -190,7 +190,7 @@ public static class OwnedTypesItems
 
     public static IReadOnlyList<Dictionary<string, AttributeValue>> AttributeValues()
     {
-        var x = OwnedTypesItemMapper.ToItems(Items);
+        var x = ComplexTypesItemMapper.ToItems(Items);
         return x;
     }
 }

@@ -89,7 +89,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
     // ── absorbed: explicit hint tests ────────────────────────────────────────
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void ExplicitHint_KnownIndex_Returns_ExplicitHintDecision()
     {
@@ -111,7 +111,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void ExplicitHint_UnknownIndex_ThrowsInvalidOperationException()
     {
@@ -132,7 +132,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void ExplicitHint_UnknownIndex_ErrorMessage_IncludesTableName()
     {
@@ -150,7 +150,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void ExplicitHint_NoCandidates_SkipsValidationAndReturnsExplicitHint()
     {
@@ -166,7 +166,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
     /// In a shared-table model the postprocessor scopes candidates to the query entity type,
     /// so an index for a different entity type does not appear in candidates and must be rejected.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void ExplicitHint_SharedTable_WrongEntityType_CandidatesDoNotContainIndex_Throws()
     {
@@ -187,7 +187,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void ExplicitHint_MatchesBaseTableDescriptor_ShouldNotThrow()
     {
@@ -204,7 +204,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void ExplicitHint_KeysOnlyProjectionIndex_Returns_ExplicitHintDecision()
     {
@@ -232,7 +232,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void ExplicitHint_IncludeProjectionIndex_Returns_ExplicitHintDecision()
     {
@@ -262,7 +262,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
     // ── no hint, Off mode ────────────────────────────────────────────────────
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void NoHint_Returns_NoSelection_WithNullIndexName()
     {
@@ -282,7 +282,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void Off_Mode_PkPresent_Returns_NoSelection_WithoutDiagnostics()
     {
@@ -302,7 +302,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void Off_Mode_NullConstraints_Returns_NoSelection()
     {
@@ -323,7 +323,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
     // ── SuggestOnly mode ─────────────────────────────────────────────────────
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void SuggestOnly_SingleMatch_EmitsInfoDiagnostic_Returns_NoSelection()
     {
@@ -350,7 +350,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void SuggestOnly_NoMatch_EmitsWarningDiagnostic_Returns_NoSelection()
     {
@@ -380,7 +380,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
     // ── Conservative mode ────────────────────────────────────────────────────
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void Conservative_SingleMatch_NoBonuses_Returns_AutoSelected()
     {
@@ -405,7 +405,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void Conservative_NoCandidateSatisfied_EmitsIdx001Warning_NoSelection()
     {
@@ -432,7 +432,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void Conservative_AmbiguousTie_EmitsIdx002Warning_NoSelection()
     {
@@ -460,7 +460,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void Conservative_NoOrdering_DoesNotPreferSortKeyIndexOverPartitionOnlyIndex()
     {
@@ -487,7 +487,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void Conservative_SkBonusTiebreaks_ClearWinner_AutoSelected()
     {
@@ -527,7 +527,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void Conservative_OrderingBonusTiebreaks_ClearWinner_AutoSelected()
     {
@@ -555,7 +555,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void Conservative_BothBonuses_BeatsSkOnly_AutoSelected()
     {
@@ -582,7 +582,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void Conservative_UnsafeOrBlocksAllCandidates_NoSelection()
     {
@@ -607,7 +607,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void Conservative_NonAllProjectionDescriptor_Excluded_NoSelection()
     {
@@ -637,7 +637,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void Conservative_InConstraint_SatisfiesPkGate_AutoSelected()
     {
@@ -660,7 +660,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void Conservative_NullQueryConstraints_Returns_NoSelection()
     {
@@ -679,7 +679,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void Conservative_BaseTableDescriptor_Skipped_OnlyIndexesEvaluated()
     {
@@ -704,7 +704,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void Conservative_LsiCandidate_SatisfiedByTablePk_AutoSelected()
     {
@@ -736,7 +736,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
     // ── DYNAMO_IDX004 — explicit hint diagnostics ─────────────────────────────
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void ExplicitHint_KnownIndex_EmitsDynamoIdx004Diagnostic()
     {
@@ -762,7 +762,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void ExplicitHint_DesignTime_NoCandidates_EmitsNoDiagnostics()
     {
@@ -784,7 +784,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
     // ── DYNAMO_IDX005 — candidate rejection diagnostics ───────────────────────
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void RejectedCandidate_NoPkConstraint_EmitsDynamoIdx005WithPartitionKeyMessage()
     {
@@ -809,7 +809,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void RejectedCandidate_ProjectionMismatch_EmitsDynamoIdx005WithProjectionMessage()
     {
@@ -837,7 +837,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void RejectedCandidate_UnsafeOr_EmitsDynamoIdx005WithUnsafeOrMessage()
     {
@@ -861,7 +861,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void RejectionDiagnostics_PrecedeIdx001_InDiagnosticsList()
     {
@@ -887,7 +887,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void RejectionDiagnostics_PrecedeIdx003_WhenOnePassesAndOneIsRejected()
     {
@@ -917,7 +917,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
     // ── WithoutIndex suppression tests ────────────────────────────────────────
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void WithoutIndex_DisablesAutoSelection_ReturnsNoSelection()
     {
@@ -942,7 +942,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void WithoutIndex_EmitsDiagnosticIDX006_WithTableName()
     {
@@ -970,7 +970,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void WithoutIndex_OffMode_StillEmitsDiagnosticIDX006()
     {
@@ -994,7 +994,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void WithoutIndex_WithExplicitHint_ThrowsInvalidOperationException()
     {

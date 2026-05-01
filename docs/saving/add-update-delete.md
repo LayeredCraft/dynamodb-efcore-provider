@@ -123,21 +123,22 @@ Key behaviors:
     property on a tracked entity throws `NotSupportedException`. To change an item's key, delete
     the existing entity and add a new one.
 
-### Owned Types in Updates
+### Complex Properties in Updates
 
-Owned navigations are stored as nested attributes (sub-documents) in the same DynamoDB item.
-When an owned navigation changes, the provider emits a targeted SET or REMOVE clause rather
+Complex properties and complex collections are stored as nested attributes (sub-documents) in the
+same DynamoDB item. When a complex-property path changes, the provider emits a targeted SET or
+REMOVE clause rather
 than replacing the entire item:
 
-| Owned navigation change                   | Generated clause                         |
+| Complex-property change                   | Generated clause                         |
 | ----------------------------------------- | ---------------------------------------- |
-| Owned navigation added                    | `SET "address" = ?` (full sub-document)  |
-| Owned navigation removed                  | `REMOVE "address"`                       |
-| Property inside owned navigation modified | `SET "address"."city" = ?` (nested path) |
+| Complex property added                    | `SET "address" = ?` (full sub-document)  |
+| Complex property removed                  | `REMOVE "address"`                       |
+| Property inside complex property modified | `SET "address"."city" = ?` (nested path) |
 
-This is different from relational providers, where owned types are rows in related or
-shadow tables. In the DynamoDB provider, every owned navigation mutation targets a path within
-the same item.
+This is different from relational providers, where related data may live in separate rows or
+tables. In the DynamoDB provider, every complex-property mutation targets a path within the same
+item.
 
 ## Deleting Entities
 
@@ -180,7 +181,7 @@ validates the compiled statement length before executing any writes and throws
 !!! warning "Statement size limit"
 
     The limit is most likely to be hit on INSERT statements with many mapped properties or large
-    owned-type sub-documents. The error message reports the actual character or byte count:
+    complex-property sub-documents. The error message reports the actual character or byte count:
 
     ```
     The generated PartiQL statement is 9,841 UTF-8 bytes, which exceeds DynamoDB's
@@ -188,7 +189,7 @@ validates the compiled statement length before executing any writes and throws
     properties or splitting the write unit across multiple SaveChanges calls.
     ```
 
-    To fix: reduce the number of mapped properties, split large owned types into separate items,
+    To fix: reduce the number of mapped properties, split large nested documents into separate items,
     or batch smaller sets of entities per `SaveChangesAsync` call.
 
 ## See also

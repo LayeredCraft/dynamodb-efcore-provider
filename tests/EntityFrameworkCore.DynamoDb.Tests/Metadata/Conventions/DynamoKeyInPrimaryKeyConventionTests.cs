@@ -54,7 +54,7 @@ public class DynamoKeyInPrimaryKeyConventionTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void HasPartitionKey_WithoutExplicitHasKey_AutoConfiguresEfPrimaryKey()
     {
@@ -104,7 +104,7 @@ public class DynamoKeyInPrimaryKeyConventionTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void
         HasPartitionKeyAndSortKey_WithoutExplicitHasKey_AutoConfiguresCompositeEfPrimaryKey()
@@ -137,7 +137,7 @@ public class DynamoKeyInPrimaryKeyConventionTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<LateShadowKeyEntity>(b =>
             {
-                DynamoEntityTypeBuilderExtensions.ToTable((EntityTypeBuilder)b, "LateShadowKeyTable");
+                ((EntityTypeBuilder)b).ToTable("LateShadowKeyTable");
                 b.HasPartitionKey("PK");
                 b.HasSortKey("SK");
                 b.Property<string>("PK");
@@ -150,7 +150,7 @@ public class DynamoKeyInPrimaryKeyConventionTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void HasPartitionAndSortKey_BeforeShadowProperties_ThrowsValidationError()
     {
@@ -188,7 +188,7 @@ public class DynamoKeyInPrimaryKeyConventionTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<SortKeyWithAutoDiscoveredPkEntity>(b =>
             {
-                DynamoEntityTypeBuilderExtensions.ToTable((EntityTypeBuilder)b, "AutoDiscoveredPkTable");
+                ((EntityTypeBuilder)b).ToTable("AutoDiscoveredPkTable");
                 b.HasSortKey(x => x.Category);
                 // No HasKey, no HasPartitionKey — 'Id' is auto-discovered as the partition key
             });
@@ -199,7 +199,7 @@ public class DynamoKeyInPrimaryKeyConventionTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void HasSortKey_WithoutPartitionKey_ThrowsValidationError()
     {
@@ -237,7 +237,7 @@ public class DynamoKeyInPrimaryKeyConventionTests
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<RedundantAnnotationEntity>(b =>
             {
-                DynamoEntityTypeBuilderExtensions.ToTable((EntityTypeBuilder)b, "RedundantAnnotationTable");
+                ((EntityTypeBuilder)b).ToTable("RedundantAnnotationTable");
                 b.HasPartitionKey(x => x.Id);
                 // EF would have auto-discovered 'Id' anyway
             });
@@ -248,7 +248,7 @@ public class DynamoKeyInPrimaryKeyConventionTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void HasPartitionKey_MatchingAutoDiscoveredPk_EfPrimaryKeyIsUnchanged()
     {
@@ -297,7 +297,7 @@ public class DynamoKeyInPrimaryKeyConventionTests
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
     public void ExplicitHasKey_WithAnnotations_IsRejected()
     {
@@ -312,7 +312,7 @@ public class DynamoKeyInPrimaryKeyConventionTests
     }
 
     // -------------------------------------------------------------------
-    // Owned entity types — convention must not modify their keys
+    // Complex types — convention must not add key annotations
     // -------------------------------------------------------------------
 
     private sealed record OwnerWithAnnotationEntity
@@ -321,16 +321,16 @@ public class DynamoKeyInPrimaryKeyConventionTests
         public string Id { get; set; } = null!;
 
         /// <summary>Provides functionality for this member.</summary>
-        public OwnedPart Detail { get; set; } = null!;
+        public ComplexPart Detail { get; set; } = null!;
     }
 
-    private sealed record OwnedPart
+    private sealed record ComplexPart
     {
         /// <summary>Provides functionality for this member.</summary>
         public string Value { get; set; } = null!;
     }
 
-    private sealed class OwnedPartContext(DbContextOptions options) : DbContext(options)
+    private sealed class ComplexPartContext(DbContextOptions options) : DbContext(options)
     {
         /// <summary>Provides functionality for this member.</summary>
         public DbSet<OwnerWithAnnotationEntity> Owners { get; set; } = null!;
@@ -341,26 +341,26 @@ public class DynamoKeyInPrimaryKeyConventionTests
             {
                 DynamoEntityTypeBuilderExtensions.ToTable((EntityTypeBuilder)b, "OwnedPartTable");
                 b.HasPartitionKey(x => x.Id);
-                b.OwnsOne(x => x.Detail);
+                b.ComplexProperty(x => x.Detail);
             });
 
         /// <summary>Provides functionality for this member.</summary>
-        public static OwnedPartContext Create(IAmazonDynamoDB client)
-            => new(BuildOptions<OwnedPartContext>(client));
+        public static ComplexPartContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<ComplexPartContext>(client));
     }
 
     /// <summary>Provides functionality for this member.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
-    public void OwnedEntityType_ConventionDoesNotApply_NoChange()
+    public void ComplexType_ConventionDoesNotApply_NoChange()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
-        using var ctx = OwnedPartContext.Create(client);
+        using var ctx = ComplexPartContext.Create(client);
 
-        // Owned types have no DynamoDB key annotations — their PK is managed by
-        // OwnedTypePrimaryKeyConvention
-        var ownedType = ctx.Model.FindEntityType(typeof(OwnedPart))!;
-        ownedType["Dynamo:PartitionKeyPropertyName"].Should().BeNull();
-        ownedType["Dynamo:SortKeyPropertyName"].Should().BeNull();
+        var ownerType = ctx.Model.FindEntityType(typeof(OwnerWithAnnotationEntity))!;
+        var complexType = ownerType.FindComplexProperty(nameof(OwnerWithAnnotationEntity.Detail))!
+            .ComplexType;
+        complexType["Dynamo:PartitionKeyPropertyName"].Should().BeNull();
+        complexType["Dynamo:SortKeyPropertyName"].Should().BeNull();
     }
 }

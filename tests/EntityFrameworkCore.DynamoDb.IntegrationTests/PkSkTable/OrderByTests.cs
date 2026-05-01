@@ -17,7 +17,7 @@ public class OrderByTests(DynamoContainerFixture fixture) : PkSkTableTestFixture
     ///     ORDER BY without a WHERE clause must throw a provider error at query compilation time,
     ///     before any request is sent to DynamoDB.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task OrderBy_WithNoPkConstraint_ThrowsProviderError()
     {
         var act = async ()
@@ -30,7 +30,7 @@ public class OrderByTests(DynamoContainerFixture fixture) : PkSkTableTestFixture
     ///     ORDER BY on a non-key attribute must throw a provider error at query compilation time,
     ///     even when the WHERE clause has a valid partition key constraint.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task OrderBy_OnNonSortKeyAttribute_ThrowsProviderError()
     {
         var act = async ()
@@ -49,7 +49,7 @@ public class OrderByTests(DynamoContainerFixture fixture) : PkSkTableTestFixture
     ///     ORDER BY sort key with a partition key equality constraint must execute successfully and
     ///     return items in ascending sort key order as DynamoDB delivers them.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task OrderBy_Sk_WithPkConstraint_ReturnsItemsInAscendingSortKeyOrder()
     {
         var results =
@@ -77,7 +77,7 @@ public class OrderByTests(DynamoContainerFixture fixture) : PkSkTableTestFixture
     ///     ORDER BY sort key descending with a partition key equality constraint must return items in
     ///     descending sort key order.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task OrderByDescending_Sk_WithPkConstraint_ReturnsItemsInDescendingSortKeyOrder()
     {
         var results =
@@ -111,7 +111,7 @@ public class OrderByTests(DynamoContainerFixture fixture) : PkSkTableTestFixture
     ///     ORDER BY partition key with a partition key equality constraint is valid and returns items
     ///     in ascending partition key order.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task OrderBy_Pk_WithPkEqualityConstraint_Valid()
     {
         var results =
@@ -136,7 +136,7 @@ public class OrderByTests(DynamoContainerFixture fixture) : PkSkTableTestFixture
     }
 
     /// <summary>ORDER BY PK ASC then SK ASC with equality PK constraint returns items in PK then SK order.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task OrderBy_PkThenSk_WithPkEqualityConstraint_ReturnsItemsInExactOrder()
     {
         var results =
@@ -170,7 +170,7 @@ public class OrderByTests(DynamoContainerFixture fixture) : PkSkTableTestFixture
     ///     ORDER BY PK DESC then SK DESC with equality PK constraint returns items in reverse PK then
     ///     reverse SK order.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task OrderByDescending_PkThenSkDescending_WithPkEqualityConstraint_Valid()
     {
         var results =
@@ -206,7 +206,7 @@ public class OrderByTests(DynamoContainerFixture fixture) : PkSkTableTestFixture
     ///     ORDER BY PK ASC then SK ASC with IN PK constraint (multi-partition) returns items ordered
     ///     first by PK then by SK across partitions.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task OrderBy_PkThenSk_WithPkInConstraint_ReturnsItemsInExactOrder()
     {
         var pks = new[] { "P#1", "P#2" };
@@ -242,7 +242,7 @@ public class OrderByTests(DynamoContainerFixture fixture) : PkSkTableTestFixture
     ///     ORDER BY PK DESC then SK DESC with IN PK constraint returns items in descending PK then
     ///     descending SK order across partitions.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task OrderByDescending_PkThenByDescendingSk_WithPkInConstraint_Valid()
     {
         var pks = new[] { "P#1", "P#2" };
@@ -280,7 +280,7 @@ public class OrderByTests(DynamoContainerFixture fixture) : PkSkTableTestFixture
     ///     ORDER BY SK (not PK) with a multi-partition IN constraint must throw a provider error
     ///     because DynamoDB requires the partition key to lead the ORDER BY chain.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task OrderBy_Sk_WithPkInConstraint_ThrowsProviderError()
     {
         var pks = new[] { "P#1", "P#2" };

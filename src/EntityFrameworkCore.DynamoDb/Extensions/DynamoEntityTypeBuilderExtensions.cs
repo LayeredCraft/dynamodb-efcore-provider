@@ -3,6 +3,7 @@ using EntityFrameworkCore.DynamoDb.Metadata;
 using EntityFrameworkCore.DynamoDb.Metadata.Builders;
 using EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using EntityFrameworkCore.DynamoDb.Utilities;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 // ReSharper disable CheckNamespace
@@ -15,8 +16,10 @@ public static class DynamoEntityTypeBuilderExtensions
     extension(EntityTypeBuilder entityTypeBuilder)
     {
         /// <summary>Configures the table that the entity type maps to when targeting AWS DynamoDB.</summary>
-        ///     The table name. Pass  to clear the explicit table mapping and
+        /// <param name="name">
+        ///     The table name. Pass <see langword="null" /> to clear the explicit table mapping and
         ///     fall back to convention behavior.
+        /// </param>
         /// <returns>The same builder instance so that multiple calls can be chained.</returns>
         public EntityTypeBuilder ToTable(string? name)
         {
@@ -36,8 +39,9 @@ public static class DynamoEntityTypeBuilderExtensions
         ///     The provider derives the EF primary key automatically from the configured partition key and
         ///     optional sort key, so root entities should not configure <c>HasKey(...)</c> directly.
         /// </remarks>
-        ///     The EF property name whose attribute name maps to the DynamoDB partition
-        ///     key.
+        /// <param name="propertyName">
+        ///     The EF property name whose attribute name maps to the DynamoDB partition key.
+        /// </param>
         /// <returns>The same builder instance so that multiple calls can be chained.</returns>
         public EntityTypeBuilder HasPartitionKey(string propertyName)
         {
@@ -129,10 +133,10 @@ public static class DynamoEntityTypeBuilderExtensions
         ///     <para>
         ///         At model finalization, the convention is applied to every declared scalar property that
         ///         does not already have an explicit <c>HasAttributeName(...)</c> override. Provider-internal
-        ///         runtime-only and owned-ordinal shadow properties are not affected.
+        ///         runtime-only shadow properties are not affected.
         ///     </para>
         ///     <para>
-        ///         Owned entity types without their own convention configured inherit this entity's
+        ///         Complex properties without their own convention configured inherit this entity's
         ///         convention automatically.
         ///     </para>
         /// </remarks>
@@ -155,10 +159,10 @@ public static class DynamoEntityTypeBuilderExtensions
         ///         At model finalization, <paramref name="translator" /> is called with each declared scalar
         ///         property's CLR name and the return value is used as the DynamoDB attribute name. Properties
         ///         with an explicit <c>HasAttributeName(...)</c> override are not affected. Provider-internal
-        ///         runtime-only and owned-ordinal shadow properties are not affected.
+        ///         runtime-only shadow properties are not affected.
         ///     </para>
         ///     <para>
-        ///         Owned entity types without their own convention configured inherit this entity's
+        ///         Complex properties without their own convention configured inherit this entity's
         ///         convention automatically.
         ///     </para>
         /// </remarks>
@@ -179,8 +183,10 @@ public static class DynamoEntityTypeBuilderExtensions
     extension<TEntity>(EntityTypeBuilder<TEntity> entityTypeBuilder) where TEntity : class
     {
         /// <summary>Configures the table that the entity type maps to when targeting AWS DynamoDB.</summary>
-        ///     The table name. Pass  to clear the explicit table mapping and
+        /// <param name="name">
+        ///     The table name. Pass <see langword="null" /> to clear the explicit table mapping and
         ///     fall back to convention behavior.
+        /// </param>
         /// <returns>The same builder instance so that multiple calls can be chained.</returns>
         public EntityTypeBuilder<TEntity> ToTable(string? name)
             => (EntityTypeBuilder<TEntity>)((EntityTypeBuilder)entityTypeBuilder).ToTable(name);
@@ -194,8 +200,9 @@ public static class DynamoEntityTypeBuilderExtensions
         ///     The provider derives the EF primary key automatically from the configured partition key and
         ///     optional sort key, so root entities should not configure <c>HasKey(...)</c> directly.
         /// </remarks>
-        ///     A lambda expression selecting the property that maps to the DynamoDB
-        ///     partition key.
+        /// <param name="keyExpression">
+        ///     A lambda expression selecting the property that maps to the DynamoDB partition key.
+        /// </param>
         /// <returns>The same builder instance so that multiple calls can be chained.</returns>
         public EntityTypeBuilder<TEntity> HasPartitionKey(
             Expression<Func<TEntity, object?>> keyExpression)
@@ -215,8 +222,9 @@ public static class DynamoEntityTypeBuilderExtensions
         ///     <c>[partitionKey, sortKey]</c>, so root entities should not configure <c>HasKey(...)</c>
         ///     directly.
         /// </remarks>
-        ///     A lambda expression selecting the property that maps to the DynamoDB
-        ///     sort key.
+        /// <param name="keyExpression">
+        ///     A lambda expression selecting the property that maps to the DynamoDB sort key.
+        /// </param>
         /// <returns>The same builder instance so that multiple calls can be chained.</returns>
         public EntityTypeBuilder<TEntity> HasSortKey(
             Expression<Func<TEntity, object?>> keyExpression)
@@ -295,7 +303,7 @@ public static class DynamoEntityTypeBuilderExtensions
         ///         (provider-internal) are not affected.
         ///     </para>
         ///     <para>
-        ///         Owned entity types without their own convention configured inherit this entity's
+        ///         Complex properties without their own convention configured inherit this entity's
         ///         convention automatically.
         ///     </para>
         /// </remarks>
@@ -318,7 +326,7 @@ public static class DynamoEntityTypeBuilderExtensions
         ///         (provider-internal) are not affected.
         ///     </para>
         ///     <para>
-        ///         Owned entity types without their own convention configured inherit this entity's
+        ///         Complex properties without their own convention configured inherit this entity's
         ///         convention automatically.
         ///     </para>
         /// </remarks>
@@ -345,99 +353,38 @@ public static class DynamoEntityTypeBuilderExtensions
         }
     }
 
-    extension(OwnedNavigationBuilder ownedNavigationBuilder)
+    extension(ComplexPropertyBuilder complexPropertyBuilder)
     {
-        /// <summary>Configures the top-level DynamoDB attribute name used to store this owned navigation.</summary>
-        /// <returns>The same builder instance so that multiple calls can be chained.</returns>
-        public OwnedNavigationBuilder HasAttributeName(string? name)
-        {
-            ownedNavigationBuilder.OwnedEntityType.SetContainingAttributeName(name);
-            return ownedNavigationBuilder;
-        }
-
         /// <summary>
-        ///     Configures an automatic attribute naming convention for all scalar properties of this
-        ///     owned entity type.
+        ///     Configures the DynamoDB attribute name used to store this complex property in the parent
+        ///     document (the map key).
         /// </summary>
-        /// <remarks>
-        ///     Overrides any convention inherited from the root entity for this owned type's properties.
-        ///     Properties with an explicit <c>HasAttributeName(...)</c> override are not affected.
-        /// </remarks>
-        /// <param name="convention">The naming convention to apply.</param>
-        /// <returns>The same builder instance so that multiple calls can be chained.</returns>
-        public OwnedNavigationBuilder HasAttributeNamingConvention(
-            DynamoAttributeNamingConvention convention)
-        {
-            ownedNavigationBuilder.OwnedEntityType.SetAttributeNamingConvention(
-                DynamoNamingConventionDescriptor.Named(convention));
-            return ownedNavigationBuilder;
-        }
-
-        /// <summary>
-        ///     Configures a custom attribute naming function for all scalar properties of this owned
-        ///     entity type.
-        /// </summary>
-        /// <remarks>
-        ///     Overrides any convention inherited from the root entity for this owned type's properties.
-        ///     Properties with an explicit <c>HasAttributeName(...)</c> override are not affected.
-        /// </remarks>
-        /// <param name="translator">
-        ///     A function that receives the CLR property name and returns the desired
-        ///     DynamoDB attribute name.
+        /// <param name="name">
+        ///     The attribute name. Pass <see langword="null" /> to clear an explicit override and
+        ///     fall back to the naming convention.
         /// </param>
         /// <returns>The same builder instance so that multiple calls can be chained.</returns>
-        public OwnedNavigationBuilder HasAttributeNamingConvention(Func<string, string> translator)
+        public ComplexPropertyBuilder HasAttributeName(string? name)
         {
-            translator.NotNull();
-            ownedNavigationBuilder.OwnedEntityType.SetAttributeNamingConvention(
-                DynamoNamingConventionDescriptor.Custom(translator));
-            return ownedNavigationBuilder;
+            ((IMutableComplexProperty)complexPropertyBuilder.Metadata).SetAttributeName(name);
+            return complexPropertyBuilder;
         }
     }
 
-    extension<TOwnerEntity, TDependentEntity>(
-        OwnedNavigationBuilder<TOwnerEntity, TDependentEntity> ownedNavigationBuilder)
-        where TOwnerEntity : class where TDependentEntity : class
+    extension<TComplex>(ComplexPropertyBuilder<TComplex> complexPropertyBuilder)
+        where TComplex : notnull
     {
-        /// <summary>Configures the top-level DynamoDB attribute name used to store this owned navigation.</summary>
-        /// <returns>The same builder instance so that multiple calls can be chained.</returns>
-        public OwnedNavigationBuilder<TOwnerEntity, TDependentEntity> HasAttributeName(string? name)
-            => (OwnedNavigationBuilder<TOwnerEntity, TDependentEntity>)
-                ((OwnedNavigationBuilder)ownedNavigationBuilder).HasAttributeName(name);
-
         /// <summary>
-        ///     Configures an automatic attribute naming convention for all scalar properties of this
-        ///     owned entity type.
+        ///     Configures the DynamoDB attribute name used to store this complex property in the parent
+        ///     document (the map key).
         /// </summary>
-        /// <remarks>
-        ///     Overrides any convention inherited from the root entity for this owned type's properties.
-        ///     Properties with an explicit <c>HasAttributeName(...)</c> override are not affected.
-        /// </remarks>
-        /// <param name="convention">The naming convention to apply.</param>
-        /// <returns>The same builder instance so that multiple calls can be chained.</returns>
-        public OwnedNavigationBuilder<TOwnerEntity, TDependentEntity> HasAttributeNamingConvention(
-            DynamoAttributeNamingConvention convention)
-            => (OwnedNavigationBuilder<TOwnerEntity, TDependentEntity>)
-                ((OwnedNavigationBuilder)ownedNavigationBuilder).HasAttributeNamingConvention(
-                    convention);
-
-        /// <summary>
-        ///     Configures a custom attribute naming function for all scalar properties of this owned
-        ///     entity type.
-        /// </summary>
-        /// <remarks>
-        ///     Overrides any convention inherited from the root entity for this owned type's properties.
-        ///     Properties with an explicit <c>HasAttributeName(...)</c> override are not affected.
-        /// </remarks>
-        /// <param name="translator">
-        ///     A function that receives the CLR property name and returns the desired
-        ///     DynamoDB attribute name.
+        /// <param name="name">
+        ///     The attribute name. Pass <see langword="null" /> to clear an explicit override and
+        ///     fall back to the naming convention.
         /// </param>
         /// <returns>The same builder instance so that multiple calls can be chained.</returns>
-        public OwnedNavigationBuilder<TOwnerEntity, TDependentEntity> HasAttributeNamingConvention(
-            Func<string, string> translator)
-            => (OwnedNavigationBuilder<TOwnerEntity, TDependentEntity>)
-                ((OwnedNavigationBuilder)ownedNavigationBuilder).HasAttributeNamingConvention(
-                    translator);
+        public ComplexPropertyBuilder<TComplex> HasAttributeName(string? name)
+            => (ComplexPropertyBuilder<TComplex>)((ComplexPropertyBuilder)complexPropertyBuilder)
+                .HasAttributeName(name);
     }
 }

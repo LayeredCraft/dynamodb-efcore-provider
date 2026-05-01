@@ -22,7 +22,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
     ///     A minimal CustomerItem with only scalar properties (no owned objects, no collections)
     ///     should produce correct S, N, BOOL, and NULL AttributeValue wire representations.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task CustomerItem_ScalarsOnly_WritesCorrectAttributeValues()
     {
         var entity = new CustomerItem
@@ -52,7 +52,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
     }
 
     /// <summary>After SaveChanges the EF Core change tracker should reflect the entity as Unchanged.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task CustomerItem_AfterSave_ChangeTrackerStateIsUnchanged()
     {
         var entity = new CustomerItem
@@ -88,7 +88,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
     ///     A non-null OwnsOne navigation should produce a nested map (M) attribute whose keys match
     ///     the owned type's property names.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task CustomerItem_WithOwnedProfile_SerializesProfileAsMap()
     {
         var entity = new CustomerItem
@@ -123,7 +123,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
     }
 
     /// <summary>A null OwnsOne navigation must not produce any attribute key in the item at all.</summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task CustomerItem_WithNullOwnedProfile_OmitsProfileAttribute()
     {
         var entity = new CustomerItem
@@ -155,7 +155,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
     ///     A deeply-nested OwnsOne chain (Profile → PreferredAddress → Address scalars) should
     ///     produce nested maps at each level without losing any scalar values.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task CustomerItem_WithNestedAddress_SerializesDeepMap()
     {
         var entity = new CustomerItem
@@ -203,7 +203,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
     ///     An OwnsMany navigation with two elements should produce a DynamoDB list (L) where each
     ///     element is a map (M) of the owned type's scalar properties.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task CustomerItem_WithContacts_SerializesAsListOfMaps()
     {
         var entity = new CustomerItem
@@ -264,7 +264,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
     ///     A <c>HashSet&lt;string&gt;</c> property must be serialized as a DynamoDB string set (SS),
     ///     not as a list (L).
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task CustomerItem_WithStringSet_SerializesAsSS()
     {
         var entity = new CustomerItem
@@ -296,7 +296,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
     ///     A <c>HashSet&lt;Guid&gt;</c> property must be serialized as a DynamoDB string set (SS) by
     ///     applying the element converter for each Guid.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task CustomerItem_WithGuidSet_SerializesAsSS()
     {
         var entity = new CustomerItem
@@ -342,7 +342,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
     ///     A <c>HashSet&lt;int&gt;</c> property must be serialized as a DynamoDB numeric set (NS)
     ///     where each element is a string-encoded integer — the required DynamoDB wire format.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task OrderItem_WithNumericSet_SerializesAsNS()
     {
         var entity = new OrderItem
@@ -377,7 +377,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
     ///     A <c>Dictionary&lt;string, string&gt;</c> property must be serialized as a DynamoDB map
     ///     (M) with each value as an S attribute.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task CustomerItem_WithStringDictionary_SerializesAsMap()
     {
         var entity = new CustomerItem
@@ -412,7 +412,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
     ///     A <c>Dictionary&lt;string, decimal&gt;</c> property must be serialized as a DynamoDB map
     ///     (M) with each value as an N attribute.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task OrderItem_WithDecimalDictionary_SerializesAsMapOfN()
     {
         var entity = new OrderItem
@@ -450,7 +450,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
     ///     A <c>List&lt;string&gt;</c> property must be serialized as a DynamoDB list (L) where each
     ///     element is an S attribute — not as a string set (SS).
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task CustomerItem_WithPrimitiveList_SerializesAsListOfS()
     {
         var entity = new CustomerItem
@@ -486,7 +486,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
     ///     An empty <c>HashSet&lt;string&gt;</c> (set property) must serialize as
     ///     <c>{ NULL = true }</c> because DynamoDB does not allow empty sets on the wire.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task CustomerItem_WithEmptyStringSet_SerializesAsNull()
     {
         var entity = new CustomerItem
@@ -513,7 +513,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
     ///     An empty <c>List&lt;string&gt;</c> (list property) must serialize as <c>{ L = [] }</c>
     ///     because empty lists are valid in DynamoDB.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task CustomerItem_WithEmptyList_SerializesAsEmptyL()
     {
         var entity = new CustomerItem
@@ -540,7 +540,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
     ///     An empty <c>Dictionary&lt;string, string&gt;</c> (map property) must serialize as
     ///     <c>{ M = {} }</c> because empty maps are valid in DynamoDB.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task CustomerItem_WithEmptyDictionary_SerializesAsEmptyM()
     {
         var entity = new CustomerItem
@@ -572,7 +572,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
     ///     raw DynamoDB item, and compares it attribute-by-attribute against the DynamoMapper-generated
     ///     baseline to confirm the provider serializes every shape correctly.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task CustomerItem_FullRichShape_MatchesDynamoMapperBaseline()
     {
         // Clone the first seed customer with a unique PK/SK so it does not collide with seed data.
@@ -625,25 +625,27 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
                                 },
                     },
             Contacts =
-                source
-                    .Contacts
-                    .Select(c => new CustomerContact
-                    {
-                        Kind = c.Kind,
-                        Value = c.Value,
-                        Verified = c.Verified,
-                        VerifiedAt = c.VerifiedAt,
-                        Address = c.Address is null
-                            ? null
-                            : new Address
-                            {
-                                Line1 = c.Address.Line1,
-                                City = c.Address.City,
-                                Country = c.Address.Country,
-                                PostalCode = c.Address.PostalCode,
-                            },
-                    })
-                    .ToList(),
+                source.Contacts is null
+                    ? null
+                    : source
+                        .Contacts
+                        .Select(c => new CustomerContact
+                        {
+                            Kind = c.Kind,
+                            Value = c.Value,
+                            Verified = c.Verified,
+                            VerifiedAt = c.VerifiedAt,
+                            Address = c.Address is null
+                                ? null
+                                : new Address
+                                {
+                                    Line1 = c.Address.Line1,
+                                    City = c.Address.City,
+                                    Country = c.Address.Country,
+                                    PostalCode = c.Address.PostalCode,
+                                },
+                        })
+                        .ToList(),
         };
 
         Db.Customers.Add(entity);

@@ -4,23 +4,23 @@ using Microsoft.EntityFrameworkCore;
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SaveChangesTable;
 
 /// <summary>
-///     Integration tests for SaveChanges behaviour when owned navigations and primitive
-///     collections are mutated.  Each test creates its own item, performs an initial save, clears the
-///     SQL log, mutates, saves again, and then verifies the emitted PartiQL and the persisted DynamoDB
-///     shape.
+///     Integration tests for SaveChanges behaviour when complex properties, complex collections,
+///     and primitive collections are mutated. Each test creates its own item, performs an initial
+///     save, clears the SQL log, mutates, saves again, and then verifies the emitted PartiQL and
+///     the persisted DynamoDB shape.
 /// </summary>
 public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
     : SaveChangesTableTestFixture(fixture)
 {
     // -------------------------------------------------------------------------
-    // OwnsOne — scalar property changed
+    // ComplexProperty — scalar property changed
     // -------------------------------------------------------------------------
 
     /// <summary>
-    ///     A modified scalar on an OwnsOne reference emits a nested-path SET clause (
+    ///     A modified scalar on a complex property reference emits a nested-path SET clause (
     ///     <c>SET "profile"."displayName" = ?</c>), not a full map replacement.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SaveChangesAsync_OwnedReference_ScalarPropChanged_EmitsNestedPath()
     {
         var item = new CustomerItem
@@ -56,14 +56,14 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
     }
 
     // -------------------------------------------------------------------------
-    // OwnsOne — nullified (ref → null) emits REMOVE
+    // ComplexProperty — nullified (ref → null) emits REMOVE
     // -------------------------------------------------------------------------
 
     /// <summary>
-    ///     Setting an OwnsOne reference to <see langword="null" /> emits <c>REMOVE "profile"</c>
-    ///     which deletes the attribute from DynamoDB.
+    ///     Setting a complex property reference to <see langword="null" /> emits
+    ///     <c>REMOVE "profile"</c> which deletes the attribute from DynamoDB.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SaveChangesAsync_OwnedReference_NullifiedToNull_EmitsRemove()
     {
         var item = new CustomerItem
@@ -100,15 +100,15 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
     }
 
     // -------------------------------------------------------------------------
-    // OwnsOne — set from null (null → ref) emits full map SET
+    // ComplexProperty — set from null (null → ref) emits full map SET
     // -------------------------------------------------------------------------
 
     /// <summary>
-    ///     Assigning an OwnsOne reference that was previously <see langword="null" /> emits
-    ///     <c>SET "profile" = ?</c> with the full M value, because a nested SET path requires the parent
-    ///     attribute to exist first.
+    ///     Assigning a complex property reference that was previously <see langword="null" /> emits
+    ///     <c>SET "profile" = ?</c> with the full M value, because a nested SET path requires the
+    ///     parent attribute to exist first.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SaveChangesAsync_OwnedReference_SetFromNull_EmitsFullMapReplace()
     {
         var item = new CustomerItem
@@ -145,14 +145,14 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
     }
 
     // -------------------------------------------------------------------------
-    // OwnsOne — deeply nested path (profile.preferredAddress.city)
+    // ComplexProperty — deeply nested path (profile.preferredAddress.city)
     // -------------------------------------------------------------------------
 
     /// <summary>
-    ///     A scalar mutation two levels deep in an OwnsOne chain emits a three-segment nested-path
-    ///     SET clause rather than replacing the entire parent map.
+    ///     A scalar mutation two levels deep in a complex property chain emits a three-segment
+    ///     nested-path SET clause rather than replacing the entire parent map.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SaveChangesAsync_OwnedReference_DeeplyNested_EmitsThreeSegmentPath()
     {
         var item = new CustomerItem
@@ -193,14 +193,14 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
     }
 
     // -------------------------------------------------------------------------
-    // OwnsMany — element modified
+    // ComplexCollection — element modified
     // -------------------------------------------------------------------------
 
     /// <summary>
-    ///     Modifying a property on an OwnsMany element replaces the entire list attribute in one
-    ///     <c>SET "contacts" = ?</c> statement.
+    ///     Modifying a property on a complex collection element replaces the entire list attribute
+    ///     in one <c>SET "contacts" = ?</c> statement.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SaveChangesAsync_OwnedCollection_ElementModified_ReplacesEntireList()
     {
         var item = new CustomerItem
@@ -241,14 +241,14 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
     }
 
     // -------------------------------------------------------------------------
-    // OwnsMany — element added
+    // ComplexCollection — element added
     // -------------------------------------------------------------------------
 
     /// <summary>
-    ///     Adding a new element to an OwnsMany collection replaces the entire list attribute; the new
+    ///     Adding a new element to a complex collection replaces the entire list attribute; the new
     ///     element appears at the end.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SaveChangesAsync_OwnedCollection_ElementAdded_IncludesNewElementInList()
     {
         var item = new CustomerItem
@@ -291,14 +291,14 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
     }
 
     // -------------------------------------------------------------------------
-    // OwnsMany — element removed
+    // ComplexCollection — element removed
     // -------------------------------------------------------------------------
 
     /// <summary>
-    ///     Removing an element from an OwnsMany collection replaces the entire list attribute; the
+    ///     Removing an element from a complex collection replaces the entire list attribute; the
     ///     removed element is absent from the persisted list.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SaveChangesAsync_OwnedCollection_ElementRemoved_ExcludesRemovedElement()
     {
         var contact1 = new CustomerContact { Kind = "email", Value = "a@x.com", Verified = true };
@@ -335,14 +335,14 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
     }
 
     // -------------------------------------------------------------------------
-    // OwnsMany — element with nested OwnsOne modified
+    // ComplexCollection — element with nested complex property modified
     // -------------------------------------------------------------------------
 
     /// <summary>
-    ///     Mutating a nested owned reference inside an OwnsMany element still replaces the entire
-    ///     parent list attribute — the nested change is captured in the rebuilt L value.
+    ///     Mutating a nested complex property inside a complex collection element still replaces
+    ///     the entire parent list attribute — the nested change is captured in the rebuilt L value.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task
         SaveChangesAsync_OwnedCollection_WithNestedOwned_ReplacesListWithUpdatedNested()
     {
@@ -390,14 +390,14 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
     }
 
     // -------------------------------------------------------------------------
-    // OwnsMany — nullified (collection -> null) emits REMOVE
+    // ComplexCollection — nullified (collection → null) emits REMOVE
     // -------------------------------------------------------------------------
 
     /// <summary>
-    ///     Setting an OwnsMany navigation to <see langword="null" /> emits <c>REMOVE "contacts"</c>
+    ///     Setting a complex collection to <see langword="null" /> emits <c>REMOVE "contacts"</c>
     ///     rather than writing an empty list.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SaveChangesAsync_OwnedCollection_SetToNull_EmitsRemove()
     {
         var item = new CustomerItem
@@ -445,7 +445,7 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
     ///     Replacing a primitive list property replaces the entire L attribute in one
     ///     <c>SET "appliedCoupons" = ?</c> statement.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SaveChangesAsync_PrimitiveList_Changed_ReplacesListAttribute()
     {
         var item = new OrderItem
@@ -488,7 +488,7 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
     ///     Replacing a primitive dictionary property replaces the entire M attribute in one
     ///     <c>SET "chargesByCode" = ?</c> statement.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SaveChangesAsync_PrimitiveDict_Changed_ReplacesMapAttribute()
     {
         var item = new OrderItem
@@ -532,7 +532,7 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
     ///     Replacing a primitive string set property replaces the entire SS attribute in one
     ///     <c>SET "tags" = ?</c> statement.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SaveChangesAsync_PrimitiveStringSet_Changed_ReplacesSetAttribute()
     {
         var item = new CustomerItem
@@ -575,7 +575,7 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
     ///     Replacing a <see cref="HashSet{Guid}" /> property replaces the SS attribute; GUIDs are
     ///     stored as their canonical string representation via the registered value converter.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SaveChangesAsync_PrimitiveGuidSet_Changed_ReplacesSetAttribute()
     {
         var guid1 = Guid.Parse("11111111-0000-0000-0000-000000000001");
@@ -613,14 +613,14 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
     }
 
     // -------------------------------------------------------------------------
-    // Mixed: scalar + owned reference mutation
+    // Mixed: scalar + complex property mutation
     // -------------------------------------------------------------------------
 
     /// <summary>
-    ///     Simultaneously modifying a scalar root property and a nested OwnsOne property emits a
+    ///     Simultaneously modifying a scalar root property and a nested complex property emits a
     ///     single UPDATE with both the scalar SET and the nested-path SET clause.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SaveChangesAsync_Mixed_ScalarAndOwned_EmitsBothInSingleUpdate()
     {
         var item = new CustomerItem
@@ -663,7 +663,7 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
     ///     Simultaneously modifying a scalar root property and a primitive set property emits a
     ///     single UPDATE with both SET clauses.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SaveChangesAsync_Mixed_ScalarAndPrimitiveCollection_EmitsBothInSingleUpdate()
     {
         var item = new CustomerItem
@@ -699,15 +699,15 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
     }
 
     // -------------------------------------------------------------------------
-    // Owned-only mutation — root stays Unchanged
+    // Complex-property-only mutation — root stays Unchanged
     // -------------------------------------------------------------------------
 
     /// <summary>
-    ///     When only an owned navigation changes and the root entity stays Unchanged, the provider
-    ///     still emits an UPDATE for the root document — the aggregate root is included in the write loop
-    ///     via <c>IncludeMutatingOwnedRoots</c>.
+    ///     When only a complex property changes and the root entity stays Unchanged, the provider
+    ///     still emits an UPDATE for the root document — the aggregate root is included in the write
+    ///     loop via <c>IncludeMutatingOwnedRoots</c>.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SaveChangesAsync_OwnedOnly_NoRootScalars_EmitsUpdateForUnchangedRoot()
     {
         var item = new ProductItem
@@ -749,7 +749,7 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
     ///     An UPDATE for an owned navigation mutation includes the concurrency token property (
     ///     <c>"version" = ?</c>) in the WHERE clause, ensuring optimistic concurrency is enforced.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SaveChangesAsync_ConcurrencyToken_OwnedMutation_IncludesVersionInWhere()
     {
         var item = new OrderItem
@@ -799,7 +799,7 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
     ///     back to <see cref="EntityState.Unchanged" /> and its original values are refreshed to match the
     ///     new current values, preventing a spurious second write.
     /// </summary>
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SaveChangesAsync_ChangeTracker_OwnedEntryIsUnchangedAfterSave()
     {
         var item = new CustomerItem
@@ -817,8 +817,8 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
         LoggerFactory.Clear();
 
         item.Profile!.DisplayName = "After";
-        var profileEntry = Db.Entry(item.Profile);
-        profileEntry.State.Should().Be(EntityState.Modified);
+        var profileEntry = Db.Entry(item).ComplexProperty("Profile");
+        profileEntry.IsModified.Should().BeTrue();
 
         var affected = await Db.SaveChangesAsync(CancellationToken);
         affected.Should().Be(1);
@@ -831,9 +831,9 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
             WHERE "pk" = ? AND "sk" = ? AND "version" = ?
             """);
 
-        // Owned entry must be Unchanged and original values must be refreshed.
-        profileEntry.State.Should().Be(EntityState.Unchanged);
-        profileEntry.Property(x => x.DisplayName).OriginalValue.Should().Be("After");
+        // Complex property entry must be reset and original values refreshed after SaveChanges.
+        profileEntry.IsModified.Should().BeFalse();
+        profileEntry.Property("DisplayName").OriginalValue.Should().Be("After");
 
         // A second SaveChanges must emit nothing — no spurious re-update.
         var secondAffected = await Db.SaveChangesAsync(CancellationToken);

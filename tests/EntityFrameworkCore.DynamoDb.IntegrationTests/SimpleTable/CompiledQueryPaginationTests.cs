@@ -23,7 +23,7 @@ public class CompiledQueryPaginationTests(DynamoContainerFixture fixture)
         SeededLimitQuery = EF.CompileAsyncQuery((SimpleTableDbContext ctx, string token, int n)
             => ctx.SimpleItems.WithNextToken(token).Limit(n));
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Limit_WithArithmetic_EvaluatesAtRuntime()
     {
         SqlCapture.Clear();
@@ -39,7 +39,7 @@ public class CompiledQueryPaginationTests(DynamoContainerFixture fixture)
         calls[0].Limit.Should().Be(5);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Limit_RuntimeZero_ThrowsAtExecution()
     {
         SqlCapture.Clear();
@@ -49,7 +49,7 @@ public class CompiledQueryPaginationTests(DynamoContainerFixture fixture)
         await act.Should().ThrowAsync<ArgumentOutOfRangeException>().WithParameterName("limit");
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Limit_RuntimeNegative_ThrowsAtExecution()
     {
         SqlCapture.Clear();
@@ -59,7 +59,7 @@ public class CompiledQueryPaginationTests(DynamoContainerFixture fixture)
         await act.Should().ThrowAsync<ArgumentOutOfRangeException>().WithParameterName("limit");
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task WithNextToken_CompiledRuntimeToken_SeedsFirstRequest()
     {
         SqlCapture.Clear();

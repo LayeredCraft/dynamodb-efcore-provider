@@ -13,13 +13,28 @@ public sealed class DynamoConventionSetBuilder(
     {
         var conventionSet = base.CreateConventionSet();
 
+        // Owned entity types and foreign-key entity relationships are not supported.
+        // Remove [Owned] processing and the base relationship-discovery convention so that
+        // navigation properties to non-[ComplexType] types do not silently create spurious entity
+        // relationships.
+        conventionSet.Remove(typeof(OwnedAttributeConvention));
+        conventionSet.Remove(typeof(RelationshipDiscoveryConvention));
         conventionSet.Remove(typeof(ForeignKeyIndexConvention));
-        conventionSet.Replace<RelationshipDiscoveryConvention>(
-            new DynamoRelationshipDiscoveryConvention(Dependencies));
+
+        conventionSet.Replace<ComplexPropertyDiscoveryConvention>(
+            new DynamoComplexPropertyDiscoveryConvention(Dependencies, useAttributes: true));
+
         conventionSet.Replace<KeyDiscoveryConvention>(
             new DynamoKeyDiscoveryConvention(Dependencies));
         conventionSet.Replace<DiscriminatorConvention>(
             new DynamoDiscriminatorConvention(Dependencies));
+        var ownedEntityTypeValidationConvention = new DynamoOwnedEntityTypeValidationConvention();
+        conventionSet.EntityTypeAddedConventions.Add(ownedEntityTypeValidationConvention);
+        conventionSet.ForeignKeyOwnershipChangedConventions.Add(
+            ownedEntityTypeValidationConvention);
+        conventionSet.ModelFinalizingConventions.Add(ownedEntityTypeValidationConvention);
+        conventionSet.ModelFinalizingConventions.Add(
+            new DynamoComplexContainmentValidationConvention());
         // Must run before DynamoKeyAnnotationConvention so PK/SK attribute names are already
         // transformed when key validation reads them via GetAttributeName().
         conventionSet.ModelFinalizingConventions.Add(new DynamoAttributeNamingConventionApplier());
@@ -28,8 +43,6 @@ public sealed class DynamoConventionSetBuilder(
         var keyInPrimaryKeyConvention = new DynamoKeyInPrimaryKeyConvention(Dependencies);
         conventionSet.EntityTypeAnnotationChangedConventions.Add(keyInPrimaryKeyConvention);
         conventionSet.PropertyAddedConventions.Add(keyInPrimaryKeyConvention);
-
-        conventionSet.ModelFinalizingConventions.Add(new OwnedTypePrimaryKeyConvention());
 
         conventionSet.EntityTypeAddedConventions.Add(new DynamoResponseShadowPropertyConvention());
 

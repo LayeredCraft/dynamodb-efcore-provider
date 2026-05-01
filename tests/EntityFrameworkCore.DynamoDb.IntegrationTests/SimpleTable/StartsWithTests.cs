@@ -5,7 +5,7 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SimpleTable;
 
 public class StartsWithTests(DynamoContainerFixture fixture) : SimpleTableTestFixture(fixture)
 {
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Where_StringStartsWith_WithCapturedParameter_TranslatesToPartiQlBeginsWith()
     {
         var prefix = "al";
@@ -27,7 +27,7 @@ public class StartsWithTests(DynamoContainerFixture fixture) : SimpleTableTestFi
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Where_StringStartsWith_WithInlineLiteral_TranslatesToPartiQlBeginsWith()
     {
         var resultItems = await Db
@@ -47,7 +47,7 @@ public class StartsWithTests(DynamoContainerFixture fixture) : SimpleTableTestFi
             """);
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Where_StringStartsWith_WithStringComparisonOverload_StillThrows()
     {
         var act = async ()

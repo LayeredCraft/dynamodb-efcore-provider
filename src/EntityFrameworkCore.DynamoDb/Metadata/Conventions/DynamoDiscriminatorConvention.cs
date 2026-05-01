@@ -117,9 +117,7 @@ public sealed class DynamoDiscriminatorConvention(
     {
         var rootEntityTypes = model
             .GetEntityTypes()
-            .Where(static entityType => !entityType.IsOwned()
-                && entityType.FindOwnership() is null
-                && entityType.BaseType is null)
+            .Where(static entityType => entityType.BaseType is null)
             .ToList();
 
         foreach (var tableGroup in rootEntityTypes.GroupBy(static entityType
@@ -130,7 +128,6 @@ public sealed class DynamoDiscriminatorConvention(
 
             var concreteEntityTypes = tableGroup
                 .SelectMany(static entityType => entityType.GetConcreteDerivedTypesInclusive())
-                .Where(static entityType => !entityType.IsOwned())
                 .Distinct()
                 .ToList();
 

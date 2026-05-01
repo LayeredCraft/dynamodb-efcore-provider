@@ -30,6 +30,27 @@ public static class DynamoPropertyBuilderExtensions
                 .HasAttributeName(name);
     }
 
+    extension(ComplexCollectionTypePropertyBuilder builder)
+    {
+        /// <summary>Configures the DynamoDB attribute name used to store this scalar property inside a complex collection element.</summary>
+        /// <returns>The same builder instance so that multiple calls can be chained.</returns>
+        public ComplexCollectionTypePropertyBuilder HasAttributeName(string name)
+        {
+            name.NotEmpty();
+            builder.Metadata.SetAttributeName(name);
+            return builder;
+        }
+    }
+
+    extension<TProperty>(ComplexCollectionTypePropertyBuilder<TProperty> builder)
+    {
+        /// <summary>Configures the DynamoDB attribute name used to store this scalar property inside a complex collection element.</summary>
+        /// <returns>The same builder instance so that multiple calls can be chained.</returns>
+        public ComplexCollectionTypePropertyBuilder<TProperty> HasAttributeName(string name)
+            => (ComplexCollectionTypePropertyBuilder<TProperty>)
+                ((ComplexCollectionTypePropertyBuilder)builder).HasAttributeName(name);
+    }
+
     extension(IConventionPropertyBuilder propertyBuilder)
     {
         /// <summary>

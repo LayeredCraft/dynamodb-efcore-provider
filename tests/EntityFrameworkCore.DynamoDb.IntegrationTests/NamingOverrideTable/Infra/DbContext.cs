@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.NamingOverrideTable.Infra;
 
-/// <summary>Represents the OwnedTypesTableDbContext type.</summary>
+/// <summary>Represents the ComplexTypesTableDbContext type.</summary>
 public class NamingConventionsTableDbContext(DbContextOptions options) : DbContext(options)
 {
     /// <summary>Provides functionality for this member.</summary>
