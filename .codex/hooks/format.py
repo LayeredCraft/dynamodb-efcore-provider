@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 import json
-import os
 import re
 import subprocess
 import sys
@@ -19,9 +18,6 @@ from time import perf_counter
 from loguru import logger
 
 DOTSETTINGS_FILE_NAME = "EntityFrameworkCore.DynamoDb.sln.DotSettings"
-LOG_LEVEL_ENV = "CODEX_HOOK_LOG_LEVEL"
-LOG_RETENTION_ENV = "CODEX_HOOK_LOG_RETENTION"
-LOG_ROTATION_ENV = "CODEX_HOOK_LOG_ROTATION"
 DEFAULT_LOG_LEVEL = "ERROR"
 DEFAULT_LOG_RETENTION = "14 days"
 DEFAULT_LOG_ROTATION = "10 MB"
@@ -70,12 +66,16 @@ def _configure_logger(session_id: object) -> None:
     logger.remove()
     logger.add(
         log_path,
-        level=os.environ.get(LOG_LEVEL_ENV, DEFAULT_LOG_LEVEL),
-        retention=os.environ.get(LOG_RETENTION_ENV, DEFAULT_LOG_RETENTION),
-        rotation=os.environ.get(LOG_ROTATION_ENV, DEFAULT_LOG_ROTATION),
+        level=DEFAULT_LOG_LEVEL,
+        retention=DEFAULT_LOG_RETENTION,
+        rotation=DEFAULT_LOG_ROTATION,
         serialize=True,
         enqueue=False,
     )
+
+
+def _should_log(level: str) -> bool:
+    return logger.level(level).no >= logger.level(DEFAULT_LOG_LEVEL).no
 
 
 def _log_entry(level: str, message: str, entry: dict) -> None:
@@ -187,8 +187,10 @@ def main() -> int:
         level = "ERROR"
         message = "Codex format hook failed"
 
-    _configure_logger(session_id)
-    _log_entry(level, message, entry)
+    if _should_log(level):
+        _configure_logger(session_id)
+        _log_entry(level, message, entry)
+
     return 0
 
 

@@ -7,11 +7,6 @@
           {
             "type": "command",
             "command": "uv run --quiet --script \"$(git rev-parse --show-toplevel)/.codex/hooks/format.py\"",
-            "env": {
-              "CODEX_HOOK_LOG_LEVEL": "ERROR",
-              "CODEX_HOOK_LOG_RETENTION": "14 days",
-              "CODEX_HOOK_LOG_ROTATION": "10 MB"
-            },
             "timeout": 30,
             "statusMessage": "Formatting edited files"
           }
