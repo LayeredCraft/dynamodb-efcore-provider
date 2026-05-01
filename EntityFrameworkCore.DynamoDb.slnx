@@ -6,22 +6,6 @@
     <File Path=".github/workflows/publish-release.yaml" />
     <File Path=".github/workflows/release-drafter.yaml" />
   </Folder>
-  <Folder Name="/docs/">
-    <File Path="docs\architecture.md" />
-    <File Path="docs\concurrency.md" />
-    <File Path="docs\configuration.md" />
-    <File Path="docs\diagnostics.md" />
-    <File Path="docs\index.md" />
-    <File Path="docs\indexes.md" />
-    <File Path="docs\limitations.md" />
-    <File Path="docs\operators.md" />
-    <File Path="docs\owned-types.md" />
-    <File Path="docs\pagination.md" />
-    <File Path="docs\projections.md" />
-  </Folder>
-  <Folder Name="/docs/images/">
-    <File Path="docs\images\icon.png" />
-  </Folder>
   <Folder Name="/examples/">
     <File Path="examples\Directory.Build.props" />
     <Project Path="examples/Example.Simple/Example.Simple.csproj" />
