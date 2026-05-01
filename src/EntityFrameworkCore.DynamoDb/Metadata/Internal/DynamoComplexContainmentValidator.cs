@@ -59,16 +59,8 @@ internal static class DynamoComplexContainmentValidator
         var segments = chain.Skip(cycleStartIndex).Select(static cp => cp.Name).ToList();
         segments.Add(repeatingProperty.Name);
 
-        var rootProperty = chain.Count == 0
-            ? repeatingProperty.Name
-            : chain[0].DeclaringType.DisplayName() + "." + chain[0].Name;
+        var rootProperty = chain[0].DeclaringType.DisplayName() + "." + chain[0].Name;
 
-        return new InvalidOperationException(
-            "Complex property containment cycle detected starting at '"
-            + rootProperty
-            + "': "
-            + string.Join(" -> ", segments)
-            + ". Recursive complex containment is not supported by the DynamoDB provider. "
-            + "Complex types must form an acyclic containment tree rooted at an entity.");
+        return DynamoModelValidationErrors.ComplexContainmentCycleDetected(rootProperty, segments);
     }
 }

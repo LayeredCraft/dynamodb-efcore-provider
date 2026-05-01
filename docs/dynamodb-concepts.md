@@ -264,7 +264,7 @@ The practical consequences for EF Core:
     and eagerly load its `Order` entities via `.Include()`. Structure your schema so that related
     data is co-located in the same partition.
 
-See [Complex Properties and Collections](modeling/owned-types.md) for supported nesting patterns, and
+See [Complex Properties and Collections](modeling/complex-types.md) for supported nesting patterns, and
 [Limitations](limitations.md) for a complete list of unsupported EF Core features.
 
 ## Read Consistency
@@ -346,6 +346,6 @@ same item (complex properties) or the same partition (single-table design).
 - [Getting Started](getting-started.md) — install, configure, and run your first query
 - [Entities and Keys](modeling/entities-keys.md) — partition keys, sort keys, and composite keys
 - [Secondary Indexes](modeling/secondary-indexes.md) — GSI and LSI configuration
-- [Complex Properties and Collections](modeling/owned-types.md) — nested Maps and Lists
+- [Complex Properties and Collections](modeling/complex-types.md) — nested Maps and Lists
 - [How Queries Execute](querying/how-queries-execute.md) — LINQ to PartiQL pipeline
 - [Limitations](limitations.md) — unsupported EF Core features and why

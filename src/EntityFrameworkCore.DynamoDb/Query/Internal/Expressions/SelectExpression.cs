@@ -1,5 +1,4 @@
 using System.Linq.Expressions;
-using EntityFrameworkCore.DynamoDb.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Query;
@@ -210,8 +209,8 @@ public class SelectExpression(string tableName, string? queryEntityTypeName = nu
         => AddProjectionIfNotExists(sqlExpression, alias);
 
     /// <summary>
-    ///     Adds an embedded collection attribute to the SELECT projection by name. Used for owned
-    ///     collection attributes where no scalar type mapping is needed.
+    ///     Adds an embedded attribute to the SELECT projection by name. Used for complex properties
+    ///     and complex collections where no scalar type mapping is needed.
     /// </summary>
     public void AddEmbeddedAttributeToProjection(string attributeName)
         => AddProjectionIfNotExists(

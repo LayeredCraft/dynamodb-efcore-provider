@@ -8,9 +8,9 @@ description: How to map entities to DynamoDB tables and configure partition and 
 _Each entity type maps to a DynamoDB table by name, with explicit configuration — or convention-based
 discovery — for which properties serve as the partition key and optional sort key._
 
-In this page, **root entity type** means a non-owned, non-derived entity mapped directly to a
-DynamoDB table. Owned types are embedded in their owner item and do not configure their own table
-keys. See [Owned Types](../modeling/owned-types.md).
+In this page, **root entity type** means a non-derived entity mapped directly to a DynamoDB table.
+Complex properties are embedded in their owning entity's item and do not configure their own table
+keys. See [Complex Properties and Collections](../modeling/complex-types.md).
 
 ## Defaults and Overrides
 

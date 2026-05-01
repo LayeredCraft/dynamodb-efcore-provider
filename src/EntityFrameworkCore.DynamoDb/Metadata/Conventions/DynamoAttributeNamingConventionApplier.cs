@@ -73,15 +73,25 @@ public sealed class DynamoAttributeNamingConventionApplier : IModelFinalizingCon
     }
 
     /// <summary>
-    ///     Recursively applies the naming convention to all complex properties declared on a type
-    ///     base (entity type or complex type), including the complex property's own attribute name
+    ///     Recursively applies the naming convention to all complex properties on a type base
+    ///     (entity type or complex type), including the complex property's own attribute name
     ///     (the map key) and all leaf scalar properties.
     /// </summary>
+    /// <remarks>
+    ///     Uses <see cref="IConventionTypeBase.GetComplexProperties" /> (not
+    ///     <c>GetDeclaredComplexProperties</c>) so that when this method is called for a derived
+    ///     entity type, complex properties inherited from base entity types are also re-processed
+    ///     with the derived type's naming descriptor. Entity types are processed in topological
+    ///     order (base before derived) by <see cref="ProcessModelFinalizing" />, so the derived
+    ///     descriptor correctly overwrites the base descriptor on shared property objects.
+    ///     For complex types there is no inheritance, so this is equivalent to
+    ///     <c>GetDeclaredComplexProperties</c>.
+    /// </remarks>
     private static void ApplyComplexPropertiesConvention(
         IConventionTypeBase typeBase,
         DynamoNamingConventionDescriptor descriptor)
     {
-        foreach (var cp in typeBase.GetDeclaredComplexProperties())
+        foreach (var cp in typeBase.GetComplexProperties())
         {
             // Apply naming convention to the complex property itself (the DynamoDB map key).
             var cpSource = cp.GetAttributeNameConfigurationSource();
@@ -111,13 +121,22 @@ public sealed class DynamoAttributeNamingConventionApplier : IModelFinalizingCon
         }
     }
 
-    /// <summary>Resolves the naming convention descriptor for an entity type.</summary>
+    /// <summary>
+    ///     Resolves the naming convention descriptor for an entity type, walking up the base-type
+    ///     chain so that a convention set on a root entity propagates to derived types.
+    /// </summary>
     private static DynamoNamingConventionDescriptor ResolveDescriptor(
         IConventionEntityType entityType)
     {
-        if (entityType.FindAnnotation(DynamoAnnotationNames.AttributeNamingConvention)?.Value is
-            DynamoNamingConventionDescriptor descriptor)
-            return descriptor;
+        var current = entityType;
+        while (current is not null)
+        {
+            if (current.FindAnnotation(DynamoAnnotationNames.AttributeNamingConvention)?.Value is
+                DynamoNamingConventionDescriptor descriptor)
+                return descriptor;
+
+            current = current.BaseType;
+        }
 
         return DefaultDescriptor;
     }

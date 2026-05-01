@@ -38,9 +38,7 @@ public sealed class DynamoKeyAnnotationConvention : IModelFinalizingConvention
     {
         foreach (var entityType in modelBuilder.Metadata.GetEntityTypes())
         {
-            if (entityType.IsOwned()
-                || entityType.FindOwnership() != null
-                || entityType.BaseType != null)
+            if (entityType.BaseType != null)
                 continue;
 
             SetAnnotationFromConventionalName(

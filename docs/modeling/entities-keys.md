@@ -105,6 +105,6 @@ key-property requirements, and advanced mapping patterns.
 ## See also
 
 - [Table and Key Mapping](../configuration/table-key-mapping.md)
-- [Owned Types](owned-types.md)
+- [Complex Properties and Collections](complex-types.md)
 - [Secondary Indexes](secondary-indexes.md)
 - [DynamoDB Concepts for EF Developers](../dynamodb-concepts.md)

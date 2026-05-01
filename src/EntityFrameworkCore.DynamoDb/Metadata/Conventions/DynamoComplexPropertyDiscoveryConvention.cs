@@ -71,6 +71,8 @@ public sealed class DynamoComplexPropertyDiscoveryConvention(
         if (DynamoTypeMappingSource.IsPrimitiveType(targetClrType)
             || DynamoTypeMappingSource.IsSupportedPrimitiveCollectionShape(targetClrType)
             || structuralType.Model.Builder.IsIgnored(targetClrType)
+            // Entity-typed CLR types are not complex types even when they look like POCOs.
+            // Allowing them here would shadow navigation discovery and corrupt model building.
             || structuralType.Model.FindEntityType(targetClrType) != null
             || (structuralType is IReadOnlyComplexType complexType
                 && complexType.IsContainedBy(targetClrType)))

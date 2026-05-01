@@ -85,11 +85,6 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
     private static readonly MethodInfo MemoryStreamToArrayMethod =
         typeof(MemoryStream).GetMethod(nameof(MemoryStream.ToArray))!;
 
-    private static readonly MethodInfo PopulateCollectionMethodInfo =
-        typeof(DynamoProjectionBindingRemovingExpressionVisitor).GetMethod(
-            nameof(PopulateCollection),
-            BindingFlags.Static | BindingFlags.NonPublic)!;
-
     private static readonly IReadOnlyDictionary<string, Func<Expression, Expression>>
         RuntimeValueSourceFactories =
             new Dictionary<string, Func<Expression, Expression>>(StringComparer.Ordinal)
@@ -398,13 +393,7 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
     /// </summary>
     private Expression VisitComplexCollectionProjection(
         DynamoComplexCollectionProjectionExpression projection)
-    {
-        var complexCollectionMaterializer = VisitComplexCollectionCore(
-            projection.ComplexProperty,
-            projection.ElementInnerShaper);
-
-        return complexCollectionMaterializer;
-    }
+        => VisitComplexCollectionCore(projection.ComplexProperty, projection.ElementInnerShaper);
 
     /// <summary>
     ///     Visits complex collection initialization markers by reading the L attribute and
@@ -430,8 +419,8 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
         var path = $"{complexProperty.DeclaringType.DisplayName()}.{complexProperty.Name}";
 
         if (!DynamoTypeMappingSource.TryGetComplexCollectionElementType(
-                complexProperty.ClrType,
-                out var elementType))
+            complexProperty.ClrType,
+            out var elementType))
             throw new InvalidOperationException(
                 $"Complex collection '{path}' CLR type '{complexProperty.ClrType.Name}' is not a supported "
                 + "collection type. Use List<T> or IList<T>.");
@@ -503,9 +492,7 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
             ConvertCollectionMaterialization(entitiesExpression, complexProperty.ClrType);
         Expression missingResult = complexProperty.IsNullable
             ? Constant(null, complexProperty.ClrType)
-            : ConvertCollectionMaterialization(
-            New(resultListType),
-            complexProperty.ClrType);
+            : ConvertCollectionMaterialization(New(resultListType), complexProperty.ClrType);
 
         var collectionExpression = Block(
             [wireListVariable],
@@ -892,18 +879,6 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
         return listExpression.Type == targetType
             ? listExpression
             : Convert(listExpression, targetType);
-    }
-
-    /// <summary>Creates and populates a navigation collection instance via EF Core's collection accessor.</summary>
-    private static TCollection PopulateCollection<TEntity, TCollection>(
-        IClrCollectionAccessor accessor,
-        IEnumerable<TEntity> entities)
-    {
-        var collection = (ICollection<TEntity>)accessor.Create();
-        foreach (var entity in entities)
-            collection.Add(entity);
-
-        return (TCollection)collection;
     }
 
     /// <summary>Determines whether a CLR type is a non-nullable value type.</summary>

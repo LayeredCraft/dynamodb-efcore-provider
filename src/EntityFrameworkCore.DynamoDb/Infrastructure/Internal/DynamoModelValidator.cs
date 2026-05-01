@@ -41,6 +41,12 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
     ///     Replaces EF Core's generic owned-type validation with the provider-specific unsupported
     ///     feature error.
     /// </summary>
+    /// <remarks>
+    ///     <c>DynamoOwnedEntityTypeValidationConvention</c> already rejects owned types at
+    ///     entity-add time, so by the time this runs, no owned types should exist in a valid model.
+    ///     This override is kept as a defense-in-depth safety net that produces a DynamoDB-specific
+    ///     error instead of EF Core's generic message if an owned type somehow reaches validation.
+    /// </remarks>
     protected override void ValidateOwnership(
         IModel model,
         IDiagnosticsLogger<DbLoggerCategory.Model.Validation> logger)

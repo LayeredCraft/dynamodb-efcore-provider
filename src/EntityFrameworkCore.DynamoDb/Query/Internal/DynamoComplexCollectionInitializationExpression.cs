@@ -46,7 +46,9 @@ internal sealed class DynamoComplexCollectionInitializationExpression(
     protected override Expression VisitChildren(ExpressionVisitor visitor)
     {
         var newMaterializer = visitor.Visit(ElementInjectedMaterializer);
-        var newMemberAccess = (MemberExpression)visitor.Visit(MemberAccess);
+        var newMemberAccess = visitor.Visit(MemberAccess) as MemberExpression
+            ?? throw new InvalidOperationException(
+                $"Expected {nameof(MemberExpression)} after visiting {nameof(MemberAccess)} in {nameof(DynamoComplexCollectionInitializationExpression)}.");
         return newMaterializer == ElementInjectedMaterializer && newMemberAccess == MemberAccess
             ? this
             : new DynamoComplexCollectionInitializationExpression(

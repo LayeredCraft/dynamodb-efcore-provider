@@ -97,4 +97,4 @@ var profiles = await db.Users
 
 - [Supported Operators](operators.md)
 - [How Queries Execute](how-queries-execute.md)
-- [Complex Properties and Collections](../modeling/owned-types.md)
+- [Complex Properties and Collections](../modeling/complex-types.md)

@@ -8,8 +8,8 @@ using Microsoft.EntityFrameworkCore.Metadata.Conventions;
 namespace EntityFrameworkCore.DynamoDb.Metadata.Conventions;
 
 /// <summary>
-///     Adds an <see cref="ExecuteStatementResponse" /> shadow property to root (non-owned,
-///     non-derived) entity types so that per-entity response metadata can be populated during query
+///     Adds an <see cref="ExecuteStatementResponse" /> shadow property to root (non-derived)
+///     entity types so that per-entity response metadata can be populated during query
 ///     materialization.
 /// </summary>
 /// <remarks>
@@ -34,7 +34,7 @@ public sealed class DynamoResponseShadowPropertyConvention : IEntityTypeAddedCon
         var entityType = builder.Metadata;
 
         // Only root entity types get the page-response shadow property.
-        if (entityType.BaseType != null || entityType.IsOwned())
+        if (entityType.BaseType != null)
             return;
 
         var propertyBuilder = builder

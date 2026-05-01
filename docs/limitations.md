@@ -246,7 +246,7 @@ Dictionary keys must be `string`. Non-string-keyed dictionary types are not supp
 
 Complex collection properties use a narrower CLR shape set than primitive collections. Complex
 collections support only `List<T>` and `IList<T>`. `ICollection<T>`, `IReadOnlyList<T>`, and
-arrays are not supported for complex collections. See [Complex Types](modeling/owned-types.md)
+arrays are not supported for complex collections. See [Complex Types](modeling/complex-types.md)
 for complex collection mapping details.
 
 ### Concurrency Tokens — Application-Managed Only
