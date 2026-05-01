@@ -52,6 +52,7 @@ CodeCoverage/
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+.idea
 
 # Docker
 docker-compose.override.yml
