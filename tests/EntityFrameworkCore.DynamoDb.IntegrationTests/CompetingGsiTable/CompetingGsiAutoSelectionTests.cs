@@ -11,10 +11,10 @@ public sealed class CompetingGsiAutoSelectionTests(DynamoContainerFixture fixtur
     : CompetingGsiTableTestFixture(fixture)
 {
     protected override DynamoAutomaticIndexSelectionMode AutomaticIndexSelectionMode
-        => DynamoAutomaticIndexSelectionMode.Conservative;
+        => DynamoAutomaticIndexSelectionMode.On;
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public async Task Conservative_CompetingGsis_WithEqualScore_EmitsIdx002_UsesBaseTable()
+    public async Task On_CompetingGsis_WithEqualScore_EmitsIdx002_UsesBaseTable()
     {
         var results =
             await Db.Orders.Where(o => o.Status == "PENDING").ToListAsync(CancellationToken);
@@ -39,7 +39,7 @@ public sealed class CompetingGsiAutoSelectionTests(DynamoContainerFixture fixtur
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public async Task Conservative_CompetingGsis_OrderBySortKey_SelectsScoringWinner()
+    public async Task On_CompetingGsis_OrderBySortKey_SelectsScoringWinner()
     {
         _ = await Db
             .Orders

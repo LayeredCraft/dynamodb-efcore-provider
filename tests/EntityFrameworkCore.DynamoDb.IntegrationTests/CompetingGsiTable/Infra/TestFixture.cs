@@ -11,7 +11,7 @@ public abstract class CompetingGsiTableTestFixture : DynamoTestFixtureBase
             CompetingGsiOrdersTable.CreateTable);
 
     protected virtual DynamoAutomaticIndexSelectionMode AutomaticIndexSelectionMode
-        => DynamoAutomaticIndexSelectionMode.Off;
+        => DynamoAutomaticIndexSelectionMode.On;
 
     protected override bool UseSharedInternalServiceProvider => false;
 

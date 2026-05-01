@@ -28,7 +28,7 @@ Rules and behavior:
 
 - `.WithIndex(...)` requires a non-empty index name.
 - The named index must exist on the mapped table; otherwise translation throws `InvalidOperationException`.
-- Explicit selection works regardless of automatic selection mode (`Off`, `SuggestOnly`, `Conservative`).
+- Explicit selection works regardless of automatic selection mode (`Off`, `SuggestOnly`, `On`).
 - Explicit selection can target `All`, `KeysOnly`, or `Include` projection indexes.
 - For explicit `.WithIndex(...)`, the provider does not pre-validate projection coverage.
 - On non-`All` indexes, missing required attributes throw during materialization; missing optional
@@ -36,13 +36,13 @@ Rules and behavior:
 
 ## Automatic Index Selection
 
-Configure automatic selection via `UseAutomaticIndexSelection(...)`:
+Automatic selection is `On` by default. Configure it via `UseAutomaticIndexSelection(...)`:
 
-- `Off` (default): no automatic routing.
+- `Off`: no automatic routing.
 - `SuggestOnly`: analyze and emit diagnostics, but keep base-table execution.
-- `Conservative`: auto-route only when exactly one safe candidate is found.
+- `On` (default): auto-route only when exactly one safe candidate is found.
 
-In `Conservative`, an index candidate is eligible only if all gates pass:
+When automatic selection is `On`, an index candidate is eligible only if all gates pass:
 
 1. The `WHERE` clause includes equality or `IN` on the index partition key.
 1. The predicate does not contain an unsafe `OR` shape.
@@ -59,7 +59,7 @@ Diagnostics emitted during analysis:
 
 - `DYNAMO_IDX001`: no compatible index found.
 - `DYNAMO_IDX002`: multiple compatible indexes tied.
-- `DYNAMO_IDX003`: index selected (or would be selected in `SuggestOnly`).
+- `DYNAMO_IDX003`: index selected (or would be auto-selected in `SuggestOnly`).
 - `DYNAMO_IDX004`: index explicitly selected via `.WithIndex(...)`.
 - `DYNAMO_IDX005`: candidate rejected with reason.
 

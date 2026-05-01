@@ -12,7 +12,7 @@ public abstract class SecondaryIndexProjectionTableTestFixture : DynamoTestFixtu
             SecondaryIndexProjectionOrdersTable.CreateTable);
 
     protected virtual DynamoAutomaticIndexSelectionMode AutomaticIndexSelectionMode
-        => DynamoAutomaticIndexSelectionMode.Off;
+        => DynamoAutomaticIndexSelectionMode.On;
 
     protected TestPartiQlLoggerFactory LoggerFactory => SqlCapture;
 

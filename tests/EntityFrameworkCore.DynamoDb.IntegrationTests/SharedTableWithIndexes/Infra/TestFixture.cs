@@ -11,7 +11,7 @@ public abstract class SharedTableWithIndexesTestFixture : DynamoTestFixtureBase
             SharedTableWithIndexesItemTable.CreateTable);
 
     protected virtual DynamoAutomaticIndexSelectionMode AutomaticIndexSelectionMode
-        => DynamoAutomaticIndexSelectionMode.Conservative;
+        => DynamoAutomaticIndexSelectionMode.On;
 
     protected override bool UseSharedInternalServiceProvider => false;
 

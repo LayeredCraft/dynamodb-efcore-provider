@@ -11,7 +11,7 @@ public abstract class SecondaryIndexTableTestFixture : DynamoTestFixtureBase
             SecondaryIndexOrdersTable.CreateTable);
 
     protected virtual DynamoAutomaticIndexSelectionMode AutomaticIndexSelectionMode
-        => DynamoAutomaticIndexSelectionMode.Off;
+        => DynamoAutomaticIndexSelectionMode.On;
 
     protected override bool UseSharedInternalServiceProvider => false;
 

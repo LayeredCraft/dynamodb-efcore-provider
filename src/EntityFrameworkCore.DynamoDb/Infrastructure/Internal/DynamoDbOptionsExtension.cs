@@ -21,7 +21,8 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
     public Action<AmazonDynamoDBConfig>? DynamoDbClientConfigAction { get; private set; }
 
     /// <summary>Controls whether the provider should automatically select compatible secondary indexes.</summary>
-    public DynamoAutomaticIndexSelectionMode AutomaticIndexSelectionMode { get; private set; }
+    public DynamoAutomaticIndexSelectionMode AutomaticIndexSelectionMode { get; private set; } =
+        DynamoAutomaticIndexSelectionMode.On;
 
     /// <summary>
     /// Controls how SaveChanges behaves when a transactional write unit exceeds max transaction size.

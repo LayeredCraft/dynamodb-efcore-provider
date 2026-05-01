@@ -24,7 +24,7 @@ public class SecondaryIndexSuggestOnlyAutoSelectionTests(DynamoContainerFixture 
                 => e.EventId.Id == DynamoEventId.SecondaryIndexSelected.Id
                 && e.LogLevel == LogLevel.Information
                 && e.Message.Contains(
-                    "Index 'ByStatus' on table 'SecondaryIndexOrders' would be selected in Conservative mode."));
+                    "Index 'ByStatus' on table 'SecondaryIndexOrders' would be auto-selected if automatic index selection were On."));
 
         AssertSql(
             """

@@ -14,7 +14,7 @@ public class PaginationConfigurationTests
     {
         var extension = new DynamoDbOptionsExtension();
 
-        extension.AutomaticIndexSelectionMode.Should().Be(DynamoAutomaticIndexSelectionMode.Off);
+        extension.AutomaticIndexSelectionMode.Should().Be(DynamoAutomaticIndexSelectionMode.On);
         extension.DynamoDbClient.Should().BeNull();
         extension.DynamoDbClientConfig.Should().BeNull();
         extension.DynamoDbClientConfigAction.Should().BeNull();
@@ -67,7 +67,7 @@ public class PaginationConfigurationTests
             .WithDynamoDbClient(client)
             .WithDynamoDbClientConfig(config)
             .WithDynamoDbClientConfigAction(callback)
-            .WithAutomaticIndexSelectionMode(DynamoAutomaticIndexSelectionMode.Conservative)
+            .WithAutomaticIndexSelectionMode(DynamoAutomaticIndexSelectionMode.On)
             .WithTransactionOverflowBehavior(TransactionOverflowBehavior.UseChunking)
             .WithMaxTransactionSize(42)
             .WithMaxBatchWriteSize(11);
@@ -109,15 +109,12 @@ public class PaginationConfigurationTests
         var optionsBuilder = new DbContextOptionsBuilder();
 
         optionsBuilder.UseDynamo(options
-            => options.UseAutomaticIndexSelection(DynamoAutomaticIndexSelectionMode.Conservative));
+            => options.UseAutomaticIndexSelection(DynamoAutomaticIndexSelectionMode.On));
 
         var extension = optionsBuilder.Options.FindExtension<DynamoDbOptionsExtension>();
 
         extension.Should().NotBeNull();
-        extension!
-            .AutomaticIndexSelectionMode
-            .Should()
-            .Be(DynamoAutomaticIndexSelectionMode.Conservative);
+        extension!.AutomaticIndexSelectionMode.Should().Be(DynamoAutomaticIndexSelectionMode.On);
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
@@ -192,7 +189,7 @@ public class PaginationConfigurationTests
                 DynamoAutomaticIndexSelectionMode.Off);
         var extension2 =
             new DynamoDbOptionsExtension().WithAutomaticIndexSelectionMode(
-                DynamoAutomaticIndexSelectionMode.Conservative);
+                DynamoAutomaticIndexSelectionMode.On);
 
         extension1
             .Info
@@ -225,10 +222,10 @@ public class PaginationConfigurationTests
     {
         var extension1 =
             new DynamoDbOptionsExtension().WithAutomaticIndexSelectionMode(
-                DynamoAutomaticIndexSelectionMode.Conservative);
+                DynamoAutomaticIndexSelectionMode.On);
         var extension2 =
             new DynamoDbOptionsExtension().WithAutomaticIndexSelectionMode(
-                DynamoAutomaticIndexSelectionMode.Conservative);
+                DynamoAutomaticIndexSelectionMode.On);
 
         extension1.Info.ShouldUseSameServiceProvider(extension2.Info).Should().BeTrue();
     }

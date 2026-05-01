@@ -156,25 +156,24 @@ batch boundaries.
 
 ### `DynamoAutomaticIndexSelectionMode`
 
-By default the provider executes every query against the base table. Enable automatic index
-selection to let the provider route compatible queries to a Global or Local Secondary Index:
+By default the provider automatically routes compatible queries to a Global or Local Secondary
+Index when exactly one safe candidate is found:
 
-| Mode            | Behavior                                                                                  |
-| --------------- | ----------------------------------------------------------------------------------------- |
-| `Off` (default) | No automatic routing — use explicit `.WithIndex("name")` hints                            |
-| `SuggestOnly`   | Analyzes candidate indexes and emits `DYNAMO_IDX*` diagnostics; does not change the query |
-| `Conservative`  | Automatically routes queries to an unambiguous matching index                             |
+| Mode           | Behavior                                                                                  |
+| -------------- | ----------------------------------------------------------------------------------------- |
+| `Off`          | No automatic routing — use explicit `.WithIndex("name")` hints                            |
+| `SuggestOnly`  | Analyzes candidate indexes and emits `DYNAMO_IDX*` diagnostics; does not change the query |
+| `On` (default) | Automatically routes queries to an unambiguous matching index                             |
 
 Use `Off` when you want query behavior to stay completely explicit in application code. Use
 `SuggestOnly` while validating a schema or rolling the feature out, because it shows where an index
-would help without changing production behavior. Use `Conservative` when you want safer automatic
-routing for obvious matches, but still want the provider to avoid guessing between multiple
-plausible indexes.
+would help without changing production behavior. Use `On` when you want automatic routing for
+obvious matches, but still want the provider to avoid guessing between multiple plausible indexes.
 
 ```csharp
 optionsBuilder.UseDynamo(options =>
 {
-    options.UseAutomaticIndexSelection(DynamoAutomaticIndexSelectionMode.Conservative);
+    options.UseAutomaticIndexSelection(DynamoAutomaticIndexSelectionMode.Off);
 });
 ```
 

@@ -109,7 +109,7 @@ key must be the first `ORDER BY` column.
 
 ### Automatic Index Selection — `ALL` Projection Only
 
-Automatic index selection (`Conservative` or `SuggestOnly` mode) rejects GSI/LSI candidates
+Automatic index selection (`On` or `SuggestOnly` mode) rejects GSI/LSI candidates
 whose projection type is not `ALL`. `KEYS_ONLY` and `INCLUDE` index candidates are logged as
 rejected (`DYNAMO_IDX005`) and excluded from selection. Use an explicit `.WithIndex("name")`
 hint to route to a non-ALL index.
@@ -238,7 +238,7 @@ collection types throw during model validation.
 
 | Collection kind | Supported CLR shapes                                                                                                                     |
 | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| List            | `T[]`, `List<T>`, `IList<T>`                                                                                                              |
+| List            | `T[]`, `List<T>`, `IList<T>`                                                                                                             |
 | Set             | `HashSet<T>`, `ISet<T>`, `IReadOnlySet<T>`                                                                                               |
 | Dictionary      | `Dictionary<string, TValue>`, `IDictionary<string, TValue>`, `IReadOnlyDictionary<string, TValue>`, `ReadOnlyDictionary<string, TValue>` |
 

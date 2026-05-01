@@ -158,7 +158,7 @@ strongly consistent reads.
 
 Both index types let you avoid full table scans for alternate access patterns. With this provider,
 you declare indexes in `OnModelCreating`. Use `.WithIndex("...")` for explicit index routing, or
-enable `UseAutomaticIndexSelection(...)` for opt-in automatic index selection.
+use the default automatic index selection for unambiguous compatible query shapes.
 
 See [Secondary Indexes](modeling/secondary-indexes.md) for configuration details, and
 [Using Global Secondary Indexes in DynamoDB](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/GSI.html)
@@ -328,8 +328,8 @@ b.ComplexCollection(o => o.LineItems, li => { /* configure nested members */ });
 ```
 
 **Secondary indexes enable alternate query patterns** — declare them in `OnModelCreating`, then use
-`.WithIndex("...")` for explicit routing or `UseAutomaticIndexSelection(...)` for opt-in automatic
-selection based on query shape. See
+`.WithIndex("...")` for explicit routing or the default automatic selection based on query shape.
+See
 [Secondary Indexes](modeling/secondary-indexes.md) and [Index Selection](querying/index-selection.md).
 
 **LINQ translates to PartiQL** — the provider compiles your LINQ expressions to

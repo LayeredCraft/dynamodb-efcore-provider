@@ -24,7 +24,7 @@ namespace EntityFrameworkCore.DynamoDb.Query.Internal;
 /// <list type="bullet">
 ///   <item><c>DYNAMO_IDX001</c> — no candidate satisfies the predicate (Warning)</item>
 ///   <item><c>DYNAMO_IDX002</c> — multiple candidates tie (Warning)</item>
-///   <item><c>DYNAMO_IDX003</c> — a single candidate was selected or would be selected (Information)</item>
+///   <item><c>DYNAMO_IDX003</c> — a single candidate was selected or would be auto-selected (Information)</item>
 ///   <item><c>DYNAMO_IDX004</c> — explicit index selected via .WithIndex() (Information)</item>
 ///   <item><c>DYNAMO_IDX005</c> — candidate rejected during auto-selection (Information)</item>
 ///   <item><c>DYNAMO_IDX006</c> — index selection suppressed by .WithoutIndex() (Information)</item>
@@ -163,12 +163,12 @@ internal sealed class DynamoAutoIndexSelectionAnalyzer : IDynamoIndexSelectionAn
             new(
                 DynamoQueryDiagnosticLevel.Information,
                 "DYNAMO_IDX003",
-                mode == DynamoAutomaticIndexSelectionMode.Conservative
+                mode == DynamoAutomaticIndexSelectionMode.On
                     ? $"Index '{winner.IndexName}' on table '{context.SelectExpression.TableName}' was auto-selected."
-                    : $"Index '{winner.IndexName}' on table '{context.SelectExpression.TableName}' would be selected in Conservative mode."),
+                    : $"Index '{winner.IndexName}' on table '{context.SelectExpression.TableName}' would be auto-selected if automatic index selection were On."),
         };
 
-        if (mode == DynamoAutomaticIndexSelectionMode.Conservative)
+        if (mode == DynamoAutomaticIndexSelectionMode.On)
             return new DynamoIndexSelectionDecision(
                 winner.IndexName,
                 DynamoIndexSelectionReason.AutoSelected,

@@ -10,10 +10,10 @@ public sealed class SecondaryIndexProjectionAutoSelectionTests(DynamoContainerFi
     : SecondaryIndexProjectionTableTestFixture(fixture)
 {
     protected override DynamoAutomaticIndexSelectionMode AutomaticIndexSelectionMode
-        => DynamoAutomaticIndexSelectionMode.Conservative;
+        => DynamoAutomaticIndexSelectionMode.On;
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public async Task Conservative_WhereOnKeysOnlyGsiPk_RejectsCandidate_UsesBaseTable()
+    public async Task On_WhereOnKeysOnlyGsiPk_RejectsCandidate_UsesBaseTable()
     {
         var results =
             await Db.Orders.Where(o => o.Status == "PENDING").ToListAsync(CancellationToken);
@@ -45,7 +45,7 @@ public sealed class SecondaryIndexProjectionAutoSelectionTests(DynamoContainerFi
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public async Task Conservative_WhereOnIncludeGsiPk_RejectsCandidate_UsesBaseTable()
+    public async Task On_WhereOnIncludeGsiPk_RejectsCandidate_UsesBaseTable()
     {
         var results =
             await Db.Orders.Where(o => o.Region == "US-EAST").ToListAsync(CancellationToken);
