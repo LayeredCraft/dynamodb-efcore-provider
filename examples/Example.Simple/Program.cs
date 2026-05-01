@@ -4,9 +4,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 Console.WriteLine("STARTING");
-Console.WriteLine("Hook test edit");
-Console.WriteLine(HookOutput.Message);
-Console.WriteLine(HookDetails.Message);
 
 var services = new ServiceCollection();
 services.AddDbContext<DynamoDbContext>();
