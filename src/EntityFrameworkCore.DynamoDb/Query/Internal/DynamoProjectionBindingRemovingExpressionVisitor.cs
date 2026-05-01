@@ -777,13 +777,11 @@ public class DynamoProjectionBindingRemovingExpressionVisitor(
                 typeof(Dictionary<string, AttributeValue>))
             : Constant(null, typeof(Dictionary<string, AttributeValue>));
 
-        Expression wrongShapeExpression = required
-            ? Throw(
-                New(
-                    InvalidOperationExceptionCtor,
-                    Constant($"Complex property '{path}' attribute is not a map (M).")),
-                typeof(Dictionary<string, AttributeValue>))
-            : Constant(null, typeof(Dictionary<string, AttributeValue>));
+        Expression wrongShapeExpression = Throw(
+            New(
+                InvalidOperationExceptionCtor,
+                Constant($"Complex property '{path}' attribute is not a map (M).")),
+            typeof(Dictionary<string, AttributeValue>));
 
         var resultExpression = Condition(
             Not(tryGetValueExpression),

@@ -93,6 +93,12 @@ var profiles = await db.Users
     projections, however, only the top-level complex attribute is projected by the server; deeper
     extraction happens client-side.
 
+!!! warning
+
+    Complex-property materialization is shape-strict. If DynamoDB returns a complex property under
+    the expected attribute name but the wire shape is not a map (`M`), the provider throws during
+    shaping instead of treating the value as `null`.
+
 ## See also
 
 - [Supported Operators](operators.md)

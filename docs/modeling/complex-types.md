@@ -195,13 +195,16 @@ Null and missing attribute handling:
 | ------------------------------------------------------ | ---------------------------------- |
 | Optional complex property missing or `NULL` in DynamoDB | Materializes as `null`             |
 | Required complex property missing or `NULL` in DynamoDB | Throws `InvalidOperationException` |
+| Any complex property present with a non-map wire shape  | Throws `InvalidOperationException` |
 | Optional complex path null-propagates in projections    | `null`, not an error               |
 
 !!! warning "Strict materialization"
 
     Unlike the Cosmos DB EF provider, this provider does not silently skip missing required
     properties on complex types. If the DynamoDB attribute is absent or is a DynamoDB `NULL` and
-    the EF property is required, materialization throws. Design your schemas accordingly.
+    the EF property is required, materialization throws. Likewise, if a complex property is present
+    but encoded with the wrong DynamoDB wire shape (for example `S` instead of `M`), materialization
+    throws even when the CLR property is nullable. Design your schemas accordingly.
 
 ## See also
 

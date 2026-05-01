@@ -271,6 +271,61 @@ public class ComplexTypeProjectionTests
     }
 
     /// <summary>
+    ///     When a nullable complex property attribute exists but is not stored as a map, projection
+    ///     fails with a clear shape error instead of silently materializing <see langword="null" />.
+    /// </summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task SelectComplexProperty_WrongWireShape_ThrowsClearError()
+    {
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["pk"] = new() { S = "A#6a" }, ["profile"] = new() { S = "legacy-shape" },
+        };
+
+        var client = CreateMockClientReturning(item);
+        await using var ctx = SharedProfileDbContext.Create(client);
+
+        var act = async ()
+            => await ctx
+                .EntityAs
+                .Select(a => a.Profile)
+                .AsAsyncEnumerable()
+                .ToListAsync(TestContext.Current.CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*Complex property '*Profile' attribute is not a map*");
+    }
+
+    /// <summary>
+    ///     When entity materialization encounters a nullable complex property stored with a non-map
+    ///     shape, it fails fast instead of treating the property as absent.
+    /// </summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task MaterializeEntity_NullableComplexPropertyWrongWireShape_ThrowsClearError()
+    {
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["pk"] = new() { S = "A#6aa" }, ["profile"] = new() { S = "legacy-shape" },
+        };
+
+        var client = CreateMockClientReturning(item);
+        await using var ctx = SharedProfileDbContext.Create(client);
+
+        var act = async ()
+            => await ctx
+                .EntityAs
+                .AsAsyncEnumerable()
+                .ToListAsync(TestContext.Current.CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*Complex property '*Profile' attribute is not a map*");
+    }
+
+    /// <summary>
     ///     When a nullable complex collection attribute is absent, projecting the collection returns
     ///     <see langword="null" /> rather than an empty list.
     /// </summary>
@@ -395,6 +450,61 @@ public class ComplexTypeProjectionTests
         capturedRequest.Statement.Should().Contain("\"profile\" IS MISSING");
     }
 
+    /// <summary>
+    ///     WHERE clause comparing a nested nullable complex property to null translates against the
+    ///     nested map path rather than being rejected by the query translator.
+    /// </summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Where_NestedNullableComplexPropertyIsNull_TranslatesToNullOrMissingPredicate()
+    {
+        ExecuteStatementRequest? capturedRequest = null;
+        var item = CreateNestedProfileItem("N#1", false);
+
+        var client = CreateMockClientReturning(item, r => capturedRequest = r);
+        await using var ctx = NestedProfileDbContext.Create(client);
+
+        var results =
+            await ctx
+                .Items
+                .Where(x => x.Profile!.Address == null)
+                .Select(x => x.Pk)
+                .AsAsyncEnumerable()
+                .ToListAsync(TestContext.Current.CancellationToken);
+
+        results.Should().Equal("N#1");
+        capturedRequest.Should().NotBeNull();
+        capturedRequest!.Statement.Should().Contain("\"profile\".\"address\" IS NULL");
+        capturedRequest.Statement.Should().Contain("\"profile\".\"address\" IS MISSING");
+    }
+
+    /// <summary>
+    ///     WHERE clause comparing a nested nullable complex property to non-null translates to the
+    ///     conjunction of IS NOT NULL and IS NOT MISSING against the nested map path.
+    /// </summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task
+        Where_NestedNullableComplexPropertyIsNotNull_TranslatesToNotNullAndNotMissingPredicate()
+    {
+        ExecuteStatementRequest? capturedRequest = null;
+        var item = CreateNestedProfileItem("N#2", true);
+
+        var client = CreateMockClientReturning(item, r => capturedRequest = r);
+        await using var ctx = NestedProfileDbContext.Create(client);
+
+        var results =
+            await ctx
+                .Items
+                .Where(x => x.Profile!.Address != null)
+                .Select(x => x.Pk)
+                .AsAsyncEnumerable()
+                .ToListAsync(TestContext.Current.CancellationToken);
+
+        results.Should().Equal("N#2");
+        capturedRequest.Should().NotBeNull();
+        capturedRequest!.Statement.Should().Contain("\"profile\".\"address\" IS NOT NULL");
+        capturedRequest.Statement.Should().Contain("\"profile\".\"address\" IS NOT MISSING");
+    }
+
     /// <summary>Required (non-nullable) complex property missing from the DynamoDB item throws a clear error.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SelectComplexProperty_RequiredAttributeMissing_ThrowsClearError()
@@ -460,6 +570,29 @@ public class ComplexTypeProjectionTests
         public string City { get; set; } = null!;
     }
 
+    private static Dictionary<string, AttributeValue> CreateNestedProfileItem(
+        string pk,
+        bool includeAddressAttribute)
+    {
+        var profileMap = new Dictionary<string, AttributeValue>();
+        if (includeAddressAttribute)
+            profileMap["address"] = new AttributeValue
+            {
+                M = new Dictionary<string, AttributeValue>
+                {
+                    ["city"] = new() { S = "Boston" },
+                },
+            };
+
+        return CreateItem(pk, profileMap);
+    }
+
+    private sealed record NestedProfile
+    {
+        /// <summary>Nested nullable complex property.</summary>
+        public SharedAddress? Address { get; set; }
+    }
+
     private sealed record NullableComplexCollectionEntity
     {
         /// <summary>Partition key.</summary>
@@ -467,6 +600,15 @@ public class ComplexTypeProjectionTests
 
         /// <summary>Nullable complex collection property.</summary>
         public List<SharedAddress>? Addresses { get; set; }
+    }
+
+    private sealed record NestedProfileEntity
+    {
+        /// <summary>Partition key.</summary>
+        public string Pk { get; set; } = null!;
+
+        /// <summary>Nullable outer complex property.</summary>
+        public NestedProfile? Profile { get; set; }
     }
 
     // DbContext with EntityA and EntityB each declaring a complex property of the same CLR type.
@@ -552,6 +694,31 @@ public class ComplexTypeProjectionTests
         public static NullableComplexCollectionDbContext Create(IAmazonDynamoDB client)
             => new(
                 new DbContextOptionsBuilder<NullableComplexCollectionDbContext>()
+                    .UseDynamo(o => o.DynamoDbClient(client))
+                    .ConfigureWarnings(w
+                        => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                    .Options);
+    }
+
+    /// <summary>DbContext used to validate translation of null checks on nested complex members.</summary>
+    private sealed class NestedProfileDbContext(DbContextOptions options) : DbContext(options)
+    {
+        /// <summary>Entity set.</summary>
+        public DbSet<NestedProfileEntity> Items { get; set; }
+
+        /// <inheritdoc />
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<NestedProfileEntity>(b =>
+            {
+                b.ToTable("NestedProfileTable");
+                b.HasPartitionKey(x => x.Pk);
+                b.ComplexProperty(x => x.Profile, pb => pb.ComplexProperty(p => p.Address));
+            });
+
+        /// <summary>Creates a context backed by the given mock DynamoDB client.</summary>
+        public static NestedProfileDbContext Create(IAmazonDynamoDB client)
+            => new(
+                new DbContextOptionsBuilder<NestedProfileDbContext>()
                     .UseDynamo(o => o.DynamoDbClient(client))
                     .ConfigureWarnings(w
                         => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))

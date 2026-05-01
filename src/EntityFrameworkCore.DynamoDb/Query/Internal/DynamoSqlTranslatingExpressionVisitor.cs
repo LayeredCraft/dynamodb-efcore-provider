@@ -162,46 +162,96 @@ public class DynamoSqlTranslatingExpressionVisitor(
     }
 
     /// <summary>
-    ///     Translates a single-segment nullable complex property operand for null comparisons in
-    ///     predicates. Returns a property expression for the complex map attribute so that
-    ///     <c>== null</c> generates <c>IS NULL OR IS MISSING</c> against the map key.
+    ///     Translates a nullable complex property operand for null comparisons in predicates.
+    ///     Returns the SQL path for the complex map attribute so that <c>== null</c> and
+    ///     <c>!= null</c> compose against the correct nested document path.
     /// </summary>
     private SqlExpression? TryTranslateComplexPropertyForNullComparison(Expression operand)
     {
-        string? memberName = null;
-        Type? memberType = null;
-        Expression? sourceExpression = null;
-
-        if (operand is MemberExpression memberExpression)
-        {
-            memberName = memberExpression.Member.Name;
-            memberType = memberExpression.Type;
-            sourceExpression = memberExpression.Expression;
-        }
-        else if (operand is MethodCallExpression
-            {
-                Method.IsGenericMethod: true,
-                Arguments: [var source, ConstantExpression { Value: string efPropertyName }],
-            } methodCall
-            && methodCall.Method.GetGenericMethodDefinition() == EfPropertyMethod)
-        {
-            memberName = efPropertyName;
-            memberType = methodCall.Type;
-            sourceExpression = source;
-        }
-
-        if (memberName == null || memberType == null)
+        if (!TryGetMemberAccessChain(operand, out var names, out var sourceExpression))
             return null;
 
         var rootEntityType = ResolveRootEntityType(sourceExpression);
-        if (rootEntityType?.FindComplexProperty(memberName) is not
-            {
-                IsCollection: false
-            } complexProperty)
+        if (rootEntityType == null)
             return null;
 
-        var cpAttributeName = ((IReadOnlyComplexProperty)complexProperty).GetAttributeName();
-        return sqlExpressionFactory.Property(cpAttributeName, memberType);
+        return TryTranslateComplexPropertyPath(names, rootEntityType, operand.Type);
+    }
+
+    /// <summary>
+    ///     Extracts a root-first member-access chain from plain member access or nested
+    ///     <c>EF.Property&lt;T&gt;</c> calls.
+    /// </summary>
+    private bool TryGetMemberAccessChain(
+        Expression operand,
+        out List<string> names,
+        out Expression? sourceExpression)
+    {
+        names = [];
+        sourceExpression = operand;
+
+        while (true)
+            if (sourceExpression is MemberExpression memberExpression)
+            {
+                names.Add(memberExpression.Member.Name);
+                sourceExpression = memberExpression.Expression;
+            }
+            else if (sourceExpression is MethodCallExpression
+                {
+                    Method.IsGenericMethod: true,
+                    Arguments:
+                    [
+                        var source, ConstantExpression { Value: string efPropertyName },
+                    ],
+                } methodCall
+                && methodCall.Method.GetGenericMethodDefinition() == EfPropertyMethod)
+            {
+                names.Add(efPropertyName);
+                sourceExpression = source;
+            }
+            else
+            {
+                break;
+            }
+
+        names.Reverse();
+        return names.Count > 0;
+    }
+
+    /// <summary>
+    ///     Walks a root-first member chain and returns the SQL path for the final complex property
+    ///     when the chain resolves exclusively through non-collection complex members.
+    /// </summary>
+    private SqlExpression? TryTranslateComplexPropertyPath(
+        List<string> names,
+        IEntityType rootEntityType,
+        Type resultType)
+    {
+        SqlExpression? sqlExpression = null;
+        ITypeBase currentType = rootEntityType;
+
+        for (var i = 0; i < names.Count; i++)
+        {
+            if (currentType.FindComplexProperty(names[i]) is not
+                {
+                    IsCollection: false,
+                } complexProperty)
+                return null;
+
+            var attributeName = complexProperty.GetAttributeName();
+            sqlExpression = sqlExpression == null
+                ? sqlExpressionFactory.Property(
+                    attributeName,
+                    i == names.Count - 1 ? resultType : complexProperty.ClrType)
+                : new DynamoScalarAccessExpression(
+                    sqlExpression,
+                    attributeName,
+                    i == names.Count - 1 ? resultType : complexProperty.ClrType);
+
+            currentType = complexProperty.ComplexType;
+        }
+
+        return sqlExpression;
     }
 
     /// <inheritdoc />
