@@ -101,7 +101,7 @@ The collection is stored as a List:
 ```
 
 Supported CLR collection shapes: `List<T>`, `IList<T>`. `ICollection<T>`,
-`IReadOnlyList<T>`, and arrays are not supported for complex collections.
+and `IReadOnlyList<T>`. Arrays are not supported for complex collections.
 
 !!! note "Collection updates replace the full list"
 
