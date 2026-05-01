@@ -50,10 +50,11 @@ public class DynamoComplexPropertyDiscoveryConventionTests
     ///     Verifies that an unannotated nested POCO member is discovered as a complex property.
     /// </summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public void PlainNestedPoco_IsDiscoveredAsComplexProperty()
+    public async Task PlainNestedPoco_IsDiscoveredAsComplexProperty()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
-        using var ctx = new PlainNestedPocoContext(BuildOptions<PlainNestedPocoContext>(client));
+        await using var ctx =
+            new PlainNestedPocoContext(BuildOptions<PlainNestedPocoContext>(client));
 
         var customerType = ctx.Model.FindEntityType(typeof(Customer))!;
         var complexProperty = customerType.GetComplexProperties().Single(p => p.Name == "Profile");
@@ -65,10 +66,11 @@ public class DynamoComplexPropertyDiscoveryConventionTests
 
     /// <summary>Verifies that an unannotated list of POCOs is discovered as a complex collection.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public void PlainNestedPocoList_IsDiscoveredAsComplexCollection()
+    public async Task PlainNestedPocoList_IsDiscoveredAsComplexCollection()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
-        using var ctx = new PlainNestedPocoContext(BuildOptions<PlainNestedPocoContext>(client));
+        await using var ctx =
+            new PlainNestedPocoContext(BuildOptions<PlainNestedPocoContext>(client));
 
         var customerType = ctx.Model.FindEntityType(typeof(Customer))!;
         var complexProperty = customerType
@@ -83,10 +85,11 @@ public class DynamoComplexPropertyDiscoveryConventionTests
 
     /// <summary>Verifies that an <see cref="IList{T}" /> of POCOs is discovered as a complex collection.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public void PlainNestedPocoIList_IsDiscoveredAsComplexCollection()
+    public async Task PlainNestedPocoIList_IsDiscoveredAsComplexCollection()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
-        using var ctx = new PlainNestedPocoContext(BuildOptions<PlainNestedPocoContext>(client));
+        await using var ctx =
+            new PlainNestedPocoContext(BuildOptions<PlainNestedPocoContext>(client));
 
         var customerType = ctx.Model.FindEntityType(typeof(Customer))!;
         var complexProperty = customerType

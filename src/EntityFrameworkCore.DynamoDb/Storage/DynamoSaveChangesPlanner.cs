@@ -2,10 +2,7 @@ using System.Text;
 using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.ChangeTracking.Internal;
 using Microsoft.EntityFrameworkCore.Update;
-
-#pragma warning disable EF1001 // Internal EF Core API: InternalEntityEntry.SetProperty
 
 namespace EntityFrameworkCore.DynamoDb.Storage;
 

@@ -14,6 +14,7 @@ namespace EntityFrameworkCore.DynamoDb.Storage;
 internal sealed class DynamoPartiqlStatementFactory(
     DynamoEntityItemSerializerSource serializerSource)
 {
+    /// <summary>Builds a PartiQL UPDATE statement for a modified tracked entity.</summary>
     internal (string tableName, string sql, List<AttributeValue> parameters)?
         BuildModifiedUpdateStatement(IUpdateEntry entry)
     {
@@ -60,7 +61,6 @@ internal sealed class DynamoPartiqlStatementFactory(
         }
 
         // Complex properties are fully replaced when any of their nested scalars changed.
-        var entity = rootEntry.Entity;
         foreach (var cp in entityType.GetComplexProperties())
             if (cp.IsCollection)
             {
@@ -92,6 +92,7 @@ internal sealed class DynamoPartiqlStatementFactory(
             setParameters);
     }
 
+    /// <summary>Builds a PartiQL DELETE statement for a deleted tracked entity.</summary>
     internal (string tableName, string sql, List<AttributeValue> parameters) BuildDeleteStatement(
         IUpdateEntry entry)
     {
@@ -133,6 +134,7 @@ internal sealed class DynamoPartiqlStatementFactory(
         return (tableName, sqlBuilder.ToString(), parameters);
     }
 
+    /// <summary>Builds a PartiQL INSERT statement for a serialized DynamoDB item.</summary>
     internal (string sql, List<AttributeValue> parameters) BuildInsertStatement(
         string tableName,
         Dictionary<string, AttributeValue> item)
@@ -352,6 +354,8 @@ internal sealed class DynamoPartiqlStatementFactory(
                 if (!nestedCollectionEntry.IsModified)
                     continue;
 
+                // A modified nested collection always requires replacing the containing map, but
+                // sibling members may still prove the original map already existed.
                 hasModifiedMember = true;
             }
             else

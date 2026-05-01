@@ -13,7 +13,9 @@ public static class DynamoEntityTypeExtensions
     extension(IMutableEntityType entityType)
     {
         /// <summary>Sets the DynamoDB table name for the root entity type.</summary>
-        ///     The DynamoDB table name. Pass  to clear the explicit mapping.
+        /// <param name="name">
+        ///     The DynamoDB table name. Pass <see langword="null" /> to clear the explicit mapping.
+        /// </param>
         public void SetTableName(string? name)
             => entityType.SetOrRemoveAnnotation(
                 DynamoAnnotationNames.TableName,
@@ -22,7 +24,9 @@ public static class DynamoEntityTypeExtensions
         /// <summary>
         ///     Sets the EF property name designated as the DynamoDB partition key.
         /// </summary>
-        ///     The EF property name, or  to clear the explicit override.
+        /// <param name="name">
+        ///     The EF property name, or <see langword="null" /> to clear the explicit override.
+        /// </param>
         public void SetPartitionKeyPropertyName(string? name)
             => entityType.SetOrRemoveAnnotation(
                 DynamoAnnotationNames.PartitionKeyPropertyName,
@@ -31,15 +35,18 @@ public static class DynamoEntityTypeExtensions
         /// <summary>
         ///     Sets the EF property name designated as the DynamoDB sort key.
         /// </summary>
-        ///     The EF property name, or  to clear the explicit override.
+        /// <param name="name">
+        ///     The EF property name, or <see langword="null" /> to clear the explicit override.
+        /// </param>
         public void SetSortKeyPropertyName(string? name)
             => entityType.SetOrRemoveAnnotation(
                 DynamoAnnotationNames.SortKeyPropertyName,
                 name.NullButNotEmpty());
 
         /// <summary>Sets the discriminator strategy used for DynamoDB shared-table mappings.</summary>
-        ///     The strategy to apply, or  to clear the explicit
-        ///     setting.
+        /// <param name="strategy">
+        ///     The strategy to apply, or <see langword="null" /> to clear the explicit setting.
+        /// </param>
         public void SetDiscriminatorStrategy(DynamoDiscriminatorStrategy? strategy)
             => entityType.SetOrRemoveAnnotation(
                 DynamoAnnotationNames.DiscriminatorStrategy,
@@ -232,8 +239,8 @@ public static class DynamoEntityTypeExtensions
 
         /// <summary>Returns the configuration source for the sort key property name annotation.</summary>
         /// <returns>
-        ///     The <c>ConfigurationSource</c> of the annotation, or  if no
-        ///     explicit sort key has been configured.
+        ///     The <c>ConfigurationSource</c> of the annotation, or <see langword="null" /> if no explicit
+        ///     sort key has been configured.
         /// </returns>
         public ConfigurationSource? GetSortKeyPropertyNameConfigurationSource()
             => entityType
@@ -244,11 +251,14 @@ public static class DynamoEntityTypeExtensions
         ///     Sets the discriminator strategy used for DynamoDB shared-table mappings at the given
         ///     configuration source.
         /// </summary>
-        ///     The strategy to set, or  to clear the explicit
-        ///     setting.
-        ///      if configured via a data annotation;
-        ///      for the fluent API.
-        /// <returns>The applied strategy when configuration succeeded; otherwise .</returns>
+        /// <param name="strategy">
+        ///     The strategy to set, or <see langword="null" /> to clear the explicit setting.
+        /// </param>
+        /// <param name="fromDataAnnotation">
+        ///     <see langword="true" /> if configured via a data annotation; <see langword="false" /> for
+        ///     the fluent API.
+        /// </param>
+        /// <returns>The applied strategy when configuration succeeded; otherwise <see langword="null" />.</returns>
         public DynamoDiscriminatorStrategy? SetDiscriminatorStrategy(
             DynamoDiscriminatorStrategy? strategy,
             bool fromDataAnnotation = false)
@@ -264,8 +274,8 @@ public static class DynamoEntityTypeExtensions
 
         /// <summary>Returns the configuration source for the discriminator strategy annotation.</summary>
         /// <returns>
-        ///     The <c>ConfigurationSource</c> of the annotation, or  if no
-        ///     explicit strategy has been configured.
+        ///     The <c>ConfigurationSource</c> of the annotation, or <see langword="null" /> if no explicit
+        ///     strategy has been configured.
         /// </returns>
         public ConfigurationSource? GetDiscriminatorStrategyConfigurationSource()
             => entityType
@@ -273,11 +283,14 @@ public static class DynamoEntityTypeExtensions
                 ?.GetConfigurationSource();
 
         /// <summary>Returns whether the discriminator strategy can be set from the given configuration source.</summary>
-        ///      if configured via a data annotation;
-        ///      for the fluent API.
+        /// <param name="strategy">The strategy to check.</param>
+        /// <param name="fromDataAnnotation">
+        ///     <see langword="true" /> if configured via a data annotation; <see langword="false" /> for
+        ///     the fluent API.
+        /// </param>
         /// <returns>
-        ///      when the new value can be applied; otherwise
-        ///     .
+        ///     <see langword="true" /> when the new value can be applied; otherwise
+        ///     <see langword="false" />.
         /// </returns>
         public bool CanSetDiscriminatorStrategy(
             DynamoDiscriminatorStrategy? strategy,

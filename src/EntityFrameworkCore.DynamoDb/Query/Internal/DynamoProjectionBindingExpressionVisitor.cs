@@ -1,7 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Linq.Expressions;
 using System.Reflection;
-using EntityFrameworkCore.DynamoDb.Extensions;
 using EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
@@ -28,41 +27,46 @@ public class DynamoProjectionBindingExpressionVisitor(
     /// <summary>Translates a Select lambda body into a projection mapping and returns a shaper expression.</summary>
     public Expression Translate(SelectExpression selectExpression, Expression expression)
     {
-        _selectExpression = selectExpression;
-        _projectionMembers.Push(new ProjectionMember());
+        try
+        {
+            _selectExpression = selectExpression;
+            _projectionMembers.Push(new ProjectionMember());
 
-        // Clear any existing concrete projections - we're rebuilding from scratch
-        _selectExpression.ClearProjection();
+            // Clear any existing concrete projections - we're rebuilding from scratch
+            _selectExpression.ClearProjection();
 
-        _indexBasedBinding = false;
-        var result = Visit(expression);
+            _indexBasedBinding = false;
+            var result = Visit(expression);
 
-        if (result == QueryCompilationContext.NotTranslatedExpression)
+            if (result == QueryCompilationContext.NotTranslatedExpression)
+            {
+                _projectionMapping.Clear();
+                _projectionMembers.Clear();
+                _projectionMembers.Push(new ProjectionMember());
+                _selectExpression.ClearProjection();
+                _indexBasedBinding = true;
+                result = Visit(expression);
+            }
+
+            if (result == null)
+                throw new InvalidOperationException("Failed to translate Select projection.");
+
+            if (result == QueryCompilationContext.NotTranslatedExpression)
+                throw new InvalidOperationException(
+                    "Failed to translate Select projection to client evaluation.");
+
+            if (!_indexBasedBinding)
+                _selectExpression.ReplaceProjectionMapping(_projectionMapping);
+
+            return result;
+        }
+        finally
         {
             _projectionMapping.Clear();
+            _selectExpression = null!;
             _projectionMembers.Clear();
-            _projectionMembers.Push(new ProjectionMember());
-            _selectExpression.ClearProjection();
-            _indexBasedBinding = true;
-            result = Visit(expression);
+            _indexBasedBinding = false;
         }
-
-        if (result == null)
-            throw new InvalidOperationException("Failed to translate Select projection.");
-
-        if (result == QueryCompilationContext.NotTranslatedExpression)
-            throw new InvalidOperationException(
-                "Failed to translate Select projection to client evaluation.");
-
-        if (!_indexBasedBinding)
-            _selectExpression.ReplaceProjectionMapping(_projectionMapping);
-
-        _projectionMapping.Clear();
-        _selectExpression = null!;
-        _projectionMembers.Clear();
-        _indexBasedBinding = false;
-
-        return result;
     }
 
     /// <summary>Handles anonymous type projections: new { x.Id, x.Name }</summary>

@@ -16,8 +16,10 @@ public static class DynamoEntityTypeBuilderExtensions
     extension(EntityTypeBuilder entityTypeBuilder)
     {
         /// <summary>Configures the table that the entity type maps to when targeting AWS DynamoDB.</summary>
-        ///     The table name. Pass  to clear the explicit table mapping and
+        /// <param name="name">
+        ///     The table name. Pass <see langword="null" /> to clear the explicit table mapping and
         ///     fall back to convention behavior.
+        /// </param>
         /// <returns>The same builder instance so that multiple calls can be chained.</returns>
         public EntityTypeBuilder ToTable(string? name)
         {
@@ -37,8 +39,9 @@ public static class DynamoEntityTypeBuilderExtensions
         ///     The provider derives the EF primary key automatically from the configured partition key and
         ///     optional sort key, so root entities should not configure <c>HasKey(...)</c> directly.
         /// </remarks>
-        ///     The EF property name whose attribute name maps to the DynamoDB partition
-        ///     key.
+        /// <param name="propertyName">
+        ///     The EF property name whose attribute name maps to the DynamoDB partition key.
+        /// </param>
         /// <returns>The same builder instance so that multiple calls can be chained.</returns>
         public EntityTypeBuilder HasPartitionKey(string propertyName)
         {
@@ -130,10 +133,10 @@ public static class DynamoEntityTypeBuilderExtensions
         ///     <para>
         ///         At model finalization, the convention is applied to every declared scalar property that
         ///         does not already have an explicit <c>HasAttributeName(...)</c> override. Provider-internal
-        ///         runtime-only and owned-ordinal shadow properties are not affected.
+        ///         runtime-only shadow properties are not affected.
         ///     </para>
         ///     <para>
-        ///         Owned entity types without their own convention configured inherit this entity's
+        ///         Complex properties without their own convention configured inherit this entity's
         ///         convention automatically.
         ///     </para>
         /// </remarks>
@@ -156,10 +159,10 @@ public static class DynamoEntityTypeBuilderExtensions
         ///         At model finalization, <paramref name="translator" /> is called with each declared scalar
         ///         property's CLR name and the return value is used as the DynamoDB attribute name. Properties
         ///         with an explicit <c>HasAttributeName(...)</c> override are not affected. Provider-internal
-        ///         runtime-only and owned-ordinal shadow properties are not affected.
+        ///         runtime-only shadow properties are not affected.
         ///     </para>
         ///     <para>
-        ///         Owned entity types without their own convention configured inherit this entity's
+        ///         Complex properties without their own convention configured inherit this entity's
         ///         convention automatically.
         ///     </para>
         /// </remarks>
@@ -180,8 +183,10 @@ public static class DynamoEntityTypeBuilderExtensions
     extension<TEntity>(EntityTypeBuilder<TEntity> entityTypeBuilder) where TEntity : class
     {
         /// <summary>Configures the table that the entity type maps to when targeting AWS DynamoDB.</summary>
-        ///     The table name. Pass  to clear the explicit table mapping and
+        /// <param name="name">
+        ///     The table name. Pass <see langword="null" /> to clear the explicit table mapping and
         ///     fall back to convention behavior.
+        /// </param>
         /// <returns>The same builder instance so that multiple calls can be chained.</returns>
         public EntityTypeBuilder<TEntity> ToTable(string? name)
             => (EntityTypeBuilder<TEntity>)((EntityTypeBuilder)entityTypeBuilder).ToTable(name);
@@ -195,8 +200,9 @@ public static class DynamoEntityTypeBuilderExtensions
         ///     The provider derives the EF primary key automatically from the configured partition key and
         ///     optional sort key, so root entities should not configure <c>HasKey(...)</c> directly.
         /// </remarks>
-        ///     A lambda expression selecting the property that maps to the DynamoDB
-        ///     partition key.
+        /// <param name="keyExpression">
+        ///     A lambda expression selecting the property that maps to the DynamoDB partition key.
+        /// </param>
         /// <returns>The same builder instance so that multiple calls can be chained.</returns>
         public EntityTypeBuilder<TEntity> HasPartitionKey(
             Expression<Func<TEntity, object?>> keyExpression)
@@ -216,8 +222,9 @@ public static class DynamoEntityTypeBuilderExtensions
         ///     <c>[partitionKey, sortKey]</c>, so root entities should not configure <c>HasKey(...)</c>
         ///     directly.
         /// </remarks>
-        ///     A lambda expression selecting the property that maps to the DynamoDB
-        ///     sort key.
+        /// <param name="keyExpression">
+        ///     A lambda expression selecting the property that maps to the DynamoDB sort key.
+        /// </param>
         /// <returns>The same builder instance so that multiple calls can be chained.</returns>
         public EntityTypeBuilder<TEntity> HasSortKey(
             Expression<Func<TEntity, object?>> keyExpression)
@@ -296,7 +303,7 @@ public static class DynamoEntityTypeBuilderExtensions
         ///         (provider-internal) are not affected.
         ///     </para>
         ///     <para>
-        ///         Owned entity types without their own convention configured inherit this entity's
+        ///         Complex properties without their own convention configured inherit this entity's
         ///         convention automatically.
         ///     </para>
         /// </remarks>
@@ -319,7 +326,7 @@ public static class DynamoEntityTypeBuilderExtensions
         ///         (provider-internal) are not affected.
         ///     </para>
         ///     <para>
-        ///         Owned entity types without their own convention configured inherit this entity's
+        ///         Complex properties without their own convention configured inherit this entity's
         ///         convention automatically.
         ///     </para>
         /// </remarks>

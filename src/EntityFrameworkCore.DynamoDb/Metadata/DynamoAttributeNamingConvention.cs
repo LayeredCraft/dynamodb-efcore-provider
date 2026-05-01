@@ -6,15 +6,14 @@ namespace EntityFrameworkCore.DynamoDb.Metadata;
 /// </summary>
 /// <remarks>
 ///     Configure per entity type via
-///     <c>modelBuilder.Entity&lt;T&gt;().HasAttributeNamingConvention(...)</c>. Owned types without
+///     <c>modelBuilder.Entity&lt;T&gt;().HasAttributeNamingConvention(...)</c>. Complex types without
 ///     their own convention setting inherit the root entity's convention.
 /// </remarks>
 public enum DynamoAttributeNamingConvention
 {
     /// <summary>
     ///     No transformation — property names are stored as-is (CLR property name). Equivalent to not
-    ///     configuring a convention at all, but explicit. Useful to opt out of a convention inherited from
-    ///     an owned root entity.
+    ///     configuring a convention at all, but explicit. Useful to opt out of an inherited convention.
     /// </summary>
     None,
 

@@ -59,6 +59,8 @@ internal static class DynamoComplexContainmentValidator
         var segments = chain.Skip(cycleStartIndex).Select(static cp => cp.Name).ToList();
         segments.Add(repeatingProperty.Name);
 
+        // The chain is scoped to one DFS path, so this is the first complex property reached
+        // from the current entity type being validated, not necessarily a model root.
         var rootProperty = chain[0].DeclaringType.DisplayName() + "." + chain[0].Name;
 
         return DynamoModelValidationErrors.ComplexContainmentCycleDetected(rootProperty, segments);
