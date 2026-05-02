@@ -1,4 +1,3 @@
-using EntityFrameworkCore.DynamoDb.Infrastructure;
 using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SecondaryIndexProjectionTable;

@@ -2,7 +2,6 @@ using System.Collections.Concurrent;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.Extensions;
-using EntityFrameworkCore.DynamoDb.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
@@ -74,12 +73,11 @@ public abstract class DynamoTestFixtureBase
         else
             builder.UseLoggerFactory(SqlCapture);
 
-        builder.UseDynamo(options =>
-        {
-            configure(options);
-            options.ScanQueryBehavior(DynamoScanQueryBehavior.Allow);
-        });
-        builder.ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning));
+        builder.UseDynamo(configure);
+        builder.ConfigureWarnings(w
+            => w
+                .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                .Ignore(DynamoEventId.ScanLikeQueryDetected));
         return builder.Options;
     }
 

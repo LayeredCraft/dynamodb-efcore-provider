@@ -244,7 +244,10 @@ public class NullHandlingTests(DynamoContainerFixture fixture)
     {
         var builder = new DbContextOptionsBuilder<OptionalCollectionsContext>();
         builder.UseDynamo(options => options.DynamoDbClient(Client));
-        builder.ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning));
+        builder.ConfigureWarnings(w
+            => w
+                .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                .Ignore(DynamoEventId.ScanLikeQueryDetected));
         return builder.Options;
     }
 

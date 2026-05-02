@@ -1,5 +1,4 @@
 using Amazon.DynamoDBv2.Model;
-using EntityFrameworkCore.DynamoDb.Infrastructure;
 using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -543,7 +542,10 @@ public class TransactionalSaveChangesTests(DynamoContainerFixture fixture)
                         .DynamoDbClient(Client)
                         .TransactionOverflowBehavior(behavior)
                         .MaxTransactionSize(maxTransactionSize))
-                .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .ConfigureWarnings(w
+                    => w
+                        .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                        .Ignore(DynamoEventId.ScanLikeQueryDetected))
                 .Options);
 
     private static Dictionary<string, AttributeValue> CreateSeedItem(CustomerItem customer)
