@@ -1,5 +1,6 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
+using EntityFrameworkCore.DynamoDb.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using NSubstitute;
@@ -183,7 +184,11 @@ public class AttributeNameOverrideTests
         public static RenameDbContext Create(IAmazonDynamoDB client)
             => new(
                 new DbContextOptionsBuilder<RenameDbContext>()
-                    .UseDynamo(o => o.DynamoDbClient(client))
+                    .UseDynamo(o =>
+                    {
+                        o.DynamoDbClient(client);
+                        o.ScanQueryBehavior(DynamoScanQueryBehavior.Allow);
+                    })
                     .ConfigureWarnings(w
                         => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
                     .Options);

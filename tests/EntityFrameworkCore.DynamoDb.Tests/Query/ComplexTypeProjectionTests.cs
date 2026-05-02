@@ -1,5 +1,6 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
+using EntityFrameworkCore.DynamoDb.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using NSubstitute;
@@ -642,7 +643,11 @@ public class ComplexTypeProjectionTests
         public static SharedProfileDbContext Create(IAmazonDynamoDB client)
             => new(
                 new DbContextOptionsBuilder<SharedProfileDbContext>()
-                    .UseDynamo(o => o.DynamoDbClient(client))
+                    .UseDynamo(o =>
+                    {
+                        o.DynamoDbClient(client);
+                        o.ScanQueryBehavior(DynamoScanQueryBehavior.Allow);
+                    })
                     .ConfigureWarnings(w
                         => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
                     .Options);
@@ -668,7 +673,11 @@ public class ComplexTypeProjectionTests
         public static RequiredComplexPropertyDbContext Create(IAmazonDynamoDB client)
             => new(
                 new DbContextOptionsBuilder<RequiredComplexPropertyDbContext>()
-                    .UseDynamo(o => o.DynamoDbClient(client))
+                    .UseDynamo(o =>
+                    {
+                        o.DynamoDbClient(client);
+                        o.ScanQueryBehavior(DynamoScanQueryBehavior.Allow);
+                    })
                     .ConfigureWarnings(w
                         => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
                     .Options);
@@ -694,7 +703,11 @@ public class ComplexTypeProjectionTests
         public static NullableComplexCollectionDbContext Create(IAmazonDynamoDB client)
             => new(
                 new DbContextOptionsBuilder<NullableComplexCollectionDbContext>()
-                    .UseDynamo(o => o.DynamoDbClient(client))
+                    .UseDynamo(o =>
+                    {
+                        o.DynamoDbClient(client);
+                        o.ScanQueryBehavior(DynamoScanQueryBehavior.Allow);
+                    })
                     .ConfigureWarnings(w
                         => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
                     .Options);
@@ -719,7 +732,11 @@ public class ComplexTypeProjectionTests
         public static NestedProfileDbContext Create(IAmazonDynamoDB client)
             => new(
                 new DbContextOptionsBuilder<NestedProfileDbContext>()
-                    .UseDynamo(o => o.DynamoDbClient(client))
+                    .UseDynamo(o =>
+                    {
+                        o.DynamoDbClient(client);
+                        o.ScanQueryBehavior(DynamoScanQueryBehavior.Allow);
+                    })
                     .ConfigureWarnings(w
                         => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
                     .Options);

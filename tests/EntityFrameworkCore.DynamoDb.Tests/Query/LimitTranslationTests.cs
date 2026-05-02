@@ -1,6 +1,7 @@
 using System.Linq.Expressions;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
+using EntityFrameworkCore.DynamoDb.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using NSubstitute;
@@ -398,7 +399,11 @@ public class LimitTranslationTests
         public static LimitTestDbContext Create(IAmazonDynamoDB client)
             => new(
                 new DbContextOptionsBuilder<LimitTestDbContext>()
-                    .UseDynamo(options => options.DynamoDbClient(client))
+                    .UseDynamo(options =>
+                    {
+                        options.DynamoDbClient(client);
+                        options.ScanQueryBehavior(DynamoScanQueryBehavior.Allow);
+                    })
                     .ConfigureWarnings(w
                         => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
                     .Options);

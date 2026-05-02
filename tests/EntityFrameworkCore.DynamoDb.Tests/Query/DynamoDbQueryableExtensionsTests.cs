@@ -131,6 +131,28 @@ public class DynamoDbQueryableExtensionsTests
         withoutIndex.Should().NotBeSameAs(original);
     }
 
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void AllowScan_ReturnsNewQueryable()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var context = LimitDbContext.Create(client);
+
+        var original = context.Items.AsQueryable();
+        var allowScan = original.AllowScan();
+
+        allowScan.Should().NotBeSameAs(original);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void AllowScan_OnNonEntityQueryProvider_ReturnsSourceUnchanged()
+    {
+        var source = new[] { new TestEntity() }.AsQueryable();
+
+        var result = source.AllowScan();
+
+        result.Should().BeSameAs(source);
+    }
+
     // ── Support types ────────────────────────────────────────────────────────
 
     private sealed class TestEntity;
