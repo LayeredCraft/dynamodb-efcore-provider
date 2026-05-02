@@ -74,7 +74,11 @@ public abstract class DynamoTestFixtureBase
         else
             builder.UseLoggerFactory(SqlCapture);
 
-        builder.UseDynamo(configure);
+        builder.UseDynamo(options =>
+        {
+            configure(options);
+            options.ScanQueryBehavior(DynamoScanQueryBehavior.Allow);
+        });
         builder.ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning));
         return builder.Options;
     }
