@@ -83,6 +83,7 @@ emitted as log events.
 | `ExplicitIndexSelected`                   | 30107    | `Query`            | Information | `DYNAMO_IDX004` |
 | `SecondaryIndexCandidateRejected`         | 30108    | `Query`            | Information | `DYNAMO_IDX005` |
 | `ExplicitIndexSelectionDisabled`          | 30109    | `Query`            | Information | `DYNAMO_IDX006` |
+| `ScanLikeQueryDetected`                   | 30111    | `Query`            | Warning     | —               |
 
 Event IDs are stable across releases. You can use them to filter log output programmatically or
 in structured logging sinks.
@@ -139,6 +140,20 @@ Fires after each HTTP response, paired with the preceding `ExecutingExecuteState
 info: Microsoft.EntityFrameworkCore.Database.Command[30102]
       Executed DynamoDB ExecuteStatement request (itemsCount: 25, nextTokenPresent: True)
 ```
+
+## Query Events
+
+### `ScanLikeQueryDetected` — 30111
+
+Fires when `ScanQueryBehavior(DynamoScanQueryBehavior.Warn)` allows a scan-like read to continue:
+
+```
+warn: Microsoft.EntityFrameworkCore.Query[30111]
+      Scan-like DynamoDB query detected for table 'Orders' on base table: missing equality predicate on partition key 'PK'. Add an equality predicate on the active partition key and at most one sort-key key condition, configure ScanQueryBehavior(DynamoScanQueryBehavior.Warn/Allow), or append .AllowScan() for an intentional per-query scan.
+```
+
+With the default `Throw` behavior, the same message is thrown as an `InvalidOperationException`
+before PartiQL generation or `ExecuteStatement`.
 
 Fields:
 

@@ -6,8 +6,8 @@ description: How to register and configure the provider in DbContext.
 # DbContext Options
 
 _Register the DynamoDB EF Core provider by calling `UseDynamo` on `DbContextOptionsBuilder`, then
-tune transaction limits, batch sizes, and index selection behavior through the options builder or
-per-context runtime overrides._
+tune transaction limits, batch sizes, scan protection, and index selection behavior through the
+options builder or per-context runtime overrides._
 
 ## Registering the Provider
 
@@ -64,6 +64,33 @@ services. You do not need to call it directly.
 ## Available Options
 
 All options are set on the `DynamoDbContextOptionsBuilder` passed to the `UseDynamo` callback.
+
+### `ScanQueryBehavior`
+
+Read queries that do not target exactly one partition-key equality on the active table or index
+are blocked by default. This prevents accidental table or index scans.
+
+| Value             | Behavior                                                               |
+| ----------------- | ---------------------------------------------------------------------- |
+| `Throw` (default) | Throws `InvalidOperationException` before any DynamoDB request is sent |
+| `Warn`            | Logs `ScanLikeQueryDetected`, then executes the query                  |
+| `Allow`           | Executes scan-like queries without a provider warning                  |
+
+```csharp
+options.UseDynamo(dynamo =>
+{
+    dynamo.ScanQueryBehavior(DynamoScanQueryBehavior.Warn);
+});
+```
+
+For one intentional scan, keep the global default and opt in on the query:
+
+```csharp
+await db.Orders
+    .Where(o => o.Status == "PENDING")
+    .AllowScan()
+    .ToListAsync();
+```
 
 ### `TransactionOverflowBehavior`
 

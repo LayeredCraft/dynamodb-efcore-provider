@@ -22,7 +22,7 @@ db.Orders
 
 !!! warning "Ordering constraint"
 
-    Only the partition key and sort key attributes may appear in `ORDER BY`. Non-key columns throw an `InvalidOperationException` at query compilation. `ORDER BY` also requires a partition-key equality or `IN` constraint in `WHERE`; open-ended scans without a key condition cannot use ordering.
+    Only the partition key and sort key attributes may appear in `ORDER BY`. Non-key columns throw an `InvalidOperationException` at query compilation. `ORDER BY` also requires a partition-key equality constraint in `WHERE`; open-ended scans without a key condition cannot use ordering.
 
 ### Single-Partition vs Multi-Partition Ordering
 
