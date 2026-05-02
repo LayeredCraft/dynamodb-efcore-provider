@@ -10,8 +10,8 @@ namespace EntityFrameworkCore.DynamoDb.Query.Internal;
 public class DynamoQueryContext(
     QueryContextDependencies dependencies,
     IDynamoClientWrapper client,
-    IDiagnosticsLogger<DbLoggerCategory.Database.Command> commandLogger) : QueryContext(
-    dependencies)
+    IDiagnosticsLogger<DbLoggerCategory.Database.Command> commandLogger,
+    IDiagnosticsLogger<DbLoggerCategory.Query> queryLogger) : QueryContext(dependencies)
 {
     /// <summary>Provides functionality for this member.</summary>
     public virtual IDynamoClientWrapper Client { get; } = client;
@@ -21,6 +21,10 @@ public class DynamoQueryContext(
     {
         get;
     } = commandLogger;
+
+    /// <summary>Provides functionality for this member.</summary>
+    public virtual IDiagnosticsLogger<DbLoggerCategory.Query> QueryDiagnosticsLogger { get; } =
+        queryLogger;
 
     /// <summary>
     ///     The <see cref="ExecuteStatementResponse" /> from the most recently fetched DynamoDB page.

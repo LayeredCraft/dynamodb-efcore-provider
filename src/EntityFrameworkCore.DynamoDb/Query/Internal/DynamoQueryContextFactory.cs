@@ -9,8 +9,10 @@ namespace EntityFrameworkCore.DynamoDb.Query.Internal;
 public class DynamoQueryContextFactory(
     QueryContextDependencies dependencies,
     IDynamoClientWrapper client,
-    IDiagnosticsLogger<DbLoggerCategory.Database.Command> commandLogger) : IQueryContextFactory
+    IDiagnosticsLogger<DbLoggerCategory.Database.Command> commandLogger,
+    IDiagnosticsLogger<DbLoggerCategory.Query> queryLogger) : IQueryContextFactory
 {
     /// <summary>Provides functionality for this member.</summary>
-    public QueryContext Create() => new DynamoQueryContext(dependencies, client, commandLogger);
+    public QueryContext Create()
+        => new DynamoQueryContext(dependencies, client, commandLogger, queryLogger);
 }

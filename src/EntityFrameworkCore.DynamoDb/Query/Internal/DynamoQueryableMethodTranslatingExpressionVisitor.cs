@@ -345,6 +345,14 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
                 return Visit(methodCallExpression.Arguments[0]);
             }
 
+            if (method.Name == nameof(DynamoDbQueryableExtensions.AllowScan))
+            {
+                var context = (DynamoQueryCompilationContext)QueryCompilationContext;
+                context.ScanAllowed = true;
+
+                return Visit(methodCallExpression.Arguments[0]);
+            }
+
             if (method.Name == nameof(DynamoDbQueryableExtensions.WithNextToken))
             {
                 // Visit inner source first so SelectExpression exists before applying the seed

@@ -24,6 +24,10 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
     public DynamoAutomaticIndexSelectionMode AutomaticIndexSelectionMode { get; private set; } =
         DynamoAutomaticIndexSelectionMode.On;
 
+    /// <summary>Controls how scan-like read queries are handled.</summary>
+    public DynamoScanQueryBehavior ScanQueryBehavior { get; private set; } =
+        DynamoScanQueryBehavior.Throw;
+
     /// <summary>
     /// Controls how SaveChanges behaves when a transactional write unit exceeds max transaction size.
     /// </summary>
@@ -97,6 +101,16 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
         return clone;
     }
 
+    /// <summary>Sets how the provider should handle scan-like read queries.</summary>
+    public virtual DynamoDbOptionsExtension WithScanQueryBehavior(DynamoScanQueryBehavior behavior)
+    {
+        var clone = Clone();
+
+        clone.ScanQueryBehavior = behavior;
+
+        return clone;
+    }
+
     /// <summary>
     /// Sets how transactional SaveChanges should behave when one transaction cannot represent
     /// the full write unit.
@@ -151,6 +165,7 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
             DynamoDbClientConfig = DynamoDbClientConfig,
             DynamoDbClientConfigAction = DynamoDbClientConfigAction,
             AutomaticIndexSelectionMode = AutomaticIndexSelectionMode,
+            ScanQueryBehavior = ScanQueryBehavior,
             TransactionOverflowBehavior = TransactionOverflowBehavior,
             MaxTransactionSize = MaxTransactionSize,
             MaxBatchWriteSize = MaxBatchWriteSize,
@@ -175,6 +190,7 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
                 hashCode.Add(Extension.DynamoDbClientConfig);
                 hashCode.Add(Extension.DynamoDbClientConfigAction);
                 hashCode.Add(Extension.AutomaticIndexSelectionMode);
+                hashCode.Add(Extension.ScanQueryBehavior);
                 hashCode.Add(Extension.TransactionOverflowBehavior);
                 hashCode.Add(Extension.MaxTransactionSize);
                 hashCode.Add(Extension.MaxBatchWriteSize);
@@ -197,6 +213,7 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
                     otherInfo.Extension.DynamoDbClientConfigAction)
                 && Extension.AutomaticIndexSelectionMode
                 == otherInfo.Extension.AutomaticIndexSelectionMode
+                && Extension.ScanQueryBehavior == otherInfo.Extension.ScanQueryBehavior
                 && Extension.TransactionOverflowBehavior
                 == otherInfo.Extension.TransactionOverflowBehavior
                 && Extension.MaxTransactionSize == otherInfo.Extension.MaxTransactionSize
@@ -214,6 +231,7 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
             get
             {
                 field ??= $"AutomaticIndexSelectionMode={Extension.AutomaticIndexSelectionMode},"
+                    + $"ScanQueryBehavior={Extension.ScanQueryBehavior},"
                     + $"TransactionOverflowBehavior={Extension.TransactionOverflowBehavior},"
                     + $"MaxTransactionSize={Extension.MaxTransactionSize},"
                     + $"MaxBatchWriteSize={Extension.MaxBatchWriteSize},"

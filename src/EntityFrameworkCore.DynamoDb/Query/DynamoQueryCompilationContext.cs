@@ -24,4 +24,10 @@ public class DynamoQueryCompilationContext(
     ///     query throws at compile time.
     /// </summary>
     public bool IndexSelectionDisabled { get; internal set; }
+
+    /// <summary>
+    ///     Per-query flag set by <c>.AllowScan()</c>. When <c>true</c>, scan-like query protection is
+    ///     bypassed for this query only.
+    /// </summary>
+    public bool ScanAllowed { get; internal set; }
 }

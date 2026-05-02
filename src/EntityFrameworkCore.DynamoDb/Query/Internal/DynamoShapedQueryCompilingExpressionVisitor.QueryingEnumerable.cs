@@ -2,6 +2,7 @@ using System.Collections;
 using System.Linq.Expressions;
 using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.Diagnostics.Internal;
+using EntityFrameworkCore.DynamoDb.Infrastructure;
 using EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using EntityFrameworkCore.DynamoDb.Storage;
 using Microsoft.EntityFrameworkCore;
@@ -17,6 +18,7 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
     private sealed class QueryingEnumerable<T>(
         DynamoQueryContext queryContext,
         SelectExpression selectExpression,
+        DynamoScanQueryBehavior scanQueryBehavior,
         IDynamoQuerySqlGeneratorFactory sqlGeneratorFactory,
         Func<DynamoQueryContext, Dictionary<string, AttributeValue>, T> shaper,
         bool standAloneStateManager,
@@ -27,9 +29,13 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
         private readonly IDiagnosticsLogger<DbLoggerCategory.Database.Command> _commandLogger =
             queryContext.CommandDiagnosticsLogger;
 
+        private readonly IDiagnosticsLogger<DbLoggerCategory.Query> _queryLogger =
+            queryContext.QueryDiagnosticsLogger;
+
         private readonly DynamoQueryContext _queryContext = queryContext;
 
         private readonly SelectExpression _selectExpression = selectExpression;
+        private readonly DynamoScanQueryBehavior _scanQueryBehavior = scanQueryBehavior;
         private readonly IDynamoQuerySqlGeneratorFactory _sqlGeneratorFactory = sqlGeneratorFactory;
 
         private readonly Func<DynamoQueryContext, Dictionary<string, AttributeValue>, T> _shaper =
@@ -135,6 +141,11 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
 
                 if (_dataEnumerator == null)
                 {
+                    EnforceScanQueryBehavior(
+                        _queryingEnumerable._selectExpression,
+                        _queryingEnumerable._scanQueryBehavior,
+                        _queryingEnumerable._queryLogger);
+
                     // Generate query at runtime with parameter values inlined
                     var sqlQuery = _queryingEnumerable.GenerateQuery();
 
@@ -146,7 +157,8 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
                         new ExecuteStatementRequest
                         {
                             Statement = sqlQuery.Sql,
-                            Parameters = sqlQuery.Parameters.Count > 0 ? sqlQuery.Parameters.ToList() : null,
+                            Parameters =
+                                sqlQuery.Parameters.Count > 0 ? sqlQuery.Parameters.ToList() : null,
                             // Maps directly to ExecuteStatementRequest.Limit (evaluation budget).
                             Limit = _limit,
                             NextToken = _seedNextToken,
@@ -190,6 +202,7 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
     private sealed class PagingQueryingEnumerable<T>(
         DynamoQueryContext queryContext,
         SelectExpression selectExpression,
+        DynamoScanQueryBehavior scanQueryBehavior,
         IDynamoQuerySqlGeneratorFactory sqlGeneratorFactory,
         Func<DynamoQueryContext, Dictionary<string, AttributeValue>, T> shaper,
         bool standAloneStateManager,
@@ -204,7 +217,11 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
 
         private readonly DynamoQueryContext _queryContext = queryContext;
         private readonly SelectExpression _selectExpression = selectExpression;
+        private readonly DynamoScanQueryBehavior _scanQueryBehavior = scanQueryBehavior;
         private readonly IDynamoQuerySqlGeneratorFactory _sqlGeneratorFactory = sqlGeneratorFactory;
+
+        private readonly IDiagnosticsLogger<DbLoggerCategory.Query> _queryLogger =
+            queryContext.QueryDiagnosticsLogger;
 
         private readonly Func<DynamoQueryContext, Dictionary<string, AttributeValue>, T> _shaper =
             shaper;
@@ -281,6 +298,11 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
                     return false;
                 }
 
+                EnforceScanQueryBehavior(
+                    _queryingEnumerable._selectExpression,
+                    _queryingEnumerable._scanQueryBehavior,
+                    _queryingEnumerable._queryLogger);
+
                 var sqlQuery = _queryingEnumerable.GenerateQuery();
 
                 _queryingEnumerable._commandLogger.ExecutingPartiQlQuery(
@@ -293,7 +315,8 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
                     new ExecuteStatementRequest
                     {
                         Statement = sqlQuery.Sql,
-                        Parameters = sqlQuery.Parameters.Count > 0 ? sqlQuery.Parameters.ToList() : null,
+                        Parameters =
+                            sqlQuery.Parameters.Count > 0 ? sqlQuery.Parameters.ToList() : null,
                         Limit = _limit,
                         NextToken = _seedNextToken,
                     },
@@ -338,6 +361,33 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
 
         throw new InvalidOperationException(
             "Limit expression must be normalized before execution.");
+    }
+
+    /// <summary>Applies scan-like query policy before SQL generation or DynamoDB execution.</summary>
+    private static void EnforceScanQueryBehavior(
+        SelectExpression selectExpression,
+        DynamoScanQueryBehavior behavior,
+        IDiagnosticsLogger<DbLoggerCategory.Query> queryLogger)
+    {
+        var classification = selectExpression.ScanQueryClassification;
+        if (classification is not { IsScanLike: true } || selectExpression.ScanAllowed)
+            return;
+
+        switch (behavior)
+        {
+            case DynamoScanQueryBehavior.Allow:
+                return;
+
+            case DynamoScanQueryBehavior.Warn:
+                queryLogger.ScanLikeQueryDetected(classification.Message);
+                return;
+
+            case DynamoScanQueryBehavior.Throw:
+                throw new InvalidOperationException(classification.Message);
+
+            default:
+                throw new ArgumentOutOfRangeException(nameof(behavior), behavior, null);
+        }
     }
 
     /// <summary>

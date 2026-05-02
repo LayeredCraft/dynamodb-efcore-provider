@@ -62,6 +62,12 @@ public static class DynamoLoggerExtensions
             DynamoEventId.ExplicitIndexSelectionDisabled,
             "{message}");
 
+    private static readonly Action<ILogger, string, Exception?> LogScanLikeQueryDetected =
+        LoggerMessage.Define<string>(
+            LogLevel.Warning,
+            DynamoEventId.ScanLikeQueryDetected,
+            "{message}");
+
     private static readonly Action<ILogger, string, string, string, Exception?>
         LogExecutingPartiQlWrite = LoggerMessage.Define<string, string, string>(
             LogLevel.Information,
@@ -189,5 +195,16 @@ public static class DynamoLoggerExtensions
                 LogExplicitIndexSelectionDisabled(diagnostics.Logger, diagnostic.Message, null);
                 return;
         }
+    }
+
+    /// <summary>Logs that a scan-like read query was detected and allowed to continue.</summary>
+    internal static void ScanLikeQueryDetected(
+        this IDiagnosticsLogger<DbLoggerCategory.Query> diagnostics,
+        string message)
+    {
+        if (!diagnostics.Logger.IsEnabled(LogLevel.Warning))
+            return;
+
+        LogScanLikeQueryDetected(diagnostics.Logger, message, null);
     }
 }

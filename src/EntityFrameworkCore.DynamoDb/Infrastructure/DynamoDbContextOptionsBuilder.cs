@@ -49,6 +49,12 @@ public class DynamoDbContextOptionsBuilder(DbContextOptionsBuilder optionsBuilde
         DynamoAutomaticIndexSelectionMode mode)
         => WithOption(e => e.WithAutomaticIndexSelectionMode(mode));
 
+    /// <summary>Configures how scan-like read queries should be handled.</summary>
+    /// <param name="behavior">The scan query behavior to apply.</param>
+    /// <returns>The builder for chaining.</returns>
+    public virtual DynamoDbContextOptionsBuilder ScanQueryBehavior(DynamoScanQueryBehavior behavior)
+        => WithOption(e => e.WithScanQueryBehavior(behavior));
+
     /// <summary>
     /// Configures how transactional SaveChanges should behave when the write unit exceeds max
     /// transaction size.
