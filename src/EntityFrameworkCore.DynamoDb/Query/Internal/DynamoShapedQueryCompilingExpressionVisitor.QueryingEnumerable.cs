@@ -1,8 +1,8 @@
 using System.Collections;
 using System.Linq.Expressions;
 using Amazon.DynamoDBv2.Model;
+using EntityFrameworkCore.DynamoDb.Diagnostics;
 using EntityFrameworkCore.DynamoDb.Diagnostics.Internal;
-using EntityFrameworkCore.DynamoDb.Infrastructure;
 using EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using EntityFrameworkCore.DynamoDb.Storage;
 using Microsoft.EntityFrameworkCore;
@@ -18,7 +18,6 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
     private sealed class QueryingEnumerable<T>(
         DynamoQueryContext queryContext,
         SelectExpression selectExpression,
-        DynamoScanQueryBehavior scanQueryBehavior,
         IDynamoQuerySqlGeneratorFactory sqlGeneratorFactory,
         Func<DynamoQueryContext, Dictionary<string, AttributeValue>, T> shaper,
         bool standAloneStateManager,
@@ -35,7 +34,6 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
         private readonly DynamoQueryContext _queryContext = queryContext;
 
         private readonly SelectExpression _selectExpression = selectExpression;
-        private readonly DynamoScanQueryBehavior _scanQueryBehavior = scanQueryBehavior;
         private readonly IDynamoQuerySqlGeneratorFactory _sqlGeneratorFactory = sqlGeneratorFactory;
 
         private readonly Func<DynamoQueryContext, Dictionary<string, AttributeValue>, T> _shaper =
@@ -141,9 +139,8 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
 
                 if (_dataEnumerator == null)
                 {
-                    EnforceScanQueryBehavior(
+                    EnforceScanQueryWarning(
                         _queryingEnumerable._selectExpression,
-                        _queryingEnumerable._scanQueryBehavior,
                         _queryingEnumerable._queryLogger);
 
                     // Generate query at runtime with parameter values inlined
@@ -202,7 +199,6 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
     private sealed class PagingQueryingEnumerable<T>(
         DynamoQueryContext queryContext,
         SelectExpression selectExpression,
-        DynamoScanQueryBehavior scanQueryBehavior,
         IDynamoQuerySqlGeneratorFactory sqlGeneratorFactory,
         Func<DynamoQueryContext, Dictionary<string, AttributeValue>, T> shaper,
         bool standAloneStateManager,
@@ -217,7 +213,6 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
 
         private readonly DynamoQueryContext _queryContext = queryContext;
         private readonly SelectExpression _selectExpression = selectExpression;
-        private readonly DynamoScanQueryBehavior _scanQueryBehavior = scanQueryBehavior;
         private readonly IDynamoQuerySqlGeneratorFactory _sqlGeneratorFactory = sqlGeneratorFactory;
 
         private readonly IDiagnosticsLogger<DbLoggerCategory.Query> _queryLogger =
@@ -298,9 +293,8 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
                     return false;
                 }
 
-                EnforceScanQueryBehavior(
+                EnforceScanQueryWarning(
                     _queryingEnumerable._selectExpression,
-                    _queryingEnumerable._scanQueryBehavior,
                     _queryingEnumerable._queryLogger);
 
                 var sqlQuery = _queryingEnumerable.GenerateQuery();
@@ -363,26 +357,30 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
             "Limit expression must be normalized before execution.");
     }
 
-    /// <summary>Applies scan-like query policy before SQL generation or DynamoDB execution.</summary>
-    private static void EnforceScanQueryBehavior(
+    /// <summary>Applies scan-like query warning policy before SQL generation or DynamoDB execution.</summary>
+    private static void EnforceScanQueryWarning(
         SelectExpression selectExpression,
-        DynamoScanQueryBehavior behavior,
         IDiagnosticsLogger<DbLoggerCategory.Query> queryLogger)
     {
         var classification = selectExpression.ScanQueryClassification;
         if (classification is not { IsScanLike: true } || selectExpression.ScanAllowed)
             return;
 
+        var behavior =
+            queryLogger.Options.WarningsConfiguration.GetBehavior(
+                DynamoEventId.ScanLikeQueryDetected)
+            ?? WarningBehavior.Throw;
+
         switch (behavior)
         {
-            case DynamoScanQueryBehavior.Allow:
+            case WarningBehavior.Ignore:
                 return;
 
-            case DynamoScanQueryBehavior.Warn:
+            case WarningBehavior.Log:
                 queryLogger.ScanLikeQueryDetected(classification.Message);
                 return;
 
-            case DynamoScanQueryBehavior.Throw:
+            case WarningBehavior.Throw:
                 throw new InvalidOperationException(classification.Message);
 
             default:

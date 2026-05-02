@@ -1,8 +1,6 @@
 using System.Linq.Expressions;
 using System.Reflection;
 using Amazon.DynamoDBv2.Model;
-using EntityFrameworkCore.DynamoDb.Infrastructure;
-using EntityFrameworkCore.DynamoDb.Infrastructure.Internal;
 using EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
@@ -21,10 +19,6 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
 {
     private readonly ShapedQueryCompilingExpressionVisitorDependencies _dependencies = dependencies;
 
-    private readonly DynamoScanQueryBehavior _scanQueryBehavior =
-        dynamoQueryCompilationContext.ContextOptions.FindExtension<DynamoDbOptionsExtension>()
-            ?.ScanQueryBehavior
-        ?? DynamoScanQueryBehavior.Throw;
 
     private int _runtimeParameterIndex;
 
@@ -102,10 +96,9 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
                 .MakeGenericType(shaperBody.Type)
                 .GetConstructors(
                     BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
-                .Single(c => c.GetParameters().Length == 7),
+                .Single(c => c.GetParameters().Length == 6),
             queryContextParameter,
             Constant(selectExpression),
-            Constant(_scanQueryBehavior),
             Constant(sqlGeneratorFactory),
             shaperLambda,
             Constant(standAloneStateManager),
@@ -123,10 +116,9 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
                 .MakeGenericType(shaperType)
                 .GetConstructors(
                     BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
-                .Single(c => c.GetParameters().Length == 7),
+                .Single(c => c.GetParameters().Length == 6),
             queryContextParameter,
             Constant(selectExpression),
-            Constant(_scanQueryBehavior),
             Constant(sqlGeneratorFactory),
             shaperLambda,
             Constant(standAloneStateManager),
