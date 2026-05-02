@@ -63,24 +63,18 @@ services. You do not need to call it directly.
 
 ## Available Options
 
-All options are set on the `DynamoDbContextOptionsBuilder` passed to the `UseDynamo` callback.
+Most provider options are set on the `DynamoDbContextOptionsBuilder` passed to the `UseDynamo` callback. Warning policies use EF Core's `ConfigureWarnings` API.
 
-### `ScanQueryBehavior`
+### Scan-like query warning
 
 Read queries that do not target exactly one partition-key equality on the active table or index
 are blocked by default. This prevents accidental table or index scans.
 
-| Value             | Behavior                                                               |
-| ----------------- | ---------------------------------------------------------------------- |
-| `Throw` (default) | Throws `InvalidOperationException` before any DynamoDB request is sent |
-| `Warn`            | Logs `ScanLikeQueryDetected`, then executes the query                  |
-| `Allow`           | Executes scan-like queries without a provider warning                  |
+Configure the global policy with `DynamoEventId.ScanLikeQueryDetected`:
 
 ```csharp
-options.UseDynamo(dynamo =>
-{
-    dynamo.ScanQueryBehavior(DynamoScanQueryBehavior.Warn);
-});
+options.ConfigureWarnings(w =>
+    w.Log(DynamoEventId.ScanLikeQueryDetected)); // or Ignore/Throw
 ```
 
 For one intentional scan, keep the global default and opt in on the query:

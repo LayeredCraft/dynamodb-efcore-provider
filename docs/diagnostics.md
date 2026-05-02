@@ -145,15 +145,14 @@ info: Microsoft.EntityFrameworkCore.Database.Command[30102]
 
 ### `ScanLikeQueryDetected` — 30111
 
-Fires when `ScanQueryBehavior(DynamoScanQueryBehavior.Warn)` allows a scan-like read to continue:
+Fires when `DynamoEventId.ScanLikeQueryDetected` is configured to log and a scan-like read continues:
 
 ```
 warn: Microsoft.EntityFrameworkCore.Query[30111]
-      Scan-like DynamoDB query detected for table 'Orders' on base table: missing equality predicate on partition key 'PK'. Add an equality predicate on the active partition key and at most one sort-key key condition, configure ScanQueryBehavior(DynamoScanQueryBehavior.Warn/Allow), or append .AllowScan() for an intentional per-query scan.
+      Scan-like DynamoDB query detected for table 'Orders' on base table: missing equality predicate on partition key 'PK'. Add an equality predicate on the active partition key and at most one sort-key key condition, configure ConfigureWarnings for DynamoEventId.ScanLikeQueryDetected, or append .AllowScan() for an intentional per-query scan.
 ```
 
-With the default `Throw` behavior, the same message is thrown as an `InvalidOperationException`
-before PartiQL generation or `ExecuteStatement`.
+By default, the same message is thrown as an `InvalidOperationException` before PartiQL generation or `ExecuteStatement`. Use `ConfigureWarnings` to `Log`, `Ignore`, or `Throw` this event.
 
 Fields:
 
