@@ -118,7 +118,10 @@ public class DynamoTypeMappingTests
         var optionsBuilder = new DbContextOptionsBuilder<SerializationContext>();
         optionsBuilder
             .UseDynamo()
-            .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning));
+            .ConfigureWarnings(w
+                => w
+                    .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                    .Ignore(DynamoEventId.ScanLikeQueryDetected));
         return new SerializationContext(optionsBuilder.Options);
     }
 

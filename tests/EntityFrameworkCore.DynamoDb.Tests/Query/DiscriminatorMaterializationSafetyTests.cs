@@ -1,6 +1,5 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
-using EntityFrameworkCore.DynamoDb.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using NSubstitute;
@@ -15,9 +14,11 @@ public class DiscriminatorMaterializationSafetyTests
             .UseDynamo(o =>
             {
                 o.DynamoDbClient(client);
-                o.ScanQueryBehavior(DynamoScanQueryBehavior.Allow);
             })
-            .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+            .ConfigureWarnings(w
+                => w
+                    .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                    .Ignore(DynamoEventId.ScanLikeQueryDetected))
             .Options;
 
     private static IAmazonDynamoDB CreateMockClient(

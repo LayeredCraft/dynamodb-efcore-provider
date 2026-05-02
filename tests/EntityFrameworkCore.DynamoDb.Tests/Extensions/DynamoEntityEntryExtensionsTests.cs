@@ -1,4 +1,3 @@
-using System.ComponentModel.DataAnnotations.Schema;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using Microsoft.EntityFrameworkCore;
@@ -66,7 +65,9 @@ public class DynamoEntityEntryExtensionsTests
                 new DbContextOptionsBuilder<TestDbContext>()
                     .UseDynamo(options => options.DynamoDbClient(client))
                     .ConfigureWarnings(w
-                        => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                        => w
+                            .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                            .Ignore(DynamoEventId.ScanLikeQueryDetected))
                     .Options);
     }
 }

@@ -1,6 +1,5 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
-using EntityFrameworkCore.DynamoDb.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using NSubstitute;
@@ -146,10 +145,12 @@ public class ScanQueryGuardTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public async Task GlobalWarn_Executes()
+    public async Task ConfigureWarnings_Log_Executes()
     {
         var client = CreateClient();
-        await using var context = ScanGuardDbContext.Create(client, DynamoScanQueryBehavior.Warn);
+        await using var context = ScanGuardDbContext.Create(
+            client,
+            w => w.Log(DynamoEventId.ScanLikeQueryDetected));
 
         await context
             .Items
@@ -160,10 +161,12 @@ public class ScanQueryGuardTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public async Task GlobalAllow_Executes()
+    public async Task ConfigureWarnings_Ignore_Executes()
     {
         var client = CreateClient();
-        await using var context = ScanGuardDbContext.Create(client, DynamoScanQueryBehavior.Allow);
+        await using var context = ScanGuardDbContext.Create(
+            client,
+            w => w.Ignore(DynamoEventId.ScanLikeQueryDetected));
 
         await context
             .Items
@@ -216,17 +219,17 @@ public class ScanQueryGuardTests
         /// <summary>Provides functionality for this member.</summary>
         public static ScanGuardDbContext Create(
             IAmazonDynamoDB client,
-            DynamoScanQueryBehavior? scanQueryBehavior = null)
-            => new(
-                new DbContextOptionsBuilder<ScanGuardDbContext>()
-                    .UseDynamo(options =>
-                    {
-                        options.DynamoDbClient(client);
-                        if (scanQueryBehavior is { } behavior)
-                            options.ScanQueryBehavior(behavior);
-                    })
-                    .ConfigureWarnings(w
-                        => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
-                    .Options);
+            Action<WarningsConfigurationBuilder>? configureWarnings = null)
+        {
+            var optionsBuilder = new DbContextOptionsBuilder<ScanGuardDbContext>()
+                .UseDynamo(options => options.DynamoDbClient(client))
+                .ConfigureWarnings(w =>
+                {
+                    w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning);
+                    configureWarnings?.Invoke(w);
+                });
+
+            return new ScanGuardDbContext(optionsBuilder.Options);
+        }
     }
 }

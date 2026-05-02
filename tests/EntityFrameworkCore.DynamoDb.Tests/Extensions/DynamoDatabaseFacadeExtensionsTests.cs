@@ -1,5 +1,4 @@
 using Amazon.DynamoDBv2;
-using EntityFrameworkCore.DynamoDb.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using NSubstitute;
@@ -156,7 +155,9 @@ public class DynamoDatabaseFacadeExtensionsTests
                         .MaxTransactionSize(maxTransactionSize)
                         .MaxBatchWriteSize(maxBatchWriteSize))
                     .ConfigureWarnings(w
-                        => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                        => w
+                            .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                            .Ignore(DynamoEventId.ScanLikeQueryDetected))
                     .Options);
     }
 }

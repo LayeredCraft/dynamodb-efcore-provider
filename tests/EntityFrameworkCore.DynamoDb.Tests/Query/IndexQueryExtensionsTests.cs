@@ -1,7 +1,6 @@
 using System.Linq.Expressions;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
-using EntityFrameworkCore.DynamoDb.Infrastructure;
 using EntityFrameworkCore.DynamoDb.Query.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -61,9 +60,11 @@ public class IndexQueryExtensionsTests
                 .UseDynamo(o =>
                 {
                     o.DynamoDbClient(client);
-                    o.ScanQueryBehavior(DynamoScanQueryBehavior.Allow);
                 })
-                .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .ConfigureWarnings(w
+                    => w
+                        .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                        .Ignore(DynamoEventId.ScanLikeQueryDetected))
                 .Options);
 
     private static GsiDbContext CreateGsiContextWithAutoAnalyzer(IAmazonDynamoDB client)
@@ -73,9 +74,11 @@ public class IndexQueryExtensionsTests
                 .UseDynamo(o =>
                 {
                     o.DynamoDbClient(client);
-                    o.ScanQueryBehavior(DynamoScanQueryBehavior.Allow);
                 })
-                .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .ConfigureWarnings(w
+                    => w
+                        .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                        .Ignore(DynamoEventId.ScanLikeQueryDetected))
                 .Options);
 
     /// <summary>
@@ -91,9 +94,11 @@ public class IndexQueryExtensionsTests
                 .UseDynamo(o =>
                 {
                     o.DynamoDbClient(client);
-                    o.ScanQueryBehavior(DynamoScanQueryBehavior.Allow);
                 })
-                .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .ConfigureWarnings(w
+                    => w
+                        .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                        .Ignore(DynamoEventId.ScanLikeQueryDetected))
                 .Options);
 
     /// <summary>
@@ -201,9 +206,11 @@ public class IndexQueryExtensionsTests
                 .UseDynamo(o =>
                 {
                     o.DynamoDbClient(client);
-                    o.ScanQueryBehavior(DynamoScanQueryBehavior.Allow);
                 })
-                .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .ConfigureWarnings(w
+                    => w
+                        .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                        .Ignore(DynamoEventId.ScanLikeQueryDetected))
                 .Options);
 
     private sealed class DerivedIndexQueryDbContext(DbContextOptions options) : DbContext(options)
@@ -261,17 +268,23 @@ public class IndexQueryExtensionsTests
                 .UseDynamo(o =>
                 {
                     o.DynamoDbClient(client);
-                    o.ScanQueryBehavior(DynamoScanQueryBehavior.Allow);
                 })
-                .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .ConfigureWarnings(w
+                    => w
+                        .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                        .Ignore(DynamoEventId.ScanLikeQueryDetected))
                 .Options);
 
     private static TestDbContext CreateContext()
     {
         var optionsBuilder = new DbContextOptionsBuilder<TestDbContext>();
         optionsBuilder
-            .UseDynamo(o => o.ScanQueryBehavior(DynamoScanQueryBehavior.Allow))
-            .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning));
+            .UseDynamo()
+            .ConfigureWarnings(w => w.Ignore(DynamoEventId.ScanLikeQueryDetected))
+            .ConfigureWarnings(w
+                => w
+                    .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                    .Ignore(DynamoEventId.ScanLikeQueryDetected));
         return new TestDbContext(optionsBuilder.Options);
     }
 
@@ -281,9 +294,11 @@ public class IndexQueryExtensionsTests
                 .UseDynamo(o =>
                 {
                     o.DynamoDbClient(client);
-                    o.ScanQueryBehavior(DynamoScanQueryBehavior.Allow);
                 })
-                .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .ConfigureWarnings(w
+                    => w
+                        .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                        .Ignore(DynamoEventId.ScanLikeQueryDetected))
                 .Options);
 
     // ── WithoutIndex extension tests ─────────────────────────────────────────

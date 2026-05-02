@@ -22,7 +22,10 @@ public class DynamoEntityItemSerializerSourceTests
     {
         var options = new DbContextOptionsBuilder<QuotedTableDbContext>()
             .UseDynamo()
-            .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+            .ConfigureWarnings(w
+                => w
+                    .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                    .Ignore(DynamoEventId.ScanLikeQueryDetected))
             .Options;
 
         await using var db = new QuotedTableDbContext(options);
@@ -39,7 +42,10 @@ public class DynamoEntityItemSerializerSourceTests
         using var db = new NullableCollectionDbContext(
             new DbContextOptionsBuilder<NullableCollectionDbContext>()
                 .UseDynamo()
-                .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .ConfigureWarnings(w
+                    => w
+                        .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                        .Ignore(DynamoEventId.ScanLikeQueryDetected))
                 .Options);
 
         var entity = new NullableCollectionEntity
@@ -64,7 +70,10 @@ public class DynamoEntityItemSerializerSourceTests
         using var db = new NullableCollectionDbContext(
             new DbContextOptionsBuilder<NullableCollectionDbContext>()
                 .UseDynamo()
-                .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .ConfigureWarnings(w
+                    => w
+                        .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                        .Ignore(DynamoEventId.ScanLikeQueryDetected))
                 .Options);
 
         var entity = new NullableCollectionEntity
@@ -93,7 +102,10 @@ public class DynamoEntityItemSerializerSourceTests
         using var db = new NullableCollectionDbContext(
             new DbContextOptionsBuilder<NullableCollectionDbContext>()
                 .UseDynamo()
-                .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .ConfigureWarnings(w
+                    => w
+                        .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                        .Ignore(DynamoEventId.ScanLikeQueryDetected))
                 .Options);
 
         var entity = new NullableCollectionEntity
@@ -120,7 +132,10 @@ public class DynamoEntityItemSerializerSourceTests
         using var db = new ComplexCollectionDbContext(
             new DbContextOptionsBuilder<ComplexCollectionDbContext>()
                 .UseDynamo()
-                .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .ConfigureWarnings(w
+                    => w
+                        .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                        .Ignore(DynamoEventId.ScanLikeQueryDetected))
                 .Options);
 
         var entity = new ComplexCollectionEntity
