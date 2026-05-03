@@ -183,10 +183,7 @@ public class AttributeNameOverrideTests
         public static RenameDbContext Create(IAmazonDynamoDB client)
             => new(
                 new DbContextOptionsBuilder<RenameDbContext>()
-                    .UseDynamo(o =>
-                    {
-                        o.DynamoDbClient(client);
-                    })
+                    .UseDynamo(o => o.DynamoDbClient(client))
                     .ConfigureWarnings(w
                         => w
                             .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)

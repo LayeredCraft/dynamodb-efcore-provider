@@ -49,7 +49,6 @@ public class DynamoDbContextOptionsBuilder(DbContextOptionsBuilder optionsBuilde
         DynamoAutomaticIndexSelectionMode mode)
         => WithOption(e => e.WithAutomaticIndexSelectionMode(mode));
 
-
     /// <summary>
     /// Configures how transactional SaveChanges should behave when the write unit exceeds max
     /// transaction size.

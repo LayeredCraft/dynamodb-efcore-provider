@@ -19,7 +19,6 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
 {
     private readonly ShapedQueryCompilingExpressionVisitorDependencies _dependencies = dependencies;
 
-
     private int _runtimeParameterIndex;
 
     private static readonly MethodInfo EnsurePositiveLimitMethodInfo =
@@ -50,8 +49,7 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
         var shaperBody = itemShaperExpression;
 
         // create shaper
-        var itemParameter =
-            Parameter(typeof(Dictionary<string, AttributeValue>), "item");
+        var itemParameter = Parameter(typeof(Dictionary<string, AttributeValue>), "item");
 
         // Step 1: Inject Dictionary<string, AttributeValue> variable handling
         // This adds null-checking and prepares the expression tree for materialization

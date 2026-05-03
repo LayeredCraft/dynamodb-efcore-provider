@@ -211,11 +211,12 @@ internal sealed class DynamoQueryTranslationPostprocessor(
         bool isScanLike,
         string reason)
     {
-        var message =
-            $"Scan-like DynamoDB query detected for table '{tableName}' on {sourceDescription}: "
+        var message = isScanLike
+            ? $"Scan-like DynamoDB query detected for table '{tableName}' on {sourceDescription}: "
             + $"{reason}. Add an equality predicate on the active partition key and at most one "
             + "sort-key key condition, configure ConfigureWarnings for DynamoEventId.ScanLikeQueryDetected, "
-            + "or append .AllowScan() for an intentional per-query scan.";
+            + "or append .AllowScan() for an intentional per-query scan."
+            : string.Empty;
 
         return new DynamoScanQueryClassification(isScanLike, sourceDescription, reason, message);
     }

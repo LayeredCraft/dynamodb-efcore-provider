@@ -24,7 +24,6 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
     public DynamoAutomaticIndexSelectionMode AutomaticIndexSelectionMode { get; private set; } =
         DynamoAutomaticIndexSelectionMode.On;
 
-
     /// <summary>
     /// Controls how SaveChanges behaves when a transactional write unit exceeds max transaction size.
     /// </summary>
@@ -97,7 +96,6 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
 
         return clone;
     }
-
 
     /// <summary>
     /// Sets how transactional SaveChanges should behave when one transaction cannot represent
