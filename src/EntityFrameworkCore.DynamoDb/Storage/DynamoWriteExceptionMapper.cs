@@ -27,31 +27,38 @@ internal sealed class DynamoWriteExceptionMapper
                 ex,
                 entries);
 
-        if (ex is ConditionalCheckFailedException || IsConditionalCheckFailedException(ex))
-            return new DbUpdateConcurrencyException(
-                $"The '{firstEntry.EntityType.DisplayName()}' entity could not be "
-                + (entityState == EntityState.Modified ? "updated" : "deleted")
-                + " because one or more concurrency token values have changed since it was last read. "
-                + "Another writer may have modified this item.",
-                ex,
-                entries);
+        if (ex is ConditionalCheckFailedException ccf)
+            return HasReturnedItem(ccf.Item)
+                ? CreateConcurrencyException(ex, entityState, entries)
+                : CreateMissingItemException(ex, entityState, entries);
+
+        if (IsConditionalCheckFailedException(ex))
+            return EntityTypeHasConcurrencyTokens(firstEntry)
+                ? CreateConcurrencyException(ex, entityState, entries)
+                : CreateMissingItemException(ex, entityState, entries);
 
         if (ex is TransactionCanceledException tce)
         {
-            var hasConcurrency = tce.CancellationReasons?.Any(static r
-                    => string.Equals(r.Code, "ConditionalCheckFailed", StringComparison.Ordinal))
-                ?? false;
+            var conditionFailureReasons =
+                tce
+                    .CancellationReasons
+                    ?.Where(static r
+                        => string.Equals(
+                            r.Code,
+                            "ConditionalCheckFailed",
+                            StringComparison.Ordinal))
+                    .ToList();
 
-            return hasConcurrency
-                ? new DbUpdateConcurrencyException(
-                    $"Transaction cancelled due to a concurrency token conflict on "
-                    + $"'{firstEntry.EntityType.DisplayName()}'.",
-                    tce,
-                    entries)
-                : new DbUpdateException(
-                    $"Transaction cancelled while saving '{firstEntry.EntityType.DisplayName()}'.",
-                    tce,
-                    entries);
+            var hasConditionFailure = conditionFailureReasons?.Count > 0;
+            if (hasConditionFailure)
+                return conditionFailureReasons!.Any(static r => HasReturnedItem(r.Item))
+                    ? CreateConcurrencyException(tce, entityState, entries)
+                    : CreateMissingItemException(tce, entityState, entries);
+
+            return new DbUpdateException(
+                $"Transaction cancelled while saving '{firstEntry.EntityType.DisplayName()}'.",
+                tce,
+                entries);
         }
 
         return new DbUpdateException(
@@ -71,4 +78,45 @@ internal sealed class DynamoWriteExceptionMapper
                     ade.ErrorCode,
                     "ConditionalCheckFailedException",
                     StringComparison.Ordinal));
+
+    private static DbUpdateConcurrencyException CreateConcurrencyException(
+        Exception ex,
+        EntityState entityState,
+        IReadOnlyList<IUpdateEntry> entries)
+    {
+        var firstEntry = entries[0];
+
+        return new DbUpdateConcurrencyException(
+            $"The '{firstEntry.EntityType.DisplayName()}' entity could not be "
+            + (entityState == EntityState.Modified ? "updated" : "deleted")
+            + " because one or more concurrency token values have changed since it was last read. "
+            + "Another writer may have modified this item.",
+            ex,
+            entries);
+    }
+
+    private static DbUpdateException CreateMissingItemException(
+        Exception ex,
+        EntityState entityState,
+        IReadOnlyList<IUpdateEntry> entries)
+    {
+        var firstEntry = entries[0];
+
+        return new DbUpdateException(
+            $"The '{firstEntry.EntityType.DisplayName()}' entity could not be "
+            + (entityState == EntityState.Modified ? "updated" : "deleted")
+            + " because the DynamoDB item was not found for its key. It may have been "
+            + "deleted, or its key values may not match the stored item.",
+            ex,
+            entries);
+    }
+
+    private static bool EntityTypeHasConcurrencyTokens(IUpdateEntry entry)
+        => entry
+            .EntityType
+            .GetProperties()
+            .Any(static p => p.IsConcurrencyToken && !p.IsPrimaryKey());
+
+    private static bool HasReturnedItem(IReadOnlyDictionary<string, AttributeValue>? item)
+        => item is { Count: > 0 };
 }

@@ -180,7 +180,10 @@ internal sealed class DynamoWriteExecutor(
             statements.Add(
                 new ParameterizedStatement
                 {
-                    Statement = operation.Statement, Parameters = operation.Parameters,
+                    Statement = operation.Statement,
+                    Parameters = operation.Parameters,
+                    ReturnValuesOnConditionCheckFailure =
+                        ReturnValuesOnConditionCheckFailure.ALL_OLD,
                 });
         }
 
@@ -237,7 +240,10 @@ internal sealed class DynamoWriteExecutor(
                 statements.Add(
                     new BatchStatementRequest
                     {
-                        Statement = operation.Statement, Parameters = operation.Parameters,
+                        Statement = operation.Statement,
+                        Parameters = operation.Parameters,
+                        ReturnValuesOnConditionCheckFailure =
+                            ReturnValuesOnConditionCheckFailure.ALL_OLD,
                     });
             }
 
@@ -301,10 +307,20 @@ internal sealed class DynamoWriteExecutor(
     }
 
     private static AmazonDynamoDBException CreateBatchStatementException(BatchStatementError error)
-        => new(error.Message ?? "DynamoDB BatchExecuteStatement reported a statement failure.")
+    {
+        if (string.Equals(error.Code, "ConditionalCheckFailed", StringComparison.Ordinal))
+            return new ConditionalCheckFailedException(
+                error.Message ?? "DynamoDB BatchExecuteStatement reported a condition failure.")
+            {
+                ErrorCode = error.Code, Item = error.Item,
+            };
+
+        return new AmazonDynamoDBException(
+            error.Message ?? "DynamoDB BatchExecuteStatement reported a statement failure.")
         {
             ErrorCode = error.Code,
         };
+    }
 
     private static IReadOnlyDictionary<InternalEntityEntry, IReadOnlyList<InternalEntityEntry>>
         BuildRootAggregateEntries(
