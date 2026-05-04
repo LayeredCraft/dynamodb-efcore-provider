@@ -163,6 +163,21 @@ public static class DynamoDbQueryableExtensions
                         source.Expression))
                 : source;
 
+        /// <summary>Allows this query to execute even when it is classified as scan-like.</summary>
+        /// <remarks>
+        ///     This is a per-query opt-in for intentional scans. It does not change the global scan-query
+        ///     behavior configured on the context options.
+        /// </remarks>
+        /// <returns>A new query with scan-like query protection bypassed.</returns>
+        public IQueryable<TEntity> AllowScan()
+            => source.Provider is EntityQueryProvider
+                ? source.Provider.CreateQuery<TEntity>(
+                    Expression.Call(
+                        null,
+                        ((Func<IQueryable<TEntity>, IQueryable<TEntity>>)AllowScan).Method,
+                        source.Expression))
+                : source;
+
         /// <summary>Explicitly selects the DynamoDB secondary index to target for this query.</summary>
         /// <remarks>
         ///     This API records the user's preferred access path and is intended for provider-specific query

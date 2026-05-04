@@ -25,6 +25,7 @@ public static class DynamoEventId
         ExplicitIndexSelected = CoreEventId.ProviderBaseId + 107,
         SecondaryIndexCandidateRejected = CoreEventId.ProviderBaseId + 108,
         ExplicitIndexSelectionDisabled = CoreEventId.ProviderBaseId + 109,
+        ScanLikeQueryDetected = CoreEventId.ProviderBaseId + 111,
     }
 
     private static readonly string CommandPrefix = DbLoggerCategory.Database.Command.Name + ".";
@@ -105,4 +106,10 @@ public static class DynamoEventId
     public static readonly EventId ExplicitIndexSelectionDisabled = new(
         (int)Id.ExplicitIndexSelectionDisabled,
         QueryPrefix + Id.ExplicitIndexSelectionDisabled);
+
+    /// <summary>A read query was classified as scan-like.</summary>
+    /// <remarks>This event is in the <c>DbLoggerCategory.Query</c> category.</remarks>
+    public static readonly EventId ScanLikeQueryDetected = new(
+        (int)Id.ScanLikeQueryDetected,
+        QueryPrefix + Id.ScanLikeQueryDetected);
 }

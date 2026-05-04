@@ -138,17 +138,20 @@ An empty collection translates to a constant-false predicate (`1 = 0`), which re
 
 Every DynamoDB `ExecuteStatement` request is either a **Query** or a **Scan**. A Query reads only the items in a specific partition; a Scan reads every item in the table (or index). Scans are expensive — they consume read capacity across all partitions and slow down as the table grows.
 
-**The rule:** the `WHERE` clause must include an equality (`=`) or `IN` condition on the partition key to produce a Query. Anything else is a Scan.
+By default, the provider blocks scan-like reads before any DynamoDB request is sent. A query must
+target exactly one partition with an equality (`=`) predicate on the active partition key. The
+active key is the base-table key unless `.WithIndex(...)` or automatic index selection chooses a
+secondary index.
 
 ```csharp
 // ✅ Query — partition key equality
 db.Orders.Where(o => o.Pk == customerId);
 
-// ✅ Query — partition key IN (one Query per value)
-db.Orders.Where(o => ids.Contains(o.Pk));
-
 // ✅ Query — PK equality + non-key filter (filter runs after read, still a Query)
 db.Orders.Where(o => o.Pk == customerId && o.Status == "PENDING");
+
+// ❌ Blocked by default — partition key IN is multi-partition
+db.Orders.Where(o => ids.Contains(o.Pk));
 
 // ❌ Scan — comparison on partition key, not equality
 db.Orders.Where(o => o.Pk != customerId);
@@ -159,12 +162,16 @@ db.Orders.Where(o => o.Status == "PENDING");
 
 ### Multiple conditions on the partition key
 
-Applying more than one condition to the partition key is almost always a mistake. The only safe forms are a single equality or a single `IN`. Comparisons (`>`, `<`, `>=`, `<=`), `BETWEEN`, or `begins_with` on the partition key do not narrow to a partition — they produce a Scan.
+Applying more than one condition to the partition key is almost always a mistake. The provider's
+default safe form is a single equality. Comparisons (`>`, `<`, `>=`, `<=`), `BETWEEN`, or
+`begins_with` on the partition key do not narrow to a partition and are scan-like.
 
-Multiple equality conditions combined with `OR` are a special case: `WHERE pk = X OR pk = Y` is treated as two separate Query operations and is safe. However, if the `OR` includes any non-key attribute — `WHERE pk = X OR status = 'PENDING'` — DynamoDB cannot satisfy the non-key side with a key lookup and falls back to a Scan.
+The scan guard is stricter than raw PartiQL here: partition-key `IN` and partition-key `OR` are
+treated as scan-like because they fan out across multiple partitions. Use separate keyed queries
+when you need to load a known set of partition keys.
 
 ```csharp
-// ✅ PK OR PK — two Queries, not a scan
+// ❌ Blocked by default — multi-partition PK OR
 db.Orders.Where(o => o.Pk == id1 || o.Pk == id2);
 
 // ❌ Scan — OR mixes PK with a non-key attribute
@@ -187,6 +194,29 @@ db.Orders.Where(o => o.Pk == customerId
 ```
 
 Two sort key conditions that cannot be collapsed into `BETWEEN` — for example, a `>=` and a `<` on the same property — are both emitted as separate comparisons. DynamoDB rejects this as an invalid key condition combination and falls back to treating the sort key predicates as filter expressions, which means all items in the partition are read first.
+
+Sort-key `IN`, sort-key `OR`, and multiple independent sort-key constraints are scan-like and are
+blocked by default.
+
+### Intentional scans
+
+Use `.AllowScan()` when a single query is intentionally scan-like:
+
+```csharp
+await db.Orders
+    .Where(o => o.Status == "PENDING")
+    .AllowScan()
+    .ToListAsync();
+```
+
+For broader migrations or controlled workloads, configure this event explicitly:
+
+```csharp
+options.ConfigureWarnings(w =>
+    w.Log(DynamoEventId.ScanLikeQueryDetected)); // or Ignore/Throw
+```
+
+By default, `ScanLikeQueryDetected` throws before any DynamoDB request is sent. The provider registers this event as an explicit throwing warning, so `ConfigureWarnings(w => w.Default(...))` does not override it. `Log` writes the warning and executes. `Ignore` executes silently.
 
 ```csharp
 // ❌ Two separate SK conditions — NOT collapsed to BETWEEN (exclusive lower bound)

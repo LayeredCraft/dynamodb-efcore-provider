@@ -32,7 +32,10 @@ public class SaveChangesTableDbContext(DbContextOptions options) : DbContext(opt
         => new(
             new DbContextOptionsBuilder<SaveChangesTableDbContext>()
                 .UseDynamo(options => options.DynamoDbClient(client))
-                .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .ConfigureWarnings(w
+                    => w
+                        .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                        .Ignore(DynamoEventId.ScanLikeQueryDetected))
                 .Options);
 
     /// <summary>Configures the shared-table SaveChanges model used by future CRUD tests.</summary>

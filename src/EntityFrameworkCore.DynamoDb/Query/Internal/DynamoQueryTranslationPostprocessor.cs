@@ -109,6 +109,17 @@ internal sealed class DynamoQueryTranslationPostprocessor(
         var effectiveSortKeyAttr =
             ResolveEffectiveSortKeyAttributeName(candidates, decision.SelectedIndexName);
         var isBaseTableSource = decision.SelectedIndexName is null;
+
+        if (dynamoQueryCompilationContext.ScanAllowed)
+            selectExpression.AllowScan();
+
+        selectExpression.ApplyScanQueryClassification(
+            ClassifyScanQuery(
+                selectExpression,
+                queryConstraints,
+                effectiveSortKeyAttr,
+                isBaseTableSource));
+
         ValidateOrderByConstraints(selectExpression, queryConstraints, effectiveSortKeyAttr);
 
         // Validate First* safe path: must be key-only (no user limit, no non-key predicates).
@@ -121,6 +132,95 @@ internal sealed class DynamoQueryTranslationPostprocessor(
                 isBaseTableSource);
 
         return query;
+    }
+
+    /// <summary>Classifies the finalized active query source as keyed or scan-like.</summary>
+    private static DynamoScanQueryClassification ClassifyScanQuery(
+        SelectExpression selectExpression,
+        DynamoQueryConstraints? queryConstraints,
+        string? effectiveSortKeyAttributeName,
+        bool isBaseTableSource)
+    {
+        var sourceDescription = isBaseTableSource
+            ? "base table"
+            : $"index '{selectExpression.IndexName}'";
+
+        // Permissive fallback: if runtime metadata is unavailable (e.g. design-time or no
+        // runtime model), skip scan classification rather than blocking the query.
+        if (queryConstraints is null)
+            return CreateScanClassification(
+                selectExpression.TableName,
+                sourceDescription,
+                false,
+                "runtime table metadata was unavailable");
+
+        var effectivePk = selectExpression.EffectivePartitionKeyPropertyNames.FirstOrDefault();
+        if (effectivePk is null)
+            return CreateScanClassification(
+                selectExpression.TableName,
+                sourceDescription,
+                false,
+                "runtime key metadata was unavailable");
+
+        if (queryConstraints.InConstraints.ContainsKey(effectivePk))
+            return CreateScanClassification(
+                selectExpression.TableName,
+                sourceDescription,
+                true,
+                $"partition key '{effectivePk}' uses IN/OR instead of a single equality");
+
+        if (!queryConstraints.EqualityConstraints.ContainsKey(effectivePk))
+            return CreateScanClassification(
+                selectExpression.TableName,
+                sourceDescription,
+                true,
+                $"missing equality predicate on partition key '{effectivePk}'");
+
+        if (selectExpression.Predicate is not null
+            && PredicateHasOrTouchingKey(
+                selectExpression.Predicate,
+                effectivePk,
+                effectiveSortKeyAttributeName))
+            return CreateScanClassification(
+                selectExpression.TableName,
+                sourceDescription,
+                true,
+                "OR predicate references a partition or sort key");
+
+        if (effectiveSortKeyAttributeName is not null
+            && selectExpression.Predicate is not null
+            && PredicateReferencesAttribute(
+                selectExpression.Predicate,
+                effectiveSortKeyAttributeName)
+            && !queryConstraints.SkKeyConditions.ContainsKey(effectiveSortKeyAttributeName))
+            return CreateScanClassification(
+                selectExpression.TableName,
+                sourceDescription,
+                true,
+                $"sort key '{effectiveSortKeyAttributeName}' is used as a filter instead of a single key condition");
+
+        return CreateScanClassification(
+            selectExpression.TableName,
+            sourceDescription,
+            false,
+            "single partition-key equality");
+    }
+
+    /// <summary>Creates a scan classification with the standard user-facing message.</summary>
+    private static DynamoScanQueryClassification CreateScanClassification(
+        string tableName,
+        string sourceDescription,
+        bool isScanLike,
+        string reason)
+    {
+        var message = isScanLike
+            ? $"Scan-like DynamoDB query detected for table '{tableName}' on {sourceDescription}: "
+            + $"{reason}. Add an equality predicate on the active partition key and at most one "
+            + "sort-key key condition, configure ConfigureWarnings for DynamoEventId.ScanLikeQueryDetected, "
+            + "or append .AllowScan() for an intentional per-query scan."
+            : string.Empty;
+
+        return new DynamoScanQueryClassification(isScanLike, sourceDescription, reason, message);
     }
 
     /// <summary>
@@ -518,6 +618,55 @@ internal sealed class DynamoQueryTranslationPostprocessor(
                 && PredicateReferencesAttribute(parentSql, attributeName),
             DynamoListIndexExpression listIdx => listIdx.Source is SqlExpression sourceSql
                 && PredicateReferencesAttribute(sourceSql, attributeName),
+            _ => false,
+        };
+
+    /// <summary>Returns <c>true</c> when any OR branch references the active PK or SK.</summary>
+    private static bool PredicateHasOrTouchingKey(
+        SqlExpression expression,
+        string effectivePk,
+        string? effectiveSortKey)
+        => expression switch
+        {
+            SqlBinaryExpression { OperatorType: ExpressionType.OrElse } or =>
+                PredicateReferencesAttribute(or.Left, effectivePk)
+                || PredicateReferencesAttribute(or.Right, effectivePk)
+                || (effectiveSortKey is not null
+                    && (PredicateReferencesAttribute(or.Left, effectiveSortKey)
+                        || PredicateReferencesAttribute(or.Right, effectiveSortKey)))
+                || PredicateHasOrTouchingKey(or.Left, effectivePk, effectiveSortKey)
+                || PredicateHasOrTouchingKey(or.Right, effectivePk, effectiveSortKey),
+            SqlBinaryExpression bin => PredicateHasOrTouchingKey(
+                    bin.Left,
+                    effectivePk,
+                    effectiveSortKey)
+                || PredicateHasOrTouchingKey(bin.Right, effectivePk, effectiveSortKey),
+            SqlUnaryExpression unary => PredicateHasOrTouchingKey(
+                unary.Operand,
+                effectivePk,
+                effectiveSortKey),
+            SqlIsNullExpression isNull => PredicateHasOrTouchingKey(
+                isNull.Operand,
+                effectivePk,
+                effectiveSortKey),
+            SqlParenthesizedExpression paren => PredicateHasOrTouchingKey(
+                paren.Operand,
+                effectivePk,
+                effectiveSortKey),
+            SqlBetweenExpression between => PredicateHasOrTouchingKey(
+                between.Subject,
+                effectivePk,
+                effectiveSortKey),
+            SqlFunctionExpression func => func.Arguments.Any(a
+                => PredicateHasOrTouchingKey(a, effectivePk, effectiveSortKey)),
+            SqlInExpression inExpr => PredicateHasOrTouchingKey(
+                inExpr.Item,
+                effectivePk,
+                effectiveSortKey),
+            DynamoScalarAccessExpression scalar => scalar.Parent is SqlExpression parentSql
+                && PredicateHasOrTouchingKey(parentSql, effectivePk, effectiveSortKey),
+            DynamoListIndexExpression listIdx => listIdx.Source is SqlExpression sourceSql
+                && PredicateHasOrTouchingKey(sourceSql, effectivePk, effectiveSortKey),
             _ => false,
         };
 

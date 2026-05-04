@@ -60,14 +60,20 @@ public class SaveChangesModelValidationTests(DynamoContainerFixture fixture)
         => new(
             new DbContextOptionsBuilder<UnmappedScalarContext>()
                 .UseDynamo(options => options.DynamoDbClient(Client))
-                .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .ConfigureWarnings(w
+                    => w
+                        .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                        .Ignore(DynamoEventId.ScanLikeQueryDetected))
                 .Options);
 
     private RowVersionContext CreateRowVersionContext()
         => new(
             new DbContextOptionsBuilder<RowVersionContext>()
                 .UseDynamo(options => options.DynamoDbClient(Client))
-                .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .ConfigureWarnings(w
+                    => w
+                        .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                        .Ignore(DynamoEventId.ScanLikeQueryDetected))
                 .Options);
 
     private sealed class UnmappedScalarContext(DbContextOptions options) : DbContext(options)

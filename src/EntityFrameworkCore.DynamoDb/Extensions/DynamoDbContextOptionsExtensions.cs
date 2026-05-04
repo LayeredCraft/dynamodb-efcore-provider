@@ -1,3 +1,4 @@
+using EntityFrameworkCore.DynamoDb.Diagnostics;
 using EntityFrameworkCore.DynamoDb.Infrastructure;
 using EntityFrameworkCore.DynamoDb.Infrastructure.Internal;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -53,9 +54,10 @@ public static class DynamoDbContextOptionsExtensions
             optionsBuilder.Options.FindExtension<CoreOptionsExtension>()
             ?? new CoreOptionsExtension();
 
-        // coreOptionsExtension = coreOptionsExtension.WithWarningsConfiguration(
-        //     coreOptionsExtension.WarningsConfiguration.TryWithExplicit(
-        //         CosmosEventId.BulkExecutionWithTransactionalBatch, WarningBehavior.Throw));
+        coreOptionsExtension = coreOptionsExtension.WithWarningsConfiguration(
+            coreOptionsExtension.WarningsConfiguration.TryWithExplicit(
+                DynamoEventId.ScanLikeQueryDetected,
+                WarningBehavior.Throw));
 
         ((IDbContextOptionsBuilderInfrastructure)optionsBuilder).AddOrUpdateExtension(
             coreOptionsExtension);

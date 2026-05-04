@@ -1,5 +1,4 @@
 using Amazon.DynamoDBv2;
-using EntityFrameworkCore.DynamoDb.Infrastructure;
 using EntityFrameworkCore.DynamoDb.Infrastructure.Internal;
 using Microsoft.EntityFrameworkCore;
 using NSubstitute;

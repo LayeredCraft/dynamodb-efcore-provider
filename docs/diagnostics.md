@@ -83,6 +83,7 @@ emitted as log events.
 | `ExplicitIndexSelected`                   | 30107    | `Query`            | Information | `DYNAMO_IDX004` |
 | `SecondaryIndexCandidateRejected`         | 30108    | `Query`            | Information | `DYNAMO_IDX005` |
 | `ExplicitIndexSelectionDisabled`          | 30109    | `Query`            | Information | `DYNAMO_IDX006` |
+| `ScanLikeQueryDetected`                   | 30111    | `Query`            | Warning     | —               |
 
 Event IDs are stable across releases. You can use them to filter log output programmatically or
 in structured logging sinks.
@@ -139,6 +140,19 @@ Fires after each HTTP response, paired with the preceding `ExecutingExecuteState
 info: Microsoft.EntityFrameworkCore.Database.Command[30102]
       Executed DynamoDB ExecuteStatement request (itemsCount: 25, nextTokenPresent: True)
 ```
+
+## Query Events
+
+### `ScanLikeQueryDetected` — 30111
+
+Fires when `DynamoEventId.ScanLikeQueryDetected` is configured to log and a scan-like read continues:
+
+```
+warn: Microsoft.EntityFrameworkCore.Query[30111]
+      Scan-like DynamoDB query detected for table 'Orders' on base table: missing equality predicate on partition key 'PK'. Add an equality predicate on the active partition key and at most one sort-key key condition, configure ConfigureWarnings for DynamoEventId.ScanLikeQueryDetected, or append .AllowScan() for an intentional per-query scan.
+```
+
+By default, the same message is thrown as an `InvalidOperationException` before PartiQL generation or `ExecuteStatement`. The provider registers this event as an explicit throwing warning, so `ConfigureWarnings(w => w.Default(...))` does not override it. Use `ConfigureWarnings` with `DynamoEventId.ScanLikeQueryDetected` to `Log`, `Ignore`, or `Throw` this event explicitly.
 
 Fields:
 
@@ -394,9 +408,9 @@ list of supported and unsupported LINQ shapes.
 
 The following diagnostic features are tracked for future releases:
 
-**`ConfigureWarnings` integration** — Warning events (`DYNAMO_IDX001`, `DYNAMO_IDX002`) cannot
+**`ConfigureWarnings` integration** — Some warning events (`DYNAMO_IDX001`, `DYNAMO_IDX002`) cannot
 yet be escalated to exceptions or suppressed via `optionsBuilder.ConfigureWarnings(w => w.Throw(...))`.
-Standard EF Core warning configuration has no effect on these events today.
+`ScanLikeQueryDetected` does support standard EF Core warning configuration.
 
 **Sensitive data logging** — `EnableSensitiveDataLogging()` has no effect on DynamoDB provider
 logs. Parameter values in PartiQL statements are always omitted from log output regardless of

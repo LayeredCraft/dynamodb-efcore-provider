@@ -185,7 +185,9 @@ public class AttributeNameOverrideTests
                 new DbContextOptionsBuilder<RenameDbContext>()
                     .UseDynamo(o => o.DynamoDbClient(client))
                     .ConfigureWarnings(w
-                        => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                        => w
+                            .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                            .Ignore(DynamoEventId.ScanLikeQueryDetected))
                     .Options);
     }
 }

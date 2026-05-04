@@ -43,7 +43,10 @@ public class ComplexTypesModelValidationTests
     {
         var builder = new DbContextOptionsBuilder<TContext>();
         builder.UseDynamo(options => options.DynamoDbClient(_fixture.Client));
-        builder.ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning));
+        builder.ConfigureWarnings(w
+            => w
+                .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                .Ignore(DynamoEventId.ScanLikeQueryDetected));
         return builder.Options;
     }
 

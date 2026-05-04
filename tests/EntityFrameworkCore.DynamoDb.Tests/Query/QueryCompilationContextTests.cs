@@ -32,7 +32,10 @@ public class QueryCompilationContextTests
         var dbContextOptionsBuilder = new DbContextOptionsBuilder<TestDbContext>();
         dbContextOptionsBuilder
             .UseDynamo()
-            .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning));
+            .ConfigureWarnings(w
+                => w
+                    .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                    .Ignore(DynamoEventId.ScanLikeQueryDetected));
         var dbContext = new TestDbContext(dbContextOptionsBuilder.Options);
         return dbContext.GetService<QueryCompilationContextDependencies>();
     }

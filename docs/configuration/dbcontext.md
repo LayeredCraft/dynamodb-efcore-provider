@@ -6,8 +6,8 @@ description: How to register and configure the provider in DbContext.
 # DbContext Options
 
 _Register the DynamoDB EF Core provider by calling `UseDynamo` on `DbContextOptionsBuilder`, then
-tune transaction limits, batch sizes, and index selection behavior through the options builder or
-per-context runtime overrides._
+tune transaction limits, batch sizes, scan protection, and index selection behavior through the
+options builder or per-context runtime overrides._
 
 ## Registering the Provider
 
@@ -63,7 +63,32 @@ services. You do not need to call it directly.
 
 ## Available Options
 
-All options are set on the `DynamoDbContextOptionsBuilder` passed to the `UseDynamo` callback.
+Most provider options are set on the `DynamoDbContextOptionsBuilder` passed to the `UseDynamo` callback. Warning policies use EF Core's `ConfigureWarnings` API.
+
+### Scan-like query warning
+
+Read queries that do not target exactly one partition-key equality on the active table or index
+throw by default. The provider configures `DynamoEventId.ScanLikeQueryDetected` as an explicit
+throwing warning to prevent accidental table or index scans.
+
+Configure this event explicitly to allow scan-like queries globally:
+
+```csharp
+options.ConfigureWarnings(w =>
+    w.Log(DynamoEventId.ScanLikeQueryDetected)); // or Ignore/Throw
+```
+
+`ConfigureWarnings(w => w.Default(...))` does not override this provider safety default. Use the
+per-event `ScanLikeQueryDetected` setting or `.AllowScan()`.
+
+For one intentional scan, keep the global default and opt in on the query:
+
+```csharp
+await db.Orders
+    .Where(o => o.Status == "PENDING")
+    .AllowScan()
+    .ToListAsync();
+```
 
 ### `TransactionOverflowBehavior`
 
@@ -222,8 +247,8 @@ var size = context.Database.GetMaxTransactionSize();
 **Precedence (highest to lowest):**
 
 1. Per-context override (`context.Database.Set...`)
-1. Startup option (`UseDynamo(options => ...)`)
-1. Provider default (`Throw`, `100`, `25`)
+2. Startup option (`UseDynamo(options => ...)`)
+3. Provider default (`Throw`, `100`, `25`)
 
 ## See also
 

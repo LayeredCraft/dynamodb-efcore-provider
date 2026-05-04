@@ -101,7 +101,10 @@ public class SaveChangesEdgeCasesTests(DynamoContainerFixture fixture)
         => new(
             new DbContextOptionsBuilder<LongStatementContext>()
                 .UseDynamo(options => options.DynamoDbClient(Client))
-                .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .ConfigureWarnings(w
+                    => w
+                        .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                        .Ignore(DynamoEventId.ScanLikeQueryDetected))
                 .Options);
 
     // ── Private model ─────────────────────────────────────────────────────────

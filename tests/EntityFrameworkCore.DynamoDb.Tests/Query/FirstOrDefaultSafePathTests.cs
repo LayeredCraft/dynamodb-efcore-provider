@@ -1,4 +1,3 @@
-using System.ComponentModel.DataAnnotations.Schema;
 using Amazon.DynamoDBv2;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -421,7 +420,9 @@ public class FirstOrDefaultSafePathTests
                 new DbContextOptionsBuilder<SafePathDbContext>()
                     .UseDynamo(options => options.DynamoDbClient(client))
                     .ConfigureWarnings(w
-                        => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                        => w
+                            .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                            .Ignore(DynamoEventId.ScanLikeQueryDetected))
                     .Options);
     }
 
@@ -498,7 +499,9 @@ public class FirstOrDefaultSafePathTests
                 new DbContextOptionsBuilder<NestedPathDbContext>()
                     .UseDynamo(options => options.DynamoDbClient(client))
                     .ConfigureWarnings(w
-                        => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                        => w
+                            .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                            .Ignore(DynamoEventId.ScanLikeQueryDetected))
                     .Options);
     }
 
@@ -523,7 +526,9 @@ public class FirstOrDefaultSafePathTests
                 new DbContextOptionsBuilder<DeepNestedPathDbContext>()
                     .UseDynamo(options => options.DynamoDbClient(client))
                     .ConfigureWarnings(w
-                        => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                        => w
+                            .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                            .Ignore(DynamoEventId.ScanLikeQueryDetected))
                     .Options);
     }
 
@@ -578,7 +583,9 @@ public class FirstOrDefaultSafePathTests
                 new DbContextOptionsBuilder<PartitionOnlyGsiDbContext>()
                     .UseDynamo(options => options.DynamoDbClient(client))
                     .ConfigureWarnings(w
-                        => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                        => w
+                            .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                            .Ignore(DynamoEventId.ScanLikeQueryDetected))
                     .Options);
     }
 
@@ -617,7 +624,9 @@ public class FirstOrDefaultSafePathTests
                 new DbContextOptionsBuilder<InheritanceDbContext>()
                     .UseDynamo(options => options.DynamoDbClient(client))
                     .ConfigureWarnings(w
-                        => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                        => w
+                            .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                            .Ignore(DynamoEventId.ScanLikeQueryDetected))
                     .Options);
     }
 }

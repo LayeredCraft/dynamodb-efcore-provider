@@ -36,7 +36,10 @@ public class DynamoResponseShadowPropertyTests
         => new(
             new DbContextOptionsBuilder<ItemContext>()
                 .UseDynamo()
-                .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .ConfigureWarnings(w
+                    => w
+                        .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                        .Ignore(DynamoEventId.ScanLikeQueryDetected))
                 .Options);
 
     // -----------------------------------------------------------------------

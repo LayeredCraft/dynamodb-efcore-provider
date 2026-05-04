@@ -15,7 +15,10 @@ public class NamingConventionsTableDbContext(DbContextOptions options) : DbConte
         => new(
             new DbContextOptionsBuilder<NamingConventionsTableDbContext>()
                 .UseDynamo(options => options.DynamoDbClient(client))
-                .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .ConfigureWarnings(w
+                    => w
+                        .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                        .Ignore(DynamoEventId.ScanLikeQueryDetected))
                 .Options);
 
     /// <summary>Configures the owned-shape model used by materialization tests.</summary>

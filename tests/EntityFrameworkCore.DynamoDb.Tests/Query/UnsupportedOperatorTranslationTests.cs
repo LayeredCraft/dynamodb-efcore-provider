@@ -181,7 +181,9 @@ public class UnsupportedOperatorTranslationTests
                 new DbContextOptionsBuilder<UnsupportedOperatorDbContext>()
                     .UseDynamo(options => options.DynamoDbClient(client))
                     .ConfigureWarnings(w
-                        => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                        => w
+                            .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                            .Ignore(DynamoEventId.ScanLikeQueryDetected))
                     .Options);
     }
 }

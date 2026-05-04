@@ -1,5 +1,4 @@
 using EntityFrameworkCore.DynamoDb.Diagnostics;
-using EntityFrameworkCore.DynamoDb.Infrastructure;
 using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;

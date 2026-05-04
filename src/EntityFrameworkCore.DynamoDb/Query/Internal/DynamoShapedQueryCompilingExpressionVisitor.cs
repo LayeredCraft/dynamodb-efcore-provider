@@ -3,7 +3,6 @@ using System.Reflection;
 using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Storage;
 using static System.Linq.Expressions.Expression;
@@ -19,6 +18,7 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
     dynamoQueryCompilationContext)
 {
     private readonly ShapedQueryCompilingExpressionVisitorDependencies _dependencies = dependencies;
+
     private int _runtimeParameterIndex;
 
     private static readonly MethodInfo EnsurePositiveLimitMethodInfo =
@@ -49,8 +49,7 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
         var shaperBody = itemShaperExpression;
 
         // create shaper
-        var itemParameter =
-            Expression.Parameter(typeof(Dictionary<string, AttributeValue>), "item");
+        var itemParameter = Parameter(typeof(Dictionary<string, AttributeValue>), "item");
 
         // Step 1: Inject Dictionary<string, AttributeValue> variable handling
         // This adds null-checking and prepares the expression tree for materialization
@@ -71,7 +70,7 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
             QueryCompilationContext.QueryContextParameter,
             itemParameter);
 
-        var queryContextParameter = Expression.Convert(
+        var queryContextParameter = Convert(
             QueryCompilationContext.QueryContextParameter,
             typeof(DynamoQueryContext));
 
@@ -90,18 +89,18 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
                 shaperLambda,
                 standAloneStateManager);
 
-        return Expression.New(
+        return New(
             typeof(QueryingEnumerable<>)
                 .MakeGenericType(shaperBody.Type)
                 .GetConstructors(
                     BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
                 .Single(c => c.GetParameters().Length == 6),
             queryContextParameter,
-            Expression.Constant(selectExpression),
-            Expression.Constant(sqlGeneratorFactory),
+            Constant(selectExpression),
+            Constant(sqlGeneratorFactory),
             shaperLambda,
-            Expression.Constant(standAloneStateManager),
-            Expression.Constant(_dependencies.CoreSingletonOptions.AreThreadSafetyChecksEnabled));
+            Constant(standAloneStateManager),
+            Constant(_dependencies.CoreSingletonOptions.AreThreadSafetyChecksEnabled));
     }
 
     private Expression CreatePagingEnumerableExpression(
@@ -110,18 +109,18 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
         SelectExpression selectExpression,
         LambdaExpression shaperLambda,
         bool standAloneStateManager)
-        => Expression.New(
+        => New(
             typeof(PagingQueryingEnumerable<>)
                 .MakeGenericType(shaperType)
                 .GetConstructors(
                     BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
                 .Single(c => c.GetParameters().Length == 6),
             queryContextParameter,
-            Expression.Constant(selectExpression),
-            Expression.Constant(sqlGeneratorFactory),
+            Constant(selectExpression),
+            Constant(sqlGeneratorFactory),
             shaperLambda,
-            Expression.Constant(standAloneStateManager),
-            Expression.Constant(_dependencies.CoreSingletonOptions.AreThreadSafetyChecksEnabled));
+            Constant(standAloneStateManager),
+            Constant(_dependencies.CoreSingletonOptions.AreThreadSafetyChecksEnabled));
 
     /// <summary>
     ///     Normalizes a parameterized <c>Limit(n)</c> expression for runtime evaluation. Constants
@@ -141,10 +140,10 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
             ?? throw new InvalidOperationException("Unable to normalize Limit expression.");
 
         // Runtime parameters must be int-valued before registration.
-        var convertedExpression = Expression.Convert(injectedExpression, typeof(int));
+        var convertedExpression = Convert(injectedExpression, typeof(int));
 
         // Validate at runtime: Limit must be positive.
-        var body = Expression.Call(EnsurePositiveLimitMethodInfo, convertedExpression);
+        var body = Call(EnsurePositiveLimitMethodInfo, convertedExpression);
         var valueExtractor = Expression.Lambda(body, QueryCompilationContext.QueryContextParameter);
 
         return QueryCompilationContext.RegisterRuntimeParameter(parameterName, valueExtractor);
@@ -166,7 +165,7 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
         StructuralTypeShaperExpression shaper,
         ParameterExpression instanceVariable,
         List<ParameterExpression> variables,
-        List<System.Linq.Expressions.Expression> expressions)
+        List<Expression> expressions)
     {
         foreach (var complexProperty in shaper.StructuralType.GetComplexProperties())
         {

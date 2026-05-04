@@ -17,7 +17,10 @@ public class DynamoComplexPropertyDiscoveryConventionTests
     private static DbContextOptions BuildOptions<T>(IAmazonDynamoDB client) where T : DbContext
         => new DbContextOptionsBuilder<T>()
             .UseDynamo(o => o.DynamoDbClient(client))
-            .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+            .ConfigureWarnings(w
+                => w
+                    .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                    .Ignore(DynamoEventId.ScanLikeQueryDetected))
             .Options;
 
     private sealed record Address

@@ -98,6 +98,19 @@ public class SelectExpression(string tableName, string? queryEntityTypeName = nu
     /// <summary>Sets the secondary index name to use in the FROM clause.</summary>
     public void ApplyIndexName(string? indexName) => IndexName = indexName;
 
+    /// <summary>True when this query has opted into intentional scan execution.</summary>
+    public bool ScanAllowed { get; private set; }
+
+    /// <summary>Marks this query as allowed to execute even when scan-like.</summary>
+    public void AllowScan() => ScanAllowed = true;
+
+    /// <summary>The finalized scan-like query classification for this read query.</summary>
+    internal DynamoScanQueryClassification? ScanQueryClassification { get; private set; }
+
+    /// <summary>Stores the finalized scan-like query classification for runtime enforcement.</summary>
+    internal void ApplyScanQueryClassification(DynamoScanQueryClassification classification)
+        => ScanQueryClassification = classification;
+
     /// <summary>
     ///     Gets the effective partition-key property names for the finalized query source.
     ///     Contains exactly the active source partition key (base table or selected index).

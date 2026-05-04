@@ -19,7 +19,10 @@ public class ComplexCollectionWithIdPropertyDbContext(DbContextOptions options) 
         => new(
             new DbContextOptionsBuilder<ComplexCollectionWithIdPropertyDbContext>()
                 .UseDynamo(options => options.DynamoDbClient(client))
-                .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .ConfigureWarnings(w
+                    => w
+                        .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                        .Ignore(DynamoEventId.ScanLikeQueryDetected))
                 .Options);
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -52,7 +55,10 @@ public class ConventionOnlyComplexTypesDbContext(DbContextOptions options) : DbC
         => new(
             new DbContextOptionsBuilder<ConventionOnlyComplexTypesDbContext>()
                 .UseDynamo(options => options.DynamoDbClient(client))
-                .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .ConfigureWarnings(w
+                    => w
+                        .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                        .Ignore(DynamoEventId.ScanLikeQueryDetected))
                 .Options);
 
     /// <summary>
@@ -80,7 +86,10 @@ public class ConventionOnlyCollectionShapeDbContext(DbContextOptions options) : 
         => new(
             new DbContextOptionsBuilder<ConventionOnlyCollectionShapeDbContext>()
                 .UseDynamo(options => options.DynamoDbClient(client))
-                .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .ConfigureWarnings(w
+                    => w
+                        .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                        .Ignore(DynamoEventId.ScanLikeQueryDetected))
                 .Options);
 
     /// <summary>
@@ -105,7 +114,10 @@ public class ComplexTypesTableDbContext(DbContextOptions options) : DbContext(op
         => new(
             new DbContextOptionsBuilder<ComplexTypesTableDbContext>()
                 .UseDynamo(options => options.DynamoDbClient(client))
-                .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                .ConfigureWarnings(w
+                    => w
+                        .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                        .Ignore(DynamoEventId.ScanLikeQueryDetected))
                 .Options);
 
     /// <summary>Configures the complex-shape model used by query and materialization tests.</summary>

@@ -644,7 +644,9 @@ public class ComplexTypeProjectionTests
                 new DbContextOptionsBuilder<SharedProfileDbContext>()
                     .UseDynamo(o => o.DynamoDbClient(client))
                     .ConfigureWarnings(w
-                        => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                        => w
+                            .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                            .Ignore(DynamoEventId.ScanLikeQueryDetected))
                     .Options);
     }
 
@@ -670,7 +672,9 @@ public class ComplexTypeProjectionTests
                 new DbContextOptionsBuilder<RequiredComplexPropertyDbContext>()
                     .UseDynamo(o => o.DynamoDbClient(client))
                     .ConfigureWarnings(w
-                        => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                        => w
+                            .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                            .Ignore(DynamoEventId.ScanLikeQueryDetected))
                     .Options);
     }
 
@@ -696,7 +700,9 @@ public class ComplexTypeProjectionTests
                 new DbContextOptionsBuilder<NullableComplexCollectionDbContext>()
                     .UseDynamo(o => o.DynamoDbClient(client))
                     .ConfigureWarnings(w
-                        => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                        => w
+                            .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                            .Ignore(DynamoEventId.ScanLikeQueryDetected))
                     .Options);
     }
 
@@ -721,7 +727,9 @@ public class ComplexTypeProjectionTests
                 new DbContextOptionsBuilder<NestedProfileDbContext>()
                     .UseDynamo(o => o.DynamoDbClient(client))
                     .ConfigureWarnings(w
-                        => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+                        => w
+                            .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                            .Ignore(DynamoEventId.ScanLikeQueryDetected))
                     .Options);
     }
 }
