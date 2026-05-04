@@ -152,7 +152,7 @@ warn: Microsoft.EntityFrameworkCore.Query[30111]
       Scan-like DynamoDB query detected for table 'Orders' on base table: missing equality predicate on partition key 'PK'. Add an equality predicate on the active partition key and at most one sort-key key condition, configure ConfigureWarnings for DynamoEventId.ScanLikeQueryDetected, or append .AllowScan() for an intentional per-query scan.
 ```
 
-By default, the same message is thrown as an `InvalidOperationException` before PartiQL generation or `ExecuteStatement`. Use `ConfigureWarnings` to `Log`, `Ignore`, or `Throw` this event.
+By default, the same message is thrown as an `InvalidOperationException` before PartiQL generation or `ExecuteStatement`. The provider registers this event as an explicit throwing warning, so `ConfigureWarnings(w => w.Default(...))` does not override it. Use `ConfigureWarnings` with `DynamoEventId.ScanLikeQueryDetected` to `Log`, `Ignore`, or `Throw` this event explicitly.
 
 Fields:
 
@@ -408,9 +408,9 @@ list of supported and unsupported LINQ shapes.
 
 The following diagnostic features are tracked for future releases:
 
-**`ConfigureWarnings` integration** — Warning events (`DYNAMO_IDX001`, `DYNAMO_IDX002`) cannot
+**`ConfigureWarnings` integration** — Some warning events (`DYNAMO_IDX001`, `DYNAMO_IDX002`) cannot
 yet be escalated to exceptions or suppressed via `optionsBuilder.ConfigureWarnings(w => w.Throw(...))`.
-Standard EF Core warning configuration has no effect on these events today.
+`ScanLikeQueryDetected` does support standard EF Core warning configuration.
 
 **Sensitive data logging** — `EnableSensitiveDataLogging()` has no effect on DynamoDB provider
 logs. Parameter values in PartiQL statements are always omitted from log output regardless of

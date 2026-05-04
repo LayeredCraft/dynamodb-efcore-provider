@@ -68,14 +68,18 @@ Most provider options are set on the `DynamoDbContextOptionsBuilder` passed to t
 ### Scan-like query warning
 
 Read queries that do not target exactly one partition-key equality on the active table or index
-are blocked by default. This prevents accidental table or index scans.
+throw by default. The provider configures `DynamoEventId.ScanLikeQueryDetected` as an explicit
+throwing warning to prevent accidental table or index scans.
 
-Configure the global policy with `DynamoEventId.ScanLikeQueryDetected`:
+Configure this event explicitly to allow scan-like queries globally:
 
 ```csharp
 options.ConfigureWarnings(w =>
     w.Log(DynamoEventId.ScanLikeQueryDetected)); // or Ignore/Throw
 ```
+
+`ConfigureWarnings(w => w.Default(...))` does not override this provider safety default. Use the
+per-event `ScanLikeQueryDetected` setting or `.AllowScan()`.
 
 For one intentional scan, keep the global default and opt in on the query:
 
@@ -243,8 +247,8 @@ var size = context.Database.GetMaxTransactionSize();
 **Precedence (highest to lowest):**
 
 1. Per-context override (`context.Database.Set...`)
-1. Startup option (`UseDynamo(options => ...)`)
-1. Provider default (`Throw`, `100`, `25`)
+2. Startup option (`UseDynamo(options => ...)`)
+3. Provider default (`Throw`, `100`, `25`)
 
 ## See also
 

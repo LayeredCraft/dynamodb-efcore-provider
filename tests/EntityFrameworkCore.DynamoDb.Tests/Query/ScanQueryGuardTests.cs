@@ -176,6 +176,48 @@ public class ScanQueryGuardTests
         await client.ReceivedWithAnyArgs(1).ExecuteStatementAsync(default!);
     }
 
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task ConfigureWarnings_DefaultLog_StillThrows()
+    {
+        var client = CreateClient();
+        await using var context = ScanGuardDbContext.Create(
+            client,
+            w => w.Default(WarningBehavior.Log));
+
+        var act = async ()
+            => await context
+                .Items
+                .Where(x => x.Status == "OPEN")
+                .ToListAsync(TestContext.Current.CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*Scan-like DynamoDB query detected*missing equality predicate*");
+        await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task ConfigureWarnings_DefaultIgnore_StillThrows()
+    {
+        var client = CreateClient();
+        await using var context = ScanGuardDbContext.Create(
+            client,
+            w => w.Default(WarningBehavior.Ignore));
+
+        var act = async ()
+            => await context
+                .Items
+                .Where(x => x.Status == "OPEN")
+                .ToListAsync(TestContext.Current.CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*Scan-like DynamoDB query detected*missing equality predicate*");
+        await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
     private static IAmazonDynamoDB CreateClient()
     {
         var client = Substitute.For<IAmazonDynamoDB>();

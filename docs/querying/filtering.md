@@ -209,14 +209,14 @@ await db.Orders
     .ToListAsync();
 ```
 
-For broader migrations or controlled workloads, configure the warning policy:
+For broader migrations or controlled workloads, configure this event explicitly:
 
 ```csharp
 options.ConfigureWarnings(w =>
     w.Log(DynamoEventId.ScanLikeQueryDetected)); // or Ignore/Throw
 ```
 
-By default, `ScanLikeQueryDetected` throws before any DynamoDB request is sent. `Log` writes the warning and executes. `Ignore` executes silently.
+By default, `ScanLikeQueryDetected` throws before any DynamoDB request is sent. The provider registers this event as an explicit throwing warning, so `ConfigureWarnings(w => w.Default(...))` does not override it. `Log` writes the warning and executes. `Ignore` executes silently.
 
 ```csharp
 // ❌ Two separate SK conditions — NOT collapsed to BETWEEN (exclusive lower bound)
