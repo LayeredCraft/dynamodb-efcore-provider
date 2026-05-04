@@ -68,6 +68,8 @@ public class DynamoClientWrapper : IDynamoClientWrapper
                 {
                     Statement = state.statement,
                     Parameters = state.parameters?.Count > 0 ? state.parameters : null,
+                    ReturnValuesOnConditionCheckFailure =
+                        ReturnValuesOnConditionCheckFailure.ALL_OLD,
                 };
 
                 await Client.ExecuteStatementAsync(request, ct).ConfigureAwait(false);

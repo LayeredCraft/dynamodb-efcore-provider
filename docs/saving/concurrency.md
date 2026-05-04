@@ -81,8 +81,16 @@ Conflict detection depends on the execution path:
 - **Transactional saves** (`ExecuteTransaction`): DynamoDB returns `TransactionCanceledException`
     with a `ConditionalCheckFailed` cancellation reason for the conflicting item.
 
-The provider maps both to `DbUpdateConcurrencyException`. The `Entries` property on the
-exception identifies which entities were in conflict.
+The provider requests DynamoDB's `ALL_OLD` value on condition-check failures and uses the
+returned item to distinguish key misses from token conflicts:
+
+- If DynamoDB returns the existing item, the key matched and the concurrency token predicate
+    failed; the provider throws `DbUpdateConcurrencyException`.
+- If DynamoDB does not return an item, the target key did not match any item. The item may have
+    been deleted, or the tracked key values may not match the stored item; the provider throws
+    `DbUpdateException`.
+
+The `Entries` property on the exception identifies which entities were involved.
 
 ## Handling DbUpdateConcurrencyException
 
@@ -153,9 +161,10 @@ the same.
 If concurrency tokens are configured, the token value is included in the WHERE predicate. This
 creates an important asymmetry:
 
-- **Item missing entirely** → silent success (provider accepts the delete as done).
-- **Item present with a different token value** → `ConditionalCheckFailedException` →
-    `DbUpdateConcurrencyException`.
+- **Item missing entirely** → silent success for singleton deletes (provider accepts the delete
+    as done) or `DbUpdateException` if DynamoDB reports a failed condition on that write path.
+- **Item present with a different token value** → `ConditionalCheckFailedException` with old item
+    attributes → `DbUpdateConcurrencyException`.
 
 The second case matters when two writers race to delete the same item: the first delete
 succeeds and the item is gone; the second delete finds the item missing and also succeeds. But
