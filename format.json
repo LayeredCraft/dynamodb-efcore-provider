@@ -1,0 +1,67 @@
+{
+  "$schema": "https://raw.githubusercontent.com/j-d-ha/format/main/format.schema.json",
+  "version": 1,
+  "matchPolicy": "all",
+  "formatters": [
+    {
+      "name": "dotnet cleanupcode",
+      "patterns": [
+        "**/*.cs",
+        "**/*.csx",
+        "**/*.csproj",
+        "**/*.props"
+      ],
+      "command": [
+        "dotnet",
+        "tool",
+        "run",
+        "jb",
+        "cleanupcode",
+        "--profile=Built-in: Reformat Code",
+        "--include=$FILES",
+        "--settings=$GLOB_FIRST_BASENAME(*.DotSettings)",
+        "--verbosity=FATAL"
+      ],
+      "filesDelimiter": ";"
+    },
+    {
+      "name": "mdformat mkdocs",
+      "patterns": [
+        "docs/**/*.md"
+      ],
+      "exclude": [
+        ".agents/**",
+        ".claude/**"
+      ],
+      "command": [
+        "uvx",
+        "--with=mdformat-mkdocs",
+        "--with=mdformat-front-matters",
+        "--with=mdformat-tables",
+        "mdformat",
+        "--number",
+        "$FILES"
+      ]
+    },
+    {
+      "name": "mdformat github markdown",
+      "patterns": [
+        "**/*.md"
+      ],
+      "exclude": [
+        "docs/**/*.md",
+        ".agents/**",
+        ".claude/**"
+      ],
+      "command": [
+        "uvx",
+        "--with=mdformat-gfm",
+        "--with=mdformat-front-matters",
+        "--with=mdformat-tables",
+        "mdformat",
+        "--number",
+        "$FILES"
+      ]
+    }
+  ]
+}
