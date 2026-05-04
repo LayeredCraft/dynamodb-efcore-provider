@@ -398,10 +398,7 @@ public class LimitTranslationTests
         public static LimitTestDbContext Create(IAmazonDynamoDB client)
             => new(
                 new DbContextOptionsBuilder<LimitTestDbContext>()
-                    .UseDynamo(options =>
-                    {
-                        options.DynamoDbClient(client);
-                    })
+                    .UseDynamo(options => options.DynamoDbClient(client))
                     .ConfigureWarnings(w
                         => w
                             .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)

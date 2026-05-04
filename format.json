@@ -1,7 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/j-d-ha/format/main/format.schema.json",
   "version": 1,
-  "matchPolicy": "all",
   "formatters": [
     {
       "name": "dotnet cleanupcode",

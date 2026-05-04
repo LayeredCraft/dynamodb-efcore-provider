@@ -145,6 +145,8 @@ internal sealed class DynamoQueryTranslationPostprocessor(
             ? "base table"
             : $"index '{selectExpression.IndexName}'";
 
+        // Permissive fallback: if runtime metadata is unavailable (e.g. design-time or no
+        // runtime model), skip scan classification rather than blocking the query.
         if (queryConstraints is null)
             return CreateScanClassification(
                 selectExpression.TableName,

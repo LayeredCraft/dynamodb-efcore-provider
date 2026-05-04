@@ -11,10 +11,7 @@ public class DiscriminatorMaterializationSafetyTests
 {
     private static DbContextOptions BuildOptions<T>(IAmazonDynamoDB client) where T : DbContext
         => new DbContextOptionsBuilder<T>()
-            .UseDynamo(o =>
-            {
-                o.DynamoDbClient(client);
-            })
+            .UseDynamo(o => o.DynamoDbClient(client))
             .ConfigureWarnings(w
                 => w
                     .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)

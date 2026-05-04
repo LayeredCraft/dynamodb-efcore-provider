@@ -57,10 +57,7 @@ public class IndexQueryExtensionsTests
     private static GsiDbContext CreateGsiContext(IAmazonDynamoDB client)
         => new(
             new DbContextOptionsBuilder<GsiDbContext>()
-                .UseDynamo(o =>
-                {
-                    o.DynamoDbClient(client);
-                })
+                .UseDynamo(o => o.DynamoDbClient(client))
                 .ConfigureWarnings(w
                     => w
                         .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
@@ -71,10 +68,7 @@ public class IndexQueryExtensionsTests
         => new(
             new DbContextOptionsBuilder<GsiDbContext>()
                 .ReplaceService<IDynamoIndexSelectionAnalyzer, AutoSelectByCustomerIndexAnalyzer>()
-                .UseDynamo(o =>
-                {
-                    o.DynamoDbClient(client);
-                })
+                .UseDynamo(o => o.DynamoDbClient(client))
                 .ConfigureWarnings(w
                     => w
                         .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
@@ -91,10 +85,7 @@ public class IndexQueryExtensionsTests
             new DbContextOptionsBuilder<GsiDbContext>()
                 .ReplaceService<IDynamoIndexSelectionAnalyzer,
                     AutoSelectByCustomerUnlessDisabledAnalyzer>()
-                .UseDynamo(o =>
-                {
-                    o.DynamoDbClient(client);
-                })
+                .UseDynamo(o => o.DynamoDbClient(client))
                 .ConfigureWarnings(w
                     => w
                         .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
@@ -203,10 +194,7 @@ public class IndexQueryExtensionsTests
     private static SharedTableDbContext CreateSharedTableContext(IAmazonDynamoDB client)
         => new(
             new DbContextOptionsBuilder<SharedTableDbContext>()
-                .UseDynamo(o =>
-                {
-                    o.DynamoDbClient(client);
-                })
+                .UseDynamo(o => o.DynamoDbClient(client))
                 .ConfigureWarnings(w
                     => w
                         .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
@@ -265,10 +253,7 @@ public class IndexQueryExtensionsTests
     private static DerivedIndexQueryDbContext CreateDerivedIndexQueryContext(IAmazonDynamoDB client)
         => new(
             new DbContextOptionsBuilder<DerivedIndexQueryDbContext>()
-                .UseDynamo(o =>
-                {
-                    o.DynamoDbClient(client);
-                })
+                .UseDynamo(o => o.DynamoDbClient(client))
                 .ConfigureWarnings(w
                     => w
                         .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
@@ -280,7 +265,6 @@ public class IndexQueryExtensionsTests
         var optionsBuilder = new DbContextOptionsBuilder<TestDbContext>();
         optionsBuilder
             .UseDynamo()
-            .ConfigureWarnings(w => w.Ignore(DynamoEventId.ScanLikeQueryDetected))
             .ConfigureWarnings(w
                 => w
                     .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
@@ -291,10 +275,7 @@ public class IndexQueryExtensionsTests
     private static TestDbContext CreateContextWithClient(IAmazonDynamoDB client)
         => new(
             new DbContextOptionsBuilder<TestDbContext>()
-                .UseDynamo(o =>
-                {
-                    o.DynamoDbClient(client);
-                })
+                .UseDynamo(o => o.DynamoDbClient(client))
                 .ConfigureWarnings(w
                     => w
                         .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
