@@ -32,11 +32,6 @@ internal sealed class DynamoWriteExceptionMapper
                 ? CreateConcurrencyException(ex, entityState, entries)
                 : CreateMissingItemException(ex, entityState, entries);
 
-        if (IsConditionalCheckFailedException(ex))
-            return EntityTypeHasConcurrencyTokens(firstEntry)
-                ? CreateConcurrencyException(ex, entityState, entries)
-                : CreateMissingItemException(ex, entityState, entries);
-
         if (ex is TransactionCanceledException tce)
         {
             var conditionFailureReasons =
@@ -71,14 +66,6 @@ internal sealed class DynamoWriteExceptionMapper
         => ex is AmazonDynamoDBException ade
             && string.Equals(ade.ErrorCode, "DuplicateItem", StringComparison.Ordinal);
 
-    private static bool IsConditionalCheckFailedException(Exception ex)
-        => ex is AmazonDynamoDBException ade
-            && (string.Equals(ade.ErrorCode, "ConditionalCheckFailed", StringComparison.Ordinal)
-                || string.Equals(
-                    ade.ErrorCode,
-                    "ConditionalCheckFailedException",
-                    StringComparison.Ordinal));
-
     private static DbUpdateConcurrencyException CreateConcurrencyException(
         Exception ex,
         EntityState entityState,
@@ -110,12 +97,6 @@ internal sealed class DynamoWriteExceptionMapper
             ex,
             entries);
     }
-
-    private static bool EntityTypeHasConcurrencyTokens(IUpdateEntry entry)
-        => entry
-            .EntityType
-            .GetProperties()
-            .Any(static p => p.IsConcurrencyToken && !p.IsPrimaryKey());
 
     private static bool HasReturnedItem(IReadOnlyDictionary<string, AttributeValue>? item)
         => item is { Count: > 0 };

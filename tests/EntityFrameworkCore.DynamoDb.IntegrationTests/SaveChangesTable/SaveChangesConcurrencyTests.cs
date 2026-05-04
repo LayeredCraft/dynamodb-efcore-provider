@@ -234,6 +234,109 @@ public class SaveChangesConcurrencyTests(DynamoContainerFixture fixture)
     }
 
     // ──────────────────────────────────────────────────────────────────────────────
+    //  BATCH — stale version and missing item
+    // ──────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    ///     In a non-transactional batch write, a stale concurrency token on one item causes
+    ///     <see cref="DbUpdateConcurrencyException" />. DynamoDB returns <c>ALL_OLD</c> item attributes on
+    ///     condition failure so the provider can classify the error correctly.
+    /// </summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task BatchUpdate_StaleVersion_ThrowsDbUpdateConcurrencyException()
+    {
+        Db.Database.AutoTransactionBehavior = AutoTransactionBehavior.Never;
+
+        var first = new CustomerItem
+        {
+            Pk = "TENANT#CONC-BATCH",
+            Sk = "CUSTOMER#BATCH-STALE-1",
+            Version = 1,
+            Email = "batch-first@example.com",
+            IsPreferred = false,
+            CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero),
+        };
+        var second = new CustomerItem
+        {
+            Pk = "TENANT#CONC-BATCH",
+            Sk = "CUSTOMER#BATCH-STALE-2",
+            Version = 1,
+            Email = "batch-second@example.com",
+            IsPreferred = false,
+            CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero),
+        };
+        Db.Customers.Add(first);
+        Db.Customers.Add(second);
+        await Db.SaveChangesAsync(CancellationToken);
+        LoggerFactory.Clear();
+
+        await BumpVersionAsync(second.Pk, second.Sk, CancellationToken);
+
+        first.Version = 2;
+        first.Email = "batch-first-updated@example.com";
+        second.Version = 2;
+        second.Email = "batch-second-updated@example.com";
+
+        var act = async () => await Db.SaveChangesAsync(CancellationToken);
+        await act.Should().ThrowAsync<DbUpdateConcurrencyException>();
+    }
+
+    /// <summary>
+    ///     In a non-transactional batch write, a condition failure on a key that no longer exists is
+    ///     reported as <see cref="DbUpdateException" /> (not concurrency), because DynamoDB returns no
+    ///     <c>ALL_OLD</c> item when the key is absent.
+    /// </summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task BatchUpdate_ItemDeletedExternally_ThrowsDbUpdateExceptionNotConcurrency()
+    {
+        Db.Database.AutoTransactionBehavior = AutoTransactionBehavior.Never;
+
+        var first = new CustomerItem
+        {
+            Pk = "TENANT#CONC-BATCH",
+            Sk = "CUSTOMER#BATCH-MISSING-1",
+            Version = 1,
+            Email = "batch-missing-first@example.com",
+            IsPreferred = false,
+            CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero),
+        };
+        var second = new CustomerItem
+        {
+            Pk = "TENANT#CONC-BATCH",
+            Sk = "CUSTOMER#BATCH-MISSING-2",
+            Version = 1,
+            Email = "batch-missing-second@example.com",
+            IsPreferred = false,
+            CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero),
+        };
+        Db.Customers.Add(first);
+        Db.Customers.Add(second);
+        await Db.SaveChangesAsync(CancellationToken);
+        LoggerFactory.Clear();
+
+        await Client.DeleteItemAsync(
+            new DeleteItemRequest
+            {
+                TableName = SaveChangesItemTable.TableName,
+                Key = new Dictionary<string, AttributeValue>
+                {
+                    ["pk"] = new() { S = second.Pk }, ["sk"] = new() { S = second.Sk },
+                },
+            },
+            CancellationToken);
+
+        first.Version = 2;
+        first.Email = "batch-missing-first-updated@example.com";
+        second.Version = 2;
+        second.Email = "batch-missing-second-updated@example.com";
+
+        var act = async () => await Db.SaveChangesAsync(CancellationToken);
+        var assertion = await act.Should().ThrowAsync<DbUpdateException>();
+        assertion.And.Should().NotBeOfType<DbUpdateConcurrencyException>();
+        assertion.WithMessage("*not found for its key*");
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────────
     //  DELETE — stale version
     // ──────────────────────────────────────────────────────────────────────────────
 
