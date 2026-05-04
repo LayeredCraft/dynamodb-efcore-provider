@@ -99,6 +99,140 @@ public class SaveChangesConcurrencyTests(DynamoContainerFixture fixture)
             """);
     }
 
+    /// <summary>
+    ///     If the key no longer matches any DynamoDB item, the failed UPDATE is reported as a missing
+    ///     item instead of a stale-token concurrency conflict.
+    /// </summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task UpdateAsync_ItemDeletedExternally_ThrowsDbUpdateExceptionNotConcurrency()
+    {
+        var customer = new CustomerItem
+        {
+            Pk = "TENANT#CONC",
+            Sk = "CUSTOMER#MISSING-UPD",
+            Version = 1,
+            Email = "before-delete@example.com",
+            IsPreferred = false,
+            CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero),
+        };
+        Db.Customers.Add(customer);
+        await Db.SaveChangesAsync(CancellationToken);
+        LoggerFactory.Clear();
+
+        await Client.DeleteItemAsync(
+            new DeleteItemRequest
+            {
+                TableName = SaveChangesItemTable.TableName,
+                Key = new Dictionary<string, AttributeValue>
+                {
+                    ["pk"] = new() { S = customer.Pk }, ["sk"] = new() { S = customer.Sk },
+                },
+            },
+            CancellationToken);
+
+        customer.Version = 2;
+        customer.Email = "missing@example.com";
+        var act = async () => await Db.SaveChangesAsync(CancellationToken);
+        var assertion = await act.Should().ThrowAsync<DbUpdateException>();
+        assertion.And.Should().NotBeOfType<DbUpdateConcurrencyException>();
+        assertion.WithMessage("*not found for its key*");
+
+        AssertSql(
+            """
+            UPDATE "AppItems"
+            SET "email" = ?, "version" = ?
+            WHERE "pk" = ? AND "sk" = ? AND "version" = ?
+            """);
+    }
+
+    /// <summary>
+    ///     If the partition key matches an existing item but the sort key does not, DynamoDB does not
+    ///     return an old item on condition failure. The provider reports this as a missing key target
+    ///     instead of a stale-token concurrency conflict.
+    /// </summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task
+        UpdateAsync_RightPartitionKeyWrongSortKey_ThrowsDbUpdateExceptionNotConcurrency()
+    {
+        await PutItemAsync(
+            new Dictionary<string, AttributeValue>
+            {
+                ["pk"] = new() { S = "TENANT#CONC-WRONG-SK" },
+                ["sk"] = new() { S = "CUSTOMER#REAL" },
+                ["$type"] = new() { S = "CustomerItem" },
+                ["email"] = new() { S = "real@example.com" },
+                ["version"] = new() { N = "1" },
+                ["isPreferred"] = new() { BOOL = false },
+                ["createdAt"] = new() { S = "2026-04-01 00:00:00+00:00" },
+            },
+            CancellationToken);
+
+        var customer = new CustomerItem
+        {
+            Pk = "TENANT#CONC-WRONG-SK",
+            Sk = "CUSTOMER#WRONG",
+            Version = 1,
+            Email = "wrong-before@example.com",
+            IsPreferred = false,
+            CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero),
+        };
+        Db.Customers.Attach(customer);
+        LoggerFactory.Clear();
+
+        customer.Version = 2;
+        customer.Email = "wrong-after@example.com";
+        var act = async () => await Db.SaveChangesAsync(CancellationToken);
+        var assertion = await act.Should().ThrowAsync<DbUpdateException>();
+        assertion.And.Should().NotBeOfType<DbUpdateConcurrencyException>();
+        assertion.WithMessage("*not found for its key*");
+
+        var realItem =
+            await GetItemAsync("TENANT#CONC-WRONG-SK", "CUSTOMER#REAL", CancellationToken);
+        realItem.Should().NotBeNull();
+        realItem!["version"].N.Should().Be("1");
+
+        AssertSql(
+            """
+            UPDATE "AppItems"
+            SET "email" = ?, "version" = ?
+            WHERE "pk" = ? AND "sk" = ? AND "version" = ?
+            """);
+    }
+
+    /// <summary>
+    ///     If neither key component matches any item, the failed UPDATE is reported as a missing key
+    ///     target instead of a stale-token concurrency conflict.
+    /// </summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task UpdateAsync_NonExistentKey_ThrowsDbUpdateExceptionNotConcurrency()
+    {
+        var customer = new CustomerItem
+        {
+            Pk = "TENANT#CONC-GHOST",
+            Sk = "CUSTOMER#GHOST-UPD",
+            Version = 1,
+            Email = "ghost-before@example.com",
+            IsPreferred = false,
+            CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero),
+        };
+        Db.Customers.Attach(customer);
+        LoggerFactory.Clear();
+
+        customer.Version = 2;
+        customer.Email = "ghost-after@example.com";
+        var act = async () => await Db.SaveChangesAsync(CancellationToken);
+        var assertion = await act.Should().ThrowAsync<DbUpdateException>();
+        assertion.And.Should().NotBeOfType<DbUpdateConcurrencyException>();
+        assertion.WithMessage("*not found for its key*");
+
+        AssertSql(
+            """
+            UPDATE "AppItems"
+            SET "email" = ?, "version" = ?
+            WHERE "pk" = ? AND "sk" = ? AND "version" = ?
+            """);
+    }
+
     // ──────────────────────────────────────────────────────────────────────────────
     //  DELETE — stale version
     // ──────────────────────────────────────────────────────────────────────────────
