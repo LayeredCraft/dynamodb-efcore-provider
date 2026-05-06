@@ -76,6 +76,13 @@ public class DynamoDbContextOptionsBuilder(DbContextOptionsBuilder optionsBuilde
     public virtual DynamoDbContextOptionsBuilder MaxBatchWriteSize(int maxBatchWriteSize)
         => WithOption(e => e.WithMaxBatchWriteSize(maxBatchWriteSize));
 
+    /// <summary>Configures whether DynamoDB should return consumed capacity in responses.</summary>
+    /// <param name="returnConsumedCapacity">Consumed capacity detail requested from DynamoDB.</param>
+    /// <returns>The builder for chaining.</returns>
+    public virtual DynamoDbContextOptionsBuilder ReturnConsumedCapacity(
+        ReturnConsumedCapacity? returnConsumedCapacity)
+        => WithOption(e => e.WithReturnConsumedCapacity(returnConsumedCapacity));
+
     /// <summary>Updates the provider options extension with the supplied mutation action.</summary>
     protected virtual DynamoDbContextOptionsBuilder WithOption(
         Func<DynamoDbOptionsExtension, DynamoDbOptionsExtension> setAction)

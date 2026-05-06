@@ -17,6 +17,7 @@ namespace EntityFrameworkCore.DynamoDb.Storage;
 public class DynamoClientWrapper : IDynamoClientWrapper
 {
     private readonly AmazonDynamoDBConfig? _amazonDynamoDbConfig;
+    private readonly ReturnConsumedCapacity? _returnConsumedCapacity;
     private readonly IDiagnosticsLogger<DbLoggerCategory.Database.Command> _commandLogger;
     private readonly IExecutionStrategy _executionStrategy;
 
@@ -34,6 +35,7 @@ public class DynamoClientWrapper : IDynamoClientWrapper
         else
             _amazonDynamoDbConfig = BuildAmazonDynamoDbConfig(options);
 
+        _returnConsumedCapacity = options.ReturnConsumedCapacity;
         _executionStrategy = executionStrategy.NotNull();
         _commandLogger = commandLogger.NotNull();
     }
@@ -53,7 +55,11 @@ public class DynamoClientWrapper : IDynamoClientWrapper
         ExecuteStatementRequest statementRequest,
         bool singlePageOnly = false,
         Action<ExecuteStatementResponse>? onPageFetched = null)
-        => new DynamoAsyncEnumerable(this, statementRequest, singlePageOnly, onPageFetched);
+    {
+        statementRequest.ReturnConsumedCapacity ??= _returnConsumedCapacity;
+
+        return new DynamoAsyncEnumerable(this, statementRequest, singlePageOnly, onPageFetched);
+    }
 
     /// <summary>Executes a write PartiQL statement (INSERT, UPDATE, DELETE) and discards any result items.</summary>
     /// <param name="statement">The PartiQL write statement to execute.</param>
@@ -73,6 +79,7 @@ public class DynamoClientWrapper : IDynamoClientWrapper
                     Parameters = state.parameters?.Count > 0 ? state.parameters : null,
                     ReturnValuesOnConditionCheckFailure =
                         ReturnValuesOnConditionCheckFailure.ALL_OLD,
+                    ReturnConsumedCapacity = _returnConsumedCapacity,
                 };
 
                 var commandId = Guid.NewGuid();
@@ -128,6 +135,7 @@ public class DynamoClientWrapper : IDynamoClientWrapper
                 var request = new ExecuteTransactionRequest
                 {
                     TransactStatements = [.. transactionStatements],
+                    ReturnConsumedCapacity = _returnConsumedCapacity,
                 };
 
                 var commandId = Guid.NewGuid();
@@ -185,6 +193,7 @@ public class DynamoClientWrapper : IDynamoClientWrapper
                 var request = new BatchExecuteStatementRequest
                 {
                     Statements = [.. batchStatements],
+                    ReturnConsumedCapacity = _returnConsumedCapacity,
                 };
 
                 var commandId = Guid.NewGuid();

@@ -20,6 +20,7 @@ public class PaginationConfigurationTests
         extension.TransactionOverflowBehavior.Should().Be(TransactionOverflowBehavior.Throw);
         extension.MaxTransactionSize.Should().Be(100);
         extension.MaxBatchWriteSize.Should().Be(25);
+        extension.ReturnConsumedCapacity.Should().BeNull();
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
@@ -69,7 +70,8 @@ public class PaginationConfigurationTests
             .WithAutomaticIndexSelectionMode(DynamoAutomaticIndexSelectionMode.On)
             .WithTransactionOverflowBehavior(TransactionOverflowBehavior.UseChunking)
             .WithMaxTransactionSize(42)
-            .WithMaxBatchWriteSize(11);
+            .WithMaxBatchWriteSize(11)
+            .WithReturnConsumedCapacity(ReturnConsumedCapacity.TOTAL);
 
         // Clone is protected; trigger via a With method.
         var cloned =
@@ -85,6 +87,7 @@ public class PaginationConfigurationTests
         cloned.TransactionOverflowBehavior.Should().Be(TransactionOverflowBehavior.UseChunking);
         cloned.MaxTransactionSize.Should().Be(42);
         cloned.MaxBatchWriteSize.Should().Be(11);
+        cloned.ReturnConsumedCapacity.Should().Be(ReturnConsumedCapacity.TOTAL);
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
@@ -141,6 +144,20 @@ public class PaginationConfigurationTests
 
         extension.Should().NotBeNull();
         extension!.MaxTransactionSize.Should().Be(12);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void UseDynamo_ConfigureReturnConsumedCapacity_StoresValueOnOptionsExtension()
+    {
+        var optionsBuilder = new DbContextOptionsBuilder();
+
+        optionsBuilder.UseDynamo(options
+            => options.ReturnConsumedCapacity(ReturnConsumedCapacity.INDEXES));
+
+        var extension = optionsBuilder.Options.FindExtension<DynamoDbOptionsExtension>();
+
+        extension.Should().NotBeNull();
+        extension!.ReturnConsumedCapacity.Should().Be(ReturnConsumedCapacity.INDEXES);
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
@@ -207,7 +224,8 @@ public class PaginationConfigurationTests
         var extension2 = new DynamoDbOptionsExtension()
             .WithTransactionOverflowBehavior(TransactionOverflowBehavior.UseChunking)
             .WithMaxTransactionSize(64)
-            .WithMaxBatchWriteSize(10);
+            .WithMaxBatchWriteSize(10)
+            .WithReturnConsumedCapacity(ReturnConsumedCapacity.TOTAL);
 
         extension1
             .Info
