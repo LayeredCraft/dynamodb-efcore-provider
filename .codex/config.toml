@@ -1,18 +1,5 @@
 [features]
 codex_hooks = true
 
-[mcp_servers.caveman-shrink]
-args = [
-  "-y",
-  "caveman-shrink",
-]
-command = "npx"
-
-[mcp_servers.context7]
-url = "https://mcp.context7.com/mcp"
-
-[mcp_servers.context7.http_headers]
-CONTEXT7_API_KEY = "YOUR_API_KEY"
-
 [mcp_servers.dotnet-test-mcp]
 command = "dotnet-test-mcp"
