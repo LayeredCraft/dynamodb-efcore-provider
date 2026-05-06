@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using Microsoft.EntityFrameworkCore;
@@ -161,6 +162,31 @@ public class ScanQueryGuardTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task DiagnosticListener_Receives_ScanLikeQueryDetected_EventData()
+    {
+        using var observer = new DynamoDiagnosticObserver();
+        var client = CreateClient();
+        await using var context = ScanGuardDbContext.Create(
+            client,
+            w => w.Log(DynamoEventId.ScanLikeQueryDetected));
+
+        await context
+            .Items
+            .Where(x => x.Status == "OPEN")
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        observer
+            .Events
+            .Any(e => e.Key == DynamoEventId.ScanLikeQueryDetected.Name
+                && e.Value is DynamoQueryDiagnosticEventData data
+                && data.Message.Contains(
+                    "Scan-like DynamoDB query detected",
+                    StringComparison.Ordinal))
+            .Should()
+            .BeTrue();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ConfigureWarnings_Ignore_Executes()
     {
         var client = CreateClient();
@@ -227,6 +253,36 @@ public class ScanQueryGuardTests
             .Returns(new ExecuteStatementResponse { Items = [], NextToken = null });
 
         return client;
+    }
+
+    private sealed class DynamoDiagnosticObserver
+        : IObserver<DiagnosticListener>, IObserver<KeyValuePair<string, object?>>, IDisposable
+    {
+        private readonly IDisposable _subscription;
+        private IDisposable? _listenerSubscription;
+
+        public DynamoDiagnosticObserver()
+            => _subscription = DiagnosticListener.AllListeners.Subscribe(this);
+
+        public List<KeyValuePair<string, object?>> Events { get; } = [];
+
+        public void OnNext(DiagnosticListener value)
+        {
+            if (value.Name == DbLoggerCategory.Name)
+                _listenerSubscription = value.Subscribe(this);
+        }
+
+        public void OnNext(KeyValuePair<string, object?> value) => Events.Add(value);
+
+        public void OnError(Exception error) { }
+
+        public void OnCompleted() { }
+
+        public void Dispose()
+        {
+            _listenerSubscription?.Dispose();
+            _subscription.Dispose();
+        }
     }
 
     private sealed record ScanGuardItem
