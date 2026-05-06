@@ -1,3 +1,4 @@
+using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.Query.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -25,6 +26,12 @@ public static class DynamoLoggerExtensions
             level,
             DynamoEventId.ExecutedExecuteStatement,
             "Executed DynamoDB ExecuteStatement request (itemsCount: {itemsCount}, nextTokenPresent: {nextTokenPresent})");
+
+    private static readonly Func<LogLevel, Action<ILogger, string?, double, Exception?>>
+        LogExecuteStatementFailed = level => LoggerMessage.Define<string?, double>(
+            level,
+            DynamoEventId.ExecuteStatementFailed,
+            "Failed executing DynamoDB ExecuteStatement request (requestId: {requestId}, elapsed: {elapsedMilliseconds}ms)");
 
     private static readonly Func<LogLevel, Action<ILogger, string, string, string, Exception?>>
         LogExecutingPartiQlWrite = level => LoggerMessage.Define<string, string, string>(
@@ -68,7 +75,8 @@ public static class DynamoLoggerExtensions
         this IDiagnosticsLogger<DbLoggerCategory.Database.Command> diagnostics,
         int? limit,
         bool nextTokenPresent,
-        bool seedNextTokenPresent = false)
+        bool seedNextTokenPresent = false,
+        Guid commandId = default)
     {
         var definition = Definition(
             diagnostics,
@@ -88,7 +96,8 @@ public static class DynamoLoggerExtensions
                     ExecutingExecuteStatementMessage,
                     limit,
                     nextTokenPresent,
-                    seedNextTokenPresent),
+                    seedNextTokenPresent,
+                    commandId),
                 ds,
                 sl);
     }
@@ -97,7 +106,13 @@ public static class DynamoLoggerExtensions
     public static void ExecutedExecuteStatement(
         this IDiagnosticsLogger<DbLoggerCategory.Database.Command> diagnostics,
         int itemsCount,
-        bool nextTokenPresent)
+        bool nextTokenPresent,
+        TimeSpan elapsed = default,
+        Guid commandId = default,
+        string? requestId = null,
+        int? limit = null,
+        bool seedNextTokenPresent = false,
+        ConsumedCapacity? consumedCapacity = null)
     {
         var definition = Definition(
             diagnostics,
@@ -116,7 +131,51 @@ public static class DynamoLoggerExtensions
                     definition,
                     ExecutedExecuteStatementMessage,
                     itemsCount,
-                    nextTokenPresent),
+                    nextTokenPresent,
+                    elapsed,
+                    commandId,
+                    requestId,
+                    limit,
+                    seedNextTokenPresent,
+                    consumedCapacity),
+                ds,
+                sl);
+    }
+
+    /// <summary>Logs that an ExecuteStatement request failed.</summary>
+    public static void ExecuteStatementFailed(
+        this IDiagnosticsLogger<DbLoggerCategory.Database.Command> diagnostics,
+        Exception exception,
+        TimeSpan elapsed,
+        Guid commandId,
+        string? requestId,
+        int? limit,
+        bool nextTokenPresent,
+        bool seedNextTokenPresent)
+    {
+        var definition = Definition(
+            diagnostics,
+            d => d.LogExecuteStatementFailed,
+            (d, v) => d.LogExecuteStatementFailed = v,
+            DynamoEventId.ExecuteStatementFailed,
+            LogLevel.Error,
+            LogExecuteStatementFailed);
+
+        if (diagnostics.ShouldLog(definition))
+            definition.Log(diagnostics, requestId, elapsed.TotalMilliseconds);
+        if (diagnostics.NeedsEventData(definition, out var ds, out var sl))
+            diagnostics.DispatchEventData(
+                definition,
+                new DynamoExecuteStatementFailedEventData(
+                    definition,
+                    ExecuteStatementFailedMessage,
+                    exception,
+                    elapsed,
+                    commandId,
+                    requestId,
+                    limit,
+                    nextTokenPresent,
+                    seedNextTokenPresent),
                 ds,
                 sl);
     }
@@ -314,6 +373,15 @@ public static class DynamoLoggerExtensions
         var d = (EventDefinition<int, bool>)definition;
         var p = (DynamoExecuteStatementExecutedEventData)payload;
         return d.GenerateMessage(p.ItemsCount, p.NextTokenPresent);
+    }
+
+    private static string ExecuteStatementFailedMessage(
+        EventDefinitionBase definition,
+        EventData payload)
+    {
+        var d = (EventDefinition<string?, double>)definition;
+        var p = (DynamoExecuteStatementFailedEventData)payload;
+        return d.GenerateMessage(p.RequestId, p.Elapsed.TotalMilliseconds);
     }
 
     private static string QueryDiagnosticMessage(EventDefinitionBase definition, EventData payload)

@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using Amazon.DynamoDBv2;
+using Amazon.Runtime;
 using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.Diagnostics.Internal;
 using EntityFrameworkCore.DynamoDb.Infrastructure.Internal;
@@ -263,21 +265,49 @@ public class DynamoClientWrapper : IDynamoClientWrapper
                 var isFirstRequest = !_hasExecutedRequest;
                 var seedNextTokenPresent = isFirstRequest && _request.NextToken is not null;
 
+                var commandId = Guid.NewGuid();
+                var stopwatch = Stopwatch.StartNew();
+
                 dynamoEnumerable._dynamoClientWrapper._commandLogger.ExecutingExecuteStatement(
                     _request.Limit,
                     _request.NextToken is not null,
-                    seedNextTokenPresent);
+                    seedNextTokenPresent,
+                    commandId);
 
-                var response =
-                    await dynamoEnumerable
+                ExecuteStatementResponse response;
+                try
+                {
+                    response = await dynamoEnumerable
                         ._dynamoClientWrapper
                         .Client
                         .ExecuteStatementAsync(_request, ct)
                         .ConfigureAwait(false);
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                    stopwatch.Stop();
+                    dynamoEnumerable._dynamoClientWrapper._commandLogger.ExecuteStatementFailed(
+                        exception,
+                        stopwatch.Elapsed,
+                        commandId,
+                        (exception as AmazonServiceException)?.RequestId,
+                        _request.Limit,
+                        _request.NextToken is not null,
+                        seedNextTokenPresent);
+                    throw;
+                }
+
+                stopwatch.Stop();
 
                 dynamoEnumerable._dynamoClientWrapper._commandLogger.ExecutedExecuteStatement(
                     response.Items?.Count ?? 0,
-                    response.NextToken is not null);
+                    response.NextToken is not null,
+                    stopwatch.Elapsed,
+                    commandId,
+                    response.ResponseMetadata?.RequestId,
+                    _request.Limit,
+                    seedNextTokenPresent,
+                    response.ConsumedCapacity);
 
                 // Notify before items are yielded so callers can capture per-page metadata.
                 dynamoEnumerable._onPageFetched?.Invoke(response);

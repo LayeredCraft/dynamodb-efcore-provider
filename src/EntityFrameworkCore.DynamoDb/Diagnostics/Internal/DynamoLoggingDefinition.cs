@@ -14,6 +14,9 @@ public class DynamoLoggingDefinition : LoggingDefinitions
     /// <summary>Cached event definition for executed ExecuteStatement logs.</summary>
     public EventDefinition<int, bool>? LogExecutedExecuteStatement;
 
+    /// <summary>Cached event definition for failed ExecuteStatement logs.</summary>
+    public EventDefinition<string?, double>? LogExecuteStatementFailed;
+
     /// <summary>Cached event definition for executing PartiQL write logs.</summary>
     public EventDefinition<string, string, string>? LogExecutingPartiQlWrite;
 

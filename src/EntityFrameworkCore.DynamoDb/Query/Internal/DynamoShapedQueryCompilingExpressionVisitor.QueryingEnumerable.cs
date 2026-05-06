@@ -137,6 +137,26 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
             {
                 using var _ = _concurrencyDetector?.EnterCriticalSection();
 
+                try
+                {
+                    return await MoveNextCoreAsync().ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    _queryingEnumerable._queryLogger.QueryCanceled(_queryContext.Context.GetType());
+                    throw;
+                }
+                catch (Exception exception)
+                {
+                    _queryingEnumerable._queryLogger.QueryIterationFailed(
+                        _queryContext.Context.GetType(),
+                        exception);
+                    throw;
+                }
+            }
+
+            private async ValueTask<bool> MoveNextCoreAsync()
+            {
                 if (_dataEnumerator == null)
                 {
                     EnforceScanQueryWarning(
@@ -287,6 +307,26 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
             {
                 using var _ = _concurrencyDetector?.EnterCriticalSection();
 
+                try
+                {
+                    return await MoveNextCoreAsync().ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    _queryingEnumerable._queryLogger.QueryCanceled(_queryContext.Context.GetType());
+                    throw;
+                }
+                catch (Exception exception)
+                {
+                    _queryingEnumerable._queryLogger.QueryIterationFailed(
+                        _queryContext.Context.GetType(),
+                        exception);
+                    throw;
+                }
+            }
+
+            private async ValueTask<bool> MoveNextCoreAsync()
+            {
                 if (_emitted)
                 {
                     Current = default!;

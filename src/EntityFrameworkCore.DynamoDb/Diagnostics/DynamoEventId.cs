@@ -16,6 +16,7 @@ public static class DynamoEventId
         ExecutingPartiQlQuery = CoreEventId.ProviderBaseId + 100,
         ExecutingExecuteStatement = CoreEventId.ProviderBaseId + 101,
         ExecutedExecuteStatement = CoreEventId.ProviderBaseId + 102,
+        ExecuteStatementFailed = CoreEventId.ProviderBaseId + 112,
         ExecutingPartiQlWrite = CoreEventId.ProviderBaseId + 110,
 
         // Query events
@@ -60,6 +61,16 @@ public static class DynamoEventId
     public static readonly EventId ExecutedExecuteStatement = new(
         (int)Id.ExecutedExecuteStatement,
         CommandPrefix + Id.ExecutedExecuteStatement);
+
+    /// <summary>
+    /// An ExecuteStatement request failed.
+    /// </summary>
+    /// <remarks>
+    /// This event is in the <c>DbLoggerCategory.Database.Command</c> category and uses <see cref="DynamoExecuteStatementFailedEventData" /> payloads.
+    /// </remarks>
+    public static readonly EventId ExecuteStatementFailed = new(
+        (int)Id.ExecuteStatementFailed,
+        CommandPrefix + Id.ExecuteStatementFailed);
 
     /// <summary>
     /// A PartiQL write statement (INSERT, UPDATE, or DELETE) is going to be executed.
