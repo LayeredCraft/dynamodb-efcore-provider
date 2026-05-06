@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Amazon.DynamoDBv2;
 using Amazon.Runtime;
 using Amazon.DynamoDBv2.Model;
+using EntityFrameworkCore.DynamoDb.Diagnostics;
 using EntityFrameworkCore.DynamoDb.Diagnostics.Internal;
 using EntityFrameworkCore.DynamoDb.Infrastructure.Internal;
 using EntityFrameworkCore.DynamoDb.Utilities;
@@ -74,7 +75,40 @@ public class DynamoClientWrapper : IDynamoClientWrapper
                         ReturnValuesOnConditionCheckFailure.ALL_OLD,
                 };
 
-                await Client.ExecuteStatementAsync(request, ct).ConfigureAwait(false);
+                var commandId = Guid.NewGuid();
+                var stopwatch = Stopwatch.StartNew();
+                _commandLogger.ExecutingPartiQlWriteRequest(
+                    DynamoPartiQlWriteOperation.ExecuteStatement,
+                    1,
+                    commandId);
+
+                ExecuteStatementResponse response;
+                try
+                {
+                    response =
+                        await Client.ExecuteStatementAsync(request, ct).ConfigureAwait(false);
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                    stopwatch.Stop();
+                    _commandLogger.PartiQlWriteRequestFailed(
+                        DynamoPartiQlWriteOperation.ExecuteStatement,
+                        1,
+                        exception,
+                        stopwatch.Elapsed,
+                        commandId,
+                        (exception as AmazonServiceException)?.RequestId);
+                    throw;
+                }
+
+                stopwatch.Stop();
+                _commandLogger.ExecutedPartiQlWriteRequest(
+                    DynamoPartiQlWriteOperation.ExecuteStatement,
+                    1,
+                    stopwatch.Elapsed,
+                    commandId,
+                    response.ResponseMetadata?.RequestId,
+                    response.ConsumedCapacity is null ? null : [response.ConsumedCapacity]);
 
                 return true;
             },
@@ -96,7 +130,41 @@ public class DynamoClientWrapper : IDynamoClientWrapper
                     TransactStatements = [.. transactionStatements],
                 };
 
-                await Client.ExecuteTransactionAsync(request, ct).ConfigureAwait(false);
+                var commandId = Guid.NewGuid();
+                var stopwatch = Stopwatch.StartNew();
+                var statementCount = request.TransactStatements?.Count ?? 0;
+                _commandLogger.ExecutingPartiQlWriteRequest(
+                    DynamoPartiQlWriteOperation.ExecuteTransaction,
+                    statementCount,
+                    commandId);
+
+                ExecuteTransactionResponse response;
+                try
+                {
+                    response =
+                        await Client.ExecuteTransactionAsync(request, ct).ConfigureAwait(false);
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                    stopwatch.Stop();
+                    _commandLogger.PartiQlWriteRequestFailed(
+                        DynamoPartiQlWriteOperation.ExecuteTransaction,
+                        statementCount,
+                        exception,
+                        stopwatch.Elapsed,
+                        commandId,
+                        (exception as AmazonServiceException)?.RequestId);
+                    throw;
+                }
+
+                stopwatch.Stop();
+                _commandLogger.ExecutedPartiQlWriteRequest(
+                    DynamoPartiQlWriteOperation.ExecuteTransaction,
+                    statementCount,
+                    stopwatch.Elapsed,
+                    commandId,
+                    response.ResponseMetadata?.RequestId,
+                    response.ConsumedCapacity);
 
                 return true;
             },
@@ -119,10 +187,52 @@ public class DynamoClientWrapper : IDynamoClientWrapper
                     Statements = [.. batchStatements],
                 };
 
-                var response =
-                    await Client.BatchExecuteStatementAsync(request, ct).ConfigureAwait(false);
+                var commandId = Guid.NewGuid();
+                var stopwatch = Stopwatch.StartNew();
+                var statementCount = request.Statements?.Count ?? 0;
+                _commandLogger.ExecutingPartiQlWriteRequest(
+                    DynamoPartiQlWriteOperation.BatchExecuteStatement,
+                    statementCount,
+                    commandId);
 
-                return (IReadOnlyList<BatchStatementResponse>)(response.Responses ?? []);
+                BatchExecuteStatementResponse response;
+                try
+                {
+                    response =
+                        await Client.BatchExecuteStatementAsync(request, ct).ConfigureAwait(false);
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                    stopwatch.Stop();
+                    _commandLogger.PartiQlWriteRequestFailed(
+                        DynamoPartiQlWriteOperation.BatchExecuteStatement,
+                        statementCount,
+                        exception,
+                        stopwatch.Elapsed,
+                        commandId,
+                        (exception as AmazonServiceException)?.RequestId);
+                    throw;
+                }
+
+                stopwatch.Stop();
+                _commandLogger.ExecutedPartiQlWriteRequest(
+                    DynamoPartiQlWriteOperation.BatchExecuteStatement,
+                    statementCount,
+                    stopwatch.Elapsed,
+                    commandId,
+                    response.ResponseMetadata?.RequestId,
+                    response.ConsumedCapacity);
+
+                var responses = (IReadOnlyList<BatchStatementResponse>)(response.Responses ?? []);
+                var errorCount = responses.Count(r => r.Error is not null);
+                if (errorCount > 0)
+                    _commandLogger.BatchPartiQlWriteReturnedStatementErrors(
+                        statementCount,
+                        errorCount,
+                        commandId,
+                        response.ResponseMetadata?.RequestId);
+
+                return responses;
             },
             null,
             cancellationToken);

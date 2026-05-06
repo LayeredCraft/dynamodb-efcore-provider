@@ -20,6 +20,18 @@ public class DynamoLoggingDefinition : LoggingDefinitions
     /// <summary>Cached event definition for executing PartiQL write logs.</summary>
     public EventDefinition<string, string, string>? LogExecutingPartiQlWrite;
 
+    /// <summary>Cached event definition for write request start logs.</summary>
+    public EventDefinition<string, int>? LogExecutingPartiQlWriteRequest;
+
+    /// <summary>Cached event definition for write request completed logs.</summary>
+    public EventDefinition<string, int, string?, double>? LogExecutedPartiQlWriteRequest;
+
+    /// <summary>Cached event definition for write request failed logs.</summary>
+    public EventDefinition<string, int, string?, double>? LogPartiQlWriteRequestFailed;
+
+    /// <summary>Cached event definition for batch per-statement error logs.</summary>
+    public EventDefinition<int, int, string?>? LogBatchPartiQlWriteReturnedStatementErrors;
+
     /// <summary>Cached event definition for index/scan diagnostic logs.</summary>
     public EventDefinition<string>? LogNoCompatibleSecondaryIndexFound;
 

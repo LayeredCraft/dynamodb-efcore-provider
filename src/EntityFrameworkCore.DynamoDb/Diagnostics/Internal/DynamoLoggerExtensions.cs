@@ -39,6 +39,34 @@ public static class DynamoLoggerExtensions
             DynamoEventId.ExecutingPartiQlWrite,
             "Executing DynamoDB PartiQL write for table '{tableName}'{newLine}{commandText}");
 
+    private static readonly Func<LogLevel, Action<ILogger, string, int, Exception?>>
+        LogExecutingPartiQlWriteRequest = level => LoggerMessage.Define<string, int>(
+            level,
+            DynamoEventId.ExecutingPartiQlWriteRequest,
+            "Executing DynamoDB {operation} write request ({statementCount} statements)");
+
+    private static readonly
+        Func<LogLevel, Action<ILogger, string, int, string?, double, Exception?>>
+        LogExecutedPartiQlWriteRequest = level
+            => LoggerMessage.Define<string, int, string?, double>(
+                level,
+                DynamoEventId.ExecutedPartiQlWriteRequest,
+                "Executed DynamoDB {operation} write request ({statementCount} statements, requestId: {requestId}, elapsed: {elapsedMilliseconds}ms)");
+
+    private static readonly
+        Func<LogLevel, Action<ILogger, string, int, string?, double, Exception?>>
+        LogPartiQlWriteRequestFailed = level => LoggerMessage.Define<string, int, string?, double>(
+            level,
+            DynamoEventId.PartiQlWriteRequestFailed,
+            "Failed executing DynamoDB {operation} write request ({statementCount} statements, requestId: {requestId}, elapsed: {elapsedMilliseconds}ms)");
+
+    private static readonly Func<LogLevel, Action<ILogger, int, int, string?, Exception?>>
+        LogBatchPartiQlWriteReturnedStatementErrors = level
+            => LoggerMessage.Define<int, int, string?>(
+                level,
+                DynamoEventId.BatchPartiQlWriteReturnedStatementErrors,
+                "DynamoDB BatchExecuteStatement write request returned {errorCount} statement errors for {statementCount} statements (requestId: {requestId})");
+
     private static readonly Func<LogLevel, Action<ILogger, string, Exception?>> LogMessage = level
         => LoggerMessage.Define<string>(level, default, "{message}");
 
@@ -208,6 +236,146 @@ public static class DynamoLoggerExtensions
                 sl);
     }
 
+    /// <summary>Logs that a PartiQL write request is about to be sent.</summary>
+    public static void ExecutingPartiQlWriteRequest(
+        this IDiagnosticsLogger<DbLoggerCategory.Database.Command> diagnostics,
+        DynamoPartiQlWriteOperation operation,
+        int statementCount,
+        Guid commandId)
+    {
+        var definition = Definition(
+            diagnostics,
+            d => d.LogExecutingPartiQlWriteRequest,
+            (d, v) => d.LogExecutingPartiQlWriteRequest = v,
+            DynamoEventId.ExecutingPartiQlWriteRequest,
+            LogLevel.Information,
+            LogExecutingPartiQlWriteRequest);
+        if (diagnostics.ShouldLog(definition))
+            definition.Log(diagnostics, operation.ToString(), statementCount);
+        if (diagnostics.NeedsEventData(definition, out var ds, out var sl))
+            diagnostics.DispatchEventData(
+                definition,
+                new DynamoPartiQlWriteRequestEventData(
+                    definition,
+                    WriteRequestExecutingMessage,
+                    operation,
+                    statementCount,
+                    commandId),
+                ds,
+                sl);
+    }
+
+    /// <summary>Logs that a PartiQL write request completed.</summary>
+    public static void ExecutedPartiQlWriteRequest(
+        this IDiagnosticsLogger<DbLoggerCategory.Database.Command> diagnostics,
+        DynamoPartiQlWriteOperation operation,
+        int statementCount,
+        TimeSpan elapsed,
+        Guid commandId,
+        string? requestId,
+        IReadOnlyList<ConsumedCapacity>? consumedCapacity)
+    {
+        var definition = Definition(
+            diagnostics,
+            d => d.LogExecutedPartiQlWriteRequest,
+            (d, v) => d.LogExecutedPartiQlWriteRequest = v,
+            DynamoEventId.ExecutedPartiQlWriteRequest,
+            LogLevel.Information,
+            LogExecutedPartiQlWriteRequest);
+        if (diagnostics.ShouldLog(definition))
+            definition.Log(
+                diagnostics,
+                operation.ToString(),
+                statementCount,
+                requestId,
+                elapsed.TotalMilliseconds);
+        if (diagnostics.NeedsEventData(definition, out var ds, out var sl))
+            diagnostics.DispatchEventData(
+                definition,
+                new DynamoPartiQlWriteRequestExecutedEventData(
+                    definition,
+                    WriteRequestExecutedMessage,
+                    operation,
+                    statementCount,
+                    elapsed,
+                    commandId,
+                    requestId,
+                    consumedCapacity),
+                ds,
+                sl);
+    }
+
+    /// <summary>Logs that a PartiQL write request failed.</summary>
+    public static void PartiQlWriteRequestFailed(
+        this IDiagnosticsLogger<DbLoggerCategory.Database.Command> diagnostics,
+        DynamoPartiQlWriteOperation operation,
+        int statementCount,
+        Exception exception,
+        TimeSpan elapsed,
+        Guid commandId,
+        string? requestId)
+    {
+        var definition = Definition(
+            diagnostics,
+            d => d.LogPartiQlWriteRequestFailed,
+            (d, v) => d.LogPartiQlWriteRequestFailed = v,
+            DynamoEventId.PartiQlWriteRequestFailed,
+            LogLevel.Error,
+            LogPartiQlWriteRequestFailed);
+        if (diagnostics.ShouldLog(definition))
+            definition.Log(
+                diagnostics,
+                operation.ToString(),
+                statementCount,
+                requestId,
+                elapsed.TotalMilliseconds);
+        if (diagnostics.NeedsEventData(definition, out var ds, out var sl))
+            diagnostics.DispatchEventData(
+                definition,
+                new DynamoPartiQlWriteRequestFailedEventData(
+                    definition,
+                    WriteRequestFailedMessage,
+                    operation,
+                    statementCount,
+                    exception,
+                    elapsed,
+                    commandId,
+                    requestId),
+                ds,
+                sl);
+    }
+
+    /// <summary>Logs that a successful batch write request returned per-statement errors.</summary>
+    public static void BatchPartiQlWriteReturnedStatementErrors(
+        this IDiagnosticsLogger<DbLoggerCategory.Database.Command> diagnostics,
+        int statementCount,
+        int errorCount,
+        Guid commandId,
+        string? requestId)
+    {
+        var definition = Definition(
+            diagnostics,
+            d => d.LogBatchPartiQlWriteReturnedStatementErrors,
+            (d, v) => d.LogBatchPartiQlWriteReturnedStatementErrors = v,
+            DynamoEventId.BatchPartiQlWriteReturnedStatementErrors,
+            LogLevel.Warning,
+            LogBatchPartiQlWriteReturnedStatementErrors);
+        if (diagnostics.ShouldLog(definition))
+            definition.Log(diagnostics, errorCount, statementCount, requestId);
+        if (diagnostics.NeedsEventData(definition, out var ds, out var sl))
+            diagnostics.DispatchEventData(
+                definition,
+                new DynamoBatchStatementErrorsEventData(
+                    definition,
+                    BatchStatementErrorsMessage,
+                    statementCount,
+                    errorCount,
+                    commandId,
+                    requestId),
+                ds,
+                sl);
+    }
+
     /// <summary>Logs a structured query-compilation diagnostic from automatic index selection.</summary>
     internal static void IndexSelectionDiagnostic(
         this IDiagnosticsLogger<DbLoggerCategory.Query> diagnostics,
@@ -276,6 +444,25 @@ public static class DynamoLoggerExtensions
                 ds,
                 sl);
     }
+
+    private static EventDefinition<T1, T2, T3, T4> Definition<TLoggerCategory, T1, T2, T3, T4>(
+        IDiagnosticsLogger<TLoggerCategory> diagnostics,
+        Func<DynamoLoggingDefinition, EventDefinition<T1, T2, T3, T4>?> get,
+        Action<DynamoLoggingDefinition, EventDefinition<T1, T2, T3, T4>> set,
+        EventId eventId,
+        LogLevel level,
+        Func<LogLevel, Action<ILogger, T1, T2, T3, T4, Exception?>> factory)
+        where TLoggerCategory : LoggerCategory<TLoggerCategory>, new()
+        => Get(
+            diagnostics,
+            get,
+            set,
+            _ => new EventDefinition<T1, T2, T3, T4>(
+                diagnostics.Options,
+                eventId,
+                level,
+                eventId.Name!,
+                factory));
 
     private static EventDefinition<T1, T2, T3> Definition<TLoggerCategory, T1, T2, T3>(
         IDiagnosticsLogger<TLoggerCategory> diagnostics,
@@ -382,6 +569,51 @@ public static class DynamoLoggerExtensions
         var d = (EventDefinition<string?, double>)definition;
         var p = (DynamoExecuteStatementFailedEventData)payload;
         return d.GenerateMessage(p.RequestId, p.Elapsed.TotalMilliseconds);
+    }
+
+    private static string WriteRequestExecutingMessage(
+        EventDefinitionBase definition,
+        EventData payload)
+    {
+        var p = (DynamoPartiQlWriteRequestEventData)payload;
+        return ((EventDefinition<string, int>)definition).GenerateMessage(
+            p.Operation.ToString(),
+            p.StatementCount);
+    }
+
+    private static string WriteRequestExecutedMessage(
+        EventDefinitionBase definition,
+        EventData payload)
+    {
+        var p = (DynamoPartiQlWriteRequestExecutedEventData)payload;
+        return ((EventDefinition<string, int, string?, double>)definition).GenerateMessage(
+            p.Operation.ToString(),
+            p.StatementCount,
+            p.RequestId,
+            p.Elapsed.TotalMilliseconds);
+    }
+
+    private static string WriteRequestFailedMessage(
+        EventDefinitionBase definition,
+        EventData payload)
+    {
+        var p = (DynamoPartiQlWriteRequestFailedEventData)payload;
+        return ((EventDefinition<string, int, string?, double>)definition).GenerateMessage(
+            p.Operation.ToString(),
+            p.StatementCount,
+            p.RequestId,
+            p.Elapsed.TotalMilliseconds);
+    }
+
+    private static string BatchStatementErrorsMessage(
+        EventDefinitionBase definition,
+        EventData payload)
+    {
+        var p = (DynamoBatchStatementErrorsEventData)payload;
+        return ((EventDefinition<int, int, string?>)definition).GenerateMessage(
+            p.ErrorCount,
+            p.StatementCount,
+            p.RequestId);
     }
 
     private static string QueryDiagnosticMessage(EventDefinitionBase definition, EventData payload)

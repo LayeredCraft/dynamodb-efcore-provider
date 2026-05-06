@@ -111,6 +111,121 @@ public class DynamoExecuteStatementFailedEventData(
     public virtual bool SeedNextTokenPresent { get; } = seedNextTokenPresent;
 }
 
+/// <summary>Identifies DynamoDB PartiQL write request operation kind.</summary>
+public enum DynamoPartiQlWriteOperation
+{
+    /// <summary>Single ExecuteStatement write request.</summary>
+    ExecuteStatement,
+
+    /// <summary>ExecuteTransaction write request.</summary>
+    ExecuteTransaction,
+
+    /// <summary>BatchExecuteStatement write request.</summary>
+    BatchExecuteStatement
+}
+
+/// <summary>DiagnosticSource payload for DynamoDB PartiQL write request start events.</summary>
+public class DynamoPartiQlWriteRequestEventData(
+    EventDefinitionBase eventDefinition,
+    Func<EventDefinitionBase, EventData, string> messageGenerator,
+    DynamoPartiQlWriteOperation operation,
+    int statementCount,
+    Guid commandId) : EventData(eventDefinition, messageGenerator)
+{
+    /// <summary>Gets DynamoDB operation kind.</summary>
+    public virtual DynamoPartiQlWriteOperation Operation { get; } = operation;
+
+    /// <summary>Gets submitted statement count.</summary>
+    public virtual int StatementCount { get; } = statementCount;
+
+    /// <summary>Gets provider command id for correlating request diagnostics.</summary>
+    public virtual Guid CommandId { get; } = commandId;
+}
+
+/// <summary>DiagnosticSource payload for completed DynamoDB PartiQL write request events.</summary>
+public class DynamoPartiQlWriteRequestExecutedEventData(
+    EventDefinitionBase eventDefinition,
+    Func<EventDefinitionBase, EventData, string> messageGenerator,
+    DynamoPartiQlWriteOperation operation,
+    int statementCount,
+    TimeSpan elapsed,
+    Guid commandId,
+    string? requestId,
+    IReadOnlyList<ConsumedCapacity>? consumedCapacity) : EventData(
+    eventDefinition,
+    messageGenerator)
+{
+    /// <summary>Gets DynamoDB operation kind.</summary>
+    public virtual DynamoPartiQlWriteOperation Operation { get; } = operation;
+
+    /// <summary>Gets submitted statement count.</summary>
+    public virtual int StatementCount { get; } = statementCount;
+
+    /// <summary>Gets request duration.</summary>
+    public virtual TimeSpan Elapsed { get; } = elapsed;
+
+    /// <summary>Gets provider command id for correlating request diagnostics.</summary>
+    public virtual Guid CommandId { get; } = commandId;
+
+    /// <summary>Gets AWS request id when available.</summary>
+    public virtual string? RequestId { get; } = requestId;
+
+    /// <summary>Gets consumed capacity returned by DynamoDB, when requested.</summary>
+    public virtual IReadOnlyList<ConsumedCapacity>? ConsumedCapacity { get; } = consumedCapacity;
+}
+
+/// <summary>DiagnosticSource payload for failed DynamoDB PartiQL write request events.</summary>
+public class DynamoPartiQlWriteRequestFailedEventData(
+    EventDefinitionBase eventDefinition,
+    Func<EventDefinitionBase, EventData, string> messageGenerator,
+    DynamoPartiQlWriteOperation operation,
+    int statementCount,
+    Exception exception,
+    TimeSpan elapsed,
+    Guid commandId,
+    string? requestId) : EventData(eventDefinition, messageGenerator)
+{
+    /// <summary>Gets DynamoDB operation kind.</summary>
+    public virtual DynamoPartiQlWriteOperation Operation { get; } = operation;
+
+    /// <summary>Gets submitted statement count.</summary>
+    public virtual int StatementCount { get; } = statementCount;
+
+    /// <summary>Gets exception that caused request failure.</summary>
+    public virtual Exception Exception { get; } = exception;
+
+    /// <summary>Gets request duration.</summary>
+    public virtual TimeSpan Elapsed { get; } = elapsed;
+
+    /// <summary>Gets provider command id for correlating request diagnostics.</summary>
+    public virtual Guid CommandId { get; } = commandId;
+
+    /// <summary>Gets AWS request id when available.</summary>
+    public virtual string? RequestId { get; } = requestId;
+}
+
+/// <summary>DiagnosticSource payload for successful batch write requests with per-statement errors.</summary>
+public class DynamoBatchStatementErrorsEventData(
+    EventDefinitionBase eventDefinition,
+    Func<EventDefinitionBase, EventData, string> messageGenerator,
+    int statementCount,
+    int errorCount,
+    Guid commandId,
+    string? requestId) : EventData(eventDefinition, messageGenerator)
+{
+    /// <summary>Gets submitted statement count.</summary>
+    public virtual int StatementCount { get; } = statementCount;
+
+    /// <summary>Gets response statement error count.</summary>
+    public virtual int ErrorCount { get; } = errorCount;
+
+    /// <summary>Gets provider command id for correlating request diagnostics.</summary>
+    public virtual Guid CommandId { get; } = commandId;
+
+    /// <summary>Gets AWS request id when available.</summary>
+    public virtual string? RequestId { get; } = requestId;
+}
+
 /// <summary>DiagnosticSource payload for DynamoDB query diagnostics.</summary>
 public class DynamoQueryDiagnosticEventData(
     EventDefinitionBase eventDefinition,

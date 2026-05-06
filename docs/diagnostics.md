@@ -71,19 +71,23 @@ emitted as log events.
 
 ## Event Reference
 
-| Event Name                                | Event ID | Category           | Level       | Code            |
-| ----------------------------------------- | -------- | ------------------ | ----------- | --------------- |
-| `ExecutingPartiQlQuery`                   | 30100    | `Database.Command` | Information | —               |
-| `ExecutingExecuteStatement`               | 30101    | `Database.Command` | Information | —               |
-| `ExecutedExecuteStatement`                | 30102    | `Database.Command` | Information | —               |
-| `ExecutingPartiQlWrite`                   | 30110    | `Database.Command` | Information | —               |
-| `NoCompatibleSecondaryIndexFound`         | 30104    | `Query`            | Warning     | `DYNAMO_IDX001` |
-| `MultipleCompatibleSecondaryIndexesFound` | 30105    | `Query`            | Warning     | `DYNAMO_IDX002` |
-| `SecondaryIndexSelected`                  | 30106    | `Query`            | Information | `DYNAMO_IDX003` |
-| `ExplicitIndexSelected`                   | 30107    | `Query`            | Information | `DYNAMO_IDX004` |
-| `SecondaryIndexCandidateRejected`         | 30108    | `Query`            | Information | `DYNAMO_IDX005` |
-| `ExplicitIndexSelectionDisabled`          | 30109    | `Query`            | Information | `DYNAMO_IDX006` |
-| `ScanLikeQueryDetected`                   | 30111    | `Query`            | Warning     | —               |
+| Event Name                                 | Event ID | Category           | Level       | Code            |
+| ------------------------------------------ | -------- | ------------------ | ----------- | --------------- |
+| `ExecutingPartiQlQuery`                    | 30100    | `Database.Command` | Information | —               |
+| `ExecutingExecuteStatement`                | 30101    | `Database.Command` | Information | —               |
+| `ExecutedExecuteStatement`                 | 30102    | `Database.Command` | Information | —               |
+| `ExecutingPartiQlWrite`                    | 30110    | `Database.Command` | Information | —               |
+| `ExecutingPartiQlWriteRequest`             | 30113    | `Database.Command` | Information | —               |
+| `ExecutedPartiQlWriteRequest`              | 30114    | `Database.Command` | Information | —               |
+| `PartiQlWriteRequestFailed`                | 30115    | `Database.Command` | Error       | —               |
+| `BatchPartiQlWriteReturnedStatementErrors` | 30116    | `Database.Command` | Warning     | —               |
+| `NoCompatibleSecondaryIndexFound`          | 30104    | `Query`            | Warning     | `DYNAMO_IDX001` |
+| `MultipleCompatibleSecondaryIndexesFound`  | 30105    | `Query`            | Warning     | `DYNAMO_IDX002` |
+| `SecondaryIndexSelected`                   | 30106    | `Query`            | Information | `DYNAMO_IDX003` |
+| `ExplicitIndexSelected`                    | 30107    | `Query`            | Information | `DYNAMO_IDX004` |
+| `SecondaryIndexCandidateRejected`          | 30108    | `Query`            | Information | `DYNAMO_IDX005` |
+| `ExplicitIndexSelectionDisabled`           | 30109    | `Query`            | Information | `DYNAMO_IDX006` |
+| `ScanLikeQueryDetected`                    | 30111    | `Query`            | Warning     | —               |
 
 Event IDs are stable across releases. You can use them to filter log output programmatically or
 in structured logging sinks.
@@ -181,6 +185,26 @@ write operations — whether transactional or non-transactional — each one gen
 
 Use this event to verify that complex properties, primitive collections, and discriminator values are
 being serialized into the expected PartiQL parameter positions.
+
+### Write request lifecycle — 30113, 30114, 30115, 30116
+
+The provider also logs request-level write diagnostics around actual AWS SDK calls. These events
+are separate from `ExecutingPartiQlWrite`, which remains statement-level for compatibility.
+
+| Event                                      | Meaning                                                                             |
+| ------------------------------------------ | ----------------------------------------------------------------------------------- |
+| `ExecutingPartiQlWriteRequest`             | A write SDK request is about to be sent.                                            |
+| `ExecutedPartiQlWriteRequest`              | The SDK request completed successfully.                                             |
+| `PartiQlWriteRequestFailed`                | The SDK request failed with an exception.                                           |
+| `BatchPartiQlWriteReturnedStatementErrors` | `BatchExecuteStatement` returned HTTP success but one or more per-statement errors. |
+
+Request payloads include operation kind (`ExecuteStatement`, `ExecuteTransaction`, or
+`BatchExecuteStatement`), statement count, provider command id, elapsed time, AWS request id when
+available, and consumed capacity when DynamoDB returns it.
+
+For `BatchExecuteStatement`, per-statement `Error` values are not logged as command failures: the
+AWS command succeeded, then the provider reports returned statement errors as a warning and keeps
+normal `SaveChanges` exception/concurrency behavior.
 
 ## Index Selection Events
 

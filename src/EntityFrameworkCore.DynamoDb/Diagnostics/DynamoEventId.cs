@@ -18,6 +18,10 @@ public static class DynamoEventId
         ExecutedExecuteStatement = CoreEventId.ProviderBaseId + 102,
         ExecuteStatementFailed = CoreEventId.ProviderBaseId + 112,
         ExecutingPartiQlWrite = CoreEventId.ProviderBaseId + 110,
+        ExecutingPartiQlWriteRequest = CoreEventId.ProviderBaseId + 113,
+        ExecutedPartiQlWriteRequest = CoreEventId.ProviderBaseId + 114,
+        PartiQlWriteRequestFailed = CoreEventId.ProviderBaseId + 115,
+        BatchPartiQlWriteReturnedStatementErrors = CoreEventId.ProviderBaseId + 116,
 
         // Query events
         NoCompatibleSecondaryIndexFound = CoreEventId.ProviderBaseId + 104,
@@ -81,6 +85,30 @@ public static class DynamoEventId
     public static readonly EventId ExecutingPartiQlWrite = new(
         (int)Id.ExecutingPartiQlWrite,
         CommandPrefix + Id.ExecutingPartiQlWrite);
+
+    /// <summary>A DynamoDB PartiQL write request is going to be sent.</summary>
+    /// <remarks>This event is in the <c>DbLoggerCategory.Database.Command</c> category and uses <see cref="DynamoPartiQlWriteRequestEventData" /> payloads.</remarks>
+    public static readonly EventId ExecutingPartiQlWriteRequest = new(
+        (int)Id.ExecutingPartiQlWriteRequest,
+        CommandPrefix + Id.ExecutingPartiQlWriteRequest);
+
+    /// <summary>A DynamoDB PartiQL write request completed.</summary>
+    /// <remarks>This event is in the <c>DbLoggerCategory.Database.Command</c> category and uses <see cref="DynamoPartiQlWriteRequestExecutedEventData" /> payloads.</remarks>
+    public static readonly EventId ExecutedPartiQlWriteRequest = new(
+        (int)Id.ExecutedPartiQlWriteRequest,
+        CommandPrefix + Id.ExecutedPartiQlWriteRequest);
+
+    /// <summary>A DynamoDB PartiQL write request failed.</summary>
+    /// <remarks>This event is in the <c>DbLoggerCategory.Database.Command</c> category and uses <see cref="DynamoPartiQlWriteRequestFailedEventData" /> payloads.</remarks>
+    public static readonly EventId PartiQlWriteRequestFailed = new(
+        (int)Id.PartiQlWriteRequestFailed,
+        CommandPrefix + Id.PartiQlWriteRequestFailed);
+
+    /// <summary>A successful BatchExecuteStatement write request returned per-statement errors.</summary>
+    /// <remarks>This event is in the <c>DbLoggerCategory.Database.Command</c> category and uses <see cref="DynamoBatchStatementErrorsEventData" /> payloads.</remarks>
+    public static readonly EventId BatchPartiQlWriteReturnedStatementErrors = new(
+        (int)Id.BatchPartiQlWriteReturnedStatementErrors,
+        CommandPrefix + Id.BatchPartiQlWriteReturnedStatementErrors);
 
     /// <summary>No compatible secondary index was found for automatic selection.</summary>
     /// <remarks>This event is in the <c>DbLoggerCategory.Query</c> category and uses <see cref="DynamoQueryDiagnosticEventData" /> payloads.</remarks>
