@@ -158,7 +158,7 @@ issue another request.
 
 ### `ExecuteStatementFailed` — 30112
 
-Fires when an `ExecuteStatement` request fails or is canceled:
+Fires when an `ExecuteStatement` request fails with a non-cancellation exception:
 
 ```
 fail: Microsoft.EntityFrameworkCore.Database.Command[30112]
@@ -168,6 +168,8 @@ fail: Microsoft.EntityFrameworkCore.Database.Command[30112]
 The payload includes the thrown `exception`, `elapsed`, `commandId`, AWS `requestId` when
 available, `limit`, `nextTokenPresent`, and `seedNextTokenPresent`. Failed page requests propagate
 the original exception to query enumeration; the provider does not convert them to empty pages.
+Canceled query requests surface through EF Core's `QueryCanceled` diagnostic event instead of
+`ExecuteStatementFailed`.
 
 ## Query Events
 
