@@ -414,20 +414,20 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
         if (value.B is not null)
             return $"<binary:{value.B.Length.ToString(CultureInfo.InvariantCulture)} bytes>";
 
-        if (value.SS.Count > 0)
+        if (value.SS?.Count > 0)
             return $"<<{string.Join(", ", value.SS.Select(s => $"'{s.Replace("'", "''")}'"))}>>";
 
-        if (value.NS.Count > 0)
+        if (value.NS?.Count > 0)
             return $"<<{string.Join(", ", value.NS)}>>";
 
-        if (value.BS.Count > 0)
+        if (value.BS?.Count > 0)
             return
                 $"<<{string.Join(", ", value.BS.Select(b => $"<binary:{b.Length.ToString(CultureInfo.InvariantCulture)} bytes>"))}>>";
 
-        if (value.L.Count > 0)
+        if (value.L?.Count > 0)
             return $"[{string.Join(", ", value.L.Select(FormatAttributeValue))}]";
 
-        if (value.M.Count > 0)
+        if (value.M?.Count > 0)
             return
                 $"{{{string.Join(", ", value.M.Select(kvp => $"{kvp.Key}: {FormatAttributeValue(kvp.Value)}"))}}}";
 

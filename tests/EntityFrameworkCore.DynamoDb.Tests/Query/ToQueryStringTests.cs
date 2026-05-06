@@ -1,6 +1,8 @@
+using System.Reflection;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.Infrastructure;
+using EntityFrameworkCore.DynamoDb.Query.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using NSubstitute;
@@ -45,6 +47,41 @@ public class ToQueryStringTests
                 + "WHERE \"pk\" = ?");
         client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!, default);
     }
+
+    [Theory(Timeout = TestConfiguration.DefaultTimeout)]
+    [MemberData(nameof(AttributeValues))]
+    public void ToQueryString_AttributeValueFormatting_HandlesSdkV4NullCollections(
+        AttributeValue value,
+        string expected)
+        => FormatAttributeValue(value).Should().Be(expected);
+
+    public static TheoryData<AttributeValue, string> AttributeValues()
+        => new()
+        {
+            { new AttributeValue(), "<empty>" },
+            { new AttributeValue { SS = ["a", "b'c"] }, "<<'a', 'b''c'>>" },
+            { new AttributeValue { NS = ["1", "2"] }, "<<1, 2>>" },
+            {
+                new AttributeValue { BS = [new MemoryStream([1, 2, 3])] },
+                "<<<binary:3 bytes>>>"
+            },
+            { new AttributeValue { L = [new AttributeValue { S = "x" }] }, "['x']" },
+            {
+                new AttributeValue
+                {
+                    M = new Dictionary<string, AttributeValue>
+                    {
+                        ["k"] = new() { S = "v" },
+                    },
+                },
+                "{k: 'v'}"
+            },
+        };
+
+    private static string FormatAttributeValue(AttributeValue value)
+        => (string)typeof(DynamoShapedQueryCompilingExpressionVisitor).GetMethod(
+            "FormatAttributeValue",
+            BindingFlags.NonPublic | BindingFlags.Static)!.Invoke(null, [value])!;
 
     private sealed class ToQueryStringEntity
     {
