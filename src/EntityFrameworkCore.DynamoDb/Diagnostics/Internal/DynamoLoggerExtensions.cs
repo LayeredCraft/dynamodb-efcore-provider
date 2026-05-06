@@ -528,10 +528,13 @@ public static class DynamoLoggerExtensions
         Func<DynamoLoggingDefinition, TDefinition> create)
         where TLoggerCategory : LoggerCategory<TLoggerCategory>, new() where TDefinition : class
     {
-        var definitions = (DynamoLoggingDefinition)diagnostics.Definitions;
+        if (diagnostics.Definitions is not DynamoLoggingDefinition definitions)
+            return create(new DynamoLoggingDefinition());
+
         var definition = get(definitions);
         if (definition is not null)
             return definition;
+
         definition = create(definitions);
         set(definitions, definition);
         return definition;
