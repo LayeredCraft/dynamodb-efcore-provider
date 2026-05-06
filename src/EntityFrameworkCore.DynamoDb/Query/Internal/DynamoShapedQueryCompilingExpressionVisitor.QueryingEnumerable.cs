@@ -1,5 +1,7 @@
 using System.Collections;
+using System.Globalization;
 using System.Linq.Expressions;
+using System.Text;
 using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.Diagnostics;
 using EntityFrameworkCore.DynamoDb.Diagnostics.Internal;
@@ -54,7 +56,7 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
         /// <summary>Provides functionality for this member.</summary>
-        public string ToQueryString() => throw new NotImplementedException();
+        public string ToQueryString() => FormatQueryString(GenerateQuery());
 
         /// <summary>Generates the PartiQL query at runtime with parameter values.</summary>
         private DynamoPartiQlQuery GenerateQuery()
@@ -254,7 +256,7 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
 
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
-        public string ToQueryString() => throw new NotImplementedException();
+        public string ToQueryString() => FormatQueryString(GenerateQuery());
 
         private DynamoPartiQlQuery GenerateQuery()
             => _sqlGeneratorFactory.Create().Generate(_selectExpression, _queryContext.Parameters);
@@ -374,6 +376,63 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
         }
     }
 #pragma warning restore EF9102
+
+    /// <summary>Formats generated PartiQL with debug parameter comments.</summary>
+    private static string FormatQueryString(DynamoPartiQlQuery query)
+    {
+        if (query.Parameters.Count == 0)
+            return query.Sql;
+
+        var builder = new StringBuilder();
+        for (var i = 0; i < query.Parameters.Count; i++)
+            builder
+                .Append("-- p")
+                .Append(i)
+                .Append('=')
+                .Append(FormatAttributeValue(query.Parameters[i]))
+                .AppendLine();
+
+        builder.Append(query.Sql);
+        return builder.ToString();
+    }
+
+    /// <summary>Formats a DynamoDB attribute value for query debug output.</summary>
+    private static string FormatAttributeValue(AttributeValue value)
+    {
+        if (value.NULL == true)
+            return "NULL";
+
+        if (value.S is not null)
+            return $"'{value.S.Replace("'", "''")}'";
+
+        if (value.N is not null)
+            return value.N;
+
+        if (value.BOOL is bool boolean)
+            return boolean ? "TRUE" : "FALSE";
+
+        if (value.B is not null)
+            return $"<binary:{value.B.Length.ToString(CultureInfo.InvariantCulture)} bytes>";
+
+        if (value.SS.Count > 0)
+            return $"<<{string.Join(", ", value.SS.Select(s => $"'{s.Replace("'", "''")}'"))}>>";
+
+        if (value.NS.Count > 0)
+            return $"<<{string.Join(", ", value.NS)}>>";
+
+        if (value.BS.Count > 0)
+            return
+                $"<<{string.Join(", ", value.BS.Select(b => $"<binary:{b.Length.ToString(CultureInfo.InvariantCulture)} bytes>"))}>>";
+
+        if (value.L.Count > 0)
+            return $"[{string.Join(", ", value.L.Select(FormatAttributeValue))}]";
+
+        if (value.M.Count > 0)
+            return
+                $"{{{string.Join(", ", value.M.Select(kvp => $"{kvp.Key}: {FormatAttributeValue(kvp.Value)}"))}}}";
+
+        return "<empty>";
+    }
 
     /// <summary>
     ///     Resolves an integer expression to its runtime value. Handles constant literals and compiled-query

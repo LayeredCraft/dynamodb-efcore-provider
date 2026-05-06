@@ -12,8 +12,8 @@ _The provider compiles LINQ expressions into PartiQL `SELECT` statements and exe
 When you execute a LINQ query, the provider runs it through a multi-stage compilation pipeline before any network call is made:
 
 1. **`DynamoQueryableMethodTranslatingExpressionVisitor`** walks the LINQ expression tree and builds a `SelectExpression` — an internal query model representing the projected columns, `WHERE` predicate, `ORDER BY` orderings, and evaluation limit.
-1. **`DynamoQueryTranslationPostprocessor`** finalizes the `SelectExpression`: it injects discriminator predicates for shared-table entity types and runs index selection analysis to determine whether a GSI or LSI should be used.
-1. **`DynamoQuerySqlGenerator`** converts the `SelectExpression` into a PartiQL `SELECT` statement with positional `?` placeholders and a matching `AttributeValue` parameter list.
+2. **`DynamoQueryTranslationPostprocessor`** finalizes the `SelectExpression`: it injects discriminator predicates for shared-table entity types and runs index selection analysis to determine whether a GSI or LSI should be used.
+3. **`DynamoQuerySqlGenerator`** converts the `SelectExpression` into a PartiQL `SELECT` statement with positional `?` placeholders and a matching `AttributeValue` parameter list.
 
 ```csharp
 var orders = await db.Orders
@@ -63,6 +63,26 @@ Some projection shaping also runs client-side. Computed expressions in `Select` 
 arithmetic, constructor calls) and nested complex-property materialization are applied by the
 shaper lambda after the server returns the raw `AttributeValue` rows. This is expected behavior
 and is documented per operator on the [Projection](projection.md) page.
+
+## Debugging Generated PartiQL
+
+Use EF Core's `ToQueryString()` to inspect generated PartiQL without sending a request to DynamoDB.
+Parameterized queries include comment lines with positional parameter names (`p0`, `p1`, ...) and
+formatted DynamoDB `AttributeValue` values before the PartiQL text.
+
+```csharp
+var partiQl = db.Orders
+    .Where(o => o.CustomerId == customerId)
+    .ToQueryString();
+
+// -- p0='CUSTOMER#123'
+// SELECT "pk", "sk", "total"
+// FROM "Orders"
+// WHERE "CustomerId" = ?
+```
+
+`ToQueryString()` is for debugging only: it does not run scan warnings, log query execution events,
+or execute `ExecuteStatement`.
 
 ## Async Execution
 
