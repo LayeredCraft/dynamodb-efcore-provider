@@ -61,8 +61,8 @@ DynamoDB counts *evaluated* items against `Limit` (not matched items), this is o
 `WHERE` clause guarantees at most one evaluation pass before a match:
 
 1. No user-specified `Limit(n)` on the query.
-1. The `WHERE` clause includes a partition-key equality condition.
-1. Any sort-key predicate is a valid DynamoDB key condition (`=`, `<`, `<=`, `>`, `>=`,
+2. The `WHERE` clause includes a partition-key equality condition.
+3. Any sort-key predicate is a valid DynamoDB key condition (`=`, `<`, `<=`, `>`, `>=`,
     `BETWEEN`, `begins_with`).
 
 Queries that do not meet all three conditions throw `InvalidOperationException` at translation
@@ -152,7 +152,7 @@ DynamoDB `ExecuteTransaction` enforces two hard limits:
     max 100), the provider throws `InvalidOperationException` unless
     `TransactionOverflowBehavior.UseChunking` is configured.
 
-1. **No duplicate items within a single transaction.** Writing the same DynamoDB item more than
+2. **No duplicate items within a single transaction.** Writing the same DynamoDB item more than
     once in a single transaction throws `InvalidOperationException` — the provider validates this
     client-side before sending the request to DynamoDB.
 
@@ -280,11 +280,11 @@ Synchronous query execution throws `InvalidOperationException`. This applies to 
 enumeration, not just `SaveChanges`. Methods like `ToList()`, `First()`, and `Count()` on a
 `DbSet` will throw. Use `ToListAsync()`, `FirstAsync()`, `AsAsyncEnumerable()`, etc.
 
-### `ToQueryString()` Not Implemented
+### `ToQueryString()` Is Debug-Only
 
-`IQueryable<T>.ToQueryString()` throws `NotImplementedException`. To inspect generated PartiQL,
-enable command logging at `Information` level and read the `ExecutingPartiQlQuery` event. See
-[Diagnostics and Logging](diagnostics.md).
+`IQueryable<T>.ToQueryString()` returns generated PartiQL and formatted parameter comments without
+sending a request to DynamoDB. It does not execute scan warnings, log command events, or validate
+that DynamoDB accepts the statement at runtime. See [Diagnostics and Logging](diagnostics.md).
 
 ### Parameterized Null Inconsistency
 

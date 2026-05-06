@@ -76,6 +76,7 @@ emitted as log events.
 | `ExecutingPartiQlQuery`                    | 30100    | `Database.Command` | Information | —               |
 | `ExecutingExecuteStatement`                | 30101    | `Database.Command` | Information | —               |
 | `ExecutedExecuteStatement`                 | 30102    | `Database.Command` | Information | —               |
+| `ExecuteStatementFailed`                   | 30112    | `Database.Command` | Error       | —               |
 | `ExecutingPartiQlWrite`                    | 30110    | `Database.Command` | Information | —               |
 | `ExecutingPartiQlWriteRequest`             | 30113    | `Database.Command` | Information | —               |
 | `ExecutedPartiQlWriteRequest`              | 30114    | `Database.Command` | Information | —               |
@@ -131,6 +132,7 @@ Fields:
 | `limit`                | The page size sent on this request. `null` means no limit was set — DynamoDB will return up to its internal 1 MB cap per page. |
 | `nextTokenPresent`     | `True` when this is a continuation call — the provider is fetching the next page using a token from the previous response.     |
 | `seedNextTokenPresent` | `True` when the *first* request used a user-supplied pagination token (e.g. from a manual pagination call).                    |
+| `commandId`            | Provider-generated id that correlates start, completion, and failure diagnostics for the same AWS request.                     |
 
 The `limit` value is set by a query-level `Limit(n)` call or by `ToPageAsync(limit, token)`. If it
 is `null` and your query can return many items, you will typically see multiple round-trips as the
@@ -145,6 +147,28 @@ info: Microsoft.EntityFrameworkCore.Database.Command[30102]
       Executed DynamoDB ExecuteStatement request (itemsCount: 25, nextTokenPresent: True)
 ```
 
+Diagnostic payload fields include `itemsCount`, `nextTokenPresent`, `elapsed`, `commandId`,
+`requestId`, `limit`, `seedNextTokenPresent`, and `consumedCapacity`. The log message keeps the
+older concise shape for compatibility; use `DiagnosticListener` or structured diagnostics when you
+need request id, elapsed time, or consumed capacity.
+
+If `itemsCount` is less than `limit` and `nextTokenPresent` is still `True`, DynamoDB reached its
+internal 1 MB page cap before filling your requested page size. The provider will automatically
+issue another request.
+
+### `ExecuteStatementFailed` — 30112
+
+Fires when an `ExecuteStatement` request fails or is canceled:
+
+```
+fail: Microsoft.EntityFrameworkCore.Database.Command[30112]
+      Failed executing DynamoDB ExecuteStatement request (requestId: ..., elapsed: 12.34ms)
+```
+
+The payload includes the thrown `exception`, `elapsed`, `commandId`, AWS `requestId` when
+available, `limit`, `nextTokenPresent`, and `seedNextTokenPresent`. Failed page requests propagate
+the original exception to query enumeration; the provider does not convert them to empty pages.
+
 ## Query Events
 
 ### `ScanLikeQueryDetected` — 30111
@@ -158,16 +182,7 @@ warn: Microsoft.EntityFrameworkCore.Query[30111]
 
 By default, the same message is thrown as an `InvalidOperationException` before PartiQL generation or `ExecuteStatement`. The provider registers this event as an explicit throwing warning, so `ConfigureWarnings(w => w.Default(...))` does not override it. Use `ConfigureWarnings` with `DynamoEventId.ScanLikeQueryDetected` to `Log`, `Ignore`, or `Throw` this event explicitly.
 
-Fields:
-
-| Field              | Meaning                                                                      |
-| ------------------ | ---------------------------------------------------------------------------- |
-| `itemsCount`       | Number of items in this page.                                                |
-| `nextTokenPresent` | `True` when DynamoDB returned a continuation token — more data is available. |
-
-If `itemsCount` is less than `limit` and `nextTokenPresent` is still `True`, DynamoDB reached its
-internal 1 MB page cap before filling your requested page size. The provider will automatically
-issue another request.
+The payload contains `message`, matching the rendered warning text.
 
 ### `ExecutingPartiQlWrite` — 30110
 
@@ -202,9 +217,17 @@ Request payloads include operation kind (`ExecuteStatement`, `ExecuteTransaction
 `BatchExecuteStatement`), statement count, provider command id, elapsed time, AWS request id when
 available, and consumed capacity when DynamoDB returns it.
 
+| Event                                      | Diagnostic payload fields                                                              |
+| ------------------------------------------ | -------------------------------------------------------------------------------------- |
+| `ExecutingPartiQlWriteRequest`             | `operation`, `statementCount`, `commandId`                                             |
+| `ExecutedPartiQlWriteRequest`              | `operation`, `statementCount`, `elapsed`, `commandId`, `requestId`, `consumedCapacity` |
+| `PartiQlWriteRequestFailed`                | `operation`, `statementCount`, `exception`, `elapsed`, `commandId`, `requestId`        |
+| `BatchPartiQlWriteReturnedStatementErrors` | `statementCount`, `errorCount`, `commandId`, `requestId`                               |
+
 For `BatchExecuteStatement`, per-statement `Error` values are not logged as command failures: the
 AWS command succeeded, then the provider reports returned statement errors as a warning and keeps
-normal `SaveChanges` exception/concurrency behavior.
+normal `SaveChanges` exception/concurrency behavior. DynamoDB can return HTTP success while some
+batch statements failed; treat this warning as a per-item failure signal, not a transport failure.
 
 ## Index Selection Events
 
@@ -383,17 +406,19 @@ results from multiple round-trips.
 
 ### `ConsumedCapacity`
 
-`ConsumedCapacity` is `null` unless `ReturnConsumedCapacity` was configured on the underlying
-`ExecuteStatementRequest`. To set this today, access the low-level client directly:
+`ConsumedCapacity` is `null` unless provider options request it and DynamoDB returns it. Configure
+this once on the provider options:
 
 ```csharp
-var client = context.Database.GetDynamoClient();
-// Use client.ExecuteStatementAsync(...) with ReturnConsumedCapacity configured
+optionsBuilder.UseDynamo(options => options
+    .DynamoDbClient(client)
+    .ReturnConsumedCapacity(ReturnConsumedCapacity.TOTAL));
 ```
 
-!!! note "Planned"
-
-    Provider-level configuration for `ReturnConsumedCapacity` is tracked for a future release.
+`ReturnConsumedCapacity.TOTAL` reports table-level capacity. `ReturnConsumedCapacity.INDEXES` asks
+DynamoDB for table and index capacity details where the API supports them. Read diagnostics expose
+a single `ConsumedCapacity`; write request diagnostics expose a list because transaction and batch
+APIs can return multiple capacity entries.
 
 ## Model Validation Errors
 
@@ -428,21 +453,45 @@ during development, not in production steady-state.
 See [Supported Operators](querying/operators.md) and [Limitations](limitations.md) for the full
 list of supported and unsupported LINQ shapes.
 
+## DiagnosticListener Payloads
+
+EF Core also publishes these events through `DiagnosticListener` using provider-specific
+`EventData` payload types:
+
+| Payload type                                 | Events                                             |
+| -------------------------------------------- | -------------------------------------------------- |
+| `DynamoPartiQlCommandEventData`              | `ExecutingPartiQlQuery`, `ExecutingPartiQlWrite`   |
+| `DynamoExecuteStatementEventData`            | `ExecutingExecuteStatement`                        |
+| `DynamoExecuteStatementExecutedEventData`    | `ExecutedExecuteStatement`                         |
+| `DynamoExecuteStatementFailedEventData`      | `ExecuteStatementFailed`                           |
+| `DynamoPartiQlWriteRequestEventData`         | `ExecutingPartiQlWriteRequest`                     |
+| `DynamoPartiQlWriteRequestExecutedEventData` | `ExecutedPartiQlWriteRequest`                      |
+| `DynamoPartiQlWriteRequestFailedEventData`   | `PartiQlWriteRequestFailed`                        |
+| `DynamoBatchStatementErrorsEventData`        | `BatchPartiQlWriteReturnedStatementErrors`         |
+| `DynamoQueryDiagnosticEventData`             | Index-selection events and `ScanLikeQueryDetected` |
+
+Use `commandId` to join request start/completion/failure events in traces. Use AWS `requestId` for
+AWS Support cases and to correlate with SDK/service logs.
+
+## Inspecting Generated PartiQL
+
+Use EF Core's `ToQueryString()` to inspect generated PartiQL without sending a request:
+
+```csharp
+var partiQl = context.Orders
+    .Where(o => o.CustomerId == customerId)
+    .ToQueryString();
+```
+
+The output includes parameter comments with formatted DynamoDB `AttributeValue` values followed by
+the PartiQL text. `ToQueryString()` is for debugging: it does not execute scan-warning behavior,
+log command events, or call DynamoDB.
+
 ## Not Yet Available
-
-The following diagnostic features are tracked for future releases:
-
-**`ConfigureWarnings` integration** — Some warning events (`DYNAMO_IDX001`, `DYNAMO_IDX002`) cannot
-yet be escalated to exceptions or suppressed via `optionsBuilder.ConfigureWarnings(w => w.Throw(...))`.
-`ScanLikeQueryDetected` does support standard EF Core warning configuration.
 
 **Sensitive data logging** — `EnableSensitiveDataLogging()` has no effect on DynamoDB provider
 logs. Parameter values in PartiQL statements are always omitted from log output regardless of
 this setting.
-
-**Row-limiting query warning** — A warning for queries that can return many rows but have no
-explicit `Limit(n)` is planned but not yet emitted. Use the `ExecutedExecuteStatement` events to
-monitor round-trip counts and item counts in the meantime.
 
 ## See Also
 
