@@ -15,7 +15,7 @@ public class DynamoLoggingDefinition : LoggingDefinitions
     public EventDefinition<int, bool>? LogExecutedExecuteStatement;
 
     /// <summary>Cached event definition for failed ExecuteStatement logs.</summary>
-    public EventDefinition<string?, double>? LogExecuteStatementFailed;
+    public FallbackEventDefinition? LogExecuteStatementFailed;
 
     /// <summary>Cached event definition for executing PartiQL write logs.</summary>
     public EventDefinition<string, string, string>? LogExecutingPartiQlWrite;
@@ -27,7 +27,7 @@ public class DynamoLoggingDefinition : LoggingDefinitions
     public EventDefinition<string, int, string?, double>? LogExecutedPartiQlWriteRequest;
 
     /// <summary>Cached event definition for write request failed logs.</summary>
-    public EventDefinition<string, int, string?, double>? LogPartiQlWriteRequestFailed;
+    public FallbackEventDefinition? LogPartiQlWriteRequestFailed;
 
     /// <summary>Cached event definition for batch per-statement error logs.</summary>
     public EventDefinition<int, int, string?>? LogBatchPartiQlWriteReturnedStatementErrors;

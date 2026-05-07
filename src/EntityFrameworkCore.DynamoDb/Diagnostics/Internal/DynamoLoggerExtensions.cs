@@ -27,11 +27,8 @@ public static class DynamoLoggerExtensions
             DynamoEventId.ExecutedExecuteStatement,
             "Executed DynamoDB ExecuteStatement request (itemsCount: {itemsCount}, nextTokenPresent: {nextTokenPresent})");
 
-    private static readonly Func<LogLevel, Action<ILogger, string?, double, Exception?>>
-        LogExecuteStatementFailed = level => LoggerMessage.Define<string?, double>(
-            level,
-            DynamoEventId.ExecuteStatementFailed,
-            "Failed executing DynamoDB ExecuteStatement request (requestId: {requestId}, elapsed: {elapsedMilliseconds}ms)");
+    private const string ExecuteStatementFailedLogMessage =
+        "Failed executing DynamoDB ExecuteStatement request (requestId: {requestId}, elapsed: {elapsedMilliseconds}ms)";
 
     private static readonly Func<LogLevel, Action<ILogger, string, string, string, Exception?>>
         LogExecutingPartiQlWrite = level => LoggerMessage.Define<string, string, string>(
@@ -53,12 +50,8 @@ public static class DynamoLoggerExtensions
                 DynamoEventId.ExecutedPartiQlWriteRequest,
                 "Executed DynamoDB {operation} write request ({statementCount} statements, requestId: {requestId}, elapsed: {elapsedMilliseconds}ms)");
 
-    private static readonly
-        Func<LogLevel, Action<ILogger, string, int, string?, double, Exception?>>
-        LogPartiQlWriteRequestFailed = level => LoggerMessage.Define<string, int, string?, double>(
-            level,
-            DynamoEventId.PartiQlWriteRequestFailed,
-            "Failed executing DynamoDB {operation} write request ({statementCount} statements, requestId: {requestId}, elapsed: {elapsedMilliseconds}ms)");
+    private const string PartiQlWriteRequestFailedLogMessage =
+        "Failed executing DynamoDB {operation} write request ({statementCount} statements, requestId: {requestId}, elapsed: {elapsedMilliseconds}ms)";
 
     private static readonly Func<LogLevel, Action<ILogger, int, int, string?, Exception?>>
         LogBatchPartiQlWriteReturnedStatementErrors = level
@@ -187,10 +180,18 @@ public static class DynamoLoggerExtensions
             (d, v) => d.LogExecuteStatementFailed = v,
             DynamoEventId.ExecuteStatementFailed,
             LogLevel.Error,
-            LogExecuteStatementFailed);
+            ExecuteStatementFailedLogMessage);
 
         if (diagnostics.ShouldLog(definition))
-            definition.Log(diagnostics, requestId, elapsed.TotalMilliseconds);
+            definition.Log(
+                diagnostics,
+                logger => logger.Log(
+                    definition.Level,
+                    definition.EventId,
+                    exception,
+                    definition.MessageFormat,
+                    requestId,
+                    elapsed.TotalMilliseconds));
         if (diagnostics.NeedsEventData(definition, out var ds, out var sl))
             diagnostics.DispatchEventData(
                 definition,
@@ -321,14 +322,19 @@ public static class DynamoLoggerExtensions
             (d, v) => d.LogPartiQlWriteRequestFailed = v,
             DynamoEventId.PartiQlWriteRequestFailed,
             LogLevel.Error,
-            LogPartiQlWriteRequestFailed);
+            PartiQlWriteRequestFailedLogMessage);
         if (diagnostics.ShouldLog(definition))
             definition.Log(
                 diagnostics,
-                operation.ToString(),
-                statementCount,
-                requestId,
-                elapsed.TotalMilliseconds);
+                logger => logger.Log(
+                    definition.Level,
+                    definition.EventId,
+                    exception,
+                    definition.MessageFormat,
+                    operation.ToString(),
+                    statementCount,
+                    requestId,
+                    elapsed.TotalMilliseconds));
         if (diagnostics.NeedsEventData(definition, out var ds, out var sl))
             diagnostics.DispatchEventData(
                 definition,
@@ -464,6 +470,24 @@ public static class DynamoLoggerExtensions
                 eventId.Name!,
                 factory));
 
+    private static FallbackEventDefinition Definition<TLoggerCategory>(
+        IDiagnosticsLogger<TLoggerCategory> diagnostics,
+        Func<DynamoLoggingDefinition, FallbackEventDefinition?> get,
+        Action<DynamoLoggingDefinition, FallbackEventDefinition> set,
+        EventId eventId,
+        LogLevel level,
+        string messageFormat) where TLoggerCategory : LoggerCategory<TLoggerCategory>, new()
+        => Get(
+            diagnostics,
+            get,
+            set,
+            _ => new FallbackEventDefinition(
+                diagnostics.Options,
+                eventId,
+                level,
+                eventId.Name!,
+                messageFormat));
+
     private static EventDefinition<T1, T2, T3> Definition<TLoggerCategory, T1, T2, T3>(
         IDiagnosticsLogger<TLoggerCategory> diagnostics,
         Func<DynamoLoggingDefinition, EventDefinition<T1, T2, T3>?> get,
@@ -569,9 +593,15 @@ public static class DynamoLoggerExtensions
         EventDefinitionBase definition,
         EventData payload)
     {
-        var d = (EventDefinition<string?, double>)definition;
+        var d = (FallbackEventDefinition)definition;
         var p = (DynamoExecuteStatementFailedEventData)payload;
-        return d.GenerateMessage(p.RequestId, p.Elapsed.TotalMilliseconds);
+        return d.GenerateMessage(logger => logger.Log(
+            d.Level,
+            d.EventId,
+            p.Exception,
+            d.MessageFormat,
+            p.RequestId,
+            p.Elapsed.TotalMilliseconds));
     }
 
     private static string WriteRequestExecutingMessage(
@@ -601,11 +631,16 @@ public static class DynamoLoggerExtensions
         EventData payload)
     {
         var p = (DynamoPartiQlWriteRequestFailedEventData)payload;
-        return ((EventDefinition<string, int, string?, double>)definition).GenerateMessage(
+        var d = (FallbackEventDefinition)definition;
+        return d.GenerateMessage(logger => logger.Log(
+            d.Level,
+            d.EventId,
+            p.Exception,
+            d.MessageFormat,
             p.Operation.ToString(),
             p.StatementCount,
             p.RequestId,
-            p.Elapsed.TotalMilliseconds);
+            p.Elapsed.TotalMilliseconds));
     }
 
     private static string BatchStatementErrorsMessage(
