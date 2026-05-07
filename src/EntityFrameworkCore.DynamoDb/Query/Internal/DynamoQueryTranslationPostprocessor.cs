@@ -99,6 +99,9 @@ internal sealed class DynamoQueryTranslationPostprocessor(
         if (decision.SelectedIndexName is { } chosen)
             selectExpression.ApplyIndexName(chosen);
 
+        selectExpression.ApplyIndexSourceKind(
+            ResolveIndexSourceKind(candidates, decision.SelectedIndexName));
+
         selectExpression.ApplyEffectivePartitionKeyPropertyNames(
             ResolveEffectivePartitionKeyPropertyNames(candidates, decision.SelectedIndexName));
 
@@ -296,6 +299,18 @@ internal sealed class DynamoQueryTranslationPostprocessor(
             propertyNames.Add(indexDescriptor.PartitionKeyProperty.GetAttributeName());
 
         return propertyNames;
+    }
+
+    /// <summary>Resolves the finalized source kind for the selected source.</summary>
+    private static DynamoIndexSourceKind? ResolveIndexSourceKind(
+        IReadOnlyList<DynamoIndexDescriptor> candidates,
+        string? selectedIndexName)
+    {
+        var descriptor = selectedIndexName is null
+            ? candidates.FirstOrDefault(d => d.IndexName is null)
+            : candidates.FirstOrDefault(d => d.IndexName == selectedIndexName);
+
+        return descriptor?.Kind;
     }
 
     /// <summary>

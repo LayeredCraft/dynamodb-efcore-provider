@@ -1,4 +1,5 @@
 using System.Linq.Expressions;
+using EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Query;
@@ -107,8 +108,15 @@ public class SelectExpression(string tableName, string? queryEntityTypeName = nu
     /// <summary>The secondary index name to query, or null for the base table.</summary>
     public string? IndexName { get; private set; }
 
+    /// <summary>The finalized source kind for this query.</summary>
+    internal DynamoIndexSourceKind? IndexSourceKind { get; private set; }
+
     /// <summary>Sets the secondary index name to use in the FROM clause.</summary>
     public void ApplyIndexName(string? indexName) => IndexName = indexName;
+
+    /// <summary>Sets the finalized source kind for this query.</summary>
+    internal void ApplyIndexSourceKind(DynamoIndexSourceKind? indexSourceKind)
+        => IndexSourceKind = indexSourceKind;
 
     /// <summary>True when this query has opted into intentional scan execution.</summary>
     public bool ScanAllowed { get; private set; }

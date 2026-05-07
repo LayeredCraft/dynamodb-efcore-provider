@@ -56,11 +56,13 @@ public class DynamoClientWrapper : IDynamoClientWrapper
     public IAsyncEnumerable<Dictionary<string, AttributeValue>> ExecutePartiQl(
         ExecuteStatementRequest statementRequest,
         bool singlePageOnly = false,
-        Action<ExecuteStatementResponse>? onPageFetched = null)
+        Action<ExecuteStatementResponse>? onPageFetched = null,
+        bool suppressConsistentReadDefault = false)
     {
         var request = CloneExecuteStatementRequest(statementRequest, false);
         request.ReturnConsumedCapacity ??= _returnConsumedCapacity;
-        request.ConsistentRead ??= _consistentRead;
+        if (!suppressConsistentReadDefault)
+            request.ConsistentRead ??= _consistentRead;
 
         return new DynamoAsyncEnumerable(this, request, singlePageOnly, onPageFetched);
     }

@@ -112,8 +112,11 @@ var order = await db.Orders
     .FirstOrDefaultAsync();
 ```
 
-The provider passes the setting through to DynamoDB's `ExecuteStatementRequest.ConsistentRead`.
-It does not warn or throw when the query is scan-like; DynamoDB applies its own semantics.
+The provider passes the setting through to DynamoDB's `ExecuteStatementRequest.ConsistentRead`
+for base-table and LSI reads. If a global default query is finalized to a GSI, the provider leaves
+`ConsistentRead` unset because DynamoDB GSIs are always eventually consistent. An explicit
+`.WithConsistentRead()` on a GSI query throws instead of silently weakening the query's consistency.
+The provider does not warn or throw when the query is scan-like; DynamoDB applies its own semantics.
 
 ### `TransactionOverflowBehavior`
 

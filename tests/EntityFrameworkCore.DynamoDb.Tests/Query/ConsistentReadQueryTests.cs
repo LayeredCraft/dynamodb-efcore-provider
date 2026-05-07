@@ -67,6 +67,43 @@ public class ConsistentReadQueryTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task QueryConsistentReadTrue_OnGlobalSecondaryIndex_ThrowsBeforeRequest()
+    {
+        var (client, captured) = SetupMockClient();
+        await using var context = ConsistentReadDbContext.Create(client);
+
+        var act = async () => await DrainAsync(
+            context
+                .Items
+                .WithIndex("ByCustomer")
+                .Where(x => x.CustomerId == "C#1")
+                .WithConsistentRead()
+                .AsAsyncEnumerable(),
+            TestContext.Current.CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*WithConsistentRead()*global secondary index 'ByCustomer'*");
+
+        captured.Should().BeEmpty();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task GlobalConsistentRead_OnGlobalSecondaryIndex_DoesNotSendFlag()
+    {
+        var (client, captured) = SetupMockClient();
+        await using var context = ConsistentReadDbContext.Create(client, consistentRead: true);
+
+        await DrainAsync(
+            context.Items.Where(x => x.CustomerId == "C#1").AsAsyncEnumerable(),
+            TestContext.Current.CancellationToken);
+
+        captured.Single().Statement.Should().Contain("\"ByCustomer\"");
+        captured.Single().ConsistentRead.Should().BeNull();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task AllowScan_WithConsistentRead_PassesFlagWithoutWarningOrError()
     {
         var (client, captured) = SetupMockClient();
@@ -112,6 +149,9 @@ public class ConsistentReadQueryTests
         public string Pk { get; set; } = null!;
 
         /// <summary>Provides functionality for this member.</summary>
+        public string CustomerId { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
         public string Value { get; set; } = null!;
     }
 
@@ -140,6 +180,7 @@ public class ConsistentReadQueryTests
             {
                 b.ToTable("ConsistentReadTable");
                 b.HasPartitionKey(x => x.Pk);
+                b.HasGlobalSecondaryIndex("ByCustomer", x => x.CustomerId);
             });
     }
 }

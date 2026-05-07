@@ -5,6 +5,7 @@ using System.Text;
 using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.Diagnostics;
 using EntityFrameworkCore.DynamoDb.Diagnostics.Internal;
+using EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using EntityFrameworkCore.DynamoDb.Storage;
 using Microsoft.EntityFrameworkCore;
@@ -179,6 +180,10 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
                     // Generate query at runtime with parameter values inlined
                     var sqlQuery = _queryingEnumerable.GenerateQuery();
 
+                    ValidateConsistentReadForSource(
+                        _consistentRead,
+                        _queryingEnumerable._selectExpression);
+
                     _queryingEnumerable._commandLogger.ExecutingPartiQlQuery(
                         _queryingEnumerable._selectExpression.TableName,
                         sqlQuery.Sql);
@@ -197,7 +202,8 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
                         _singlePageOnly,
                         // Store the raw response on the query context so the shaper can bind it
                         // to the __executeStatementResponse shadow property of each entity.
-                        response => _queryContext.CurrentPageResponse = response);
+                        response => _queryContext.CurrentPageResponse = response,
+                        IsGlobalSecondaryIndexSource(_queryingEnumerable._selectExpression));
 
                     _dataEnumerator = asyncEnumerable.GetAsyncEnumerator(_cancellationToken);
                     _queryContext.InitializeStateManager(_standAloneStateManager);
@@ -359,6 +365,10 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
 
                 var sqlQuery = _queryingEnumerable.GenerateQuery();
 
+                ValidateConsistentReadForSource(
+                    _consistentRead,
+                    _queryingEnumerable._selectExpression);
+
                 _queryingEnumerable._commandLogger.ExecutingPartiQlQuery(
                     _queryingEnumerable._selectExpression.TableName,
                     sqlQuery.Sql);
@@ -376,7 +386,9 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
                         ConsistentRead = _consistentRead,
                     },
                     singlePageOnly: true,
-                    response => _queryContext.CurrentPageResponse = response);
+                    response => _queryContext.CurrentPageResponse = response,
+                    suppressConsistentReadDefault: IsGlobalSecondaryIndexSource(
+                        _queryingEnumerable._selectExpression));
 
                 _queryContext.InitializeStateManager(_queryingEnumerable._standAloneStateManager);
 
@@ -413,6 +425,26 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
 
         builder.Append(query.Sql);
         return builder.ToString();
+    }
+
+    /// <summary>Returns whether the finalized query source is a global secondary index.</summary>
+    private static bool IsGlobalSecondaryIndexSource(SelectExpression selectExpression)
+        => selectExpression.IndexSourceKind == DynamoIndexSourceKind.GlobalSecondaryIndex;
+
+    /// <summary>Validates that the requested consistency is supported by the finalized source.</summary>
+    private static void ValidateConsistentReadForSource(
+        bool? consistentRead,
+        SelectExpression selectExpression)
+    {
+        if (!IsGlobalSecondaryIndexSource(selectExpression) || consistentRead != true)
+            return;
+
+        throw new InvalidOperationException(
+            "WithConsistentRead() cannot be used when the finalized DynamoDB query source is "
+            + $"global secondary index '{selectExpression.IndexName}' on table "
+            + $"'{selectExpression.TableName}'. DynamoDB supports strongly consistent reads on "
+            + "base tables and local secondary indexes, but global secondary indexes are always "
+            + "eventually consistent.");
     }
 
     /// <summary>Formats a DynamoDB attribute value for query debug output.</summary>
