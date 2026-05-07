@@ -13,13 +13,13 @@ results and generated PartiQL.
 Use this skill when you:
 
 - add or change query translation/execution behavior and need end-to-end verification
-- add a new table suite under `tests/LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests/`
+- add a new table suite under `tests/EntityFrameworkCore.DynamoDb.IntegrationTests/`
 - need to debug/lock down generated PartiQL via `AssertSql(...)`
 
 ## Quick start
 
 1. Pick an existing suite under
-   `tests/LayeredCraft.EntityFrameworkCore.DynamoDb.IntegrationTests/` (or create a new one).
+   `tests/EntityFrameworkCore.DynamoDb.IntegrationTests/` (or create a new one).
 2. In a test:
 
 - prefer `[Fact(Timeout = TestConfiguration.DefaultTimeout)]` over plain `[Fact]`
