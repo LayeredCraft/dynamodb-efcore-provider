@@ -107,6 +107,42 @@ public class DynamoDbQueryableExtensionsTests
         result.Should().BeSameAs(source);
     }
 
+    // ── WithConsistentRead ──────────────────────────────────────────────────
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void WithConsistentRead_ReturnsNewQueryable()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var context = LimitDbContext.Create(client);
+
+        var original = context.Items.AsQueryable();
+        var consistentRead = original.WithConsistentRead();
+
+        consistentRead.Should().NotBeSameAs(original);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void WithConsistentReadFalse_ReturnsNewQueryable()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var context = LimitDbContext.Create(client);
+
+        var original = context.Items.AsQueryable();
+        var consistentRead = original.WithConsistentRead(false);
+
+        consistentRead.Should().NotBeSameAs(original);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void WithConsistentRead_OnNonEntityQueryProvider_ReturnsSourceUnchanged()
+    {
+        var source = new[] { new TestEntity() }.AsQueryable();
+
+        var result = source.WithConsistentRead();
+
+        result.Should().BeSameAs(source);
+    }
+
     // ── WithIndex / WithoutIndex (regression) ────────────────────────────────
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]

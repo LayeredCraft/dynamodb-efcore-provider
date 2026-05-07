@@ -40,6 +40,9 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
     /// <summary>Controls whether DynamoDB should return consumed capacity in responses.</summary>
     public ReturnConsumedCapacity? ReturnConsumedCapacity { get; private set; }
 
+    /// <summary>Controls whether DynamoDB should use strongly consistent reads by default.</summary>
+    public bool ConsistentRead { get; private set; }
+
     /// <summary>Registers provider services in the EF Core internal service container.</summary>
     public virtual void ApplyServices(IServiceCollection services)
         => services.AddEntityFrameworkDynamo();
@@ -157,6 +160,16 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
         return clone;
     }
 
+    /// <summary>Sets whether DynamoDB should use strongly consistent reads by default.</summary>
+    public virtual DynamoDbOptionsExtension WithConsistentRead(bool consistentRead)
+    {
+        var clone = Clone();
+
+        clone.ConsistentRead = consistentRead;
+
+        return clone;
+    }
+
     /// <summary>Creates a copy of this extension with the current option values.</summary>
     protected virtual DynamoDbOptionsExtension Clone()
         => new()
@@ -169,6 +182,7 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
             MaxTransactionSize = MaxTransactionSize,
             MaxBatchWriteSize = MaxBatchWriteSize,
             ReturnConsumedCapacity = ReturnConsumedCapacity,
+            ConsistentRead = ConsistentRead,
         };
 
     /// <summary>Represents the DynamoOptionsExtensionInfo type.</summary>
@@ -233,6 +247,7 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
                     + $"MaxTransactionSize={Extension.MaxTransactionSize},"
                     + $"MaxBatchWriteSize={Extension.MaxBatchWriteSize},"
                     + $"ReturnConsumedCapacity={Extension.ReturnConsumedCapacity},"
+                    + $"ConsistentRead={Extension.ConsistentRead},"
                     + $"DynamoDbClient={Extension.DynamoDbClient is not null},"
                     + $"DynamoDbClientConfig={Extension.DynamoDbClientConfig is not null},"
                     + $"DynamoDbClientConfigAction={Extension.DynamoDbClientConfigAction is not null}";
