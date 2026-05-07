@@ -86,7 +86,7 @@ public class DynamoDbContextOptionsBuilder(DbContextOptionsBuilder optionsBuilde
     /// <summary>Configures whether DynamoDB should use strongly consistent reads by default.</summary>
     /// <param name="consistentRead">Whether reads should use strong consistency by default.</param>
     /// <returns>The builder for chaining.</returns>
-    public virtual DynamoDbContextOptionsBuilder ConsistentRead(bool consistentRead)
+    public virtual DynamoDbContextOptionsBuilder ConsistentRead(bool consistentRead = true)
         => WithOption(e => e.WithConsistentRead(consistentRead));
 
     /// <summary>Updates the provider options extension with the supplied mutation action.</summary>

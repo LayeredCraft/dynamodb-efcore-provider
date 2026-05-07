@@ -168,7 +168,7 @@ public class PaginationConfigurationTests
     {
         var optionsBuilder = new DbContextOptionsBuilder();
 
-        optionsBuilder.UseDynamo(options => options.ConsistentRead(true));
+        optionsBuilder.UseDynamo(options => options.ConsistentRead());
 
         var extension = optionsBuilder.Options.FindExtension<DynamoDbOptionsExtension>();
 

@@ -98,7 +98,7 @@ queries in a context require read-after-write consistency:
 ```csharp
 optionsBuilder.UseDynamo(options =>
 {
-    options.ConsistentRead(true);
+    options.ConsistentRead();
 });
 ```
 
