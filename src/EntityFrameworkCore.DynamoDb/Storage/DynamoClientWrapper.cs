@@ -1,5 +1,8 @@
+using System.Diagnostics;
 using Amazon.DynamoDBv2;
+using Amazon.Runtime;
 using Amazon.DynamoDBv2.Model;
+using EntityFrameworkCore.DynamoDb.Diagnostics;
 using EntityFrameworkCore.DynamoDb.Diagnostics.Internal;
 using EntityFrameworkCore.DynamoDb.Infrastructure.Internal;
 using EntityFrameworkCore.DynamoDb.Utilities;
@@ -14,6 +17,7 @@ namespace EntityFrameworkCore.DynamoDb.Storage;
 public class DynamoClientWrapper : IDynamoClientWrapper
 {
     private readonly AmazonDynamoDBConfig? _amazonDynamoDbConfig;
+    private readonly ReturnConsumedCapacity? _returnConsumedCapacity;
     private readonly IDiagnosticsLogger<DbLoggerCategory.Database.Command> _commandLogger;
     private readonly IExecutionStrategy _executionStrategy;
 
@@ -31,6 +35,7 @@ public class DynamoClientWrapper : IDynamoClientWrapper
         else
             _amazonDynamoDbConfig = BuildAmazonDynamoDbConfig(options);
 
+        _returnConsumedCapacity = options.ReturnConsumedCapacity;
         _executionStrategy = executionStrategy.NotNull();
         _commandLogger = commandLogger.NotNull();
     }
@@ -50,7 +55,12 @@ public class DynamoClientWrapper : IDynamoClientWrapper
         ExecuteStatementRequest statementRequest,
         bool singlePageOnly = false,
         Action<ExecuteStatementResponse>? onPageFetched = null)
-        => new DynamoAsyncEnumerable(this, statementRequest, singlePageOnly, onPageFetched);
+    {
+        var request = CloneExecuteStatementRequest(statementRequest, false);
+        request.ReturnConsumedCapacity ??= _returnConsumedCapacity;
+
+        return new DynamoAsyncEnumerable(this, request, singlePageOnly, onPageFetched);
+    }
 
     /// <summary>Executes a write PartiQL statement (INSERT, UPDATE, DELETE) and discards any result items.</summary>
     /// <param name="statement">The PartiQL write statement to execute.</param>
@@ -70,9 +80,43 @@ public class DynamoClientWrapper : IDynamoClientWrapper
                     Parameters = state.parameters?.Count > 0 ? state.parameters : null,
                     ReturnValuesOnConditionCheckFailure =
                         ReturnValuesOnConditionCheckFailure.ALL_OLD,
+                    ReturnConsumedCapacity = _returnConsumedCapacity,
                 };
 
-                await Client.ExecuteStatementAsync(request, ct).ConfigureAwait(false);
+                var commandId = Guid.NewGuid();
+                var stopwatch = Stopwatch.StartNew();
+                _commandLogger.ExecutingPartiQlWriteRequest(
+                    DynamoPartiQlWriteOperation.ExecuteStatement,
+                    1,
+                    commandId);
+
+                ExecuteStatementResponse response;
+                try
+                {
+                    response =
+                        await Client.ExecuteStatementAsync(request, ct).ConfigureAwait(false);
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                    stopwatch.Stop();
+                    _commandLogger.PartiQlWriteRequestFailed(
+                        DynamoPartiQlWriteOperation.ExecuteStatement,
+                        1,
+                        exception,
+                        stopwatch.Elapsed,
+                        commandId,
+                        (exception as AmazonServiceException)?.RequestId);
+                    throw;
+                }
+
+                stopwatch.Stop();
+                _commandLogger.ExecutedPartiQlWriteRequest(
+                    DynamoPartiQlWriteOperation.ExecuteStatement,
+                    1,
+                    stopwatch.Elapsed,
+                    commandId,
+                    response.ResponseMetadata?.RequestId,
+                    response.ConsumedCapacity is null ? null : [response.ConsumedCapacity]);
 
                 return true;
             },
@@ -92,9 +136,44 @@ public class DynamoClientWrapper : IDynamoClientWrapper
                 var request = new ExecuteTransactionRequest
                 {
                     TransactStatements = [.. transactionStatements],
+                    ReturnConsumedCapacity = _returnConsumedCapacity,
                 };
 
-                await Client.ExecuteTransactionAsync(request, ct).ConfigureAwait(false);
+                var commandId = Guid.NewGuid();
+                var stopwatch = Stopwatch.StartNew();
+                var statementCount = request.TransactStatements?.Count ?? 0;
+                _commandLogger.ExecutingPartiQlWriteRequest(
+                    DynamoPartiQlWriteOperation.ExecuteTransaction,
+                    statementCount,
+                    commandId);
+
+                ExecuteTransactionResponse response;
+                try
+                {
+                    response =
+                        await Client.ExecuteTransactionAsync(request, ct).ConfigureAwait(false);
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                    stopwatch.Stop();
+                    _commandLogger.PartiQlWriteRequestFailed(
+                        DynamoPartiQlWriteOperation.ExecuteTransaction,
+                        statementCount,
+                        exception,
+                        stopwatch.Elapsed,
+                        commandId,
+                        (exception as AmazonServiceException)?.RequestId);
+                    throw;
+                }
+
+                stopwatch.Stop();
+                _commandLogger.ExecutedPartiQlWriteRequest(
+                    DynamoPartiQlWriteOperation.ExecuteTransaction,
+                    statementCount,
+                    stopwatch.Elapsed,
+                    commandId,
+                    response.ResponseMetadata?.RequestId,
+                    response.ConsumedCapacity);
 
                 return true;
             },
@@ -115,12 +194,55 @@ public class DynamoClientWrapper : IDynamoClientWrapper
                 var request = new BatchExecuteStatementRequest
                 {
                     Statements = [.. batchStatements],
+                    ReturnConsumedCapacity = _returnConsumedCapacity,
                 };
 
-                var response =
-                    await Client.BatchExecuteStatementAsync(request, ct).ConfigureAwait(false);
+                var commandId = Guid.NewGuid();
+                var stopwatch = Stopwatch.StartNew();
+                var statementCount = request.Statements?.Count ?? 0;
+                _commandLogger.ExecutingPartiQlWriteRequest(
+                    DynamoPartiQlWriteOperation.BatchExecuteStatement,
+                    statementCount,
+                    commandId);
 
-                return (IReadOnlyList<BatchStatementResponse>)(response.Responses ?? []);
+                BatchExecuteStatementResponse response;
+                try
+                {
+                    response =
+                        await Client.BatchExecuteStatementAsync(request, ct).ConfigureAwait(false);
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                    stopwatch.Stop();
+                    _commandLogger.PartiQlWriteRequestFailed(
+                        DynamoPartiQlWriteOperation.BatchExecuteStatement,
+                        statementCount,
+                        exception,
+                        stopwatch.Elapsed,
+                        commandId,
+                        (exception as AmazonServiceException)?.RequestId);
+                    throw;
+                }
+
+                stopwatch.Stop();
+                _commandLogger.ExecutedPartiQlWriteRequest(
+                    DynamoPartiQlWriteOperation.BatchExecuteStatement,
+                    statementCount,
+                    stopwatch.Elapsed,
+                    commandId,
+                    response.ResponseMetadata?.RequestId,
+                    response.ConsumedCapacity);
+
+                var responses = (IReadOnlyList<BatchStatementResponse>)(response.Responses ?? []);
+                var errorCount = responses.Count(r => r.Error is not null);
+                if (errorCount > 0)
+                    _commandLogger.BatchPartiQlWriteReturnedStatementErrors(
+                        statementCount,
+                        errorCount,
+                        commandId,
+                        response.ResponseMetadata?.RequestId);
+
+                return responses;
             },
             null,
             cancellationToken);
@@ -148,6 +270,7 @@ public class DynamoClientWrapper : IDynamoClientWrapper
                     ? [..prototype.Parameters]
                     : prototype.Parameters,
             Limit = prototype.Limit,
+            NextToken = prototype.NextToken,
             ConsistentRead = prototype.ConsistentRead,
             ReturnConsumedCapacity = prototype.ReturnConsumedCapacity,
             ReturnValuesOnConditionCheckFailure = prototype.ReturnValuesOnConditionCheckFailure,
@@ -263,21 +386,49 @@ public class DynamoClientWrapper : IDynamoClientWrapper
                 var isFirstRequest = !_hasExecutedRequest;
                 var seedNextTokenPresent = isFirstRequest && _request.NextToken is not null;
 
+                var commandId = Guid.NewGuid();
+                var stopwatch = Stopwatch.StartNew();
+
                 dynamoEnumerable._dynamoClientWrapper._commandLogger.ExecutingExecuteStatement(
                     _request.Limit,
                     _request.NextToken is not null,
-                    seedNextTokenPresent);
+                    seedNextTokenPresent,
+                    commandId);
 
-                var response =
-                    await dynamoEnumerable
+                ExecuteStatementResponse response;
+                try
+                {
+                    response = await dynamoEnumerable
                         ._dynamoClientWrapper
                         .Client
                         .ExecuteStatementAsync(_request, ct)
                         .ConfigureAwait(false);
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                    stopwatch.Stop();
+                    dynamoEnumerable._dynamoClientWrapper._commandLogger.ExecuteStatementFailed(
+                        exception,
+                        stopwatch.Elapsed,
+                        commandId,
+                        (exception as AmazonServiceException)?.RequestId,
+                        _request.Limit,
+                        _request.NextToken is not null,
+                        seedNextTokenPresent);
+                    throw;
+                }
+
+                stopwatch.Stop();
 
                 dynamoEnumerable._dynamoClientWrapper._commandLogger.ExecutedExecuteStatement(
                     response.Items?.Count ?? 0,
-                    response.NextToken is not null);
+                    response.NextToken is not null,
+                    stopwatch.Elapsed,
+                    commandId,
+                    response.ResponseMetadata?.RequestId,
+                    _request.Limit,
+                    seedNextTokenPresent,
+                    response.ConsumedCapacity);
 
                 // Notify before items are yielded so callers can capture per-page metadata.
                 dynamoEnumerable._onPageFetched?.Invoke(response);

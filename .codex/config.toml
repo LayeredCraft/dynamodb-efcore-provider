@@ -1,2 +1,5 @@
 [features]
 codex_hooks = true
+
+[mcp_servers.dotnet-test-mcp]
+command = "dotnet-test-mcp"

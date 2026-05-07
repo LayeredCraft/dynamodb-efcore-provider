@@ -37,6 +37,9 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
     /// <summary>Maximum number of write operations sent in a single non-atomic PartiQL batch.</summary>
     public int MaxBatchWriteSize { get; private set; } = DynamoPartiQlBatchLimit;
 
+    /// <summary>Controls whether DynamoDB should return consumed capacity in responses.</summary>
+    public ReturnConsumedCapacity? ReturnConsumedCapacity { get; private set; }
+
     /// <summary>Registers provider services in the EF Core internal service container.</summary>
     public virtual void ApplyServices(IServiceCollection services)
         => services.AddEntityFrameworkDynamo();
@@ -143,6 +146,17 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
         return clone;
     }
 
+    /// <summary>Sets whether DynamoDB should return consumed capacity in responses.</summary>
+    public virtual DynamoDbOptionsExtension WithReturnConsumedCapacity(
+        ReturnConsumedCapacity? returnConsumedCapacity)
+    {
+        var clone = Clone();
+
+        clone.ReturnConsumedCapacity = returnConsumedCapacity;
+
+        return clone;
+    }
+
     /// <summary>Creates a copy of this extension with the current option values.</summary>
     protected virtual DynamoDbOptionsExtension Clone()
         => new()
@@ -154,6 +168,7 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
             TransactionOverflowBehavior = TransactionOverflowBehavior,
             MaxTransactionSize = MaxTransactionSize,
             MaxBatchWriteSize = MaxBatchWriteSize,
+            ReturnConsumedCapacity = ReturnConsumedCapacity,
         };
 
     /// <summary>Represents the DynamoOptionsExtensionInfo type.</summary>
@@ -217,6 +232,7 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
                     + $"TransactionOverflowBehavior={Extension.TransactionOverflowBehavior},"
                     + $"MaxTransactionSize={Extension.MaxTransactionSize},"
                     + $"MaxBatchWriteSize={Extension.MaxBatchWriteSize},"
+                    + $"ReturnConsumedCapacity={Extension.ReturnConsumedCapacity},"
                     + $"DynamoDbClient={Extension.DynamoDbClient is not null},"
                     + $"DynamoDbClientConfig={Extension.DynamoDbClientConfig is not null},"
                     + $"DynamoDbClientConfigAction={Extension.DynamoDbClientConfigAction is not null}";

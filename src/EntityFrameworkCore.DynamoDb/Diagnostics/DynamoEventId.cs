@@ -16,7 +16,12 @@ public static class DynamoEventId
         ExecutingPartiQlQuery = CoreEventId.ProviderBaseId + 100,
         ExecutingExecuteStatement = CoreEventId.ProviderBaseId + 101,
         ExecutedExecuteStatement = CoreEventId.ProviderBaseId + 102,
+        ExecuteStatementFailed = CoreEventId.ProviderBaseId + 112,
         ExecutingPartiQlWrite = CoreEventId.ProviderBaseId + 110,
+        ExecutingPartiQlWriteRequest = CoreEventId.ProviderBaseId + 113,
+        ExecutedPartiQlWriteRequest = CoreEventId.ProviderBaseId + 114,
+        PartiQlWriteRequestFailed = CoreEventId.ProviderBaseId + 115,
+        BatchPartiQlWriteReturnedStatementErrors = CoreEventId.ProviderBaseId + 116,
 
         // Query events
         NoCompatibleSecondaryIndexFound = CoreEventId.ProviderBaseId + 104,
@@ -35,7 +40,7 @@ public static class DynamoEventId
     /// A PartiQL query is going to be executed.
     /// </summary>
     /// <remarks>
-    /// This event is in the <c>DbLoggerCategory.Database.Command</c> category.
+    /// This event is in the <c>DbLoggerCategory.Database.Command</c> category and uses <see cref="DynamoPartiQlCommandEventData" /> payloads.
     /// </remarks>
     public static readonly EventId ExecutingPartiQlQuery = new(
         (int)Id.ExecutingPartiQlQuery,
@@ -45,7 +50,7 @@ public static class DynamoEventId
     /// An ExecuteStatement request is going to be sent.
     /// </summary>
     /// <remarks>
-    /// This event is in the <c>DbLoggerCategory.Database.Command</c> category.
+    /// This event is in the <c>DbLoggerCategory.Database.Command</c> category and uses <see cref="DynamoExecuteStatementEventData" /> payloads.
     /// </remarks>
     public static readonly EventId ExecutingExecuteStatement = new(
         (int)Id.ExecutingExecuteStatement,
@@ -55,60 +60,94 @@ public static class DynamoEventId
     /// An ExecuteStatement request has completed.
     /// </summary>
     /// <remarks>
-    /// This event is in the <c>DbLoggerCategory.Database.Command</c> category.
+    /// This event is in the <c>DbLoggerCategory.Database.Command</c> category and uses <see cref="DynamoExecuteStatementExecutedEventData" /> payloads.
     /// </remarks>
     public static readonly EventId ExecutedExecuteStatement = new(
         (int)Id.ExecutedExecuteStatement,
         CommandPrefix + Id.ExecutedExecuteStatement);
 
     /// <summary>
+    /// An ExecuteStatement request failed.
+    /// </summary>
+    /// <remarks>
+    /// This event is in the <c>DbLoggerCategory.Database.Command</c> category and uses <see cref="DynamoExecuteStatementFailedEventData" /> payloads.
+    /// </remarks>
+    public static readonly EventId ExecuteStatementFailed = new(
+        (int)Id.ExecuteStatementFailed,
+        CommandPrefix + Id.ExecuteStatementFailed);
+
+    /// <summary>
     /// A PartiQL write statement (INSERT, UPDATE, or DELETE) is going to be executed.
     /// </summary>
     /// <remarks>
-    /// This event is in the <c>DbLoggerCategory.Database.Command</c> category.
+    /// This event is in the <c>DbLoggerCategory.Database.Command</c> category and uses <see cref="DynamoPartiQlCommandEventData" /> payloads.
     /// </remarks>
     public static readonly EventId ExecutingPartiQlWrite = new(
         (int)Id.ExecutingPartiQlWrite,
         CommandPrefix + Id.ExecutingPartiQlWrite);
 
+    /// <summary>A DynamoDB PartiQL write request is going to be sent.</summary>
+    /// <remarks>This event is in the <c>DbLoggerCategory.Database.Command</c> category and uses <see cref="DynamoPartiQlWriteRequestEventData" /> payloads.</remarks>
+    public static readonly EventId ExecutingPartiQlWriteRequest = new(
+        (int)Id.ExecutingPartiQlWriteRequest,
+        CommandPrefix + Id.ExecutingPartiQlWriteRequest);
+
+    /// <summary>A DynamoDB PartiQL write request completed.</summary>
+    /// <remarks>This event is in the <c>DbLoggerCategory.Database.Command</c> category and uses <see cref="DynamoPartiQlWriteRequestExecutedEventData" /> payloads.</remarks>
+    public static readonly EventId ExecutedPartiQlWriteRequest = new(
+        (int)Id.ExecutedPartiQlWriteRequest,
+        CommandPrefix + Id.ExecutedPartiQlWriteRequest);
+
+    /// <summary>A DynamoDB PartiQL write request failed.</summary>
+    /// <remarks>This event is in the <c>DbLoggerCategory.Database.Command</c> category and uses <see cref="DynamoPartiQlWriteRequestFailedEventData" /> payloads.</remarks>
+    public static readonly EventId PartiQlWriteRequestFailed = new(
+        (int)Id.PartiQlWriteRequestFailed,
+        CommandPrefix + Id.PartiQlWriteRequestFailed);
+
+    /// <summary>A successful BatchExecuteStatement write request returned per-statement errors.</summary>
+    /// <remarks>This event is in the <c>DbLoggerCategory.Database.Command</c> category and uses <see cref="DynamoBatchStatementErrorsEventData" /> payloads.</remarks>
+    public static readonly EventId BatchPartiQlWriteReturnedStatementErrors = new(
+        (int)Id.BatchPartiQlWriteReturnedStatementErrors,
+        CommandPrefix + Id.BatchPartiQlWriteReturnedStatementErrors);
+
     /// <summary>No compatible secondary index was found for automatic selection.</summary>
-    /// <remarks>This event is in the <c>DbLoggerCategory.Query</c> category.</remarks>
+    /// <remarks>This event is in the <c>DbLoggerCategory.Query</c> category and uses <see cref="DynamoQueryDiagnosticEventData" /> payloads.</remarks>
     public static readonly EventId NoCompatibleSecondaryIndexFound = new(
         (int)Id.NoCompatibleSecondaryIndexFound,
         QueryPrefix + Id.NoCompatibleSecondaryIndexFound);
 
     /// <summary>Multiple compatible secondary indexes tied during automatic selection.</summary>
-    /// <remarks>This event is in the <c>DbLoggerCategory.Query</c> category.</remarks>
+    /// <remarks>This event is in the <c>DbLoggerCategory.Query</c> category and uses <see cref="DynamoQueryDiagnosticEventData" /> payloads.</remarks>
     public static readonly EventId MultipleCompatibleSecondaryIndexesFound = new(
         (int)Id.MultipleCompatibleSecondaryIndexesFound,
         QueryPrefix + Id.MultipleCompatibleSecondaryIndexesFound);
 
     /// <summary>A secondary index was selected, or would be selected, for the query.</summary>
-    /// <remarks>This event is in the <c>DbLoggerCategory.Query</c> category.</remarks>
+    /// <remarks>This event is in the <c>DbLoggerCategory.Query</c> category and uses <see cref="DynamoQueryDiagnosticEventData" /> payloads.</remarks>
     public static readonly EventId SecondaryIndexSelected = new(
         (int)Id.SecondaryIndexSelected,
         QueryPrefix + Id.SecondaryIndexSelected);
 
     /// <summary>A secondary index was explicitly selected via <c>.WithIndex()</c>.</summary>
-    /// <remarks>This event is in the <c>DbLoggerCategory.Query</c> category.</remarks>
+    /// <remarks>This event is in the <c>DbLoggerCategory.Query</c> category and uses <see cref="DynamoQueryDiagnosticEventData" /> payloads.</remarks>
     public static readonly EventId ExplicitIndexSelected = new(
         (int)Id.ExplicitIndexSelected,
         QueryPrefix + Id.ExplicitIndexSelected);
 
     /// <summary>A secondary index candidate was rejected during automatic index selection.</summary>
-    /// <remarks>This event is in the <c>DbLoggerCategory.Query</c> category.</remarks>
+    /// <remarks>This event is in the <c>DbLoggerCategory.Query</c> category and uses <see cref="DynamoQueryDiagnosticEventData" /> payloads.</remarks>
     public static readonly EventId SecondaryIndexCandidateRejected = new(
         (int)Id.SecondaryIndexCandidateRejected,
         QueryPrefix + Id.SecondaryIndexCandidateRejected);
 
     /// <summary>Index selection was suppressed by <c>.WithoutIndex()</c>.</summary>
-    /// <remarks>This event is in the <c>DbLoggerCategory.Query</c> category.</remarks>
+    /// <remarks>This event is in the <c>DbLoggerCategory.Query</c> category and uses <see cref="DynamoQueryDiagnosticEventData" /> payloads.</remarks>
     public static readonly EventId ExplicitIndexSelectionDisabled = new(
         (int)Id.ExplicitIndexSelectionDisabled,
         QueryPrefix + Id.ExplicitIndexSelectionDisabled);
 
     /// <summary>A read query was classified as scan-like.</summary>
-    /// <remarks>This event is in the <c>DbLoggerCategory.Query</c> category.</remarks>
+    /// <remarks>This event is in the <c>DbLoggerCategory.Query</c> category and uses <see cref="DynamoQueryDiagnosticEventData" /> payloads.</remarks>
     public static readonly EventId ScanLikeQueryDetected = new(
         (int)Id.ScanLikeQueryDetected,
         QueryPrefix + Id.ScanLikeQueryDetected);

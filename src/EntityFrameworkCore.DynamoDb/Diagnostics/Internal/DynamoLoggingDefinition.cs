@@ -2,5 +2,54 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace EntityFrameworkCore.DynamoDb.Diagnostics.Internal;
 
-/// <summary>Represents the DynamoLoggingDefinition type.</summary>
-public class DynamoLoggingDefinition : LoggingDefinitions { }
+/// <summary>Defines cached DynamoDB provider logging metadata.</summary>
+public class DynamoLoggingDefinition : LoggingDefinitions
+{
+    /// <summary>Cached event definition for executing PartiQL query logs.</summary>
+    public EventDefinition<string, string, string>? LogExecutingPartiQlQuery;
+
+    /// <summary>Cached event definition for executing ExecuteStatement logs.</summary>
+    public EventDefinition<int?, bool, bool>? LogExecutingExecuteStatement;
+
+    /// <summary>Cached event definition for executed ExecuteStatement logs.</summary>
+    public EventDefinition<int, bool>? LogExecutedExecuteStatement;
+
+    /// <summary>Cached event definition for failed ExecuteStatement logs.</summary>
+    public FallbackEventDefinition? LogExecuteStatementFailed;
+
+    /// <summary>Cached event definition for executing PartiQL write logs.</summary>
+    public EventDefinition<string, string, string>? LogExecutingPartiQlWrite;
+
+    /// <summary>Cached event definition for write request start logs.</summary>
+    public EventDefinition<string, int>? LogExecutingPartiQlWriteRequest;
+
+    /// <summary>Cached event definition for write request completed logs.</summary>
+    public EventDefinition<string, int, string?, double>? LogExecutedPartiQlWriteRequest;
+
+    /// <summary>Cached event definition for write request failed logs.</summary>
+    public FallbackEventDefinition? LogPartiQlWriteRequestFailed;
+
+    /// <summary>Cached event definition for batch per-statement error logs.</summary>
+    public EventDefinition<int, int, string?>? LogBatchPartiQlWriteReturnedStatementErrors;
+
+    /// <summary>Cached event definition for index/scan diagnostic logs.</summary>
+    public EventDefinition<string>? LogNoCompatibleSecondaryIndexFound;
+
+    /// <summary>Cached event definition for index/scan diagnostic logs.</summary>
+    public EventDefinition<string>? LogMultipleCompatibleSecondaryIndexesFound;
+
+    /// <summary>Cached event definition for index/scan diagnostic logs.</summary>
+    public EventDefinition<string>? LogSecondaryIndexSelected;
+
+    /// <summary>Cached event definition for index/scan diagnostic logs.</summary>
+    public EventDefinition<string>? LogExplicitIndexSelected;
+
+    /// <summary>Cached event definition for index/scan diagnostic logs.</summary>
+    public EventDefinition<string>? LogSecondaryIndexCandidateRejected;
+
+    /// <summary>Cached event definition for index/scan diagnostic logs.</summary>
+    public EventDefinition<string>? LogExplicitIndexSelectionDisabled;
+
+    /// <summary>Cached event definition for scan-like query diagnostic logs.</summary>
+    public EventDefinition<string>? LogScanLikeQueryDetected;
+}

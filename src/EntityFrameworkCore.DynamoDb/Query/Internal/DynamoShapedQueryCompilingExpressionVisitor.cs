@@ -77,10 +77,6 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
         var standAloneStateManager = dynamoQueryCompilationContext.QueryTrackingBehavior
             == QueryTrackingBehavior.NoTrackingWithIdentityResolution;
 
-        if (!dynamoQueryCompilationContext.IsAsync)
-            throw new InvalidOperationException(
-                "Synchronous query execution is not supported for DynamoDB. Use async methods (e.g. ToListAsync). ");
-
         if (pagingExpression is not null)
             return CreatePagingEnumerableExpression(
                 shaperBody.Type,

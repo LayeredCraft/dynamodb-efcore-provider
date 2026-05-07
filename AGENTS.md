@@ -1,5 +1,7 @@
 # AGENTS.md
 
+At session start, load `AGENTS.local.md` if it exists.
+
 This repo is an EF Core provider for AWS DynamoDB: LINQ -> translation -> PartiQL -> AWS SDK
 execution.
 

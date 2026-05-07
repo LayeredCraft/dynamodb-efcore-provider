@@ -1,5 +1,6 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
+using EntityFrameworkCore.DynamoDb.Diagnostics.Internal;
 using EntityFrameworkCore.DynamoDb.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -251,7 +252,8 @@ public class DynamoClientWrapperTests
         await client
             .Received(1)
             .ExecuteStatementAsync(
-                Arg.Is<ExecuteStatementRequest>(r => r.Parameters != null && r.Parameters.Count == 1),
+                Arg.Is<ExecuteStatementRequest>(r
+                    => r.Parameters != null && r.Parameters.Count == 1),
                 Arg.Any<CancellationToken>());
     }
 
