@@ -95,6 +95,17 @@ Server-side `First*` is safe only when the query evaluates at most one base-tabl
 filtering: a PK-only lookup on a PK-only table, or a PK+SK equality on a PK+SK table. All
 other shapes throw — use `AsAsyncEnumerable().FirstOrDefaultAsync()`.
 
+### `Find` — Async Only
+
+`FindAsync` is supported for primary-key lookup. It checks the change tracker first and otherwise
+executes a key-equality PartiQL query with `Limit=1`.
+
+Synchronous `Find` is not supported and throws `InvalidOperationException`. Use `FindAsync` instead:
+
+```csharp
+var order = await context.Orders.FindAsync([customerId, orderId], ct);
+```
+
 ### `WithNextToken` Cannot Combine with `First*`
 
 Combining `.WithNextToken(token)` with `FirstAsync` or `FirstOrDefaultAsync` throws

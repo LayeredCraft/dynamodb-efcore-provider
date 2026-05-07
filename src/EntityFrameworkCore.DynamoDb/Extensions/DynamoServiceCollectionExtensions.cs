@@ -1,11 +1,13 @@
 using EntityFrameworkCore.DynamoDb.Diagnostics.Internal;
 using EntityFrameworkCore.DynamoDb.Infrastructure.Internal;
+using EntityFrameworkCore.DynamoDb.Internal;
 using EntityFrameworkCore.DynamoDb.Metadata.Conventions;
 using EntityFrameworkCore.DynamoDb.Query;
 using EntityFrameworkCore.DynamoDb.Query.Internal;
 using EntityFrameworkCore.DynamoDb.Storage;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.Internal;
@@ -32,6 +34,7 @@ public static class DynamoServiceCollectionExtensions
                 .TryAdd<IModelValidator, DynamoModelValidator>()
                 .TryAdd<IModelRuntimeInitializer, DynamoModelRuntimeInitializer>()
                 .TryAdd<ITypeMappingSource, DynamoTypeMappingSource>()
+                .TryAdd<IEntityFinderSource, DynamoEntityFinderSource>()
                 .TryAdd<IQueryableMethodTranslatingExpressionVisitorFactory,
                     DynamoQueryableMethodTranslatingExpressionVisitorFactory>()
                 .TryAdd<IQueryTranslationPostprocessorFactory,

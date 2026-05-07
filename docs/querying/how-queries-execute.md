@@ -86,7 +86,9 @@ or execute `ExecuteStatement`.
 
 ## Async Execution
 
-All query execution is async. Attempting to enumerate results synchronously throws `InvalidOperationException`. Use `ToListAsync()`, `FirstOrDefaultAsync()`, `AsAsyncEnumerable()`, or `ToPageAsync()` depending on how you want to consume results.
+All query execution is async. Attempting to enumerate results synchronously throws
+`InvalidOperationException`. Use `FindAsync()`, `ToListAsync()`, `FirstOrDefaultAsync()`,
+`AsAsyncEnumerable()`, or `ToPageAsync()` depending on how you want to consume results.
 
 ## See also
 
