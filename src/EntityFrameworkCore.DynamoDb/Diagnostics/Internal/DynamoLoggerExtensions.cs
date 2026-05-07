@@ -9,6 +9,8 @@ namespace EntityFrameworkCore.DynamoDb.Diagnostics.Internal;
 /// <summary>Provides DynamoDB provider logging extensions.</summary>
 public static class DynamoLoggerExtensions
 {
+    private const string IndexSelectionDiagnosticMessage = "{message}";
+
     private static readonly Func<LogLevel, Action<ILogger, string, string, string, Exception?>>
         LogExecutingPartiQlQuery = level => LoggerMessage.Define<string, string, string>(
             level,
@@ -412,6 +414,70 @@ public static class DynamoLoggerExtensions
         if (eventId.Id == 0)
             return;
         QueryDiagnostic(diagnostics, diagnostic.Message, eventId, level, get, set);
+    }
+
+    private static void NoCompatibleSecondaryIndexFound(
+        this IDiagnosticsLogger<DbLoggerCategory.Query> diagnostics,
+        string message)
+    {
+        var definition = LogNoCompatibleSecondaryIndexFound(diagnostics);
+
+        if (diagnostics.ShouldLog(definition))
+            definition.Log(diagnostics, message);
+    }
+
+    private static EventDefinition<string> LogNoCompatibleSecondaryIndexFound(
+        IDiagnosticsLogger logger)
+    {
+        var definitions = (DynamoLoggingDefinition)logger.Definitions;
+        var definition = definitions.LogNoCompatibleSecondaryIndexFound;
+        if (definition is null)
+        {
+            definition = new EventDefinition<string>(
+                logger.Options,
+                DynamoEventId.NoCompatibleSecondaryIndexFound,
+                LogLevel.Warning,
+                $"DynamoEventId.{nameof(DynamoEventId.NoCompatibleSecondaryIndexFound)}",
+                level => LoggerMessage.Define<string>(
+                    level,
+                    DynamoEventId.NoCompatibleSecondaryIndexFound,
+                    IndexSelectionDiagnosticMessage));
+            definitions.LogNoCompatibleSecondaryIndexFound = definition;
+        }
+
+        return (EventDefinition<string>)definition;
+    }
+
+    private static void MultipleCompatibleSecondaryIndexesFound(
+        this IDiagnosticsLogger<DbLoggerCategory.Query> diagnostics,
+        string message)
+    {
+        var definition = LogMultipleCompatibleSecondaryIndexesFound(diagnostics);
+
+        if (diagnostics.ShouldLog(definition))
+            definition.Log(diagnostics, message);
+    }
+
+    private static EventDefinition<string> LogMultipleCompatibleSecondaryIndexesFound(
+        IDiagnosticsLogger logger)
+    {
+        var definitions = (DynamoLoggingDefinition)logger.Definitions;
+        var definition = definitions.LogMultipleCompatibleSecondaryIndexesFound;
+        if (definition is null)
+        {
+            definition = new EventDefinition<string>(
+                logger.Options,
+                DynamoEventId.MultipleCompatibleSecondaryIndexesFound,
+                LogLevel.Warning,
+                $"DynamoEventId.{nameof(DynamoEventId.MultipleCompatibleSecondaryIndexesFound)}",
+                level => LoggerMessage.Define<string>(
+                    level,
+                    DynamoEventId.MultipleCompatibleSecondaryIndexesFound,
+                    IndexSelectionDiagnosticMessage));
+            definitions.LogMultipleCompatibleSecondaryIndexesFound = definition;
+        }
+
+        return (EventDefinition<string>)definition;
     }
 
     /// <summary>Logs that a scan-like read query was detected and allowed to continue.</summary>
