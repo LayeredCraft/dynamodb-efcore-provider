@@ -193,7 +193,6 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
                 hashCode.Add(Extension.TransactionOverflowBehavior);
                 hashCode.Add(Extension.MaxTransactionSize);
                 hashCode.Add(Extension.MaxBatchWriteSize);
-                hashCode.Add(Extension.ReturnConsumedCapacity);
 
                 _serviceProviderHash = hashCode.ToHashCode();
             }
@@ -216,8 +215,7 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
                 && Extension.TransactionOverflowBehavior
                 == otherInfo.Extension.TransactionOverflowBehavior
                 && Extension.MaxTransactionSize == otherInfo.Extension.MaxTransactionSize
-                && Extension.MaxBatchWriteSize == otherInfo.Extension.MaxBatchWriteSize
-                && Extension.ReturnConsumedCapacity == otherInfo.Extension.ReturnConsumedCapacity;
+                && Extension.MaxBatchWriteSize == otherInfo.Extension.MaxBatchWriteSize;
 
         /// <summary>Provides functionality for this member.</summary>
         public override void PopulateDebugInfo(IDictionary<string, string> debugInfo) { }

@@ -56,9 +56,10 @@ public class DynamoClientWrapper : IDynamoClientWrapper
         bool singlePageOnly = false,
         Action<ExecuteStatementResponse>? onPageFetched = null)
     {
-        statementRequest.ReturnConsumedCapacity ??= _returnConsumedCapacity;
+        var request = CloneExecuteStatementRequest(statementRequest, false);
+        request.ReturnConsumedCapacity ??= _returnConsumedCapacity;
 
-        return new DynamoAsyncEnumerable(this, statementRequest, singlePageOnly, onPageFetched);
+        return new DynamoAsyncEnumerable(this, request, singlePageOnly, onPageFetched);
     }
 
     /// <summary>Executes a write PartiQL statement (INSERT, UPDATE, DELETE) and discards any result items.</summary>
@@ -269,6 +270,7 @@ public class DynamoClientWrapper : IDynamoClientWrapper
                     ? [..prototype.Parameters]
                     : prototype.Parameters,
             Limit = prototype.Limit,
+            NextToken = prototype.NextToken,
             ConsistentRead = prototype.ConsistentRead,
             ReturnConsumedCapacity = prototype.ReturnConsumedCapacity,
             ReturnValuesOnConditionCheckFailure = prototype.ReturnValuesOnConditionCheckFailure,

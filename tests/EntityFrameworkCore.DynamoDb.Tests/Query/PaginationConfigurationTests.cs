@@ -224,14 +224,29 @@ public class PaginationConfigurationTests
         var extension2 = new DynamoDbOptionsExtension()
             .WithTransactionOverflowBehavior(TransactionOverflowBehavior.UseChunking)
             .WithMaxTransactionSize(64)
-            .WithMaxBatchWriteSize(10)
-            .WithReturnConsumedCapacity(ReturnConsumedCapacity.TOTAL);
+            .WithMaxBatchWriteSize(10);
 
         extension1
             .Info
             .GetServiceProviderHashCode()
             .Should()
             .NotBe(extension2.Info.GetServiceProviderHashCode());
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ServiceProviderHash_ExcludesReturnConsumedCapacity()
+    {
+        var extension1 =
+            new DynamoDbOptionsExtension().WithReturnConsumedCapacity(ReturnConsumedCapacity.TOTAL);
+        var extension2 =
+            new DynamoDbOptionsExtension().WithReturnConsumedCapacity(
+                ReturnConsumedCapacity.INDEXES);
+
+        extension1
+            .Info
+            .GetServiceProviderHashCode()
+            .Should()
+            .Be(extension2.Info.GetServiceProviderHashCode());
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
@@ -243,6 +258,18 @@ public class PaginationConfigurationTests
         var extension2 =
             new DynamoDbOptionsExtension().WithAutomaticIndexSelectionMode(
                 DynamoAutomaticIndexSelectionMode.On);
+
+        extension1.Info.ShouldUseSameServiceProvider(extension2.Info).Should().BeTrue();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ShouldUseSameServiceProvider_DifferentReturnConsumedCapacity_ReturnsTrue()
+    {
+        var extension1 =
+            new DynamoDbOptionsExtension().WithReturnConsumedCapacity(ReturnConsumedCapacity.TOTAL);
+        var extension2 =
+            new DynamoDbOptionsExtension().WithReturnConsumedCapacity(
+                ReturnConsumedCapacity.INDEXES);
 
         extension1.Info.ShouldUseSameServiceProvider(extension2.Info).Should().BeTrue();
     }
