@@ -96,7 +96,8 @@ public class IndexQueryExtensionsTests
     private static GsiDbContext CreateGsiContextWithWarningAnalyzer<TAnalyzer>(
         IAmazonDynamoDB client,
         Action<WarningsConfigurationBuilder> configureWarnings,
-        ILoggerFactory? loggerFactory = null) where TAnalyzer : class, IDynamoIndexSelectionAnalyzer
+        ILoggerFactory? loggerFactory = null,
+        Action<EventData>? logTo = null) where TAnalyzer : class, IDynamoIndexSelectionAnalyzer
     {
         var optionsBuilder = new DbContextOptionsBuilder<GsiDbContext>()
             .ReplaceService<IDynamoIndexSelectionAnalyzer, TAnalyzer>()
@@ -110,6 +111,13 @@ public class IndexQueryExtensionsTests
 
         if (loggerFactory is not null)
             optionsBuilder.UseLoggerFactory(loggerFactory);
+
+        if (logTo is not null)
+            optionsBuilder.LogTo(
+                (eventId, _)
+                    => eventId.Id == DynamoEventId.NoCompatibleSecondaryIndexFound.Id
+                    || eventId.Id == DynamoEventId.MultipleCompatibleSecondaryIndexesFound.Id,
+                logTo);
 
         return new GsiDbContext(optionsBuilder.Options);
     }
@@ -531,6 +539,33 @@ public class IndexQueryExtensionsTests
             .ExecuteStatementAsync(
                 Arg.Any<ExecuteStatementRequest>(),
                 Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>Provides functionality for this member.</summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task LogTo_NoCompatibleSecondaryIndexFound_ReceivesEventDataWithoutLoggerFactory()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        client
+            .ExecuteStatementAsync(Arg.Any<ExecuteStatementRequest>(), Arg.Any<CancellationToken>())
+            .Returns(new ExecuteStatementResponse { Items = [] });
+        List<EventData> eventData = [];
+        await using var context =
+            CreateGsiContextWithWarningAnalyzer<NoCompatibleIndexWarningAnalyzer>(
+                client,
+                w => w.Log(DynamoEventId.NoCompatibleSecondaryIndexFound),
+                logTo: eventData.Add);
+
+        _ = await context
+            .Orders
+            .Where(o => o.CustomerId == "C1")
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        eventData
+            .Should()
+            .ContainSingle(e
+                => e.EventId.Id == DynamoEventId.NoCompatibleSecondaryIndexFound.Id
+                && e.ToString().Contains("No compatible secondary index was found"));
     }
 
     // ── WithIndex extension tests ─────────────────────────────────────────────

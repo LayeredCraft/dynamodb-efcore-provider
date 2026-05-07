@@ -424,6 +424,22 @@ public static class DynamoLoggerExtensions
 
         if (diagnostics.ShouldLog(definition))
             definition.Log(diagnostics, message);
+
+        if (diagnostics.NeedsEventData(
+            definition,
+            out var diagnosticSourceEnabled,
+            out var simpleLogEnabled))
+        {
+            var eventData = new EventData(
+                definition,
+                (d, _) => ((EventDefinition<string>)d).GenerateMessage(message));
+
+            diagnostics.DispatchEventData(
+                definition,
+                eventData,
+                diagnosticSourceEnabled,
+                simpleLogEnabled);
+        }
     }
 
     private static EventDefinition<string> LogNoCompatibleSecondaryIndexFound(
@@ -456,6 +472,22 @@ public static class DynamoLoggerExtensions
 
         if (diagnostics.ShouldLog(definition))
             definition.Log(diagnostics, message);
+
+        if (diagnostics.NeedsEventData(
+            definition,
+            out var diagnosticSourceEnabled,
+            out var simpleLogEnabled))
+        {
+            var eventData = new EventData(
+                definition,
+                (d, _) => ((EventDefinition<string>)d).GenerateMessage(message));
+
+            diagnostics.DispatchEventData(
+                definition,
+                eventData,
+                diagnosticSourceEnabled,
+                simpleLogEnabled);
+        }
     }
 
     private static EventDefinition<string> LogMultipleCompatibleSecondaryIndexesFound(
