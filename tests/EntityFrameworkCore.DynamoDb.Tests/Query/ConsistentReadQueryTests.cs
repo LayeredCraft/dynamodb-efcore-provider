@@ -90,6 +90,29 @@ public class ConsistentReadQueryTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task
+        QueryConsistentReadTrue_OnAutoSelectedGlobalSecondaryIndex_ThrowsBeforeRequest()
+    {
+        var (client, captured) = SetupMockClient();
+        await using var context = ConsistentReadDbContext.Create(client);
+
+        var act = async () => await DrainAsync(
+            context
+                .Items
+                .Where(x => x.CustomerId == "C#1")
+                .WithConsistentRead()
+                .AsAsyncEnumerable(),
+            TestContext.Current.CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*WithConsistentRead()*global secondary index 'ByCustomer'*");
+
+        captured.Should().BeEmpty();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task GlobalConsistentRead_OnGlobalSecondaryIndex_DoesNotSendFlag()
     {
         var (client, captured) = SetupMockClient();
