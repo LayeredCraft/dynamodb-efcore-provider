@@ -258,6 +258,13 @@ constraint on an index partition key if you want automatic selection to pick up 
 whether a GSI would allow the provider to target a narrower key space, and confirm that running
 against the base table is acceptable for this query's access pattern.
 
+Use EF Core warning configuration to escalate or suppress this warning:
+
+```csharp
+options.ConfigureWarnings(w =>
+    w.Throw(DynamoEventId.NoCompatibleSecondaryIndexFound));
+```
+
 ______________________________________________________________________
 
 ### `DYNAMO_IDX002` — `MultipleCompatibleSecondaryIndexesFound` (Warning)
@@ -268,6 +275,13 @@ names. The query falls back to the base table.
 Use an explicit [`.WithIndex("IndexName")`](querying/index-selection.md) hint to resolve the
 ambiguity. The tied index names appear in the message, so you can pick the one that best fits the
 access pattern.
+
+Use EF Core warning configuration to suppress this warning when the fallback is intentional:
+
+```csharp
+options.ConfigureWarnings(w =>
+    w.Ignore(DynamoEventId.MultipleCompatibleSecondaryIndexesFound));
+```
 
 ______________________________________________________________________
 
