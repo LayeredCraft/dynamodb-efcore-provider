@@ -18,6 +18,7 @@ public class DynamoClientWrapper : IDynamoClientWrapper
 {
     private readonly AmazonDynamoDBConfig? _amazonDynamoDbConfig;
     private readonly ReturnConsumedCapacity? _returnConsumedCapacity;
+    private readonly bool _consistentRead;
     private readonly IDiagnosticsLogger<DbLoggerCategory.Database.Command> _commandLogger;
     private readonly IExecutionStrategy _executionStrategy;
 
@@ -36,6 +37,7 @@ public class DynamoClientWrapper : IDynamoClientWrapper
             _amazonDynamoDbConfig = BuildAmazonDynamoDbConfig(options);
 
         _returnConsumedCapacity = options.ReturnConsumedCapacity;
+        _consistentRead = options.ConsistentRead;
         _executionStrategy = executionStrategy.NotNull();
         _commandLogger = commandLogger.NotNull();
     }
@@ -58,6 +60,7 @@ public class DynamoClientWrapper : IDynamoClientWrapper
     {
         var request = CloneExecuteStatementRequest(statementRequest, false);
         request.ReturnConsumedCapacity ??= _returnConsumedCapacity;
+        request.ConsistentRead ??= _consistentRead;
 
         return new DynamoAsyncEnumerable(this, request, singlePageOnly, onPageFetched);
     }

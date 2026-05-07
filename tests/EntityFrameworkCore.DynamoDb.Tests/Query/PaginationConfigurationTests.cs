@@ -21,6 +21,7 @@ public class PaginationConfigurationTests
         extension.MaxTransactionSize.Should().Be(100);
         extension.MaxBatchWriteSize.Should().Be(25);
         extension.ReturnConsumedCapacity.Should().BeNull();
+        extension.ConsistentRead.Should().BeFalse();
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
@@ -71,7 +72,8 @@ public class PaginationConfigurationTests
             .WithTransactionOverflowBehavior(TransactionOverflowBehavior.UseChunking)
             .WithMaxTransactionSize(42)
             .WithMaxBatchWriteSize(11)
-            .WithReturnConsumedCapacity(ReturnConsumedCapacity.TOTAL);
+            .WithReturnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
+            .WithConsistentRead(true);
 
         // Clone is protected; trigger via a With method.
         var cloned =
@@ -88,6 +90,7 @@ public class PaginationConfigurationTests
         cloned.MaxTransactionSize.Should().Be(42);
         cloned.MaxBatchWriteSize.Should().Be(11);
         cloned.ReturnConsumedCapacity.Should().Be(ReturnConsumedCapacity.TOTAL);
+        cloned.ConsistentRead.Should().BeTrue();
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
@@ -158,6 +161,19 @@ public class PaginationConfigurationTests
 
         extension.Should().NotBeNull();
         extension!.ReturnConsumedCapacity.Should().Be(ReturnConsumedCapacity.INDEXES);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void UseDynamo_ConfigureConsistentRead_StoresValueOnOptionsExtension()
+    {
+        var optionsBuilder = new DbContextOptionsBuilder();
+
+        optionsBuilder.UseDynamo(options => options.ConsistentRead(true));
+
+        var extension = optionsBuilder.Options.FindExtension<DynamoDbOptionsExtension>();
+
+        extension.Should().NotBeNull();
+        extension!.ConsistentRead.Should().BeTrue();
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
@@ -250,6 +266,19 @@ public class PaginationConfigurationTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ServiceProviderHash_ExcludesConsistentRead()
+    {
+        var extension1 = new DynamoDbOptionsExtension().WithConsistentRead(true);
+        var extension2 = new DynamoDbOptionsExtension().WithConsistentRead(false);
+
+        extension1
+            .Info
+            .GetServiceProviderHashCode()
+            .Should()
+            .Be(extension2.Info.GetServiceProviderHashCode());
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void ShouldUseSameServiceProvider_SameSettings_ReturnsTrue()
     {
         var extension1 =
@@ -270,6 +299,15 @@ public class PaginationConfigurationTests
         var extension2 =
             new DynamoDbOptionsExtension().WithReturnConsumedCapacity(
                 ReturnConsumedCapacity.INDEXES);
+
+        extension1.Info.ShouldUseSameServiceProvider(extension2.Info).Should().BeTrue();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ShouldUseSameServiceProvider_DifferentConsistentRead_ReturnsTrue()
+    {
+        var extension1 = new DynamoDbOptionsExtension().WithConsistentRead(true);
+        var extension2 = new DynamoDbOptionsExtension().WithConsistentRead(false);
 
         extension1.Info.ShouldUseSameServiceProvider(extension2.Info).Should().BeTrue();
     }

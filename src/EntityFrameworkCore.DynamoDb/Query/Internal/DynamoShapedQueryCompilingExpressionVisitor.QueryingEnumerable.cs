@@ -92,6 +92,12 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
             /// </summary>
             private readonly string? _seedNextToken;
 
+            /// <summary>
+            ///     The optional per-query read consistency preference resolved from
+            ///     <c>SelectExpression.ConsistentReadExpression</c>.
+            /// </summary>
+            private readonly bool? _consistentRead;
+
             private IAsyncEnumerator<Dictionary<string, AttributeValue>>? _dataEnumerator;
 
             /// <summary>Provides functionality for this member.</summary>
@@ -114,6 +120,11 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
                 _seedNextToken = ResolveStringExpression(
                     enumerable._selectExpression.SeedNextTokenExpression,
                     enumerable._selectExpression.SeedNextToken,
+                    _queryContext);
+
+                _consistentRead = ResolveBoolExpression(
+                    enumerable._selectExpression.ConsistentReadExpression,
+                    enumerable._selectExpression.ConsistentRead,
                     _queryContext);
 
                 if (_limit is <= 0)
@@ -181,6 +192,7 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
                             // Maps directly to ExecuteStatementRequest.Limit (evaluation budget).
                             Limit = _limit,
                             NextToken = _seedNextToken,
+                            ConsistentRead = _consistentRead,
                         },
                         _singlePageOnly,
                         // Store the raw response on the query context so the shaper can bind it
@@ -269,6 +281,7 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
             private readonly IConcurrencyDetector? _concurrencyDetector;
             private readonly int _limit;
             private readonly string? _seedNextToken;
+            private readonly bool? _consistentRead;
 
             private bool _emitted;
 
@@ -297,6 +310,11 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
                         queryingEnumerable._selectExpression.SeedNextTokenExpression,
                         queryingEnumerable._selectExpression.SeedNextToken,
                         _queryContext));
+
+                _consistentRead = ResolveBoolExpression(
+                    queryingEnumerable._selectExpression.ConsistentReadExpression,
+                    queryingEnumerable._selectExpression.ConsistentRead,
+                    _queryContext);
 
                 _concurrencyDetector = queryingEnumerable._threadSafetyChecksEnabled
                     ? _queryContext.ConcurrencyDetector
@@ -355,6 +373,7 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
                             sqlQuery.Parameters.Count > 0 ? sqlQuery.Parameters.ToList() : null,
                         Limit = _limit,
                         NextToken = _seedNextToken,
+                        ConsistentRead = _consistentRead,
                     },
                     singlePageOnly: true,
                     response => _queryContext.CurrentPageResponse = response);
@@ -523,6 +542,36 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
 
         throw new InvalidOperationException(
             "Seed next-token expression must be normalized before execution.");
+    }
+
+    /// <summary>
+    ///     Resolves a nullable Boolean expression to its runtime value. Handles constants and compiled
+    ///     query parameters; falls back to the pre-resolved scalar when no expression is present.
+    /// </summary>
+    private static bool? ResolveBoolExpression(
+        Expression? expression,
+        bool? fallback,
+        DynamoQueryContext queryContext)
+    {
+        if (expression is null)
+            return fallback;
+
+        if (expression is ConstantExpression { Value: bool constantValue })
+            return constantValue;
+
+        if (expression is QueryParameterExpression parameterExpression)
+        {
+            var value = queryContext.Parameters[parameterExpression.Name];
+
+            if (value is not bool boolean)
+                throw new InvalidOperationException(
+                    $"Parameter '{parameterExpression.Name}' was expected to be a Boolean (consistent-read) but was {value?.GetType().Name ?? "null"}.");
+
+            return boolean;
+        }
+
+        throw new InvalidOperationException(
+            "Consistent-read expression must be normalized before execution.");
     }
 
     /// <summary>Normalizes empty or whitespace-only tokens to <see langword="null" />.</summary>

@@ -310,6 +310,24 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
                 return limitResult;
             }
 
+            if (method.Name == nameof(DynamoDbQueryableExtensions.WithConsistentRead))
+            {
+                var consistentReadResult = Visit(methodCallExpression.Arguments[0]);
+                if (consistentReadResult is not ShapedQueryExpression
+                    {
+                        QueryExpression: SelectExpression consistentReadSelectExpr,
+                    })
+                    return consistentReadResult;
+
+                var consistentReadArg = methodCallExpression.Arguments[1];
+                if (consistentReadArg is ConstantExpression { Value: bool consistentRead })
+                    consistentReadSelectExpr.ApplyConsistentRead(consistentRead);
+                else
+                    consistentReadSelectExpr.ApplyConsistentReadExpression(consistentReadArg);
+
+                return consistentReadResult;
+            }
+
             if (method.Name == nameof(DynamoDbQueryableExtensions.WithoutIndex))
             {
                 var context = (DynamoQueryCompilationContext)QueryCompilationContext;

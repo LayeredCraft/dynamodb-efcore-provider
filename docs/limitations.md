@@ -312,14 +312,15 @@ binary `=` predicate. When either column holds a NULL type or is MISSING, Dynamo
 returns MISSING (not TRUE) for the equality comparison — the row is excluded from results.
 There is no provider-level workaround for this shape.
 
-### `ConsistentRead` Not Configurable via Provider
+### Consistent Read Semantics Are Passed Through
 
-The provider always sends `ConsistentRead = false` (eventually consistent reads). There is no
-provider-level option to enable consistent reads. To use consistent reads, obtain the raw client
-via `context.Database.GetDynamoClient()` and issue `ExecuteStatementAsync` requests directly with
-`ConsistentRead = true`.
+The provider can set `ExecuteStatementRequest.ConsistentRead` globally with
+`options.ConsistentRead(true)` or per query with `.WithConsistentRead()`. Per-query settings take
+precedence, including `.WithConsistentRead(false)` overriding a global strongly consistent default.
 
-Provider-level `ConsistentRead` configuration is tracked for a future release.
+The provider does not inspect the final access path to warn or fail for scan-like queries or index
+queries. It passes the flag through to DynamoDB and lets DynamoDB apply the service semantics for
+the specific statement.
 
 ### Per-Entity Response Metadata Requires Tracking
 

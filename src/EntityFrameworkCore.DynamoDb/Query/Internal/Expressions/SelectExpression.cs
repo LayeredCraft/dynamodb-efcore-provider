@@ -63,6 +63,18 @@ public class SelectExpression(string tableName, string? queryEntityTypeName = nu
     public Expression? SeedNextTokenExpression { get; private set; }
 
     /// <summary>
+    ///     The optional per-query read consistency preference from <c>.WithConsistentRead(...)</c>.
+    ///     Null means the provider-level default applies.
+    /// </summary>
+    public bool? ConsistentRead { get; private set; }
+
+    /// <summary>
+    ///     Supports parameterized <c>.WithConsistentRead(...)</c> expressions for compiled queries.
+    ///     Takes precedence over <see cref="ConsistentRead"/> when present.
+    /// </summary>
+    public Expression? ConsistentReadExpression { get; private set; }
+
+    /// <summary>
     ///     The list of projected columns for the SELECT clause. Must have at least one projection -
     ///     SELECT * is not supported.
     /// </summary>
@@ -207,6 +219,22 @@ public class SelectExpression(string tableName, string? queryEntityTypeName = nu
         SeedNextTokenExpression = seedNextTokenExpression;
         SeedNextToken = seedNextTokenExpression is ConstantExpression { Value: string token }
             ? token
+            : null;
+    }
+
+    /// <summary>Sets the per-query read consistency preference from a constant value.</summary>
+    public void ApplyConsistentRead(bool consistentRead)
+    {
+        ConsistentRead = consistentRead;
+        ConsistentReadExpression = Constant(consistentRead);
+    }
+
+    /// <summary>Sets the per-query read consistency preference from a parameterized expression.</summary>
+    public void ApplyConsistentReadExpression(Expression consistentReadExpression)
+    {
+        ConsistentReadExpression = consistentReadExpression;
+        ConsistentRead = consistentReadExpression is ConstantExpression { Value: bool value }
+            ? value
             : null;
     }
 
