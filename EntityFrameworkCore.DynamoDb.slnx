@@ -17,7 +17,7 @@
 <File Path="EntityFrameworkCore.DynamoDb.sln.DotSettings" />
     <File Path="global.json" />
     <File Path="README.md" />
-    <File Path="Taskfile.yml"/>
+    <File Path="Taskfile.yml" />
   </Folder>
   <Folder Name="/src/">
     <File Path="src\Directory.Build.props" />
@@ -25,6 +25,7 @@
   </Folder>
   <Folder Name="/tests/">
     <File Path="tests\Directory.Build.props" />
+    <Project Path="tests/EntityFrameworkCore.DynamoDb.SpecificationTests/EntityFrameworkCore.DynamoDb.SpecificationTests.csproj" />
     <Project Path="tests\EntityFrameworkCore.DynamoDb.IntegrationTests\EntityFrameworkCore.DynamoDb.IntegrationTests.csproj" />
     <Project Path="tests\EntityFrameworkCore.DynamoDb.Tests\EntityFrameworkCore.DynamoDb.Tests.csproj" />
   </Folder>
