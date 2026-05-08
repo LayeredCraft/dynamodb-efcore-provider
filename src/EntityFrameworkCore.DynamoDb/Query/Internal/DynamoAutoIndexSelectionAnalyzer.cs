@@ -86,6 +86,12 @@ internal sealed class DynamoAutoIndexSelectionAnalyzer : IDynamoIndexSelectionAn
         // ── 3. Evaluate each secondary-index descriptor ──────────────────────
         var constraints = context.QueryConstraints;
 
+        if (IsFullBaseTableKeyLookup(context.CandidateDescriptors, constraints))
+            return new DynamoIndexSelectionDecision(
+                null,
+                DynamoIndexSelectionReason.NoSelection,
+                []);
+
         // Collect only indexes (not the base table descriptor) that pass all gates.
         // Base-table queries are the default — skipping the base-table descriptor here means
         // the auto-selection only considers switching the source to a secondary index.
@@ -274,6 +280,30 @@ internal sealed class DynamoAutoIndexSelectionAnalyzer : IDynamoIndexSelectionAn
             return CandidateGateResult.ProjectionMismatch;
 
         return CandidateGateResult.Passed;
+    }
+
+    /// <summary>
+    ///     Returns <see langword="true" /> when the query predicate fully constrains the base-table
+    ///     primary key, which is already the most precise lookup source.
+    /// </summary>
+    private static bool IsFullBaseTableKeyLookup(
+        IReadOnlyList<DynamoIndexDescriptor> candidates,
+        DynamoQueryConstraints constraints)
+    {
+        var baseTable = candidates.FirstOrDefault(d => d.IndexName is null);
+        if (baseTable is null)
+            return false;
+
+        var pkAttr = baseTable.PartitionKeyProperty.GetAttributeName();
+        if (!constraints.EqualityConstraints.ContainsKey(pkAttr))
+            return false;
+
+        if (baseTable.SortKeyProperty is null)
+            return true;
+
+        var skAttr = baseTable.SortKeyProperty.GetAttributeName();
+        return constraints.SkKeyConditions.TryGetValue(skAttr, out var skConstraint)
+            && skConstraint.Operator == SkOperator.Equal;
     }
 
     /// <summary>

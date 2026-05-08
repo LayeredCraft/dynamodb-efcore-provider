@@ -52,6 +52,25 @@ Terminal operators execute the query and return results. The provider supports t
 | `ToPageAsync(limit, token)` | Single DynamoDB request; returns `DynamoPage<T>` | DynamoDB-specific; use for cursor-based pagination                                                |
 | `First` / `FirstOrDefault`  | Implicit `Limit=1`; single request               | Key-only safe path only; all other shapes throw — use `AsAsyncEnumerable().FirstOrDefaultAsync()` |
 
+## Primary-Key Lookup
+
+Use `FindAsync` when you have the full DynamoDB table key and want one entity by primary key. It
+checks the EF Core change tracker first. If the entity is not already tracked, the provider executes
+a base-table key-equality PartiQL query with `ExecuteStatementRequest.Limit = 1`.
+
+```csharp
+// Partition-key-only table
+var customer = await context.Customers.FindAsync(["CUSTOMER#123"], ct);
+
+// Composite partition + sort key table; pass values in PK, SK order
+var order = await context.Orders.FindAsync(["CUSTOMER#123", "ORDER#456"], ct);
+```
+
+`FindAsync` returns `null` when no item exists. It targets the base table and does not use secondary
+indexes or automatic index selection; use normal LINQ with `.WithIndex(...)` or automatic selection
+for secondary-index lookups. Synchronous `Find` can return an already-tracked entity, but throws if
+it needs to query DynamoDB.
+
 ## DynamoDB-Specific Extensions
 
 The following extension methods are unique to this provider and have no standard LINQ equivalent. They compose with the query before a terminal operator is called.

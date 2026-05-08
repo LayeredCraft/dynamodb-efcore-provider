@@ -95,6 +95,21 @@ Server-side `First*` is safe only when the query evaluates at most one base-tabl
 filtering: a PK-only lookup on a PK-only table, or a PK+SK equality on a PK+SK table. All
 other shapes throw — use `AsAsyncEnumerable().FirstOrDefaultAsync()`.
 
+### `Find` — Primary-Key Lookup
+
+`FindAsync` is supported for primary-key lookup. It checks the change tracker first and otherwise
+executes a base-table key-equality PartiQL query with `Limit=1`. It does not use secondary indexes
+or automatic index selection; use LINQ with `.WithIndex(...)` or automatic selection for
+secondary-index lookups.
+
+Synchronous `Find` follows EF Core's normal change-tracker behavior: it can return an already
+tracked entity without DynamoDB I/O. If it needs to query DynamoDB, synchronous query execution
+throws `InvalidOperationException`. Use `FindAsync` for database lookups:
+
+```csharp
+var order = await context.Orders.FindAsync([customerId, orderId], ct);
+```
+
 ### `WithNextToken` Cannot Combine with `First*`
 
 Combining `.WithNextToken(token)` with `FirstAsync` or `FirstOrDefaultAsync` throws
@@ -278,7 +293,8 @@ See [Single-Table Design](modeling/single-table-design.md).
 
 Synchronous query execution throws `InvalidOperationException`. This applies to all query
 enumeration, not just `SaveChanges`. Methods like `ToList()`, `First()`, and `Count()` on a
-`DbSet` will throw. Use `ToListAsync()`, `FirstAsync()`, `AsAsyncEnumerable()`, etc.
+`DbSet` will throw. `Find()` can still return an already-tracked entity without querying. Use
+`ToListAsync()`, `FirstAsync()`, `FindAsync()`, `AsAsyncEnumerable()`, etc.
 
 ### `ToQueryString()` Is Debug-Only
 
