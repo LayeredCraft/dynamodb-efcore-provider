@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.DynamoDb.SpecificationTests.TestModels.Northwind;
 
-public sealed class NorthwindDynamoContext(DbContextOptions options) : NorthwindContext(options)
+public class NorthwindDynamoContext(DbContextOptions options) : NorthwindContext(options)
 {
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
