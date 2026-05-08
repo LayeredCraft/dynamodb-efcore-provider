@@ -20,10 +20,14 @@ public interface IDynamoClientWrapper
     ///     <see cref="ExecuteStatementResponse" /> immediately after each page is fetched and before its
     ///     items are yielded.
     /// </param>
+    /// <param name="suppressConsistentReadDefault">
+    ///     When <see langword="true" />, the provider-level consistency default is not applied.
+    /// </param>
     IAsyncEnumerable<Dictionary<string, AttributeValue>> ExecutePartiQl(
         ExecuteStatementRequest statementRequest,
         bool singlePageOnly = false,
-        Action<ExecuteStatementResponse>? onPageFetched = null);
+        Action<ExecuteStatementResponse>? onPageFetched = null,
+        bool suppressConsistentReadDefault = false);
 
     /// <summary>Executes a write PartiQL statement (INSERT, UPDATE, DELETE) and discards any result items.</summary>
     /// <param name="statement">The PartiQL write statement to execute.</param>
