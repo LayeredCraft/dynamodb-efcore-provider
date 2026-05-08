@@ -38,6 +38,8 @@ public class NorthwindQueryDynamoFixture<TModelCustomizer>
 
     public TestPartiQlLoggerFactory TestPartiQlLoggerFactory { get; } = new();
 
+    public QueryAsserter AssertQuery => new(this);
+
     public TestPartiQlLoggerFactory SqlCapture => TestPartiQlLoggerFactory;
 
     public DynamoTestStore TestStore

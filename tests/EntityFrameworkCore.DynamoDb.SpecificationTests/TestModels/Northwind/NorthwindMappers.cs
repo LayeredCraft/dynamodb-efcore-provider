@@ -58,31 +58,31 @@ internal static class NorthwindMappers
                 (int)source.UnitsInStock));
 }
 
-[DynamoMapper(Convention = DynamoNamingConvention.PascalCase, OmitNullValues = true)]
+[DynamoMapper(Convention = DynamoNamingConvention.CamelCase, OmitNullValues = true)]
 internal static partial class CustomerItemMapper
 {
     internal static partial Dictionary<string, AttributeValue> ToItem(CustomerItem source);
 }
 
-[DynamoMapper(Convention = DynamoNamingConvention.PascalCase, OmitNullValues = true)]
+[DynamoMapper(Convention = DynamoNamingConvention.CamelCase, OmitNullValues = true)]
 internal static partial class EmployeeItemMapper
 {
     internal static partial Dictionary<string, AttributeValue> ToItem(EmployeeItem source);
 }
 
-[DynamoMapper(Convention = DynamoNamingConvention.PascalCase, OmitNullValues = true)]
+[DynamoMapper(Convention = DynamoNamingConvention.CamelCase, OmitNullValues = true)]
 internal static partial class OrderItemMapper
 {
     internal static partial Dictionary<string, AttributeValue> ToItem(OrderItem source);
 }
 
-[DynamoMapper(Convention = DynamoNamingConvention.PascalCase, OmitNullValues = true)]
+[DynamoMapper(Convention = DynamoNamingConvention.CamelCase, OmitNullValues = true)]
 internal static partial class OrderDetailItemMapper
 {
     internal static partial Dictionary<string, AttributeValue> ToItem(OrderDetailItem source);
 }
 
-[DynamoMapper(Convention = DynamoNamingConvention.PascalCase, OmitNullValues = true)]
+[DynamoMapper(Convention = DynamoNamingConvention.CamelCase, OmitNullValues = true)]
 internal static partial class ProductItemMapper
 {
     internal static partial Dictionary<string, AttributeValue> ToItem(ProductItem source);

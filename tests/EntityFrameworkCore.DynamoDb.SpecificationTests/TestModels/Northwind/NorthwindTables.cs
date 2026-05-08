@@ -23,28 +23,28 @@ public static class NorthwindTables
         await CreatePkTableAsync(
             client,
             Customers,
-            "CustomerID",
+            "customerID",
             ScalarAttributeType.S,
             cancellationToken);
         await CreatePkTableAsync(
             client,
             Employees,
-            "EmployeeID",
+            "employeeID",
             ScalarAttributeType.N,
             cancellationToken);
         await CreatePkTableAsync(
             client,
             Orders,
-            "OrderID",
+            "orderID",
             ScalarAttributeType.N,
             cancellationToken);
         await CreatePkTableAsync(
             client,
             Products,
-            "ProductID",
+            "productID",
             ScalarAttributeType.N,
             cancellationToken);
-        await CreatePkSkTableAsync(client, OrderDetails, "OrderID", "ProductID", cancellationToken);
+        await CreatePkSkTableAsync(client, OrderDetails, "orderID", "productID", cancellationToken);
 
         var data = NorthwindData.Instance;
         await client.SeedItemsAsync(
