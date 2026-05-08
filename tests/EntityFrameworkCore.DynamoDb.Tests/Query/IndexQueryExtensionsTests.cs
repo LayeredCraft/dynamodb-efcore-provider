@@ -4,6 +4,7 @@ using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.Query.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.Extensions.Logging;
 using NSubstitute;
 
 namespace EntityFrameworkCore.DynamoDb.Tests.Query;
@@ -92,6 +93,35 @@ public class IndexQueryExtensionsTests
                         .Ignore(DynamoEventId.ScanLikeQueryDetected))
                 .Options);
 
+    private static GsiDbContext CreateGsiContextWithWarningAnalyzer<TAnalyzer>(
+        IAmazonDynamoDB client,
+        Action<WarningsConfigurationBuilder> configureWarnings,
+        ILoggerFactory? loggerFactory = null,
+        Action<EventData>? logTo = null) where TAnalyzer : class, IDynamoIndexSelectionAnalyzer
+    {
+        var optionsBuilder = new DbContextOptionsBuilder<GsiDbContext>()
+            .ReplaceService<IDynamoIndexSelectionAnalyzer, TAnalyzer>()
+            .UseDynamo(o => o.DynamoDbClient(client))
+            .ConfigureWarnings(w =>
+            {
+                w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning);
+                w.Ignore(DynamoEventId.ScanLikeQueryDetected);
+                configureWarnings(w);
+            });
+
+        if (loggerFactory is not null)
+            optionsBuilder.UseLoggerFactory(loggerFactory);
+
+        if (logTo is not null)
+            optionsBuilder.LogTo(
+                (eventId, _)
+                    => eventId.Id == DynamoEventId.NoCompatibleSecondaryIndexFound.Id
+                    || eventId.Id == DynamoEventId.MultipleCompatibleSecondaryIndexesFound.Id,
+                logTo);
+
+        return new GsiDbContext(optionsBuilder.Options);
+    }
+
     /// <summary>
     ///     Analyzer used by tests to simulate index auto-selection without an explicit WithIndex
     ///     hint.
@@ -134,6 +164,92 @@ public class IndexQueryExtensionsTests
                         DynamoIndexSelectionReason.AutoSelected,
                         []);
     }
+
+    private sealed class NoCompatibleIndexWarningAnalyzer : IDynamoIndexSelectionAnalyzer
+    {
+        /// <summary>Emits the no-compatible-index warning diagnostic.</summary>
+        /// <returns>The selected index decision.</returns>
+        public DynamoIndexSelectionDecision Analyze(DynamoIndexAnalysisContext context)
+            => new(
+                null,
+                DynamoIndexSelectionReason.NoSelection,
+                [
+                    new DynamoQueryDiagnostic(
+                        DynamoQueryDiagnosticLevel.Warning,
+                        "DYNAMO_IDX001",
+                        "No compatible secondary index was found for test query."),
+                ]);
+    }
+
+    private sealed class MultipleCompatibleIndexesWarningAnalyzer : IDynamoIndexSelectionAnalyzer
+    {
+        /// <summary>Emits the multiple-compatible-indexes warning diagnostic.</summary>
+        /// <returns>The selected index decision.</returns>
+        public DynamoIndexSelectionDecision Analyze(DynamoIndexAnalysisContext context)
+            => new(
+                null,
+                DynamoIndexSelectionReason.NoSelection,
+                [
+                    new DynamoQueryDiagnostic(
+                        DynamoQueryDiagnosticLevel.Warning,
+                        "DYNAMO_IDX002",
+                        "Multiple compatible secondary indexes were found for test query."),
+                ]);
+    }
+
+    private sealed class CapturingLoggerFactory : ILoggerFactory
+    {
+        private readonly CapturingLogger _logger = new();
+
+        /// <summary>The captured log entries.</summary>
+        public IReadOnlyList<CapturedLogEntry> Entries => _logger.Entries;
+
+        /// <summary>Creates a logger.</summary>
+        /// <returns>The capturing logger.</returns>
+        public ILogger CreateLogger(string categoryName) => _logger;
+
+        /// <summary>Adds a logger provider.</summary>
+        public void AddProvider(ILoggerProvider provider) { }
+
+        /// <summary>Disposes the logger factory.</summary>
+        public void Dispose() { }
+    }
+
+    private sealed class CapturingLogger : ILogger
+    {
+        private readonly List<CapturedLogEntry> _entries = [];
+
+        /// <summary>The captured log entries.</summary>
+        public IReadOnlyList<CapturedLogEntry> Entries => _entries;
+
+        /// <summary>Begins a logging scope.</summary>
+        /// <returns>A disposable logging scope.</returns>
+        public IDisposable BeginScope<TState>(TState state) where TState : notnull
+            => NullScope.Instance;
+
+        /// <summary>Returns whether logging is enabled.</summary>
+        /// <returns><see langword="true"/>.</returns>
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        /// <summary>Captures the log entry.</summary>
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+            => _entries.Add(new CapturedLogEntry(logLevel, eventId, formatter(state, exception)));
+    }
+
+    private sealed class NullScope : IDisposable
+    {
+        internal static readonly NullScope Instance = new();
+
+        /// <summary>Disposes the scope.</summary>
+        public void Dispose() { }
+    }
+
+    private sealed record CapturedLogEntry(LogLevel LogLevel, EventId EventId, string Message);
 
     /// <summary>
     ///     Shared-table context: <c>SharedOrder</c> and <c>SharedInvoice</c> both map
@@ -367,6 +483,89 @@ public class IndexQueryExtensionsTests
             .Should()
             .ThrowAsync<InvalidOperationException>()
             .WithMessage("*'.WithIndex()'*'.WithoutIndex()'*");
+    }
+
+    /// <summary>Provides functionality for this member.</summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task ConfigureWarnings_Throw_NoCompatibleSecondaryIndexFound_Throws()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        await using var context =
+            CreateGsiContextWithWarningAnalyzer<NoCompatibleIndexWarningAnalyzer>(
+                client,
+                w => w.Throw(DynamoEventId.NoCompatibleSecondaryIndexFound));
+
+        var act = async () => await context
+            .Orders
+            .Where(o => o.CustomerId == "C1")
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*NoCompatibleSecondaryIndexFound*No compatible secondary index*");
+
+        await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
+    /// <summary>Provides functionality for this member.</summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task
+        ConfigureWarnings_Ignore_MultipleCompatibleSecondaryIndexesFound_SuppressesLog()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        client
+            .ExecuteStatementAsync(Arg.Any<ExecuteStatementRequest>(), Arg.Any<CancellationToken>())
+            .Returns(new ExecuteStatementResponse { Items = [] });
+        var loggerFactory = new CapturingLoggerFactory();
+        await using var context =
+            CreateGsiContextWithWarningAnalyzer<MultipleCompatibleIndexesWarningAnalyzer>(
+                client,
+                w => w.Ignore(DynamoEventId.MultipleCompatibleSecondaryIndexesFound),
+                loggerFactory);
+
+        _ = await context
+            .Orders
+            .Where(o => o.CustomerId == "C1")
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        loggerFactory
+            .Entries
+            .Should()
+            .NotContain(e
+                => e.EventId.Id == DynamoEventId.MultipleCompatibleSecondaryIndexesFound.Id);
+        await client
+            .Received()
+            .ExecuteStatementAsync(
+                Arg.Any<ExecuteStatementRequest>(),
+                Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>Provides functionality for this member.</summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task LogTo_NoCompatibleSecondaryIndexFound_ReceivesEventDataWithoutLoggerFactory()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        client
+            .ExecuteStatementAsync(Arg.Any<ExecuteStatementRequest>(), Arg.Any<CancellationToken>())
+            .Returns(new ExecuteStatementResponse { Items = [] });
+        List<EventData> eventData = [];
+        await using var context =
+            CreateGsiContextWithWarningAnalyzer<NoCompatibleIndexWarningAnalyzer>(
+                client,
+                w => w.Log(DynamoEventId.NoCompatibleSecondaryIndexFound),
+                logTo: eventData.Add);
+
+        _ = await context
+            .Orders
+            .Where(o => o.CustomerId == "C1")
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        eventData
+            .Should()
+            .ContainSingle(e
+                => e.EventId.Id == DynamoEventId.NoCompatibleSecondaryIndexFound.Id
+                && e.ToString().Contains("No compatible secondary index was found"));
     }
 
     // ── WithIndex extension tests ─────────────────────────────────────────────

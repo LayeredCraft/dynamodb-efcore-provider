@@ -6,8 +6,8 @@ description: How to register and configure the provider in DbContext.
 # DbContext Options
 
 _Register the DynamoDB EF Core provider by calling `UseDynamo` on `DbContextOptionsBuilder`, then
-tune transaction limits, batch sizes, scan protection, and index selection behavior through the
-options builder or per-context runtime overrides._
+tune read consistency, transaction limits, batch sizes, scan protection, and index selection
+behavior through the options builder or per-context runtime overrides._
 
 ## Registering the Provider
 
@@ -89,6 +89,34 @@ await db.Orders
     .AllowScan()
     .ToListAsync();
 ```
+
+### Consistent reads
+
+Reads are eventually consistent by default. Configure strongly consistent reads globally when most
+queries in a context require read-after-write consistency:
+
+```csharp
+optionsBuilder.UseDynamo(options =>
+{
+    options.ConsistentRead();
+});
+```
+
+Override the default for a single query with `.WithConsistentRead()` or
+`.WithConsistentRead(false)`:
+
+```csharp
+var order = await db.Orders
+    .Where(o => o.Pk == customerId && o.Sk == orderId)
+    .WithConsistentRead()
+    .FirstOrDefaultAsync();
+```
+
+The provider passes the setting through to DynamoDB's `ExecuteStatementRequest.ConsistentRead`
+for base-table and LSI reads. If a global default query is finalized to a GSI, the provider leaves
+`ConsistentRead` unset because DynamoDB GSIs are always eventually consistent. An explicit
+`.WithConsistentRead()` on a GSI query throws instead of silently weakening the query's consistency.
+The provider does not warn or throw when the query is scan-like; DynamoDB applies its own semantics.
 
 ### `TransactionOverflowBehavior`
 

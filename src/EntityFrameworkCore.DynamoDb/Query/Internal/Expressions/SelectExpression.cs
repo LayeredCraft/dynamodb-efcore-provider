@@ -1,4 +1,5 @@
 using System.Linq.Expressions;
+using EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Query;
@@ -63,6 +64,18 @@ public class SelectExpression(string tableName, string? queryEntityTypeName = nu
     public Expression? SeedNextTokenExpression { get; private set; }
 
     /// <summary>
+    ///     The optional per-query read consistency preference from <c>.WithConsistentRead(...)</c>.
+    ///     Null means the provider-level default applies.
+    /// </summary>
+    public bool? ConsistentRead { get; private set; }
+
+    /// <summary>
+    ///     Supports parameterized <c>.WithConsistentRead(...)</c> expressions for compiled queries.
+    ///     Takes precedence over <see cref="ConsistentRead"/> when present.
+    /// </summary>
+    public Expression? ConsistentReadExpression { get; private set; }
+
+    /// <summary>
     ///     The list of projected columns for the SELECT clause. Must have at least one projection -
     ///     SELECT * is not supported.
     /// </summary>
@@ -95,8 +108,15 @@ public class SelectExpression(string tableName, string? queryEntityTypeName = nu
     /// <summary>The secondary index name to query, or null for the base table.</summary>
     public string? IndexName { get; private set; }
 
+    /// <summary>The finalized source kind for this query.</summary>
+    internal DynamoIndexSourceKind? IndexSourceKind { get; private set; }
+
     /// <summary>Sets the secondary index name to use in the FROM clause.</summary>
     public void ApplyIndexName(string? indexName) => IndexName = indexName;
+
+    /// <summary>Sets the finalized source kind for this query.</summary>
+    internal void ApplyIndexSourceKind(DynamoIndexSourceKind? indexSourceKind)
+        => IndexSourceKind = indexSourceKind;
 
     /// <summary>True when this query has opted into intentional scan execution.</summary>
     public bool ScanAllowed { get; private set; }
@@ -207,6 +227,22 @@ public class SelectExpression(string tableName, string? queryEntityTypeName = nu
         SeedNextTokenExpression = seedNextTokenExpression;
         SeedNextToken = seedNextTokenExpression is ConstantExpression { Value: string token }
             ? token
+            : null;
+    }
+
+    /// <summary>Sets the per-query read consistency preference from a constant value.</summary>
+    public void ApplyConsistentRead(bool consistentRead)
+    {
+        ConsistentRead = consistentRead;
+        ConsistentReadExpression = Constant(consistentRead);
+    }
+
+    /// <summary>Sets the per-query read consistency preference from a parameterized expression.</summary>
+    public void ApplyConsistentReadExpression(Expression consistentReadExpression)
+    {
+        ConsistentReadExpression = consistentReadExpression;
+        ConsistentRead = consistentReadExpression is ConstantExpression { Value: bool value }
+            ? value
             : null;
     }
 

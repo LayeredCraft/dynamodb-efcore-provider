@@ -136,6 +136,24 @@ public static class DynamoDbQueryableExtensions
                 : source;
         }
 
+        /// <summary>Requests strongly consistent reads for this query.</summary>
+        /// <returns>A new query configured for strongly consistent reads.</returns>
+        public IQueryable<TEntity> WithConsistentRead() => source.WithConsistentRead(true);
+
+        /// <summary>Configures whether this query should use strongly consistent reads.</summary>
+        /// <param name="consistentRead">Whether this query should use strong consistency.</param>
+        /// <returns>A new query with the specified read consistency preference.</returns>
+        public IQueryable<TEntity> WithConsistentRead(bool consistentRead)
+            => source.Provider is EntityQueryProvider
+                ? source.Provider.CreateQuery<TEntity>(
+                    Expression.Call(
+                        null,
+                        ((Func<IQueryable<TEntity>, bool, IQueryable<TEntity>>)
+                            DynamoDbQueryableExtensions.WithConsistentRead<TEntity>).Method,
+                        source.Expression,
+                        Expression.Constant(consistentRead, typeof(bool))))
+                : source;
+
         /// <summary>
         ///     Explicitly suppresses index selection for this query, forcing it to use the base table
         ///     regardless of the configured automatic index selection mode.
