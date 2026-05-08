@@ -99,6 +99,31 @@ public sealed class QueryAsserter(IQueryFixture fixture)
             _ => throw new ArgumentOutOfRangeException(nameof(tracking), tracking, null)
         };
 
+    public async Task AssertSingleResult<TResult>(
+        Func<ISetSource, IQueryable<TResult>> actualQuery,
+        Func<ISetSource, IQueryable<TResult>> expectedQuery,
+        Func<IQueryable<TResult>, Task<TResult?>> actualElement,
+        Func<IQueryable<TResult>, TResult?> expectedElement,
+        Action<TResult?, TResult?>? asserter = null)
+    {
+        await using var context = fixture.CreateContext();
+        var actual = await actualElement(actualQuery(new DefaultSetSource(context)));
+        var expected = expectedElement(expectedQuery(fixture.ExpectedData));
+        if (asserter is not null)
+            asserter(expected, actual);
+        else
+            actual.Should().BeEquivalentTo(expected);
+    }
+
+    public async Task AssertUnsupportedScalar<TResult>(
+        Func<ISetSource, IQueryable<TResult>> query,
+        string message)
+    {
+        await using var context = fixture.CreateContext();
+        var act = async () => await query(new DefaultSetSource(context)).CountAsync();
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage(message);
+    }
+
     private Func<TResult, object?>? FindSorter<TResult>()
         => fixture.EntitySorters.TryGetValue(typeof(TResult), out var sorter)
             ? x => sorter(x!)
