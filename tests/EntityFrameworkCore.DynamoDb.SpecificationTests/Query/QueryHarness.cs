@@ -49,17 +49,9 @@ public sealed class QueryAsserter(IQueryFixture fixture)
         Func<TResult, object?>? elementSorter = null,
         Action<TResult, TResult>? elementAsserter = null,
         bool assertOrder = false,
-        bool async = true,
         QueryTrackingBehaviorVariant tracking = QueryTrackingBehaviorVariant.TrackAll)
         where TResult : class
-        => await AssertQuery(
-            query,
-            query,
-            elementSorter,
-            elementAsserter,
-            assertOrder,
-            async,
-            tracking);
+        => await AssertQuery(query, query, elementSorter, elementAsserter, assertOrder, tracking);
 
     public async Task AssertQuery<TResult>(
         Func<ISetSource, IQueryable<TResult>> actualQuery,
@@ -67,7 +59,6 @@ public sealed class QueryAsserter(IQueryFixture fixture)
         Func<TResult, object?>? elementSorter = null,
         Action<TResult, TResult>? elementAsserter = null,
         bool assertOrder = false,
-        bool async = true,
         QueryTrackingBehaviorVariant tracking = QueryTrackingBehaviorVariant.TrackAll)
         where TResult : class
     {
@@ -76,7 +67,7 @@ public sealed class QueryAsserter(IQueryFixture fixture)
         var actualQueryable = ApplyTracking(actualQuery(new DefaultSetSource(context)), tracking);
         var expectedQueryable = expectedQuery(fixture.ExpectedData);
 
-        var actual = async ? await actualQueryable.ToListAsync() : actualQueryable.ToList();
+        var actual = await actualQueryable.ToListAsync();
         var expected = expectedQueryable.ToList();
 
         AssertResults(

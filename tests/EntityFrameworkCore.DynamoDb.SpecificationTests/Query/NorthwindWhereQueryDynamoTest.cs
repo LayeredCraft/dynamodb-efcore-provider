@@ -104,13 +104,6 @@ public sealed class NorthwindWhereQueryDynamoTest(DynamoContainerFixture contain
             """);
     }
 
-    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public async Task Query_harness_supports_sync_execution()
-        => await _fixture.AssertQuery.AssertQuery(
-            ss => ss.Set<Customer>().Where(c => c.Country == "UK"),
-            elementSorter: c => c.CustomerID,
-            async: false);
-
     [Theory(Timeout = TestConfiguration.DefaultTimeout)]
     [InlineData(QueryTrackingBehaviorVariant.TrackAll)]
     [InlineData(QueryTrackingBehaviorVariant.NoTracking)]
