@@ -92,23 +92,23 @@ internal sealed class DynamoQueryTranslationPostprocessor(
         };
 
         // IDynamoIndexSelectionAnalyzer is a DI singleton injected via the factory, so callers can
-        // replace it with ReplaceService<IDynamoIndexSelectionAnalyzer, TCustom>() for steps 7–8
+        // replace it with ReplaceService<IDynamoIndexSelectionAnalyzer, TCustom>() for
         // auto-selection or for test-time substitution.
         var decision = indexSelectionAnalyzer.Analyze(analysisCtx);
+        var selectedIndexName = decision.SelectedIndexName;
+        EmitIndexSelectionDiagnostics(decision.Diagnostics, dynamoQueryCompilationContext.Logger);
 
-        if (decision.SelectedIndexName is { } chosen)
+        if (selectedIndexName is { } chosen)
             selectExpression.ApplyIndexName(chosen);
 
         selectExpression.ApplyEffectivePartitionKeyPropertyNames(
-            ResolveEffectivePartitionKeyPropertyNames(candidates, decision.SelectedIndexName));
-
-        EmitIndexSelectionDiagnostics(decision.Diagnostics, dynamoQueryCompilationContext.Logger);
+            ResolveEffectivePartitionKeyPropertyNames(candidates, selectedIndexName));
 
         // Validate ORDER BY constraints after index selection so the error references the
         // finalized query source (base table or chosen index).
         var effectiveSortKeyAttr =
-            ResolveEffectiveSortKeyAttributeName(candidates, decision.SelectedIndexName);
-        var isBaseTableSource = decision.SelectedIndexName is null;
+            ResolveEffectiveSortKeyAttributeName(candidates, selectedIndexName);
+        var isBaseTableSource = selectedIndexName is null;
 
         if (dynamoQueryCompilationContext.ScanAllowed)
             selectExpression.AllowScan();

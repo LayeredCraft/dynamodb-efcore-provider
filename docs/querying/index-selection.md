@@ -42,6 +42,9 @@ Automatic selection is `On` by default. Configure it via `UseAutomaticIndexSelec
 - `SuggestOnly`: analyze and emit diagnostics, but keep base-table execution.
 - `On` (default): auto-route only when exactly one safe candidate is found.
 
+Automatic selection applies to ordinary LINQ queries. Full base-table primary-key lookups, including
+`FindAsync`, target the base table.
+
 When automatic selection is `On`, an index candidate is eligible only if all gates pass:
 
 1. The `WHERE` clause includes equality or `IN` on the index partition key.

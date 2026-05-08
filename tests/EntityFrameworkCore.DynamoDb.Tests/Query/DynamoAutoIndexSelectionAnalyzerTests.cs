@@ -359,7 +359,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
             MakeDescriptor("Status", "CreatedAt", "ByStatus"),
         };
         // No equality on Status — no candidate passes Gate 1.
-        var constraints = MakeConstraints(equalityPks: ["CustomerId"]);
+        var constraints = MakeConstraints(equalityPks: ["Region"]);
         var ctx = BuildContext(
             DynamoAutomaticIndexSelectionMode.SuggestOnly,
             candidates,
@@ -413,8 +413,8 @@ public class DynamoAutoIndexSelectionAnalyzerTests
             MakeDescriptor("CustomerId", indexName: null),
             MakeDescriptor("Status", "CreatedAt", "ByStatus"),
         };
-        // CustomerId equality does not cover Status PK.
-        var constraints = MakeConstraints(equalityPks: ["CustomerId"]);
+        // Region equality does not cover Status PK.
+        var constraints = MakeConstraints(equalityPks: ["Region"]);
         var ctx = BuildContext(
             DynamoAutomaticIndexSelectionMode.On,
             candidates,
@@ -680,10 +680,8 @@ public class DynamoAutoIndexSelectionAnalyzerTests
     /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
-    public void On_BaseTableDescriptor_Skipped_OnlyIndexesEvaluated()
+    public void On_FullBaseTableKeyLookup_SuppressesSecondaryIndexSelection()
     {
-        // The base-table descriptor has the same PK attr as the query equality constraint.
-        // It must be skipped — auto-selection should only consider secondary indexes.
         var candidates = new List<DynamoIndexDescriptor>
         {
             MakeDescriptor("Status", indexName: null), // base table (IndexName == null)
@@ -697,9 +695,9 @@ public class DynamoAutoIndexSelectionAnalyzerTests
 
         var decision = Analyzer.Analyze(ctx);
 
-        // The base-table descriptor is skipped, ByStatus passes — auto-selected.
-        decision.SelectedIndexName.Should().Be("ByStatus");
-        decision.Reason.Should().Be(DynamoIndexSelectionReason.AutoSelected);
+        decision.SelectedIndexName.Should().BeNull();
+        decision.Reason.Should().Be(DynamoIndexSelectionReason.NoSelection);
+        decision.Diagnostics.Should().BeEmpty();
     }
 
     /// <summary>Provides functionality for this member.</summary>
@@ -792,8 +790,8 @@ public class DynamoAutoIndexSelectionAnalyzerTests
             MakeDescriptor("CustomerId", indexName: null),
             MakeDescriptor("Status", "CreatedAt", "ByStatus"),
         };
-        // Constraint is on CustomerId, not Status — Gate 1 fails for ByStatus.
-        var constraints = MakeConstraints(equalityPks: ["CustomerId"]);
+        // Constraint is on Region, not Status — Gate 1 fails for ByStatus.
+        var constraints = MakeConstraints(equalityPks: ["Region"]);
         var ctx = BuildContext(
             DynamoAutomaticIndexSelectionMode.On,
             candidates,
@@ -870,7 +868,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
             MakeDescriptor("CustomerId", indexName: null),
             MakeDescriptor("Status", "CreatedAt", "ByStatus"),
         };
-        var constraints = MakeConstraints(equalityPks: ["CustomerId"]);
+        var constraints = MakeConstraints(equalityPks: ["Region"]);
         var ctx = BuildContext(
             DynamoAutomaticIndexSelectionMode.On,
             candidates,

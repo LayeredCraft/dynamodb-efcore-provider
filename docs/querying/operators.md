@@ -56,7 +56,7 @@ Terminal operators execute the query and return results. The provider supports t
 
 Use `FindAsync` when you have the full DynamoDB table key and want one entity by primary key. It
 checks the EF Core change tracker first. If the entity is not already tracked, the provider executes
-a key-equality PartiQL query with `ExecuteStatementRequest.Limit = 1`.
+a base-table key-equality PartiQL query with `ExecuteStatementRequest.Limit = 1`.
 
 ```csharp
 // Partition-key-only table
@@ -66,7 +66,10 @@ var customer = await context.Customers.FindAsync(["CUSTOMER#123"], ct);
 var order = await context.Orders.FindAsync(["CUSTOMER#123", "ORDER#456"], ct);
 ```
 
-`FindAsync` returns `null` when no item exists. Synchronous `Find` is not supported by this provider.
+`FindAsync` returns `null` when no item exists. It targets the base table and does not use secondary
+indexes or automatic index selection; use normal LINQ with `.WithIndex(...)` or automatic selection
+for secondary-index lookups. Synchronous `Find` can return an already-tracked entity, but throws if
+it needs to query DynamoDB.
 
 ## DynamoDB-Specific Extensions
 

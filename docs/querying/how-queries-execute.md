@@ -15,6 +15,10 @@ When you execute a LINQ query, the provider runs it through a multi-stage compil
 2. **`DynamoQueryTranslationPostprocessor`** finalizes the `SelectExpression`: it injects discriminator predicates for shared-table entity types and runs index selection analysis to determine whether a GSI or LSI should be used.
 3. **`DynamoQuerySqlGenerator`** converts the `SelectExpression` into a PartiQL `SELECT` statement with positional `?` placeholders and a matching `AttributeValue` parameter list.
 
+`FindAsync` uses EF Core's normal entity-finder path. It checks the change tracker first; if the
+entity is not tracked, EF Core produces a primary-key equality query that the provider translates
+through the same async PartiQL execution pipeline.
+
 ```csharp
 var orders = await db.Orders
     .Where(o => o.CustomerId == customerId && o.Status == "PENDING")
@@ -86,9 +90,10 @@ or execute `ExecuteStatement`.
 
 ## Async Execution
 
-All query execution is async. Attempting to enumerate results synchronously throws
-`InvalidOperationException`. Use `FindAsync()`, `ToListAsync()`, `FirstOrDefaultAsync()`,
-`AsAsyncEnumerable()`, or `ToPageAsync()` depending on how you want to consume results.
+All DynamoDB query execution is async. Attempting to enumerate results synchronously throws
+`InvalidOperationException`. `Find()` can return an already-tracked entity without executing a
+query; use `FindAsync()`, `ToListAsync()`, `FirstOrDefaultAsync()`, `AsAsyncEnumerable()`, or
+`ToPageAsync()` when DynamoDB I/O is needed.
 
 ## See also
 
