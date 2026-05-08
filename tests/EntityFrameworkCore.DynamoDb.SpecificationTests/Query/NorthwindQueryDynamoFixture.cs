@@ -81,4 +81,6 @@ public class NorthwindQueryDynamoFixture<TModelCustomizer>
 
     public void AssertSql(params string[] expected)
         => TestPartiQlLoggerFactory.AssertBaseline(expected);
+
+    public void AssertPartiQl(params string[] expected) => AssertSql(expected);
 }

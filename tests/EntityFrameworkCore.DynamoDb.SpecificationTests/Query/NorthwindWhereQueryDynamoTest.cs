@@ -16,9 +16,18 @@ public sealed class NorthwindWhereQueryDynamoTest(DynamoContainerFixture contain
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Where_string_equality()
-        => await _fixture.AssertQuery.AssertQuery(
+    {
+        await _fixture.AssertQuery.AssertQuery(
             ss => ss.Set<Customer>().Where(c => c.City == "London"),
             elementSorter: c => c.CustomerID);
+
+        _fixture.AssertPartiQl(
+            """
+            SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+            FROM "Northwind_Customers"
+            WHERE "city" = 'London'
+            """);
+    }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Where_numeric_greater_than()
