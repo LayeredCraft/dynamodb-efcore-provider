@@ -40,4 +40,22 @@ public sealed class NorthwindWhereQueryDynamoTest(DynamoContainerFixture contain
         => await _fixture.AssertQuery.AssertQuery(
             ss => ss.Set<Product>().Where(p => !p.Discontinued),
             elementSorter: p => p.ProductID);
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Query_harness_supports_sync_execution()
+        => await _fixture.AssertQuery.AssertQuery(
+            ss => ss.Set<Customer>().Where(c => c.Country == "UK"),
+            elementSorter: c => c.CustomerID,
+            async: false);
+
+    [Theory(Timeout = TestConfiguration.DefaultTimeout)]
+    [InlineData(QueryTrackingBehaviorVariant.TrackAll)]
+    [InlineData(QueryTrackingBehaviorVariant.NoTracking)]
+    [InlineData(QueryTrackingBehaviorVariant.NoTrackingWithIdentityResolution)]
+    public async Task Query_harness_supports_tracking_variants(
+        QueryTrackingBehaviorVariant tracking)
+        => await _fixture.AssertQuery.AssertQuery(
+            ss => ss.Set<Customer>().Where(c => c.City == "London"),
+            elementSorter: c => c.CustomerID,
+            tracking: tracking);
 }

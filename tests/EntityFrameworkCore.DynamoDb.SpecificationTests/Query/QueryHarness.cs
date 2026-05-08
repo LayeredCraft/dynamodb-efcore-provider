@@ -35,6 +35,13 @@ public abstract class QueryFixtureBase<TContext> : IQueryFixture where TContext 
         => new Dictionary<Type, Action<object, object>>();
 }
 
+public enum QueryTrackingBehaviorVariant
+{
+    TrackAll,
+    NoTracking,
+    NoTrackingWithIdentityResolution
+}
+
 public sealed class QueryAsserter(IQueryFixture fixture)
 {
     public async Task AssertQuery<TResult>(
@@ -42,8 +49,17 @@ public sealed class QueryAsserter(IQueryFixture fixture)
         Func<TResult, object?>? elementSorter = null,
         Action<TResult, TResult>? elementAsserter = null,
         bool assertOrder = false,
-        bool async = true)
-        => await AssertQuery(query, query, elementSorter, elementAsserter, assertOrder, async);
+        bool async = true,
+        QueryTrackingBehaviorVariant tracking = QueryTrackingBehaviorVariant.TrackAll)
+        where TResult : class
+        => await AssertQuery(
+            query,
+            query,
+            elementSorter,
+            elementAsserter,
+            assertOrder,
+            async,
+            tracking);
 
     public async Task AssertQuery<TResult>(
         Func<ISetSource, IQueryable<TResult>> actualQuery,
@@ -51,11 +67,13 @@ public sealed class QueryAsserter(IQueryFixture fixture)
         Func<TResult, object?>? elementSorter = null,
         Action<TResult, TResult>? elementAsserter = null,
         bool assertOrder = false,
-        bool async = true)
+        bool async = true,
+        QueryTrackingBehaviorVariant tracking = QueryTrackingBehaviorVariant.TrackAll)
+        where TResult : class
     {
         await using var context = fixture.CreateContext();
 
-        var actualQueryable = actualQuery(new DefaultSetSource(context));
+        var actualQueryable = ApplyTracking(actualQuery(new DefaultSetSource(context)), tracking);
         var expectedQueryable = expectedQuery(fixture.ExpectedData);
 
         var actual = async ? await actualQueryable.ToListAsync() : actualQueryable.ToList();
@@ -68,6 +86,18 @@ public sealed class QueryAsserter(IQueryFixture fixture)
             elementAsserter ?? FindAsserter<TResult>(),
             assertOrder);
     }
+
+    private static IQueryable<TResult> ApplyTracking<TResult>(
+        IQueryable<TResult> query,
+        QueryTrackingBehaviorVariant tracking) where TResult : class
+        => tracking switch
+        {
+            QueryTrackingBehaviorVariant.TrackAll => query,
+            QueryTrackingBehaviorVariant.NoTracking => query.AsNoTracking(),
+            QueryTrackingBehaviorVariant.NoTrackingWithIdentityResolution => query
+                .AsNoTrackingWithIdentityResolution(),
+            _ => throw new ArgumentOutOfRangeException(nameof(tracking), tracking, null)
+        };
 
     private Func<TResult, object?>? FindSorter<TResult>()
         => fixture.EntitySorters.TryGetValue(typeof(TResult), out var sorter)

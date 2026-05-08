@@ -51,8 +51,18 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
 
         /// <summary>Provides functionality for this member.</summary>
         public IEnumerator<T> GetEnumerator()
-            => throw new InvalidOperationException(
-                "Sync enumerating is not supported for DynamoDB.");
+        {
+            var asyncEnumerator = GetAsyncEnumerator();
+            try
+            {
+                while (asyncEnumerator.MoveNextAsync().AsTask().GetAwaiter().GetResult())
+                    yield return asyncEnumerator.Current;
+            }
+            finally
+            {
+                asyncEnumerator.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            }
+        }
 
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
