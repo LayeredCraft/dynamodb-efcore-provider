@@ -1,5 +1,5 @@
 <Solution>
-  <Folder Name="/git/">
+  <Folder Name="/.github/">
     <File Path=".github/workflows/pr-build.yaml" />
     <File Path=".github/workflows/pr-title-check.yaml" />
     <File Path=".github/workflows/publish-preview.yaml" />
