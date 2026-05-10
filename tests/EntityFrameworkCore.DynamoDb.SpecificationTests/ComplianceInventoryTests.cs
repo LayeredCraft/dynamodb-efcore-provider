@@ -20,6 +20,7 @@ public sealed class ComplianceInventoryTests
             "Joins/includes/navigation queries",
             "Query filters",
             "Null semantics",
+            "Find",
             "SaveChanges",
             "Type mapping/value conversion",
             "Complex types/primitive collections"
