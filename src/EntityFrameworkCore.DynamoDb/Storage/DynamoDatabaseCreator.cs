@@ -193,7 +193,10 @@ internal sealed class DynamoDatabaseCreator(
                     .UpdateTableAsync(
                         new UpdateTableRequest
                         {
-                            TableName = table.TableName, GlobalSecondaryIndexUpdates = [update]
+                            TableName = table.TableName,
+                            AttributeDefinitions =
+                                requestsByName[table.TableName].AttributeDefinitions,
+                            GlobalSecondaryIndexUpdates = [update]
                         },
                         cancellationToken)
                     .ConfigureAwait(false);
