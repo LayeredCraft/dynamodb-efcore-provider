@@ -2,6 +2,7 @@ using System.Collections;
 using System.Linq.Expressions;
 using System.Reflection;
 using EntityFrameworkCore.DynamoDb.Extensions;
+using EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
@@ -546,7 +547,7 @@ public class DynamoSqlTranslatingExpressionVisitor(
         if (runtimeModel is null)
             return false;
 
-        var tableGroupName = entityType.GetTableGroupName();
+        var tableGroupName = (string)entityType[DynamoAnnotationNames.TableGroupName]!;
         if (!runtimeModel.Tables.TryGetValue(tableGroupName, out var tableDescriptor))
             return false;
 
