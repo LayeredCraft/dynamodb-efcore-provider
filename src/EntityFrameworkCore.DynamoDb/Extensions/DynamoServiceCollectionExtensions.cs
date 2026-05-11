@@ -26,6 +26,7 @@ public static class DynamoServiceCollectionExtensions
                 .TryAdd<IDatabaseProvider, DatabaseProvider<DynamoDbOptionsExtension>>()
                 .TryAdd<IStructuralTypeMaterializerSource, DynamoStructuralTypeMaterializerSource>()
                 .TryAdd<IDatabase, DynamoDatabaseWrapper>()
+                .TryAdd<IDatabaseCreator, DynamoDatabaseCreator>()
                 .TryAdd<IDbContextTransactionManager, DynamoTransactionManager>()
                 .TryAdd<IQueryContextFactory, DynamoQueryContextFactory>()
                 .TryAdd<IProviderConventionSetBuilder, DynamoConventionSetBuilder>()
