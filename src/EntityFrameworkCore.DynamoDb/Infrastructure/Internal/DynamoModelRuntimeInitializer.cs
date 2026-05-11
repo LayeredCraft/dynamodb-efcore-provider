@@ -50,9 +50,7 @@ public sealed class DynamoModelRuntimeInitializer(ModelRuntimeInitializerDepende
 
         foreach (var tableGroup in model
             .EnumerateRootEntityTypes()
-            .GroupBy(
-                static entityType => (string)entityType[DynamoAnnotationNames.TableGroupName]!,
-                StringComparer.Ordinal))
+            .GroupBy(static entityType => entityType.GetTableGroupName(), StringComparer.Ordinal))
         {
             var rootEntityTypes = tableGroup.ToList();
             var sourcesByRootEntityType =
