@@ -3,15 +3,23 @@ using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.Extensions;
 using EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using EntityFrameworkCore.DynamoDb.Storage.Internal;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.EntityFrameworkCore.Update;
 
 namespace EntityFrameworkCore.DynamoDb.Storage;
 
 /// <summary>Provides async database lifecycle operations for mapped DynamoDB tables.</summary>
 internal sealed class DynamoDatabaseCreator(
     ICurrentDbContext currentDbContext,
-    IDynamoClientWrapper clientWrapper) : IDatabaseCreator
+    IDynamoClientWrapper clientWrapper,
+    IDesignTimeModel designTimeModel,
+    IDatabase database,
+    IUpdateAdapterFactory updateAdapterFactory,
+    IDbContextOptions contextOptions,
+    IExecutionStrategy executionStrategy) : IDatabaseCreator
 {
     private const string AsyncLifecycleOnly =
         "The DynamoDB database provider only supports async database lifecycle operations. Use EnsureCreatedAsync, EnsureDeletedAsync, or CanConnectAsync.";
@@ -64,74 +72,37 @@ internal sealed class DynamoDatabaseCreator(
     /// <summary>Ensures mapped DynamoDB tables and global secondary indexes are created asynchronously.</summary>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns><see langword="true" /> when a table or global secondary index was created.</returns>
-    public async Task<bool> EnsureCreatedAsync(CancellationToken cancellationToken = default)
+    public Task<bool> EnsureCreatedAsync(CancellationToken cancellationToken = default)
     {
-        var runtimeModel = GetRuntimeTableModel();
-        var requestsByName =
-            DynamoTableDefinitionBuilder
-                .BuildCreateTableRequests(runtimeModel)
-                .ToDictionary(static request => request.TableName, StringComparer.Ordinal);
-        var changed = false;
+        var retrying = false;
+        var modelSeedInserted = false;
 
-        foreach (var table in runtimeModel.Tables.Values.OrderBy(
-            static table => table.TableName,
-            StringComparer.Ordinal))
-        {
-            TableDescription? existing = null;
-            try
+        return executionStrategy.ExecuteAsync(
+            this,
+            async (_, creator, ct) =>
             {
-                existing =
-                    (await clientWrapper
-                        .Client
-                        .DescribeTableAsync(
-                            new DescribeTableRequest { TableName = table.TableName },
-                            cancellationToken)
-                        .ConfigureAwait(false)).Table;
-            }
-            catch (ResourceNotFoundException)
-            {
-                try
+                if (retrying)
+                    currentDbContext.Context.ChangeTracker.Clear();
+                retrying = true;
+
+                var (changed, tableCreated) =
+                    await creator.EnsureTablesCreatedAsync(ct).ConfigureAwait(false);
+                if (tableCreated && !modelSeedInserted)
                 {
-                    await clientWrapper
-                        .Client
-                        .CreateTableAsync(requestsByName[table.TableName], cancellationToken)
-                        .ConfigureAwait(false);
-                    changed = true;
-                }
-                catch (ResourceInUseException)
-                {
-                    // Creation race: fall through to describe/wait.
+                    // Model HasData runs only after new table creation. User async seeding runs on
+                    // every
+                    // EnsureCreatedAsync call with the schema-created flag, including GSI-only
+                    // updates.
+                    await creator.InsertDataAsync(ct).ConfigureAwait(false);
+                    modelSeedInserted = true;
                 }
 
-                existing =
-                    await WaitUntilTableActiveAsync(table.TableName, cancellationToken)
-                        .ConfigureAwait(false);
-            }
+                await creator.SeedDataAsync(changed, ct).ConfigureAwait(false);
 
-            await WaitUntilTableActiveAsync(table.TableName, cancellationToken)
-                .ConfigureAwait(false);
-            var updates =
-                DynamoTableDefinitionBuilder.BuildMissingGlobalSecondaryIndexUpdates(
-                    table,
-                    existing);
-            foreach (var update in updates)
-            {
-                await clientWrapper
-                    .Client
-                    .UpdateTableAsync(
-                        new UpdateTableRequest
-                        {
-                            TableName = table.TableName, GlobalSecondaryIndexUpdates = [update],
-                        },
-                        cancellationToken)
-                    .ConfigureAwait(false);
-                changed = true;
-                await WaitUntilTableActiveAsync(table.TableName, cancellationToken)
-                    .ConfigureAwait(false);
-            }
-        }
-
-        return changed;
+                return changed;
+            },
+            null,
+            cancellationToken);
     }
 
     /// <summary>Determines whether the database can be connected to.</summary>
@@ -160,6 +131,105 @@ internal sealed class DynamoDatabaseCreator(
         {
             return false;
         }
+    }
+
+    private async Task<(bool Changed, bool TableCreated)> EnsureTablesCreatedAsync(
+        CancellationToken cancellationToken)
+    {
+        var runtimeModel = GetRuntimeTableModel();
+        var requestsByName =
+            DynamoTableDefinitionBuilder
+                .BuildCreateTableRequests(runtimeModel)
+                .ToDictionary(static request => request.TableName, StringComparer.Ordinal);
+        var changed = false;
+        var tableCreated = false;
+
+        foreach (var table in runtimeModel.Tables.Values.OrderBy(
+            static table => table.TableName,
+            StringComparer.Ordinal))
+        {
+            TableDescription? existing = null;
+            try
+            {
+                existing =
+                    (await clientWrapper
+                        .Client
+                        .DescribeTableAsync(
+                            new DescribeTableRequest { TableName = table.TableName },
+                            cancellationToken)
+                        .ConfigureAwait(false)).Table;
+            }
+            catch (ResourceNotFoundException)
+            {
+                try
+                {
+                    await clientWrapper
+                        .Client
+                        .CreateTableAsync(requestsByName[table.TableName], cancellationToken)
+                        .ConfigureAwait(false);
+                    changed = true;
+                    tableCreated = true;
+                }
+                catch (ResourceInUseException)
+                {
+                    // Creation race: fall through to describe/wait.
+                }
+
+                existing =
+                    await WaitUntilTableActiveAsync(table.TableName, cancellationToken)
+                        .ConfigureAwait(false);
+            }
+
+            await WaitUntilTableActiveAsync(table.TableName, cancellationToken)
+                .ConfigureAwait(false);
+            var updates =
+                DynamoTableDefinitionBuilder.BuildMissingGlobalSecondaryIndexUpdates(
+                    table,
+                    existing);
+            foreach (var update in updates)
+            {
+                await clientWrapper
+                    .Client
+                    .UpdateTableAsync(
+                        new UpdateTableRequest
+                        {
+                            TableName = table.TableName, GlobalSecondaryIndexUpdates = [update]
+                        },
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                changed = true;
+                await WaitUntilTableActiveAsync(table.TableName, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+        }
+
+        return (changed, tableCreated);
+    }
+
+    private Task InsertDataAsync(CancellationToken cancellationToken)
+    {
+        var updateAdapter = updateAdapterFactory.CreateStandalone();
+        foreach (var entityType in designTimeModel.Model.GetEntityTypes())
+            foreach (var targetSeed in entityType.GetSeedData())
+            {
+                var runtimeEntityType = updateAdapter.Model.FindEntityType(entityType.Name)!;
+                var entry = updateAdapter.CreateEntry(targetSeed, runtimeEntityType);
+                entry.EntityState = EntityState.Added;
+            }
+
+        return database.SaveChangesAsync(updateAdapter.GetEntriesToSave(), cancellationToken);
+    }
+
+    private async Task SeedDataAsync(bool created, CancellationToken cancellationToken)
+    {
+        var coreOptionsExtension = contextOptions.FindExtension<CoreOptionsExtension>();
+        if (coreOptionsExtension?.AsyncSeeder is not null)
+            await coreOptionsExtension
+                .AsyncSeeder(currentDbContext.Context, created, cancellationToken)
+                .ConfigureAwait(false);
+        else if (coreOptionsExtension?.Seeder is not null)
+            throw new InvalidOperationException(
+                "A synchronous seeder has been configured, but the DynamoDB provider only supports async lifecycle operations. Configure UseAsyncSeeding instead.");
     }
 
     private DynamoRuntimeTableModel GetRuntimeTableModel()
