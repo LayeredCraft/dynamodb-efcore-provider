@@ -1,64 +1,224 @@
+using Amazon.DynamoDBv2;
+using Amazon.DynamoDBv2.Model;
+using EntityFrameworkCore.DynamoDb.Extensions;
+using EntityFrameworkCore.DynamoDb.Metadata.Internal;
+using EntityFrameworkCore.DynamoDb.Storage.Internal;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EntityFrameworkCore.DynamoDb.Storage;
 
-/// <summary>Provides unsupported database lifecycle operations for the DynamoDB provider.</summary>
-internal sealed class DynamoDatabaseCreator : IDatabaseCreator
+/// <summary>Provides async database lifecycle operations for mapped DynamoDB tables.</summary>
+internal sealed class DynamoDatabaseCreator(
+    ICurrentDbContext currentDbContext,
+    IDynamoClientWrapper clientWrapper) : IDatabaseCreator
 {
-    private const string DatabaseLifecycleNotSupported =
-        "The DynamoDB database provider does not support database lifecycle operations.";
+    private const string AsyncLifecycleOnly =
+        "The DynamoDB database provider only supports async database lifecycle operations. Use EnsureCreatedAsync, EnsureDeletedAsync, or CanConnectAsync.";
+
+    private static readonly TimeSpan PollDelay = TimeSpan.FromMilliseconds(100);
 
     /// <summary>Ensures the database is deleted.</summary>
-    /// <returns>Never returns because database lifecycle operations are unsupported.</returns>
-    /// <exception cref="NotSupportedException">
-    ///     Always thrown because database lifecycle operations are
-    ///     unsupported.
-    /// </exception>
-    public bool EnsureDeleted() => throw new NotSupportedException(DatabaseLifecycleNotSupported);
+    /// <returns>Never returns because synchronous lifecycle operations are unsupported.</returns>
+    /// <exception cref="NotSupportedException">Always thrown because only async lifecycle operations are supported.</exception>
+    public bool EnsureDeleted() => throw new NotSupportedException(AsyncLifecycleOnly);
 
-    /// <summary>Ensures the database is deleted asynchronously.</summary>
+    /// <summary>Ensures mapped DynamoDB tables are deleted asynchronously.</summary>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Never returns because database lifecycle operations are unsupported.</returns>
-    /// <exception cref="NotSupportedException">
-    ///     Always thrown because database lifecycle operations are
-    ///     unsupported.
-    /// </exception>
-    public Task<bool> EnsureDeletedAsync(CancellationToken cancellationToken = default)
-        => throw new NotSupportedException(DatabaseLifecycleNotSupported);
+    /// <returns><see langword="true" /> when at least one mapped table existed and was deleted.</returns>
+    public async Task<bool> EnsureDeletedAsync(CancellationToken cancellationToken = default)
+    {
+        var changed = false;
+        foreach (var table in GetRuntimeTableModel()
+            .Tables
+            .Values
+            .OrderBy(static table => table.TableName, StringComparer.Ordinal))
+        {
+            try
+            {
+                await clientWrapper
+                    .Client
+                    .DeleteTableAsync(
+                        new DeleteTableRequest { TableName = table.TableName },
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                changed = true;
+            }
+            catch (ResourceNotFoundException)
+            {
+                continue;
+            }
 
-    /// <summary>Ensures the database is created.</summary>
-    /// <returns>Never returns because database lifecycle operations are unsupported.</returns>
-    /// <exception cref="NotSupportedException">
-    ///     Always thrown because database lifecycle operations are
-    ///     unsupported.
-    /// </exception>
-    public bool EnsureCreated() => throw new NotSupportedException(DatabaseLifecycleNotSupported);
+            await WaitUntilTableDeletedAsync(table.TableName, cancellationToken)
+                .ConfigureAwait(false);
+        }
 
-    /// <summary>Ensures the database is created asynchronously.</summary>
+        return changed;
+    }
+
+    /// <summary>Ensures mapped DynamoDB tables and global secondary indexes are created asynchronously.</summary>
+    /// <returns>Never returns because synchronous lifecycle operations are unsupported.</returns>
+    /// <exception cref="NotSupportedException">Always thrown because only async lifecycle operations are supported.</exception>
+    public bool EnsureCreated() => throw new NotSupportedException(AsyncLifecycleOnly);
+
+    /// <summary>Ensures mapped DynamoDB tables and global secondary indexes are created asynchronously.</summary>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Never returns because database lifecycle operations are unsupported.</returns>
-    /// <exception cref="NotSupportedException">
-    ///     Always thrown because database lifecycle operations are
-    ///     unsupported.
-    /// </exception>
-    public Task<bool> EnsureCreatedAsync(CancellationToken cancellationToken = default)
-        => throw new NotSupportedException(DatabaseLifecycleNotSupported);
+    /// <returns><see langword="true" /> when a table or global secondary index was created.</returns>
+    public async Task<bool> EnsureCreatedAsync(CancellationToken cancellationToken = default)
+    {
+        var runtimeModel = GetRuntimeTableModel();
+        var requestsByName =
+            DynamoTableDefinitionBuilder
+                .BuildCreateTableRequests(runtimeModel)
+                .ToDictionary(static request => request.TableName, StringComparer.Ordinal);
+        var changed = false;
+
+        foreach (var table in runtimeModel.Tables.Values.OrderBy(
+            static table => table.TableName,
+            StringComparer.Ordinal))
+        {
+            TableDescription? existing = null;
+            try
+            {
+                existing =
+                    (await clientWrapper
+                        .Client
+                        .DescribeTableAsync(
+                            new DescribeTableRequest { TableName = table.TableName },
+                            cancellationToken)
+                        .ConfigureAwait(false)).Table;
+            }
+            catch (ResourceNotFoundException)
+            {
+                try
+                {
+                    await clientWrapper
+                        .Client
+                        .CreateTableAsync(requestsByName[table.TableName], cancellationToken)
+                        .ConfigureAwait(false);
+                    changed = true;
+                }
+                catch (ResourceInUseException)
+                {
+                    // Creation race: fall through to describe/wait.
+                }
+
+                existing =
+                    await WaitUntilTableActiveAsync(table.TableName, cancellationToken)
+                        .ConfigureAwait(false);
+            }
+
+            await WaitUntilTableActiveAsync(table.TableName, cancellationToken)
+                .ConfigureAwait(false);
+            var updates =
+                DynamoTableDefinitionBuilder.BuildMissingGlobalSecondaryIndexUpdates(
+                    table,
+                    existing);
+            foreach (var update in updates)
+            {
+                await clientWrapper
+                    .Client
+                    .UpdateTableAsync(
+                        new UpdateTableRequest
+                        {
+                            TableName = table.TableName, GlobalSecondaryIndexUpdates = [update],
+                        },
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                changed = true;
+                await WaitUntilTableActiveAsync(table.TableName, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+        }
+
+        return changed;
+    }
 
     /// <summary>Determines whether the database can be connected to.</summary>
-    /// <returns>Never returns because database lifecycle operations are unsupported.</returns>
-    /// <exception cref="NotSupportedException">
-    ///     Always thrown because database lifecycle operations are
-    ///     unsupported.
-    /// </exception>
-    public bool CanConnect() => throw new NotSupportedException(DatabaseLifecycleNotSupported);
+    /// <returns>Never returns because synchronous lifecycle operations are unsupported.</returns>
+    /// <exception cref="NotSupportedException">Always thrown because only async lifecycle operations are supported.</exception>
+    public bool CanConnect() => throw new NotSupportedException(AsyncLifecycleOnly);
 
-    /// <summary>Determines whether the database can be connected to asynchronously.</summary>
+    /// <summary>Determines whether DynamoDB can be connected to asynchronously.</summary>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Never returns because database lifecycle operations are unsupported.</returns>
-    /// <exception cref="NotSupportedException">
-    ///     Always thrown because database lifecycle operations are
-    ///     unsupported.
-    /// </exception>
-    public Task<bool> CanConnectAsync(CancellationToken cancellationToken = default)
-        => throw new NotSupportedException(DatabaseLifecycleNotSupported);
+    /// <returns><see langword="true" /> when a low-side-effect list-tables probe succeeds.</returns>
+    public async Task<bool> CanConnectAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await clientWrapper
+                .Client
+                .ListTablesAsync(new ListTablesRequest { Limit = 1 }, cancellationToken)
+                .ConfigureAwait(false);
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
+    private DynamoRuntimeTableModel GetRuntimeTableModel()
+        => currentDbContext.Context.Model.GetDynamoRuntimeTableModel()
+            ?? throw new InvalidOperationException(
+                "DynamoDB runtime table model is missing from the EF model.");
+
+    private async Task<TableDescription> WaitUntilTableActiveAsync(
+        string tableName,
+        CancellationToken cancellationToken)
+    {
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                var table =
+                    (await clientWrapper
+                        .Client
+                        .DescribeTableAsync(
+                            new DescribeTableRequest { TableName = tableName },
+                            cancellationToken)
+                        .ConfigureAwait(false)).Table;
+                if (table.TableStatus == TableStatus.ACTIVE
+                    && (table.GlobalSecondaryIndexes ?? []).All(static index
+                        => index.IndexStatus == IndexStatus.ACTIVE))
+                    return table;
+            }
+            catch (ResourceNotFoundException)
+            {
+                // Creation race: keep polling.
+            }
+
+            await Task.Delay(PollDelay, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private async Task WaitUntilTableDeletedAsync(
+        string tableName,
+        CancellationToken cancellationToken)
+    {
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                await clientWrapper
+                    .Client
+                    .DescribeTableAsync(
+                        new DescribeTableRequest { TableName = tableName },
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (ResourceNotFoundException)
+            {
+                return;
+            }
+
+            await Task.Delay(PollDelay, cancellationToken).ConfigureAwait(false);
+        }
+    }
 }
