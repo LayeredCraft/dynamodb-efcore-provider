@@ -9,6 +9,21 @@ icon: lucide/triangle-alert
 _The DynamoDB EF Core provider does not support all standard EF Core features. This page is the
 authoritative reference for what is not supported, why, and what workaround (if any) applies._
 
+## Database lifecycle
+
+- `SaveChanges` never creates DynamoDB tables. Call `EnsureCreatedAsync` explicitly or provision
+    tables outside the provider.
+- Lifecycle APIs are async-only. Synchronous `EnsureCreated`, `EnsureDeleted`, and `CanConnect`
+    throw `NotSupportedException`.
+- `EnsureCreatedAsync` creates missing tables with `PAY_PER_REQUEST` billing. It can add missing
+    GSIs to existing tables, but cannot add LSIs after table creation.
+- Existing schema validation is limited to table key schema and secondary-index key/projection
+    shape.
+- `Include` secondary-index projection cannot be created yet because non-key projected attributes
+    are not represented in provider metadata.
+
+See [Table Lifecycle](configuration/lifecycle.md) for full behavior and seeding semantics.
+
 ## Unsupported LINQ Operators
 
 The following operators throw `InvalidOperationException` at translation time. The provider does

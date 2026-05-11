@@ -31,6 +31,12 @@ and optional sort key. Covers both convention-based key discovery and explicit f
 configuration, the key property requirements, and the model validation errors the provider raises
 at finalization.
 
+### [Table Lifecycle](lifecycle.md)
+
+Use `EnsureCreatedAsync` and `EnsureDeletedAsync` for explicit DynamoDB table lifecycle operations,
+including missing table creation, GSI updates, LSI limitations, async-only APIs, and seeding
+behavior.
+
 ### [Attribute Naming](attribute-naming.md)
 
 Control how CLR property names translate to DynamoDB attribute names. The provider applies
