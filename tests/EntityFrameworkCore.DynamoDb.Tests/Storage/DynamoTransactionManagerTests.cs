@@ -121,6 +121,8 @@ public sealed class DynamoTransactionManagerTests
             => context.SaveChangesAsync(TestContext.Current.CancellationToken));
 
         exception.Message.Should().Be(TransactionsNotSupported);
+        await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+        await client.DidNotReceiveWithAnyArgs().ExecuteTransactionAsync(default!);
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
