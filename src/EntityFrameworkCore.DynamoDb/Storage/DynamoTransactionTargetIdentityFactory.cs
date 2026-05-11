@@ -1,4 +1,5 @@
 using Amazon.DynamoDBv2.Model;
+using EntityFrameworkCore.DynamoDb.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Update;
@@ -11,14 +12,15 @@ internal sealed class DynamoTransactionTargetIdentityFactory(
     internal TransactionTargetItem Create(IUpdateEntry entry, string tableName)
     {
         var entityType = entry.EntityType;
+        var keyEntityType = entityType.ResolveKeyMappedEntityType();
 
-        var partitionKeyProperty = entityType.GetPartitionKeyProperty()
+        var partitionKeyProperty = keyEntityType.GetPartitionKeyProperty()
             ?? throw new InvalidOperationException(
                 $"Entity type '{entityType.DisplayName()}' does not define a partition key.");
 
         var partitionKeyValue = SerializeIdentityValue(entry, partitionKeyProperty);
 
-        var sortKeyProperty = entityType.GetSortKeyProperty();
+        var sortKeyProperty = keyEntityType.GetSortKeyProperty();
         var sortKeyValue = sortKeyProperty is null
             ? string.Empty
             : SerializeIdentityValue(entry, sortKeyProperty);

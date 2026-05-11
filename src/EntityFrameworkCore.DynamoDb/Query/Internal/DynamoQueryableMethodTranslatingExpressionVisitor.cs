@@ -1,7 +1,6 @@
 using System.Linq.Expressions;
 using System.Reflection;
 using EntityFrameworkCore.DynamoDb.Extensions;
-using EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
@@ -414,7 +413,7 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
     protected override ShapedQueryExpression? CreateShapedQueryExpression(IEntityType entityType)
     {
         // Get the table name from entity metadata.
-        var tableName = (string)entityType[DynamoAnnotationNames.TableGroupName]!;
+        var tableName = entityType.GetTableGroupName();
 
         var queryExpression = new SelectExpression(tableName, entityType.Name);
 
@@ -503,14 +502,14 @@ public class DynamoQueryableMethodTranslatingExpressionVisitor
     /// </summary>
     private bool RequiresDiscriminatorPredicate(IEntityType entityType)
     {
-        var tableGroupName = (string)entityType[DynamoAnnotationNames.TableGroupName]!;
+        var tableGroupName = entityType.GetTableGroupName();
 
         HashSet<IReadOnlyEntityType> concreteTypes = [];
         foreach (var rootEntityType in QueryCompilationContext
             .Model
             .EnumerateRootEntityTypes()
             .Where(t => string.Equals(
-                (string)t[DynamoAnnotationNames.TableGroupName]!,
+                t.GetTableGroupName(),
                 tableGroupName,
                 StringComparison.Ordinal)))
         {

@@ -52,6 +52,11 @@ internal static class DynamoModelExtensions
                     StringComparer.Ordinal)
                 .ThenBy(static index => index.DeclaringEntityType.Name, StringComparer.Ordinal);
 
+        /// <summary>Gets the effective table-group name used for shared-table DynamoDB metadata.</summary>
+        internal string GetTableGroupName()
+            => entityType.FindAnnotation(DynamoAnnotationNames.TableGroupName)?.Value as string
+                ?? entityType.ComputeTableGroupName();
+
         /// <summary>Computes the effective table-group name used for shared-table DynamoDB metadata.</summary>
         internal string ComputeTableGroupName()
         {
@@ -59,6 +64,43 @@ internal static class DynamoModelExtensions
 
             return mappedEntityType.FindAnnotation(DynamoAnnotationNames.TableName)?.Value as string
                 ?? mappedEntityType.ClrType.Name;
+        }
+
+        /// <summary>Resolves the entity type that defines table key metadata for this entity type.</summary>
+        internal IReadOnlyEntityType ResolveKeyMappedEntityType()
+        {
+            var tableMappedType = entityType.ResolveTableMappedEntityType();
+            if (tableMappedType.GetPartitionKeyProperty() is not null)
+                return tableMappedType;
+
+            foreach (var baseType in entityType.GetAllBaseTypes())
+                if (baseType.GetPartitionKeyProperty() is not null)
+                    return baseType;
+
+            return tableMappedType;
+        }
+    }
+
+    extension(IEntityType entityType)
+    {
+        /// <summary>Gets the effective table-group name used for shared-table DynamoDB metadata.</summary>
+        internal string GetTableGroupName()
+            => entityType.FindRuntimeAnnotation(DynamoAnnotationNames.TableGroupName)
+                    ?.Value as string
+                ?? ((IReadOnlyEntityType)entityType).GetTableGroupName();
+
+        /// <summary>Resolves the entity type that defines table key metadata for this entity type.</summary>
+        internal IEntityType ResolveKeyMappedEntityType()
+        {
+            var tableMappedType = (IEntityType)entityType.ResolveTableMappedEntityType();
+            if (tableMappedType.GetPartitionKeyProperty() is not null)
+                return tableMappedType;
+
+            foreach (var baseType in entityType.GetAllBaseTypes())
+                if (baseType.GetPartitionKeyProperty() is not null)
+                    return baseType;
+
+            return tableMappedType;
         }
     }
 }

@@ -1,6 +1,6 @@
 using System.Text;
 using Amazon.DynamoDBv2.Model;
-using EntityFrameworkCore.DynamoDb.Metadata.Internal;
+using EntityFrameworkCore.DynamoDb.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.ChangeTracking.Internal;
@@ -18,7 +18,7 @@ internal sealed class DynamoPartiqlStatementFactory(
     internal (string tableName, string sql, List<AttributeValue> parameters)?
         BuildModifiedUpdateStatement(IUpdateEntry entry)
     {
-        var tableName = (string)entry.EntityType[DynamoAnnotationNames.TableGroupName]!;
+        var tableName = entry.EntityType.GetTableGroupName();
         var entityType = entry.EntityType;
         var rootEntry = (InternalEntityEntry)entry;
 
@@ -96,7 +96,7 @@ internal sealed class DynamoPartiqlStatementFactory(
     internal (string tableName, string sql, List<AttributeValue> parameters) BuildDeleteStatement(
         IUpdateEntry entry)
     {
-        var tableName = (string)entry.EntityType[DynamoAnnotationNames.TableGroupName]!;
+        var tableName = entry.EntityType.GetTableGroupName();
 
         if (tableName.Contains('"'))
             throw new ArgumentException(
@@ -105,8 +105,9 @@ internal sealed class DynamoPartiqlStatementFactory(
                 nameof(tableName));
 
         var entityType = entry.EntityType;
+        var keyEntityType = entityType.ResolveKeyMappedEntityType();
 
-        var partitionKeyProperty = entityType.GetPartitionKeyProperty()
+        var partitionKeyProperty = keyEntityType.GetPartitionKeyProperty()
             ?? throw new InvalidOperationException(
                 $"Entity type '{entityType.DisplayName()}' does not define a partition key.");
 
@@ -120,7 +121,7 @@ internal sealed class DynamoPartiqlStatementFactory(
         sqlBuilder.Append(
             $"WHERE \"{EscapeIdentifier(partitionKeyProperty.GetAttributeName())}\" = ?");
 
-        var sortKeyProperty = entityType.GetSortKeyProperty();
+        var sortKeyProperty = keyEntityType.GetSortKeyProperty();
         if (sortKeyProperty is not null)
         {
             parameters.Add(
@@ -179,8 +180,9 @@ internal sealed class DynamoPartiqlStatementFactory(
             return null;
 
         var whereParameters = new List<AttributeValue>();
+        var keyEntityType = entityType.ResolveKeyMappedEntityType();
 
-        var partitionKeyProperty = entityType.GetPartitionKeyProperty()
+        var partitionKeyProperty = keyEntityType.GetPartitionKeyProperty()
             ?? throw new InvalidOperationException(
                 $"Entity type '{entityType.DisplayName()}' does not define a partition key.");
 
@@ -192,7 +194,7 @@ internal sealed class DynamoPartiqlStatementFactory(
             $"\"{EscapeIdentifier(partitionKeyProperty.GetAttributeName())}\" = ?",
         };
 
-        var sortKeyProperty = entityType.GetSortKeyProperty();
+        var sortKeyProperty = keyEntityType.GetSortKeyProperty();
         if (sortKeyProperty is not null)
         {
             whereParameters.Add(
