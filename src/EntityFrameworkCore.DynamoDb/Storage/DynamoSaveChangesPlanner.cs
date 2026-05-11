@@ -1,6 +1,6 @@
 using System.Text;
 using Amazon.DynamoDBv2.Model;
-using EntityFrameworkCore.DynamoDb.Metadata.Internal;
+using EntityFrameworkCore.DynamoDb.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Update;
 
@@ -46,7 +46,7 @@ internal sealed class DynamoSaveChangesPlanner(
                 case EntityState.Added:
                 {
                     var item = serializerSource.BuildItem(entry);
-                    var tableName = (string)entry.EntityType[DynamoAnnotationNames.TableName]!;
+                    var tableName = entry.EntityType.GetTableGroupName();
 
                     // DynamoDB rejects { NULL: true } for GSI key attributes via PartiQL INSERT.
                     // Sparse GSIs require these attributes to simply be absent when not applicable.

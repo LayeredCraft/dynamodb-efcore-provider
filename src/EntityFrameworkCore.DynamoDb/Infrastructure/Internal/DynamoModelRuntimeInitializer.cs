@@ -26,10 +26,21 @@ public sealed class DynamoModelRuntimeInitializer(ModelRuntimeInitializerDepende
         if (prevalidation)
             return;
 
+        ApplyTableGroupNameAnnotations(model);
+
         model.GetOrAddRuntimeAnnotationValue(
             DynamoAnnotationNames.RuntimeTableModel,
             static currentModel => BuildRuntimeTableModel((IReadOnlyModel)currentModel!),
             model);
+    }
+
+    /// <summary>Stores effective table-group names on runtime entity metadata.</summary>
+    private static void ApplyTableGroupNameAnnotations(IModel model)
+    {
+        foreach (var entityType in model.GetEntityTypes())
+            entityType.SetRuntimeAnnotation(
+                DynamoAnnotationNames.TableGroupName,
+                entityType.ComputeTableGroupName());
     }
 
     /// <summary>Builds runtime table descriptors grouped by effective physical table name.</summary>
@@ -78,7 +89,7 @@ public sealed class DynamoModelRuntimeInitializer(ModelRuntimeInitializerDepende
         IReadOnlyEntityType entityType,
         IEnumerable<IReadOnlyIndex> secondaryIndexes)
     {
-        var sourceEntityType = ResolveKeySourceEntityType(entityType);
+        var sourceEntityType = entityType.ResolveKeyMappedEntityType();
         var partitionKeyProperty = sourceEntityType.GetPartitionKeyProperty()
             ?? throw new InvalidOperationException(
                 $"Entity type '{entityType.DisplayName()}' does not have a configured DynamoDB partition key.");
@@ -271,20 +282,6 @@ public sealed class DynamoModelRuntimeInitializer(ModelRuntimeInitializerDepende
             == GetKeyTypeCategory(GetEffectiveProviderClrType(right.PartitionKeyProperty))
             && GetSortKeyTypeCategory(left.SortKeyProperty)
             == GetSortKeyTypeCategory(right.SortKeyProperty);
-
-    /// <summary>Resolves the entity type that defines table key metadata for the queried entity type.</summary>
-    private static IReadOnlyEntityType ResolveKeySourceEntityType(IReadOnlyEntityType entityType)
-    {
-        var tableMappedType = entityType.ResolveTableMappedEntityType();
-        if (tableMappedType.GetPartitionKeyProperty() is not null)
-            return tableMappedType;
-
-        foreach (var baseType in entityType.GetAllBaseTypes())
-            if (baseType.GetPartitionKeyProperty() is not null)
-                return baseType;
-
-        return tableMappedType;
-    }
 
     /// <summary>Returns the effective provider CLR type with nullable wrappers removed.</summary>
     private static Type GetEffectiveProviderClrType(IReadOnlyProperty property)

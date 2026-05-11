@@ -774,6 +774,30 @@ public class IndexQueryExtensionsTests
     /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
+    public async Task DerivedQuery_BasePartitionKey_Contains_51Items_ThrowsPartitionKeyLimitError()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        await using var context = CreateDerivedIndexQueryContext(client);
+
+        var ids = Enumerable.Range(1, 51).Select(i => $"ORDER#{i}").ToList();
+
+        var act = async ()
+            => await context
+                .Set<ArchivedOrderForIndexQuery>()
+                .Where(o => ids.Contains(o.Id))
+                .ToListAsync(TestContext.Current.CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*50*partition key*");
+
+        await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
+    /// <summary>Provides functionality for this member.</summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    /// <summary>Provides functionality for this member.</summary>
     public async Task WithIndex_GsiPartitionKey_Contains_51Items_ThrowsPartitionKeyLimitError()
     {
         // Before the fix, CustomerId was not recognised as a partition key when querying via
@@ -823,6 +847,53 @@ public class IndexQueryExtensionsTests
                 .ToListAsync(TestContext.Current.CancellationToken);
 
         await act.Should().NotThrowAsync<InvalidOperationException>();
+    }
+
+    /// <summary>Provides functionality for this member.</summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    /// <summary>Provides functionality for this member.</summary>
+    public async Task
+        WithIndex_BaseTablePartitionKey_Contains_51Items_DoesNotThrowPartitionKeyLimitError()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        client
+            .ExecuteStatementAsync(Arg.Any<ExecuteStatementRequest>(), Arg.Any<CancellationToken>())
+            .Returns(new ExecuteStatementResponse { Items = [] });
+
+        await using var context = CreateGsiContext(client);
+
+        var tenantIds = Enumerable.Range(1, 51).Select(i => $"TENANT#{i}").ToList();
+
+        var act = async ()
+            => await context
+                .Orders
+                .WithIndex("ByCustomer")
+                .Where(o => tenantIds.Contains(o.TenantId))
+                .ToListAsync(TestContext.Current.CancellationToken);
+
+        await act.Should().NotThrowAsync<InvalidOperationException>();
+    }
+
+    /// <summary>Provides functionality for this member.</summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    /// <summary>Provides functionality for this member.</summary>
+    public async Task WithIndex_BaseTablePartitionKey_Contains_101Items_ThrowsNonKeyLimitError()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        await using var context = CreateGsiContext(client);
+
+        var tenantIds = Enumerable.Range(1, 101).Select(i => $"TENANT#{i}").ToList();
+
+        var act = async ()
+            => await context
+                .Orders
+                .WithIndex("ByCustomer")
+                .Where(o => tenantIds.Contains(o.TenantId))
+                .ToListAsync(TestContext.Current.CancellationToken);
+
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*100*non-key*");
+
+        await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
     }
 
     /// <summary>Provides functionality for this member.</summary>

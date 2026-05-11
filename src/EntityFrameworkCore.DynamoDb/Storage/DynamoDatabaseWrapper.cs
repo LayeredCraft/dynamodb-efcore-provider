@@ -1,3 +1,4 @@
+using System.Transactions;
 using EntityFrameworkCore.DynamoDb.Infrastructure.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -32,6 +33,9 @@ public class DynamoDatabaseWrapper(
         new DynamoWriteExceptionMapper(),
         new DynamoTransactionTargetIdentityFactory(serializerSource));
 
+    private const string TransactionsNotSupported =
+        "The DynamoDB database provider does not support explicit transactions.";
+
     private readonly bool _saveEventsHooked = HookSaveEvents(
         currentDbContext.Context,
         transactionRuntimeOptions);
@@ -53,6 +57,9 @@ public class DynamoDatabaseWrapper(
 
         try
         {
+            if (Transaction.Current is not null)
+                throw new NotSupportedException(TransactionsNotSupported);
+
             var plan = _saveChangesPlanner.Plan(entries);
             if (plan.Operations.Count == 0)
                 return 0;

@@ -535,13 +535,12 @@ public class DynamoSqlTranslatingExpressionVisitor(
     /// </remarks>
     private bool IsEffectivePartitionKey(IReadOnlyProperty property, IReadOnlyEntityType entityType)
     {
-        // Always a partition key if it's the table-level partition key.
-        if (entityType.GetPartitionKeyProperty()?.Name == property.Name)
-            return true;
-
-        // When a secondary index is active, also check the index's own partition key.
+        // When a secondary index is active, only that index's partition key is effective.
         if (queryCompilationContext?.ExplicitIndexName is not { } indexName)
-            return false;
+        {
+            var keyEntityType = entityType.ResolveKeyMappedEntityType();
+            return keyEntityType.GetPartitionKeyProperty()?.Name == property.Name;
+        }
 
         var runtimeModel = queryCompilationContext.Model.GetDynamoRuntimeTableModel();
         if (runtimeModel is null)

@@ -8,6 +8,9 @@ public static class DynamoAnnotationNames
     /// <summary>Annotation key for the DynamoDB table name on an entity type.</summary>
     public const string TableName = Prefix + "TableName";
 
+    /// <summary>Annotation key for the effective DynamoDB table group name on an entity type.</summary>
+    public const string TableGroupName = Prefix + "TableGroupName";
+
     /// <summary>Annotation key for the DynamoDB attribute name on a property or complex property.</summary>
     public const string AttributeName = Prefix + "AttributeName";
 
