@@ -22,6 +22,9 @@ execution.
 ## Commands
 
 - Build: `dotnet build`
+- Manage NuGet packages with the `dotnet` CLI (`dotnet add package`, `dotnet package update`,
+  `dotnet remove package`, etc.); do not hand-edit package references unless the CLI cannot express
+  the needed change.
 - Run tests through the .NET test MCP server whenever available.
 - Unit test project:
   `tests/EntityFrameworkCore.DynamoDb.Tests/EntityFrameworkCore.DynamoDb.Tests.csproj`
