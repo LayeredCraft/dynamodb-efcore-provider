@@ -121,7 +121,7 @@ public sealed class DynamoDiscriminatorConvention(
             .ToList();
 
         foreach (var tableGroup in rootEntityTypes.GroupBy(static entityType
-            => entityType.GetTableGroupName()))
+            => entityType.ComputeTableGroupName()))
         {
             var hasHierarchy =
                 tableGroup.Any(static entityType => entityType.GetDerivedTypes().Any());

@@ -46,7 +46,7 @@ internal sealed class DynamoSaveChangesPlanner(
                 case EntityState.Added:
                 {
                     var item = serializerSource.BuildItem(entry);
-                    var tableName = (string)entry.EntityType[DynamoAnnotationNames.TableName]!;
+                    var tableName = (string)entry.EntityType[DynamoAnnotationNames.TableGroupName]!;
 
                     // DynamoDB rejects { NULL: true } for GSI key attributes via PartiQL INSERT.
                     // Sparse GSIs require these attributes to simply be absent when not applicable.

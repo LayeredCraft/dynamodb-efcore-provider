@@ -52,8 +52,8 @@ internal static class DynamoModelExtensions
                     StringComparer.Ordinal)
                 .ThenBy(static index => index.DeclaringEntityType.Name, StringComparer.Ordinal);
 
-        /// <summary>Gets the effective table-group name used for shared-table DynamoDB metadata.</summary>
-        internal string GetTableGroupName()
+        /// <summary>Computes the effective table-group name used for shared-table DynamoDB metadata.</summary>
+        internal string ComputeTableGroupName()
         {
             var mappedEntityType = entityType.ResolveTableMappedEntityType();
 

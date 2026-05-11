@@ -18,7 +18,7 @@ internal sealed class DynamoPartiqlStatementFactory(
     internal (string tableName, string sql, List<AttributeValue> parameters)?
         BuildModifiedUpdateStatement(IUpdateEntry entry)
     {
-        var tableName = (string)entry.EntityType[DynamoAnnotationNames.TableName]!;
+        var tableName = (string)entry.EntityType[DynamoAnnotationNames.TableGroupName]!;
         var entityType = entry.EntityType;
         var rootEntry = (InternalEntityEntry)entry;
 
@@ -96,7 +96,7 @@ internal sealed class DynamoPartiqlStatementFactory(
     internal (string tableName, string sql, List<AttributeValue> parameters) BuildDeleteStatement(
         IUpdateEntry entry)
     {
-        var tableName = (string)entry.EntityType[DynamoAnnotationNames.TableName]!;
+        var tableName = (string)entry.EntityType[DynamoAnnotationNames.TableGroupName]!;
 
         if (tableName.Contains('"'))
             throw new ArgumentException(
@@ -246,7 +246,8 @@ internal sealed class DynamoPartiqlStatementFactory(
         if (ShouldReplaceWholeComplexProperty(complexEntry, complexProperty))
         {
             setClauses.Add($"{path} = ?");
-            setParameters.Add(EntityWritePlan.SerializeComplexProperty(currentValue, complexProperty));
+            setParameters.Add(
+                EntityWritePlan.SerializeComplexProperty(currentValue, complexProperty));
             return;
         }
 

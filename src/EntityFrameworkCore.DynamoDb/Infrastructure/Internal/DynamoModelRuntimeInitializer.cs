@@ -26,10 +26,21 @@ public sealed class DynamoModelRuntimeInitializer(ModelRuntimeInitializerDepende
         if (prevalidation)
             return;
 
+        ApplyTableGroupNameAnnotations(model);
+
         model.GetOrAddRuntimeAnnotationValue(
             DynamoAnnotationNames.RuntimeTableModel,
             static currentModel => BuildRuntimeTableModel((IReadOnlyModel)currentModel!),
             model);
+    }
+
+    /// <summary>Stores effective table-group names on runtime entity metadata.</summary>
+    private static void ApplyTableGroupNameAnnotations(IModel model)
+    {
+        foreach (var entityType in model.GetEntityTypes())
+            entityType.SetRuntimeAnnotation(
+                DynamoAnnotationNames.TableGroupName,
+                entityType.ComputeTableGroupName());
     }
 
     /// <summary>Builds runtime table descriptors grouped by effective physical table name.</summary>
@@ -39,7 +50,9 @@ public sealed class DynamoModelRuntimeInitializer(ModelRuntimeInitializerDepende
 
         foreach (var tableGroup in model
             .EnumerateRootEntityTypes()
-            .GroupBy(static entityType => entityType.GetTableGroupName(), StringComparer.Ordinal))
+            .GroupBy(
+                static entityType => (string)entityType[DynamoAnnotationNames.TableGroupName]!,
+                StringComparer.Ordinal))
         {
             var rootEntityTypes = tableGroup.ToList();
             var sourcesByRootEntityType =
