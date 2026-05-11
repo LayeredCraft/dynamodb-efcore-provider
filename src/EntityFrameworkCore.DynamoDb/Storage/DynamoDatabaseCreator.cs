@@ -1,6 +1,8 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.Extensions;
+using EntityFrameworkCore.DynamoDb.Infrastructure;
+using EntityFrameworkCore.DynamoDb.Infrastructure.Internal;
 using EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using EntityFrameworkCore.DynamoDb.Storage.Internal;
 using Microsoft.EntityFrameworkCore;
@@ -23,8 +25,6 @@ internal sealed class DynamoDatabaseCreator(
 {
     private const string AsyncLifecycleOnly =
         "The DynamoDB database provider only supports async database lifecycle operations. Use EnsureCreatedAsync, EnsureDeletedAsync, or CanConnectAsync.";
-
-    private static readonly TimeSpan PollDelay = TimeSpan.FromMilliseconds(100);
 
     /// <summary>Ensures the database is deleted.</summary>
     /// <returns>Never returns because synchronous lifecycle operations are unsupported.</returns>
@@ -57,8 +57,9 @@ internal sealed class DynamoDatabaseCreator(
                 continue;
             }
 
-            await WaitUntilTableDeletedAsync(table.TableName, cancellationToken)
-                .ConfigureAwait(false);
+            if (GetTableLifecycleOptions().WaitForCompletion)
+                await WaitUntilTableDeletedAsync(table.TableName, cancellationToken)
+                    .ConfigureAwait(false);
         }
 
         return changed;
@@ -163,10 +164,10 @@ internal sealed class DynamoDatabaseCreator(
             {
                 try
                 {
-                    await clientWrapper
+                    existing = (await clientWrapper
                         .Client
                         .CreateTableAsync(requestsByName[table.TableName], cancellationToken)
-                        .ConfigureAwait(false);
+                        .ConfigureAwait(false)).TableDescription;
                     changed = true;
                     tableCreated = true;
                 }
@@ -175,13 +176,23 @@ internal sealed class DynamoDatabaseCreator(
                     // Creation race: fall through to describe/wait.
                 }
 
-                existing =
-                    await WaitUntilTableActiveAsync(table.TableName, cancellationToken)
-                        .ConfigureAwait(false);
+                if (GetTableLifecycleOptions().WaitForCompletion)
+                    existing =
+                        await WaitUntilTableActiveAsync(table.TableName, cancellationToken)
+                            .ConfigureAwait(false);
+                else if (existing is null)
+                    existing =
+                        (await clientWrapper
+                            .Client
+                            .DescribeTableAsync(
+                                new DescribeTableRequest { TableName = table.TableName },
+                                cancellationToken)
+                            .ConfigureAwait(false)).Table;
             }
 
-            await WaitUntilTableActiveAsync(table.TableName, cancellationToken)
-                .ConfigureAwait(false);
+            if (GetTableLifecycleOptions().WaitForCompletion)
+                existing = await WaitUntilTableActiveAsync(table.TableName, cancellationToken)
+                    .ConfigureAwait(false);
             var updates =
                 DynamoTableDefinitionBuilder.BuildMissingGlobalSecondaryIndexUpdates(
                     table,
@@ -201,8 +212,9 @@ internal sealed class DynamoDatabaseCreator(
                         cancellationToken)
                     .ConfigureAwait(false);
                 changed = true;
-                await WaitUntilTableActiveAsync(table.TableName, cancellationToken)
-                    .ConfigureAwait(false);
+                if (GetTableLifecycleOptions().WaitForCompletion)
+                    await WaitUntilTableActiveAsync(table.TableName, cancellationToken)
+                        .ConfigureAwait(false);
             }
         }
 
@@ -240,10 +252,18 @@ internal sealed class DynamoDatabaseCreator(
             ?? throw new InvalidOperationException(
                 "DynamoDB runtime table model is missing from the EF model.");
 
+    private DynamoTableLifecycleOptions GetTableLifecycleOptions()
+        => contextOptions.FindExtension<DynamoDbOptionsExtension>()?.TableLifecycleOptions
+            ?? new DynamoTableLifecycleOptions();
+
     private async Task<TableDescription> WaitUntilTableActiveAsync(
         string tableName,
         CancellationToken cancellationToken)
     {
+        var options = GetTableLifecycleOptions();
+        var started = TimeProvider.System.GetTimestamp();
+        var delay = options.InitialPollingDelay;
+
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -266,7 +286,9 @@ internal sealed class DynamoDatabaseCreator(
                 // Creation race: keep polling.
             }
 
-            await Task.Delay(PollDelay, cancellationToken).ConfigureAwait(false);
+            await DelayLifecyclePollAsync(options, started, delay, cancellationToken)
+                .ConfigureAwait(false);
+            delay = NextPollingDelay(delay, options.MaxPollingDelay, options.BackoffMultiplier);
         }
     }
 
@@ -274,6 +296,10 @@ internal sealed class DynamoDatabaseCreator(
         string tableName,
         CancellationToken cancellationToken)
     {
+        var options = GetTableLifecycleOptions();
+        var started = TimeProvider.System.GetTimestamp();
+        var delay = options.InitialPollingDelay;
+
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -291,7 +317,37 @@ internal sealed class DynamoDatabaseCreator(
                 return;
             }
 
-            await Task.Delay(PollDelay, cancellationToken).ConfigureAwait(false);
+            await DelayLifecyclePollAsync(options, started, delay, cancellationToken)
+                .ConfigureAwait(false);
+            delay = NextPollingDelay(delay, options.MaxPollingDelay, options.BackoffMultiplier);
         }
+    }
+
+    private static async Task DelayLifecyclePollAsync(
+        DynamoTableLifecycleOptions options,
+        long started,
+        TimeSpan delay,
+        CancellationToken cancellationToken)
+    {
+        if (options.Timeout is { } timeout)
+        {
+            var elapsed = TimeProvider.System.GetElapsedTime(started);
+            if (elapsed >= timeout)
+                throw new TimeoutException(
+                    $"Timed out after {timeout} waiting for DynamoDB table lifecycle operation to complete.");
+
+            delay = TimeSpan.FromTicks(Math.Min(delay.Ticks, (timeout - elapsed).Ticks));
+        }
+
+        await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static TimeSpan NextPollingDelay(TimeSpan current, TimeSpan maximum, double multiplier)
+    {
+        var nextTicks = (long)Math.Ceiling(current.Ticks * multiplier);
+        if (nextTicks <= current.Ticks)
+            nextTicks = current.Ticks + 1;
+
+        return TimeSpan.FromTicks(Math.Min(nextTicks, maximum.Ticks));
     }
 }

@@ -89,6 +89,13 @@ public class DynamoDbContextOptionsBuilder(DbContextOptionsBuilder optionsBuilde
     public virtual DynamoDbContextOptionsBuilder ConsistentRead(bool consistentRead = true)
         => WithOption(e => e.WithConsistentRead(consistentRead));
 
+    /// <summary>Configures waits used by DynamoDB table lifecycle operations.</summary>
+    /// <param name="configure">A callback that mutates lifecycle options.</param>
+    /// <returns>The builder for chaining.</returns>
+    public virtual DynamoDbContextOptionsBuilder TableLifecycle(
+        Action<DynamoTableLifecycleOptions> configure)
+        => WithOption(e => e.WithTableLifecycleOptions(configure.NotNull()));
+
     /// <summary>Updates the provider options extension with the supplied mutation action.</summary>
     protected virtual DynamoDbContextOptionsBuilder WithOption(
         Func<DynamoDbOptionsExtension, DynamoDbOptionsExtension> setAction)

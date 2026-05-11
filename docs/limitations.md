@@ -16,7 +16,8 @@ authoritative reference for what is not supported, why, and what workaround (if 
 - Lifecycle APIs are async-only. Synchronous `EnsureCreated`, `EnsureDeleted`, and `CanConnect`
     throw `NotSupportedException`.
 - `EnsureCreatedAsync` creates missing tables with `PAY_PER_REQUEST` billing. It can add missing
-    GSIs to existing tables, but cannot add LSIs after table creation.
+    GSIs to existing tables, but cannot add LSIs after table creation. Lifecycle wait polling,
+    backoff, timeout, and whether to wait for completion are configurable.
 - Existing schema validation is limited to table key schema and secondary-index key/projection
     shape.
 - `Include` secondary-index projection cannot be created yet because non-key projected attributes

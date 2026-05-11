@@ -16,6 +16,24 @@ await db.Database.EnsureCreatedAsync();
 model. Created tables use DynamoDB on-demand billing (`PAY_PER_REQUEST`); provisioned throughput
 configuration is not exposed yet.
 
+By default, lifecycle APIs wait for DynamoDB management operations to finish before returning:
+created or updated tables must become `ACTIVE`, all GSIs must become `ACTIVE`, and deleted tables
+must stop appearing in `DescribeTable`. The wait uses exponential backoff and a per-operation
+timeout. Configure it with provider options:
+
+```csharp
+options.UseDynamo(dynamo => dynamo.TableLifecycle(lifecycle =>
+{
+    lifecycle.InitialPollingDelay = TimeSpan.FromSeconds(1);
+    lifecycle.MaxPollingDelay = TimeSpan.FromSeconds(5);
+    lifecycle.BackoffMultiplier = 1.5;
+    lifecycle.Timeout = TimeSpan.FromMinutes(10);
+}));
+```
+
+Set `WaitForCompletion = false` to return after DynamoDB accepts create, update, or delete requests
+without waiting for the table/index state transition to complete.
+
 ## Existing tables
 
 When a mapped table already exists, `EnsureCreatedAsync` validates the table key schema and
@@ -31,7 +49,8 @@ secondary-index key/projection shapes that the provider can infer from EF metada
 ## Deleting mapped tables
 
 `Database.EnsureDeletedAsync()` deletes only tables mapped by the current EF model. It ignores
-already-missing tables and returns whether any mapped table was deleted.
+already-missing tables and returns whether any mapped table was deleted. When lifecycle waiting is
+enabled, it polls `DescribeTable` until DynamoDB returns `ResourceNotFoundException` for each table.
 
 ## Synchronous APIs
 
