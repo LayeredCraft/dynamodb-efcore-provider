@@ -30,6 +30,16 @@ public class DynamoDerivedSaveChangesTests
                 """
                 INSERT INTO "Documents"
                 """);
+        captured[0].Statement.Should().Contain("'pk_attr': ?");
+        captured[0].Statement.Should().Contain("'sk_attr': ?");
+        captured[0].Statement.Should().Contain("'name': ?");
+        captured[0].Statement.Should().Contain("'$type': ?");
+        captured[0].Statement.Should().Contain("'extra': ?");
+        captured[0]
+            .Parameters
+            .Select(GetStringValue)
+            .Should()
+            .Contain(["DOC#1", "META#1", "before", "derived", "extra"]);
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]

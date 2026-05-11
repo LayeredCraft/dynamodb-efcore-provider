@@ -65,7 +65,7 @@ internal sealed class DynamoTransactionManager
         => throw new NotSupportedException(TransactionsNotSupported);
 
     /// <summary>Gets the current ambient transaction.</summary>
-    public Transaction? CurrentAmbientTransaction => null;
+    public Transaction? CurrentAmbientTransaction => Transaction.Current;
 
     /// <summary>Gets the current transaction.</summary>
     public IDbContextTransaction? CurrentTransaction => null;

@@ -536,7 +536,8 @@ public class DynamoSqlTranslatingExpressionVisitor(
     private bool IsEffectivePartitionKey(IReadOnlyProperty property, IReadOnlyEntityType entityType)
     {
         // Always a partition key if it's the table-level partition key.
-        if (entityType.GetPartitionKeyProperty()?.Name == property.Name)
+        var keyEntityType = entityType.ResolveKeyMappedEntityType();
+        if (keyEntityType.GetPartitionKeyProperty()?.Name == property.Name)
             return true;
 
         // When a secondary index is active, also check the index's own partition key.

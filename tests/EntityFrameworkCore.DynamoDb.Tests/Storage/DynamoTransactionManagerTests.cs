@@ -1,8 +1,11 @@
 using System.Transactions;
+using Amazon.DynamoDBv2;
+using Amazon.DynamoDBv2.Model;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
+using NSubstitute;
 
 namespace EntityFrameworkCore.DynamoDb.Tests.Storage;
 
@@ -103,6 +106,24 @@ public sealed class DynamoTransactionManagerTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task SaveChanges_InsideAmbientTransaction_ThrowsNotSupportedException()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        client
+            .ExecuteStatementAsync(Arg.Any<ExecuteStatementRequest>(), Arg.Any<CancellationToken>())
+            .Returns(new ExecuteStatementResponse());
+        await using var context = CreateContext(client);
+        context.Add(new TransactionEntity { Id = "TRANSACTION#1" });
+
+        using var scope = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled);
+
+        var exception = await Assert.ThrowsAsync<NotSupportedException>(()
+            => context.SaveChangesAsync(TestContext.Current.CancellationToken));
+
+        exception.Message.Should().Be(TransactionsNotSupported);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void CurrentTransaction_ReturnsNull()
     {
         using var context = CreateContext();
@@ -119,7 +140,7 @@ public sealed class DynamoTransactionManagerTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public void CurrentAmbientTransaction_IgnoresTransactionScope()
+    public void CurrentAmbientTransaction_ReturnsAmbientTransactionScope()
     {
         using var context = CreateContext();
         var transactionManager =
@@ -129,16 +150,22 @@ public sealed class DynamoTransactionManagerTests
                 .BeAssignableTo<ITransactionEnlistmentManager>()
                 .Subject;
 
+        transactionManager.CurrentAmbientTransaction.Should().BeNull();
+
         using var scope = new TransactionScope(TransactionScopeAsyncFlowOption.Enabled);
 
         Transaction.Current.Should().NotBeNull();
-        transactionManager.CurrentAmbientTransaction.Should().BeNull();
+        transactionManager.CurrentAmbientTransaction.Should().BeSameAs(Transaction.Current);
     }
 
-    private static TransactionContext CreateContext()
+    private static TransactionContext CreateContext(IAmazonDynamoDB? client = null)
     {
         var options = new DbContextOptionsBuilder<TransactionContext>()
-            .UseDynamo()
+            .UseDynamo(options =>
+            {
+                if (client is not null)
+                    options.DynamoDbClient(client);
+            })
             .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
             .Options;
 
