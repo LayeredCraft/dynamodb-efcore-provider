@@ -26,6 +26,9 @@ internal sealed class DynamoDatabaseCreator(
     private const string AsyncLifecycleOnly =
         "The DynamoDB database provider only supports async database lifecycle operations. Use EnsureCreatedAsync, EnsureDeletedAsync, or CanConnectAsync.";
 
+    // Caps concurrent control-plane calls to avoid hammering DynamoDB metadata APIs.
+    private const int MaxConcurrentTableOperations = 10;
+
     /// <summary>Ensures the database is deleted.</summary>
     /// <returns>Never returns because synchronous lifecycle operations are unsupported.</returns>
     /// <exception cref="NotSupportedException">Always thrown because only async lifecycle operations are supported.</exception>
@@ -37,37 +40,67 @@ internal sealed class DynamoDatabaseCreator(
     public async Task<bool> EnsureDeletedAsync(CancellationToken cancellationToken = default)
     {
         var lifecycleOptions = GetTableLifecycleOptions();
-        var changed = false;
-        foreach (var table in GetRuntimeTableModel()
+        using var semaphore = new SemaphoreSlim(MaxConcurrentTableOperations);
+
+        var tasks = GetRuntimeTableModel()
             .Tables
             .Values
-            .OrderBy(static table => table.TableName, StringComparer.Ordinal))
-        {
-            try
+            .OrderBy(static t => t.TableName, StringComparer.Ordinal)
+            .Select(async table =>
             {
-                await clientWrapper
-                    .Client
-                    .DeleteTableAsync(
-                        new DeleteTableRequest { TableName = table.TableName },
-                        cancellationToken)
-                    .ConfigureAwait(false);
-                changed = true;
-            }
-            catch (ResourceNotFoundException)
-            {
-                // Table was already absent — skip the deletion wait below.
-                continue;
-            }
+                await semaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
+                try
+                {
+                    try
+                    {
+                        await clientWrapper
+                            .Client
+                            .DeleteTableAsync(
+                                new DeleteTableRequest { TableName = table.TableName },
+                                cancellationToken)
+                            .ConfigureAwait(false);
+                    }
+                    catch (ResourceNotFoundException)
+                    {
+                        return (Deleted: false, Error: null);
+                    }
 
-            if (lifecycleOptions.WaitForCompletion)
-                await WaitUntilTableDeletedAsync(
-                        table.TableName,
-                        lifecycleOptions,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-        }
+                    if (lifecycleOptions.WaitForCompletion)
+                        await WaitUntilTableDeletedAsync(
+                                table.TableName,
+                                lifecycleOptions,
+                                cancellationToken)
+                            .ConfigureAwait(false);
 
-        return changed;
+                    return (Deleted: true, Error: null);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    return (Deleted: false, Error: ex);
+                }
+                finally
+                {
+                    semaphore.Release();
+                }
+            })
+            .ToArray();
+
+        var results = await Task.WhenAll(tasks).ConfigureAwait(false);
+
+        var errors = results
+            .Where(static r => r.Error is not null)
+            .Select(static r => r.Error!)
+            .ToList();
+        if (errors.Count > 0)
+            throw new AggregateException(
+                "One or more DynamoDB table deletion operations failed.",
+                errors);
+
+        return results.Any(static r => r.Deleted);
     }
 
     /// <summary>Ensures mapped DynamoDB tables and global secondary indexes are created asynchronously.</summary>
@@ -148,13 +181,48 @@ internal sealed class DynamoDatabaseCreator(
                 .BuildCreateTableRequests(runtimeModel)
                 .ToDictionary(static request => request.TableName, StringComparer.Ordinal);
         var lifecycleOptions = GetTableLifecycleOptions();
-        var changed = false;
-        HashSet<string> createdTables = new(StringComparer.Ordinal);
+        using var semaphore = new SemaphoreSlim(MaxConcurrentTableOperations);
 
-        foreach (var table in runtimeModel.Tables.Values.OrderBy(
-            static table => table.TableName,
-            StringComparer.Ordinal))
+        var tasks =
+            runtimeModel
+                .Tables
+                .Values
+                .OrderBy(static table => table.TableName, StringComparer.Ordinal)
+                .Select(table => EnsureTableCreatedAsync(
+                    table,
+                    requestsByName,
+                    lifecycleOptions,
+                    semaphore,
+                    cancellationToken))
+                .ToArray();
+
+        var results = await Task.WhenAll(tasks).ConfigureAwait(false);
+
+        HashSet<string> createdTables = new(StringComparer.Ordinal);
+        var changed = false;
+        foreach (var (tableChanged, createdTable) in results)
         {
+            changed |= tableChanged;
+            if (createdTable is not null)
+                createdTables.Add(createdTable);
+        }
+
+        return (changed, createdTables);
+    }
+
+    private async Task<(bool Changed, string? CreatedTableName)> EnsureTableCreatedAsync(
+        DynamoTableDescriptor table,
+        Dictionary<string, CreateTableRequest> requestsByName,
+        DynamoTableLifecycleOptions lifecycleOptions,
+        SemaphoreSlim semaphore,
+        CancellationToken cancellationToken)
+    {
+        await semaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var changed = false;
+            string? createdTableName = null;
+
             var tableIsNew = false;
             TableDescription? existing = null;
             try
@@ -177,7 +245,7 @@ internal sealed class DynamoDatabaseCreator(
                         .CreateTableAsync(requestsByName[table.TableName], cancellationToken)
                         .ConfigureAwait(false)).TableDescription;
                     changed = true;
-                    createdTables.Add(table.TableName);
+                    createdTableName = table.TableName;
                 }
                 catch (ResourceInUseException)
                 {
@@ -200,7 +268,7 @@ internal sealed class DynamoDatabaseCreator(
                             .ConfigureAwait(false)).Table;
             }
 
-            if (!tableIsNew && lifecycleOptions.WaitForCompletion)
+            if (!tableIsNew && lifecycleOptions.WaitForCompletion && !IsFullyActive(existing))
                 existing = await WaitUntilTableActiveAsync(
                         table.TableName,
                         lifecycleOptions,
@@ -240,9 +308,13 @@ internal sealed class DynamoDatabaseCreator(
                             cancellationToken)
                         .ConfigureAwait(false);
             }
-        }
 
-        return (changed, createdTables);
+            return (changed, createdTableName);
+        }
+        finally
+        {
+            semaphore.Release();
+        }
     }
 
     private Task InsertDataAsync(
@@ -289,6 +361,12 @@ internal sealed class DynamoDatabaseCreator(
         => contextOptions.FindExtension<DynamoDbOptionsExtension>()?.TableLifecycleOptions
             ?? new DynamoTableLifecycleOptions();
 
+    private static bool IsFullyActive(TableDescription? table)
+        => table is not null
+            && table.TableStatus == TableStatus.ACTIVE
+            && (table.GlobalSecondaryIndexes ?? []).All(static index
+                => index.IndexStatus == IndexStatus.ACTIVE);
+
     private async Task<TableDescription> WaitUntilTableActiveAsync(
         string tableName,
         DynamoTableLifecycleOptions lifecycleOptions,
@@ -309,9 +387,7 @@ internal sealed class DynamoDatabaseCreator(
                             new DescribeTableRequest { TableName = tableName },
                             cancellationToken)
                         .ConfigureAwait(false)).Table;
-                if (table.TableStatus == TableStatus.ACTIVE
-                    && (table.GlobalSecondaryIndexes ?? []).All(static index
-                        => index.IndexStatus == IndexStatus.ACTIVE))
+                if (IsFullyActive(table))
                     return table;
             }
             catch (ResourceNotFoundException)
