@@ -127,6 +127,11 @@ internal sealed class DynamoDatabaseCreator(
                 var (changed, createdTables) =
                     await creator.EnsureTablesCreatedAsync(ct).ConfigureAwait(false);
                 var tableCreated = createdTables.Count > 0;
+                if (tableCreated && creator.HasConfiguredSeeding(createdTables))
+                    await creator
+                        .WaitUntilTablesActiveAsync(createdTables, ct)
+                        .ConfigureAwait(false);
+
                 if (tableCreated && !modelSeedInserted)
                 {
                     // Model HasData runs only after new table creation. User async seeding runs on
@@ -282,8 +287,8 @@ internal sealed class DynamoDatabaseCreator(
                     new UpdateTableRequest
                     {
                         TableName = table.TableName,
-                        AttributeDefinitions = request.AttributeDefinitions,
-                        GlobalSecondaryIndexUpdates = [updates[i]],
+                        AttributeDefinitions = updates[i].AttributeDefinitions.ToList(),
+                        GlobalSecondaryIndexUpdates = [updates[i].Update],
                     },
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -296,6 +301,27 @@ internal sealed class DynamoDatabaseCreator(
 
         return (changed, createdTableName);
     }
+
+    private async Task WaitUntilTablesActiveAsync(
+        IEnumerable<string> tableNames,
+        CancellationToken cancellationToken)
+    {
+        var lifecycleOptions = GetTableLifecycleOptions();
+        foreach (var tableName in tableNames.Order(StringComparer.Ordinal))
+            await WaitUntilTableActiveAsync(tableName, lifecycleOptions, cancellationToken)
+                .ConfigureAwait(false);
+    }
+
+    private bool HasConfiguredSeeding(IReadOnlySet<string> createdTables)
+        => contextOptions.FindExtension<CoreOptionsExtension>()?.AsyncSeeder is not null
+            || designTimeModel
+                .Model
+                .GetEntityTypes()
+                .Any(entityType
+                    => createdTables.Contains(
+                        entityType[DynamoAnnotationNames.TableName] as string
+                        ?? entityType.ClrType.Name)
+                    && entityType.GetSeedData().Any());
 
     private Task InsertDataAsync(
         IReadOnlySet<string> createdTables,

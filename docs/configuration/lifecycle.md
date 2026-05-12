@@ -32,10 +32,10 @@ options.UseDynamo(dynamo => dynamo.TableLifecycle(lifecycle =>
 ```
 
 Set `WaitForCompletion = false` to return after DynamoDB accepts create or delete requests without
-waiting for the final table state transition to complete. `EnsureCreatedAsync` still waits for
-secondary-index lifecycle operations that DynamoDB requires to be serialized: indexed table creates
-wait until the table and indexes are `ACTIVE`, and missing GSI additions wait after each
-`UpdateTable` call.
+waiting for the final table state transition to complete. `EnsureCreatedAsync` still waits when later
+work requires an active table: indexed table creates wait until the table and indexes are `ACTIVE`,
+missing GSI additions wait after each `UpdateTable` call, and newly created tables wait before
+configured seeding runs.
 
 ## Existing tables
 

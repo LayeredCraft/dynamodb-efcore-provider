@@ -100,6 +100,38 @@ public sealed class DynamoTableDefinitionBuilderTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void BuildMissingGlobalSecondaryIndexUpdates_ReturnsAttributeDefinitionsPerUpdate()
+    {
+        using var context = CreateContext<ScalarTypeContext>();
+        var table = context.Model.GetDynamoRuntimeTableModel()!.Tables["Scalars"];
+        var existing = new TableDescription
+        {
+            TableName = "Scalars",
+            AttributeDefinitions = [new AttributeDefinition("pk", ScalarAttributeType.S)],
+            KeySchema = [new KeySchemaElement("pk", KeyType.HASH)],
+        };
+
+        var updates =
+            DynamoTableDefinitionBuilder.BuildMissingGlobalSecondaryIndexUpdates(table, existing);
+
+        updates
+            .Select(update => (
+                update.Update.Create.IndexName,
+                AttributeDefinitions: update
+                    .AttributeDefinitions
+                    .Select(static definition
+                        => (definition.AttributeName, definition.AttributeType))
+                    .ToArray()))
+            .Should()
+            .BeEquivalentTo(
+                [
+                    ("ByBytes", new[] { ("bytes", ScalarAttributeType.B) }),
+                    ("ByNumber", new[] { ("number", ScalarAttributeType.N) }),
+                ],
+                options => options.WithStrictOrdering());
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void BuildCreateTableRequests_RejectsIncludeProjection()
     {
         using var context = CreateContext<IncludeProjectionContext>();
@@ -143,7 +175,13 @@ public sealed class DynamoTableDefinitionBuilderTests
         var updates =
             DynamoTableDefinitionBuilder.BuildMissingGlobalSecondaryIndexUpdates(table, existing);
 
-        updates.Should().ContainSingle().Which.Create.IndexName.Should().Be("ByCustomer");
+        var update = updates.Should().ContainSingle().Subject;
+        update.Update.Create.IndexName.Should().Be("ByCustomer");
+        update
+            .AttributeDefinitions
+            .Select(static definition => (definition.AttributeName, definition.AttributeType))
+            .Should()
+            .Equal(("customer", ScalarAttributeType.S));
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
@@ -184,7 +222,13 @@ public sealed class DynamoTableDefinitionBuilderTests
         var updates =
             DynamoTableDefinitionBuilder.BuildMissingGlobalSecondaryIndexUpdates(table, existing);
 
-        updates.Should().ContainSingle().Which.Create.IndexName.Should().Be("ByCustomer");
+        var update = updates.Should().ContainSingle().Subject;
+        update.Update.Create.IndexName.Should().Be("ByCustomer");
+        update
+            .AttributeDefinitions
+            .Select(static definition => (definition.AttributeName, definition.AttributeType))
+            .Should()
+            .Equal(("customer", ScalarAttributeType.S));
     }
 
     [Theory(Timeout = TestConfiguration.DefaultTimeout)]

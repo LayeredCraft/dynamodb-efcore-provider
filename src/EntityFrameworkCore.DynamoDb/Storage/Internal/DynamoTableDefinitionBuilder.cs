@@ -10,6 +10,14 @@ namespace EntityFrameworkCore.DynamoDb.Storage.Internal;
 /// <summary>Builds DynamoDB table lifecycle requests from provider runtime metadata.</summary>
 internal static class DynamoTableDefinitionBuilder
 {
+    /// <summary>
+    ///     Describes a missing global secondary index update and its required key attribute
+    ///     definitions.
+    /// </summary>
+    internal sealed record MissingGlobalSecondaryIndexUpdate(
+        GlobalSecondaryIndexUpdate Update,
+        IReadOnlyList<AttributeDefinition> AttributeDefinitions);
+
     /// <summary>Builds deterministic <see cref="CreateTableRequest" /> instances for every mapped physical table.</summary>
     /// <param name="runtimeModel">Runtime DynamoDB table model.</param>
     /// <returns>Create-table requests sorted by physical table name.</returns>
@@ -26,9 +34,10 @@ internal static class DynamoTableDefinitionBuilder
     /// <param name="table">Expected table descriptor.</param>
     /// <param name="existing">Existing DynamoDB table description.</param>
     /// <returns>Global secondary index updates needed for the existing table.</returns>
-    public static IReadOnlyList<GlobalSecondaryIndexUpdate> BuildMissingGlobalSecondaryIndexUpdates(
-        DynamoTableDescriptor table,
-        TableDescription existing)
+    public static IReadOnlyList<MissingGlobalSecondaryIndexUpdate>
+        BuildMissingGlobalSecondaryIndexUpdates(
+            DynamoTableDescriptor table,
+            TableDescription existing)
     {
         var expected = BuildCreateTableRequest(table);
         ValidateAttributeDefinitions(
@@ -45,22 +54,26 @@ internal static class DynamoTableDefinitionBuilder
             (existing.GlobalSecondaryIndexes ?? []).ToDictionary(
                 static index => index.IndexName,
                 StringComparer.Ordinal);
-        List<GlobalSecondaryIndexUpdate> updates = [];
+        List<MissingGlobalSecondaryIndexUpdate> updates = [];
 
         foreach (var expectedGsi in expected.GlobalSecondaryIndexes ?? [])
         {
             if (!existingGsies.TryGetValue(expectedGsi.IndexName, out var existingGsi))
             {
                 updates.Add(
-                    new GlobalSecondaryIndexUpdate
-                    {
-                        Create = new CreateGlobalSecondaryIndexAction
+                    new MissingGlobalSecondaryIndexUpdate(
+                        new GlobalSecondaryIndexUpdate
                         {
-                            IndexName = expectedGsi.IndexName,
-                            KeySchema = expectedGsi.KeySchema,
-                            Projection = expectedGsi.Projection,
+                            Create = new CreateGlobalSecondaryIndexAction
+                            {
+                                IndexName = expectedGsi.IndexName,
+                                KeySchema = expectedGsi.KeySchema,
+                                Projection = expectedGsi.Projection,
+                            },
                         },
-                    });
+                        GetAttributeDefinitionsForKeySchema(
+                            expected.AttributeDefinitions,
+                            expectedGsi.KeySchema)));
                 continue;
             }
 
@@ -258,6 +271,18 @@ internal static class DynamoTableDefinitionBuilder
             or TypeCode.Single
             or TypeCode.Double
             or TypeCode.Decimal;
+
+    private static List<AttributeDefinition> GetAttributeDefinitionsForKeySchema(
+        List<AttributeDefinition> attributeDefinitions,
+        List<KeySchemaElement> keySchema)
+    {
+        var keyNames = keySchema
+            .Select(static key => key.AttributeName)
+            .ToHashSet(StringComparer.Ordinal);
+        return attributeDefinitions
+            .Where(definition => keyNames.Contains(definition.AttributeName))
+            .ToList();
+    }
 
     private static List<AttributeDefinition> GetRequiredExistingAttributeDefinitions(
         CreateTableRequest expected,
