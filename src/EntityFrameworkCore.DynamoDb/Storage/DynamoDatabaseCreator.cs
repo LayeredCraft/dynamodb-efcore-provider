@@ -26,7 +26,7 @@ internal sealed class DynamoDatabaseCreator(
     private const string AsyncLifecycleOnly =
         "The DynamoDB database provider only supports async database lifecycle operations. Use EnsureCreatedAsync, EnsureDeletedAsync, or CanConnectAsync.";
 
-    // Caps concurrent control-plane calls to avoid hammering DynamoDB metadata APIs.
+    // Caps concurrent delete calls to avoid hammering DynamoDB metadata APIs.
     private const int MaxConcurrentTableOperations = 10;
 
     /// <summary>Ensures the database is deleted.</summary>
@@ -181,27 +181,19 @@ internal sealed class DynamoDatabaseCreator(
                 .BuildCreateTableRequests(runtimeModel)
                 .ToDictionary(static request => request.TableName, StringComparer.Ordinal);
         var lifecycleOptions = GetTableLifecycleOptions();
-        using var semaphore = new SemaphoreSlim(MaxConcurrentTableOperations);
-
-        var tasks =
-            runtimeModel
-                .Tables
-                .Values
-                .OrderBy(static table => table.TableName, StringComparer.Ordinal)
-                .Select(table => EnsureTableCreatedAsync(
-                    table,
-                    requestsByName,
-                    lifecycleOptions,
-                    semaphore,
-                    cancellationToken))
-                .ToArray();
-
-        var results = await Task.WhenAll(tasks).ConfigureAwait(false);
 
         HashSet<string> createdTables = new(StringComparer.Ordinal);
         var changed = false;
-        foreach (var (tableChanged, createdTable) in results)
+        foreach (var table in runtimeModel.Tables.Values.OrderBy(
+            static table => table.TableName,
+            StringComparer.Ordinal))
         {
+            var (tableChanged, createdTable) = await EnsureTableCreatedAsync(
+                    table,
+                    requestsByName,
+                    lifecycleOptions,
+                    cancellationToken)
+                .ConfigureAwait(false);
             changed |= tableChanged;
             if (createdTable is not null)
                 createdTables.Add(createdTable);
@@ -214,19 +206,52 @@ internal sealed class DynamoDatabaseCreator(
         DynamoTableDescriptor table,
         Dictionary<string, CreateTableRequest> requestsByName,
         DynamoTableLifecycleOptions lifecycleOptions,
-        SemaphoreSlim semaphore,
         CancellationToken cancellationToken)
     {
-        await semaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
+        var request = requestsByName[table.TableName];
+        var hasSecondaryIndexes = HasSecondaryIndexes(request);
+        var changed = false;
+        string? createdTableName = null;
+
+        var tableIsNew = false;
+        TableDescription? existing = null;
         try
         {
-            var changed = false;
-            string? createdTableName = null;
-
-            var tableIsNew = false;
-            TableDescription? existing = null;
+            existing =
+                (await clientWrapper
+                    .Client
+                    .DescribeTableAsync(
+                        new DescribeTableRequest { TableName = table.TableName },
+                        cancellationToken)
+                    .ConfigureAwait(false)).Table;
+        }
+        catch (ResourceNotFoundException)
+        {
+            tableIsNew = true;
             try
             {
+                existing = (await clientWrapper
+                    .Client
+                    .CreateTableAsync(request, cancellationToken)
+                    .ConfigureAwait(false)).TableDescription;
+                changed = true;
+                createdTableName = table.TableName;
+            }
+            catch (ResourceInUseException)
+            {
+                // Creation race: fall through to describe/wait.
+            }
+
+            // DynamoDB rejects concurrent table creation when secondary indexes are involved.
+            // Always wait for indexed table creates, even when optional lifecycle waiting is
+            // disabled.
+            if (lifecycleOptions.WaitForCompletion || hasSecondaryIndexes)
+                existing = await WaitUntilTableActiveAsync(
+                        table.TableName,
+                        lifecycleOptions,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            else if (existing is null)
                 existing =
                     (await clientWrapper
                         .Client
@@ -234,87 +259,42 @@ internal sealed class DynamoDatabaseCreator(
                             new DescribeTableRequest { TableName = table.TableName },
                             cancellationToken)
                         .ConfigureAwait(false)).Table;
-            }
-            catch (ResourceNotFoundException)
-            {
-                tableIsNew = true;
-                try
-                {
-                    existing = (await clientWrapper
-                        .Client
-                        .CreateTableAsync(requestsByName[table.TableName], cancellationToken)
-                        .ConfigureAwait(false)).TableDescription;
-                    changed = true;
-                    createdTableName = table.TableName;
-                }
-                catch (ResourceInUseException)
-                {
-                    // Creation race: fall through to describe/wait.
-                }
-
-                if (lifecycleOptions.WaitForCompletion)
-                    existing = await WaitUntilTableActiveAsync(
-                            table.TableName,
-                            lifecycleOptions,
-                            cancellationToken)
-                        .ConfigureAwait(false);
-                else if (existing is null)
-                    existing =
-                        (await clientWrapper
-                            .Client
-                            .DescribeTableAsync(
-                                new DescribeTableRequest { TableName = table.TableName },
-                                cancellationToken)
-                            .ConfigureAwait(false)).Table;
-            }
-
-            if (!tableIsNew && lifecycleOptions.WaitForCompletion && !IsFullyActive(existing))
-                existing = await WaitUntilTableActiveAsync(
-                        table.TableName,
-                        lifecycleOptions,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-
-            // When WaitForCompletion is false and the table already existed, `existing` is
-            // the snapshot from the initial DescribeTable and may not reflect concurrent GSI
-            // additions by other processes. A duplicate UpdateTable for an already-present
-            // GSI will fail with ResourceInUseException.
-            var updates =
-                DynamoTableDefinitionBuilder.BuildMissingGlobalSecondaryIndexUpdates(
-                    table,
-                    existing);
-            for (var i = 0; i < updates.Count; i++)
-            {
-                await clientWrapper
-                    .Client
-                    .UpdateTableAsync(
-                        new UpdateTableRequest
-                        {
-                            TableName = table.TableName,
-                            AttributeDefinitions =
-                                requestsByName[table.TableName].AttributeDefinitions,
-                            GlobalSecondaryIndexUpdates = [updates[i]]
-                        },
-                        cancellationToken)
-                    .ConfigureAwait(false);
-                changed = true;
-                // Always wait between GSI additions: DynamoDB rejects a second UpdateTable while
-                // the first is still in progress. Skip the final wait only when WaitForCompletion
-                // is false and all updates have been submitted.
-                if (lifecycleOptions.WaitForCompletion || i < updates.Count - 1)
-                    await WaitUntilTableActiveAsync(
-                            table.TableName,
-                            lifecycleOptions,
-                            cancellationToken)
-                        .ConfigureAwait(false);
-            }
-
-            return (changed, createdTableName);
         }
-        finally
+
+        if (!tableIsNew && lifecycleOptions.WaitForCompletion && !IsFullyActive(existing))
+            existing = await WaitUntilTableActiveAsync(
+                    table.TableName,
+                    lifecycleOptions,
+                    cancellationToken)
+                .ConfigureAwait(false);
+
+        // When WaitForCompletion is false and the table already existed, `existing` is
+        // the snapshot from the initial DescribeTable and may not reflect concurrent GSI
+        // additions by other processes. A duplicate UpdateTable for an already-present
+        // GSI will fail with ResourceInUseException.
+        var updates =
+            DynamoTableDefinitionBuilder.BuildMissingGlobalSecondaryIndexUpdates(table, existing);
+        for (var i = 0; i < updates.Count; i++)
         {
-            semaphore.Release();
+            await clientWrapper
+                .Client
+                .UpdateTableAsync(
+                    new UpdateTableRequest
+                    {
+                        TableName = table.TableName,
+                        AttributeDefinitions = request.AttributeDefinitions,
+                        GlobalSecondaryIndexUpdates = [updates[i]],
+                    },
+                    cancellationToken)
+                .ConfigureAwait(false);
+            changed = true;
+            // Always wait after GSI additions: DynamoDB rejects overlapping secondary-index
+            // lifecycle operations while table or index status is still changing.
+            await WaitUntilTableActiveAsync(table.TableName, lifecycleOptions, cancellationToken)
+                .ConfigureAwait(false);
         }
+
+        return (changed, createdTableName);
     }
 
     private Task InsertDataAsync(
@@ -360,6 +340,10 @@ internal sealed class DynamoDatabaseCreator(
     private DynamoTableLifecycleOptions GetTableLifecycleOptions()
         => contextOptions.FindExtension<DynamoDbOptionsExtension>()?.TableLifecycleOptions
             ?? new DynamoTableLifecycleOptions();
+
+    private static bool HasSecondaryIndexes(CreateTableRequest request)
+        => request.GlobalSecondaryIndexes is { Count: > 0 }
+            || request.LocalSecondaryIndexes is { Count: > 0 };
 
     private static bool IsFullyActive(TableDescription? table)
         => table is not null

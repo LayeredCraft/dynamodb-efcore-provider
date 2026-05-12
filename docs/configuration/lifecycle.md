@@ -31,15 +31,11 @@ options.UseDynamo(dynamo => dynamo.TableLifecycle(lifecycle =>
 }));
 ```
 
-Set `WaitForCompletion = false` to return after DynamoDB accepts create, update, or delete requests
-without waiting for the final table/index state transition to complete. If multiple missing GSIs
-must be added to the same existing table, `EnsureCreatedAsync` still waits for the table and GSIs to
-become `ACTIVE` between `UpdateTable` calls because DynamoDB accepts only one table/index update at
-a time.
-
-When `WaitForCompletion = false` and a mapped table already exists, `EnsureCreatedAsync` skips
-the `ACTIVE` wait before checking for missing GSIs. If the table is in an `UPDATING` state at that
-point, the `UpdateTable` call for a missing GSI will fail with `ResourceInUseException`.
+Set `WaitForCompletion = false` to return after DynamoDB accepts create or delete requests without
+waiting for the final table state transition to complete. `EnsureCreatedAsync` still waits for
+secondary-index lifecycle operations that DynamoDB requires to be serialized: indexed table creates
+wait until the table and indexes are `ACTIVE`, and missing GSI additions wait after each
+`UpdateTable` call.
 
 ## Existing tables
 
@@ -47,9 +43,9 @@ When a mapped table already exists, `EnsureCreatedAsync` validates the table key
 attribute scalar types, and secondary-index key/projection shapes that the provider can infer from
 EF metadata.
 
-- Missing global secondary indexes are added with `UpdateTable`. The method waits for completion
-    according to `WaitForCompletion`, except that multiple missing GSIs on one table are serialized
-    with an `ACTIVE` wait between updates.
+- Missing global secondary indexes are added with `UpdateTable`. The method waits for the table and
+    GSIs to become `ACTIVE` after each update because DynamoDB rejects overlapping secondary-index
+    lifecycle operations.
 - Local secondary indexes must exist when the table is created. Missing or mismatched LSIs cause an
     exception because DynamoDB cannot add LSIs to an existing table.
 - `Include` secondary-index projection is not supported for lifecycle creation yet because the EF
@@ -81,4 +77,5 @@ APIs are unsupported, configure `UseAsyncSeeding` instead of sync-only `UseSeedi
 
 - [CreateTable](https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_CreateTable.html)
 - [UpdateTable](https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_UpdateTable.html)
+- [Secondary indexes](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/SecondaryIndexes.html)
 - [Local secondary indexes](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/LSI.html)
