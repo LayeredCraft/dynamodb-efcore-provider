@@ -33,7 +33,7 @@ internal static class DynamoTableDefinitionBuilder
         var expected = BuildCreateTableRequest(table);
         ValidateAttributeDefinitions(
             $"table '{table.TableName}'",
-            expected.AttributeDefinitions,
+            GetRequiredExistingAttributeDefinitions(expected, existing),
             existing.AttributeDefinitions);
         ValidateKeySchema($"table '{table.TableName}'", expected.KeySchema, existing.KeySchema);
         ValidateLocalSecondaryIndexes(
@@ -258,6 +258,37 @@ internal static class DynamoTableDefinitionBuilder
             or TypeCode.Single
             or TypeCode.Double
             or TypeCode.Decimal;
+
+    private static List<AttributeDefinition> GetRequiredExistingAttributeDefinitions(
+        CreateTableRequest expected,
+        TableDescription existing)
+    {
+        HashSet<string> requiredNames = new(StringComparer.Ordinal);
+        AddKeyAttributeNames(requiredNames, expected.KeySchema);
+
+        foreach (var expectedIndex in expected.LocalSecondaryIndexes ?? [])
+            AddKeyAttributeNames(requiredNames, expectedIndex.KeySchema);
+
+        var existingGlobalSecondaryIndexNames = (existing.GlobalSecondaryIndexes ?? [])
+            .Select(static index => index.IndexName)
+            .ToHashSet(StringComparer.Ordinal);
+        foreach (var expectedIndex in expected.GlobalSecondaryIndexes ?? [])
+            if (existingGlobalSecondaryIndexNames.Contains(expectedIndex.IndexName))
+                AddKeyAttributeNames(requiredNames, expectedIndex.KeySchema);
+
+        return expected
+            .AttributeDefinitions
+            .Where(definition => requiredNames.Contains(definition.AttributeName))
+            .ToList();
+    }
+
+    private static void AddKeyAttributeNames(
+        HashSet<string> names,
+        List<KeySchemaElement> keySchema)
+    {
+        foreach (var key in keySchema)
+            names.Add(key.AttributeName);
+    }
 
     private static void ValidateAttributeDefinitions(
         string target,
