@@ -9,6 +9,12 @@ public sealed class DynamoTableLifecycleOptions
     /// <remarks>
     ///     When disabled, multiple missing global secondary indexes on one table are still serialized
     ///     with an <c>ACTIVE</c> wait between update requests.
+    ///     <para>
+    ///         When disabled for existing tables, <c>EnsureCreatedAsync</c> does not wait for the
+    ///         table to reach <c>ACTIVE</c> before checking for missing GSIs. If the table is
+    ///         currently in an <c>UPDATING</c> state, the subsequent <c>UpdateTable</c> call will
+    ///         fail with <c>ResourceInUseException</c>.
+    ///     </para>
     /// </remarks>
     public bool WaitForCompletion { get; set; } = true;
 

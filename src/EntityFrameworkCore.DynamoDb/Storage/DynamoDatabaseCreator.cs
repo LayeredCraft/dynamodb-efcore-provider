@@ -358,7 +358,9 @@ internal sealed class DynamoDatabaseCreator(
 
     private static TimeSpan NextPollingDelay(TimeSpan current, TimeSpan maximum, double multiplier)
     {
-        var nextTicks = (long)Math.Ceiling(current.Ticks * multiplier);
+        // Clamp to maximum.Ticks as a double before casting to avoid long overflow when
+        // current.Ticks * multiplier exceeds long.MaxValue.
+        var nextTicks = (long)Math.Min(Math.Ceiling(current.Ticks * multiplier), maximum.Ticks);
         if (nextTicks <= current.Ticks)
             nextTicks = current.Ticks + 1;
 

@@ -167,6 +167,7 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
         {
             (await context.Database.EnsureCreatedAsync(CancellationToken)).Should().BeTrue();
 
+            await WaitUntilActive(tableName);
             var table = await DescribeTable(tableName);
             table
                 .GlobalSecondaryIndexes
@@ -282,6 +283,7 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
     {
         while (true)
         {
+            CancellationToken.ThrowIfCancellationRequested();
             var table = await DescribeTable(tableName);
             if (table.TableStatus == TableStatus.ACTIVE
                 && (table.GlobalSecondaryIndexes ?? []).All(static index
@@ -307,6 +309,7 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
 
         while (true)
         {
+            CancellationToken.ThrowIfCancellationRequested();
             try
             {
                 await Client.DescribeTableAsync(

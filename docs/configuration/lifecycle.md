@@ -37,6 +37,10 @@ must be added to the same existing table, `EnsureCreatedAsync` still waits for t
 become `ACTIVE` between `UpdateTable` calls because DynamoDB accepts only one table/index update at
 a time.
 
+When `WaitForCompletion = false` and a mapped table already exists, `EnsureCreatedAsync` skips
+the `ACTIVE` wait before checking for missing GSIs. If the table is in an `UPDATING` state at that
+point, the `UpdateTable` call for a missing GSI will fail with `ResourceInUseException`.
+
 ## Existing tables
 
 When a mapped table already exists, `EnsureCreatedAsync` validates the table key schema, key
