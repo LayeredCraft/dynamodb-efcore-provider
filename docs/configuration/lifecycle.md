@@ -43,9 +43,11 @@ When a mapped table already exists, `EnsureCreatedAsync` validates the table key
 attribute scalar types, and secondary-index key/projection shapes that the provider can infer from
 EF metadata.
 
-- Missing global secondary indexes are added with `UpdateTable`. The method waits for the table and
-    GSIs to become `ACTIVE` after each update because DynamoDB rejects overlapping secondary-index
-    lifecycle operations.
+- Missing global secondary indexes are added with `UpdateTable` for on-demand (`PAY_PER_REQUEST`)
+    tables. Existing provisioned tables must create missing GSIs externally because DynamoDB
+    requires per-index throughput and provider lifecycle throughput configuration is not exposed
+    yet. The method waits for the table and GSIs to become `ACTIVE` after each update because
+    DynamoDB rejects overlapping secondary-index lifecycle operations.
 - Local secondary indexes must exist when the table is created. Missing or mismatched LSIs cause an
     exception because DynamoDB cannot add LSIs to an existing table.
 - `Include` secondary-index projection is not supported for lifecycle creation yet because the EF

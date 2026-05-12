@@ -60,6 +60,10 @@ internal static class DynamoTableDefinitionBuilder
         {
             if (!existingGsies.TryGetValue(expectedGsi.IndexName, out var existingGsi))
             {
+                if (existing.BillingModeSummary?.BillingMode != BillingMode.PAY_PER_REQUEST)
+                    throw new NotSupportedException(
+                        $"Existing table '{table.TableName}' is missing global secondary index '{expectedGsi.IndexName}', but the table is not explicitly configured for on-demand billing. Create the index externally or use on-demand billing because provider lifecycle throughput configuration is not supported yet.");
+
                 updates.Add(
                     new MissingGlobalSecondaryIndexUpdate(
                         new GlobalSecondaryIndexUpdate

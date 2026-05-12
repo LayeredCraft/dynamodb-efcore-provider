@@ -233,6 +233,18 @@ internal sealed class DynamoDatabaseCreator(
         catch (ResourceNotFoundException)
         {
             tableIsNew = true;
+        }
+
+        if (existing?.TableStatus == TableStatus.DELETING)
+        {
+            await WaitUntilTableDeletedAsync(table.TableName, lifecycleOptions, cancellationToken)
+                .ConfigureAwait(false);
+            tableIsNew = true;
+            existing = null;
+        }
+
+        if (tableIsNew)
+        {
             try
             {
                 existing = (await clientWrapper
@@ -272,6 +284,15 @@ internal sealed class DynamoDatabaseCreator(
                     lifecycleOptions,
                     cancellationToken)
                 .ConfigureAwait(false);
+
+        if (existing is null)
+            existing =
+                (await clientWrapper
+                    .Client
+                    .DescribeTableAsync(
+                        new DescribeTableRequest { TableName = table.TableName },
+                        cancellationToken)
+                    .ConfigureAwait(false)).Table;
 
         // When WaitForCompletion is false and the table already existed, `existing` is
         // the snapshot from the initial DescribeTable and may not reflect concurrent GSI

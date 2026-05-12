@@ -168,6 +168,46 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task EnsureCreatedAsync_RecreatesTableDeletedWithoutWaiting()
+    {
+        var tableName = "ensure-created-recreate-nowait";
+        await DeleteIfExists(tableName);
+        await using var deletingContext = CreateContext<RecreateNoWaitContext>(options
+            => options.TableLifecycle(lifecycle =>
+            {
+                lifecycle.WaitForCompletion = false;
+                lifecycle.InitialPollingDelay = TimeSpan.FromMilliseconds(100);
+            }));
+        await using var creatingContext = CreateContext<RecreateNoWaitContext>(options
+            => options.TableLifecycle(lifecycle =>
+            {
+                lifecycle.InitialPollingDelay = TimeSpan.FromMilliseconds(100);
+                lifecycle.MaxPollingDelay = TimeSpan.FromMilliseconds(200);
+            }));
+
+        try
+        {
+            (await deletingContext.Database.EnsureCreatedAsync(CancellationToken))
+                .Should()
+                .BeTrue();
+            (await deletingContext.Database.EnsureDeletedAsync(CancellationToken))
+                .Should()
+                .BeTrue();
+
+            (await creatingContext.Database.EnsureCreatedAsync(CancellationToken))
+                .Should()
+                .BeTrue();
+
+            var table = await DescribeTable(tableName);
+            table.TableStatus.Should().Be(TableStatus.ACTIVE);
+        }
+        finally
+        {
+            await DeleteIfExists(tableName);
+        }
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task EnsureCreatedAsync_AddsMultipleMissingGsis_WhenWaitForCompletionFalse()
     {
         var tableName = "ensure-created-missing-gsis";
@@ -461,6 +501,20 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
             => modelBuilder.Entity<EnsureItem>(entity =>
             {
                 entity.ToTable("ensure-created-repeat");
+                entity.Property(x => x.Pk).HasAttributeName("pk");
+                entity.HasPartitionKey(x => x.Pk);
+            });
+    }
+
+    public sealed class RecreateNoWaitContext(DbContextOptions<RecreateNoWaitContext> options)
+        : EnsureContextBase(options)
+    {
+        public DbSet<EnsureItem> Items => Set<EnsureItem>();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<EnsureItem>(entity =>
+            {
+                entity.ToTable("ensure-created-recreate-nowait");
                 entity.Property(x => x.Pk).HasAttributeName("pk");
                 entity.HasPartitionKey(x => x.Pk);
             });

@@ -107,6 +107,8 @@ public sealed class DynamoTableDefinitionBuilderTests
         var existing = new TableDescription
         {
             TableName = "Scalars",
+            BillingModeSummary =
+                new BillingModeSummary { BillingMode = BillingMode.PAY_PER_REQUEST },
             AttributeDefinitions = [new AttributeDefinition("pk", ScalarAttributeType.S)],
             KeySchema = [new KeySchemaElement("pk", KeyType.HASH)],
         };
@@ -152,6 +154,8 @@ public sealed class DynamoTableDefinitionBuilderTests
         var existing = new TableDescription
         {
             TableName = "Indexed",
+            BillingModeSummary =
+                new BillingModeSummary { BillingMode = BillingMode.PAY_PER_REQUEST },
             AttributeDefinitions =
             [
                 new("customer", ScalarAttributeType.S),
@@ -184,6 +188,58 @@ public sealed class DynamoTableDefinitionBuilderTests
             .Equal(("customer", ScalarAttributeType.S));
     }
 
+    [Theory(Timeout = TestConfiguration.DefaultTimeout)]
+    [MemberData(nameof(UnsupportedBillingModes))]
+    public void BuildMissingGlobalSecondaryIndexUpdates_RejectsMissingGsiUnlessTableIsOnDemand(
+        BillingMode? billingMode)
+    {
+        using var context = CreateContext<IndexedContext>();
+        var table = context.Model.GetDynamoRuntimeTableModel()!.Tables["Indexed"];
+        var existing = new TableDescription
+        {
+            TableName = "Indexed",
+            BillingModeSummary =
+                billingMode is null
+                    ? null
+                    : new BillingModeSummary { BillingMode = billingMode },
+            AttributeDefinitions =
+            [
+                new AttributeDefinition("pk", ScalarAttributeType.S),
+                new AttributeDefinition("sk", ScalarAttributeType.S),
+                new AttributeDefinition("status", ScalarAttributeType.S),
+            ],
+            KeySchema =
+            [
+                new KeySchemaElement("pk", KeyType.HASH),
+                new KeySchemaElement("sk", KeyType.RANGE),
+            ],
+            LocalSecondaryIndexes =
+            [
+                new LocalSecondaryIndexDescription
+                {
+                    IndexName = "ByStatus",
+                    KeySchema =
+                    [
+                        new KeySchemaElement("pk", KeyType.HASH),
+                        new KeySchemaElement("status", KeyType.RANGE),
+                    ],
+                    Projection = new Projection { ProjectionType = ProjectionType.ALL },
+                },
+            ],
+        };
+
+        Action act = ()
+            => DynamoTableDefinitionBuilder.BuildMissingGlobalSecondaryIndexUpdates(
+                table,
+                existing);
+
+        act
+            .Should()
+            .Throw<NotSupportedException>()
+            .WithMessage(
+                "*table 'Indexed'*missing global secondary index 'ByCustomer'*not explicitly configured for on-demand billing*throughput configuration is not supported*");
+    }
+
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void
         BuildMissingGlobalSecondaryIndexUpdates_AllowsMissingAttributeDefinitionsForMissingGsi()
@@ -193,6 +249,8 @@ public sealed class DynamoTableDefinitionBuilderTests
         var existing = new TableDescription
         {
             TableName = "Indexed",
+            BillingModeSummary =
+                new BillingModeSummary { BillingMode = BillingMode.PAY_PER_REQUEST },
             AttributeDefinitions =
             [
                 new AttributeDefinition("pk", ScalarAttributeType.S),
@@ -345,6 +403,9 @@ public sealed class DynamoTableDefinitionBuilderTests
             .Throw<InvalidOperationException>()
             .WithMessage($"*missing expected key attribute '{attributeName}'*");
     }
+
+    public static IEnumerable<object?[]> UnsupportedBillingModes()
+        => [[null], [BillingMode.PROVISIONED]];
 
     private static TContext CreateContext<TContext>() where TContext : DbContext
     {
