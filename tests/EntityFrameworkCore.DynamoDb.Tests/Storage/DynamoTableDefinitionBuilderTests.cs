@@ -1,0 +1,514 @@
+using Amazon.DynamoDBv2;
+using Amazon.DynamoDBv2.Model;
+using EntityFrameworkCore.DynamoDb.Extensions;
+using EntityFrameworkCore.DynamoDb.Metadata;
+using EntityFrameworkCore.DynamoDb.Storage.Internal;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+
+namespace EntityFrameworkCore.DynamoDb.Tests.Storage;
+
+/// <summary>Tests DynamoDB table request mapping from EF runtime metadata.</summary>
+public sealed class DynamoTableDefinitionBuilderTests
+{
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void BuildCreateTableRequests_MapsPkOnlyTable()
+    {
+        using var context = CreateContext<PkOnlyContext>();
+
+        var request = BuildSingleRequest(context);
+
+        request.TableName.Should().Be("PkOnly");
+        request.BillingMode.Should().Be(BillingMode.PAY_PER_REQUEST);
+        request
+            .KeySchema
+            .Should()
+            .ContainSingle()
+            .Which
+            .Should()
+            .BeEquivalentTo(new KeySchemaElement("pk", KeyType.HASH));
+        request
+            .AttributeDefinitions
+            .Should()
+            .ContainSingle()
+            .Which
+            .Should()
+            .BeEquivalentTo(new AttributeDefinition("pk", ScalarAttributeType.S));
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void BuildCreateTableRequests_MapsPkSkGsiAndLsi()
+    {
+        using var context = CreateContext<IndexedContext>();
+
+        var request = BuildSingleRequest(context);
+
+        request
+            .KeySchema
+            .Select(static key => (key.AttributeName, key.KeyType))
+            .Should()
+            .Equal(("pk", KeyType.HASH), ("sk", KeyType.RANGE));
+        request
+            .AttributeDefinitions
+            .Select(static definition => (definition.AttributeName, definition.AttributeType))
+            .Should()
+            .Equal(
+                ("customer", ScalarAttributeType.S),
+                ("pk", ScalarAttributeType.S),
+                ("sk", ScalarAttributeType.S),
+                ("status", ScalarAttributeType.S));
+        request
+            .GlobalSecondaryIndexes
+            .Should()
+            .ContainSingle()
+            .Which
+            .Should()
+            .Match<GlobalSecondaryIndex>(index
+                => index.IndexName == "ByCustomer"
+                && index.Projection.ProjectionType == ProjectionType.ALL
+                && index.KeySchema[0].AttributeName == "customer"
+                && index.KeySchema[0].KeyType == KeyType.HASH);
+        request
+            .LocalSecondaryIndexes
+            .Should()
+            .ContainSingle()
+            .Which
+            .Should()
+            .Match<LocalSecondaryIndex>(index
+                => index.IndexName == "ByStatus"
+                && index
+                    .KeySchema
+                    .Select(static key => key.AttributeName)
+                    .SequenceEqual(new[] { "pk", "status" }));
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void BuildCreateTableRequests_MapsScalarKeyTypes()
+    {
+        using var context = CreateContext<ScalarTypeContext>();
+
+        var request = BuildSingleRequest(context);
+
+        request
+            .AttributeDefinitions
+            .Select(static definition => (definition.AttributeName, definition.AttributeType))
+            .Should()
+            .Equal(
+                ("bytes", ScalarAttributeType.B),
+                ("number", ScalarAttributeType.N),
+                ("pk", ScalarAttributeType.S));
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void BuildMissingGlobalSecondaryIndexUpdates_ReturnsAttributeDefinitionsPerUpdate()
+    {
+        using var context = CreateContext<ScalarTypeContext>();
+        var table = context.Model.GetDynamoRuntimeTableModel()!.Tables["Scalars"];
+        var existing = new TableDescription
+        {
+            TableName = "Scalars",
+            BillingModeSummary =
+                new BillingModeSummary { BillingMode = BillingMode.PAY_PER_REQUEST },
+            AttributeDefinitions = [new AttributeDefinition("pk", ScalarAttributeType.S)],
+            KeySchema = [new KeySchemaElement("pk", KeyType.HASH)],
+        };
+
+        var updates =
+            DynamoTableDefinitionBuilder.BuildMissingGlobalSecondaryIndexUpdates(table, existing);
+
+        updates
+            .Select(update => (
+                update.Update.Create.IndexName,
+                AttributeDefinitions: update
+                    .AttributeDefinitions
+                    .Select(static definition
+                        => (definition.AttributeName, definition.AttributeType))
+                    .ToArray()))
+            .Should()
+            .BeEquivalentTo(
+                [
+                    ("ByBytes", new[] { ("bytes", ScalarAttributeType.B) }),
+                    ("ByNumber", new[] { ("number", ScalarAttributeType.N) }),
+                ],
+                options => options.WithStrictOrdering());
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void BuildCreateTableRequests_RejectsIncludeProjection()
+    {
+        using var context = CreateContext<IncludeProjectionContext>();
+
+        Action act = () => BuildSingleRequest(context);
+
+        act
+            .Should()
+            .Throw<NotSupportedException>()
+            .WithMessage("*Include projection*non-key projected attributes*");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void BuildMissingGlobalSecondaryIndexUpdates_ValidatesExistingAndReturnsMissingGsi()
+    {
+        using var context = CreateContext<IndexedContext>();
+        var table = context.Model.GetDynamoRuntimeTableModel()!.Tables["Indexed"];
+        var existing = new TableDescription
+        {
+            TableName = "Indexed",
+            BillingModeSummary =
+                new BillingModeSummary { BillingMode = BillingMode.PAY_PER_REQUEST },
+            AttributeDefinitions =
+            [
+                new("customer", ScalarAttributeType.S),
+                new("pk", ScalarAttributeType.S),
+                new("sk", ScalarAttributeType.S),
+                new("status", ScalarAttributeType.S),
+                new("extra", ScalarAttributeType.N),
+            ],
+            KeySchema = [new("pk", KeyType.HASH), new("sk", KeyType.RANGE)],
+            LocalSecondaryIndexes =
+            [
+                new LocalSecondaryIndexDescription
+                {
+                    IndexName = "ByStatus",
+                    KeySchema = [new("pk", KeyType.HASH), new("status", KeyType.RANGE)],
+                    Projection = new Projection { ProjectionType = ProjectionType.ALL },
+                },
+            ],
+        };
+
+        var updates =
+            DynamoTableDefinitionBuilder.BuildMissingGlobalSecondaryIndexUpdates(table, existing);
+
+        var update = updates.Should().ContainSingle().Subject;
+        update.Update.Create.IndexName.Should().Be("ByCustomer");
+        update
+            .AttributeDefinitions
+            .Select(static definition => (definition.AttributeName, definition.AttributeType))
+            .Should()
+            .Equal(("customer", ScalarAttributeType.S));
+    }
+
+    [Theory(Timeout = TestConfiguration.DefaultTimeout)]
+    [MemberData(nameof(UnsupportedBillingModes))]
+    public void BuildMissingGlobalSecondaryIndexUpdates_RejectsMissingGsiUnlessTableIsOnDemand(
+        BillingMode? billingMode)
+    {
+        using var context = CreateContext<IndexedContext>();
+        var table = context.Model.GetDynamoRuntimeTableModel()!.Tables["Indexed"];
+        var existing = new TableDescription
+        {
+            TableName = "Indexed",
+            BillingModeSummary =
+                billingMode is null
+                    ? null
+                    : new BillingModeSummary { BillingMode = billingMode },
+            AttributeDefinitions =
+            [
+                new AttributeDefinition("pk", ScalarAttributeType.S),
+                new AttributeDefinition("sk", ScalarAttributeType.S),
+                new AttributeDefinition("status", ScalarAttributeType.S),
+            ],
+            KeySchema =
+            [
+                new KeySchemaElement("pk", KeyType.HASH),
+                new KeySchemaElement("sk", KeyType.RANGE),
+            ],
+            LocalSecondaryIndexes =
+            [
+                new LocalSecondaryIndexDescription
+                {
+                    IndexName = "ByStatus",
+                    KeySchema =
+                    [
+                        new KeySchemaElement("pk", KeyType.HASH),
+                        new KeySchemaElement("status", KeyType.RANGE),
+                    ],
+                    Projection = new Projection { ProjectionType = ProjectionType.ALL },
+                },
+            ],
+        };
+
+        Action act = ()
+            => DynamoTableDefinitionBuilder.BuildMissingGlobalSecondaryIndexUpdates(
+                table,
+                existing);
+
+        act
+            .Should()
+            .Throw<NotSupportedException>()
+            .WithMessage(
+                "*table 'Indexed'*missing global secondary index 'ByCustomer'*not explicitly configured for on-demand billing*throughput configuration is not supported*");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void
+        BuildMissingGlobalSecondaryIndexUpdates_AllowsMissingAttributeDefinitionsForMissingGsi()
+    {
+        using var context = CreateContext<IndexedContext>();
+        var table = context.Model.GetDynamoRuntimeTableModel()!.Tables["Indexed"];
+        var existing = new TableDescription
+        {
+            TableName = "Indexed",
+            BillingModeSummary =
+                new BillingModeSummary { BillingMode = BillingMode.PAY_PER_REQUEST },
+            AttributeDefinitions =
+            [
+                new AttributeDefinition("pk", ScalarAttributeType.S),
+                new AttributeDefinition("sk", ScalarAttributeType.S),
+                new AttributeDefinition("status", ScalarAttributeType.S),
+            ],
+            KeySchema =
+            [
+                new KeySchemaElement("pk", KeyType.HASH),
+                new KeySchemaElement("sk", KeyType.RANGE),
+            ],
+            LocalSecondaryIndexes =
+            [
+                new LocalSecondaryIndexDescription
+                {
+                    IndexName = "ByStatus",
+                    KeySchema =
+                    [
+                        new KeySchemaElement("pk", KeyType.HASH),
+                        new KeySchemaElement("status", KeyType.RANGE),
+                    ],
+                    Projection = new Projection { ProjectionType = ProjectionType.ALL },
+                },
+            ],
+        };
+
+        var updates =
+            DynamoTableDefinitionBuilder.BuildMissingGlobalSecondaryIndexUpdates(table, existing);
+
+        var update = updates.Should().ContainSingle().Subject;
+        update.Update.Create.IndexName.Should().Be("ByCustomer");
+        update
+            .AttributeDefinitions
+            .Select(static definition => (definition.AttributeName, definition.AttributeType))
+            .Should()
+            .Equal(("customer", ScalarAttributeType.S));
+    }
+
+    [Theory(Timeout = TestConfiguration.DefaultTimeout)]
+    [InlineData("pk")]
+    [InlineData("sk")]
+    [InlineData("customer")]
+    [InlineData("status")]
+    public void BuildMissingGlobalSecondaryIndexUpdates_RejectsMismatchedKeyAttributeType(
+        string attributeName)
+    {
+        using var context = CreateContext<IndexedContext>();
+        var table = context.Model.GetDynamoRuntimeTableModel()!.Tables["Indexed"];
+        var existing = new TableDescription
+        {
+            TableName = "Indexed",
+            AttributeDefinitions =
+            [
+                new("customer", ScalarAttributeType.S),
+                new("pk", ScalarAttributeType.S),
+                new("sk", ScalarAttributeType.S),
+                new("status", ScalarAttributeType.S),
+            ],
+            KeySchema = [new("pk", KeyType.HASH), new("sk", KeyType.RANGE)],
+            GlobalSecondaryIndexes =
+            [
+                new GlobalSecondaryIndexDescription
+                {
+                    IndexName = "ByCustomer",
+                    KeySchema = [new("customer", KeyType.HASH)],
+                    Projection = new Projection { ProjectionType = ProjectionType.ALL },
+                },
+            ],
+            LocalSecondaryIndexes =
+            [
+                new LocalSecondaryIndexDescription
+                {
+                    IndexName = "ByStatus",
+                    KeySchema = [new("pk", KeyType.HASH), new("status", KeyType.RANGE)],
+                    Projection = new Projection { ProjectionType = ProjectionType.ALL },
+                },
+            ],
+        };
+        existing.AttributeDefinitions
+            .Single(definition => definition.AttributeName == attributeName)
+            .AttributeType = ScalarAttributeType.N;
+
+        Action act = ()
+            => DynamoTableDefinitionBuilder
+                .BuildMissingGlobalSecondaryIndexUpdates(table, existing);
+
+        act
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage($"*key attribute definition for '{attributeName}'*does not match*");
+    }
+
+    [Theory(Timeout = TestConfiguration.DefaultTimeout)]
+    [InlineData("pk")]
+    [InlineData("sk")]
+    [InlineData("customer")]
+    [InlineData("status")]
+    public void BuildMissingGlobalSecondaryIndexUpdates_RejectsMissingKeyAttribute(
+        string attributeName)
+    {
+        using var context = CreateContext<IndexedContext>();
+        var table = context.Model.GetDynamoRuntimeTableModel()!.Tables["Indexed"];
+        var existing = new TableDescription
+        {
+            TableName = "Indexed",
+            AttributeDefinitions =
+            [
+                new AttributeDefinition("customer", ScalarAttributeType.S),
+                new AttributeDefinition("pk", ScalarAttributeType.S),
+                new AttributeDefinition("sk", ScalarAttributeType.S),
+                new AttributeDefinition("status", ScalarAttributeType.S),
+            ],
+            KeySchema =
+            [
+                new KeySchemaElement("pk", KeyType.HASH),
+                new KeySchemaElement("sk", KeyType.RANGE),
+            ],
+            GlobalSecondaryIndexes =
+            [
+                new GlobalSecondaryIndexDescription
+                {
+                    IndexName = "ByCustomer",
+                    KeySchema = [new KeySchemaElement("customer", KeyType.HASH)],
+                    Projection = new Projection { ProjectionType = ProjectionType.ALL },
+                },
+            ],
+            LocalSecondaryIndexes =
+            [
+                new LocalSecondaryIndexDescription
+                {
+                    IndexName = "ByStatus",
+                    KeySchema =
+                    [
+                        new KeySchemaElement("pk", KeyType.HASH),
+                        new KeySchemaElement("status", KeyType.RANGE),
+                    ],
+                    Projection = new Projection { ProjectionType = ProjectionType.ALL },
+                },
+            ],
+        };
+        existing.AttributeDefinitions.RemoveAll(definition
+            => definition.AttributeName == attributeName);
+
+        Action act = ()
+            => DynamoTableDefinitionBuilder
+                .BuildMissingGlobalSecondaryIndexUpdates(table, existing);
+
+        act
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage($"*missing expected key attribute '{attributeName}'*");
+    }
+
+    public static IEnumerable<object?[]> UnsupportedBillingModes()
+        => [[null], [BillingMode.PROVISIONED]];
+
+    private static TContext CreateContext<TContext>() where TContext : DbContext
+    {
+        var options = new DbContextOptionsBuilder<TContext>()
+            .UseDynamo()
+            .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
+            .Options;
+
+        return (TContext)Activator.CreateInstance(typeof(TContext), options)!;
+    }
+
+    private static CreateTableRequest BuildSingleRequest(DbContext context)
+        => DynamoTableDefinitionBuilder
+            .BuildCreateTableRequests(context.Model.GetDynamoRuntimeTableModel()!)
+            .Should()
+            .ContainSingle()
+            .Subject;
+
+    private sealed class PkOnlyContext(DbContextOptions<PkOnlyContext> options) : DbContext(options)
+    {
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<PkOnlyEntity>(entity =>
+            {
+                entity.ToTable("PkOnly");
+                entity.Property(x => x.Id).HasAttributeName("pk");
+                entity.HasPartitionKey(x => x.Id);
+            });
+    }
+
+    private sealed class IndexedContext(DbContextOptions<IndexedContext> options) : DbContext(
+        options)
+    {
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<IndexedEntity>(entity =>
+            {
+                entity.ToTable("Indexed");
+                entity.Property(x => x.Id).HasAttributeName("pk");
+                entity.Property(x => x.Sort).HasAttributeName("sk");
+                entity.Property(x => x.Customer).HasAttributeName("customer");
+                entity.Property(x => x.Status).HasAttributeName("status");
+                entity.HasPartitionKey(x => x.Id);
+                entity.HasSortKey(x => x.Sort);
+                entity.HasGlobalSecondaryIndex("ByCustomer", x => x.Customer);
+                entity.HasLocalSecondaryIndex("ByStatus", x => x.Status);
+            });
+    }
+
+    private sealed class ScalarTypeContext(DbContextOptions<ScalarTypeContext> options) : DbContext(
+        options)
+    {
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<ScalarTypeEntity>(entity =>
+            {
+                entity.ToTable("Scalars");
+                entity.Property(x => x.Id).HasAttributeName("pk");
+                entity.Property(x => x.Number).HasAttributeName("number");
+                entity.Property(x => x.Bytes).HasAttributeName("bytes");
+                entity.HasPartitionKey(x => x.Id);
+                entity.HasGlobalSecondaryIndex("ByNumber", x => x.Number);
+                entity.HasGlobalSecondaryIndex("ByBytes", x => x.Bytes);
+            });
+    }
+
+    private sealed class IncludeProjectionContext(
+        DbContextOptions<IncludeProjectionContext> options) : DbContext(options)
+    {
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<IndexedEntity>(entity =>
+            {
+                entity.ToTable("IncludeProjection");
+                entity.Property(x => x.Id).HasAttributeName("pk");
+                entity.Property(x => x.Customer).HasAttributeName("customer");
+                entity.HasPartitionKey(x => x.Id);
+                entity
+                    .HasGlobalSecondaryIndex("ByCustomer", x => x.Customer)
+                    .IndexBuilder
+                    .Metadata
+                    .SetSecondaryIndexProjectionType(DynamoSecondaryIndexProjectionType.Include);
+            });
+    }
+
+    private sealed class PkOnlyEntity
+    {
+        public string Id { get; set; } = null!;
+    }
+
+    private sealed class IndexedEntity
+    {
+        public string Id { get; set; } = null!;
+
+        public string Sort { get; set; } = null!;
+
+        public string Customer { get; set; } = null!;
+
+        public string Status { get; set; } = null!;
+    }
+
+    private sealed class ScalarTypeEntity
+    {
+        public string Id { get; set; } = null!;
+
+        public int Number { get; set; }
+
+        public byte[] Bytes { get; set; } = null!;
+    }
+}

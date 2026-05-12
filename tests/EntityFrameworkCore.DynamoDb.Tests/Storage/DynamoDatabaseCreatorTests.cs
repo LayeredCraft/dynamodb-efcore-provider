@@ -1,5 +1,8 @@
+using Amazon.DynamoDBv2;
+using Amazon.DynamoDBv2.Model;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using NSubstitute;
 
 namespace EntityFrameworkCore.DynamoDb.Tests.Storage;
 
@@ -7,7 +10,7 @@ namespace EntityFrameworkCore.DynamoDb.Tests.Storage;
 public sealed class DynamoDatabaseCreatorTests
 {
     private const string DatabaseLifecycleNotSupported =
-        "The DynamoDB database provider does not support database lifecycle operations.";
+        "The DynamoDB database provider only supports async database lifecycle operations. Use EnsureCreatedAsync, EnsureDeletedAsync, or CanConnectAsync.";
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void EnsureCreated_ThrowsNotSupportedException()
@@ -20,16 +23,10 @@ public sealed class DynamoDatabaseCreatorTests
         exception.Message.Should().Be(DatabaseLifecycleNotSupported);
     }
 
-    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public async Task EnsureCreatedAsync_ThrowsNotSupportedException()
-    {
-        await using var context = CreateContext();
-
-        var exception = await Assert.ThrowsAsync<NotSupportedException>(()
-            => context.Database.EnsureCreatedAsync(TestContext.Current.CancellationToken));
-
-        exception.Message.Should().Be(DatabaseLifecycleNotSupported);
-    }
+    [Fact(
+        Skip =
+            "EnsureCreatedAsync now performs AWS table lifecycle operations; covered by integration tests.")]
+    public Task EnsureCreatedAsync_ThrowsNotSupportedException() => Task.CompletedTask;
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void EnsureDeleted_ThrowsNotSupportedException()
@@ -42,16 +39,10 @@ public sealed class DynamoDatabaseCreatorTests
         exception.Message.Should().Be(DatabaseLifecycleNotSupported);
     }
 
-    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public async Task EnsureDeletedAsync_ThrowsNotSupportedException()
-    {
-        await using var context = CreateContext();
-
-        var exception = await Assert.ThrowsAsync<NotSupportedException>(()
-            => context.Database.EnsureDeletedAsync(TestContext.Current.CancellationToken));
-
-        exception.Message.Should().Be(DatabaseLifecycleNotSupported);
-    }
+    [Fact(
+        Skip =
+            "EnsureDeletedAsync now performs AWS table lifecycle operations; covered by integration tests.")]
+    public Task EnsureDeletedAsync_ThrowsNotSupportedException() => Task.CompletedTask;
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void CanConnect_ThrowsNotSupportedException()
@@ -64,20 +55,52 @@ public sealed class DynamoDatabaseCreatorTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public async Task CanConnectAsync_ThrowsNotSupportedException()
+    public async Task CanConnectAsync_ReturnsTrue_WhenListTablesSucceeds()
     {
-        await using var context = CreateContext();
+        var client = Substitute.For<IAmazonDynamoDB>();
+        client
+            .ListTablesAsync(Arg.Any<ListTablesRequest>(), Arg.Any<CancellationToken>())
+            .Returns(new ListTablesResponse());
+        await using var context = CreateContext(client);
 
-        var exception = await Assert.ThrowsAsync<NotSupportedException>(()
-            => context.Database.CanConnectAsync(TestContext.Current.CancellationToken));
+        var result = await context.Database.CanConnectAsync();
 
-        exception.Message.Should().Be(DatabaseLifecycleNotSupported);
+        result.Should().BeTrue();
     }
 
-    private static DatabaseCreatorContext CreateContext()
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task CanConnectAsync_RethrowsOperationCanceledException()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        client
+            .ListTablesAsync(Arg.Any<ListTablesRequest>(), Arg.Any<CancellationToken>())
+            .Returns<Task<ListTablesResponse>>(_ => throw new OperationCanceledException());
+        await using var context = CreateContext(client);
+
+        var act = () => context.Database.CanConnectAsync();
+
+        await act.Should().ThrowAsync<OperationCanceledException>();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task CanConnectAsync_ReturnsFalse_WhenListTablesFails()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        client
+            .ListTablesAsync(Arg.Any<ListTablesRequest>(), Arg.Any<CancellationToken>())
+            .Returns<Task<ListTablesResponse>>(_ => throw new AmazonDynamoDBException("Boom"));
+        await using var context = CreateContext(client);
+
+        var result = await context.Database.CanConnectAsync();
+
+        result.Should().BeFalse();
+    }
+
+    private static DatabaseCreatorContext CreateContext(IAmazonDynamoDB? client = null)
     {
         var options = new DbContextOptionsBuilder<DatabaseCreatorContext>()
-            .UseDynamo()
+            .UseDynamo(options
+                => options.DynamoDbClient(client ?? Substitute.For<IAmazonDynamoDB>()))
             .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
             .Options;
 

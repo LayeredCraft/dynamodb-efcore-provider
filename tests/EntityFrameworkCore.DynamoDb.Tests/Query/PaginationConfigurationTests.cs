@@ -22,6 +22,11 @@ public class PaginationConfigurationTests
         extension.MaxBatchWriteSize.Should().Be(25);
         extension.ReturnConsumedCapacity.Should().BeNull();
         extension.ConsistentRead.Should().BeFalse();
+        extension.TableLifecycleOptions.WaitForCompletion.Should().BeTrue();
+        extension.TableLifecycleOptions.InitialPollingDelay.Should().Be(TimeSpan.FromSeconds(1));
+        extension.TableLifecycleOptions.MaxPollingDelay.Should().Be(TimeSpan.FromSeconds(5));
+        extension.TableLifecycleOptions.BackoffMultiplier.Should().Be(1.5);
+        extension.TableLifecycleOptions.Timeout.Should().Be(TimeSpan.FromMinutes(10));
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
@@ -73,7 +78,15 @@ public class PaginationConfigurationTests
             .WithMaxTransactionSize(42)
             .WithMaxBatchWriteSize(11)
             .WithReturnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
-            .WithConsistentRead(true);
+            .WithConsistentRead(true)
+            .WithTableLifecycleOptions(options =>
+            {
+                options.WaitForCompletion = false;
+                options.InitialPollingDelay = TimeSpan.FromMilliseconds(10);
+                options.MaxPollingDelay = TimeSpan.FromMilliseconds(20);
+                options.BackoffMultiplier = 2;
+                options.Timeout = TimeSpan.FromSeconds(1);
+            });
 
         // Clone is protected; trigger via a With method.
         var cloned =
@@ -91,6 +104,11 @@ public class PaginationConfigurationTests
         cloned.MaxBatchWriteSize.Should().Be(11);
         cloned.ReturnConsumedCapacity.Should().Be(ReturnConsumedCapacity.TOTAL);
         cloned.ConsistentRead.Should().BeTrue();
+        cloned.TableLifecycleOptions.WaitForCompletion.Should().BeFalse();
+        cloned.TableLifecycleOptions.InitialPollingDelay.Should().Be(TimeSpan.FromMilliseconds(10));
+        cloned.TableLifecycleOptions.MaxPollingDelay.Should().Be(TimeSpan.FromMilliseconds(20));
+        cloned.TableLifecycleOptions.BackoffMultiplier.Should().Be(2);
+        cloned.TableLifecycleOptions.Timeout.Should().Be(TimeSpan.FromSeconds(1));
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
@@ -189,6 +207,34 @@ public class PaginationConfigurationTests
         extension!.MaxBatchWriteSize.Should().Be(9);
     }
 
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void UseDynamo_ConfigureTableLifecycle_StoresValueOnOptionsExtension()
+    {
+        var optionsBuilder = new DbContextOptionsBuilder();
+
+        optionsBuilder.UseDynamo(options => options.TableLifecycle(lifecycle =>
+        {
+            lifecycle.WaitForCompletion = false;
+            lifecycle.InitialPollingDelay = TimeSpan.FromMilliseconds(100);
+            lifecycle.MaxPollingDelay = TimeSpan.FromSeconds(1);
+            lifecycle.BackoffMultiplier = 2;
+            lifecycle.Timeout = TimeSpan.FromSeconds(30);
+        }));
+
+        var extension = optionsBuilder.Options.FindExtension<DynamoDbOptionsExtension>();
+
+        extension.Should().NotBeNull();
+        extension!.TableLifecycleOptions.WaitForCompletion.Should().BeFalse();
+        extension
+            .TableLifecycleOptions
+            .InitialPollingDelay
+            .Should()
+            .Be(TimeSpan.FromMilliseconds(100));
+        extension.TableLifecycleOptions.MaxPollingDelay.Should().Be(TimeSpan.FromSeconds(1));
+        extension.TableLifecycleOptions.BackoffMultiplier.Should().Be(2);
+        extension.TableLifecycleOptions.Timeout.Should().Be(TimeSpan.FromSeconds(30));
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(101)]
@@ -209,6 +255,32 @@ public class PaginationConfigurationTests
         var extension = new DynamoDbOptionsExtension();
 
         Action act = () => extension.WithMaxBatchWriteSize(invalidValue);
+
+        act.Should().Throw<InvalidOperationException>();
+    }
+
+    [Theory(Timeout = TestConfiguration.DefaultTimeout)]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    [InlineData(double.NegativeInfinity)]
+    [InlineData(0.999)]
+    public void WithTableLifecycleOptions_InvalidBackoffMultiplier_Throws(double multiplier)
+    {
+        var extension = new DynamoDbOptionsExtension();
+
+        Action act = () => extension.WithTableLifecycleOptions(options
+            => options.BackoffMultiplier = multiplier);
+
+        act.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void WithTableLifecycleOptions_InvalidInitialPollingDelay_Throws()
+    {
+        var extension = new DynamoDbOptionsExtension();
+
+        Action act = () => extension.WithTableLifecycleOptions(options
+            => options.InitialPollingDelay = TimeSpan.Zero);
 
         act.Should().Throw<InvalidOperationException>();
     }

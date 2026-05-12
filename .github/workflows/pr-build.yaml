@@ -7,7 +7,7 @@ on:
 permissions: write-all
 jobs:
   build:
-    uses: LayeredCraft/devops-templates/.github/workflows/pr-build.yaml@v8.1
+    uses: LayeredCraft/devops-templates/.github/workflows/pr-build.yaml@v8.2
     with:
       solution: EntityFrameworkCore.DynamoDb.slnx
       hasTests: true

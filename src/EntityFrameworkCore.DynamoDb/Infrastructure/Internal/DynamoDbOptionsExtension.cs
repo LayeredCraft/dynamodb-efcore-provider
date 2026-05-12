@@ -1,5 +1,6 @@
 using Amazon.DynamoDBv2;
 using EntityFrameworkCore.DynamoDb.Extensions;
+using EntityFrameworkCore.DynamoDb.Infrastructure;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -42,6 +43,9 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
 
     /// <summary>Controls whether DynamoDB should use strongly consistent reads by default.</summary>
     public bool ConsistentRead { get; private set; }
+
+    /// <summary>Configures waits used by DynamoDB table lifecycle operations.</summary>
+    public DynamoTableLifecycleOptions TableLifecycleOptions { get; private set; } = new();
 
     /// <summary>Registers provider services in the EF Core internal service container.</summary>
     public virtual void ApplyServices(IServiceCollection services)
@@ -170,6 +174,20 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
         return clone;
     }
 
+    /// <summary>Configures DynamoDB table lifecycle waits.</summary>
+    public virtual DynamoDbOptionsExtension WithTableLifecycleOptions(
+        Action<DynamoTableLifecycleOptions> configure)
+    {
+        var options = TableLifecycleOptions.Clone();
+        configure(options);
+        options.Validate();
+
+        var clone = Clone();
+        clone.TableLifecycleOptions = options;
+
+        return clone;
+    }
+
     /// <summary>Creates a copy of this extension with the current option values.</summary>
     protected virtual DynamoDbOptionsExtension Clone()
         => new()
@@ -183,6 +201,7 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
             MaxBatchWriteSize = MaxBatchWriteSize,
             ReturnConsumedCapacity = ReturnConsumedCapacity,
             ConsistentRead = ConsistentRead,
+            TableLifecycleOptions = TableLifecycleOptions.Clone(),
         };
 
     /// <summary>Represents the DynamoOptionsExtensionInfo type.</summary>
@@ -248,6 +267,11 @@ public class DynamoDbOptionsExtension : IDbContextOptionsExtension
                     + $"MaxBatchWriteSize={Extension.MaxBatchWriteSize},"
                     + $"ReturnConsumedCapacity={Extension.ReturnConsumedCapacity},"
                     + $"ConsistentRead={Extension.ConsistentRead},"
+                    + $"TableLifecycleWaitForCompletion={Extension.TableLifecycleOptions.WaitForCompletion},"
+                    + $"TableLifecycleInitialPollingDelay={Extension.TableLifecycleOptions.InitialPollingDelay},"
+                    + $"TableLifecycleMaxPollingDelay={Extension.TableLifecycleOptions.MaxPollingDelay},"
+                    + $"TableLifecycleBackoffMultiplier={Extension.TableLifecycleOptions.BackoffMultiplier},"
+                    + $"TableLifecycleTimeout={Extension.TableLifecycleOptions.Timeout},"
                     + $"DynamoDbClient={Extension.DynamoDbClient is not null},"
                     + $"DynamoDbClientConfig={Extension.DynamoDbClientConfig is not null},"
                     + $"DynamoDbClientConfigAction={Extension.DynamoDbClientConfigAction is not null}";
