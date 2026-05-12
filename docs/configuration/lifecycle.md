@@ -32,15 +32,20 @@ options.UseDynamo(dynamo => dynamo.TableLifecycle(lifecycle =>
 ```
 
 Set `WaitForCompletion = false` to return after DynamoDB accepts create, update, or delete requests
-without waiting for the table/index state transition to complete.
+without waiting for the final table/index state transition to complete. If multiple missing GSIs
+must be added to the same existing table, `EnsureCreatedAsync` still waits for the table and GSIs to
+become `ACTIVE` between `UpdateTable` calls because DynamoDB accepts only one table/index update at
+a time.
 
 ## Existing tables
 
-When a mapped table already exists, `EnsureCreatedAsync` validates the table key schema and
-secondary-index key/projection shapes that the provider can infer from EF metadata.
+When a mapped table already exists, `EnsureCreatedAsync` validates the table key schema, key
+attribute scalar types, and secondary-index key/projection shapes that the provider can infer from
+EF metadata.
 
-- Missing global secondary indexes are added with `UpdateTable` and the method waits until the
-    table and GSIs are `ACTIVE`.
+- Missing global secondary indexes are added with `UpdateTable`. The method waits for completion
+    according to `WaitForCompletion`, except that multiple missing GSIs on one table are serialized
+    with an `ACTIVE` wait between updates.
 - Local secondary indexes must exist when the table is created. Missing or mismatched LSIs cause an
     exception because DynamoDB cannot add LSIs to an existing table.
 - `Include` secondary-index projection is not supported for lifecycle creation yet because the EF
@@ -60,8 +65,9 @@ throw `NotSupportedException`; use `EnsureCreatedAsync`, `EnsureDeletedAsync`, a
 
 ## Seeding
 
-`HasData` model seed data is inserted only after at least one new table is created. It does not run
-when `EnsureCreatedAsync` only adds a missing GSI to an existing table.
+`HasData` model seed data is inserted only for entity types mapped to tables created by the current
+`EnsureCreatedAsync` call. It does not reseed existing tables, and it does not run when
+`EnsureCreatedAsync` only adds a missing GSI to an existing table.
 
 `UseAsyncSeeding` runs on every `EnsureCreatedAsync` call. Its `created` flag is `true` when a table
 or index was created, and `false` when no schema operation was needed. Because synchronous lifecycle

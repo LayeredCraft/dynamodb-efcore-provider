@@ -3,19 +3,38 @@ namespace EntityFrameworkCore.DynamoDb.Infrastructure;
 /// <summary>Configures DynamoDB table lifecycle management waits.</summary>
 public sealed class DynamoTableLifecycleOptions
 {
-    /// <summary>Gets or sets whether lifecycle APIs wait for DynamoDB management operations to complete.</summary>
+    /// <summary>
+    ///     Gets or sets whether lifecycle APIs wait for DynamoDB management operations to complete.
+    /// </summary>
+    /// <remarks>
+    ///     When disabled, multiple missing global secondary indexes on one table are still serialized
+    ///     with an <c>ACTIVE</c> wait between update requests.
+    /// </remarks>
     public bool WaitForCompletion { get; set; } = true;
 
-    /// <summary>Gets or sets the initial polling delay used while waiting for table lifecycle operations.</summary>
+    /// <summary>
+    ///     Gets or sets the initial polling delay used while waiting for table lifecycle operations.
+    /// </summary>
+    /// <remarks>The value must be greater than <see cref="TimeSpan.Zero" />.</remarks>
     public TimeSpan InitialPollingDelay { get; set; } = TimeSpan.FromSeconds(1);
 
-    /// <summary>Gets or sets the maximum polling delay used while waiting for table lifecycle operations.</summary>
+    /// <summary>
+    ///     Gets or sets the maximum polling delay used while waiting for table lifecycle operations.
+    /// </summary>
+    /// <remarks>
+    ///     The value must be greater than or equal to <see cref="InitialPollingDelay" />.
+    /// </remarks>
     public TimeSpan MaxPollingDelay { get; set; } = TimeSpan.FromSeconds(5);
 
     /// <summary>Gets or sets the multiplier used to increase polling delay between attempts.</summary>
+    /// <remarks>The value must be finite and greater than or equal to 1.</remarks>
     public double BackoffMultiplier { get; set; } = 1.5;
 
-    /// <summary>Gets or sets the maximum time to wait for each table lifecycle operation, or <see langword="null" /> for no timeout.</summary>
+    /// <summary>
+    ///     Gets or sets the maximum time to wait for each table lifecycle operation, or
+    ///     <see langword="null" /> for no timeout.
+    /// </summary>
+    /// <remarks>When configured, the value must be greater than <see cref="TimeSpan.Zero" />.</remarks>
     public TimeSpan? Timeout { get; set; } = TimeSpan.FromMinutes(10);
 
     /// <summary>Creates a copy of this options instance.</summary>

@@ -92,6 +92,8 @@ public class DynamoDbContextOptionsBuilder(DbContextOptionsBuilder optionsBuilde
     /// <summary>Configures waits used by DynamoDB table lifecycle operations.</summary>
     /// <param name="configure">A callback that mutates lifecycle options.</param>
     /// <returns>The builder for chaining.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="configure" /> is <see langword="null" />.</exception>
+    /// <exception cref="InvalidOperationException">The configured lifecycle options are invalid.</exception>
     public virtual DynamoDbContextOptionsBuilder TableLifecycle(
         Action<DynamoTableLifecycleOptions> configure)
         => WithOption(e => e.WithTableLifecycleOptions(configure.NotNull()));
