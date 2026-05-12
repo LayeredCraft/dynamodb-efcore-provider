@@ -36,6 +36,7 @@ internal sealed class DynamoDatabaseCreator(
     /// <returns><see langword="true" /> when at least one mapped table existed and was deleted.</returns>
     public async Task<bool> EnsureDeletedAsync(CancellationToken cancellationToken = default)
     {
+        var lifecycleOptions = GetTableLifecycleOptions();
         var changed = false;
         foreach (var table in GetRuntimeTableModel()
             .Tables
@@ -57,7 +58,7 @@ internal sealed class DynamoDatabaseCreator(
                 continue;
             }
 
-            if (GetTableLifecycleOptions().WaitForCompletion)
+            if (lifecycleOptions.WaitForCompletion)
                 await WaitUntilTableDeletedAsync(table.TableName, cancellationToken)
                     .ConfigureAwait(false);
         }
@@ -143,6 +144,7 @@ internal sealed class DynamoDatabaseCreator(
             DynamoTableDefinitionBuilder
                 .BuildCreateTableRequests(runtimeModel)
                 .ToDictionary(static request => request.TableName, StringComparer.Ordinal);
+        var lifecycleOptions = GetTableLifecycleOptions();
         var changed = false;
         HashSet<string> createdTables = new(StringComparer.Ordinal);
 
@@ -150,6 +152,7 @@ internal sealed class DynamoDatabaseCreator(
             static table => table.TableName,
             StringComparer.Ordinal))
         {
+            var tableIsNew = false;
             TableDescription? existing = null;
             try
             {
@@ -163,6 +166,7 @@ internal sealed class DynamoDatabaseCreator(
             }
             catch (ResourceNotFoundException)
             {
+                tableIsNew = true;
                 try
                 {
                     existing = (await clientWrapper
@@ -177,7 +181,7 @@ internal sealed class DynamoDatabaseCreator(
                     // Creation race: fall through to describe/wait.
                 }
 
-                if (GetTableLifecycleOptions().WaitForCompletion)
+                if (lifecycleOptions.WaitForCompletion)
                     existing =
                         await WaitUntilTableActiveAsync(table.TableName, cancellationToken)
                             .ConfigureAwait(false);
@@ -191,7 +195,7 @@ internal sealed class DynamoDatabaseCreator(
                             .ConfigureAwait(false)).Table;
             }
 
-            if (GetTableLifecycleOptions().WaitForCompletion)
+            if (!tableIsNew && lifecycleOptions.WaitForCompletion)
                 existing = await WaitUntilTableActiveAsync(table.TableName, cancellationToken)
                     .ConfigureAwait(false);
             var updates =
@@ -213,7 +217,7 @@ internal sealed class DynamoDatabaseCreator(
                         cancellationToken)
                     .ConfigureAwait(false);
                 changed = true;
-                if (GetTableLifecycleOptions().WaitForCompletion || i < updates.Count - 1)
+                if (lifecycleOptions.WaitForCompletion || i < updates.Count - 1)
                     await WaitUntilTableActiveAsync(table.TableName, cancellationToken)
                         .ConfigureAwait(false);
             }

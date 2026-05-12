@@ -1,6 +1,5 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
-using EntityFrameworkCore.DynamoDb.Extensions;
 using EntityFrameworkCore.DynamoDb.Metadata;
 using EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using Microsoft.EntityFrameworkCore;
@@ -320,6 +319,8 @@ internal static class DynamoTableDefinitionBuilder
 
     private static void ValidateProjection(string target, Projection expected, Projection actual)
     {
+        // NonKeyAttributes are not validated: Include projection is unsupported for creation
+        // (BuildProjection throws), and NonKeyAttributes are not tracked in provider metadata yet.
         if (expected.ProjectionType != actual.ProjectionType)
             throw new InvalidOperationException(
                 $"Existing {target} projection does not match EF model metadata.");

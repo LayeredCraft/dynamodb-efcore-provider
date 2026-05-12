@@ -1,6 +1,5 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
-using EntityFrameworkCore.DynamoDb.Infrastructure;
 using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 using Microsoft.EntityFrameworkCore;
 
@@ -259,7 +258,7 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
 
         Func<Task> act = () => context.SaveChangesAsync(CancellationToken);
 
-        await act.Should().ThrowAsync<Exception>();
+        await act.Should().ThrowAsync<ResourceNotFoundException>();
     }
 
     private TContext CreateContext<TContext>(
