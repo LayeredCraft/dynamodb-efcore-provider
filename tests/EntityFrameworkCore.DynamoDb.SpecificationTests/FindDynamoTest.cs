@@ -6,9 +6,10 @@ using Microsoft.EntityFrameworkCore.TestUtilities;
 namespace EntityFrameworkCore.DynamoDb.SpecificationTests;
 
 /// <summary>Specification find tests for the DynamoDB provider.</summary>
-public abstract class FindDynamoTest(FindDynamoTest.FindDynamoFixture fixture)
-    : FindTestBase<FindDynamoTest.FindDynamoFixture>(fixture)
+public abstract class FindDynamoTest : FindTestBase<FindDynamoTest.FindDynamoFixture>
 {
+    protected FindDynamoTest(FindDynamoFixture fixture) : base(fixture) => fixture.ClearSql();
+
     public override void Find_int_key_from_store()
         => DynamoTestHelpers.Instance.NoSyncTest(() => base.Find_int_key_from_store());
 
@@ -18,9 +19,9 @@ public abstract class FindDynamoTest(FindDynamoTest.FindDynamoFixture fixture)
 
         AssertSql(
             """
-            SELECT "Id", "Foo"
-            FROM "IntKey"
-            WHERE "Id" = ?
+            SELECT "id", "foo", "ownedCollection", "ownedReference"
+            FROM "ints"
+            WHERE "id" = ?
             """);
     }
 
@@ -28,34 +29,29 @@ public abstract class FindDynamoTest(FindDynamoTest.FindDynamoFixture fixture)
     //      │                        Test Infra                        │
     //      ╰──────────────────────────────────────────────────────────╯
 
-    private void AssertSql(params string[] expected)
-        => Fixture.TestSqlLoggerFactory.AssertBaseline(expected);
+    private void AssertSql(params string[] expected) => Fixture.AssertSql(expected);
 
     public class FindDynamoTestSet(FindDynamoFixture fixture) : FindDynamoTest(fixture)
     {
         protected override TestFinder Finder { get; } = new FindViaSetFinder();
     }
 
-    public class FindDynamoFixture : FindFixtureBase
+    public class FindDynamoFixture : FindFixtureBase, IDynamoSpecificationFixture
     {
-        private readonly DynamoTestStoreFactory _testStoreFactory = new();
-
         public TestSqlLoggerFactory TestSqlLoggerFactory => (TestSqlLoggerFactory)ListLoggerFactory;
 
-        protected override ITestStoreFactory TestStoreFactory => _testStoreFactory;
+        protected override ITestStoreFactory TestStoreFactory => DynamoTestStoreFactory.Instance;
 
         protected override bool ShouldLogCategory(string logCategory)
-            => logCategory.StartsWith(
-                    DbLoggerCategory.Database.Command.Name,
-                    StringComparison.Ordinal)
-                || logCategory.StartsWith(DbLoggerCategory.Query.Name, StringComparison.Ordinal);
+            => DynamoSpecificationFixtureExtensions.ShouldLogDynamoSql(logCategory);
 
         public override DbContextOptionsBuilder AddOptions(DbContextOptionsBuilder builder)
             => base
                 .AddOptions(builder)
                 .ConfigureWarnings(warnings
                     => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
-                .UseDynamo(options => options.DynamoDbClient(_testStoreFactory.Client));
+                .UseDynamo(options
+                    => options.DynamoDbClient(DynamoTestStoreFactory.Instance.Client));
 
         protected override async Task CleanAsync(DbContext context)
         {
