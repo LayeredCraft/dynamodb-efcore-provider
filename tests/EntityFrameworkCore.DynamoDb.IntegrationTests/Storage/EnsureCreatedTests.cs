@@ -126,6 +126,28 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task EnsureCreatedAsync_WaitsBeforeSeeding_WhenWaitForCompletionFalse()
+    {
+        var tableName = "ensure-created-seed-nowait";
+        await DeleteIfExists(tableName);
+        await using var context = CreateContext<SeedNoWaitContext>(options
+            => options.TableLifecycle(lifecycle => lifecycle.WaitForCompletion = false));
+
+        try
+        {
+            (await context.Database.EnsureCreatedAsync(CancellationToken)).Should().BeTrue();
+
+            var rows = await context.SeedItems.ToListAsync(CancellationToken);
+            rows.Should().ContainSingle().Which.Pk.Should().Be("seeded");
+        }
+        finally
+        {
+            await context.Database.EnsureDeletedAsync(CancellationToken);
+            await DeleteIfExists(tableName);
+        }
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task EnsureCreatedAsync_RepeatedCallReturnsFalse_AndEnsureDeletedIsIdempotent()
     {
         var tableName = "ensure-created-repeat";
@@ -470,6 +492,21 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
         }
     }
 
+    public sealed class SeedNoWaitContext(DbContextOptions<SeedNoWaitContext> options)
+        : EnsureContextBase(options)
+    {
+        public DbSet<SeedNoWaitItem> SeedItems => Set<SeedNoWaitItem>();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<SeedNoWaitItem>(entity =>
+            {
+                entity.ToTable("ensure-created-seed-nowait");
+                entity.Property(x => x.Pk).HasAttributeName("pk");
+                entity.HasPartitionKey(x => x.Pk);
+                entity.HasData(new SeedNoWaitItem { Pk = "seeded" });
+            });
+    }
+
     public sealed class MissingLsiContext(DbContextOptions<MissingLsiContext> options)
         : EnsureContextBase(options)
     {
@@ -506,6 +543,11 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
     }
 
     public sealed class MissingSeedItem
+    {
+        public string Pk { get; set; } = null!;
+    }
+
+    public sealed class SeedNoWaitItem
     {
         public string Pk { get; set; } = null!;
     }
