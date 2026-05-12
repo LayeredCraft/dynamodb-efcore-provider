@@ -65,6 +65,69 @@ public abstract class FindDynamoTest : FindTestBase<FindDynamoTest.FindDynamoFix
     public override void Find_derived_using_base_set_type_from_store()
         => NoSyncTest(() => base.Find_derived_using_base_set_type_from_store());
 
+    public override void Find_int_key_tracked()
+    {
+        base.Find_int_key_tracked();
+
+        AssertSql();
+    }
+
+    public override void Find_string_key_tracked()
+    {
+        base.Find_string_key_tracked();
+
+        AssertSql();
+    }
+
+    public override void Find_base_type_tracked()
+    {
+        base.Find_base_type_tracked();
+
+        AssertSql();
+    }
+
+    public override void Find_derived_type_tracked()
+    {
+        base.Find_derived_type_tracked();
+
+        AssertSql();
+    }
+
+    public override void Find_derived_type_using_base_set_tracked()
+    {
+        base.Find_derived_type_using_base_set_tracked();
+
+        AssertSql();
+    }
+
+    public override void Returns_null_for_null_key()
+    {
+        base.Returns_null_for_null_key();
+
+        AssertSql();
+    }
+
+    public override void Throws_for_multiple_values_passed_for_simple_key()
+    {
+        base.Throws_for_multiple_values_passed_for_simple_key();
+
+        AssertSql();
+    }
+
+    public override void Throws_for_bad_type_for_simple_key()
+    {
+        base.Throws_for_bad_type_for_simple_key();
+
+        AssertSql();
+    }
+
+    public override void Throws_for_bad_entity_type()
+    {
+        base.Throws_for_bad_entity_type();
+
+        AssertSql();
+    }
+
     [ConditionalFact(Skip = ShadowKeysNotSupported)]
     public override void Find_shadow_key_tracked() { }
 
@@ -293,6 +356,72 @@ public abstract class FindDynamoTest : FindTestBase<FindDynamoTest.FindDynamoFix
             FROM "base"
             WHERE "id" = ? AND ("$type" = 'BaseType' OR "$type" = 'DerivedType')
             """);
+    }
+
+    public override async Task Find_int_key_tracked_async(CancellationType cancellationType)
+    {
+        await base.Find_int_key_tracked_async(cancellationType);
+
+        AssertSql();
+    }
+
+    public override async Task Find_string_key_tracked_async(CancellationType cancellationType)
+    {
+        await base.Find_string_key_tracked_async(cancellationType);
+
+        AssertSql();
+    }
+
+    public override async Task Find_base_type_tracked_async(CancellationType cancellationType)
+    {
+        await base.Find_base_type_tracked_async(cancellationType);
+
+        AssertSql();
+    }
+
+    public override async Task Find_derived_type_tracked_async(CancellationType cancellationType)
+    {
+        await base.Find_derived_type_tracked_async(cancellationType);
+
+        AssertSql();
+    }
+
+    public override async Task Find_derived_type_using_base_set_tracked_async(
+        CancellationType cancellationType)
+    {
+        await base.Find_derived_type_using_base_set_tracked_async(cancellationType);
+
+        AssertSql();
+    }
+
+    public override async Task Returns_null_for_null_key_async(CancellationType cancellationType)
+    {
+        await base.Returns_null_for_null_key_async(cancellationType);
+
+        AssertSql();
+    }
+
+    public override async Task Throws_for_multiple_values_passed_for_simple_key_async(
+        CancellationType cancellationType)
+    {
+        await base.Throws_for_multiple_values_passed_for_simple_key_async(cancellationType);
+
+        AssertSql();
+    }
+
+    public override async Task Throws_for_bad_type_for_simple_key_async(
+        CancellationType cancellationType)
+    {
+        await base.Throws_for_bad_type_for_simple_key_async(cancellationType);
+
+        AssertSql();
+    }
+
+    public override async Task Throws_for_bad_entity_type_async(CancellationType cancellationType)
+    {
+        await base.Throws_for_bad_entity_type_async(cancellationType);
+
+        AssertSql();
     }
 
     //      ╭──────────────────────────────────────────────────────────╮
