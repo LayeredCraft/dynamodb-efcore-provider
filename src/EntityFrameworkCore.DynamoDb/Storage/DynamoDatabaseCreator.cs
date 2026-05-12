@@ -86,15 +86,16 @@ internal sealed class DynamoDatabaseCreator(
                     currentDbContext.Context.ChangeTracker.Clear();
                 retrying = true;
 
-                var (changed, tableCreated) =
+                var (changed, createdTables) =
                     await creator.EnsureTablesCreatedAsync(ct).ConfigureAwait(false);
+                var tableCreated = createdTables.Count > 0;
                 if (tableCreated && !modelSeedInserted)
                 {
                     // Model HasData runs only after new table creation. User async seeding runs on
                     // every
                     // EnsureCreatedAsync call with the schema-created flag, including GSI-only
                     // updates.
-                    await creator.InsertDataAsync(ct).ConfigureAwait(false);
+                    await creator.InsertDataAsync(createdTables, ct).ConfigureAwait(false);
                     modelSeedInserted = true;
                 }
 
@@ -134,7 +135,7 @@ internal sealed class DynamoDatabaseCreator(
         }
     }
 
-    private async Task<(bool Changed, bool TableCreated)> EnsureTablesCreatedAsync(
+    private async Task<(bool Changed, HashSet<string> CreatedTables)> EnsureTablesCreatedAsync(
         CancellationToken cancellationToken)
     {
         var runtimeModel = GetRuntimeTableModel();
@@ -143,7 +144,7 @@ internal sealed class DynamoDatabaseCreator(
                 .BuildCreateTableRequests(runtimeModel)
                 .ToDictionary(static request => request.TableName, StringComparer.Ordinal);
         var changed = false;
-        var tableCreated = false;
+        HashSet<string> createdTables = new(StringComparer.Ordinal);
 
         foreach (var table in runtimeModel.Tables.Values.OrderBy(
             static table => table.TableName,
@@ -169,7 +170,7 @@ internal sealed class DynamoDatabaseCreator(
                         .CreateTableAsync(requestsByName[table.TableName], cancellationToken)
                         .ConfigureAwait(false)).TableDescription;
                     changed = true;
-                    tableCreated = true;
+                    createdTables.Add(table.TableName);
                 }
                 catch (ResourceInUseException)
                 {
@@ -218,19 +219,28 @@ internal sealed class DynamoDatabaseCreator(
             }
         }
 
-        return (changed, tableCreated);
+        return (changed, createdTables);
     }
 
-    private Task InsertDataAsync(CancellationToken cancellationToken)
+    private Task InsertDataAsync(
+        IReadOnlySet<string> createdTables,
+        CancellationToken cancellationToken)
     {
         var updateAdapter = updateAdapterFactory.CreateStandalone();
         foreach (var entityType in designTimeModel.Model.GetEntityTypes())
+        {
+            var tableName = entityType[DynamoAnnotationNames.TableName] as string
+                ?? entityType.ClrType.Name;
+            if (!createdTables.Contains(tableName))
+                continue;
+
             foreach (var targetSeed in entityType.GetSeedData())
             {
                 var runtimeEntityType = updateAdapter.Model.FindEntityType(entityType.Name)!;
                 var entry = updateAdapter.CreateEntry(targetSeed, runtimeEntityType);
                 entry.EntityState = EntityState.Added;
             }
+        }
 
         return database.SaveChangesAsync(updateAdapter.GetEntriesToSave(), cancellationToken);
     }

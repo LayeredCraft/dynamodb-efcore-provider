@@ -89,6 +89,43 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task EnsureCreatedAsync_SeedsOnlyNewTables()
+    {
+        var existingTableName = "ensure-created-seed-existing";
+        var missingTableName = "ensure-created-seed-missing";
+        await DeleteIfExists(existingTableName);
+        await DeleteIfExists(missingTableName);
+        await using var context = CreateContext<SeedScopeContext>(missingTableName);
+
+        try
+        {
+            await Client.CreateTableAsync(
+                new CreateTableRequest
+                {
+                    TableName = existingTableName,
+                    BillingMode = BillingMode.PAY_PER_REQUEST,
+                    AttributeDefinitions = [new("pk", ScalarAttributeType.S)],
+                    KeySchema = [new("pk", KeyType.HASH)],
+                },
+                CancellationToken);
+            await WaitUntilActive(existingTableName);
+
+            (await context.Database.EnsureCreatedAsync(CancellationToken)).Should().BeTrue();
+
+            var existingRows = await context.ExistingSeedItems.ToListAsync(CancellationToken);
+            var missingRows = await context.MissingSeedItems.ToListAsync(CancellationToken);
+            existingRows.Should().BeEmpty();
+            missingRows.Should().ContainSingle().Which.Pk.Should().Be("missing");
+        }
+        finally
+        {
+            await context.Database.EnsureDeletedAsync(CancellationToken);
+            await DeleteIfExists(existingTableName);
+            await DeleteIfExists(missingTableName);
+        }
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task EnsureCreatedAsync_RepeatedCallReturnsFalse_AndEnsureDeletedIsIdempotent()
     {
         var tableName = "ensure-created-repeat";
@@ -373,6 +410,33 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
             });
     }
 
+    public sealed class SeedScopeContext(
+        DbContextOptions<SeedScopeContext> options,
+        string tableName) : EnsureContextBase(options, tableName)
+    {
+        public DbSet<ExistingSeedItem> ExistingSeedItems => Set<ExistingSeedItem>();
+
+        public DbSet<MissingSeedItem> MissingSeedItems => Set<MissingSeedItem>();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<ExistingSeedItem>(entity =>
+            {
+                entity.ToTable("ensure-created-seed-existing");
+                entity.Property(x => x.Pk).HasAttributeName("pk");
+                entity.HasPartitionKey(x => x.Pk);
+                entity.HasData(new ExistingSeedItem { Pk = "existing" });
+            });
+            modelBuilder.Entity<MissingSeedItem>(entity =>
+            {
+                entity.ToTable("ensure-created-seed-missing");
+                entity.Property(x => x.Pk).HasAttributeName("pk");
+                entity.HasPartitionKey(x => x.Pk);
+                entity.HasData(new MissingSeedItem { Pk = "missing" });
+            });
+        }
+    }
+
     public sealed class MissingLsiContext(
         DbContextOptions<MissingLsiContext> options,
         string tableName) : EnsureContextBase(options, tableName)
@@ -402,6 +466,16 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
         public string Sk { get; set; } = null!;
         public string? Customer { get; set; }
         public string? Status { get; set; }
+    }
+
+    public sealed class ExistingSeedItem
+    {
+        public string Pk { get; set; } = null!;
+    }
+
+    public sealed class MissingSeedItem
+    {
+        public string Pk { get; set; } = null!;
     }
 }
 
