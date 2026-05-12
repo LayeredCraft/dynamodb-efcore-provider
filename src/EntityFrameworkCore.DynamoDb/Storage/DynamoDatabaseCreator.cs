@@ -189,7 +189,7 @@ internal sealed class DynamoDatabaseCreator(
                             table.TableName,
                             lifecycleOptions,
                             cancellationToken)
-                            .ConfigureAwait(false);
+                        .ConfigureAwait(false);
                 else if (existing is null)
                     existing =
                         (await clientWrapper
@@ -230,6 +230,9 @@ internal sealed class DynamoDatabaseCreator(
                         cancellationToken)
                     .ConfigureAwait(false);
                 changed = true;
+                // Always wait between GSI additions: DynamoDB rejects a second UpdateTable while
+                // the first is still in progress. Skip the final wait only when WaitForCompletion
+                // is false and all updates have been submitted.
                 if (lifecycleOptions.WaitForCompletion || i < updates.Count - 1)
                     await WaitUntilTableActiveAsync(
                             table.TableName,
