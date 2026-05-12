@@ -120,6 +120,14 @@ public sealed class DynamoTableDefinitionBuilderTests
         var existing = new TableDescription
         {
             TableName = "Indexed",
+            AttributeDefinitions =
+            [
+                new("customer", ScalarAttributeType.S),
+                new("pk", ScalarAttributeType.S),
+                new("sk", ScalarAttributeType.S),
+                new("status", ScalarAttributeType.S),
+                new("extra", ScalarAttributeType.N),
+            ],
             KeySchema = [new("pk", KeyType.HASH), new("sk", KeyType.RANGE)],
             LocalSecondaryIndexes =
             [
@@ -136,6 +144,60 @@ public sealed class DynamoTableDefinitionBuilderTests
             DynamoTableDefinitionBuilder.BuildMissingGlobalSecondaryIndexUpdates(table, existing);
 
         updates.Should().ContainSingle().Which.Create.IndexName.Should().Be("ByCustomer");
+    }
+
+    [Theory(Timeout = TestConfiguration.DefaultTimeout)]
+    [InlineData("pk")]
+    [InlineData("sk")]
+    [InlineData("customer")]
+    [InlineData("status")]
+    public void BuildMissingGlobalSecondaryIndexUpdates_RejectsMismatchedKeyAttributeType(
+        string attributeName)
+    {
+        using var context = CreateContext<IndexedContext>();
+        var table = context.Model.GetDynamoRuntimeTableModel()!.Tables["Indexed"];
+        var existing = new TableDescription
+        {
+            TableName = "Indexed",
+            AttributeDefinitions =
+            [
+                new("customer", ScalarAttributeType.S),
+                new("pk", ScalarAttributeType.S),
+                new("sk", ScalarAttributeType.S),
+                new("status", ScalarAttributeType.S),
+            ],
+            KeySchema = [new("pk", KeyType.HASH), new("sk", KeyType.RANGE)],
+            GlobalSecondaryIndexes =
+            [
+                new GlobalSecondaryIndexDescription
+                {
+                    IndexName = "ByCustomer",
+                    KeySchema = [new("customer", KeyType.HASH)],
+                    Projection = new Projection { ProjectionType = ProjectionType.ALL },
+                },
+            ],
+            LocalSecondaryIndexes =
+            [
+                new LocalSecondaryIndexDescription
+                {
+                    IndexName = "ByStatus",
+                    KeySchema = [new("pk", KeyType.HASH), new("status", KeyType.RANGE)],
+                    Projection = new Projection { ProjectionType = ProjectionType.ALL },
+                },
+            ],
+        };
+        existing.AttributeDefinitions
+            .Single(definition => definition.AttributeName == attributeName)
+            .AttributeType = ScalarAttributeType.N;
+
+        Action act = ()
+            => DynamoTableDefinitionBuilder
+                .BuildMissingGlobalSecondaryIndexUpdates(table, existing);
+
+        act
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage($"*key attribute definition for '{attributeName}'*does not match*");
     }
 
     private static TContext CreateContext<TContext>() where TContext : DbContext

@@ -32,6 +32,10 @@ internal static class DynamoTableDefinitionBuilder
         TableDescription existing)
     {
         var expected = BuildCreateTableRequest(table);
+        ValidateAttributeDefinitions(
+            $"table '{table.TableName}'",
+            expected.AttributeDefinitions,
+            existing.AttributeDefinitions);
         ValidateKeySchema($"table '{table.TableName}'", expected.KeySchema, existing.KeySchema);
         ValidateLocalSecondaryIndexes(
             table.TableName,
@@ -255,6 +259,25 @@ internal static class DynamoTableDefinitionBuilder
             or TypeCode.Single
             or TypeCode.Double
             or TypeCode.Decimal;
+
+    private static void ValidateAttributeDefinitions(
+        string target,
+        List<AttributeDefinition> expected,
+        List<AttributeDefinition> actual)
+    {
+        var actualByName = actual.ToDictionary(
+            static definition => definition.AttributeName,
+            StringComparer.Ordinal);
+        foreach (var expectedDefinition in expected)
+        {
+            if (!actualByName.TryGetValue(
+                    expectedDefinition.AttributeName,
+                    out var actualDefinition)
+                || expectedDefinition.AttributeType != actualDefinition.AttributeType)
+                throw new InvalidOperationException(
+                    $"Existing {target} key attribute definition for '{expectedDefinition.AttributeName}' does not match EF model metadata.");
+        }
+    }
 
     private static void ValidateLocalSecondaryIndexes(
         string tableName,
