@@ -24,6 +24,10 @@ public abstract class FindDynamoTest(FindDynamoTest.FindDynamoFixture fixture)
             """);
     }
 
+    //      ╭──────────────────────────────────────────────────────────╮
+    //      │                        Test Infra                        │
+    //      ╰──────────────────────────────────────────────────────────╯
+
     private void AssertSql(params string[] expected)
         => Fixture.TestSqlLoggerFactory.AssertBaseline(expected);
 
@@ -39,6 +43,12 @@ public abstract class FindDynamoTest(FindDynamoTest.FindDynamoFixture fixture)
         public TestSqlLoggerFactory TestSqlLoggerFactory => (TestSqlLoggerFactory)ListLoggerFactory;
 
         protected override ITestStoreFactory TestStoreFactory => _testStoreFactory;
+
+        protected override bool ShouldLogCategory(string logCategory)
+            => logCategory.StartsWith(
+                    DbLoggerCategory.Database.Command.Name,
+                    StringComparison.Ordinal)
+                || logCategory.StartsWith(DbLoggerCategory.Query.Name, StringComparison.Ordinal);
 
         public override DbContextOptionsBuilder AddOptions(DbContextOptionsBuilder builder)
             => base
