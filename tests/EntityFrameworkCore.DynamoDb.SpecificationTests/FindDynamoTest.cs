@@ -10,6 +10,7 @@ public abstract class FindDynamoTest : FindTestBase<FindDynamoTest.FindDynamoFix
 {
     private const string CompositeKeysNotSupported = "DynamoDB does not support composite keys.";
     private const string NullableKeysNotSupported = "DynamoDB does not support nullable keys.";
+    private const string ShadowKeysNotSupported = "DynamoDB does not support shadow keys.";
 
     protected FindDynamoTest(FindDynamoFixture fixture) : base(fixture) => fixture.ClearSql();
 
@@ -64,11 +65,14 @@ public abstract class FindDynamoTest : FindTestBase<FindDynamoTest.FindDynamoFix
     public override void Find_derived_using_base_set_type_from_store()
         => NoSyncTest(() => base.Find_derived_using_base_set_type_from_store());
 
-    public override void Find_shadow_key_from_store()
-        => NoSyncTest(() => base.Find_shadow_key_from_store());
+    [ConditionalFact(Skip = ShadowKeysNotSupported)]
+    public override void Find_shadow_key_tracked() { }
 
-    public override void Returns_null_for_shadow_key_not_in_store()
-        => NoSyncTest(() => base.Returns_null_for_shadow_key_not_in_store());
+    [ConditionalFact(Skip = ShadowKeysNotSupported)]
+    public override void Find_shadow_key_from_store() { }
+
+    [ConditionalFact(Skip = ShadowKeysNotSupported)]
+    public override void Returns_null_for_shadow_key_not_in_store() { }
 
     [ConditionalFact(Skip = CompositeKeysNotSupported)]
     public override void Returns_null_for_null_key_values_array() { }
@@ -84,6 +88,9 @@ public abstract class FindDynamoTest : FindTestBase<FindDynamoTest.FindDynamoFix
 
     [ConditionalFact(Skip = CompositeKeysNotSupported)]
     public override void Throws_for_bad_type_for_composite_key() { }
+
+    [ConditionalFact(Skip = ShadowKeysNotSupported)]
+    public override void Throws_for_bad_entity_type_with_different_namespace() { }
 
     [ConditionalTheory(Skip = NullableKeysNotSupported)]
     public override Task Find_nullable_int_key_tracked_async(CancellationType cancellationType)
@@ -111,6 +118,19 @@ public abstract class FindDynamoTest : FindTestBase<FindDynamoTest.FindDynamoFix
         CancellationType cancellationType)
         => Task.CompletedTask;
 
+    [ConditionalTheory(Skip = ShadowKeysNotSupported)]
+    public override Task Find_shadow_key_tracked_async(CancellationType cancellationType)
+        => Task.CompletedTask;
+
+    [ConditionalTheory(Skip = ShadowKeysNotSupported)]
+    public override Task Find_shadow_key_from_store_async(CancellationType cancellationType)
+        => Task.CompletedTask;
+
+    [ConditionalTheory(Skip = ShadowKeysNotSupported)]
+    public override Task Returns_null_for_shadow_key_not_in_store_async(
+        CancellationType cancellationType)
+        => Task.CompletedTask;
+
     [ConditionalTheory(Skip = CompositeKeysNotSupported)]
     public override Task Returns_null_for_null_key_values_array_async(
         CancellationType cancellationType)
@@ -128,6 +148,11 @@ public abstract class FindDynamoTest : FindTestBase<FindDynamoTest.FindDynamoFix
 
     [ConditionalTheory(Skip = CompositeKeysNotSupported)]
     public override Task Throws_for_bad_type_for_composite_key_async(
+        CancellationType cancellationType)
+        => Task.CompletedTask;
+
+    [ConditionalTheory(Skip = ShadowKeysNotSupported)]
+    public override Task Throws_for_bad_entity_type_with_different_namespace_async(
         CancellationType cancellationType)
         => Task.CompletedTask;
 
