@@ -14,7 +14,7 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task CanConnectAsync_ReturnsTrue()
     {
-        await using var context = CreateContext<PkOnlyContext>("can-connect");
+        await using var context = CreateContext<PkOnlyContext>();
 
         var result = await context.Database.CanConnectAsync(CancellationToken);
 
@@ -26,7 +26,7 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
     {
         var tableName = "ensure-created-pkonly";
         await DeleteIfExists(tableName);
-        await using var context = CreateContext<PkOnlyContext>(tableName);
+        await using var context = CreateContext<PkOnlyContext>();
 
         try
         {
@@ -56,7 +56,7 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
     {
         var tableName = "ensure-created-indexed";
         await DeleteIfExists(tableName);
-        await using var context = CreateContext<IndexedContext>(tableName);
+        await using var context = CreateContext<IndexedContext>();
 
         try
         {
@@ -94,7 +94,7 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
         var missingTableName = "ensure-created-seed-missing";
         await DeleteIfExists(existingTableName);
         await DeleteIfExists(missingTableName);
-        await using var context = CreateContext<SeedScopeContext>(missingTableName);
+        await using var context = CreateContext<SeedScopeContext>();
 
         try
         {
@@ -129,7 +129,7 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
     {
         var tableName = "ensure-created-repeat";
         await DeleteIfExists(tableName);
-        await using var context = CreateContext<RepeatContext>(tableName);
+        await using var context = CreateContext<RepeatContext>();
 
         try
         {
@@ -159,9 +159,8 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
             },
             CancellationToken);
         await WaitUntilActive(tableName);
-        await using var context = CreateContext<MultipleGsiContext>(
-            tableName,
-            options => options.TableLifecycle(lifecycle => lifecycle.WaitForCompletion = false));
+        await using var context = CreateContext<MultipleGsiContext>(options
+            => options.TableLifecycle(lifecycle => lifecycle.WaitForCompletion = false));
 
         try
         {
@@ -198,7 +197,7 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
                 KeySchema = [new("pk", KeyType.HASH), new("sk", KeyType.RANGE)],
             },
             CancellationToken);
-        await using var context = CreateContext<GsiContext>(tableName);
+        await using var context = CreateContext<GsiContext>();
 
         try
         {
@@ -232,7 +231,7 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
                 KeySchema = [new("pk", KeyType.HASH), new("sk", KeyType.RANGE)],
             },
             CancellationToken);
-        await using var context = CreateContext<IndexedContext>(tableName);
+        await using var context = CreateContext<MissingLsiContext>();
 
         try
         {
@@ -254,7 +253,7 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
     {
         var tableName = "ensure-created-save-fails";
         await DeleteIfExists(tableName);
-        await using var context = CreateContext<PkOnlyContext>(tableName);
+        await using var context = CreateContext<PkOnlyContext>();
         context.Items.Add(new EnsureItem { Pk = "A", Value = "one" });
 
         Func<Task> act = () => context.SaveChangesAsync(CancellationToken);
@@ -263,7 +262,6 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
     }
 
     private TContext CreateContext<TContext>(
-        string tableName,
         Action<DynamoDbContextOptionsBuilder>? configure = null) where TContext : EnsureContextBase
         => (TContext)Activator.CreateInstance(
             typeof(TContext),
@@ -271,8 +269,7 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
             {
                 o.DynamoDbClient(Client);
                 configure?.Invoke(o);
-            }),
-            tableName)!;
+            }))!;
 
     private async Task<TableDescription> DescribeTable(string tableName)
         => (await Client.DescribeTableAsync(
@@ -325,14 +322,10 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
         }
     }
 
-    public abstract class EnsureContextBase(DbContextOptions options, string tableName) : DbContext(
-        options)
-    {
-        protected string TableName { get; } = tableName;
-    }
+    public abstract class EnsureContextBase(DbContextOptions options) : DbContext(options);
 
-    public sealed class PkOnlyContext(DbContextOptions<PkOnlyContext> options, string tableName)
-        : EnsureContextBase(options, tableName)
+    public sealed class PkOnlyContext(DbContextOptions<PkOnlyContext> options)
+        : EnsureContextBase(options)
     {
         public DbSet<EnsureItem> Items => Set<EnsureItem>();
 
@@ -345,8 +338,8 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
             });
     }
 
-    public sealed class IndexedContext(DbContextOptions<IndexedContext> options, string tableName)
-        : EnsureContextBase(options, tableName)
+    public sealed class IndexedContext(DbContextOptions<IndexedContext> options)
+        : EnsureContextBase(options)
     {
         public DbSet<IndexedEnsureItem> IndexedItems => Set<IndexedEnsureItem>();
 
@@ -365,8 +358,8 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
             });
     }
 
-    public sealed class GsiContext(DbContextOptions<GsiContext> options, string tableName)
-        : EnsureContextBase(options, tableName)
+    public sealed class GsiContext(DbContextOptions<GsiContext> options)
+        : EnsureContextBase(options)
     {
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<IndexedEnsureItem>(entity =>
@@ -380,9 +373,8 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
             });
     }
 
-    public sealed class MultipleGsiContext(
-        DbContextOptions<MultipleGsiContext> options,
-        string tableName) : EnsureContextBase(options, tableName)
+    public sealed class MultipleGsiContext(DbContextOptions<MultipleGsiContext> options)
+        : EnsureContextBase(options)
     {
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<IndexedEnsureItem>(entity =>
@@ -398,8 +390,8 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
             });
     }
 
-    public sealed class RepeatContext(DbContextOptions<RepeatContext> options, string tableName)
-        : EnsureContextBase(options, tableName)
+    public sealed class RepeatContext(DbContextOptions<RepeatContext> options)
+        : EnsureContextBase(options)
     {
         public DbSet<EnsureItem> Items => Set<EnsureItem>();
 
@@ -412,9 +404,8 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
             });
     }
 
-    public sealed class SeedScopeContext(
-        DbContextOptions<SeedScopeContext> options,
-        string tableName) : EnsureContextBase(options, tableName)
+    public sealed class SeedScopeContext(DbContextOptions<SeedScopeContext> options)
+        : EnsureContextBase(options)
     {
         public DbSet<ExistingSeedItem> ExistingSeedItems => Set<ExistingSeedItem>();
 
@@ -439,9 +430,8 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
         }
     }
 
-    public sealed class MissingLsiContext(
-        DbContextOptions<MissingLsiContext> options,
-        string tableName) : EnsureContextBase(options, tableName)
+    public sealed class MissingLsiContext(DbContextOptions<MissingLsiContext> options)
+        : EnsureContextBase(options)
     {
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<IndexedEnsureItem>(entity =>

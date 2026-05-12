@@ -200,6 +200,67 @@ public sealed class DynamoTableDefinitionBuilderTests
             .WithMessage($"*key attribute definition for '{attributeName}'*does not match*");
     }
 
+    [Theory(Timeout = TestConfiguration.DefaultTimeout)]
+    [InlineData("pk")]
+    [InlineData("sk")]
+    [InlineData("customer")]
+    [InlineData("status")]
+    public void BuildMissingGlobalSecondaryIndexUpdates_RejectsMissingKeyAttribute(
+        string attributeName)
+    {
+        using var context = CreateContext<IndexedContext>();
+        var table = context.Model.GetDynamoRuntimeTableModel()!.Tables["Indexed"];
+        var existing = new TableDescription
+        {
+            TableName = "Indexed",
+            AttributeDefinitions =
+            [
+                new AttributeDefinition("customer", ScalarAttributeType.S),
+                new AttributeDefinition("pk", ScalarAttributeType.S),
+                new AttributeDefinition("sk", ScalarAttributeType.S),
+                new AttributeDefinition("status", ScalarAttributeType.S),
+            ],
+            KeySchema =
+            [
+                new KeySchemaElement("pk", KeyType.HASH),
+                new KeySchemaElement("sk", KeyType.RANGE),
+            ],
+            GlobalSecondaryIndexes =
+            [
+                new GlobalSecondaryIndexDescription
+                {
+                    IndexName = "ByCustomer",
+                    KeySchema = [new KeySchemaElement("customer", KeyType.HASH)],
+                    Projection = new Projection { ProjectionType = ProjectionType.ALL },
+                },
+            ],
+            LocalSecondaryIndexes =
+            [
+                new LocalSecondaryIndexDescription
+                {
+                    IndexName = "ByStatus",
+                    KeySchema =
+                    [
+                        new KeySchemaElement("pk", KeyType.HASH),
+                        new KeySchemaElement("status", KeyType.RANGE),
+                    ],
+                    Projection = new Projection { ProjectionType = ProjectionType.ALL },
+                },
+            ],
+        };
+        existing.AttributeDefinitions.RemoveAll(definition
+            => definition.AttributeName == attributeName);
+
+        Action act = ()
+            => DynamoTableDefinitionBuilder
+                .BuildMissingGlobalSecondaryIndexUpdates(table, existing);
+
+        act
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage($"*missing expected key attribute '{attributeName}'*");
+    }
+
     private static TContext CreateContext<TContext>() where TContext : DbContext
     {
         var options = new DbContextOptionsBuilder<TContext>()

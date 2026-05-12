@@ -269,8 +269,12 @@ internal static class DynamoTableDefinitionBuilder
             StringComparer.Ordinal);
         foreach (var expectedDefinition in expected)
         {
-            if (actualByName.TryGetValue(expectedDefinition.AttributeName, out var actualDefinition)
-                && expectedDefinition.AttributeType != actualDefinition.AttributeType)
+            if (!actualByName.TryGetValue(
+                expectedDefinition.AttributeName,
+                out var actualDefinition))
+                throw new InvalidOperationException(
+                    $"Existing {target} is missing expected key attribute '{expectedDefinition.AttributeName}'.");
+            if (expectedDefinition.AttributeType != actualDefinition.AttributeType)
                 throw new InvalidOperationException(
                     $"Existing {target} key attribute definition for '{expectedDefinition.AttributeName}' does not match EF model metadata.");
         }
