@@ -197,7 +197,7 @@ internal sealed class DynamoDatabaseCreator(
                 DynamoTableDefinitionBuilder.BuildMissingGlobalSecondaryIndexUpdates(
                     table,
                     existing);
-            foreach (var update in updates)
+            for (var i = 0; i < updates.Count; i++)
             {
                 await clientWrapper
                     .Client
@@ -207,12 +207,12 @@ internal sealed class DynamoDatabaseCreator(
                             TableName = table.TableName,
                             AttributeDefinitions =
                                 requestsByName[table.TableName].AttributeDefinitions,
-                            GlobalSecondaryIndexUpdates = [update]
+                            GlobalSecondaryIndexUpdates = [updates[i]]
                         },
                         cancellationToken)
                     .ConfigureAwait(false);
                 changed = true;
-                if (GetTableLifecycleOptions().WaitForCompletion)
+                if (GetTableLifecycleOptions().WaitForCompletion || i < updates.Count - 1)
                     await WaitUntilTableActiveAsync(table.TableName, cancellationToken)
                         .ConfigureAwait(false);
             }

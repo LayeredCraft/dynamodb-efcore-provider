@@ -1,5 +1,6 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
+using EntityFrameworkCore.DynamoDb.Infrastructure;
 using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 using Microsoft.EntityFrameworkCore;
 
@@ -108,6 +109,42 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task EnsureCreatedAsync_AddsMultipleMissingGsis_WhenWaitForCompletionFalse()
+    {
+        var tableName = "ensure-created-missing-gsis";
+        await DeleteIfExists(tableName);
+        await Client.CreateTableAsync(
+            new CreateTableRequest
+            {
+                TableName = tableName,
+                BillingMode = BillingMode.PAY_PER_REQUEST,
+                AttributeDefinitions = [new("pk", ScalarAttributeType.S)],
+                KeySchema = [new("pk", KeyType.HASH)],
+            },
+            CancellationToken);
+        await WaitUntilActive(tableName);
+        await using var context = CreateContext<MultipleGsiContext>(
+            tableName,
+            options => options.TableLifecycle(lifecycle => lifecycle.WaitForCompletion = false));
+
+        try
+        {
+            (await context.Database.EnsureCreatedAsync(CancellationToken)).Should().BeTrue();
+
+            var table = await DescribeTable(tableName);
+            table
+                .GlobalSecondaryIndexes
+                .Select(static index => index.IndexName)
+                .Should()
+                .BeEquivalentTo(["ByCustomer", "ByStatus"]);
+        }
+        finally
+        {
+            await context.Database.EnsureDeletedAsync(CancellationToken);
+        }
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task EnsureCreatedAsync_AddsMissingGsiToExistingTable()
     {
         var tableName = "ensure-created-missing-gsi";
@@ -188,16 +225,36 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
         await act.Should().ThrowAsync<Exception>();
     }
 
-    private TContext CreateContext<TContext>(string tableName) where TContext : EnsureContextBase
+    private TContext CreateContext<TContext>(
+        string tableName,
+        Action<DynamoDbContextOptionsBuilder>? configure = null) where TContext : EnsureContextBase
         => (TContext)Activator.CreateInstance(
             typeof(TContext),
-            CreateOptions<TContext>(o => o.DynamoDbClient(Client)),
+            CreateOptions<TContext>(o =>
+            {
+                o.DynamoDbClient(Client);
+                configure?.Invoke(o);
+            }),
             tableName)!;
 
     private async Task<TableDescription> DescribeTable(string tableName)
         => (await Client.DescribeTableAsync(
             new DescribeTableRequest { TableName = tableName },
             CancellationToken)).Table;
+
+    private async Task WaitUntilActive(string tableName)
+    {
+        while (true)
+        {
+            var table = await DescribeTable(tableName);
+            if (table.TableStatus == TableStatus.ACTIVE
+                && (table.GlobalSecondaryIndexes ?? []).All(static index
+                    => index.IndexStatus == IndexStatus.ACTIVE))
+                return;
+
+            await Task.Delay(TimeSpan.FromMilliseconds(100), CancellationToken);
+        }
+    }
 
     private async Task DeleteIfExists(string tableName)
     {
@@ -281,6 +338,24 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
                 entity.HasPartitionKey(x => x.Pk);
                 entity.HasSortKey(x => x.Sk);
                 entity.HasGlobalSecondaryIndex("BySk", x => x.Sk);
+            });
+    }
+
+    public sealed class MultipleGsiContext(
+        DbContextOptions<MultipleGsiContext> options,
+        string tableName) : EnsureContextBase(options, tableName)
+    {
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<IndexedEnsureItem>(entity =>
+            {
+                entity.ToTable("ensure-created-missing-gsis");
+                entity.Ignore(x => x.Sk);
+                entity.Property(x => x.Pk).HasAttributeName("pk");
+                entity.Property(x => x.Customer).HasAttributeName("customer");
+                entity.Property(x => x.Status).HasAttributeName("status");
+                entity.HasPartitionKey(x => x.Pk);
+                entity.HasGlobalSecondaryIndex("ByCustomer", x => x.Customer);
+                entity.HasGlobalSecondaryIndex("ByStatus", x => x.Status);
             });
     }
 
