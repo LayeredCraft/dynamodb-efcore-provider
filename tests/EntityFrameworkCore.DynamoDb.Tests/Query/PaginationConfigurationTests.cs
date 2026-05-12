@@ -259,8 +259,23 @@ public class PaginationConfigurationTests
         act.Should().Throw<InvalidOperationException>();
     }
 
+    [Theory(Timeout = TestConfiguration.DefaultTimeout)]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    [InlineData(double.NegativeInfinity)]
+    [InlineData(0.999)]
+    public void WithTableLifecycleOptions_InvalidBackoffMultiplier_Throws(double multiplier)
+    {
+        var extension = new DynamoDbOptionsExtension();
+
+        Action act = () => extension.WithTableLifecycleOptions(options
+            => options.BackoffMultiplier = multiplier);
+
+        act.Should().Throw<InvalidOperationException>();
+    }
+
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public void WithTableLifecycleOptions_InvalidValue_Throws()
+    public void WithTableLifecycleOptions_InvalidInitialPollingDelay_Throws()
     {
         var extension = new DynamoDbOptionsExtension();
 

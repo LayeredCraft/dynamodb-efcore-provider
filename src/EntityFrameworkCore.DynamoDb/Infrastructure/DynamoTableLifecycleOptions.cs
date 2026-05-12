@@ -42,9 +42,9 @@ public sealed class DynamoTableLifecycleOptions
             throw new InvalidOperationException(
                 "DynamoDB table lifecycle maximum polling delay must be greater than or equal to the initial polling delay.");
 
-        if (BackoffMultiplier < 1)
+        if (!double.IsFinite(BackoffMultiplier) || BackoffMultiplier < 1)
             throw new InvalidOperationException(
-                "DynamoDB table lifecycle backoff multiplier must be greater than or equal to 1.");
+                "DynamoDB table lifecycle backoff multiplier must be finite and greater than or equal to 1.");
 
         if (Timeout <= TimeSpan.Zero)
             throw new InvalidOperationException(
