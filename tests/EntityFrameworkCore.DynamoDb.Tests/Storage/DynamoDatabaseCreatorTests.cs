@@ -1,5 +1,8 @@
+using Amazon.DynamoDBv2;
+using Amazon.DynamoDBv2.Model;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using NSubstitute;
 
 namespace EntityFrameworkCore.DynamoDb.Tests.Storage;
 
@@ -51,15 +54,53 @@ public sealed class DynamoDatabaseCreatorTests
         exception.Message.Should().Be(DatabaseLifecycleNotSupported);
     }
 
-    [Fact(
-        Skip =
-            "CanConnectAsync now performs an AWS ListTables probe; covered by integration tests.")]
-    public Task CanConnectAsync_ThrowsNotSupportedException() => Task.CompletedTask;
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task CanConnectAsync_ReturnsTrue_WhenListTablesSucceeds()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        client
+            .ListTablesAsync(Arg.Any<ListTablesRequest>(), Arg.Any<CancellationToken>())
+            .Returns(new ListTablesResponse());
+        await using var context = CreateContext(client);
 
-    private static DatabaseCreatorContext CreateContext()
+        var result = await context.Database.CanConnectAsync();
+
+        result.Should().BeTrue();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task CanConnectAsync_RethrowsOperationCanceledException()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        client
+            .ListTablesAsync(Arg.Any<ListTablesRequest>(), Arg.Any<CancellationToken>())
+            .Returns<Task<ListTablesResponse>>(_ => throw new OperationCanceledException());
+        await using var context = CreateContext(client);
+
+        var act = () => context.Database.CanConnectAsync();
+
+        await act.Should().ThrowAsync<OperationCanceledException>();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task CanConnectAsync_ReturnsFalse_WhenListTablesFails()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        client
+            .ListTablesAsync(Arg.Any<ListTablesRequest>(), Arg.Any<CancellationToken>())
+            .Returns<Task<ListTablesResponse>>(_ => throw new AmazonDynamoDBException("Boom"));
+        await using var context = CreateContext(client);
+
+        var result = await context.Database.CanConnectAsync();
+
+        result.Should().BeFalse();
+    }
+
+    private static DatabaseCreatorContext CreateContext(IAmazonDynamoDB? client = null)
     {
         var options = new DbContextOptionsBuilder<DatabaseCreatorContext>()
-            .UseDynamo()
+            .UseDynamo(options
+                => options.DynamoDbClient(client ?? Substitute.For<IAmazonDynamoDB>()))
             .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
             .Options;
 

@@ -12,6 +12,16 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
     protected override bool UseSharedInternalServiceProvider => false;
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task CanConnectAsync_ReturnsTrue()
+    {
+        await using var context = CreateContext<PkOnlyContext>("can-connect");
+
+        var result = await context.Database.CanConnectAsync(CancellationToken);
+
+        result.Should().BeTrue();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task EnsureCreatedAsync_CreatesPkOnlyTable_AndSaveQueryWorks()
     {
         var tableName = "ensure-created-pkonly";
