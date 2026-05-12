@@ -46,7 +46,7 @@ internal sealed class DynamoDatabaseCreator(
             .Tables
             .Values
             .OrderBy(static t => t.TableName, StringComparer.Ordinal)
-            .Select(async table =>
+            .Select(async Task<(bool Deleted, Exception? Error)> (table) =>
             {
                 await semaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
                 try
