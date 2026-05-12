@@ -55,11 +55,15 @@ internal sealed class DynamoDatabaseCreator(
             }
             catch (ResourceNotFoundException)
             {
+                // Table was already absent — skip the deletion wait below.
                 continue;
             }
 
             if (lifecycleOptions.WaitForCompletion)
-                await WaitUntilTableDeletedAsync(table.TableName, cancellationToken)
+                await WaitUntilTableDeletedAsync(
+                        table.TableName,
+                        lifecycleOptions,
+                        cancellationToken)
                     .ConfigureAwait(false);
         }
 
@@ -93,9 +97,8 @@ internal sealed class DynamoDatabaseCreator(
                 if (tableCreated && !modelSeedInserted)
                 {
                     // Model HasData runs only after new table creation. User async seeding runs on
-                    // every
-                    // EnsureCreatedAsync call with the schema-created flag, including GSI-only
-                    // updates.
+                    // every EnsureCreatedAsync call with the schema-created flag, including
+                    // GSI-only updates.
                     await creator.InsertDataAsync(createdTables, ct).ConfigureAwait(false);
                     modelSeedInserted = true;
                 }
@@ -182,8 +185,10 @@ internal sealed class DynamoDatabaseCreator(
                 }
 
                 if (lifecycleOptions.WaitForCompletion)
-                    existing =
-                        await WaitUntilTableActiveAsync(table.TableName, cancellationToken)
+                    existing = await WaitUntilTableActiveAsync(
+                            table.TableName,
+                            lifecycleOptions,
+                            cancellationToken)
                             .ConfigureAwait(false);
                 else if (existing is null)
                     existing =
@@ -196,8 +201,16 @@ internal sealed class DynamoDatabaseCreator(
             }
 
             if (!tableIsNew && lifecycleOptions.WaitForCompletion)
-                existing = await WaitUntilTableActiveAsync(table.TableName, cancellationToken)
+                existing = await WaitUntilTableActiveAsync(
+                        table.TableName,
+                        lifecycleOptions,
+                        cancellationToken)
                     .ConfigureAwait(false);
+
+            // When WaitForCompletion is false and the table already existed, `existing` is
+            // the snapshot from the initial DescribeTable and may not reflect concurrent GSI
+            // additions by other processes. A duplicate UpdateTable for an already-present
+            // GSI will fail with ResourceInUseException.
             var updates =
                 DynamoTableDefinitionBuilder.BuildMissingGlobalSecondaryIndexUpdates(
                     table,
@@ -218,7 +231,10 @@ internal sealed class DynamoDatabaseCreator(
                     .ConfigureAwait(false);
                 changed = true;
                 if (lifecycleOptions.WaitForCompletion || i < updates.Count - 1)
-                    await WaitUntilTableActiveAsync(table.TableName, cancellationToken)
+                    await WaitUntilTableActiveAsync(
+                            table.TableName,
+                            lifecycleOptions,
+                            cancellationToken)
                         .ConfigureAwait(false);
             }
         }
@@ -272,11 +288,11 @@ internal sealed class DynamoDatabaseCreator(
 
     private async Task<TableDescription> WaitUntilTableActiveAsync(
         string tableName,
+        DynamoTableLifecycleOptions lifecycleOptions,
         CancellationToken cancellationToken)
     {
-        var options = GetTableLifecycleOptions();
         var started = TimeProvider.System.GetTimestamp();
-        var delay = options.InitialPollingDelay;
+        var delay = lifecycleOptions.InitialPollingDelay;
 
         while (true)
         {
@@ -300,19 +316,22 @@ internal sealed class DynamoDatabaseCreator(
                 // Creation race: keep polling.
             }
 
-            await DelayLifecyclePollAsync(options, started, delay, cancellationToken)
+            await DelayLifecyclePollAsync(lifecycleOptions, started, delay, cancellationToken)
                 .ConfigureAwait(false);
-            delay = NextPollingDelay(delay, options.MaxPollingDelay, options.BackoffMultiplier);
+            delay = NextPollingDelay(
+                delay,
+                lifecycleOptions.MaxPollingDelay,
+                lifecycleOptions.BackoffMultiplier);
         }
     }
 
     private async Task WaitUntilTableDeletedAsync(
         string tableName,
+        DynamoTableLifecycleOptions lifecycleOptions,
         CancellationToken cancellationToken)
     {
-        var options = GetTableLifecycleOptions();
         var started = TimeProvider.System.GetTimestamp();
-        var delay = options.InitialPollingDelay;
+        var delay = lifecycleOptions.InitialPollingDelay;
 
         while (true)
         {
@@ -331,9 +350,12 @@ internal sealed class DynamoDatabaseCreator(
                 return;
             }
 
-            await DelayLifecyclePollAsync(options, started, delay, cancellationToken)
+            await DelayLifecyclePollAsync(lifecycleOptions, started, delay, cancellationToken)
                 .ConfigureAwait(false);
-            delay = NextPollingDelay(delay, options.MaxPollingDelay, options.BackoffMultiplier);
+            delay = NextPollingDelay(
+                delay,
+                lifecycleOptions.MaxPollingDelay,
+                lifecycleOptions.BackoffMultiplier);
         }
     }
 

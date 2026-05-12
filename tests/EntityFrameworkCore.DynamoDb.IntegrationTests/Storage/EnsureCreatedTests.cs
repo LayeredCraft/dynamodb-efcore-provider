@@ -2,6 +2,7 @@ using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.Storage;
 
@@ -241,6 +242,45 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
                 .Should()
                 .ThrowAsync<InvalidOperationException>()
                 .WithMessage("*missing local secondary index*cannot be added*");
+        }
+        finally
+        {
+            await context.Database.EnsureDeletedAsync(CancellationToken);
+        }
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task EnsureCreatedAsync_AsyncSeeder_ReceivesCreatedTrue_WhenGsiAdded()
+    {
+        var tableName = "ensure-created-seeder-gsi";
+        await DeleteIfExists(tableName);
+        await Client.CreateTableAsync(
+            new CreateTableRequest
+            {
+                TableName = tableName,
+                BillingMode = BillingMode.PAY_PER_REQUEST,
+                AttributeDefinitions = [new AttributeDefinition("pk", ScalarAttributeType.S)],
+                KeySchema = [new KeySchemaElement("pk", KeyType.HASH)],
+            },
+            CancellationToken);
+        await WaitUntilActive(tableName);
+
+        bool? seederCreatedFlag = null;
+        var builder = new DbContextOptionsBuilder<GsiContext>();
+        builder.UseDynamo(o => o.DynamoDbClient(Client));
+        builder.UseAsyncSeeding((_, created, _) =>
+        {
+            seederCreatedFlag = created;
+            return Task.CompletedTask;
+        });
+        builder.ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning));
+        await using var context = new GsiContext(builder.Options);
+
+        try
+        {
+            (await context.Database.EnsureCreatedAsync(CancellationToken)).Should().BeTrue();
+
+            seederCreatedFlag.Should().BeTrue();
         }
         finally
         {
