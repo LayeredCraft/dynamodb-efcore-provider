@@ -28,22 +28,27 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
         await DeleteIfExists(tableName);
         await using var context = CreateContext<PkOnlyContext>(tableName);
 
-        var created = await context.Database.EnsureCreatedAsync(CancellationToken);
-        context.Items.Add(new EnsureItem { Pk = "A", Value = "one" });
-        await context.SaveChangesAsync(CancellationToken);
+        try
+        {
+            var created = await context.Database.EnsureCreatedAsync(CancellationToken);
+            context.Items.Add(new EnsureItem { Pk = "A", Value = "one" });
+            await context.SaveChangesAsync(CancellationToken);
 
-        var table = await DescribeTable(tableName);
-        created.Should().BeTrue();
-        table.BillingModeSummary.BillingMode.Should().Be(BillingMode.PAY_PER_REQUEST);
-        table
-            .KeySchema
-            .Select(static key => (key.AttributeName, key.KeyType))
-            .Should()
-            .Equal(("pk", KeyType.HASH));
-        var rows = await context.Items.Where(x => x.Pk == "A").ToListAsync(CancellationToken);
-        rows.Should().ContainSingle().Which.Value.Should().Be("one");
-
-        await context.Database.EnsureDeletedAsync(CancellationToken);
+            var table = await DescribeTable(tableName);
+            created.Should().BeTrue();
+            table.BillingModeSummary.BillingMode.Should().Be(BillingMode.PAY_PER_REQUEST);
+            table
+                .KeySchema
+                .Select(static key => (key.AttributeName, key.KeyType))
+                .Should()
+                .Equal(("pk", KeyType.HASH));
+            var rows = await context.Items.Where(x => x.Pk == "A").ToListAsync(CancellationToken);
+            rows.Should().ContainSingle().Which.Value.Should().Be("one");
+        }
+        finally
+        {
+            await context.Database.EnsureDeletedAsync(CancellationToken);
+        }
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
@@ -53,28 +58,33 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
         await DeleteIfExists(tableName);
         await using var context = CreateContext<IndexedContext>(tableName);
 
-        var created = await context.Database.EnsureCreatedAsync(CancellationToken);
-        context.IndexedItems.Add(
-            new IndexedEnsureItem { Pk = "A", Sk = "1", Customer = "C", Status = "S" });
-        await context.SaveChangesAsync(CancellationToken);
+        try
+        {
+            var created = await context.Database.EnsureCreatedAsync(CancellationToken);
+            context.IndexedItems.Add(
+                new IndexedEnsureItem { Pk = "A", Sk = "1", Customer = "C", Status = "S" });
+            await context.SaveChangesAsync(CancellationToken);
 
-        var table = await DescribeTable(tableName);
-        created.Should().BeTrue();
-        table
-            .KeySchema
-            .Select(static key => (key.AttributeName, key.KeyType))
-            .Should()
-            .Equal(("pk", KeyType.HASH), ("sk", KeyType.RANGE));
-        table.GlobalSecondaryIndexes.Should().ContainSingle(i => i.IndexName == "ByCustomer");
-        table.LocalSecondaryIndexes.Should().ContainSingle(i => i.IndexName == "ByStatus");
-        var rows =
-            await context
-                .IndexedItems
-                .Where(x => x.Pk == "A" && x.Sk == "1")
-                .ToListAsync(CancellationToken);
-        rows.Should().ContainSingle().Which.Customer.Should().Be("C");
-
-        await context.Database.EnsureDeletedAsync(CancellationToken);
+            var table = await DescribeTable(tableName);
+            created.Should().BeTrue();
+            table
+                .KeySchema
+                .Select(static key => (key.AttributeName, key.KeyType))
+                .Should()
+                .Equal(("pk", KeyType.HASH), ("sk", KeyType.RANGE));
+            table.GlobalSecondaryIndexes.Should().ContainSingle(i => i.IndexName == "ByCustomer");
+            table.LocalSecondaryIndexes.Should().ContainSingle(i => i.IndexName == "ByStatus");
+            var rows =
+                await context
+                    .IndexedItems
+                    .Where(x => x.Pk == "A" && x.Sk == "1")
+                    .ToListAsync(CancellationToken);
+            rows.Should().ContainSingle().Which.Customer.Should().Be("C");
+        }
+        finally
+        {
+            await context.Database.EnsureDeletedAsync(CancellationToken);
+        }
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
@@ -84,10 +94,17 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
         await DeleteIfExists(tableName);
         await using var context = CreateContext<RepeatContext>(tableName);
 
-        (await context.Database.EnsureCreatedAsync(CancellationToken)).Should().BeTrue();
-        (await context.Database.EnsureCreatedAsync(CancellationToken)).Should().BeFalse();
-        (await context.Database.EnsureDeletedAsync(CancellationToken)).Should().BeTrue();
-        (await context.Database.EnsureDeletedAsync(CancellationToken)).Should().BeFalse();
+        try
+        {
+            (await context.Database.EnsureCreatedAsync(CancellationToken)).Should().BeTrue();
+            (await context.Database.EnsureCreatedAsync(CancellationToken)).Should().BeFalse();
+            (await context.Database.EnsureDeletedAsync(CancellationToken)).Should().BeTrue();
+            (await context.Database.EnsureDeletedAsync(CancellationToken)).Should().BeFalse();
+        }
+        finally
+        {
+            await context.Database.EnsureDeletedAsync(CancellationToken);
+        }
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
@@ -109,11 +126,17 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
             CancellationToken);
         await using var context = CreateContext<GsiContext>(tableName);
 
-        (await context.Database.EnsureCreatedAsync(CancellationToken)).Should().BeTrue();
+        try
+        {
+            (await context.Database.EnsureCreatedAsync(CancellationToken)).Should().BeTrue();
 
-        var table = await DescribeTable(tableName);
-        table.GlobalSecondaryIndexes.Should().ContainSingle(i => i.IndexName == "BySk");
-        await context.Database.EnsureDeletedAsync(CancellationToken);
+            var table = await DescribeTable(tableName);
+            table.GlobalSecondaryIndexes.Should().ContainSingle(i => i.IndexName == "BySk");
+        }
+        finally
+        {
+            await context.Database.EnsureDeletedAsync(CancellationToken);
+        }
     }
 
     [Fact(
@@ -137,13 +160,19 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
             CancellationToken);
         await using var context = CreateContext<IndexedContext>(tableName);
 
-        var act = () => context.Database.EnsureCreatedAsync(CancellationToken);
+        try
+        {
+            var act = () => context.Database.EnsureCreatedAsync(CancellationToken);
 
-        await act
-            .Should()
-            .ThrowAsync<InvalidOperationException>()
-            .WithMessage("*missing local secondary index*cannot be added*");
-        await context.Database.EnsureDeletedAsync(CancellationToken);
+            await act
+                .Should()
+                .ThrowAsync<InvalidOperationException>()
+                .WithMessage("*missing local secondary index*cannot be added*");
+        }
+        finally
+        {
+            await context.Database.EnsureDeletedAsync(CancellationToken);
+        }
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
