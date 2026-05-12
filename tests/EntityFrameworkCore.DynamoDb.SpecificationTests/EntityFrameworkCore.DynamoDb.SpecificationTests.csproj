@@ -20,7 +20,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference
-      Include="..\..\src\EntityFrameworkCore.DynamoDb\EntityFrameworkCore.DynamoDb.csproj" />
+    <Using Include="Xunit"/>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\EntityFrameworkCore.DynamoDb\EntityFrameworkCore.DynamoDb.csproj"/>
   </ItemGroup>
 </Project>
