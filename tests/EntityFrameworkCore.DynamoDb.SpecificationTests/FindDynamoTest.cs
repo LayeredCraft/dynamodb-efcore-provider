@@ -168,6 +168,133 @@ public abstract class FindDynamoTest : FindTestBase<FindDynamoTest.FindDynamoFix
             """);
     }
 
+    public override async Task Returns_null_for_int_key_not_in_store_async(
+        CancellationType cancellationType)
+    {
+        await base.Returns_null_for_int_key_not_in_store_async(cancellationType);
+
+        AssertSql(
+            """
+            SELECT "id", "foo", "ownedCollection", "ownedReference"
+            FROM "ints"
+            WHERE "id" = ?
+            """);
+    }
+
+    public override async Task Find_string_key_from_store_async(CancellationType cancellationType)
+    {
+        await base.Find_string_key_from_store_async(cancellationType);
+
+        AssertSql(
+            """
+            SELECT "id", "foo"
+            FROM "strings"
+            WHERE "id" = ?
+            """);
+    }
+
+    public override async Task Returns_null_for_string_key_not_in_store_async(
+        CancellationType cancellationType)
+    {
+        await base.Returns_null_for_string_key_not_in_store_async(cancellationType);
+
+        AssertSql(
+            """
+            SELECT "id", "foo"
+            FROM "strings"
+            WHERE "id" = ?
+            """);
+    }
+
+    public override async Task Find_base_type_from_store_async(CancellationType cancellationType)
+    {
+        await base.Find_base_type_from_store_async(cancellationType);
+
+        AssertSql(
+            """
+            SELECT "id", "$type", "foo", "boo"
+            FROM "base"
+            WHERE "id" = ? AND ("$type" = 'BaseType' OR "$type" = 'DerivedType')
+            """);
+    }
+
+    public override async Task Returns_null_for_base_type_not_in_store_async(
+        CancellationType cancellationType)
+    {
+        await base.Returns_null_for_base_type_not_in_store_async(cancellationType);
+
+        AssertSql(
+            """
+            SELECT "id", "$type", "foo", "boo"
+            FROM "base"
+            WHERE "id" = ? AND ("$type" = 'BaseType' OR "$type" = 'DerivedType')
+            """);
+    }
+
+    public override async Task Find_derived_type_from_store_async(CancellationType cancellationType)
+    {
+        await base.Find_derived_type_from_store_async(cancellationType);
+
+        AssertSql(
+            """
+            SELECT "id", "$type", "foo", "boo"
+            FROM "base"
+            WHERE "id" = ? AND "$type" = 'DerivedType'
+            """);
+    }
+
+    public override async Task Returns_null_for_derived_type_not_in_store_async(
+        CancellationType cancellationType)
+    {
+        await base.Returns_null_for_derived_type_not_in_store_async(cancellationType);
+
+        AssertSql(
+            """
+            SELECT "id", "$type", "foo", "boo"
+            FROM "base"
+            WHERE "id" = ? AND "$type" = 'DerivedType'
+            """);
+    }
+
+    public override async Task Find_base_type_using_derived_set_tracked_async(
+        CancellationType cancellationType)
+    {
+        await base.Find_base_type_using_derived_set_tracked_async(cancellationType);
+
+        AssertSql(
+            """
+            SELECT "id", "$type", "foo", "boo"
+            FROM "base"
+            WHERE "id" = ? AND "$type" = 'DerivedType'
+            """);
+    }
+
+    public override async Task Find_base_type_using_derived_set_from_store_async(
+        CancellationType cancellationType)
+    {
+        await base.Find_base_type_using_derived_set_from_store_async(cancellationType);
+
+        AssertSql(
+            """
+            SELECT "id", "$type", "foo", "boo"
+            FROM "base"
+            WHERE "id" = ? AND "$type" = 'DerivedType'
+            """);
+    }
+
+    public override async Task Find_derived_using_base_set_type_from_store_async(
+        CancellationType cancellationType)
+    {
+        await base.Find_derived_using_base_set_type_from_store_async(cancellationType);
+
+        AssertSql(
+            """
+            SELECT "id", "$type", "foo", "boo"
+            FROM "base"
+            WHERE "id" = ? AND ("$type" = 'BaseType' OR "$type" = 'DerivedType')
+            """);
+    }
+
     //      ╭──────────────────────────────────────────────────────────╮
     //      │                        Test Infra                        │
     //      ╰──────────────────────────────────────────────────────────╯
