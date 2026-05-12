@@ -47,6 +47,12 @@ public abstract class FindDynamoTest(FindDynamoTest.FindDynamoFixture fixture)
                     => warnings.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning))
                 .UseDynamo(options => options.DynamoDbClient(_testStoreFactory.Client));
 
+        protected override async Task CleanAsync(DbContext context)
+        {
+            await context.Database.EnsureDeletedAsync().ConfigureAwait(false);
+            await context.Database.EnsureCreatedAsync().ConfigureAwait(false);
+        }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder, DbContext context)
         {
             modelBuilder.Entity<IntKey>().ToTable("ints").HasPartitionKey(x => x.Id);
