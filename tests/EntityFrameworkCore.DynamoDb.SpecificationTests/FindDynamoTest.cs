@@ -86,77 +86,47 @@ public abstract class FindDynamoTest : FindTestBase<FindDynamoTest.FindDynamoFix
     public override void Throws_for_bad_type_for_composite_key() { }
 
     [ConditionalTheory(Skip = NullableKeysNotSupported)]
-    [InlineData((int)CancellationType.Right)]
-    [InlineData((int)CancellationType.Wrong)]
-    [InlineData((int)CancellationType.None)]
     public override Task Find_nullable_int_key_tracked_async(CancellationType cancellationType)
         => Task.CompletedTask;
 
     [ConditionalTheory(Skip = NullableKeysNotSupported)]
-    [InlineData((int)CancellationType.Right)]
-    [InlineData((int)CancellationType.Wrong)]
-    [InlineData((int)CancellationType.None)]
     public override Task Find_nullable_int_key_from_store_async(CancellationType cancellationType)
         => Task.CompletedTask;
 
     [ConditionalTheory(Skip = NullableKeysNotSupported)]
-    [InlineData((int)CancellationType.Right)]
-    [InlineData((int)CancellationType.Wrong)]
-    [InlineData((int)CancellationType.None)]
     public override Task Returns_null_for_nullable_int_key_not_in_store_async(
         CancellationType cancellationType)
         => Task.CompletedTask;
 
     [ConditionalTheory(Skip = CompositeKeysNotSupported)]
-    [InlineData((int)CancellationType.Right)]
-    [InlineData((int)CancellationType.Wrong)]
-    [InlineData((int)CancellationType.None)]
     public override Task Find_composite_key_tracked_async(CancellationType cancellationType)
         => Task.CompletedTask;
 
     [ConditionalTheory(Skip = CompositeKeysNotSupported)]
-    [InlineData((int)CancellationType.Right)]
-    [InlineData((int)CancellationType.Wrong)]
-    [InlineData((int)CancellationType.None)]
     public override Task Find_composite_key_from_store_async(CancellationType cancellationType)
         => Task.CompletedTask;
 
     [ConditionalTheory(Skip = CompositeKeysNotSupported)]
-    [InlineData((int)CancellationType.Right)]
-    [InlineData((int)CancellationType.Wrong)]
-    [InlineData((int)CancellationType.None)]
     public override Task Returns_null_for_composite_key_not_in_store_async(
         CancellationType cancellationType)
         => Task.CompletedTask;
 
     [ConditionalTheory(Skip = CompositeKeysNotSupported)]
-    [InlineData((int)CancellationType.Right)]
-    [InlineData((int)CancellationType.Wrong)]
-    [InlineData((int)CancellationType.None)]
     public override Task Returns_null_for_null_key_values_array_async(
         CancellationType cancellationType)
         => Task.CompletedTask;
 
     [ConditionalTheory(Skip = CompositeKeysNotSupported)]
-    [InlineData((int)CancellationType.Right)]
-    [InlineData((int)CancellationType.Wrong)]
-    [InlineData((int)CancellationType.None)]
     public override Task Returns_null_for_null_in_composite_key_async(
         CancellationType cancellationType)
         => Task.CompletedTask;
 
     [ConditionalTheory(Skip = CompositeKeysNotSupported)]
-    [InlineData((int)CancellationType.Right)]
-    [InlineData((int)CancellationType.Wrong)]
-    [InlineData((int)CancellationType.None)]
     public override Task Throws_for_wrong_number_of_values_for_composite_key_async(
         CancellationType cancellationType)
         => Task.CompletedTask;
 
     [ConditionalTheory(Skip = CompositeKeysNotSupported)]
-    [InlineData((int)CancellationType.Right)]
-    [InlineData((int)CancellationType.Wrong)]
-    [InlineData((int)CancellationType.None)]
     public override Task Throws_for_bad_type_for_composite_key_async(
         CancellationType cancellationType)
         => Task.CompletedTask;
