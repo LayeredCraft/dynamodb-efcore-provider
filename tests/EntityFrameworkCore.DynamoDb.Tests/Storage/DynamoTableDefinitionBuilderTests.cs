@@ -146,6 +146,47 @@ public sealed class DynamoTableDefinitionBuilderTests
         updates.Should().ContainSingle().Which.Create.IndexName.Should().Be("ByCustomer");
     }
 
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void
+        BuildMissingGlobalSecondaryIndexUpdates_AllowsMissingAttributeDefinitionsForMissingGsi()
+    {
+        using var context = CreateContext<IndexedContext>();
+        var table = context.Model.GetDynamoRuntimeTableModel()!.Tables["Indexed"];
+        var existing = new TableDescription
+        {
+            TableName = "Indexed",
+            AttributeDefinitions =
+            [
+                new AttributeDefinition("pk", ScalarAttributeType.S),
+                new AttributeDefinition("sk", ScalarAttributeType.S),
+                new AttributeDefinition("status", ScalarAttributeType.S),
+            ],
+            KeySchema =
+            [
+                new KeySchemaElement("pk", KeyType.HASH),
+                new KeySchemaElement("sk", KeyType.RANGE),
+            ],
+            LocalSecondaryIndexes =
+            [
+                new LocalSecondaryIndexDescription
+                {
+                    IndexName = "ByStatus",
+                    KeySchema =
+                    [
+                        new KeySchemaElement("pk", KeyType.HASH),
+                        new KeySchemaElement("status", KeyType.RANGE),
+                    ],
+                    Projection = new Projection { ProjectionType = ProjectionType.ALL },
+                },
+            ],
+        };
+
+        var updates =
+            DynamoTableDefinitionBuilder.BuildMissingGlobalSecondaryIndexUpdates(table, existing);
+
+        updates.Should().ContainSingle().Which.Create.IndexName.Should().Be("ByCustomer");
+    }
+
     [Theory(Timeout = TestConfiguration.DefaultTimeout)]
     [InlineData("pk")]
     [InlineData("sk")]
