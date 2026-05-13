@@ -81,7 +81,28 @@ public sealed class Session
 ```
 
 Explicit EF Core value-generation configuration still wins over provider conventions when you need
-a custom client-side generator.
+a custom client-side generator. For example, use a custom generator for Guid v7 keys:
+
+```csharp
+public sealed class GuidV7ValueGenerator : ValueGenerator<Guid>
+{
+    public override bool GeneratesTemporaryValues => false;
+
+    public override Guid Next(EntityEntry entry)
+        => Guid.CreateVersion7();
+}
+
+modelBuilder.Entity<Session>(b =>
+{
+    b.HasPartitionKey(x => x.Id);
+    b.Property(x => x.Id)
+        .ValueGeneratedOnAdd()
+        .HasValueGenerator<GuidV7ValueGenerator>();
+});
+```
+
+A value generator creates the CLR key value. A value converter only changes how that value is stored
+in DynamoDB.
 
 ## Sort Key
 
