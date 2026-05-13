@@ -1,5 +1,4 @@
 using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
-using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SimpleTable;
 
@@ -32,7 +31,7 @@ public class OperatorPrecedenceTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "pk", "boolValue", "dateOnlyValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableIntValue", "nullableStringValue", "stringValue", "timeOnlyValue", "timeSpanValue"
+            SELECT "pk", "boolValue", "dateOnlyValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableDateTimeOffsetValue", "nullableIntValue", "nullableStringValue", "stringValue", "timeOnlyValue", "timeSpanValue"
             FROM "SimpleItems"
             WHERE "intValue" = 100 OR "intValue" = 200 AND "boolValue" = TRUE
             """);
@@ -57,7 +56,7 @@ public class OperatorPrecedenceTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "pk", "boolValue", "dateOnlyValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableIntValue", "nullableStringValue", "stringValue", "timeOnlyValue", "timeSpanValue"
+            SELECT "pk", "boolValue", "dateOnlyValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableDateTimeOffsetValue", "nullableIntValue", "nullableStringValue", "stringValue", "timeOnlyValue", "timeSpanValue"
             FROM "SimpleItems"
             WHERE ("intValue" = 100 OR "intValue" = 200) AND "boolValue" = TRUE
             """);
@@ -79,7 +78,7 @@ public class OperatorPrecedenceTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "pk", "boolValue", "dateOnlyValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableIntValue", "nullableStringValue", "stringValue", "timeOnlyValue", "timeSpanValue"
+            SELECT "pk", "boolValue", "dateOnlyValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableDateTimeOffsetValue", "nullableIntValue", "nullableStringValue", "stringValue", "timeOnlyValue", "timeSpanValue"
             FROM "SimpleItems"
             WHERE "intValue" > 100 AND "longValue" < 500
             """);
@@ -106,7 +105,7 @@ public class OperatorPrecedenceTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "pk", "boolValue", "dateOnlyValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableIntValue", "nullableStringValue", "stringValue", "timeOnlyValue", "timeSpanValue"
+            SELECT "pk", "boolValue", "dateOnlyValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableDateTimeOffsetValue", "nullableIntValue", "nullableStringValue", "stringValue", "timeOnlyValue", "timeSpanValue"
             FROM "SimpleItems"
             WHERE "intValue" > 0 AND "longValue" > 0 AND "doubleValue" > 0 AND "boolValue" = TRUE
             """);
@@ -136,7 +135,7 @@ public class OperatorPrecedenceTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "pk", "boolValue", "dateOnlyValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableIntValue", "nullableStringValue", "stringValue", "timeOnlyValue", "timeSpanValue"
+            SELECT "pk", "boolValue", "dateOnlyValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableDateTimeOffsetValue", "nullableIntValue", "nullableStringValue", "stringValue", "timeOnlyValue", "timeSpanValue"
             FROM "SimpleItems"
             WHERE "intValue" = 100 OR "intValue" = 200 OR "intValue" = 300 OR "intValue" = 400
             """);
@@ -165,7 +164,7 @@ public class OperatorPrecedenceTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "pk", "boolValue", "dateOnlyValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableIntValue", "nullableStringValue", "stringValue", "timeOnlyValue", "timeSpanValue"
+            SELECT "pk", "boolValue", "dateOnlyValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableDateTimeOffsetValue", "nullableIntValue", "nullableStringValue", "stringValue", "timeOnlyValue", "timeSpanValue"
             FROM "SimpleItems"
             WHERE ("intValue" = 100 OR "intValue" = 200) AND ("longValue" < 500 OR "longValue" > 1000) AND "boolValue" = TRUE
             """);
@@ -196,7 +195,7 @@ public class OperatorPrecedenceTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "pk", "boolValue", "dateOnlyValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableIntValue", "nullableStringValue", "stringValue", "timeOnlyValue", "timeSpanValue"
+            SELECT "pk", "boolValue", "dateOnlyValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableDateTimeOffsetValue", "nullableIntValue", "nullableStringValue", "stringValue", "timeOnlyValue", "timeSpanValue"
             FROM "SimpleItems"
             WHERE "intValue" > 100 AND "stringValue" <> 'test' AND ("boolValue" = TRUE OR "doubleValue" < 0) AND "longValue" < 1000
             """);
@@ -227,7 +226,7 @@ public class OperatorPrecedenceTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "pk", "boolValue", "dateOnlyValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableIntValue", "nullableStringValue", "stringValue", "timeOnlyValue", "timeSpanValue"
+            SELECT "pk", "boolValue", "dateOnlyValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableDateTimeOffsetValue", "nullableIntValue", "nullableStringValue", "stringValue", "timeOnlyValue", "timeSpanValue"
             FROM "SimpleItems"
             WHERE "intValue" BETWEEN 100 AND 500 AND "longValue" <> 0 AND "doubleValue" < 100
             """);
