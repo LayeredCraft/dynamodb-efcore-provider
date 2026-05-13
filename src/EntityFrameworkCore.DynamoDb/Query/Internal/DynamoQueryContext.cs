@@ -7,23 +7,23 @@ using Microsoft.EntityFrameworkCore.Query;
 namespace EntityFrameworkCore.DynamoDb.Query.Internal;
 
 /// <summary>Represents the DynamoQueryContext type.</summary>
-public class DynamoQueryContext(
+public sealed class DynamoQueryContext(
     QueryContextDependencies dependencies,
     IDynamoClientWrapper client,
     IDiagnosticsLogger<DbLoggerCategory.Database.Command> commandLogger,
     IDiagnosticsLogger<DbLoggerCategory.Query> queryLogger) : QueryContext(dependencies)
 {
     /// <summary>Provides functionality for this member.</summary>
-    public virtual IDynamoClientWrapper Client { get; } = client;
+    public IDynamoClientWrapper Client { get; } = client;
 
     /// <summary>Provides functionality for this member.</summary>
-    public virtual IDiagnosticsLogger<DbLoggerCategory.Database.Command> CommandDiagnosticsLogger
+    public IDiagnosticsLogger<DbLoggerCategory.Database.Command> CommandDiagnosticsLogger
     {
         get;
     } = commandLogger;
 
     /// <summary>Provides functionality for this member.</summary>
-    public virtual IDiagnosticsLogger<DbLoggerCategory.Query> QueryDiagnosticsLogger { get; } =
+    public IDiagnosticsLogger<DbLoggerCategory.Query> QueryDiagnosticsLogger { get; } =
         queryLogger;
 
     /// <summary>

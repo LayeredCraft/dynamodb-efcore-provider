@@ -5,7 +5,7 @@ namespace EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 /// <summary>
 /// Represents a parameter in a SQL expression that will be substituted at execution time.
 /// </summary>
-public class SqlParameterExpression(string name, Type type, CoreTypeMapping? typeMapping)
+public sealed class SqlParameterExpression(string name, Type type, CoreTypeMapping? typeMapping)
     : SqlExpression(type, typeMapping)
 {
     /// <summary>

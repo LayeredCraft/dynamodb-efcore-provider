@@ -7,7 +7,7 @@ namespace EntityFrameworkCore.DynamoDb.Query.Internal;
 /// <summary>
 /// Helper class for printing expression trees for debugging.
 /// </summary>
-public class ExpressionPrinter : ExpressionVisitor
+public sealed class ExpressionPrinter : ExpressionVisitor
 {
     private readonly StringBuilder _builder = new();
     private int _indent;

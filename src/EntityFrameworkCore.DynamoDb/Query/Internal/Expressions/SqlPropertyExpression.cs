@@ -5,7 +5,7 @@ namespace EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 /// <summary>
 /// Represents a property access in a SQL expression (e.g., Item.Name).
 /// </summary>
-public class SqlPropertyExpression(
+public sealed class SqlPropertyExpression(
     string propertyName,
     Type type,
     CoreTypeMapping? typeMapping,

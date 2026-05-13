@@ -30,7 +30,7 @@ namespace EntityFrameworkCore.DynamoDb.Query.Internal;
 ///     <see cref="DynamoComplexCollectionInitializationExpression" /> markers emitted by
 ///     <see cref="DynamoShapedQueryCompilingExpressionVisitor.AddStructuralTypeInitialization" />.
 /// </remarks>
-public class DynamoProjectionBindingRemovingExpressionVisitor(
+public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
     ParameterExpression itemParameter,
     SelectExpression selectExpression) : ExpressionVisitor
 {

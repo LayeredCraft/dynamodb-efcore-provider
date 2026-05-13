@@ -3,7 +3,7 @@ namespace EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 /// <summary>
 /// Represents an ORDER BY clause component.
 /// </summary>
-public class OrderingExpression(SqlExpression expression, bool isAscending)
+public sealed class OrderingExpression(SqlExpression expression, bool isAscending)
 {
     /// <summary>
     /// The expression to order by.

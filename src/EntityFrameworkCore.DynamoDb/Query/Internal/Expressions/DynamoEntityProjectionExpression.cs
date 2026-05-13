@@ -10,7 +10,7 @@ namespace EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 ///     Represents an entity projection expression that lazily binds properties on-demand.
 ///     This ensures a single source of truth for entity-to-SQL property mapping.
 /// </summary>
-public class DynamoEntityProjectionExpression : SqlExpression
+public sealed class DynamoEntityProjectionExpression : SqlExpression
 {
     private readonly Dictionary<IProperty, SqlExpression> _propertyExpressionsMap = new();
     private readonly ISqlExpressionFactory _sqlExpressionFactory;

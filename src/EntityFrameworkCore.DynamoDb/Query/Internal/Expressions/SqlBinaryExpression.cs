@@ -6,7 +6,7 @@ namespace EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 /// <summary>
 /// Represents a binary operation in a SQL expression.
 /// </summary>
-public class SqlBinaryExpression(
+public sealed class SqlBinaryExpression(
     ExpressionType operatorType,
     SqlExpression left,
     SqlExpression right,
