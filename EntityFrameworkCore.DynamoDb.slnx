@@ -26,6 +26,7 @@
   <Folder Name="/tests/">
     <File Path="tests\Directory.Build.props" />
     <Project Path="tests\EntityFrameworkCore.DynamoDb.IntegrationTests\EntityFrameworkCore.DynamoDb.IntegrationTests.csproj" />
+    <Project Path="tests\EntityFrameworkCore.DynamoDb.SpecificationTests\EntityFrameworkCore.DynamoDb.SpecificationTests.csproj" />
     <Project Path="tests\EntityFrameworkCore.DynamoDb.Tests\EntityFrameworkCore.DynamoDb.Tests.csproj" />
   </Folder>
 </Solution>
