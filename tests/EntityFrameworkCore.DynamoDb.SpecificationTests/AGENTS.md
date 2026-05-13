@@ -33,6 +33,10 @@ public abstract class XxxDynamoTest : XxxTestBase<XxxDynamoTest.XxxDynamoFixture
 {
     protected XxxDynamoTest(XxxDynamoFixture fixture) : base(fixture) => fixture.ClearSql();
 
+    [ConditionalFact]
+    public virtual void Check_all_tests_overridden()
+        => DynamoTestHelpers.AssertAllTestMethodsOverridden(typeof(XxxDynamoTest));
+
     // overrides go here ...
 
     public class XxxDynamoFixture : XxxFixtureBase, IDynamoSpecificationFixture
@@ -72,6 +76,15 @@ public abstract class XxxDynamoTest : XxxTestBase<XxxDynamoTest.XxxDynamoFixture
 ```
 
 ### 3. Handle overrides
+
+Every specification test class must include `Check_all_tests_overridden` and call
+`DynamoTestHelpers.AssertAllTestMethodsOverridden(typeof(CurrentDynamoTestBase))`. Use the provider
+spec-test base type, not `GetType()`, because concrete nested xUnit classes inherit from the
+abstract provider base class.
+
+Explicitly override every inherited spec test method. Each override must run the base test, skip
+with a provider limitation reason, expect provider-specific failure, or assert provider-specific
+behavior.
 
 **Sync methods** — DynamoDB has no sync query path:
 
