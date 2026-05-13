@@ -7,15 +7,16 @@ those tests run against a real DynamoDB Local instance.
 
 ## Shared Infrastructure
 
-| File                                                   | Role                                                                                                                     |
-|--------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------|
-| `TestUtilities/DynamoSpecificationContainerFixture.cs` | Process-scoped DynamoDB Local container (Testcontainers). Lazily started once per process.                               |
-| `TestUtilities/DynamoTestStoreFactory.cs`              | Singleton factory. Plugs into EF Core test infra; vends `DynamoTestStore` and `TestSqlLoggerFactory`.                    |
-| `TestUtilities/DynamoTestStore.cs`                     | Per-test store backed by the shared container client.                                                                    |
-| `TestUtilities/TestSqlLoggerFactory.cs`                | Captures emitted PartiQL via `DynamoEventId.ExecutingPartiQlQuery` for baseline assertions.                              |
-| `TestUtilities/DynamoTestHelpers.cs`                   | `NoSyncTest()` helper — catches expected sync-query failures.                                                            |
-| `TestUtilities/DynamoSpecificationFixture.cs`          | `IDynamoSpecificationFixture` interface + `ClearSql`/`AssertSql`/`ShouldLogDynamoSql` extensions shared by all fixtures. |
-| `AssemblyFixtures.cs`                                  | Disables test parallelization assembly-wide.                                                                             |
+| File                                                   | Role                                                                                                                         |
+|--------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------|
+| `TestUtilities/DynamoSpecificationContainerFixture.cs` | Shared DynamoDB Local container (Testcontainers). Started asynchronously by spec test infrastructure and disposed after use. |
+| `TestUtilities/DynamoTestStoreFactory.cs`              | Singleton factory. Plugs into EF Core test infra; vends `DynamoTestStore` and `TestSqlLoggerFactory`.                        |
+| `TestUtilities/DynamoTestStore.cs`                     | Per-test store backed by the shared container client.                                                                        |
+| `TestUtilities/TestSqlLoggerFactory.cs`                | Captures emitted PartiQL via `DynamoEventId.ExecutingPartiQlQuery` for baseline assertions.                                  |
+| `TestUtilities/DynamoTestHelpers.cs`                   | `NoSyncTest()` helper — catches expected sync-query failures.                                                                |
+| `TestUtilities/DynamoSpecificationFixture.cs`          | `IDynamoSpecificationFixture` interface + `ClearSql`/`AssertSql`/`ShouldLogDynamoSql` extensions shared by all fixtures.     |
+| `AssemblyFixtures.cs`                                  | Disables test parallelization assembly-wide.                                                                                 |
+| `DynamoSpecificationCollection`                        | xUnit collection fixture used by concrete spec test classes that need DynamoDB Local.                                        |
 
 ## Adding a New Specification Test
 
@@ -71,7 +72,15 @@ public abstract class XxxDynamoTest : XxxTestBase<XxxDynamoTest.XxxDynamoFixture
     }
 
     // xUnit only discovers non-abstract classes; this subclass is the actual test class.
-    public class XxxDynamoTestDefault(XxxDynamoFixture fixture) : XxxDynamoTest(fixture);
+    [Collection(DynamoSpecificationCollection.Name)]
+    public class XxxDynamoTestDefault : XxxDynamoTest
+    {
+        public XxxDynamoTestDefault(
+            XxxDynamoFixture fixture,
+            DynamoSpecificationContainerFixture containerFixture)
+            : base(fixture)
+            => _ = containerFixture;
+    }
 }
 ```
 
