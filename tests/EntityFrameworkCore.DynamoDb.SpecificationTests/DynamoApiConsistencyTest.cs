@@ -43,6 +43,7 @@ public class DynamoApiConsistencyTest(DynamoApiConsistencyTest.DynamoApiConsiste
             typeof(DynamoDbContextOptionsBuilder),
             typeof(DynamoDbContextOptionsExtensions),
             typeof(DynamoServiceCollectionExtensions),
+            typeof(DynamoDbQueryableExtensions),
             typeof(DynamoEntityTypeBuilderExtensions),
             typeof(DynamoPropertyBuilderExtensions),
             typeof(DynamoIndexBuilderExtensions),
@@ -75,8 +76,7 @@ public class DynamoApiConsistencyTest(DynamoApiConsistencyTest.DynamoApiConsiste
             {
                 typeof(IReadOnlyComplexProperty),
                 (typeof(DynamoPropertyExtensions), typeof(DynamoPropertyExtensions),
-                    typeof(DynamoPropertyExtensions), typeof(DynamoPropertyBuilderExtensions),
-                    null!)
+                    typeof(DynamoPropertyExtensions), null!, null!)
             },
             {
                 typeof(IReadOnlyIndex),
