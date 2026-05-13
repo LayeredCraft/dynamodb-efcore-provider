@@ -116,9 +116,8 @@ The default when calling `HasGlobalSecondaryIndex` or `HasLocalSecondaryIndex` i
 You can override projection type after index creation:
 
 ```csharp
-var byStatus = entity.HasGlobalSecondaryIndex("ByStatus", x => x.Status, x => x.CreatedAt);
-byStatus.IndexBuilder.Metadata.SetSecondaryIndexProjectionType(
-    DynamoSecondaryIndexProjectionType.KeysOnly);
+entity.HasGlobalSecondaryIndex("ByStatus", x => x.Status, x => x.CreatedAt)
+    .HasSecondaryIndexProjectionType(DynamoSecondaryIndexProjectionType.KeysOnly);
 ```
 
 !!! warning "Non-All projection indexes cannot materialize full entities"
