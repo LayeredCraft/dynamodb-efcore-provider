@@ -78,10 +78,10 @@ public static class DynamoEntityTypeBuilderExtensions
             partitionKeyPropertyName.NotEmpty();
 
             var indexBuilder = entityTypeBuilder.HasIndex([partitionKeyPropertyName], name);
-            indexBuilder.Metadata.SetSecondaryIndexName(name);
-            indexBuilder.Metadata.SetSecondaryIndexKind(DynamoSecondaryIndexKind.Global);
-            indexBuilder.Metadata.SetSecondaryIndexProjectionType(
-                DynamoSecondaryIndexProjectionType.All);
+            indexBuilder
+                .HasSecondaryIndexName(name)
+                .HasSecondaryIndexKind(DynamoSecondaryIndexKind.Global)
+                .HasSecondaryIndexProjectionType(DynamoSecondaryIndexProjectionType.All);
 
             return new DynamoSecondaryIndexBuilder(indexBuilder);
         }
@@ -99,10 +99,10 @@ public static class DynamoEntityTypeBuilderExtensions
 
             var indexBuilder =
                 entityTypeBuilder.HasIndex([partitionKeyPropertyName, sortKeyPropertyName], name);
-            indexBuilder.Metadata.SetSecondaryIndexName(name);
-            indexBuilder.Metadata.SetSecondaryIndexKind(DynamoSecondaryIndexKind.Global);
-            indexBuilder.Metadata.SetSecondaryIndexProjectionType(
-                DynamoSecondaryIndexProjectionType.All);
+            indexBuilder
+                .HasSecondaryIndexName(name)
+                .HasSecondaryIndexKind(DynamoSecondaryIndexKind.Global)
+                .HasSecondaryIndexProjectionType(DynamoSecondaryIndexProjectionType.All);
 
             return new DynamoSecondaryIndexBuilder(indexBuilder);
         }
@@ -117,10 +117,10 @@ public static class DynamoEntityTypeBuilderExtensions
             sortKeyPropertyName.NotEmpty();
 
             var indexBuilder = entityTypeBuilder.HasIndex([sortKeyPropertyName], name);
-            indexBuilder.Metadata.SetSecondaryIndexName(name);
-            indexBuilder.Metadata.SetSecondaryIndexKind(DynamoSecondaryIndexKind.Local);
-            indexBuilder.Metadata.SetSecondaryIndexProjectionType(
-                DynamoSecondaryIndexProjectionType.All);
+            indexBuilder
+                .HasSecondaryIndexName(name)
+                .HasSecondaryIndexKind(DynamoSecondaryIndexKind.Local)
+                .HasSecondaryIndexProjectionType(DynamoSecondaryIndexProjectionType.All);
 
             return new DynamoSecondaryIndexBuilder(indexBuilder);
         }
@@ -244,10 +244,10 @@ public static class DynamoEntityTypeBuilderExtensions
 
             var partitionKeyPropertyName = GetPropertyName(partitionKeyExpression);
             var indexBuilder = entityTypeBuilder.HasIndex([partitionKeyPropertyName], name);
-            indexBuilder.Metadata.SetSecondaryIndexName(name);
-            indexBuilder.Metadata.SetSecondaryIndexKind(DynamoSecondaryIndexKind.Global);
-            indexBuilder.Metadata.SetSecondaryIndexProjectionType(
-                DynamoSecondaryIndexProjectionType.All);
+            indexBuilder
+                .HasSecondaryIndexName(name)
+                .HasSecondaryIndexKind(DynamoSecondaryIndexKind.Global)
+                .HasSecondaryIndexProjectionType(DynamoSecondaryIndexProjectionType.All);
 
             return new DynamoSecondaryIndexBuilder<TEntity>(indexBuilder);
         }
@@ -266,10 +266,10 @@ public static class DynamoEntityTypeBuilderExtensions
             var indexBuilder = entityTypeBuilder.HasIndex(
                 [partitionKeyPropertyName, sortKeyPropertyName],
                 name);
-            indexBuilder.Metadata.SetSecondaryIndexName(name);
-            indexBuilder.Metadata.SetSecondaryIndexKind(DynamoSecondaryIndexKind.Global);
-            indexBuilder.Metadata.SetSecondaryIndexProjectionType(
-                DynamoSecondaryIndexProjectionType.All);
+            indexBuilder
+                .HasSecondaryIndexName(name)
+                .HasSecondaryIndexKind(DynamoSecondaryIndexKind.Global)
+                .HasSecondaryIndexProjectionType(DynamoSecondaryIndexProjectionType.All);
 
             return new DynamoSecondaryIndexBuilder<TEntity>(indexBuilder);
         }
@@ -284,10 +284,10 @@ public static class DynamoEntityTypeBuilderExtensions
 
             var sortKeyPropertyName = GetPropertyName(sortKeyExpression);
             var indexBuilder = entityTypeBuilder.HasIndex([sortKeyPropertyName], name);
-            indexBuilder.Metadata.SetSecondaryIndexName(name);
-            indexBuilder.Metadata.SetSecondaryIndexKind(DynamoSecondaryIndexKind.Local);
-            indexBuilder.Metadata.SetSecondaryIndexProjectionType(
-                DynamoSecondaryIndexProjectionType.All);
+            indexBuilder
+                .HasSecondaryIndexName(name)
+                .HasSecondaryIndexKind(DynamoSecondaryIndexKind.Local)
+                .HasSecondaryIndexProjectionType(DynamoSecondaryIndexProjectionType.All);
 
             return new DynamoSecondaryIndexBuilder<TEntity>(indexBuilder);
         }
