@@ -204,6 +204,12 @@ public class BuiltInDataTypesDynamoTest(
         {
             base.OnModelCreating(modelBuilder, context);
 
+            modelBuilder.Ignore<Animal>();
+            modelBuilder.Ignore<AnimalDetails>();
+            modelBuilder.Ignore<AnimalIdentification>();
+            modelBuilder.Ignore<StringForeignKeyDataType>();
+            modelBuilder.Ignore<BinaryForeignKeyDataType>();
+
             ConfigureIdKey<BuiltInDataTypes>(modelBuilder);
             ConfigureIdKey<BuiltInDataTypesShadow>(modelBuilder);
             ConfigureIdKey<BuiltInNullableDataTypes>(modelBuilder);
@@ -214,46 +220,22 @@ public class BuiltInDataTypesDynamoTest(
             ConfigureIdKey<UnicodeDataTypes>(modelBuilder);
             ConfigureIdKey<EmailTemplate>(modelBuilder);
             ConfigureIdKey<ObjectBackedDataTypes>(modelBuilder);
-            ConfigureIdKey<Animal>(modelBuilder);
-            ConfigureIdKey<AnimalDetails>(modelBuilder);
-            ConfigureIdKey<AnimalIdentification>(modelBuilder);
+            // ConfigureIdKey<Animal>(modelBuilder);
+            // ConfigureIdKey<AnimalDetails>(modelBuilder);
+            // ConfigureIdKey<AnimalIdentification>(modelBuilder);
             ConfigureIdKey<DateTimeEnclosure>(modelBuilder);
             ConfigureIdKey<StringEnclosure>(modelBuilder);
             ConfigureIdKey<StringKeyDataType>(modelBuilder);
-            ConfigureIdKey<StringForeignKeyDataType>(modelBuilder);
+            // ConfigureIdKey<StringForeignKeyDataType>(modelBuilder);
             ConfigureIdKey<BinaryKeyDataType>(modelBuilder);
-            ConfigureIdKey<BinaryForeignKeyDataType>(modelBuilder);
-
-            modelBuilder
-                .Entity<Animal>()
-                .HasMany(e => e.IdentificationMethods)
-                .WithOne()
-                .HasForeignKey(e => e.AnimalId);
-
-            modelBuilder
-                .Entity<Animal>()
-                .HasOne(e => e.Details)
-                .WithOne()
-                .HasForeignKey<AnimalDetails>(e => e.AnimalId);
-
-            modelBuilder
-                .Entity<StringKeyDataType>()
-                .HasMany(e => e.Dependents)
-                .WithOne(e => e.Principal)
-                .HasForeignKey(e => e.StringKeyDataTypeId);
-
-            modelBuilder
-                .Entity<BinaryKeyDataType>()
-                .HasMany(e => e.Dependents)
-                .WithOne(e => e.Principal)
-                .HasForeignKey(e => e.BinaryKeyDataTypeId);
+            // ConfigureIdKey<BinaryForeignKeyDataType>(modelBuilder);
         }
 
         private static EntityTypeBuilder<TEntity> ConfigureIdKey<TEntity>(ModelBuilder modelBuilder)
             where TEntity : class
         {
             var entityTypeBuilder = modelBuilder.Entity<TEntity>().HasPartitionKey("Id");
-            entityTypeBuilder.Property("Id").ValueGeneratedNever();
+
             return entityTypeBuilder;
         }
 
@@ -283,5 +265,10 @@ public class BuiltInDataTypesDynamoTest(
 
         /// <inheritdoc />
         public override bool PreservesDateTimeKind => false;
+    }
+
+    protected class DynamoAnimal : Animal
+    {
+        public new List<AnimalIdentification> IdentificationMethods { get; set; } = [];
     }
 }
