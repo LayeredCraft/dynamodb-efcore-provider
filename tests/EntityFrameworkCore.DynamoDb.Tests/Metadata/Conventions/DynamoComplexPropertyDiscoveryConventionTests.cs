@@ -217,7 +217,7 @@ public class DynamoComplexPropertyDiscoveryConventionTests
             .Should()
             .Throw<InvalidOperationException>()
             .WithMessage(
-                "*Unable to determine the relationship represented by navigation 'Employee.WorkAddress'*");
+                "*Navigation relationship 'Employee.WorkAddress'*not supported*DynamoDB*complex types*");
     }
 
     /// <summary>
@@ -236,7 +236,7 @@ public class DynamoComplexPropertyDiscoveryConventionTests
             .Should()
             .Throw<InvalidOperationException>()
             .WithMessage(
-                "*Unable to determine the relationship represented by navigation 'Team.Offices'*");
+                "*Navigation relationship 'Team.Offices'*not supported*DynamoDB*complex types*");
     }
 
     /// <summary>Verifies that unsupported collection abstractions remain rejected at model validation.</summary>
