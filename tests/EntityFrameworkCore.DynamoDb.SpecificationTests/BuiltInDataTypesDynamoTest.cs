@@ -15,9 +15,6 @@ public class BuiltInDataTypesDynamoTest(
     private const string NonEmbeddedNavigationsNotSupported =
         "DynamoDB does not support non-embedded navigation queries in this test shape.";
 
-    private const string ObjectToStringProjectionNotSupported =
-        "DynamoDB does not translate object ToString projection for built-in data type coverage yet.";
-
     private const string DateTimeOffsetMemberProjectionNotSupported =
         "DynamoDB does not translate DateTimeOffset member projection for built-in data type coverage yet.";
 
@@ -153,7 +150,6 @@ public class BuiltInDataTypesDynamoTest(
     public override Task Can_compare_enum_to_parameter() => base.Can_compare_enum_to_parameter();
 
     /// <inheritdoc />
-    [ConditionalFact(Skip = ObjectToStringProjectionNotSupported)]
     public override Task Object_to_string_conversion() => base.Object_to_string_conversion();
 
     /// <inheritdoc />
