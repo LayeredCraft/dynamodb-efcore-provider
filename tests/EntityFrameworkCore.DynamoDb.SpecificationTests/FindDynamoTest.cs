@@ -436,9 +436,43 @@ public abstract class FindDynamoTest : FindTestBase<FindDynamoTest.FindDynamoFix
 
     private void NoSyncTest(Action testCode) => DynamoTestHelpers.Instance.NoSyncTest(testCode);
 
-    public class FindDynamoTestSet(FindDynamoFixture fixture) : FindDynamoTest(fixture)
+    /// <summary>Find tests that use <see cref="DbSet{TEntity}.Find(object[])" />.</summary>
+    [Collection(DynamoSpecificationCollection.Name)]
+    public class FindDynamoTestSet : FindDynamoTest
     {
+        /// <summary>Creates set-based find tests.</summary>
+        public FindDynamoTestSet(
+            FindDynamoFixture fixture,
+            DynamoSpecificationContainerFixture containerFixture) : base(fixture)
+            => _ = containerFixture;
+
         protected override TestFinder Finder { get; } = new FindViaSetFinder();
+    }
+
+    /// <summary>Find tests that use generic <see cref="DbContext.Find{TEntity}(object[])" />.</summary>
+    [Collection(DynamoSpecificationCollection.Name)]
+    public class FindDynamoTestContext : FindDynamoTest
+    {
+        /// <summary>Creates context-based find tests.</summary>
+        public FindDynamoTestContext(
+            FindDynamoFixture fixture,
+            DynamoSpecificationContainerFixture containerFixture) : base(fixture)
+            => _ = containerFixture;
+
+        protected override TestFinder Finder { get; } = new FindViaContextFinder();
+    }
+
+    /// <summary>Find tests that use non-generic <see cref="DbContext.Find(Type, object[])" />.</summary>
+    [Collection(DynamoSpecificationCollection.Name)]
+    public class FindDynamoTestNonGeneric : FindDynamoTest
+    {
+        /// <summary>Creates non-generic context-based find tests.</summary>
+        public FindDynamoTestNonGeneric(
+            FindDynamoFixture fixture,
+            DynamoSpecificationContainerFixture containerFixture) : base(fixture)
+            => _ = containerFixture;
+
+        protected override TestFinder Finder { get; } = new FindViaNonGenericContextFinder();
     }
 
     public class FindDynamoFixture : FindFixtureBase, IDynamoSpecificationFixture
