@@ -55,6 +55,12 @@ public static class DynamoPropertyExtensions
                     fromDataAnnotation)
                 ?.Value;
 
+        /// <summary>Returns the configuration source for the attribute name, or null if not set.</summary>
+        public ConfigurationSource? GetAttributeNameConfigurationSource()
+            => property
+                .FindAnnotation(DynamoAnnotationNames.AttributeName)
+                ?.GetConfigurationSource();
+
         /// <summary>
         ///     Sets whether this property is runtime-only provider metadata, recording the configuration
         ///     source.
