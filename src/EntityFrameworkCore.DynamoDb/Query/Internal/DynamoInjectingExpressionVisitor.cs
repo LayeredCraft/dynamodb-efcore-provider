@@ -1,6 +1,5 @@
 using System.Linq.Expressions;
 using System.Reflection;
-using EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using Microsoft.EntityFrameworkCore.Query;
 
 namespace EntityFrameworkCore.DynamoDb.Query.Internal;
@@ -11,7 +10,7 @@ namespace EntityFrameworkCore.DynamoDb.Query.Internal;
 ///     with parameter access expressions. Similar to JObjectInjectingExpressionVisitor (Cosmos)
 ///     and BsonDocumentInjectingExpressionVisitor (MongoDB).
 /// </summary>
-public class DynamoInjectingExpressionVisitor : ExpressionVisitor
+public sealed class DynamoInjectingExpressionVisitor : ExpressionVisitor
 {
     private static readonly MethodInfo GetParameterValueMethodInfo =
         typeof(DynamoInjectingExpressionVisitor)

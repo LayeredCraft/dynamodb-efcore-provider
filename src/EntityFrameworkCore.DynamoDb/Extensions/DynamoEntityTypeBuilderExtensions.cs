@@ -180,6 +180,39 @@ public static class DynamoEntityTypeBuilderExtensions
         }
     }
 
+    extension(IConventionEntityTypeBuilder entityTypeBuilder)
+    {
+        /// <summary>Configures the table that the entity type maps to when targeting AWS DynamoDB.</summary>
+        /// <param name="name">The table name, or <see langword="null" /> to clear the explicit table mapping.</param>
+        /// <param name="fromDataAnnotation">
+        ///     <see langword="true" /> if configured via a data annotation;
+        ///     <see langword="false" /> for the fluent API.
+        /// </param>
+        /// <returns>The same builder instance if the table name was set; otherwise <see langword="null" />.</returns>
+        public IConventionEntityTypeBuilder? ToTable(string? name, bool fromDataAnnotation = false)
+        {
+            name = name.NullButNotEmpty();
+            if (!entityTypeBuilder.CanSetTable(name, fromDataAnnotation))
+                return null;
+
+            entityTypeBuilder.Metadata.SetTableName(name, fromDataAnnotation);
+            return entityTypeBuilder;
+        }
+
+        /// <summary>Returns whether the table name can be set from the given configuration source.</summary>
+        /// <param name="name">The table name, or <see langword="null" /> to clear the explicit table mapping.</param>
+        /// <param name="fromDataAnnotation">
+        ///     <see langword="true" /> if configured via a data annotation;
+        ///     <see langword="false" /> for the fluent API.
+        /// </param>
+        /// <returns><see langword="true" /> if the table name can be set; otherwise <see langword="false" />.</returns>
+        public bool CanSetTable(string? name, bool fromDataAnnotation = false)
+            => entityTypeBuilder.CanSetAnnotation(
+                DynamoAnnotationNames.TableName,
+                name.NullButNotEmpty(),
+                fromDataAnnotation);
+    }
+
     extension<TEntity>(EntityTypeBuilder<TEntity> entityTypeBuilder) where TEntity : class
     {
         /// <summary>Configures the table that the entity type maps to when targeting AWS DynamoDB.</summary>
@@ -190,6 +223,26 @@ public static class DynamoEntityTypeBuilderExtensions
         /// <returns>The same builder instance so that multiple calls can be chained.</returns>
         public EntityTypeBuilder<TEntity> ToTable(string? name)
             => (EntityTypeBuilder<TEntity>)((EntityTypeBuilder)entityTypeBuilder).ToTable(name);
+
+        /// <summary>
+        ///     Configures which property provides the DynamoDB partition key attribute name for this
+        ///     entity type.
+        /// </summary>
+        /// <param name="propertyName">The EF property name whose attribute name maps to the DynamoDB partition key.</param>
+        /// <returns>The same builder instance so that multiple calls can be chained.</returns>
+        public EntityTypeBuilder<TEntity> HasPartitionKey(string propertyName)
+            => (EntityTypeBuilder<TEntity>)((EntityTypeBuilder)entityTypeBuilder).HasPartitionKey(
+                propertyName);
+
+        /// <summary>
+        ///     Configures which property provides the DynamoDB sort key attribute name for this entity
+        ///     type.
+        /// </summary>
+        /// <param name="propertyName">The EF property name whose attribute name maps to the DynamoDB sort key.</param>
+        /// <returns>The same builder instance so that multiple calls can be chained.</returns>
+        public EntityTypeBuilder<TEntity> HasSortKey(string propertyName)
+            => (EntityTypeBuilder<TEntity>)((EntityTypeBuilder)entityTypeBuilder).HasSortKey(
+                propertyName);
 
         /// <summary>
         ///     Configures which property provides the DynamoDB partition key attribute name for this

@@ -5,7 +5,7 @@ namespace EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 /// <summary>
 /// Represents a constant value in a SQL expression.
 /// </summary>
-public class SqlConstantExpression(object? value, Type type, CoreTypeMapping? typeMapping)
+public sealed class SqlConstantExpression(object? value, Type type, CoreTypeMapping? typeMapping)
     : SqlExpression(type, typeMapping)
 {
     /// <summary>

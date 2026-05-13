@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Storage;
 namespace EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 
 /// <summary>Represents an IN predicate in a SQL expression.</summary>
-public class SqlInExpression(
+public sealed class SqlInExpression(
     SqlExpression item,
     IReadOnlyList<SqlExpression>? values,
     SqlParameterExpression? valuesParameter,

@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Query;
 namespace EntityFrameworkCore.DynamoDb.Query.Internal;
 
 /// <summary>Represents the DynamoShapedQueryCompilingExpressionVisitorFactory type.</summary>
-public class DynamoShapedQueryCompilingExpressionVisitorFactory(
+public sealed class DynamoShapedQueryCompilingExpressionVisitorFactory(
     ShapedQueryCompilingExpressionVisitorDependencies dependencies,
     IDynamoQuerySqlGeneratorFactory sqlGeneratorFactory)
     : IShapedQueryCompilingExpressionVisitorFactory

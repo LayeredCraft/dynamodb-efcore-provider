@@ -48,6 +48,23 @@ public static class DynamoDbContextOptionsExtensions
         }
     }
 
+    extension<TContext>(DbContextOptionsBuilder<TContext> optionsBuilder) where TContext : DbContext
+    {
+        /// <summary>Configures this context to use the DynamoDB provider.</summary>
+        /// <returns>The same builder instance so that multiple calls can be chained.</returns>
+        public DbContextOptionsBuilder<TContext> UseDynamo()
+            => (DbContextOptionsBuilder<TContext>)((DbContextOptionsBuilder)optionsBuilder)
+                .UseDynamo();
+
+        /// <summary>Configures this context to use the DynamoDB provider.</summary>
+        /// <param name="configure">Provider-specific options to configure.</param>
+        /// <returns>The same builder instance so that multiple calls can be chained.</returns>
+        public DbContextOptionsBuilder<TContext> UseDynamo(
+            Action<DynamoDbContextOptionsBuilder> configure)
+            => (DbContextOptionsBuilder<TContext>)((DbContextOptionsBuilder)optionsBuilder)
+                .UseDynamo(configure);
+    }
+
     private static void ConfigureWarnings(DbContextOptionsBuilder optionsBuilder)
     {
         var coreOptionsExtension =

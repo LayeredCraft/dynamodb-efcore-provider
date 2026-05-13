@@ -13,7 +13,7 @@ namespace EntityFrameworkCore.DynamoDb.Query.Internal;
 ///     Translates Select lambda bodies into projection mappings (ProjectionMember →
 ///     SqlExpression). Supports anonymous types, DTOs, and scalar projections.
 /// </summary>
-public class DynamoProjectionBindingExpressionVisitor(
+public sealed class DynamoProjectionBindingExpressionVisitor(
     DynamoSqlTranslatingExpressionVisitor sqlTranslator,
     ISqlExpressionFactory sqlExpressionFactory,
     IModel model) : ExpressionVisitor

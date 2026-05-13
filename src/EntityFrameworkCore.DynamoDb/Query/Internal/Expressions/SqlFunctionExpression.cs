@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Storage;
 namespace EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 
 /// <summary>Represents a function invocation in a SQL expression.</summary>
-public class SqlFunctionExpression(
+public sealed class SqlFunctionExpression(
     string name,
     IReadOnlyList<SqlExpression> arguments,
     Type type,

@@ -7,7 +7,8 @@ using Microsoft.EntityFrameworkCore.Query;
 namespace EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 
 /// <summary>Represents a SELECT query expression for DynamoDB PartiQL.</summary>
-public class SelectExpression(string tableName, string? queryEntityTypeName = null) : Expression
+public sealed class
+    SelectExpression(string tableName, string? queryEntityTypeName = null) : Expression
 {
     private readonly List<OrderingExpression> _orderings = [];
     private readonly List<ProjectionExpression> _projection = [];

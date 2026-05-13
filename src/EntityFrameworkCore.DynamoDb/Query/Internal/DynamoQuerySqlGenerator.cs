@@ -11,7 +11,7 @@ namespace EntityFrameworkCore.DynamoDb.Query.Internal;
 /// <summary>
 /// Generates PartiQL SQL from a SelectExpression query model.
 /// </summary>
-public class DynamoQuerySqlGenerator : SqlExpressionVisitor
+public sealed class DynamoQuerySqlGenerator : SqlExpressionVisitor
 {
     private readonly StringBuilder _sql = new();
     private readonly List<AttributeValue> _parameters = [];
@@ -101,7 +101,7 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
     /// <summary>
     /// Visits an ordering expression.
     /// </summary>
-    protected virtual void VisitOrdering(OrderingExpression orderingExpression)
+    private void VisitOrdering(OrderingExpression orderingExpression)
     {
         Visit(orderingExpression.Expression);
         _sql.Append(orderingExpression.IsAscending ? " ASC" : " DESC");
@@ -322,7 +322,7 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
     /// Gets the precedence and associativity for an operator expression.
     /// Based on standard SQL operator precedence.
     /// </summary>
-    protected virtual bool TryGetOperatorInfo(
+    private bool TryGetOperatorInfo(
         SqlExpression expression,
         out int precedence,
         out bool isAssociative)
@@ -354,9 +354,7 @@ public class DynamoQuerySqlGenerator : SqlExpressionVisitor
     /// <summary>
     /// Determines if an inner expression needs parentheses when nested inside an outer expression.
     /// </summary>
-    protected virtual bool RequiresParentheses(
-        SqlExpression outerExpression,
-        SqlExpression innerExpression)
+    private bool RequiresParentheses(SqlExpression outerExpression, SqlExpression innerExpression)
     {
         // Non-binary expressions never need parentheses
         if (innerExpression is not SqlBinaryExpression)

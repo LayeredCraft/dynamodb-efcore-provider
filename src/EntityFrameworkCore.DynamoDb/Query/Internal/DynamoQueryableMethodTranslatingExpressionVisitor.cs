@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore.Storage;
 namespace EntityFrameworkCore.DynamoDb.Query.Internal;
 
 /// <summary>Represents the DynamoQueryableMethodTranslatingExpressionVisitor type.</summary>
-public class DynamoQueryableMethodTranslatingExpressionVisitor
+public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
     : QueryableMethodTranslatingExpressionVisitor
 {
     private readonly bool _subquery;

@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Query;
 namespace EntityFrameworkCore.DynamoDb.Query;
 
 /// <summary>Represents the DynamoQueryCompilationContext type.</summary>
-public class DynamoQueryCompilationContext(
+public sealed class DynamoQueryCompilationContext(
     QueryCompilationContextDependencies dependencies,
     bool async) : QueryCompilationContext(dependencies, async)
 {

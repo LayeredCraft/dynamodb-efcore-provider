@@ -6,7 +6,7 @@ namespace EntityFrameworkCore.DynamoDb.Metadata.Builders;
 public class DynamoSecondaryIndexBuilder(IndexBuilder indexBuilder)
 {
     /// <summary>Gets the underlying EF index builder used to configure this secondary index.</summary>
-    public IndexBuilder IndexBuilder { get; } = indexBuilder;
+    public virtual IndexBuilder IndexBuilder { get; } = indexBuilder;
 }
 
 /// <summary>
@@ -17,5 +17,5 @@ public class DynamoSecondaryIndexBuilder<TEntity>(IndexBuilder<TEntity> indexBui
     : DynamoSecondaryIndexBuilder(indexBuilder) where TEntity : class
 {
     /// <summary>Gets the underlying typed EF index builder used to configure this secondary index.</summary>
-    public new IndexBuilder<TEntity> IndexBuilder { get; } = indexBuilder;
+    public new virtual IndexBuilder<TEntity> IndexBuilder { get; } = indexBuilder;
 }
