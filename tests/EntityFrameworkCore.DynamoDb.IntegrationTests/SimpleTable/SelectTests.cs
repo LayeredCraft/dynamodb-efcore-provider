@@ -376,6 +376,42 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
             """);
     }
 
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Select_NullableValueTypeValueProjection_PreservesNull()
+    {
+        var results =
+            await Db
+                .SimpleItems
+                .Select(item => new
+                {
+                    item.Pk,
+                    Value = item.NullableIntValue == null
+                        ? (int?)null
+                        : item.NullableIntValue.Value,
+                })
+                .ToListAsync(CancellationToken);
+
+        var expected =
+            SimpleItems
+                .Items
+                .Select(item => new
+                {
+                    item.Pk,
+                    Value = item.NullableIntValue == null
+                        ? (int?)null
+                        : item.NullableIntValue.Value,
+                })
+                .ToList();
+
+        results.Should().BeEquivalentTo(expected);
+
+        AssertSql(
+            """
+            SELECT "pk", "nullableIntValue"
+            FROM "SimpleItems"
+            """);
+    }
+
     // Identity Projection Test
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]

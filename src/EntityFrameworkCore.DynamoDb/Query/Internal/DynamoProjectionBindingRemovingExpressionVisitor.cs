@@ -148,6 +148,99 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
         return base.VisitBinary(node);
     }
 
+    /// <summary>Rewrites nullable value member projections to preserve null values.</summary>
+    protected override Expression VisitUnary(UnaryExpression node)
+    {
+        if (node.NodeType is ExpressionType.Convert or ExpressionType.ConvertChecked
+            && Nullable.GetUnderlyingType(node.Type) != null
+            && TryGetNullableValueSource(node.Operand, out var nullableSource))
+        {
+            var visitedSource = Visit(nullableSource);
+            if (visitedSource == QueryCompilationContext.NotTranslatedExpression
+                || visitedSource == null)
+                return QueryCompilationContext.NotTranslatedExpression;
+
+            var sourceVariable = Variable(visitedSource.Type, "nullableProjection");
+            var valueOperand =
+                new ReferenceReplacingExpressionVisitor(nullableSource, sourceVariable).Visit(
+                    node.Operand);
+            var visitedValue = Visit(valueOperand);
+
+            if (visitedValue == QueryCompilationContext.NotTranslatedExpression
+                || visitedValue == null)
+                return QueryCompilationContext.NotTranslatedExpression;
+
+            if (visitedValue.Type != node.Type)
+                visitedValue = Convert(visitedValue, node.Type);
+
+            return Block(
+                [sourceVariable],
+                Assign(sourceVariable, visitedSource),
+                Condition(
+                    Equal(sourceVariable, Constant(null, sourceVariable.Type)),
+                    Default(node.Type),
+                    visitedValue));
+        }
+
+        return base.VisitUnary(node);
+    }
+
+    /// <summary>Finds the nullable source for a member or method chain rooted at Nullable&lt;T&gt;.Value.</summary>
+    private static bool TryGetNullableValueSource(
+        Expression expression,
+        out Expression nullableSource)
+    {
+        expression = UnwrapConvert(expression);
+
+        switch (expression)
+        {
+            case MemberExpression
+            {
+                Member.Name: nameof(Nullable<int>.Value), Expression: { } source,
+            } when Nullable.GetUnderlyingType(source.Type) != null:
+                nullableSource = source;
+                return true;
+
+            case MemberExpression { Expression: { } instance }:
+                return TryGetNullableValueSource(instance, out nullableSource);
+
+            case MethodCallExpression { Object: { } instance }:
+                return TryGetNullableValueSource(instance, out nullableSource);
+
+            case MethodCallExpression methodCall:
+                foreach (var argument in methodCall.Arguments)
+                    if (TryGetNullableValueSource(argument, out nullableSource))
+                        return true;
+
+                break;
+
+            case UnaryExpression unary:
+                return TryGetNullableValueSource(unary.Operand, out nullableSource);
+        }
+
+        nullableSource = expression;
+        return false;
+    }
+
+    /// <summary>Removes conversion nodes when searching for nullable value sources.</summary>
+    private static Expression UnwrapConvert(Expression expression)
+        => expression is UnaryExpression
+        {
+            NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked
+        } unary
+            ? UnwrapConvert(unary.Operand)
+            : expression;
+
+    /// <summary>Replaces one expression node by reference.</summary>
+    private sealed class ReferenceReplacingExpressionVisitor(
+        Expression search,
+        Expression replacement) : ExpressionVisitor
+    {
+        /// <inheritdoc />
+        public override Expression? Visit(Expression? node)
+            => ReferenceEquals(node, search) ? replacement : base.Visit(node);
+    }
+
     /// <summary>
     ///     Rewrites nested member access to preserve null propagation when the containing complex
     ///     instance materializes as <see langword="null" />.
