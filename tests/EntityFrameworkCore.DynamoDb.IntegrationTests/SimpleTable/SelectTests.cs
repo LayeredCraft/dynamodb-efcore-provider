@@ -402,6 +402,35 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Select_NullableValueTypeDirectProjection_PreservesDateTimeOffsetNull()
+    {
+        var results =
+            await Db
+                .SimpleItems
+                .Select(item
+                    => new
+                    {
+                        item.Pk,
+                        Value = (DateTimeOffset?)item.NullableDateTimeOffsetValue.Value,
+                    })
+                .ToListAsync(CancellationToken);
+
+        var expected =
+            SimpleItems
+                .Items
+                .Select(item => new { item.Pk, Value = item.NullableDateTimeOffsetValue })
+                .ToList();
+
+        results.Should().BeEquivalentTo(expected);
+
+        AssertSql(
+            """
+            SELECT "pk", "nullableDateTimeOffsetValue"
+            FROM "SimpleItems"
+            """);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Select_NullableValueTypeMemberChainProjection_PreservesNull()
     {
         var results =
@@ -416,10 +445,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
         var expected =
             SimpleItems
                 .Items
-                .Select(item => new
-                {
-                    item.Pk, item.NullableDateTimeOffsetValue?.DateTime.Date,
-                })
+                .Select(item => new { item.Pk, item.NullableDateTimeOffsetValue?.DateTime.Date })
                 .ToList();
 
         results.Should().BeEquivalentTo(expected);
@@ -427,6 +453,24 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
         AssertSql(
             """
             SELECT "pk", "nullableDateTimeOffsetValue"
+            FROM "SimpleItems"
+            """);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Select_NonNullableValueTypeValueProjection_ThrowsForNull()
+    {
+        var act = ()
+            => Db
+                .SimpleItems
+                .Select(item => new { item.Pk, item.NullableIntValue.Value })
+                .ToListAsync(CancellationToken);
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+
+        AssertSql(
+            """
+            SELECT "pk", "nullableIntValue"
             FROM "SimpleItems"
             """);
     }
