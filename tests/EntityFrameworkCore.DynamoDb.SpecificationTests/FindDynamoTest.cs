@@ -14,6 +14,10 @@ public abstract class FindDynamoTest : FindTestBase<FindDynamoTest.FindDynamoFix
 
     protected FindDynamoTest(FindDynamoFixture fixture) : base(fixture) => fixture.ClearSql();
 
+    [ConditionalFact]
+    public virtual void Check_all_tests_overridden()
+        => DynamoTestHelpers.AssertAllTestMethodsOverridden(typeof(FindDynamoTest));
+
     public override void Find_int_key_from_store()
         => NoSyncTest(() => base.Find_int_key_from_store());
 

@@ -2,7 +2,6 @@ using EntityFrameworkCore.DynamoDb.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.Extensions.DependencyInjection;
-using Xunit;
 
 namespace EntityFrameworkCore.DynamoDb.SpecificationTests.TestUtilities;
 
@@ -21,6 +20,10 @@ public class DynamoTestHelpers : TestHelpers
     public override DbContextOptionsBuilder UseProviderOptions(
         DbContextOptionsBuilder optionsBuilder)
         => optionsBuilder.UseDynamo();
+
+    /// <summary>Asserts that provider specification tests explicitly override inherited test methods.</summary>
+    public static void AssertAllTestMethodsOverridden(Type testClass)
+        => AssertAllMethodsOverridden(testClass);
 
     public void NoSyncTest(Action testCode)
     {
