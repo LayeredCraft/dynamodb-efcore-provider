@@ -28,6 +28,14 @@
 - Put infrastructure and extension-method tests in the matching top-level folders under
   `tests/EntityFrameworkCore.DynamoDb.Tests/`.
 
+## Specification Test Placement
+
+- Use `tests/EntityFrameworkCore.DynamoDb.SpecificationTests/` for EF Core cross-provider
+  specification tests — overrides of `*TestBase<TFixture>` classes from
+  `Microsoft.EntityFrameworkCore.Specification.Tests`.
+- See `tests/EntityFrameworkCore.DynamoDb.SpecificationTests/AGENTS.md` for how to add or extend
+  specification tests.
+
 ## Integration Test Placement
 
 - Group integration tests by table scenario under
