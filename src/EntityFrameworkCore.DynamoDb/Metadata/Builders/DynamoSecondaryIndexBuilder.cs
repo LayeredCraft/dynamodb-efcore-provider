@@ -30,12 +30,19 @@ public class DynamoSecondaryIndexBuilder(IndexBuilder indexBuilder)
     /// <summary>Configures the DynamoDB projection type for this secondary index.</summary>
     /// <param name="projectionType">The projection type, or <see langword="null" /> to clear it.</param>
     /// <returns>The same builder instance so that multiple calls can be chained.</returns>
-    public virtual DynamoSecondaryIndexBuilder HasProjectionType(
+    public virtual DynamoSecondaryIndexBuilder HasSecondaryIndexProjectionType(
         DynamoSecondaryIndexProjectionType? projectionType)
     {
         IndexBuilder.HasSecondaryIndexProjectionType(projectionType);
         return this;
     }
+
+    /// <summary>Configures the DynamoDB projection type for this secondary index.</summary>
+    /// <param name="projectionType">The projection type, or <see langword="null" /> to clear it.</param>
+    /// <returns>The same builder instance so that multiple calls can be chained.</returns>
+    public virtual DynamoSecondaryIndexBuilder HasProjectionType(
+        DynamoSecondaryIndexProjectionType? projectionType)
+        => HasSecondaryIndexProjectionType(projectionType);
 }
 
 /// <summary>
@@ -64,7 +71,15 @@ public class DynamoSecondaryIndexBuilder<TEntity>(IndexBuilder<TEntity> indexBui
     /// <summary>Configures the DynamoDB projection type for this secondary index.</summary>
     /// <param name="projectionType">The projection type, or <see langword="null" /> to clear it.</param>
     /// <returns>The same builder instance so that multiple calls can be chained.</returns>
+    public new virtual DynamoSecondaryIndexBuilder<TEntity> HasSecondaryIndexProjectionType(
+        DynamoSecondaryIndexProjectionType? projectionType)
+        => (DynamoSecondaryIndexBuilder<TEntity>)base.HasSecondaryIndexProjectionType(
+            projectionType);
+
+    /// <summary>Configures the DynamoDB projection type for this secondary index.</summary>
+    /// <param name="projectionType">The projection type, or <see langword="null" /> to clear it.</param>
+    /// <returns>The same builder instance so that multiple calls can be chained.</returns>
     public new virtual DynamoSecondaryIndexBuilder<TEntity> HasProjectionType(
         DynamoSecondaryIndexProjectionType? projectionType)
-        => (DynamoSecondaryIndexBuilder<TEntity>)base.HasProjectionType(projectionType);
+        => HasSecondaryIndexProjectionType(projectionType);
 }
