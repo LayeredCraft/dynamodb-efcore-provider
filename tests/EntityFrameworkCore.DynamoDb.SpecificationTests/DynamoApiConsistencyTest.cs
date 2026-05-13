@@ -50,6 +50,11 @@ public class DynamoApiConsistencyTest(DynamoApiConsistencyTest.DynamoApiConsiste
             typeof(DynamoSecondaryIndexBuilder<>),
         ];
 
+        public DynamoApiConsistencyFixture()
+            => GenericFluentApiTypes.Add(
+                typeof(DynamoSecondaryIndexBuilder),
+                typeof(DynamoSecondaryIndexBuilder<>));
+
         public override
             Dictionary<Type, (Type ReadonlyExtensions, Type MutableExtensions, Type
                 ConventionExtensions, Type ConventionBuilderExtensions, Type RuntimeExtensions)>
