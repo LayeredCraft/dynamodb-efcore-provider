@@ -1,6 +1,7 @@
 using Amazon.DynamoDBv2;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using NSubstitute;
 
@@ -123,6 +124,98 @@ public class DynamoKeyInPrimaryKeyConventionTests
         primaryKey.Properties[1].Name.Should().Be("CustomSk");
         entityType.GetPartitionKeyPropertyName().Should().Be("CustomPk");
         entityType.GetSortKeyPropertyName().Should().Be("CustomSk");
+    }
+
+    // -------------------------------------------------------------------
+    // Integer partition keys are application-assigned by convention
+    // -------------------------------------------------------------------
+
+    private sealed record IntPartitionKeyEntity
+    {
+        /// <summary>Provides functionality for this member.</summary>
+        public int Id { get; set; }
+
+        /// <summary>Provides functionality for this member.</summary>
+        public string Name { get; set; } = null!;
+    }
+
+    private sealed class IntPartitionKeyContext(DbContextOptions options) : DbContext(options)
+    {
+        /// <summary>Provides functionality for this member.</summary>
+        public DbSet<IntPartitionKeyEntity> Entities { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<IntPartitionKeyEntity>(b =>
+            {
+                b.ToTable("IntPartitionKeyTable");
+                b.HasPartitionKey(x => x.Id);
+            });
+
+        /// <summary>Provides functionality for this member.</summary>
+        public static IntPartitionKeyContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<IntPartitionKeyContext>(client));
+    }
+
+    /// <summary>Provides functionality for this member.</summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void IntegerPartitionKey_IsNotValueGeneratedByConvention()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var ctx = IntPartitionKeyContext.Create(client);
+
+        var entityType = ctx.Model.FindEntityType(typeof(IntPartitionKeyEntity))!;
+
+        entityType.FindProperty(nameof(IntPartitionKeyEntity.Id))!
+            .ValueGenerated
+            .Should()
+            .Be(ValueGenerated.Never);
+    }
+
+    // -------------------------------------------------------------------
+    // Guid partition keys keep EF Core client-side generation by convention
+    // -------------------------------------------------------------------
+
+    private sealed record GuidPartitionKeyEntity
+    {
+        /// <summary>Provides functionality for this member.</summary>
+        public Guid Id { get; set; }
+
+        /// <summary>Provides functionality for this member.</summary>
+        public string Name { get; set; } = null!;
+    }
+
+    private sealed class GuidPartitionKeyContext(DbContextOptions options) : DbContext(options)
+    {
+        /// <summary>Provides functionality for this member.</summary>
+        public DbSet<GuidPartitionKeyEntity> Entities { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<GuidPartitionKeyEntity>(b =>
+            {
+                b.ToTable("GuidPartitionKeyTable");
+                b.HasPartitionKey(x => x.Id);
+            });
+
+        /// <summary>Provides functionality for this member.</summary>
+        public static GuidPartitionKeyContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<GuidPartitionKeyContext>(client));
+    }
+
+    /// <summary>Provides functionality for this member.</summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void GuidPartitionKey_IsValueGeneratedByConvention()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var ctx = GuidPartitionKeyContext.Create(client);
+
+        var entityType = ctx.Model.FindEntityType(typeof(GuidPartitionKeyEntity))!;
+
+        entityType.FindProperty(nameof(GuidPartitionKeyEntity.Id))!
+            .ValueGenerated
+            .Should()
+            .Be(ValueGenerated.OnAdd);
     }
 
     // -------------------------------------------------------------------
