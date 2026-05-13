@@ -34,8 +34,8 @@ name.
 For root entity types, table/key mapping resolves in this order (highest precedence first):
 
 1. Explicit configuration (`ToTable(...)`, `HasPartitionKey(...)`, `HasSortKey(...)`)
-1. Conventions (`PK`/`PartitionKey`, `SK`/`SortKey`; table name from CLR type)
-1. Validation outcome (missing partition key throws; partition key resolved with no sort key
+2. Conventions (`PK`/`PartitionKey`, `SK`/`SortKey`; table name from CLR type)
+3. Validation outcome (missing partition key throws; partition key resolved with no sort key
     means partition-key-only)
 
 `HasKey(...)` and `[Key]` are not DynamoDB key overrides.
@@ -49,6 +49,39 @@ conventional property names (`PK` or `PartitionKey`, case-insensitive).
 
 Partition keys must be mapped, non-nullable EF properties and resolve to DynamoDB key-supported
 provider types (string, number, or binary).
+
+## Key Value Generation
+
+DynamoDB does not generate primary key values for you. By convention, string and numeric partition
+or sort keys are application-assigned: set them before calling `SaveChangesAsync`.
+
+```csharp
+context.Orders.Add(new Order
+{
+    CustomerId = "CUST#123",
+    OrderId = 42,
+    Description = "New order"
+});
+await context.SaveChangesAsync();
+```
+
+If a numeric key is left unset, EF Core treats the CLR default (for example `0`) as the value to
+write. If a string key is left `null`, the save fails because DynamoDB key attributes must be
+present and non-null.
+
+`Guid` keys keep EF Core's default client-side generation behavior. Leaving a `Guid` key as
+`Guid.Empty` lets EF Core assign a new Guid before writing the item.
+
+```csharp
+public sealed class Session
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = null!;
+}
+```
+
+Explicit EF Core value-generation configuration still wins over provider conventions when you need
+a custom client-side generator.
 
 ## Sort Key
 
