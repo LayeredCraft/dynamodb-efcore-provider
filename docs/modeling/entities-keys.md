@@ -69,8 +69,12 @@ If a numeric key is left unset, EF Core treats the CLR default (for example `0`)
 write. If a string key is left `null`, the save fails because DynamoDB key attributes must be
 present and non-null.
 
-`Guid` keys keep EF Core's default client-side generation behavior. Leaving a `Guid` key as
-`Guid.Empty` lets EF Core assign a new Guid before writing the item.
+Single-property `Guid` keys keep EF Core's default client-side generation behavior. Leaving such a
+`Guid` key as `Guid.Empty` lets EF Core assign a new Guid before writing the item.
+
+Composite DynamoDB keys are application-assigned by convention, even when one key part is a `Guid`.
+Set both the partition key and sort key before saving, or explicitly configure a client-side value
+generator for the key part that should be generated.
 
 ```csharp
 public sealed class Session
@@ -78,10 +82,17 @@ public sealed class Session
     public Guid Id { get; set; }
     public string Name { get; set; } = null!;
 }
+
+modelBuilder.Entity<Session>(b =>
+{
+    b.HasPartitionKey(x => x.Id);
+});
 ```
 
 Explicit EF Core value-generation configuration still wins over provider conventions when you need
-a custom client-side generator. For example, use a custom generator for Guid v7 keys:
+a custom client-side generator. DynamoDB still does not generate the value; your EF Core
+configuration must produce a concrete CLR value before save. For example, use a custom generator for
+Guid v7 keys:
 
 ```csharp
 public sealed class GuidV7ValueGenerator : ValueGenerator<Guid>

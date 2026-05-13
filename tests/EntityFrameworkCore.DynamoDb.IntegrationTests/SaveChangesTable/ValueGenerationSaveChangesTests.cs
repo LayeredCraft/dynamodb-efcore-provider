@@ -1,6 +1,8 @@
 using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.EntityFrameworkCore.ValueGeneration;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SaveChangesTable;
 
@@ -34,7 +36,11 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
         raw["name"].S.Should().Be("assigned");
 
         var materialized =
-            await context.Entities.Where(x => x.Id == 123).ToListAsync(CancellationToken);
+            await context
+                .Entities
+                .AsNoTracking()
+                .Where(x => x.Id == 123)
+                .ToListAsync(CancellationToken);
         materialized.Should().ContainSingle().Which.Should().BeEquivalentTo(entity);
 
         AssertSql(
@@ -46,6 +52,122 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
             SELECT "id", "name"
             FROM "value-generation-int-keys"
             WHERE "id" = 123
+            """);
+    }
+
+    /// <summary>Verifies CLR default integer keys are written as explicit DynamoDB keys.</summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task AddAsync_IntPartitionKey_DefaultZero_PersistsAsExplicitKey()
+    {
+        await using var context = CreateContext<IntKeyContext>();
+        await ResetTable(context);
+        var entity = new IntKeyEntity { Id = 0, Name = "zero" };
+
+        context.Entities.Add(entity);
+        await context.SaveChangesAsync(CancellationToken);
+
+        var raw = await GetItemAsync(IntKeyContext.TableName, "id", new AttributeValue { N = "0" });
+        raw.Should().NotBeNull();
+        raw!["id"].N.Should().Be("0");
+        raw["name"].S.Should().Be("zero");
+
+        var materialized =
+            await context
+                .Entities
+                .AsNoTracking()
+                .Where(x => x.Id == 0)
+                .ToListAsync(CancellationToken);
+        materialized.Should().ContainSingle().Which.Should().BeEquivalentTo(entity);
+
+        AssertSql(
+            """
+            INSERT INTO "value-generation-int-keys"
+            VALUE {'id': ?, 'name': ?}
+            """,
+            """
+            SELECT "id", "name"
+            FROM "value-generation-int-keys"
+            WHERE "id" = 0
+            """);
+    }
+
+    /// <summary>Verifies single string partition keys are explicitly written through SaveChanges.</summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task AddAsync_StringPartitionKey_ExplicitKey_PersistsAndMaterializes()
+    {
+        await using var context = CreateContext<StringKeyContext>();
+        await ResetTable(context);
+        var entity = new StringKeyEntity { Id = "SESSION#1", Name = "assigned" };
+
+        context.Entities.Add(entity);
+        await context.SaveChangesAsync(CancellationToken);
+
+        var raw = await GetItemAsync(
+            StringKeyContext.TableName,
+            "id",
+            new AttributeValue { S = entity.Id });
+        raw.Should().NotBeNull();
+        raw!["id"].S.Should().Be(entity.Id);
+        raw["name"].S.Should().Be(entity.Name);
+
+        var materialized =
+            await context
+                .Entities
+                .AsNoTracking()
+                .Where(x => x.Id == entity.Id)
+                .ToListAsync(CancellationToken);
+        materialized.Should().ContainSingle().Which.Should().BeEquivalentTo(entity);
+
+        AssertSql(
+            """
+            INSERT INTO "value-generation-string-keys"
+            VALUE {'id': ?, 'name': ?}
+            """,
+            """
+            SELECT "id", "name"
+            FROM "value-generation-string-keys"
+            WHERE "id" = ?
+            """);
+    }
+
+    /// <summary>Verifies explicit integer key generation runs before writing to DynamoDB.</summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task AddAsync_IntPartitionKey_ExplicitGenerator_GeneratesPersistsAndMaterializes()
+    {
+        await using var context = CreateContext<GeneratedIntKeyContext>();
+        await ResetTable(context);
+        var entity = new IntKeyEntity { Name = "generated" };
+
+        entity.Id.Should().Be(0);
+        context.Entities.Add(entity);
+        await context.SaveChangesAsync(CancellationToken);
+
+        entity.Id.Should().Be(777);
+        var raw = await GetItemAsync(
+            GeneratedIntKeyContext.TableName,
+            "id",
+            new AttributeValue { N = "777" });
+        raw.Should().NotBeNull();
+        raw!["id"].N.Should().Be("777");
+        raw["name"].S.Should().Be("generated");
+
+        var materialized =
+            await context
+                .Entities
+                .AsNoTracking()
+                .Where(x => x.Id == entity.Id)
+                .ToListAsync(CancellationToken);
+        materialized.Should().ContainSingle().Which.Should().BeEquivalentTo(entity);
+
+        AssertSql(
+            """
+            INSERT INTO "value-generation-generated-int-keys"
+            VALUE {'id': ?, 'name': ?}
+            """,
+            """
+            SELECT "id", "name"
+            FROM "value-generation-generated-int-keys"
+            WHERE "id" = ?
             """);
     }
 
@@ -71,7 +193,11 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
         raw["name"].S.Should().Be("generated");
 
         var materialized =
-            await context.Entities.Where(x => x.Id == entity.Id).ToListAsync(CancellationToken);
+            await context
+                .Entities
+                .AsNoTracking()
+                .Where(x => x.Id == entity.Id)
+                .ToListAsync(CancellationToken);
         materialized.Should().ContainSingle().Which.Should().BeEquivalentTo(entity);
 
         AssertSql(
@@ -82,6 +208,47 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
             """
             SELECT "id", "name"
             FROM "value-generation-guid-keys"
+            WHERE "id" = ?
+            """);
+    }
+
+    /// <summary>Verifies explicit no-generation on Guid keys writes the supplied key value.</summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task AddAsync_GuidPartitionKey_ValueGeneratedNever_PersistsExplicitKey()
+    {
+        await using var context = CreateContext<ExplicitGuidNoGenerationContext>();
+        await ResetTable(context);
+        var id = Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+        var entity = new GuidKeyEntity { Id = id, Name = "explicit" };
+
+        context.Entities.Add(entity);
+        await context.SaveChangesAsync(CancellationToken);
+
+        entity.Id.Should().Be(id);
+        var raw = await GetItemAsync(
+            ExplicitGuidNoGenerationContext.TableName,
+            "id",
+            new AttributeValue { S = id.ToString() });
+        raw.Should().NotBeNull();
+        raw!["id"].S.Should().Be(id.ToString());
+        raw["name"].S.Should().Be("explicit");
+
+        var materialized =
+            await context
+                .Entities
+                .AsNoTracking()
+                .Where(x => x.Id == id)
+                .ToListAsync(CancellationToken);
+        materialized.Should().ContainSingle().Which.Should().BeEquivalentTo(entity);
+
+        AssertSql(
+            """
+            INSERT INTO "value-generation-explicit-guid-keys"
+            VALUE {'id': ?, 'name': ?}
+            """,
+            """
+            SELECT "id", "name"
+            FROM "value-generation-explicit-guid-keys"
             WHERE "id" = ?
             """);
     }
@@ -111,6 +278,7 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
         var materialized =
             await context
                 .Entities
+                .AsNoTracking()
                 .Where(x => x.Pk == entity.Pk && x.Sk == entity.Sk)
                 .ToListAsync(CancellationToken);
         materialized.Should().ContainSingle().Which.Should().BeEquivalentTo(entity);
@@ -124,6 +292,53 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
             SELECT "pk", "sk", "name"
             FROM "value-generation-composite-keys"
             WHERE "pk" = ? AND "sk" = ?
+            """);
+    }
+
+    /// <summary>Verifies composite Guid/string keys are application-assigned through SaveChanges.</summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task AddAsync_CompositeGuidStringKeys_ExplicitKeys_PersistsAndMaterializes()
+    {
+        await using var context = CreateContext<CompositeGuidKeyContext>();
+        await ResetTable(context);
+        var entity = new CompositeGuidKeyEntity
+        {
+            Id = Guid.Parse("11111111-2222-3333-4444-555555555555"),
+            Sk = "ORDER#1",
+            Name = "composite-guid",
+        };
+
+        context.Entities.Add(entity);
+        await context.SaveChangesAsync(CancellationToken);
+
+        var raw = await GetItemAsync(
+            CompositeGuidKeyContext.TableName,
+            "id",
+            new AttributeValue { S = entity.Id.ToString() },
+            "sk",
+            new AttributeValue { S = entity.Sk });
+        raw.Should().NotBeNull();
+        raw!["id"].S.Should().Be(entity.Id.ToString());
+        raw["sk"].S.Should().Be(entity.Sk);
+        raw["name"].S.Should().Be(entity.Name);
+
+        var materialized =
+            await context
+                .Entities
+                .AsNoTracking()
+                .Where(x => x.Id == entity.Id && x.Sk == entity.Sk)
+                .ToListAsync(CancellationToken);
+        materialized.Should().ContainSingle().Which.Should().BeEquivalentTo(entity);
+
+        AssertSql(
+            """
+            INSERT INTO "value-generation-composite-guid-keys"
+            VALUE {'id': ?, 'sk': ?, 'name': ?}
+            """,
+            """
+            SELECT "id", "sk", "name"
+            FROM "value-generation-composite-guid-keys"
+            WHERE "id" = ? AND "sk" = ?
             """);
     }
 
@@ -189,6 +404,64 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
         public string Name { get; set; } = null!;
     }
 
+    private sealed record StringKeyEntity
+    {
+        public string Id { get; set; } = null!;
+
+        public string Name { get; set; } = null!;
+    }
+
+    private sealed class StringKeyContext(DbContextOptions<StringKeyContext> options) : DbContext(
+        options)
+    {
+        public const string TableName = "value-generation-string-keys";
+
+        public DbSet<StringKeyEntity> Entities => Set<StringKeyEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.ConfigureWarnings(w => w.Ignore(DynamoEventId.ScanLikeQueryDetected));
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<StringKeyEntity>(entity =>
+            {
+                entity.ToTable(TableName);
+                entity.Property(x => x.Id).HasAttributeName("id");
+                entity.Property(x => x.Name).HasAttributeName("name");
+                entity.HasPartitionKey(x => x.Id);
+            });
+    }
+
+    private sealed class GeneratedIntKeyContext(DbContextOptions<GeneratedIntKeyContext> options)
+        : DbContext(options)
+    {
+        public const string TableName = "value-generation-generated-int-keys";
+
+        public DbSet<IntKeyEntity> Entities => Set<IntKeyEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.ConfigureWarnings(w => w.Ignore(DynamoEventId.ScanLikeQueryDetected));
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<IntKeyEntity>(entity =>
+            {
+                entity.ToTable(TableName);
+                entity
+                    .Property(x => x.Id)
+                    .HasAttributeName("id")
+                    .ValueGeneratedOnAdd()
+                    .HasValueGenerator<StaticIntValueGenerator>();
+                entity.Property(x => x.Name).HasAttributeName("name");
+                entity.HasPartitionKey(x => x.Id);
+            });
+    }
+
+    private sealed class StaticIntValueGenerator : ValueGenerator<int>
+    {
+        public override bool GeneratesTemporaryValues => false;
+
+        public override int Next(EntityEntry entry) => 777;
+    }
+
     private sealed class GuidKeyContext(DbContextOptions<GuidKeyContext> options) : DbContext(
         options)
     {
@@ -204,6 +477,26 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
             {
                 entity.ToTable(TableName);
                 entity.Property(x => x.Id).HasAttributeName("id");
+                entity.Property(x => x.Name).HasAttributeName("name");
+                entity.HasPartitionKey(x => x.Id);
+            });
+    }
+
+    private sealed class ExplicitGuidNoGenerationContext(
+        DbContextOptions<ExplicitGuidNoGenerationContext> options) : DbContext(options)
+    {
+        public const string TableName = "value-generation-explicit-guid-keys";
+
+        public DbSet<GuidKeyEntity> Entities => Set<GuidKeyEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.ConfigureWarnings(w => w.Ignore(DynamoEventId.ScanLikeQueryDetected));
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<GuidKeyEntity>(entity =>
+            {
+                entity.ToTable(TableName);
+                entity.Property(x => x.Id).HasAttributeName("id").ValueGeneratedNever();
                 entity.Property(x => x.Name).HasAttributeName("name");
                 entity.HasPartitionKey(x => x.Id);
             });
@@ -236,6 +529,37 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
                 entity.Property(x => x.Sk).HasAttributeName("sk");
                 entity.Property(x => x.Name).HasAttributeName("name");
                 entity.HasPartitionKey(x => x.Pk);
+                entity.HasSortKey(x => x.Sk);
+            });
+    }
+
+    private sealed record CompositeGuidKeyEntity
+    {
+        public Guid Id { get; set; }
+
+        public string Sk { get; set; } = null!;
+
+        public string Name { get; set; } = null!;
+    }
+
+    private sealed class CompositeGuidKeyContext(DbContextOptions<CompositeGuidKeyContext> options)
+        : DbContext(options)
+    {
+        public const string TableName = "value-generation-composite-guid-keys";
+
+        public DbSet<CompositeGuidKeyEntity> Entities => Set<CompositeGuidKeyEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.ConfigureWarnings(w => w.Ignore(DynamoEventId.ScanLikeQueryDetected));
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<CompositeGuidKeyEntity>(entity =>
+            {
+                entity.ToTable(TableName);
+                entity.Property(x => x.Id).HasAttributeName("id");
+                entity.Property(x => x.Sk).HasAttributeName("sk");
+                entity.Property(x => x.Name).HasAttributeName("name");
+                entity.HasPartitionKey(x => x.Id);
                 entity.HasSortKey(x => x.Sk);
             });
     }
