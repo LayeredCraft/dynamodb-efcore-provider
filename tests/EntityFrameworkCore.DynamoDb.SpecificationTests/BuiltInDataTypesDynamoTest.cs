@@ -15,9 +15,6 @@ public class BuiltInDataTypesDynamoTest(
     private const string NonEmbeddedNavigationsNotSupported =
         "DynamoDB does not support non-embedded navigation queries in this test shape.";
 
-    private const string DateTimeOffsetMemberProjectionNotSupported =
-        "DynamoDB does not translate DateTimeOffset member projection for built-in data type coverage yet.";
-
     private const string ProviderTypeMappingGaps =
         "DynamoDB provider does not fully support this built-in type mapping query shape yet.";
 
@@ -153,7 +150,6 @@ public class BuiltInDataTypesDynamoTest(
     public override Task Object_to_string_conversion() => base.Object_to_string_conversion();
 
     /// <inheritdoc />
-    [ConditionalFact(Skip = DateTimeOffsetMemberProjectionNotSupported)]
     public override Task Optional_datetime_reading_null_from_database()
         => base.Optional_datetime_reading_null_from_database();
 
