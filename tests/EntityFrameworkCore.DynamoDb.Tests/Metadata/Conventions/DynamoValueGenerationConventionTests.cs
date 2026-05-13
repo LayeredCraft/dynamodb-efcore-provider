@@ -111,6 +111,18 @@ public class DynamoValueGenerationConventionTests
             .Be(ValueGenerated.Never);
     }
 
+    /// <summary>Verifies table mapping annotation changes re-apply DynamoDB key-generation conventions.</summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void LateTableMapping_ReappliesDynamoValueGenerationConvention()
+    {
+        using var ctx = LateTableMappingContext.Create(Substitute.For<IAmazonDynamoDB>());
+
+        FindProperty<IntPartitionKeyEntity>(ctx, nameof(IntPartitionKeyEntity.Id))
+            .ValueGenerated
+            .Should()
+            .Be(ValueGenerated.Never);
+    }
+
     private static IProperty FindProperty<TEntity>(DbContext context, string name)
         => context.Model.FindEntityType(typeof(TEntity))!.FindProperty(name)!;
 
@@ -261,5 +273,20 @@ public class DynamoValueGenerationConventionTests
 
         public static GuidNonKeyContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<GuidNonKeyContext>(client));
+    }
+
+    private sealed class LateTableMappingContext(DbContextOptions options) : DbContext(options)
+    {
+        public DbSet<IntPartitionKeyEntity> Entities { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<IntPartitionKeyEntity>(b =>
+            {
+                b.HasPartitionKey(x => x.Id);
+                b.ToTable("LateTableMappingTable");
+            });
+
+        public static LateTableMappingContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<LateTableMappingContext>(client));
     }
 }
