@@ -20,8 +20,8 @@ public sealed class DynamoValueGenerationConvention(
     /// </summary>
     /// <param name="property">Property being configured by convention.</param>
     /// <returns>
-    ///     <see cref="ValueGenerated.OnAdd" /> for Guid keys; otherwise <see langword="null" /> so DynamoDB
-    ///     keys remain application-assigned by convention.
+    ///     EF Core's default conventional value-generation setting for Guid properties; otherwise
+    ///     <see langword="null" /> so DynamoDB-incompatible numeric and string key generation is suppressed.
     /// </returns>
     protected override ValueGenerated? GetValueGenerated(IConventionProperty property)
         => (Nullable.GetUnderlyingType(property.ClrType) ?? property.ClrType) == typeof(Guid)

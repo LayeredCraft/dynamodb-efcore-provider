@@ -20,6 +20,100 @@ public class DynamoValueGenerationConventionTests
                     .Ignore(DynamoEventId.ScanLikeQueryDetected))
             .Options;
 
+    /// <summary>Verifies numeric DynamoDB partition keys are application-assigned by convention.</summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void IntegerPartitionKey_IsNotValueGeneratedByConvention()
+    {
+        using var ctx = IntPartitionKeyContext.Create(Substitute.For<IAmazonDynamoDB>());
+
+        FindProperty<IntPartitionKeyEntity>(ctx, nameof(IntPartitionKeyEntity.Id))
+            .ValueGenerated
+            .Should()
+            .Be(ValueGenerated.Never);
+    }
+
+    /// <summary>Verifies string DynamoDB partition keys are application-assigned by convention.</summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void StringPartitionKey_IsNotValueGeneratedByConvention()
+    {
+        using var ctx = StringPartitionKeyContext.Create(Substitute.For<IAmazonDynamoDB>());
+
+        FindProperty<StringPartitionKeyEntity>(ctx, nameof(StringPartitionKeyEntity.Id))
+            .ValueGenerated
+            .Should()
+            .Be(ValueGenerated.Never);
+    }
+
+    /// <summary>
+    ///     Verifies Guid DynamoDB partition keys keep EF Core client-side value generation by
+    ///     convention.
+    /// </summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void GuidPartitionKey_IsValueGeneratedByConvention()
+    {
+        using var ctx = GuidPartitionKeyContext.Create(Substitute.For<IAmazonDynamoDB>());
+
+        FindProperty<GuidPartitionKeyEntity>(ctx, nameof(GuidPartitionKeyEntity.Id))
+            .ValueGenerated
+            .Should()
+            .Be(ValueGenerated.OnAdd);
+    }
+
+    /// <summary>Verifies explicit value generation on non-Guid keys overrides DynamoDB conventions.</summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ExplicitValueGeneratedOnAdd_ForIntegerKey_IsPreserved()
+    {
+        using var ctx = ExplicitIntegerGenerationContext.Create(Substitute.For<IAmazonDynamoDB>());
+
+        FindProperty<IntPartitionKeyEntity>(ctx, nameof(IntPartitionKeyEntity.Id))
+            .ValueGenerated
+            .Should()
+            .Be(ValueGenerated.OnAdd);
+    }
+
+    /// <summary>Verifies explicit no-generation on Guid keys overrides EF Core conventions.</summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ExplicitValueGeneratedNever_ForGuidKey_IsPreserved()
+    {
+        using var ctx = ExplicitGuidNoGenerationContext.Create(Substitute.For<IAmazonDynamoDB>());
+
+        FindProperty<GuidPartitionKeyEntity>(ctx, nameof(GuidPartitionKeyEntity.Id))
+            .ValueGenerated
+            .Should()
+            .Be(ValueGenerated.Never);
+    }
+
+    /// <summary>Verifies composite DynamoDB keys are application-assigned by convention.</summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void CompositeGuidPartitionAndStringSortKey_AreNotValueGeneratedByConvention()
+    {
+        using var ctx = CompositeKeyContext.Create(Substitute.For<IAmazonDynamoDB>());
+
+        FindProperty<CompositeKeyEntity>(ctx, nameof(CompositeKeyEntity.Id))
+            .ValueGenerated
+            .Should()
+            .Be(ValueGenerated.Never);
+        FindProperty<CompositeKeyEntity>(ctx, nameof(CompositeKeyEntity.SortKey))
+            .ValueGenerated
+            .Should()
+            .Be(ValueGenerated.Never);
+    }
+
+    /// <summary>Verifies non-key Guid properties are not accidentally configured for generation.</summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void NonKeyGuidProperty_IsNotValueGeneratedByConvention()
+    {
+        using var ctx = GuidNonKeyContext.Create(Substitute.For<IAmazonDynamoDB>());
+
+        FindProperty<GuidNonKeyEntity>(ctx, nameof(GuidNonKeyEntity.ExternalId))
+            .ValueGenerated
+            .Should()
+            .Be(ValueGenerated.Never);
+    }
+
+    private static IProperty FindProperty<TEntity>(DbContext context, string name)
+        => context.Model.FindEntityType(typeof(TEntity))!.FindProperty(name)!;
+
     private sealed record IntPartitionKeyEntity
     {
         public int Id { get; set; }
@@ -42,21 +136,26 @@ public class DynamoValueGenerationConventionTests
             => new(BuildOptions<IntPartitionKeyContext>(client));
     }
 
-    /// <summary>
-    ///     Verifies numeric DynamoDB partition keys are application-assigned by convention.
-    /// </summary>
-    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public void IntegerPartitionKey_IsNotValueGeneratedByConvention()
+    private sealed record StringPartitionKeyEntity
     {
-        var client = Substitute.For<IAmazonDynamoDB>();
-        using var ctx = IntPartitionKeyContext.Create(client);
+        public string Id { get; set; } = null!;
 
-        var entityType = ctx.Model.FindEntityType(typeof(IntPartitionKeyEntity))!;
+        public string Name { get; set; } = null!;
+    }
 
-        entityType.FindProperty(nameof(IntPartitionKeyEntity.Id))!
-            .ValueGenerated
-            .Should()
-            .Be(ValueGenerated.Never);
+    private sealed class StringPartitionKeyContext(DbContextOptions options) : DbContext(options)
+    {
+        public DbSet<StringPartitionKeyEntity> Entities { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<StringPartitionKeyEntity>(b =>
+            {
+                b.ToTable("StringPartitionKeyTable");
+                b.HasPartitionKey(x => x.Id);
+            });
+
+        public static StringPartitionKeyContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<StringPartitionKeyContext>(client));
     }
 
     private sealed record GuidPartitionKeyEntity
@@ -81,20 +180,86 @@ public class DynamoValueGenerationConventionTests
             => new(BuildOptions<GuidPartitionKeyContext>(client));
     }
 
-    /// <summary>
-    ///     Verifies Guid DynamoDB partition keys keep EF Core client-side value generation by convention.
-    /// </summary>
-    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public void GuidPartitionKey_IsValueGeneratedByConvention()
+    private sealed class ExplicitIntegerGenerationContext(DbContextOptions options) : DbContext(
+        options)
     {
-        var client = Substitute.For<IAmazonDynamoDB>();
-        using var ctx = GuidPartitionKeyContext.Create(client);
+        public DbSet<IntPartitionKeyEntity> Entities { get; set; } = null!;
 
-        var entityType = ctx.Model.FindEntityType(typeof(GuidPartitionKeyEntity))!;
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<IntPartitionKeyEntity>(b =>
+            {
+                b.ToTable("ExplicitIntegerGenerationTable");
+                b.HasPartitionKey(x => x.Id);
+                b.Property(x => x.Id).ValueGeneratedOnAdd();
+            });
 
-        entityType.FindProperty(nameof(GuidPartitionKeyEntity.Id))!
-            .ValueGenerated
-            .Should()
-            .Be(ValueGenerated.OnAdd);
+        public static ExplicitIntegerGenerationContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<ExplicitIntegerGenerationContext>(client));
+    }
+
+    private sealed class ExplicitGuidNoGenerationContext(DbContextOptions options) : DbContext(
+        options)
+    {
+        public DbSet<GuidPartitionKeyEntity> Entities { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<GuidPartitionKeyEntity>(b =>
+            {
+                b.ToTable("ExplicitGuidNoGenerationTable");
+                b.HasPartitionKey(x => x.Id);
+                b.Property(x => x.Id).ValueGeneratedNever();
+            });
+
+        public static ExplicitGuidNoGenerationContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<ExplicitGuidNoGenerationContext>(client));
+    }
+
+    private sealed record CompositeKeyEntity
+    {
+        public Guid Id { get; set; }
+
+        public string SortKey { get; set; } = null!;
+
+        public string Name { get; set; } = null!;
+    }
+
+    private sealed class CompositeKeyContext(DbContextOptions options) : DbContext(options)
+    {
+        public DbSet<CompositeKeyEntity> Entities { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<CompositeKeyEntity>(b =>
+            {
+                b.ToTable("CompositeKeyTable");
+                b.HasPartitionKey(x => x.Id);
+                b.HasSortKey(x => x.SortKey);
+            });
+
+        public static CompositeKeyContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<CompositeKeyContext>(client));
+    }
+
+    private sealed record GuidNonKeyEntity
+    {
+        public int Id { get; set; }
+
+        public Guid ExternalId { get; set; }
+
+        public string Name { get; set; } = null!;
+    }
+
+    private sealed class GuidNonKeyContext(DbContextOptions options) : DbContext(options)
+    {
+        public DbSet<GuidNonKeyEntity> Entities { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<GuidNonKeyEntity>(b =>
+            {
+                b.ToTable("GuidNonKeyTable");
+                b.HasPartitionKey(x => x.Id);
+            });
+
+        public static GuidNonKeyContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<GuidNonKeyContext>(client));
     }
 }
