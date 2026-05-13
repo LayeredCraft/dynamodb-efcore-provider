@@ -7,7 +7,8 @@ namespace EntityFrameworkCore.DynamoDb.Query.Internal;
 /// <summary>
 /// Factory for creating SQL expressions with proper type mappings.
 /// </summary>
-public class SqlExpressionFactory(ITypeMappingSource typeMappingSource) : ISqlExpressionFactory
+public sealed class SqlExpressionFactory(ITypeMappingSource typeMappingSource)
+    : ISqlExpressionFactory
 {
     /// <inheritdoc />
     public SqlBinaryExpression Binary(

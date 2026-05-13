@@ -12,7 +12,7 @@ namespace EntityFrameworkCore.DynamoDb.Query.Internal;
 /// <summary>
 /// Translates C# expression trees to SQL expression trees.
 /// </summary>
-public class DynamoSqlTranslatingExpressionVisitor(
+public sealed class DynamoSqlTranslatingExpressionVisitor(
     ISqlExpressionFactory sqlExpressionFactory,
     DynamoQueryCompilationContext? queryCompilationContext = null) : ExpressionVisitor
 {
@@ -107,7 +107,7 @@ public class DynamoSqlTranslatingExpressionVisitor(
         => Visit(expression) as SqlExpression;
 
     /// <summary>Adds a translation error detail message for the current translation attempt.</summary>
-    protected virtual void AddTranslationErrorDetails(string details)
+    private void AddTranslationErrorDetails(string details)
         => TranslationErrorDetails =
             TranslationErrorDetails == null
                 ? details

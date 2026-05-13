@@ -64,6 +64,25 @@ public static class DynamoEntityTypeExtensions
             => entityType.SetOrRemoveAnnotation(
                 DynamoAnnotationNames.AttributeNamingConvention,
                 descriptor);
+
+        /// <summary>Gets the mutable EF property that maps to the DynamoDB partition key.</summary>
+        /// <returns>
+        ///     The partition key property, or <see langword="null" /> when no partition key is
+        ///     configured.
+        /// </returns>
+        public IMutableProperty? GetPartitionKeyProperty()
+        {
+            var name = entityType.GetPartitionKeyPropertyName();
+            return name is not null ? entityType.FindProperty(name) : null;
+        }
+
+        /// <summary>Gets the mutable EF property that maps to the DynamoDB sort key.</summary>
+        /// <returns>The sort key property, or <see langword="null" /> when no sort key is configured.</returns>
+        public IMutableProperty? GetSortKeyProperty()
+        {
+            var name = entityType.GetSortKeyPropertyName();
+            return name is not null ? entityType.FindProperty(name) : null;
+        }
     }
 
     extension(IReadOnlyEntityType entityType)
@@ -193,6 +212,44 @@ public static class DynamoEntityTypeExtensions
 
     extension(IConventionEntityType entityType)
     {
+        /// <summary>Sets the DynamoDB table name at the given configuration source.</summary>
+        /// <param name="name">The table name, or <see langword="null" /> to clear the explicit mapping.</param>
+        /// <param name="fromDataAnnotation">
+        ///     <see langword="true" /> if configured via a data annotation;
+        ///     <see langword="false" /> for the fluent API.
+        /// </param>
+        /// <returns>The configured table name, or <see langword="null" /> if configuration was not applied.</returns>
+        public string? SetTableName(string? name, bool fromDataAnnotation = false)
+            => (string?)entityType.SetOrRemoveAnnotation(
+                    DynamoAnnotationNames.TableName,
+                    name.NullButNotEmpty(),
+                    fromDataAnnotation)
+                ?.Value;
+
+        /// <summary>Returns the configuration source for the table name annotation.</summary>
+        /// <returns>The configuration source, or <see langword="null" /> if no table name is configured.</returns>
+        public ConfigurationSource? GetTableNameConfigurationSource()
+            => entityType.FindAnnotation(DynamoAnnotationNames.TableName)?.GetConfigurationSource();
+
+        /// <summary>Gets the convention EF property that maps to the DynamoDB partition key.</summary>
+        /// <returns>
+        ///     The partition key property, or <see langword="null" /> when no partition key is
+        ///     configured.
+        /// </returns>
+        public IConventionProperty? GetPartitionKeyProperty()
+        {
+            var name = entityType.GetPartitionKeyPropertyName();
+            return name is not null ? entityType.FindProperty(name) : null;
+        }
+
+        /// <summary>Gets the convention EF property that maps to the DynamoDB sort key.</summary>
+        /// <returns>The sort key property, or <see langword="null" /> when no sort key is configured.</returns>
+        public IConventionProperty? GetSortKeyProperty()
+        {
+            var name = entityType.GetSortKeyPropertyName();
+            return name is not null ? entityType.FindProperty(name) : null;
+        }
+
         /// <summary>
         ///     Sets the EF property name designated as the DynamoDB partition key at the given
         ///     configuration source.

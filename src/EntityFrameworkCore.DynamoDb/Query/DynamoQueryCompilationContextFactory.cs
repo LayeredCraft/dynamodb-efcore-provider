@@ -3,7 +3,8 @@ using Microsoft.EntityFrameworkCore.Query;
 namespace EntityFrameworkCore.DynamoDb.Query;
 
 /// <summary>Represents the DynamoQueryCompilationContextFactory type.</summary>
-public class DynamoQueryCompilationContextFactory(QueryCompilationContextDependencies dependencies)
+public sealed class DynamoQueryCompilationContextFactory(
+    QueryCompilationContextDependencies dependencies)
     : IQueryCompilationContextFactory
 {
     /// <summary>Provides functionality for this member.</summary>

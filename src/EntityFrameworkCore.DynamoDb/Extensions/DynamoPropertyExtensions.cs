@@ -33,13 +33,13 @@ public static class DynamoPropertyExtensions
             => property.SetOrRemoveAnnotation(DynamoAnnotationNames.AttributeName, name);
 
         /// <summary>Marks this property as runtime-only provider metadata.</summary>
-        public void SetRuntimeOnly(bool runtimeOnly)
+        internal void SetRuntimeOnly(bool runtimeOnly)
             => property.SetOrRemoveAnnotation(
                 DynamoAnnotationNames.RuntimeOnlyProperty,
                 runtimeOnly ? true : null);
 
         /// <summary>Sets or clears the runtime value source identifier for this property.</summary>
-        public void SetRuntimeValueSource(string? runtimeValueSource)
+        internal void SetRuntimeValueSource(string? runtimeValueSource)
             => property.SetOrRemoveAnnotation(
                 DynamoAnnotationNames.RuntimeValueSource,
                 runtimeValueSource);
@@ -59,18 +59,24 @@ public static class DynamoPropertyExtensions
         ///     Sets whether this property is runtime-only provider metadata, recording the configuration
         ///     source.
         /// </summary>
-        public bool? SetRuntimeOnly(bool runtimeOnly, bool fromDataAnnotation = false)
+        internal bool? SetRuntimeOnly(bool runtimeOnly, bool fromDataAnnotation = false)
             => (bool?)property.SetOrRemoveAnnotation(
                     DynamoAnnotationNames.RuntimeOnlyProperty,
                     runtimeOnly ? true : null,
                     fromDataAnnotation)
                 ?.Value;
 
+        /// <summary>Returns the configuration source for the runtime-only marker, or null if not set.</summary>
+        internal ConfigurationSource? GetRuntimeOnlyConfigurationSource()
+            => property
+                .FindAnnotation(DynamoAnnotationNames.RuntimeOnlyProperty)
+                ?.GetConfigurationSource();
+
         /// <summary>
         ///     Sets the runtime value source identifier for this property, recording the configuration
         ///     source.
         /// </summary>
-        public string? SetRuntimeValueSource(
+        internal string? SetRuntimeValueSource(
             string? runtimeValueSource,
             bool fromDataAnnotation = false)
             => (string?)property.SetOrRemoveAnnotation(
@@ -78,6 +84,12 @@ public static class DynamoPropertyExtensions
                     runtimeValueSource,
                     fromDataAnnotation)
                 ?.Value;
+
+        /// <summary>Returns the configuration source for the runtime value source, or null if not set.</summary>
+        internal ConfigurationSource? GetRuntimeValueSourceConfigurationSource()
+            => property
+                .FindAnnotation(DynamoAnnotationNames.RuntimeValueSource)
+                ?.GetConfigurationSource();
     }
 
     extension(IReadOnlyComplexProperty complexProperty)

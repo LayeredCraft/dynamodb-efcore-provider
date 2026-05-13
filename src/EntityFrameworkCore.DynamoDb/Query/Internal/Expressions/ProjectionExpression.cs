@@ -5,7 +5,7 @@ namespace EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 /// <summary>
 /// Represents a single projected column in a SELECT statement.
 /// </summary>
-public class ProjectionExpression(SqlExpression expression, string alias) : Expression
+public sealed class ProjectionExpression(SqlExpression expression, string alias) : Expression
 {
     /// <summary>
     /// The SQL expression being projected.

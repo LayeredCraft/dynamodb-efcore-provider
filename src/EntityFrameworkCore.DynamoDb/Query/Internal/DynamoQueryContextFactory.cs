@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Query;
 namespace EntityFrameworkCore.DynamoDb.Query.Internal;
 
 /// <summary>Represents the DynamoQueryContextFactory type.</summary>
-public class DynamoQueryContextFactory(
+public sealed class DynamoQueryContextFactory(
     QueryContextDependencies dependencies,
     IDynamoClientWrapper client,
     IDiagnosticsLogger<DbLoggerCategory.Database.Command> commandLogger,
