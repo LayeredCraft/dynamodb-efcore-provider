@@ -1,5 +1,4 @@
 using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
-using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SimpleTable;
 
@@ -376,31 +375,21 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
             """);
     }
 
+    // Intentionally project Nullable<T>.Value to verify provider null compensation.
+#pragma warning disable CS8629
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Select_NullableValueTypeValueProjection_PreservesNull()
     {
         var results =
             await Db
                 .SimpleItems
-                .Select(item => new
-                {
-                    item.Pk,
-                    Value = item.NullableIntValue == null
-                        ? (int?)null
-                        : item.NullableIntValue.Value,
-                })
+                .Select(item => new { item.Pk, Value = (int?)item.NullableIntValue.Value })
                 .ToListAsync(CancellationToken);
 
         var expected =
             SimpleItems
                 .Items
-                .Select(item => new
-                {
-                    item.Pk,
-                    Value = item.NullableIntValue == null
-                        ? (int?)null
-                        : item.NullableIntValue.Value,
-                })
+                .Select(item => new { item.Pk, Value = item.NullableIntValue })
                 .ToList();
 
         results.Should().BeEquivalentTo(expected);
@@ -411,6 +400,38 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
             FROM "SimpleItems"
             """);
     }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Select_NullableValueTypeMemberChainProjection_PreservesNull()
+    {
+        var results =
+            await Db
+                .SimpleItems
+                .Select(item => new
+                {
+                    item.Pk, Date = (DateTime?)item.NullableDateTimeOffsetValue.Value.DateTime.Date,
+                })
+                .ToListAsync(CancellationToken);
+
+        var expected =
+            SimpleItems
+                .Items
+                .Select(item => new
+                {
+                    item.Pk, item.NullableDateTimeOffsetValue?.DateTime.Date,
+                })
+                .ToList();
+
+        results.Should().BeEquivalentTo(expected);
+
+        AssertSql(
+            """
+            SELECT "pk", "nullableDateTimeOffsetValue"
+            FROM "SimpleItems"
+            """);
+    }
+
+#pragma warning restore CS8629
 
     // Identity Projection Test
 
@@ -425,7 +446,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
 
         AssertSql(
             """
-            SELECT "pk", "boolValue", "dateOnlyValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableIntValue", "nullableStringValue", "stringValue", "timeOnlyValue", "timeSpanValue"
+            SELECT "pk", "boolValue", "dateOnlyValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableDateTimeOffsetValue", "nullableIntValue", "nullableStringValue", "stringValue", "timeOnlyValue", "timeSpanValue"
             FROM "SimpleItems"
             """);
     }
@@ -477,6 +498,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
                     item.GuidValue,
                     item.DateTimeOffsetValue,
                     item.NullableBoolValue,
+                    item.NullableDateTimeOffsetValue,
                     item.NullableIntValue,
                     item.NullableStringValue,
                     item.DateOnlyValue,
@@ -501,6 +523,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
                     item.GuidValue,
                     item.DateTimeOffsetValue,
                     item.NullableBoolValue,
+                    item.NullableDateTimeOffsetValue,
                     item.NullableIntValue,
                     item.NullableStringValue,
                     item.DateOnlyValue,
@@ -513,7 +536,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
 
         AssertSql(
             """
-            SELECT "pk", "boolValue", "intValue", "longValue", "floatValue", "doubleValue", "decimalValue", "stringValue", "guidValue", "dateTimeOffsetValue", "nullableBoolValue", "nullableIntValue", "nullableStringValue", "dateOnlyValue", "timeOnlyValue", "timeSpanValue"
+            SELECT "pk", "boolValue", "intValue", "longValue", "floatValue", "doubleValue", "decimalValue", "stringValue", "guidValue", "dateTimeOffsetValue", "nullableBoolValue", "nullableDateTimeOffsetValue", "nullableIntValue", "nullableStringValue", "dateOnlyValue", "timeOnlyValue", "timeSpanValue"
             FROM "SimpleItems"
             """);
     }

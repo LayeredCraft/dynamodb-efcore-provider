@@ -171,7 +171,9 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
                 return QueryCompilationContext.NotTranslatedExpression;
 
             if (visitedValue.Type != node.Type)
-                visitedValue = Convert(visitedValue, node.Type);
+                visitedValue = node.NodeType == ExpressionType.ConvertChecked
+                    ? ConvertChecked(visitedValue, node.Type)
+                    : Convert(visitedValue, node.Type);
 
             return Block(
                 [sourceVariable],
@@ -206,13 +208,6 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
 
             case MethodCallExpression { Object: { } instance }:
                 return TryGetNullableValueSource(instance, out nullableSource);
-
-            case MethodCallExpression methodCall:
-                foreach (var argument in methodCall.Arguments)
-                    if (TryGetNullableValueSource(argument, out nullableSource))
-                        return true;
-
-                break;
 
             case UnaryExpression unary:
                 return TryGetNullableValueSource(unary.Operand, out nullableSource);
