@@ -1,4 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -9,23 +10,47 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Specification.Tests"/>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Aliases="EFCoreRelational"/>
+    <PackageReference Include="AutoFixture.AutoNSubstitute" />
+    <PackageReference Include="AutoFixture.Xunit3" />
+    <PackageReference Include="AwesomeAssertions" />
+    <PackageReference Include="LayeredCraft.DynamoMapper" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Aliases="EFCoreRelational" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Specification.Tests" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
-    <PackageReference Include="Testcontainers.DynamoDb"/>
+    <PackageReference Include="NSubstitute" />
+    <PackageReference Include="NSubstitute.Analyzers.CSharp">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Testcontainers.DynamoDb" />
+    <PackageReference Include="Testcontainers.XunitV3" />
     <PackageReference Include="xunit.runner.visualstudio">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="YTest.MTP.XUnit2"/>
+    <PackageReference Include="JetBrains.Annotations" />
+    <PackageReference Include="xunit.v3.mtp-v2" />
+    <PackageReference Include="YTest.MTP.XUnit2" />
   </ItemGroup>
 
   <ItemGroup>
-    <Using Include="Xunit"/>
+    <Using Include="Xunit" />
+    <Using Include="AwesomeAssertions" />
+    <Using Include="EntityFrameworkCore.DynamoDb.Diagnostics" />
+    <Using Include="EntityFrameworkCore.DynamoDb.Infrastructure" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference
-      Include="..\..\src\EntityFrameworkCore.DynamoDb\EntityFrameworkCore.DynamoDb.csproj"/>
+      Include="..\..\src\EntityFrameworkCore.DynamoDb\EntityFrameworkCore.DynamoDb.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Update="xunit.runner.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="ComplianceInventory.md">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 </Project>

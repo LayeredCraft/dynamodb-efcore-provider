@@ -16,3 +16,21 @@ jobs:
         10.0.x
       runCdk: false
     secrets: inherit
+
+  specification-tests:
+    name: Specification tests (DynamoDB Local)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore EntityFrameworkCore.DynamoDb.slnx
+
+      - name: Run specification tests
+        run: dotnet test --project tests/EntityFrameworkCore.DynamoDb.SpecificationTests/EntityFrameworkCore.DynamoDb.SpecificationTests.csproj -- --minimum-expected-tests 1
