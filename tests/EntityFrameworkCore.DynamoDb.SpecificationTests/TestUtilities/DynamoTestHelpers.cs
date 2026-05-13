@@ -25,7 +25,6 @@ public class DynamoTestHelpers : TestHelpers
     public static void AssertAllTestMethodsOverridden(Type testClass)
         => AssertAllMethodsOverridden(testClass);
 
-    /// <summary>Runs a sync test and verifies that DynamoDB sync query execution fails.</summary>
     public void NoSyncTest(Action testCode)
     {
         try
