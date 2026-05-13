@@ -8,6 +8,11 @@ description: How complex properties and complex collections are stored and queri
 _Complex properties are stored inline within the owning entity's DynamoDB item as nested maps or
 lists, with no separate table or key._
 
+Use complex types for embedded DynamoDB document data. Do not model embedded data with EF Core
+relationships, foreign keys, navigations, or owned entity types; those relational modeling features
+are not supported by this provider. Separate DynamoDB items or tables should be modeled as separate
+root entity types without EF navigation relationships.
+
 ## Complex Properties
 
 `ComplexProperty(...)` maps a value-object-style member to a DynamoDB map (`AttributeValue.M`)
@@ -101,7 +106,7 @@ The collection is stored as a List:
 ```
 
 Supported CLR collection shapes: `List<T>`, `IList<T>`. `ICollection<T>`,
-and `IReadOnlyList<T>`. Arrays are not supported for complex collections.
+`IReadOnlyList<T>`, and arrays are not supported for complex collections.
 
 !!! note "Collection updates replace the full list"
 
@@ -191,8 +196,8 @@ the EF model and applies them consistently for both missing attributes and expli
 
 Null and missing attribute handling:
 
-| Scenario                                               | Behavior                           |
-| ------------------------------------------------------ | ---------------------------------- |
+| Scenario                                                | Behavior                           |
+| ------------------------------------------------------- | ---------------------------------- |
 | Optional complex property missing or `NULL` in DynamoDB | Materializes as `null`             |
 | Required complex property missing or `NULL` in DynamoDB | Throws `InvalidOperationException` |
 | Any complex property present with a non-map wire shape  | Throws `InvalidOperationException` |
@@ -205,6 +210,28 @@ Null and missing attribute handling:
     the EF property is required, materialization throws. Likewise, if a complex property is present
     but encoded with the wrong DynamoDB wire shape (for example `S` instead of `M`), materialization
     throws even when the CLR property is nullable. Design your schemas accordingly.
+
+## Relationships vs Complex Types
+
+Use complex types when nested data belongs to the same DynamoDB item and is read or written with
+that item. This matches DynamoDB maps and lists.
+
+Do not use EF relationship APIs for DynamoDB document nesting:
+
+```csharp
+// ❌ Not supported
+modelBuilder.Entity<Customer>()
+    .HasMany(x => x.Contacts)
+    .WithOne();
+
+// ✅ Supported
+modelBuilder.Entity<Customer>()
+    .ComplexCollection(x => x.Contacts);
+```
+
+Use separate root entities only when the data is stored as separate DynamoDB items or in separate
+tables. Keep those roots independent in EF: query them separately and connect them in application
+code by key values if needed.
 
 ## See also
 
