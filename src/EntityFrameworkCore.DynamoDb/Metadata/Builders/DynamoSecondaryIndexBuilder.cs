@@ -36,13 +36,6 @@ public class DynamoSecondaryIndexBuilder(IndexBuilder indexBuilder)
         IndexBuilder.HasSecondaryIndexProjectionType(projectionType);
         return this;
     }
-
-    /// <summary>Configures the DynamoDB projection type for this secondary index.</summary>
-    /// <param name="projectionType">The projection type, or <see langword="null" /> to clear it.</param>
-    /// <returns>The same builder instance so that multiple calls can be chained.</returns>
-    public virtual DynamoSecondaryIndexBuilder HasProjectionType(
-        DynamoSecondaryIndexProjectionType? projectionType)
-        => HasSecondaryIndexProjectionType(projectionType);
 }
 
 /// <summary>
@@ -75,11 +68,4 @@ public class DynamoSecondaryIndexBuilder<TEntity>(IndexBuilder<TEntity> indexBui
         DynamoSecondaryIndexProjectionType? projectionType)
         => (DynamoSecondaryIndexBuilder<TEntity>)base.HasSecondaryIndexProjectionType(
             projectionType);
-
-    /// <summary>Configures the DynamoDB projection type for this secondary index.</summary>
-    /// <param name="projectionType">The projection type, or <see langword="null" /> to clear it.</param>
-    /// <returns>The same builder instance so that multiple calls can be chained.</returns>
-    public new virtual DynamoSecondaryIndexBuilder<TEntity> HasProjectionType(
-        DynamoSecondaryIndexProjectionType? projectionType)
-        => HasSecondaryIndexProjectionType(projectionType);
 }

@@ -1,9 +1,10 @@
 using EntityFrameworkCore.DynamoDb.Metadata;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace EntityFrameworkCore.DynamoDb.Tests.Metadata;
 
-/// <summary>Represents the SecondaryIndexBuilderExtensionsTests type.</summary>
 public class SecondaryIndexBuilderExtensionsTests
 {
     /// <summary>Verifies that untyped index builder APIs configure DynamoDB secondary index annotations.</summary>
@@ -35,7 +36,7 @@ public class SecondaryIndexBuilderExtensionsTests
     public void TypedIndexBuilder_ConfiguresSecondaryIndexMetadata()
     {
         var modelBuilder = new ModelBuilder();
-        var indexBuilder = modelBuilder.Entity<Order>().HasIndex(x => x.CustomerId);
+        var indexBuilder = modelBuilder.Entity<Order>().HasIndex(x => x.CustomerId, "ByCustomer");
 
         var returned = indexBuilder
             .HasSecondaryIndexName("ByCustomer")
@@ -57,7 +58,9 @@ public class SecondaryIndexBuilderExtensionsTests
     public void SecondaryIndexBuilder_ConfiguresProjectionMetadata()
     {
         var optionsBuilder = new DbContextOptionsBuilder<ProjectionContext>();
-        optionsBuilder.UseDynamo();
+        optionsBuilder
+            .UseDynamo()
+            .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning));
 
         using var context = new ProjectionContext(optionsBuilder.Options);
 
@@ -67,6 +70,83 @@ public class SecondaryIndexBuilderExtensionsTests
                 .Single(x => x.Name == "ByCustomer");
 
         index
+            .GetSecondaryIndexProjectionType()
+            .Should()
+            .Be(DynamoSecondaryIndexProjectionType.KeysOnly);
+    }
+
+    /// <summary>
+    ///     Verifies that <c>HasSecondaryIndexName</c> on <see cref="IConventionIndexBuilder" />
+    ///     returns <see langword="null" /> when a higher-precedence (data annotation) value is already
+    ///     set.
+    /// </summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void
+        ConventionIndexBuilder_HasSecondaryIndexName_ReturnsNullWhenPrecededByDataAnnotation()
+    {
+        var modelBuilder = new ModelBuilder();
+        var indexBuilder = modelBuilder
+            .Entity<Order>()
+            .HasIndex([nameof(Order.CustomerId)], "ByCustomer");
+        var conventionBuilder = indexBuilder.GetInfrastructure();
+
+        conventionBuilder.HasSecondaryIndexName("AnnotationName", true);
+
+        var result = conventionBuilder.HasSecondaryIndexName("FluentName", false);
+
+        result.Should().BeNull();
+        indexBuilder.Metadata.GetSecondaryIndexName().Should().Be("AnnotationName");
+    }
+
+    /// <summary>
+    ///     Verifies that <c>HasSecondaryIndexKind</c> on <see cref="IConventionIndexBuilder" />
+    ///     returns <see langword="null" /> when a higher-precedence (data annotation) value is already
+    ///     set.
+    /// </summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void
+        ConventionIndexBuilder_HasSecondaryIndexKind_ReturnsNullWhenPrecededByDataAnnotation()
+    {
+        var modelBuilder = new ModelBuilder();
+        var indexBuilder = modelBuilder
+            .Entity<Order>()
+            .HasIndex([nameof(Order.CustomerId)], "ByCustomer");
+        var conventionBuilder = indexBuilder.GetInfrastructure();
+
+        conventionBuilder.HasSecondaryIndexKind(DynamoSecondaryIndexKind.Global, true);
+
+        var result = conventionBuilder.HasSecondaryIndexKind(DynamoSecondaryIndexKind.Local, false);
+
+        result.Should().BeNull();
+        indexBuilder.Metadata.GetSecondaryIndexKind().Should().Be(DynamoSecondaryIndexKind.Global);
+    }
+
+    /// <summary>
+    ///     Verifies that <c>HasSecondaryIndexProjectionType</c> on
+    ///     <see cref="IConventionIndexBuilder" /> returns <see langword="null" /> when a higher-precedence
+    ///     (data annotation) value is already set.
+    /// </summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void
+        ConventionIndexBuilder_HasSecondaryIndexProjectionType_ReturnsNullWhenPrecededByDataAnnotation()
+    {
+        var modelBuilder = new ModelBuilder();
+        var indexBuilder = modelBuilder
+            .Entity<Order>()
+            .HasIndex([nameof(Order.CustomerId)], "ByCustomer");
+        var conventionBuilder = indexBuilder.GetInfrastructure();
+
+        conventionBuilder.HasSecondaryIndexProjectionType(
+            DynamoSecondaryIndexProjectionType.KeysOnly,
+            true);
+
+        var result = conventionBuilder.HasSecondaryIndexProjectionType(
+            DynamoSecondaryIndexProjectionType.All,
+            false);
+
+        result.Should().BeNull();
+        indexBuilder
+            .Metadata
             .GetSecondaryIndexProjectionType()
             .Should()
             .Be(DynamoSecondaryIndexProjectionType.KeysOnly);
@@ -84,7 +164,7 @@ public class SecondaryIndexBuilderExtensionsTests
                 entity.HasSortKey(x => x.OrderId);
                 entity
                     .HasGlobalSecondaryIndex("ByCustomer", x => x.CustomerId)
-                    .HasProjectionType(DynamoSecondaryIndexProjectionType.KeysOnly);
+                    .HasSecondaryIndexProjectionType(DynamoSecondaryIndexProjectionType.KeysOnly);
             });
     }
 
