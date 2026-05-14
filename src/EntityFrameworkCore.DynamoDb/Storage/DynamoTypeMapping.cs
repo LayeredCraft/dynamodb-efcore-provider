@@ -105,6 +105,8 @@ public class DynamoTypeMapping : CoreTypeMapping
         if (value == null)
             return new AttributeValue { NULL = true };
 
+        value = NormalizeRuntimeValue(value);
+
         if (TryFormatUnconvertedNumeric(value, out var numericValue))
             return new AttributeValue { N = numericValue };
 
@@ -133,6 +135,8 @@ public class DynamoTypeMapping : CoreTypeMapping
     /// </remarks>
     protected virtual string GenerateNonNullConstant(object value)
     {
+        value = NormalizeRuntimeValue(value);
+
         if (TryFormatUnconvertedNumeric(value, out var numericValue))
             return numericValue;
 
@@ -141,6 +145,21 @@ public class DynamoTypeMapping : CoreTypeMapping
         return _untypedValueWriter?.ToPartiQlLiteral(value)
             ?? throw new NotSupportedException(
                 $"CLR type '{ClrType.Name}' is not supported for PartiQL constant generation.");
+    }
+
+    private object NormalizeRuntimeValue(object value)
+    {
+        var expectedNonNullableType = Nullable.GetUnderlyingType(ClrType) ?? ClrType;
+        if (!expectedNonNullableType.IsEnum || value.GetType() == expectedNonNullableType)
+            return value;
+
+        var underlyingType = Enum.GetUnderlyingType(expectedNonNullableType);
+        var valueType = value.GetType();
+        if (valueType != underlyingType
+            && !CanRepresentEnumUnderlyingType(valueType, underlyingType))
+            return value;
+
+        return Enum.ToObject(expectedNonNullableType, value);
     }
 
     private void ValidateRuntimeValue(object value)
@@ -197,6 +216,9 @@ public class DynamoTypeMapping : CoreTypeMapping
         return formatted != null;
     }
 
+    private static bool CanRepresentEnumUnderlyingType(Type valueType, Type underlyingType)
+        => IsIntegralType(valueType) && IsIntegralType(underlyingType);
+
     private static string FormatEnum(object value)
         => Type.GetTypeCode(Enum.GetUnderlyingType(value.GetType())) switch
         {
@@ -227,6 +249,16 @@ public class DynamoTypeMapping : CoreTypeMapping
             _ => throw new InvalidOperationException(
                 $"Enum type '{value.GetType().Name}' has an unsupported underlying type."),
         };
+
+    private static bool IsIntegralType(Type type)
+        => type == typeof(byte)
+            || type == typeof(sbyte)
+            || type == typeof(short)
+            || type == typeof(ushort)
+            || type == typeof(int)
+            || type == typeof(uint)
+            || type == typeof(long)
+            || type == typeof(ulong);
 
     private static bool IsNumericType(Type type)
         => type.IsEnum
