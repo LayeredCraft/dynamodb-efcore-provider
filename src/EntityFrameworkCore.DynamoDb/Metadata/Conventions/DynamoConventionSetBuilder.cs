@@ -24,6 +24,8 @@ public sealed class DynamoConventionSetBuilder(
         conventionSet.Replace<ComplexPropertyDiscoveryConvention>(
             new DynamoComplexPropertyDiscoveryConvention(Dependencies, useAttributes: true));
 
+        conventionSet.Replace<ValueGenerationConvention>(
+            new DynamoValueGenerationConvention(Dependencies));
         conventionSet.Replace<KeyDiscoveryConvention>(
             new DynamoKeyDiscoveryConvention(Dependencies));
         conventionSet.Replace<DiscriminatorConvention>(
