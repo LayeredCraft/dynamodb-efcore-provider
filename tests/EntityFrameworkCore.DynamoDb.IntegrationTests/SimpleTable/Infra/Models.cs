@@ -22,6 +22,8 @@ public sealed record SimpleItem
 
     public DateTimeOffset DateTimeOffsetValue { get; set; }
 
+    public DateTimeOffset? NullableDateTimeOffsetValue { get; set; }
+
     public bool? NullableBoolValue { get; set; }
 
     public int? NullableIntValue { get; set; }
