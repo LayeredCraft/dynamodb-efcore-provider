@@ -175,7 +175,7 @@ public class DynamoKeyInPrimaryKeyConventionTests
     private sealed record SortKeyWithAutoDiscoveredPkEntity
     {
         /// <summary>Provides functionality for this member.</summary>
-        public string Id { get; set; } = null!;
+        public string Identifier { get; set; } = null!;
 
         /// <summary>Provides functionality for this member.</summary>
         public string Category { get; set; } = null!;
@@ -193,7 +193,7 @@ public class DynamoKeyInPrimaryKeyConventionTests
             {
                 ((EntityTypeBuilder)b).ToTable("AutoDiscoveredPkTable");
                 b.HasSortKey(x => x.Category);
-                // No HasKey, no HasPartitionKey — 'Id' is auto-discovered as the partition key
+                // No HasKey, no HasPartitionKey, no conventional partition key name
             });
 
         /// <summary>Provides functionality for this member.</summary>
