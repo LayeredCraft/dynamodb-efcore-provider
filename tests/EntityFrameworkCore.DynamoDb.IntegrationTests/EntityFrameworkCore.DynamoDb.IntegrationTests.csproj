@@ -32,6 +32,7 @@
   <ItemGroup>
     <Using Include="Xunit"/>
     <Using Include="AwesomeAssertions"/>
+    <Using Include="Microsoft.EntityFrameworkCore"/>
     <Using Include="EntityFrameworkCore.DynamoDb.Diagnostics"/>
     <Using Include="EntityFrameworkCore.DynamoDb.Infrastructure"/>
   </ItemGroup>
