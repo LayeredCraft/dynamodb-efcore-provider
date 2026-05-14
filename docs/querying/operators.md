@@ -30,8 +30,8 @@ _This page is the authoritative reference for which LINQ operators translate to 
 
 ## Projection Operators
 
-| LINQ Operator | PartiQL Translation  | Notes                                                                  |
-| ------------- | -------------------- | ---------------------------------------------------------------------- |
+| LINQ Operator | PartiQL Translation  | Notes                                                                                                      |
+| ------------- | -------------------- | ---------------------------------------------------------------------------------------------------------- |
 | `Select`      | Explicit column list | `SELECT *` is never emitted; computed expressions and nested complex-property shaping evaluate client-side |
 
 ## Ordering Operators
@@ -75,13 +75,13 @@ it needs to query DynamoDB.
 
 The following extension methods are unique to this provider and have no standard LINQ equivalent. They compose with the query before a terminal operator is called.
 
-| Extension              | Behavior                                                          | Notes                                                                                                                                          |
-| ---------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Limit(n)`             | Sets `ExecuteStatementRequest.Limit` — evaluation budget          | DynamoDB reads up to `n` items then applies filters; returned count is 0..n. Last call wins. See [Ordering and Limiting](ordering-limiting.md) |
-| `WithNextToken(token)` | Seeds the first request with a saved continuation cursor          | Resumes a previous query from a known position. See [Pagination](pagination.md)                                                                |
+| Extension              | Behavior                                                          | Notes                                                                                                                                                                                                                                                                          |
+| ---------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `Limit(n)`             | Sets `ExecuteStatementRequest.Limit` — evaluation budget          | DynamoDB reads up to `n` items then applies filters; returned count is 0..n. Last call wins. See [Ordering and Limiting](ordering-limiting.md)                                                                                                                                 |
+| `WithNextToken(token)` | Seeds the first request with a saved continuation cursor          | Resumes a previous query from a known position. See [Pagination](pagination.md)                                                                                                                                                                                                |
 | `WithConsistentRead()` | Requests strongly consistent reads for this query                 | Sets `ExecuteStatementRequest.ConsistentRead = true` for base-table and LSI reads. Throws if the finalized source is a GSI because DynamoDB does not support strong consistency on GSIs. `WithConsistentRead(false)` explicitly uses eventually consistent reads for one query |
-| `WithIndex(name)`      | Routes the query to a named GSI or LSI                            | Emits `FROM "Table"."Index"` in PartiQL. See [Index Selection](index-selection.md)                                                             |
-| `WithoutIndex()`       | Forces base-table execution; suppresses automatic index selection | Emits diagnostic `DYNAMO_IDX006`. Cannot combine with `WithIndex(...)`                                                                         |
+| `WithIndex(name)`      | Routes the query to a named GSI or LSI                            | Emits `FROM "Table"."Index"` in PartiQL. See [Index Selection](index-selection.md)                                                                                                                                                                                             |
+| `WithoutIndex()`       | Forces base-table execution; suppresses automatic index selection | Emits diagnostic `DYNAMO_IDX006`. Cannot combine with `WithIndex(...)`                                                                                                                                                                                                         |
 
 ## Unsupported Operators
 
@@ -120,7 +120,7 @@ All scalar entity properties must map to a DynamoDB attribute type. Types withou
 | `TimeSpan`                              | `S`                     | Constant (`"c"`) format, e.g. `"01:30:00"`                  |
 | Enum                                    | `N`                     | Underlying numeric value (string names require a converter) |
 
-Nullable variants of all types above are supported. Numeric comparisons use DynamoDB's single `N` wire type, so C# numeric promotions such as `short` to `int` still bind as DynamoDB numbers. Custom types can be mapped using EF Core [value converters](https://learn.microsoft.com/en-us/ef/core/modeling/value-conversions); query parameters and constants use the property mapping so converters apply consistently.
+Nullable variants of all types above are supported. Numeric comparisons use DynamoDB's single `N` wire type, so promotions to `int`, such as `short` to `int`, still bind as DynamoDB numbers. Custom types can be mapped using EF Core [value converters](https://learn.microsoft.com/en-us/ef/core/modeling/value-conversions); query parameters and constants use the property mapping so converters apply consistently.
 
 ## See also
 

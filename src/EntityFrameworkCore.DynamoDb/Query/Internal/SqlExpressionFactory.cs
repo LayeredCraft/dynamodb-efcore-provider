@@ -30,8 +30,9 @@ public sealed class SqlExpressionFactory(ITypeMappingSource typeMappingSource)
         };
 
         var isLogical = operatorType is ExpressionType.AndAlso or ExpressionType.OrElse;
-        var operandTypeMapping =
-            isLogical ? typeMappingSource.FindMapping(typeof(bool)) : InferTypeMapping(left, right);
+        var operandTypeMapping = isLogical
+            ? typeMappingSource.FindMapping(typeof(bool))
+            : InferEnumUnderlyingCastMapping(left, right) ?? InferTypeMapping(left, right);
         if (operandTypeMapping == null && !isLogical)
             operandTypeMapping = typeMappingSource.FindMapping(left.Type);
 
@@ -82,9 +83,20 @@ public sealed class SqlExpressionFactory(ITypeMappingSource typeMappingSource)
         SqlInExpression.ValidateValueSource(values, null);
         var mappedItem = ApplyDefaultTypeMapping(item);
         var itemTypeMapping = mappedItem.TypeMapping;
-        var mappedValues = itemTypeMapping == null
-            ? values
-            : values.Select(value => ApplyTypeMapping(value, itemTypeMapping)).ToArray();
+        var mappedValues = values;
+        if (itemTypeMapping != null)
+        {
+            var remappedValues = new SqlExpression[values.Count];
+            var changed = false;
+            for (var i = 0; i < values.Count; i++)
+            {
+                remappedValues[i] = ApplyTypeMapping(values[i], itemTypeMapping);
+                changed |= !ReferenceEquals(remappedValues[i], values[i]);
+            }
+
+            if (changed)
+                mappedValues = remappedValues;
+        }
 
         return new SqlInExpression(
             mappedItem,
@@ -154,19 +166,44 @@ public sealed class SqlExpressionFactory(ITypeMappingSource typeMappingSource)
         return new SqlBetweenExpression(subject, low, high);
     }
 
-    private static CoreTypeMapping? InferTypeMapping(params SqlExpression[] expressions)
+    private CoreTypeMapping? InferEnumUnderlyingCastMapping(SqlExpression left, SqlExpression right)
+        => InferEnumUnderlyingCastMappingFrom(left, right)
+            ?? InferEnumUnderlyingCastMappingFrom(right, left);
+
+    private CoreTypeMapping? InferEnumUnderlyingCastMappingFrom(
+        SqlExpression convertedEnumExpression,
+        SqlExpression otherExpression)
     {
-        foreach (var expression in expressions)
-            if (expression is not SqlConstantExpression and not SqlParameterExpression
-                && expression.TypeMapping is { } typeMapping)
-                return typeMapping;
+        var enumType = Nullable.GetUnderlyingType(convertedEnumExpression.Type)
+            ?? convertedEnumExpression.Type;
+        if (otherExpression is SqlConstantExpression
+            || !enumType.IsEnum
+            || convertedEnumExpression.TypeMapping?.Converter == null)
+            return null;
 
-        foreach (var expression in expressions)
-            if (expression.TypeMapping is { } typeMapping)
-                return typeMapping;
-
-        return null;
+        var otherType = Nullable.GetUnderlyingType(otherExpression.Type) ?? otherExpression.Type;
+        return Enum.GetUnderlyingType(enumType) == otherType
+            ? otherExpression.TypeMapping ?? typeMappingSource.FindMapping(otherExpression.Type)
+            : null;
     }
+
+    private static CoreTypeMapping? InferTypeMapping(SqlExpression first, SqlExpression second)
+        => PreferNonValueMapping(first)
+            ?? PreferNonValueMapping(second) ?? first.TypeMapping ?? second.TypeMapping;
+
+    private static CoreTypeMapping? InferTypeMapping(
+        SqlExpression first,
+        SqlExpression second,
+        SqlExpression third)
+        => PreferNonValueMapping(first)
+            ?? PreferNonValueMapping(second)
+            ?? PreferNonValueMapping(third)
+            ?? first.TypeMapping ?? second.TypeMapping ?? third.TypeMapping;
+
+    private static CoreTypeMapping? PreferNonValueMapping(SqlExpression expression)
+        => expression is not SqlConstantExpression and not SqlParameterExpression
+            ? expression.TypeMapping
+            : null;
 
     /// <inheritdoc />
     public SqlExpression ApplyTypeMapping(SqlExpression sqlExpression, Type type)
@@ -174,7 +211,11 @@ public sealed class SqlExpressionFactory(ITypeMappingSource typeMappingSource)
 
     /// <inheritdoc />
     public SqlExpression ApplyTypeMapping(SqlExpression sqlExpression, CoreTypeMapping? typeMapping)
-        => sqlExpression switch
+    {
+        if (ReferenceEquals(sqlExpression.TypeMapping, typeMapping))
+            return sqlExpression;
+
+        return sqlExpression switch
         {
             SqlConstantExpression constant => constant.ApplyTypeMapping(typeMapping),
             SqlParameterExpression parameter => parameter.ApplyTypeMapping(typeMapping),
@@ -182,6 +223,7 @@ public sealed class SqlExpressionFactory(ITypeMappingSource typeMappingSource)
             DynamoScalarAccessExpression scalarAccess => scalarAccess.ApplyTypeMapping(typeMapping),
             _ => sqlExpression,
         };
+    }
 
     /// <inheritdoc />
     public SqlExpression ApplyDefaultTypeMapping(SqlExpression sqlExpression)

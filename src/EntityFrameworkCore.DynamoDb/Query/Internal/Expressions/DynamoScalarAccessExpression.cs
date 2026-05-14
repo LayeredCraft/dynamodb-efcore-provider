@@ -34,6 +34,8 @@ public sealed class DynamoScalarAccessExpression(
     }
 
     /// <summary>Creates a new scalar access expression with the specified type mapping.</summary>
+    /// <param name="typeMapping">The type mapping to apply.</param>
+    /// <returns>A scalar access expression with the specified type mapping.</returns>
     public DynamoScalarAccessExpression ApplyTypeMapping(CoreTypeMapping? typeMapping)
         => new(Parent, PropertyName, Type, typeMapping);
 
