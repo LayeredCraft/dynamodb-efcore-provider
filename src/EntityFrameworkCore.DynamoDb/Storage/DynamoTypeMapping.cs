@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Linq.Expressions;
 using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.Storage.Internal;
@@ -104,6 +105,11 @@ public class DynamoTypeMapping : CoreTypeMapping
         if (value == null)
             return new AttributeValue { NULL = true };
 
+        if (TryFormatUnconvertedNumeric(value, out var numericValue))
+            return new AttributeValue { N = numericValue };
+
+        ValidateRuntimeValue(value);
+
         return _untypedValueWriter?.Write(value)
             ?? throw new NotSupportedException(
                 $"CLR type '{ClrType.Name}' is not supported for DynamoDB AttributeValue serialization.");
@@ -126,9 +132,115 @@ public class DynamoTypeMapping : CoreTypeMapping
     ///     the cached typed adapter in the mapping-owned codec pipeline.
     /// </remarks>
     protected virtual string GenerateNonNullConstant(object value)
-        => _untypedValueWriter?.ToPartiQlLiteral(value)
+    {
+        if (TryFormatUnconvertedNumeric(value, out var numericValue))
+            return numericValue;
+
+        ValidateRuntimeValue(value);
+
+        return _untypedValueWriter?.ToPartiQlLiteral(value)
             ?? throw new NotSupportedException(
                 $"CLR type '{ClrType.Name}' is not supported for PartiQL constant generation.");
+    }
+
+    private void ValidateRuntimeValue(object value)
+    {
+        var expectedType = ClrType;
+        var expectedNonNullableType = Nullable.GetUnderlyingType(expectedType) ?? expectedType;
+        var valueType = value.GetType();
+
+        if (expectedType == typeof(object)
+            || expectedType.IsAssignableFrom(valueType)
+            || expectedNonNullableType.IsAssignableFrom(valueType))
+            return;
+
+        throw new InvalidOperationException(
+            $"DynamoDB type mapping for CLR type '{ClrType.Name}' cannot serialize runtime "
+            + $"value of type '{valueType.Name}'. This usually means query type-mapping "
+            + "inference applied an incompatible mapping to a parameter or constant.");
+    }
+
+    private bool TryFormatUnconvertedNumeric(object value, out string formatted)
+    {
+        formatted = null!;
+
+        if (Parameters.Converter != null)
+            return false;
+
+        var mappingType = Nullable.GetUnderlyingType(ClrType) ?? ClrType;
+        var valueType = value.GetType();
+        if (valueType == mappingType || !IsNumericType(mappingType) || !IsNumericType(valueType))
+            return false;
+
+        if (valueType.IsEnum)
+        {
+            formatted = FormatEnum(value);
+            return true;
+        }
+
+        formatted = value switch
+        {
+            byte numeric => numeric.ToString(CultureInfo.InvariantCulture),
+            sbyte numeric => numeric.ToString(CultureInfo.InvariantCulture),
+            short numeric => numeric.ToString(CultureInfo.InvariantCulture),
+            ushort numeric => numeric.ToString(CultureInfo.InvariantCulture),
+            int numeric => numeric.ToString(CultureInfo.InvariantCulture),
+            uint numeric => numeric.ToString(CultureInfo.InvariantCulture),
+            long numeric => numeric.ToString(CultureInfo.InvariantCulture),
+            ulong numeric => numeric.ToString(CultureInfo.InvariantCulture),
+            float numeric => numeric.ToString("R", CultureInfo.InvariantCulture),
+            double numeric => numeric.ToString("R", CultureInfo.InvariantCulture),
+            decimal numeric => numeric.ToString(CultureInfo.InvariantCulture),
+            _ => null!,
+        };
+
+        return formatted != null;
+    }
+
+    private static string FormatEnum(object value)
+        => Type.GetTypeCode(Enum.GetUnderlyingType(value.GetType())) switch
+        {
+            TypeCode.Byte => Convert
+                .ToByte(value, CultureInfo.InvariantCulture)
+                .ToString(CultureInfo.InvariantCulture),
+            TypeCode.SByte => Convert
+                .ToSByte(value, CultureInfo.InvariantCulture)
+                .ToString(CultureInfo.InvariantCulture),
+            TypeCode.Int16 => Convert
+                .ToInt16(value, CultureInfo.InvariantCulture)
+                .ToString(CultureInfo.InvariantCulture),
+            TypeCode.UInt16 => Convert
+                .ToUInt16(value, CultureInfo.InvariantCulture)
+                .ToString(CultureInfo.InvariantCulture),
+            TypeCode.Int32 => Convert
+                .ToInt32(value, CultureInfo.InvariantCulture)
+                .ToString(CultureInfo.InvariantCulture),
+            TypeCode.UInt32 => Convert
+                .ToUInt32(value, CultureInfo.InvariantCulture)
+                .ToString(CultureInfo.InvariantCulture),
+            TypeCode.Int64 => Convert
+                .ToInt64(value, CultureInfo.InvariantCulture)
+                .ToString(CultureInfo.InvariantCulture),
+            TypeCode.UInt64 => Convert
+                .ToUInt64(value, CultureInfo.InvariantCulture)
+                .ToString(CultureInfo.InvariantCulture),
+            _ => throw new InvalidOperationException(
+                $"Enum type '{value.GetType().Name}' has an unsupported underlying type."),
+        };
+
+    private static bool IsNumericType(Type type)
+        => type.IsEnum
+            || type == typeof(byte)
+            || type == typeof(sbyte)
+            || type == typeof(short)
+            || type == typeof(ushort)
+            || type == typeof(int)
+            || type == typeof(uint)
+            || type == typeof(long)
+            || type == typeof(ulong)
+            || type == typeof(float)
+            || type == typeof(double)
+            || type == typeof(decimal);
 
     private static DynamoValueReaderWriter? CreateReaderWriter(CoreTypeMappingParameters parameters)
     {

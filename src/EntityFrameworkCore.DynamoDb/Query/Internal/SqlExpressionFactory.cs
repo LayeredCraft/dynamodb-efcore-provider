@@ -16,7 +16,6 @@ public sealed class SqlExpressionFactory(ITypeMappingSource typeMappingSource)
         SqlExpression left,
         SqlExpression right)
     {
-        // Determine the result type based on the operator
         var resultType = operatorType switch
         {
             ExpressionType.Equal
@@ -30,13 +29,23 @@ public sealed class SqlExpressionFactory(ITypeMappingSource typeMappingSource)
             _ => left.Type,
         };
 
-        // Apply type mapping to operands if needed
-        var typeMapping = left.TypeMapping ?? right.TypeMapping;
-        if (typeMapping == null
-            && operatorType is not (ExpressionType.AndAlso or ExpressionType.OrElse))
-            typeMapping = typeMappingSource.FindMapping(left.Type);
+        var isLogical = operatorType is ExpressionType.AndAlso or ExpressionType.OrElse;
+        var operandTypeMapping =
+            isLogical ? typeMappingSource.FindMapping(typeof(bool)) : InferTypeMapping(left, right);
+        if (operandTypeMapping == null && !isLogical)
+            operandTypeMapping = typeMappingSource.FindMapping(left.Type);
 
-        return new SqlBinaryExpression(operatorType, left, right, resultType, typeMapping);
+        if (operandTypeMapping != null)
+        {
+            left = ApplyTypeMapping(left, operandTypeMapping);
+            right = ApplyTypeMapping(right, operandTypeMapping);
+        }
+
+        var resultTypeMapping = resultType == typeof(bool)
+            ? typeMappingSource.FindMapping(typeof(bool))
+            : operandTypeMapping;
+
+        return new SqlBinaryExpression(operatorType, left, right, resultType, resultTypeMapping);
     }
 
     /// <inheritdoc />
@@ -72,7 +81,17 @@ public sealed class SqlExpressionFactory(ITypeMappingSource typeMappingSource)
     {
         SqlInExpression.ValidateValueSource(values, null);
         var mappedItem = ApplyDefaultTypeMapping(item);
-        return new SqlInExpression(mappedItem, values, null, isPartitionKeyComparison, null);
+        var itemTypeMapping = mappedItem.TypeMapping;
+        var mappedValues = itemTypeMapping == null
+            ? values
+            : values.Select(value => ApplyTypeMapping(value, itemTypeMapping)).ToArray();
+
+        return new SqlInExpression(
+            mappedItem,
+            mappedValues,
+            null,
+            isPartitionKeyComparison,
+            typeMappingSource.FindMapping(typeof(bool)));
     }
 
     /// <inheritdoc />
@@ -88,7 +107,7 @@ public sealed class SqlExpressionFactory(ITypeMappingSource typeMappingSource)
             null,
             valuesParameter,
             isPartitionKeyComparison,
-            null);
+            typeMappingSource.FindMapping(typeof(bool)));
     }
 
     /// <inheritdoc />
@@ -121,20 +140,48 @@ public sealed class SqlExpressionFactory(ITypeMappingSource typeMappingSource)
         SqlExpression subject,
         SqlExpression low,
         SqlExpression high)
-        => new(subject, low, high);
+    {
+        var typeMapping = InferTypeMapping(subject, low, high)
+            ?? typeMappingSource.FindMapping(subject.Type);
+
+        if (typeMapping != null)
+        {
+            subject = ApplyTypeMapping(subject, typeMapping);
+            low = ApplyTypeMapping(low, typeMapping);
+            high = ApplyTypeMapping(high, typeMapping);
+        }
+
+        return new SqlBetweenExpression(subject, low, high);
+    }
+
+    private static CoreTypeMapping? InferTypeMapping(params SqlExpression[] expressions)
+    {
+        foreach (var expression in expressions)
+            if (expression is not SqlConstantExpression and not SqlParameterExpression
+                && expression.TypeMapping is { } typeMapping)
+                return typeMapping;
+
+        foreach (var expression in expressions)
+            if (expression.TypeMapping is { } typeMapping)
+                return typeMapping;
+
+        return null;
+    }
 
     /// <inheritdoc />
     public SqlExpression ApplyTypeMapping(SqlExpression sqlExpression, Type type)
-    {
-        var typeMapping = typeMappingSource.FindMapping(type);
-        return sqlExpression switch
+        => ApplyTypeMapping(sqlExpression, typeMappingSource.FindMapping(type));
+
+    /// <inheritdoc />
+    public SqlExpression ApplyTypeMapping(SqlExpression sqlExpression, CoreTypeMapping? typeMapping)
+        => sqlExpression switch
         {
             SqlConstantExpression constant => constant.ApplyTypeMapping(typeMapping),
             SqlParameterExpression parameter => parameter.ApplyTypeMapping(typeMapping),
             SqlPropertyExpression property => property.ApplyTypeMapping(typeMapping),
+            DynamoScalarAccessExpression scalarAccess => scalarAccess.ApplyTypeMapping(typeMapping),
             _ => sqlExpression,
         };
-    }
 
     /// <inheritdoc />
     public SqlExpression ApplyDefaultTypeMapping(SqlExpression sqlExpression)

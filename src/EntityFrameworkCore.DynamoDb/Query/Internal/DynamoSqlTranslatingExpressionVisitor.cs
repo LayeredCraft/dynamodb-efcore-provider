@@ -315,10 +315,12 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
             if (rootEntityType?.FindProperty(node.Member.Name) is { } directProperty)
             {
                 var isPartitionKey = IsEffectivePartitionKey(directProperty, rootEntityType);
-                return sqlExpressionFactory.Property(
-                    directProperty.GetAttributeName(),
-                    node.Type,
-                    isPartitionKey);
+                return sqlExpressionFactory.ApplyTypeMapping(
+                    sqlExpressionFactory.Property(
+                        directProperty.GetAttributeName(),
+                        node.Type,
+                        isPartitionKey),
+                    directProperty.GetTypeMapping());
             }
 
             // When entity type is known but FindProperty returned null the member is a non-scalar
@@ -373,7 +375,9 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
                 var attributeName = property.GetAttributeName();
                 var typeMapping = property.GetTypeMapping();
                 return sqlExpr == null
-                    ? sqlExpressionFactory.Property(attributeName, leafType)
+                    ? sqlExpressionFactory.ApplyTypeMapping(
+                        sqlExpressionFactory.Property(attributeName, leafType),
+                        typeMapping)
                     : new DynamoScalarAccessExpression(
                         sqlExpr,
                         attributeName,
@@ -504,10 +508,12 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
                 if (rootEntityType.FindProperty(propertyName) is { } rootProperty)
                 {
                     var isPartitionKey = IsEffectivePartitionKey(rootProperty, rootEntityType);
-                    return sqlExpressionFactory.Property(
-                        rootProperty.GetAttributeName(),
-                        node.Type,
-                        isPartitionKey);
+                    return sqlExpressionFactory.ApplyTypeMapping(
+                        sqlExpressionFactory.Property(
+                            rootProperty.GetAttributeName(),
+                            node.Type,
+                            isPartitionKey),
+                        rootProperty.GetTypeMapping());
                 }
 
                 AddTranslationErrorDetails(DynamoStrings.MemberAccessNotSupported);
@@ -589,7 +595,12 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
                 return QueryCompilationContext.NotTranslatedExpression;
 
             if (operand is SqlExpression sqlOperand)
+            {
+                if (IsImplicitClrConvert(node.Operand.Type, node.Type))
+                    return sqlOperand;
+
                 return sqlExpressionFactory.ApplyTypeMapping(sqlOperand, node.Type);
+            }
 
             return QueryCompilationContext.NotTranslatedExpression;
         }
@@ -613,6 +624,32 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
 
         AddTranslationErrorDetails(DynamoStrings.UnaryOperatorNotSupported);
         return QueryCompilationContext.NotTranslatedExpression;
+    }
+
+    private static bool IsImplicitClrConvert(Type sourceType, Type targetType)
+    {
+        if (sourceType == targetType)
+            return true;
+
+        var sourceUnderlyingType = Nullable.GetUnderlyingType(sourceType) ?? sourceType;
+        var targetUnderlyingType = Nullable.GetUnderlyingType(targetType) ?? targetType;
+        var sourceNullable = sourceType != sourceUnderlyingType;
+        var targetNullable = targetType != targetUnderlyingType;
+
+        if (sourceNullable != targetNullable)
+            return false;
+
+        if (sourceUnderlyingType.IsEnum
+            && Enum.GetUnderlyingType(sourceUnderlyingType) == targetUnderlyingType)
+            return true;
+
+        return targetUnderlyingType == typeof(int)
+            && sourceUnderlyingType is { } source
+            && (source == typeof(byte)
+                || source == typeof(sbyte)
+                || source == typeof(short)
+                || source == typeof(ushort)
+                || source == typeof(char));
     }
 
     /// <summary>Translates EF.Functions IS NULL/MISSING extension methods to SQL IS predicates.</summary>
