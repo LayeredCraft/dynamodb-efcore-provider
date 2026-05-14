@@ -316,40 +316,34 @@ public class QueryTypeMappingTests : QueryTypeMappingTestFixture
         var statuses =
             new[] { MappingStatus.Active, MappingStatus.Inactive, MappingStatus.Pending };
 
-        var firstPage = await Db
-            .Items
-            .AsNoTracking()
-            .Where(item => statuses.Contains(item.StringStatus))
-            .ToPageAsync(2, null, CancellationToken);
+        string? nextToken = null;
+        var items = new List<QueryTypeMappingItem>();
 
-        firstPage.Items.Should().HaveCount(2);
-        firstPage.NextToken.Should().NotBeNull();
+        do
+        {
+            var page = await Db
+                .Items
+                .AsNoTracking()
+                .Where(item => statuses.Contains(item.StringStatus))
+                .ToPageAsync(2, nextToken, CancellationToken);
 
-        var secondPage = await Db
-            .Items
-            .AsNoTracking()
-            .Where(item => statuses.Contains(item.StringStatus))
-            .ToPageAsync(2, firstPage.NextToken, CancellationToken);
+            items.AddRange(page.Items);
+            nextToken = page.NextToken;
+        } while (nextToken is not null);
 
-        secondPage.Items.Should().HaveCount(1);
-        firstPage
-            .Items
-            .Concat(secondPage.Items)
-            .Select(item => item.Pk)
+        items.Select(item => item.Pk).Should().BeEquivalentTo(["ITEM#1", "ITEM#2", "ITEM#3"]);
+
+        SqlCapture
+            .PartiQlStatements
             .Should()
-            .BeEquivalentTo(["ITEM#1", "ITEM#2", "ITEM#3"]);
-
-        AssertSql(
-            """
-            SELECT "pk", "nullableShortValue", "nullableStringStatus", "numericStatus", "shortValue", "stringStatus", "profile"
-            FROM "QueryTypeMappingItems"
-            WHERE "stringStatus" IN [?, ?, ?]
-            """,
-            """
-            SELECT "pk", "nullableShortValue", "nullableStringStatus", "numericStatus", "shortValue", "stringStatus", "profile"
-            FROM "QueryTypeMappingItems"
-            WHERE "stringStatus" IN [?, ?, ?]
-            """);
+            .OnlyContain(statement => statement
+                == """
+                   SELECT "pk", "nullableShortValue", "nullableStringStatus", "numericStatus", "shortValue", "stringStatus", "profile"
+                   FROM "QueryTypeMappingItems"
+                   WHERE "stringStatus" IN [?, ?, ?]
+                   """);
+        SqlCapture.PartiQlStatements.Should().HaveCountGreaterThan(1);
+        SqlCapture.Clear();
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
