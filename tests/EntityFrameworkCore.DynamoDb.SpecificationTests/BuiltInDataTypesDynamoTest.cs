@@ -2,7 +2,6 @@ using EntityFrameworkCore.DynamoDb.Diagnostics;
 using EntityFrameworkCore.DynamoDb.SpecificationTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 
 namespace EntityFrameworkCore.DynamoDb.SpecificationTests;
@@ -55,7 +54,6 @@ public class BuiltInDataTypesDynamoTest(
         => base.Can_query_using_any_data_type_shadow();
 
     /// <inheritdoc />
-    [ConditionalFact(Skip = ProviderTypeMappingGaps)]
     public override Task Can_query_using_any_nullable_data_type()
         => base.Can_query_using_any_nullable_data_type();
 
@@ -209,6 +207,13 @@ public class BuiltInDataTypesDynamoTest(
             modelBuilder.Ignore<AnimalIdentification>();
             modelBuilder.Ignore<StringForeignKeyDataType>();
             modelBuilder.Ignore<BinaryForeignKeyDataType>();
+            modelBuilder.Ignore<BuiltInNullableDataTypesShadow>();
+
+            // TODO: remove and add better discriminator support
+            modelBuilder.Entity<BuiltInDataTypesShadow>(b =>
+            {
+                b.Ignore("$type");
+            });
         }
 
         /// <inheritdoc />
