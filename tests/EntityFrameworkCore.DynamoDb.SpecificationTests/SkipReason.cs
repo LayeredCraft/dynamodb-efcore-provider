@@ -1,6 +1,6 @@
 namespace EntityFrameworkCore.DynamoDb.SpecificationTests;
 
-public static class SkipReasons
+public static class SkipReason
 {
     public const string NullableKeysNotSupported = "DynamoDB does not support nullable keys.";
     public const string ShadowKeysNotSupported = "DynamoDB does not support shadow keys.";
