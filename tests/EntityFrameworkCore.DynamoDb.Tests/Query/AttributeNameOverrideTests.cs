@@ -2,6 +2,7 @@ using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Metadata;
 using NSubstitute;
 
 // ReSharper disable AutoPropertyCanBeMadeGetOnly.Local
@@ -154,6 +155,21 @@ public class AttributeNameOverrideTests
             .ToListAsync(TestContext.Current.CancellationToken);
 
         results.Should().Equal("Ada Lovelace");
+    }
+
+    /// <summary>Provides functionality for this member.</summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    /// <summary>Provides functionality for this member.</summary>
+    public void NullableScalarProperty_HasAttributeName_AppliesAttributeName()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var ctx = RenameDbContext.Create(client);
+
+        var entityType = ctx.Model.FindEntityType(typeof(RenameEntity));
+        var property = entityType!.FindProperty(nameof(RenameEntity.FullName));
+
+        property.Should().NotBeNull();
+        property.GetAttributeName().Should().Be("display_name");
     }
 
     private sealed record RenameEntity
