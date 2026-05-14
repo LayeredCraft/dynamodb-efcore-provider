@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.QueryTypeMappingTable;
 
 /// <summary>End-to-end coverage for query type-mapping inference and parameter binding.</summary>
+#pragma warning disable EF9102
 public class QueryTypeMappingTests : QueryTypeMappingTestFixture
 {
     public QueryTypeMappingTests(DynamoContainerFixture fixture) : base(fixture) { }
@@ -77,6 +78,29 @@ public class QueryTypeMappingTests : QueryTypeMappingTestFixture
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Between_comparison_returns_expected_items()
+    {
+        var low = 7;
+        var high = 8;
+
+        var result = await Db
+            .Items
+            .AsNoTracking()
+            .Where(item => item.ShortValue >= low && item.ShortValue <= high)
+            .Select(item => item.Pk)
+            .ToListAsync(CancellationToken);
+
+        result.Should().BeEquivalentTo(["ITEM#1", "ITEM#2"]);
+
+        AssertSql(
+            """
+            SELECT "pk"
+            FROM "QueryTypeMappingItems"
+            WHERE "shortValue" BETWEEN ? AND ?
+            """);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Converted_enum_parameter_comparison_returns_expected_item()
     {
         var status = MappingStatus.Active;
@@ -111,6 +135,28 @@ public class QueryTypeMappingTests : QueryTypeMappingTestFixture
             .ToListAsync(CancellationToken);
 
         result.Should().Equal("ITEM#1");
+
+        AssertSql(
+            """
+            SELECT "pk"
+            FROM "QueryTypeMappingItems"
+            WHERE "nullableStringStatus" = ?
+            """);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Nullable_converted_enum_null_comparison_returns_expected_item()
+    {
+        MappingStatus? status = null;
+
+        var result = await Db
+            .Items
+            .AsNoTracking()
+            .Where(item => item.NullableStringStatus == status)
+            .Select(item => item.Pk)
+            .ToListAsync(CancellationToken);
+
+        result.Should().Equal("ITEM#2");
 
         AssertSql(
             """
@@ -157,6 +203,64 @@ public class QueryTypeMappingTests : QueryTypeMappingTestFixture
         AssertSql(
             """
             SELECT "pk"
+            FROM "QueryTypeMappingItems"
+            WHERE "stringStatus" IN [?, ?]
+            """);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Materialized_entity_preserves_converted_and_nullable_values()
+    {
+        var result = await Db
+            .Items
+            .AsNoTracking()
+            .Where(item => item.Pk == "ITEM#2")
+            .ToListAsync(CancellationToken);
+
+        var item = result.Should().ContainSingle().Subject;
+        item.ShortValue.Should().Be(8);
+        item.NullableShortValue.Should().Be(8);
+        item.StringStatus.Should().Be(MappingStatus.Inactive);
+        item.NullableStringStatus.Should().BeNull();
+        item.Profile.Status.Should().Be(MappingStatus.Inactive);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Paginated_converted_parameter_query_resumes_with_next_token()
+    {
+        var statuses = new[] { MappingStatus.Active, MappingStatus.Pending };
+
+        var firstPage = await Db
+            .Items
+            .AsNoTracking()
+            .Where(item => statuses.Contains(item.StringStatus))
+            .ToPageAsync(2, null, CancellationToken);
+
+        firstPage.Items.Should().HaveCount(1);
+        firstPage.NextToken.Should().NotBeNull();
+
+        var secondPage = await Db
+            .Items
+            .AsNoTracking()
+            .Where(item => statuses.Contains(item.StringStatus))
+            .ToPageAsync(2, firstPage.NextToken, CancellationToken);
+
+        secondPage.Items.Should().HaveCount(1);
+        firstPage
+            .Items
+            .Concat(secondPage.Items)
+            .Select(item => item.Pk)
+            .Should()
+            .BeEquivalentTo(["ITEM#1", "ITEM#3"]);
+
+        AssertSql(
+            """
+            SELECT "pk", "nullableShortValue", "nullableStringStatus", "shortValue", "stringStatus", "profile"
+            FROM "QueryTypeMappingItems"
+            WHERE "stringStatus" IN [?, ?]
+            """,
+            """
+            SELECT "pk", "nullableShortValue", "nullableStringStatus", "shortValue", "stringStatus", "profile"
             FROM "QueryTypeMappingItems"
             WHERE "stringStatus" IN [?, ?]
             """);

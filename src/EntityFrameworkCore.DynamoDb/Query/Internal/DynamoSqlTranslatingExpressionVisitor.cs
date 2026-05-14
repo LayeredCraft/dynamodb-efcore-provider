@@ -531,7 +531,7 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
     }
 
     /// <summary>
-    ///     Returns  when <paramref name="property" /> is the effective
+    ///     Returns true when <paramref name="property" /> is the effective
     ///     partition key for the current query — either the table partition key, or the partition key of
     ///     the active secondary index when <c>.WithIndex()</c> has been applied.
     /// </summary>

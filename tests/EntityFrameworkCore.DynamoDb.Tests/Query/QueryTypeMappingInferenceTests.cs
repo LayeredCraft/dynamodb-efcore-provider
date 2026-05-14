@@ -116,6 +116,49 @@ public class QueryTypeMappingInferenceTests
         captured.Single().Parameters.Single().N.Should().Be("7");
     }
 
+    [Theory(Timeout = TestConfiguration.DefaultTimeout)]
+    [InlineData("lt")]
+    [InlineData("le")]
+    [InlineData("gt")]
+    [InlineData("ge")]
+    public async Task Reversed_range_comparison_uses_property_numeric_mapping(string comparison)
+    {
+        var (client, captured) = CreateClient();
+        await using var context = QueryTypeMappingContext.Create(client);
+        short value = 7;
+
+        var query = comparison switch
+        {
+            "lt" => context.Items.AllowScan().Where(e => value < e.ShortValue),
+            "le" => context.Items.AllowScan().Where(e => value <= e.ShortValue),
+            "gt" => context.Items.AllowScan().Where(e => value > e.ShortValue),
+            "ge" => context.Items.AllowScan().Where(e => value >= e.ShortValue),
+            _ => throw new InvalidOperationException(),
+        };
+
+        await query.ToListAsync(TestContext.Current.CancellationToken);
+
+        captured.Single().Parameters.Single().N.Should().Be("7");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Between_comparison_uses_property_numeric_mapping()
+    {
+        var (client, captured) = CreateClient();
+        await using var context = QueryTypeMappingContext.Create(client);
+        var low = 7;
+        var high = 9;
+
+        await context
+            .Items
+            .AllowScan()
+            .Where(e => e.ShortValue >= low && e.ShortValue <= high)
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        captured.Single().Statement.Should().Contain("WHERE \"shortValue\" BETWEEN ? AND ?");
+        captured.Single().Parameters.Select(p => p.N).Should().Equal("7", "9");
+    }
+
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Enum_parameter_with_numeric_mapping_serializes_underlying_number()
     {
@@ -165,6 +208,38 @@ public class QueryTypeMappingInferenceTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Nullable_converted_enum_null_parameter_uses_null_attribute_value()
+    {
+        var (client, captured) = CreateClient();
+        await using var context = QueryTypeMappingContext.Create(client);
+        StringStatus? status = null;
+
+        await context
+            .Items
+            .AllowScan()
+            .Where(e => e.NullableStringStatus == status)
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        captured.Single().Parameters.Single().NULL.Should().BeTrue();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Non_enum_converted_property_parameter_uses_property_converter_mapping()
+    {
+        var (client, captured) = CreateClient();
+        await using var context = QueryTypeMappingContext.Create(client);
+        var code = new QueryTypeMappingCode("A-1");
+
+        await context
+            .Items
+            .AllowScan()
+            .Where(e => e.Code == code)
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        captured.Single().Parameters.Single().S.Should().Be("A-1");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Inline_converted_enum_constant_uses_property_converter_mapping()
     {
         var (client, captured) = CreateClient();
@@ -177,6 +252,22 @@ public class QueryTypeMappingInferenceTests
             .ToListAsync(TestContext.Current.CancellationToken);
 
         captured.Single().Statement.Should().Contain("WHERE \"stringStatus\" = 'Active'");
+        captured.Single().Parameters.Should().BeNullOrEmpty();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Inline_string_literal_escapes_single_quotes()
+    {
+        var (client, captured) = CreateClient();
+        await using var context = QueryTypeMappingContext.Create(client);
+
+        await context
+            .Items
+            .AllowScan()
+            .Where(e => e.Id == "O'Brien")
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        captured.Single().Statement.Should().Contain("WHERE \"id\" = 'O''Brien'");
         captured.Single().Parameters.Should().BeNullOrEmpty();
     }
 
@@ -301,7 +392,11 @@ public class QueryTypeMappingInferenceTests
         public StringStatus? NullableStringStatus { get; set; }
 
         public QueryTypeMappingProfile Profile { get; set; } = new();
+
+        public QueryTypeMappingCode Code { get; set; } = new("A-1");
     }
+
+    private sealed record QueryTypeMappingCode(string Value);
 
     private sealed class QueryTypeMappingProfile
     {
@@ -321,6 +416,10 @@ public class QueryTypeMappingInferenceTests
                 builder.Property(e => e.ShortValue).HasAttributeName("shortValue");
                 builder.Property(e => e.NullableShortValue).HasAttributeName("nullableShortValue");
                 builder.Property(e => e.NumericStatus).HasAttributeName("numericStatus");
+                builder
+                    .Property(e => e.Code)
+                    .HasAttributeName("code")
+                    .HasConversion(code => code.Value, value => new QueryTypeMappingCode(value));
                 builder
                     .Property(e => e.StringStatus)
                     .HasAttributeName("stringStatus")
