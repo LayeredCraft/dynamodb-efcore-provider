@@ -97,6 +97,7 @@ public class BuiltInDataTypesDynamoTest(
         => base.Can_insert_and_read_back_with_binary_key();
 
     /// <inheritdoc />
+    [ConditionalFact(Skip = SkipReason.ForeignKeysNotSupported)]
     public override Task Can_insert_and_read_back_with_null_binary_foreign_key()
         => base.Can_insert_and_read_back_with_null_binary_foreign_key();
 
@@ -106,6 +107,7 @@ public class BuiltInDataTypesDynamoTest(
         => base.Can_insert_and_read_back_with_string_key();
 
     /// <inheritdoc />
+    [ConditionalFact(Skip = SkipReason.ForeignKeysNotSupported)]
     public override Task Can_insert_and_read_back_with_null_string_foreign_key()
         => base.Can_insert_and_read_back_with_null_string_foreign_key();
 
