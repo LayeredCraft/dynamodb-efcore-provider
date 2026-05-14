@@ -5,7 +5,7 @@ description: How to define entities and configure DynamoDB partition and sort ke
 
 # Entities and Keys
 
-_Every entity type in the DynamoDB EF Core provider must declare a partition key, and optionally a sort key, which together form the item's primary key in DynamoDB._
+_Every root entity type in the DynamoDB EF Core provider must declare a partition key, and optionally a sort key, which together form the item's primary key in DynamoDB._
 
 ## Defining an Entity
 
@@ -25,7 +25,7 @@ modelBuilder.Entity<Order>(b =>
 
 !!! warning "Do not use HasKey or [Key]"
 
-    `HasKey(...)` and `[Key]` are not respected by this provider for DynamoDB key mapping.
+    `HasKey(...)` and `[Key]` are rejected for root DynamoDB entities.
     Configure keys with `HasPartitionKey(...)` and optional `HasSortKey(...)` instead.
 
 If no explicit `ToTable(...)` is configured, the provider uses the CLR type name as the table
@@ -43,7 +43,7 @@ name.
 For root entity types, table/key mapping resolves in this order (highest precedence first):
 
 1. Explicit configuration (`ToTable(...)`, `HasPartitionKey(...)`, `HasSortKey(...)`)
-2. Conventions (`PK`/`PartitionKey`, `SK`/`SortKey`; table name from CLR type)
+2. Conventions (`PK`/`PartitionKey`, fallback `Id`, `SK`/`SortKey`; table name from CLR type)
 3. Validation outcome (missing partition key throws; partition key resolved with no sort key
     means partition-key-only)
 
@@ -52,7 +52,9 @@ For root entity types, table/key mapping resolves in this order (highest precede
 ## Partition Key
 
 Every DynamoDB table has a partition key. Configure it with `HasPartitionKey(...)` or use
-conventional property names (`PK` or `PartitionKey`, case-insensitive).
+conventional property names (`PK` or `PartitionKey`, case-insensitive). If neither DynamoDB-specific
+name exists, `Id` is used as a fallback partition key name. `Id` does not create ambiguity when `PK`
+or `PartitionKey` also exists; the DynamoDB-specific name wins.
 
 `HasPartitionKey(...)` overrides convention-based partition key discovery.
 
@@ -150,6 +152,7 @@ Explicit composite-key mapping:
 
 ```csharp
 modelBuilder.Entity<Order>(b =>
+{
     b.ToTable("Orders");
     b.HasPartitionKey(x => x.CustomerId);
     b.HasSortKey(x => x.OrderId);

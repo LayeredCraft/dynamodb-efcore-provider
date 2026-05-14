@@ -9,9 +9,9 @@ namespace EntityFrameworkCore.DynamoDb.Tests.Metadata.Conventions;
 
 /// <summary>
 ///     Tests for <c>DynamoKeyDiscoveryConvention</c> — verifies that conventional DynamoDB
-///     property names (<c>PK</c>/<c>PartitionKey</c>, <c>SK</c>/<c>SortKey</c>) are auto-configured as
-///     the DynamoDB partition/sort key annotations without any explicit <c>HasPartitionKey</c> or
-///     <c>HasSortKey</c> call.
+///     property names (<c>PK</c>/<c>PartitionKey</c>, fallback <c>Id</c>, <c>SK</c>/<c>SortKey</c>)
+///     are auto-configured as the DynamoDB partition/sort key annotations without any explicit
+///     <c>HasPartitionKey</c> or <c>HasSortKey</c> call.
 /// </summary>
 public class DynamoKeyDiscoveryConventionTests
 {
@@ -117,6 +117,315 @@ public class DynamoKeyDiscoveryConventionTests
         primaryKey.Properties[0].Name.Should().Be("PartitionKey");
         entityType.GetPartitionKeyPropertyName().Should().Be("PartitionKey");
         entityType.GetSortKeyPropertyName().Should().BeNull();
+    }
+
+    // -------------------------------------------------------------------
+    // Id property → fallback partition key auto-configured; EF PK rebuilt
+    // -------------------------------------------------------------------
+
+    private sealed record IdNamedEntity
+    {
+        /// <summary>Provides functionality for this member.</summary>
+        public string Id { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
+        public string Name { get; set; } = null!;
+    }
+
+    private sealed class IdNamedContext(DbContextOptions options) : DbContext(options)
+    {
+        /// <summary>Provides functionality for this member.</summary>
+        public DbSet<IdNamedEntity> Entities { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<IdNamedEntity>(b => b.ToTable("IdNamedTable"));
+
+        /// <summary>Provides functionality for this member.</summary>
+        public static IdNamedContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<IdNamedContext>(client));
+    }
+
+    /// <summary>Provides functionality for this member.</summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void PropertyNamedId_AutoConfiguresFallbackPartitionKeyAndEfPrimaryKey()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var ctx = IdNamedContext.Create(client);
+
+        var entityType = ctx.Model.FindEntityType(typeof(IdNamedEntity))!;
+        var primaryKey = entityType.FindPrimaryKey()!;
+
+        primaryKey.Properties.Should().HaveCount(1);
+        primaryKey.Properties[0].Name.Should().Be("Id");
+        entityType.GetPartitionKeyPropertyName().Should().Be("Id");
+        entityType.GetSortKeyPropertyName().Should().BeNull();
+    }
+
+    // -------------------------------------------------------------------
+    // ID property → fallback partition key auto-configured; EF PK rebuilt
+    // -------------------------------------------------------------------
+
+    private sealed record UpperIdNamedEntity
+    {
+        /// <summary>Provides functionality for this member.</summary>
+        public string ID { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
+        public string Name { get; set; } = null!;
+    }
+
+    private sealed class UpperIdNamedContext(DbContextOptions options) : DbContext(options)
+    {
+        /// <summary>Provides functionality for this member.</summary>
+        public DbSet<UpperIdNamedEntity> Entities { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<UpperIdNamedEntity>(b => b.ToTable("UpperIdNamedTable"));
+
+        /// <summary>Provides functionality for this member.</summary>
+        public static UpperIdNamedContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<UpperIdNamedContext>(client));
+    }
+
+    /// <summary>Provides functionality for this member.</summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void PropertyNamedID_AutoConfiguresFallbackPartitionKeyAndEfPrimaryKey()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var ctx = UpperIdNamedContext.Create(client);
+
+        var entityType = ctx.Model.FindEntityType(typeof(UpperIdNamedEntity))!;
+        var primaryKey = entityType.FindPrimaryKey()!;
+
+        primaryKey.Properties.Should().HaveCount(1);
+        primaryKey.Properties[0].Name.Should().Be("ID");
+        entityType.GetPartitionKeyPropertyName().Should().Be("ID");
+        entityType.GetSortKeyPropertyName().Should().BeNull();
+    }
+
+    // -------------------------------------------------------------------
+    // Shadow PK + Id properties → fallback Id ignores unsupported shadow property
+    // -------------------------------------------------------------------
+
+    private sealed record ShadowPkWithIdEntity
+    {
+        /// <summary>Provides functionality for this member.</summary>
+        public string Id { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
+        public string Name { get; set; } = null!;
+    }
+
+    private sealed class ShadowPkWithIdContext(DbContextOptions options) : DbContext(options)
+    {
+        /// <summary>Provides functionality for this member.</summary>
+        public DbSet<ShadowPkWithIdEntity> Entities { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<ShadowPkWithIdEntity>(b =>
+            {
+                b.ToTable("ShadowPkWithIdTable");
+                b.Property<string>("PK");
+            });
+
+        /// <summary>Provides functionality for this member.</summary>
+        public static ShadowPkWithIdContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<ShadowPkWithIdContext>(client));
+    }
+
+    /// <summary>Provides functionality for this member.</summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ShadowPropertyNamedPK_DoesNotBlockFallbackId()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var ctx = ShadowPkWithIdContext.Create(client);
+
+        var entityType = ctx.Model.FindEntityType(typeof(ShadowPkWithIdEntity))!;
+        var primaryKey = entityType.FindPrimaryKey()!;
+
+        primaryKey.Properties.Should().HaveCount(1);
+        primaryKey.Properties[0].Name.Should().Be("Id");
+        entityType.GetPartitionKeyPropertyName().Should().Be("Id");
+        entityType.GetSortKeyPropertyName().Should().BeNull();
+    }
+
+    // -------------------------------------------------------------------
+    // Id + SK properties → composite EF PK auto-configured
+    // -------------------------------------------------------------------
+
+    private sealed record IdSkNamedEntity
+    {
+        /// <summary>Provides functionality for this member.</summary>
+        public string Id { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
+        public string SK { get; set; } = null!;
+    }
+
+    private sealed class IdSkNamedContext(DbContextOptions options) : DbContext(options)
+    {
+        /// <summary>Provides functionality for this member.</summary>
+        public DbSet<IdSkNamedEntity> Entities { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<IdSkNamedEntity>(b => b.ToTable("IdSkNamedTable"));
+
+        /// <summary>Provides functionality for this member.</summary>
+        public static IdSkNamedContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<IdSkNamedContext>(client));
+    }
+
+    /// <summary>Provides functionality for this member.</summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void PropertiesNamedIdAndSK_AutoConfiguresCompositeEfPrimaryKey()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var ctx = IdSkNamedContext.Create(client);
+
+        var entityType = ctx.Model.FindEntityType(typeof(IdSkNamedEntity))!;
+        var primaryKey = entityType.FindPrimaryKey()!;
+
+        primaryKey.Properties.Should().HaveCount(2);
+        primaryKey.Properties[0].Name.Should().Be("Id");
+        primaryKey.Properties[1].Name.Should().Be("SK");
+        entityType.GetPartitionKeyPropertyName().Should().Be("Id");
+        entityType.GetSortKeyPropertyName().Should().Be("SK");
+    }
+
+    // -------------------------------------------------------------------
+    // Explicit partition key wins over fallback Id
+    // -------------------------------------------------------------------
+
+    private sealed record ExplicitKeyWithIdEntity
+    {
+        /// <summary>Provides functionality for this member.</summary>
+        public string Id { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
+        public string CustomKey { get; set; } = null!;
+    }
+
+    private sealed class ExplicitKeyWithIdContext(DbContextOptions options) : DbContext(options)
+    {
+        /// <summary>Provides functionality for this member.</summary>
+        public DbSet<ExplicitKeyWithIdEntity> Entities { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<ExplicitKeyWithIdEntity>(b =>
+            {
+                b.ToTable("ExplicitKeyWithIdTable");
+                b.HasPartitionKey(x => x.CustomKey);
+            });
+
+        /// <summary>Provides functionality for this member.</summary>
+        public static ExplicitKeyWithIdContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<ExplicitKeyWithIdContext>(client));
+    }
+
+    /// <summary>Provides functionality for this member.</summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ExplicitHasPartitionKey_OverridesFallbackId()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var ctx = ExplicitKeyWithIdContext.Create(client);
+
+        var entityType = ctx.Model.FindEntityType(typeof(ExplicitKeyWithIdEntity))!;
+        var primaryKey = entityType.FindPrimaryKey()!;
+
+        primaryKey.Properties.Should().HaveCount(1);
+        primaryKey.Properties[0].Name.Should().Be("CustomKey");
+        entityType.GetPartitionKeyPropertyName().Should().Be("CustomKey");
+    }
+
+    // -------------------------------------------------------------------
+    // PartitionKey wins over fallback Id
+    // -------------------------------------------------------------------
+
+    private sealed record PartitionKeyAndIdNamedEntity
+    {
+        /// <summary>Provides functionality for this member.</summary>
+        public string PartitionKey { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
+        public string Id { get; set; } = null!;
+    }
+
+    private sealed class PartitionKeyAndIdNamedContext(DbContextOptions options) : DbContext(
+        options)
+    {
+        /// <summary>Provides functionality for this member.</summary>
+        public DbSet<PartitionKeyAndIdNamedEntity> Entities { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<PartitionKeyAndIdNamedEntity>(b
+                => b.ToTable("PartitionKeyAndIdNamedTable"));
+
+        /// <summary>Provides functionality for this member.</summary>
+        public static PartitionKeyAndIdNamedContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<PartitionKeyAndIdNamedContext>(client));
+    }
+
+    /// <summary>Provides functionality for this member.</summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void PropertyNamedPartitionKey_BeatsFallbackId()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var ctx = PartitionKeyAndIdNamedContext.Create(client);
+
+        var entityType = ctx.Model.FindEntityType(typeof(PartitionKeyAndIdNamedEntity))!;
+        var primaryKey = entityType.FindPrimaryKey()!;
+
+        primaryKey.Properties.Should().HaveCount(1);
+        primaryKey.Properties[0].Name.Should().Be("PartitionKey");
+        entityType.GetPartitionKeyPropertyName().Should().Be("PartitionKey");
+    }
+
+    // -------------------------------------------------------------------
+    // PK wins over fallback Id
+    // -------------------------------------------------------------------
+
+    private sealed record PkAndIdNamedEntity
+    {
+        /// <summary>Provides functionality for this member.</summary>
+        public string PK { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
+        public string Id { get; set; } = null!;
+    }
+
+    private sealed class PkAndIdNamedContext(DbContextOptions options) : DbContext(options)
+    {
+        /// <summary>Provides functionality for this member.</summary>
+        public DbSet<PkAndIdNamedEntity> Entities { get; set; } = null!;
+
+        /// <summary>Provides functionality for this member.</summary>
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<PkAndIdNamedEntity>(b => b.ToTable("PkAndIdNamedTable"));
+
+        /// <summary>Provides functionality for this member.</summary>
+        public static PkAndIdNamedContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<PkAndIdNamedContext>(client));
+    }
+
+    /// <summary>Provides functionality for this member.</summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void PropertyNamedPK_BeatsFallbackId()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var ctx = PkAndIdNamedContext.Create(client);
+
+        var entityType = ctx.Model.FindEntityType(typeof(PkAndIdNamedEntity))!;
+        var primaryKey = entityType.FindPrimaryKey()!;
+
+        primaryKey.Properties.Should().HaveCount(1);
+        primaryKey.Properties[0].Name.Should().Be("PK");
+        entityType.GetPartitionKeyPropertyName().Should().Be("PK");
     }
 
     // -------------------------------------------------------------------
@@ -477,19 +786,17 @@ public class DynamoKeyDiscoveryConventionTests
     }
 
     // -------------------------------------------------------------------
-    // Names are case-sensitive — 'pk', 'sk', 'partitionkey' do NOT trigger
+    // Conventional names are matched case-insensitively
     // -------------------------------------------------------------------
 
     private sealed record WrongCaseEntity
     {
-        // Lowercase — must NOT be auto-discovered
         /// <summary>Provides functionality for this member.</summary>
         public string pk { get; set; } = null!;
 
         /// <summary>Provides functionality for this member.</summary>
         public string sk { get; set; } = null!;
 
-        // This is the real key EF discovers
         /// <summary>Provides functionality for this member.</summary>
         public string Id { get; set; } = null!;
     }
@@ -509,6 +816,23 @@ public class DynamoKeyDiscoveryConventionTests
         /// <summary>Provides functionality for this member.</summary>
         public static WrongCaseContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<WrongCaseContext>(client));
+    }
+
+    /// <summary>Provides functionality for this member.</summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void LowercaseConventionalNames_AutoConfigureCompositeKeyAndBeatFallbackId()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var ctx = WrongCaseContext.Create(client);
+
+        var entityType = ctx.Model.FindEntityType(typeof(WrongCaseEntity))!;
+        var primaryKey = entityType.FindPrimaryKey()!;
+
+        primaryKey.Properties.Should().HaveCount(2);
+        primaryKey.Properties[0].Name.Should().Be("pk");
+        primaryKey.Properties[1].Name.Should().Be("sk");
+        entityType.GetPartitionKeyPropertyName().Should().Be("pk");
+        entityType.GetSortKeyPropertyName().Should().Be("sk");
     }
 
     // -------------------------------------------------------------------

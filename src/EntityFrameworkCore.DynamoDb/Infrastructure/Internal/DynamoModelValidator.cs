@@ -247,13 +247,13 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
                     + $"The EF primary key has {primaryKey.Properties.Count} properties, but the DynamoDB "
                     + "provider supports only one- or two-part keys (partition key with optional sort key). "
                     + "Configure HasPartitionKey(...) and HasSortKey(...) or use conventional property "
-                    + "names ('PK'/'PartitionKey' and 'SK'/'SortKey') to map the DynamoDB table key explicitly.");
+                    + "names ('PK'/'PartitionKey' or fallback 'Id', and 'SK'/'SortKey') to map the DynamoDB table key explicitly.");
 
             throw new InvalidOperationException(
                 $"No DynamoDB partition key is configured for entity type '{entityType.DisplayName()}'. "
-                + "Use a conventional property name ('PK' or 'PartitionKey') or call "
+                + "Use a conventional property name ('PK' or 'PartitionKey', or fallback 'Id') or call "
                 + "HasPartitionKey(...). The DynamoDB provider does not infer table keys from "
-                + "HasKey(...), Id, or [Key] conventions.");
+                + "HasKey(...) or [Key] conventions.");
         }
     }
 
@@ -273,7 +273,7 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
                     $"Sort key property '{skName}' is configured on entity type "
                     + $"'{entityType.DisplayName()}' but no partition key can be determined. "
                     + "Call HasPartitionKey(...) or add a conventional partition key property name "
-                    + "('PK' or 'PartitionKey').");
+                    + "('PK' or 'PartitionKey', or fallback 'Id').");
         }
     }
 

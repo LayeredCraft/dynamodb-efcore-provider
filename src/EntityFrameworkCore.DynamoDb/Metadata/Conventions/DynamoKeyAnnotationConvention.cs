@@ -13,7 +13,7 @@ namespace EntityFrameworkCore.DynamoDb.Metadata.Conventions;
 ///     resolved consistently. Annotation precedence is:
 ///     <list type="number">
 ///         <item>Explicit/DataAnnotation key-mapping annotations already present on the entity.</item>
-///         <item>Conventional property names (<c>PK</c>/<c>PartitionKey</c>, <c>SK</c>/<c>SortKey</c>).</item>
+///         <item>Conventional property names (<c>PK</c>/<c>PartitionKey</c>, fallback <c>Id</c>, <c>SK</c>/<c>SortKey</c>).</item>
 ///     </list>
 ///     <para>
 ///         EF primary keys are validated against the resolved DynamoDB key schema, but <c>HasKey(...)</c>
@@ -29,8 +29,8 @@ namespace EntityFrameworkCore.DynamoDb.Metadata.Conventions;
 public sealed class DynamoKeyAnnotationConvention : IModelFinalizingConvention
 {
     /// <summary>
-    ///     Finalizes partition/sort key annotations by applying configured mappings, EF-primary-key
-    ///     fallback, and conventional property-name fallback in precedence order.
+    ///     Finalizes partition/sort key annotations by applying configured mappings and conventional
+    ///     property-name fallback in precedence order.
     /// </summary>
     public void ProcessModelFinalizing(
         IConventionModelBuilder modelBuilder,
@@ -41,12 +41,7 @@ public sealed class DynamoKeyAnnotationConvention : IModelFinalizingConvention
             if (entityType.BaseType != null)
                 continue;
 
-            SetAnnotationFromConventionalName(
-                entityType,
-                DynamoAnnotationNames.PartitionKeyPropertyName,
-                DynamoKeyDiscoveryConvention.IsPartitionKeyName,
-                "partition key",
-                "HasPartitionKey");
+            SetPartitionKeyAnnotationFromConventionalName(entityType);
 
             SetAnnotationFromConventionalName(
                 entityType,
@@ -55,6 +50,33 @@ public sealed class DynamoKeyAnnotationConvention : IModelFinalizingConvention
                 "sort key",
                 "HasSortKey");
         }
+    }
+
+    /// <summary>
+    ///     Sets the partition-key annotation from DynamoDB-specific names first, then the fallback
+    ///     <c>Id</c> name only when no DynamoDB-specific candidate exists.
+    /// </summary>
+    private static void SetPartitionKeyAnnotationFromConventionalName(
+        IConventionEntityType entityType)
+    {
+        var source =
+            entityType
+                .FindAnnotation(DynamoAnnotationNames.PartitionKeyPropertyName)
+                ?.GetConfigurationSource();
+        if (source is ConfigurationSource.Explicit or ConfigurationSource.DataAnnotation)
+            return;
+
+        var candidates = DynamoKeyDiscoveryConvention.GetPartitionKeyCandidates(
+            entityType
+                .GetProperties()
+                .Where(DynamoKeyDiscoveryConvention.IsDiscoverableKeyProperty));
+
+        SetAnnotationFromCandidates(
+            entityType,
+            DynamoAnnotationNames.PartitionKeyPropertyName,
+            candidates,
+            "partition key",
+            "HasPartitionKey");
     }
 
     /// <summary>
@@ -75,8 +97,28 @@ public sealed class DynamoKeyAnnotationConvention : IModelFinalizingConvention
         if (source is ConfigurationSource.Explicit or ConfigurationSource.DataAnnotation)
             return;
 
-        var candidates = entityType.GetProperties().Where(p => isConventionalName(p.Name)).ToList();
+        var candidates = entityType
+            .GetProperties()
+            .Where(p => DynamoKeyDiscoveryConvention.IsDiscoverableKeyProperty(p)
+                && isConventionalName(p.Name))
+            .ToList();
 
+        SetAnnotationFromCandidates(
+            entityType,
+            annotationName,
+            candidates,
+            roleName,
+            fluentApiName);
+    }
+
+    /// <summary>Sets the annotation from preselected candidates, throwing when ambiguous.</summary>
+    private static void SetAnnotationFromCandidates(
+        IConventionEntityType entityType,
+        string annotationName,
+        List<IConventionProperty> candidates,
+        string roleName,
+        string fluentApiName)
+    {
         if (candidates.Count == 0)
             return;
 
