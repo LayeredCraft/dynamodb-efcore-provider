@@ -48,7 +48,6 @@ public class BuiltInDataTypesDynamoTest(
     }
 
     /// <inheritdoc />
-    [ConditionalFact(Skip = ProviderTypeMappingGaps)]
     public override Task Can_query_using_any_data_type() => base.Can_query_using_any_data_type();
 
     /// <inheritdoc />
