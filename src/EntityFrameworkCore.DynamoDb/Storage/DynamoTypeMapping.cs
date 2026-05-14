@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq.Expressions;
@@ -37,6 +38,11 @@ public class DynamoTypeMapping : CoreTypeMapping
 {
     internal DynamoValueReaderWriter? ReaderWriter { get; }
     private readonly IDynamoUntypedValueWriter? _untypedValueWriter;
+
+    private readonly ConcurrentDictionary<Type, Func<object?, AttributeValue>>
+        _attributeValueSerializers = new();
+
+    private readonly ConcurrentDictionary<Type, Func<object?, string>> _literalSerializers = new();
 
     /// <summary>Creates a mapping for the given CLR type.</summary>
     public DynamoTypeMapping(
@@ -101,11 +107,18 @@ public class DynamoTypeMapping : CoreTypeMapping
     ///     serializer is the narrow adapter back into typed expression-based conversion.
     /// </remarks>
     internal virtual AttributeValue CreateAttributeValue(object? value)
-        => DynamoRuntimeValueSerializer.CreateAttributeValue(this, value);
+        => DynamoRuntimeValueSerializer.CreateAttributeValue(
+            this,
+            _attributeValueSerializers,
+            value);
 
     /// <summary>Serializes a value whose runtime/source CLR type is already known.</summary>
     internal virtual AttributeValue CreateAttributeValue(object? value, Type sourceType)
-        => DynamoRuntimeValueSerializer.CreateAttributeValue(this, value, sourceType);
+        => DynamoRuntimeValueSerializer.CreateAttributeValue(
+            this,
+            _attributeValueSerializers,
+            value,
+            sourceType);
 
     /// <summary>Builds the typed expression used by cached query/runtime serializers.</summary>
     internal virtual Expression CreateAttributeValueExpression(Expression valueExpression)
@@ -121,11 +134,15 @@ public class DynamoTypeMapping : CoreTypeMapping
     ///     <see cref="GenerateNonNullConstant" /> rather than this method.
     /// </remarks>
     public virtual string GenerateConstant(object? value)
-        => DynamoRuntimeValueSerializer.GenerateLiteral(this, value);
+        => value is null ? "NULL" : GenerateNonNullConstant(value);
 
     /// <summary>Generates a PartiQL literal for a value whose runtime/source CLR type is known.</summary>
     internal virtual string GenerateConstant(object? value, Type sourceType)
-        => DynamoRuntimeValueSerializer.GenerateLiteral(this, value, sourceType);
+        => DynamoRuntimeValueSerializer.GenerateLiteral(
+            this,
+            _literalSerializers,
+            value,
+            sourceType);
 
     /// <summary>Builds the typed expression used by cached PartiQL literal serializers.</summary>
     internal virtual Expression CreatePartiQlLiteralExpression(Expression valueExpression)
@@ -162,7 +179,7 @@ public class DynamoTypeMapping : CoreTypeMapping
         var underlyingType = Enum.GetUnderlyingType(expectedNonNullableType);
         var valueType = value.GetType();
         if (valueType != underlyingType
-            && !CanRepresentEnumUnderlyingType(valueType, underlyingType))
+            && !DynamoWireValueConversion.CanRepresentEnumUnderlyingType(valueType, underlyingType))
             return value;
 
         return Enum.ToObject(expectedNonNullableType, value);
@@ -196,12 +213,14 @@ public class DynamoTypeMapping : CoreTypeMapping
 
         var mappingType = Nullable.GetUnderlyingType(ClrType) ?? ClrType;
         var valueType = value.GetType();
-        if (valueType == mappingType || !IsNumericType(mappingType) || !IsNumericType(valueType))
+        if (valueType == mappingType
+            || !DynamoWireValueConversion.IsNumericType(mappingType)
+            || !DynamoWireValueConversion.IsNumericType(valueType))
             return false;
 
         if (valueType.IsEnum)
         {
-            formatted = FormatEnum(value);
+            formatted = DynamoWireValueConversion.FormatEnum(value);
             return true;
         }
 
@@ -223,64 +242,6 @@ public class DynamoTypeMapping : CoreTypeMapping
 
         return formatted != null;
     }
-
-    private static bool CanRepresentEnumUnderlyingType(Type valueType, Type underlyingType)
-        => IsIntegralType(valueType) && IsIntegralType(underlyingType);
-
-    private static string FormatEnum(object value)
-        => Type.GetTypeCode(Enum.GetUnderlyingType(value.GetType())) switch
-        {
-            TypeCode.Byte => Convert
-                .ToByte(value, CultureInfo.InvariantCulture)
-                .ToString(CultureInfo.InvariantCulture),
-            TypeCode.SByte => Convert
-                .ToSByte(value, CultureInfo.InvariantCulture)
-                .ToString(CultureInfo.InvariantCulture),
-            TypeCode.Int16 => Convert
-                .ToInt16(value, CultureInfo.InvariantCulture)
-                .ToString(CultureInfo.InvariantCulture),
-            TypeCode.UInt16 => Convert
-                .ToUInt16(value, CultureInfo.InvariantCulture)
-                .ToString(CultureInfo.InvariantCulture),
-            TypeCode.Int32 => Convert
-                .ToInt32(value, CultureInfo.InvariantCulture)
-                .ToString(CultureInfo.InvariantCulture),
-            TypeCode.UInt32 => Convert
-                .ToUInt32(value, CultureInfo.InvariantCulture)
-                .ToString(CultureInfo.InvariantCulture),
-            TypeCode.Int64 => Convert
-                .ToInt64(value, CultureInfo.InvariantCulture)
-                .ToString(CultureInfo.InvariantCulture),
-            TypeCode.UInt64 => Convert
-                .ToUInt64(value, CultureInfo.InvariantCulture)
-                .ToString(CultureInfo.InvariantCulture),
-            _ => throw new InvalidOperationException(
-                $"Enum type '{value.GetType().Name}' has an unsupported underlying type."),
-        };
-
-    private static bool IsIntegralType(Type type)
-        => type == typeof(byte)
-            || type == typeof(sbyte)
-            || type == typeof(short)
-            || type == typeof(ushort)
-            || type == typeof(int)
-            || type == typeof(uint)
-            || type == typeof(long)
-            || type == typeof(ulong);
-
-    private static bool IsNumericType(Type type)
-        => type.IsEnum
-            || type == typeof(byte)
-            || type == typeof(sbyte)
-            || type == typeof(short)
-            || type == typeof(ushort)
-            || type == typeof(int)
-            || type == typeof(uint)
-            || type == typeof(long)
-            || type == typeof(ulong)
-            || type == typeof(float)
-            || type == typeof(double)
-            || type == typeof(decimal);
 
     private static DynamoValueReaderWriter? CreateReaderWriter(CoreTypeMappingParameters parameters)
     {

@@ -5,6 +5,68 @@ namespace EntityFrameworkCore.DynamoDb.Storage;
 
 internal static class DynamoWireValueConversion
 {
+    /// <summary>Returns whether the CLR type is represented as a numeric DynamoDB value.</summary>
+    public static bool IsNumericType(Type type)
+        => type.IsEnum
+            || type == typeof(byte)
+            || type == typeof(sbyte)
+            || type == typeof(short)
+            || type == typeof(ushort)
+            || type == typeof(int)
+            || type == typeof(uint)
+            || type == typeof(long)
+            || type == typeof(ulong)
+            || type == typeof(float)
+            || type == typeof(double)
+            || type == typeof(decimal);
+
+    /// <summary>Returns whether the CLR type is an integral numeric type.</summary>
+    public static bool IsIntegralType(Type type)
+        => type == typeof(byte)
+            || type == typeof(sbyte)
+            || type == typeof(short)
+            || type == typeof(ushort)
+            || type == typeof(int)
+            || type == typeof(uint)
+            || type == typeof(long)
+            || type == typeof(ulong);
+
+    /// <summary>Returns whether an integral type can represent an enum underlying type.</summary>
+    public static bool CanRepresentEnumUnderlyingType(Type valueType, Type underlyingType)
+        => IsIntegralType(valueType) && IsIntegralType(underlyingType);
+
+    /// <summary>Formats an enum as its numeric DynamoDB wire value.</summary>
+    public static string FormatEnum(object value)
+        => Type.GetTypeCode(Enum.GetUnderlyingType(value.GetType())) switch
+        {
+            TypeCode.Byte => Convert
+                .ToByte(value, CultureInfo.InvariantCulture)
+                .ToString(CultureInfo.InvariantCulture),
+            TypeCode.SByte => Convert
+                .ToSByte(value, CultureInfo.InvariantCulture)
+                .ToString(CultureInfo.InvariantCulture),
+            TypeCode.Int16 => Convert
+                .ToInt16(value, CultureInfo.InvariantCulture)
+                .ToString(CultureInfo.InvariantCulture),
+            TypeCode.UInt16 => Convert
+                .ToUInt16(value, CultureInfo.InvariantCulture)
+                .ToString(CultureInfo.InvariantCulture),
+            TypeCode.Int32 => Convert
+                .ToInt32(value, CultureInfo.InvariantCulture)
+                .ToString(CultureInfo.InvariantCulture),
+            TypeCode.UInt32 => Convert
+                .ToUInt32(value, CultureInfo.InvariantCulture)
+                .ToString(CultureInfo.InvariantCulture),
+            TypeCode.Int64 => Convert
+                .ToInt64(value, CultureInfo.InvariantCulture)
+                .ToString(CultureInfo.InvariantCulture),
+            TypeCode.UInt64 => Convert
+                .ToUInt64(value, CultureInfo.InvariantCulture)
+                .ToString(CultureInfo.InvariantCulture),
+            _ => throw new InvalidOperationException(
+                $"Enum type '{value.GetType().Name}' has an unsupported underlying type."),
+        };
+
     /// <summary>Formats numeric values for DynamoDB wire output using invariant culture.</summary>
     /// <remarks>
     ///     Uses round-trip (<c>R</c>) formatting for <see cref="float" /> and <see cref="double" />

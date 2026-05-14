@@ -16,12 +16,6 @@ namespace EntityFrameworkCore.DynamoDb.Storage.Internal;
 /// </remarks>
 internal static class DynamoRuntimeValueSerializer
 {
-    private static readonly ConcurrentDictionary<CacheKey, Func<object?, AttributeValue>>
-        AttributeValueSerializers = new();
-
-    private static readonly ConcurrentDictionary<CacheKey, Func<object?, string>>
-        LiteralSerializers = new();
-
     private static readonly MethodInfo ConvertProviderValueToAttributeValueMethod =
         typeof(DynamoWireValueConversion).GetMethod(
             nameof(DynamoWireValueConversion.ConvertProviderValueToAttributeValue))!;
@@ -30,8 +24,15 @@ internal static class DynamoRuntimeValueSerializer
         typeof(DynamoWireValueConversion).GetMethod(
             nameof(DynamoWireValueConversion.GenerateBoxedConstant))!;
 
-    public static AttributeValue CreateAttributeValue(
+    /// <summary>Serializes a boxed runtime value through a mapping-owned typed delegate cache.</summary>
+    /// <param name="mapping">DynamoDB type mapping that owns conversion metadata.</param>
+    /// <param name="serializers">Per-mapping serializer cache keyed by runtime source type.</param>
+    /// <param name="value">Boxed runtime value to serialize.</param>
+    /// <param name="sourceType">Known runtime/source CLR type, or <see langword="null" /> to infer it.</param>
+    /// <returns>DynamoDB attribute value for the runtime value.</returns>
+    internal static AttributeValue CreateAttributeValue(
         DynamoTypeMapping mapping,
+        ConcurrentDictionary<Type, Func<object?, AttributeValue>> serializers,
         object? value,
         Type? sourceType = null)
     {
@@ -39,13 +40,21 @@ internal static class DynamoRuntimeValueSerializer
             return new AttributeValue { NULL = true };
 
         sourceType ??= value.GetType();
-        return AttributeValueSerializers.GetOrAdd(
-            new CacheKey(mapping, sourceType),
-            static key => CompileAttributeValueSerializer(key.Mapping, key.SourceType))(value);
+        return serializers.GetOrAdd(
+            sourceType,
+            static (key, mapping) => CompileAttributeValueSerializer(mapping, key),
+            mapping)(value);
     }
 
-    public static string GenerateLiteral(
+    /// <summary>Generates a PartiQL literal through a mapping-owned typed delegate cache.</summary>
+    /// <param name="mapping">DynamoDB type mapping that owns conversion metadata.</param>
+    /// <param name="serializers">Per-mapping literal serializer cache keyed by runtime source type.</param>
+    /// <param name="value">Boxed runtime value to render.</param>
+    /// <param name="sourceType">Known runtime/source CLR type, or <see langword="null" /> to infer it.</param>
+    /// <returns>PartiQL literal for the runtime value.</returns>
+    internal static string GenerateLiteral(
         DynamoTypeMapping mapping,
+        ConcurrentDictionary<Type, Func<object?, string>> serializers,
         object? value,
         Type? sourceType = null)
     {
@@ -53,9 +62,10 @@ internal static class DynamoRuntimeValueSerializer
             return "NULL";
 
         sourceType ??= value.GetType();
-        return LiteralSerializers.GetOrAdd(
-            new CacheKey(mapping, sourceType),
-            static key => CompileLiteralSerializer(key.Mapping, key.SourceType))(value);
+        return serializers.GetOrAdd(
+            sourceType,
+            static (key, mapping) => CompileLiteralSerializer(mapping, key),
+            mapping)(value);
     }
 
     private static Func<object?, AttributeValue> CompileAttributeValueSerializer(
@@ -128,22 +138,7 @@ internal static class DynamoRuntimeValueSerializer
     {
         var nonNullableMappingType = Nullable.GetUnderlyingType(mappingType) ?? mappingType;
         var nonNullableSourceType = Nullable.GetUnderlyingType(sourceType) ?? sourceType;
-        return IsNumericType(nonNullableMappingType) && IsNumericType(nonNullableSourceType);
+        return DynamoWireValueConversion.IsNumericType(nonNullableMappingType)
+            && DynamoWireValueConversion.IsNumericType(nonNullableSourceType);
     }
-
-    private static bool IsNumericType(Type type)
-        => type.IsEnum
-            || type == typeof(byte)
-            || type == typeof(sbyte)
-            || type == typeof(short)
-            || type == typeof(ushort)
-            || type == typeof(int)
-            || type == typeof(uint)
-            || type == typeof(long)
-            || type == typeof(ulong)
-            || type == typeof(float)
-            || type == typeof(double)
-            || type == typeof(decimal);
-
-    private readonly record struct CacheKey(DynamoTypeMapping Mapping, Type SourceType);
 }
