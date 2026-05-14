@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq.Expressions;
 using Amazon.DynamoDBv2.Model;
@@ -25,7 +26,7 @@ namespace EntityFrameworkCore.DynamoDb.Storage;
 ///         property via model builder is ignored by this provider.
 ///     </para>
 ///     <para>
-///         Literal generation uses <see cref="GenerateConstant" /> rather than
+///         Literal generation uses <see cref="GenerateConstant(object?)" /> rather than
 ///         <c>RelationalTypeMapping.GenerateSqlLiteral</c>. The latter is relational-only and
 ///         is neither inherited by <see cref="Microsoft.EntityFrameworkCore.Storage.CoreTypeMapping" />
 ///         subclasses nor auto-invoked by EF Core infrastructure for non-relational providers.
@@ -96,26 +97,21 @@ public class DynamoTypeMapping : CoreTypeMapping
 
     /// <summary>Serializes a model CLR value to an <see cref="AttributeValue" />.</summary>
     /// <remarks>
-    ///     EF exposes runtime values to mappings as <see cref="object" />. This is the unavoidable
-    ///     untyped provider boundary; the cast happens in the cached adapter and the typed codec
-    ///     pipeline resumes immediately after that handoff.
+    ///     EF exposes runtime query values to mappings as <see cref="object" />. The runtime value
+    ///     serializer is the narrow adapter back into typed expression-based conversion.
     /// </remarks>
     internal virtual AttributeValue CreateAttributeValue(object? value)
-    {
-        if (value == null)
-            return new AttributeValue { NULL = true };
+        => DynamoRuntimeValueSerializer.CreateAttributeValue(this, value);
 
-        value = NormalizeRuntimeValue(value);
+    /// <summary>Serializes a value whose runtime/source CLR type is already known.</summary>
+    internal virtual AttributeValue CreateAttributeValue(object? value, Type sourceType)
+        => DynamoRuntimeValueSerializer.CreateAttributeValue(this, value, sourceType);
 
-        if (TryFormatUnconvertedNumeric(value, out var numericValue))
-            return new AttributeValue { N = numericValue };
-
-        ValidateRuntimeValue(value);
-
-        return _untypedValueWriter?.Write(value)
+    /// <summary>Builds the typed expression used by cached query/runtime serializers.</summary>
+    internal virtual Expression CreateAttributeValueExpression(Expression valueExpression)
+        => ReaderWriter?.CreateWriteExpression(valueExpression)
             ?? throw new NotSupportedException(
                 $"CLR type '{ClrType.Name}' is not supported for DynamoDB AttributeValue serialization.");
-    }
 
     /// <summary>Generates a PartiQL literal for a constant value.</summary>
     /// <remarks>
@@ -125,7 +121,17 @@ public class DynamoTypeMapping : CoreTypeMapping
     ///     <see cref="GenerateNonNullConstant" /> rather than this method.
     /// </remarks>
     public virtual string GenerateConstant(object? value)
-        => value == null ? "NULL" : GenerateNonNullConstant(value);
+        => DynamoRuntimeValueSerializer.GenerateLiteral(this, value);
+
+    /// <summary>Generates a PartiQL literal for a value whose runtime/source CLR type is known.</summary>
+    internal virtual string GenerateConstant(object? value, Type sourceType)
+        => DynamoRuntimeValueSerializer.GenerateLiteral(this, value, sourceType);
+
+    /// <summary>Builds the typed expression used by cached PartiQL literal serializers.</summary>
+    internal virtual Expression CreatePartiQlLiteralExpression(Expression valueExpression)
+        => ReaderWriter?.CreatePartiQlLiteralExpression(valueExpression)
+            ?? throw new NotSupportedException(
+                $"CLR type '{ClrType.Name}' is not supported for PartiQL constant generation.");
 
     /// <summary>Generates a PartiQL literal for a known non-null value.</summary>
     /// <remarks>
@@ -179,9 +185,11 @@ public class DynamoTypeMapping : CoreTypeMapping
             + "inference applied an incompatible mapping to a parameter or constant.");
     }
 
-    private bool TryFormatUnconvertedNumeric(object value, out string formatted)
+    private bool TryFormatUnconvertedNumeric(
+        object value,
+        [NotNullWhen(true)] out string? formatted)
     {
-        formatted = null!;
+        formatted = null;
 
         if (Parameters.Converter != null)
             return false;
@@ -210,7 +218,7 @@ public class DynamoTypeMapping : CoreTypeMapping
             float numeric => numeric.ToString("R", CultureInfo.InvariantCulture),
             double numeric => numeric.ToString("R", CultureInfo.InvariantCulture),
             decimal numeric => numeric.ToString(CultureInfo.InvariantCulture),
-            _ => null!,
+            _ => null,
         };
 
         return formatted != null;

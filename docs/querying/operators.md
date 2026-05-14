@@ -122,6 +122,8 @@ All scalar entity properties must map to a DynamoDB attribute type. Types withou
 
 Nullable variants of all types above are supported. Numeric comparisons use DynamoDB's single `N` wire type, so promotions to `int`, such as `short` to `int`, still bind as DynamoDB numbers. Custom types can be mapped using EF Core [value converters](https://learn.microsoft.com/en-us/ef/core/modeling/value-conversions); query parameters and constants use the property mapping so converters apply consistently.
 
+Value-converted enums compare using the converter provider type. For example, an enum mapped with `.HasConversion<string>()` binds parameters as DynamoDB strings. Numeric casts of value-converted enums, such as `(int)entity.Status == value`, are not translated for parameter comparisons because the DynamoDB attribute stores the converted provider value. Compare enum values directly, or map the enum numerically if numeric comparisons are required.
+
 ## See also
 
 - [How Queries Execute](how-queries-execute.md)

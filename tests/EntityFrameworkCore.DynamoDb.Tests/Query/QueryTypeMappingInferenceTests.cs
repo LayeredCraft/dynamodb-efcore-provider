@@ -176,20 +176,23 @@ public class QueryTypeMappingInferenceTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public async Task Enum_underlying_cast_on_converted_property_uses_target_numeric_mapping()
+    public async Task Enum_underlying_cast_on_converted_property_is_rejected()
     {
         var (client, captured) = CreateClient();
         await using var context = QueryTypeMappingContext.Create(client);
         var status = 1;
 
-        await context
+        var act = () => context
             .Items
             .AllowScan()
             .Where(e => (int)e.StringStatus == status)
             .ToListAsync(TestContext.Current.CancellationToken);
 
-        captured.Single().Statement.Should().Contain("WHERE \"stringStatus\" = ?");
-        captured.Single().Parameters.Single().N.Should().Be("1");
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*value-converted enum*numeric underlying type*");
+        captured.Should().BeEmpty();
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]

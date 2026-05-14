@@ -35,6 +35,10 @@ internal abstract class DynamoValueReaderWriter
 
     internal abstract IDynamoUntypedValueWriter CreateUntypedValueWriter();
 
+    internal abstract Expression CreateWriteExpression(Expression typedValueExpression);
+
+    internal abstract Expression CreatePartiQlLiteralExpression(Expression typedValueExpression);
+
     protected static Expression CreatePropertyExpression(
         Expression attributeValueExpression,
         string propertyPath,
@@ -147,10 +151,10 @@ internal abstract class DynamoValueReaderWriter<TValue> : DynamoValueReaderWrite
 
     protected virtual Expression CreateConstructorExpression() => Expression.New(GetType());
 
-    internal virtual Expression CreateWriteExpression(Expression typedValueExpression)
+    internal override Expression CreateWriteExpression(Expression typedValueExpression)
         => Expression.Call(Expression.Constant(this, GetType()), WriteMethod, typedValueExpression);
 
-    internal virtual Expression CreatePartiQlLiteralExpression(Expression typedValueExpression)
+    internal override Expression CreatePartiQlLiteralExpression(Expression typedValueExpression)
         => Expression.Call(
             Expression.Constant(this, GetType()),
             ToPartiQlLiteralMethod,

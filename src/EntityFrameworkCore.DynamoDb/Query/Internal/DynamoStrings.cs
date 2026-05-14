@@ -35,6 +35,10 @@ internal static class DynamoStrings
     public const string CastNotSupported =
         "DynamoDB PartiQL does not support CAST in query translation.";
 
+    /// <summary>Error message for value-converted enum casts to the numeric underlying type.</summary>
+    public const string ConvertedEnumUnderlyingCastNotSupported =
+        "Casting a value-converted enum to its numeric underlying type is not supported because DynamoDB stores the converter provider type. Compare enum values directly or map the enum numerically.";
+
     /// <summary>Error message for unsupported Last/LastOrDefault.</summary>
     public const string LastNotSupported =
         "Last/LastOrDefault is not supported in this iteration. Reverse traversal "

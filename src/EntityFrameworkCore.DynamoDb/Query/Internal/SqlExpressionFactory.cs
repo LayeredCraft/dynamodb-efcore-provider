@@ -30,9 +30,15 @@ public sealed class SqlExpressionFactory(ITypeMappingSource typeMappingSource)
         };
 
         var isLogical = operatorType is ExpressionType.AndAlso or ExpressionType.OrElse;
+        // A string-converted enum compared to an int parameter would bind the parameter as N
+        // against an S attribute. Reject that shape instead of silently producing no matches.
+        if (!isLogical && IsConvertedEnumComparedToUnderlyingNumber(left, right))
+            throw new InvalidOperationException(
+                DynamoStrings.ConvertedEnumUnderlyingCastNotSupported);
+
         var operandTypeMapping = isLogical
             ? typeMappingSource.FindMapping(typeof(bool))
-            : InferEnumUnderlyingCastMapping(left, right) ?? InferTypeMapping(left, right);
+            : InferTypeMapping(left, right);
         if (operandTypeMapping == null && !isLogical)
             operandTypeMapping = typeMappingSource.FindMapping(left.Type);
 
@@ -166,25 +172,26 @@ public sealed class SqlExpressionFactory(ITypeMappingSource typeMappingSource)
         return new SqlBetweenExpression(subject, low, high);
     }
 
-    private CoreTypeMapping? InferEnumUnderlyingCastMapping(SqlExpression left, SqlExpression right)
-        => InferEnumUnderlyingCastMappingFrom(left, right)
-            ?? InferEnumUnderlyingCastMappingFrom(right, left);
+    private static bool IsConvertedEnumComparedToUnderlyingNumber(
+        SqlExpression left,
+        SqlExpression right)
+        => IsConvertedEnumComparedToUnderlyingNumberFrom(left, right)
+            || IsConvertedEnumComparedToUnderlyingNumberFrom(right, left);
 
-    private CoreTypeMapping? InferEnumUnderlyingCastMappingFrom(
-        SqlExpression convertedEnumExpression,
+    private static bool IsConvertedEnumComparedToUnderlyingNumberFrom(
+        SqlExpression enumExpression,
         SqlExpression otherExpression)
     {
-        var enumType = Nullable.GetUnderlyingType(convertedEnumExpression.Type)
-            ?? convertedEnumExpression.Type;
-        if (otherExpression is SqlConstantExpression
-            || !enumType.IsEnum
-            || convertedEnumExpression.TypeMapping?.Converter == null)
-            return null;
+        var enumType = Nullable.GetUnderlyingType(enumExpression.Type) ?? enumExpression.Type;
+        if (!enumType.IsEnum || enumExpression.TypeMapping?.Converter == null)
+            return false;
 
         var otherType = Nullable.GetUnderlyingType(otherExpression.Type) ?? otherExpression.Type;
-        return Enum.GetUnderlyingType(enumType) == otherType
-            ? otherExpression.TypeMapping ?? typeMappingSource.FindMapping(otherExpression.Type)
-            : null;
+        // Constants like e.Status == Status.Active are typed as the enum in C# but appear with an
+        // underlying value in expression trees; property mapping still makes those safe. The unsafe
+        // case is parameter comparison after an explicit numeric cast.
+        return otherExpression is SqlParameterExpression
+            && otherType == Enum.GetUnderlyingType(enumType);
     }
 
     private static CoreTypeMapping? InferTypeMapping(SqlExpression first, SqlExpression second)

@@ -167,6 +167,24 @@ public class QueryTypeMappingTests : QueryTypeMappingTestFixture
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Converted_enum_underlying_parameter_comparison_is_rejected()
+    {
+        var status = 1;
+
+        var act = () => Db
+            .Items
+            .AsNoTracking()
+            .Where(item => (int)item.StringStatus == status)
+            .Select(item => item.Pk)
+            .ToListAsync(CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*value-converted enum*numeric underlying type*");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Nullable_converted_enum_parameter_comparison_returns_expected_item()
     {
         MappingStatus? status = MappingStatus.Active;
