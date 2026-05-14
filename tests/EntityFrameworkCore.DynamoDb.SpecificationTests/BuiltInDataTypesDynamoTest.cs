@@ -211,34 +211,6 @@ public class BuiltInDataTypesDynamoTest(
             modelBuilder.Ignore<AnimalIdentification>();
             modelBuilder.Ignore<StringForeignKeyDataType>();
             modelBuilder.Ignore<BinaryForeignKeyDataType>();
-
-            ConfigureIdKey<BuiltInDataTypes>(modelBuilder);
-            ConfigureIdKey<BuiltInDataTypesShadow>(modelBuilder);
-            ConfigureIdKey<BuiltInNullableDataTypes>(modelBuilder);
-            ConfigureIdKey<BuiltInNullableDataTypesShadow>(modelBuilder);
-            ConfigureIdKey<NonNullableBackedDataTypes>(modelBuilder);
-            ConfigureIdKey<NullableBackedDataTypes>(modelBuilder);
-            ConfigureIdKey<MaxLengthDataTypes>(modelBuilder);
-            ConfigureIdKey<UnicodeDataTypes>(modelBuilder);
-            ConfigureIdKey<EmailTemplate>(modelBuilder);
-            ConfigureIdKey<ObjectBackedDataTypes>(modelBuilder);
-            // ConfigureIdKey<Animal>(modelBuilder);
-            // ConfigureIdKey<AnimalDetails>(modelBuilder);
-            // ConfigureIdKey<AnimalIdentification>(modelBuilder);
-            ConfigureIdKey<DateTimeEnclosure>(modelBuilder);
-            ConfigureIdKey<StringEnclosure>(modelBuilder);
-            ConfigureIdKey<StringKeyDataType>(modelBuilder);
-            // ConfigureIdKey<StringForeignKeyDataType>(modelBuilder);
-            ConfigureIdKey<BinaryKeyDataType>(modelBuilder);
-            // ConfigureIdKey<BinaryForeignKeyDataType>(modelBuilder);
-        }
-
-        private static EntityTypeBuilder<TEntity> ConfigureIdKey<TEntity>(ModelBuilder modelBuilder)
-            where TEntity : class
-        {
-            var entityTypeBuilder = modelBuilder.Entity<TEntity>().HasPartitionKey("Id");
-
-            return entityTypeBuilder;
         }
 
         /// <inheritdoc />
