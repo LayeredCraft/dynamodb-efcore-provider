@@ -108,10 +108,10 @@ Table-per-type (TPT) and table-per-concrete-type (TPC) are not supported.
 Use this sequence when introducing a new entity type into a shared table:
 
 1. Define the item family and sort-key prefix (for example `ORDER#`, `INVOICE#`, `USER#METADATA`)
-1. Define uniqueness at `(PK, SK)` for that family
-1. Add entity mapping to the shared `ToTable(...)` target with the same PK/SK attribute names
-1. Add query paths that include PK and the intended SK condition (`=`, `begins_with`, range)
-1. Keep discriminator enabled unless keys alone guarantee strict type isolation
+2. Define uniqueness at `(PK, SK)` for that family
+3. Add entity mapping to the shared `ToTable(...)` target with the same PK/SK attribute names
+4. Add query paths that include PK and the intended SK condition (`=`, `begins_with`, range)
+5. Keep discriminator enabled unless keys alone guarantee strict type isolation
 
 ## Discriminator behavior
 
@@ -136,28 +136,15 @@ Use a model-level override:
 modelBuilder.HasEmbeddedDiscriminatorName("$kind");
 ```
 
-### Disable discriminators for a shared table
+### Explicitly configured discriminators
 
-If your key design already guarantees type isolation, you can disable discriminator filtering:
+`HasDiscriminator()` and `HasNoDiscriminator()` apply only to the entity type on which they are
+called. They do not configure or disable discrimination for every other type that maps to the same
+DynamoDB table.
 
-```csharp
-modelBuilder.Entity<User>(b =>
-{
-    b.ToTable("app-table");
-    b.HasPartitionKey(x => x.Pk);
-    b.HasSortKey(x => x.Sk);
-    b.HasNoDiscriminator();
-});
-```
-
-Calling `HasNoDiscriminator()` on any root entity in a shared-table group disables discrimination
-for the entire group.
-
-!!! warning "Disabling discriminators removes type predicates"
-
-    Without a discriminator, the provider does not inject type-level query filtering.
-    Queries return all items matching key conditions, regardless of CLR type.
-    Only use this when your PK/SK patterns guarantee type separation.
+Calling `HasNoDiscriminator()` on one shared-table type opts only that type out. Queries for that
+type do not include a discriminator predicate; queries for other shared-table types still use their
+own discriminator metadata.
 
 ## Query behavior
 
@@ -168,8 +155,8 @@ The provider injects discriminator predicates automatically when discrimination 
 At query time, these pieces combine in order:
 
 1. DynamoDB key conditions decide which items are read (PK and optional SK conditions)
-1. Provider discriminator predicate narrows items to allowed CLR types in the shared-table group
-1. Materialization uses discriminator values to create the correct concrete CLR type
+2. Provider discriminator predicate narrows items to allowed CLR types in the shared-table group
+3. Materialization uses discriminator values to create the correct concrete CLR type
 
 This is why key design and discriminator design should be treated as one system, not separate
 features.
@@ -288,8 +275,8 @@ filtering may be redundant. Keep it enabled by default unless you have verified 
 Think about single-table modeling as three layered constraints:
 
 1. **Key constraints (PK/SK)** define where an item lives and whether `(PK, SK)` is unique
-1. **Type constraints (discriminator)** define which CLR type an item belongs to
-1. **Query constraints (LINQ shape)** define which subset of that data you read for one use case
+2. **Type constraints (discriminator)** define which CLR type an item belongs to
+3. **Query constraints (LINQ shape)** define which subset of that data you read for one use case
 
 If any layer is weak, results can be broader than intended.
 
@@ -376,13 +363,11 @@ Before finalizing keys, define invariants explicitly:
 Treat these as model-level expectations. If the application violates them, you can read wrong
 item shapes even when the EF model itself is valid.
 
-### Keep or disable discriminator?
+### Keep discriminator enabled
 
-- Keep enabled (recommended): when shared partitions can contain multiple CLR types for the same
-    query path
-- Consider disabling: only when PK/SK patterns guarantee mutually exclusive type reads and you
-    deliberately want no type predicate injection
-- Avoid disabling early: it removes a safety boundary that prevents accidental cross-type reads
+Keep discriminator metadata on shared-table types unless a type intentionally owns key patterns that
+cannot overlap other CLR types. `HasNoDiscriminator()` is a per-type opt-out; it does not remove
+predicates or metadata from other types in the table.
 
 ## Common mistakes to avoid
 
@@ -391,17 +376,16 @@ item shapes even when the EF model itself is valid.
 - Letting multiple writers generate inconsistent SK formats for the same item family
 - Using ambiguous prefixes that overlap across types (`USER#` vs `USER_METADATA#` without a clear
     convention)
-- Disabling discriminator filtering before key invariants and query shapes are validated in real
-    traffic
+- Calling `HasNoDiscriminator()` on one type and expecting it to opt out the entire shared table
 
 ## Recommended workflow
 
 1. Start from access patterns (what must be fetched together)
-1. Design PK/SK values to satisfy those patterns
-1. Map all participating entity types to one table
-1. Keep discriminators enabled unless key design alone guarantees safe isolation
-1. Validate query shapes on base and derived sets
-1. Inspect generated query text/logs to confirm key-focused predicates (`PK`, `SK`, `begins_with`)
+2. Design PK/SK values to satisfy those patterns
+3. Map all participating entity types to one table
+4. Keep discriminator metadata on each shared-table entity type unless that type intentionally opts out
+5. Validate query shapes on base and derived sets
+6. Inspect generated query text/logs to confirm key-focused predicates (`PK`, `SK`, `begins_with`)
 
 ## See also
 

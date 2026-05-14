@@ -320,15 +320,18 @@ provider cannot guarantee auto-increment semantics on DynamoDB item writes.
 
 ### Shared-Table Discriminator Constraints
 
-When multiple entity types share the same DynamoDB table, a discriminator is required. The
-following constraints are validated at startup:
+When multiple entity types share the same DynamoDB table, the provider adds discriminator metadata
+by convention. For entity types that keep discriminator metadata, the following constraints are
+validated at startup:
 
 - Discriminator values must be unique within the table group.
 - All entity types in the group must use the same discriminator attribute name.
 - The discriminator attribute name must not collide with the partition key or sort key attribute
     names.
 
-The default discriminator attribute name is `$type`.
+The default discriminator attribute name is `$type`. `HasDiscriminator()` and
+`HasNoDiscriminator()` apply only to the entity type on which they are called; they do not configure
+or disable discrimination for the whole shared-table group.
 
 See [Single-Table Design](modeling/single-table-design.md).
 
