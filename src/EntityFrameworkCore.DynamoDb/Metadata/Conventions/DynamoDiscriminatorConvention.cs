@@ -24,7 +24,7 @@ public sealed class DynamoDiscriminatorConvention(
     public void ProcessEntityTypeAdded(
         IConventionEntityTypeBuilder entityTypeBuilder,
         IConventionContext<IConventionEntityTypeBuilder> context)
-        => ProcessModel(entityTypeBuilder.Metadata.Model, false);
+        => ProcessModel(entityTypeBuilder.Metadata.Model);
 
     /// <inheritdoc />
     public void ProcessEntityTypeAnnotationChanged(
@@ -42,7 +42,7 @@ public sealed class DynamoDiscriminatorConvention(
         if (string.Equals(newTableName, oldTableName, StringComparison.Ordinal))
             return;
 
-        ProcessModel(entityTypeBuilder.Metadata.Model, false);
+        ProcessModel(entityTypeBuilder.Metadata.Model);
     }
 
     /// <inheritdoc />
@@ -54,7 +54,7 @@ public sealed class DynamoDiscriminatorConvention(
     {
         base.ProcessEntityTypeBaseTypeChanged(entityTypeBuilder, newBaseType, oldBaseType, context);
 
-        ProcessModel(entityTypeBuilder.Metadata.Model, false);
+        ProcessModel(entityTypeBuilder.Metadata.Model);
     }
 
     /// <inheritdoc />
@@ -65,7 +65,7 @@ public sealed class DynamoDiscriminatorConvention(
     {
         base.ProcessEntityTypeRemoved(modelBuilder, entityType, context);
 
-        ProcessModel(modelBuilder.Metadata, false);
+        ProcessModel(modelBuilder.Metadata);
     }
 
     /// <inheritdoc />
@@ -82,7 +82,7 @@ public sealed class DynamoDiscriminatorConvention(
         if (name is not null)
         {
             SetDiscriminatorDisabledAnnotation(entityType, false);
-            ProcessModel(entityType.Model, false);
+            ProcessModel(entityType.Model);
             return;
         }
 
@@ -91,7 +91,7 @@ public sealed class DynamoDiscriminatorConvention(
             return;
 
         SetDiscriminatorDisabledAnnotation(entityType, true);
-        ProcessModel(entityType.Model, false);
+        ProcessModel(entityType.Model);
     }
 
     /// <inheritdoc />
@@ -104,16 +104,16 @@ public sealed class DynamoDiscriminatorConvention(
         if (string.Equals(newName, oldName, StringComparison.Ordinal))
             return;
 
-        ProcessModel(modelBuilder.Metadata, false);
+        ProcessModel(modelBuilder.Metadata);
     }
 
     /// <summary>Applies discriminator conventions to table groups that map multiple concrete entity types.</summary>
     public void ProcessModelFinalizing(
         IConventionModelBuilder modelBuilder,
         IConventionContext<IConventionModelBuilder> context)
-        => ProcessModel(modelBuilder.Metadata, true);
+        => ProcessModel(modelBuilder.Metadata);
 
-    private void ProcessModel(IConventionModel model, bool removeSingleTypeConventionDiscriminators)
+    private void ProcessModel(IConventionModel model)
     {
         var rootEntityTypes = model
             .GetEntityTypes()
@@ -131,43 +131,8 @@ public sealed class DynamoDiscriminatorConvention(
                 .Distinct()
                 .ToList();
 
-            if (tableGroup.Any(static rootEntityType
-                => IsDiscriminatorDisabled(rootEntityType)
-                || HasExplicitNoDiscriminator(rootEntityType)))
-            {
-                foreach (var rootEntityType in tableGroup)
-                {
-                    rootEntityType.Builder.HasNoDiscriminator();
-                    SetDiscriminatorDisabledAnnotation(rootEntityType, true);
-                }
-
-                continue;
-            }
-
-            foreach (var rootEntityType in tableGroup)
-                SetDiscriminatorDisabledAnnotation(rootEntityType, false);
-
             if (concreteEntityTypes.Count <= 1 && !hasHierarchy)
             {
-                if (!removeSingleTypeConventionDiscriminators)
-                {
-                    foreach (var rootEntityType in tableGroup)
-                    {
-                        var discriminatorBuilder = rootEntityType.Builder.HasDiscriminator(
-                            rootEntityType.Model.GetEmbeddedDiscriminatorName(),
-                            typeof(string));
-
-                        if (discriminatorBuilder is null)
-                            continue;
-
-                        SetDefaultDiscriminatorValues(
-                            rootEntityType.GetDerivedTypesInclusive(),
-                            discriminatorBuilder);
-                    }
-
-                    continue;
-                }
-
                 foreach (var rootEntityType in tableGroup)
                     RemoveConventionDiscriminator(rootEntityType);
 
@@ -176,9 +141,28 @@ public sealed class DynamoDiscriminatorConvention(
 
             foreach (var rootEntityType in tableGroup)
             {
-                var discriminatorBuilder = rootEntityType.Builder.HasDiscriminator(
-                    rootEntityType.Model.GetEmbeddedDiscriminatorName(),
-                    typeof(string));
+                if (IsDiscriminatorDisabled(rootEntityType)
+                    || HasExplicitNoDiscriminator(rootEntityType))
+                {
+                    RemoveConventionDiscriminator(rootEntityType);
+                    SetDiscriminatorDisabledAnnotation(rootEntityType, true);
+                    continue;
+                }
+
+                SetDiscriminatorDisabledAnnotation(rootEntityType, false);
+
+                var discriminatorProperty = rootEntityType.FindDiscriminatorProperty();
+                var preserveExistingDiscriminator = discriminatorProperty is not null
+                    && rootEntityType.GetDiscriminatorPropertyConfigurationSource()
+                    != ConfigurationSource.Convention;
+
+                var discriminatorBuilder = preserveExistingDiscriminator
+                    ? rootEntityType.Builder.HasDiscriminator(
+                        discriminatorProperty!.Name,
+                        discriminatorProperty.ClrType)
+                    : rootEntityType.Builder.HasDiscriminator(
+                        rootEntityType.Model.GetEmbeddedDiscriminatorName(),
+                        typeof(string));
 
                 if (discriminatorBuilder is null)
                     continue;
