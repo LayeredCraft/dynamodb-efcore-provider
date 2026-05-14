@@ -43,7 +43,7 @@ name.
 For root entity types, table/key mapping resolves in this order (highest precedence first):
 
 1. Explicit configuration (`ToTable(...)`, `HasPartitionKey(...)`, `HasSortKey(...)`)
-2. Conventions (`PK`/`PartitionKey`, `SK`/`SortKey`; table name from CLR type)
+2. Conventions (`PK`/`PartitionKey`, fallback `Id`, `SK`/`SortKey`; table name from CLR type)
 3. Validation outcome (missing partition key throws; partition key resolved with no sort key
     means partition-key-only)
 
@@ -52,7 +52,8 @@ For root entity types, table/key mapping resolves in this order (highest precede
 ## Partition Key
 
 Every DynamoDB table has a partition key. Configure it with `HasPartitionKey(...)` or use
-conventional property names (`PK` or `PartitionKey`, case-insensitive).
+conventional property names (`PK` or `PartitionKey`, case-insensitive). If neither DynamoDB-specific
+name exists, `Id` is used as a fallback partition key name.
 
 `HasPartitionKey(...)` overrides convention-based partition key discovery.
 

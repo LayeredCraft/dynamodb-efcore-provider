@@ -17,12 +17,14 @@ keys. See [Complex Properties and Collections](../modeling/complex-types.md).
 For root entity types, table and key mapping resolves in this order (highest precedence first):
 
 1. Explicit configuration (`ToTable(...)`, `HasPartitionKey(...)`, `HasSortKey(...)`)
-1. Conventions:
+2. Conventions:
     - Table name: CLR type name
     - Partition key property name: `PK` or `PartitionKey` (case-insensitive)
+    - Fallback partition key property name: `Id` (case-insensitive), only when no `PK` or
+        `PartitionKey` property exists
     - Sort key property name: `SK` or `SortKey` (case-insensitive)
-    - No fallback to EF `Id`/`[Key]` conventions for DynamoDB table keys
-1. Validation outcome:
+    - No fallback to `[Key]` or explicit `HasKey(...)` for DynamoDB table keys
+3. Validation outcome:
     - No resolvable partition key: model validation throws `InvalidOperationException`
     - Partition key resolved but no sort key configured/discovered: table is treated as
         partition-key-only
@@ -87,12 +89,19 @@ b.HasPartitionKey(x => x.CustomerId);
 ### Convention-based discovery (when no explicit override is configured)
 
 Properties named `PK` or `PartitionKey` (comparison is case-insensitive) are automatically
-designated as the partition key — no explicit `HasPartitionKey` call is needed:
+designated as the partition key — no explicit `HasPartitionKey` call is needed. If neither exists,
+`Id` is used as a fallback partition key name:
 
 ```csharp
 public class Order
 {
     public string PK { get; set; } = null!;   // discovered as partition key
+    public string Description { get; set; } = null!;
+}
+
+public class SimpleItem
+{
+    public string Id { get; set; } = null!;   // fallback partition key when no PK/PartitionKey exists
     public string Description { get; set; } = null!;
 }
 ```
@@ -108,6 +117,9 @@ property or a getter-only property backed by an EF-mapped field).
     `SortKey`) and no explicit override is configured, the provider throws `InvalidOperationException`
     during model finalization. Use `HasPartitionKey(...)` and/or `HasSortKey(...)` to resolve the
     ambiguity.
+
+    `Id` is only a fallback. If `PK` or `PartitionKey` is present, that DynamoDB-specific name wins
+    over `Id` and does not create ambiguity.
 
 ## Sort Key
 
