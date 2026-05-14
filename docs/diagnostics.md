@@ -441,21 +441,24 @@ APIs can return multiple capacity entries.
 Model validation runs during `DbContext` initialization, before any queries execute. Failures
 throw exceptions — they are not emitted as EF Core log events.
 
-| Validation failure                                | Likely cause                                                                       | Fix                                                                                               |
-| ------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| Shared-table key shape mismatch                   | Entity types on the same table disagree on PK-only vs PK+SK                        | Ensure all entities on the table have matching key configurations                                 |
-| Shared-table key attribute name mismatch          | PK or SK attribute names differ across co-located entity types                     | Use consistent attribute name overrides across all entity types                                   |
-| Key type category mismatch                        | Same attribute is mapped as `string` on one type and `number` on another           | Align value converters so all types agree on the store type                                       |
-| Nullable key property                             | A partition key or sort key property is nullable                                   | DynamoDB key attributes must be non-null; make the property required                              |
-| Non-DynamoDB-compatible key type                  | Key property maps to `bool`, `Guid`, or another unsupported store type             | Add a `ValueConverter` to map to `string`, a number type, or `byte[]`                             |
-| Secondary-index key type incompatible             | GSI/LSI key property resolves to an unsupported type                               | Same as above; applies independently for each index key property                                  |
-| Root entity uses `HasKey(...)` or `[Key]`         | EF Core primary key was declared instead of DynamoDB key mapping                   | Replace with `HasPartitionKey(...)` and `HasSortKey(...)`                                         |
-| Local secondary index without sort key            | `HasLocalSecondaryIndex(...)` on a table that has no sort key                      | LSIs require the table to define both a partition key and a sort key                              |
-| Duplicate discriminator values                    | Two entity types on the same table share the same discriminator value              | Assign a unique discriminator value to each type                                                  |
-| Discriminator attribute name conflicts with PK/SK | The discriminator attribute name collides with the partition or sort key attribute | Change the discriminator name via `HasEmbeddedDiscriminatorName(...)` or rename the key attribute |
+| Validation failure                                | Likely cause                                                                                     | Fix                                                                                               |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| Shared-table key shape mismatch                   | Entity types on the same table disagree on PK-only vs PK+SK                                      | Ensure all entities on the table have matching key configurations                                 |
+| Shared-table key attribute name mismatch          | PK or SK attribute names differ across co-located entity types                                   | Use consistent attribute name overrides across all entity types                                   |
+| Key type category mismatch                        | Same attribute is mapped as `string` on one type and `number` on another                         | Align value converters so all types agree on the store type                                       |
+| Nullable key property                             | A partition key or sort key property is nullable                                                 | DynamoDB key attributes must be non-null; make the property required                              |
+| Non-DynamoDB-compatible key type                  | Key property maps to `bool`, `Guid`, or another unsupported store type                           | Add a `ValueConverter` to map to `string`, a number type, or `byte[]`                             |
+| Secondary-index key type incompatible             | GSI/LSI key property resolves to an unsupported type                                             | Same as above; applies independently for each index key property                                  |
+| Root entity uses `HasKey(...)` or `[Key]`         | EF Core primary key was declared instead of DynamoDB key mapping                                 | Replace with `HasPartitionKey(...)` and `HasSortKey(...)`                                         |
+| Local secondary index without sort key            | `HasLocalSecondaryIndex(...)` on a table that has no sort key                                    | LSIs require the table to define both a partition key and a sort key                              |
+| Duplicate discriminator values                    | Two discriminator-enabled entity types on the same table share the same discriminator value      | Assign a unique discriminator value to each discriminator-enabled type                            |
+| Discriminator attribute name mismatch             | Discriminator-enabled entity types on the same table use different discriminator attribute names | Use one discriminator attribute name for the table group or opt specific types out intentionally  |
+| Discriminator attribute name conflicts with PK/SK | The discriminator attribute name collides with the partition or sort key attribute               | Change the discriminator name via `HasEmbeddedDiscriminatorName(...)` or rename the key attribute |
+| Unexpected missing discriminator predicate        | The queried entity type called `HasNoDiscriminator()` or has no active discriminator metadata    | Keep discriminator metadata on that type, or ensure PK/SK patterns isolate its items              |
+| Unexpected discriminator predicate remains        | Another entity type in the same table still has discriminator metadata                           | `HasNoDiscriminator()` is per type; call it on each type that should opt out                      |
 
-See [Entities and Keys](modeling/entities-keys.md) and [Secondary Indexes](modeling/secondary-indexes.md)
-for configuration details.
+See [Entities and Keys](modeling/entities-keys.md), [Secondary Indexes](modeling/secondary-indexes.md),
+and [Single-Table Design and Discriminators](modeling/single-table-design.md) for configuration details.
 
 ## Translation Failures
 

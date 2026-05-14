@@ -324,8 +324,8 @@ When multiple entity types share the same DynamoDB table, the provider adds disc
 by convention. For entity types that keep discriminator metadata, the following constraints are
 validated at startup:
 
-- Discriminator values must be unique within the table group.
-- All entity types in the group must use the same discriminator attribute name.
+- Discriminator values must be unique among discriminator-enabled entity types within the table group.
+- Discriminator-enabled entity types in the group must use the same discriminator attribute name.
 - The discriminator attribute name must not collide with the partition key or sort key attribute
     names.
 

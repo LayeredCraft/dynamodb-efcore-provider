@@ -128,6 +128,19 @@ Defaults:
 When a shared-table group resolves to exactly one concrete type, a discriminator is not persisted
 for that group.
 
+### Behavior reference
+
+| Scenario                                  | Convention behavior                                                              | Query behavior                                                                             |
+| ----------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| One concrete type in a table group        | No convention discriminator is persisted                                         | No discriminator predicate                                                                 |
+| Two or more concrete types share a table  | Each root type gets discriminator metadata                                       | Queries for discriminator-enabled types include a discriminator predicate                  |
+| Inheritance hierarchy                     | Discriminator is configured on the root and values are assigned to derived types | Base queries include all concrete values; derived queries include one value                |
+| `HasDiscriminator()` on one entity type   | That entity type keeps explicit discriminator metadata                           | Queries for that type use its configured discriminator                                     |
+| `HasNoDiscriminator()` on one entity type | Only that entity type opts out                                                   | Queries for that type omit discriminator predicates; other types keep their own predicates |
+
+Discriminator metadata is tracked per root entity type. For a hierarchy, the root owns the
+configured discriminator property and each concrete derived type gets a discriminator value.
+
 ### Change discriminator attribute name
 
 Use a model-level override:
@@ -136,15 +149,51 @@ Use a model-level override:
 modelBuilder.HasEmbeddedDiscriminatorName("$kind");
 ```
 
+This changes the convention discriminator attribute name for discriminator-enabled shared-table
+types. Explicit `HasDiscriminator(...)` calls keep their configured property unless changed by the
+model.
+
 ### Explicitly configured discriminators
 
 `HasDiscriminator()` and `HasNoDiscriminator()` apply only to the entity type on which they are
 called. They do not configure or disable discrimination for every other type that maps to the same
 DynamoDB table.
 
+Use `HasDiscriminator()` when you need a custom discriminator property or values:
+
+```csharp
+modelBuilder.Entity<User>(b =>
+{
+    b.ToTable("app-table");
+    b.HasPartitionKey(x => x.Pk);
+    b.HasSortKey(x => x.Sk);
+    b.HasDiscriminator<string>("Kind")
+        .HasValue<User>("user");
+});
+```
+
 Calling `HasNoDiscriminator()` on one shared-table type opts only that type out. Queries for that
 type do not include a discriminator predicate; queries for other shared-table types still use their
 own discriminator metadata.
+
+```csharp
+modelBuilder.Entity<User>().HasNoDiscriminator();
+```
+
+With `User` opted out and `Order` still discriminator-enabled, a user query omits `$type` while an
+order query still includes it:
+
+```sql
+SELECT "pk", "sk", "name"
+FROM "app-table"
+WHERE "pk" = 'TENANT#1'
+```
+
+```sql
+SELECT "pk", "sk", "$type", "description"
+FROM "app-table"
+WHERE "pk" = 'TENANT#1' AND "$type" = 'Order'
+```
 
 ## Query behavior
 
@@ -229,7 +278,10 @@ WHERE "pk" = 'TENANT#1' AND "$type" = 'Employee'
     For key-shape examples, continue with [Practical single-table pattern](#practical-single-table-pattern).
 
 Base queries materialize polymorphically (`DbSet<Person>` can return `Employee` and `Manager`).
-When discrimination is active, the discriminator attribute is included in projection.
+When discrimination is active, the discriminator attribute is written with saved items and included
+in projections that materialize entities. The materializer uses that value to choose the concrete
+CLR type. If an entity type opts out with `HasNoDiscriminator()`, queries for that type do not get
+this type-safety predicate; your PK/SK pattern must prevent cross-type reads.
 
 ### `OfType<TDerived>()` limitation
 

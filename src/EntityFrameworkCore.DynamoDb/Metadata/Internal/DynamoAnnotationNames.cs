@@ -23,7 +23,7 @@ public static class DynamoAnnotationNames
     /// <summary>Annotation key for the discriminator strategy applied to a shared-table entity type.</summary>
     public const string DiscriminatorStrategy = Prefix + "DiscriminatorStrategy";
 
-    /// <summary>Marks a shared-table mapping group as explicitly opting out of discriminator metadata.</summary>
+    /// <summary>Marks a shared-table entity type as explicitly opting out of discriminator metadata.</summary>
     public const string DiscriminatorDisabled = Prefix + "DiscriminatorDisabled";
 
     /// <summary>Annotation key for the secondary index name on an entity type or property.</summary>
