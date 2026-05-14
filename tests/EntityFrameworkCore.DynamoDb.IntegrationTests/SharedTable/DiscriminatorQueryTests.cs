@@ -122,7 +122,7 @@ public class DiscriminatorQueryHasNoDiscriminatorTests(DynamoContainerFixture fi
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task
-        SharedTableWithHasNoDiscriminator_DoesNotInjectDiscriminatorPredicate_ForOrders()
+        SharedTableWithHasNoDiscriminator_StillInjectsDiscriminatorPredicate_ForOrders()
     {
         var results = await HasNoDiscriminatorDb
             .Orders
@@ -133,9 +133,9 @@ public class DiscriminatorQueryHasNoDiscriminatorTests(DynamoContainerFixture fi
 
         AssertSql(
             """
-            SELECT "pk", "sk", "description"
+            SELECT "pk", "sk", "$type", "description"
             FROM "app-table"
-            WHERE "pk" = 'TENANT#O'
+            WHERE "pk" = 'TENANT#O' AND "$type" = 'OrderEntity'
             """);
     }
 }

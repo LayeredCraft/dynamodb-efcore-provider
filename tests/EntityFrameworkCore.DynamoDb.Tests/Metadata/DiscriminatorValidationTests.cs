@@ -128,7 +128,6 @@ public class DiscriminatorValidationTests
                 b.ToTable("App");
                 b.HasPartitionKey(x => x.PK);
                 b.HasSortKey(x => x.SK);
-                b.HasNoDiscriminator();
             });
 
             modelBuilder.Entity<OrderEntity>(b =>
@@ -137,6 +136,8 @@ public class DiscriminatorValidationTests
                 b.HasPartitionKey(x => x.PK);
                 b.HasSortKey(x => x.SK);
             });
+
+            modelBuilder.Entity<UserEntity>().HasNoDiscriminator();
         }
 
         /// <summary>Provides functionality for this member.</summary>
@@ -155,7 +156,6 @@ public class DiscriminatorValidationTests
                 b.ToTable("App");
                 b.HasPartitionKey(x => x.PK);
                 b.HasSortKey(x => x.SK);
-                b.HasNoDiscriminator();
             });
 
             modelBuilder.Entity<OrderEntity>(b =>
@@ -163,8 +163,10 @@ public class DiscriminatorValidationTests
                 b.ToTable("App");
                 b.HasPartitionKey(x => x.PK);
                 b.HasSortKey(x => x.SK);
-                b.HasNoDiscriminator();
             });
+
+            modelBuilder.Entity<UserEntity>().HasNoDiscriminator();
+            modelBuilder.Entity<OrderEntity>().HasNoDiscriminator();
         }
 
         /// <summary>Provides functionality for this member.</summary>
@@ -300,10 +302,6 @@ public class DiscriminatorValidationTests
         act.Should().NotThrow();
     }
 
-    // MissingDiscriminatorPropertyContext calls HasDiscriminator() explicitly then nulls the
-    // property via SetDiscriminatorProperty(null). Because HasDiscriminator() was called with an
-    // explicit configuration source, HasExplicitNoDiscriminator() returns true and the convention
-    // treats the whole group as opted out — no throw is expected.
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void SharedTableMultipleTypes_WithMissingDiscriminatorProperty_RemainsValid()
     {

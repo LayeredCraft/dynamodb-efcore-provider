@@ -91,7 +91,7 @@ public class SharedTableSingleTypeDbContext(DbContextOptions options) : DbContex
 
 /// <summary>
 ///     Context with two unrelated entity types sharing the same table while explicitly removing
-///     the discriminator metadata via <c>HasNoDiscriminator()</c>.
+///     discriminator metadata from one type via <c>HasNoDiscriminator()</c>.
 /// </summary>
 public class SharedTableHasNoDiscriminatorDbContext(DbContextOptions options) : DbContext(options)
 {
@@ -112,7 +112,6 @@ public class SharedTableHasNoDiscriminatorDbContext(DbContextOptions options) : 
             builder.ToTable(SharedItemTable.TableName);
             builder.HasPartitionKey(x => x.Pk);
             builder.HasSortKey(x => x.Sk);
-            builder.HasNoDiscriminator();
         });
 
         modelBuilder.Entity<OrderEntity>(builder =>
@@ -121,6 +120,8 @@ public class SharedTableHasNoDiscriminatorDbContext(DbContextOptions options) : 
             builder.HasPartitionKey(x => x.Pk);
             builder.HasSortKey(x => x.Sk);
         });
+
+        modelBuilder.Entity<UserEntity>().HasNoDiscriminator();
     }
 }
 

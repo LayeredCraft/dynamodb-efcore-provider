@@ -1,5 +1,4 @@
 using Amazon.DynamoDBv2;
-using EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using NSubstitute;
@@ -171,6 +170,32 @@ public class DiscriminatorMetadataTests
             => new(BuildOptions<SharedTableHasNoDiscriminatorEarlyContext>(client));
     }
 
+    private sealed class SharedTableHasNoDiscriminatorLateContext(DbContextOptions options)
+        : DbContext(options)
+    {
+        /// <summary>Provides functionality for this member.</summary>
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<UserEntity>(b =>
+            {
+                b.ToTable("App");
+                b.HasPartitionKey(x => x.Id);
+            });
+
+            modelBuilder.Entity<OrderEntity>(b =>
+            {
+                b.ToTable("App");
+                b.HasPartitionKey(x => x.Id);
+            });
+
+            modelBuilder.Entity<UserEntity>().HasNoDiscriminator();
+        }
+
+        /// <summary>Provides functionality for this member.</summary>
+        public static SharedTableHasNoDiscriminatorLateContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<SharedTableHasNoDiscriminatorLateContext>(client));
+    }
+
     private sealed class SplitThenSharedTableContext(DbContextOptions options) : DbContext(options)
     {
         /// <summary>Provides functionality for this member.</summary>
@@ -287,7 +312,7 @@ public class DiscriminatorMetadataTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public void SharedTableHasNoDiscriminator_EarlyCall_DisablesDiscriminatorForGroup()
+    public void SharedTableHasNoDiscriminator_EarlyCall_DoesNotDisableDiscriminatorForGroup()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
         using var context = SharedTableHasNoDiscriminatorEarlyContext.Create(client);
@@ -295,9 +320,20 @@ public class DiscriminatorMetadataTests
         var userEntityType = context.Model.FindEntityType(typeof(UserEntity))!;
         var orderEntityType = context.Model.FindEntityType(typeof(OrderEntity))!;
 
+        userEntityType.FindDiscriminatorProperty()!.Name.Should().Be("$type");
+        orderEntityType.FindDiscriminatorProperty()!.Name.Should().Be("$type");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void SharedTableHasNoDiscriminator_LateCall_DisablesOnlyThatType()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var context = SharedTableHasNoDiscriminatorLateContext.Create(client);
+
+        var userEntityType = context.Model.FindEntityType(typeof(UserEntity))!;
+        var orderEntityType = context.Model.FindEntityType(typeof(OrderEntity))!;
+
         userEntityType.FindDiscriminatorProperty().Should().BeNull();
-        orderEntityType.FindDiscriminatorProperty().Should().BeNull();
-        userEntityType[DynamoAnnotationNames.DiscriminatorDisabled].Should().Be(true);
-        orderEntityType[DynamoAnnotationNames.DiscriminatorDisabled].Should().Be(true);
+        orderEntityType.FindDiscriminatorProperty()!.Name.Should().Be("$type");
     }
 }
