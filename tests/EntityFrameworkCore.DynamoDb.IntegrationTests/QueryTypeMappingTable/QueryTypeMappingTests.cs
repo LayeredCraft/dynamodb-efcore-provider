@@ -350,31 +350,44 @@ public class QueryTypeMappingTests : QueryTypeMappingTestFixture
     public async Task SaveChanges_writes_converted_enum_wire_values()
     {
         var pk = $"ITEM#WRITE#{Guid.NewGuid():N}";
-        Db.Items.Add(
-            new QueryTypeMappingItem
-            {
-                Pk = pk,
-                ShortValue = 10,
-                NullableShortValue = null,
-                NumericStatus = (MappingStatus)99,
-                StringStatus = (MappingStatus)99,
-                NullableStringStatus = null,
-                Profile = new QueryTypeMappingProfile { Status = (MappingStatus)99 },
-            });
+        try
+        {
+            Db.Items.Add(
+                new QueryTypeMappingItem
+                {
+                    Pk = pk,
+                    ShortValue = 10,
+                    NullableShortValue = null,
+                    NumericStatus = (MappingStatus)99,
+                    StringStatus = (MappingStatus)99,
+                    NullableStringStatus = null,
+                    Profile = new QueryTypeMappingProfile { Status = (MappingStatus)99 },
+                });
 
-        await Db.SaveChangesAsync(CancellationToken);
+            await Db.SaveChangesAsync(CancellationToken);
 
-        var response = await Client.GetItemAsync(
-            new GetItemRequest
-            {
-                TableName = "QueryTypeMappingItems",
-                Key = new Dictionary<string, AttributeValue> { ["pk"] = new() { S = pk }, },
-            },
-            CancellationToken);
+            var response = await Client.GetItemAsync(
+                new GetItemRequest
+                {
+                    TableName = "QueryTypeMappingItems",
+                    Key = new Dictionary<string, AttributeValue> { ["pk"] = new() { S = pk }, },
+                },
+                CancellationToken);
 
-        response.Item["stringStatus"].S.Should().Be("99");
-        response.Item["nullableStringStatus"].NULL.Should().BeTrue();
-        response.Item["profile"].M["status"].S.Should().Be("99");
+            response.Item["stringStatus"].S.Should().Be("99");
+            response.Item["nullableStringStatus"].NULL.Should().BeTrue();
+            response.Item["profile"].M["status"].S.Should().Be("99");
+        }
+        finally
+        {
+            await Client.DeleteItemAsync(
+                new DeleteItemRequest
+                {
+                    TableName = "QueryTypeMappingItems",
+                    Key = new Dictionary<string, AttributeValue> { ["pk"] = new() { S = pk }, },
+                },
+                CancellationToken);
+        }
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
