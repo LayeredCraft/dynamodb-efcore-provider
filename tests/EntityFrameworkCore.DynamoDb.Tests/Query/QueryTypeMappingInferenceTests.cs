@@ -196,6 +196,45 @@ public class QueryTypeMappingInferenceTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Nullable_enum_underlying_cast_on_converted_property_is_rejected()
+    {
+        var (client, captured) = CreateClient();
+        await using var context = QueryTypeMappingContext.Create(client);
+        var status = 1;
+
+        var act = () => context
+            .Items
+            .AllowScan()
+            .Where(e => e.NullableStringStatus.HasValue
+                && (int)e.NullableStringStatus.Value == status)
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+        captured.Should().BeEmpty();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task
+        Parameterized_contains_enum_underlying_cast_on_converted_property_is_rejected()
+    {
+        var (client, captured) = CreateClient();
+        await using var context = QueryTypeMappingContext.Create(client);
+        var values = new[] { 1 };
+
+        var act = () => context
+            .Items
+            .AllowScan()
+            .Where(e => values.Contains((int)e.StringStatus))
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*value-converted enum*numeric underlying type*");
+        captured.Should().BeEmpty();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Converted_property_parameter_uses_property_converter_mapping()
     {
         var (client, captured) = CreateClient();
@@ -256,6 +295,7 @@ public class QueryTypeMappingInferenceTests
             .Where(e => e.Code == code)
             .ToListAsync(TestContext.Current.CancellationToken);
 
+        captured.Single().Statement.Should().Contain("WHERE \"code\" = ?");
         captured.Single().Parameters.Single().S.Should().Be("A-1");
     }
 
@@ -336,6 +376,7 @@ public class QueryTypeMappingInferenceTests
             .Where(e => values.Contains(e.ShortValue))
             .ToListAsync(TestContext.Current.CancellationToken);
 
+        captured.Single().Statement.Should().Contain("WHERE \"shortValue\" IN [?, ?]");
         captured.Single().Parameters.Select(p => p.N).Should().Equal("1", "2");
     }
 
@@ -352,6 +393,7 @@ public class QueryTypeMappingInferenceTests
             .Where(e => values.Contains(e.StringStatus))
             .ToListAsync(TestContext.Current.CancellationToken);
 
+        captured.Single().Statement.Should().Contain("WHERE \"stringStatus\" IN [?]");
         captured.Single().Parameters.Select(p => p.S).Should().Equal(nameof(StringStatus.Active));
     }
 

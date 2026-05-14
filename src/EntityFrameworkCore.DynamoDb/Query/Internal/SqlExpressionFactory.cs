@@ -30,11 +30,10 @@ public sealed class SqlExpressionFactory(ITypeMappingSource typeMappingSource)
         };
 
         var isLogical = operatorType is ExpressionType.AndAlso or ExpressionType.OrElse;
-        // A string-converted enum compared to an int parameter would bind the parameter as N
+        // A string-converted enum compared to its underlying numeric value would bind the value
         // against an S attribute. Reject that shape instead of silently producing no matches.
-        if (!isLogical && IsConvertedEnumComparedToUnderlyingNumber(left, right))
-            throw new InvalidOperationException(
-                DynamoStrings.ConvertedEnumUnderlyingCastNotSupported);
+        if (!isLogical)
+            ThrowIfConvertedEnumComparedToUnderlyingNumber(left, right);
 
         var operandTypeMapping = isLogical
             ? typeMappingSource.FindMapping(typeof(bool))
@@ -96,6 +95,7 @@ public sealed class SqlExpressionFactory(ITypeMappingSource typeMappingSource)
             var changed = false;
             for (var i = 0; i < values.Count; i++)
             {
+                ThrowIfConvertedEnumComparedToUnderlyingNumber(mappedItem, values[i]);
                 remappedValues[i] = ApplyTypeMapping(values[i], itemTypeMapping);
                 changed |= !ReferenceEquals(remappedValues[i], values[i]);
             }
@@ -120,6 +120,7 @@ public sealed class SqlExpressionFactory(ITypeMappingSource typeMappingSource)
     {
         SqlInExpression.ValidateValueSource(null, valuesParameter);
         var mappedItem = ApplyDefaultTypeMapping(item);
+        ThrowIfConvertedEnumComparedToUnderlyingNumber(mappedItem, valuesParameter);
         return new SqlInExpression(
             mappedItem,
             null,
@@ -164,6 +165,8 @@ public sealed class SqlExpressionFactory(ITypeMappingSource typeMappingSource)
 
         if (typeMapping != null)
         {
+            ThrowIfConvertedEnumComparedToUnderlyingNumber(subject, low);
+            ThrowIfConvertedEnumComparedToUnderlyingNumber(subject, high);
             subject = ApplyTypeMapping(subject, typeMapping);
             low = ApplyTypeMapping(low, typeMapping);
             high = ApplyTypeMapping(high, typeMapping);
@@ -172,11 +175,15 @@ public sealed class SqlExpressionFactory(ITypeMappingSource typeMappingSource)
         return new SqlBetweenExpression(subject, low, high);
     }
 
-    private static bool IsConvertedEnumComparedToUnderlyingNumber(
+    private static void ThrowIfConvertedEnumComparedToUnderlyingNumber(
         SqlExpression left,
         SqlExpression right)
-        => IsConvertedEnumComparedToUnderlyingNumberFrom(left, right)
-            || IsConvertedEnumComparedToUnderlyingNumberFrom(right, left);
+    {
+        if (IsConvertedEnumComparedToUnderlyingNumberFrom(left, right)
+            || IsConvertedEnumComparedToUnderlyingNumberFrom(right, left))
+            throw new InvalidOperationException(
+                DynamoStrings.ConvertedEnumUnderlyingCastNotSupported);
+    }
 
     private static bool IsConvertedEnumComparedToUnderlyingNumberFrom(
         SqlExpression enumExpression,
@@ -186,12 +193,20 @@ public sealed class SqlExpressionFactory(ITypeMappingSource typeMappingSource)
         if (!enumType.IsEnum || enumExpression.TypeMapping?.Converter == null)
             return false;
 
-        var otherType = Nullable.GetUnderlyingType(otherExpression.Type) ?? otherExpression.Type;
-        // Constants like e.Status == Status.Active are typed as the enum in C# but appear with an
-        // underlying value in expression trees; property mapping still makes those safe. The unsafe
-        // case is parameter comparison after an explicit numeric cast.
         return otherExpression is SqlParameterExpression
-            && otherType == Enum.GetUnderlyingType(enumType);
+            && GetValueOrElementType(otherExpression.Type) == Enum.GetUnderlyingType(enumType);
+    }
+
+    private static Type GetValueOrElementType(Type type)
+    {
+        var nonNullableType = Nullable.GetUnderlyingType(type) ?? type;
+        if (nonNullableType.IsArray)
+            return nonNullableType.GetElementType()!;
+
+        return nonNullableType.IsGenericType
+            && nonNullableType.GetGenericTypeDefinition() == typeof(IEnumerable<>)
+                ? nonNullableType.GetGenericArguments()[0]
+                : nonNullableType;
     }
 
     private static CoreTypeMapping? InferTypeMapping(SqlExpression first, SqlExpression second)

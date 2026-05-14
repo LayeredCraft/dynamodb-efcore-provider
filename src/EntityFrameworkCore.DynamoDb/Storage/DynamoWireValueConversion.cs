@@ -6,6 +6,8 @@ namespace EntityFrameworkCore.DynamoDb.Storage;
 internal static class DynamoWireValueConversion
 {
     /// <summary>Returns whether the CLR type is represented as a numeric DynamoDB value.</summary>
+    /// <param name="type">CLR type to inspect.</param>
+    /// <returns><see langword="true" /> when values of <paramref name="type" /> use DynamoDB number wire values.</returns>
     public static bool IsNumericType(Type type)
         => type.IsEnum
             || type == typeof(byte)
@@ -21,6 +23,8 @@ internal static class DynamoWireValueConversion
             || type == typeof(decimal);
 
     /// <summary>Returns whether the CLR type is an integral numeric type.</summary>
+    /// <param name="type">CLR type to inspect.</param>
+    /// <returns><see langword="true" /> when <paramref name="type" /> is an integral numeric type.</returns>
     public static bool IsIntegralType(Type type)
         => type == typeof(byte)
             || type == typeof(sbyte)
@@ -32,10 +36,16 @@ internal static class DynamoWireValueConversion
             || type == typeof(ulong);
 
     /// <summary>Returns whether an integral type can represent an enum underlying type.</summary>
+    /// <param name="valueType">Candidate value type.</param>
+    /// <param name="underlyingType">Enum underlying type.</param>
+    /// <returns><see langword="true" /> when both types are integral numeric types.</returns>
     public static bool CanRepresentEnumUnderlyingType(Type valueType, Type underlyingType)
         => IsIntegralType(valueType) && IsIntegralType(underlyingType);
 
     /// <summary>Formats an enum as its numeric DynamoDB wire value.</summary>
+    /// <param name="value">Enum value to format.</param>
+    /// <returns>Invariant-culture numeric representation of <paramref name="value" />.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when the enum has an unsupported underlying type.</exception>
     public static string FormatEnum(object value)
         => Type.GetTypeCode(Enum.GetUnderlyingType(value.GetType())) switch
         {
@@ -99,6 +109,9 @@ internal static class DynamoWireValueConversion
         if (value is null)
             return new AttributeValue { NULL = true };
 
+        if (value.GetType().IsEnum)
+            return new AttributeValue { N = FormatEnum(value) };
+
         return value switch
         {
             string s => new AttributeValue { S = s },
@@ -129,6 +142,9 @@ internal static class DynamoWireValueConversion
     {
         if (value == null)
             return "NULL";
+
+        if (value.GetType().IsEnum)
+            return FormatEnum(value);
 
         return value switch
         {
