@@ -11,6 +11,8 @@ _Every entity type in the DynamoDB EF Core provider must declare a partition key
 
 Root entity types (non-owned, non-derived) map to DynamoDB tables and must resolve table keys.
 Key mapping can be explicit (`HasPartitionKey(...)`, `HasSortKey(...)`) or convention-based.
+Root entities are independent DynamoDB items; the provider does not support EF Core foreign-key or
+navigation relationships between them.
 
 ```csharp
 modelBuilder.Entity<Order>(b =>
@@ -28,6 +30,13 @@ modelBuilder.Entity<Order>(b =>
 
 If no explicit `ToTable(...)` is configured, the provider uses the CLR type name as the table
 name.
+
+!!! warning "No EF relationships"
+
+    `HasOne(...)`, `HasMany(...)`, `WithOne(...)`, `WithMany(...)`, `HasForeignKey(...)`,
+    `[ForeignKey]`, and `[InverseProperty]` are not supported. Use complex types for embedded
+    data, or model separate DynamoDB items/tables as separate root entities and join them in
+    application code when needed.
 
 ## Defaults and Overrides
 

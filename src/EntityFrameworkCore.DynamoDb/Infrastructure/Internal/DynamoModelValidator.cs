@@ -19,6 +19,8 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
     {
         // Run DynamoDB-specific pre-flight checks before EF base validation so that
         // provider-specific error messages take precedence over EF's generic errors.
+        ValidateNoForeignKeyRelationships(model);
+        ValidateNoNavigationRelationships(model);
         ValidateRootEntityDoesNotUseExplicitPrimaryKeyConfiguration(model);
         ValidateRootEntityHasPartitionKey(model);
         ValidateSortKeyHasResolvablePartitionKey(model);
@@ -56,6 +58,77 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
                 || entityType.IsOwned()
                 || entityType.FindOwnership() != null)
                 throw DynamoModelValidationErrors.OwnedEntityTypesNotSupported(entityType);
+    }
+
+    /// <summary>Rejects non-ownership EF foreign-key relationships before EF base validation.</summary>
+    private static void ValidateNoForeignKeyRelationships(IModel model)
+    {
+        foreach (var entityType in model.GetEntityTypes())
+        {
+            foreach (var foreignKey in entityType.GetDeclaredForeignKeys())
+            {
+                if (foreignKey.IsOwnership)
+                    continue;
+
+                throw DynamoModelValidationErrors.ForeignKeyRelationshipsNotSupported(foreignKey);
+            }
+        }
+    }
+
+    /// <summary>Rejects CLR navigation properties before EF base validation emits generic errors.</summary>
+    private static void ValidateNoNavigationRelationships(IModel model)
+    {
+        var entityClrTypes = model
+            .GetEntityTypes()
+            .Select(static entityType => entityType.ClrType)
+            .ToHashSet();
+
+        foreach (var entityType in model.GetEntityTypes())
+        {
+            var mappedMemberNames = entityType
+                .GetMembers()
+                .Select(static member => member.Name)
+                .ToHashSet(StringComparer.Ordinal);
+
+            foreach (var propertyInfo in entityType.ClrType.GetProperties())
+            {
+                if (mappedMemberNames.Contains(propertyInfo.Name)
+                    || ((IConventionEntityType)entityType).FindIgnoredConfigurationSource(
+                        propertyInfo.Name)
+                    != null)
+                    continue;
+
+                var targetType = GetEntityNavigationTargetType(propertyInfo.PropertyType);
+                if (targetType is null || !entityClrTypes.Contains(targetType))
+                    continue;
+
+                throw DynamoModelValidationErrors.NavigationRelationshipsNotSupported(
+                    entityType,
+                    propertyInfo.Name,
+                    targetType);
+            }
+        }
+    }
+
+    /// <summary>Gets the entity CLR type targeted by a possible navigation property.</summary>
+    private static Type? GetEntityNavigationTargetType(Type propertyType)
+    {
+        if (propertyType == typeof(string) || propertyType == typeof(byte[]))
+            return null;
+
+        if (!propertyType.IsGenericType)
+            return propertyType;
+
+        if (propertyType.GetGenericTypeDefinition() == typeof(Nullable<>))
+            return Nullable.GetUnderlyingType(propertyType);
+
+        var enumerableType = propertyType
+            .GetInterfaces()
+            .Append(propertyType)
+            .FirstOrDefault(static type
+                => type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IEnumerable<>));
+
+        return enumerableType?.GetGenericArguments()[0] ?? propertyType;
     }
 
     /// <summary>
