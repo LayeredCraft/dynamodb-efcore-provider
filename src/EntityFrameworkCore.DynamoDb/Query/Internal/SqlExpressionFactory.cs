@@ -16,7 +16,6 @@ public sealed class SqlExpressionFactory(ITypeMappingSource typeMappingSource)
         SqlExpression left,
         SqlExpression right)
     {
-        // Determine the result type based on the operator
         var resultType = operatorType switch
         {
             ExpressionType.Equal
@@ -30,13 +29,29 @@ public sealed class SqlExpressionFactory(ITypeMappingSource typeMappingSource)
             _ => left.Type,
         };
 
-        // Apply type mapping to operands if needed
-        var typeMapping = left.TypeMapping ?? right.TypeMapping;
-        if (typeMapping == null
-            && operatorType is not (ExpressionType.AndAlso or ExpressionType.OrElse))
-            typeMapping = typeMappingSource.FindMapping(left.Type);
+        var isLogical = operatorType is ExpressionType.AndAlso or ExpressionType.OrElse;
+        // A string-converted enum compared to its underlying numeric value would bind the value
+        // against an S attribute. Reject that shape instead of silently producing no matches.
+        if (!isLogical)
+            ThrowIfConvertedEnumComparedToUnderlyingNumber(left, right);
 
-        return new SqlBinaryExpression(operatorType, left, right, resultType, typeMapping);
+        var operandTypeMapping = isLogical
+            ? typeMappingSource.FindMapping(typeof(bool))
+            : InferTypeMapping(left, right);
+        if (operandTypeMapping == null && !isLogical)
+            operandTypeMapping = typeMappingSource.FindMapping(left.Type);
+
+        if (operandTypeMapping != null)
+        {
+            left = ApplyTypeMapping(left, operandTypeMapping);
+            right = ApplyTypeMapping(right, operandTypeMapping);
+        }
+
+        var resultTypeMapping = resultType == typeof(bool)
+            ? typeMappingSource.FindMapping(typeof(bool))
+            : operandTypeMapping;
+
+        return new SqlBinaryExpression(operatorType, left, right, resultType, resultTypeMapping);
     }
 
     /// <inheritdoc />
@@ -72,7 +87,29 @@ public sealed class SqlExpressionFactory(ITypeMappingSource typeMappingSource)
     {
         SqlInExpression.ValidateValueSource(values, null);
         var mappedItem = ApplyDefaultTypeMapping(item);
-        return new SqlInExpression(mappedItem, values, null, isPartitionKeyComparison, null);
+        var itemTypeMapping = mappedItem.TypeMapping;
+        var mappedValues = values;
+        if (itemTypeMapping != null)
+        {
+            var remappedValues = new SqlExpression[values.Count];
+            var changed = false;
+            for (var i = 0; i < values.Count; i++)
+            {
+                ThrowIfConvertedEnumComparedToUnderlyingNumber(mappedItem, values[i]);
+                remappedValues[i] = ApplyTypeMapping(values[i], itemTypeMapping);
+                changed |= !ReferenceEquals(remappedValues[i], values[i]);
+            }
+
+            if (changed)
+                mappedValues = remappedValues;
+        }
+
+        return new SqlInExpression(
+            mappedItem,
+            mappedValues,
+            null,
+            isPartitionKeyComparison,
+            typeMappingSource.FindMapping(typeof(bool)));
     }
 
     /// <inheritdoc />
@@ -83,12 +120,13 @@ public sealed class SqlExpressionFactory(ITypeMappingSource typeMappingSource)
     {
         SqlInExpression.ValidateValueSource(null, valuesParameter);
         var mappedItem = ApplyDefaultTypeMapping(item);
+        ThrowIfConvertedEnumComparedToUnderlyingNumber(mappedItem, valuesParameter);
         return new SqlInExpression(
             mappedItem,
             null,
             valuesParameter,
             isPartitionKeyComparison,
-            null);
+            typeMappingSource.FindMapping(typeof(bool)));
     }
 
     /// <inheritdoc />
@@ -121,17 +159,97 @@ public sealed class SqlExpressionFactory(ITypeMappingSource typeMappingSource)
         SqlExpression subject,
         SqlExpression low,
         SqlExpression high)
-        => new(subject, low, high);
+    {
+        var typeMapping = InferTypeMapping(subject, low, high)
+            ?? typeMappingSource.FindMapping(subject.Type);
+
+        if (typeMapping != null)
+        {
+            ThrowIfConvertedEnumComparedToUnderlyingNumber(subject, low);
+            ThrowIfConvertedEnumComparedToUnderlyingNumber(subject, high);
+            subject = ApplyTypeMapping(subject, typeMapping);
+            low = ApplyTypeMapping(low, typeMapping);
+            high = ApplyTypeMapping(high, typeMapping);
+        }
+
+        return new SqlBetweenExpression(subject, low, high);
+    }
+
+    private static void ThrowIfConvertedEnumComparedToUnderlyingNumber(
+        SqlExpression left,
+        SqlExpression right)
+    {
+        if (IsConvertedEnumComparedToUnderlyingNumberFrom(left, right)
+            || IsConvertedEnumComparedToUnderlyingNumberFrom(right, left))
+            throw new InvalidOperationException(
+                DynamoStrings.ConvertedEnumUnderlyingCastNotSupported);
+    }
+
+    private static bool IsConvertedEnumComparedToUnderlyingNumberFrom(
+        SqlExpression enumExpression,
+        SqlExpression otherExpression)
+    {
+        var enumType = Nullable.GetUnderlyingType(enumExpression.Type) ?? enumExpression.Type;
+        if (!enumType.IsEnum || enumExpression.TypeMapping?.Converter == null)
+            return false;
+
+        return otherExpression is SqlParameterExpression
+            && GetValueOrElementType(otherExpression.Type) == Enum.GetUnderlyingType(enumType);
+    }
+
+    private static Type GetValueOrElementType(Type type)
+    {
+        var nonNullableType = Nullable.GetUnderlyingType(type) ?? type;
+        if (nonNullableType.IsArray)
+            return nonNullableType.GetElementType()!;
+
+        if (nonNullableType.IsGenericType
+            && nonNullableType.GetGenericTypeDefinition() == typeof(IEnumerable<>))
+            return nonNullableType.GetGenericArguments()[0];
+
+        var enumerableInterface =
+            nonNullableType
+                .GetInterfaces()
+                .FirstOrDefault(i => i.IsGenericType
+                    && i.GetGenericTypeDefinition() == typeof(IEnumerable<>));
+
+        return enumerableInterface?.GetGenericArguments()[0] ?? nonNullableType;
+    }
+
+    private static CoreTypeMapping? InferTypeMapping(SqlExpression first, SqlExpression second)
+        => PreferNonValueMapping(first)
+            ?? PreferNonValueMapping(second) ?? first.TypeMapping ?? second.TypeMapping;
+
+    private static CoreTypeMapping? InferTypeMapping(
+        SqlExpression first,
+        SqlExpression second,
+        SqlExpression third)
+        => PreferNonValueMapping(first)
+            ?? PreferNonValueMapping(second)
+            ?? PreferNonValueMapping(third)
+            ?? first.TypeMapping ?? second.TypeMapping ?? third.TypeMapping;
+
+    private static CoreTypeMapping? PreferNonValueMapping(SqlExpression expression)
+        => expression is not SqlConstantExpression and not SqlParameterExpression
+            ? expression.TypeMapping
+            : null;
 
     /// <inheritdoc />
     public SqlExpression ApplyTypeMapping(SqlExpression sqlExpression, Type type)
+        => ApplyTypeMapping(sqlExpression, typeMappingSource.FindMapping(type));
+
+    /// <inheritdoc />
+    public SqlExpression ApplyTypeMapping(SqlExpression sqlExpression, CoreTypeMapping? typeMapping)
     {
-        var typeMapping = typeMappingSource.FindMapping(type);
+        if (ReferenceEquals(sqlExpression.TypeMapping, typeMapping))
+            return sqlExpression;
+
         return sqlExpression switch
         {
             SqlConstantExpression constant => constant.ApplyTypeMapping(typeMapping),
             SqlParameterExpression parameter => parameter.ApplyTypeMapping(typeMapping),
             SqlPropertyExpression property => property.ApplyTypeMapping(typeMapping),
+            DynamoScalarAccessExpression scalarAccess => scalarAccess.ApplyTypeMapping(typeMapping),
             _ => sqlExpression,
         };
     }

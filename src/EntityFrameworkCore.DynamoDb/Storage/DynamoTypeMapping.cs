@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Linq.Expressions;
 using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.Storage.Internal;
@@ -24,7 +25,7 @@ namespace EntityFrameworkCore.DynamoDb.Storage;
 ///         property via model builder is ignored by this provider.
 ///     </para>
 ///     <para>
-///         Literal generation uses <see cref="GenerateConstant" /> rather than
+///         Literal generation uses <see cref="GenerateConstant(object?)" /> rather than
 ///         <c>RelationalTypeMapping.GenerateSqlLiteral</c>. The latter is relational-only and
 ///         is neither inherited by <see cref="Microsoft.EntityFrameworkCore.Storage.CoreTypeMapping" />
 ///         subclasses nor auto-invoked by EF Core infrastructure for non-relational providers.
@@ -34,7 +35,11 @@ namespace EntityFrameworkCore.DynamoDb.Storage;
 public class DynamoTypeMapping : CoreTypeMapping
 {
     internal DynamoValueReaderWriter? ReaderWriter { get; }
-    private readonly IDynamoUntypedValueWriter? _untypedValueWriter;
+
+    private readonly ConcurrentDictionary<Type, Func<object?, AttributeValue>>
+        _attributeValueSerializers = new();
+
+    private readonly ConcurrentDictionary<Type, Func<object?, string>> _literalSerializers = new();
 
     /// <summary>Creates a mapping for the given CLR type.</summary>
     public DynamoTypeMapping(
@@ -44,18 +49,12 @@ public class DynamoTypeMapping : CoreTypeMapping
         new CoreTypeMappingParameters(clrType, null, comparer, keyComparer))
     {
         ReaderWriter = CreateReaderWriter(Parameters);
-        // Cache the untyped adapter once per mapping; EF reaches us with object values, but the
-        // typed codec pipeline resumes immediately behind this boundary.
-        _untypedValueWriter = ReaderWriter?.CreateUntypedValueWriter();
     }
 
     /// <summary>Creates a mapping from a fully-specified EF Core mapping parameter set.</summary>
     protected DynamoTypeMapping(CoreTypeMappingParameters parameters) : base(parameters)
     {
         ReaderWriter = CreateReaderWriter(parameters);
-        // Cache the untyped adapter once per mapping; EF reaches us with object values, but the
-        // typed codec pipeline resumes immediately behind this boundary.
-        _untypedValueWriter = ReaderWriter?.CreateUntypedValueWriter();
     }
 
     /// <summary>Clones the mapping with updated parameters.</summary>
@@ -95,40 +94,55 @@ public class DynamoTypeMapping : CoreTypeMapping
 
     /// <summary>Serializes a model CLR value to an <see cref="AttributeValue" />.</summary>
     /// <remarks>
-    ///     EF exposes runtime values to mappings as <see cref="object" />. This is the unavoidable
-    ///     untyped provider boundary; the cast happens in the cached adapter and the typed codec
-    ///     pipeline resumes immediately after that handoff.
+    ///     EF exposes runtime query values to mappings as <see cref="object" />. The runtime value
+    ///     serializer is the narrow adapter back into typed expression-based conversion.
     /// </remarks>
     internal virtual AttributeValue CreateAttributeValue(object? value)
-    {
-        if (value == null)
-            return new AttributeValue { NULL = true };
+        => DynamoQueryValueSerializer.CreateAttributeValue(this, _attributeValueSerializers, value);
 
-        return _untypedValueWriter?.Write(value)
+    /// <summary>Serializes a value whose runtime/source CLR type is already known.</summary>
+    internal virtual AttributeValue CreateAttributeValue(object? value, Type sourceType)
+        => DynamoQueryValueSerializer.CreateAttributeValue(
+            this,
+            _attributeValueSerializers,
+            value,
+            sourceType);
+
+    /// <summary>Builds the typed expression used by cached query/runtime serializers.</summary>
+    internal virtual Expression CreateAttributeValueExpression(Expression valueExpression)
+        => ReaderWriter?.CreateWriteExpression(valueExpression)
             ?? throw new NotSupportedException(
                 $"CLR type '{ClrType.Name}' is not supported for DynamoDB AttributeValue serialization.");
-    }
 
     /// <summary>Generates a PartiQL literal for a constant value.</summary>
     /// <remarks>
-    ///     Follows the same template method pattern as <c>RelationalTypeMapping.GenerateSqlLiteral</c>:
-    ///     this public entry point handles null, then delegates to
-    ///     <see cref="GenerateNonNullConstant" /> for non-null values. Subclasses override
-    ///     <see cref="GenerateNonNullConstant" /> rather than this method.
+    ///     EF exposes constants as boxed values. This public boundary infers the runtime source type
+    ///     once, then dispatches through a cached typed expression-tree serializer.
     /// </remarks>
     public virtual string GenerateConstant(object? value)
-        => value == null ? "NULL" : GenerateNonNullConstant(value);
+        => value is null ? "NULL" : GenerateNonNullConstant(value);
+
+    /// <summary>Generates a PartiQL literal for a value whose runtime/source CLR type is known.</summary>
+    internal virtual string GenerateConstant(object? value, Type sourceType)
+        => DynamoQueryValueSerializer.GenerateLiteral(this, _literalSerializers, value, sourceType);
+
+    /// <summary>Builds the typed expression used by cached PartiQL literal serializers.</summary>
+    internal virtual Expression CreatePartiQlLiteralExpression(Expression valueExpression)
+        => ReaderWriter?.CreatePartiQlLiteralExpression(valueExpression)
+            ?? throw new NotSupportedException(
+                $"CLR type '{ClrType.Name}' is not supported for PartiQL constant generation.");
 
     /// <summary>Generates a PartiQL literal for a known non-null value.</summary>
     /// <remarks>
-    ///     This is the override point for subclasses, mirroring
-    ///     <c>RelationalTypeMapping.GenerateNonNullSqlLiteral</c>. The base implementation delegates to
-    ///     the cached typed adapter in the mapping-owned codec pipeline.
+    ///     This override point exists for compatibility with the previous template-method shape.
+    ///     The base implementation immediately resumes the typed expression-tree serializer.
     /// </remarks>
     protected virtual string GenerateNonNullConstant(object value)
-        => _untypedValueWriter?.ToPartiQlLiteral(value)
-            ?? throw new NotSupportedException(
-                $"CLR type '{ClrType.Name}' is not supported for PartiQL constant generation.");
+        => DynamoQueryValueSerializer.GenerateLiteral(
+            this,
+            _literalSerializers,
+            value,
+            value.GetType());
 
     private static DynamoValueReaderWriter? CreateReaderWriter(CoreTypeMappingParameters parameters)
     {

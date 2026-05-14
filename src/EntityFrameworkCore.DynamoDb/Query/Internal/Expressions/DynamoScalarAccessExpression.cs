@@ -33,9 +33,15 @@ public sealed class DynamoScalarAccessExpression(
             : new DynamoScalarAccessExpression(visitedParent, PropertyName, Type, TypeMapping);
     }
 
+    /// <summary>Creates a new scalar access expression with the specified type mapping.</summary>
+    /// <param name="typeMapping">The type mapping to apply.</param>
+    /// <returns>A scalar access expression with the specified type mapping.</returns>
+    public DynamoScalarAccessExpression ApplyTypeMapping(CoreTypeMapping? typeMapping)
+        => new(Parent, PropertyName, Type, typeMapping);
+
     /// <inheritdoc />
     protected override SqlExpression WithTypeMapping(CoreTypeMapping? typeMapping)
-        => new DynamoScalarAccessExpression(Parent, PropertyName, Type, typeMapping);
+        => ApplyTypeMapping(typeMapping);
 
     /// <inheritdoc />
     public override void Print(ExpressionPrinter expressionPrinter)

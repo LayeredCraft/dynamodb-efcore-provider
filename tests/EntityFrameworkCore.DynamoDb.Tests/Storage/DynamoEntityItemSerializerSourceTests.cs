@@ -37,6 +37,66 @@ public class DynamoEntityItemSerializerSourceTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void BuildItem_EnumWithStringConverter_UsesStringAttributeValue()
+    {
+        using var db = new ConvertedEnumDbContext(
+            new DbContextOptionsBuilder<ConvertedEnumDbContext>()
+                .UseDynamo()
+                .ConfigureWarnings(w
+                    => w
+                        .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                        .Ignore(DynamoEventId.ScanLikeQueryDetected))
+                .Options);
+
+        var entity = new ConvertedEnumEntity
+        {
+            Pk = "E#1",
+            Sk = "E1",
+            Status = ConvertedStatus.Active,
+            OptionalStatus = ConvertedStatus.Inactive,
+        };
+
+        db.Add(entity);
+
+        var serializer = db.GetService<DynamoEntityItemSerializerSource>();
+        var updateEntry = (IUpdateEntry)db.Entry(entity).GetInfrastructure();
+
+        var item = serializer.BuildItem(updateEntry);
+        item["status"].S.Should().Be(nameof(ConvertedStatus.Active));
+        item["status"].N.Should().BeNull();
+        item["optionalStatus"].S.Should().Be(nameof(ConvertedStatus.Inactive));
+        item["optionalStatus"].N.Should().BeNull();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void BuildItem_NullableEnumWithStringConverter_UsesNullAttributeValueForNull()
+    {
+        using var db = new ConvertedEnumDbContext(
+            new DbContextOptionsBuilder<ConvertedEnumDbContext>()
+                .UseDynamo()
+                .ConfigureWarnings(w
+                    => w
+                        .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                        .Ignore(DynamoEventId.ScanLikeQueryDetected))
+                .Options);
+
+        var entity = new ConvertedEnumEntity
+        {
+            Pk = "E#2", Sk = "E2", Status = ConvertedStatus.Active, OptionalStatus = null,
+        };
+
+        db.Add(entity);
+
+        var serializer = db.GetService<DynamoEntityItemSerializerSource>();
+        var updateEntry = (IUpdateEntry)db.Entry(entity).GetInfrastructure();
+
+        var item = serializer.BuildItem(updateEntry);
+        item["optionalStatus"].NULL.Should().BeTrue();
+        item["optionalStatus"].S.Should().BeNull();
+        item["optionalStatus"].N.Should().BeNull();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void BuildItem_ListWithNullableEnumElements_UsesNullAttributeValueForNullElement()
     {
         using var db = new NullableCollectionDbContext(
@@ -172,6 +232,20 @@ public class DynamoEntityItemSerializerSourceTests
         Inactive = 2,
     }
 
+    private enum ConvertedStatus
+    {
+        Active = 1,
+        Inactive = 2,
+    }
+
+    private sealed class ConvertedEnumEntity
+    {
+        public string Pk { get; set; } = null!;
+        public string Sk { get; set; } = null!;
+        public ConvertedStatus Status { get; set; }
+        public ConvertedStatus? OptionalStatus { get; set; }
+    }
+
     private sealed class NullableCollectionEntity
     {
         public string Pk { get; set; } = null!;
@@ -207,6 +281,24 @@ public class DynamoEntityItemSerializerSourceTests
                 b.ToTable("Bad\"TableName");
                 b.HasPartitionKey(x => x.Pk);
                 b.HasSortKey(x => x.Sk);
+            });
+    }
+
+    private sealed class ConvertedEnumDbContext(DbContextOptions options) : DbContext(options)
+    {
+        public DbSet<ConvertedEnumEntity> Items => Set<ConvertedEnumEntity>();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<ConvertedEnumEntity>(b =>
+            {
+                b.ToTable("ConvertedEnums");
+                b.HasPartitionKey(x => x.Pk);
+                b.HasSortKey(x => x.Sk);
+                b.Property(x => x.Status).HasAttributeName("status").HasConversion<string>();
+                b
+                    .Property(x => x.OptionalStatus)
+                    .HasAttributeName("optionalStatus")
+                    .HasConversion<string>();
             });
     }
 

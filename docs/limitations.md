@@ -48,6 +48,8 @@ See [Supported Operators](querying/operators.md) for the full list of what does 
 | Conditional skipping | `SkipWhile`, `TakeWhile`                                                     | Not supported                                                               |
 | Queryable `Contains` | `Queryable.Contains(source, item)`                                           | Not supported; in-memory `collection.Contains(property)` translates to `IN` |
 
+Value-converted enum numeric casts are also rejected when compared to parameters. For example, `(int)entity.Status == value` is not translated if `Status` uses `.HasConversion<string>()`, because DynamoDB stores the converted string value. Compare `entity.Status` to an enum value directly, or map the enum numerically.
+
 **Workaround for unsupported operators:** switch to `AsAsyncEnumerable()` before the unsupported
 operator to move evaluation in-process:
 
