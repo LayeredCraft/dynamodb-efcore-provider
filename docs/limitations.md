@@ -221,6 +221,32 @@ operations, but successful statements within that batch have already been persis
 
 ## Modeling Constraints
 
+### Relationships and Foreign Keys Are Not Supported
+
+The provider does not support EF Core relationship modeling. `HasOne(...)`, `HasMany(...)`,
+`WithOne(...)`, `WithMany(...)`, `HasForeignKey(...)`, skip navigations, and relationship
+attributes such as `[ForeignKey]` and `[InverseProperty]` throw during model building or model
+validation.
+
+DynamoDB has no relational foreign-key enforcement or joins. Model embedded document data with
+EF Core complex types, and model separate DynamoDB items or tables as separate root entity types
+without EF navigation relationships.
+
+```csharp
+// ✅ Embedded data: complex types
+modelBuilder.Entity<Customer>(b =>
+{
+    b.ComplexProperty(x => x.Profile);
+    b.ComplexCollection(x => x.Contacts);
+});
+
+// ❌ Not supported: relational navigation/foreign-key modeling
+modelBuilder.Entity<Order>()
+    .HasOne(x => x.Customer)
+    .WithMany(x => x.Orders)
+    .HasForeignKey(x => x.CustomerId);
+```
+
 ### Owned Entity Types Are Not Supported
 
 The provider does not support EF Core owned entity types. `OwnsOne(...)`, `OwnsMany(...)`, and
