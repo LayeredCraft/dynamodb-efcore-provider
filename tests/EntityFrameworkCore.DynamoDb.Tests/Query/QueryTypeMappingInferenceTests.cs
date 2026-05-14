@@ -176,6 +176,23 @@ public class QueryTypeMappingInferenceTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Enum_underlying_cast_on_converted_property_uses_target_numeric_mapping()
+    {
+        var (client, captured) = CreateClient();
+        await using var context = QueryTypeMappingContext.Create(client);
+        var status = 1;
+
+        await context
+            .Items
+            .AllowScan()
+            .Where(e => (int)e.StringStatus == status)
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        captured.Single().Statement.Should().Contain("WHERE \"stringStatus\" = ?");
+        captured.Single().Parameters.Single().N.Should().Be("1");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Converted_property_parameter_uses_property_converter_mapping()
     {
         var (client, captured) = CreateClient();
@@ -333,6 +350,23 @@ public class QueryTypeMappingInferenceTests
             .ToListAsync(TestContext.Current.CancellationToken);
 
         captured.Single().Parameters.Select(p => p.S).Should().Equal(nameof(StringStatus.Active));
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Parameterized_nullable_converted_contains_values_use_null_attribute_value()
+    {
+        var (client, captured) = CreateClient();
+        await using var context = QueryTypeMappingContext.Create(client);
+        StringStatus?[] values = [StringStatus.Active, null];
+
+        await context
+            .Items
+            .AllowScan()
+            .Where(e => values.Contains(e.NullableStringStatus))
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        captured.Single().Parameters[0].S.Should().Be(nameof(StringStatus.Active));
+        captured.Single().Parameters[1].NULL.Should().BeTrue();
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]

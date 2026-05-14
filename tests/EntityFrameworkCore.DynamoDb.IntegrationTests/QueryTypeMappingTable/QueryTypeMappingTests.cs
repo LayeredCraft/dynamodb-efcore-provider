@@ -34,6 +34,28 @@ public class QueryTypeMappingTests : QueryTypeMappingTestFixture
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Promoted_int_parameter_compared_to_short_property_returns_expected_item()
+    {
+        var value = 8;
+
+        var result = await Db
+            .Items
+            .AsNoTracking()
+            .Where(item => item.ShortValue == value)
+            .Select(item => item.Pk)
+            .ToListAsync(CancellationToken);
+
+        result.Should().Equal("ITEM#2");
+
+        AssertSql(
+            """
+            SELECT "pk"
+            FROM "QueryTypeMappingItems"
+            WHERE "shortValue" = ?
+            """);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Nullable_short_parameter_comparison_returns_expected_item()
     {
         short? value = 8;
@@ -97,6 +119,28 @@ public class QueryTypeMappingTests : QueryTypeMappingTestFixture
             SELECT "pk"
             FROM "QueryTypeMappingItems"
             WHERE "shortValue" BETWEEN ? AND ?
+            """);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Numeric_enum_parameter_comparison_returns_expected_item()
+    {
+        var status = MappingStatus.Active;
+
+        var result = await Db
+            .Items
+            .AsNoTracking()
+            .Where(item => item.NumericStatus == status)
+            .Select(item => item.Pk)
+            .ToListAsync(CancellationToken);
+
+        result.Should().Equal("ITEM#1");
+
+        AssertSql(
+            """
+            SELECT "pk"
+            FROM "QueryTypeMappingItems"
+            WHERE "numericStatus" = ?
             """);
     }
 
@@ -209,6 +253,28 @@ public class QueryTypeMappingTests : QueryTypeMappingTestFixture
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Parameterized_nullable_converted_contains_returns_expected_items()
+    {
+        MappingStatus?[] statuses = [MappingStatus.Active, null];
+
+        var result = await Db
+            .Items
+            .AsNoTracking()
+            .Where(item => statuses.Contains(item.NullableStringStatus))
+            .Select(item => item.Pk)
+            .ToListAsync(CancellationToken);
+
+        result.Should().BeEquivalentTo(["ITEM#1", "ITEM#2"]);
+
+        AssertSql(
+            """
+            SELECT "pk"
+            FROM "QueryTypeMappingItems"
+            WHERE "nullableStringStatus" IN [?, ?]
+            """);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Materialized_entity_preserves_converted_and_nullable_values()
     {
         var result = await Db
@@ -221,6 +287,7 @@ public class QueryTypeMappingTests : QueryTypeMappingTestFixture
         item.ShortValue.Should().Be(8);
         item.NullableShortValue.Should().Be(8);
         item.StringStatus.Should().Be(MappingStatus.Inactive);
+        item.NumericStatus.Should().Be(MappingStatus.Inactive);
         item.NullableStringStatus.Should().BeNull();
         item.Profile.Status.Should().Be(MappingStatus.Inactive);
     }
@@ -228,7 +295,8 @@ public class QueryTypeMappingTests : QueryTypeMappingTestFixture
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Paginated_converted_parameter_query_resumes_with_next_token()
     {
-        var statuses = new[] { MappingStatus.Active, MappingStatus.Pending };
+        var statuses =
+            new[] { MappingStatus.Active, MappingStatus.Inactive, MappingStatus.Pending };
 
         var firstPage = await Db
             .Items
@@ -236,7 +304,7 @@ public class QueryTypeMappingTests : QueryTypeMappingTestFixture
             .Where(item => statuses.Contains(item.StringStatus))
             .ToPageAsync(2, null, CancellationToken);
 
-        firstPage.Items.Should().HaveCount(1);
+        firstPage.Items.Should().HaveCount(2);
         firstPage.NextToken.Should().NotBeNull();
 
         var secondPage = await Db
@@ -251,18 +319,18 @@ public class QueryTypeMappingTests : QueryTypeMappingTestFixture
             .Concat(secondPage.Items)
             .Select(item => item.Pk)
             .Should()
-            .BeEquivalentTo(["ITEM#1", "ITEM#3"]);
+            .BeEquivalentTo(["ITEM#1", "ITEM#2", "ITEM#3"]);
 
         AssertSql(
             """
-            SELECT "pk", "nullableShortValue", "nullableStringStatus", "shortValue", "stringStatus", "profile"
+            SELECT "pk", "nullableShortValue", "nullableStringStatus", "numericStatus", "shortValue", "stringStatus", "profile"
             FROM "QueryTypeMappingItems"
-            WHERE "stringStatus" IN [?, ?]
+            WHERE "stringStatus" IN [?, ?, ?]
             """,
             """
-            SELECT "pk", "nullableShortValue", "nullableStringStatus", "shortValue", "stringStatus", "profile"
+            SELECT "pk", "nullableShortValue", "nullableStringStatus", "numericStatus", "shortValue", "stringStatus", "profile"
             FROM "QueryTypeMappingItems"
-            WHERE "stringStatus" IN [?, ?]
+            WHERE "stringStatus" IN [?, ?, ?]
             """);
     }
 
@@ -339,6 +407,7 @@ public class QueryTypeMappingTestFixture : DynamoTestFixtureBase
             ["pk"] = new() { S = "ITEM#1" },
             ["shortValue"] = new() { N = "7" },
             ["nullableShortValue"] = new() { NULL = true },
+            ["numericStatus"] = new() { N = "1" },
             ["stringStatus"] = new() { S = nameof(MappingStatus.Active) },
             ["nullableStringStatus"] = new() { S = nameof(MappingStatus.Active) },
             ["profile"] =
@@ -355,6 +424,7 @@ public class QueryTypeMappingTestFixture : DynamoTestFixtureBase
             ["pk"] = new() { S = "ITEM#2" },
             ["shortValue"] = new() { N = "8" },
             ["nullableShortValue"] = new() { N = "8" },
+            ["numericStatus"] = new() { N = "0" },
             ["stringStatus"] = new() { S = nameof(MappingStatus.Inactive) },
             ["nullableStringStatus"] = new() { NULL = true },
             ["profile"] =
@@ -371,6 +441,7 @@ public class QueryTypeMappingTestFixture : DynamoTestFixtureBase
             ["pk"] = new() { S = "ITEM#3" },
             ["shortValue"] = new() { N = "9" },
             ["nullableShortValue"] = new() { N = "9" },
+            ["numericStatus"] = new() { N = "2" },
             ["stringStatus"] = new() { S = nameof(MappingStatus.Pending) },
             ["nullableStringStatus"] = new() { S = nameof(MappingStatus.Pending) },
             ["profile"] = new()
@@ -398,6 +469,7 @@ public sealed class QueryTypeMappingDbContext(DbContextOptions options) : DbCont
             builder
                 .Property(item => item.NullableShortValue)
                 .HasAttributeName("nullableShortValue");
+            builder.Property(item => item.NumericStatus).HasAttributeName("numericStatus");
             builder
                 .Property(item => item.StringStatus)
                 .HasAttributeName("stringStatus")
@@ -420,6 +492,8 @@ public sealed record QueryTypeMappingItem
     public short ShortValue { get; set; }
 
     public short? NullableShortValue { get; set; }
+
+    public MappingStatus NumericStatus { get; set; }
 
     public MappingStatus StringStatus { get; set; }
 
