@@ -319,9 +319,13 @@ public class DiscriminatorValidationTests
         var client = MockClient();
         using var context = HasNoDiscriminatorContext.Create(client);
 
-        var act = () => context.Model;
+        var model = context.Model;
+        var userEntityType = model.FindEntityType(typeof(UserEntity))!;
+        var orderEntityType = model.FindEntityType(typeof(OrderEntity))!;
 
-        act.Should().NotThrow();
+        userEntityType.FindDiscriminatorProperty().Should().BeNull();
+        orderEntityType.FindDiscriminatorProperty()!.Name.Should().Be("$type");
+        orderEntityType.GetDiscriminatorValue().Should().Be("OrderEntity");
     }
 
     /// <summary>Provides functionality for this member.</summary>
@@ -332,9 +336,12 @@ public class DiscriminatorValidationTests
         var client = MockClient();
         using var context = HasNoDiscriminatorOnEveryTypeContext.Create(client);
 
-        var act = () => context.Model;
+        var model = context.Model;
+        var userEntityType = model.FindEntityType(typeof(UserEntity))!;
+        var orderEntityType = model.FindEntityType(typeof(OrderEntity))!;
 
-        act.Should().NotThrow();
+        userEntityType.FindDiscriminatorProperty().Should().BeNull();
+        orderEntityType.FindDiscriminatorProperty().Should().BeNull();
     }
 
     /// <summary>Provides functionality for this member.</summary>

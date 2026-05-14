@@ -24,7 +24,7 @@ public sealed class DynamoDiscriminatorConvention(
     public void ProcessEntityTypeAdded(
         IConventionEntityTypeBuilder entityTypeBuilder,
         IConventionContext<IConventionEntityTypeBuilder> context)
-        => ProcessModel(entityTypeBuilder.Metadata.Model);
+        => ProcessModel(entityTypeBuilder.Metadata.Model, false);
 
     /// <inheritdoc />
     public void ProcessEntityTypeAnnotationChanged(
@@ -42,7 +42,7 @@ public sealed class DynamoDiscriminatorConvention(
         if (string.Equals(newTableName, oldTableName, StringComparison.Ordinal))
             return;
 
-        ProcessModel(entityTypeBuilder.Metadata.Model);
+        ProcessModel(entityTypeBuilder.Metadata.Model, false);
     }
 
     /// <inheritdoc />
@@ -54,7 +54,7 @@ public sealed class DynamoDiscriminatorConvention(
     {
         base.ProcessEntityTypeBaseTypeChanged(entityTypeBuilder, newBaseType, oldBaseType, context);
 
-        ProcessModel(entityTypeBuilder.Metadata.Model);
+        ProcessModel(entityTypeBuilder.Metadata.Model, false);
     }
 
     /// <inheritdoc />
@@ -65,7 +65,7 @@ public sealed class DynamoDiscriminatorConvention(
     {
         base.ProcessEntityTypeRemoved(modelBuilder, entityType, context);
 
-        ProcessModel(modelBuilder.Metadata);
+        ProcessModel(modelBuilder.Metadata, false);
     }
 
     /// <inheritdoc />
@@ -82,7 +82,7 @@ public sealed class DynamoDiscriminatorConvention(
         if (name is not null)
         {
             SetDiscriminatorDisabledAnnotation(entityType, false);
-            ProcessModel(entityType.Model);
+            ProcessModel(entityType.Model, false);
             return;
         }
 
@@ -91,7 +91,7 @@ public sealed class DynamoDiscriminatorConvention(
             return;
 
         SetDiscriminatorDisabledAnnotation(entityType, true);
-        ProcessModel(entityType.Model);
+        ProcessModel(entityType.Model, false);
     }
 
     /// <inheritdoc />
@@ -104,16 +104,16 @@ public sealed class DynamoDiscriminatorConvention(
         if (string.Equals(newName, oldName, StringComparison.Ordinal))
             return;
 
-        ProcessModel(modelBuilder.Metadata);
+        ProcessModel(modelBuilder.Metadata, false);
     }
 
     /// <summary>Applies discriminator conventions to table groups that map multiple concrete entity types.</summary>
     public void ProcessModelFinalizing(
         IConventionModelBuilder modelBuilder,
         IConventionContext<IConventionModelBuilder> context)
-        => ProcessModel(modelBuilder.Metadata);
+        => ProcessModel(modelBuilder.Metadata, true);
 
-    private void ProcessModel(IConventionModel model)
+    private void ProcessModel(IConventionModel model, bool finalizing)
     {
         var rootEntityTypes = model
             .GetEntityTypes()
@@ -134,7 +134,23 @@ public sealed class DynamoDiscriminatorConvention(
             if (concreteEntityTypes.Count <= 1 && !hasHierarchy)
             {
                 foreach (var rootEntityType in tableGroup)
-                    RemoveConventionDiscriminator(rootEntityType);
+                {
+                    if (IsDiscriminatorDisabled(rootEntityType)
+                        || HasExplicitNoDiscriminator(rootEntityType))
+                    {
+                        RemoveConventionDiscriminator(rootEntityType);
+                        SetDiscriminatorDisabledAnnotation(rootEntityType, true);
+                        continue;
+                    }
+
+                    if (finalizing)
+                    {
+                        RemoveConventionDiscriminator(rootEntityType);
+                        continue;
+                    }
+
+                    ConfigureDiscriminator(rootEntityType);
+                }
 
                 continue;
             }
@@ -150,26 +166,7 @@ public sealed class DynamoDiscriminatorConvention(
                 }
 
                 SetDiscriminatorDisabledAnnotation(rootEntityType, false);
-
-                var discriminatorProperty = rootEntityType.FindDiscriminatorProperty();
-                var preserveExistingDiscriminator = discriminatorProperty is not null
-                    && rootEntityType.GetDiscriminatorPropertyConfigurationSource()
-                    != ConfigurationSource.Convention;
-
-                var discriminatorBuilder = preserveExistingDiscriminator
-                    ? rootEntityType.Builder.HasDiscriminator(
-                        discriminatorProperty!.Name,
-                        discriminatorProperty.ClrType)
-                    : rootEntityType.Builder.HasDiscriminator(
-                        rootEntityType.Model.GetEmbeddedDiscriminatorName(),
-                        typeof(string));
-
-                if (discriminatorBuilder is null)
-                    continue;
-
-                SetDefaultDiscriminatorValues(
-                    rootEntityType.GetDerivedTypesInclusive(),
-                    discriminatorBuilder);
+                ConfigureDiscriminator(rootEntityType);
             }
         }
     }
@@ -187,6 +184,31 @@ public sealed class DynamoDiscriminatorConvention(
         entityType.Builder.HasNoDiscriminator();
     }
 
+    /// <summary>Configures discriminator metadata for an entity type that should be discriminated.</summary>
+    private void ConfigureDiscriminator(IConventionEntityType rootEntityType)
+    {
+        var discriminatorProperty = rootEntityType.FindDiscriminatorProperty();
+        var preserveExistingDiscriminator = discriminatorProperty is not null
+            && rootEntityType.GetDiscriminatorPropertyConfigurationSource()
+            != ConfigurationSource.Convention;
+
+        var discriminatorBuilder = preserveExistingDiscriminator
+            ? rootEntityType.Builder.HasDiscriminator(
+                discriminatorProperty!.Name,
+                discriminatorProperty.ClrType)
+            : rootEntityType.Builder.HasDiscriminator(
+                rootEntityType.Model.GetEmbeddedDiscriminatorName(),
+                typeof(string));
+
+        if (discriminatorBuilder is null)
+            return;
+
+        SetDefaultDiscriminatorValues(
+            rootEntityType.GetDerivedTypesInclusive(),
+            discriminatorBuilder);
+    }
+
+    /// <summary>Stores or clears the provider annotation that preserves explicit discriminator opt-out.</summary>
     private static void SetDiscriminatorDisabledAnnotation(
         IConventionEntityType entityType,
         bool disabled)
@@ -194,9 +216,11 @@ public sealed class DynamoDiscriminatorConvention(
             DynamoAnnotationNames.DiscriminatorDisabled,
             disabled ? true : null);
 
+    /// <summary>Returns whether the entity type has explicitly opted out of discriminator metadata.</summary>
     private static bool IsDiscriminatorDisabled(IConventionEntityType entityType)
         => entityType[DynamoAnnotationNames.DiscriminatorDisabled] as bool? == true;
 
+    /// <summary>Returns whether EF Core metadata records an explicit discriminator removal.</summary>
     private static bool HasExplicitNoDiscriminator(IConventionEntityType entityType)
         => entityType.FindDiscriminatorProperty() is null
             && entityType.GetDiscriminatorPropertyConfigurationSource() is { } source

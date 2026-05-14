@@ -159,41 +159,60 @@ model.
 called. They do not configure or disable discrimination for every other type that maps to the same
 DynamoDB table.
 
-Use `HasDiscriminator()` when you need a custom discriminator property or values:
+Use a model-level discriminator name override when every discriminator-enabled type in the shared
+DynamoDB table should use the same custom attribute:
 
 ```csharp
+modelBuilder.HasEmbeddedDiscriminatorName("Kind");
+
 modelBuilder.Entity<User>(b =>
 {
     b.ToTable("app-table");
     b.HasPartitionKey(x => x.Pk);
     b.HasSortKey(x => x.Sk);
-    b.HasDiscriminator<string>("Kind")
-        .HasValue<User>("user");
+});
+
+modelBuilder.Entity<Order>(b =>
+{
+    b.ToTable("app-table");
+    b.HasPartitionKey(x => x.Pk);
+    b.HasSortKey(x => x.Sk);
 });
 ```
 
+Use `HasDiscriminator()` directly only when every discriminator-enabled type that maps to the same
+DynamoDB table is configured with the same discriminator attribute name.
+
 Calling `HasNoDiscriminator()` on one shared-table type opts only that type out. Queries for that
 type do not include a discriminator predicate; queries for other shared-table types still use their
-own discriminator metadata.
+own discriminator metadata. You can call it before or after `ToTable(...)`; explicit opt-out is
+preserved during model finalization.
 
 ```csharp
 modelBuilder.Entity<User>().HasNoDiscriminator();
 ```
 
 With `User` opted out and `Order` still discriminator-enabled, a user query omits `$type` while an
-order query still includes it:
+order query still includes it. Because the user query has no discriminator predicate, include PK/SK
+conditions that isolate the user item family:
 
 ```sql
 SELECT "pk", "sk", "name"
 FROM "app-table"
-WHERE "pk" = 'TENANT#1'
+WHERE "pk" = 'TENANT#1' AND begins_with("sk", 'USER#')
 ```
 
 ```sql
 SELECT "pk", "sk", "$type", "description"
 FROM "app-table"
-WHERE "pk" = 'TENANT#1' AND "$type" = 'Order'
+WHERE "pk" = 'TENANT#1' AND begins_with("sk", 'ORDER#') AND "$type" = 'Order'
 ```
+
+!!! warning "Opted-out types rely on key isolation"
+
+    A query for an opted-out entity type does not include a discriminator predicate. If its PK/SK
+    conditions can match multiple item shapes, the provider can read rows that belong to other CLR
+    types. Only use per-type opt-out when your key pattern isolates that entity's items.
 
 ## Query behavior
 

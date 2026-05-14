@@ -1,5 +1,4 @@
 using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
-using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SharedTable;
 
@@ -98,25 +97,27 @@ public class DiscriminatorQuerySingleTypeTests(DynamoContainerFixture fixture)
 public class DiscriminatorQueryHasNoDiscriminatorTests(DynamoContainerFixture fixture)
     : SharedTableTestFixture(fixture)
 {
-    private SharedTableHasNoDiscriminatorDbContext HasNoDiscriminatorDb
+    private SharedTableEarlyHasNoDiscriminatorDbContext HasNoDiscriminatorDb
         => new(
-            CreateOptions<SharedTableHasNoDiscriminatorDbContext>(o => o.DynamoDbClient(Client)));
+            CreateOptions<SharedTableEarlyHasNoDiscriminatorDbContext>(o
+                => o.DynamoDbClient(Client)));
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SharedTableWithHasNoDiscriminator_DoesNotInjectDiscriminatorPredicate()
     {
         var results = await HasNoDiscriminatorDb
             .Users
-            .Where(user => user.Pk == "TENANT#U")
+            .Where(user => user.Pk == "TENANT#U" && user.Sk.StartsWith("USER#"))
             .ToListAsync(CancellationToken);
 
         results.Should().HaveCount(2);
+        results.Select(user => user.Name).Should().Equal("Ada", "Lin");
 
         AssertSql(
             """
             SELECT "pk", "sk", "name"
             FROM "app-table"
-            WHERE "pk" = 'TENANT#U'
+            WHERE "pk" = 'TENANT#U' AND begins_with("sk", 'USER#')
             """);
     }
 
@@ -126,16 +127,17 @@ public class DiscriminatorQueryHasNoDiscriminatorTests(DynamoContainerFixture fi
     {
         var results = await HasNoDiscriminatorDb
             .Orders
-            .Where(order => order.Pk == "TENANT#O")
+            .Where(order => order.Pk == "TENANT#O" && order.Sk.StartsWith("ORDER#"))
             .ToListAsync(CancellationToken);
 
         results.Should().HaveCount(2);
+        results.Select(order => order.Description).Should().Equal("order-one", "order-two");
 
         AssertSql(
             """
             SELECT "pk", "sk", "$type", "description"
             FROM "app-table"
-            WHERE "pk" = 'TENANT#O' AND "$type" = 'OrderEntity'
+            WHERE "pk" = 'TENANT#O' AND begins_with("sk", 'ORDER#') AND "$type" = 'OrderEntity'
             """);
     }
 }

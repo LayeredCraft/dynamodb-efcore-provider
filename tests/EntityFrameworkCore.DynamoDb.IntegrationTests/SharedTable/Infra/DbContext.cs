@@ -1,5 +1,4 @@
 using Amazon.DynamoDBv2;
-using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SharedTable;
 
@@ -91,17 +90,65 @@ public class SharedTableSingleTypeDbContext(DbContextOptions options) : DbContex
 
 /// <summary>
 ///     Context with two unrelated entity types sharing the same table while explicitly removing
-///     discriminator metadata from one type via <c>HasNoDiscriminator()</c>.
+///     discriminator metadata from one type via an early <c>HasNoDiscriminator()</c> call.
 /// </summary>
-public class SharedTableHasNoDiscriminatorDbContext(DbContextOptions options) : DbContext(options)
+public class SharedTableEarlyHasNoDiscriminatorDbContext(DbContextOptions options) : DbContext(
+    options)
 {
     public DbSet<UserEntity> Users => Set<UserEntity>();
     public DbSet<OrderEntity> Orders => Set<OrderEntity>();
 
     /// <summary>Creates a context configured to use the provided DynamoDB client instance.</summary>
-    public static SharedTableHasNoDiscriminatorDbContext Create(IAmazonDynamoDB client)
+    public static SharedTableEarlyHasNoDiscriminatorDbContext Create(IAmazonDynamoDB client)
         => new(
-            new DbContextOptionsBuilder<SharedTableHasNoDiscriminatorDbContext>()
+            is there a
+
+    private hybrid option
+
+    private where
+        we're using both we can sacrifice ordering and stuff like that for using HasnoDiscriminator? But I think it'
+    private s good
+    private to keep
+    private that option
+    private because I
+    private think people
+    private still will
+    private use that if
+    private unintentionally.I think
+    private having a
+    private hybrid approach
+    private where we're adding stuff but we'
+    private re also
+    private exclusively removing
+    private it or something else.
+    private I want
+    private you to
+    private think this
+    private through but
+    private also validate
+    private against Mongo and Dynamo.Sorry, I'm not talking Mongo and Cosmos to see if there'
+    private s lessons
+    private learned from
+    private how they
+    private handle it
+    private because I
+    private know they
+    private have different
+    private types of discriminators too.So
+    private we need
+    private to figure out
+    private a better
+    private holistic solution
+    private here that is user-
+    private friendly and it's
+    private not doing
+    private weird stuff
+    private like shadows
+    private because that
+    private will lead
+    private to the
+    private bug we had originally. new
+        DbContextOptionsBuilder<SharedTableEarlyHasNoDiscriminatorDbContext>()
                 .UseDynamo(o => o.DynamoDbClient(client))
                 .Options);
 
@@ -109,6 +156,7 @@ public class SharedTableHasNoDiscriminatorDbContext(DbContextOptions options) : 
     {
         modelBuilder.Entity<UserEntity>(builder =>
         {
+            builder.HasNoDiscriminator();
             builder.ToTable(SharedItemTable.TableName);
             builder.HasPartitionKey(x => x.Pk);
             builder.HasSortKey(x => x.Sk);
@@ -120,8 +168,6 @@ public class SharedTableHasNoDiscriminatorDbContext(DbContextOptions options) : 
             builder.HasPartitionKey(x => x.Pk);
             builder.HasSortKey(x => x.Sk);
         });
-
-        modelBuilder.Entity<UserEntity>().HasNoDiscriminator();
     }
 }
 

@@ -312,7 +312,7 @@ public class DiscriminatorMetadataTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public void SharedTableHasNoDiscriminator_EarlyCall_DoesNotDisableDiscriminatorForGroup()
+    public void SharedTableHasNoDiscriminator_EarlyCall_DisablesOnlyThatType()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
         using var context = SharedTableHasNoDiscriminatorEarlyContext.Create(client);
@@ -320,7 +320,7 @@ public class DiscriminatorMetadataTests
         var userEntityType = context.Model.FindEntityType(typeof(UserEntity))!;
         var orderEntityType = context.Model.FindEntityType(typeof(OrderEntity))!;
 
-        userEntityType.FindDiscriminatorProperty()!.Name.Should().Be("$type");
+        userEntityType.FindDiscriminatorProperty().Should().BeNull();
         orderEntityType.FindDiscriminatorProperty()!.Name.Should().Be("$type");
     }
 
@@ -335,5 +335,29 @@ public class DiscriminatorMetadataTests
 
         userEntityType.FindDiscriminatorProperty().Should().BeNull();
         orderEntityType.FindDiscriminatorProperty()!.Name.Should().Be("$type");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void SharedTableHasNoDiscriminator_EarlyAndLateCalls_ProduceSameModelShape()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var earlyContext = SharedTableHasNoDiscriminatorEarlyContext.Create(client);
+        using var lateContext = SharedTableHasNoDiscriminatorLateContext.Create(client);
+
+        var earlyUserEntityType = earlyContext.Model.FindEntityType(typeof(UserEntity))!;
+        var earlyOrderEntityType = earlyContext.Model.FindEntityType(typeof(OrderEntity))!;
+        var lateUserEntityType = lateContext.Model.FindEntityType(typeof(UserEntity))!;
+        var lateOrderEntityType = lateContext.Model.FindEntityType(typeof(OrderEntity))!;
+
+        earlyUserEntityType.FindDiscriminatorProperty().Should().BeNull();
+        lateUserEntityType.FindDiscriminatorProperty().Should().BeNull();
+        earlyOrderEntityType.FindDiscriminatorProperty()!
+            .Name
+            .Should()
+            .Be(lateOrderEntityType.FindDiscriminatorProperty()!.Name);
+        earlyOrderEntityType
+            .GetDiscriminatorValue()
+            .Should()
+            .Be(lateOrderEntityType.GetDiscriminatorValue());
     }
 }
