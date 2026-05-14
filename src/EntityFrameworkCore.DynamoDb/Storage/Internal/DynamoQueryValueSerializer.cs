@@ -14,7 +14,7 @@ namespace EntityFrameworkCore.DynamoDb.Storage.Internal;
 ///     once to the source CLR type, then resumes the mapping-owned expression pipeline so value
 ///     converters use typed expressions instead of <c>ConvertToProvider(object)</c>.
 /// </remarks>
-internal static class DynamoRuntimeValueSerializer
+internal static class DynamoQueryValueSerializer
 {
     private static readonly MethodInfo ConvertProviderValueToAttributeValueMethod =
         typeof(DynamoWireValueConversion).GetMethod(

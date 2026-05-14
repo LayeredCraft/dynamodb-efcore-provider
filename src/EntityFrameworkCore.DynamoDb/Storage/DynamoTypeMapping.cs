@@ -1,6 +1,4 @@
 using System.Collections.Concurrent;
-using System.Diagnostics.CodeAnalysis;
-using System.Globalization;
 using System.Linq.Expressions;
 using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.Storage.Internal;
@@ -37,7 +35,6 @@ namespace EntityFrameworkCore.DynamoDb.Storage;
 public class DynamoTypeMapping : CoreTypeMapping
 {
     internal DynamoValueReaderWriter? ReaderWriter { get; }
-    private readonly IDynamoUntypedValueWriter? _untypedValueWriter;
 
     private readonly ConcurrentDictionary<Type, Func<object?, AttributeValue>>
         _attributeValueSerializers = new();
@@ -52,18 +49,12 @@ public class DynamoTypeMapping : CoreTypeMapping
         new CoreTypeMappingParameters(clrType, null, comparer, keyComparer))
     {
         ReaderWriter = CreateReaderWriter(Parameters);
-        // Cache the untyped adapter once per mapping; EF reaches us with object values, but the
-        // typed codec pipeline resumes immediately behind this boundary.
-        _untypedValueWriter = ReaderWriter?.CreateUntypedValueWriter();
     }
 
     /// <summary>Creates a mapping from a fully-specified EF Core mapping parameter set.</summary>
     protected DynamoTypeMapping(CoreTypeMappingParameters parameters) : base(parameters)
     {
         ReaderWriter = CreateReaderWriter(parameters);
-        // Cache the untyped adapter once per mapping; EF reaches us with object values, but the
-        // typed codec pipeline resumes immediately behind this boundary.
-        _untypedValueWriter = ReaderWriter?.CreateUntypedValueWriter();
     }
 
     /// <summary>Clones the mapping with updated parameters.</summary>
@@ -107,14 +98,11 @@ public class DynamoTypeMapping : CoreTypeMapping
     ///     serializer is the narrow adapter back into typed expression-based conversion.
     /// </remarks>
     internal virtual AttributeValue CreateAttributeValue(object? value)
-        => DynamoRuntimeValueSerializer.CreateAttributeValue(
-            this,
-            _attributeValueSerializers,
-            value);
+        => DynamoQueryValueSerializer.CreateAttributeValue(this, _attributeValueSerializers, value);
 
     /// <summary>Serializes a value whose runtime/source CLR type is already known.</summary>
     internal virtual AttributeValue CreateAttributeValue(object? value, Type sourceType)
-        => DynamoRuntimeValueSerializer.CreateAttributeValue(
+        => DynamoQueryValueSerializer.CreateAttributeValue(
             this,
             _attributeValueSerializers,
             value,
@@ -128,21 +116,15 @@ public class DynamoTypeMapping : CoreTypeMapping
 
     /// <summary>Generates a PartiQL literal for a constant value.</summary>
     /// <remarks>
-    ///     Follows the same template method pattern as <c>RelationalTypeMapping.GenerateSqlLiteral</c>:
-    ///     this public entry point handles null, then delegates to
-    ///     <see cref="GenerateNonNullConstant" /> for non-null values. Subclasses override
-    ///     <see cref="GenerateNonNullConstant" /> rather than this method.
+    ///     EF exposes constants as boxed values. This public boundary infers the runtime source type
+    ///     once, then dispatches through a cached typed expression-tree serializer.
     /// </remarks>
     public virtual string GenerateConstant(object? value)
         => value is null ? "NULL" : GenerateNonNullConstant(value);
 
     /// <summary>Generates a PartiQL literal for a value whose runtime/source CLR type is known.</summary>
     internal virtual string GenerateConstant(object? value, Type sourceType)
-        => DynamoRuntimeValueSerializer.GenerateLiteral(
-            this,
-            _literalSerializers,
-            value,
-            sourceType);
+        => DynamoQueryValueSerializer.GenerateLiteral(this, _literalSerializers, value, sourceType);
 
     /// <summary>Builds the typed expression used by cached PartiQL literal serializers.</summary>
     internal virtual Expression CreatePartiQlLiteralExpression(Expression valueExpression)
@@ -152,96 +134,15 @@ public class DynamoTypeMapping : CoreTypeMapping
 
     /// <summary>Generates a PartiQL literal for a known non-null value.</summary>
     /// <remarks>
-    ///     This is the override point for subclasses, mirroring
-    ///     <c>RelationalTypeMapping.GenerateNonNullSqlLiteral</c>. The base implementation delegates to
-    ///     the cached typed adapter in the mapping-owned codec pipeline.
+    ///     This override point exists for compatibility with the previous template-method shape.
+    ///     The base implementation immediately resumes the typed expression-tree serializer.
     /// </remarks>
     protected virtual string GenerateNonNullConstant(object value)
-    {
-        value = NormalizeRuntimeValue(value);
-
-        if (TryFormatUnconvertedNumeric(value, out var numericValue))
-            return numericValue;
-
-        ValidateRuntimeValue(value);
-
-        return _untypedValueWriter?.ToPartiQlLiteral(value)
-            ?? throw new NotSupportedException(
-                $"CLR type '{ClrType.Name}' is not supported for PartiQL constant generation.");
-    }
-
-    private object NormalizeRuntimeValue(object value)
-    {
-        var expectedNonNullableType = Nullable.GetUnderlyingType(ClrType) ?? ClrType;
-        if (!expectedNonNullableType.IsEnum || value.GetType() == expectedNonNullableType)
-            return value;
-
-        var underlyingType = Enum.GetUnderlyingType(expectedNonNullableType);
-        var valueType = value.GetType();
-        if (valueType != underlyingType
-            && !DynamoWireValueConversion.CanRepresentEnumUnderlyingType(valueType, underlyingType))
-            return value;
-
-        return Enum.ToObject(expectedNonNullableType, value);
-    }
-
-    private void ValidateRuntimeValue(object value)
-    {
-        var expectedType = ClrType;
-        var expectedNonNullableType = Nullable.GetUnderlyingType(expectedType) ?? expectedType;
-        var valueType = value.GetType();
-
-        if (expectedType == typeof(object)
-            || expectedType.IsAssignableFrom(valueType)
-            || expectedNonNullableType.IsAssignableFrom(valueType))
-            return;
-
-        throw new InvalidOperationException(
-            $"DynamoDB type mapping for CLR type '{ClrType.Name}' cannot serialize runtime "
-            + $"value of type '{valueType.Name}'. This usually means query type-mapping "
-            + "inference applied an incompatible mapping to a parameter or constant.");
-    }
-
-    private bool TryFormatUnconvertedNumeric(
-        object value,
-        [NotNullWhen(true)] out string? formatted)
-    {
-        formatted = null;
-
-        if (Parameters.Converter != null)
-            return false;
-
-        var mappingType = Nullable.GetUnderlyingType(ClrType) ?? ClrType;
-        var valueType = value.GetType();
-        if (valueType == mappingType
-            || !DynamoWireValueConversion.IsNumericType(mappingType)
-            || !DynamoWireValueConversion.IsNumericType(valueType))
-            return false;
-
-        if (valueType.IsEnum)
-        {
-            formatted = DynamoWireValueConversion.FormatEnum(value);
-            return true;
-        }
-
-        formatted = value switch
-        {
-            byte numeric => numeric.ToString(CultureInfo.InvariantCulture),
-            sbyte numeric => numeric.ToString(CultureInfo.InvariantCulture),
-            short numeric => numeric.ToString(CultureInfo.InvariantCulture),
-            ushort numeric => numeric.ToString(CultureInfo.InvariantCulture),
-            int numeric => numeric.ToString(CultureInfo.InvariantCulture),
-            uint numeric => numeric.ToString(CultureInfo.InvariantCulture),
-            long numeric => numeric.ToString(CultureInfo.InvariantCulture),
-            ulong numeric => numeric.ToString(CultureInfo.InvariantCulture),
-            float numeric => numeric.ToString("R", CultureInfo.InvariantCulture),
-            double numeric => numeric.ToString("R", CultureInfo.InvariantCulture),
-            decimal numeric => numeric.ToString(CultureInfo.InvariantCulture),
-            _ => null,
-        };
-
-        return formatted != null;
-    }
+        => DynamoQueryValueSerializer.GenerateLiteral(
+            this,
+            _literalSerializers,
+            value,
+            value.GetType());
 
     private static DynamoValueReaderWriter? CreateReaderWriter(CoreTypeMappingParameters parameters)
     {

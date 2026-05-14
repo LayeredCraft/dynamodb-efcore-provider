@@ -33,8 +33,6 @@ internal abstract class DynamoValueReaderWriter
         bool required,
         IProperty? property);
 
-    internal abstract IDynamoUntypedValueWriter CreateUntypedValueWriter();
-
     internal abstract Expression CreateWriteExpression(Expression typedValueExpression);
 
     internal abstract Expression CreatePartiQlLiteralExpression(Expression typedValueExpression);
@@ -64,19 +62,6 @@ internal abstract class DynamoValueReaderWriter
         => $"Required property '{propertyPath}' did not contain a value for expected DynamoDB wire member '{WireMemberName}'.";
 }
 
-/// <summary>Bridges EF's untyped mapping boundary to the typed Dynamo serialization pipeline.</summary>
-/// <remarks>
-///     EF asks type mappings to serialize runtime values as <see cref="object" /> for query
-///     constants, parameters, and update values. The cast happens exactly once here, and the typed
-///     delegate pipeline resumes immediately after this adapter.
-/// </remarks>
-internal interface IDynamoUntypedValueWriter
-{
-    AttributeValue Write(object value);
-
-    string ToPartiQlLiteral(object value);
-}
-
 /// <summary>Strongly-typed base implementation for a DynamoDB value reader/writer.</summary>
 internal abstract class DynamoValueReaderWriter<TValue> : DynamoValueReaderWriter
 {
@@ -92,10 +77,6 @@ internal abstract class DynamoValueReaderWriter<TValue> : DynamoValueReaderWrite
         typeof(DynamoValueReaderWriter<TValue>).GetMethod(
             nameof(ToPartiQlLiteral),
             [typeof(TValue)])!;
-
-    private Func<TValue, AttributeValue>? _attributeValueFactory;
-    private Func<TValue, string>? _partiQlLiteralFactory;
-    private IDynamoUntypedValueWriter? _untypedValueWriter;
 
     public sealed override Type ValueType => typeof(TValue);
 
@@ -115,11 +96,6 @@ internal abstract class DynamoValueReaderWriter<TValue> : DynamoValueReaderWrite
             property,
             ReadMethod,
             CreateConstructorExpression());
-
-    internal sealed override IDynamoUntypedValueWriter CreateUntypedValueWriter()
-        => _untypedValueWriter ??= new DynamoUntypedValueWriter<TValue>(
-            _attributeValueFactory ??= CompileAttributeValueFactory(),
-            _partiQlLiteralFactory ??= CompilePartiQlLiteralFactory());
 
     public TValue Read(
         AttributeValue attributeValue,
@@ -159,33 +135,6 @@ internal abstract class DynamoValueReaderWriter<TValue> : DynamoValueReaderWrite
             Expression.Constant(this, GetType()),
             ToPartiQlLiteralMethod,
             typedValueExpression);
-
-    private Func<TValue, AttributeValue> CompileAttributeValueFactory()
-    {
-        var valueParameter = Expression.Parameter(typeof(TValue), "value");
-        var body = CreateWriteExpression(valueParameter);
-
-        return Expression.Lambda<Func<TValue, AttributeValue>>(body, valueParameter).Compile();
-    }
-
-    private Func<TValue, string> CompilePartiQlLiteralFactory()
-    {
-        var valueParameter = Expression.Parameter(typeof(TValue), "value");
-        var body = CreatePartiQlLiteralExpression(valueParameter);
-
-        return Expression.Lambda<Func<TValue, string>>(body, valueParameter).Compile();
-    }
-}
-
-internal sealed class DynamoUntypedValueWriter<TValue>(
-    Func<TValue, AttributeValue> write,
-    Func<TValue, string> toPartiQlLiteral) : IDynamoUntypedValueWriter
-{
-    // This is the single intentional cast site from EF's object-based mapping boundary back into
-    // the typed serialization pipeline.
-    public AttributeValue Write(object value) => write((TValue)value);
-
-    public string ToPartiQlLiteral(object value) => toPartiQlLiteral((TValue)value);
 }
 
 /// <summary>Exposes the provider-level reader/writer under a composed wrapper.</summary>
@@ -239,22 +188,8 @@ internal sealed class DynamoConvertedValueReaderWriter<TModel, TProvider>(
 
     // ── Object-based (boxed) fallback methods ──────────────────────────────────────
     //
-    // These three methods use the untyped ValueConverter API and box value types. They are NOT
-    // on any hot path:
-    //
-    //   • The query read path goes through CreateReadExpression, which inlines the converter's
-    //     ConvertFromProviderExpression directly into the compiled query expression tree —
-    //     no runtime boxing.
-    //
-    //   • The SaveChanges write path goes through DynamoEntityItemSerializerSource, which
-    //     dispatches via pre-compiled Func<IUpdateEntry, AttributeValue> delegates that call
-    //     CreateWriteExpression / CreatePartiQlLiteralExpression (expression-tree paths below)
-    //     rather than Write / ToPartiQlLiteral.
-    //
-    //   • ReadValue / Write / ToPartiQlLiteral are only reachable via the
-    //     IDynamoUntypedValueWriter.Write(object) path, which is itself already operating on a
-    //     boxed object — so the additional boxing here is in an already-boxed context and does
-    //     not regress the hot path.
+    // These methods use the untyped ValueConverter API and box value types. Query read/value
+    // binding and SaveChanges write paths use expression-tree APIs below instead.
 
     protected override TModel ReadValue(
         AttributeValue attributeValue,
