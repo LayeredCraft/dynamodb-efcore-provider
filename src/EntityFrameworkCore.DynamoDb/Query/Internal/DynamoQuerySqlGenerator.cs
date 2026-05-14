@@ -167,10 +167,13 @@ public sealed class DynamoQuerySqlGenerator : SqlExpressionVisitor
     /// <inheritdoc />
     protected override Expression VisitSqlConstant(SqlConstantExpression sqlConstantExpression)
     {
-        // Constants and parameters must go through the same mapping-owned serialization rules so
-        // inline literals and AttributeValue parameters stay behaviorally aligned.
+        // Use the runtime value type when available so promoted constants (short property vs int
+        // literal) serialize as DynamoDB N without trying to unbox int as short.
         if (sqlConstantExpression.TypeMapping is DynamoTypeMapping dynamoTypeMapping)
-            _sql.Append(dynamoTypeMapping.GenerateConstant(sqlConstantExpression.Value));
+            _sql.Append(
+                dynamoTypeMapping.GenerateConstant(
+                    sqlConstantExpression.Value,
+                    sqlConstantExpression.Value?.GetType() ?? sqlConstantExpression.Type));
         else
             // Fallback for cases without type mapping (shouldn't happen in normal usage)
             throw new InvalidOperationException(
@@ -190,7 +193,7 @@ public sealed class DynamoQuerySqlGenerator : SqlExpressionVisitor
             throw new InvalidOperationException(
                 $"Parameter '{sqlParameterExpression.Name}' not found in parameter values.");
 
-        AppendParameter(value, sqlParameterExpression.TypeMapping);
+        AppendParameter(value, sqlParameterExpression.Type, sqlParameterExpression.TypeMapping);
 
         return sqlParameterExpression;
     }
@@ -510,7 +513,10 @@ public sealed class DynamoQuerySqlGenerator : SqlExpressionVisitor
             if (count > 0)
                 _sql.Append(", ");
 
-            AppendParameter(value, sqlInExpression.Item.TypeMapping);
+            AppendParameter(
+                value,
+                value?.GetType() ?? sqlInExpression.Item.Type,
+                sqlInExpression.Item.TypeMapping);
             count++;
         }
 
@@ -579,13 +585,13 @@ public sealed class DynamoQuerySqlGenerator : SqlExpressionVisitor
     }
 
     /// <summary>Appends a parameter placeholder and converted AttributeValue in lockstep.</summary>
-    private void AppendParameter(object? value, CoreTypeMapping? typeMapping)
+    private void AppendParameter(object? value, Type sourceType, CoreTypeMapping? typeMapping)
     {
         _sql.Append('?');
         _parameters.Add(
-            // Parameter conversion is model-value-facing; the mapping composes any EF converter and
-            // then serializes to the correct DynamoDB wire shape.
-            (typeMapping as DynamoTypeMapping)?.CreateAttributeValue(value)
+            // EF stores parameter values as object; sourceType lets the mapping unbox once and
+            // continue through a cached typed serializer.
+            (typeMapping as DynamoTypeMapping)?.CreateAttributeValue(value, sourceType)
             ?? throw new InvalidOperationException(
                 $"Query parameter requires a DynamoTypeMapping. Got: {typeMapping?.GetType().Name ?? "null"}"));
     }

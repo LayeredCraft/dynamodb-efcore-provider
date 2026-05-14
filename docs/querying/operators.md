@@ -30,8 +30,8 @@ _This page is the authoritative reference for which LINQ operators translate to 
 
 ## Projection Operators
 
-| LINQ Operator | PartiQL Translation  | Notes                                                                  |
-| ------------- | -------------------- | ---------------------------------------------------------------------- |
+| LINQ Operator | PartiQL Translation  | Notes                                                                                                      |
+| ------------- | -------------------- | ---------------------------------------------------------------------------------------------------------- |
 | `Select`      | Explicit column list | `SELECT *` is never emitted; computed expressions and nested complex-property shaping evaluate client-side |
 
 ## Ordering Operators
@@ -75,13 +75,13 @@ it needs to query DynamoDB.
 
 The following extension methods are unique to this provider and have no standard LINQ equivalent. They compose with the query before a terminal operator is called.
 
-| Extension              | Behavior                                                          | Notes                                                                                                                                          |
-| ---------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Limit(n)`             | Sets `ExecuteStatementRequest.Limit` — evaluation budget          | DynamoDB reads up to `n` items then applies filters; returned count is 0..n. Last call wins. See [Ordering and Limiting](ordering-limiting.md) |
-| `WithNextToken(token)` | Seeds the first request with a saved continuation cursor          | Resumes a previous query from a known position. See [Pagination](pagination.md)                                                                |
+| Extension              | Behavior                                                          | Notes                                                                                                                                                                                                                                                                          |
+| ---------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `Limit(n)`             | Sets `ExecuteStatementRequest.Limit` — evaluation budget          | DynamoDB reads up to `n` items then applies filters; returned count is 0..n. Last call wins. See [Ordering and Limiting](ordering-limiting.md)                                                                                                                                 |
+| `WithNextToken(token)` | Seeds the first request with a saved continuation cursor          | Resumes a previous query from a known position. See [Pagination](pagination.md)                                                                                                                                                                                                |
 | `WithConsistentRead()` | Requests strongly consistent reads for this query                 | Sets `ExecuteStatementRequest.ConsistentRead = true` for base-table and LSI reads. Throws if the finalized source is a GSI because DynamoDB does not support strong consistency on GSIs. `WithConsistentRead(false)` explicitly uses eventually consistent reads for one query |
-| `WithIndex(name)`      | Routes the query to a named GSI or LSI                            | Emits `FROM "Table"."Index"` in PartiQL. See [Index Selection](index-selection.md)                                                             |
-| `WithoutIndex()`       | Forces base-table execution; suppresses automatic index selection | Emits diagnostic `DYNAMO_IDX006`. Cannot combine with `WithIndex(...)`                                                                         |
+| `WithIndex(name)`      | Routes the query to a named GSI or LSI                            | Emits `FROM "Table"."Index"` in PartiQL. See [Index Selection](index-selection.md)                                                                                                                                                                                             |
+| `WithoutIndex()`       | Forces base-table execution; suppresses automatic index selection | Emits diagnostic `DYNAMO_IDX006`. Cannot combine with `WithIndex(...)`                                                                                                                                                                                                         |
 
 ## Unsupported Operators
 
@@ -104,22 +104,25 @@ The following operators are not supported and throw `InvalidOperationException` 
 
 All scalar entity properties must map to a DynamoDB attribute type. Types without a native wire representation use built-in EF Core value converters.
 
-| .NET Type                                   | DynamoDB Attribute Type | Wire Format                                                 |
-| ------------------------------------------- | ----------------------- | ----------------------------------------------------------- |
-| `string`                                    | `S`                     | —                                                           |
-| `bool`                                      | `BOOL`                  | —                                                           |
-| `int`, `long`, `float`, `double`, `decimal` | `N`                     | Numeric string                                              |
-| `ushort`, `uint`, `ulong`                   | `N`                     | Numeric string                                              |
-| `byte[]`                                    | `B`                     | Binary                                                      |
-| `Guid`                                      | `S`                     | `"D"` format, e.g. `"550e8400-e29b-41d4-a716-446655440000"` |
-| `DateTime`                                  | `S`                     | ISO 8601 round-trip (`"O"`)                                 |
-| `DateTimeOffset`                            | `S`                     | ISO 8601 round-trip (`"O"`)                                 |
-| `DateOnly`                                  | `S`                     | `"yyyy-MM-dd"`, e.g. `"2026-04-19"`                         |
-| `TimeOnly`                                  | `S`                     | `"HH:mm:ss"` (whole-second) or `"o"` (sub-second)           |
-| `TimeSpan`                                  | `S`                     | Constant (`"c"`) format, e.g. `"01:30:00"`                  |
-| Enum                                        | `N`                     | Underlying numeric value (string names require a converter) |
+| .NET Type                               | DynamoDB Attribute Type | Wire Format                                                 |
+| --------------------------------------- | ----------------------- | ----------------------------------------------------------- |
+| `string`                                | `S`                     | —                                                           |
+| `bool`                                  | `BOOL`                  | —                                                           |
+| `byte`, `sbyte`, `short`, `int`, `long` | `N`                     | Numeric string                                              |
+| `ushort`, `uint`, `ulong`               | `N`                     | Numeric string                                              |
+| `float`, `double`, `decimal`            | `N`                     | Numeric string                                              |
+| `byte[]`                                | `B`                     | Binary                                                      |
+| `Guid`                                  | `S`                     | `"D"` format, e.g. `"550e8400-e29b-41d4-a716-446655440000"` |
+| `DateTime`                              | `S`                     | ISO 8601 round-trip (`"O"`)                                 |
+| `DateTimeOffset`                        | `S`                     | ISO 8601 round-trip (`"O"`)                                 |
+| `DateOnly`                              | `S`                     | `"yyyy-MM-dd"`, e.g. `"2026-04-19"`                         |
+| `TimeOnly`                              | `S`                     | `"HH:mm:ss"` (whole-second) or `"o"` (sub-second)           |
+| `TimeSpan`                              | `S`                     | Constant (`"c"`) format, e.g. `"01:30:00"`                  |
+| Enum                                    | `N`                     | Underlying numeric value (string names require a converter) |
 
-Nullable variants of all types above are supported. Custom types can be mapped using EF Core [value converters](https://learn.microsoft.com/en-us/ef/core/modeling/value-conversions).
+Nullable variants of all types above are supported. Numeric comparisons use DynamoDB's single `N` wire type, so promotions to `int`, such as `short` to `int`, still bind as DynamoDB numbers. Custom types can be mapped using EF Core [value converters](https://learn.microsoft.com/en-us/ef/core/modeling/value-conversions); query parameters and constants use the property mapping so converters apply consistently.
+
+Value-converted enums compare using the converter provider type. For example, an enum mapped with `.HasConversion<string>()` binds parameters as DynamoDB strings. Numeric casts of value-converted enums, such as `(int)entity.Status == value`, are not translated for parameter comparisons because the DynamoDB attribute stores the converted provider value. Compare enum values directly, or map the enum numerically if numeric comparisons are required.
 
 ## See also
 
