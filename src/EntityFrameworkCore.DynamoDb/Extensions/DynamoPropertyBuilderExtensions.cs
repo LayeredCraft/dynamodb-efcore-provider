@@ -21,6 +21,9 @@ public static class DynamoPropertyBuilderExtensions
         }
     }
 
+    // #nullable disable removes the implicit notnull constraint on TProperty so callers
+    // mapping nullable reference properties (e.g. string?) do not get CS8714.
+#nullable disable
     extension<TProperty>(PropertyBuilder<TProperty> propertyBuilder)
     {
         /// <summary>Configures the DynamoDB attribute name used to store this scalar property.</summary>
@@ -29,6 +32,7 @@ public static class DynamoPropertyBuilderExtensions
             => (PropertyBuilder<TProperty>)((PropertyBuilder)propertyBuilder)
                 .HasAttributeName(name);
     }
+#nullable restore
 
     extension(ComplexCollectionTypePropertyBuilder builder)
     {
