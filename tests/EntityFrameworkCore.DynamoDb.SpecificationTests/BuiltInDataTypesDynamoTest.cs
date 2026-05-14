@@ -58,7 +58,6 @@ public class BuiltInDataTypesDynamoTest(
         => base.Can_query_using_any_nullable_data_type();
 
     /// <inheritdoc />
-    [ConditionalFact(Skip = ProviderTypeMappingGaps)]
     public override Task Can_query_using_any_data_type_nullable_shadow()
         => base.Can_query_using_any_data_type_nullable_shadow();
 
@@ -207,7 +206,6 @@ public class BuiltInDataTypesDynamoTest(
             modelBuilder.Ignore<AnimalIdentification>();
             modelBuilder.Ignore<StringForeignKeyDataType>();
             modelBuilder.Ignore<BinaryForeignKeyDataType>();
-            modelBuilder.Ignore<BuiltInNullableDataTypesShadow>();
 
             // TODO: remove and add better discriminator support
             modelBuilder.Entity<BuiltInDataTypesShadow>(b =>
