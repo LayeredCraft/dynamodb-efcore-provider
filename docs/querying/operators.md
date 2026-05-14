@@ -104,22 +104,23 @@ The following operators are not supported and throw `InvalidOperationException` 
 
 All scalar entity properties must map to a DynamoDB attribute type. Types without a native wire representation use built-in EF Core value converters.
 
-| .NET Type                                   | DynamoDB Attribute Type | Wire Format                                                 |
-| ------------------------------------------- | ----------------------- | ----------------------------------------------------------- |
-| `string`                                    | `S`                     | —                                                           |
-| `bool`                                      | `BOOL`                  | —                                                           |
-| `int`, `long`, `float`, `double`, `decimal` | `N`                     | Numeric string                                              |
-| `ushort`, `uint`, `ulong`                   | `N`                     | Numeric string                                              |
-| `byte[]`                                    | `B`                     | Binary                                                      |
-| `Guid`                                      | `S`                     | `"D"` format, e.g. `"550e8400-e29b-41d4-a716-446655440000"` |
-| `DateTime`                                  | `S`                     | ISO 8601 round-trip (`"O"`)                                 |
-| `DateTimeOffset`                            | `S`                     | ISO 8601 round-trip (`"O"`)                                 |
-| `DateOnly`                                  | `S`                     | `"yyyy-MM-dd"`, e.g. `"2026-04-19"`                         |
-| `TimeOnly`                                  | `S`                     | `"HH:mm:ss"` (whole-second) or `"o"` (sub-second)           |
-| `TimeSpan`                                  | `S`                     | Constant (`"c"`) format, e.g. `"01:30:00"`                  |
-| Enum                                        | `N`                     | Underlying numeric value (string names require a converter) |
+| .NET Type                               | DynamoDB Attribute Type | Wire Format                                                 |
+| --------------------------------------- | ----------------------- | ----------------------------------------------------------- |
+| `string`                                | `S`                     | —                                                           |
+| `bool`                                  | `BOOL`                  | —                                                           |
+| `byte`, `sbyte`, `short`, `int`, `long` | `N`                     | Numeric string                                              |
+| `ushort`, `uint`, `ulong`               | `N`                     | Numeric string                                              |
+| `float`, `double`, `decimal`            | `N`                     | Numeric string                                              |
+| `byte[]`                                | `B`                     | Binary                                                      |
+| `Guid`                                  | `S`                     | `"D"` format, e.g. `"550e8400-e29b-41d4-a716-446655440000"` |
+| `DateTime`                              | `S`                     | ISO 8601 round-trip (`"O"`)                                 |
+| `DateTimeOffset`                        | `S`                     | ISO 8601 round-trip (`"O"`)                                 |
+| `DateOnly`                              | `S`                     | `"yyyy-MM-dd"`, e.g. `"2026-04-19"`                         |
+| `TimeOnly`                              | `S`                     | `"HH:mm:ss"` (whole-second) or `"o"` (sub-second)           |
+| `TimeSpan`                              | `S`                     | Constant (`"c"`) format, e.g. `"01:30:00"`                  |
+| Enum                                    | `N`                     | Underlying numeric value (string names require a converter) |
 
-Nullable variants of all types above are supported. Custom types can be mapped using EF Core [value converters](https://learn.microsoft.com/en-us/ef/core/modeling/value-conversions).
+Nullable variants of all types above are supported. Numeric comparisons use DynamoDB's single `N` wire type, so C# numeric promotions such as `short` to `int` still bind as DynamoDB numbers. Custom types can be mapped using EF Core [value converters](https://learn.microsoft.com/en-us/ef/core/modeling/value-conversions); query parameters and constants use the property mapping so converters apply consistently.
 
 ## See also
 
