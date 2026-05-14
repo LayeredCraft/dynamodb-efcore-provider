@@ -29,8 +29,8 @@ namespace EntityFrameworkCore.DynamoDb.Metadata.Conventions;
 public sealed class DynamoKeyAnnotationConvention : IModelFinalizingConvention
 {
     /// <summary>
-    ///     Finalizes partition/sort key annotations by applying configured mappings, EF-primary-key
-    ///     fallback, and conventional property-name fallback in precedence order.
+    ///     Finalizes partition/sort key annotations by applying configured mappings and conventional
+    ///     property-name fallback in precedence order.
     /// </summary>
     public void ProcessModelFinalizing(
         IConventionModelBuilder modelBuilder,
@@ -66,8 +66,10 @@ public sealed class DynamoKeyAnnotationConvention : IModelFinalizingConvention
         if (source is ConfigurationSource.Explicit or ConfigurationSource.DataAnnotation)
             return;
 
-        var candidates =
-            DynamoKeyDiscoveryConvention.GetPartitionKeyCandidates(entityType.GetProperties());
+        var candidates = DynamoKeyDiscoveryConvention.GetPartitionKeyCandidates(
+            entityType
+                .GetProperties()
+                .Where(DynamoKeyDiscoveryConvention.IsDiscoverableKeyProperty));
 
         SetAnnotationFromCandidates(
             entityType,
@@ -95,7 +97,11 @@ public sealed class DynamoKeyAnnotationConvention : IModelFinalizingConvention
         if (source is ConfigurationSource.Explicit or ConfigurationSource.DataAnnotation)
             return;
 
-        var candidates = entityType.GetProperties().Where(p => isConventionalName(p.Name)).ToList();
+        var candidates = entityType
+            .GetProperties()
+            .Where(p => DynamoKeyDiscoveryConvention.IsDiscoverableKeyProperty(p)
+                && isConventionalName(p.Name))
+            .ToList();
 
         SetAnnotationFromCandidates(
             entityType,

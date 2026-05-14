@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
@@ -48,7 +49,7 @@ public class DynamoKeyDiscoveryConvention(ProviderConventionSetBuilderDependenci
         IList<IConventionProperty> keyProperties,
         IConventionEntityType entityType)
     {
-        var properties = entityType.GetProperties().ToList();
+        var properties = entityType.GetProperties().Where(IsDiscoverableKeyProperty).ToList();
         var pkProperty = GetPartitionKeyCandidates(properties).FirstOrDefault();
         if (pkProperty == null)
         {
@@ -66,6 +67,10 @@ public class DynamoKeyDiscoveryConvention(ProviderConventionSetBuilderDependenci
 
         base.ProcessKeyProperties(keyProperties, entityType);
     }
+
+    /// <summary>Returns true when the property can be discovered as a conventional DynamoDB key.</summary>
+    internal static bool IsDiscoverableKeyProperty(IConventionProperty property)
+        => !property.IsShadowProperty() && !property.IsRuntimeOnly();
 
     /// <summary>
     ///     Gets conventional partition key candidates, preferring DynamoDB-specific names over the
