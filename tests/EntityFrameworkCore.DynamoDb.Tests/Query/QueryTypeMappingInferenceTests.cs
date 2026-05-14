@@ -235,6 +235,47 @@ public class QueryTypeMappingInferenceTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task List_contains_enum_underlying_cast_on_converted_property_is_rejected()
+    {
+        var (client, captured) = CreateClient();
+        await using var context = QueryTypeMappingContext.Create(client);
+        var values = new List<int> { 1 };
+
+        var act = () => context
+            .Items
+            .AllowScan()
+            .Where(e => values.Contains((int)e.StringStatus))
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*value-converted enum*numeric underlying type*");
+        captured.Should().BeEmpty();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task
+        Read_only_list_contains_enum_underlying_cast_on_converted_property_is_rejected()
+    {
+        var (client, captured) = CreateClient();
+        await using var context = QueryTypeMappingContext.Create(client);
+        IReadOnlyList<int> values = [1];
+
+        var act = () => context
+            .Items
+            .AllowScan()
+            .Where(e => values.Contains((int)e.StringStatus))
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*value-converted enum*numeric underlying type*");
+        captured.Should().BeEmpty();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Converted_property_parameter_uses_property_converter_mapping()
     {
         var (client, captured) = CreateClient();

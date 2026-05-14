@@ -353,6 +353,37 @@ public class QueryTypeMappingTests : QueryTypeMappingTestFixture
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task SaveChanges_writes_converted_enum_wire_values()
+    {
+        var pk = $"ITEM#WRITE#{Guid.NewGuid():N}";
+        Db.Items.Add(
+            new QueryTypeMappingItem
+            {
+                Pk = pk,
+                ShortValue = 10,
+                NullableShortValue = null,
+                NumericStatus = (MappingStatus)99,
+                StringStatus = (MappingStatus)99,
+                NullableStringStatus = null,
+                Profile = new QueryTypeMappingProfile { Status = (MappingStatus)99 },
+            });
+
+        await Db.SaveChangesAsync(CancellationToken);
+
+        var response = await Client.GetItemAsync(
+            new GetItemRequest
+            {
+                TableName = "QueryTypeMappingItems",
+                Key = new Dictionary<string, AttributeValue> { ["pk"] = new() { S = pk }, },
+            },
+            CancellationToken);
+
+        response.Item["stringStatus"].S.Should().Be("99");
+        response.Item["nullableStringStatus"].NULL.Should().BeTrue();
+        response.Item["profile"].M["status"].S.Should().Be("99");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Complex_converted_property_comparison_returns_expected_item()
     {
         var status = MappingStatus.Pending;

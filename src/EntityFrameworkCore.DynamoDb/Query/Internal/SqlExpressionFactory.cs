@@ -203,10 +203,17 @@ public sealed class SqlExpressionFactory(ITypeMappingSource typeMappingSource)
         if (nonNullableType.IsArray)
             return nonNullableType.GetElementType()!;
 
-        return nonNullableType.IsGenericType
-            && nonNullableType.GetGenericTypeDefinition() == typeof(IEnumerable<>)
-                ? nonNullableType.GetGenericArguments()[0]
-                : nonNullableType;
+        if (nonNullableType.IsGenericType
+            && nonNullableType.GetGenericTypeDefinition() == typeof(IEnumerable<>))
+            return nonNullableType.GetGenericArguments()[0];
+
+        var enumerableInterface =
+            nonNullableType
+                .GetInterfaces()
+                .FirstOrDefault(i => i.IsGenericType
+                    && i.GetGenericTypeDefinition() == typeof(IEnumerable<>));
+
+        return enumerableInterface?.GetGenericArguments()[0] ?? nonNullableType;
     }
 
     private static CoreTypeMapping? InferTypeMapping(SqlExpression first, SqlExpression second)

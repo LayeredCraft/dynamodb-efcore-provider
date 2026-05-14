@@ -59,9 +59,7 @@ public interface ISqlExpressionFactory
     /// <param name="sqlExpression">The SQL expression to map.</param>
     /// <param name="typeMapping">The exact type mapping to apply.</param>
     /// <returns>The mapped SQL expression.</returns>
-    SqlExpression ApplyTypeMapping(SqlExpression sqlExpression, CoreTypeMapping? typeMapping)
-        => throw new NotSupportedException(
-            "Exact type mapping is not supported by this SQL expression factory.");
+    SqlExpression ApplyTypeMapping(SqlExpression sqlExpression, CoreTypeMapping? typeMapping);
 
     /// <summary>Creates a SQL NOT expression that negates the given boolean operand.</summary>
     SqlUnaryExpression Not(SqlExpression operand);
