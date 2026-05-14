@@ -149,6 +149,22 @@ public class QueryTypeMappingInferenceTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Nullable_converted_enum_parameter_uses_property_converter_mapping()
+    {
+        var (client, captured) = CreateClient();
+        await using var context = QueryTypeMappingContext.Create(client);
+        StringStatus? status = StringStatus.Active;
+
+        await context
+            .Items
+            .AllowScan()
+            .Where(e => e.NullableStringStatus == status)
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        captured.Single().Parameters.Single().S.Should().Be(nameof(StringStatus.Active));
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Inline_converted_enum_constant_uses_property_converter_mapping()
     {
         var (client, captured) = CreateClient();
@@ -282,6 +298,8 @@ public class QueryTypeMappingInferenceTests
 
         public StringStatus StringStatus { get; set; }
 
+        public StringStatus? NullableStringStatus { get; set; }
+
         public QueryTypeMappingProfile Profile { get; set; } = new();
     }
 
@@ -306,6 +324,10 @@ public class QueryTypeMappingInferenceTests
                 builder
                     .Property(e => e.StringStatus)
                     .HasAttributeName("stringStatus")
+                    .HasConversion<string>();
+                builder
+                    .Property(e => e.NullableStringStatus)
+                    .HasAttributeName("nullableStringStatus")
                     .HasConversion<string>();
                 builder.ComplexProperty(
                     e => e.Profile,

@@ -99,6 +99,28 @@ public class QueryTypeMappingTests : QueryTypeMappingTestFixture
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Nullable_converted_enum_parameter_comparison_returns_expected_item()
+    {
+        MappingStatus? status = MappingStatus.Active;
+
+        var result = await Db
+            .Items
+            .AsNoTracking()
+            .Where(item => item.NullableStringStatus == status)
+            .Select(item => item.Pk)
+            .ToListAsync(CancellationToken);
+
+        result.Should().Equal("ITEM#1");
+
+        AssertSql(
+            """
+            SELECT "pk"
+            FROM "QueryTypeMappingItems"
+            WHERE "nullableStringStatus" = ?
+            """);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Inline_converted_enum_constant_comparison_returns_expected_item()
     {
         var result = await Db
@@ -214,6 +236,7 @@ public class QueryTypeMappingTestFixture : DynamoTestFixtureBase
             ["shortValue"] = new() { N = "7" },
             ["nullableShortValue"] = new() { NULL = true },
             ["stringStatus"] = new() { S = nameof(MappingStatus.Active) },
+            ["nullableStringStatus"] = new() { S = nameof(MappingStatus.Active) },
             ["profile"] =
                 new()
                 {
@@ -229,6 +252,7 @@ public class QueryTypeMappingTestFixture : DynamoTestFixtureBase
             ["shortValue"] = new() { N = "8" },
             ["nullableShortValue"] = new() { N = "8" },
             ["stringStatus"] = new() { S = nameof(MappingStatus.Inactive) },
+            ["nullableStringStatus"] = new() { NULL = true },
             ["profile"] =
                 new()
                 {
@@ -244,6 +268,7 @@ public class QueryTypeMappingTestFixture : DynamoTestFixtureBase
             ["shortValue"] = new() { N = "9" },
             ["nullableShortValue"] = new() { N = "9" },
             ["stringStatus"] = new() { S = nameof(MappingStatus.Pending) },
+            ["nullableStringStatus"] = new() { S = nameof(MappingStatus.Pending) },
             ["profile"] = new()
             {
                 M = new Dictionary<string, AttributeValue>
@@ -273,6 +298,10 @@ public sealed class QueryTypeMappingDbContext(DbContextOptions options) : DbCont
                 .Property(item => item.StringStatus)
                 .HasAttributeName("stringStatus")
                 .HasConversion<string>();
+            builder
+                .Property(item => item.NullableStringStatus)
+                .HasAttributeName("nullableStringStatus")
+                .HasConversion<string>();
             builder.ComplexProperty(
                 item => item.Profile,
                 profileBuilder
@@ -289,6 +318,8 @@ public sealed record QueryTypeMappingItem
     public short? NullableShortValue { get; set; }
 
     public MappingStatus StringStatus { get; set; }
+
+    public MappingStatus? NullableStringStatus { get; set; }
 
     public QueryTypeMappingProfile Profile { get; set; } = new();
 }
