@@ -195,4 +195,15 @@ public abstract class DynamoTestFixtureBase
 
         return mapper.FromItem<T>(response.Item);
     }
+
+    public async Task AssertItemExistsInDynamoDbAsync<T>(
+        T item,
+        string tableName,
+        Dictionary<string, AttributeValue> key,
+        CancellationToken cancellationToken = default)
+        => (await GetItemAsync<T>(tableName, key, cancellationToken))
+            .Should()
+            .BeEquivalentTo(
+                item,
+                $"Item with key {key} does not match expected item in table {tableName}");
 }
