@@ -1,12 +1,9 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
-using EntityFrameworkCore.DynamoDb.Diagnostics.Internal;
 using EntityFrameworkCore.DynamoDb.Storage;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
-using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.Storage;
@@ -16,12 +13,9 @@ public class DynamoClientWrapperTests
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ExecutePartiQl_Reenumeration_UsesFreshContinuationToken()
     {
-        var diagnosticsLogger =
-            Substitute.For<IDiagnosticsLogger<DbLoggerCategory.Database.Command>>();
-        diagnosticsLogger.Logger.Returns(NullLogger.Instance);
-
         var executionStrategy = new TestExecutionStrategy();
         var dbContextOptions = new DbContextOptionsBuilder<DbContext>().UseDynamo().Options;
+        var diagnosticsLogger = CreateCommandLogger(dbContextOptions);
 
         var client = Substitute.For<IAmazonDynamoDB>();
         var nextTokens = new List<string?>();
@@ -99,15 +93,12 @@ public class DynamoClientWrapperTests
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void Client_WhenConfiguredClientProvided_UsesConfiguredClient()
     {
-        var diagnosticsLogger =
-            Substitute.For<IDiagnosticsLogger<DbLoggerCategory.Database.Command>>();
-        diagnosticsLogger.Logger.Returns(NullLogger.Instance);
-
         var executionStrategy = new TestExecutionStrategy();
         var configuredClient = Substitute.For<IAmazonDynamoDB>();
         var dbContextOptions = new DbContextOptionsBuilder<DbContext>()
             .UseDynamo(options => options.DynamoDbClient(configuredClient))
             .Options;
+        var diagnosticsLogger = CreateCommandLogger(dbContextOptions);
 
         var wrapper =
             new DynamoClientWrapper(dbContextOptions, executionStrategy, diagnosticsLogger);
@@ -118,10 +109,6 @@ public class DynamoClientWrapperTests
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void Client_WhenOnlyConfigProvided_UsesConfiguredValues()
     {
-        var diagnosticsLogger =
-            Substitute.For<IDiagnosticsLogger<DbLoggerCategory.Database.Command>>();
-        diagnosticsLogger.Logger.Returns(NullLogger.Instance);
-
         var executionStrategy = new TestExecutionStrategy();
         var dbContextOptions = new DbContextOptionsBuilder<DbContext>().UseDynamo(options
                 => options.DynamoDbClientConfig(
@@ -130,6 +117,7 @@ public class DynamoClientWrapperTests
                         ServiceURL = "http://localhost:7001", AuthenticationRegion = "us-east-1",
                     }))
             .Options;
+        var diagnosticsLogger = CreateCommandLogger(dbContextOptions);
 
         var wrapper =
             new DynamoClientWrapper(dbContextOptions, executionStrategy, diagnosticsLogger);
@@ -141,10 +129,6 @@ public class DynamoClientWrapperTests
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void Client_WhenConfigAndCallbackProvided_UsesConfigOnly()
     {
-        var diagnosticsLogger =
-            Substitute.For<IDiagnosticsLogger<DbLoggerCategory.Database.Command>>();
-        diagnosticsLogger.Logger.Returns(NullLogger.Instance);
-
         var executionStrategy = new TestExecutionStrategy();
         var dbContextOptions = new DbContextOptionsBuilder<DbContext>().UseDynamo(options =>
             {
@@ -160,6 +144,7 @@ public class DynamoClientWrapperTests
                 });
             })
             .Options;
+        var diagnosticsLogger = CreateCommandLogger(dbContextOptions);
 
         var wrapper =
             new DynamoClientWrapper(dbContextOptions, executionStrategy, diagnosticsLogger);
@@ -171,10 +156,6 @@ public class DynamoClientWrapperTests
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void Client_WhenConfigCallbackProvided_InvokesCallback()
     {
-        var diagnosticsLogger =
-            Substitute.For<IDiagnosticsLogger<DbLoggerCategory.Database.Command>>();
-        diagnosticsLogger.Logger.Returns(NullLogger.Instance);
-
         var executionStrategy = new TestExecutionStrategy();
         var dbContextOptions = new DbContextOptionsBuilder<DbContext>().UseDynamo(options =>
             {
@@ -186,6 +167,7 @@ public class DynamoClientWrapperTests
                 });
             })
             .Options;
+        var diagnosticsLogger = CreateCommandLogger(dbContextOptions);
 
         var wrapper =
             new DynamoClientWrapper(dbContextOptions, executionStrategy, diagnosticsLogger);
@@ -198,12 +180,9 @@ public class DynamoClientWrapperTests
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ExecuteWriteAsync_WithEmptyParameters_OmitsParametersFromRequest()
     {
-        var diagnosticsLogger =
-            Substitute.For<IDiagnosticsLogger<DbLoggerCategory.Database.Command>>();
-        diagnosticsLogger.Logger.Returns(NullLogger.Instance);
-
         var executionStrategy = new TestExecutionStrategy();
         var dbContextOptions = new DbContextOptionsBuilder<DbContext>().UseDynamo().Options;
+        var diagnosticsLogger = CreateCommandLogger(dbContextOptions);
 
         var client = Substitute.For<IAmazonDynamoDB>();
         client
@@ -228,12 +207,9 @@ public class DynamoClientWrapperTests
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ExecuteWriteAsync_WithNonEmptyParameters_SendsParametersInRequest()
     {
-        var diagnosticsLogger =
-            Substitute.For<IDiagnosticsLogger<DbLoggerCategory.Database.Command>>();
-        diagnosticsLogger.Logger.Returns(NullLogger.Instance);
-
         var executionStrategy = new TestExecutionStrategy();
         var dbContextOptions = new DbContextOptionsBuilder<DbContext>().UseDynamo().Options;
+        var diagnosticsLogger = CreateCommandLogger(dbContextOptions);
 
         var client = Substitute.For<IAmazonDynamoDB>();
         client
@@ -255,6 +231,13 @@ public class DynamoClientWrapperTests
                 Arg.Is<ExecuteStatementRequest>(r
                     => r.Parameters != null && r.Parameters.Count == 1),
                 Arg.Any<CancellationToken>());
+    }
+
+    private static IDiagnosticsLogger<DbLoggerCategory.Database.Command> CreateCommandLogger(
+        DbContextOptions<DbContext> dbContextOptions)
+    {
+        using var context = new DbContext(dbContextOptions);
+        return context.GetService<IDiagnosticsLogger<DbLoggerCategory.Database.Command>>();
     }
 
     private static async Task<List<Dictionary<string, AttributeValue>>> EnumerateAsync(
