@@ -2,7 +2,6 @@ using System.Collections.Concurrent;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.Extensions;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -182,4 +181,18 @@ public abstract class DynamoTestFixtureBase
     ///     <paramref name="expected" />, then clears the capture buffer.
     /// </summary>
     protected void AssertSql(params string[] expected) => SqlCapture.AssertBaseline(expected);
+
+    protected async Task<T> GetItemAsync<T>(
+        string tableName,
+        Dictionary<string, AttributeValue> key,
+        CancellationToken cancellationToken)
+    {
+        var mapper = _container.Mappers.Get<T>();
+
+        var response = await Client.GetItemAsync(
+            new GetItemRequest { TableName = tableName, Key = key },
+            cancellationToken);
+
+        return mapper.FromItem<T>(response.Item);
+    }
 }
