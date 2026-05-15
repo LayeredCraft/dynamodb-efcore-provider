@@ -88,18 +88,18 @@ public class BuiltInDataTypesDynamoTest(
         await using (var context = CreateContext())
         {
             context
-                .Set<DynamoBinaryKeyDataType>()
+                .Set<BinaryKeyDataType>()
                 .AddRange(
-                    new DynamoBinaryKeyDataType { Id = [1, 2, 3], Ex = "X1" },
-                    new DynamoBinaryKeyDataType { Id = [1, 2, 3, 4], Ex = "X3" },
-                    new DynamoBinaryKeyDataType { Id = [1, 2, 3, 4, 5], Ex = "X2" });
+                    new BinaryKeyDataType { Id = [1, 2, 3], Ex = "X1" },
+                    new BinaryKeyDataType { Id = [1, 2, 3, 4], Ex = "X3" },
+                    new BinaryKeyDataType { Id = [1, 2, 3, 4, 5], Ex = "X2" });
 
             Assert.Equal(3, await context.SaveChangesAsync());
         }
 
-        async Task<DynamoBinaryKeyDataType> QueryByBinaryKey(DbContext context, byte[] bytes)
+        async Task<BinaryKeyDataType> QueryByBinaryKey(DbContext context, byte[] bytes)
             => (await context
-                .Set<DynamoBinaryKeyDataType>()
+                .Set<BinaryKeyDataType>()
                 .Where(e => e.Id == bytes)
                 .ToListAsync()).Single();
 
@@ -107,7 +107,7 @@ public class BuiltInDataTypesDynamoTest(
         {
             var items =
                 await context
-                    .Set<DynamoBinaryKeyDataType>()
+                    .Set<BinaryKeyDataType>()
                     .Where(x => x.Id == new byte[] { 1, 2, 3 })
                     .ToListAsync();
 
@@ -303,7 +303,7 @@ public class BuiltInDataTypesDynamoTest(
         {
             base.OnModelCreating(modelBuilder, context);
 
-            modelBuilder.Entity<DynamoBinaryKeyDataType>();
+            modelBuilder.Entity<StringKeyDataType>(b => b.Ignore(e => e.Dependents));
             modelBuilder.Entity<StringKeyDataType>(b => b.Ignore(e => e.Dependents));
 
             modelBuilder.Entity<DynamoAnimal>(b =>
@@ -353,12 +353,7 @@ public class BuiltInDataTypesDynamoTest(
         public override bool PreservesDateTimeKind => false;
     }
 
-    protected class DynamoBinaryKeyDataType
-    {
-        public required byte[] Id { get; set; }
 
-        public required string Ex { get; set; }
-    }
 
     protected class DynamoAnimal
     {
