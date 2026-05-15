@@ -8,9 +8,6 @@ namespace EntityFrameworkCore.DynamoDb.SpecificationTests;
 /// <summary>Specification find tests for the DynamoDB provider.</summary>
 public abstract class FindDynamoTest : FindTestBase<FindDynamoTest.FindDynamoFixture>
 {
-    private const string NullableKeysNotSupported = "DynamoDB does not support nullable keys.";
-    private const string ShadowKeysNotSupported = "DynamoDB does not support shadow keys.";
-
     protected FindDynamoTest(FindDynamoFixture fixture) : base(fixture) => fixture.ClearSql();
 
     [ConditionalFact]
@@ -23,13 +20,13 @@ public abstract class FindDynamoTest : FindTestBase<FindDynamoTest.FindDynamoFix
     public override void Returns_null_for_int_key_not_in_store()
         => NoSyncTest(() => base.Returns_null_for_int_key_not_in_store());
 
-    [ConditionalFact(Skip = NullableKeysNotSupported)]
+    [ConditionalFact(Skip = SkipReason.NullableKeysNotSupported)]
     public override void Find_nullable_int_key_tracked() { }
 
-    [ConditionalFact(Skip = NullableKeysNotSupported)]
+    [ConditionalFact(Skip = SkipReason.NullableKeysNotSupported)]
     public override void Find_nullable_int_key_from_store() { }
 
-    [ConditionalFact(Skip = NullableKeysNotSupported)]
+    [ConditionalFact(Skip = SkipReason.NullableKeysNotSupported)]
     public override void Returns_null_for_nullable_int_key_not_in_store() { }
 
     public override void Find_string_key_from_store()
@@ -135,13 +132,13 @@ public abstract class FindDynamoTest : FindTestBase<FindDynamoTest.FindDynamoFix
         AssertSql();
     }
 
-    [ConditionalFact(Skip = ShadowKeysNotSupported)]
+    [ConditionalFact(Skip = SkipReason.ShadowKeysNotSupported)]
     public override void Find_shadow_key_tracked() { }
 
-    [ConditionalFact(Skip = ShadowKeysNotSupported)]
+    [ConditionalFact(Skip = SkipReason.ShadowKeysNotSupported)]
     public override void Find_shadow_key_from_store() { }
 
-    [ConditionalFact(Skip = ShadowKeysNotSupported)]
+    [ConditionalFact(Skip = SkipReason.ShadowKeysNotSupported)]
     public override void Returns_null_for_shadow_key_not_in_store() { }
 
     public override void Returns_null_for_null_key_values_array()
@@ -151,7 +148,7 @@ public abstract class FindDynamoTest : FindTestBase<FindDynamoTest.FindDynamoFix
         AssertSql();
     }
 
-    [ConditionalFact(Skip = NullableKeysNotSupported)]
+    [ConditionalFact(Skip = SkipReason.NullableKeysNotSupported)]
     public override void Returns_null_for_null_nullable_key() { }
 
     public override void Returns_null_for_null_in_composite_key()
@@ -175,36 +172,36 @@ public abstract class FindDynamoTest : FindTestBase<FindDynamoTest.FindDynamoFix
         AssertSql();
     }
 
-    [ConditionalFact(Skip = ShadowKeysNotSupported)]
+    [ConditionalFact(Skip = SkipReason.ShadowKeysNotSupported)]
     public override void Throws_for_bad_entity_type_with_different_namespace() { }
 
-    [ConditionalTheory(Skip = NullableKeysNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.NullableKeysNotSupported)]
     public override Task Find_nullable_int_key_tracked_async(CancellationType cancellationType)
         => Task.CompletedTask;
 
-    [ConditionalTheory(Skip = NullableKeysNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.NullableKeysNotSupported)]
     public override Task Find_nullable_int_key_from_store_async(CancellationType cancellationType)
         => Task.CompletedTask;
 
-    [ConditionalTheory(Skip = NullableKeysNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.NullableKeysNotSupported)]
     public override Task Returns_null_for_nullable_int_key_not_in_store_async(
         CancellationType cancellationType)
         => Task.CompletedTask;
 
-    [ConditionalTheory(Skip = ShadowKeysNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.ShadowKeysNotSupported)]
     public override Task Find_shadow_key_tracked_async(CancellationType cancellationType)
         => Task.CompletedTask;
 
-    [ConditionalTheory(Skip = ShadowKeysNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.ShadowKeysNotSupported)]
     public override Task Find_shadow_key_from_store_async(CancellationType cancellationType)
         => Task.CompletedTask;
 
-    [ConditionalTheory(Skip = ShadowKeysNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.ShadowKeysNotSupported)]
     public override Task Returns_null_for_shadow_key_not_in_store_async(
         CancellationType cancellationType)
         => Task.CompletedTask;
 
-    [ConditionalTheory(Skip = ShadowKeysNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.ShadowKeysNotSupported)]
     public override Task Throws_for_bad_entity_type_with_different_namespace_async(
         CancellationType cancellationType)
         => Task.CompletedTask;

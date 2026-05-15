@@ -43,8 +43,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Update="xunit.runner.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
+    <Content Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest"/>
   </ItemGroup>
 </Project>
