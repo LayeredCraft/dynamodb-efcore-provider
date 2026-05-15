@@ -14,8 +14,7 @@ public class BuiltInDataTypesDynamoTest(
     private const string NonEmbeddedNavigationsNotSupported =
         "DynamoDB does not support non-embedded navigation queries in this test shape.";
 
-    private const string ProviderTypeMappingGaps =
-        "DynamoDB provider does not fully support this built-in type mapping query shape yet.";
+
 
     /// <summary>Ensures all inherited specification tests are reviewed by this provider.</summary>
     [ConditionalFact]
@@ -149,8 +148,25 @@ public class BuiltInDataTypesDynamoTest(
         => base.Can_insert_and_read_back_with_null_binary_foreign_key();
 
     /// <inheritdoc />
-    public override Task Can_insert_and_read_back_with_string_key()
-        => base.Can_insert_and_read_back_with_string_key();
+    public override async Task Can_insert_and_read_back_with_string_key()
+    {
+        await using (var context = CreateContext())
+        {
+            context.Set<StringKeyDataType>().Add(new StringKeyDataType { Id = "Gumball!" });
+
+            Assert.Equal(1, await context.SaveChangesAsync());
+        }
+
+        await using (var context = CreateContext())
+        {
+            var entity = (await context
+                .Set<StringKeyDataType>()
+                .Where(e => e.Id == "Gumball!")
+                .ToListAsync()).Single();
+
+            Assert.Equal("Gumball!", entity.Id);
+        }
+    }
 
     /// <inheritdoc />
     [ConditionalFact(Skip = SkipReason.ForeignKeysNotSupported)]
@@ -253,6 +269,7 @@ public class BuiltInDataTypesDynamoTest(
             base.OnModelCreating(modelBuilder, context);
 
             modelBuilder.Entity<DynamoBinaryKeyDataType>();
+            modelBuilder.Entity<StringKeyDataType>(b => b.Ignore(e => e.Dependents));
 
             modelBuilder.Ignore<Animal>();
             modelBuilder.Ignore<AnimalDetails>();
