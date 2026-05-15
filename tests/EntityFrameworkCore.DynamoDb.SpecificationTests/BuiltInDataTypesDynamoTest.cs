@@ -62,7 +62,6 @@ public class BuiltInDataTypesDynamoTest(
         => base.Can_query_using_any_data_type_nullable_shadow();
 
     /// <inheritdoc />
-    [ConditionalFact(Skip = ProviderTypeMappingGaps)]
     public override Task Can_query_using_any_nullable_data_type_as_literal()
         => base.Can_query_using_any_nullable_data_type_as_literal();
 
@@ -87,9 +86,56 @@ public class BuiltInDataTypesDynamoTest(
         => base.Can_insert_and_read_with_max_length_set();
 
     /// <inheritdoc />
-    [ConditionalFact(Skip = NonEmbeddedNavigationsNotSupported)]
-    public override Task Can_insert_and_read_back_with_binary_key()
-        => base.Can_insert_and_read_back_with_binary_key();
+    public override async Task Can_insert_and_read_back_with_binary_key()
+    {
+        await using (var context = CreateContext())
+        {
+            context
+                .Set<DynamoBinaryKeyDataType>()
+                .AddRange(
+                    new DynamoBinaryKeyDataType { Id = [1, 2, 3], Ex = "X1" },
+                    new DynamoBinaryKeyDataType { Id = [1, 2, 3, 4], Ex = "X3" },
+                    new DynamoBinaryKeyDataType { Id = [1, 2, 3, 4, 5], Ex = "X2" });
+
+            Assert.Equal(3, await context.SaveChangesAsync());
+        }
+
+        async Task<BinaryKeyDataType> QueryByBinaryKey(DbContext context, byte[] bytes)
+            => (await context.Set<BinaryKeyDataType>().Where(e => e.Id == bytes).ToListAsync())
+                .Single();
+
+        await using (var context = CreateContext())
+        {
+            var items = await context.Set<DynamoBinaryKeyDataType>().ToListAsync();
+
+            var entity1 = await QueryByBinaryKey(context, [1, 2, 3]);
+            Assert.Equal(new byte[] { 1, 2, 3 }, entity1.Id);
+
+            var entity2 = await QueryByBinaryKey(context, [1, 2, 3, 4]);
+            Assert.Equal(new byte[] { 1, 2, 3, 4 }, entity2.Id);
+
+            var entity3 = await QueryByBinaryKey(context, [1, 2, 3, 4, 5]);
+            Assert.Equal(new byte[] { 1, 2, 3, 4, 5 }, entity3.Id);
+
+            entity3.Ex = "Xx1";
+            entity2.Ex = "Xx3";
+            entity1.Ex = "Xx7";
+
+            await context.SaveChangesAsync();
+        }
+
+        await using (var context = CreateContext())
+        {
+            var entity1 = await QueryByBinaryKey(context, [1, 2, 3]);
+            Assert.Equal("Xx7", entity1.Ex);
+
+            var entity2 = await QueryByBinaryKey(context, [1, 2, 3, 4]);
+            Assert.Equal("Xx3", entity2.Ex);
+
+            var entity3 = await QueryByBinaryKey(context, [1, 2, 3, 4, 5]);
+            Assert.Equal("Xx1", entity3.Ex);
+        }
+    }
 
     /// <inheritdoc />
     [ConditionalFact(Skip = SkipReason.ForeignKeysNotSupported)]
@@ -97,7 +143,6 @@ public class BuiltInDataTypesDynamoTest(
         => base.Can_insert_and_read_back_with_null_binary_foreign_key();
 
     /// <inheritdoc />
-    [ConditionalFact(Skip = NonEmbeddedNavigationsNotSupported)]
     public override Task Can_insert_and_read_back_with_string_key()
         => base.Can_insert_and_read_back_with_string_key();
 
@@ -201,6 +246,8 @@ public class BuiltInDataTypesDynamoTest(
         {
             base.OnModelCreating(modelBuilder, context);
 
+            modelBuilder.Entity<DynamoBinaryKeyDataType>();
+
             modelBuilder.Ignore<Animal>();
             modelBuilder.Ignore<AnimalDetails>();
             modelBuilder.Ignore<AnimalIdentification>();
@@ -242,8 +289,10 @@ public class BuiltInDataTypesDynamoTest(
         public override bool PreservesDateTimeKind => false;
     }
 
-    protected class DynamoAnimal : Animal
+    protected class DynamoBinaryKeyDataType
     {
-        public new List<AnimalIdentification> IdentificationMethods { get; set; } = [];
+        public required byte[] Id { get; set; }
+
+        public required string Ex { get; set; }
     }
 }
