@@ -1,6 +1,5 @@
 using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.ValueGeneration;
 
@@ -126,6 +125,52 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
             """
             SELECT "id", "name"
             FROM "value-generation-string-keys"
+            WHERE "id" = ?
+            """);
+    }
+
+    /// <summary>Verifies binary partition keys are explicitly written and can be read back.</summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task AddAsync_BinaryPartitionKey_ExplicitKey_PersistsAndMaterializes()
+    {
+        var entity = new BinaryKeyEntity { Id = [0, 1, 2, 127, 255], Name = "binary" };
+
+        await using (var context = CreateContext<BinaryKeyContext>())
+        {
+            await ResetTable(context);
+
+            context.Entities.Add(entity);
+            await context.SaveChangesAsync(CancellationToken);
+        }
+
+        var raw = await GetItemAsync(
+            BinaryKeyContext.TableName,
+            "id",
+            new AttributeValue { B = new MemoryStream(entity.Id, false) });
+        raw.Should().NotBeNull();
+        raw["id"].B.ToArray().Should().Equal(entity.Id);
+        raw["name"].S.Should().Be(entity.Name);
+
+        await using (var context = CreateContext<BinaryKeyContext>())
+        {
+            context.ChangeTracker.Clear();
+            var materialized =
+                await context
+                    .Entities
+                    .Where(x => x.Id == entity.Id)
+                    .FirstOrDefaultAsync(CancellationToken);
+
+            materialized.Should().BeEquivalentTo(entity);
+        }
+
+        AssertSql(
+            """
+            INSERT INTO "value-generation-binary-keys"
+            VALUE {'id': ?, 'name': ?}
+            """,
+            """
+            SELECT "id", "name"
+            FROM "value-generation-binary-keys"
             WHERE "id" = ?
             """);
     }
@@ -411,6 +456,13 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
         public string Name { get; set; } = null!;
     }
 
+    private sealed record BinaryKeyEntity
+    {
+        public byte[] Id { get; set; } = null!;
+
+        public string Name { get; set; } = null!;
+    }
+
     private sealed class StringKeyContext(DbContextOptions<StringKeyContext> options) : DbContext(
         options)
     {
@@ -423,6 +475,26 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<StringKeyEntity>(entity =>
+            {
+                entity.ToTable(TableName);
+                entity.Property(x => x.Id).HasAttributeName("id");
+                entity.Property(x => x.Name).HasAttributeName("name");
+                entity.HasPartitionKey(x => x.Id);
+            });
+    }
+
+    private sealed class BinaryKeyContext(DbContextOptions<BinaryKeyContext> options) : DbContext(
+        options)
+    {
+        public const string TableName = "value-generation-binary-keys";
+
+        public DbSet<BinaryKeyEntity> Entities => Set<BinaryKeyEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.ConfigureWarnings(w => w.Ignore(DynamoEventId.ScanLikeQueryDetected));
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<BinaryKeyEntity>(entity =>
             {
                 entity.ToTable(TableName);
                 entity.Property(x => x.Id).HasAttributeName("id");
