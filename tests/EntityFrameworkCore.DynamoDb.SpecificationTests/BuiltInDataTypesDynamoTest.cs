@@ -11,9 +11,6 @@ public class BuiltInDataTypesDynamoTest(
     BuiltInDataTypesDynamoTest.BuiltInDataTypesDynamoFixture fixture)
     : BuiltInDataTypesTestBase<BuiltInDataTypesDynamoTest.BuiltInDataTypesDynamoFixture>(fixture)
 {
-    private const string NonEmbeddedNavigationsNotSupported =
-        "DynamoDB does not support non-embedded navigation queries in this test shape.";
-
     /// <summary>Ensures all inherited specification tests are reviewed by this provider.</summary>
     [ConditionalFact]
     public virtual void Check_all_tests_overridden()
@@ -98,10 +95,8 @@ public class BuiltInDataTypesDynamoTest(
         }
 
         async Task<BinaryKeyDataType> QueryByBinaryKey(DbContext context, byte[] bytes)
-            => (await context
-                .Set<BinaryKeyDataType>()
-                .Where(e => e.Id == bytes)
-                .ToListAsync()).Single();
+            => (await context.Set<BinaryKeyDataType>().Where(e => e.Id == bytes).ToListAsync())
+                .Single();
 
         await using (var context = CreateContext())
         {
@@ -199,7 +194,7 @@ public class BuiltInDataTypesDynamoTest(
     }
 
     /// <inheritdoc />
-    [ConditionalFact(Skip = NonEmbeddedNavigationsNotSupported)]
+    [ConditionalFact(Skip = SkipReason.NavigationPropertiesNotSupported)]
     public override Task Can_read_back_bool_mapped_as_int_through_navigation()
         => base.Can_read_back_bool_mapped_as_int_through_navigation();
 
@@ -346,8 +341,6 @@ public class BuiltInDataTypesDynamoTest(
         /// <inheritdoc />
         public override bool PreservesDateTimeKind => false;
     }
-
-
 
     protected class DynamoAnimal
     {
