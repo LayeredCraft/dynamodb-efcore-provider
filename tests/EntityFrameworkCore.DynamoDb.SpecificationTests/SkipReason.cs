@@ -8,4 +8,10 @@ public static class SkipReason
 
     public const string NavigationPropertiesNotSupported =
         "DynamoDB does not support navigation properties.";
+
+    public const string ArrayComplexCollectionsNotSupported =
+        "DynamoDB complex collections currently support List<T> and IList<T>, not array-backed collections.";
+
+    public const string ComplexCollectionScanMaterializationNotSupported =
+        "DynamoDB provider currently cannot materialize every complex collection shape from scan-like queries used by this state-change specification test.";
 }
