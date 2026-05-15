@@ -105,12 +105,6 @@ public class BuiltInDataTypesDynamoTest(
 
         await using (var context = CreateContext())
         {
-            var items =
-                await context
-                    .Set<BinaryKeyDataType>()
-                    .Where(x => x.Id == new byte[] { 1, 2, 3 })
-                    .ToListAsync();
-
             var entity1 = await QueryByBinaryKey(context, [1, 2, 3]);
             Assert.Equal(new byte[] { 1, 2, 3 }, entity1.Id);
 
