@@ -1,61 +1,72 @@
 using Amazon.DynamoDBv2.Model;
 using LayeredCraft.DynamoMapper.Runtime;
 
+// ReSharper disable ClassNeverInstantiated.Global
+
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SaveChangesTable;
+
+public interface IDynamoMapper<T>
+{
+    static abstract Dictionary<string, AttributeValue> ToItem(T source);
+    static abstract T FromItem(Dictionary<string, AttributeValue> item);
+}
+
+public static class MapperExtensions
+{
+    public static CustomerItem ToCustomerItem(this Dictionary<string, AttributeValue> item)
+        => SaveChangesCustomerItemMapper.FromItem(item);
+
+    public static OrderItem ToOrderItem(this Dictionary<string, AttributeValue> item)
+        => SaveChangesOrderItemMapper.FromItem(item);
+
+    public static ConverterCoverageItem ToConverterCoverageItem(
+        this Dictionary<string, AttributeValue> item)
+        => SaveChangesConverterCoverageItemMapper.FromItem(item);
+}
 
 [DynamoMapper(
     Convention = DynamoNamingConvention.CamelCase,
     OmitNullValues = false,
     DateTimeFormat = "yyyy-MM-dd HH:mm:sszzz")]
 [DynamoIgnore(nameof(CustomerItem.ReferenceIds), Ignore = IgnoreMapping.ToModel)]
-internal static partial class SaveChangesCustomerItemMapper
+internal partial class SaveChangesCustomerItemMapper : IDynamoMapper<CustomerItem>
 {
-    internal static partial Dictionary<string, AttributeValue> ToItem(CustomerItem source);
+    public static partial Dictionary<string, AttributeValue> ToItem(CustomerItem source);
 
-    internal static partial CustomerItem FromItem(Dictionary<string, AttributeValue> item);
-
-    internal static CustomerItem ToCustomerItem(this Dictionary<string, AttributeValue> item)
-        => FromItem(item);
+    public static partial CustomerItem FromItem(Dictionary<string, AttributeValue> item);
 }
 
 [DynamoMapper(Convention = DynamoNamingConvention.CamelCase, OmitNullValues = false)]
-internal static partial class SaveChangesOrderItemMapper
+internal partial class SaveChangesOrderItemMapper : IDynamoMapper<OrderItem>
 {
-    internal static partial Dictionary<string, AttributeValue> ToItem(OrderItem source);
+    public static partial Dictionary<string, AttributeValue> ToItem(OrderItem source);
 
-    internal static partial OrderItem FromItem(Dictionary<string, AttributeValue> item);
-
-    internal static OrderItem ToOrderItem(this Dictionary<string, AttributeValue> item)
-        => FromItem(item);
+    public static partial OrderItem FromItem(Dictionary<string, AttributeValue> item);
 }
 
 [DynamoMapper(Convention = DynamoNamingConvention.CamelCase, OmitNullValues = false)]
-internal static partial class SaveChangesProductItemMapper
+internal partial class SaveChangesProductItemMapper : IDynamoMapper<ProductItem>
 {
-    internal static partial Dictionary<string, AttributeValue> ToItem(ProductItem source);
+    public static partial Dictionary<string, AttributeValue> ToItem(ProductItem source);
 
-    internal static partial ProductItem FromItem(Dictionary<string, AttributeValue> item);
+    public static partial ProductItem FromItem(Dictionary<string, AttributeValue> item);
 }
 
 [DynamoMapper(Convention = DynamoNamingConvention.CamelCase, OmitNullValues = false)]
-internal static partial class SaveChangesSessionItemMapper
+internal partial class SaveChangesSessionItemMapper : IDynamoMapper<SessionItem>
 {
-    internal static partial Dictionary<string, AttributeValue> ToItem(SessionItem source);
+    public static partial Dictionary<string, AttributeValue> ToItem(SessionItem source);
 
-    internal static partial SessionItem FromItem(Dictionary<string, AttributeValue> item);
+    public static partial SessionItem FromItem(Dictionary<string, AttributeValue> item);
 }
 
 [DynamoMapper(
     Convention = DynamoNamingConvention.CamelCase,
     OmitNullValues = false,
     DateTimeFormat = "yyyy-MM-dd HH:mm:sszzz")]
-internal static partial class SaveChangesConverterCoverageItemMapper
+internal partial class SaveChangesConverterCoverageItemMapper : IDynamoMapper<ConverterCoverageItem>
 {
-    internal static partial Dictionary<string, AttributeValue> ToItem(ConverterCoverageItem source);
+    public static partial Dictionary<string, AttributeValue> ToItem(ConverterCoverageItem source);
 
-    internal static partial ConverterCoverageItem FromItem(Dictionary<string, AttributeValue> item);
-
-    internal static ConverterCoverageItem ToConverterCoverageItem(
-        this Dictionary<string, AttributeValue> item)
-        => FromItem(item);
+    public static partial ConverterCoverageItem FromItem(Dictionary<string, AttributeValue> item);
 }
