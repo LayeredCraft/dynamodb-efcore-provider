@@ -14,8 +14,6 @@ public class BuiltInDataTypesDynamoTest(
     private const string NonEmbeddedNavigationsNotSupported =
         "DynamoDB does not support non-embedded navigation queries in this test shape.";
 
-
-
     /// <summary>Ensures all inherited specification tests are reviewed by this provider.</summary>
     [ConditionalFact]
     public virtual void Check_all_tests_overridden()
@@ -195,9 +193,16 @@ public class BuiltInDataTypesDynamoTest(
         => base.Can_insert_and_read_back_non_nullable_backed_data_types();
 
     /// <inheritdoc />
-    [ConditionalFact(Skip = NonEmbeddedNavigationsNotSupported)]
-    public override Task Can_read_back_mapped_enum_from_collection_first_or_default()
-        => base.Can_read_back_mapped_enum_from_collection_first_or_default();
+    public override async Task Can_read_back_mapped_enum_from_collection_first_or_default()
+    {
+        await using var context = CreateContext();
+        var query =
+            from animal in context.Set<DynamoAnimal>()
+            select new { animal.Id, animal.IdentificationMethods.FirstOrDefault()!.Method };
+
+        var result = await query.AsAsyncEnumerable().FirstOrDefaultAsync();
+        Assert.Equal(IdentificationMethod.EarTag, result?.Method);
+    }
 
     /// <inheritdoc />
     [ConditionalFact(Skip = NonEmbeddedNavigationsNotSupported)]
@@ -254,7 +259,37 @@ public class BuiltInDataTypesDynamoTest(
                     DynamoEventId.NoCompatibleSecondaryIndexFound,
                     DynamoEventId.ScanLikeQueryDetected))
                 .UseDynamo(options
-                    => options.DynamoDbClient(DynamoTestStoreFactory.Instance.Client));
+                    => options.DynamoDbClient(DynamoTestStoreFactory.Instance.Client))
+                .UseAsyncSeeding(async (context, _, cancellationToken) =>
+                {
+                    if (await context
+                        .FindAsync<DynamoAnimal>([1], cancellationToken)
+                        .ConfigureAwait(false) is not null)
+                        return;
+
+                    context
+                        .Set<DynamoAnimal>()
+                        .Add(
+                            new DynamoAnimal
+                            {
+                                Id = 1,
+                                IdentificationMethods =
+                                [
+                                    new AnimalIdentification
+                                    {
+                                        Id = 1,
+                                        AnimalId = 1,
+                                        Method = IdentificationMethod.EarTag,
+                                    },
+                                ],
+                                Details = new AnimalDetails
+                                {
+                                    Id = 1, AnimalId = 1, BoolField = true,
+                                },
+                            });
+
+                    await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+                });
 
         /// <inheritdoc />
         protected override async Task CleanAsync(DbContext context)
@@ -270,6 +305,12 @@ public class BuiltInDataTypesDynamoTest(
 
             modelBuilder.Entity<DynamoBinaryKeyDataType>();
             modelBuilder.Entity<StringKeyDataType>(b => b.Ignore(e => e.Dependents));
+
+            modelBuilder.Entity<DynamoAnimal>(b =>
+            {
+                b.ComplexCollection(e => e.IdentificationMethods);
+                b.ComplexProperty(e => e.Details);
+            });
 
             modelBuilder.Ignore<Animal>();
             modelBuilder.Ignore<AnimalDetails>();
@@ -317,5 +358,12 @@ public class BuiltInDataTypesDynamoTest(
         public required byte[] Id { get; set; }
 
         public required string Ex { get; set; }
+    }
+
+    protected class DynamoAnimal
+    {
+        public int Id { get; set; }
+        public List<AnimalIdentification> IdentificationMethods { get; set; } = [];
+        public required AnimalDetails Details { get; set; }
     }
 }
