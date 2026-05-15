@@ -167,6 +167,16 @@ public sealed class DynamoQuerySqlGenerator : SqlExpressionVisitor
     /// <inheritdoc />
     protected override Expression VisitSqlConstant(SqlConstantExpression sqlConstantExpression)
     {
+        if (sqlConstantExpression.Value is byte[])
+        {
+            AppendParameter(
+                sqlConstantExpression.Value,
+                sqlConstantExpression.Value.GetType(),
+                sqlConstantExpression.TypeMapping);
+
+            return sqlConstantExpression;
+        }
+
         // Use the runtime value type when available so promoted constants (short property vs int
         // literal) serialize as DynamoDB N without trying to unbox int as short.
         if (sqlConstantExpression.TypeMapping is DynamoTypeMapping dynamoTypeMapping)
