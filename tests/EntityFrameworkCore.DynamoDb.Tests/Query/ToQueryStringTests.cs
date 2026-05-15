@@ -48,6 +48,28 @@ public class ToQueryStringTests
         client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!, default);
     }
 
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ToQueryString_InlineBinaryConstant_ParameterizesValue()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var context = ToQueryStringDbContext.Create(client);
+
+        var queryString =
+            context.BinaryItems.Where(e => e.Id == new byte[] { 1, 2, 3 }).ToQueryString();
+
+        queryString
+            .Should()
+            .Be(
+                "-- p0=<binary:3 bytes>"
+                + Environment.NewLine
+                + "SELECT \"id\", \"name\""
+                + Environment.NewLine
+                + "FROM \"ToQueryStringBinaryItems\""
+                + Environment.NewLine
+                + "WHERE \"id\" = ?");
+        client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!, default);
+    }
+
     [Theory(Timeout = TestConfiguration.DefaultTimeout)]
     [MemberData(nameof(AttributeValues))]
     public void ToQueryString_AttributeValueFormatting_HandlesSdkV4NullCollections(
@@ -90,16 +112,33 @@ public class ToQueryStringTests
         public string Name { get; set; } = null!;
     }
 
+    private sealed class ToQueryStringBinaryEntity
+    {
+        public byte[] Id { get; set; } = null!;
+
+        public string Name { get; set; } = null!;
+    }
+
     private sealed class ToQueryStringDbContext(DbContextOptions options) : DbContext(options)
     {
         public DbSet<ToQueryStringEntity> Items => Set<ToQueryStringEntity>();
 
+        public DbSet<ToQueryStringBinaryEntity> BinaryItems => Set<ToQueryStringBinaryEntity>();
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
-            => modelBuilder.Entity<ToQueryStringEntity>(builder =>
+        {
+            modelBuilder.Entity<ToQueryStringEntity>(builder =>
             {
                 builder.ToTable("ToQueryStringItems");
                 builder.HasPartitionKey(e => e.Pk);
             });
+
+            modelBuilder.Entity<ToQueryStringBinaryEntity>(builder =>
+            {
+                builder.ToTable("ToQueryStringBinaryItems");
+                builder.HasPartitionKey(e => e.Id);
+            });
+        }
 
         public static ToQueryStringDbContext Create(IAmazonDynamoDB client)
             => new(
