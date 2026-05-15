@@ -303,7 +303,7 @@ public class BuiltInDataTypesDynamoTest(
 
             modelBuilder.Ignore<Animal>();
             modelBuilder.Ignore<AnimalDetails>();
-            modelBuilder.Ignore<AnimalIdentification>();
+            // modelBuilder.Ignore<AnimalIdentification>();
             modelBuilder.Ignore<StringForeignKeyDataType>();
             modelBuilder.Ignore<BinaryForeignKeyDataType>();
 
