@@ -31,10 +31,7 @@ public class SparseGsiSaveChangesTests(DynamoContainerFixture fixture)
         Db.SparseGsiItems.Add(item);
         await Db.SaveChangesAsync(CancellationToken);
 
-        var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
-        raw.Should().NotBeNull();
-        raw!.Should().NotContainKey("gs1-pk");
-        raw.Should().NotContainKey("gs1-sk");
+        await AssertItemExistsInDynamoDbAsync(item, item.Pk, item.Sk, CancellationToken);
     }
 
     /// <summary>
@@ -59,11 +56,7 @@ public class SparseGsiSaveChangesTests(DynamoContainerFixture fixture)
         Db.SparseGsiItems.Add(item);
         await Db.SaveChangesAsync(CancellationToken);
 
-        var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
-        raw.Should().NotBeNull();
-        raw!["optionalNote"].NULL.Should().BeTrue();
-        raw.Should().NotContainKey("gs1-pk");
-        raw.Should().NotContainKey("gs1-sk");
+        await AssertItemExistsInDynamoDbAsync(item, item.Pk, item.Sk, CancellationToken);
     }
 
     /// <summary>
@@ -86,9 +79,6 @@ public class SparseGsiSaveChangesTests(DynamoContainerFixture fixture)
         Db.SparseGsiItems.Add(item);
         await Db.SaveChangesAsync(CancellationToken);
 
-        var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
-        raw.Should().NotBeNull();
-        raw!["gs1-pk"].S.Should().Be("partition#active");
-        raw["gs1-sk"].S.Should().Be("sort#001");
+        await AssertItemExistsInDynamoDbAsync(item, item.Pk, item.Sk, CancellationToken);
     }
 }

@@ -1,6 +1,5 @@
 using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
-using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SaveChangesTable;
 
@@ -30,16 +29,7 @@ public class AddedEntitiesSaveChangesTests(DynamoContainerFixture fixture)
         Db.Products.Add(product);
         await Db.SaveChangesAsync(CancellationToken);
 
-        var item = await GetItemAsync(product.Pk, product.Sk, CancellationToken);
-        item.Should().NotBeNull();
-        item!["pk"].S.Should().Be("PROD#round-trip");
-        item["sk"].S.Should().Be("PRODUCT");
-        item["version"].N.Should().Be("1");
-        item["name"].S.Should().Be("Widget");
-        item["price"].N.Should().Be("9.99");
-        item["isActive"].BOOL.Should().BeTrue();
-        item["publishedAt"].S.Should().Be("2024-06-01 00:00:00+00:00");
-        item["$type"].S.Should().Be("ProductItem");
+        await AssertItemExistsInDynamoDbAsync(product, product.Pk, product.Sk, CancellationToken);
 
         AssertSql(
             """
@@ -95,15 +85,14 @@ public class AddedEntitiesSaveChangesTests(DynamoContainerFixture fixture)
         Db.Sessions.Add(session);
         await Db.SaveChangesAsync(CancellationToken);
 
-        var customerItem = await GetItemAsync(customer.Pk, customer.Sk, CancellationToken);
-        var orderItem = await GetItemAsync(order.Pk, order.Sk, CancellationToken);
-        var productItem = await GetItemAsync(product.Pk, product.Sk, CancellationToken);
-        var sessionItem = await GetItemAsync(session.Pk, session.Sk, CancellationToken);
-
-        customerItem!["$type"].S.Should().Be("CustomerItem");
-        orderItem!["$type"].S.Should().Be("OrderItem");
-        productItem!["$type"].S.Should().Be("ProductItem");
-        sessionItem!["$type"].S.Should().Be("SessionItem");
+        await AssertItemExistsInDynamoDbAsync(
+            customer,
+            customer.Pk,
+            customer.Sk,
+            CancellationToken);
+        await AssertItemExistsInDynamoDbAsync(order, order.Pk, order.Sk, CancellationToken);
+        await AssertItemExistsInDynamoDbAsync(product, product.Pk, product.Sk, CancellationToken);
+        await AssertItemExistsInDynamoDbAsync(session, session.Pk, session.Sk, CancellationToken);
     }
 
     /// <summary>A nullable scalar written as null is persisted as a DynamoDB NULL attribute.</summary>
@@ -124,9 +113,7 @@ public class AddedEntitiesSaveChangesTests(DynamoContainerFixture fixture)
         Db.Products.Add(product);
         await Db.SaveChangesAsync(CancellationToken);
 
-        var item = await GetItemAsync(product.Pk, product.Sk, CancellationToken);
-        item.Should().NotBeNull();
-        item!["publishedAt"].NULL.Should().BeTrue();
+        await AssertItemExistsInDynamoDbAsync(product, product.Pk, product.Sk, CancellationToken);
     }
 
     /// <summary>A newly added entity with primitive collections persists list, map, and set wire shapes.</summary>
@@ -153,12 +140,7 @@ public class AddedEntitiesSaveChangesTests(DynamoContainerFixture fixture)
         Db.Sessions.Add(session);
         await Db.SaveChangesAsync(CancellationToken);
 
-        var item = await GetItemAsync(session.Pk, session.Sk, CancellationToken);
-        item.Should().NotBeNull();
-        item!["scopes"].L.Select(x => x.S).Should().Equal("read", "write");
-        item["attributes"].M["device"].S.Should().Be("ios");
-        item["attributes"].M["region"].S.Should().Be("eu-west-1");
-        item["flags"].SS.Should().BeEquivalentTo("trusted", "mfa");
+        await AssertItemExistsInDynamoDbAsync(session, session.Pk, session.Sk, CancellationToken);
 
         AssertSql(
             """

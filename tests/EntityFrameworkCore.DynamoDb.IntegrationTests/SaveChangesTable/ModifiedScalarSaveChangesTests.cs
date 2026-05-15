@@ -1,5 +1,4 @@
 using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
-using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SaveChangesTable;
 
@@ -28,9 +27,7 @@ public class ModifiedScalarSaveChangesTests(DynamoContainerFixture fixture)
         var affected = await Db.SaveChangesAsync(CancellationToken);
         affected.Should().Be(1);
 
-        var actual = (await GetItemAsync(item.Pk, item.Sk, CancellationToken))?.ToCustomerItem();
-        actual.Should().NotBeNull();
-        actual.Should().BeEquivalentTo(item);
+        await AssertItemExistsInDynamoDbAsync(item, item.Pk, item.Sk, CancellationToken);
 
         AssertSql(
             """
@@ -63,9 +60,7 @@ public class ModifiedScalarSaveChangesTests(DynamoContainerFixture fixture)
         var affected = await Db.SaveChangesAsync(CancellationToken);
         affected.Should().Be(1);
 
-        var actual = (await GetItemAsync(item.Pk, item.Sk, CancellationToken))?.ToCustomerItem();
-        actual.Should().NotBeNull();
-        actual.Should().BeEquivalentTo(item);
+        await AssertItemExistsInDynamoDbAsync(item, item.Pk, item.Sk, CancellationToken);
 
         AssertSql(
             """
@@ -97,9 +92,7 @@ public class ModifiedScalarSaveChangesTests(DynamoContainerFixture fixture)
         var affected = await Db.SaveChangesAsync(CancellationToken);
         affected.Should().Be(1);
 
-        var actual = (await GetItemAsync(item.Pk, item.Sk, CancellationToken))?.ToCustomerItem();
-        actual.Should().NotBeNull();
-        actual.Should().BeEquivalentTo(item);
+        await AssertItemExistsInDynamoDbAsync(item, item.Pk, item.Sk, CancellationToken);
 
         AssertSql(
             """
@@ -129,9 +122,7 @@ public class ModifiedScalarSaveChangesTests(DynamoContainerFixture fixture)
         var affected = await Db.SaveChangesAsync(CancellationToken);
         affected.Should().Be(0);
 
-        var actual = (await GetItemAsync(item.Pk, item.Sk, CancellationToken))?.ToCustomerItem();
-        actual.Should().NotBeNull();
-        actual.Should().BeEquivalentTo(item);
+        await AssertItemExistsInDynamoDbAsync(item, item.Pk, item.Sk, CancellationToken);
 
         AssertSql();
     }
@@ -164,9 +155,7 @@ public class ModifiedScalarSaveChangesTests(DynamoContainerFixture fixture)
         entry.State.Should().Be(EntityState.Unchanged);
         entry.Property(x => x.Email).OriginalValue.Should().Be("post-save@example.com");
 
-        var actual = (await GetItemAsync(item.Pk, item.Sk, CancellationToken))?.ToCustomerItem();
-        actual.Should().NotBeNull();
-        actual.Should().BeEquivalentTo(item);
+        await AssertItemExistsInDynamoDbAsync(item, item.Pk, item.Sk, CancellationToken);
 
         AssertSql(
             """

@@ -29,6 +29,20 @@ public abstract class SaveChangesTableTestFixture : DynamoTestFixtureBase
             new PutItemRequest { TableName = SaveChangesItemTable.TableName, Item = item },
             cancellationToken);
 
+    protected Task AssertItemExistsInDynamoDbAsync<T>(
+        T item,
+        string pk,
+        string sk,
+        CancellationToken cancellationToken)
+        => AssertItemExistsInDynamoDbAsync(
+            item,
+            SaveChangesItemTable.TableName,
+            new Dictionary<string, AttributeValue>
+            {
+                ["pk"] = pk.ToAttributeValue(), ["sk"] = sk.ToAttributeValue(),
+            },
+            cancellationToken);
+
     protected async Task<Dictionary<string, AttributeValue>?> GetItemAsync(
         string pk,
         string sk,

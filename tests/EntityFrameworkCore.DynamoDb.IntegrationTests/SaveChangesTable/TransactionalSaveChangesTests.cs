@@ -1,6 +1,5 @@
 using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SaveChangesTable;
@@ -22,8 +21,8 @@ public class TransactionalSaveChangesTests(DynamoContainerFixture fixture)
 
         await Db.SaveChangesAsync(CancellationToken);
 
-        (await GetItemAsync(first.Pk, first.Sk, CancellationToken)).Should().NotBeNull();
-        (await GetItemAsync(second.Pk, second.Sk, CancellationToken)).Should().NotBeNull();
+        await AssertItemExistsInDynamoDbAsync(first, first.Pk, first.Sk, CancellationToken);
+        await AssertItemExistsInDynamoDbAsync(second, second.Pk, second.Sk, CancellationToken);
 
         AssertSql(
             """
@@ -83,7 +82,7 @@ public class TransactionalSaveChangesTests(DynamoContainerFixture fixture)
         var act = async () => await Db.SaveChangesAsync(CancellationToken);
         await act.Should().ThrowAsync<DbUpdateException>();
 
-        (await GetItemAsync(first.Pk, first.Sk, CancellationToken)).Should().NotBeNull();
+        await AssertItemExistsInDynamoDbAsync(first, first.Pk, first.Sk, CancellationToken);
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
@@ -136,8 +135,8 @@ public class TransactionalSaveChangesTests(DynamoContainerFixture fixture)
         Db.Entry(second).State.Should().Be(EntityState.Unchanged);
         Db.Entry(duplicate).State.Should().Be(EntityState.Added);
 
-        (await GetItemAsync(first.Pk, first.Sk, CancellationToken)).Should().NotBeNull();
-        (await GetItemAsync(second.Pk, second.Sk, CancellationToken)).Should().NotBeNull();
+        await AssertItemExistsInDynamoDbAsync(first, first.Pk, first.Sk, CancellationToken);
+        await AssertItemExistsInDynamoDbAsync(second, second.Pk, second.Sk, CancellationToken);
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
@@ -243,8 +242,8 @@ public class TransactionalSaveChangesTests(DynamoContainerFixture fixture)
         var act = async () => await Db.SaveChangesAsync(CancellationToken);
         await act.Should().ThrowAsync<DbUpdateException>();
 
-        (await GetItemAsync(first.Pk, first.Sk, CancellationToken)).Should().NotBeNull();
-        (await GetItemAsync(second.Pk, second.Sk, CancellationToken)).Should().NotBeNull();
+        await AssertItemExistsInDynamoDbAsync(first, first.Pk, first.Sk, CancellationToken);
+        await AssertItemExistsInDynamoDbAsync(second, second.Pk, second.Sk, CancellationToken);
         Db.Entry(first).State.Should().Be(EntityState.Unchanged);
         Db.Entry(second).State.Should().Be(EntityState.Unchanged);
         Db.Entry(duplicate).State.Should().Be(EntityState.Added);
@@ -301,8 +300,8 @@ public class TransactionalSaveChangesTests(DynamoContainerFixture fixture)
         var act = async () => await configuredDb.SaveChangesAsync(CancellationToken);
         await act.Should().ThrowAsync<DbUpdateException>();
 
-        (await GetItemAsync(first.Pk, first.Sk, CancellationToken)).Should().NotBeNull();
-        (await GetItemAsync(second.Pk, second.Sk, CancellationToken)).Should().NotBeNull();
+        await AssertItemExistsInDynamoDbAsync(first, first.Pk, first.Sk, CancellationToken);
+        await AssertItemExistsInDynamoDbAsync(second, second.Pk, second.Sk, CancellationToken);
         configuredDb.Entry(first).State.Should().Be(EntityState.Unchanged);
         configuredDb.Entry(second).State.Should().Be(EntityState.Unchanged);
         configuredDb.Entry(duplicate).State.Should().Be(EntityState.Added);
@@ -344,9 +343,13 @@ public class TransactionalSaveChangesTests(DynamoContainerFixture fixture)
 
         await Db.SaveChangesAsync(CancellationToken);
 
-        (await GetItemAsync(first.Pk, first.Sk, CancellationToken)).Should().NotBeNull();
-        (await GetItemAsync(second.Pk, second.Sk, CancellationToken)).Should().NotBeNull();
-        (await GetItemAsync(duplicate.Pk, duplicate.Sk, CancellationToken)).Should().NotBeNull();
+        await AssertItemExistsInDynamoDbAsync(first, first.Pk, first.Sk, CancellationToken);
+        await AssertItemExistsInDynamoDbAsync(second, second.Pk, second.Sk, CancellationToken);
+        await AssertItemExistsInDynamoDbAsync(
+            duplicate,
+            duplicate.Pk,
+            duplicate.Sk,
+            CancellationToken);
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
@@ -408,7 +411,11 @@ public class TransactionalSaveChangesTests(DynamoContainerFixture fixture)
 
         await Db.SaveChangesAsync(CancellationToken);
 
-        (await GetItemAsync(customer.Pk, customer.Sk, CancellationToken)).Should().NotBeNull();
+        await AssertItemExistsInDynamoDbAsync(
+            customer,
+            customer.Pk,
+            customer.Sk,
+            CancellationToken);
 
         AssertSql(
             """
@@ -471,10 +478,12 @@ public class TransactionalSaveChangesTests(DynamoContainerFixture fixture)
 
         await Db.SaveChangesAsync(CancellationToken);
 
-        (await GetItemAsync(toAdd.Pk, toAdd.Sk, CancellationToken)).Should().NotBeNull();
-        var modifiedItem = await GetItemAsync(toModify.Pk, toModify.Sk, CancellationToken);
-        modifiedItem.Should().NotBeNull();
-        modifiedItem!["email"].S.Should().Be("modified@example.com");
+        await AssertItemExistsInDynamoDbAsync(toAdd, toAdd.Pk, toAdd.Sk, CancellationToken);
+        await AssertItemExistsInDynamoDbAsync(
+            toModify,
+            toModify.Pk,
+            toModify.Sk,
+            CancellationToken);
         (await GetItemAsync(toDelete.Pk, toDelete.Sk, CancellationToken)).Should().BeNull();
     }
 
@@ -512,9 +521,9 @@ public class TransactionalSaveChangesTests(DynamoContainerFixture fixture)
         var act = async () => await Db.SaveChangesAsync(CancellationToken);
         await act.Should().ThrowAsync<DbUpdateConcurrencyException>();
 
-        // The transaction rolled back atomically: `first` must not have been persisted.
-        var firstItem = await GetItemAsync(first.Pk, first.Sk, CancellationToken);
-        firstItem!["email"].S.Should().Be("first@example.com");
+        // The transaction rolled back atomically: `first` must not have been updated.
+        first.Email = "first@example.com";
+        await AssertItemExistsInDynamoDbAsync(first, first.Pk, first.Sk, CancellationToken);
 
         // Both entries should remain Modified so the caller can retry after resolving the conflict.
         Db.Entry(first).State.Should().Be(EntityState.Modified);

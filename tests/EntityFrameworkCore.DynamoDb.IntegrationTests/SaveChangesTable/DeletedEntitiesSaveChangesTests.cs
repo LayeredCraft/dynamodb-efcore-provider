@@ -1,5 +1,4 @@
 using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
-using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SaveChangesTable;
 
@@ -163,14 +162,12 @@ public class DeletedEntitiesSaveChangesTests(DynamoContainerFixture fixture)
         Db.Entry(toModify).State.Should().Be(EntityState.Unchanged);
         Db.Entry(toDelete).State.Should().Be(EntityState.Detached);
 
-        // Raw DynamoDB verification.
-        var addedItem = await GetItemAsync(toAdd.Pk, toAdd.Sk, CancellationToken);
-        addedItem.Should().NotBeNull();
-        addedItem!["email"].S.Should().Be("new@example.com");
-
-        var modifiedItem = await GetItemAsync(toModify.Pk, toModify.Sk, CancellationToken);
-        modifiedItem.Should().NotBeNull();
-        modifiedItem!["email"].S.Should().Be("after-modify@example.com");
+        await AssertItemExistsInDynamoDbAsync(toAdd, toAdd.Pk, toAdd.Sk, CancellationToken);
+        await AssertItemExistsInDynamoDbAsync(
+            toModify,
+            toModify.Pk,
+            toModify.Sk,
+            CancellationToken);
 
         var deletedItem = await GetItemAsync(toDelete.Pk, toDelete.Sk, CancellationToken);
         deletedItem.Should().BeNull();
