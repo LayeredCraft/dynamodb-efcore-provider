@@ -27,13 +27,12 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
         context.Entities.Add(entity);
         await context.SaveChangesAsync(CancellationToken);
 
-        var raw = await GetItemAsync(
+        var raw = await GetItemAsync<IntKeyEntity>(
             IntKeyContext.TableName,
-            "id",
-            new AttributeValue { N = "123" });
-        raw.Should().NotBeNull();
-        raw!["id"].N.Should().Be("123");
-        raw["name"].S.Should().Be("assigned");
+            new Dictionary<string, AttributeValue> { ["id"] = entity.Id.ToAttributeValue() },
+            CancellationToken);
+
+        raw.Should().BeEquivalentTo(entity);
 
         var materialized =
             await context
