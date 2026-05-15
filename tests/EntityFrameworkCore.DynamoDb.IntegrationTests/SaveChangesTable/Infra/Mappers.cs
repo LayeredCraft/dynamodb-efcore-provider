@@ -1,15 +1,10 @@
 using Amazon.DynamoDBv2.Model;
+using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 using LayeredCraft.DynamoMapper.Runtime;
 
 // ReSharper disable ClassNeverInstantiated.Global
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SaveChangesTable;
-
-public interface IDynamoMapper<T>
-{
-    static abstract Dictionary<string, AttributeValue> ToItem(T source);
-    static abstract T FromItem(Dictionary<string, AttributeValue> item);
-}
 
 public static class MapperExtensions
 {
