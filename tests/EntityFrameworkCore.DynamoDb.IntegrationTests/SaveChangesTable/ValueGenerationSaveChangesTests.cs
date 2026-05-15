@@ -30,7 +30,7 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
             await context.SaveChangesAsync(CancellationToken);
         }
 
-        await AssertItemExistsInDynamoDbAsync<IntKeyEntity>(
+        await AssertItemExistsInDynamoDbAsync(
             entity,
             IntKeyContext.TableName,
             new Dictionary<string, AttributeValue> { ["id"] = entity.Id.ToAttributeValue() },
@@ -70,10 +70,11 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
             await context.SaveChangesAsync(CancellationToken);
         }
 
-        var raw = await GetItemAsync(IntKeyContext.TableName, "id", new AttributeValue { N = "0" });
-        raw.Should().NotBeNull();
-        raw!["id"].N.Should().Be("0");
-        raw["name"].S.Should().Be("zero");
+        await AssertItemExistsInDynamoDbAsync(
+            entity,
+            IntKeyContext.TableName,
+            new Dictionary<string, AttributeValue> { ["id"] = entity.Id.ToAttributeValue() },
+            CancellationToken);
 
         await using (var context = CreateContext<IntKeyContext>())
         {
@@ -109,13 +110,11 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
             await context.SaveChangesAsync(CancellationToken);
         }
 
-        var raw = await GetItemAsync(
+        await AssertItemExistsInDynamoDbAsync(
+            entity,
             StringKeyContext.TableName,
-            "id",
-            new AttributeValue { S = entity.Id });
-        raw.Should().NotBeNull();
-        raw!["id"].S.Should().Be(entity.Id);
-        raw["name"].S.Should().Be(entity.Name);
+            new Dictionary<string, AttributeValue> { ["id"] = entity.Id.ToAttributeValue() },
+            CancellationToken);
 
         await using (var context = CreateContext<StringKeyContext>())
         {
@@ -151,13 +150,11 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
             await context.SaveChangesAsync(CancellationToken);
         }
 
-        var raw = await GetItemAsync(
+        await AssertItemExistsInDynamoDbAsync(
+            entity,
             BinaryKeyContext.TableName,
-            "id",
-            new AttributeValue { B = new MemoryStream(entity.Id, false) });
-        raw.Should().NotBeNull();
-        raw["id"].B.ToArray().Should().Equal(entity.Id);
-        raw["name"].S.Should().Be(entity.Name);
+            new Dictionary<string, AttributeValue> { ["id"] = entity.Id.ToAttributeValue() },
+            CancellationToken);
 
         await using (var context = CreateContext<BinaryKeyContext>())
         {
@@ -198,13 +195,11 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
         }
 
         entity.Id.Should().Be(777);
-        var raw = await GetItemAsync(
+        await AssertItemExistsInDynamoDbAsync(
+            entity,
             GeneratedIntKeyContext.TableName,
-            "id",
-            new AttributeValue { N = "777" });
-        raw.Should().NotBeNull();
-        raw!["id"].N.Should().Be("777");
-        raw["name"].S.Should().Be("generated");
+            new Dictionary<string, AttributeValue> { ["id"] = entity.Id.ToAttributeValue() },
+            CancellationToken);
 
         await using (var context = CreateContext<GeneratedIntKeyContext>())
         {
@@ -242,13 +237,14 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
         }
 
         entity.Id.Should().NotBe(Guid.Empty);
-        var raw = await GetItemAsync(
+        await AssertItemExistsInDynamoDbAsync(
+            entity,
             GuidKeyContext.TableName,
-            "id",
-            new AttributeValue { S = entity.Id.ToString() });
-        raw.Should().NotBeNull();
-        raw!["id"].S.Should().Be(entity.Id.ToString());
-        raw["name"].S.Should().Be("generated");
+            new Dictionary<string, AttributeValue>
+            {
+                ["id"] = entity.Id.ToString().ToAttributeValue(),
+            },
+            CancellationToken);
 
         await using (var context = CreateContext<GuidKeyContext>())
         {
@@ -286,13 +282,14 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
         }
 
         entity.Id.Should().Be(id);
-        var raw = await GetItemAsync(
+        await AssertItemExistsInDynamoDbAsync(
+            entity,
             ExplicitGuidNoGenerationContext.TableName,
-            "id",
-            new AttributeValue { S = id.ToString() });
-        raw.Should().NotBeNull();
-        raw!["id"].S.Should().Be(id.ToString());
-        raw["name"].S.Should().Be("explicit");
+            new Dictionary<string, AttributeValue>
+            {
+                ["id"] = entity.Id.ToString().ToAttributeValue(),
+            },
+            CancellationToken);
 
         await using (var context = CreateContext<ExplicitGuidNoGenerationContext>())
         {
@@ -328,16 +325,14 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
             await context.SaveChangesAsync(CancellationToken);
         }
 
-        var raw = await GetItemAsync(
+        await AssertItemExistsInDynamoDbAsync(
+            entity,
             CompositeKeyContext.TableName,
-            "pk",
-            new AttributeValue { S = entity.Pk },
-            "sk",
-            new AttributeValue { S = entity.Sk });
-        raw.Should().NotBeNull();
-        raw!["pk"].S.Should().Be(entity.Pk);
-        raw["sk"].S.Should().Be(entity.Sk);
-        raw["name"].S.Should().Be(entity.Name);
+            new Dictionary<string, AttributeValue>
+            {
+                ["pk"] = entity.Pk.ToAttributeValue(), ["sk"] = entity.Sk.ToAttributeValue(),
+            },
+            CancellationToken);
 
         await using (var context = CreateContext<CompositeKeyContext>())
         {
@@ -381,16 +376,15 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
             await context.SaveChangesAsync(CancellationToken);
         }
 
-        var raw = await GetItemAsync(
+        await AssertItemExistsInDynamoDbAsync(
+            entity,
             CompositeGuidKeyContext.TableName,
-            "id",
-            new AttributeValue { S = entity.Id.ToString() },
-            "sk",
-            new AttributeValue { S = entity.Sk });
-        raw.Should().NotBeNull();
-        raw!["id"].S.Should().Be(entity.Id.ToString());
-        raw["sk"].S.Should().Be(entity.Sk);
-        raw["name"].S.Should().Be(entity.Name);
+            new Dictionary<string, AttributeValue>
+            {
+                ["id"] = entity.Id.ToString().ToAttributeValue(),
+                ["sk"] = entity.Sk.ToAttributeValue(),
+            },
+            CancellationToken);
 
         await using (var context = CreateContext<CompositeGuidKeyContext>())
         {
@@ -424,24 +418,6 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
     {
         await context.Database.EnsureDeletedAsync(TestContext.Current.CancellationToken);
         await context.Database.EnsureCreatedAsync(TestContext.Current.CancellationToken);
-    }
-
-    private async Task<Dictionary<string, AttributeValue>?> GetItemAsync(
-        string tableName,
-        string partitionKeyName,
-        AttributeValue partitionKeyValue,
-        string? sortKeyName = null,
-        AttributeValue? sortKeyValue = null)
-    {
-        var key = new Dictionary<string, AttributeValue> { [partitionKeyName] = partitionKeyValue };
-        if (sortKeyName is not null && sortKeyValue is not null)
-            key[sortKeyName] = sortKeyValue;
-
-        var response = await Client.GetItemAsync(
-            new GetItemRequest { TableName = tableName, Key = key },
-            CancellationToken);
-
-        return response.Item is { Count: > 0 } item ? item : null;
     }
 
     public sealed record IntKeyEntity
