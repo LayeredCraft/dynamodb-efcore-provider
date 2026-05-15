@@ -163,14 +163,14 @@ public class AddedEntitiesSaveChangesTests(DynamoContainerFixture fixture)
             Revoked = false,
         };
 
-        Db.Entry(session).State.Should().Be(EntityState.Detached);
+        AssertEntryState(session, EntityState.Detached);
 
         Db.Sessions.Add(session);
-        Db.Entry(session).State.Should().Be(EntityState.Added);
+        AssertEntryState(session, EntityState.Added);
 
         await Db.SaveChangesAsync(CancellationToken);
 
-        Db.Entry(session).State.Should().Be(EntityState.Unchanged);
+        AssertEntryState(session, EntityState.Unchanged);
     }
 
     /// <summary>

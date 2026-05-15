@@ -1,5 +1,4 @@
 using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
-using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SaveChangesTable;
 
@@ -33,18 +32,18 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
             CreatedAt = new DateTimeOffset(2026, 4, 1, 12, 0, 0, TimeSpan.Zero),
             Profile = new CustomerProfile { DisplayName = "Before", Nickname = null },
         };
-        Db.Customers.Add(item);
-        await Db.SaveChangesAsync(CancellationToken);
-        LoggerFactory.Clear();
+        await SeedAsync(item);
 
         item.Profile!.DisplayName = "After";
 
-        var affected = await Db.SaveChangesAsync(CancellationToken);
-        affected.Should().Be(1);
+        await SaveChangesShouldAffectAsync(1);
 
-        var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
-        raw.Should().NotBeNull();
-        raw!["profile"].M["displayName"].S.Should().Be("After");
+        await AssertRawAttributeAsync(
+            item.Pk,
+            item.Sk,
+            "profile",
+            profile => profile.M["displayName"].S.Should().Be("After"),
+            CancellationToken);
 
         // Nested-path shape — not a full map replace.
         AssertSql(
@@ -76,20 +75,14 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
             CreatedAt = new DateTimeOffset(2026, 4, 2, 12, 0, 0, TimeSpan.Zero),
             Profile = new CustomerProfile { DisplayName = "Will be removed", Nickname = null },
         };
-        Db.Customers.Add(item);
-        await Db.SaveChangesAsync(CancellationToken);
-        LoggerFactory.Clear();
+        await SeedAsync(item);
 
         item.Profile = null;
 
-        var affected = await Db.SaveChangesAsync(CancellationToken);
-        affected.Should().Be(1);
-
-        var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
-        raw.Should().NotBeNull();
+        await SaveChangesShouldAffectAsync(1);
 
         // REMOVE deletes the attribute entirely — key must be absent.
-        raw!.Should().NotContainKey("profile");
+        await AssertRawMissingAsync(item.Pk, item.Sk, "profile", CancellationToken);
 
         AssertSql(
             """
@@ -121,20 +114,22 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
             CreatedAt = new DateTimeOffset(2026, 4, 3, 12, 0, 0, TimeSpan.Zero),
             Profile = null,
         };
-        Db.Customers.Add(item);
-        await Db.SaveChangesAsync(CancellationToken);
-        LoggerFactory.Clear();
+        await SeedAsync(item);
 
         item.Profile = new CustomerProfile { DisplayName = "Newly Added", Nickname = "new" };
 
-        var affected = await Db.SaveChangesAsync(CancellationToken);
-        affected.Should().Be(1);
+        await SaveChangesShouldAffectAsync(1);
 
-        var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
-        raw.Should().NotBeNull();
-        raw!.Should().ContainKey("profile");
-        raw["profile"].M["displayName"].S.Should().Be("Newly Added");
-        raw["profile"].M["nickname"].S.Should().Be("new");
+        await AssertRawAttributeAsync(
+            item.Pk,
+            item.Sk,
+            "profile",
+            profile =>
+            {
+                profile.M["displayName"].S.Should().Be("Newly Added");
+                profile.M["nickname"].S.Should().Be("new");
+            },
+            CancellationToken);
 
         AssertSql(
             """
@@ -172,14 +167,11 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
                 },
             },
         };
-        Db.Customers.Add(item);
-        await Db.SaveChangesAsync(CancellationToken);
-        LoggerFactory.Clear();
+        await SeedAsync(item);
 
         item.Profile!.PreferredAddress!.City = "NewCity";
 
-        var affected = await Db.SaveChangesAsync(CancellationToken);
-        affected.Should().Be(1);
+        await SaveChangesShouldAffectAsync(1);
 
         var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
         raw!["profile"].M["preferredAddress"].M["city"].S.Should().Be("NewCity");
@@ -219,14 +211,11 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
                 },
             ],
         };
-        Db.Customers.Add(item);
-        await Db.SaveChangesAsync(CancellationToken);
-        LoggerFactory.Clear();
+        await SeedAsync(item);
 
         item.Contacts[0].Verified = true;
 
-        var affected = await Db.SaveChangesAsync(CancellationToken);
-        affected.Should().Be(1);
+        await SaveChangesShouldAffectAsync(1);
 
         var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
         raw!["contacts"].L.Should().HaveCount(1);
@@ -267,15 +256,12 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
                 },
             ],
         };
-        Db.Customers.Add(item);
-        await Db.SaveChangesAsync(CancellationToken);
-        LoggerFactory.Clear();
+        await SeedAsync(item);
 
         item.Contacts.Add(
             new CustomerContact { Kind = "phone", Value = "+15550001", Verified = false });
 
-        var affected = await Db.SaveChangesAsync(CancellationToken);
-        affected.Should().Be(1);
+        await SaveChangesShouldAffectAsync(1);
 
         var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
         raw!["contacts"].L.Should().HaveCount(2);
@@ -313,14 +299,11 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
             CreatedAt = new DateTimeOffset(2026, 4, 7, 12, 0, 0, TimeSpan.Zero),
             Contacts = [contact1, contact2],
         };
-        Db.Customers.Add(item);
-        await Db.SaveChangesAsync(CancellationToken);
-        LoggerFactory.Clear();
+        await SeedAsync(item);
 
         item.Contacts.Remove(contact1);
 
-        var affected = await Db.SaveChangesAsync(CancellationToken);
-        affected.Should().Be(1);
+        await SaveChangesShouldAffectAsync(1);
 
         var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
         raw!["contacts"].L.Should().HaveCount(1);
@@ -368,14 +351,11 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
                 },
             ],
         };
-        Db.Customers.Add(item);
-        await Db.SaveChangesAsync(CancellationToken);
-        LoggerFactory.Clear();
+        await SeedAsync(item);
 
         item.Contacts[0].Address!.City = "NewCity";
 
-        var affected = await Db.SaveChangesAsync(CancellationToken);
-        affected.Should().Be(1);
+        await SaveChangesShouldAffectAsync(1);
 
         var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
         raw!["contacts"].L.Should().HaveCount(1);
@@ -416,18 +396,13 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
                 },
             ],
         };
-        Db.Customers.Add(item);
-        await Db.SaveChangesAsync(CancellationToken);
-        LoggerFactory.Clear();
+        await SeedAsync(item);
 
         item.Contacts = null!;
 
-        var affected = await Db.SaveChangesAsync(CancellationToken);
-        affected.Should().Be(1);
+        await SaveChangesShouldAffectAsync(1);
 
-        var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
-        raw.Should().NotBeNull();
-        raw!.Should().NotContainKey("contacts");
+        await AssertRawMissingAsync(item.Pk, item.Sk, "contacts", CancellationToken);
 
         AssertSql(
             """
@@ -458,15 +433,12 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
             Total = 50m,
             AppliedCoupons = ["WELCOME10"],
         };
-        Db.Orders.Add(item);
-        await Db.SaveChangesAsync(CancellationToken);
-        LoggerFactory.Clear();
+        await SeedAsync(item);
 
         // Replace the collection reference so EF Core's snapshot comparison detects the change.
         item.AppliedCoupons = [..item.AppliedCoupons, "SUMMER5"];
 
-        var affected = await Db.SaveChangesAsync(CancellationToken);
-        affected.Should().Be(1);
+        await SaveChangesShouldAffectAsync(1);
 
         var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
         raw!["appliedCoupons"].L.Select(a => a.S).Should().Contain("SUMMER5");
@@ -501,16 +473,13 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
             Total = 60m,
             ChargesByCode = new Dictionary<string, decimal> { ["shipping"] = 9.99m },
         };
-        Db.Orders.Add(item);
-        await Db.SaveChangesAsync(CancellationToken);
-        LoggerFactory.Clear();
+        await SeedAsync(item);
 
         // Replace the dictionary reference so EF Core's snapshot comparison detects the change.
         item.ChargesByCode =
             new Dictionary<string, decimal>(item.ChargesByCode) { ["tax"] = 11.51m };
 
-        var affected = await Db.SaveChangesAsync(CancellationToken);
-        affected.Should().Be(1);
+        await SaveChangesShouldAffectAsync(1);
 
         var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
         raw!["chargesByCode"].M.Should().ContainKey("tax");
@@ -545,15 +514,12 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
             CreatedAt = new DateTimeOffset(2026, 4, 11, 12, 0, 0, TimeSpan.Zero),
             Tags = ["vip"],
         };
-        Db.Customers.Add(item);
-        await Db.SaveChangesAsync(CancellationToken);
-        LoggerFactory.Clear();
+        await SeedAsync(item);
 
         // Replace the set reference so EF Core's snapshot comparison detects the change.
         item.Tags = new HashSet<string>(item.Tags) { "beta" };
 
-        var affected = await Db.SaveChangesAsync(CancellationToken);
-        affected.Should().Be(1);
+        await SaveChangesShouldAffectAsync(1);
 
         var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
         raw!["tags"].SS.Should().Contain("beta");
@@ -590,15 +556,12 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
             CreatedAt = new DateTimeOffset(2026, 4, 12, 12, 0, 0, TimeSpan.Zero),
             ReferenceIds = [guid1],
         };
-        Db.Customers.Add(item);
-        await Db.SaveChangesAsync(CancellationToken);
-        LoggerFactory.Clear();
+        await SeedAsync(item);
 
         // Replace the set reference so EF Core's snapshot comparison detects the change.
         item.ReferenceIds = new HashSet<Guid>(item.ReferenceIds) { guid2 };
 
-        var affected = await Db.SaveChangesAsync(CancellationToken);
-        affected.Should().Be(1);
+        await SaveChangesShouldAffectAsync(1);
 
         var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
         raw!["referenceIds"].SS.Should().Contain(guid2.ToString());
@@ -633,15 +596,12 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
             CreatedAt = new DateTimeOffset(2026, 4, 13, 12, 0, 0, TimeSpan.Zero),
             Profile = new CustomerProfile { DisplayName = "Test", Nickname = "before-nick" },
         };
-        Db.Customers.Add(item);
-        await Db.SaveChangesAsync(CancellationToken);
-        LoggerFactory.Clear();
+        await SeedAsync(item);
 
         item.Email = "own13-after@example.com";
         item.Profile!.Nickname = "after-nick";
 
-        var affected = await Db.SaveChangesAsync(CancellationToken);
-        affected.Should().Be(1);
+        await SaveChangesShouldAffectAsync(1);
 
         var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
         raw!["email"].S.Should().Be("own13-after@example.com");
@@ -676,15 +636,12 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
             CreatedAt = new DateTimeOffset(2026, 4, 14, 12, 0, 0, TimeSpan.Zero),
             Tags = ["original"],
         };
-        Db.Customers.Add(item);
-        await Db.SaveChangesAsync(CancellationToken);
-        LoggerFactory.Clear();
+        await SeedAsync(item);
 
         item.Email = "own14-after@example.com";
         item.Tags = new HashSet<string>(item.Tags) { "added" };
 
-        var affected = await Db.SaveChangesAsync(CancellationToken);
-        affected.Should().Be(1);
+        await SaveChangesShouldAffectAsync(1);
 
         var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
         raw!["email"].S.Should().Be("own14-after@example.com");
@@ -720,14 +677,11 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
             IsActive = true,
             Dimensions = new ProductDimensions { Height = 5m, Width = 3m, Depth = 1m },
         };
-        Db.Products.Add(item);
-        await Db.SaveChangesAsync(CancellationToken);
-        LoggerFactory.Clear();
+        await SeedAsync(item);
 
         item.Dimensions!.Height = 15m;
 
-        var affected = await Db.SaveChangesAsync(CancellationToken);
-        affected.Should().Be(1);
+        await SaveChangesShouldAffectAsync(1);
 
         var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
         // Decimal stored as DynamoDB N string.
@@ -769,14 +723,11 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
                 },
             },
         };
-        Db.Orders.Add(item);
-        await Db.SaveChangesAsync(CancellationToken);
-        LoggerFactory.Clear();
+        await SeedAsync(item);
 
         item.Shipping!.Method = "Express";
 
-        var affected = await Db.SaveChangesAsync(CancellationToken);
-        affected.Should().Be(1);
+        await SaveChangesShouldAffectAsync(1);
 
         var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
         raw!["shipping"].M["method"].S.Should().Be("Express");
@@ -812,16 +763,13 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
             CreatedAt = new DateTimeOffset(2026, 4, 17, 12, 0, 0, TimeSpan.Zero),
             Profile = new CustomerProfile { DisplayName = "Before", Nickname = null },
         };
-        Db.Customers.Add(item);
-        await Db.SaveChangesAsync(CancellationToken);
-        LoggerFactory.Clear();
+        await SeedAsync(item);
 
         item.Profile!.DisplayName = "After";
         var profileEntry = Db.Entry(item).ComplexProperty("Profile");
         profileEntry.IsModified.Should().BeTrue();
 
-        var affected = await Db.SaveChangesAsync(CancellationToken);
-        affected.Should().Be(1);
+        await SaveChangesShouldAffectAsync(1);
 
         // Consume the first write's logged statement before checking the no-op save.
         AssertSql(

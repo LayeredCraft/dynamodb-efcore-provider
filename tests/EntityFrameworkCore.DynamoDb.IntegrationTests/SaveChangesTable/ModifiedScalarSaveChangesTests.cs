@@ -18,14 +18,11 @@ public class ModifiedScalarSaveChangesTests(DynamoContainerFixture fixture)
             CreatedAt = new DateTimeOffset(2026, 3, 1, 12, 0, 0, TimeSpan.Zero),
             NullableNote = "note-1",
         };
-        Db.Customers.Add(item);
-        await Db.SaveChangesAsync(CancellationToken);
-        LoggerFactory.Clear();
+        await SeedAsync(item);
 
         item.Email = "updated+1@example.com";
 
-        var affected = await Db.SaveChangesAsync(CancellationToken);
-        affected.Should().Be(1);
+        await SaveChangesShouldAffectAsync(1);
 
         await AssertItemExistsInDynamoDbAsync(item, item.Pk, item.Sk, CancellationToken);
 
@@ -50,15 +47,12 @@ public class ModifiedScalarSaveChangesTests(DynamoContainerFixture fixture)
             CreatedAt = new DateTimeOffset(2026, 3, 2, 12, 0, 0, TimeSpan.Zero),
             NullableNote = null,
         };
-        Db.Customers.Add(item);
-        await Db.SaveChangesAsync(CancellationToken);
-        LoggerFactory.Clear();
+        await SeedAsync(item);
 
         item.Email = "updated+2@example.com";
         item.IsPreferred = true;
 
-        var affected = await Db.SaveChangesAsync(CancellationToken);
-        affected.Should().Be(1);
+        await SaveChangesShouldAffectAsync(1);
 
         await AssertItemExistsInDynamoDbAsync(item, item.Pk, item.Sk, CancellationToken);
 
@@ -83,14 +77,11 @@ public class ModifiedScalarSaveChangesTests(DynamoContainerFixture fixture)
             CreatedAt = new DateTimeOffset(2026, 3, 3, 12, 0, 0, TimeSpan.Zero),
             NullableNote = "to-null",
         };
-        Db.Customers.Add(item);
-        await Db.SaveChangesAsync(CancellationToken);
-        LoggerFactory.Clear();
+        await SeedAsync(item);
 
         item.NullableNote = null;
 
-        var affected = await Db.SaveChangesAsync(CancellationToken);
-        affected.Should().Be(1);
+        await SaveChangesShouldAffectAsync(1);
 
         await AssertItemExistsInDynamoDbAsync(item, item.Pk, item.Sk, CancellationToken);
 
@@ -115,12 +106,9 @@ public class ModifiedScalarSaveChangesTests(DynamoContainerFixture fixture)
             CreatedAt = new DateTimeOffset(2026, 3, 4, 12, 0, 0, TimeSpan.Zero),
             NullableNote = null,
         };
-        Db.Customers.Add(item);
-        await Db.SaveChangesAsync(CancellationToken);
-        LoggerFactory.Clear();
+        await SeedAsync(item);
 
-        var affected = await Db.SaveChangesAsync(CancellationToken);
-        affected.Should().Be(0);
+        await SaveChangesShouldAffectAsync(0);
 
         await AssertItemExistsInDynamoDbAsync(item, item.Pk, item.Sk, CancellationToken);
 
@@ -141,19 +129,16 @@ public class ModifiedScalarSaveChangesTests(DynamoContainerFixture fixture)
             CreatedAt = new DateTimeOffset(2026, 3, 5, 12, 0, 0, TimeSpan.Zero),
             NullableNote = null,
         };
-        Db.Customers.Add(item);
-        await Db.SaveChangesAsync(CancellationToken);
-        LoggerFactory.Clear();
+        await SeedAsync(item);
 
         item.Email = "post-save@example.com";
         var entry = Db.Entry(item);
         entry.State.Should().Be(EntityState.Modified);
 
-        var affected = await Db.SaveChangesAsync(CancellationToken);
-        affected.Should().Be(1);
+        await SaveChangesShouldAffectAsync(1);
 
         entry.State.Should().Be(EntityState.Unchanged);
-        entry.Property(x => x.Email).OriginalValue.Should().Be("post-save@example.com");
+        AssertOriginalValue(item, nameof(CustomerItem.Email), "post-save@example.com");
 
         await AssertItemExistsInDynamoDbAsync(item, item.Pk, item.Sk, CancellationToken);
 

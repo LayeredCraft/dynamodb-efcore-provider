@@ -43,6 +43,143 @@ public abstract class SaveChangesTableTestFixture : DynamoTestFixtureBase
             },
             cancellationToken);
 
+    protected async Task AssertItemDoesNotExistAsync(
+        string pk,
+        string sk,
+        CancellationToken cancellationToken)
+        => (await GetItemAsync(pk, sk, cancellationToken)).Should().BeNull();
+
+    protected async Task<Dictionary<string, AttributeValue>> GetExistingItemAsync(
+        string pk,
+        string sk,
+        CancellationToken cancellationToken)
+        => await GetItemAsync(pk, sk, cancellationToken)
+            ?? throw new InvalidOperationException($"Item {pk}/{sk} not found.");
+
+    protected async Task AssertRawItemAsync(
+        string pk,
+        string sk,
+        Action<Dictionary<string, AttributeValue>> assertion,
+        CancellationToken cancellationToken)
+        => assertion(await GetExistingItemAsync(pk, sk, cancellationToken));
+
+    protected async Task AssertRawAttributeAsync(
+        string pk,
+        string sk,
+        string attributeName,
+        Action<AttributeValue> assertion,
+        CancellationToken cancellationToken)
+    {
+        var item = await GetExistingItemAsync(pk, sk, cancellationToken);
+        item.Should().ContainKey(attributeName);
+        assertion(item[attributeName]);
+    }
+
+    protected Task AssertRawStringAsync(
+        string pk,
+        string sk,
+        string attributeName,
+        string expected,
+        CancellationToken cancellationToken)
+        => AssertRawAttributeAsync(
+            pk,
+            sk,
+            attributeName,
+            attribute => attribute.S.Should().Be(expected),
+            cancellationToken);
+
+    protected Task AssertRawNumberAsync(
+        string pk,
+        string sk,
+        string attributeName,
+        string expected,
+        CancellationToken cancellationToken)
+        => AssertRawAttributeAsync(
+            pk,
+            sk,
+            attributeName,
+            attribute => attribute.N.Should().Be(expected),
+            cancellationToken);
+
+    protected Task AssertRawNullAsync(
+        string pk,
+        string sk,
+        string attributeName,
+        CancellationToken cancellationToken)
+        => AssertRawAttributeAsync(
+            pk,
+            sk,
+            attributeName,
+            attribute => attribute.NULL.Should().BeTrue(),
+            cancellationToken);
+
+    protected async Task AssertRawMissingAsync(
+        string pk,
+        string sk,
+        string attributeName,
+        CancellationToken cancellationToken)
+    {
+        var item = await GetExistingItemAsync(pk, sk, cancellationToken);
+        item.Should().NotContainKey(attributeName);
+    }
+
+    protected Task AssertRawStringSetAsync(
+        string pk,
+        string sk,
+        string attributeName,
+        IEnumerable<string> expected,
+        CancellationToken cancellationToken)
+        => AssertRawAttributeAsync(
+            pk,
+            sk,
+            attributeName,
+            attribute => attribute.SS.Should().BeEquivalentTo(expected),
+            cancellationToken);
+
+    protected async Task SaveAndClearLogAsync()
+    {
+        await Db.SaveChangesAsync(CancellationToken);
+        LoggerFactory.Clear();
+    }
+
+    protected async Task SeedAsync<T>(T entity) where T : class
+    {
+        Db.Set<T>().Add(entity);
+        await SaveAndClearLogAsync();
+    }
+
+    protected async Task SaveChangesShouldAffectAsync(int expected)
+        => (await Db.SaveChangesAsync(CancellationToken)).Should().Be(expected);
+
+    protected async Task SaveChangesShouldAffectAsync(bool acceptAllChangesOnSuccess, int expected)
+        => (await Db.SaveChangesAsync(acceptAllChangesOnSuccess, CancellationToken))
+            .Should()
+            .Be(expected);
+
+    protected void AssertEntryState<T>(T entity, EntityState expected) where T : class
+        => AssertEntryState(Db, entity, expected);
+
+    protected static void AssertEntryState<T>(DbContext context, T entity, EntityState expected)
+        where T : class
+        => context.Entry(entity).State.Should().Be(expected);
+
+    protected void AssertEntryStates(params (object Entity, EntityState Expected)[] entries)
+        => AssertEntryStates(Db, entries);
+
+    protected static void AssertEntryStates(
+        DbContext context,
+        params (object Entity, EntityState Expected)[] entries)
+    {
+        foreach (var (entity, expected) in entries)
+            context.Entry(entity).State.Should().Be(expected);
+    }
+
+    protected void AssertOriginalValue<TEntity, TProperty>(
+        TEntity entity,
+        string propertyName,
+        TProperty expected) where TEntity : class
+        => Db.Entry(entity).Property<TProperty>(propertyName).OriginalValue.Should().Be(expected);
+
     protected async Task<Dictionary<string, AttributeValue>?> GetItemAsync(
         string pk,
         string sk,

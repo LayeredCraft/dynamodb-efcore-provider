@@ -16,9 +16,7 @@ public class ConvertedCollectionAndEscapingSaveChangesTests(DynamoContainerFixtu
         Db.ConvertedCollectionItems.Add(item);
         await Db.SaveChangesAsync(CancellationToken);
 
-        var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
-        raw.Should().NotBeNull();
-        raw!["scores"].S.Should().Be("1|2|3");
+        await AssertRawStringAsync(item.Pk, item.Sk, "scores", "1|2|3", CancellationToken);
 
         AssertSql(
             """
@@ -35,18 +33,13 @@ public class ConvertedCollectionAndEscapingSaveChangesTests(DynamoContainerFixtu
             Pk = "TENANT#CONV", Sk = "COLL#MOD-1", Version = 1, Scores = [5],
         };
 
-        Db.ConvertedCollectionItems.Add(item);
-        await Db.SaveChangesAsync(CancellationToken);
-        LoggerFactory.Clear();
+        await SeedAsync(item);
 
         item.Scores = [8, 13, 21];
 
-        var affected = await Db.SaveChangesAsync(CancellationToken);
-        affected.Should().Be(1);
+        await SaveChangesShouldAffectAsync(1);
 
-        var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
-        raw.Should().NotBeNull();
-        raw!["scores"].S.Should().Be("8|13|21");
+        await AssertRawStringAsync(item.Pk, item.Sk, "scores", "8|13|21", CancellationToken);
 
         AssertSql(
             """
@@ -67,10 +60,7 @@ public class ConvertedCollectionAndEscapingSaveChangesTests(DynamoContainerFixtu
         Db.QuotedAttributeItems.Add(item);
         await Db.SaveChangesAsync(CancellationToken);
 
-        var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
-        raw.Should().NotBeNull();
-        raw!.Should().ContainKey("O'Brien");
-        raw["O'Brien"].S.Should().Be("Ada");
+        await AssertRawStringAsync(item.Pk, item.Sk, "O'Brien", "Ada", CancellationToken);
 
         AssertSql(
             """
@@ -90,19 +80,12 @@ public class ConvertedCollectionAndEscapingSaveChangesTests(DynamoContainerFixtu
             Pk = "TENANT#ESC", Sk = "QUOTE#UPDATE-1", Version = 1, DisplayName = "Ada",
         };
 
-        Db.QuotedAttributeItems.Add(item);
-        await Db.SaveChangesAsync(CancellationToken);
-        LoggerFactory.Clear();
+        await SeedAsync(item);
 
         item.DisplayName = "Grace";
-        var affected = await Db.SaveChangesAsync(CancellationToken);
+        await SaveChangesShouldAffectAsync(1);
 
-        affected.Should().Be(1);
-
-        var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
-        raw.Should().NotBeNull();
-        raw!.Should().ContainKey("O'Brien");
-        raw["O'Brien"].S.Should().Be("Grace");
+        await AssertRawStringAsync(item.Pk, item.Sk, "O'Brien", "Grace", CancellationToken);
 
         AssertSql(
             """
@@ -124,17 +107,12 @@ public class ConvertedCollectionAndEscapingSaveChangesTests(DynamoContainerFixtu
             Pk = "TENANT#ESC", Sk = "QUOTE#DELETE-1", Version = 1, DisplayName = "Ada",
         };
 
-        Db.QuotedAttributeItems.Add(item);
-        await Db.SaveChangesAsync(CancellationToken);
-        LoggerFactory.Clear();
+        await SeedAsync(item);
 
         Db.QuotedAttributeItems.Remove(item);
-        var affected = await Db.SaveChangesAsync(CancellationToken);
+        await SaveChangesShouldAffectAsync(1);
 
-        affected.Should().Be(1);
-
-        var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
-        raw.Should().BeNull();
+        await AssertItemDoesNotExistAsync(item.Pk, item.Sk, CancellationToken);
 
         AssertSql(
             """

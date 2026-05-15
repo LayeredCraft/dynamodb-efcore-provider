@@ -63,7 +63,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
 
         Db.Customers.Add(entity);
 
-        Db.Entry(entity).State.Should().Be(EntityState.Added);
+        AssertEntryState(entity, EntityState.Added);
 
         await Db.SaveChangesAsync(CancellationToken);
 
@@ -73,7 +73,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
             VALUE {'pk': ?, 'sk': ?, '$type': ?, 'createdAt': ?, 'email': ?, 'isPreferred': ?, 'notes': ?, 'nullableNote': ?, 'preferences': ?, 'referenceIds': ?, 'tags': ?, 'version': ?, 'contacts': ?}
             """);
 
-        Db.Entry(entity).State.Should().Be(EntityState.Unchanged);
+        AssertEntryState(entity, EntityState.Unchanged);
     }
 
     // ──────────────────────────────────────────────────────────────────────────────
@@ -303,14 +303,15 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
             VALUE {'pk': ?, 'sk': ?, '$type': ?, 'createdAt': ?, 'email': ?, 'isPreferred': ?, 'notes': ?, 'nullableNote': ?, 'preferences': ?, 'referenceIds': ?, 'tags': ?, 'version': ?, 'contacts': ?}
             """);
 
-        var raw = await GetItemAsync(entity.Pk, entity.Sk, CancellationToken);
-        raw.Should().NotBeNull();
-        raw!["referenceIds"]
-            .SS
-            .Should()
-            .BeEquivalentTo(entity.ReferenceIds.Select(static x => x.ToString()));
+        await AssertRawStringSetAsync(
+            entity.Pk,
+            entity.Sk,
+            "referenceIds",
+            entity.ReferenceIds.Select(static x => x.ToString()),
+            CancellationToken);
 
-        var actual = raw.ToCustomerItem();
+        var actual = (await GetExistingItemAsync(entity.Pk, entity.Sk, CancellationToken))
+            .ToCustomerItem();
         actual.Should().NotBeNull();
         actual.Should().BeEquivalentTo(entity, options => options.Excluding(x => x.ReferenceIds));
     }
@@ -618,14 +619,15 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
             VALUE {'pk': ?, 'sk': ?, '$type': ?, 'createdAt': ?, 'email': ?, 'isPreferred': ?, 'notes': ?, 'nullableNote': ?, 'preferences': ?, 'referenceIds': ?, 'tags': ?, 'version': ?, 'contacts': ?, 'profile': ?}
             """);
 
-        var raw = await GetItemAsync(entity.Pk, entity.Sk, CancellationToken);
-        raw.Should().NotBeNull();
-        raw!["referenceIds"]
-            .SS
-            .Should()
-            .BeEquivalentTo(entity.ReferenceIds.Select(static x => x.ToString()));
+        await AssertRawStringSetAsync(
+            entity.Pk,
+            entity.Sk,
+            "referenceIds",
+            entity.ReferenceIds.Select(static x => x.ToString()),
+            CancellationToken);
 
-        var actual = raw.ToCustomerItem();
+        var actual = (await GetExistingItemAsync(entity.Pk, entity.Sk, CancellationToken))
+            .ToCustomerItem();
         actual.Should().NotBeNull();
         actual.Should().BeEquivalentTo(entity, options => options.Excluding(x => x.ReferenceIds));
     }

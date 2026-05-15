@@ -1,6 +1,5 @@
 using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
-using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SaveChangesTable;
 
@@ -78,9 +77,7 @@ public class SaveChangesConcurrencyTests(DynamoContainerFixture fixture)
             IsPreferred = false,
             CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero),
         };
-        Db.Customers.Add(customer);
-        await Db.SaveChangesAsync(CancellationToken);
-        LoggerFactory.Clear();
+        await SeedAsync(customer);
 
         // Simulate a concurrent writer bumping the version directly.
         await BumpVersionAsync(customer.Pk, customer.Sk, CancellationToken);
@@ -115,9 +112,7 @@ public class SaveChangesConcurrencyTests(DynamoContainerFixture fixture)
             IsPreferred = false,
             CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero),
         };
-        Db.Customers.Add(customer);
-        await Db.SaveChangesAsync(CancellationToken);
-        LoggerFactory.Clear();
+        await SeedAsync(customer);
 
         await Client.DeleteItemAsync(
             new DeleteItemRequest
@@ -186,10 +181,12 @@ public class SaveChangesConcurrencyTests(DynamoContainerFixture fixture)
         assertion.And.Should().NotBeOfType<DbUpdateConcurrencyException>();
         assertion.WithMessage("*not found for its key*");
 
-        var realItem =
-            await GetItemAsync("TENANT#CONC-WRONG-SK", "CUSTOMER#REAL", CancellationToken);
-        realItem.Should().NotBeNull();
-        realItem!["version"].N.Should().Be("1");
+        await AssertRawNumberAsync(
+            "TENANT#CONC-WRONG-SK",
+            "CUSTOMER#REAL",
+            "version",
+            "1",
+            CancellationToken);
 
         AssertSql(
             """
@@ -266,9 +263,7 @@ public class SaveChangesConcurrencyTests(DynamoContainerFixture fixture)
             CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero),
         };
         Db.Customers.Add(first);
-        Db.Customers.Add(second);
-        await Db.SaveChangesAsync(CancellationToken);
-        LoggerFactory.Clear();
+        await SeedAsync(second);
 
         await BumpVersionAsync(second.Pk, second.Sk, CancellationToken);
 
@@ -310,9 +305,7 @@ public class SaveChangesConcurrencyTests(DynamoContainerFixture fixture)
             CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero),
         };
         Db.Customers.Add(first);
-        Db.Customers.Add(second);
-        await Db.SaveChangesAsync(CancellationToken);
-        LoggerFactory.Clear();
+        await SeedAsync(second);
 
         await Client.DeleteItemAsync(
             new DeleteItemRequest
@@ -356,9 +349,7 @@ public class SaveChangesConcurrencyTests(DynamoContainerFixture fixture)
             IsPreferred = false,
             CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero),
         };
-        Db.Customers.Add(customer);
-        await Db.SaveChangesAsync(CancellationToken);
-        LoggerFactory.Clear();
+        await SeedAsync(customer);
 
         // Simulate a concurrent writer bumping the version directly.
         await BumpVersionAsync(customer.Pk, customer.Sk, CancellationToken);
@@ -392,16 +383,13 @@ public class SaveChangesConcurrencyTests(DynamoContainerFixture fixture)
             IsPreferred = false,
             CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero),
         };
-        Db.Customers.Add(customer);
-        await Db.SaveChangesAsync(CancellationToken);
-        LoggerFactory.Clear();
+        await SeedAsync(customer);
 
         customer.Version = 2;
         customer.Email = "updated@example.com";
         await Db.SaveChangesAsync(CancellationToken);
 
-        var itemAfterUpdate = await GetItemAsync(customer.Pk, customer.Sk, CancellationToken);
-        itemAfterUpdate!["version"].N.Should().Be("2");
+        await AssertRawNumberAsync(customer.Pk, customer.Sk, "version", "2", CancellationToken);
 
         AssertSql(
             """
@@ -427,25 +415,21 @@ public class SaveChangesConcurrencyTests(DynamoContainerFixture fixture)
             IsPreferred = false,
             CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero),
         };
-        Db.Customers.Add(customer);
-        await Db.SaveChangesAsync(CancellationToken);
-        LoggerFactory.Clear();
+        await SeedAsync(customer);
 
         // First update: Version 1 -> 2
         customer.Version = 2;
         customer.Email = "v2@example.com";
         await Db.SaveChangesAsync(CancellationToken);
 
-        var itemV2 = await GetItemAsync(customer.Pk, customer.Sk, CancellationToken);
-        itemV2!["version"].N.Should().Be("2");
+        await AssertRawNumberAsync(customer.Pk, customer.Sk, "version", "2", CancellationToken);
 
         // Second update: Version 2 -> 3
         customer.Version = 3;
         customer.Email = "v3@example.com";
         await Db.SaveChangesAsync(CancellationToken);
 
-        var itemV3 = await GetItemAsync(customer.Pk, customer.Sk, CancellationToken);
-        itemV3!["version"].N.Should().Be("3");
+        await AssertRawNumberAsync(customer.Pk, customer.Sk, "version", "3", CancellationToken);
 
         AssertSql(
             """
@@ -477,17 +461,19 @@ public class SaveChangesConcurrencyTests(DynamoContainerFixture fixture)
             IsPreferred = false,
             CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero),
         };
-        Db.Customers.Add(customer);
-        await Db.SaveChangesAsync(CancellationToken);
-        LoggerFactory.Clear();
+        await SeedAsync(customer);
 
         customer.Version = 2;
         customer.Email = "after@example.com";
         var act = async () => await Db.SaveChangesAsync(CancellationToken);
         await act.Should().NotThrowAsync();
 
-        var item = await GetItemAsync(customer.Pk, customer.Sk, CancellationToken);
-        item!["email"].S.Should().Be("after@example.com");
+        await AssertRawStringAsync(
+            customer.Pk,
+            customer.Sk,
+            "email",
+            "after@example.com",
+            CancellationToken);
 
         AssertSql(
             """
@@ -510,16 +496,13 @@ public class SaveChangesConcurrencyTests(DynamoContainerFixture fixture)
             IsPreferred = false,
             CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero),
         };
-        Db.Customers.Add(customer);
-        await Db.SaveChangesAsync(CancellationToken);
-        LoggerFactory.Clear();
+        await SeedAsync(customer);
 
         Db.Customers.Remove(customer);
         var act = async () => await Db.SaveChangesAsync(CancellationToken);
         await act.Should().NotThrowAsync();
 
-        var item = await GetItemAsync(customer.Pk, customer.Sk, CancellationToken);
-        item.Should().BeNull();
+        await AssertItemDoesNotExistAsync(customer.Pk, customer.Sk, CancellationToken);
 
         AssertSql(
             """
