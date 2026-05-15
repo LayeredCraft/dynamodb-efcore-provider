@@ -1,5 +1,6 @@
 using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
+using LayeredCraft.DynamoMapper.Runtime;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.ValueGeneration;
 
@@ -416,7 +417,7 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
         return response.Item is { Count: > 0 } item ? item : null;
     }
 
-    private sealed record IntKeyEntity
+    public sealed record IntKeyEntity
     {
         public int Id { get; set; }
 
@@ -442,21 +443,21 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
             });
     }
 
-    private sealed record GuidKeyEntity
+    public sealed record GuidKeyEntity
     {
         public Guid Id { get; set; }
 
         public string Name { get; set; } = null!;
     }
 
-    private sealed record StringKeyEntity
+    public sealed record StringKeyEntity
     {
         public string Id { get; set; } = null!;
 
         public string Name { get; set; } = null!;
     }
 
-    private sealed record BinaryKeyEntity
+    public sealed record BinaryKeyEntity
     {
         public byte[] Id { get; set; } = null!;
 
@@ -574,7 +575,7 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
             });
     }
 
-    private sealed record CompositeKeyEntity
+    public sealed record CompositeKeyEntity
     {
         public string Pk { get; set; } = null!;
 
@@ -605,7 +606,7 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
             });
     }
 
-    private sealed record CompositeGuidKeyEntity
+    public sealed record CompositeGuidKeyEntity
     {
         public Guid Id { get; set; }
 
@@ -635,4 +636,70 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
                 entity.HasSortKey(x => x.Sk);
             });
     }
+}
+
+[DynamoMapper(Convention = DynamoNamingConvention.CamelCase, OmitNullValues = false)]
+internal partial class IntKeyEntityMapper
+    : IDynamoMapper<ValueGenerationSaveChangesTests.IntKeyEntity>
+{
+    public static partial Dictionary<string, AttributeValue> ToItem(
+        ValueGenerationSaveChangesTests.IntKeyEntity source);
+
+    public static partial ValueGenerationSaveChangesTests.IntKeyEntity FromItem(
+        Dictionary<string, AttributeValue> item);
+}
+
+[DynamoMapper(Convention = DynamoNamingConvention.CamelCase, OmitNullValues = false)]
+internal partial class GuidKeyEntityMapper
+    : IDynamoMapper<ValueGenerationSaveChangesTests.GuidKeyEntity>
+{
+    public static partial Dictionary<string, AttributeValue> ToItem(
+        ValueGenerationSaveChangesTests.GuidKeyEntity source);
+
+    public static partial ValueGenerationSaveChangesTests.GuidKeyEntity FromItem(
+        Dictionary<string, AttributeValue> item);
+}
+
+[DynamoMapper(Convention = DynamoNamingConvention.CamelCase, OmitNullValues = false)]
+internal partial class StringKeyEntityMapper
+    : IDynamoMapper<ValueGenerationSaveChangesTests.StringKeyEntity>
+{
+    public static partial Dictionary<string, AttributeValue> ToItem(
+        ValueGenerationSaveChangesTests.StringKeyEntity source);
+
+    public static partial ValueGenerationSaveChangesTests.StringKeyEntity FromItem(
+        Dictionary<string, AttributeValue> item);
+}
+
+[DynamoMapper(Convention = DynamoNamingConvention.CamelCase, OmitNullValues = false)]
+internal partial class BinaryKeyEntityMapper
+    : IDynamoMapper<ValueGenerationSaveChangesTests.BinaryKeyEntity>
+{
+    public static partial Dictionary<string, AttributeValue> ToItem(
+        ValueGenerationSaveChangesTests.BinaryKeyEntity source);
+
+    public static partial ValueGenerationSaveChangesTests.BinaryKeyEntity FromItem(
+        Dictionary<string, AttributeValue> item);
+}
+
+[DynamoMapper(Convention = DynamoNamingConvention.CamelCase, OmitNullValues = false)]
+internal partial class CompositeKeyEntityMapper
+    : IDynamoMapper<ValueGenerationSaveChangesTests.CompositeKeyEntity>
+{
+    public static partial Dictionary<string, AttributeValue> ToItem(
+        ValueGenerationSaveChangesTests.CompositeKeyEntity source);
+
+    public static partial ValueGenerationSaveChangesTests.CompositeKeyEntity FromItem(
+        Dictionary<string, AttributeValue> item);
+}
+
+[DynamoMapper(Convention = DynamoNamingConvention.CamelCase, OmitNullValues = false)]
+internal partial class CompositeGuidKeyEntityMapper
+    : IDynamoMapper<ValueGenerationSaveChangesTests.CompositeGuidKeyEntity>
+{
+    public static partial Dictionary<string, AttributeValue> ToItem(
+        ValueGenerationSaveChangesTests.CompositeGuidKeyEntity source);
+
+    public static partial ValueGenerationSaveChangesTests.CompositeGuidKeyEntity FromItem(
+        Dictionary<string, AttributeValue> item);
 }
