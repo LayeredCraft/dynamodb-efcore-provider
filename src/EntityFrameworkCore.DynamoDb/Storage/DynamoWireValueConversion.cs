@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Globalization;
 using Amazon.DynamoDBv2.Model;
 
@@ -129,13 +128,6 @@ internal static class DynamoWireValueConversion
             double d => new AttributeValue { N = FormatNumber(d) },
             decimal dec => new AttributeValue { N = FormatNumber(dec) },
             byte[] bytes => CreateBinaryAttributeValue(bytes),
-            IEnumerable enumerable => new AttributeValue
-            {
-                L = enumerable
-                    .Cast<object?>()
-                    .Select(ConvertProviderValueToAttributeValue)
-                    .ToList(),
-            },
             _ => throw new NotSupportedException(
                 $"Type {value.GetType()} is not supported for DynamoDB wire conversion"),
         };
