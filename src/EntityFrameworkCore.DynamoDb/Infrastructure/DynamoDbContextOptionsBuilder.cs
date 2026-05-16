@@ -89,6 +89,15 @@ public class DynamoDbContextOptionsBuilder(DbContextOptionsBuilder optionsBuilde
     public virtual DynamoDbContextOptionsBuilder ConsistentRead(bool consistentRead = true)
         => WithOption(e => e.WithConsistentRead(consistentRead));
 
+    /// <summary>
+    ///     Configures whether <c>First*</c> safety validation is bypassed for all queries in the
+    ///     context.
+    /// </summary>
+    /// <param name="allow">Whether unsafe filtered queries are allowed.</param>
+    /// <returns>The builder for chaining.</returns>
+    public virtual DynamoDbContextOptionsBuilder AllowUnsafeFilteredQueries(bool allow = true)
+        => WithOption(e => e.WithAllowUnsafeFilteredQueries(allow));
+
     /// <summary>Configures waits used by DynamoDB table lifecycle operations.</summary>
     /// <param name="configure">A callback that mutates lifecycle options.</param>
     /// <returns>The builder for chaining.</returns>

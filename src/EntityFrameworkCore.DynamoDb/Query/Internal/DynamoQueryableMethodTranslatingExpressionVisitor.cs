@@ -363,6 +363,14 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
                 return Visit(methodCallExpression.Arguments[0]);
             }
 
+            if (method.Name == nameof(DynamoDbQueryableExtensions.AsUnsafeFilteredQuery))
+            {
+                var context = (DynamoQueryCompilationContext)QueryCompilationContext;
+                context.UnsafeFilteredQueriesAllowed = true;
+
+                return Visit(methodCallExpression.Arguments[0]);
+            }
+
             if (method.Name == nameof(DynamoDbQueryableExtensions.AllowScan))
             {
                 var context = (DynamoQueryCompilationContext)QueryCompilationContext;

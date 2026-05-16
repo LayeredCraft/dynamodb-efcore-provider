@@ -30,4 +30,10 @@ public sealed class DynamoQueryCompilationContext(
     ///     bypassed for this query only.
     /// </summary>
     public bool ScanAllowed { get; internal set; }
+
+    /// <summary>
+    ///     Per-query flag set by <c>.AsUnsafeFilteredQuery()</c>. When <c>true</c>, <c>First*</c>
+    ///     safety validation is bypassed for this query only.
+    /// </summary>
+    public bool UnsafeFilteredQueriesAllowed { get; internal set; }
 }

@@ -181,6 +181,23 @@ public static class DynamoDbQueryableExtensions
                         source.Expression))
                 : source;
 
+        /// <summary>Bypasses the provider's <c>First*</c> safety validation for this query.</summary>
+        /// <remarks>
+        ///     This does not disable scan-like query protection, does not allow <c>WithNextToken(...)</c>
+        ///     with <c>First*</c>, and does not change <c>First*</c> execution semantics: the provider still
+        ///     sends a single request with implicit <c>Limit=1</c> when no user limit is specified.
+        /// </remarks>
+        /// <returns>A new query with <c>First*</c> safety validation bypassed.</returns>
+        public IQueryable<TEntity> AsUnsafeFilteredQuery()
+            => source.Provider is EntityQueryProvider
+                ? source.Provider.CreateQuery<TEntity>(
+                    Expression.Call(
+                        null,
+                        ((Func<IQueryable<TEntity>, IQueryable<TEntity>>)AsUnsafeFilteredQuery)
+                        .Method,
+                        source.Expression))
+                : source;
+
         /// <summary>Allows this query to execute even when it is classified as scan-like.</summary>
         /// <remarks>
         ///     This is a per-query opt-in for intentional scans. It does not change the global scan-query

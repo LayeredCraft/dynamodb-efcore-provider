@@ -43,6 +43,9 @@ public sealed class DynamoDbOptionsExtension : IDbContextOptionsExtension
     /// <summary>Controls whether DynamoDB should use strongly consistent reads by default.</summary>
     public bool ConsistentRead { get; private set; }
 
+    /// <summary>Controls whether <c>First*</c> safety validation is bypassed globally.</summary>
+    public bool AllowUnsafeFilteredQueries { get; private set; }
+
     /// <summary>Configures waits used by DynamoDB table lifecycle operations.</summary>
     public DynamoTableLifecycleOptions TableLifecycleOptions { get; private set; } = new();
 
@@ -172,6 +175,18 @@ public sealed class DynamoDbOptionsExtension : IDbContextOptionsExtension
         return clone;
     }
 
+    /// <summary>Sets whether <c>First*</c> safety validation is bypassed globally.</summary>
+    /// <param name="allow">Whether to bypass filtered <c>First*</c> query safety validation.</param>
+    /// <returns>A cloned options extension with the configured unsafe filtered query setting.</returns>
+    public DynamoDbOptionsExtension WithAllowUnsafeFilteredQueries(bool allow)
+    {
+        var clone = Clone();
+
+        clone.AllowUnsafeFilteredQueries = allow;
+
+        return clone;
+    }
+
     /// <summary>Configures DynamoDB table lifecycle waits.</summary>
     public DynamoDbOptionsExtension WithTableLifecycleOptions(
         Action<DynamoTableLifecycleOptions> configure)
@@ -199,6 +214,7 @@ public sealed class DynamoDbOptionsExtension : IDbContextOptionsExtension
             MaxBatchWriteSize = MaxBatchWriteSize,
             ReturnConsumedCapacity = ReturnConsumedCapacity,
             ConsistentRead = ConsistentRead,
+            AllowUnsafeFilteredQueries = AllowUnsafeFilteredQueries,
             TableLifecycleOptions = TableLifecycleOptions.Clone(),
         };
 
@@ -265,6 +281,7 @@ public sealed class DynamoDbOptionsExtension : IDbContextOptionsExtension
                     + $"MaxBatchWriteSize={Extension.MaxBatchWriteSize},"
                     + $"ReturnConsumedCapacity={Extension.ReturnConsumedCapacity},"
                     + $"ConsistentRead={Extension.ConsistentRead},"
+                    + $"AllowUnsafeFilteredQueries={Extension.AllowUnsafeFilteredQueries},"
                     + $"TableLifecycleWaitForCompletion={Extension.TableLifecycleOptions.WaitForCompletion},"
                     + $"TableLifecycleInitialPollingDelay={Extension.TableLifecycleOptions.InitialPollingDelay},"
                     + $"TableLifecycleMaxPollingDelay={Extension.TableLifecycleOptions.MaxPollingDelay},"
