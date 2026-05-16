@@ -26,12 +26,7 @@ public class CustomTypeConverterTests(DynamoContainerFixture fixture)
         Db.CustomConverterItems.Add(item);
         await Db.SaveChangesAsync(CancellationToken);
 
-        var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
-
-        raw.Should().NotBeNull();
-        // The converter should have serialized ProductCode("PROD-42") as the string "PROD-42".
-        raw!["code"].S.Should().Be("PROD-42");
-        raw["optionalCode"].NULL.Should().BeTrue();
+        await AssertItemExistsInDynamoDbAsync(item, item.Pk, item.Sk, CancellationToken);
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
@@ -49,10 +44,6 @@ public class CustomTypeConverterTests(DynamoContainerFixture fixture)
         Db.CustomConverterItems.Add(item);
         await Db.SaveChangesAsync(CancellationToken);
 
-        var raw = await GetItemAsync(item.Pk, item.Sk, CancellationToken);
-
-        raw.Should().NotBeNull();
-        raw!["code"].S.Should().Be("PROD-1");
-        raw["optionalCode"].S.Should().Be("OPT-7");
+        await AssertItemExistsInDynamoDbAsync(item, item.Pk, item.Sk, CancellationToken);
     }
 }

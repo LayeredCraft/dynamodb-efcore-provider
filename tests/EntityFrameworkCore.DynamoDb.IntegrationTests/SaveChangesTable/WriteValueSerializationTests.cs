@@ -1,5 +1,4 @@
 using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
-using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SaveChangesTable;
 
@@ -45,10 +44,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
             VALUE {'pk': ?, 'sk': ?, '$type': ?, 'createdAt': ?, 'email': ?, 'isPreferred': ?, 'notes': ?, 'nullableNote': ?, 'preferences': ?, 'referenceIds': ?, 'tags': ?, 'version': ?, 'contacts': ?}
             """);
 
-        var actual =
-            (await GetItemAsync(entity.Pk, entity.Sk, CancellationToken))?.ToCustomerItem();
-        actual.Should().NotBeNull();
-        actual.Should().BeEquivalentTo(entity);
+        await AssertItemExistsInDynamoDbAsync(entity, entity.Pk, entity.Sk, CancellationToken);
     }
 
     /// <summary>After SaveChanges the EF Core change tracker should reflect the entity as Unchanged.</summary>
@@ -67,7 +63,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
 
         Db.Customers.Add(entity);
 
-        Db.Entry(entity).State.Should().Be(EntityState.Added);
+        AssertEntryState(entity, EntityState.Added);
 
         await Db.SaveChangesAsync(CancellationToken);
 
@@ -77,7 +73,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
             VALUE {'pk': ?, 'sk': ?, '$type': ?, 'createdAt': ?, 'email': ?, 'isPreferred': ?, 'notes': ?, 'nullableNote': ?, 'preferences': ?, 'referenceIds': ?, 'tags': ?, 'version': ?, 'contacts': ?}
             """);
 
-        Db.Entry(entity).State.Should().Be(EntityState.Unchanged);
+        AssertEntryState(entity, EntityState.Unchanged);
     }
 
     // ──────────────────────────────────────────────────────────────────────────────
@@ -116,10 +112,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
             VALUE {'pk': ?, 'sk': ?, '$type': ?, 'createdAt': ?, 'email': ?, 'isPreferred': ?, 'notes': ?, 'nullableNote': ?, 'preferences': ?, 'referenceIds': ?, 'tags': ?, 'version': ?, 'contacts': ?, 'profile': ?}
             """);
 
-        var actual =
-            (await GetItemAsync(entity.Pk, entity.Sk, CancellationToken))?.ToCustomerItem();
-        actual.Should().NotBeNull();
-        actual.Should().BeEquivalentTo(entity);
+        await AssertItemExistsInDynamoDbAsync(entity, entity.Pk, entity.Sk, CancellationToken);
     }
 
     /// <summary>A null OwnsOne navigation must not produce any attribute key in the item at all.</summary>
@@ -145,10 +138,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
             VALUE {'pk': ?, 'sk': ?, '$type': ?, 'createdAt': ?, 'email': ?, 'isPreferred': ?, 'notes': ?, 'nullableNote': ?, 'preferences': ?, 'referenceIds': ?, 'tags': ?, 'version': ?, 'contacts': ?}
             """);
 
-        var actual =
-            (await GetItemAsync(entity.Pk, entity.Sk, CancellationToken))?.ToCustomerItem();
-        actual.Should().NotBeNull();
-        actual.Should().BeEquivalentTo(entity);
+        await AssertItemExistsInDynamoDbAsync(entity, entity.Pk, entity.Sk, CancellationToken);
     }
 
     /// <summary>
@@ -189,10 +179,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
             VALUE {'pk': ?, 'sk': ?, '$type': ?, 'createdAt': ?, 'email': ?, 'isPreferred': ?, 'notes': ?, 'nullableNote': ?, 'preferences': ?, 'referenceIds': ?, 'tags': ?, 'version': ?, 'contacts': ?, 'profile': ?}
             """);
 
-        var actual =
-            (await GetItemAsync(entity.Pk, entity.Sk, CancellationToken))?.ToCustomerItem();
-        actual.Should().NotBeNull();
-        actual.Should().BeEquivalentTo(entity);
+        await AssertItemExistsInDynamoDbAsync(entity, entity.Pk, entity.Sk, CancellationToken);
     }
 
     // ──────────────────────────────────────────────────────────────────────────────
@@ -250,10 +237,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
             VALUE {'pk': ?, 'sk': ?, '$type': ?, 'createdAt': ?, 'email': ?, 'isPreferred': ?, 'notes': ?, 'nullableNote': ?, 'preferences': ?, 'referenceIds': ?, 'tags': ?, 'version': ?, 'contacts': ?}
             """);
 
-        var actual =
-            (await GetItemAsync(entity.Pk, entity.Sk, CancellationToken))?.ToCustomerItem();
-        actual.Should().NotBeNull();
-        actual.Should().BeEquivalentTo(entity);
+        await AssertItemExistsInDynamoDbAsync(entity, entity.Pk, entity.Sk, CancellationToken);
     }
 
     // ──────────────────────────────────────────────────────────────────────────────
@@ -286,10 +270,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
             VALUE {'pk': ?, 'sk': ?, '$type': ?, 'createdAt': ?, 'email': ?, 'isPreferred': ?, 'notes': ?, 'nullableNote': ?, 'preferences': ?, 'referenceIds': ?, 'tags': ?, 'version': ?, 'contacts': ?}
             """);
 
-        var actual =
-            (await GetItemAsync(entity.Pk, entity.Sk, CancellationToken))?.ToCustomerItem();
-        actual.Should().NotBeNull();
-        actual.Should().BeEquivalentTo(entity);
+        await AssertItemExistsInDynamoDbAsync(entity, entity.Pk, entity.Sk, CancellationToken);
     }
 
     /// <summary>
@@ -322,14 +303,15 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
             VALUE {'pk': ?, 'sk': ?, '$type': ?, 'createdAt': ?, 'email': ?, 'isPreferred': ?, 'notes': ?, 'nullableNote': ?, 'preferences': ?, 'referenceIds': ?, 'tags': ?, 'version': ?, 'contacts': ?}
             """);
 
-        var raw = await GetItemAsync(entity.Pk, entity.Sk, CancellationToken);
-        raw.Should().NotBeNull();
-        raw!["referenceIds"]
-            .SS
-            .Should()
-            .BeEquivalentTo(entity.ReferenceIds.Select(static x => x.ToString()));
+        await AssertRawStringSetAsync(
+            entity.Pk,
+            entity.Sk,
+            "referenceIds",
+            entity.ReferenceIds.Select(static x => x.ToString()),
+            CancellationToken);
 
-        var actual = raw.ToCustomerItem();
+        var actual = (await GetExistingItemAsync(entity.Pk, entity.Sk, CancellationToken))
+            .ToCustomerItem();
         actual.Should().NotBeNull();
         actual.Should().BeEquivalentTo(entity, options => options.Excluding(x => x.ReferenceIds));
     }
@@ -364,9 +346,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
             VALUE {'pk': ?, 'sk': ?, '$type': ?, 'appliedCoupons': ?, 'cancellationReason': ?, 'chargesByCode': ?, 'customerPk': ?, 'riskFlags': ?, 'status': ?, 'total': ?, 'version': ?, 'lines': ?}
             """);
 
-        var actual = (await GetItemAsync(entity.Pk, entity.Sk, CancellationToken))?.ToOrderItem();
-        actual.Should().NotBeNull();
-        actual.Should().BeEquivalentTo(entity);
+        await AssertItemExistsInDynamoDbAsync(entity, entity.Pk, entity.Sk, CancellationToken);
     }
 
     // ──────────────────────────────────────────────────────────────────────────────
@@ -402,10 +382,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
             VALUE {'pk': ?, 'sk': ?, '$type': ?, 'createdAt': ?, 'email': ?, 'isPreferred': ?, 'notes': ?, 'nullableNote': ?, 'preferences': ?, 'referenceIds': ?, 'tags': ?, 'version': ?, 'contacts': ?}
             """);
 
-        var actual =
-            (await GetItemAsync(entity.Pk, entity.Sk, CancellationToken))?.ToCustomerItem();
-        actual.Should().NotBeNull();
-        actual.Should().BeEquivalentTo(entity);
+        await AssertItemExistsInDynamoDbAsync(entity, entity.Pk, entity.Sk, CancellationToken);
     }
 
     /// <summary>
@@ -437,9 +414,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
             VALUE {'pk': ?, 'sk': ?, '$type': ?, 'appliedCoupons': ?, 'cancellationReason': ?, 'chargesByCode': ?, 'customerPk': ?, 'riskFlags': ?, 'status': ?, 'total': ?, 'version': ?, 'lines': ?}
             """);
 
-        var actual = (await GetItemAsync(entity.Pk, entity.Sk, CancellationToken))?.ToOrderItem();
-        actual.Should().NotBeNull();
-        actual.Should().BeEquivalentTo(entity);
+        await AssertItemExistsInDynamoDbAsync(entity, entity.Pk, entity.Sk, CancellationToken);
     }
 
     // ──────────────────────────────────────────────────────────────────────────────
@@ -472,10 +447,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
             VALUE {'pk': ?, 'sk': ?, '$type': ?, 'createdAt': ?, 'email': ?, 'isPreferred': ?, 'notes': ?, 'nullableNote': ?, 'preferences': ?, 'referenceIds': ?, 'tags': ?, 'version': ?, 'contacts': ?}
             """);
 
-        var actual =
-            (await GetItemAsync(entity.Pk, entity.Sk, CancellationToken))?.ToCustomerItem();
-        actual.Should().NotBeNull();
-        actual.Should().BeEquivalentTo(entity);
+        await AssertItemExistsInDynamoDbAsync(entity, entity.Pk, entity.Sk, CancellationToken);
     }
 
     // ──────────────────────────────────────────────────────────────────────────────
@@ -503,10 +475,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
         Db.Customers.Add(entity);
         await Db.SaveChangesAsync(CancellationToken);
 
-        var actual =
-            (await GetItemAsync(entity.Pk, entity.Sk, CancellationToken))?.ToCustomerItem();
-        actual.Should().NotBeNull();
-        actual.Should().BeEquivalentTo(entity);
+        await AssertItemExistsInDynamoDbAsync(entity, entity.Pk, entity.Sk, CancellationToken);
     }
 
     /// <summary>
@@ -530,10 +499,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
         Db.Customers.Add(entity);
         await Db.SaveChangesAsync(CancellationToken);
 
-        var actual =
-            (await GetItemAsync(entity.Pk, entity.Sk, CancellationToken))?.ToCustomerItem();
-        actual.Should().NotBeNull();
-        actual.Should().BeEquivalentTo(entity);
+        await AssertItemExistsInDynamoDbAsync(entity, entity.Pk, entity.Sk, CancellationToken);
     }
 
     /// <summary>
@@ -557,10 +523,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
         Db.Customers.Add(entity);
         await Db.SaveChangesAsync(CancellationToken);
 
-        var actual =
-            (await GetItemAsync(entity.Pk, entity.Sk, CancellationToken))?.ToCustomerItem();
-        actual.Should().NotBeNull();
-        actual.Should().BeEquivalentTo(entity);
+        await AssertItemExistsInDynamoDbAsync(entity, entity.Pk, entity.Sk, CancellationToken);
     }
 
     // ──────────────────────────────────────────────────────────────────────────────
@@ -656,14 +619,15 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
             VALUE {'pk': ?, 'sk': ?, '$type': ?, 'createdAt': ?, 'email': ?, 'isPreferred': ?, 'notes': ?, 'nullableNote': ?, 'preferences': ?, 'referenceIds': ?, 'tags': ?, 'version': ?, 'contacts': ?, 'profile': ?}
             """);
 
-        var raw = await GetItemAsync(entity.Pk, entity.Sk, CancellationToken);
-        raw.Should().NotBeNull();
-        raw!["referenceIds"]
-            .SS
-            .Should()
-            .BeEquivalentTo(entity.ReferenceIds.Select(static x => x.ToString()));
+        await AssertRawStringSetAsync(
+            entity.Pk,
+            entity.Sk,
+            "referenceIds",
+            entity.ReferenceIds.Select(static x => x.ToString()),
+            CancellationToken);
 
-        var actual = raw.ToCustomerItem();
+        var actual = (await GetExistingItemAsync(entity.Pk, entity.Sk, CancellationToken))
+            .ToCustomerItem();
         actual.Should().NotBeNull();
         actual.Should().BeEquivalentTo(entity, options => options.Excluding(x => x.ReferenceIds));
     }

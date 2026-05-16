@@ -1,6 +1,6 @@
 using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
-using Microsoft.EntityFrameworkCore;
+using LayeredCraft.DynamoMapper.Runtime;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.ValueGeneration;
 
@@ -20,28 +20,29 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task AddAsync_IntPartitionKey_ExplicitKey_PersistsAndMaterializes()
     {
-        await using var context = CreateContext<IntKeyContext>();
-        await ResetTable(context);
         var entity = new IntKeyEntity { Id = 123, Name = "assigned" };
 
-        context.Entities.Add(entity);
-        await context.SaveChangesAsync(CancellationToken);
+        await using (var context = CreateContext<IntKeyContext>())
+        {
+            await ResetTable(context);
 
-        var raw = await GetItemAsync(
+            context.Entities.Add(entity);
+            await context.SaveChangesAsync(CancellationToken);
+        }
+
+        await AssertItemExistsInDynamoDbAsync(
+            entity,
             IntKeyContext.TableName,
-            "id",
-            new AttributeValue { N = "123" });
-        raw.Should().NotBeNull();
-        raw!["id"].N.Should().Be("123");
-        raw["name"].S.Should().Be("assigned");
+            new Dictionary<string, AttributeValue> { ["id"] = entity.Id.ToAttributeValue() },
+            CancellationToken);
 
-        var materialized =
-            await context
-                .Entities
-                .AsNoTracking()
-                .Where(x => x.Id == 123)
-                .ToListAsync(CancellationToken);
-        materialized.Should().ContainSingle().Which.Should().BeEquivalentTo(entity);
+        await using (var context = CreateContext<IntKeyContext>())
+        {
+            var materialized =
+                await context.Entities.Where(x => x.Id == 123).ToListAsync(CancellationToken);
+
+            materialized.Should().ContainSingle().Which.Should().BeEquivalentTo(entity);
+        }
 
         AssertSql(
             """
@@ -59,25 +60,29 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task AddAsync_IntPartitionKey_DefaultZero_PersistsAsExplicitKey()
     {
-        await using var context = CreateContext<IntKeyContext>();
-        await ResetTable(context);
         var entity = new IntKeyEntity { Id = 0, Name = "zero" };
 
-        context.Entities.Add(entity);
-        await context.SaveChangesAsync(CancellationToken);
+        await using (var context = CreateContext<IntKeyContext>())
+        {
+            await ResetTable(context);
 
-        var raw = await GetItemAsync(IntKeyContext.TableName, "id", new AttributeValue { N = "0" });
-        raw.Should().NotBeNull();
-        raw!["id"].N.Should().Be("0");
-        raw["name"].S.Should().Be("zero");
+            context.Entities.Add(entity);
+            await context.SaveChangesAsync(CancellationToken);
+        }
 
-        var materialized =
-            await context
-                .Entities
-                .AsNoTracking()
-                .Where(x => x.Id == 0)
-                .ToListAsync(CancellationToken);
-        materialized.Should().ContainSingle().Which.Should().BeEquivalentTo(entity);
+        await AssertItemExistsInDynamoDbAsync(
+            entity,
+            IntKeyContext.TableName,
+            new Dictionary<string, AttributeValue> { ["id"] = entity.Id.ToAttributeValue() },
+            CancellationToken);
+
+        await using (var context = CreateContext<IntKeyContext>())
+        {
+            var materialized =
+                await context.Entities.Where(x => x.Id == 0).ToListAsync(CancellationToken);
+
+            materialized.Should().ContainSingle().Which.Should().BeEquivalentTo(entity);
+        }
 
         AssertSql(
             """
@@ -95,28 +100,29 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task AddAsync_StringPartitionKey_ExplicitKey_PersistsAndMaterializes()
     {
-        await using var context = CreateContext<StringKeyContext>();
-        await ResetTable(context);
         var entity = new StringKeyEntity { Id = "SESSION#1", Name = "assigned" };
 
-        context.Entities.Add(entity);
-        await context.SaveChangesAsync(CancellationToken);
+        await using (var context = CreateContext<StringKeyContext>())
+        {
+            await ResetTable(context);
 
-        var raw = await GetItemAsync(
+            context.Entities.Add(entity);
+            await context.SaveChangesAsync(CancellationToken);
+        }
+
+        await AssertItemExistsInDynamoDbAsync(
+            entity,
             StringKeyContext.TableName,
-            "id",
-            new AttributeValue { S = entity.Id });
-        raw.Should().NotBeNull();
-        raw!["id"].S.Should().Be(entity.Id);
-        raw["name"].S.Should().Be(entity.Name);
+            new Dictionary<string, AttributeValue> { ["id"] = entity.Id.ToAttributeValue() },
+            CancellationToken);
 
-        var materialized =
-            await context
-                .Entities
-                .AsNoTracking()
-                .Where(x => x.Id == entity.Id)
-                .ToListAsync(CancellationToken);
-        materialized.Should().ContainSingle().Which.Should().BeEquivalentTo(entity);
+        await using (var context = CreateContext<StringKeyContext>())
+        {
+            var materialized =
+                await context.Entities.Where(x => x.Id == entity.Id).ToListAsync(CancellationToken);
+
+            materialized.Should().ContainSingle().Which.Should().BeEquivalentTo(entity);
+        }
 
         AssertSql(
             """
@@ -130,34 +136,78 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
             """);
     }
 
+    /// <summary>Verifies binary partition keys are explicitly written and can be read back.</summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task AddAsync_BinaryPartitionKey_ExplicitKey_PersistsAndMaterializes()
+    {
+        var entity = new BinaryKeyEntity { Id = [0, 1, 2, 127, 255], Name = "binary" };
+
+        await using (var context = CreateContext<BinaryKeyContext>())
+        {
+            await ResetTable(context);
+
+            context.Entities.Add(entity);
+            await context.SaveChangesAsync(CancellationToken);
+        }
+
+        await AssertItemExistsInDynamoDbAsync(
+            entity,
+            BinaryKeyContext.TableName,
+            new Dictionary<string, AttributeValue> { ["id"] = entity.Id.ToAttributeValue() },
+            CancellationToken);
+
+        await using (var context = CreateContext<BinaryKeyContext>())
+        {
+            var materialized =
+                await context
+                    .Entities
+                    .Where(x => x.Id == entity.Id)
+                    .FirstOrDefaultAsync(CancellationToken);
+
+            materialized.Should().BeEquivalentTo(entity);
+        }
+
+        AssertSql(
+            """
+            INSERT INTO "value-generation-binary-keys"
+            VALUE {'id': ?, 'name': ?}
+            """,
+            """
+            SELECT "id", "name"
+            FROM "value-generation-binary-keys"
+            WHERE "id" = ?
+            """);
+    }
+
     /// <summary>Verifies explicit integer key generation runs before writing to DynamoDB.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task AddAsync_IntPartitionKey_ExplicitGenerator_GeneratesPersistsAndMaterializes()
     {
-        await using var context = CreateContext<GeneratedIntKeyContext>();
-        await ResetTable(context);
         var entity = new IntKeyEntity { Name = "generated" };
 
-        entity.Id.Should().Be(0);
-        context.Entities.Add(entity);
-        await context.SaveChangesAsync(CancellationToken);
+        await using (var context = CreateContext<GeneratedIntKeyContext>())
+        {
+            await ResetTable(context);
+
+            entity.Id.Should().Be(0);
+            context.Entities.Add(entity);
+            await context.SaveChangesAsync(CancellationToken);
+        }
 
         entity.Id.Should().Be(777);
-        var raw = await GetItemAsync(
+        await AssertItemExistsInDynamoDbAsync(
+            entity,
             GeneratedIntKeyContext.TableName,
-            "id",
-            new AttributeValue { N = "777" });
-        raw.Should().NotBeNull();
-        raw!["id"].N.Should().Be("777");
-        raw["name"].S.Should().Be("generated");
+            new Dictionary<string, AttributeValue> { ["id"] = entity.Id.ToAttributeValue() },
+            CancellationToken);
 
-        var materialized =
-            await context
-                .Entities
-                .AsNoTracking()
-                .Where(x => x.Id == entity.Id)
-                .ToListAsync(CancellationToken);
-        materialized.Should().ContainSingle().Which.Should().BeEquivalentTo(entity);
+        await using (var context = CreateContext<GeneratedIntKeyContext>())
+        {
+            var materialized =
+                await context.Entities.Where(x => x.Id == entity.Id).ToListAsync(CancellationToken);
+
+            materialized.Should().ContainSingle().Which.Should().BeEquivalentTo(entity);
+        }
 
         AssertSql(
             """
@@ -175,30 +225,34 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task AddAsync_GuidPartitionKey_DefaultGuid_GeneratesPersistsAndMaterializes()
     {
-        await using var context = CreateContext<GuidKeyContext>();
-        await ResetTable(context);
         var entity = new GuidKeyEntity { Name = "generated" };
 
-        entity.Id.Should().Be(Guid.Empty);
-        context.Entities.Add(entity);
-        await context.SaveChangesAsync(CancellationToken);
+        await using (var context = CreateContext<GuidKeyContext>())
+        {
+            await ResetTable(context);
+
+            entity.Id.Should().Be(Guid.Empty);
+            context.Entities.Add(entity);
+            await context.SaveChangesAsync(CancellationToken);
+        }
 
         entity.Id.Should().NotBe(Guid.Empty);
-        var raw = await GetItemAsync(
+        await AssertItemExistsInDynamoDbAsync(
+            entity,
             GuidKeyContext.TableName,
-            "id",
-            new AttributeValue { S = entity.Id.ToString() });
-        raw.Should().NotBeNull();
-        raw!["id"].S.Should().Be(entity.Id.ToString());
-        raw["name"].S.Should().Be("generated");
+            new Dictionary<string, AttributeValue>
+            {
+                ["id"] = entity.Id.ToString().ToAttributeValue(),
+            },
+            CancellationToken);
 
-        var materialized =
-            await context
-                .Entities
-                .AsNoTracking()
-                .Where(x => x.Id == entity.Id)
-                .ToListAsync(CancellationToken);
-        materialized.Should().ContainSingle().Which.Should().BeEquivalentTo(entity);
+        await using (var context = CreateContext<GuidKeyContext>())
+        {
+            var materialized =
+                await context.Entities.Where(x => x.Id == entity.Id).ToListAsync(CancellationToken);
+
+            materialized.Should().ContainSingle().Which.Should().BeEquivalentTo(entity);
+        }
 
         AssertSql(
             """
@@ -216,30 +270,34 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task AddAsync_GuidPartitionKey_ValueGeneratedNever_PersistsExplicitKey()
     {
-        await using var context = CreateContext<ExplicitGuidNoGenerationContext>();
-        await ResetTable(context);
         var id = Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
         var entity = new GuidKeyEntity { Id = id, Name = "explicit" };
 
-        context.Entities.Add(entity);
-        await context.SaveChangesAsync(CancellationToken);
+        await using (var context = CreateContext<ExplicitGuidNoGenerationContext>())
+        {
+            await ResetTable(context);
+
+            context.Entities.Add(entity);
+            await context.SaveChangesAsync(CancellationToken);
+        }
 
         entity.Id.Should().Be(id);
-        var raw = await GetItemAsync(
+        await AssertItemExistsInDynamoDbAsync(
+            entity,
             ExplicitGuidNoGenerationContext.TableName,
-            "id",
-            new AttributeValue { S = id.ToString() });
-        raw.Should().NotBeNull();
-        raw!["id"].S.Should().Be(id.ToString());
-        raw["name"].S.Should().Be("explicit");
+            new Dictionary<string, AttributeValue>
+            {
+                ["id"] = entity.Id.ToString().ToAttributeValue(),
+            },
+            CancellationToken);
 
-        var materialized =
-            await context
-                .Entities
-                .AsNoTracking()
-                .Where(x => x.Id == id)
-                .ToListAsync(CancellationToken);
-        materialized.Should().ContainSingle().Which.Should().BeEquivalentTo(entity);
+        await using (var context = CreateContext<ExplicitGuidNoGenerationContext>())
+        {
+            var materialized =
+                await context.Entities.Where(x => x.Id == id).ToListAsync(CancellationToken);
+
+            materialized.Should().ContainSingle().Which.Should().BeEquivalentTo(entity);
+        }
 
         AssertSql(
             """
@@ -257,31 +315,35 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task AddAsync_CompositeStringKeys_ExplicitKeys_PersistsAndMaterializes()
     {
-        await using var context = CreateContext<CompositeKeyContext>();
-        await ResetTable(context);
         var entity = new CompositeKeyEntity { Pk = "TENANT#1", Sk = "ORDER#1", Name = "composite" };
 
-        context.Entities.Add(entity);
-        await context.SaveChangesAsync(CancellationToken);
+        await using (var context = CreateContext<CompositeKeyContext>())
+        {
+            await ResetTable(context);
 
-        var raw = await GetItemAsync(
+            context.Entities.Add(entity);
+            await context.SaveChangesAsync(CancellationToken);
+        }
+
+        await AssertItemExistsInDynamoDbAsync(
+            entity,
             CompositeKeyContext.TableName,
-            "pk",
-            new AttributeValue { S = entity.Pk },
-            "sk",
-            new AttributeValue { S = entity.Sk });
-        raw.Should().NotBeNull();
-        raw!["pk"].S.Should().Be(entity.Pk);
-        raw["sk"].S.Should().Be(entity.Sk);
-        raw["name"].S.Should().Be(entity.Name);
+            new Dictionary<string, AttributeValue>
+            {
+                ["pk"] = entity.Pk.ToAttributeValue(), ["sk"] = entity.Sk.ToAttributeValue(),
+            },
+            CancellationToken);
 
-        var materialized =
-            await context
-                .Entities
-                .AsNoTracking()
-                .Where(x => x.Pk == entity.Pk && x.Sk == entity.Sk)
-                .ToListAsync(CancellationToken);
-        materialized.Should().ContainSingle().Which.Should().BeEquivalentTo(entity);
+        await using (var context = CreateContext<CompositeKeyContext>())
+        {
+            var materialized =
+                await context
+                    .Entities
+                    .Where(x => x.Pk == entity.Pk && x.Sk == entity.Sk)
+                    .ToListAsync(CancellationToken);
+
+            materialized.Should().ContainSingle().Which.Should().BeEquivalentTo(entity);
+        }
 
         AssertSql(
             """
@@ -299,8 +361,6 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task AddAsync_CompositeGuidStringKeys_ExplicitKeys_PersistsAndMaterializes()
     {
-        await using var context = CreateContext<CompositeGuidKeyContext>();
-        await ResetTable(context);
         var entity = new CompositeGuidKeyEntity
         {
             Id = Guid.Parse("11111111-2222-3333-4444-555555555555"),
@@ -308,27 +368,34 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
             Name = "composite-guid",
         };
 
-        context.Entities.Add(entity);
-        await context.SaveChangesAsync(CancellationToken);
+        await using (var context = CreateContext<CompositeGuidKeyContext>())
+        {
+            await ResetTable(context);
 
-        var raw = await GetItemAsync(
+            context.Entities.Add(entity);
+            await context.SaveChangesAsync(CancellationToken);
+        }
+
+        await AssertItemExistsInDynamoDbAsync(
+            entity,
             CompositeGuidKeyContext.TableName,
-            "id",
-            new AttributeValue { S = entity.Id.ToString() },
-            "sk",
-            new AttributeValue { S = entity.Sk });
-        raw.Should().NotBeNull();
-        raw!["id"].S.Should().Be(entity.Id.ToString());
-        raw["sk"].S.Should().Be(entity.Sk);
-        raw["name"].S.Should().Be(entity.Name);
+            new Dictionary<string, AttributeValue>
+            {
+                ["id"] = entity.Id.ToString().ToAttributeValue(),
+                ["sk"] = entity.Sk.ToAttributeValue(),
+            },
+            CancellationToken);
 
-        var materialized =
-            await context
-                .Entities
-                .AsNoTracking()
-                .Where(x => x.Id == entity.Id && x.Sk == entity.Sk)
-                .ToListAsync(CancellationToken);
-        materialized.Should().ContainSingle().Which.Should().BeEquivalentTo(entity);
+        await using (var context = CreateContext<CompositeGuidKeyContext>())
+        {
+            var materialized =
+                await context
+                    .Entities
+                    .Where(x => x.Id == entity.Id && x.Sk == entity.Sk)
+                    .ToListAsync(CancellationToken);
+
+            materialized.Should().ContainSingle().Which.Should().BeEquivalentTo(entity);
+        }
 
         AssertSql(
             """
@@ -353,25 +420,7 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
         await context.Database.EnsureCreatedAsync(TestContext.Current.CancellationToken);
     }
 
-    private async Task<Dictionary<string, AttributeValue>?> GetItemAsync(
-        string tableName,
-        string partitionKeyName,
-        AttributeValue partitionKeyValue,
-        string? sortKeyName = null,
-        AttributeValue? sortKeyValue = null)
-    {
-        var key = new Dictionary<string, AttributeValue> { [partitionKeyName] = partitionKeyValue };
-        if (sortKeyName is not null && sortKeyValue is not null)
-            key[sortKeyName] = sortKeyValue;
-
-        var response = await Client.GetItemAsync(
-            new GetItemRequest { TableName = tableName, Key = key },
-            CancellationToken);
-
-        return response.Item is { Count: > 0 } item ? item : null;
-    }
-
-    private sealed record IntKeyEntity
+    public sealed record IntKeyEntity
     {
         public int Id { get; set; }
 
@@ -397,16 +446,23 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
             });
     }
 
-    private sealed record GuidKeyEntity
+    public sealed record GuidKeyEntity
     {
         public Guid Id { get; set; }
 
         public string Name { get; set; } = null!;
     }
 
-    private sealed record StringKeyEntity
+    public sealed record StringKeyEntity
     {
         public string Id { get; set; } = null!;
+
+        public string Name { get; set; } = null!;
+    }
+
+    public sealed record BinaryKeyEntity
+    {
+        public byte[] Id { get; set; } = null!;
 
         public string Name { get; set; } = null!;
     }
@@ -423,6 +479,26 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<StringKeyEntity>(entity =>
+            {
+                entity.ToTable(TableName);
+                entity.Property(x => x.Id).HasAttributeName("id");
+                entity.Property(x => x.Name).HasAttributeName("name");
+                entity.HasPartitionKey(x => x.Id);
+            });
+    }
+
+    private sealed class BinaryKeyContext(DbContextOptions<BinaryKeyContext> options) : DbContext(
+        options)
+    {
+        public const string TableName = "value-generation-binary-keys";
+
+        public DbSet<BinaryKeyEntity> Entities => Set<BinaryKeyEntity>();
+
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+            => optionsBuilder.ConfigureWarnings(w => w.Ignore(DynamoEventId.ScanLikeQueryDetected));
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<BinaryKeyEntity>(entity =>
             {
                 entity.ToTable(TableName);
                 entity.Property(x => x.Id).HasAttributeName("id");
@@ -502,7 +578,7 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
             });
     }
 
-    private sealed record CompositeKeyEntity
+    public sealed record CompositeKeyEntity
     {
         public string Pk { get; set; } = null!;
 
@@ -533,7 +609,7 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
             });
     }
 
-    private sealed record CompositeGuidKeyEntity
+    public sealed record CompositeGuidKeyEntity
     {
         public Guid Id { get; set; }
 
@@ -563,4 +639,70 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
                 entity.HasSortKey(x => x.Sk);
             });
     }
+}
+
+[DynamoMapper(Convention = DynamoNamingConvention.CamelCase, OmitNullValues = false)]
+internal partial class IntKeyEntityMapper
+    : IDynamoMapper<ValueGenerationSaveChangesTests.IntKeyEntity>
+{
+    public static partial Dictionary<string, AttributeValue> ToItem(
+        ValueGenerationSaveChangesTests.IntKeyEntity source);
+
+    public static partial ValueGenerationSaveChangesTests.IntKeyEntity FromItem(
+        Dictionary<string, AttributeValue> item);
+}
+
+[DynamoMapper(Convention = DynamoNamingConvention.CamelCase, OmitNullValues = false)]
+internal partial class GuidKeyEntityMapper
+    : IDynamoMapper<ValueGenerationSaveChangesTests.GuidKeyEntity>
+{
+    public static partial Dictionary<string, AttributeValue> ToItem(
+        ValueGenerationSaveChangesTests.GuidKeyEntity source);
+
+    public static partial ValueGenerationSaveChangesTests.GuidKeyEntity FromItem(
+        Dictionary<string, AttributeValue> item);
+}
+
+[DynamoMapper(Convention = DynamoNamingConvention.CamelCase, OmitNullValues = false)]
+internal partial class StringKeyEntityMapper
+    : IDynamoMapper<ValueGenerationSaveChangesTests.StringKeyEntity>
+{
+    public static partial Dictionary<string, AttributeValue> ToItem(
+        ValueGenerationSaveChangesTests.StringKeyEntity source);
+
+    public static partial ValueGenerationSaveChangesTests.StringKeyEntity FromItem(
+        Dictionary<string, AttributeValue> item);
+}
+
+[DynamoMapper(Convention = DynamoNamingConvention.CamelCase, OmitNullValues = false)]
+internal partial class BinaryKeyEntityMapper
+    : IDynamoMapper<ValueGenerationSaveChangesTests.BinaryKeyEntity>
+{
+    public static partial Dictionary<string, AttributeValue> ToItem(
+        ValueGenerationSaveChangesTests.BinaryKeyEntity source);
+
+    public static partial ValueGenerationSaveChangesTests.BinaryKeyEntity FromItem(
+        Dictionary<string, AttributeValue> item);
+}
+
+[DynamoMapper(Convention = DynamoNamingConvention.CamelCase, OmitNullValues = false)]
+internal partial class CompositeKeyEntityMapper
+    : IDynamoMapper<ValueGenerationSaveChangesTests.CompositeKeyEntity>
+{
+    public static partial Dictionary<string, AttributeValue> ToItem(
+        ValueGenerationSaveChangesTests.CompositeKeyEntity source);
+
+    public static partial ValueGenerationSaveChangesTests.CompositeKeyEntity FromItem(
+        Dictionary<string, AttributeValue> item);
+}
+
+[DynamoMapper(Convention = DynamoNamingConvention.CamelCase, OmitNullValues = false)]
+internal partial class CompositeGuidKeyEntityMapper
+    : IDynamoMapper<ValueGenerationSaveChangesTests.CompositeGuidKeyEntity>
+{
+    public static partial Dictionary<string, AttributeValue> ToItem(
+        ValueGenerationSaveChangesTests.CompositeGuidKeyEntity source);
+
+    public static partial ValueGenerationSaveChangesTests.CompositeGuidKeyEntity FromItem(
+        Dictionary<string, AttributeValue> item);
 }
