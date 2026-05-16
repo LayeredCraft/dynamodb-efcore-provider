@@ -117,29 +117,33 @@ public class ComplexTypesTrackingDynamoTest
             ? base.Can_track_entity_with_complex_record_collections_with_fields(state, async)
             : Task.CompletedTask;
 
-    [ConditionalTheory(Skip = SkipReason.ArrayComplexCollectionsNotSupported)]
     public override Task Can_track_entity_with_complex_type_array_collections(
         EntityState state,
         bool async)
-        => base.Can_track_entity_with_complex_type_array_collections(state, async);
+        => async
+            ? base.Can_track_entity_with_complex_type_array_collections(state, async)
+            : Task.CompletedTask;
 
-    [ConditionalTheory(Skip = SkipReason.ArrayComplexCollectionsNotSupported)]
     public override Task Can_track_entity_with_complex_struct_array_collections(
         EntityState state,
         bool async)
-        => base.Can_track_entity_with_complex_struct_array_collections(state, async);
+        => async
+            ? base.Can_track_entity_with_complex_struct_array_collections(state, async)
+            : Task.CompletedTask;
 
-    [ConditionalTheory(Skip = SkipReason.ArrayComplexCollectionsNotSupported)]
     public override Task Can_track_entity_with_complex_readonly_struct_array_collections(
         EntityState state,
         bool async)
-        => base.Can_track_entity_with_complex_readonly_struct_array_collections(state, async);
+        => async
+            ? base.Can_track_entity_with_complex_readonly_struct_array_collections(state, async)
+            : Task.CompletedTask;
 
-    [ConditionalTheory(Skip = SkipReason.ArrayComplexCollectionsNotSupported)]
     public override Task Can_track_entity_with_complex_record_array_collections(
         EntityState state,
         bool async)
-        => base.Can_track_entity_with_complex_record_array_collections(state, async);
+        => async
+            ? base.Can_track_entity_with_complex_record_array_collections(state, async)
+            : Task.CompletedTask;
 
     public override Task
         Can_track_entity_with_complex_property_bag_collections(EntityState state, bool async)
