@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using EntityFrameworkCore.DynamoDb.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -216,6 +217,90 @@ public class DynamoEntityItemSerializerSourceTests
             .WithMessage("*Complex collection*contains null element*");
     }
 
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void BuildItem_ComplexTypeWithScalarCollections_SerializesListsAndBinary()
+    {
+        using var db = new ComplexScalarCollectionDbContext(
+            new DbContextOptionsBuilder<ComplexScalarCollectionDbContext>()
+                .UseDynamo()
+                .ConfigureWarnings(w
+                    => w
+                        .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                        .Ignore(DynamoEventId.ScanLikeQueryDetected))
+                .Options);
+
+        var entity = new ComplexScalarCollectionEntity
+        {
+            Pk = "SC#1",
+            Sk = "SC1",
+            Details = new ComplexScalarCollectionDetails
+            {
+                Members = ["m1", "m2"],
+                Scores = [1, 2],
+                OptionalScores = [3, null],
+                Tags = ["red", "blue"],
+                Counts =
+                    new Dictionary<string, int>(StringComparer.Ordinal)
+                    {
+                        ["a"] = 1, ["b"] = 2,
+                    },
+                LongCounts = new ReadOnlyDictionary<string, long>(
+                    new Dictionary<string, long>(StringComparer.Ordinal) { ["big"] = 42 }),
+                Payload = [1, 2, 3],
+            },
+        };
+
+        db.Add(entity);
+
+        var serializer = db.GetService<DynamoEntityItemSerializerSource>();
+        var updateEntry = (IUpdateEntry)db.Entry(entity).GetInfrastructure();
+
+        var item = serializer.BuildItem(updateEntry);
+        var details = item["details"].M;
+
+        details["members"].L.Select(x => x.S).Should().Equal("m1", "m2");
+        details["scores"].L.Select(x => x.N).Should().Equal("1", "2");
+        details["optionalScores"].L[0].N.Should().Be("3");
+        details["optionalScores"].L[1].NULL.Should().BeTrue();
+        details["tags"].SS.Should().BeEquivalentTo("red", "blue");
+        details["counts"].M["a"].N.Should().Be("1");
+        details["counts"].M["b"].N.Should().Be("2");
+        details["longCounts"].M["big"].N.Should().Be("42");
+        details["payload"].B.ToArray().Should().Equal(1, 2, 3);
+        details["payload"].L.Should().BeNull();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void BuildItem_ComplexTypeWithPropertyConverterReturningCollection_SerializesList()
+    {
+        using var db = new ComplexScalarCollectionDbContext(
+            new DbContextOptionsBuilder<ComplexScalarCollectionDbContext>()
+                .UseDynamo()
+                .ConfigureWarnings(w
+                    => w
+                        .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                        .Ignore(DynamoEventId.ScanLikeQueryDetected))
+                .Options);
+
+        var entity = new ComplexScalarCollectionEntity
+        {
+            Pk = "SC#2",
+            Sk = "SC2",
+            Details = new ComplexScalarCollectionDetails
+            {
+                ConvertedCodes = new ConvertedCodeList("a,b"),
+            },
+        };
+
+        db.Add(entity);
+
+        var serializer = db.GetService<DynamoEntityItemSerializerSource>();
+        var updateEntry = (IUpdateEntry)db.Entry(entity).GetInfrastructure();
+
+        var item = serializer.BuildItem(updateEntry);
+        item["details"].M["convertedCodes"].L.Select(x => x.S).Should().Equal("a", "b");
+    }
+
     // ──────────────────────────────────────────────────────────────────────────────
     //  Fixtures
     // ──────────────────────────────────────────────────────────────────────────────
@@ -269,6 +354,30 @@ public class DynamoEntityItemSerializerSourceTests
     {
         public string Value { get; set; } = null!;
     }
+
+    private sealed class ComplexScalarCollectionEntity
+    {
+        public string Pk { get; set; } = null!;
+        public string Sk { get; set; } = null!;
+        public ComplexScalarCollectionDetails Details { get; set; } = new();
+    }
+
+    private sealed class ComplexScalarCollectionDetails
+    {
+        public string[] Members { get; set; } = [];
+        public List<int> Scores { get; set; } = [];
+        public List<int?> OptionalScores { get; set; } = [];
+        public HashSet<string> Tags { get; set; } = [];
+        public Dictionary<string, int> Counts { get; set; } = new(StringComparer.Ordinal);
+
+        public IReadOnlyDictionary<string, long> LongCounts { get; set; } =
+            new ReadOnlyDictionary<string, long>(new Dictionary<string, long>());
+
+        public byte[] Payload { get; set; } = [];
+        public ConvertedCodeList ConvertedCodes { get; set; } = new(string.Empty);
+    }
+
+    private sealed record ConvertedCodeList(string Value);
 
     private sealed class QuotedTableDbContext(DbContextOptions options) : DbContext(options)
     {
@@ -329,6 +438,32 @@ public class DynamoEntityItemSerializerSourceTests
                 b.HasPartitionKey(x => x.Pk);
                 b.HasSortKey(x => x.Sk);
                 b.ComplexCollection(x => x.Contacts);
+            });
+    }
+
+    private sealed class ComplexScalarCollectionDbContext(DbContextOptions options) : DbContext(
+        options)
+    {
+        public DbSet<ComplexScalarCollectionEntity> Items => Set<ComplexScalarCollectionEntity>();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<ComplexScalarCollectionEntity>(b =>
+            {
+                b.ToTable("ComplexScalarCollections");
+                b.HasPartitionKey(x => x.Pk);
+                b.HasSortKey(x => x.Sk);
+                b.ComplexProperty(
+                    x => x.Details,
+                    details =>
+                    {
+                        details
+                            .Property(x => x.ConvertedCodes)
+                            .HasConversion(
+                                codes => codes.Value.Length == 0
+                                    ? Array.Empty<string>()
+                                    : codes.Value.Split(',', StringSplitOptions.RemoveEmptyEntries),
+                                values => new ConvertedCodeList(string.Join(",", values)));
+                    });
             });
     }
 }
