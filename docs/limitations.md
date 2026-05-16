@@ -106,6 +106,28 @@ var result = await context.Orders
     .FirstOrDefaultAsync(ct);
 ```
 
+!!! warning "Unsafe filtered First* is not a best practice"
+
+    `AsUnsafeFilteredQuery()` bypasses the provider's `First` / `FirstOrDefault` safety
+    validation for one query. `AllowUnsafeFilteredQueries()` applies the same bypass to every
+    query in the context.
+
+    This does not disable scan-like query protection, does not allow `WithNextToken()` with
+    `First*`, and does not change `First*` execution: the provider still sends one request with
+    implicit `Limit=1` when no user limit is specified.
+
+    DynamoDB applies filters after evaluating items, so `FirstOrDefaultAsync` can return `null`
+    and `FirstAsync` can throw even when a later item would match. See AWS' notes on
+    [filter expressions](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Query.FilterExpression.html).
+    Use this only for tests or controlled legacy code.
+
+```csharp
+var result = await context.Orders
+    .Where(x => x.Pk == pk && skValues.Contains(x.Sk))
+    .AsUnsafeFilteredQuery()
+    .FirstOrDefaultAsync(ct);
+```
+
 **Exception — PK-only table.** When the base table has no sort key, each partition holds at most
 one item and `First*` with a PK equality condition is always safe.
 

@@ -90,6 +90,37 @@ await db.Orders
     .ToListAsync();
 ```
 
+### Unsafe filtered `First*`
+
+!!! warning "Not a best practice"
+
+    `AllowUnsafeFilteredQueries()` bypasses the provider's `First` / `FirstOrDefault` safety
+    validation for every query in the context. It does not disable scan-like query protection and
+    does not change `First*` execution: the provider still sends one request with implicit
+    `Limit=1` when no user limit is specified.
+
+    DynamoDB applies filters after evaluating items, so `FirstOrDefaultAsync` can return `null`
+    and `FirstAsync` can throw even when a later item would match. This option is intended for
+    tests or controlled legacy code only.
+
+The option is disabled by default. Enable it globally only when needed:
+
+```csharp
+optionsBuilder.UseDynamo(options =>
+{
+    options.AllowUnsafeFilteredQueries();
+});
+```
+
+Prefer the per-query escape hatch when possible:
+
+```csharp
+var order = await db.Orders
+    .Where(o => o.Pk == customerId && o.Status == "PENDING")
+    .AsUnsafeFilteredQuery()
+    .FirstOrDefaultAsync();
+```
+
 ### Consistent reads
 
 Reads are eventually consistent by default. Configure strongly consistent reads globally when most

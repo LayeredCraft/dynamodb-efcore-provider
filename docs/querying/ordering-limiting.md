@@ -100,6 +100,8 @@ var results = await query(db, 50).ToListAsync(cancellationToken);
 
     `First` / `FirstOrDefault` on a key-only query shape sets an implicit `Limit=1` automatically. Combining an explicit `Limit(n)` with `First*` is not supported and throws at translation time — use `.AsAsyncEnumerable().FirstOrDefaultAsync()` instead.
 
+    `AsUnsafeFilteredQuery()` and the global `AllowUnsafeFilteredQueries()` option do not change this rule. They bypass only the provider's `First*` safety validation; they do not change `Limit(n)` semantics.
+
 ## See also
 
 - [Pagination](pagination.md)
