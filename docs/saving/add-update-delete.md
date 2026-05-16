@@ -20,7 +20,7 @@ is made:
 1. **`DynamoSaveChangesPlanner`** walks the change tracker and compiles each pending entity into
     a PartiQL statement and a parameter list. Statements are validated at this stage — if a
     statement exceeds the 8,192-byte limit, an exception is thrown before any write is attempted.
-1. **`DynamoWriteExecutor`** sends the compiled statements to DynamoDB via the
+2. **`DynamoWriteExecutor`** sends the compiled statements to DynamoDB via the
     `ExecuteStatement`, `ExecuteTransaction`, or `BatchExecuteStatement` APIs depending on the
     number of operations and the configured transaction behavior (see [Transactions](transactions.md)).
 
@@ -139,6 +139,12 @@ than replacing the entire item:
 This is different from relational providers, where related data may live in separate rows or
 tables. In the DynamoDB provider, every complex-property mutation targets a path within the same
 item.
+
+Primitive collections inside complex properties are serialized using the same DynamoDB wire shapes
+as root properties: lists become `L`, dictionaries become `M`, string/number/binary sets become
+`SS`/`NS`/`BS`, and `byte[]` remains a binary scalar (`B`). Null list or dictionary values become
+`NULL` elements. DynamoDB sets cannot contain null elements or mix string, number, and binary
+member kinds.
 
 ## Deleting Entities
 
