@@ -11,6 +11,9 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 public sealed class DynamoContainerFixture(IMessageSink messageSink)
     : ContainerFixture<DynamoDbBuilder, DynamoDbContainer>(messageSink)
 {
+    public DynamoMapperRegistry Mappers { get; } =
+        DynamoMapperRegistry.FromAssembly(typeof(DynamoContainerFixture).Assembly);
+
     public IAmazonDynamoDB Client
     {
         get

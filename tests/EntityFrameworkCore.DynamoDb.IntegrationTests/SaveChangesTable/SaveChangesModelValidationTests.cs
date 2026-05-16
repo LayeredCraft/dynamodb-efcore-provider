@@ -1,5 +1,4 @@
 using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SaveChangesTable;
@@ -30,7 +29,7 @@ public class SaveChangesModelValidationTests(DynamoContainerFixture fixture)
 
         await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*HasConversion*");
 
-        (await GetItemAsync(item.Pk, item.Sk, CancellationToken)).Should().BeNull();
+        await AssertItemDoesNotExistAsync(item.Pk, item.Sk, CancellationToken);
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
@@ -53,7 +52,7 @@ public class SaveChangesModelValidationTests(DynamoContainerFixture fixture)
             .ThrowAsync<InvalidOperationException>()
             .WithMessage("*IsRowVersion()*not currently support*");
 
-        (await GetItemAsync(item.Pk, item.Sk, CancellationToken)).Should().BeNull();
+        await AssertItemDoesNotExistAsync(item.Pk, item.Sk, CancellationToken);
     }
 
     private UnmappedScalarContext CreateUnmappedScalarContext()

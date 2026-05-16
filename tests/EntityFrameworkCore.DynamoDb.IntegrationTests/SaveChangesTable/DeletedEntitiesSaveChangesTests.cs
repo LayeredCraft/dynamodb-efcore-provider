@@ -1,5 +1,4 @@
 using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
-using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SaveChangesTable;
 
@@ -25,17 +24,12 @@ public class DeletedEntitiesSaveChangesTests(DynamoContainerFixture fixture)
             IsPreferred = false,
             CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero),
         };
-        Db.Customers.Add(customer);
-        await Db.SaveChangesAsync(CancellationToken);
-        LoggerFactory.Clear();
+        await SeedAsync(customer);
 
         Db.Customers.Remove(customer);
-        var affected = await Db.SaveChangesAsync(CancellationToken);
+        await SaveChangesShouldAffectAsync(1);
 
-        affected.Should().Be(1);
-
-        var item = await GetItemAsync(customer.Pk, customer.Sk, CancellationToken);
-        item.Should().BeNull();
+        await AssertItemDoesNotExistAsync(customer.Pk, customer.Sk, CancellationToken);
 
         AssertSql(
             """
@@ -57,18 +51,16 @@ public class DeletedEntitiesSaveChangesTests(DynamoContainerFixture fixture)
             IsPreferred = false,
             CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero),
         };
-        Db.Customers.Add(customer);
-        await Db.SaveChangesAsync(CancellationToken);
+        await SeedAsync(customer);
 
-        Db.Entry(customer).State.Should().Be(EntityState.Unchanged);
+        AssertEntryState(customer, EntityState.Unchanged);
 
         Db.Customers.Remove(customer);
-        Db.Entry(customer).State.Should().Be(EntityState.Deleted);
+        AssertEntryState(customer, EntityState.Deleted);
 
-        LoggerFactory.Clear();
         await Db.SaveChangesAsync(CancellationToken);
 
-        Db.Entry(customer).State.Should().Be(EntityState.Detached);
+        AssertEntryState(customer, EntityState.Detached);
 
         AssertSql(
             """
@@ -98,14 +90,11 @@ public class DeletedEntitiesSaveChangesTests(DynamoContainerFixture fixture)
         Db.Customers.Attach(stub);
         Db.Entry(stub).State = EntityState.Deleted;
 
-        var affected = await Db.SaveChangesAsync(CancellationToken);
-
-        affected.Should().Be(1);
-        Db.Entry(stub).State.Should().Be(EntityState.Detached);
+        await SaveChangesShouldAffectAsync(1);
+        AssertEntryState(stub, EntityState.Detached);
 
         // Confirm item is still absent (was never created).
-        var item = await GetItemAsync("TENANT#GHOST", "CUSTOMER#GHOST-1", CancellationToken);
-        item.Should().BeNull();
+        await AssertItemDoesNotExistAsync("TENANT#GHOST", "CUSTOMER#GHOST-1", CancellationToken);
     }
 
     /// <summary>
@@ -136,8 +125,7 @@ public class DeletedEntitiesSaveChangesTests(DynamoContainerFixture fixture)
             CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero),
         };
         Db.Customers.AddRange(toModify, toDelete);
-        await Db.SaveChangesAsync(CancellationToken);
-        LoggerFactory.Clear();
+        await SaveAndClearLogAsync();
 
         // New entity to add in the mixed batch.
         var toAdd = new CustomerItem
@@ -154,26 +142,22 @@ public class DeletedEntitiesSaveChangesTests(DynamoContainerFixture fixture)
         toModify.Email = "after-modify@example.com";
         Db.Customers.Remove(toDelete);
 
-        var affected = await Db.SaveChangesAsync(CancellationToken);
-
-        affected.Should().Be(3);
+        await SaveChangesShouldAffectAsync(3);
 
         // Post-save state checks.
-        Db.Entry(toAdd).State.Should().Be(EntityState.Unchanged);
-        Db.Entry(toModify).State.Should().Be(EntityState.Unchanged);
-        Db.Entry(toDelete).State.Should().Be(EntityState.Detached);
+        AssertEntryStates(
+            (toAdd, EntityState.Unchanged),
+            (toModify, EntityState.Unchanged),
+            (toDelete, EntityState.Detached));
 
-        // Raw DynamoDB verification.
-        var addedItem = await GetItemAsync(toAdd.Pk, toAdd.Sk, CancellationToken);
-        addedItem.Should().NotBeNull();
-        addedItem!["email"].S.Should().Be("new@example.com");
+        await AssertItemExistsInDynamoDbAsync(toAdd, toAdd.Pk, toAdd.Sk, CancellationToken);
+        await AssertItemExistsInDynamoDbAsync(
+            toModify,
+            toModify.Pk,
+            toModify.Sk,
+            CancellationToken);
 
-        var modifiedItem = await GetItemAsync(toModify.Pk, toModify.Sk, CancellationToken);
-        modifiedItem.Should().NotBeNull();
-        modifiedItem!["email"].S.Should().Be("after-modify@example.com");
-
-        var deletedItem = await GetItemAsync(toDelete.Pk, toDelete.Sk, CancellationToken);
-        deletedItem.Should().BeNull();
+        await AssertItemDoesNotExistAsync(toDelete.Pk, toDelete.Sk, CancellationToken);
 
         AssertSql(
             """

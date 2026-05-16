@@ -1,5 +1,4 @@
 using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SaveChangesTable;
@@ -18,9 +17,7 @@ public class SaveChangesEdgeCasesTests(DynamoContainerFixture fixture)
     public async Task ZeroChanges_ReturnsZero_AndNoWritesEmitted()
     {
         // Fresh context with nothing tracked — SaveChanges should be a no-op.
-        var affected = await Db.SaveChangesAsync(CancellationToken);
-
-        affected.Should().Be(0);
+        await SaveChangesShouldAffectAsync(0);
         AssertSql(); // No PartiQL statements should have been emitted.
     }
 
@@ -48,11 +45,10 @@ public class SaveChangesEdgeCasesTests(DynamoContainerFixture fixture)
         Db.Customers.Add(customer);
 
         // SaveChanges with acceptAllChangesOnSuccess = false.
-        var affected = await Db.SaveChangesAsync(false, CancellationToken);
+        await SaveChangesShouldAffectAsync(false, 1);
 
         // Write reached DynamoDB.
-        affected.Should().Be(1);
-        (await GetItemAsync(pk, sk, CancellationToken)).Should().NotBeNull();
+        await AssertItemExistsInDynamoDbAsync(customer, pk, sk, CancellationToken);
 
         AssertSql(
             """
@@ -61,11 +57,11 @@ public class SaveChangesEdgeCasesTests(DynamoContainerFixture fixture)
             """);
 
         // Entry still in Added state — AcceptAllChanges was not called.
-        Db.Entry(customer).State.Should().Be(EntityState.Added);
+        AssertEntryState(customer, EntityState.Added);
 
         // After explicit AcceptAllChanges, entry becomes Unchanged.
         Db.ChangeTracker.AcceptAllChanges();
-        Db.Entry(customer).State.Should().Be(EntityState.Unchanged);
+        AssertEntryState(customer, EntityState.Unchanged);
     }
 
     // ── Statement-length guard ────────────────────────────────────────────────
@@ -92,7 +88,7 @@ public class SaveChangesEdgeCasesTests(DynamoContainerFixture fixture)
         await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*8192*");
 
         // Guard fired before the write — item must not exist in DynamoDB.
-        (await GetItemAsync(pk, sk, CancellationToken)).Should().BeNull();
+        await AssertItemDoesNotExistAsync(pk, sk, CancellationToken);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

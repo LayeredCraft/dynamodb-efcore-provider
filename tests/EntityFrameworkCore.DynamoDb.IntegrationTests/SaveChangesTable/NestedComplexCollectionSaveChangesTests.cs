@@ -1,7 +1,6 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
-using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SaveChangesTable;
 
@@ -41,19 +40,20 @@ public class NestedComplexCollectionSaveChangesTests : DynamoTestFixtureBase
         var item = new NestedComplexCollectionItem { Pk = "ITEM#1", Profile = null };
 
         Db.Items.Add(item);
-        await Db.SaveChangesAsync(CancellationToken);
-        LoggerFactory.Clear();
+        await SaveAndClearLogAsync();
 
         item.Profile = new NestedProfile { Badges = [new NestedBadge { Label = "vip" }] };
 
-        var affected = await Db.SaveChangesAsync(CancellationToken);
-        affected.Should().Be(1);
+        await SaveChangesShouldAffectAsync(1);
 
-        var raw = await GetItemAsync(item.Pk, CancellationToken);
-        raw.Should().NotBeNull();
-        raw!.Should().ContainKey("profile");
-        raw["profile"].M["badges"].L.Should().HaveCount(1);
-        raw["profile"].M["badges"].L[0].M["label"].S.Should().Be("vip");
+        await AssertRawAttributeAsync(
+            item.Pk,
+            "profile",
+            profile =>
+            {
+                profile.M["badges"].L.Should().HaveCount(1);
+                profile.M["badges"].L[0].M["label"].S.Should().Be("vip");
+            });
 
         AssertSql(
             """
@@ -83,6 +83,27 @@ public class NestedComplexCollectionSaveChangesTests : DynamoTestFixtureBase
                 BillingMode = BillingMode.PAY_PER_REQUEST,
             },
             cancellationToken);
+
+    private async Task SaveAndClearLogAsync()
+    {
+        await Db.SaveChangesAsync(CancellationToken);
+        LoggerFactory.Clear();
+    }
+
+    private async Task SaveChangesShouldAffectAsync(int expected)
+        => (await Db.SaveChangesAsync(CancellationToken)).Should().Be(expected);
+
+    private async Task AssertRawAttributeAsync(
+        string pk,
+        string attributeName,
+        Action<AttributeValue> assertion)
+    {
+        var item = await GetItemAsync(pk, CancellationToken)
+            ?? throw new InvalidOperationException($"Item {pk} not found.");
+
+        item.Should().ContainKey(attributeName);
+        assertion(item[attributeName]);
+    }
 
     private async Task<Dictionary<string, AttributeValue>?> GetItemAsync(
         string pk,
