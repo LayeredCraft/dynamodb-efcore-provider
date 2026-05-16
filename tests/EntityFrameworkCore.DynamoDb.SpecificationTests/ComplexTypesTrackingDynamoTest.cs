@@ -73,7 +73,7 @@ public class ComplexTypesTrackingDynamoTest
         EntityState newState,
         bool async)
         => async
-            ? Can_change_state_from_Deleted_with_complex_collection(newState, async)
+            ? base.Can_change_state_from_Deleted_with_complex_collection(newState, async)
             : Task.CompletedTask;
 
     public override Task Can_change_state_from_Deleted_with_complex_record_collection(
@@ -150,86 +150,71 @@ public class ComplexTypesTrackingDynamoTest
     public override Task
         Can_save_null_second_level_complex_property_with_required_properties(bool async)
         => async
-            ? SaveYogurtWithNullComplexProperty(context => CreateYogurt(context, nullLicense: true))
+            ? base.Can_save_null_second_level_complex_property_with_required_properties(async)
             : Task.CompletedTask;
 
     public override Task
         Can_save_null_third_level_complex_property_with_all_optional_properties(bool async)
         => async
-            ? SaveYogurtWithNullComplexProperty(context => CreateYogurt(context, nullTag: true))
+            ? base.Can_save_null_third_level_complex_property_with_all_optional_properties(async)
             : Task.CompletedTask;
 
     public override Task
         Can_save_default_values_in_optional_complex_property_with_multiple_properties(bool async)
-        => async ? CanRoundTripOptionalMultiPropComplex(false) : Task.CompletedTask;
+        => async
+            ? base.Can_save_default_values_in_optional_complex_property_with_multiple_properties(
+                async)
+            : Task.CompletedTask;
 
-    public override Task
-        Can_null_complex_property_with_default_values_and_multiple_properties(bool async)
-        => async ? CanRoundTripOptionalMultiPropComplex(true) : Task.CompletedTask;
-
-    private Task SaveYogurtWithNullComplexProperty(Func<DbContext, Yogurt> createYogurt)
-        => ExecuteWithStrategyInTransactionAsync(async context =>
-        {
-            await context.AddAsync(createYogurt(context)).ConfigureAwait(false);
-            await context.SaveChangesAsync().ConfigureAwait(false);
-        });
-
-    private Task CanRoundTripOptionalMultiPropComplex(bool setDefaultValuesFirst)
-        => ExecuteWithStrategyInTransactionAsync(
-            async context =>
-            {
-                var entity = new EntityWithOptionalMultiPropComplex
+    public override Task Can_null_complex_property_with_default_values_and_multiple_properties(
+        bool async)
+        => async
+            ? ExecuteWithStrategyInTransactionAsync(
+                async context =>
                 {
-                    Id = _optionalMultiPropComplexId,
-                    ComplexProp =
-                        setDefaultValuesFirst ? CreateDefaultMultiPropComplex() : null,
-                };
+                    var entity = Fixture.UseProxies
+                        ? context.CreateProxy<EntityWithOptionalMultiPropComplex>()
+                        : new EntityWithOptionalMultiPropComplex();
 
-                await context.AddAsync(entity).ConfigureAwait(false);
-                await context.SaveChangesAsync().ConfigureAwait(false);
-            },
-            async context =>
-            {
-                // DynamoDB does not translate Single; filter by key, then assert single
-                // client-side.
-                var entity = await context
-                    .Set<EntityWithOptionalMultiPropComplex>()
-                    .Where(e => e.Id == _optionalMultiPropComplexId)
-                    .AsAsyncEnumerable()
-                    .SingleAsync()
-                    .ConfigureAwait(false);
+                    entity.Id = Guid.NewGuid();
+                    // Set the complex property with default values
+                    entity.ComplexProp = new MultiPropComplex
+                    {
+                        IntValue = 0, BoolValue = false, DateValue = default,
+                    };
 
-                entity.ComplexProp = setDefaultValuesFirst ? null : CreateDefaultMultiPropComplex();
-                await context.SaveChangesAsync().ConfigureAwait(false);
-            },
-            async context =>
-            {
-                // DynamoDB does not translate Single; filter by key, then assert single
-                // client-side.
-                var entity = await context
-                    .Set<EntityWithOptionalMultiPropComplex>()
-                    .Where(e => e.Id == _optionalMultiPropComplexId)
-                    .AsAsyncEnumerable()
-                    .SingleAsync()
-                    .ConfigureAwait(false);
+                    await context.AddAsync(entity);
+                    await context.SaveChangesAsync();
 
-                if (setDefaultValuesFirst)
-                {
-                    Assert.Null(entity.ComplexProp);
-                }
-                else
-                {
                     Assert.NotNull(entity.ComplexProp);
-                    Assert.Equal(0, entity.ComplexProp.IntValue);
-                    Assert.False(entity.ComplexProp.BoolValue);
-                    Assert.Equal(default, entity.ComplexProp.DateValue);
-                }
-            });
+                },
+                async context =>
+                {
+                    var entity =
+                        await context
+                            .Set<EntityWithOptionalMultiPropComplex>()
+                            .AsAsyncEnumerable()
+                            .SingleAsync();
 
-    private readonly Guid _optionalMultiPropComplexId = Guid.NewGuid();
+                    Assert.NotNull(entity.ComplexProp);
 
-    private static MultiPropComplex CreateDefaultMultiPropComplex()
-        => new() { IntValue = 0, BoolValue = false, DateValue = default };
+                    entity.ComplexProp = null;
+
+                    await context.SaveChangesAsync();
+
+                    Assert.Null(entity.ComplexProp);
+                },
+                async context =>
+                {
+                    var entity =
+                        await context
+                            .Set<EntityWithOptionalMultiPropComplex>()
+                            .AsAsyncEnumerable()
+                            .SingleAsync();
+
+                    Assert.Null(entity.ComplexProp);
+                })
+            : Task.CompletedTask;
 
     public override void Can_mark_complex_type_properties_modified(bool trackFromQuery)
         => base.Can_mark_complex_type_properties_modified(trackFromQuery);
@@ -372,15 +357,15 @@ public class ComplexTypesTrackingDynamoTest
                 async)
             : Task.CompletedTask;
 
-    // public override Task
-    //     Can_change_state_from_Deleted_with_complex_field_readonly_struct_collection(
-    //         EntityState newState,
-    //         bool async)
-    //     => async
-    //         ? base.Can_change_state_from_Deleted_with_complex_field_readonly_struct_collection(
-    //             newState,
-    //             async)
-    //         : Task.CompletedTask;
+    public override Task
+        Can_change_state_from_Deleted_with_complex_field_readonly_struct_collection(
+            EntityState newState,
+            bool async)
+        => async
+            ? base.Can_change_state_from_Deleted_with_complex_field_readonly_struct_collection(
+                newState,
+                async)
+            : Task.CompletedTask;
 
     public override Task
         Can_track_entity_with_complex_struct_collections(EntityState state, bool async)
