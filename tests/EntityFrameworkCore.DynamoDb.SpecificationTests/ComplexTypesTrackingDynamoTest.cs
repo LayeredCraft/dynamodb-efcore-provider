@@ -150,122 +150,144 @@ public class ComplexTypesTrackingDynamoTest
     public override Task
         Can_save_null_second_level_complex_property_with_required_properties(bool async)
         => async
-            ? base.Can_save_null_second_level_complex_property_with_required_properties(async)
+            ? ExecuteWithStrategyInTransactionAsync(async context =>
+            {
+                var yogurt = CreateYogurt(context, nullLicense: true);
+                await context.AddAsync(yogurt).ConfigureAwait(false);
+                await context.SaveChangesAsync().ConfigureAwait(false);
+            })
             : Task.CompletedTask;
 
     public override Task
         Can_save_null_third_level_complex_property_with_all_optional_properties(bool async)
         => async
-            ? base.Can_save_null_third_level_complex_property_with_all_optional_properties(async)
+            ? ExecuteWithStrategyInTransactionAsync(async context =>
+            {
+                var yogurt = CreateYogurt(context, nullTag: true);
+                await context.AddAsync(yogurt).ConfigureAwait(false);
+                await context.SaveChangesAsync().ConfigureAwait(false);
+            })
             : Task.CompletedTask;
 
     public override Task
         Can_save_default_values_in_optional_complex_property_with_multiple_properties(bool async)
-        => async
-            ? ExecuteWithStrategyInTransactionAsync(
-                async context =>
+    {
+        if (!async)
+            return Task.CompletedTask;
+
+        var id = Guid.NewGuid();
+        return ExecuteWithStrategyInTransactionAsync(
+            async context =>
+            {
+                var entity = Fixture.UseProxies
+                    ? context.CreateProxy<EntityWithOptionalMultiPropComplex>()
+                    : new EntityWithOptionalMultiPropComplex();
+
+                entity.Id = id;
+                entity.ComplexProp = null;
+
+                await context.AddAsync(entity).ConfigureAwait(false);
+                await context.SaveChangesAsync().ConfigureAwait(false);
+
+                Assert.Null(entity.ComplexProp);
+            },
+            async context =>
+            {
+                var entity =
+                    await context
+                        .Set<EntityWithOptionalMultiPropComplex>()
+                        .AsAsyncEnumerable()
+                        .SingleAsync(e => e.Id == id)
+                        .ConfigureAwait(false);
+
+                Assert.Null(entity.ComplexProp);
+
+                // Set the complex property with default values
+                entity.ComplexProp = new MultiPropComplex
                 {
-                    var entity = Fixture.UseProxies
-                        ? context.CreateProxy<EntityWithOptionalMultiPropComplex>()
-                        : new EntityWithOptionalMultiPropComplex();
+                    IntValue = 0, BoolValue = false, DateValue = default,
+                };
 
-                    entity.Id = Guid.NewGuid();
-                    entity.ComplexProp = null;
+                await context.SaveChangesAsync().ConfigureAwait(false);
 
-                    await context.AddAsync(entity);
-                    await context.SaveChangesAsync();
+                Assert.NotNull(entity.ComplexProp);
+                Assert.Equal(0, entity.ComplexProp.IntValue);
+                Assert.False(entity.ComplexProp.BoolValue);
+                Assert.Equal(default, entity.ComplexProp.DateValue);
+            },
+            async context =>
+            {
+                var entity =
+                    await context
+                        .Set<EntityWithOptionalMultiPropComplex>()
+                        .AsAsyncEnumerable()
+                        .SingleAsync(e => e.Id == id)
+                        .ConfigureAwait(false);
 
-                    Assert.Null(entity.ComplexProp);
-                },
-                async context =>
-                {
-                    var entity =
-                        await context
-                            .Set<EntityWithOptionalMultiPropComplex>()
-                            .AsAsyncEnumerable()
-                            .SingleAsync();
-
-                    Assert.Null(entity.ComplexProp);
-
-                    // Set the complex property with default values
-                    entity.ComplexProp = new MultiPropComplex
-                    {
-                        IntValue = 0, BoolValue = false, DateValue = default,
-                    };
-
-                    await context.SaveChangesAsync();
-
-                    Assert.NotNull(entity.ComplexProp);
-                    Assert.Equal(0, entity.ComplexProp.IntValue);
-                    Assert.False(entity.ComplexProp.BoolValue);
-                    Assert.Equal(default, entity.ComplexProp.DateValue);
-                },
-                async context =>
-                {
-                    var entity =
-                        await context
-                            .Set<EntityWithOptionalMultiPropComplex>()
-                            .AsAsyncEnumerable()
-                            .SingleAsync();
-
-                    // Complex types with more than one property should materialize even with
-                    // default values
-                    Assert.NotNull(entity.ComplexProp);
-                    Assert.Equal(0, entity.ComplexProp.IntValue);
-                    Assert.False(entity.ComplexProp.BoolValue);
-                    Assert.Equal(default, entity.ComplexProp.DateValue);
-                })
-            : Task.CompletedTask;
+                // Complex types with more than one property should materialize even with
+                // default values
+                Assert.NotNull(entity.ComplexProp);
+                Assert.Equal(0, entity.ComplexProp.IntValue);
+                Assert.False(entity.ComplexProp.BoolValue);
+                Assert.Equal(default, entity.ComplexProp.DateValue);
+            });
+    }
 
     public override Task Can_null_complex_property_with_default_values_and_multiple_properties(
         bool async)
-        => async
-            ? ExecuteWithStrategyInTransactionAsync(
-                async context =>
+    {
+        if (!async)
+            return Task.CompletedTask;
+
+        var id = Guid.NewGuid();
+        return ExecuteWithStrategyInTransactionAsync(
+            async context =>
+            {
+                var entity = Fixture.UseProxies
+                    ? context.CreateProxy<EntityWithOptionalMultiPropComplex>()
+                    : new EntityWithOptionalMultiPropComplex();
+
+                entity.Id = id;
+                // Set the complex property with default values
+                entity.ComplexProp = new MultiPropComplex
                 {
-                    var entity = Fixture.UseProxies
-                        ? context.CreateProxy<EntityWithOptionalMultiPropComplex>()
-                        : new EntityWithOptionalMultiPropComplex();
+                    IntValue = 0, BoolValue = false, DateValue = default,
+                };
 
-                    entity.Id = Guid.NewGuid();
-                    // Set the complex property with default values
-                    entity.ComplexProp = new MultiPropComplex
-                    {
-                        IntValue = 0, BoolValue = false, DateValue = default,
-                    };
+                await context.AddAsync(entity).ConfigureAwait(false);
+                await context.SaveChangesAsync().ConfigureAwait(false);
 
-                    await context.AddAsync(entity);
-                    await context.SaveChangesAsync();
+                Assert.NotNull(entity.ComplexProp);
+            },
+            async context =>
+            {
+                var entity =
+                    await context
+                        .Set<EntityWithOptionalMultiPropComplex>()
+                        .AsAsyncEnumerable()
+                        .SingleAsync(e => e.Id == id)
+                        .ConfigureAwait(false);
 
-                    Assert.NotNull(entity.ComplexProp);
-                },
-                async context =>
-                {
-                    var entity =
-                        await context
-                            .Set<EntityWithOptionalMultiPropComplex>()
-                            .AsAsyncEnumerable()
-                            .SingleAsync();
+                Assert.NotNull(entity.ComplexProp);
 
-                    Assert.NotNull(entity.ComplexProp);
+                entity.ComplexProp = null;
 
-                    entity.ComplexProp = null;
+                await context.SaveChangesAsync().ConfigureAwait(false);
 
-                    await context.SaveChangesAsync();
+                Assert.Null(entity.ComplexProp);
+            },
+            async context =>
+            {
+                var entity =
+                    await context
+                        .Set<EntityWithOptionalMultiPropComplex>()
+                        .AsAsyncEnumerable()
+                        .SingleAsync(e => e.Id == id)
+                        .ConfigureAwait(false);
 
-                    Assert.Null(entity.ComplexProp);
-                },
-                async context =>
-                {
-                    var entity =
-                        await context
-                            .Set<EntityWithOptionalMultiPropComplex>()
-                            .AsAsyncEnumerable()
-                            .SingleAsync();
-
-                    Assert.Null(entity.ComplexProp);
-                })
-            : Task.CompletedTask;
+                Assert.Null(entity.ComplexProp);
+            });
+    }
 
     public override void Can_mark_complex_type_properties_modified(bool trackFromQuery)
         => base.Can_mark_complex_type_properties_modified(trackFromQuery);
@@ -779,6 +801,8 @@ public class ComplexTypesTrackingDynamoTest
         Func<DbContext, Task>? nestedTestOperation3 = null)
     {
         await using var context = CreateContext();
+        await Fixture.TestStore.CleanAsync(context).ConfigureAwait(false);
+
         try
         {
             await context
@@ -789,25 +813,41 @@ public class ComplexTypesTrackingDynamoTest
                     async _ =>
                     {
                         await using (var innerContext = CreateContext())
+                        {
+                            innerContext.Database.AutoTransactionBehavior =
+                                AutoTransactionBehavior.Never;
                             await testOperation(innerContext).ConfigureAwait(false);
+                        }
 
                         if (nestedTestOperation1 is null)
                             return;
 
                         await using (var innerContext = CreateContext())
+                        {
+                            innerContext.Database.AutoTransactionBehavior =
+                                AutoTransactionBehavior.Never;
                             await nestedTestOperation1(innerContext).ConfigureAwait(false);
+                        }
 
                         if (nestedTestOperation2 is null)
                             return;
 
                         await using (var innerContext = CreateContext())
+                        {
+                            innerContext.Database.AutoTransactionBehavior =
+                                AutoTransactionBehavior.Never;
                             await nestedTestOperation2(innerContext).ConfigureAwait(false);
+                        }
 
                         if (nestedTestOperation3 is null)
                             return;
 
                         await using (var innerContext = CreateContext())
+                        {
+                            innerContext.Database.AutoTransactionBehavior =
+                                AutoTransactionBehavior.Never;
                             await nestedTestOperation3(innerContext).ConfigureAwait(false);
+                        }
                     });
         }
         finally
