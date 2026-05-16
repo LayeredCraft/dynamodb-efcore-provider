@@ -1,4 +1,5 @@
 using Amazon.DynamoDBv2;
+using Amazon.DynamoDBv2.Model;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using NSubstitute;
@@ -73,6 +74,147 @@ public class FirstOrDefaultSafePathTests
             .Should()
             .ThrowAsync<InvalidOperationException>()
             .WithMessage("*AsAsyncEnumerable*");
+
+        await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
+    // ── Unsafe filtered query escape hatch ───────────────────────────────────
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task
+        FirstOrDefault_NonKeyFilter_WithUnsafeFilteredQuery_SucceedsAndUsesImplicitLimit1()
+    {
+        var (client, captured) = SetupMockClient();
+        await using var context = SafePathDbContext.Create(client);
+
+        await context
+            .PkSkItems
+            .Where(x => x.Pk == "P#1" && x.IsActive)
+            .AsUnsafeFilteredQuery()
+            .FirstOrDefaultAsync(TestContext.Current.CancellationToken);
+
+        captured.Should().HaveCount(1);
+        captured.Single().Limit.Should().Be(1);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task
+        FirstOrDefault_NonKeyFilter_WithGlobalUnsafeFilteredQueries_SucceedsAndUsesImplicitLimit1()
+    {
+        var (client, captured) = SetupMockClient();
+        await using var context = SafePathDbContext.Create(client, true);
+
+        await context
+            .PkSkItems
+            .Where(x => x.Pk == "P#1" && x.IsActive)
+            .FirstOrDefaultAsync(TestContext.Current.CancellationToken);
+
+        captured.Should().HaveCount(1);
+        captured.Single().Limit.Should().Be(1);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task
+        FirstOrDefault_ScanLike_WithUnsafeFilteredQuery_StillThrowsScanLikeQueryDetected()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        await using var context = SafePathDbContext.Create(client, ignoreScanLikeWarning: false);
+
+        var act = async ()
+            => await context
+                .PkSkItems
+                .Where(x => x.IsActive)
+                .AsUnsafeFilteredQuery()
+                .FirstOrDefaultAsync(TestContext.Current.CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*Scan-like DynamoDB query detected*");
+
+        await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task FirstOrDefault_ScanLike_WithUnsafeFilteredQueryAndAllowScan_Succeeds()
+    {
+        var (client, captured) = SetupMockClient();
+        await using var context = SafePathDbContext.Create(client);
+
+        await context
+            .PkSkItems
+            .Where(x => x.IsActive)
+            .AsUnsafeFilteredQuery()
+            .AllowScan()
+            .FirstOrDefaultAsync(TestContext.Current.CancellationToken);
+
+        captured.Should().HaveCount(1);
+        captured.Single().Limit.Should().Be(1);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task
+        FirstOrDefault_NonKeyFilter_WithGlobalUnsafeFilteredQueriesFalse_ThrowsTranslationFailure()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        await using var context = SafePathDbContext.Create(client, false);
+
+        var act = async ()
+            => await context
+                .PkSkItems
+                .Where(x => x.Pk == "P#1" && x.IsActive)
+                .FirstOrDefaultAsync(TestContext.Current.CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*AsAsyncEnumerable*");
+
+        await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task
+        FirstOrDefault_NonKeyFilter_WithUnsafeFilteredQueryAndUserLimit_ThrowsTranslationFailure()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        await using var context = SafePathDbContext.Create(client);
+
+        var act = async ()
+            => await context
+                .PkSkItems
+                .Where(x => x.Pk == "P#1" && x.IsActive)
+                .AsUnsafeFilteredQuery()
+                .Limit(5)
+                .FirstOrDefaultAsync(TestContext.Current.CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*Limit(n)*First/FirstOrDefault*");
+
+        await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task
+        FirstOrDefault_NonKeyFilter_WithUnsafeFilteredQueryAndNextToken_ThrowsTranslationFailure()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        await using var context = SafePathDbContext.Create(client);
+
+        var act = async ()
+            => await context
+                .PkSkItems
+                .Where(x => x.Pk == "P#1" && x.IsActive)
+                .AsUnsafeFilteredQuery()
+                .WithNextToken("seed-token")
+                .FirstOrDefaultAsync(TestContext.Current.CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*WithNextToken*First/FirstOrDefault*");
 
         await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
     }
@@ -365,6 +507,22 @@ public class FirstOrDefaultSafePathTests
 
     // ── Support types ────────────────────────────────────────────────────────
 
+    /// <summary>Sets up a mock DynamoDB client that captures all ExecuteStatementAsync calls.</summary>
+    private static (IAmazonDynamoDB client, List<ExecuteStatementRequest> captured)
+        SetupMockClient()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        var captured = new List<ExecuteStatementRequest>();
+
+        client
+            .ExecuteStatementAsync(
+                Arg.Do<ExecuteStatementRequest>(r => captured.Add(r)),
+                Arg.Any<CancellationToken>())
+            .Returns(new ExecuteStatementResponse { Items = [], NextToken = null });
+
+        return (client, captured);
+    }
+
     /// <summary>Entity with partition key and sort key.</summary>
     private sealed record PkSkItem
     {
@@ -415,15 +573,26 @@ public class FirstOrDefaultSafePathTests
         }
 
         /// <summary>Provides functionality for this member.</summary>
-        public static SafePathDbContext Create(IAmazonDynamoDB client)
-            => new(
-                new DbContextOptionsBuilder<SafePathDbContext>()
-                    .UseDynamo(options => options.DynamoDbClient(client))
-                    .ConfigureWarnings(w
-                        => w
-                            .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
-                            .Ignore(DynamoEventId.ScanLikeQueryDetected))
-                    .Options);
+        public static SafePathDbContext Create(
+            IAmazonDynamoDB client,
+            bool allowUnsafeFilteredQueries = false,
+            bool ignoreScanLikeWarning = true)
+        {
+            var builder = new DbContextOptionsBuilder<SafePathDbContext>().UseDynamo(options =>
+            {
+                options.DynamoDbClient(client);
+                options.AllowUnsafeFilteredQueries(allowUnsafeFilteredQueries);
+            });
+
+            builder.ConfigureWarnings(w =>
+            {
+                w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning);
+                if (ignoreScanLikeWarning)
+                    w.Ignore(DynamoEventId.ScanLikeQueryDetected);
+            });
+
+            return new SafePathDbContext(builder.Options);
+        }
     }
 
     // ── Nested-path / list-index support types ──────────────────────────────

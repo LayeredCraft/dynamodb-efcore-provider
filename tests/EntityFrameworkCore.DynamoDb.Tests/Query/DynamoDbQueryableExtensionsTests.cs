@@ -168,6 +168,28 @@ public class DynamoDbQueryableExtensionsTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void AsUnsafeFilteredQuery_ReturnsNewQueryable()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var context = LimitDbContext.Create(client);
+
+        var original = context.Items.AsQueryable();
+        var unsafeFilteredQuery = original.AsUnsafeFilteredQuery();
+
+        unsafeFilteredQuery.Should().NotBeSameAs(original);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void AsUnsafeFilteredQuery_OnNonEntityQueryProvider_ReturnsSourceUnchanged()
+    {
+        var source = new[] { new TestEntity() }.AsQueryable();
+
+        var result = source.AsUnsafeFilteredQuery();
+
+        result.Should().BeSameAs(source);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void AllowScan_ReturnsNewQueryable()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
