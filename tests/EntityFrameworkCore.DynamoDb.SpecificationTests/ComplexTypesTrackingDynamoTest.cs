@@ -95,22 +95,22 @@ public class ComplexTypesTrackingDynamoTest
             : Task.CompletedTask;
 
     /// <inheritdoc />
-    [ConditionalTheory(Skip = SkipReason.ComplexCollectionScanMaterializationNotSupported)]
     public override Task Can_change_state_from_Deleted_with_complex_field_collection(
-            EntityState newState,
-            bool async)
-        // Base test must reload by non-key Name filter; DynamoDB scans plus complex collection
-        // materialization do not support all required shapes yet.
-        => Task.CompletedTask;
+        EntityState newState,
+        bool async)
+        => async
+            ? base.Can_change_state_from_Deleted_with_complex_field_collection(newState, async)
+            : Task.CompletedTask;
 
     /// <inheritdoc />
-    [ConditionalTheory(Skip = SkipReason.ComplexCollectionScanMaterializationNotSupported)]
     public override Task Can_change_state_from_Deleted_with_complex_field_record_collection(
-            EntityState newState,
-            bool async)
-        // Base test must reload by non-key Name filter; DynamoDB scans plus complex collection
-        // materialization do not support all required shapes yet.
-        => Task.CompletedTask;
+        EntityState newState,
+        bool async)
+        => async
+            ? base.Can_change_state_from_Deleted_with_complex_field_record_collection(
+                newState,
+                async)
+            : Task.CompletedTask;
 
     /// <inheritdoc />
     public override Task
