@@ -1,3 +1,4 @@
+using System.Collections;
 using EntityFrameworkCore.DynamoDb.Diagnostics;
 using EntityFrameworkCore.DynamoDb.SpecificationTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
@@ -79,13 +80,45 @@ public class ComplexTypesTrackingDynamoTest
             : Task.CompletedTask;
 
     /// <inheritdoc />
-    [ConditionalTheory(Skip = SkipReason.ComplexCollectionScanMaterializationNotSupported)]
     public override Task Can_change_state_from_Deleted_with_complex_collection(
-            EntityState newState,
-            bool async)
-        // Base test must reload by non-key Name filter; DynamoDB scans plus complex collection
-        // materialization do not support all required shapes yet.
-        => Task.CompletedTask;
+        EntityState newState,
+        bool async)
+        => async
+            ? ChangeStateFromDeletedTest(newState, CreatePubWithCollections)
+            : Task.CompletedTask;
+
+    private async Task ChangeStateFromDeletedTest<TEntity>(
+        EntityState newState,
+        Func<DbContext, TEntity> createPub) where TEntity : class
+        => await ExecuteWithStrategyInTransactionAsync(
+            async context =>
+            {
+                var pub = createPub(context);
+                context.Add(pub);
+                await context.SaveChangesAsync();
+            },
+            async context =>
+            {
+                var pub = await context
+                    .Set<TEntity>()
+                    .Where(e => EF.Property<string>(e, "Name") == "The FBI")
+                    .AsAsyncEnumerable()
+                    .FirstAsync();
+
+                var entry = context.Entry(pub);
+
+                entry.State = EntityState.Deleted;
+
+                // Change to target state - this should not throw an exception
+                entry.State = newState;
+                Assert.Equal(newState, entry.State);
+
+                // Verify the complex collection is still accessible
+                var activitiesEntry = entry.ComplexCollection("Activities");
+                Assert.NotNull(activitiesEntry);
+                var activitiesValue = activitiesEntry.CurrentValue;
+                Assert.Equal(2, ((IList)activitiesValue!).Count);
+            });
 
     /// <inheritdoc />
     [ConditionalTheory(Skip = SkipReason.ComplexCollectionScanMaterializationNotSupported)]
