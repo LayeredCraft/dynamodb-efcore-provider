@@ -162,8 +162,59 @@ public class ComplexTypesTrackingDynamoTest
     public override Task
         Can_save_default_values_in_optional_complex_property_with_multiple_properties(bool async)
         => async
-            ? base.Can_save_default_values_in_optional_complex_property_with_multiple_properties(
-                async)
+            ? ExecuteWithStrategyInTransactionAsync(
+                async context =>
+                {
+                    var entity = Fixture.UseProxies
+                        ? context.CreateProxy<EntityWithOptionalMultiPropComplex>()
+                        : new EntityWithOptionalMultiPropComplex();
+
+                    entity.Id = Guid.NewGuid();
+                    entity.ComplexProp = null;
+
+                    await context.AddAsync(entity);
+                    await context.SaveChangesAsync();
+
+                    Assert.Null(entity.ComplexProp);
+                },
+                async context =>
+                {
+                    var entity =
+                        await context
+                            .Set<EntityWithOptionalMultiPropComplex>()
+                            .AsAsyncEnumerable()
+                            .SingleAsync();
+
+                    Assert.Null(entity.ComplexProp);
+
+                    // Set the complex property with default values
+                    entity.ComplexProp = new MultiPropComplex
+                    {
+                        IntValue = 0, BoolValue = false, DateValue = default,
+                    };
+
+                    await context.SaveChangesAsync();
+
+                    Assert.NotNull(entity.ComplexProp);
+                    Assert.Equal(0, entity.ComplexProp.IntValue);
+                    Assert.False(entity.ComplexProp.BoolValue);
+                    Assert.Equal(default, entity.ComplexProp.DateValue);
+                },
+                async context =>
+                {
+                    var entity =
+                        await context
+                            .Set<EntityWithOptionalMultiPropComplex>()
+                            .AsAsyncEnumerable()
+                            .SingleAsync();
+
+                    // Complex types with more than one property should materialize even with
+                    // default values
+                    Assert.NotNull(entity.ComplexProp);
+                    Assert.Equal(0, entity.ComplexProp.IntValue);
+                    Assert.False(entity.ComplexProp.BoolValue);
+                    Assert.Equal(default, entity.ComplexProp.DateValue);
+                })
             : Task.CompletedTask;
 
     public override Task Can_null_complex_property_with_default_values_and_multiple_properties(
