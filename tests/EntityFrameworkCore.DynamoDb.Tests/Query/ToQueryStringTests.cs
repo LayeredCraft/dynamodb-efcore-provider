@@ -1,6 +1,7 @@
 using System.Reflection;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
+using EntityFrameworkCore.DynamoDb.Extensions;
 using EntityFrameworkCore.DynamoDb.Infrastructure;
 using EntityFrameworkCore.DynamoDb.Query.Internal;
 using Microsoft.EntityFrameworkCore;
@@ -46,6 +47,91 @@ public class ToQueryStringTests
                 + Environment.NewLine
                 + "WHERE \"pk\" = ?");
         client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!, default);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ToQueryString_FunctionsGreaterThan_TranslatesStringRangePredicate()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var context = ToQueryStringDbContext.Create(client);
+        var bound = "ITEM#1";
+
+        var queryString =
+            context.Items.Where(e => EF.Functions.GreaterThan(e.Pk, bound)).ToQueryString();
+
+        queryString
+            .Should()
+            .Be(
+                "-- p0='ITEM#1'"
+                + Environment.NewLine
+                + "SELECT \"pk\", \"name\""
+                + Environment.NewLine
+                + "FROM \"ToQueryStringItems\""
+                + Environment.NewLine
+                + "WHERE \"pk\" > ?");
+        client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!, default);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ToQueryString_FunctionsLessThan_TranslatesStringRangePredicate()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var context = ToQueryStringDbContext.Create(client);
+
+        var queryString =
+            context.Items.Where(e => EF.Functions.LessThan(e.Pk, "ITEM#9")).ToQueryString();
+
+        queryString
+            .Should()
+            .Be(
+                "SELECT \"pk\", \"name\""
+                + Environment.NewLine
+                + "FROM \"ToQueryStringItems\""
+                + Environment.NewLine
+                + "WHERE \"pk\" < 'ITEM#9'");
+        client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!, default);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ToQueryString_FunctionsBetween_TranslatesInclusiveStringRangePredicate()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var context = ToQueryStringDbContext.Create(client);
+        var high = "ITEM#9";
+
+        var queryString =
+            context.Items.Where(e => EF.Functions.Between(e.Pk, "ITEM#1", high)).ToQueryString();
+
+        queryString
+            .Should()
+            .Be(
+                "-- p0='ITEM#9'"
+                + Environment.NewLine
+                + "SELECT \"pk\", \"name\""
+                + Environment.NewLine
+                + "FROM \"ToQueryStringItems\""
+                + Environment.NewLine
+                + "WHERE \"pk\" BETWEEN 'ITEM#1' AND ?");
+        client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!, default);
+    }
+
+    [Theory(Timeout = TestConfiguration.DefaultTimeout)]
+    [InlineData(nameof(DynamoDbFunctionsExtensions.GreaterThan))]
+    [InlineData(nameof(DynamoDbFunctionsExtensions.LessThan))]
+    [InlineData(nameof(DynamoDbFunctionsExtensions.Between))]
+    public void StringRangeFunctions_ClientInvocation_ThrowsServerOnlyException(string methodName)
+    {
+        Action act = methodName switch
+        {
+            nameof(DynamoDbFunctionsExtensions.GreaterThan) => ()
+                => EF.Functions.GreaterThan("b", "a"),
+            nameof(DynamoDbFunctionsExtensions.LessThan) => () => EF.Functions.LessThan("a", "b"),
+            nameof(DynamoDbFunctionsExtensions.Between) => ()
+                => EF.Functions.Between("b", "a", "c"),
+            _ => throw new InvalidOperationException(methodName),
+        };
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*server-side only*");
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]

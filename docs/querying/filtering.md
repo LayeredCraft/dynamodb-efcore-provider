@@ -63,36 +63,49 @@ Only the `string`-parameter overload is supported. Overloads that accept `char`,
 
 ## String Comparisons
 
-DynamoDB compares strings lexicographically (UTF-8 code-point order). C# does not define `<`, `<=`, `>`, `>=` for `string` directly, so use `string.Compare` or `.CompareTo` compared against `0`. Both translate to a direct PartiQL comparison operator and are interchangeable:
+DynamoDB compares strings lexicographically (UTF-8 code-point order). C# does not define `<`, `<=`, `>`, `>=` for `string` directly, so prefer the DynamoDB `EF.Functions` helpers for string range predicates:
+
+```csharp
+var events = await db.Events
+    .Where(e => e.Pk == streamId && EF.Functions.GreaterThan(e.Sk, lastProcessedSk))
+    .OrderBy(e => e.Sk)
+    .ToListAsync(cancellationToken);
+// WHERE "Pk" = ? AND "Sk" > ?
+
+var orders = await db.Orders
+    .Where(o => o.Pk == tenantId
+             && EF.Functions.Between(o.Sk, "ORDER#2026-01", "ORDER#2026-01~"))
+    .ToListAsync(cancellationToken);
+// WHERE "Pk" = ? AND "Sk" BETWEEN ? AND ?
+```
+
+Available helpers:
+
+- `EF.Functions.GreaterThan(value, comparison)` → `value > comparison`
+- `EF.Functions.LessThan(value, comparison)` → `value < comparison`
+- `EF.Functions.Between(value, low, high)` → `value BETWEEN low AND high` (inclusive)
+
+`string.Compare` and `.CompareTo` remain supported alternatives when you need equality, inequality, or single inclusive bounds. Both translate to direct PartiQL comparison operators when compared against the literal `0`:
 
 ```csharp
 // string.Compare — static form
-var events = await db.Events
+var events2 = await db.Events
     .Where(e => e.Pk == streamId && string.Compare(e.Sk, lastProcessedSk) > 0)
     .OrderBy(e => e.Sk)
     .ToListAsync(cancellationToken);
 // WHERE "Pk" = ? AND "Sk" > ?
 
 // .CompareTo — instance form; identical result
-var events2 = await db.Events
+var events3 = await db.Events
     .Where(e => e.Pk == streamId && e.Sk.CompareTo(lastProcessedSk) > 0)
     .OrderBy(e => e.Sk)
     .ToListAsync(cancellationToken);
 // WHERE "Pk" = ? AND "Sk" > ?
 ```
 
-Both forms accept any comparison against the literal `0` (`==`, `!=`, `<`, `<=`, `>`, `>=`). Writing the constant on the left — `0 < e.Sk.CompareTo(bound)` — is also valid; the operator is mirrored automatically.
+Both compare forms accept any comparison against the literal `0` (`==`, `!=`, `<`, `<=`, `>`, `>=`). Writing the constant on the left — `0 < e.Sk.CompareTo(bound)` — is also valid; the operator is mirrored automatically.
 
-Combining a lower and upper bound on the same property triggers the `BETWEEN` rewrite. A common pattern uses `~` (ASCII 126, sorts after all alphanumeric characters) as a sentinel upper bound to capture all items within a prefix:
-
-```csharp
-var orders = await db.Orders
-    .Where(o => o.Pk == tenantId
-             && string.Compare(o.Sk, "ORDER#2026-01") >= 0
-             && string.Compare(o.Sk, "ORDER#2026-01~") <= 0)
-    .ToListAsync(cancellationToken);
-// WHERE "Pk" = ? AND "Sk" BETWEEN ? AND ?
-```
+A common prefix-range pattern uses `~` (ASCII 126, sorts after all alphanumeric characters) as a sentinel upper bound to capture all items within a prefix.
 
 !!! note
 
@@ -100,7 +113,7 @@ var orders = await db.Orders
 
 ## Range Predicates (BETWEEN)
 
-A LINQ predicate of the form `prop >= low && prop <= high` (both bounds inclusive, property on the left of each comparison) is rewritten to a single `BETWEEN` clause in PartiQL.
+A LINQ predicate of the form `prop >= low && prop <= high` (both bounds inclusive, property on the left of each comparison) is rewritten to a single `BETWEEN` clause in PartiQL. For string ranges, `EF.Functions.Between(prop, low, high)` emits the same inclusive `BETWEEN` expression directly.
 
 ```csharp
 var from = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
@@ -186,10 +199,9 @@ A sort key condition narrows results *within* a partition — it is only meaning
 // ✅ One sort key condition
 db.Orders.Where(o => o.Pk == customerId && string.Compare(o.Sk, "ORDER#2026") >= 0);
 
-// ✅ BETWEEN counts as one condition (provider rewrites >= + <= automatically)
+// ✅ BETWEEN counts as one condition
 db.Orders.Where(o => o.Pk == customerId
-                  && string.Compare(o.Sk, "ORDER#2026-01") >= 0
-                  && string.Compare(o.Sk, "ORDER#2026-01~") <= 0);
+                  && EF.Functions.Between(o.Sk, "ORDER#2026-01", "ORDER#2026-01~"));
 // WHERE "Pk" = ? AND "Sk" BETWEEN ? AND ?
 ```
 

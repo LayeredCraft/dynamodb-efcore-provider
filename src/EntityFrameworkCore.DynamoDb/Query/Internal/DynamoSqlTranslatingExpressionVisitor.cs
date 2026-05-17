@@ -53,6 +53,17 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         typeof(DynamoDbFunctionsExtensions).GetMethod(
             nameof(DynamoDbFunctionsExtensions.IsNotMissing))!;
 
+    private static readonly MethodInfo GreaterThanMethod =
+        typeof(DynamoDbFunctionsExtensions).GetMethod(
+            nameof(DynamoDbFunctionsExtensions.GreaterThan))!;
+
+    private static readonly MethodInfo LessThanMethod =
+        typeof(DynamoDbFunctionsExtensions).GetMethod(
+            nameof(DynamoDbFunctionsExtensions.LessThan))!;
+
+    private static readonly MethodInfo BetweenMethod =
+        typeof(DynamoDbFunctionsExtensions).GetMethod(nameof(DynamoDbFunctionsExtensions.Between))!;
+
     private static readonly MethodInfo EnumerableElementAtMethod = typeof(Enumerable)
         .GetMethods()
         .Single(m => m is { Name: nameof(Enumerable.ElementAt), IsGenericMethod: true }
@@ -437,7 +448,10 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         if (node.Method == IsNullMethod
             || node.Method == IsNotNullMethod
             || node.Method == IsMissingMethod
-            || node.Method == IsNotMissingMethod)
+            || node.Method == IsNotMissingMethod
+            || node.Method == GreaterThanMethod
+            || node.Method == LessThanMethod
+            || node.Method == BetweenMethod)
             return TranslateDynamoDbFunctions(node);
 
         if (node.Method == StringContainsMethod)
@@ -652,10 +666,10 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
                 || source == typeof(char));
     }
 
-    /// <summary>Translates EF.Functions IS NULL/MISSING extension methods to SQL IS predicates.</summary>
+    /// <summary>Translates DynamoDB-specific EF.Functions extension methods.</summary>
     private Expression TranslateDynamoDbFunctions(MethodCallExpression node)
     {
-        // node.Arguments[0] is DbFunctions, node.Arguments[1] is the value
+        // node.Arguments[0] is DbFunctions, node.Arguments[1] is the value.
         var operand = TranslateInternal(node.Arguments[1]);
         if (operand == null)
             return QueryCompilationContext.NotTranslatedExpression;
@@ -669,8 +683,49 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
                 sqlExpressionFactory.IsMissing(operand),
             nameof(DynamoDbFunctionsExtensions.IsNotMissing) => sqlExpressionFactory.IsNotMissing(
                 operand),
+            nameof(DynamoDbFunctionsExtensions.GreaterThan) => TranslateDynamoStringComparison(
+                ExpressionType.GreaterThan,
+                operand,
+                node.Arguments[2]),
+            nameof(DynamoDbFunctionsExtensions.LessThan) => TranslateDynamoStringComparison(
+                ExpressionType.LessThan,
+                operand,
+                node.Arguments[2]),
+            nameof(DynamoDbFunctionsExtensions.Between) => TranslateDynamoStringBetween(
+                operand,
+                node.Arguments[2],
+                node.Arguments[3]),
             _ => QueryCompilationContext.NotTranslatedExpression,
         };
+    }
+
+    /// <summary>Translates a DynamoDB string range helper to a binary comparison.</summary>
+    private Expression TranslateDynamoStringComparison(
+        ExpressionType operatorType,
+        SqlExpression operand,
+        Expression comparisonExpression)
+    {
+        var comparison = TranslateInternal(comparisonExpression);
+        if (comparison == null)
+            return QueryCompilationContext.NotTranslatedExpression;
+
+        return sqlExpressionFactory.Binary(operatorType, operand, comparison)
+            ?? QueryCompilationContext.NotTranslatedExpression;
+    }
+
+    /// <summary>Translates a DynamoDB string range helper to an inclusive BETWEEN predicate.</summary>
+    private Expression TranslateDynamoStringBetween(
+        SqlExpression operand,
+        Expression lowExpression,
+        Expression highExpression)
+    {
+        var low = TranslateInternal(lowExpression);
+        var high = TranslateInternal(highExpression);
+
+        if (low == null || high == null)
+            return QueryCompilationContext.NotTranslatedExpression;
+
+        return sqlExpressionFactory.Between(operand, low, high);
     }
 
     /// <summary>

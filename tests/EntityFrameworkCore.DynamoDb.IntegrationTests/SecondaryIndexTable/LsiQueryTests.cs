@@ -1,4 +1,5 @@
 using Amazon.DynamoDBv2;
+using EntityFrameworkCore.DynamoDb.Extensions;
 using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 using Microsoft.EntityFrameworkCore;
 
@@ -68,6 +69,37 @@ public class LsiQueryTests(DynamoContainerFixture fixture) : SecondaryIndexTable
             SELECT "customerId", "orderId", "createdAt", "priority", "region", "status"
             FROM "SecondaryIndexOrders"."ByCreatedAt"
             WHERE "customerId" = 'C#1' AND "createdAt" >= '2024-01-12' AND "createdAt" <= '2024-01-18'
+            """);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task ByCreatedAt_Lsi_WithFunctionsBetween_UsesSortKeyBetweenCondition()
+    {
+        var low = "2024-01-12";
+        var high = "2024-01-18";
+
+        var results =
+            await Db
+                .Orders
+                .WithIndex("ByCreatedAt")
+                .Where(o => o.CustomerId == "C#1" && EF.Functions.Between(o.CreatedAt, low, high))
+                .ToListAsync(CancellationToken);
+
+        var expected =
+            OrderItems
+                .Items
+                .Where(o => o.CustomerId == "C#1"
+                    && string.Compare(o.CreatedAt, low, StringComparison.Ordinal) >= 0
+                    && string.Compare(o.CreatedAt, high, StringComparison.Ordinal) <= 0)
+                .ToList();
+
+        results.Should().BeEquivalentTo(expected);
+
+        AssertSql(
+            """
+            SELECT "customerId", "orderId", "createdAt", "priority", "region", "status"
+            FROM "SecondaryIndexOrders"."ByCreatedAt"
+            WHERE "customerId" = 'C#1' AND "createdAt" BETWEEN ? AND ?
             """);
     }
 
