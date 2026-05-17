@@ -404,7 +404,7 @@ public class DynamoEntityItemSerializerSourceTests
         public Dictionary<string, NullableStatus?> NullableStatusByCode { get; set; } =
             new(StringComparer.Ordinal);
 
-        public HashSet<NullableStatus?> NullableStatusSet { get; set; } = [];
+        public HashSet<NullableStatus?>? NullableStatusSet { get; set; }
 
         public HashSet<NullableStatus>? OptionalStatusSet { get; set; }
     }
@@ -433,7 +433,7 @@ public class DynamoEntityItemSerializerSourceTests
         public string[] Members { get; set; } = [];
         public List<int> Scores { get; set; } = [];
         public List<int?> OptionalScores { get; set; } = [];
-        public HashSet<string> Tags { get; set; } = [];
+        public HashSet<string>? Tags { get; set; }
         public Dictionary<string, int> Counts { get; set; } = new(StringComparer.Ordinal);
 
         public IReadOnlyDictionary<string, long> LongCounts { get; set; } =

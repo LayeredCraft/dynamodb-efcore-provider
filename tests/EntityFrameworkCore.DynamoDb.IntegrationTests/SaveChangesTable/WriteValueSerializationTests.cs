@@ -307,7 +307,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
             entity.Pk,
             entity.Sk,
             "referenceIds",
-            entity.ReferenceIds.Select(static x => x.ToString()),
+            entity.ReferenceIds!.Select(static x => x.ToString()),
             CancellationToken);
 
         var actual = (await GetExistingItemAsync(entity.Pk, entity.Sk, CancellationToken))
@@ -627,7 +627,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
             entity.Pk,
             entity.Sk,
             "referenceIds",
-            entity.ReferenceIds.Select(static x => x.ToString()),
+            entity.ReferenceIds!.Select(static x => x.ToString()),
             CancellationToken);
 
         var actual = (await GetExistingItemAsync(entity.Pk, entity.Sk, CancellationToken))
