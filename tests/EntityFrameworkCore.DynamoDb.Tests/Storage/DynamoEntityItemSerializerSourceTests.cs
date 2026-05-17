@@ -308,8 +308,30 @@ public class DynamoEntityItemSerializerSourceTests
                     {
                         ["a"] = 1, ["b"] = 2,
                     },
-                LongCounts = new ReadOnlyDictionary<string, long>(
-                    new Dictionary<string, long>(StringComparer.Ordinal) { ["big"] = 42 }),
+                LongCounts =
+                    new ReadOnlyDictionary<string, long>(
+                        new Dictionary<string, long>(StringComparer.Ordinal) { ["big"] = 42 }),
+                Flags =
+                    new Dictionary<string, bool>(StringComparer.Ordinal) { ["enabled"] = true },
+                OptionalFlags =
+                    new ReadOnlyDictionary<string, bool?>(
+                        new Dictionary<string, bool?>(StringComparer.Ordinal)
+                        {
+                            ["yes"] = true, ["unknown"] = null,
+                        }),
+                UnsignedCounts =
+                    new ReadOnlyDictionary<string, uint>(
+                        new Dictionary<string, uint>(StringComparer.Ordinal) { ["u"] = 7 }),
+                Doubles =
+                    new Dictionary<string, double?>(StringComparer.Ordinal)
+                    {
+                        ["pi"] = 3.14, ["missing"] = null,
+                    },
+                BinaryByName =
+                    new Dictionary<string, byte[]>(StringComparer.Ordinal)
+                    {
+                        ["blob"] = [4, 5, 6],
+                    },
                 Payload = [1, 2, 3],
             },
         };
@@ -330,6 +352,13 @@ public class DynamoEntityItemSerializerSourceTests
         details["counts"].M["a"].N.Should().Be("1");
         details["counts"].M["b"].N.Should().Be("2");
         details["longCounts"].M["big"].N.Should().Be("42");
+        details["flags"].M["enabled"].BOOL.Should().BeTrue();
+        details["optionalFlags"].M["yes"].BOOL.Should().BeTrue();
+        details["optionalFlags"].M["unknown"].NULL.Should().BeTrue();
+        details["unsignedCounts"].M["u"].N.Should().Be("7");
+        details["doubles"].M["pi"].N.Should().Be("3.14");
+        details["doubles"].M["missing"].NULL.Should().BeTrue();
+        details["binaryByName"].M["blob"].B.ToArray().Should().Equal(4, 5, 6);
         details["payload"].B.ToArray().Should().Equal(1, 2, 3);
         details["payload"].L.Should().BeNull();
     }
@@ -438,6 +467,18 @@ public class DynamoEntityItemSerializerSourceTests
 
         public IReadOnlyDictionary<string, long> LongCounts { get; set; } =
             new ReadOnlyDictionary<string, long>(new Dictionary<string, long>());
+
+        public Dictionary<string, bool> Flags { get; set; } = new(StringComparer.Ordinal);
+
+        public IReadOnlyDictionary<string, bool?> OptionalFlags { get; set; } =
+            new ReadOnlyDictionary<string, bool?>(new Dictionary<string, bool?>());
+
+        public IReadOnlyDictionary<string, uint> UnsignedCounts { get; set; } =
+            new ReadOnlyDictionary<string, uint>(new Dictionary<string, uint>());
+
+        public Dictionary<string, double?> Doubles { get; set; } = new(StringComparer.Ordinal);
+
+        public Dictionary<string, byte[]> BinaryByName { get; set; } = new(StringComparer.Ordinal);
 
         public byte[] Payload { get; set; } = [];
         public ConvertedCodeList ConvertedCodes { get; set; } = new(string.Empty);
