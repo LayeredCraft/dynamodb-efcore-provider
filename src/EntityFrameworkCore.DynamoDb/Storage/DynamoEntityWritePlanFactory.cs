@@ -229,24 +229,81 @@ internal sealed class EntityWritePlan(
         if (valueType == typeof(string))
             return DynamoAttributeValueCollectionHelpers.SerializeDictionary(
                 (IEnumerable<KeyValuePair<string, string>>)value);
+        if (valueType == typeof(bool))
+            return DynamoAttributeValueCollectionHelpers.SerializeDictionary(
+                (IEnumerable<KeyValuePair<string, bool>>)value);
+        if (valueType == typeof(bool?))
+            return DynamoAttributeValueCollectionHelpers.SerializeDictionary(
+                (IEnumerable<KeyValuePair<string, bool?>>)value);
+        if (valueType == typeof(byte))
+            return DynamoAttributeValueCollectionHelpers.SerializeDictionary(
+                (IEnumerable<KeyValuePair<string, byte>>)value);
+        if (valueType == typeof(byte?))
+            return DynamoAttributeValueCollectionHelpers.SerializeDictionary(
+                (IEnumerable<KeyValuePair<string, byte?>>)value);
+        if (valueType == typeof(sbyte))
+            return DynamoAttributeValueCollectionHelpers.SerializeDictionary(
+                (IEnumerable<KeyValuePair<string, sbyte>>)value);
+        if (valueType == typeof(sbyte?))
+            return DynamoAttributeValueCollectionHelpers.SerializeDictionary(
+                (IEnumerable<KeyValuePair<string, sbyte?>>)value);
+        if (valueType == typeof(short))
+            return DynamoAttributeValueCollectionHelpers.SerializeDictionary(
+                (IEnumerable<KeyValuePair<string, short>>)value);
+        if (valueType == typeof(short?))
+            return DynamoAttributeValueCollectionHelpers.SerializeDictionary(
+                (IEnumerable<KeyValuePair<string, short?>>)value);
+        if (valueType == typeof(ushort))
+            return DynamoAttributeValueCollectionHelpers.SerializeDictionary(
+                (IEnumerable<KeyValuePair<string, ushort>>)value);
+        if (valueType == typeof(ushort?))
+            return DynamoAttributeValueCollectionHelpers.SerializeDictionary(
+                (IEnumerable<KeyValuePair<string, ushort?>>)value);
         if (valueType == typeof(int))
             return DynamoAttributeValueCollectionHelpers.SerializeDictionary(
                 (IEnumerable<KeyValuePair<string, int>>)value);
         if (valueType == typeof(int?))
             return DynamoAttributeValueCollectionHelpers.SerializeDictionary(
                 (IEnumerable<KeyValuePair<string, int?>>)value);
+        if (valueType == typeof(uint))
+            return DynamoAttributeValueCollectionHelpers.SerializeDictionary(
+                (IEnumerable<KeyValuePair<string, uint>>)value);
+        if (valueType == typeof(uint?))
+            return DynamoAttributeValueCollectionHelpers.SerializeDictionary(
+                (IEnumerable<KeyValuePair<string, uint?>>)value);
         if (valueType == typeof(long))
             return DynamoAttributeValueCollectionHelpers.SerializeDictionary(
                 (IEnumerable<KeyValuePair<string, long>>)value);
         if (valueType == typeof(long?))
             return DynamoAttributeValueCollectionHelpers.SerializeDictionary(
                 (IEnumerable<KeyValuePair<string, long?>>)value);
+        if (valueType == typeof(ulong))
+            return DynamoAttributeValueCollectionHelpers.SerializeDictionary(
+                (IEnumerable<KeyValuePair<string, ulong>>)value);
+        if (valueType == typeof(ulong?))
+            return DynamoAttributeValueCollectionHelpers.SerializeDictionary(
+                (IEnumerable<KeyValuePair<string, ulong?>>)value);
+        if (valueType == typeof(float))
+            return DynamoAttributeValueCollectionHelpers.SerializeDictionary(
+                (IEnumerable<KeyValuePair<string, float>>)value);
+        if (valueType == typeof(float?))
+            return DynamoAttributeValueCollectionHelpers.SerializeDictionary(
+                (IEnumerable<KeyValuePair<string, float?>>)value);
+        if (valueType == typeof(double))
+            return DynamoAttributeValueCollectionHelpers.SerializeDictionary(
+                (IEnumerable<KeyValuePair<string, double>>)value);
+        if (valueType == typeof(double?))
+            return DynamoAttributeValueCollectionHelpers.SerializeDictionary(
+                (IEnumerable<KeyValuePair<string, double?>>)value);
         if (valueType == typeof(decimal))
             return DynamoAttributeValueCollectionHelpers.SerializeDictionary(
                 (IEnumerable<KeyValuePair<string, decimal>>)value);
         if (valueType == typeof(decimal?))
             return DynamoAttributeValueCollectionHelpers.SerializeDictionary(
                 (IEnumerable<KeyValuePair<string, decimal?>>)value);
+        if (valueType == typeof(byte[]))
+            return DynamoAttributeValueCollectionHelpers.SerializeDictionary(
+                (IEnumerable<KeyValuePair<string, byte[]>>)value);
 
         return SerializeBoxedScalarDictionary((IEnumerable)value);
     }
@@ -491,18 +548,56 @@ internal sealed class EntityWritePlan(
     {
         if (item is KeyValuePair<string, string> stringPair)
             return (stringPair.Key, stringPair.Value);
+        if (item is KeyValuePair<string, bool> boolPair)
+            return (boolPair.Key, boolPair.Value);
+        if (item is KeyValuePair<string, bool?> nullableBoolPair)
+            return (nullableBoolPair.Key, nullableBoolPair.Value);
+        if (item is KeyValuePair<string, byte> bytePair)
+            return (bytePair.Key, bytePair.Value);
+        if (item is KeyValuePair<string, byte?> nullableBytePair)
+            return (nullableBytePair.Key, nullableBytePair.Value);
+        if (item is KeyValuePair<string, sbyte> sbytePair)
+            return (sbytePair.Key, sbytePair.Value);
+        if (item is KeyValuePair<string, sbyte?> nullableSbytePair)
+            return (nullableSbytePair.Key, nullableSbytePair.Value);
+        if (item is KeyValuePair<string, short> shortPair)
+            return (shortPair.Key, shortPair.Value);
+        if (item is KeyValuePair<string, short?> nullableShortPair)
+            return (nullableShortPair.Key, nullableShortPair.Value);
+        if (item is KeyValuePair<string, ushort> ushortPair)
+            return (ushortPair.Key, ushortPair.Value);
+        if (item is KeyValuePair<string, ushort?> nullableUshortPair)
+            return (nullableUshortPair.Key, nullableUshortPair.Value);
         if (item is KeyValuePair<string, int> intPair)
             return (intPair.Key, intPair.Value);
         if (item is KeyValuePair<string, int?> nullableIntPair)
             return (nullableIntPair.Key, nullableIntPair.Value);
+        if (item is KeyValuePair<string, uint> uintPair)
+            return (uintPair.Key, uintPair.Value);
+        if (item is KeyValuePair<string, uint?> nullableUintPair)
+            return (nullableUintPair.Key, nullableUintPair.Value);
         if (item is KeyValuePair<string, long> longPair)
             return (longPair.Key, longPair.Value);
         if (item is KeyValuePair<string, long?> nullableLongPair)
             return (nullableLongPair.Key, nullableLongPair.Value);
+        if (item is KeyValuePair<string, ulong> ulongPair)
+            return (ulongPair.Key, ulongPair.Value);
+        if (item is KeyValuePair<string, ulong?> nullableUlongPair)
+            return (nullableUlongPair.Key, nullableUlongPair.Value);
+        if (item is KeyValuePair<string, float> floatPair)
+            return (floatPair.Key, floatPair.Value);
+        if (item is KeyValuePair<string, float?> nullableFloatPair)
+            return (nullableFloatPair.Key, nullableFloatPair.Value);
+        if (item is KeyValuePair<string, double> doublePair)
+            return (doublePair.Key, doublePair.Value);
+        if (item is KeyValuePair<string, double?> nullableDoublePair)
+            return (nullableDoublePair.Key, nullableDoublePair.Value);
         if (item is KeyValuePair<string, decimal> decimalPair)
             return (decimalPair.Key, decimalPair.Value);
         if (item is KeyValuePair<string, decimal?> nullableDecimalPair)
             return (nullableDecimalPair.Key, nullableDecimalPair.Value);
+        if (item is KeyValuePair<string, byte[]> binaryPair)
+            return (binaryPair.Key, binaryPair.Value);
 
         throw new NotSupportedException(
             $"Dictionary item type {item.GetType()} is not supported for DynamoDB wire conversion");
