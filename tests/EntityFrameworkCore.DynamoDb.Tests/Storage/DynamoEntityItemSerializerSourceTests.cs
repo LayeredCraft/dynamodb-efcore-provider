@@ -261,6 +261,28 @@ public class DynamoEntityItemSerializerSourceTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void BuildItem_UnsupportedDirectSetValues_ThrowDuringModelBuild()
+    {
+        using var db = new UnsupportedSetDbContext(
+            new DbContextOptionsBuilder<UnsupportedSetDbContext>()
+                .UseDynamo()
+                .ConfigureWarnings(w
+                    => w
+                        .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                        .Ignore(DynamoEventId.ScanLikeQueryDetected))
+                .Options);
+
+        var entity = new UnsupportedSetEntity { Pk = "SET#1", Sk = "SET1", Flags = [true] };
+
+        var act = () => db.Add(entity);
+
+        act
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage("*does not map to a supported DynamoDB set wire type*");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void BuildItem_ComplexCollectionWithNullElement_ThrowsWhenElementIsNull()
     {
         using var db = new ComplexCollectionDbContext(
@@ -585,6 +607,13 @@ public class DynamoEntityItemSerializerSourceTests
         public HashSet<NullableStatus>? OptionalStatusSet { get; set; }
     }
 
+    private sealed class UnsupportedSetEntity
+    {
+        public string Pk { get; set; } = null!;
+        public string Sk { get; set; } = null!;
+        public HashSet<bool> Flags { get; set; } = [];
+    }
+
     private sealed class ComplexCollectionEntity
     {
         public string Pk { get; set; } = null!;
@@ -707,6 +736,20 @@ public class DynamoEntityItemSerializerSourceTests
                 b.Property(x => x.NullableStatusByCode);
                 b.Property(x => x.NullableStatusSet);
                 b.Property(x => x.OptionalStatusSet).IsRequired(false);
+            });
+    }
+
+    private sealed class UnsupportedSetDbContext(DbContextOptions options) : DbContext(options)
+    {
+        public DbSet<UnsupportedSetEntity> Items => Set<UnsupportedSetEntity>();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<UnsupportedSetEntity>(b =>
+            {
+                b.ToTable("UnsupportedSets");
+                b.HasPartitionKey(x => x.Pk);
+                b.HasSortKey(x => x.Sk);
+                b.Property(x => x.Flags);
             });
     }
 

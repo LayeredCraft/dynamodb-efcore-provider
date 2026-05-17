@@ -1117,7 +1117,11 @@ internal static class DynamoWriteValueSerializer
         return DynamoWireValueConversion.ConvertProviderValueToAttributeValue(providerValue);
     }
 
-    /// <summary>Serializes a complex scalar dictionary with no element converter.</summary>
+    /// <summary>
+    ///     Serializes a scalar dictionary with no element converter. Known DynamoDB wire values use
+    ///     closed generic collection helpers; other direct value types intentionally fall through to the
+    ///     boxed path so unsupported shapes fail with explicit wire-conversion errors.
+    /// </summary>
     internal static AttributeValue SerializeDirectScalarDictionary(object value, Type valueType)
     {
         if (valueType == typeof(string))
@@ -1258,7 +1262,11 @@ internal static class DynamoWriteValueSerializer
         return new AttributeValue { M = map };
     }
 
-    /// <summary>Serializes a complex scalar set with no element converter.</summary>
+    /// <summary>
+    ///     Serializes a scalar set with no element converter. The boxed fallback is intentional for supported
+    ///     numeric element types outside the closed-helper fast path; unsupported direct set element types are
+    ///     rejected by type mapping before serializer execution.
+    /// </summary>
     internal static AttributeValue SerializeDirectScalarSet(object value, Type elementType)
     {
         if (elementType == typeof(string))
@@ -1343,7 +1351,11 @@ internal static class DynamoWriteValueSerializer
                 $"DynamoDB sets cannot mix {kind} elements with other element kinds.");
     }
 
-    /// <summary>Serializes a complex scalar list with no element converter.</summary>
+    /// <summary>
+    ///     Serializes a scalar list with no element converter. Known DynamoDB wire values use closed
+    ///     generic collection helpers; unsupported direct values fall through to boxed wire conversion so
+    ///     the failure message names the unsupported CLR value type.
+    /// </summary>
     internal static AttributeValue SerializeDirectScalarList(object value, Type elementType)
     {
         if (elementType == typeof(string))
