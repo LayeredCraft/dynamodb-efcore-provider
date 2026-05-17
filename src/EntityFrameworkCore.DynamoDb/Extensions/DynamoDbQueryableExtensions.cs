@@ -53,9 +53,7 @@ public static class DynamoDbQueryableExtensions
             return provider.ExecuteAsync<Task<DynamoPage<TEntity>>>(
                 Expression.Call(
                     instance: null,
-                    method:
-                    new Func<IQueryable<TEntity>, int, string?, CancellationToken,
-                        Task<DynamoPage<TEntity>>>(ToPageAsync).Method,
+                    method: DynamoQueryableMethods.ToPageAsync.MakeGenericMethod(typeof(TEntity)),
                     arguments:
                     [
                         source.Expression,
@@ -89,8 +87,7 @@ public static class DynamoDbQueryableExtensions
                 ? source.Provider.CreateQuery<TEntity>(
                     Expression.Call(
                         null,
-                        ((Func<IQueryable<TEntity>, string, IQueryable<TEntity>>)WithNextToken)
-                        .Method,
+                        DynamoQueryableMethods.WithNextToken.MakeGenericMethod(typeof(TEntity)),
                         source.Expression,
                         Expression.Constant(nextToken, typeof(string))))
                 : source;
@@ -130,7 +127,7 @@ public static class DynamoDbQueryableExtensions
                 ? source.Provider.CreateQuery<TEntity>(
                     Expression.Call(
                         null,
-                        ((Func<IQueryable<TEntity>, int, IQueryable<TEntity>>)Limit).Method,
+                        DynamoQueryableMethods.Limit.MakeGenericMethod(typeof(TEntity)),
                         source.Expression,
                         Expression.Constant(limit, typeof(int))))
                 : source;
@@ -148,8 +145,8 @@ public static class DynamoDbQueryableExtensions
                 ? source.Provider.CreateQuery<TEntity>(
                     Expression.Call(
                         null,
-                        ((Func<IQueryable<TEntity>, bool, IQueryable<TEntity>>)
-                            DynamoDbQueryableExtensions.WithConsistentRead<TEntity>).Method,
+                        DynamoQueryableMethods.WithConsistentRead
+                            .MakeGenericMethod(typeof(TEntity)),
                         source.Expression,
                         Expression.Constant(consistentRead, typeof(bool))))
                 : source;
@@ -177,7 +174,7 @@ public static class DynamoDbQueryableExtensions
                 ? source.Provider.CreateQuery<TEntity>(
                     Expression.Call(
                         null,
-                        ((Func<IQueryable<TEntity>, IQueryable<TEntity>>)WithoutIndex).Method,
+                        DynamoQueryableMethods.WithoutIndex.MakeGenericMethod(typeof(TEntity)),
                         source.Expression))
                 : source;
 
@@ -193,8 +190,8 @@ public static class DynamoDbQueryableExtensions
                 ? source.Provider.CreateQuery<TEntity>(
                     Expression.Call(
                         null,
-                        ((Func<IQueryable<TEntity>, IQueryable<TEntity>>)AsUnsafeFilteredQuery)
-                        .Method,
+                        DynamoQueryableMethods.AsUnsafeFilteredQuery.MakeGenericMethod(
+                            typeof(TEntity)),
                         source.Expression))
                 : source;
 
@@ -209,7 +206,7 @@ public static class DynamoDbQueryableExtensions
                 ? source.Provider.CreateQuery<TEntity>(
                     Expression.Call(
                         null,
-                        ((Func<IQueryable<TEntity>, IQueryable<TEntity>>)AllowScan).Method,
+                        DynamoQueryableMethods.AllowScan.MakeGenericMethod(typeof(TEntity)),
                         source.Expression))
                 : source;
 
@@ -230,7 +227,7 @@ public static class DynamoDbQueryableExtensions
                 ? source.Provider.CreateQuery<TEntity>(
                     Expression.Call(
                         null,
-                        ((Func<IQueryable<TEntity>, string, IQueryable<TEntity>>)WithIndex).Method,
+                        DynamoQueryableMethods.WithIndex.MakeGenericMethod(typeof(TEntity)),
                         source.Expression,
                         Expression.Constant(indexName, typeof(string))))
                 : source;
