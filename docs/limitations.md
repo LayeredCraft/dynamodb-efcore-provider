@@ -84,8 +84,9 @@ DynamoDB counts *evaluated* items against `Limit` (not matched items), this is o
 3. Any sort-key predicate is a valid DynamoDB key condition (`=`, `<`, `<=`, `>`, `>=`,
     `BETWEEN`, `begins_with`).
 
-Queries that do not meet all three conditions throw `InvalidOperationException` at translation
-time.
+By default, queries that do not meet all three conditions throw `InvalidOperationException` at
+translation time. `AsUnsafeFilteredQuery()` and `AllowUnsafeFilteredQueries()` can bypass this
+safety check for controlled legacy code or tests.
 
 **Sort-key filter expressions are unsafe.** `SK IN (...)` and `SK = A OR SK = B` reference only
 key attributes but are DynamoDB *filter expressions*, not key conditions. `Limit=1` on a filter
@@ -133,8 +134,9 @@ one item and `First*` with a PK equality condition is always safe.
 
 **Shared-table / inheritance.** The provider injects a discriminator predicate automatically.
 Server-side `First*` is safe only when the query evaluates at most one base-table item before
-filtering: a PK-only lookup on a PK-only table, or a PK+SK equality on a PK+SK table. All
-other shapes throw — use `AsAsyncEnumerable().FirstOrDefaultAsync()`.
+filtering: a PK-only lookup on a PK-only table, or a PK+SK equality on a PK+SK table. By default,
+all other shapes throw — use `AsAsyncEnumerable().FirstOrDefaultAsync()`, or explicitly opt in to
+unsafe filtered `First*` behavior when you accept the DynamoDB filter-expression risk.
 
 ### `Find` — Primary-Key Lookup
 

@@ -112,6 +112,18 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
             VALUE {'pk': ?, 'sk': ?, '$type': ?, 'createdAt': ?, 'email': ?, 'isPreferred': ?, 'notes': ?, 'nullableNote': ?, 'preferences': ?, 'referenceIds': ?, 'tags': ?, 'version': ?, 'contacts': ?, 'profile': ?}
             """);
 
+        await AssertRawAttributeAsync(
+            entity.Pk,
+            entity.Sk,
+            "profile",
+            attribute =>
+            {
+                attribute.M.Should().ContainKey("displayName");
+                attribute.M["displayName"].S.Should().Be("Test User");
+                attribute.M["nickname"].S.Should().Be("tester");
+            },
+            CancellationToken);
+
         await AssertItemExistsInDynamoDbAsync(entity, entity.Pk, entity.Sk, CancellationToken);
     }
 
@@ -179,6 +191,19 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
             VALUE {'pk': ?, 'sk': ?, '$type': ?, 'createdAt': ?, 'email': ?, 'isPreferred': ?, 'notes': ?, 'nullableNote': ?, 'preferences': ?, 'referenceIds': ?, 'tags': ?, 'version': ?, 'contacts': ?, 'profile': ?}
             """);
 
+        await AssertRawAttributeAsync(
+            entity.Pk,
+            entity.Sk,
+            "profile",
+            attribute =>
+            {
+                attribute.M["displayName"].S.Should().Be("Deep Test");
+                var address = attribute.M["preferredAddress"].M;
+                address["line1"].S.Should().Be("42 Nested Rd");
+                address["city"].S.Should().Be("Mapville");
+            },
+            CancellationToken);
+
         await AssertItemExistsInDynamoDbAsync(entity, entity.Pk, entity.Sk, CancellationToken);
     }
 
@@ -237,6 +262,19 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
             VALUE {'pk': ?, 'sk': ?, '$type': ?, 'createdAt': ?, 'email': ?, 'isPreferred': ?, 'notes': ?, 'nullableNote': ?, 'preferences': ?, 'referenceIds': ?, 'tags': ?, 'version': ?, 'contacts': ?}
             """);
 
+        await AssertRawAttributeAsync(
+            entity.Pk,
+            entity.Sk,
+            "contacts",
+            attribute =>
+            {
+                attribute.L.Should().HaveCount(2);
+                attribute.L[0].M["kind"].S.Should().Be("email");
+                attribute.L[0].M["verified"].BOOL.Should().BeTrue();
+                attribute.L[1].M["address"].M["city"].S.Should().Be("Callton");
+            },
+            CancellationToken);
+
         await AssertItemExistsInDynamoDbAsync(entity, entity.Pk, entity.Sk, CancellationToken);
     }
 
@@ -269,6 +307,13 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
             INSERT INTO "AppItems"
             VALUE {'pk': ?, 'sk': ?, '$type': ?, 'createdAt': ?, 'email': ?, 'isPreferred': ?, 'notes': ?, 'nullableNote': ?, 'preferences': ?, 'referenceIds': ?, 'tags': ?, 'version': ?, 'contacts': ?}
             """);
+
+        await AssertRawStringSetAsync(
+            entity.Pk,
+            entity.Sk,
+            "tags",
+            ["alpha", "beta", "gamma"],
+            CancellationToken);
 
         await AssertItemExistsInDynamoDbAsync(entity, entity.Pk, entity.Sk, CancellationToken);
     }
@@ -346,6 +391,13 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
             VALUE {'pk': ?, 'sk': ?, '$type': ?, 'appliedCoupons': ?, 'cancellationReason': ?, 'chargesByCode': ?, 'customerPk': ?, 'riskFlags': ?, 'status': ?, 'total': ?, 'version': ?, 'lines': ?}
             """);
 
+        await AssertRawAttributeAsync(
+            entity.Pk,
+            entity.Sk,
+            "riskFlags",
+            attribute => attribute.NS.Should().BeEquivalentTo("1", "4", "9"),
+            CancellationToken);
+
         await AssertItemExistsInDynamoDbAsync(entity, entity.Pk, entity.Sk, CancellationToken);
     }
 
@@ -382,6 +434,17 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
             VALUE {'pk': ?, 'sk': ?, '$type': ?, 'createdAt': ?, 'email': ?, 'isPreferred': ?, 'notes': ?, 'nullableNote': ?, 'preferences': ?, 'referenceIds': ?, 'tags': ?, 'version': ?, 'contacts': ?}
             """);
 
+        await AssertRawAttributeAsync(
+            entity.Pk,
+            entity.Sk,
+            "preferences",
+            attribute =>
+            {
+                attribute.M["language"].S.Should().Be("en");
+                attribute.M["theme"].S.Should().Be("dark");
+            },
+            CancellationToken);
+
         await AssertItemExistsInDynamoDbAsync(entity, entity.Pk, entity.Sk, CancellationToken);
     }
 
@@ -413,6 +476,17 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
             INSERT INTO "AppItems"
             VALUE {'pk': ?, 'sk': ?, '$type': ?, 'appliedCoupons': ?, 'cancellationReason': ?, 'chargesByCode': ?, 'customerPk': ?, 'riskFlags': ?, 'status': ?, 'total': ?, 'version': ?, 'lines': ?}
             """);
+
+        await AssertRawAttributeAsync(
+            entity.Pk,
+            entity.Sk,
+            "chargesByCode",
+            attribute =>
+            {
+                attribute.M["shipping"].N.Should().Be("9.99");
+                attribute.M["tax"].N.Should().Be("4.50");
+            },
+            CancellationToken);
 
         await AssertItemExistsInDynamoDbAsync(entity, entity.Pk, entity.Sk, CancellationToken);
     }
@@ -446,6 +520,13 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
             INSERT INTO "AppItems"
             VALUE {'pk': ?, 'sk': ?, '$type': ?, 'createdAt': ?, 'email': ?, 'isPreferred': ?, 'notes': ?, 'nullableNote': ?, 'preferences': ?, 'referenceIds': ?, 'tags': ?, 'version': ?, 'contacts': ?}
             """);
+
+        await AssertRawAttributeAsync(
+            entity.Pk,
+            entity.Sk,
+            "notes",
+            attribute => attribute.L.Select(x => x.S).Should().Equal("first note", "second note"),
+            CancellationToken);
 
         await AssertItemExistsInDynamoDbAsync(entity, entity.Pk, entity.Sk, CancellationToken);
     }
@@ -503,6 +584,13 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
         Db.Customers.Add(entity);
         await Db.SaveChangesAsync(CancellationToken);
 
+        await AssertRawAttributeAsync(
+            entity.Pk,
+            entity.Sk,
+            "notes",
+            attribute => attribute.L.Should().BeEmpty(),
+            CancellationToken);
+
         await AssertItemExistsInDynamoDbAsync(entity, entity.Pk, entity.Sk, CancellationToken);
     }
 
@@ -526,6 +614,13 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
 
         Db.Customers.Add(entity);
         await Db.SaveChangesAsync(CancellationToken);
+
+        await AssertRawAttributeAsync(
+            entity.Pk,
+            entity.Sk,
+            "preferences",
+            attribute => attribute.M.Should().BeEmpty(),
+            CancellationToken);
 
         await AssertItemExistsInDynamoDbAsync(entity, entity.Pk, entity.Sk, CancellationToken);
     }

@@ -351,7 +351,7 @@ public class PaginationConfigurationTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public void ServiceProviderHash_IncludesAllowUnsafeFilteredQueries()
+    public void ServiceProviderHash_ExcludesAllowUnsafeFilteredQueries()
     {
         var extension1 = new DynamoDbOptionsExtension().WithAllowUnsafeFilteredQueries(false);
         var extension2 = new DynamoDbOptionsExtension().WithAllowUnsafeFilteredQueries(true);
@@ -360,7 +360,7 @@ public class PaginationConfigurationTests
             .Info
             .GetServiceProviderHashCode()
             .Should()
-            .NotBe(extension2.Info.GetServiceProviderHashCode());
+            .Be(extension2.Info.GetServiceProviderHashCode());
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
@@ -418,12 +418,12 @@ public class PaginationConfigurationTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public void ShouldUseSameServiceProvider_DifferentAllowUnsafeFilteredQueries_ReturnsFalse()
+    public void ShouldUseSameServiceProvider_DifferentAllowUnsafeFilteredQueries_ReturnsTrue()
     {
         var extension1 = new DynamoDbOptionsExtension().WithAllowUnsafeFilteredQueries(false);
         var extension2 = new DynamoDbOptionsExtension().WithAllowUnsafeFilteredQueries(true);
 
-        extension1.Info.ShouldUseSameServiceProvider(extension2.Info).Should().BeFalse();
+        extension1.Info.ShouldUseSameServiceProvider(extension2.Info).Should().BeTrue();
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
