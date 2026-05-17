@@ -1030,29 +1030,27 @@ internal static class DynamoWriteValueSerializer
     /// <summary>Creates a complex CLR instance serializer for a scalar property.</summary>
     internal static Func<object, AttributeValue> CreateComplexValueSerializer(IProperty property)
     {
+        var serializeValue = CreateObjectValueSerializer(property);
+        return instance => serializeValue(property.GetGetter().GetClrValue(instance));
+    }
+
+    /// <summary>Creates an object-edge serializer for an already-read scalar property value.</summary>
+    internal static Func<object?, AttributeValue> CreateObjectValueSerializer(IProperty property)
+    {
         var clrType = property.ClrType;
         var typeMapping = property.GetTypeMapping();
         var propertyConverter = typeMapping.Converter;
 
         if (propertyConverter is not null)
-            return instance =>
-            {
-                var value = property.GetGetter().GetClrValue(instance);
-                if (value is null)
-                    return NullAttributeValue();
-                return ConvertProviderShapeToAttributeValue(
-                    propertyConverter.ConvertToProvider(value));
-            };
+            return value => value is null
+                ? NullAttributeValue()
+                : ConvertProviderShapeToAttributeValue(propertyConverter.ConvertToProvider(value));
 
         var nonNullableType = Nullable.GetUnderlyingType(clrType) ?? clrType;
         if (nonNullableType == typeof(byte[]))
-            return instance =>
-            {
-                var value = property.GetGetter().GetClrValue(instance);
-                return value is null
-                    ? NullAttributeValue()
-                    : DynamoWireValueConversion.ConvertProviderValueToAttributeValue((byte[])value);
-            };
+            return value => value is null
+                ? NullAttributeValue()
+                : DynamoWireValueConversion.ConvertProviderValueToAttributeValue((byte[])value);
 
         if (DynamoTypeMappingSource.TryGetDictionaryValueType(
             clrType,
@@ -1060,9 +1058,8 @@ internal static class DynamoWriteValueSerializer
             out _))
         {
             var valueConverter = typeMapping.ElementTypeMapping?.Converter;
-            return instance =>
+            return value =>
             {
-                var value = property.GetGetter().GetClrValue(instance);
                 if (value is null)
                     return NullAttributeValue();
                 return valueConverter is null
@@ -1074,9 +1071,8 @@ internal static class DynamoWriteValueSerializer
         if (DynamoTypeMappingSource.TryGetSetElementType(clrType, out var setElementType))
         {
             var elementConverter = typeMapping.ElementTypeMapping?.Converter;
-            return instance =>
+            return value =>
             {
-                var value = property.GetGetter().GetClrValue(instance);
                 if (value is null)
                     return NullAttributeValue();
                 return elementConverter is null
@@ -1088,9 +1084,8 @@ internal static class DynamoWriteValueSerializer
         if (DynamoTypeMappingSource.TryGetListElementType(clrType, out var listElementType))
         {
             var elementConverter = typeMapping.ElementTypeMapping?.Converter;
-            return instance =>
+            return value =>
             {
-                var value = property.GetGetter().GetClrValue(instance);
                 if (value is null)
                     return NullAttributeValue();
                 return elementConverter is null
@@ -1099,13 +1094,9 @@ internal static class DynamoWriteValueSerializer
             };
         }
 
-        return instance =>
-        {
-            var value = property.GetGetter().GetClrValue(instance);
-            return value is null
-                ? NullAttributeValue()
-                : DynamoWireValueConversion.ConvertProviderValueToAttributeValue(value);
-        };
+        return value => value is null
+            ? NullAttributeValue()
+            : DynamoWireValueConversion.ConvertProviderValueToAttributeValue(value);
     }
 
     /// <summary>Creates a DynamoDB null attribute value.</summary>

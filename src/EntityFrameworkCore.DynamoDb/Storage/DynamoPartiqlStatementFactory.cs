@@ -264,7 +264,8 @@ internal sealed class DynamoPartiqlStatementFactory(
 
             setClauses.Add($"{path}.\"{EscapeIdentifier(property.GetAttributeName())}\" = ?");
             setParameters.Add(
-                EntityWritePlan.SerializeScalarPropertyValue(propertyEntry.CurrentValue, property));
+                DynamoWriteValueSerializer.CreateObjectValueSerializer(property)(
+                    propertyEntry.CurrentValue));
         }
 
         foreach (var nestedComplexProperty in complexProperty.ComplexType.GetComplexProperties())
