@@ -195,7 +195,8 @@ internal static class DynamoWriteValueSerializer
     /// shape (dictionary, set, list) or falls back to scalar, then branches on whether an element-
     /// or property-level converter is present to pick the right factory.
     /// </summary>
-    internal static Func<IUpdateEntry, AttributeValue> CreateCurrentValueSerializer(IProperty property)
+    internal static Func<IUpdateEntry, AttributeValue> CreateCurrentValueSerializer(
+        IProperty property)
     {
         var clrType = property.ClrType;
         var typeMapping = property.GetTypeMapping();
@@ -655,7 +656,8 @@ internal static class DynamoWriteValueSerializer
     /// <see cref="ValueConverter{TModel,TProvider}.ConvertToProviderTyped"/> — the pre-compiled
     /// typed delegate — without boxing.
     /// </summary>
-    private readonly struct ConvertedScalarFactory(ValueConverter converter) : IDynamoWriteValueSerializerFactory
+    private readonly struct ConvertedScalarFactory(ValueConverter converter)
+        : IDynamoWriteValueSerializerFactory
     {
         /// <summary>
         ///     Dispatches on the converter model type to bind a typed scalar write delegate. Handles
@@ -915,7 +917,8 @@ internal static class DynamoWriteValueSerializer
     }
 
     /// <summary>Set binder for the direct-match path (element type == converter model type).</summary>
-    private readonly struct SetModelBinder<TProvider>(ValueConverter converter) : IDynamoWriteValueSerializerFactory
+    private readonly struct SetModelBinder<TProvider>(ValueConverter converter)
+        : IDynamoWriteValueSerializerFactory
     {
         /// <summary>
         ///     Returns a delegate that serializes an enumerable of converted elements to a DynamoDB set
@@ -1023,8 +1026,91 @@ internal static class DynamoWriteValueSerializer
             };
         }
     }
+
+    /// <summary>Creates a complex CLR instance serializer for a scalar property.</summary>
+    internal static Func<object, AttributeValue> CreateComplexValueSerializer(IProperty property)
+    {
+        var clrType = property.ClrType;
+        var typeMapping = property.GetTypeMapping();
+        var propertyConverter = typeMapping.Converter;
+
+        if (propertyConverter is not null)
+            return instance =>
+            {
+                var value = property.GetGetter().GetClrValue(instance);
+                if (value is null)
+                    return NullAttributeValue();
+                return ConvertProviderShapeToAttributeValue(
+                    propertyConverter.ConvertToProvider(value));
+            };
+
+        var nonNullableType = Nullable.GetUnderlyingType(clrType) ?? clrType;
+        if (nonNullableType == typeof(byte[]))
+            return instance =>
+            {
+                var value = property.GetGetter().GetClrValue(instance);
+                return value is null
+                    ? NullAttributeValue()
+                    : DynamoWireValueConversion.ConvertProviderValueToAttributeValue((byte[])value);
+            };
+
+        if (DynamoTypeMappingSource.TryGetDictionaryValueType(
+            clrType,
+            out var dictionaryValueType,
+            out _))
+        {
+            var valueConverter = typeMapping.ElementTypeMapping?.Converter;
+            return instance =>
+            {
+                var value = property.GetGetter().GetClrValue(instance);
+                if (value is null)
+                    return NullAttributeValue();
+                return valueConverter is null
+                    ? SerializeDirectScalarDictionary(value, dictionaryValueType)
+                    : SerializeConvertedScalarDictionary(value, valueConverter);
+            };
+        }
+
+        if (DynamoTypeMappingSource.TryGetSetElementType(clrType, out var setElementType))
+        {
+            var elementConverter = typeMapping.ElementTypeMapping?.Converter;
+            return instance =>
+            {
+                var value = property.GetGetter().GetClrValue(instance);
+                if (value is null)
+                    return NullAttributeValue();
+                return elementConverter is null
+                    ? SerializeDirectScalarSet(value, setElementType)
+                    : SerializeConvertedScalarSet(value, elementConverter);
+            };
+        }
+
+        if (DynamoTypeMappingSource.TryGetListElementType(clrType, out var listElementType))
+        {
+            var elementConverter = typeMapping.ElementTypeMapping?.Converter;
+            return instance =>
+            {
+                var value = property.GetGetter().GetClrValue(instance);
+                if (value is null)
+                    return NullAttributeValue();
+                return elementConverter is null
+                    ? SerializeDirectScalarList(value, listElementType)
+                    : SerializeConvertedScalarList(value, elementConverter);
+            };
+        }
+
+        return instance =>
+        {
+            var value = property.GetGetter().GetClrValue(instance);
+            return value is null
+                ? NullAttributeValue()
+                : DynamoWireValueConversion.ConvertProviderValueToAttributeValue(value);
+        };
+    }
+
     /// <summary>Creates a DynamoDB null attribute value.</summary>
     internal static AttributeValue NullAttributeValue() => new() { NULL = true };
+
     /// <summary>Serializes a provider-shaped scalar or list value.</summary>
     internal static AttributeValue ConvertProviderShapeToAttributeValue(object? providerValue)
     {
