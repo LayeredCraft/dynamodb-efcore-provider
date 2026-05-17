@@ -11,6 +11,9 @@ namespace EntityFrameworkCore.DynamoDb.SpecificationTests;
 public class ComplexTypesTrackingDynamoTest
     : ComplexTypesTrackingTestBase<ComplexTypesTrackingDynamoTest.ComplexTypesTrackingDynamoFixture>
 {
+    // DynamoDB SDK write APIs are async-only. Sync rows inherited from EF Core specification tests
+    // intentionally no-op here; sync SaveChanges behavior is covered by provider-specific tests.
+
     /// <summary>Creates complex type tracking specification tests.</summary>
     public ComplexTypesTrackingDynamoTest(
         ComplexTypesTrackingDynamoFixture fixture,

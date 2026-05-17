@@ -128,9 +128,10 @@ public sealed class DynamoDbOptionsExtension : IDbContextOptionsExtension
     public DynamoDbOptionsExtension WithMaxTransactionSize(int maxTransactionSize)
     {
         if (maxTransactionSize is <= 0 or > DynamoTransactionLimit)
-            throw new InvalidOperationException(
-                $"The specified 'MaxTransactionSize' value '{maxTransactionSize}' is not valid. "
-                + $"It must be between 1 and {DynamoTransactionLimit}.");
+            throw new ArgumentOutOfRangeException(
+                nameof(maxTransactionSize),
+                maxTransactionSize,
+                $"The value must be between 1 and {DynamoTransactionLimit}.");
 
         var clone = Clone();
 
@@ -143,9 +144,10 @@ public sealed class DynamoDbOptionsExtension : IDbContextOptionsExtension
     public DynamoDbOptionsExtension WithMaxBatchWriteSize(int maxBatchWriteSize)
     {
         if (maxBatchWriteSize is <= 0 or > DynamoPartiQlBatchLimit)
-            throw new InvalidOperationException(
-                $"The specified 'MaxBatchWriteSize' value '{maxBatchWriteSize}' is not valid. "
-                + $"It must be between 1 and {DynamoPartiQlBatchLimit}.");
+            throw new ArgumentOutOfRangeException(
+                nameof(maxBatchWriteSize),
+                maxBatchWriteSize,
+                $"The value must be between 1 and {DynamoPartiQlBatchLimit}.");
 
         var clone = Clone();
 
@@ -240,6 +242,7 @@ public sealed class DynamoDbOptionsExtension : IDbContextOptionsExtension
                 hashCode.Add(Extension.TransactionOverflowBehavior);
                 hashCode.Add(Extension.MaxTransactionSize);
                 hashCode.Add(Extension.MaxBatchWriteSize);
+                hashCode.Add(Extension.AllowUnsafeFilteredQueries);
 
                 _serviceProviderHash = hashCode.ToHashCode();
             }
@@ -262,7 +265,9 @@ public sealed class DynamoDbOptionsExtension : IDbContextOptionsExtension
                 && Extension.TransactionOverflowBehavior
                 == otherInfo.Extension.TransactionOverflowBehavior
                 && Extension.MaxTransactionSize == otherInfo.Extension.MaxTransactionSize
-                && Extension.MaxBatchWriteSize == otherInfo.Extension.MaxBatchWriteSize;
+                && Extension.MaxBatchWriteSize == otherInfo.Extension.MaxBatchWriteSize
+                && Extension.AllowUnsafeFilteredQueries
+                == otherInfo.Extension.AllowUnsafeFilteredQueries;
 
         /// <summary>Provides functionality for this member.</summary>
         public override void PopulateDebugInfo(IDictionary<string, string> debugInfo) { }

@@ -82,6 +82,51 @@ public class DynamoWireValueConversionTests
         attributeValue.L[1].NULL.Should().BeTrue();
     }
 
+    [Theory(Timeout = TestConfiguration.DefaultTimeout)]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    [InlineData(double.NegativeInfinity)]
+    public void ConvertProviderValueToAttributeValue_NonFiniteDouble_Throws(double value)
+    {
+        var act = () => DynamoWireValueConversion.ConvertProviderValueToAttributeValue(value);
+
+        act.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
+    [Theory(Timeout = TestConfiguration.DefaultTimeout)]
+    [InlineData(float.NaN)]
+    [InlineData(float.PositiveInfinity)]
+    [InlineData(float.NegativeInfinity)]
+    public void SerializeList_NonFiniteFloat_Throws(float value)
+    {
+        var act = () => DynamoAttributeValueCollectionHelpers.SerializeList([value]);
+
+        act.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
+    [Theory(Timeout = TestConfiguration.DefaultTimeout)]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    [InlineData(double.NegativeInfinity)]
+    public void SerializeDictionary_NonFiniteDouble_Throws(double value)
+    {
+        var act = () => DynamoAttributeValueCollectionHelpers.SerializeDictionary(
+            new Dictionary<string, double> { ["value"] = value });
+
+        act.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
+    [Theory(Timeout = TestConfiguration.DefaultTimeout)]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    [InlineData(double.NegativeInfinity)]
+    public void SerializeSet_NonFiniteDouble_Throws(double value)
+    {
+        var act = () => DynamoAttributeValueCollectionHelpers.SerializeSet([value]);
+
+        act.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
     private sealed class ByteArrayComparer : IEqualityComparer<byte[]>
     {
         public static ByteArrayComparer Instance { get; } = new();

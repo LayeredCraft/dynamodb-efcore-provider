@@ -83,9 +83,23 @@ internal static class DynamoWireValueConversion
     ///     to preserve precision across write/read cycles.
     /// </remarks>
     public static string FormatNumber<T>(T value) where T : struct, IFormattable
-        => value.ToString(
+    {
+        if (value is float f && !float.IsFinite(f))
+            throw new ArgumentOutOfRangeException(
+                nameof(value),
+                value,
+                "DynamoDB numeric attributes do not support non-finite floating-point values.");
+
+        if (value is double d && !double.IsFinite(d))
+            throw new ArgumentOutOfRangeException(
+                nameof(value),
+                value,
+                "DynamoDB numeric attributes do not support non-finite floating-point values.");
+
+        return value.ToString(
             typeof(T) == typeof(float) || typeof(T) == typeof(double) ? "R" : null,
             CultureInfo.InvariantCulture);
+    }
 
     /// <summary>Creates a binary DynamoDB attribute value from a byte array.</summary>
     /// <remarks>

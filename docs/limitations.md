@@ -186,7 +186,7 @@ all required attributes available in the index or table projection. See
 
 ### Synchronous `SaveChanges` Not Supported
 
-`SaveChanges()` throws `InvalidOperationException`. Use `SaveChangesAsync()`.
+`SaveChanges()` throws `NotSupportedException`. Use `SaveChangesAsync()`.
 
 The AWS SDK for .NET exposes only async I/O for DynamoDB; the provider does not wrap async calls
 synchronously to avoid deadlocks in ASP.NET Core and other async-first hosts.

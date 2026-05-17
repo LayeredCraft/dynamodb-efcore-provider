@@ -26,6 +26,16 @@ public class DynamoDbQueryableExtensionsTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void WithNextToken_NullSource_ThrowsArgumentNullException()
+    {
+        IQueryable<TestEntity> source = null!;
+
+        var act = () => source.WithNextToken("token");
+
+        act.Should().Throw<ArgumentNullException>().WithParameterName("source");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void WithNextToken_Whitespace_ThrowsArgumentException()
     {
         var source = new[] { new TestEntity() }.AsQueryable();
@@ -153,6 +163,16 @@ public class DynamoDbQueryableExtensionsTests
         var act = () => source.WithIndex(string.Empty);
 
         act.Should().Throw<ArgumentException>().WithParameterName("indexName");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void WithIndex_Null_ThrowsArgumentNullException()
+    {
+        var source = new[] { new TestEntity() }.AsQueryable();
+
+        var act = () => source.WithIndex(null!);
+
+        act.Should().Throw<ArgumentNullException>().WithParameterName("indexName");
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]

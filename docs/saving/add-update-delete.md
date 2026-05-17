@@ -5,7 +5,7 @@ description: How SaveChangesAsync translates EF Core entity states to PartiQL IN
 
 # Add, Update, and Delete
 
-_`SaveChangesAsync` reads the EF Core change tracker, compiles each pending entity state change into a PartiQL statement, and sends the write to DynamoDB — only modified properties are included in UPDATE statements, and every write is a conditional expression against the item's primary key._
+_`SaveChangesAsync` reads the EF Core change tracker, compiles each pending entity state change into a PartiQL statement, and sends the write to DynamoDB — only modified properties are included in UPDATE statements, and UPDATE/DELETE statements target the item's primary key._
 
 !!! warning "Async only"
 
@@ -96,18 +96,17 @@ var order = await db.Orders
 
 order.Status = "shipped";
 order.ShippedAt = DateTimeOffset.UtcNow;
-order.LegacyField = null;   // setting to null removes the DynamoDB attribute
+order.LegacyField = null;   // scalar null writes a DynamoDB NULL attribute
 
 await db.SaveChangesAsync(cancellationToken);
 ```
 
-The provider generates a `UPDATE … SET … REMOVE … WHERE pk = ? AND sk = ?` statement that
-includes only the properties that actually changed:
+The provider generates an `UPDATE … SET … WHERE pk = ? AND sk = ?` statement that includes only
+the properties that actually changed:
 
 ```sql
 UPDATE "Orders"
-SET "status" = ?, "shippedAt" = ?
-REMOVE "legacyField"
+SET "status" = ?, "shippedAt" = ?, "legacyField" = ?
 WHERE "pk" = ? AND "sk" = ?
 ```
 
@@ -115,10 +114,9 @@ Key behaviors:
 
 - **Only modified properties appear.** Unchanged properties are omitted from the statement
     entirely — there is no full-document replace.
-- **`null` writes `REMOVE`, not `NULL`.** Setting a scalar property to `null` removes the
-    attribute from the DynamoDB item entirely (DynamoDB `MISSING`), rather than writing a
-    `{ NULL: true }` attribute. If you need an explicit `NULL` attribute in DynamoDB, use an
-    `EF.Functions.DynamoNull` wrapper (see [Limitations](../limitations.md)).
+- **Scalar `null` writes DynamoDB `NULL`.** Setting a scalar property to `null` writes an
+    explicit `{ NULL: true }` attribute. Null complex properties and complex collections can be
+    represented as removed nested attributes when the provider emits a `REMOVE` for that path.
 - **Primary keys cannot be modified.** Attempting to change a `[Key]`-annotated or key-mapped
     property on a tracked entity throws `NotSupportedException`. To change an item's key, delete
     the existing entity and add a new one.
