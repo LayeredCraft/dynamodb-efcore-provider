@@ -61,7 +61,7 @@ internal static class DynamoAttributeValueCollectionHelpers
                 if (converted is null)
                     throw new InvalidOperationException(
                         "DynamoDB sets cannot contain null elements.");
-                bs.Add(new MemoryStream((byte[])(object)converted, false));
+                bs.Add(DynamoWireValueConversion.CreateBinaryStream((byte[])(object)converted));
             }
 
             if (bs.Count == 0)

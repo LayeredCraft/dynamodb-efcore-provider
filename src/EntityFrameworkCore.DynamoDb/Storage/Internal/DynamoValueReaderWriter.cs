@@ -328,7 +328,7 @@ internal sealed class BinaryDynamoValueReaderWriter : DynamoValueReaderWriter<by
         => attributeValue.B!.ToArray();
 
     public override AttributeValue Write(byte[] value)
-        => new() { B = new MemoryStream(value, false) };
+        => DynamoWireValueConversion.CreateBinaryAttributeValue(value);
 
     public override string ToPartiQlLiteral(byte[] value)
         => throw new NotSupportedException(

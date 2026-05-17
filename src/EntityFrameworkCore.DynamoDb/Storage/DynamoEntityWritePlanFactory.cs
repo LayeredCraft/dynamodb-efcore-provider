@@ -359,7 +359,7 @@ internal sealed class EntityWritePlan(
                     break;
                 case byte[] bytes:
                     EnsureSetKind(ss, ns, "binary");
-                    (bs ??= []).Add(new MemoryStream(bytes, false));
+                    (bs ??= []).Add(DynamoWireValueConversion.CreateBinaryStream(bytes));
                     break;
                 default:
                     EnsureSetKind(ss, bs, "number");

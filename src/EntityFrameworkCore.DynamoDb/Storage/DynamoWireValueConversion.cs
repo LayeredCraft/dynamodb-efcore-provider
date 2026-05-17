@@ -93,7 +93,15 @@ internal static class DynamoWireValueConversion
     ///     bytes without mutating the original array.
     /// </remarks>
     public static AttributeValue CreateBinaryAttributeValue(byte[] value)
-        => new() { B = new MemoryStream(value, false) };
+        => new() { B = CreateBinaryStream(value) };
+
+    /// <summary>Creates a stream wrapper for a DynamoDB binary attribute.</summary>
+    /// <remarks>
+    ///     The stream is handed to the AWS SDK through <see cref="AttributeValue.B" /> or
+    ///     <see cref="AttributeValue.BS" /> and must remain open until request serialization. The
+    ///     <see cref="MemoryStream" /> wraps caller-owned memory and does not hold unmanaged resources.
+    /// </remarks>
+    internal static MemoryStream CreateBinaryStream(byte[] value) => new(value, writable: false);
 
     /// <summary>Converts a provider CLR value to a DynamoDB <see cref="AttributeValue" />.</summary>
     /// <remarks>
