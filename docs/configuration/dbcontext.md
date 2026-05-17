@@ -95,9 +95,10 @@ await db.Orders
 !!! warning "Not a best practice"
 
     `AllowUnsafeFilteredQueries()` bypasses the provider's `First` / `FirstOrDefault` safety
-    validation for every query in the context. It does not disable scan-like query protection and
-    does not change `First*` execution: the provider still sends one request with implicit
-    `Limit=1` when no user limit is specified.
+    validation for every query in the context. It does not disable scan-like query protection, does
+    not allow explicit `Limit(n)` or `WithNextToken()` with `First*`, and does not change `First*`
+    execution: the provider still sends one request with implicit `Limit=1` when no user limit is
+    specified.
 
     DynamoDB applies filters after evaluating items, so `FirstOrDefaultAsync` can return `null`
     and `FirstAsync` can throw even when a later item would match. This option is intended for

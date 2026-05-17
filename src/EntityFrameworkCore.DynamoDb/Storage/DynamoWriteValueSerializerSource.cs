@@ -449,19 +449,24 @@ internal static class DynamoWriteValueSerializerSource
             if (value is null)
                 return NullAttributeValue();
 
-            if (value is not IDictionary dictionary)
-                throw new NotSupportedException(
-                    "Converted dictionary fallback requires a non-generic IDictionary instance.");
-
-            var map = new Dictionary<string, AttributeValue>(StringComparer.Ordinal);
-            foreach (DictionaryEntry item in dictionary)
+            if (value is IDictionary dictionary)
             {
-                var providerValue =
-                    item.Value is null ? null : converter.ConvertToProvider(item.Value);
-                map[(string)item.Key] = ConvertProviderShapeToAttributeValue(providerValue);
+                var map = new Dictionary<string, AttributeValue>(StringComparer.Ordinal);
+                foreach (DictionaryEntry item in dictionary)
+                {
+                    var providerValue =
+                        item.Value is null ? null : converter.ConvertToProvider(item.Value);
+                    map[(string)item.Key] = ConvertProviderShapeToAttributeValue(providerValue);
+                }
+
+                return new AttributeValue { M = map };
             }
 
-            return new AttributeValue { M = map };
+            if (FindStringKeyValuePairEnumerable(value.GetType()) is not null)
+                return SerializeBoxedModelMap((IEnumerable)value, converter);
+
+            throw new NotSupportedException(
+                "Converted dictionary fallback requires a dictionary with string keys.");
         };
 
     private static Func<object?, AttributeValue> CreateConvertedSetSerializer(
@@ -664,7 +669,7 @@ internal static class DynamoWriteValueSerializerSource
             return new AttributeValue { L = elements };
         };
 
-    /// <summary>Serializes a provider-shaped scalar or list value from a boxed fallback.</summary>
+    /// <summary>Serializes a provider-shaped scalar, list, or map value from a boxed fallback.</summary>
     private static AttributeValue ConvertProviderShapeToAttributeValue(object? providerValue)
     {
         if (providerValue is null)
@@ -673,10 +678,85 @@ internal static class DynamoWriteValueSerializerSource
         if (providerValue is string or byte[])
             return DynamoWireValueConversion.ConvertProviderValueToAttributeValue(providerValue);
 
+        if (providerValue is IDictionary dictionary)
+            return SerializeBoxedProviderMap(dictionary);
+
+        if (FindStringKeyValuePairEnumerable(providerValue.GetType()) is not null)
+            return SerializeBoxedProviderMap((IEnumerable)providerValue);
+
         if (providerValue is IEnumerable enumerable)
             return SerializeBoxedScalarList(enumerable);
 
         return DynamoWireValueConversion.ConvertProviderValueToAttributeValue(providerValue);
+    }
+
+    /// <summary>Finds an enumerable string-key dictionary contract on a provider-shaped value.</summary>
+    private static Type? FindStringKeyValuePairEnumerable(Type type)
+    {
+        foreach (var candidate in type.IsInterface
+            ? [type, .. type.GetInterfaces()]
+            : type.GetInterfaces())
+        {
+            if (!candidate.IsGenericType
+                || candidate.GetGenericTypeDefinition() != typeof(IEnumerable<>))
+                continue;
+
+            var elementType = candidate.GetGenericArguments()[0];
+            if (!elementType.IsGenericType
+                || elementType.GetGenericTypeDefinition() != typeof(KeyValuePair<,>)
+                || elementType.GetGenericArguments()[0] != typeof(string))
+                continue;
+
+            return candidate;
+        }
+
+        return null;
+    }
+
+    /// <summary>Serializes generic model dictionary entries through a boxed converter fallback.</summary>
+    private static AttributeValue SerializeBoxedModelMap(
+        IEnumerable value,
+        ValueConverter converter)
+    {
+        var map = new Dictionary<string, AttributeValue>(StringComparer.Ordinal);
+        foreach (var item in value)
+        {
+            var type = item?.GetType()
+                ?? throw new InvalidOperationException(
+                    "DynamoDB maps cannot contain null entries.");
+            var key = (string)type.GetProperty("Key")!.GetValue(item)!;
+            var modelValue = type.GetProperty("Value")!.GetValue(item);
+            var providerValue = modelValue is null ? null : converter.ConvertToProvider(modelValue);
+            map[key] = ConvertProviderShapeToAttributeValue(providerValue);
+        }
+
+        return new AttributeValue { M = map };
+    }
+
+    /// <summary>Serializes provider-shaped dictionary entries from a boxed fallback.</summary>
+    private static AttributeValue SerializeBoxedProviderMap(IDictionary value)
+    {
+        var map = new Dictionary<string, AttributeValue>(StringComparer.Ordinal);
+        foreach (DictionaryEntry item in value)
+            map[(string)item.Key] = ConvertProviderShapeToAttributeValue(item.Value);
+        return new AttributeValue { M = map };
+    }
+
+    /// <summary>Serializes provider-shaped generic dictionary entries from a boxed fallback.</summary>
+    private static AttributeValue SerializeBoxedProviderMap(IEnumerable value)
+    {
+        var map = new Dictionary<string, AttributeValue>(StringComparer.Ordinal);
+        foreach (var item in value)
+        {
+            var type = item?.GetType()
+                ?? throw new InvalidOperationException(
+                    "DynamoDB maps cannot contain null entries.");
+            var key = (string)type.GetProperty("Key")!.GetValue(item)!;
+            var providerValue = type.GetProperty("Value")!.GetValue(item);
+            map[key] = ConvertProviderShapeToAttributeValue(providerValue);
+        }
+
+        return new AttributeValue { M = map };
     }
 
     /// <summary>Serializes scalar set elements through boxed provider values.</summary>
@@ -736,7 +816,7 @@ internal static class DynamoWriteValueSerializerSource
     {
         var elements = new List<AttributeValue>();
         foreach (var element in value)
-            elements.Add(DynamoWireValueConversion.ConvertProviderValueToAttributeValue(element));
+            elements.Add(ConvertProviderShapeToAttributeValue(element));
         return new AttributeValue { L = elements };
     }
 }

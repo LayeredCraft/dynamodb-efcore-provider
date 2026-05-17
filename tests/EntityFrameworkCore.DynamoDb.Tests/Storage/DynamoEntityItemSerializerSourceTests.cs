@@ -1,4 +1,6 @@
 using System.Collections.ObjectModel;
+using System.Reflection;
+using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -394,9 +396,43 @@ public class DynamoEntityItemSerializerSourceTests
         item["details"].M["convertedCodes"].L.Select(x => x.S).Should().Equal("a", "b");
     }
 
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void
+        ConvertProviderShapeToAttributeValue_GenericMapProviderShape_SerializesNestedValues()
+    {
+        var value = new ReadOnlyDictionary<string, object?>(
+            new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["name"] = "alpha",
+                ["count"] = 2,
+                ["enabled"] = true,
+                ["missing"] = null,
+                ["tags"] = new[] { "one", "two" },
+                ["nested"] =
+                    new Dictionary<string, object?>(StringComparer.Ordinal)
+                    {
+                        ["inner"] = "value",
+                    },
+            });
+
+        var attributeValue = ConvertProviderShapeToAttributeValue(value);
+
+        attributeValue.M["name"].S.Should().Be("alpha");
+        attributeValue.M["count"].N.Should().Be("2");
+        attributeValue.M["enabled"].BOOL.Should().BeTrue();
+        attributeValue.M["missing"].NULL.Should().BeTrue();
+        attributeValue.M["tags"].L.Select(x => x.S).Should().Equal("one", "two");
+        attributeValue.M["nested"].M["inner"].S.Should().Be("value");
+    }
+
     // ──────────────────────────────────────────────────────────────────────────────
     //  Fixtures
     // ──────────────────────────────────────────────────────────────────────────────
+
+    private static AttributeValue ConvertProviderShapeToAttributeValue(object? value)
+        => (AttributeValue)typeof(DynamoWriteValueSerializerSource).GetMethod(
+            "ConvertProviderShapeToAttributeValue",
+            BindingFlags.NonPublic | BindingFlags.Static)!.Invoke(null, [value])!;
 
     private sealed class Gadget
     {

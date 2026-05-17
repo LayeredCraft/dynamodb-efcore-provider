@@ -84,9 +84,10 @@ DynamoDB counts *evaluated* items against `Limit` (not matched items), this is o
 3. Any sort-key predicate is a valid DynamoDB key condition (`=`, `<`, `<=`, `>`, `>=`,
     `BETWEEN`, `begins_with`).
 
-By default, queries that do not meet all three conditions throw `InvalidOperationException` at
-translation time. `AsUnsafeFilteredQuery()` and `AllowUnsafeFilteredQueries()` can bypass this
-safety check for controlled legacy code or tests.
+By default, filtered `First*` queries that fail the partition-key or sort-key safety checks throw
+`InvalidOperationException` at translation time. `AsUnsafeFilteredQuery()` and
+`AllowUnsafeFilteredQueries()` can bypass only that filtered `First*` safety validation for
+controlled legacy code or tests. Explicit `Limit(n)` combined with `First*` is never supported.
 
 **Sort-key filter expressions are unsafe.** `SK IN (...)` and `SK = A OR SK = B` reference only
 key attributes but are DynamoDB *filter expressions*, not key conditions. `Limit=1` on a filter
@@ -113,9 +114,9 @@ var result = await context.Orders
     validation for one query. `AllowUnsafeFilteredQueries()` applies the same bypass to every
     query in the context.
 
-    This does not disable scan-like query protection, does not allow `WithNextToken()` with
-    `First*`, and does not change `First*` execution: the provider still sends one request with
-    implicit `Limit=1` when no user limit is specified.
+    This does not disable scan-like query protection, does not allow explicit `Limit(n)` or
+    `WithNextToken()` with `First*`, and does not change `First*` execution: the provider still
+    sends one request with implicit `Limit=1` when no user limit is specified.
 
     DynamoDB applies filters after evaluating items, so `FirstOrDefaultAsync` can return `null`
     and `FirstAsync` can throw even when a later item would match. See AWS' notes on

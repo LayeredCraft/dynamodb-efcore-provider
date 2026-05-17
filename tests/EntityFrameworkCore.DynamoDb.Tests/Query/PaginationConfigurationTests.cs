@@ -264,7 +264,7 @@ public class PaginationConfigurationTests
         extension.TableLifecycleOptions.Timeout.Should().Be(TimeSpan.FromSeconds(30));
     }
 
-    [Theory]
+    [Theory(Timeout = TestConfiguration.DefaultTimeout)]
     [InlineData(0)]
     [InlineData(101)]
     public void WithMaxTransactionSize_InvalidValue_Throws(int invalidValue)
@@ -276,7 +276,7 @@ public class PaginationConfigurationTests
         act.Should().Throw<ArgumentOutOfRangeException>();
     }
 
-    [Theory]
+    [Theory(Timeout = TestConfiguration.DefaultTimeout)]
     [InlineData(0)]
     [InlineData(26)]
     public void WithMaxBatchWriteSize_InvalidValue_Throws(int invalidValue)
@@ -351,7 +351,7 @@ public class PaginationConfigurationTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public void ServiceProviderHash_ExcludesAllowUnsafeFilteredQueries()
+    public void ServiceProviderHash_IncludesAllowUnsafeFilteredQueries()
     {
         var extension1 = new DynamoDbOptionsExtension().WithAllowUnsafeFilteredQueries(false);
         var extension2 = new DynamoDbOptionsExtension().WithAllowUnsafeFilteredQueries(true);
@@ -360,7 +360,7 @@ public class PaginationConfigurationTests
             .Info
             .GetServiceProviderHashCode()
             .Should()
-            .Be(extension2.Info.GetServiceProviderHashCode());
+            .NotBe(extension2.Info.GetServiceProviderHashCode());
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
@@ -418,12 +418,12 @@ public class PaginationConfigurationTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public void ShouldUseSameServiceProvider_DifferentAllowUnsafeFilteredQueries_ReturnsTrue()
+    public void ShouldUseSameServiceProvider_DifferentAllowUnsafeFilteredQueries_ReturnsFalse()
     {
         var extension1 = new DynamoDbOptionsExtension().WithAllowUnsafeFilteredQueries(false);
         var extension2 = new DynamoDbOptionsExtension().WithAllowUnsafeFilteredQueries(true);
 
-        extension1.Info.ShouldUseSameServiceProvider(extension2.Info).Should().BeTrue();
+        extension1.Info.ShouldUseSameServiceProvider(extension2.Info).Should().BeFalse();
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]

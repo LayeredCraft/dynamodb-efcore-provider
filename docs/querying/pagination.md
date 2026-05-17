@@ -76,7 +76,7 @@ var page = await db.Orders
 
 `WithNextToken` accepts only a non-null, non-whitespace string. It can be applied once per query. When combined with `ToPageAsync(limit, nextToken)`, only one of the two token sources may be non-null; providing a non-null token to both throws at execution.
 
-`WithNextToken` is not supported with key-only `First`/`FirstOrDefault` query shapes.
+`WithNextToken` is not supported with `First`/`FirstOrDefault` query shapes.
 
 ## Page Size vs Evaluation Budget
 
