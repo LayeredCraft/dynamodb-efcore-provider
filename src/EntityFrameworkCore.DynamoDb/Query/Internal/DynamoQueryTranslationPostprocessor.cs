@@ -129,6 +129,9 @@ internal sealed class DynamoQueryTranslationPostprocessor(
         // Run after index selection so we use the effective key attributes of the chosen source.
         if (selectExpression.IsFirstTerminal)
         {
+            // Explicit Limit(n) + First* is ambiguous: Limit(n) may intentionally return
+            // multiple items, while First* requires provider-managed Limit(1). Keep this
+            // unconditional; AsUnsafeFilteredQuery() only relaxes non-key filter validation.
             if (selectExpression.HasUserLimit)
                 throw new InvalidOperationException(
                     DynamoStrings.FirstOrDefaultWithUserLimitNotSupported);
