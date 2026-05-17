@@ -721,11 +721,10 @@ internal static class DynamoWriteValueSerializerSource
         var map = new Dictionary<string, AttributeValue>(StringComparer.Ordinal);
         foreach (var item in value)
         {
-            var type = item?.GetType()
-                ?? throw new InvalidOperationException(
-                    "DynamoDB maps cannot contain null entries.");
-            var key = (string)type.GetProperty("Key")!.GetValue(item)!;
-            var modelValue = type.GetProperty("Value")!.GetValue(item);
+            if (!TryReadBoxedStringKeyValuePair(item, out var key, out var modelValue))
+                throw new NotSupportedException(
+                    "Converted dictionary fallback requires key/value pairs with string keys and supported scalar values.");
+
             var providerValue = modelValue is null ? null : converter.ConvertToProvider(modelValue);
             map[key] = ConvertProviderShapeToAttributeValue(providerValue);
         }
@@ -748,15 +747,139 @@ internal static class DynamoWriteValueSerializerSource
         var map = new Dictionary<string, AttributeValue>(StringComparer.Ordinal);
         foreach (var item in value)
         {
-            var type = item?.GetType()
-                ?? throw new InvalidOperationException(
-                    "DynamoDB maps cannot contain null entries.");
-            var key = (string)type.GetProperty("Key")!.GetValue(item)!;
-            var providerValue = type.GetProperty("Value")!.GetValue(item);
+            if (!TryReadBoxedStringKeyValuePair(item, out var key, out var providerValue))
+                throw new NotSupportedException(
+                    "Provider dictionary fallback requires key/value pairs with string keys and supported scalar values.");
+
             map[key] = ConvertProviderShapeToAttributeValue(providerValue);
         }
 
         return new AttributeValue { M = map };
+    }
+
+    /// <summary>Reads supported boxed string-key key/value pair shapes without generic reflection.</summary>
+    private static bool TryReadBoxedStringKeyValuePair(
+        object? item,
+        out string key,
+        out object? value)
+    {
+        switch (item)
+        {
+            case null:
+                throw new InvalidOperationException("DynamoDB maps cannot contain null entries.");
+            case KeyValuePair<string, object?> pair:
+                key = pair.Key;
+                value = pair.Value;
+                return true;
+            case KeyValuePair<string, string?> pair:
+                key = pair.Key;
+                value = pair.Value;
+                return true;
+            case KeyValuePair<string, bool> pair:
+                key = pair.Key;
+                value = pair.Value;
+                return true;
+            case KeyValuePair<string, bool?> pair:
+                key = pair.Key;
+                value = pair.Value;
+                return true;
+            case KeyValuePair<string, byte> pair:
+                key = pair.Key;
+                value = pair.Value;
+                return true;
+            case KeyValuePair<string, byte?> pair:
+                key = pair.Key;
+                value = pair.Value;
+                return true;
+            case KeyValuePair<string, sbyte> pair:
+                key = pair.Key;
+                value = pair.Value;
+                return true;
+            case KeyValuePair<string, sbyte?> pair:
+                key = pair.Key;
+                value = pair.Value;
+                return true;
+            case KeyValuePair<string, short> pair:
+                key = pair.Key;
+                value = pair.Value;
+                return true;
+            case KeyValuePair<string, short?> pair:
+                key = pair.Key;
+                value = pair.Value;
+                return true;
+            case KeyValuePair<string, ushort> pair:
+                key = pair.Key;
+                value = pair.Value;
+                return true;
+            case KeyValuePair<string, ushort?> pair:
+                key = pair.Key;
+                value = pair.Value;
+                return true;
+            case KeyValuePair<string, int> pair:
+                key = pair.Key;
+                value = pair.Value;
+                return true;
+            case KeyValuePair<string, int?> pair:
+                key = pair.Key;
+                value = pair.Value;
+                return true;
+            case KeyValuePair<string, uint> pair:
+                key = pair.Key;
+                value = pair.Value;
+                return true;
+            case KeyValuePair<string, uint?> pair:
+                key = pair.Key;
+                value = pair.Value;
+                return true;
+            case KeyValuePair<string, long> pair:
+                key = pair.Key;
+                value = pair.Value;
+                return true;
+            case KeyValuePair<string, long?> pair:
+                key = pair.Key;
+                value = pair.Value;
+                return true;
+            case KeyValuePair<string, ulong> pair:
+                key = pair.Key;
+                value = pair.Value;
+                return true;
+            case KeyValuePair<string, ulong?> pair:
+                key = pair.Key;
+                value = pair.Value;
+                return true;
+            case KeyValuePair<string, float> pair:
+                key = pair.Key;
+                value = pair.Value;
+                return true;
+            case KeyValuePair<string, float?> pair:
+                key = pair.Key;
+                value = pair.Value;
+                return true;
+            case KeyValuePair<string, double> pair:
+                key = pair.Key;
+                value = pair.Value;
+                return true;
+            case KeyValuePair<string, double?> pair:
+                key = pair.Key;
+                value = pair.Value;
+                return true;
+            case KeyValuePair<string, decimal> pair:
+                key = pair.Key;
+                value = pair.Value;
+                return true;
+            case KeyValuePair<string, decimal?> pair:
+                key = pair.Key;
+                value = pair.Value;
+                return true;
+            case KeyValuePair<string, byte[]?> pair:
+                key = pair.Key;
+                value = pair.Value;
+                return true;
+            default:
+                key = string.Empty;
+                value = null;
+                return false;
+        }
     }
 
     /// <summary>Serializes scalar set elements through boxed provider values.</summary>
