@@ -368,10 +368,15 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
 
             if (IsDynamoQueryableMethod(method, DynamoQueryableMethods.AsUnsafeFilteredQuery))
             {
-                var context = (DynamoQueryCompilationContext)QueryCompilationContext;
-                context.UnsafeFilteredQueriesAllowed = true;
+                var unsafeFilteredResult = Visit(methodCallExpression.Arguments[0]);
 
-                return Visit(methodCallExpression.Arguments[0]);
+                if (unsafeFilteredResult is ShapedQueryExpression
+                    {
+                        QueryExpression: SelectExpression unsafeFilteredSelectExpression,
+                    })
+                    unsafeFilteredSelectExpression.AllowUnsafeFilteredQueries();
+
+                return unsafeFilteredResult;
             }
 
             if (IsDynamoQueryableMethod(method, DynamoQueryableMethods.AllowScan))

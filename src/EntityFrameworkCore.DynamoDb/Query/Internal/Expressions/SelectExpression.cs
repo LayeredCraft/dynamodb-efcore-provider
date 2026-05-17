@@ -122,8 +122,14 @@ public sealed class
     /// <summary>True when this query has opted into intentional scan execution.</summary>
     public bool ScanAllowed { get; private set; }
 
+    /// <summary>True when this query has opted into unsafe server-side <c>First*</c> over filtered paths.</summary>
+    public bool UnsafeFilteredQueriesAllowed { get; private set; }
+
     /// <summary>Marks this query as allowed to execute even when scan-like.</summary>
     public void AllowScan() => ScanAllowed = true;
+
+    /// <summary>Marks this query as allowed to bypass <c>First*</c> filtered-query safety validation.</summary>
+    public void AllowUnsafeFilteredQueries() => UnsafeFilteredQueriesAllowed = true;
 
     /// <summary>The finalized scan-like query classification for this read query.</summary>
     internal DynamoScanQueryClassification? ScanQueryClassification { get; private set; }

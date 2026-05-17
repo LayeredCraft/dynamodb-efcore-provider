@@ -136,8 +136,7 @@ internal sealed class DynamoQueryTranslationPostprocessor(
                 throw new InvalidOperationException(
                     DynamoStrings.FirstOrDefaultWithUserLimitNotSupported);
 
-            var unsafeFilteredQueriesAllowed =
-                dynamoQueryCompilationContext.UnsafeFilteredQueriesAllowed
+            var unsafeFilteredQueriesAllowed = selectExpression.UnsafeFilteredQueriesAllowed
                 || options?.AllowUnsafeFilteredQueries == true;
 
             if (!unsafeFilteredQueriesAllowed)
