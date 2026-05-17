@@ -188,6 +188,70 @@ public class DynamoEntityItemSerializerSourceTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void BuildItem_NullableSetProperty_WhenNull_SerializesAsNull()
+    {
+        using var db = new NullableCollectionDbContext(
+            new DbContextOptionsBuilder<NullableCollectionDbContext>()
+                .UseDynamo()
+                .ConfigureWarnings(w
+                    => w
+                        .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                        .Ignore(DynamoEventId.ScanLikeQueryDetected))
+                .Options);
+
+        var entity = new NullableCollectionEntity
+        {
+            Pk = "OS#NULL",
+            Sk = "OS1",
+            NullableStatusSet = [NullableStatus.Active],
+            OptionalStatusSet = null,
+        };
+
+        db.Add(entity);
+
+        var serializer = db.GetService<DynamoEntityItemSerializerSource>();
+        var updateEntry = (IUpdateEntry)db.Entry(entity).GetInfrastructure();
+
+        var item = serializer.BuildItem(updateEntry);
+
+        item["optionalStatusSet"].NULL.Should().BeTrue();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void BuildItem_NullableSetProperty_WhenEmpty_Throws()
+    {
+        using var db = new NullableCollectionDbContext(
+            new DbContextOptionsBuilder<NullableCollectionDbContext>()
+                .UseDynamo()
+                .ConfigureWarnings(w
+                    => w
+                        .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                        .Ignore(DynamoEventId.ScanLikeQueryDetected))
+                .Options);
+
+        var entity = new NullableCollectionEntity
+        {
+            Pk = "OS#EMPTY",
+            Sk = "OS2",
+            NullableStatusSet = [NullableStatus.Active],
+            OptionalStatusSet = [],
+        };
+
+        db.Add(entity);
+
+        var serializer = db.GetService<DynamoEntityItemSerializerSource>();
+        var updateEntry = (IUpdateEntry)db.Entry(entity).GetInfrastructure();
+
+        var act = () => serializer.BuildItem(updateEntry);
+
+        act
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage(
+                "DynamoDB sets cannot be empty; use a null property or a non-empty collection.");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void BuildItem_ComplexCollectionWithNullElement_ThrowsWhenElementIsNull()
     {
         using var db = new ComplexCollectionDbContext(
@@ -341,6 +405,8 @@ public class DynamoEntityItemSerializerSourceTests
             new(StringComparer.Ordinal);
 
         public HashSet<NullableStatus?> NullableStatusSet { get; set; } = [];
+
+        public HashSet<NullableStatus>? OptionalStatusSet { get; set; }
     }
 
     private sealed class ComplexCollectionEntity
@@ -424,6 +490,7 @@ public class DynamoEntityItemSerializerSourceTests
                 b.Property(x => x.NullableStatuses);
                 b.Property(x => x.NullableStatusByCode);
                 b.Property(x => x.NullableStatusSet);
+                b.Property(x => x.OptionalStatusSet).IsRequired(false);
             });
     }
 

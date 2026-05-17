@@ -143,8 +143,8 @@ item.
 Primitive collections inside complex properties are serialized using the same DynamoDB wire shapes
 as root properties: lists become `L`, dictionaries become `M`, string/number/binary sets become
 `SS`/`NS`/`BS`, and `byte[]` remains a binary scalar (`B`). Null list or dictionary values become
-`NULL` elements. DynamoDB sets cannot contain null elements or mix string, number, and binary
-member kinds.
+`NULL` elements. DynamoDB sets cannot be empty, contain null elements, or mix string, number, and
+binary member kinds.
 
 ## Deleting Entities
 

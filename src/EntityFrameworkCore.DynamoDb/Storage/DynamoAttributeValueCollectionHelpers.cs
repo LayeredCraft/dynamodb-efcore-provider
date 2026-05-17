@@ -45,9 +45,11 @@ internal static class DynamoAttributeValueCollectionHelpers
                 ss.Add((string)(object)converted);
             }
 
-            return ss.Count == 0
-                ? new AttributeValue { NULL = true }
-                : new AttributeValue { SS = ss };
+            if (ss.Count == 0)
+                throw new InvalidOperationException(
+                    "DynamoDB sets cannot be empty; use a null property or a non-empty collection.");
+
+            return new AttributeValue { SS = ss };
         }
 
         if (typeof(TProvider) == typeof(byte[]))
@@ -62,9 +64,11 @@ internal static class DynamoAttributeValueCollectionHelpers
                 bs.Add(new MemoryStream((byte[])(object)converted, false));
             }
 
-            return bs.Count == 0
-                ? new AttributeValue { NULL = true }
-                : new AttributeValue { BS = bs };
+            if (bs.Count == 0)
+                throw new InvalidOperationException(
+                    "DynamoDB sets cannot be empty; use a null property or a non-empty collection.");
+
+            return new AttributeValue { BS = bs };
         }
 
         // TProvider is a numeric wire type. FormatNumberSetElement<TProvider> is generic and its
@@ -79,7 +83,11 @@ internal static class DynamoAttributeValueCollectionHelpers
             ns.Add(FormatNumberSetElement(converted));
         }
 
-        return ns.Count == 0 ? new AttributeValue { NULL = true } : new AttributeValue { NS = ns };
+        if (ns.Count == 0)
+            throw new InvalidOperationException(
+                "DynamoDB sets cannot be empty; use a null property or a non-empty collection.");
+
+        return new AttributeValue { NS = ns };
     }
 
     // ──────────────────────────────────────────────────────────────────────────────

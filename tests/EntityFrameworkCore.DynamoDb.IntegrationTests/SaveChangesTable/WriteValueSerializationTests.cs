@@ -455,11 +455,11 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
     // ──────────────────────────────────────────────────────────────────────────────
 
     /// <summary>
-    ///     An empty <c>HashSet&lt;string&gt;</c> (set property) must serialize as
-    ///     <c>{ NULL = true }</c> because DynamoDB does not allow empty sets on the wire.
+    ///     An empty <c>HashSet&lt;string&gt;</c> (set property) must fail because DynamoDB does not allow
+    ///     empty sets on the wire and silently writing <c>NULL</c> would lose type information.
     /// </summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public async Task CustomerItem_WithEmptyStringSet_SerializesAsNull()
+    public async Task CustomerItem_WithEmptyStringSet_Throws()
     {
         var entity = new CustomerItem
         {
@@ -473,9 +473,13 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
         };
 
         Db.Customers.Add(entity);
-        await Db.SaveChangesAsync(CancellationToken);
+        var act = () => Db.SaveChangesAsync(CancellationToken);
 
-        await AssertItemExistsInDynamoDbAsync(entity, entity.Pk, entity.Sk, CancellationToken);
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage(
+                "DynamoDB sets cannot be empty; use a null property or a non-empty collection.");
     }
 
     /// <summary>

@@ -377,9 +377,11 @@ internal sealed class EntityWritePlan(
             return new AttributeValue { SS = ss };
         if (bs is { Count: > 0 })
             return new AttributeValue { BS = bs };
-        return ns is { Count: > 0 }
-            ? new AttributeValue { NS = ns }
-            : new AttributeValue { NULL = true };
+        if (ns is { Count: > 0 })
+            return new AttributeValue { NS = ns };
+
+        throw new InvalidOperationException(
+            "DynamoDB sets cannot be empty; use a null property or a non-empty collection.");
     }
 
     /// <summary>Throws when a set would mix DynamoDB set kinds.</summary>
