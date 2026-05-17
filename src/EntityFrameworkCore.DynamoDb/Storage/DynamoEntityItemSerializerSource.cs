@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Microsoft.EntityFrameworkCore.Update;
+using static EntityFrameworkCore.DynamoDb.Storage.DynamoWriteValueSerializer;
 
 #pragma warning disable EF1001 // Internal EF Core API usage
 
@@ -205,242 +206,6 @@ public sealed class DynamoEntityItemSerializerSource
             || type == typeof(double)
             || type == typeof(decimal);
 
-    /// <summary>
-    /// Dispatches on <paramref name="type"/> to call <c>factory.Create&lt;T&gt;(property)</c>
-    /// for DynamoDB-native wire types only. The if-chain runs once at plan-build time per property;
-    /// the resulting delegate has no runtime type dispatch on the write path. The
-    /// <c>TFactory : struct</c> constraint lets the JIT devirtualize <c>Create&lt;T&gt;</c>
-    /// regardless of whether <paramref name="factory"/> is stateless (direct) or carries a
-    /// <see cref="ValueConverter"/> (converter path).
-    /// </summary>
-    /// <remarks>
-    /// Used for the outer (provider-type) dispatch pass only. The provider type is always a
-    /// DynamoDB wire type — reaching the throw here indicates a bug in the type mapping layer.
-    /// For the inner (model-type) pass use <see cref="TryDispatchModelType{TFactory}"/> instead,
-    /// which covers common EF Core model types and returns <c>null</c> for unknown types.
-    /// </remarks>
-    private static Func<IUpdateEntry, AttributeValue> DispatchWireType<TFactory>(
-        IProperty property,
-        Type type,
-        TFactory factory) where TFactory : struct, ISerializerFactory
-    {
-        if (type == typeof(string))
-            return factory.Create<string>(property);
-        if (type == typeof(bool))
-            return factory.Create<bool>(property);
-        if (type == typeof(bool?))
-            return factory.Create<bool?>(property);
-        if (type == typeof(byte))
-            return factory.Create<byte>(property);
-        if (type == typeof(byte?))
-            return factory.Create<byte?>(property);
-        if (type == typeof(sbyte))
-            return factory.Create<sbyte>(property);
-        if (type == typeof(sbyte?))
-            return factory.Create<sbyte?>(property);
-        if (type == typeof(short))
-            return factory.Create<short>(property);
-        if (type == typeof(short?))
-            return factory.Create<short?>(property);
-        if (type == typeof(ushort))
-            return factory.Create<ushort>(property);
-        if (type == typeof(ushort?))
-            return factory.Create<ushort?>(property);
-        if (type == typeof(int))
-            return factory.Create<int>(property);
-        if (type == typeof(int?))
-            return factory.Create<int?>(property);
-        if (type == typeof(uint))
-            return factory.Create<uint>(property);
-        if (type == typeof(uint?))
-            return factory.Create<uint?>(property);
-        if (type == typeof(long))
-            return factory.Create<long>(property);
-        if (type == typeof(long?))
-            return factory.Create<long?>(property);
-        if (type == typeof(ulong))
-            return factory.Create<ulong>(property);
-        if (type == typeof(ulong?))
-            return factory.Create<ulong?>(property);
-        if (type == typeof(float))
-            return factory.Create<float>(property);
-        if (type == typeof(float?))
-            return factory.Create<float?>(property);
-        if (type == typeof(double))
-            return factory.Create<double>(property);
-        if (type == typeof(double?))
-            return factory.Create<double?>(property);
-        if (type == typeof(decimal))
-            return factory.Create<decimal>(property);
-        if (type == typeof(decimal?))
-            return factory.Create<decimal?>(property);
-        if (type == typeof(byte[]))
-            return factory.Create<byte[]>(property);
-
-        throw new NotSupportedException(
-            $"Property '{property.DeclaringType.DisplayName()}.{property.Name}' has unsupported "
-            + $"wire type '{type.ShortDisplayName()}' on the write path. This is a provider bug — "
-            + "the type mapping layer should have ensured a DynamoDB-native provider type.");
-    }
-
-    /// <summary>
-    ///     Attempts to dispatch on <paramref name="type" /> for the inner (model-type) pass of the
-    ///     converter pipeline. Covers all DynamoDB wire types plus common EF Core built-in converter model
-    ///     types (<see cref="Guid" />, <see cref="DateTime" />, etc.), handled boxing-free.
-    /// </summary>
-    /// <returns>
-    ///     The serializer delegate, or <c>null</c> when <paramref name="type" /> is not in the known
-    ///     set. Callers should fall back to <c>Boxed*Fallback</c> for custom/user-defined model types.
-    /// </returns>
-    private static Func<IUpdateEntry, AttributeValue>? TryDispatchModelType<TFactory>(
-        IProperty property,
-        Type type,
-        TFactory factory) where TFactory : struct, ISerializerFactory
-    {
-        // DynamoDB wire types — also valid as converter model types.
-        if (type == typeof(string))
-            return factory.Create<string>(property);
-        if (type == typeof(bool))
-            return factory.Create<bool>(property);
-        if (type == typeof(bool?))
-            return factory.Create<bool?>(property);
-        if (type == typeof(byte))
-            return factory.Create<byte>(property);
-        if (type == typeof(byte?))
-            return factory.Create<byte?>(property);
-        if (type == typeof(sbyte))
-            return factory.Create<sbyte>(property);
-        if (type == typeof(sbyte?))
-            return factory.Create<sbyte?>(property);
-        if (type == typeof(short))
-            return factory.Create<short>(property);
-        if (type == typeof(short?))
-            return factory.Create<short?>(property);
-        if (type == typeof(ushort))
-            return factory.Create<ushort>(property);
-        if (type == typeof(ushort?))
-            return factory.Create<ushort?>(property);
-        if (type == typeof(int))
-            return factory.Create<int>(property);
-        if (type == typeof(int?))
-            return factory.Create<int?>(property);
-        if (type == typeof(uint))
-            return factory.Create<uint>(property);
-        if (type == typeof(uint?))
-            return factory.Create<uint?>(property);
-        if (type == typeof(long))
-            return factory.Create<long>(property);
-        if (type == typeof(long?))
-            return factory.Create<long?>(property);
-        if (type == typeof(ulong))
-            return factory.Create<ulong>(property);
-        if (type == typeof(ulong?))
-            return factory.Create<ulong?>(property);
-        if (type == typeof(float))
-            return factory.Create<float>(property);
-        if (type == typeof(float?))
-            return factory.Create<float?>(property);
-        if (type == typeof(double))
-            return factory.Create<double>(property);
-        if (type == typeof(double?))
-            return factory.Create<double?>(property);
-        if (type == typeof(decimal))
-            return factory.Create<decimal>(property);
-        if (type == typeof(decimal?))
-            return factory.Create<decimal?>(property);
-        if (type == typeof(byte[]))
-            return factory.Create<byte[]>(property);
-
-        // Common CLR model types used by EF Core's built-in converters (e.g. GuidToStringConverter,
-        // DateTimeToStringConverter). These are never DynamoDB wire types but are dispatched
-        // boxing-free here to avoid boxing for the most common converter scenarios. Custom/user-
-        // defined model types that don't appear in this list fall through to the boxed fallback.
-        if (type == typeof(Guid))
-            return factory.Create<Guid>(property);
-        if (type == typeof(Guid?))
-            return factory.Create<Guid?>(property);
-        if (type == typeof(DateTime))
-            return factory.Create<DateTime>(property);
-        if (type == typeof(DateTime?))
-            return factory.Create<DateTime?>(property);
-        if (type == typeof(DateTimeOffset))
-            return factory.Create<DateTimeOffset>(property);
-        if (type == typeof(DateTimeOffset?))
-            return factory.Create<DateTimeOffset?>(property);
-        if (type == typeof(TimeSpan))
-            return factory.Create<TimeSpan>(property);
-        if (type == typeof(TimeSpan?))
-            return factory.Create<TimeSpan?>(property);
-        if (type == typeof(DateOnly))
-            return factory.Create<DateOnly>(property);
-        if (type == typeof(DateOnly?))
-            return factory.Create<DateOnly?>(property);
-        if (type == typeof(TimeOnly))
-            return factory.Create<TimeOnly>(property);
-        if (type == typeof(TimeOnly?))
-            return factory.Create<TimeOnly?>(property);
-
-        return null;
-    }
-
-    /// <summary>
-    /// Attempts to dispatch on a non-nullable struct type for the inner (model-type) pass of the
-    /// nullable-wrapping converter path, where <c>property.ClrType = Nullable&lt;T&gt;</c> and the
-    /// converter model type is <c>T</c>. The <c>where T : struct</c> constraint on
-    /// <see cref="IStructSerializerFactory"/> allows implementations to read <c>T?</c> without
-    /// boxing.
-    /// </summary>
-    /// <returns>
-    /// The serializer delegate, or <c>null</c> for unknown struct types. Callers should fall back
-    /// to the boxed path.
-    /// </returns>
-    private static Func<IUpdateEntry, AttributeValue>? TryDispatchStructModelType<TFactory>(
-        IProperty property,
-        Type type,
-        TFactory factory) where TFactory : struct, IStructSerializerFactory
-    {
-        if (type == typeof(bool))
-            return factory.Create<bool>(property);
-        if (type == typeof(byte))
-            return factory.Create<byte>(property);
-        if (type == typeof(sbyte))
-            return factory.Create<sbyte>(property);
-        if (type == typeof(short))
-            return factory.Create<short>(property);
-        if (type == typeof(ushort))
-            return factory.Create<ushort>(property);
-        if (type == typeof(int))
-            return factory.Create<int>(property);
-        if (type == typeof(uint))
-            return factory.Create<uint>(property);
-        if (type == typeof(long))
-            return factory.Create<long>(property);
-        if (type == typeof(ulong))
-            return factory.Create<ulong>(property);
-        if (type == typeof(float))
-            return factory.Create<float>(property);
-        if (type == typeof(double))
-            return factory.Create<double>(property);
-        if (type == typeof(decimal))
-            return factory.Create<decimal>(property);
-        if (type == typeof(Guid))
-            return factory.Create<Guid>(property);
-        if (type == typeof(DateTime))
-            return factory.Create<DateTime>(property);
-        if (type == typeof(DateTimeOffset))
-            return factory.Create<DateTimeOffset>(property);
-        if (type == typeof(TimeSpan))
-            return factory.Create<TimeSpan>(property);
-        if (type == typeof(DateOnly))
-            return factory.Create<DateOnly>(property);
-        if (type == typeof(TimeOnly))
-            return factory.Create<TimeOnly>(property);
-
-        return null;
-    }
-
-    private static AttributeValue NullAttributeValue() => new() { NULL = true };
-
     // ── Boxed fallbacks ─────────────────────────────────────────────────────────────
     //
     // Used when the converter model type is not in TryDispatchModelType /
@@ -572,34 +337,10 @@ public sealed class DynamoEntityItemSerializerSource
             return new AttributeValue { M = result };
         };
 
-    // ── Interfaces ──────────────────────────────────────────────────────────────────
-
-    /// <summary>
-    /// Unified factory interface for both direct (stateless) and converter-path (stateful)
-    /// property serializers. The <c>TFactory : struct</c> constraint on
-    /// <see cref="DispatchWireType{TFactory}"/> lets the JIT devirtualize <c>Create&lt;T&gt;</c> for all
-    /// implementations without virtual dispatch overhead.
-    /// </summary>
-    private interface ISerializerFactory
-    {
-        Func<IUpdateEntry, AttributeValue> Create<T>(IProperty property);
-    }
-
-    /// <summary>
-    ///     Variant of <see cref="ISerializerFactory" /> whose <c>Create</c> method is constrained to
-    ///     struct (value) types. Used by <see cref="TryDispatchStructModelType{TFactory}" /> for the
-    ///     nullable-wrapping converter path so that implementations can write <c>T?</c> (resolved as
-    ///     <c>Nullable&lt;T&gt;</c>) without boxing or a secondary helper.
-    /// </summary>
-    private interface IStructSerializerFactory
-    {
-        Func<IUpdateEntry, AttributeValue> Create<T>(IProperty property) where T : struct;
-    }
-
     // ── Direct (no converter) factories ────────────────────────────────────────────
     // Stateless — passed as default(TFactory). The JIT eliminates the zero-byte struct entirely.
 
-    private readonly struct DirectScalarFactory : ISerializerFactory
+    private readonly struct DirectScalarFactory : IDynamoWriteValueSerializerFactory
     {
         /// <summary>
         ///     Reads the typed property value and converts it directly to an
@@ -622,7 +363,7 @@ public sealed class DynamoEntityItemSerializerSource
     ///     <c>GetOriginalValue&lt;T&gt;</c> / <c>GetCurrentValue&lt;T&gt;</c> accessors — both are backed
     ///     by pre-compiled <c>Func&lt;IInternalEntry, T&gt;</c> delegates and do not box value types.
     /// </summary>
-    private readonly struct OriginalValueScalarFactory : ISerializerFactory
+    private readonly struct OriginalValueScalarFactory : IDynamoWriteValueSerializerFactory
     {
         /// <summary>
         ///     Returns a delegate that reads the original-or-current property value without boxing and
@@ -644,7 +385,7 @@ public sealed class DynamoEntityItemSerializerSource
     ///     original value rather than the current value.
     /// </summary>
     private readonly struct OriginalValueConvertedScalarFactory(ValueConverter converter)
-        : ISerializerFactory
+        : IDynamoWriteValueSerializerFactory
     {
         /// <summary>
         ///     Dispatches on the converter model type to bind a typed original-value scalar delegate.
@@ -686,7 +427,7 @@ public sealed class DynamoEntityItemSerializerSource
     ///     current) model value and converts it to the provider type without boxing.
     /// </summary>
     private readonly struct OriginalValueScalarModelBinder<TProvider>(ValueConverter converter)
-        : ISerializerFactory
+        : IDynamoWriteValueSerializerFactory
     {
         /// <summary>
         ///     Returns a delegate that reads the original model value, converts it via
@@ -710,7 +451,7 @@ public sealed class DynamoEntityItemSerializerSource
     ///     original nullable value and converts only when non-null.
     /// </summary>
     private readonly struct OriginalValueScalarNullableBinder<TProvider>(ValueConverter converter)
-        : IStructSerializerFactory
+        : IDynamoWriteStructValueSerializerFactory
     {
         /// <summary>
         ///     Returns a delegate that reads the original nullable value and, when present, converts it
@@ -762,7 +503,7 @@ public sealed class DynamoEntityItemSerializerSource
                 (TProvider)providerValue);
         };
 
-    private readonly struct DirectListFactory : ISerializerFactory
+    private readonly struct DirectListFactory : IDynamoWriteValueSerializerFactory
     {
         /// <summary>Reads the typed enumerable and serializes it as a DynamoDB list (L).</summary>
         public Func<IUpdateEntry, AttributeValue> Create<T>(IProperty property)
@@ -775,7 +516,7 @@ public sealed class DynamoEntityItemSerializerSource
             };
     }
 
-    private readonly struct DirectSetFactory : ISerializerFactory
+    private readonly struct DirectSetFactory : IDynamoWriteValueSerializerFactory
     {
         /// <summary>Reads the typed enumerable and serializes it as a DynamoDB set (SS/NS/BS).</summary>
         public Func<IUpdateEntry, AttributeValue> Create<T>(IProperty property)
@@ -788,7 +529,7 @@ public sealed class DynamoEntityItemSerializerSource
             };
     }
 
-    private readonly struct DirectDictionaryFactory : ISerializerFactory
+    private readonly struct DirectDictionaryFactory : IDynamoWriteValueSerializerFactory
     {
         /// <summary>Reads the typed enumerable of key-value pairs and serializes it as a DynamoDB map (M).</summary>
         public Func<IUpdateEntry, AttributeValue> Create<T>(IProperty property)
@@ -814,7 +555,7 @@ public sealed class DynamoEntityItemSerializerSource
     /// <see cref="ValueConverter{TModel,TProvider}.ConvertToProviderTyped"/> — the pre-compiled
     /// typed delegate — without boxing.
     /// </summary>
-    private readonly struct ConvertedScalarFactory(ValueConverter converter) : ISerializerFactory
+    private readonly struct ConvertedScalarFactory(ValueConverter converter) : IDynamoWriteValueSerializerFactory
     {
         /// <summary>
         ///     Dispatches on the converter model type to bind a typed scalar write delegate. Handles
@@ -856,7 +597,7 @@ public sealed class DynamoEntityItemSerializerSource
     /// <c>Create&lt;TProvider&gt;</c>.
     /// </summary>
     private readonly struct ConvertedListFactory(ValueConverter converter, Type elementType)
-        : ISerializerFactory
+        : IDynamoWriteValueSerializerFactory
     {
         /// <summary>Dispatches on the list element type to bind a typed list write delegate.</summary>
         public Func<IUpdateEntry, AttributeValue> Create<TProvider>(IProperty property)
@@ -890,7 +631,7 @@ public sealed class DynamoEntityItemSerializerSource
     ///     construction time.
     /// </summary>
     private readonly struct ConvertedSetFactory(ValueConverter converter, Type elementType)
-        : ISerializerFactory
+        : IDynamoWriteValueSerializerFactory
     {
         /// <summary>
         /// Dispatches on the set element type to bind a typed set write delegate.
@@ -926,7 +667,7 @@ public sealed class DynamoEntityItemSerializerSource
     ///     at construction time.
     /// </summary>
     private readonly struct ConvertedDictionaryFactory(ValueConverter converter, Type valueType)
-        : ISerializerFactory
+        : IDynamoWriteValueSerializerFactory
     {
         /// <summary>Dispatches on the dictionary value type to bind a typed dictionary write delegate.</summary>
         public Func<IUpdateEntry, AttributeValue> Create<TProvider>(IProperty property)
@@ -974,7 +715,7 @@ public sealed class DynamoEntityItemSerializerSource
     ///     boxing.
     /// </summary>
     private readonly struct ScalarModelBinder<TProvider>(ValueConverter converter)
-        : ISerializerFactory
+        : IDynamoWriteValueSerializerFactory
     {
         /// <summary>
         ///     Returns a delegate that converts a scalar model value to an <see cref="AttributeValue" />
@@ -991,10 +732,10 @@ public sealed class DynamoEntityItemSerializerSource
     /// <summary>
     ///     Scalar binder for the nullable-wrapping path (<c>property.ClrType = Nullable&lt;T&gt;</c>,
     ///     <c>converter.ModelClrType = T</c>). The <c>where T : struct</c> constraint from
-    ///     <see cref="IStructSerializerFactory" /> enables reading <c>T?</c> without boxing.
+    ///     struct serializer factory enables reading <c>T?</c> without boxing.
     /// </summary>
     private readonly struct ScalarNullableBinder<TProvider>(ValueConverter converter)
-        : IStructSerializerFactory
+        : IDynamoWriteStructValueSerializerFactory
     {
         /// <summary>
         ///     Returns a delegate that reads a nullable property value and applies the converter to the
@@ -1021,7 +762,7 @@ public sealed class DynamoEntityItemSerializerSource
     ///     collection helper, which iterates without boxing.
     /// </summary>
     private readonly struct ListModelBinder<TProvider>(ValueConverter converter)
-        : ISerializerFactory
+        : IDynamoWriteValueSerializerFactory
     {
         /// <summary>
         ///     Returns a delegate that serializes an enumerable of converted elements to a DynamoDB list
@@ -1048,7 +789,7 @@ public sealed class DynamoEntityItemSerializerSource
     /// <c>{ NULL = true }</c> list entries.
     /// </summary>
     private readonly struct ListNullableBinder<TProvider>(ValueConverter converter)
-        : IStructSerializerFactory
+        : IDynamoWriteStructValueSerializerFactory
     {
         /// <summary>
         /// Returns a delegate that serializes an enumerable of nullable elements to a DynamoDB list (L),
@@ -1074,7 +815,7 @@ public sealed class DynamoEntityItemSerializerSource
     }
 
     /// <summary>Set binder for the direct-match path (element type == converter model type).</summary>
-    private readonly struct SetModelBinder<TProvider>(ValueConverter converter) : ISerializerFactory
+    private readonly struct SetModelBinder<TProvider>(ValueConverter converter) : IDynamoWriteValueSerializerFactory
     {
         /// <summary>
         ///     Returns a delegate that serializes an enumerable of converted elements to a DynamoDB set
@@ -1101,7 +842,7 @@ public sealed class DynamoEntityItemSerializerSource
     ///     cannot contain null values.
     /// </summary>
     private readonly struct SetNullableBinder<TProvider>(ValueConverter converter)
-        : IStructSerializerFactory
+        : IDynamoWriteStructValueSerializerFactory
     {
         /// <summary>
         ///     Returns a delegate that serializes an enumerable of nullable elements to a DynamoDB set
@@ -1131,7 +872,7 @@ public sealed class DynamoEntityItemSerializerSource
     ///     type).
     /// </summary>
     private readonly struct DictionaryModelBinder<TProvider>(ValueConverter converter)
-        : ISerializerFactory
+        : IDynamoWriteValueSerializerFactory
     {
         /// <summary>Returns a delegate that serializes a dictionary of converted values to a DynamoDB map (M).</summary>
         public Func<IUpdateEntry, AttributeValue> Create<TValue>(IProperty property)
@@ -1156,7 +897,7 @@ public sealed class DynamoEntityItemSerializerSource
     ///     <c>{ NULL = true }</c> map entries.
     /// </summary>
     private readonly struct DictionaryNullableBinder<TProvider>(ValueConverter converter)
-        : IStructSerializerFactory
+        : IDynamoWriteStructValueSerializerFactory
     {
         /// <summary>
         /// Returns a delegate that serializes a dictionary of nullable values to a DynamoDB map (M),
