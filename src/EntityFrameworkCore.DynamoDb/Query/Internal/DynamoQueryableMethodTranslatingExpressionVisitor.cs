@@ -381,10 +381,15 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
 
             if (IsDynamoQueryableMethod(method, DynamoQueryableMethods.AllowScan))
             {
-                var context = (DynamoQueryCompilationContext)QueryCompilationContext;
-                context.ScanAllowed = true;
+                var allowScanResult = Visit(methodCallExpression.Arguments[0]);
 
-                return Visit(methodCallExpression.Arguments[0]);
+                if (allowScanResult is ShapedQueryExpression
+                    {
+                        QueryExpression: SelectExpression allowScanSelectExpression,
+                    })
+                    allowScanSelectExpression.AllowScan();
+
+                return allowScanResult;
             }
 
             if (IsDynamoQueryableMethod(method, DynamoQueryableMethods.WithNextToken))

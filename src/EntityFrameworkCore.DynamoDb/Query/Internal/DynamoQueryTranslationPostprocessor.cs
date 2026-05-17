@@ -113,9 +113,6 @@ internal sealed class DynamoQueryTranslationPostprocessor(
             ResolveEffectiveSortKeyAttributeName(candidates, selectedIndexName);
         var isBaseTableSource = selectedIndexName is null;
 
-        if (dynamoQueryCompilationContext.ScanAllowed)
-            selectExpression.AllowScan();
-
         selectExpression.ApplyScanQueryClassification(
             ClassifyScanQuery(
                 selectExpression,
