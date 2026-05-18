@@ -27,11 +27,15 @@ public static class DynamoDbQueryableExtensions
         ///     </para>
         /// </remarks>
         /// <param name="limit">The DynamoDB evaluation budget for this request. Must be positive.</param>
-        /// <param name="nextToken">An optional continuation token. Empty/whitespace values are treated as <c>null</c>.</param>
+        /// <param name="nextToken">
+        ///     An optional continuation token. Empty/whitespace values are treated as <c>null</c>.
+        /// </param>
         /// <param name="cancellationToken">A token to observe while awaiting execution.</param>
         /// <returns>A single DynamoDB page result.</returns>
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="source" /> is null.</exception>
-        /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="limit" /> is zero or negative.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">
+        ///     Thrown when <paramref name="limit" /> is zero or negative.
+        /// </exception>
         /// <exception cref="InvalidOperationException">Thrown when the query provider is not async-capable.</exception>
         [Experimental("EF9102")]
         public Task<DynamoPage<TEntity>> ToPageAsync(
@@ -51,7 +55,8 @@ public static class DynamoDbQueryableExtensions
             if (source.Provider is not IAsyncQueryProvider provider)
                 throw new InvalidOperationException(
                     "The provider for the source 'IQueryable' doesn't implement 'IAsyncQueryProvider'. "
-                    + "Only providers that implement 'IAsyncQueryProvider' can be used for Entity Framework asynchronous operations.");
+                    + "Only providers that implement 'IAsyncQueryProvider' can be used for Entity Framework "
+                    + "asynchronous operations.");
 
             return provider.ExecuteAsync<Task<DynamoPage<TEntity>>>(
                 Expression.Call(
@@ -76,8 +81,12 @@ public static class DynamoDbQueryableExtensions
         /// </remarks>
         /// <param name="nextToken">The continuation token to seed on the first request.</param>
         /// <returns>A new query configured with the seed token.</returns>
-        /// <exception cref="ArgumentNullException">Thrown when <paramref name="source" /> or <paramref name="nextToken" /> is null.</exception>
-        /// <exception cref="ArgumentException">Thrown when <paramref name="nextToken" /> is empty or whitespace.</exception>
+        /// <exception cref="ArgumentNullException">
+        ///     Thrown when <paramref name="source" /> or <paramref name="nextToken" /> is null.
+        /// </exception>
+        /// <exception cref="ArgumentException">
+        ///     Thrown when <paramref name="nextToken" /> is empty or whitespace.
+        /// </exception>
         public IQueryable<TEntity> WithNextToken(string nextToken)
         {
             ArgumentNullException.ThrowIfNull(source);
@@ -243,7 +252,9 @@ public static class DynamoDbQueryableExtensions
         ///     query shape.
         /// </remarks>
         /// <returns>A new query that carries the selected index hint.</returns>
-        /// <exception cref="ArgumentNullException">Thrown when <paramref name="source" /> or <paramref name="indexName" /> is null.</exception>
+        /// <exception cref="ArgumentNullException">
+        ///     Thrown when <paramref name="source" /> or <paramref name="indexName" /> is null.
+        /// </exception>
         /// <exception cref="ArgumentException">Thrown when <paramref name="indexName" /> is empty.</exception>
         public IQueryable<TEntity> WithIndex([NotParameterized] string indexName)
         {
