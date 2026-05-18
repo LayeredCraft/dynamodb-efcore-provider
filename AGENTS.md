@@ -60,7 +60,8 @@ execution.
 - Use modern C# pattern matching where possible.
 - Prefer collection expressions for collections.
 - Add comments only for non-obvious logic.
-- Add XML docs for all methods:
-  - Always include `<summary>`.
-  - Include `<param>`/`<returns>` where names are not self-explanatory.
-  - Public methods should fully document parameters, returns, and thrown exceptions where relevant.
+- Add XML docs only when they help API consumers or clarify non-obvious behavior.
+  - Do not add XML docs to tests, test helpers, local functions, or obvious private/internal members
+    unless useful.
+  - Public API methods should include `<summary>` and document parameters, returns, and thrown
+    exceptions where relevant.
