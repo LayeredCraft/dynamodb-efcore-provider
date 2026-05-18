@@ -107,11 +107,16 @@ internal sealed class DynamoAutoIndexSelectionAnalyzer : IDynamoIndexSelectionAn
             var gateResult = EvaluateGates(descriptor, constraints);
             if (gateResult != CandidateGateResult.Passed)
             {
-                rejectionDiagnostics.Add(
-                    MakeRejectionDiagnostic(
-                        descriptor,
-                        context.SelectExpression.TableName,
-                        gateResult));
+                // A missing partition-key constraint means the query did not target this index at
+                // all. Do not surface that as an index-selection problem; scan classification owns
+                // the user-facing warning for non-keyed/base-table reads.
+                if (gateResult != CandidateGateResult.NoPkConstraint)
+                    rejectionDiagnostics.Add(
+                        MakeRejectionDiagnostic(
+                            descriptor,
+                            context.SelectExpression.TableName,
+                            gateResult));
+
                 continue;
             }
 
@@ -122,8 +127,15 @@ internal sealed class DynamoAutoIndexSelectionAnalyzer : IDynamoIndexSelectionAn
         // ── 4. No usable candidate ───────────────────────────────────────────
         if (usableCandidates.Count == 0)
         {
+            if (rejectionDiagnostics.Count == 0)
+                return new DynamoIndexSelectionDecision(
+                    null,
+                    DynamoIndexSelectionReason.NoSelection,
+                    []);
+
             // Rejection diagnostics are prepended so callers see per-candidate reasons before
-            // the overall no-selection summary.
+            // the overall no-selection summary. Only emit the summary when at least one secondary
+            // index was actually targeted by the predicate and failed a later gate.
             var diagnostics = new List<DynamoQueryDiagnostic>(rejectionDiagnostics)
             {
                 new(

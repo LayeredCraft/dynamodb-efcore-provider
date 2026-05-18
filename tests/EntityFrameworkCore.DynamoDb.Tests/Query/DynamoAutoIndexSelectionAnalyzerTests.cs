@@ -351,14 +351,14 @@ public class DynamoAutoIndexSelectionAnalyzerTests
     /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
-    public void SuggestOnly_NoMatch_EmitsWarningDiagnostic_Returns_NoSelection()
+    public void SuggestOnly_NoMatch_Returns_NoSelectionWithoutIndexDiagnostics()
     {
         var candidates = new List<DynamoIndexDescriptor>
         {
             MakeDescriptor("CustomerId", indexName: null),
             MakeDescriptor("Status", "CreatedAt", "ByStatus"),
         };
-        // No equality on Status — no candidate passes Gate 1.
+        // No equality on Status — query did not target ByStatus.
         var constraints = MakeConstraints(equalityPks: ["Region"]);
         var ctx = BuildContext(
             DynamoAutomaticIndexSelectionMode.SuggestOnly,
@@ -369,11 +369,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
 
         decision.SelectedIndexName.Should().BeNull();
         decision.Reason.Should().Be(DynamoIndexSelectionReason.NoSelection);
-        // IDX005 (rejection) is emitted first, then IDX001 (no-selection summary).
-        decision.Diagnostics.Should().HaveCount(2);
-        decision.Diagnostics[0].Code.Should().Be("DYNAMO_IDX005");
-        decision.Diagnostics[1].Code.Should().Be("DYNAMO_IDX001");
-        decision.Diagnostics[1].Level.Should().Be(DynamoQueryDiagnosticLevel.Warning);
+        decision.Diagnostics.Should().BeEmpty();
     }
 
     // ── On mode ────────────────────────────────────────────────────
@@ -389,10 +385,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
             MakeDescriptor("Status", indexName: "ByStatus"),
         };
         var constraints = MakeConstraints(equalityPks: ["Status"]);
-        var ctx = BuildContext(
-            DynamoAutomaticIndexSelectionMode.On,
-            candidates,
-            constraints);
+        var ctx = BuildContext(DynamoAutomaticIndexSelectionMode.On, candidates, constraints);
 
         var decision = Analyzer.Analyze(ctx);
 
@@ -406,28 +399,22 @@ public class DynamoAutoIndexSelectionAnalyzerTests
     /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
-    public void On_NoCandidateSatisfied_EmitsIdx001Warning_NoSelection()
+    public void On_NoCandidateSatisfied_ReturnsNoSelectionWithoutIndexDiagnostics()
     {
         var candidates = new List<DynamoIndexDescriptor>
         {
             MakeDescriptor("CustomerId", indexName: null),
             MakeDescriptor("Status", "CreatedAt", "ByStatus"),
         };
-        // Region equality does not cover Status PK.
+        // Region equality does not cover Status PK, so query did not target ByStatus.
         var constraints = MakeConstraints(equalityPks: ["Region"]);
-        var ctx = BuildContext(
-            DynamoAutomaticIndexSelectionMode.On,
-            candidates,
-            constraints);
+        var ctx = BuildContext(DynamoAutomaticIndexSelectionMode.On, candidates, constraints);
 
         var decision = Analyzer.Analyze(ctx);
 
         decision.SelectedIndexName.Should().BeNull();
         decision.Reason.Should().Be(DynamoIndexSelectionReason.NoSelection);
-        // IDX005 (rejection) is emitted first, then IDX001 (no-selection summary).
-        decision.Diagnostics.Should().HaveCount(2);
-        decision.Diagnostics[0].Code.Should().Be("DYNAMO_IDX005");
-        decision.Diagnostics[1].Code.Should().Be("DYNAMO_IDX001");
+        decision.Diagnostics.Should().BeEmpty();
     }
 
     /// <summary>Provides functionality for this member.</summary>
@@ -443,10 +430,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
         };
         // Both GSI PKs are present and neither gets a sort-key bonus.
         var constraints = MakeConstraints(equalityPks: ["Status", "Region"]);
-        var ctx = BuildContext(
-            DynamoAutomaticIndexSelectionMode.On,
-            candidates,
-            constraints);
+        var ctx = BuildContext(DynamoAutomaticIndexSelectionMode.On, candidates, constraints);
 
         var decision = Analyzer.Analyze(ctx);
 
@@ -470,10 +454,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
             MakeDescriptor("Status", "CreatedAt", "ByStatusCreatedAt"),
         };
         var constraints = MakeConstraints(["Status"]);
-        var ctx = BuildContext(
-            DynamoAutomaticIndexSelectionMode.On,
-            candidates,
-            constraints);
+        var ctx = BuildContext(DynamoAutomaticIndexSelectionMode.On, candidates, constraints);
 
         var decision = Analyzer.Analyze(ctx);
 
@@ -540,10 +521,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
         var constraints = MakeConstraints(
             equalityPks: ["Status", "Region"],
             orderings: ["CreatedAt"]);
-        var ctx = BuildContext(
-            DynamoAutomaticIndexSelectionMode.On,
-            candidates,
-            constraints);
+        var ctx = BuildContext(DynamoAutomaticIndexSelectionMode.On, candidates, constraints);
 
         var decision = Analyzer.Analyze(ctx);
 
@@ -569,10 +547,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
             equalityPks: ["Status", "Region"],
             skConditions: ["CreatedAt", "Priority"],
             orderings: ["CreatedAt"]);
-        var ctx = BuildContext(
-            DynamoAutomaticIndexSelectionMode.On,
-            candidates,
-            constraints);
+        var ctx = BuildContext(DynamoAutomaticIndexSelectionMode.On, candidates, constraints);
 
         var decision = Analyzer.Analyze(ctx);
 
@@ -591,10 +566,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
             MakeDescriptor("Status", "CreatedAt", "ByStatus"),
         };
         var constraints = MakeConstraints(equalityPks: ["Status"], hasUnsafeOr: true);
-        var ctx = BuildContext(
-            DynamoAutomaticIndexSelectionMode.On,
-            candidates,
-            constraints);
+        var ctx = BuildContext(DynamoAutomaticIndexSelectionMode.On, candidates, constraints);
 
         var decision = Analyzer.Analyze(ctx);
 
@@ -620,10 +592,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
                 DynamoSecondaryIndexProjectionType.KeysOnly),
         };
         var constraints = MakeConstraints(equalityPks: ["Status"]);
-        var ctx = BuildContext(
-            DynamoAutomaticIndexSelectionMode.On,
-            candidates,
-            constraints);
+        var ctx = BuildContext(DynamoAutomaticIndexSelectionMode.On, candidates, constraints);
 
         var decision = Analyzer.Analyze(ctx);
 
@@ -647,10 +616,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
         };
         // IN constraint on Status PK satisfies Gate 1.
         var constraints = MakeConstraints(inPks: ["Status"]);
-        var ctx = BuildContext(
-            DynamoAutomaticIndexSelectionMode.On,
-            candidates,
-            constraints);
+        var ctx = BuildContext(DynamoAutomaticIndexSelectionMode.On, candidates, constraints);
 
         var decision = Analyzer.Analyze(ctx);
 
@@ -680,6 +646,25 @@ public class DynamoAutoIndexSelectionAnalyzerTests
     /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
+    public void On_EmptyQueryConstraints_Returns_NoSelectionWithoutIndexDiagnostics()
+    {
+        var candidates = new List<DynamoIndexDescriptor>
+        {
+            MakeDescriptor("CustomerId", indexName: null),
+            MakeDescriptor("Status", "CreatedAt", "ByStatus"),
+        };
+        var ctx = BuildContext(DynamoAutomaticIndexSelectionMode.On, candidates, MakeConstraints());
+
+        var decision = Analyzer.Analyze(ctx);
+
+        decision.SelectedIndexName.Should().BeNull();
+        decision.Reason.Should().Be(DynamoIndexSelectionReason.NoSelection);
+        decision.Diagnostics.Should().BeEmpty();
+    }
+
+    /// <summary>Provides functionality for this member.</summary>
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    /// <summary>Provides functionality for this member.</summary>
     public void On_FullBaseTableKeyLookup_SuppressesSecondaryIndexSelection()
     {
         var candidates = new List<DynamoIndexDescriptor>
@@ -688,10 +673,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
             MakeDescriptor("Status", "CreatedAt", "ByStatus"),
         };
         var constraints = MakeConstraints(equalityPks: ["Status"]);
-        var ctx = BuildContext(
-            DynamoAutomaticIndexSelectionMode.On,
-            candidates,
-            constraints);
+        var ctx = BuildContext(DynamoAutomaticIndexSelectionMode.On, candidates, constraints);
 
         var decision = Analyzer.Analyze(ctx);
 
@@ -719,10 +701,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
                 ProjectionType: DynamoSecondaryIndexProjectionType.All),
         };
         var constraints = MakeConstraints(equalityPks: ["CustomerId"]);
-        var ctx = BuildContext(
-            DynamoAutomaticIndexSelectionMode.On,
-            candidates,
-            constraints);
+        var ctx = BuildContext(DynamoAutomaticIndexSelectionMode.On, candidates, constraints);
 
         var decision = Analyzer.Analyze(ctx);
 
@@ -783,26 +762,21 @@ public class DynamoAutoIndexSelectionAnalyzerTests
     /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     /// <summary>Provides functionality for this member.</summary>
-    public void RejectedCandidate_NoPkConstraint_EmitsDynamoIdx005WithPartitionKeyMessage()
+    public void RejectedCandidate_NoPkConstraint_EmitsNoIndexDiagnostics()
     {
         var candidates = new List<DynamoIndexDescriptor>
         {
             MakeDescriptor("CustomerId", indexName: null),
             MakeDescriptor("Status", "CreatedAt", "ByStatus"),
         };
-        // Constraint is on Region, not Status — Gate 1 fails for ByStatus.
+        // Constraint is on Region, not Status — the query did not target ByStatus.
         var constraints = MakeConstraints(equalityPks: ["Region"]);
-        var ctx = BuildContext(
-            DynamoAutomaticIndexSelectionMode.On,
-            candidates,
-            constraints);
+        var ctx = BuildContext(DynamoAutomaticIndexSelectionMode.On, candidates, constraints);
 
         var decision = Analyzer.Analyze(ctx);
 
-        var rejection =
-            decision.Diagnostics.Should().Contain(d => d.Code == "DYNAMO_IDX005").Subject;
-        rejection.Level.Should().Be(DynamoQueryDiagnosticLevel.Information);
-        rejection.Message.Should().Contain("partition key");
+        decision.SelectedIndexName.Should().BeNull();
+        decision.Diagnostics.Should().BeEmpty();
     }
 
     /// <summary>Provides functionality for this member.</summary>
@@ -821,10 +795,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
         };
         // PK is covered but Gate 3 (projection) fails.
         var constraints = MakeConstraints(equalityPks: ["Status"]);
-        var ctx = BuildContext(
-            DynamoAutomaticIndexSelectionMode.On,
-            candidates,
-            constraints);
+        var ctx = BuildContext(DynamoAutomaticIndexSelectionMode.On, candidates, constraints);
 
         var decision = Analyzer.Analyze(ctx);
 
@@ -845,10 +816,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
         };
         // PK covered but Gate 2 (unsafe OR) fails.
         var constraints = MakeConstraints(equalityPks: ["Status"], hasUnsafeOr: true);
-        var ctx = BuildContext(
-            DynamoAutomaticIndexSelectionMode.On,
-            candidates,
-            constraints);
+        var ctx = BuildContext(DynamoAutomaticIndexSelectionMode.On, candidates, constraints);
 
         var decision = Analyzer.Analyze(ctx);
 
@@ -862,17 +830,18 @@ public class DynamoAutoIndexSelectionAnalyzerTests
     /// <summary>Provides functionality for this member.</summary>
     public void RejectionDiagnostics_PrecedeIdx001_InDiagnosticsList()
     {
-        // Single candidate fails Gate 1 → IDX005 then IDX001, in that order.
+        // Single candidate has covered PK but fails Gate 3 → IDX005 then IDX001, in that order.
         var candidates = new List<DynamoIndexDescriptor>
         {
             MakeDescriptor("CustomerId", indexName: null),
-            MakeDescriptor("Status", "CreatedAt", "ByStatus"),
+            MakeDescriptor(
+                "Status",
+                "CreatedAt",
+                "ByStatus",
+                DynamoSecondaryIndexProjectionType.KeysOnly),
         };
-        var constraints = MakeConstraints(equalityPks: ["Region"]);
-        var ctx = BuildContext(
-            DynamoAutomaticIndexSelectionMode.On,
-            candidates,
-            constraints);
+        var constraints = MakeConstraints(equalityPks: ["Status"]);
+        var ctx = BuildContext(DynamoAutomaticIndexSelectionMode.On, candidates, constraints);
 
         var decision = Analyzer.Analyze(ctx);
 
@@ -888,8 +857,8 @@ public class DynamoAutoIndexSelectionAnalyzerTests
     /// <summary>Provides functionality for this member.</summary>
     public void RejectionDiagnostics_PrecedeIdx003_WhenOnePassesAndOneIsRejected()
     {
-        // ByStatus (PK "Status") passes; ByRegion (PK "Region") fails Gate 1 (not covered).
-        // Diagnostics: IDX005 (ByRegion rejected) then IDX003 (ByStatus selected).
+        // ByStatus (PK "Status") passes; ByRegion (PK "Region") is not targeted and should not
+        // emit a rejection diagnostic.
         var candidates = new List<DynamoIndexDescriptor>
         {
             MakeDescriptor("CustomerId", indexName: null),
@@ -897,18 +866,13 @@ public class DynamoAutoIndexSelectionAnalyzerTests
             MakeDescriptor("Region", "CreatedAt", "ByRegion"),
         };
         var constraints = MakeConstraints(equalityPks: ["Status"]);
-        var ctx = BuildContext(
-            DynamoAutomaticIndexSelectionMode.On,
-            candidates,
-            constraints);
+        var ctx = BuildContext(DynamoAutomaticIndexSelectionMode.On, candidates, constraints);
 
         var decision = Analyzer.Analyze(ctx);
 
         decision.SelectedIndexName.Should().Be("ByStatus");
-        decision.Diagnostics.Should().HaveCount(2);
-        decision.Diagnostics[0].Code.Should().Be("DYNAMO_IDX005");
-        decision.Diagnostics[0].Message.Should().Contain("ByRegion");
-        decision.Diagnostics[1].Code.Should().Be("DYNAMO_IDX003");
+        decision.Diagnostics.Should().ContainSingle();
+        decision.Diagnostics[0].Code.Should().Be("DYNAMO_IDX003");
     }
 
     // ── WithoutIndex suppression tests ────────────────────────────────────────

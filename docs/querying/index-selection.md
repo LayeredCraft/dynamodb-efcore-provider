@@ -48,8 +48,8 @@ Automatic selection applies to ordinary LINQ queries. Full base-table primary-ke
 When automatic selection is `On`, an index candidate is eligible only if all gates pass:
 
 1. The `WHERE` clause includes equality or `IN` on the index partition key.
-1. The predicate does not contain an unsafe `OR` shape.
-1. The index projection type is `All`.
+2. The predicate does not contain an unsafe `OR` shape.
+3. The index projection type is `All`.
 
 If multiple candidates tie, the provider falls back to the base table and emits a tie diagnostic.
 
@@ -60,11 +60,15 @@ Scoring used to break non-tied candidates:
 
 Diagnostics emitted during analysis:
 
-- `DYNAMO_IDX001`: no compatible index found.
+- `DYNAMO_IDX001`: at least one targeted index candidate failed a later safety gate, so no compatible index was selected.
 - `DYNAMO_IDX002`: multiple compatible indexes tied.
 - `DYNAMO_IDX003`: index selected (or would be auto-selected in `SuggestOnly`).
 - `DYNAMO_IDX004`: index explicitly selected via `.WithIndex(...)`.
-- `DYNAMO_IDX005`: candidate rejected with reason.
+- `DYNAMO_IDX005`: targeted candidate rejected with reason.
+
+Queries that do not constrain any configured secondary-index partition key do not emit
+`DYNAMO_IDX001`/`DYNAMO_IDX005`; scan-like base-table reads are reported by
+`ScanLikeQueryDetected`.
 
 ## When No Index Is Used
 

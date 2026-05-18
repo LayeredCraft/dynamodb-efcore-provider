@@ -241,22 +241,24 @@ Index selection runs when [automatic index selection](querying/index-selection.m
 events except `DYNAMO_IDX004` (explicit `.WithIndex(...)` hints) and `DYNAMO_IDX006`
 (explicit `.WithoutIndex()` hints), which always fire.
 
-When multiple candidates are evaluated, `DYNAMO_IDX005` rejection events appear first, followed by
-the final outcome event (`DYNAMO_IDX001`, `DYNAMO_IDX002`, or `DYNAMO_IDX003`). Enable
-`Information` level logging for the `Query` category to see the full decision trail.
+When multiple targeted candidates are evaluated and rejected, `DYNAMO_IDX005` rejection events
+appear first, followed by the final outcome event (`DYNAMO_IDX001`, `DYNAMO_IDX002`, or
+`DYNAMO_IDX003`). Candidates whose partition key is not constrained by the query are not treated as
+rejections; scan-like base-table reads are reported by `ScanLikeQueryDetected` instead.
+Enable `Information` level logging for the `Query` category to see the full decision trail.
 
 ______________________________________________________________________
 
 ### `DYNAMO_IDX001` — `NoCompatibleSecondaryIndexFound` (Warning)
 
-No secondary index on the queried table satisfies the predicate. The query will use the base
-table.
+At least one secondary index was targeted by the predicate, but every targeted candidate failed a
+later safety gate. The query will use the base table.
 
-This is a warning rather than an informational event because a base-table query may scan more data
-than you intended. The message also reminds you to ensure the WHERE clause includes an equality
-constraint on an index partition key if you want automatic selection to pick up a GSI. Review
-whether a GSI would allow the provider to target a narrower key space, and confirm that running
-against the base table is acceptable for this query's access pattern.
+This event is not emitted for unkeyed reads such as `ToListAsync()` or predicates that do not
+constrain any configured secondary-index partition key; those shapes are handled by
+`ScanLikeQueryDetected`. Review the preceding `DYNAMO_IDX005` rejection diagnostics to see why the
+targeted index candidates were rejected, then either adjust the query/index shape or confirm that
+running against the base table is acceptable for this access pattern.
 
 Use EF Core warning configuration to escalate or suppress this warning:
 
