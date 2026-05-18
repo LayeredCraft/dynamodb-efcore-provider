@@ -58,5 +58,11 @@ public sealed class ConcurrencyDetectorEnabledDynamoTest(
             => base
                 .AddOptions(builder)
                 .UseDynamo(o => o.DynamoDbClient(DynamoTestStoreFactory.Instance.Client));
+
+        protected override async Task CleanAsync(DbContext context)
+        {
+            await context.Database.EnsureDeletedAsync();
+            await context.Database.EnsureCreatedAsync();
+        }
     }
 }
