@@ -328,7 +328,7 @@ internal sealed class BinaryDynamoValueReaderWriter : DynamoValueReaderWriter<by
         => attributeValue.B!.ToArray();
 
     public override AttributeValue Write(byte[] value)
-        => new() { B = new MemoryStream(value, false) };
+        => DynamoWireValueConversion.CreateBinaryAttributeValue(value);
 
     public override string ToPartiQlLiteral(byte[] value)
         => throw new NotSupportedException(
@@ -854,8 +854,8 @@ internal static class DynamoValueReaderWriterHelpers
     {
         var writtenValues = value.Select(elementReaderWriter.Write).ToList();
         if (writtenValues.Count == 0)
-            // DynamoDB does not allow empty SS/NS/BS attributes.
-            return new AttributeValue { NULL = true };
+            throw new InvalidOperationException(
+                "DynamoDB sets cannot be empty; use a null property or a non-empty collection.");
 
         if (writtenValues.Any(static attributeValue => attributeValue.NULL == true))
             throw new InvalidOperationException("DynamoDB sets cannot contain null elements.");
@@ -898,9 +898,11 @@ internal static class DynamoValueReaderWriterHelpers
         DynamoValueReaderWriter<TElement> elementReaderWriter)
     {
         var literals = value.Select(elementReaderWriter.ToPartiQlLiteral).ToList();
-        // DynamoDB cannot represent an empty set literal, so keep the SQL/literal path aligned
-        // with parameter serialization by treating empty sets as NULL.
-        return literals.Count == 0 ? "NULL" : $"<<{string.Join(", ", literals)}>>";
+        if (literals.Count == 0)
+            throw new InvalidOperationException(
+                "DynamoDB sets cannot be empty; use a null property or a non-empty collection.");
+
+        return $"<<{string.Join(", ", literals)}>>";
     }
 
     public static Func<TCollection, IEnumerable<TElement>> CreateEnumerableAccessor<TCollection,

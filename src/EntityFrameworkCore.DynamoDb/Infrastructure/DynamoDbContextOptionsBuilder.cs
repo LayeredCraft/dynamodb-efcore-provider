@@ -23,12 +23,14 @@ public class DynamoDbContextOptionsBuilder(DbContextOptionsBuilder optionsBuilde
     /// <summary>Uses a preconfigured DynamoDB client instance for all provider operations.</summary>
     /// <param name="client">The DynamoDB SDK client instance to use.</param>
     /// <returns>The builder for chaining.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="client" /> is null.</exception>
     public virtual DynamoDbContextOptionsBuilder DynamoDbClient(IAmazonDynamoDB client)
         => WithOption(e => e.WithDynamoDbClient(client.NotNull()));
 
     /// <summary>Uses the provided DynamoDB client configuration when creating the SDK client.</summary>
     /// <param name="config">The SDK configuration used when constructing the client.</param>
     /// <returns>The builder for chaining.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="config" /> is null.</exception>
     public virtual DynamoDbContextOptionsBuilder DynamoDbClientConfig(AmazonDynamoDBConfig config)
         => WithOption(e => e.WithDynamoDbClientConfig(config.NotNull()));
 
@@ -38,6 +40,7 @@ public class DynamoDbContextOptionsBuilder(DbContextOptionsBuilder optionsBuilde
     /// </summary>
     /// <param name="configure">A callback that mutates the SDK configuration.</param>
     /// <returns>The builder for chaining.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="configure" /> is null.</exception>
     public virtual DynamoDbContextOptionsBuilder ConfigureDynamoDbClientConfig(
         Action<AmazonDynamoDBConfig> configure)
         => WithOption(e => e.WithDynamoDbClientConfigAction(configure.NotNull()));
@@ -64,6 +67,7 @@ public class DynamoDbContextOptionsBuilder(DbContextOptionsBuilder optionsBuilde
     /// </summary>
     /// <param name="maxTransactionSize">Maximum operations per transaction (1-100).</param>
     /// <returns>The builder for chaining.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="maxTransactionSize" /> is outside 1-100.</exception>
     public virtual DynamoDbContextOptionsBuilder MaxTransactionSize(int maxTransactionSize)
         => WithOption(e => e.WithMaxTransactionSize(maxTransactionSize));
 
@@ -73,6 +77,7 @@ public class DynamoDbContextOptionsBuilder(DbContextOptionsBuilder optionsBuilde
     /// </summary>
     /// <param name="maxBatchWriteSize">Maximum operations per non-atomic batch (1-25).</param>
     /// <returns>The builder for chaining.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="maxBatchWriteSize" /> is outside 1-25.</exception>
     public virtual DynamoDbContextOptionsBuilder MaxBatchWriteSize(int maxBatchWriteSize)
         => WithOption(e => e.WithMaxBatchWriteSize(maxBatchWriteSize));
 
@@ -88,6 +93,15 @@ public class DynamoDbContextOptionsBuilder(DbContextOptionsBuilder optionsBuilde
     /// <returns>The builder for chaining.</returns>
     public virtual DynamoDbContextOptionsBuilder ConsistentRead(bool consistentRead = true)
         => WithOption(e => e.WithConsistentRead(consistentRead));
+
+    /// <summary>
+    ///     Configures whether <c>First*</c> safety validation is bypassed for all queries in the
+    ///     context.
+    /// </summary>
+    /// <param name="allow">Whether unsafe filtered queries are allowed.</param>
+    /// <returns>The builder for chaining.</returns>
+    public virtual DynamoDbContextOptionsBuilder AllowUnsafeFilteredQueries(bool allow = true)
+        => WithOption(e => e.WithAllowUnsafeFilteredQueries(allow));
 
     /// <summary>Configures waits used by DynamoDB table lifecycle operations.</summary>
     /// <param name="configure">A callback that mutates lifecycle options.</param>

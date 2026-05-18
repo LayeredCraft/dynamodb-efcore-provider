@@ -22,6 +22,7 @@ public class PaginationConfigurationTests
         extension.MaxBatchWriteSize.Should().Be(25);
         extension.ReturnConsumedCapacity.Should().BeNull();
         extension.ConsistentRead.Should().BeFalse();
+        extension.AllowUnsafeFilteredQueries.Should().BeFalse();
         extension.TableLifecycleOptions.WaitForCompletion.Should().BeTrue();
         extension.TableLifecycleOptions.InitialPollingDelay.Should().Be(TimeSpan.FromSeconds(1));
         extension.TableLifecycleOptions.MaxPollingDelay.Should().Be(TimeSpan.FromSeconds(5));
@@ -79,6 +80,7 @@ public class PaginationConfigurationTests
             .WithMaxBatchWriteSize(11)
             .WithReturnConsumedCapacity(ReturnConsumedCapacity.TOTAL)
             .WithConsistentRead(true)
+            .WithAllowUnsafeFilteredQueries(true)
             .WithTableLifecycleOptions(options =>
             {
                 options.WaitForCompletion = false;
@@ -104,6 +106,7 @@ public class PaginationConfigurationTests
         cloned.MaxBatchWriteSize.Should().Be(11);
         cloned.ReturnConsumedCapacity.Should().Be(ReturnConsumedCapacity.TOTAL);
         cloned.ConsistentRead.Should().BeTrue();
+        cloned.AllowUnsafeFilteredQueries.Should().BeTrue();
         cloned.TableLifecycleOptions.WaitForCompletion.Should().BeFalse();
         cloned.TableLifecycleOptions.InitialPollingDelay.Should().Be(TimeSpan.FromMilliseconds(10));
         cloned.TableLifecycleOptions.MaxPollingDelay.Should().Be(TimeSpan.FromMilliseconds(20));
@@ -195,6 +198,32 @@ public class PaginationConfigurationTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void UseDynamo_ConfigureAllowUnsafeFilteredQueries_StoresValueOnOptionsExtension()
+    {
+        var optionsBuilder = new DbContextOptionsBuilder();
+
+        optionsBuilder.UseDynamo(options => options.AllowUnsafeFilteredQueries());
+
+        var extension = optionsBuilder.Options.FindExtension<DynamoDbOptionsExtension>();
+
+        extension.Should().NotBeNull();
+        extension!.AllowUnsafeFilteredQueries.Should().BeTrue();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void UseDynamo_ConfigureAllowUnsafeFilteredQueriesFalse_StoresValueOnOptionsExtension()
+    {
+        var optionsBuilder = new DbContextOptionsBuilder();
+
+        optionsBuilder.UseDynamo(options => options.AllowUnsafeFilteredQueries(false));
+
+        var extension = optionsBuilder.Options.FindExtension<DynamoDbOptionsExtension>();
+
+        extension.Should().NotBeNull();
+        extension!.AllowUnsafeFilteredQueries.Should().BeFalse();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void UseDynamo_ConfigureMaxBatchWriteSize_StoresValueOnOptionsExtension()
     {
         var optionsBuilder = new DbContextOptionsBuilder();
@@ -235,7 +264,7 @@ public class PaginationConfigurationTests
         extension.TableLifecycleOptions.Timeout.Should().Be(TimeSpan.FromSeconds(30));
     }
 
-    [Theory]
+    [Theory(Timeout = TestConfiguration.DefaultTimeout)]
     [InlineData(0)]
     [InlineData(101)]
     public void WithMaxTransactionSize_InvalidValue_Throws(int invalidValue)
@@ -244,10 +273,10 @@ public class PaginationConfigurationTests
 
         Action act = () => extension.WithMaxTransactionSize(invalidValue);
 
-        act.Should().Throw<InvalidOperationException>();
+        act.Should().Throw<ArgumentOutOfRangeException>();
     }
 
-    [Theory]
+    [Theory(Timeout = TestConfiguration.DefaultTimeout)]
     [InlineData(0)]
     [InlineData(26)]
     public void WithMaxBatchWriteSize_InvalidValue_Throws(int invalidValue)
@@ -256,7 +285,7 @@ public class PaginationConfigurationTests
 
         Action act = () => extension.WithMaxBatchWriteSize(invalidValue);
 
-        act.Should().Throw<InvalidOperationException>();
+        act.Should().Throw<ArgumentOutOfRangeException>();
     }
 
     [Theory(Timeout = TestConfiguration.DefaultTimeout)]
@@ -322,6 +351,19 @@ public class PaginationConfigurationTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ServiceProviderHash_IncludesAllowUnsafeFilteredQueries()
+    {
+        var extension1 = new DynamoDbOptionsExtension().WithAllowUnsafeFilteredQueries(false);
+        var extension2 = new DynamoDbOptionsExtension().WithAllowUnsafeFilteredQueries(true);
+
+        extension1
+            .Info
+            .GetServiceProviderHashCode()
+            .Should()
+            .NotBe(extension2.Info.GetServiceProviderHashCode());
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void ServiceProviderHash_ExcludesReturnConsumedCapacity()
     {
         var extension1 =
@@ -373,6 +415,15 @@ public class PaginationConfigurationTests
                 ReturnConsumedCapacity.INDEXES);
 
         extension1.Info.ShouldUseSameServiceProvider(extension2.Info).Should().BeTrue();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ShouldUseSameServiceProvider_DifferentAllowUnsafeFilteredQueries_ReturnsFalse()
+    {
+        var extension1 = new DynamoDbOptionsExtension().WithAllowUnsafeFilteredQueries(false);
+        var extension2 = new DynamoDbOptionsExtension().WithAllowUnsafeFilteredQueries(true);
+
+        extension1.Info.ShouldUseSameServiceProvider(extension2.Info).Should().BeFalse();
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]

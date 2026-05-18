@@ -429,7 +429,7 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
         return Block(
             [complexMapVariable],
             Assign(complexMapVariable, readComplexMapExpression),
-            Assign(complexInit.MemberAccess, complexInstance));
+            complexInit.MemberAccess.Assign(complexInstance));
     }
 
     /// <summary>
@@ -489,8 +489,7 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
     /// </summary>
     private Expression VisitComplexCollectionInitialization(
         DynamoComplexCollectionInitializationExpression complexCollInit)
-        => Assign(
-            complexCollInit.MemberAccess,
+        => complexCollInit.MemberAccess.Assign(
             VisitComplexCollectionCore(
                 complexCollInit.ComplexProperty,
                 complexCollInit.ElementInjectedMaterializer));

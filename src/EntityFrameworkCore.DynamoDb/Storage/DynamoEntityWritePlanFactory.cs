@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Runtime.CompilerServices;
 using Amazon.DynamoDBv2.Model;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking.Internal;
@@ -128,46 +129,75 @@ internal sealed class EntityWritePlan(
         }
     }
 
+    private static readonly ConditionalWeakTable<IComplexType, ComplexTypeWritePlan>
+        ComplexTypePlanCache = new();
+
     /// <summary>Recursively serializes a complex type instance into a DynamoDB attribute map.</summary>
     private static void SerializeComplexTypeIntoMap(
         object instance,
         IComplexType complexType,
         Dictionary<string, AttributeValue> map)
-    {
-        foreach (var property in complexType.GetProperties())
-        {
-            if (property.IsRuntimeOnly())
-                continue;
+        => ComplexTypePlanCache
+            .GetValue(complexType, static type => ComplexTypeWritePlan.Create(type))
+            .Serialize(instance, map);
 
-            var rawValue = property.GetGetter().GetClrValue(instance);
-            map[property.GetAttributeName()] = SerializeScalarPropertyValue(rawValue, property);
+    /// <summary>Builds and executes serializers for members of a complex type.</summary>
+    private sealed class ComplexTypeWritePlan(
+        List<ComplexScalarWriteAction> scalarWriters,
+        List<ComplexPropertyWriteAction> complexWriters)
+    {
+        /// <summary>Creates a write plan for the given complex type.</summary>
+        public static ComplexTypeWritePlan Create(IComplexType complexType)
+        {
+            var scalarWriters = new List<ComplexScalarWriteAction>();
+            foreach (var property in complexType.GetProperties())
+            {
+                if (property.IsRuntimeOnly())
+                    continue;
+
+                scalarWriters.Add(
+                    new ComplexScalarWriteAction(
+                        property.GetAttributeName(),
+                        property.GetGetter(),
+                        DynamoWriteValueSerializerSource
+                            .GetOrCreateScalarValueSerializer(property)));
+            }
+
+            var complexWriters = new List<ComplexPropertyWriteAction>();
+            foreach (var complexProperty in complexType.GetComplexProperties())
+                complexWriters.Add(
+                    new ComplexPropertyWriteAction(
+                        complexProperty.GetAttributeName(),
+                        complexProperty,
+                        complexProperty.GetGetter()));
+
+            return new ComplexTypeWritePlan(scalarWriters, complexWriters);
         }
 
-        foreach (var nestedCp in complexType.GetComplexProperties())
+        /// <summary>Serializes the complex instance into the target map.</summary>
+        public void Serialize(object instance, Dictionary<string, AttributeValue> map)
         {
-            var nestedValue = nestedCp.GetGetter().GetClrValue(instance);
-            map[((IReadOnlyComplexProperty)nestedCp).GetAttributeName()] =
-                SerializeComplexProperty(nestedValue, nestedCp);
+            foreach (var writer in scalarWriters)
+                map[writer.AttributeName] = writer.Serialize(writer.Getter.GetClrValue(instance));
+
+            foreach (var writer in complexWriters)
+                map[writer.AttributeName] = SerializeComplexProperty(
+                    writer.Getter.GetClrValue(instance),
+                    writer.ComplexProperty);
         }
     }
 
-    /// <summary>
-    ///     Serializes a single scalar property value using boxing + the property's type mapping.
-    ///     Used only on the complex-type path; root entity scalar properties use the typed delegates
-    ///     compiled at plan-build time.
-    /// </summary>
+    private readonly record struct ComplexScalarWriteAction(
+        string AttributeName,
+        IClrPropertyGetter Getter,
+        Func<object?, AttributeValue> Serialize);
+
+    private readonly record struct ComplexPropertyWriteAction(
+        string AttributeName,
+        IComplexProperty ComplexProperty,
+        IClrPropertyGetter Getter);
+
+    /// <summary>Serializes a scalar property value from an untyped EF edge.</summary>
     internal static AttributeValue SerializeScalarPropertyValue(object? value, IProperty property)
-    {
-        if (value is null)
-            return new AttributeValue { NULL = true };
-
-        var converter = property.GetTypeMapping().Converter;
-        var providerValue = converter != null ? converter.ConvertToProvider(value) : value;
-
-        if (providerValue is null)
-            return new AttributeValue { NULL = true };
-
-        return DynamoWireValueConversion
-            .ConvertProviderValueToAttributeValue<object>(providerValue);
-    }
+        => DynamoWriteValueSerializerSource.SerializeScalarPropertyValue(value, property);
 }

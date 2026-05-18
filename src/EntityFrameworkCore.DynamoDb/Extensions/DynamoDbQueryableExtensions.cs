@@ -8,7 +8,7 @@ namespace Microsoft.EntityFrameworkCore;
 /// <summary>DynamoDB-specific extension methods for LINQ queries.</summary>
 public static class DynamoDbQueryableExtensions
 {
-    /// <param name="source">The query to apply the limit to.</param>
+    /// <param name="source">The DynamoDB query source.</param>
     extension<TEntity>(IQueryable<TEntity> source) where TEntity : class
     {
         /// <summary>
@@ -27,10 +27,15 @@ public static class DynamoDbQueryableExtensions
         ///     </para>
         /// </remarks>
         /// <param name="limit">The DynamoDB evaluation budget for this request. Must be positive.</param>
-        /// <param name="nextToken">An optional continuation token. Empty/whitespace values are treated as <c>null</c>.</param>
+        /// <param name="nextToken">
+        ///     An optional continuation token. Empty/whitespace values are treated as <c>null</c>.
+        /// </param>
         /// <param name="cancellationToken">A token to observe while awaiting execution.</param>
         /// <returns>A single DynamoDB page result.</returns>
-        /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="limit"/> is zero or negative.</exception>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="source" /> is null.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">
+        ///     Thrown when <paramref name="limit" /> is zero or negative.
+        /// </exception>
         /// <exception cref="InvalidOperationException">Thrown when the query provider is not async-capable.</exception>
         [Experimental("EF9102")]
         public Task<DynamoPage<TEntity>> ToPageAsync(
@@ -38,6 +43,8 @@ public static class DynamoDbQueryableExtensions
             string? nextToken,
             CancellationToken cancellationToken = default)
         {
+            ArgumentNullException.ThrowIfNull(source);
+
             if (limit <= 0)
                 throw new ArgumentOutOfRangeException(
                     nameof(limit),
@@ -48,14 +55,13 @@ public static class DynamoDbQueryableExtensions
             if (source.Provider is not IAsyncQueryProvider provider)
                 throw new InvalidOperationException(
                     "The provider for the source 'IQueryable' doesn't implement 'IAsyncQueryProvider'. "
-                    + "Only providers that implement 'IAsyncQueryProvider' can be used for Entity Framework asynchronous operations.");
+                    + "Only providers that implement 'IAsyncQueryProvider' can be used for Entity Framework "
+                    + "asynchronous operations.");
 
             return provider.ExecuteAsync<Task<DynamoPage<TEntity>>>(
                 Expression.Call(
                     instance: null,
-                    method:
-                    new Func<IQueryable<TEntity>, int, string?, CancellationToken,
-                        Task<DynamoPage<TEntity>>>(ToPageAsync).Method,
+                    method: DynamoQueryableMethods.ToPageAsync.MakeGenericMethod(typeof(TEntity)),
                     arguments:
                     [
                         source.Expression,
@@ -75,12 +81,16 @@ public static class DynamoDbQueryableExtensions
         /// </remarks>
         /// <param name="nextToken">The continuation token to seed on the first request.</param>
         /// <returns>A new query configured with the seed token.</returns>
-        /// <exception cref="ArgumentNullException">Thrown when <paramref name="nextToken"/> is null.</exception>
-        /// <exception cref="ArgumentException">Thrown when <paramref name="nextToken"/> is empty or whitespace.</exception>
+        /// <exception cref="ArgumentNullException">
+        ///     Thrown when <paramref name="source" /> or <paramref name="nextToken" /> is null.
+        /// </exception>
+        /// <exception cref="ArgumentException">
+        ///     Thrown when <paramref name="nextToken" /> is empty or whitespace.
+        /// </exception>
         public IQueryable<TEntity> WithNextToken(string nextToken)
         {
-            if (nextToken is null)
-                throw new ArgumentNullException(nameof(nextToken));
+            ArgumentNullException.ThrowIfNull(source);
+            ArgumentNullException.ThrowIfNull(nextToken);
 
             if (string.IsNullOrWhiteSpace(nextToken))
                 throw new ArgumentException("Next token must not be empty.", nameof(nextToken));
@@ -89,8 +99,7 @@ public static class DynamoDbQueryableExtensions
                 ? source.Provider.CreateQuery<TEntity>(
                     Expression.Call(
                         null,
-                        ((Func<IQueryable<TEntity>, string, IQueryable<TEntity>>)WithNextToken)
-                        .Method,
+                        DynamoQueryableMethods.WithNextToken.MakeGenericMethod(typeof(TEntity)),
                         source.Expression,
                         Expression.Constant(nextToken, typeof(string))))
                 : source;
@@ -114,6 +123,7 @@ public static class DynamoDbQueryableExtensions
         /// </remarks>
         /// <param name="limit">The maximum number of items DynamoDB should evaluate. Must be positive.</param>
         /// <returns>A new query with the specified evaluation budget.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="source" /> is null.</exception>
         /// <exception cref="ArgumentOutOfRangeException">
         ///     Thrown immediately when <paramref name="limit"/> is zero or negative and the value is
         ///     known at construction time (constant). For compiled queries with runtime values, thrown at
@@ -121,6 +131,8 @@ public static class DynamoDbQueryableExtensions
         /// </exception>
         public IQueryable<TEntity> Limit(int limit)
         {
+            ArgumentNullException.ThrowIfNull(source);
+
             if (limit <= 0)
                 throw new ArgumentOutOfRangeException(
                     nameof(limit),
@@ -130,7 +142,7 @@ public static class DynamoDbQueryableExtensions
                 ? source.Provider.CreateQuery<TEntity>(
                     Expression.Call(
                         null,
-                        ((Func<IQueryable<TEntity>, int, IQueryable<TEntity>>)Limit).Method,
+                        DynamoQueryableMethods.Limit.MakeGenericMethod(typeof(TEntity)),
                         source.Expression,
                         Expression.Constant(limit, typeof(int))))
                 : source;
@@ -143,16 +155,21 @@ public static class DynamoDbQueryableExtensions
         /// <summary>Configures whether this query should use strongly consistent reads.</summary>
         /// <param name="consistentRead">Whether this query should use strong consistency.</param>
         /// <returns>A new query with the specified read consistency preference.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="source" /> is null.</exception>
         public IQueryable<TEntity> WithConsistentRead(bool consistentRead)
-            => source.Provider is EntityQueryProvider
+        {
+            ArgumentNullException.ThrowIfNull(source);
+
+            return source.Provider is EntityQueryProvider
                 ? source.Provider.CreateQuery<TEntity>(
                     Expression.Call(
                         null,
-                        ((Func<IQueryable<TEntity>, bool, IQueryable<TEntity>>)
-                            DynamoDbQueryableExtensions.WithConsistentRead<TEntity>).Method,
+                        DynamoQueryableMethods.WithConsistentRead
+                            .MakeGenericMethod(typeof(TEntity)),
                         source.Expression,
                         Expression.Constant(consistentRead, typeof(bool))))
                 : source;
+        }
 
         /// <summary>
         ///     Explicitly suppresses index selection for this query, forcing it to use the base table
@@ -172,14 +189,41 @@ public static class DynamoDbQueryableExtensions
         ///     </para>
         /// </remarks>
         /// <returns>A new query that forces base-table execution.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="source" /> is null.</exception>
         public IQueryable<TEntity> WithoutIndex()
-            => source.Provider is EntityQueryProvider
+        {
+            ArgumentNullException.ThrowIfNull(source);
+
+            return source.Provider is EntityQueryProvider
                 ? source.Provider.CreateQuery<TEntity>(
                     Expression.Call(
                         null,
-                        ((Func<IQueryable<TEntity>, IQueryable<TEntity>>)WithoutIndex).Method,
+                        DynamoQueryableMethods.WithoutIndex.MakeGenericMethod(typeof(TEntity)),
                         source.Expression))
                 : source;
+        }
+
+        /// <summary>Bypasses the provider's <c>First*</c> safety validation for this query.</summary>
+        /// <remarks>
+        ///     This is an intentional escape hatch for callers who accept DynamoDB's single-request
+        ///     <c>Limit=1</c> semantics, including queries without partition-key equality. It does not
+        ///     allow <c>WithNextToken(...)</c> with <c>First*</c> and does not change execution semantics.
+        /// </remarks>
+        /// <returns>A new query with <c>First*</c> safety validation bypassed.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="source" /> is null.</exception>
+        public IQueryable<TEntity> AsUnsafeFilteredQuery()
+        {
+            ArgumentNullException.ThrowIfNull(source);
+
+            return source.Provider is EntityQueryProvider
+                ? source.Provider.CreateQuery<TEntity>(
+                    Expression.Call(
+                        null,
+                        DynamoQueryableMethods.AsUnsafeFilteredQuery.MakeGenericMethod(
+                            typeof(TEntity)),
+                        source.Expression))
+                : source;
+        }
 
         /// <summary>Allows this query to execute even when it is classified as scan-like.</summary>
         /// <remarks>
@@ -187,14 +231,19 @@ public static class DynamoDbQueryableExtensions
         ///     behavior configured on the context options.
         /// </remarks>
         /// <returns>A new query with scan-like query protection bypassed.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="source" /> is null.</exception>
         public IQueryable<TEntity> AllowScan()
-            => source.Provider is EntityQueryProvider
+        {
+            ArgumentNullException.ThrowIfNull(source);
+
+            return source.Provider is EntityQueryProvider
                 ? source.Provider.CreateQuery<TEntity>(
                     Expression.Call(
                         null,
-                        ((Func<IQueryable<TEntity>, IQueryable<TEntity>>)AllowScan).Method,
+                        DynamoQueryableMethods.AllowScan.MakeGenericMethod(typeof(TEntity)),
                         source.Expression))
                 : source;
+        }
 
         /// <summary>Explicitly selects the DynamoDB secondary index to target for this query.</summary>
         /// <remarks>
@@ -203,9 +252,15 @@ public static class DynamoDbQueryableExtensions
         ///     query shape.
         /// </remarks>
         /// <returns>A new query that carries the selected index hint.</returns>
+        /// <exception cref="ArgumentNullException">
+        ///     Thrown when <paramref name="source" /> or <paramref name="indexName" /> is null.
+        /// </exception>
         /// <exception cref="ArgumentException">Thrown when <paramref name="indexName" /> is empty.</exception>
         public IQueryable<TEntity> WithIndex([NotParameterized] string indexName)
         {
+            ArgumentNullException.ThrowIfNull(source);
+            ArgumentNullException.ThrowIfNull(indexName);
+
             if (string.IsNullOrWhiteSpace(indexName))
                 throw new ArgumentException("Index name must not be empty.", nameof(indexName));
 
@@ -213,7 +268,7 @@ public static class DynamoDbQueryableExtensions
                 ? source.Provider.CreateQuery<TEntity>(
                     Expression.Call(
                         null,
-                        ((Func<IQueryable<TEntity>, string, IQueryable<TEntity>>)WithIndex).Method,
+                        DynamoQueryableMethods.WithIndex.MakeGenericMethod(typeof(TEntity)),
                         source.Expression,
                         Expression.Constant(indexName, typeof(string))))
                 : source;

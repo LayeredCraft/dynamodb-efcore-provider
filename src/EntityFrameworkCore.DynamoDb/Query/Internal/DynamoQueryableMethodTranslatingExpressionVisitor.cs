@@ -55,13 +55,16 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
             _sqlExpressionFactory,
             true);
 
+    /// <summary>Checks whether a method call targets a specific DynamoDB queryable extension method.</summary>
+    private static bool IsDynamoQueryableMethod(MethodInfo method, MethodInfo methodDefinition)
+        => method.IsGenericMethod && method.GetGenericMethodDefinition() == methodDefinition;
+
     /// <summary>Provides functionality for this member.</summary>
     public override Expression Translate(Expression expression)
     {
         // Handle ToPageAsync(), which can only ever be the top-level node in the query tree.
         if (expression is MethodCallExpression { Method: var method, Arguments: var arguments, }
-            && method.DeclaringType == typeof(DynamoDbQueryableExtensions)
-            && method.Name == nameof(DynamoDbQueryableExtensions.ToPageAsync))
+            && IsDynamoQueryableMethod(method, DynamoQueryableMethods.ToPageAsync))
         {
             if (_subquery)
             {
@@ -280,7 +283,7 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
         // Check for DynamoDB-specific extension methods
         if (method.DeclaringType == typeof(DynamoDbQueryableExtensions))
         {
-            if (method.Name == nameof(DynamoDbQueryableExtensions.Limit))
+            if (IsDynamoQueryableMethod(method, DynamoQueryableMethods.Limit))
             {
                 // Visit inner source first so SelectExpression exists before applying the limit.
                 var limitResult = Visit(methodCallExpression.Arguments[0]);
@@ -310,7 +313,7 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
                 return limitResult;
             }
 
-            if (method.Name == nameof(DynamoDbQueryableExtensions.WithConsistentRead))
+            if (IsDynamoQueryableMethod(method, DynamoQueryableMethods.WithConsistentRead))
             {
                 var consistentReadResult = Visit(methodCallExpression.Arguments[0]);
                 if (consistentReadResult is not ShapedQueryExpression
@@ -328,7 +331,7 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
                 return consistentReadResult;
             }
 
-            if (method.Name == nameof(DynamoDbQueryableExtensions.WithoutIndex))
+            if (IsDynamoQueryableMethod(method, DynamoQueryableMethods.WithoutIndex))
             {
                 var context = (DynamoQueryCompilationContext)QueryCompilationContext;
                 context.IndexSelectionDisabled = true;
@@ -337,7 +340,7 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
                 return Visit(methodCallExpression.Arguments[0]);
             }
 
-            if (method.Name == nameof(DynamoDbQueryableExtensions.WithIndex))
+            if (IsDynamoQueryableMethod(method, DynamoQueryableMethods.WithIndex))
             {
                 var context = (DynamoQueryCompilationContext)QueryCompilationContext;
 
@@ -363,15 +366,33 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
                 return Visit(methodCallExpression.Arguments[0]);
             }
 
-            if (method.Name == nameof(DynamoDbQueryableExtensions.AllowScan))
+            if (IsDynamoQueryableMethod(method, DynamoQueryableMethods.AsUnsafeFilteredQuery))
             {
-                var context = (DynamoQueryCompilationContext)QueryCompilationContext;
-                context.ScanAllowed = true;
+                var unsafeFilteredResult = Visit(methodCallExpression.Arguments[0]);
 
-                return Visit(methodCallExpression.Arguments[0]);
+                if (unsafeFilteredResult is ShapedQueryExpression
+                    {
+                        QueryExpression: SelectExpression unsafeFilteredSelectExpression,
+                    })
+                    unsafeFilteredSelectExpression.AllowUnsafeFilteredQueries();
+
+                return unsafeFilteredResult;
             }
 
-            if (method.Name == nameof(DynamoDbQueryableExtensions.WithNextToken))
+            if (IsDynamoQueryableMethod(method, DynamoQueryableMethods.AllowScan))
+            {
+                var allowScanResult = Visit(methodCallExpression.Arguments[0]);
+
+                if (allowScanResult is ShapedQueryExpression
+                    {
+                        QueryExpression: SelectExpression allowScanSelectExpression,
+                    })
+                    allowScanSelectExpression.AllowScan();
+
+                return allowScanResult;
+            }
+
+            if (IsDynamoQueryableMethod(method, DynamoQueryableMethods.WithNextToken))
             {
                 // Visit inner source first so SelectExpression exists before applying the seed
                 // token.

@@ -75,10 +75,10 @@ internal sealed class DynamoQueryTranslationPostprocessor(
             ? new DynamoConstraintExtractionVisitor(candidates).Extract(selectExpression)
             : null;
 
-        var mode =
-            dynamoQueryCompilationContext.ContextOptions.FindExtension<DynamoDbOptionsExtension>()
-                ?.AutomaticIndexSelectionMode
-            ?? DynamoAutomaticIndexSelectionMode.On;
+        var options =
+            dynamoQueryCompilationContext.ContextOptions.FindExtension<DynamoDbOptionsExtension>();
+
+        var mode = options?.AutomaticIndexSelectionMode ?? DynamoAutomaticIndexSelectionMode.On;
 
         var analysisCtx = new DynamoIndexAnalysisContext
         {
@@ -113,9 +113,6 @@ internal sealed class DynamoQueryTranslationPostprocessor(
             ResolveEffectiveSortKeyAttributeName(candidates, selectedIndexName);
         var isBaseTableSource = selectedIndexName is null;
 
-        if (dynamoQueryCompilationContext.ScanAllowed)
-            selectExpression.AllowScan();
-
         selectExpression.ApplyScanQueryClassification(
             ClassifyScanQuery(
                 selectExpression,
@@ -128,11 +125,24 @@ internal sealed class DynamoQueryTranslationPostprocessor(
         // Validate First* safe path: must be key-only (no user limit, no non-key predicates).
         // Run after index selection so we use the effective key attributes of the chosen source.
         if (selectExpression.IsFirstTerminal)
-            ValidateFirstTerminalSafePath(
-                selectExpression,
-                queryConstraints,
-                effectiveSortKeyAttr,
-                isBaseTableSource);
+        {
+            // Explicit Limit(n) + First* is ambiguous: Limit(n) may intentionally return
+            // multiple items, while First* requires provider-managed Limit(1). Keep this
+            // unconditional; AsUnsafeFilteredQuery() only relaxes non-key filter validation.
+            if (selectExpression.HasUserLimit)
+                throw new InvalidOperationException(
+                    DynamoStrings.FirstOrDefaultWithUserLimitNotSupported);
+
+            var unsafeFilteredQueriesAllowed = selectExpression.UnsafeFilteredQueriesAllowed
+                || options?.AllowUnsafeFilteredQueries == true;
+
+            if (!unsafeFilteredQueriesAllowed)
+                ValidateFirstTerminalSafePath(
+                    selectExpression,
+                    queryConstraints,
+                    effectiveSortKeyAttr,
+                    isBaseTableSource);
+        }
 
         return query;
     }
@@ -469,14 +479,6 @@ internal sealed class DynamoQueryTranslationPostprocessor(
         // Design-time: runtime model unavailable, skip to avoid false negatives.
         if (queryConstraints is null)
             return;
-
-        // Limit(n) + First* is always disallowed. The combination is ambiguous — Limit(n) may
-        // return multiple items and First* silently discards all but one. Use
-        // .Limit(n).AsAsyncEnumerable().FirstOrDefaultAsync(ct) to make the client-side
-        // selection explicit.
-        if (selectExpression.HasUserLimit)
-            throw new InvalidOperationException(
-                DynamoStrings.FirstOrDefaultWithUserLimitNotSupported);
 
         var pkNames = selectExpression.EffectivePartitionKeyPropertyNames;
         if (pkNames.Count == 0)

@@ -1,3 +1,6 @@
+using System.Collections.ObjectModel;
+using System.Reflection;
+using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -187,6 +190,70 @@ public class DynamoEntityItemSerializerSourceTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void BuildItem_NullableSetProperty_WhenNull_SerializesAsNull()
+    {
+        using var db = new NullableCollectionDbContext(
+            new DbContextOptionsBuilder<NullableCollectionDbContext>()
+                .UseDynamo()
+                .ConfigureWarnings(w
+                    => w
+                        .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                        .Ignore(DynamoEventId.ScanLikeQueryDetected))
+                .Options);
+
+        var entity = new NullableCollectionEntity
+        {
+            Pk = "OS#NULL",
+            Sk = "OS1",
+            NullableStatusSet = [NullableStatus.Active],
+            OptionalStatusSet = null,
+        };
+
+        db.Add(entity);
+
+        var serializer = db.GetService<DynamoEntityItemSerializerSource>();
+        var updateEntry = (IUpdateEntry)db.Entry(entity).GetInfrastructure();
+
+        var item = serializer.BuildItem(updateEntry);
+
+        item["optionalStatusSet"].NULL.Should().BeTrue();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void BuildItem_NullableSetProperty_WhenEmpty_Throws()
+    {
+        using var db = new NullableCollectionDbContext(
+            new DbContextOptionsBuilder<NullableCollectionDbContext>()
+                .UseDynamo()
+                .ConfigureWarnings(w
+                    => w
+                        .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                        .Ignore(DynamoEventId.ScanLikeQueryDetected))
+                .Options);
+
+        var entity = new NullableCollectionEntity
+        {
+            Pk = "OS#EMPTY",
+            Sk = "OS2",
+            NullableStatusSet = [NullableStatus.Active],
+            OptionalStatusSet = [],
+        };
+
+        db.Add(entity);
+
+        var serializer = db.GetService<DynamoEntityItemSerializerSource>();
+        var updateEntry = (IUpdateEntry)db.Entry(entity).GetInfrastructure();
+
+        var act = () => serializer.BuildItem(updateEntry);
+
+        act
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage(
+                "DynamoDB sets cannot be empty; use a null property or a non-empty collection.");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void BuildItem_ComplexCollectionWithNullElement_ThrowsWhenElementIsNull()
     {
         using var db = new ComplexCollectionDbContext(
@@ -216,9 +283,156 @@ public class DynamoEntityItemSerializerSourceTests
             .WithMessage("*Complex collection*contains null element*");
     }
 
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void BuildItem_ComplexTypeWithScalarCollections_SerializesListsAndBinary()
+    {
+        using var db = new ComplexScalarCollectionDbContext(
+            new DbContextOptionsBuilder<ComplexScalarCollectionDbContext>()
+                .UseDynamo()
+                .ConfigureWarnings(w
+                    => w
+                        .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                        .Ignore(DynamoEventId.ScanLikeQueryDetected))
+                .Options);
+
+        var entity = new ComplexScalarCollectionEntity
+        {
+            Pk = "SC#1",
+            Sk = "SC1",
+            Details = new ComplexScalarCollectionDetails
+            {
+                Members = ["m1", "m2"],
+                Scores = [1, 2],
+                OptionalScores = [3, null],
+                Tags = ["red", "blue"],
+                Counts =
+                    new Dictionary<string, int>(StringComparer.Ordinal)
+                    {
+                        ["a"] = 1, ["b"] = 2,
+                    },
+                LongCounts =
+                    new ReadOnlyDictionary<string, long>(
+                        new Dictionary<string, long>(StringComparer.Ordinal) { ["big"] = 42 }),
+                Flags =
+                    new Dictionary<string, bool>(StringComparer.Ordinal) { ["enabled"] = true },
+                OptionalFlags =
+                    new ReadOnlyDictionary<string, bool?>(
+                        new Dictionary<string, bool?>(StringComparer.Ordinal)
+                        {
+                            ["yes"] = true, ["unknown"] = null,
+                        }),
+                UnsignedCounts =
+                    new ReadOnlyDictionary<string, uint>(
+                        new Dictionary<string, uint>(StringComparer.Ordinal) { ["u"] = 7 }),
+                Doubles =
+                    new Dictionary<string, double?>(StringComparer.Ordinal)
+                    {
+                        ["pi"] = 3.14, ["missing"] = null,
+                    },
+                BinaryByName =
+                    new Dictionary<string, byte[]>(StringComparer.Ordinal)
+                    {
+                        ["blob"] = [4, 5, 6],
+                    },
+                Payload = [1, 2, 3],
+            },
+        };
+
+        db.Add(entity);
+
+        var serializer = db.GetService<DynamoEntityItemSerializerSource>();
+        var updateEntry = (IUpdateEntry)db.Entry(entity).GetInfrastructure();
+
+        var item = serializer.BuildItem(updateEntry);
+        var details = item["details"].M;
+
+        details["members"].L.Select(x => x.S).Should().Equal("m1", "m2");
+        details["scores"].L.Select(x => x.N).Should().Equal("1", "2");
+        details["optionalScores"].L[0].N.Should().Be("3");
+        details["optionalScores"].L[1].NULL.Should().BeTrue();
+        details["tags"].SS.Should().BeEquivalentTo("red", "blue");
+        details["counts"].M["a"].N.Should().Be("1");
+        details["counts"].M["b"].N.Should().Be("2");
+        details["longCounts"].M["big"].N.Should().Be("42");
+        details["flags"].M["enabled"].BOOL.Should().BeTrue();
+        details["optionalFlags"].M["yes"].BOOL.Should().BeTrue();
+        details["optionalFlags"].M["unknown"].NULL.Should().BeTrue();
+        details["unsignedCounts"].M["u"].N.Should().Be("7");
+        details["doubles"].M["pi"].N.Should().Be("3.14");
+        details["doubles"].M["missing"].NULL.Should().BeTrue();
+        details["binaryByName"].M["blob"].B.ToArray().Should().Equal(4, 5, 6);
+        details["payload"].B.ToArray().Should().Equal(1, 2, 3);
+        details["payload"].L.Should().BeNull();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void BuildItem_ComplexTypeWithPropertyConverterReturningCollection_SerializesList()
+    {
+        using var db = new ComplexScalarCollectionDbContext(
+            new DbContextOptionsBuilder<ComplexScalarCollectionDbContext>()
+                .UseDynamo()
+                .ConfigureWarnings(w
+                    => w
+                        .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                        .Ignore(DynamoEventId.ScanLikeQueryDetected))
+                .Options);
+
+        var entity = new ComplexScalarCollectionEntity
+        {
+            Pk = "SC#2",
+            Sk = "SC2",
+            Details = new ComplexScalarCollectionDetails
+            {
+                ConvertedCodes = new ConvertedCodeList("a,b"),
+            },
+        };
+
+        db.Add(entity);
+
+        var serializer = db.GetService<DynamoEntityItemSerializerSource>();
+        var updateEntry = (IUpdateEntry)db.Entry(entity).GetInfrastructure();
+
+        var item = serializer.BuildItem(updateEntry);
+        item["details"].M["convertedCodes"].L.Select(x => x.S).Should().Equal("a", "b");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void
+        ConvertProviderShapeToAttributeValue_GenericMapProviderShape_SerializesNestedValues()
+    {
+        var value = new ReadOnlyDictionary<string, object?>(
+            new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["name"] = "alpha",
+                ["count"] = 2,
+                ["enabled"] = true,
+                ["missing"] = null,
+                ["tags"] = new[] { "one", "two" },
+                ["nested"] =
+                    new Dictionary<string, object?>(StringComparer.Ordinal)
+                    {
+                        ["inner"] = "value",
+                    },
+            });
+
+        var attributeValue = ConvertProviderShapeToAttributeValue(value);
+
+        attributeValue.M["name"].S.Should().Be("alpha");
+        attributeValue.M["count"].N.Should().Be("2");
+        attributeValue.M["enabled"].BOOL.Should().BeTrue();
+        attributeValue.M["missing"].NULL.Should().BeTrue();
+        attributeValue.M["tags"].L.Select(x => x.S).Should().Equal("one", "two");
+        attributeValue.M["nested"].M["inner"].S.Should().Be("value");
+    }
+
     // ──────────────────────────────────────────────────────────────────────────────
     //  Fixtures
     // ──────────────────────────────────────────────────────────────────────────────
+
+    private static AttributeValue ConvertProviderShapeToAttributeValue(object? value)
+        => (AttributeValue)typeof(DynamoWriteValueSerializerSource).GetMethod(
+            "ConvertProviderShapeToAttributeValue",
+            BindingFlags.NonPublic | BindingFlags.Static)!.Invoke(null, [value])!;
 
     private sealed class Gadget
     {
@@ -255,7 +469,9 @@ public class DynamoEntityItemSerializerSourceTests
         public Dictionary<string, NullableStatus?> NullableStatusByCode { get; set; } =
             new(StringComparer.Ordinal);
 
-        public HashSet<NullableStatus?> NullableStatusSet { get; set; } = [];
+        public HashSet<NullableStatus?>? NullableStatusSet { get; set; }
+
+        public HashSet<NullableStatus>? OptionalStatusSet { get; set; }
     }
 
     private sealed class ComplexCollectionEntity
@@ -269,6 +485,42 @@ public class DynamoEntityItemSerializerSourceTests
     {
         public string Value { get; set; } = null!;
     }
+
+    private sealed class ComplexScalarCollectionEntity
+    {
+        public string Pk { get; set; } = null!;
+        public string Sk { get; set; } = null!;
+        public ComplexScalarCollectionDetails Details { get; set; } = new();
+    }
+
+    private sealed class ComplexScalarCollectionDetails
+    {
+        public string[] Members { get; set; } = [];
+        public List<int> Scores { get; set; } = [];
+        public List<int?> OptionalScores { get; set; } = [];
+        public HashSet<string>? Tags { get; set; }
+        public Dictionary<string, int> Counts { get; set; } = new(StringComparer.Ordinal);
+
+        public IReadOnlyDictionary<string, long> LongCounts { get; set; } =
+            new ReadOnlyDictionary<string, long>(new Dictionary<string, long>());
+
+        public Dictionary<string, bool> Flags { get; set; } = new(StringComparer.Ordinal);
+
+        public IReadOnlyDictionary<string, bool?> OptionalFlags { get; set; } =
+            new ReadOnlyDictionary<string, bool?>(new Dictionary<string, bool?>());
+
+        public IReadOnlyDictionary<string, uint> UnsignedCounts { get; set; } =
+            new ReadOnlyDictionary<string, uint>(new Dictionary<string, uint>());
+
+        public Dictionary<string, double?> Doubles { get; set; } = new(StringComparer.Ordinal);
+
+        public Dictionary<string, byte[]> BinaryByName { get; set; } = new(StringComparer.Ordinal);
+
+        public byte[] Payload { get; set; } = [];
+        public ConvertedCodeList ConvertedCodes { get; set; } = new(string.Empty);
+    }
+
+    private sealed record ConvertedCodeList(string Value);
 
     private sealed class QuotedTableDbContext(DbContextOptions options) : DbContext(options)
     {
@@ -315,6 +567,7 @@ public class DynamoEntityItemSerializerSourceTests
                 b.Property(x => x.NullableStatuses);
                 b.Property(x => x.NullableStatusByCode);
                 b.Property(x => x.NullableStatusSet);
+                b.Property(x => x.OptionalStatusSet).IsRequired(false);
             });
     }
 
@@ -329,6 +582,32 @@ public class DynamoEntityItemSerializerSourceTests
                 b.HasPartitionKey(x => x.Pk);
                 b.HasSortKey(x => x.Sk);
                 b.ComplexCollection(x => x.Contacts);
+            });
+    }
+
+    private sealed class ComplexScalarCollectionDbContext(DbContextOptions options) : DbContext(
+        options)
+    {
+        public DbSet<ComplexScalarCollectionEntity> Items => Set<ComplexScalarCollectionEntity>();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<ComplexScalarCollectionEntity>(b =>
+            {
+                b.ToTable("ComplexScalarCollections");
+                b.HasPartitionKey(x => x.Pk);
+                b.HasSortKey(x => x.Sk);
+                b.ComplexProperty(
+                    x => x.Details,
+                    details =>
+                    {
+                        details
+                            .Property(x => x.ConvertedCodes)
+                            .HasConversion(
+                                codes => codes.Value.Length == 0
+                                    ? Array.Empty<string>()
+                                    : codes.Value.Split(',', StringSplitOptions.RemoveEmptyEntries),
+                                values => new ConvertedCodeList(string.Join(",", values)));
+                    });
             });
     }
 }

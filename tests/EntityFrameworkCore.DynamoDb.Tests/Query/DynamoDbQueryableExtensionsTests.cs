@@ -26,6 +26,16 @@ public class DynamoDbQueryableExtensionsTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void WithNextToken_NullSource_ThrowsArgumentNullException()
+    {
+        IQueryable<TestEntity> source = null!;
+
+        var act = () => source.WithNextToken("token");
+
+        act.Should().Throw<ArgumentNullException>().WithParameterName("source");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void WithNextToken_Whitespace_ThrowsArgumentException()
     {
         var source = new[] { new TestEntity() }.AsQueryable();
@@ -156,6 +166,16 @@ public class DynamoDbQueryableExtensionsTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void WithIndex_Null_ThrowsArgumentNullException()
+    {
+        var source = new[] { new TestEntity() }.AsQueryable();
+
+        var act = () => source.WithIndex(null!);
+
+        act.Should().Throw<ArgumentNullException>().WithParameterName("indexName");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void WithoutIndex_ReturnsNewQueryable()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -165,6 +185,28 @@ public class DynamoDbQueryableExtensionsTests
         var withoutIndex = original.WithoutIndex();
 
         withoutIndex.Should().NotBeSameAs(original);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void AsUnsafeFilteredQuery_ReturnsNewQueryable()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var context = LimitDbContext.Create(client);
+
+        var original = context.Items.AsQueryable();
+        var unsafeFilteredQuery = original.AsUnsafeFilteredQuery();
+
+        unsafeFilteredQuery.Should().NotBeSameAs(original);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void AsUnsafeFilteredQuery_OnNonEntityQueryProvider_ReturnsSourceUnchanged()
+    {
+        var source = new[] { new TestEntity() }.AsQueryable();
+
+        var result = source.AsUnsafeFilteredQuery();
+
+        result.Should().BeSameAs(source);
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]

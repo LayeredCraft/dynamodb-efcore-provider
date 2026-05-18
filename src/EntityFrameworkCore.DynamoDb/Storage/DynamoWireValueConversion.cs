@@ -83,9 +83,23 @@ internal static class DynamoWireValueConversion
     ///     to preserve precision across write/read cycles.
     /// </remarks>
     public static string FormatNumber<T>(T value) where T : struct, IFormattable
-        => value.ToString(
+    {
+        if (value is float f && !float.IsFinite(f))
+            throw new ArgumentOutOfRangeException(
+                nameof(value),
+                value,
+                "DynamoDB numeric attributes do not support non-finite floating-point values.");
+
+        if (value is double d && !double.IsFinite(d))
+            throw new ArgumentOutOfRangeException(
+                nameof(value),
+                value,
+                "DynamoDB numeric attributes do not support non-finite floating-point values.");
+
+        return value.ToString(
             typeof(T) == typeof(float) || typeof(T) == typeof(double) ? "R" : null,
             CultureInfo.InvariantCulture);
+    }
 
     /// <summary>Creates a binary DynamoDB attribute value from a byte array.</summary>
     /// <remarks>
@@ -93,7 +107,15 @@ internal static class DynamoWireValueConversion
     ///     bytes without mutating the original array.
     /// </remarks>
     public static AttributeValue CreateBinaryAttributeValue(byte[] value)
-        => new() { B = new MemoryStream(value, false) };
+        => new() { B = CreateBinaryStream(value) };
+
+    /// <summary>Creates a stream wrapper for a DynamoDB binary attribute.</summary>
+    /// <remarks>
+    ///     The stream is handed to the AWS SDK through <see cref="AttributeValue.B" /> or
+    ///     <see cref="AttributeValue.BS" /> and must remain open until request serialization. The
+    ///     <see cref="MemoryStream" /> wraps caller-owned memory and does not hold unmanaged resources.
+    /// </remarks>
+    internal static MemoryStream CreateBinaryStream(byte[] value) => new(value, writable: false);
 
     /// <summary>Converts a provider CLR value to a DynamoDB <see cref="AttributeValue" />.</summary>
     /// <remarks>

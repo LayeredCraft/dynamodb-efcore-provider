@@ -43,6 +43,9 @@ public sealed class DynamoDbOptionsExtension : IDbContextOptionsExtension
     /// <summary>Controls whether DynamoDB should use strongly consistent reads by default.</summary>
     public bool ConsistentRead { get; private set; }
 
+    /// <summary>Controls whether <c>First*</c> safety validation is bypassed globally.</summary>
+    public bool AllowUnsafeFilteredQueries { get; private set; }
+
     /// <summary>Configures waits used by DynamoDB table lifecycle operations.</summary>
     public DynamoTableLifecycleOptions TableLifecycleOptions { get; private set; } = new();
 
@@ -125,9 +128,10 @@ public sealed class DynamoDbOptionsExtension : IDbContextOptionsExtension
     public DynamoDbOptionsExtension WithMaxTransactionSize(int maxTransactionSize)
     {
         if (maxTransactionSize is <= 0 or > DynamoTransactionLimit)
-            throw new InvalidOperationException(
-                $"The specified 'MaxTransactionSize' value '{maxTransactionSize}' is not valid. "
-                + $"It must be between 1 and {DynamoTransactionLimit}.");
+            throw new ArgumentOutOfRangeException(
+                nameof(maxTransactionSize),
+                maxTransactionSize,
+                $"The value must be between 1 and {DynamoTransactionLimit}.");
 
         var clone = Clone();
 
@@ -140,9 +144,10 @@ public sealed class DynamoDbOptionsExtension : IDbContextOptionsExtension
     public DynamoDbOptionsExtension WithMaxBatchWriteSize(int maxBatchWriteSize)
     {
         if (maxBatchWriteSize is <= 0 or > DynamoPartiQlBatchLimit)
-            throw new InvalidOperationException(
-                $"The specified 'MaxBatchWriteSize' value '{maxBatchWriteSize}' is not valid. "
-                + $"It must be between 1 and {DynamoPartiQlBatchLimit}.");
+            throw new ArgumentOutOfRangeException(
+                nameof(maxBatchWriteSize),
+                maxBatchWriteSize,
+                $"The value must be between 1 and {DynamoPartiQlBatchLimit}.");
 
         var clone = Clone();
 
@@ -168,6 +173,18 @@ public sealed class DynamoDbOptionsExtension : IDbContextOptionsExtension
         var clone = Clone();
 
         clone.ConsistentRead = consistentRead;
+
+        return clone;
+    }
+
+    /// <summary>Sets whether <c>First*</c> safety validation is bypassed globally.</summary>
+    /// <param name="allow">Whether to bypass filtered <c>First*</c> query safety validation.</param>
+    /// <returns>A cloned options extension with the configured unsafe filtered query setting.</returns>
+    public DynamoDbOptionsExtension WithAllowUnsafeFilteredQueries(bool allow)
+    {
+        var clone = Clone();
+
+        clone.AllowUnsafeFilteredQueries = allow;
 
         return clone;
     }
@@ -199,6 +216,7 @@ public sealed class DynamoDbOptionsExtension : IDbContextOptionsExtension
             MaxBatchWriteSize = MaxBatchWriteSize,
             ReturnConsumedCapacity = ReturnConsumedCapacity,
             ConsistentRead = ConsistentRead,
+            AllowUnsafeFilteredQueries = AllowUnsafeFilteredQueries,
             TableLifecycleOptions = TableLifecycleOptions.Clone(),
         };
 
@@ -224,6 +242,7 @@ public sealed class DynamoDbOptionsExtension : IDbContextOptionsExtension
                 hashCode.Add(Extension.TransactionOverflowBehavior);
                 hashCode.Add(Extension.MaxTransactionSize);
                 hashCode.Add(Extension.MaxBatchWriteSize);
+                hashCode.Add(Extension.AllowUnsafeFilteredQueries);
 
                 _serviceProviderHash = hashCode.ToHashCode();
             }
@@ -246,7 +265,9 @@ public sealed class DynamoDbOptionsExtension : IDbContextOptionsExtension
                 && Extension.TransactionOverflowBehavior
                 == otherInfo.Extension.TransactionOverflowBehavior
                 && Extension.MaxTransactionSize == otherInfo.Extension.MaxTransactionSize
-                && Extension.MaxBatchWriteSize == otherInfo.Extension.MaxBatchWriteSize;
+                && Extension.MaxBatchWriteSize == otherInfo.Extension.MaxBatchWriteSize
+                && Extension.AllowUnsafeFilteredQueries
+                == otherInfo.Extension.AllowUnsafeFilteredQueries;
 
         /// <summary>Provides functionality for this member.</summary>
         public override void PopulateDebugInfo(IDictionary<string, string> debugInfo) { }
@@ -265,6 +286,7 @@ public sealed class DynamoDbOptionsExtension : IDbContextOptionsExtension
                     + $"MaxBatchWriteSize={Extension.MaxBatchWriteSize},"
                     + $"ReturnConsumedCapacity={Extension.ReturnConsumedCapacity},"
                     + $"ConsistentRead={Extension.ConsistentRead},"
+                    + $"AllowUnsafeFilteredQueries={Extension.AllowUnsafeFilteredQueries},"
                     + $"TableLifecycleWaitForCompletion={Extension.TableLifecycleOptions.WaitForCompletion},"
                     + $"TableLifecycleInitialPollingDelay={Extension.TableLifecycleOptions.InitialPollingDelay},"
                     + $"TableLifecycleMaxPollingDelay={Extension.TableLifecycleOptions.MaxPollingDelay},"

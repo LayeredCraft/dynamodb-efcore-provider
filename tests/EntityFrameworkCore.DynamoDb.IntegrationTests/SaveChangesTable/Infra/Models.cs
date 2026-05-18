@@ -1,4 +1,3 @@
-using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SaveChangesTable;
@@ -24,9 +23,9 @@ public sealed record CustomerItem
 
     public Dictionary<string, string> Preferences { get; set; } = [];
 
-    public HashSet<string> Tags { get; set; } = [];
+    public HashSet<string>? Tags { get; set; }
 
-    public HashSet<Guid> ReferenceIds { get; set; } = [];
+    public HashSet<Guid>? ReferenceIds { get; set; }
 
     public List<string> Notes { get; set; } = [];
 
@@ -58,7 +57,7 @@ public sealed record OrderItem
 
     public Dictionary<string, decimal> ChargesByCode { get; set; } = [];
 
-    public HashSet<int> RiskFlags { get; set; } = [];
+    public HashSet<int>? RiskFlags { get; set; }
 
     public string? CancellationReason { get; set; }
 }
@@ -86,7 +85,7 @@ public sealed record ProductItem
 
     public Dictionary<string, string> Metadata { get; set; } = [];
 
-    public HashSet<string> CategorySet { get; set; } = [];
+    public HashSet<string>? CategorySet { get; set; }
 
     public List<string> SearchTerms { get; set; } = [];
 }
@@ -110,7 +109,7 @@ public sealed record SessionItem
 
     public Dictionary<string, string> Attributes { get; set; } = [];
 
-    public HashSet<string> Flags { get; set; } = [];
+    public HashSet<string>? Flags { get; set; }
 
     public bool Revoked { get; set; }
 

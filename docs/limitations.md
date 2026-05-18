@@ -84,8 +84,10 @@ DynamoDB counts *evaluated* items against `Limit` (not matched items), this is o
 3. Any sort-key predicate is a valid DynamoDB key condition (`=`, `<`, `<=`, `>`, `>=`,
     `BETWEEN`, `begins_with`).
 
-Queries that do not meet all three conditions throw `InvalidOperationException` at translation
-time.
+By default, filtered `First*` queries that fail the partition-key or sort-key safety checks throw
+`InvalidOperationException` at translation time. `AsUnsafeFilteredQuery()` and
+`AllowUnsafeFilteredQueries()` can bypass only that filtered `First*` safety validation for
+controlled legacy code or tests. Explicit `Limit(n)` combined with `First*` is never supported.
 
 **Sort-key filter expressions are unsafe.** `SK IN (...)` and `SK = A OR SK = B` reference only
 key attributes but are DynamoDB *filter expressions*, not key conditions. `Limit=1` on a filter
@@ -106,13 +108,36 @@ var result = await context.Orders
     .FirstOrDefaultAsync(ct);
 ```
 
+!!! warning "Unsafe filtered First* is not a best practice"
+
+    `AsUnsafeFilteredQuery()` bypasses the provider's `First` / `FirstOrDefault` safety
+    validation for one query. `AllowUnsafeFilteredQueries()` applies the same bypass to every
+    query in the context.
+
+    This does not disable scan-like query protection, does not allow explicit `Limit(n)` or
+    `WithNextToken()` with `First*`, and does not change `First*` execution: the provider still
+    sends one request with implicit `Limit=1` when no user limit is specified.
+
+    DynamoDB applies filters after evaluating items, so `FirstOrDefaultAsync` can return `null`
+    and `FirstAsync` can throw even when a later item would match. See AWS' notes on
+    [filter expressions](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Query.FilterExpression.html).
+    Use this only for tests or controlled legacy code.
+
+```csharp
+var result = await context.Orders
+    .Where(x => x.Pk == pk && skValues.Contains(x.Sk))
+    .AsUnsafeFilteredQuery()
+    .FirstOrDefaultAsync(ct);
+```
+
 **Exception — PK-only table.** When the base table has no sort key, each partition holds at most
 one item and `First*` with a PK equality condition is always safe.
 
 **Shared-table / inheritance.** The provider injects a discriminator predicate automatically.
 Server-side `First*` is safe only when the query evaluates at most one base-table item before
-filtering: a PK-only lookup on a PK-only table, or a PK+SK equality on a PK+SK table. All
-other shapes throw — use `AsAsyncEnumerable().FirstOrDefaultAsync()`.
+filtering: a PK-only lookup on a PK-only table, or a PK+SK equality on a PK+SK table. By default,
+all other shapes throw — use `AsAsyncEnumerable().FirstOrDefaultAsync()`, or explicitly opt in to
+unsafe filtered `First*` behavior when you accept the DynamoDB filter-expression risk.
 
 ### `Find` — Primary-Key Lookup
 
@@ -164,7 +189,7 @@ all required attributes available in the index or table projection. See
 
 ### Synchronous `SaveChanges` Not Supported
 
-`SaveChanges()` throws `InvalidOperationException`. Use `SaveChangesAsync()`.
+`SaveChanges()` throws `NotSupportedException`. Use `SaveChangesAsync()`.
 
 The AWS SDK for .NET exposes only async I/O for DynamoDB; the provider does not wrap async calls
 synchronously to avoid deadlocks in ASP.NET Core and other async-first hosts.
