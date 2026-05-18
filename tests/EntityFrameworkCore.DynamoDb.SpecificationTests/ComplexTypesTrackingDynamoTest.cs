@@ -808,7 +808,6 @@ public class ComplexTypesTrackingDynamoTest
         Func<DbContext, Task>? nestedTestOperation3 = null)
     {
         await using var context = CreateContext();
-        await Fixture.TestStore.CleanAsync(context).ConfigureAwait(false);
 
         try
         {
@@ -819,6 +818,12 @@ public class ComplexTypesTrackingDynamoTest
                     context,
                     async _ =>
                     {
+                        await using (var cleanupContext = CreateContext())
+                            await Fixture
+                                .TestStore
+                                .CleanAsync(cleanupContext)
+                                .ConfigureAwait(false);
+
                         await using (var innerContext = CreateContext())
                         {
                             innerContext.Database.AutoTransactionBehavior =
