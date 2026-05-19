@@ -389,6 +389,23 @@ public class DynamoAutoIndexSelectionAnalyzerTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void On_NoSecondaryIndexes_UnkeyedQuery_ReturnsNoSelectionWithoutDiagnostics()
+    {
+        var candidates = new List<DynamoIndexDescriptor>
+        {
+            MakeDescriptor("CustomerId", indexName: null),
+        };
+        var constraints = MakeConstraints(["Region"]);
+        var ctx = BuildContext(DynamoAutomaticIndexSelectionMode.On, candidates, constraints);
+
+        var decision = Analyzer.Analyze(ctx);
+
+        decision.SelectedIndexName.Should().BeNull();
+        decision.Reason.Should().Be(DynamoIndexSelectionReason.NoSelection);
+        decision.Diagnostics.Should().BeEmpty();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void On_AmbiguousTie_EmitsIdx002Warning_NoSelection()
     {
         var candidates = new List<DynamoIndexDescriptor>
