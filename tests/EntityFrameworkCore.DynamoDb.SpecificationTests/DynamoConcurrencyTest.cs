@@ -214,13 +214,6 @@ public sealed class DynamoConcurrencyTest(DynamoConcurrencyTest.DynamoConcurrenc
             => base
                 .AddOptions(builder)
                 .UseDynamo(o => o.DynamoDbClient(DynamoTestStoreFactory.Instance.Client));
-
-        /// <inheritdoc />
-        protected override async Task CleanAsync(DbContext context)
-        {
-            await context.Database.EnsureDeletedAsync().ConfigureAwait(false);
-            await context.Database.EnsureCreatedAsync().ConfigureAwait(false);
-        }
     }
 
     /// <summary>Context used by optimistic concurrency tests.</summary>

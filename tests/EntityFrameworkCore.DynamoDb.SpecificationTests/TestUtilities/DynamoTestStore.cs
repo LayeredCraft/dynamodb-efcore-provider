@@ -14,6 +14,15 @@ public class DynamoTestStore(string name, bool shared, DynamoTestStoreFactory fa
     public override DbContextOptionsBuilder AddProviderOptions(DbContextOptionsBuilder builder)
         => builder.UseDynamo(options => options.DynamoDbClient(Client));
 
+    /// <inheritdoc />
+    public override async Task CleanAsync(DbContext context)
+    {
+        context.ChangeTracker.Clear();
+
+        await context.Database.EnsureDeletedAsync().ConfigureAwait(false);
+        await context.Database.EnsureCreatedAsync().ConfigureAwait(false);
+    }
+
     protected override async Task InitializeAsync(
         Func<DbContext> createContext,
         Func<DbContext, Task>? seed,
