@@ -19,18 +19,14 @@ public sealed class ConcurrencyDetectorEnabledDynamoTest(
         => DynamoTestHelpers.AssertAllTestMethodsOverridden(
             typeof(ConcurrencyDetectorEnabledDynamoTest));
 
-    /// <inheritdoc />
     [ConditionalTheory(Skip = "DynamoDB does not support Any queries.")]
     public override Task Any(bool async) => Task.CompletedTask;
 
-    /// <inheritdoc />
     [ConditionalTheory(Skip = "DynamoDB does not support Count queries.")]
     public override Task Count(bool async) => Task.CompletedTask;
 
-    /// <inheritdoc />
     public override Task Find(bool async) => async ? base.Find(async) : Task.CompletedTask;
 
-    /// <inheritdoc />
     public override Task First(bool async)
     {
         if (!async)
@@ -40,25 +36,20 @@ public sealed class ConcurrencyDetectorEnabledDynamoTest(
             => await c.Products.AsUnsafeFilteredQuery().FirstAsync());
     }
 
-    /// <inheritdoc />
     [ConditionalTheory(Skip = "DynamoDB does not support Last queries.")]
     public override Task Last(bool async) => Task.CompletedTask;
 
-    /// <inheritdoc />
     public override Task SaveChanges(bool async)
         => async ? base.SaveChanges(async) : Task.CompletedTask;
 
-    /// <inheritdoc />
     [ConditionalTheory(Skip = "DynamoDB does not support Single queries.")]
     public override Task Single(bool async) => Task.CompletedTask;
 
-    /// <inheritdoc />
     public override Task ToList(bool async) => async ? base.ToList(async) : Task.CompletedTask;
 
     /// <summary>Fixture for DynamoDB concurrency detector tests.</summary>
     public class ConcurrencyDetectorEnabledDynamoFixture : ConcurrencyDetectorFixtureBase
     {
-        /// <inheritdoc />
         protected override ITestStoreFactory TestStoreFactory => DynamoTestStoreFactory.Instance;
 
         public override DbContextOptionsBuilder AddOptions(DbContextOptionsBuilder builder)
