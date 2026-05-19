@@ -31,6 +31,7 @@ public class NorthwindQueryDynamoFixture<TModelCustomizer>
                 => warnings
                     .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
                     .Ignore(CoreEventId.MappedNavigationIgnoredWarning)
+                    .Ignore(CoreEventId.MappedEntityTypeIgnoredWarning)
                     .Ignore(DynamoEventId.ScanLikeQueryDetected))
             .UseDynamo(options
                 => options
@@ -53,28 +54,27 @@ public class NorthwindQueryDynamoFixture<TModelCustomizer>
             entity.Ignore(e => e.OrderDetails);
         });
         modelBuilder.Entity<Product>().Ignore(e => e.OrderDetails);
-        modelBuilder.Entity<OrderDetail>(entity =>
-        {
-            entity.Ignore(e => e.Order);
-            entity.Ignore(e => e.Product);
-        });
-        modelBuilder.Entity<OrderQuery>().Ignore(e => e.Customer);
+        modelBuilder.Ignore<OrderDetail>();
+        modelBuilder.Ignore<CustomerQuery>();
+        modelBuilder.Ignore<CustomerQueryWithQueryFilter>();
+        modelBuilder.Ignore<OrderQuery>();
+        modelBuilder.Ignore<ProductQuery>();
+        modelBuilder.Ignore<ProductView>();
 
         modelBuilder.Entity<Customer>().ToTable("Customers").HasPartitionKey(e => e.CustomerID);
         modelBuilder.Entity<Employee>().ToTable("Employees").HasPartitionKey(e => e.EmployeeID);
         modelBuilder.Entity<Order>().ToTable("Orders").HasPartitionKey(e => e.OrderID);
         modelBuilder.Entity<Product>().ToTable("Products").HasPartitionKey(e => e.ProductID);
-        modelBuilder.Entity<OrderDetail>().ToTable("OrderDetails").HasPartitionKey(e => e.OrderID).HasSortKey(e => e.ProductID);
 
-        modelBuilder.Entity<CustomerQuery>().HasKey(e => e.CompanyName);
-        modelBuilder.Entity<CustomerQuery>().ToTable("CustomerQueries").HasPartitionKey(e => e.CompanyName);
-        modelBuilder.Entity<CustomerQueryWithQueryFilter>().HasKey(e => e.CompanyName);
-        modelBuilder.Entity<CustomerQueryWithQueryFilter>().ToTable("CustomerQueriesWithQueryFilter").HasPartitionKey(e => e.CompanyName);
-        modelBuilder.Entity<OrderQuery>().HasKey(e => e.CustomerID);
-        modelBuilder.Entity<OrderQuery>().ToTable("OrderQueries").HasPartitionKey(e => e.CustomerID);
-        modelBuilder.Entity<ProductQuery>().HasKey(e => e.ProductID);
-        modelBuilder.Entity<ProductQuery>().ToTable("ProductQueries").HasPartitionKey(e => e.ProductID);
-        modelBuilder.Entity<ProductView>().HasKey(e => e.ProductID);
-        modelBuilder.Entity<ProductView>().ToTable("ProductViews").HasPartitionKey(e => e.ProductID);
+    }
+
+    protected override Task SeedAsync(NorthwindContext context)
+    {
+        context.Set<Customer>().AddRange(NorthwindData.CreateCustomers());
+        context.Set<Employee>().AddRange(NorthwindData.CreateEmployees());
+        context.Set<Order>().AddRange(NorthwindData.CreateOrders());
+        context.Set<Product>().AddRange(NorthwindData.CreateProducts());
+
+        return context.SaveChangesAsync();
     }
 }

@@ -174,18 +174,6 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
                 continue;
             }
 
-            var keyPropertyNames = primaryKey.Properties.Select(property => property.Name).ToArray();
-            var expectedKeyPropertyNames = new[]
-                {
-                    entityType[DynamoAnnotationNames.PartitionKeyPropertyName] as string,
-                    entityType[DynamoAnnotationNames.SortKeyPropertyName] as string,
-                }
-                .OfType<string>()
-                .ToArray();
-
-            if (keyPropertyNames.SequenceEqual(expectedKeyPropertyNames))
-                continue;
-
             throw new InvalidOperationException(
                 $"Entity type '{entityType.DisplayName()}' configures an EF primary key explicitly. "
                 + "Root DynamoDB entities must use HasPartitionKey(...) and optional HasSortKey(...); "
