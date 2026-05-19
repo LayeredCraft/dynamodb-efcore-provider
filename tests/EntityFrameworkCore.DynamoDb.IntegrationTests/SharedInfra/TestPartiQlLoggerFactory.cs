@@ -1,6 +1,4 @@
 using AwesomeAssertions.Execution;
-using EntityFrameworkCore.DynamoDb.Diagnostics;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 

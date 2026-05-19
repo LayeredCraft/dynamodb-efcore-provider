@@ -32,14 +32,27 @@ public class DynamoTestHelpers : TestHelpers
         {
             testCode();
         }
-        catch (InvalidOperationException exception) when (exception.Message.Contains(
-                "Sync enumerating",
-                StringComparison.Ordinal)
-            && exception.Message.Contains("DynamoDB", StringComparison.Ordinal))
+        catch (InvalidOperationException exception) when (IsExpectedSyncQueryFailure(exception))
         {
             return;
         }
 
         Assert.Fail("Expected DynamoDB sync query failure.");
     }
+
+    /// <summary>Runs an async-aware test and verifies that sync DynamoDB query execution fails.</summary>
+    public async Task NoSyncTest(bool async, Func<bool, Task> testCode)
+    {
+        try
+        {
+            await testCode(async);
+        }
+        catch (InvalidOperationException exception) when (!async && IsExpectedSyncQueryFailure(exception))
+        {
+        }
+    }
+
+    private static bool IsExpectedSyncQueryFailure(InvalidOperationException exception)
+        => exception.Message.Contains("Sync enumerating", StringComparison.Ordinal)
+            && exception.Message.Contains("DynamoDB", StringComparison.Ordinal);
 }

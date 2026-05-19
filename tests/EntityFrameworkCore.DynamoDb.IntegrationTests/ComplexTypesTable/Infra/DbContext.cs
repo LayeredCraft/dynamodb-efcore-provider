@@ -1,6 +1,5 @@
 using System.Globalization;
 using Amazon.DynamoDBv2;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 

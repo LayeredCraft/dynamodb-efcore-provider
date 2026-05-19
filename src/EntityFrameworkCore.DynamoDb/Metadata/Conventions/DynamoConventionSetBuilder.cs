@@ -37,7 +37,6 @@ public sealed class DynamoConventionSetBuilder(
         conventionSet.ModelFinalizingConventions.Add(ownedEntityTypeValidationConvention);
 
         var relationshipValidationConvention = new DynamoRelationshipValidationConvention();
-        conventionSet.ForeignKeyAddedConventions.Add(relationshipValidationConvention);
         conventionSet.ForeignKeyOwnershipChangedConventions.Add(relationshipValidationConvention);
         conventionSet.ModelFinalizingConventions.Add(relationshipValidationConvention);
 

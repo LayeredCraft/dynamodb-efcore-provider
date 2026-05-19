@@ -1,6 +1,5 @@
 using EntityFrameworkCore.DynamoDb.IntegrationTests.SecondaryIndexTable;
 using EntityFrameworkCore.DynamoDb.Metadata;
-using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SecondaryIndexProjectionTable;
 

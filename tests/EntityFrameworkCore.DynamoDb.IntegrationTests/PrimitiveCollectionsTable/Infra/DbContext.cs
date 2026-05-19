@@ -1,5 +1,3 @@
-using Microsoft.EntityFrameworkCore;
-
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.PrimitiveCollectionsTable;
 
 /// <summary>Represents the PrimitiveCollectionsDbContext type.</summary>

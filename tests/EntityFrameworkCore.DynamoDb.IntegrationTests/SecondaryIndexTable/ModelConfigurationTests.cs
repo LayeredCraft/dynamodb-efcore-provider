@@ -1,6 +1,5 @@
 using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 using EntityFrameworkCore.DynamoDb.Metadata;
-using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SecondaryIndexTable;
 

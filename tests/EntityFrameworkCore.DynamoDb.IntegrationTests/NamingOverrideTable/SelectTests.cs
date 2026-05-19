@@ -1,6 +1,5 @@
 using EntityFrameworkCore.DynamoDb.IntegrationTests.NamingOverrideTable.Infra;
 using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
-using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.NamingOverrideTable;
 
