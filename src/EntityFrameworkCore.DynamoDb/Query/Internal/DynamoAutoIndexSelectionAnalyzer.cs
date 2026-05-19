@@ -22,7 +22,7 @@ namespace EntityFrameworkCore.DynamoDb.Query.Internal;
 /// <para>
 /// Diagnostic codes:
 /// <list type="bullet">
-///   <item><c>DYNAMO_IDX001</c> — no candidate satisfies the predicate (Warning)</item>
+///   <item><c>DYNAMO_IDX001</c> — targeted candidates failed safety gates (Warning)</item>
 ///   <item><c>DYNAMO_IDX002</c> — multiple candidates tie (Warning)</item>
 ///   <item><c>DYNAMO_IDX003</c> — a single candidate was selected or would be auto-selected (Information)</item>
 ///   <item><c>DYNAMO_IDX004</c> — explicit index selected via .WithIndex() (Information)</item>
@@ -141,9 +141,9 @@ internal sealed class DynamoAutoIndexSelectionAnalyzer : IDynamoIndexSelectionAn
                 new(
                     DynamoQueryDiagnosticLevel.Warning,
                     "DYNAMO_IDX001",
-                    $"No secondary index on table '{context.SelectExpression.TableName}' satisfies "
-                    + "the predicate. The query will use the base table. "
-                    + "Ensure the WHERE clause includes an equality constraint on the index partition key."),
+                    $"No targeted secondary index on table '{context.SelectExpression.TableName}' "
+                    + "satisfies all safety gates. The query will use the base table. "
+                    + "Review preceding DYNAMO_IDX005 diagnostics for rejection reasons."),
             };
             return new DynamoIndexSelectionDecision(
                 null,
