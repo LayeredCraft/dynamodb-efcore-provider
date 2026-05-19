@@ -1,7 +1,5 @@
 using Amazon.DynamoDBv2;
-using EntityFrameworkCore.DynamoDb.Diagnostics;
 using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SecondaryIndexTable;
@@ -185,6 +183,62 @@ public class SecondaryIndexAutoSelectionTests(DynamoContainerFixture fixture)
             SELECT "customerId", "orderId", "createdAt", "priority", "region", "status"
             FROM "SecondaryIndexOrders"."ByStatus"
             WHERE "status" IN [?, ?]
+            """);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task On_TargetedIndexWithUnsafeOr_FallsBackToBaseTable_AndEmitsDiagnostics()
+    {
+        var results = await Db
+            .Orders
+            .Where(o => o.Status == "PENDING" && (o.Region == "US-EAST" || o.CustomerId == "C#1"))
+            .ToListAsync(CancellationToken);
+
+        var expected = OrderItems
+            .Items
+            .Where(o => o.Status == "PENDING" && (o.Region == "US-EAST" || o.CustomerId == "C#1"))
+            .ToList();
+        results.Should().BeEquivalentTo(expected);
+
+        LoggerFactory
+            .QueryDiagnosticEvents
+            .Should()
+            .Contain(e
+                => e.EventId.Id == DynamoEventId.SecondaryIndexCandidateRejected.Id
+                && e.Message.Contains("unsafe OR"));
+
+        LoggerFactory
+            .QueryDiagnosticEvents
+            .Should()
+            .ContainSingle(e => e.EventId.Id == DynamoEventId.NoCompatibleSecondaryIndexFound.Id);
+
+        AssertSql(
+            """
+            SELECT "customerId", "orderId", "createdAt", "priority", "region", "status"
+            FROM "SecondaryIndexOrders"
+            WHERE "status" = 'PENDING' AND ("region" = 'US-EAST' OR "customerId" = 'C#1')
+            """);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task On_NoPredicate_FallsBackToBaseTable_WithoutIndexDiagnostics()
+    {
+        var results = await Db.Orders.AllowScan().ToListAsync(CancellationToken);
+
+        results.Should().BeEquivalentTo(OrderItems.Items);
+
+        LoggerFactory
+            .QueryDiagnosticEvents
+            .Should()
+            .NotContain(e
+                => e.EventId.Id == DynamoEventId.NoCompatibleSecondaryIndexFound.Id
+                || e.EventId.Id == DynamoEventId.SecondaryIndexCandidateRejected.Id
+                || e.EventId.Id == DynamoEventId.SecondaryIndexSelected.Id);
+
+        AssertSql(
+            """
+            SELECT "customerId", "orderId", "createdAt", "priority", "region", "status"
+            FROM "SecondaryIndexOrders"
             """);
     }
 

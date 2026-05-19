@@ -6,7 +6,6 @@ namespace EntityFrameworkCore.DynamoDb.SpecificationTests;
 
 #nullable disable
 
-/// <summary>Optimistic concurrency tests for the DynamoDB provider.</summary>
 [Collection(DynamoSpecificationCollection.Name)]
 public sealed class DynamoConcurrencyTest(DynamoConcurrencyTest.DynamoConcurrencyFixture fixture)
     : IClassFixture<DynamoConcurrencyTest.DynamoConcurrencyFixture>
@@ -15,7 +14,6 @@ public sealed class DynamoConcurrencyTest(DynamoConcurrencyTest.DynamoConcurrenc
 
     private DynamoConcurrencyFixture Fixture { get; } = fixture;
 
-    /// <summary>Adding the same entity through two contexts throws a duplicate-key update exception.</summary>
     [ConditionalFact]
     public Task Adding_the_same_entity_twice_results_in_DbUpdateException()
         => ConcurrencyTestAsync<DbUpdateException>(ctx =>
@@ -24,7 +22,6 @@ public sealed class DynamoConcurrencyTest(DynamoConcurrencyTest.DynamoConcurrenc
             return Task.CompletedTask;
         });
 
-    /// <summary>Updating then deleting the same entity through stale context state throws a concurrency exception.</summary>
     [ConditionalFact]
     public Task Updating_then_deleting_the_same_entity_results_in_DbUpdateConcurrencyException()
         => ConcurrencyTestAsync<DbUpdateConcurrencyException>(
@@ -44,7 +41,6 @@ public sealed class DynamoConcurrencyTest(DynamoConcurrencyTest.DynamoConcurrenc
             async ctx => ctx.Customers.Remove(
                 await ctx.Customers.FirstAsync(c => c.Id == "2", CancellationToken.None)));
 
-    /// <summary>Updating the same entity through stale context state throws a concurrency exception.</summary>
     [ConditionalFact]
     public Task Updating_then_updating_the_same_entity_results_in_DbUpdateConcurrencyException()
         => ConcurrencyTestAsync<DbUpdateConcurrencyException>(
@@ -70,10 +66,6 @@ public sealed class DynamoConcurrencyTest(DynamoConcurrencyTest.DynamoConcurrenc
                 customer.Version = 2;
             });
 
-    /// <summary>
-    ///     Updating the same derived entity through stale context state throws a concurrency
-    ///     exception.
-    /// </summary>
     [ConditionalFact]
     public Task
         Updating_then_updating_the_same_derived_entity_results_in_DbUpdateConcurrencyException()
@@ -106,10 +98,6 @@ public sealed class DynamoConcurrencyTest(DynamoConcurrencyTest.DynamoConcurrenc
                 customer.LoyaltyLevel = "Gold";
             });
 
-    /// <summary>
-    ///     Updating then deleting the same derived entity through stale context state throws a
-    ///     concurrency exception.
-    /// </summary>
     [ConditionalFact]
     public Task
         Updating_then_deleting_the_same_derived_entity_results_in_DbUpdateConcurrencyException()
@@ -135,39 +123,16 @@ public sealed class DynamoConcurrencyTest(DynamoConcurrencyTest.DynamoConcurrenc
             async ctx => ctx.PremiumCustomers.Remove(
                 await ctx.PremiumCustomers.FirstAsync(c => c.Id == "5", CancellationToken.None)));
 
-    /// <summary>
-    ///     Runs the same change through two contexts so the store context succeeds and the stale
-    ///     client context throws the expected update exception.
-    /// </summary>
-    /// <typeparam name="TException">Expected exception type thrown by the stale save.</typeparam>
-    /// <param name="change">Change applied by both competing contexts.</param>
     private Task ConcurrencyTestAsync<TException>(Func<ConcurrencyContext, Task> change)
         where TException : DbUpdateException
         => ConcurrencyTestAsync<TException, Customer>(null, change, change);
 
-    /// <summary>
-    ///     Runs two changes with two different contexts, saving the store change before the stale
-    ///     client change so optimistic concurrency can reject the stale save.
-    /// </summary>
-    /// <typeparam name="TException">Expected exception type thrown by the stale save.</typeparam>
-    /// <param name="seedAction">Optional action that seeds state before both contexts make changes.</param>
-    /// <param name="storeChange">Change saved by the winning store context.</param>
-    /// <param name="clientChange">Change saved last by the stale client context.</param>
     private Task ConcurrencyTestAsync<TException>(
         Func<ConcurrencyContext, Task> seedAction,
         Func<ConcurrencyContext, Task> storeChange,
         Func<ConcurrencyContext, Task> clientChange) where TException : DbUpdateException
         => ConcurrencyTestAsync<TException, Customer>(seedAction, storeChange, clientChange);
 
-    /// <summary>
-    ///     Runs two changes with two different contexts, saving the store change before the stale
-    ///     client change so optimistic concurrency can reject the stale save.
-    /// </summary>
-    /// <typeparam name="TException">Expected exception type thrown by the stale save.</typeparam>
-    /// <typeparam name="TEntity">Expected entity type carried by the update exception entry.</typeparam>
-    /// <param name="seedAction">Optional action that seeds state before both contexts make changes.</param>
-    /// <param name="storeChange">Change saved by the winning store context.</param>
-    /// <param name="clientChange">Change saved last by the stale client context.</param>
     private async Task ConcurrencyTestAsync<TException, TEntity>(
         Func<ConcurrencyContext, Task> seedAction,
         Func<ConcurrencyContext, Task> storeChange,
@@ -199,33 +164,26 @@ public sealed class DynamoConcurrencyTest(DynamoConcurrencyTest.DynamoConcurrenc
         Assert.IsAssignableFrom<TEntity>(entry.Entity);
     }
 
-    /// <summary>Creates a new context configured by the shared fixture.</summary>
     private ConcurrencyContext CreateContext() => Fixture.CreateContext();
 
-    /// <summary>Fixture for the DynamoDB concurrency test model.</summary>
     public class DynamoConcurrencyFixture : SharedStoreFixtureBase<ConcurrencyContext>
     {
         protected override string StoreName => DatabaseName;
 
         protected override ITestStoreFactory TestStoreFactory => DynamoTestStoreFactory.Instance;
 
-        /// <inheritdoc />
         public override DbContextOptionsBuilder AddOptions(DbContextOptionsBuilder builder)
             => base
                 .AddOptions(builder)
                 .UseDynamo(o => o.DynamoDbClient(DynamoTestStoreFactory.Instance.Client));
     }
 
-    /// <summary>Context used by optimistic concurrency tests.</summary>
     public class ConcurrencyContext(DbContextOptions options) : PoolableDbContext(options)
     {
-        /// <summary>Customers participating in concurrency tests.</summary>
         public DbSet<Customer> Customers { get; set; }
 
-        /// <summary>Premium customers participating in inherited concurrency-token tests.</summary>
         public DbSet<PremiumCustomer> PremiumCustomers { get; set; }
 
-        /// <inheritdoc />
         protected override void OnModelCreating(ModelBuilder builder)
         {
             builder.Entity<Customer>(b =>
@@ -239,13 +197,11 @@ public sealed class DynamoConcurrencyTest(DynamoConcurrencyTest.DynamoConcurrenc
         }
     }
 
-    /// <summary>Premium customer entity used to verify inherited concurrency tokens.</summary>
     public class PremiumCustomer : Customer
     {
         public string LoyaltyLevel { get; set; }
     }
 
-    /// <summary>Customer entity with a client-managed optimistic concurrency token.</summary>
     public class Customer
     {
         public string Id { get; set; }
