@@ -39,8 +39,21 @@ public sealed class ConcurrencyDetectorEnabledDynamoTest(
     [ConditionalTheory(Skip = "DynamoDB does not support Last queries.")]
     public override Task Last(bool async) => Task.CompletedTask;
 
-    public override Task SaveChanges(bool async)
-        => async ? base.SaveChanges(async) : Task.CompletedTask;
+    public override async Task SaveChanges(bool async)
+    {
+        if (!async)
+            return;
+
+        await ConcurrencyDetectorTest(async c =>
+        {
+            c.Products.Add(new Product { Id = 2, Name = "Unicorn Replacement Horn Pack" });
+            return await c.SaveChangesAsync();
+        });
+
+        await using var ctx = CreateContext();
+        var newProduct = await ctx.Products.FirstOrDefaultAsync(p => p.Id == 2);
+        Assert.Null(newProduct);
+    }
 
     [ConditionalTheory(Skip = "DynamoDB does not support Single queries.")]
     public override Task Single(bool async) => Task.CompletedTask;
