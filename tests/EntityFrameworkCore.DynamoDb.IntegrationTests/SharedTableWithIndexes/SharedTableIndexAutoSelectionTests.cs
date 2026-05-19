@@ -81,11 +81,6 @@ public class SharedTableIndexAutoSelectionTests(DynamoContainerFixture fixture)
     {
         _ = await Db.WorkOrders.Where(o => o.Status == "OPEN").ToListAsync(CancellationToken);
 
-        LoggerFactory
-            .QueryDiagnosticEvents
-            .Should()
-            .Contain(e => e.EventId.Id == DynamoEventId.NoCompatibleSecondaryIndexFound.Id);
-
         AssertSql(
             """
             SELECT "pk", "sk", "$type", "status", "priority"

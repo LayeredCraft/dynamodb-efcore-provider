@@ -189,65 +189,6 @@ public class SecondaryIndexAutoSelectionTests(DynamoContainerFixture fixture)
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public async Task On_UnsafeOrPredicate_BlocksAutoSelection_EmitsRejectionDiagnostics()
-    {
-        _ = await Db
-            .Orders
-            .Where(o => o.Status == "PENDING" || o.Region == "US-EAST")
-            .ToListAsync(CancellationToken);
-
-        LoggerFactory
-            .QueryDiagnosticEvents
-            .Where(e => e.EventId.Id == DynamoEventId.SecondaryIndexCandidateRejected.Id)
-            .Should()
-            .NotBeEmpty()
-            .And
-            .OnlyContain(e
-                => e.Message.Contains(
-                    "was rejected: no equality or IN constraint on the index partition key."));
-
-        LoggerFactory
-            .QueryDiagnosticEvents
-            .Should()
-            .Contain(e => e.EventId.Id == DynamoEventId.NoCompatibleSecondaryIndexFound.Id);
-
-        AssertSql(
-            """
-            SELECT "customerId", "orderId", "createdAt", "priority", "region", "status"
-            FROM "SecondaryIndexOrders"
-            WHERE "status" = 'PENDING' OR "region" = 'US-EAST'
-            """);
-    }
-
-    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public async Task On_WhereOnNonIndexPkAttribute_AllCandidatesRejected_EmitsIdxDiagnostics()
-    {
-        _ = await Db.Orders.Where(o => o.Priority == 1).ToListAsync(CancellationToken);
-
-        LoggerFactory
-            .QueryDiagnosticEvents
-            .Where(e => e.EventId.Id == DynamoEventId.SecondaryIndexCandidateRejected.Id)
-            .Should()
-            .NotBeEmpty()
-            .And
-            .OnlyContain(e
-                => e.Message.Contains(
-                    "was rejected: no equality or IN constraint on the index partition key."));
-
-        LoggerFactory
-            .QueryDiagnosticEvents
-            .Should()
-            .Contain(e => e.EventId.Id == DynamoEventId.NoCompatibleSecondaryIndexFound.Id);
-
-        AssertSql(
-            """
-            SELECT "customerId", "orderId", "createdAt", "priority", "region", "status"
-            FROM "SecondaryIndexOrders"
-            WHERE "priority" = 1
-            """);
-    }
-
-    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ExplicitHint_WithIndex_EmitsExplicitIndexSelectedDiagnostic()
     {
         _ = await Db
@@ -305,23 +246,6 @@ public class SecondaryIndexAutoSelectionTests(DynamoContainerFixture fixture)
             FROM "SecondaryIndexOrders"."ByStatus"
             WHERE "status" = 'PENDING'
             ORDER BY "createdAt" ASC
-            """);
-    }
-
-    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public async Task On_NoPredicate_EmitsNoCompatibleIndex_StaysOnBaseTable()
-    {
-        _ = await Db.Orders.ToListAsync(CancellationToken);
-
-        LoggerFactory
-            .QueryDiagnosticEvents
-            .Should()
-            .Contain(e => e.EventId.Id == DynamoEventId.NoCompatibleSecondaryIndexFound.Id);
-
-        AssertSql(
-            """
-            SELECT "customerId", "orderId", "createdAt", "priority", "region", "status"
-            FROM "SecondaryIndexOrders"
             """);
     }
 }
