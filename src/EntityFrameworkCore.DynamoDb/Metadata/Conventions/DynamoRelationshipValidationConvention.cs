@@ -7,14 +7,8 @@ namespace EntityFrameworkCore.DynamoDb.Metadata.Conventions;
 
 /// <summary>Rejects EF Core foreign-key relationship configuration for DynamoDB models.</summary>
 public sealed class DynamoRelationshipValidationConvention
-    : IForeignKeyAddedConvention, IForeignKeyOwnershipChangedConvention, IModelFinalizingConvention
+    : IForeignKeyOwnershipChangedConvention, IModelFinalizingConvention
 {
-    /// <inheritdoc />
-    public void ProcessForeignKeyAdded(
-        IConventionForeignKeyBuilder foreignKeyBuilder,
-        IConventionContext<IConventionForeignKeyBuilder> context)
-        => ThrowIfUnsupportedRelationship(foreignKeyBuilder.Metadata);
-
     /// <inheritdoc />
     public void ProcessForeignKeyOwnershipChanged(
         IConventionForeignKeyBuilder relationshipBuilder,

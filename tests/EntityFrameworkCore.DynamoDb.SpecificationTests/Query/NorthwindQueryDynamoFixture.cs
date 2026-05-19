@@ -65,7 +65,6 @@ public class NorthwindQueryDynamoFixture<TModelCustomizer>
         modelBuilder.Entity<Employee>().ToTable("Employees").HasPartitionKey(e => e.EmployeeID);
         modelBuilder.Entity<Order>().ToTable("Orders").HasPartitionKey(e => e.OrderID);
         modelBuilder.Entity<Product>().ToTable("Products").HasPartitionKey(e => e.ProductID);
-
     }
 
     protected override Task SeedAsync(NorthwindContext context)
