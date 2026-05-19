@@ -14,4 +14,13 @@ public static class SkipReason
 
     public const string NavigationPropertiesNotSupported =
         "DynamoDB does not support navigation properties.";
+
+    public const string ProviderTypeConvertedPredicatesNotSupported =
+        "Provider-type converted predicates need DynamoDB-specific support.";
+
+    public const string BinaryProviderLiteralsNotSupported =
+        "Binary provider literals need parameterization instead of inline PartiQL constants.";
+
+    public const string ScalarEqualsTranslationNotSupported =
+        "Scalar Equals method translation is not supported yet.";
 }
