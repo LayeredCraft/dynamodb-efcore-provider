@@ -1,5 +1,4 @@
 using Amazon.DynamoDBv2;
-using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.PkSkTable;
 

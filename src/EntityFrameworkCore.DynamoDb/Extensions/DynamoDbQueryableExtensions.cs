@@ -32,7 +32,7 @@ public static class DynamoDbQueryableExtensions
         /// </param>
         /// <param name="cancellationToken">A token to observe while awaiting execution.</param>
         /// <returns>A single DynamoDB page result.</returns>
-        /// <exception cref="ArgumentNullException">Thrown when <paramref name="source" /> is null.</exception>
+        /// <exception cref="ArgumentNullException">Thrown when this <see cref="IQueryable{TEntity}" /> source is null.</exception>
         /// <exception cref="ArgumentOutOfRangeException">
         ///     Thrown when <paramref name="limit" /> is zero or negative.
         /// </exception>
@@ -82,7 +82,7 @@ public static class DynamoDbQueryableExtensions
         /// <param name="nextToken">The continuation token to seed on the first request.</param>
         /// <returns>A new query configured with the seed token.</returns>
         /// <exception cref="ArgumentNullException">
-        ///     Thrown when <paramref name="source" /> or <paramref name="nextToken" /> is null.
+        ///     Thrown when this <see cref="IQueryable{TEntity}" /> source or <paramref name="nextToken" /> is null.
         /// </exception>
         /// <exception cref="ArgumentException">
         ///     Thrown when <paramref name="nextToken" /> is empty or whitespace.
@@ -123,7 +123,7 @@ public static class DynamoDbQueryableExtensions
         /// </remarks>
         /// <param name="limit">The maximum number of items DynamoDB should evaluate. Must be positive.</param>
         /// <returns>A new query with the specified evaluation budget.</returns>
-        /// <exception cref="ArgumentNullException">Thrown when <paramref name="source" /> is null.</exception>
+        /// <exception cref="ArgumentNullException">Thrown when this <see cref="IQueryable{TEntity}" /> source is null.</exception>
         /// <exception cref="ArgumentOutOfRangeException">
         ///     Thrown immediately when <paramref name="limit"/> is zero or negative and the value is
         ///     known at construction time (constant). For compiled queries with runtime values, thrown at
@@ -155,7 +155,7 @@ public static class DynamoDbQueryableExtensions
         /// <summary>Configures whether this query should use strongly consistent reads.</summary>
         /// <param name="consistentRead">Whether this query should use strong consistency.</param>
         /// <returns>A new query with the specified read consistency preference.</returns>
-        /// <exception cref="ArgumentNullException">Thrown when <paramref name="source" /> is null.</exception>
+        /// <exception cref="ArgumentNullException">Thrown when this <see cref="IQueryable{TEntity}" /> source is null.</exception>
         public IQueryable<TEntity> WithConsistentRead(bool consistentRead)
         {
             ArgumentNullException.ThrowIfNull(source);
@@ -189,7 +189,7 @@ public static class DynamoDbQueryableExtensions
         ///     </para>
         /// </remarks>
         /// <returns>A new query that forces base-table execution.</returns>
-        /// <exception cref="ArgumentNullException">Thrown when <paramref name="source" /> is null.</exception>
+        /// <exception cref="ArgumentNullException">Thrown when this <see cref="IQueryable{TEntity}" /> source is null.</exception>
         public IQueryable<TEntity> WithoutIndex()
         {
             ArgumentNullException.ThrowIfNull(source);
@@ -210,7 +210,7 @@ public static class DynamoDbQueryableExtensions
         ///     allow <c>WithNextToken(...)</c> with <c>First*</c> and does not change execution semantics.
         /// </remarks>
         /// <returns>A new query with <c>First*</c> safety validation bypassed.</returns>
-        /// <exception cref="ArgumentNullException">Thrown when <paramref name="source" /> is null.</exception>
+        /// <exception cref="ArgumentNullException">Thrown when this <see cref="IQueryable{TEntity}" /> source is null.</exception>
         public IQueryable<TEntity> AsUnsafeFilteredQuery()
         {
             ArgumentNullException.ThrowIfNull(source);
@@ -231,7 +231,7 @@ public static class DynamoDbQueryableExtensions
         ///     behavior configured on the context options.
         /// </remarks>
         /// <returns>A new query with scan-like query protection bypassed.</returns>
-        /// <exception cref="ArgumentNullException">Thrown when <paramref name="source" /> is null.</exception>
+        /// <exception cref="ArgumentNullException">Thrown when this <see cref="IQueryable{TEntity}" /> source is null.</exception>
         public IQueryable<TEntity> AllowScan()
         {
             ArgumentNullException.ThrowIfNull(source);
@@ -253,7 +253,7 @@ public static class DynamoDbQueryableExtensions
         /// </remarks>
         /// <returns>A new query that carries the selected index hint.</returns>
         /// <exception cref="ArgumentNullException">
-        ///     Thrown when <paramref name="source" /> or <paramref name="indexName" /> is null.
+        ///     Thrown when this <see cref="IQueryable{TEntity}" /> source or <paramref name="indexName" /> is null.
         /// </exception>
         /// <exception cref="ArgumentException">Thrown when <paramref name="indexName" /> is empty.</exception>
         public IQueryable<TEntity> WithIndex([NotParameterized] string indexName)

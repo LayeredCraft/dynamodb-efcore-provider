@@ -37,7 +37,8 @@ public sealed class DynamoConventionSetBuilder(
         conventionSet.ModelFinalizingConventions.Add(ownedEntityTypeValidationConvention);
 
         var relationshipValidationConvention = new DynamoRelationshipValidationConvention();
-        conventionSet.ForeignKeyAddedConventions.Add(relationshipValidationConvention);
+        // Do not register ForeignKeyAddedConventions here: fixture customization can still ignore
+        // relationships discovered by shared base models before model finalization.
         conventionSet.ForeignKeyOwnershipChangedConventions.Add(relationshipValidationConvention);
         conventionSet.ModelFinalizingConventions.Add(relationshipValidationConvention);
 

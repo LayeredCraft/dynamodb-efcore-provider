@@ -1,6 +1,5 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
-using Microsoft.EntityFrameworkCore;
 using NSubstitute;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SharedTable;

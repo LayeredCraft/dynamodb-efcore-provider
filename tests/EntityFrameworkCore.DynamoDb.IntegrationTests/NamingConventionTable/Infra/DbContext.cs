@@ -1,6 +1,5 @@
 using Amazon.DynamoDBv2;
 using EntityFrameworkCore.DynamoDb.Metadata;
-using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.NamingConventionTable;
 
