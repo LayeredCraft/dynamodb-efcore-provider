@@ -6,6 +6,11 @@ namespace EntityFrameworkCore.DynamoDb.SpecificationTests;
 
 #nullable disable
 
+/// <summary>
+///     Provider-custom concurrency coverage: DynamoDB optimistic concurrency semantics differ
+///     from EF Core spec bases, so this class intentionally does not inherit spec infrastructure or
+///     use Check_all_tests_overridden.
+/// </summary>
 [Collection(DynamoSpecificationCollection.Name)]
 public sealed class DynamoConcurrencyTest(DynamoConcurrencyTest.DynamoConcurrencyFixture fixture)
     : IClassFixture<DynamoConcurrencyTest.DynamoConcurrencyFixture>
