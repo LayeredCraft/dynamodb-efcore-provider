@@ -133,14 +133,17 @@ public sealed class DynamoConcurrencyTest(DynamoConcurrencyTest.DynamoConcurrenc
 
     private Task ConcurrencyTestAsync<TException>(
         Func<ConcurrencyContext, Task> seedAction,
-        Func<ConcurrencyContext, Task> storeChange,
-        Func<ConcurrencyContext, Task> clientChange) where TException : DbUpdateException
-        => ConcurrencyTestAsync<TException, Customer>(seedAction, storeChange, clientChange);
+        Func<ConcurrencyContext, Task> innerContextChange,
+        Func<ConcurrencyContext, Task> outerContextChange) where TException : DbUpdateException
+        => ConcurrencyTestAsync<TException, Customer>(
+            seedAction,
+            innerContextChange,
+            outerContextChange);
 
     private async Task ConcurrencyTestAsync<TException, TEntity>(
         Func<ConcurrencyContext, Task> seedAction,
-        Func<ConcurrencyContext, Task> storeChange,
-        Func<ConcurrencyContext, Task> clientChange) where TException : DbUpdateException
+        Func<ConcurrencyContext, Task> innerContextChange,
+        Func<ConcurrencyContext, Task> outerContextChange) where TException : DbUpdateException
     {
         await using var outerContext = CreateContext();
         await Fixture.TestStore.CleanAsync(outerContext);
@@ -150,13 +153,13 @@ public sealed class DynamoConcurrencyTest(DynamoConcurrencyTest.DynamoConcurrenc
 
         await outerContext.SaveChangesAsync(CancellationToken.None);
 
-        if (clientChange != null)
-            await clientChange(outerContext);
+        if (outerContextChange != null)
+            await outerContextChange(outerContext);
 
         await using (var innerContext = CreateContext())
         {
-            if (storeChange != null)
-                await storeChange(innerContext);
+            if (innerContextChange != null)
+                await innerContextChange(innerContext);
 
             await innerContext.SaveChangesAsync(CancellationToken.None);
         }
