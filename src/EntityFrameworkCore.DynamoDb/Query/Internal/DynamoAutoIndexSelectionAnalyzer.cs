@@ -328,6 +328,8 @@ internal sealed class DynamoAutoIndexSelectionAnalyzer : IDynamoIndexSelectionAn
     {
         var reason = gateResult switch
         {
+            // Unreachable from Analyze: NoPkConstraint is filtered there because scan
+            // classification owns user-facing warnings for non-keyed/base-table reads.
             CandidateGateResult.NoPkConstraint =>
                 "no equality or IN constraint on the index partition key",
             CandidateGateResult.UnsafeOr =>
