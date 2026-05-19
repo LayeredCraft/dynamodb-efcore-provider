@@ -11,7 +11,6 @@ public class AutoNSubstituteDataAttribute() : AutoDataAttribute(()
 /// <summary>Represents the InlineAutoNSubstituteDataAttribute type.</summary>
 public class InlineAutoNSubstituteDataAttribute : InlineAutoDataAttribute
 {
-    /// <summary>Provides functionality for this member.</summary>
     public InlineAutoNSubstituteDataAttribute(params object[] args) : base(
         new AutoNSubstituteDataAttribute(),
         args) { }

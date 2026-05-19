@@ -7,7 +7,6 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.NamingOverrideTable.Infr
 /// <summary>Represents the ComplexTypesTableDbContext type.</summary>
 public class NamingConventionsTableDbContext(DbContextOptions options) : DbContext(options)
 {
-    /// <summary>Provides functionality for this member.</summary>
     public DbSet<QuestionItem> Items => Set<QuestionItem>();
 
     /// <summary>Creates a context configured to use the provided DynamoDB client instance.</summary>

@@ -431,25 +431,19 @@ public class ScanQueryGuardTests
 
     private sealed record ScanGuardItem
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string Pk { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string Sk { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string Status { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public int Total { get; set; }
     }
 
     private sealed class ScanGuardDbContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<ScanGuardItem> Items => Set<ScanGuardItem>();
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ScanGuardItem>(b =>
             {
@@ -458,7 +452,6 @@ public class ScanQueryGuardTests
                 b.HasSortKey(x => x.Sk);
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static ScanGuardDbContext Create(
             IAmazonDynamoDB client,
             Action<WarningsConfigurationBuilder>? configureWarnings = null)

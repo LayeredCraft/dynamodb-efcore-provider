@@ -85,9 +85,7 @@ public class DynamoConstraintExtractionVisitorTests
 
     // ── tests ─────────────────────────────────────────────────────────────────
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void NoPredicate_ReturnsEmptyConstraints()
     {
         var candidates = new[] { MakeDescriptor("PK") };
@@ -101,9 +99,7 @@ public class DynamoConstraintExtractionVisitorTests
         result.OrderingPropertyNames.Should().BeEmpty();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void PkEquality_IsExtractedToEqualityConstraints()
     {
         // WHERE PK = "foo"
@@ -125,9 +121,7 @@ public class DynamoConstraintExtractionVisitorTests
         result.HasUnsafeOr.Should().BeFalse();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void PkIn_IsExtractedToInConstraints()
     {
         // PK IN ["a", "b"]
@@ -146,9 +140,7 @@ public class DynamoConstraintExtractionVisitorTests
         result.EqualityConstraints.Should().BeEmpty();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void PkAndSkEquality_BothCaptured_SkInKeyConditionsAsEqual()
     {
         // WHERE PK = "x" AND SK = "y"
@@ -172,9 +164,7 @@ public class DynamoConstraintExtractionVisitorTests
             .Be("y");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void PkAndSkGreaterThan_SkInKeyConditionsAsGreaterThan()
     {
         // WHERE PK = "x" AND SK > "y"
@@ -189,9 +179,7 @@ public class DynamoConstraintExtractionVisitorTests
         result.SkKeyConditions["SK"].Operator.Should().Be(SkOperator.GreaterThan);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void PkAndSkBetween_SkInKeyConditionsAsBetweenWithBothBounds()
     {
         // WHERE PK = "x" AND SK BETWEEN "a" AND "z"
@@ -223,9 +211,7 @@ public class DynamoConstraintExtractionVisitorTests
             .Be("z");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void PkAndSkBeginsWith_SkInKeyConditionsAsBeginsWith()
     {
         // WHERE PK = "x" AND begins_with(SK, "pre")
@@ -253,9 +239,7 @@ public class DynamoConstraintExtractionVisitorTests
         result.SkKeyConditions["SK"].High.Should().BeNull();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void MultipleSkConditionsOnSameProperty_SkDemotedFromKeyConditions()
     {
         // WHERE PK = "x" AND SK > "a" AND SK < "z"
@@ -273,9 +257,7 @@ public class DynamoConstraintExtractionVisitorTests
         result.EqualityConstraints.Should().ContainKey("PK");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void SafeFilterOr_NonPkAttributes_HasUnsafeOrFalse_PkStillCaptured()
     {
         // WHERE PK = "x" AND (A = 1 OR B = 2)  — A and B are not PK or SK
@@ -290,9 +272,7 @@ public class DynamoConstraintExtractionVisitorTests
         result.EqualityConstraints.Should().ContainKey("PK");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void SafePkOr_AllBranchesSamePk_PopulatesInConstraints_HasUnsafeOrFalse()
     {
         // WHERE PK = "a" OR PK = "b"
@@ -307,9 +287,7 @@ public class DynamoConstraintExtractionVisitorTests
         result.EqualityConstraints.Should().NotContainKey("PK");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void UnsafeOr_MixedPkAndNonPk_SetsHasUnsafeOrTrue()
     {
         // WHERE PK = "x" OR NonKey = "y"
@@ -321,9 +299,7 @@ public class DynamoConstraintExtractionVisitorTests
         result.HasUnsafeOr.Should().BeTrue();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void NonKeyPredicateOnly_NoPkOrSkConstraints()
     {
         // WHERE NonKey = "z"
@@ -337,9 +313,7 @@ public class DynamoConstraintExtractionVisitorTests
         result.HasUnsafeOr.Should().BeFalse();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void OrderingProperty_PopulatesOrderingPropertyNames()
     {
         // No predicate; ORDER BY SK ASC
@@ -351,9 +325,7 @@ public class DynamoConstraintExtractionVisitorTests
         result.OrderingPropertyNames.Should().Contain("SK");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void ParenthesizedPkEquality_IsUnwrappedAndExtracted()
     {
         // ((PK = "foo"))
@@ -366,9 +338,7 @@ public class DynamoConstraintExtractionVisitorTests
         result.EqualityConstraints.Should().ContainKey("PK");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void ConjunctiveOrBranches_ContainingPk_SetsHasUnsafeOrTrue()
     {
         // (PK = "a" AND SK > "1") OR (PK = "b" AND SK > "2")
@@ -391,9 +361,7 @@ public class DynamoConstraintExtractionVisitorTests
         result.HasUnsafeOr.Should().BeTrue();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void OrBranch_WithPkBeginsWithAndNonPk_SetsHasUnsafeOrTrue()
     {
         // begins_with(PK, "prefix") OR NonKey = "z"
@@ -412,9 +380,7 @@ public class DynamoConstraintExtractionVisitorTests
         result.HasUnsafeOr.Should().BeTrue();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void OrBranch_WithPkBetweenAndNonPk_SetsHasUnsafeOrTrue()
     {
         // (PK BETWEEN "a" AND "z") OR NonKey = "z"
@@ -428,9 +394,7 @@ public class DynamoConstraintExtractionVisitorTests
         result.HasUnsafeOr.Should().BeTrue();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void OrBranch_WithPkIsNullAndNonPk_SetsHasUnsafeOrTrue()
     {
         // PK IS NULL OR NonKey = "y"
@@ -444,9 +408,7 @@ public class DynamoConstraintExtractionVisitorTests
         result.HasUnsafeOr.Should().BeTrue();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void OrBranch_WithNegatedPkEqualityAndNonPk_SetsHasUnsafeOrTrue()
     {
         // NOT(PK = "x") OR NonKey = "y"
@@ -460,9 +422,7 @@ public class DynamoConstraintExtractionVisitorTests
         result.HasUnsafeOr.Should().BeTrue();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void AttributeToAttributeEquality_NotExtractedToEqualityConstraints()
     {
         // WHERE PK = OtherColumn  — both sides are properties: not a valid key condition.
@@ -474,9 +434,7 @@ public class DynamoConstraintExtractionVisitorTests
         result.EqualityConstraints.Should().BeEmpty();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void AttributeToAttributeRange_NotExtractedToSkKeyConditions()
     {
         // WHERE PK = "x" AND SK > OtherColumn — value side is an attribute: not a valid key
@@ -492,9 +450,7 @@ public class DynamoConstraintExtractionVisitorTests
         result.SkKeyConditions.Should().BeEmpty();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void ReversedRangeComparison_FlipsOperatorCorrectly()
     {
         // BinOp(GreaterThan, Const("y"), Prop("SK")) → value > SK → SK < value → LessThan
@@ -509,9 +465,7 @@ public class DynamoConstraintExtractionVisitorTests
         result.SkKeyConditions["SK"].Operator.Should().Be(SkOperator.LessThan);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void BeginsWith_WithAttributePrefix_NotExtractedToSkKeyConditions()
     {
         // WHERE PK = "x" AND begins_with(SK, OtherColumn)
@@ -532,9 +486,7 @@ public class DynamoConstraintExtractionVisitorTests
 
     // ── cross-role attribute tests (PK in one index, SK in another) ───────────
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void CrossRole_RangeOnDualRoleAttribute_RecordedAsSkKeyCondition()
     {
         // GSI-A: PK=Status, SK=CreatedAt
@@ -558,9 +510,7 @@ public class DynamoConstraintExtractionVisitorTests
         result.SkKeyConditions["CreatedAt"].Operator.Should().Be(SkOperator.GreaterThan);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void CrossRole_EqualityOnDualRoleAttribute_RecordedInBothEqualityAndSk()
     {
         // GSI-A: PK=Status, SK=CreatedAt
@@ -582,9 +532,7 @@ public class DynamoConstraintExtractionVisitorTests
         result.SkKeyConditions["CreatedAt"].Operator.Should().Be(SkOperator.Equal);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void CrossRole_BetweenOnDualRoleAttribute_RecordedAsSkKeyCondition()
     {
         // GSI-A: PK=Status, SK=CreatedAt
@@ -606,9 +554,7 @@ public class DynamoConstraintExtractionVisitorTests
         result.SkKeyConditions["CreatedAt"].Operator.Should().Be(SkOperator.Between);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void Between_WithAttributeBounds_NotExtractedToSkKeyConditions()
     {
         // WHERE PK = "x" AND SK BETWEEN OtherLow AND OtherHigh
@@ -623,9 +569,7 @@ public class DynamoConstraintExtractionVisitorTests
         result.SkKeyConditions.Should().BeEmpty();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void CrossRole_BeginsWithOnDualRoleAttribute_RecordedAsSkKeyCondition()
     {
         // GSI-A: PK=Status, SK=Prefix
@@ -650,9 +594,7 @@ public class DynamoConstraintExtractionVisitorTests
         result.SkKeyConditions["Prefix"].Operator.Should().Be(SkOperator.BeginsWith);
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void PurelyPkAttribute_RangeCondition_StillDropped()
     {
         // Regression: a pure-PK attribute (not an SK on any index) must still be blocked

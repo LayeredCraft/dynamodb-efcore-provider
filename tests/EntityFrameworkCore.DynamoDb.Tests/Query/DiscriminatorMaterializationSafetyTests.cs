@@ -84,37 +84,28 @@ public class DiscriminatorMaterializationSafetyTests
 
     private sealed record UserEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string PK { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string SK { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string Name { get; set; } = null!;
     }
 
     private sealed record OrderEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string PK { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string SK { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string Description { get; set; } = null!;
     }
 
     private sealed class SharedTableContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<UserEntity> Users => Set<UserEntity>();
 
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<OrderEntity> Orders => Set<OrderEntity>();
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<UserEntity>(b =>
@@ -132,48 +123,38 @@ public class DiscriminatorMaterializationSafetyTests
             });
         }
 
-        /// <summary>Provides functionality for this member.</summary>
         public static SharedTableContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<SharedTableContext>(client));
     }
 
     private abstract record PersonEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string PK { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string SK { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string Name { get; set; } = null!;
     }
 
     private sealed record EmployeeEntity : PersonEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string Department { get; set; } = null!;
     }
 
     private sealed record ManagerEntity : PersonEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public int Level { get; set; }
     }
 
     private sealed class SharedTableInheritanceContext(DbContextOptions options) : DbContext(
         options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<PersonEntity> People => Set<PersonEntity>();
 
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<EmployeeEntity> Employees => Set<EmployeeEntity>();
 
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<ManagerEntity> Managers => Set<ManagerEntity>();
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<PersonEntity>(b =>
@@ -196,14 +177,11 @@ public class DiscriminatorMaterializationSafetyTests
             });
         }
 
-        /// <summary>Provides functionality for this member.</summary>
         public static SharedTableInheritanceContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<SharedTableInheritanceContext>(client));
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task SharedTableQuery_MissingDiscriminatorAttribute_Throws()
     {
         var client = CreateMockClient(
@@ -230,9 +208,7 @@ public class DiscriminatorMaterializationSafetyTests
             .WithMessage("*Required property*$type*");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task SharedTableQuery_WrongDiscriminatorValue_Throws()
     {
         var client = CreateMockClient(
@@ -257,9 +233,7 @@ public class DiscriminatorMaterializationSafetyTests
         await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*discriminat*");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public async Task
         SharedTableInheritanceQuery_ProjectsHierarchyAttributes_ForDerivedMaterialization()
     {

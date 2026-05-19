@@ -6,9 +6,7 @@ namespace EntityFrameworkCore.DynamoDb.Tests.ChangeTracking;
 /// <summary>Represents the PrimitiveCollectionComparerTests type.</summary>
 public class PrimitiveCollectionComparerTests
 {
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void SetComparer_Snapshot_InterfaceSet_ReturnsHashSet_AndPreservesComparer()
     {
         var elementComparer = ValueComparer.CreateDefault(typeof(string), false);
@@ -24,9 +22,7 @@ public class PrimitiveCollectionComparerTests
         comparer.Equals(source, snapshot).Should().BeTrue();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void DictionaryComparer_Snapshot_InterfaceDictionary_ReturnsDictionary()
     {
         var elementComparer = ValueComparer.CreateDefault(typeof(int), false);
@@ -46,9 +42,7 @@ public class PrimitiveCollectionComparerTests
         comparer.Equals(source, snapshot).Should().BeTrue();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void NullableDictionaryComparer_Snapshot_ReadOnlyDictionary_ReturnsDictionary()
     {
         var elementComparer = ValueComparer.CreateDefault(typeof(int), false);
@@ -67,9 +61,7 @@ public class PrimitiveCollectionComparerTests
         comparer.Equals(source, snapshot).Should().BeTrue();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void DictionaryComparer_EqualValues_HaveSameHashCode_WhenInsertionOrderDiffers()
     {
         var elementComparer = ValueComparer.CreateDefault(typeof(int), false);

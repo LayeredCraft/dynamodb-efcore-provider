@@ -21,25 +21,20 @@ public class DiscriminatorValidationTests
 
     private sealed record UserEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string PK { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string SK { get; set; } = null!;
     }
 
     private sealed record OrderEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string PK { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string SK { get; set; } = null!;
     }
 
     private sealed class SharedTableValidContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<UserEntity>(b =>
@@ -57,7 +52,6 @@ public class DiscriminatorValidationTests
             });
         }
 
-        /// <summary>Provides functionality for this member.</summary>
         public static SharedTableValidContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<SharedTableValidContext>(client));
     }
@@ -65,7 +59,6 @@ public class DiscriminatorValidationTests
     private sealed class MissingDiscriminatorPropertyContext(DbContextOptions options) : DbContext(
         options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<UserEntity>(b =>
@@ -85,7 +78,6 @@ public class DiscriminatorValidationTests
             });
         }
 
-        /// <summary>Provides functionality for this member.</summary>
         public static MissingDiscriminatorPropertyContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<MissingDiscriminatorPropertyContext>(client));
     }
@@ -93,7 +85,6 @@ public class DiscriminatorValidationTests
     private sealed class MissingDiscriminatorValueContext(DbContextOptions options) : DbContext(
         options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<UserEntity>(b =>
@@ -113,14 +104,12 @@ public class DiscriminatorValidationTests
             });
         }
 
-        /// <summary>Provides functionality for this member.</summary>
         public static MissingDiscriminatorValueContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<MissingDiscriminatorValueContext>(client));
     }
 
     private sealed class HasNoDiscriminatorContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<UserEntity>(b =>
@@ -139,7 +128,6 @@ public class DiscriminatorValidationTests
             });
         }
 
-        /// <summary>Provides functionality for this member.</summary>
         public static HasNoDiscriminatorContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<HasNoDiscriminatorContext>(client));
     }
@@ -147,7 +135,6 @@ public class DiscriminatorValidationTests
     private sealed class HasNoDiscriminatorOnEveryTypeContext(DbContextOptions options) : DbContext(
         options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<UserEntity>(b =>
@@ -167,7 +154,6 @@ public class DiscriminatorValidationTests
             });
         }
 
-        /// <summary>Provides functionality for this member.</summary>
         public static HasNoDiscriminatorOnEveryTypeContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<HasNoDiscriminatorOnEveryTypeContext>(client));
     }
@@ -175,7 +161,6 @@ public class DiscriminatorValidationTests
     private sealed class DuplicateDiscriminatorValueContext(DbContextOptions options) : DbContext(
         options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<UserEntity>(b =>
@@ -199,7 +184,6 @@ public class DiscriminatorValidationTests
             });
         }
 
-        /// <summary>Provides functionality for this member.</summary>
         public static DuplicateDiscriminatorValueContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<DuplicateDiscriminatorValueContext>(client));
     }
@@ -207,7 +191,6 @@ public class DiscriminatorValidationTests
     private sealed class DiscriminatorNameMismatchContext(DbContextOptions options) : DbContext(
         options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<UserEntity>(b =>
@@ -226,7 +209,6 @@ public class DiscriminatorValidationTests
             });
         }
 
-        /// <summary>Provides functionality for this member.</summary>
         public static DiscriminatorNameMismatchContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<DiscriminatorNameMismatchContext>(client));
     }
@@ -234,7 +216,6 @@ public class DiscriminatorValidationTests
     private sealed class DiscriminatorPartitionKeyCollisionContext(DbContextOptions options)
         : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<UserEntity>(b =>
@@ -254,7 +235,6 @@ public class DiscriminatorValidationTests
             });
         }
 
-        /// <summary>Provides functionality for this member.</summary>
         public static DiscriminatorPartitionKeyCollisionContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<DiscriminatorPartitionKeyCollisionContext>(client));
     }
@@ -262,7 +242,6 @@ public class DiscriminatorValidationTests
     private sealed class DiscriminatorSortKeyCollisionContext(DbContextOptions options) : DbContext(
         options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<UserEntity>(b =>
@@ -282,14 +261,11 @@ public class DiscriminatorValidationTests
             });
         }
 
-        /// <summary>Provides functionality for this member.</summary>
         public static DiscriminatorSortKeyCollisionContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<DiscriminatorSortKeyCollisionContext>(client));
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void SharedTableMultipleTypes_WithConventionDiscriminator_IsValid()
     {
         var client = MockClient();
@@ -326,9 +302,7 @@ public class DiscriminatorValidationTests
         act.Should().NotThrow();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void SharedTableMultipleTypes_WithHasNoDiscriminatorOnEveryType_IsValid()
     {
         var client = MockClient();
@@ -339,9 +313,7 @@ public class DiscriminatorValidationTests
         act.Should().NotThrow();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void SharedTableMultipleTypes_WithMissingDiscriminatorValue_Throws()
     {
         var client = MockClient();
@@ -352,9 +324,7 @@ public class DiscriminatorValidationTests
         act.Should().Throw<InvalidOperationException>().WithMessage("*discriminator value*");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void SharedTableMultipleTypes_WithDuplicateDiscriminatorValue_Throws()
     {
         var client = MockClient();
@@ -368,9 +338,7 @@ public class DiscriminatorValidationTests
             .WithMessage("*use duplicate discriminator value*");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void SharedTableMultipleTypes_WithDiscriminatorAttributeNameMismatch_Throws()
     {
         var client = MockClient();
@@ -384,9 +352,7 @@ public class DiscriminatorValidationTests
             .WithMessage("*different discriminator attribute names*");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void SharedTableMultipleTypes_WhenDiscriminatorNameCollidesWithPartitionKey_Throws()
     {
         var client = MockClient();
@@ -400,9 +366,7 @@ public class DiscriminatorValidationTests
             .WithMessage("*collides with the partition key attribute name*");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void SharedTableMultipleTypes_WhenDiscriminatorNameCollidesWithSortKey_Throws()
     {
         var client = MockClient();

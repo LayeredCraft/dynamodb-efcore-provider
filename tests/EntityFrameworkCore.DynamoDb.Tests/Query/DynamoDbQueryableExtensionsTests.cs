@@ -290,16 +290,13 @@ public class DynamoDbQueryableExtensionsTests
 
     private sealed record LimitEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string Pk { get; set; } = null!;
     }
 
     private sealed class LimitDbContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<LimitEntity> Items => Set<LimitEntity>();
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<LimitEntity>(b =>
             {
@@ -307,7 +304,6 @@ public class DynamoDbQueryableExtensionsTests
                 b.HasPartitionKey(x => x.Pk);
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static LimitDbContext Create(IAmazonDynamoDB client)
             => new(
                 new DbContextOptionsBuilder<LimitDbContext>()
