@@ -244,7 +244,8 @@ events except `DYNAMO_IDX004` (explicit `.WithIndex(...)` hints) and `DYNAMO_IDX
 When multiple targeted candidates are evaluated and rejected, `DYNAMO_IDX005` rejection events
 appear first, followed by the final outcome event (`DYNAMO_IDX001`, `DYNAMO_IDX002`, or
 `DYNAMO_IDX003`). Candidates whose partition key is not constrained by the query are not treated as
-rejections; scan-like base-table reads are reported by `ScanLikeQueryDetected` instead.
+rejections; reads that also fail to constrain the active source key may be reported by
+`ScanLikeQueryDetected` instead.
 Enable `Information` level logging for the `Query` category to see the full decision trail.
 
 ______________________________________________________________________
@@ -255,10 +256,11 @@ At least one secondary index was targeted by the predicate, but every targeted c
 later safety gate. The query will use the base table.
 
 This event is not emitted for unkeyed reads such as `ToListAsync()` or predicates that do not
-constrain any configured secondary-index partition key; those shapes are handled by
-`ScanLikeQueryDetected`. Review the preceding `DYNAMO_IDX005` rejection diagnostics to see why the
-targeted index candidates were rejected, then either adjust the query/index shape or confirm that
-running against the base table is acceptable for this access pattern.
+constrain any configured secondary-index partition key. Those shapes stay on the base table; when
+they also fail to constrain the active source key, `ScanLikeQueryDetected` may report the scan-like
+read. Review the preceding `DYNAMO_IDX005` rejection diagnostics to see why the targeted index
+candidates were rejected, then either adjust the query/index shape or confirm that running against
+the base table is acceptable for this access pattern.
 
 Use EF Core warning configuration to escalate or suppress this warning:
 

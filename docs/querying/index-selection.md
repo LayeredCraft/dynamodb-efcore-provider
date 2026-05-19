@@ -67,8 +67,8 @@ Diagnostics emitted during analysis:
 - `DYNAMO_IDX005`: targeted candidate rejected with reason.
 
 Queries that do not constrain any configured secondary-index partition key do not emit
-`DYNAMO_IDX001`/`DYNAMO_IDX005`; scan-like base-table reads are reported by
-`ScanLikeQueryDetected`.
+`DYNAMO_IDX001`/`DYNAMO_IDX005`; they stay on the base table. When they also fail to constrain the
+active source key, `ScanLikeQueryDetected` may report the scan-like read.
 
 ## When No Index Is Used
 
