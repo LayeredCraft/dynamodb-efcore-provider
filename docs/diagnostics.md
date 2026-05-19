@@ -320,21 +320,21 @@ ______________________________________________________________________
 
 ### `DYNAMO_IDX005` — `SecondaryIndexCandidateRejected` (Information)
 
-A candidate index was evaluated and eliminated. The rejection reason is included in the message:
+A targeted candidate index was evaluated and eliminated. The rejection reason is included in the message:
 
 ```
 info: Microsoft.EntityFrameworkCore.Query[30108]
-      Index 'ByCategory-index' on table 'Orders' was rejected: no equality or IN constraint on the index partition key.
+      Index 'ByCategory-index' on table 'Orders' was rejected: predicate contains an unsafe OR that would produce incorrect results.
 ```
 
 Common rejection reasons:
 
-- No equality or `IN` constraint on the index partition key
 - Predicate contains an unsafe `OR` that would produce incorrect results
 - Index projection type is not `ALL` (only ALL projection is auto-selected)
 
-These events appear before the final outcome event and give you visibility into why specific
-indexes were ruled out.
+Indexes whose partition key is not constrained by equality or `IN` are skipped silently rather than
+reported as rejections. These events appear before the final outcome event and give you visibility
+into why specific indexes were ruled out.
 
 ______________________________________________________________________
 
