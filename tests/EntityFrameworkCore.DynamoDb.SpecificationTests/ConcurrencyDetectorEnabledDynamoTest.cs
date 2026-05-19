@@ -4,8 +4,6 @@ using Microsoft.EntityFrameworkCore.TestUtilities;
 
 namespace EntityFrameworkCore.DynamoDb.SpecificationTests;
 
-#nullable disable
-
 [Collection(DynamoSpecificationCollection.Name)]
 public sealed class ConcurrencyDetectorEnabledDynamoTest(
     ConcurrencyDetectorEnabledDynamoTest.ConcurrencyDetectorEnabledDynamoFixture fixture)
