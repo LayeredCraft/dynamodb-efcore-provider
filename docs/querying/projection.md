@@ -57,6 +57,10 @@ var results = await db.Products
 
 This means the server always fetches the underlying attributes; there is no server-side function evaluation for computed projection expressions. Plan your attribute reads accordingly — if a projection reads several attributes to compute one value, all of those attributes are fetched from DynamoDB.
 
+For client-only projections that do not read any entity attributes, such as constants or `new { }`,
+the provider still emits a minimal explicit attribute projection so DynamoDB returns one row per
+matching item. The client-side shaper then constructs the requested constant value for each row.
+
 ## Primitive Collection Properties
 
 Entity properties typed as collections materialize from DynamoDB set and list attribute types:

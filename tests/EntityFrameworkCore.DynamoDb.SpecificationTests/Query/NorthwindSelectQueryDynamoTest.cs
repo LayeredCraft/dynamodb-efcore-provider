@@ -99,11 +99,11 @@ public abstract class NorthwindSelectQueryDynamoTest
             await base.Select_bool_closure(a);
             AssertSql(
             """
-            SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+            SELECT "customerID"
             FROM "Customers"
             """,
             """
-            SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+            SELECT "customerID"
             FROM "Customers"
             """);
         });
@@ -230,9 +230,16 @@ public abstract class NorthwindSelectQueryDynamoTest
             """);
         });
 
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Select_anonymous_empty(bool async)
-        => Task.CompletedTask;
+        => NoSyncTest(async, async a =>
+        {
+            await base.Select_anonymous_empty(a);
+            AssertSql(
+            """
+            SELECT "customerID"
+            FROM "Customers"
+            """);
+        });
 
     public override Task Select_anonymous_literal(bool async)
         => NoSyncTest(async, async a =>
@@ -240,7 +247,7 @@ public abstract class NorthwindSelectQueryDynamoTest
             await base.Select_anonymous_literal(a);
             AssertSql(
             """
-            SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+            SELECT "customerID"
             FROM "Customers"
             """);
         });
@@ -251,7 +258,7 @@ public abstract class NorthwindSelectQueryDynamoTest
             await base.Select_constant_int(a);
             AssertSql(
             """
-            SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+            SELECT "customerID"
             FROM "Customers"
             """);
         });
@@ -262,7 +269,7 @@ public abstract class NorthwindSelectQueryDynamoTest
             await base.Select_constant_null_string(a);
             AssertSql(
             """
-            SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+            SELECT "customerID"
             FROM "Customers"
             """);
         });
@@ -273,7 +280,7 @@ public abstract class NorthwindSelectQueryDynamoTest
             await base.Select_local(a);
             AssertSql(
             """
-            SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+            SELECT "customerID"
             FROM "Customers"
             """);
         });
@@ -357,51 +364,59 @@ public abstract class NorthwindSelectQueryDynamoTest
     public override Task Select_nested_collection_deep_distinct_no_identifiers(bool async)
         => Task.CompletedTask;
 
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task New_date_time_in_anonymous_type_works(bool async)
-        => Task.CompletedTask;
+        => NoSyncTest(async, async a =>
+        {
+            await base.New_date_time_in_anonymous_type_works(a);
+            AssertSql(
+            """
+            SELECT "customerID"
+            FROM "Customers"
+            WHERE begins_with("customerID", 'A')
+            """);
+        });
 
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.OrderedResultSetNotSupported)]
     public override Task Select_non_matching_value_types_int_to_long_introduces_explicit_cast(bool async)
         => Task.CompletedTask;
 
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.OrderedResultSetNotSupported)]
     public override Task Select_non_matching_value_types_nullable_int_to_long_introduces_explicit_cast(bool async)
         => Task.CompletedTask;
 
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.OrderedResultSetNotSupported)]
     public override Task Select_non_matching_value_types_nullable_int_to_int_doesnt_introduce_explicit_cast(bool async)
         => Task.CompletedTask;
 
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.OrderedResultSetNotSupported)]
     public override Task Select_non_matching_value_types_int_to_nullable_int_doesnt_introduce_explicit_cast(bool async)
         => Task.CompletedTask;
 
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.OrderedResultSetNotSupported)]
     public override Task Select_non_matching_value_types_from_binary_expression_introduces_explicit_cast(bool async)
         => Task.CompletedTask;
 
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.OrderedResultSetNotSupported)]
     public override Task Select_non_matching_value_types_from_binary_expression_nested_introduces_top_level_explicit_cast(bool async)
         => Task.CompletedTask;
 
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.OrderedResultSetNotSupported)]
     public override Task Select_non_matching_value_types_from_unary_expression_introduces_explicit_cast1(bool async)
         => Task.CompletedTask;
 
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.OrderedResultSetNotSupported)]
     public override Task Select_non_matching_value_types_from_unary_expression_introduces_explicit_cast2(bool async)
         => Task.CompletedTask;
 
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.OrderedResultSetNotSupported)]
     public override Task Select_non_matching_value_types_from_length_introduces_explicit_cast(bool async)
         => Task.CompletedTask;
 
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.OrderedResultSetNotSupported)]
     public override Task Select_non_matching_value_types_from_method_call_introduces_explicit_cast(bool async)
         => Task.CompletedTask;
 
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.OrderedResultSetNotSupported)]
     public override Task Select_non_matching_value_types_from_anonymous_type_introduces_explicit_cast(bool async)
         => Task.CompletedTask;
 
