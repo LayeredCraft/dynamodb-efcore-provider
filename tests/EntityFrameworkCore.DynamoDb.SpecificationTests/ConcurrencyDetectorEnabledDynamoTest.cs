@@ -31,7 +31,14 @@ public sealed class ConcurrencyDetectorEnabledDynamoTest(
     public override Task Find(bool async) => async ? base.Find(async) : Task.CompletedTask;
 
     /// <inheritdoc />
-    public override Task First(bool async) => async ? base.First(async) : Task.CompletedTask;
+    public override Task First(bool async)
+    {
+        if (!async)
+            return Task.CompletedTask;
+
+        return ConcurrencyDetectorTest(async c
+            => await c.Products.AsUnsafeFilteredQuery().FirstAsync());
+    }
 
     /// <inheritdoc />
     [ConditionalTheory(Skip = "DynamoDB does not support Last queries.")]
