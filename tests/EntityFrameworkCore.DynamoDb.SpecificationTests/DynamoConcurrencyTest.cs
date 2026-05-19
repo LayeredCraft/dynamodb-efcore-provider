@@ -123,6 +123,10 @@ public sealed class DynamoConcurrencyTest(DynamoConcurrencyTest.DynamoConcurrenc
             async ctx => ctx.PremiumCustomers.Remove(
                 await ctx.PremiumCustomers.FirstAsync(c => c.Id == "5", CancellationToken.None)));
 
+    /// <summary>
+    ///     Runs the same change in both contexts so the inner context commits first, then the outer
+    ///     context attempts the duplicate or stale write and throws.
+    /// </summary>
     private Task ConcurrencyTestAsync<TException>(Func<ConcurrencyContext, Task> change)
         where TException : DbUpdateException
         => ConcurrencyTestAsync<TException, Customer>(null, change, change);
