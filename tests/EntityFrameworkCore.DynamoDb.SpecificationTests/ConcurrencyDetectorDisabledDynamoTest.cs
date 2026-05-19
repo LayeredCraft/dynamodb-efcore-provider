@@ -4,13 +4,11 @@ using Microsoft.EntityFrameworkCore.TestUtilities;
 
 namespace EntityFrameworkCore.DynamoDb.SpecificationTests;
 
-/// <summary>Concurrency detector disabled specification tests for the DynamoDB provider.</summary>
 [Collection(DynamoSpecificationCollection.Name)]
 public sealed class ConcurrencyDetectorDisabledDynamoTest(
     ConcurrencyDetectorDisabledDynamoTest.ConcurrencyDetectorDisabledDynamoFixture fixture)
     : ConcurrencyDetectorDisabledTestBase<ConcurrencyDetectorDisabledDynamoTest.ConcurrencyDetectorDisabledDynamoFixture>(fixture)
 {
-    /// <summary>Ensures all inherited specification tests are reviewed by this provider.</summary>
     [ConditionalFact]
     public void Check_all_tests_overridden()
         => DynamoTestHelpers.AssertAllTestMethodsOverridden(
@@ -47,11 +45,11 @@ public sealed class ConcurrencyDetectorDisabledDynamoTest(
             return await c.SaveChangesAsync();
         });
 
-        await using var ctx = CreateContext();
-        var newProduct = await ctx.Products.FirstOrDefaultAsync(p => p.Id == 3);
+        await using var verificationContext = CreateContext();
+        var newProduct = await verificationContext.Products.FirstOrDefaultAsync(p => p.Id == 3);
         Assert.NotNull(newProduct);
-        ctx.Products.Remove(newProduct);
-        await ctx.SaveChangesAsync();
+        verificationContext.Products.Remove(newProduct);
+        await verificationContext.SaveChangesAsync();
     }
 
     [ConditionalTheory(Skip = "DynamoDB does not support Single queries.")]

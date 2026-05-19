@@ -6,14 +6,12 @@ namespace EntityFrameworkCore.DynamoDb.SpecificationTests;
 
 #nullable disable
 
-/// <summary>Concurrency detector specification tests for the DynamoDB provider.</summary>
 [Collection(DynamoSpecificationCollection.Name)]
 public sealed class ConcurrencyDetectorEnabledDynamoTest(
     ConcurrencyDetectorEnabledDynamoTest.ConcurrencyDetectorEnabledDynamoFixture fixture)
     : ConcurrencyDetectorEnabledTestBase<
         ConcurrencyDetectorEnabledDynamoTest.ConcurrencyDetectorEnabledDynamoFixture>(fixture)
 {
-    /// <summary>Ensures all inherited specification tests are reviewed by this provider.</summary>
     [ConditionalFact]
     public void Check_all_tests_overridden()
         => DynamoTestHelpers.AssertAllTestMethodsOverridden(
