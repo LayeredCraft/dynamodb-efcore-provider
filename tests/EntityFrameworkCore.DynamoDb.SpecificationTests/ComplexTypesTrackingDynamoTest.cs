@@ -892,12 +892,6 @@ public class ComplexTypesTrackingDynamoTest
                     options.AllowUnsafeFilteredQueries();
                 });
 
-        protected override async Task CleanAsync(DbContext context)
-        {
-            await context.Database.EnsureDeletedAsync().ConfigureAwait(false);
-            await context.Database.EnsureCreatedAsync().ConfigureAwait(false);
-        }
-
         protected override void OnModelCreating(ModelBuilder modelBuilder, DbContext context)
         {
             base.OnModelCreating(modelBuilder, context);

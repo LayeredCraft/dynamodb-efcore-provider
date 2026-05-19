@@ -526,10 +526,8 @@ public class FirstOrDefaultSafePathTests
     /// <summary>Entity with partition key and sort key.</summary>
     private sealed record PkSkItem
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string Pk { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string Sk { get; set; } = null!;
 
         /// <summary>Non-key attribute used to trigger non-key filter validation.</summary>
@@ -539,7 +537,6 @@ public class FirstOrDefaultSafePathTests
     /// <summary>Entity with partition key only — no sort key.</summary>
     private sealed record PkOnlyItem
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string Pk { get; set; } = null!;
 
         /// <summary>Non-key attribute used to test the no-sort-key special case.</summary>
@@ -548,13 +545,10 @@ public class FirstOrDefaultSafePathTests
 
     private sealed class SafePathDbContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<PkSkItem> PkSkItems => Set<PkSkItem>();
 
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<PkOnlyItem> PkOnlyItems => Set<PkOnlyItem>();
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<PkSkItem>(b =>
@@ -572,7 +566,6 @@ public class FirstOrDefaultSafePathTests
             });
         }
 
-        /// <summary>Provides functionality for this member.</summary>
         public static SafePathDbContext Create(
             IAmazonDynamoDB client,
             bool allowUnsafeFilteredQueries = false,
@@ -649,10 +642,8 @@ public class FirstOrDefaultSafePathTests
 
     private sealed class NestedPathDbContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<NestedPathItem> NestedItems => Set<NestedPathItem>();
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<NestedPathItem>(b =>
             {
@@ -662,7 +653,6 @@ public class FirstOrDefaultSafePathTests
                 b.ComplexProperty(x => x.Profile);
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static NestedPathDbContext Create(IAmazonDynamoDB client)
             => new(
                 new DbContextOptionsBuilder<NestedPathDbContext>()
@@ -676,10 +666,8 @@ public class FirstOrDefaultSafePathTests
 
     private sealed class DeepNestedPathDbContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<DeepNestedItem> DeepItems => Set<DeepNestedItem>();
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<DeepNestedItem>(b =>
             {
@@ -689,7 +677,6 @@ public class FirstOrDefaultSafePathTests
                 b.ComplexProperty(x => x.Profile, pb => pb.ComplexProperty(p => p.Address));
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static DeepNestedPathDbContext Create(IAmazonDynamoDB client)
             => new(
                 new DbContextOptionsBuilder<DeepNestedPathDbContext>()
@@ -704,10 +691,8 @@ public class FirstOrDefaultSafePathTests
     /// <summary>Abstract base for a TPH inheritance hierarchy on a shared DynamoDB table.</summary>
     private abstract record BaseItem
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string Pk { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string Sk { get; set; } = null!;
     }
 
@@ -732,10 +717,8 @@ public class FirstOrDefaultSafePathTests
 
     private sealed class PartitionOnlyGsiDbContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<GsiItem> GsiItems => Set<GsiItem>();
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<GsiItem>(b =>
             {
@@ -746,7 +729,6 @@ public class FirstOrDefaultSafePathTests
                 b.HasGlobalSecondaryIndex("ByPriority", x => x.Priority);
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static PartitionOnlyGsiDbContext Create(IAmazonDynamoDB client)
             => new(
                 new DbContextOptionsBuilder<PartitionOnlyGsiDbContext>()
@@ -770,10 +752,8 @@ public class FirstOrDefaultSafePathTests
 
     private sealed class InheritanceDbContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<ChildItem> Children => Set<ChildItem>();
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<BaseItem>(b =>
@@ -787,7 +767,6 @@ public class FirstOrDefaultSafePathTests
             modelBuilder.Entity<SiblingItem>(b => b.HasBaseType<BaseItem>());
         }
 
-        /// <summary>Provides functionality for this member.</summary>
         public static InheritanceDbContext Create(IAmazonDynamoDB client)
             => new(
                 new DbContextOptionsBuilder<InheritanceDbContext>()

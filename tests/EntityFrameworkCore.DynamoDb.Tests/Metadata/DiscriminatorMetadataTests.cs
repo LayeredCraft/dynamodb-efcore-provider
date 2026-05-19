@@ -20,19 +20,16 @@ public class DiscriminatorMetadataTests
 
     private sealed record UserEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string Id { get; set; } = null!;
     }
 
     private sealed record OrderEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string Id { get; set; } = null!;
     }
 
     private sealed class SingleTypeContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<UserEntity>(b =>
             {
@@ -40,14 +37,12 @@ public class DiscriminatorMetadataTests
                 b.HasPartitionKey(x => x.Id);
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static SingleTypeContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<SingleTypeContext>(client));
     }
 
     private sealed class SharedTableContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<UserEntity>(b =>
@@ -63,7 +58,6 @@ public class DiscriminatorMetadataTests
             });
         }
 
-        /// <summary>Provides functionality for this member.</summary>
         public static SharedTableContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<SharedTableContext>(client));
     }
@@ -71,7 +65,6 @@ public class DiscriminatorMetadataTests
     private sealed class SharedTableCustomDiscriminatorNameContext(DbContextOptions options)
         : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.HasEmbeddedDiscriminatorName("$kind");
@@ -89,7 +82,6 @@ public class DiscriminatorMetadataTests
             });
         }
 
-        /// <summary>Provides functionality for this member.</summary>
         public static SharedTableCustomDiscriminatorNameContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<SharedTableCustomDiscriminatorNameContext>(client));
     }
@@ -97,7 +89,6 @@ public class DiscriminatorMetadataTests
     private sealed class SharedTableLateDiscriminatorNameOverrideContext(DbContextOptions options)
         : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<UserEntity>(b =>
@@ -115,14 +106,12 @@ public class DiscriminatorMetadataTests
             modelBuilder.HasEmbeddedDiscriminatorName("$kind");
         }
 
-        /// <summary>Provides functionality for this member.</summary>
         public static SharedTableLateDiscriminatorNameOverrideContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<SharedTableLateDiscriminatorNameOverrideContext>(client));
     }
 
     private sealed class SharedTableThenSplitContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<UserEntity>(b =>
@@ -141,7 +130,6 @@ public class DiscriminatorMetadataTests
             modelBuilder.Entity<OrderEntity>().ToTable("Orders");
         }
 
-        /// <summary>Provides functionality for this member.</summary>
         public static SharedTableThenSplitContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<SharedTableThenSplitContext>(client));
     }
@@ -149,7 +137,6 @@ public class DiscriminatorMetadataTests
     private sealed class SharedTableHasNoDiscriminatorEarlyContext(DbContextOptions options)
         : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<UserEntity>(b =>
@@ -166,14 +153,12 @@ public class DiscriminatorMetadataTests
             });
         }
 
-        /// <summary>Provides functionality for this member.</summary>
         public static SharedTableHasNoDiscriminatorEarlyContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<SharedTableHasNoDiscriminatorEarlyContext>(client));
     }
 
     private sealed class SplitThenSharedTableContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<UserEntity>(b =>
@@ -192,14 +177,11 @@ public class DiscriminatorMetadataTests
             modelBuilder.Entity<OrderEntity>().ToTable("Users");
         }
 
-        /// <summary>Provides functionality for this member.</summary>
         public static SplitThenSharedTableContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<SplitThenSharedTableContext>(client));
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void SingleTableSingleType_DoesNotConfigureDiscriminatorByConvention()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -209,9 +191,7 @@ public class DiscriminatorMetadataTests
         entityType.FindDiscriminatorProperty().Should().BeNull();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void SharedTableMultipleTypes_UsesDefaultDiscriminatorByConvention()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -226,9 +206,7 @@ public class DiscriminatorMetadataTests
         orderEntityType.GetDiscriminatorValue().Should().Be("OrderEntity");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void SharedTableMultipleTypes_UsesEmbeddedDiscriminatorNameOverride()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -241,9 +219,7 @@ public class DiscriminatorMetadataTests
         orderEntityType.FindDiscriminatorProperty()!.Name.Should().Be("$kind");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void SharedTableMultipleTypes_UsesLateEmbeddedDiscriminatorNameOverride()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -256,9 +232,7 @@ public class DiscriminatorMetadataTests
         orderEntityType.FindDiscriminatorProperty()!.Name.Should().Be("$kind");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void SharedTableThenSplit_DoesNotConfigureDiscriminatorFromStaleIntermediateState()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -271,9 +245,7 @@ public class DiscriminatorMetadataTests
         orderEntityType.FindDiscriminatorProperty().Should().BeNull();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void SplitThenSharedTable_ConfiguresDiscriminatorFromFinalTableMapping()
     {
         var client = Substitute.For<IAmazonDynamoDB>();

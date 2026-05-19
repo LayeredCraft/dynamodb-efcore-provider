@@ -377,16 +377,13 @@ public class LimitTranslationTests
 
     private sealed record LimitTestEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string Pk { get; set; } = null!;
     }
 
     private sealed class LimitTestDbContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<LimitTestEntity> Items => Set<LimitTestEntity>();
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<LimitTestEntity>(b =>
             {
@@ -394,7 +391,6 @@ public class LimitTranslationTests
                 b.HasPartitionKey(x => x.Pk);
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static LimitTestDbContext Create(IAmazonDynamoDB client)
             => new(
                 new DbContextOptionsBuilder<LimitTestDbContext>()

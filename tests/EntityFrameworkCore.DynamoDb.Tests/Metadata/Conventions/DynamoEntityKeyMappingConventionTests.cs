@@ -22,30 +22,23 @@ public class DynamoEntityKeyMappingConventionTests
 
     private sealed record ConventionalKeyEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string PK { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string SK { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string Name { get; set; } = null!;
     }
 
     private sealed class ConventionalKeyContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ConventionalKeyEntity>(b => b.ToTable("ConventionalKeyTable"));
 
-        /// <summary>Provides functionality for this member.</summary>
         public static ConventionalKeyContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<ConventionalKeyContext>(client));
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void ConventionalPkSkNames_AreInferredAsDynamoKeyMapping()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -61,16 +54,13 @@ public class DynamoEntityKeyMappingConventionTests
 
     private sealed record ExplicitKeyOnlyEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string TenantId { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string OrderId { get; set; } = null!;
     }
 
     private sealed class ExplicitKeyOnlyContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ExplicitKeyOnlyEntity>(b =>
             {
@@ -78,14 +68,11 @@ public class DynamoEntityKeyMappingConventionTests
                 b.HasKey(x => new { x.TenantId, x.OrderId });
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static ExplicitKeyOnlyContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<ExplicitKeyOnlyContext>(client));
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void ExplicitHasKey_OnRootEntity_IsRejected()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -100,20 +87,16 @@ public class DynamoEntityKeyMappingConventionTests
 
     private sealed record ExplicitPartitionKeyBeatsConventionEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string PK { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string CustomKey { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string Name { get; set; } = null!;
     }
 
     private sealed class ExplicitPartitionKeyBeatsConventionContext(DbContextOptions options)
         : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ExplicitPartitionKeyBeatsConventionEntity>(b =>
             {
@@ -121,14 +104,11 @@ public class DynamoEntityKeyMappingConventionTests
                 b.HasPartitionKey(x => x.CustomKey);
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static ExplicitPartitionKeyBeatsConventionContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<ExplicitPartitionKeyBeatsConventionContext>(client));
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void ExplicitPartitionKey_TakesPrecedenceOverConventionalPkNamedProperty()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -142,19 +122,15 @@ public class DynamoEntityKeyMappingConventionTests
 
     private sealed record ThreePartPrimaryKeyEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string A { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string B { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string C { get; set; } = null!;
     }
 
     private sealed class ThreePartPrimaryKeyContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ThreePartPrimaryKeyEntity>(b =>
             {
@@ -162,14 +138,11 @@ public class DynamoEntityKeyMappingConventionTests
                 b.HasKey(x => new { x.A, x.B, x.C });
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static ThreePartPrimaryKeyContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<ThreePartPrimaryKeyContext>(client));
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void ExplicitMultiPropertyHasKey_OnRootEntity_IsRejected()
     {
         var client = Substitute.For<IAmazonDynamoDB>();

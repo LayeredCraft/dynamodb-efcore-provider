@@ -5,7 +5,6 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.NamingOverrideTable.Infr
 /// <summary>Deterministic seed items for naming convention tests.</summary>
 public static class NamingConventionsItems
 {
-    /// <summary>Provides functionality for this member.</summary>
     public static readonly List<QuestionItem> Items =
     [
         new()
@@ -86,7 +85,6 @@ public static class NamingConventionsItems
         },
     ];
 
-    /// <summary>Provides functionality for this member.</summary>
     public static readonly IReadOnlyList<Dictionary<string, AttributeValue>> AttributeValues =
         CreateAttributeValues();
 

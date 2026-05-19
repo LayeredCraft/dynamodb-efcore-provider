@@ -13,17 +13,14 @@ public class QueryCompilationContextTests
 {
     private sealed class TestDbContext : DbContext
     {
-        /// <summary>Provides functionality for this member.</summary>
         public TestDbContext(DbContextOptions<TestDbContext> options) : base(options) { }
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<TestEntity>(b => b.HasPartitionKey(x => x.PK));
     }
 
     private sealed class TestEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public int PK { get; set; }
     }
 

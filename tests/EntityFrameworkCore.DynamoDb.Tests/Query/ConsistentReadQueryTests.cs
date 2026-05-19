@@ -168,19 +168,15 @@ public class ConsistentReadQueryTests
 
     private sealed record ConsistentReadEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string Pk { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string CustomerId { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string Value { get; set; } = null!;
     }
 
     private sealed class ConsistentReadDbContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<ConsistentReadEntity> Items => Set<ConsistentReadEntity>();
 
         /// <summary>Creates a context configured with the supplied client and consistency default.</summary>
@@ -197,7 +193,6 @@ public class ConsistentReadQueryTests
                             .Ignore(DynamoEventId.ScanLikeQueryDetected))
                     .Options);
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ConsistentReadEntity>(b =>
             {

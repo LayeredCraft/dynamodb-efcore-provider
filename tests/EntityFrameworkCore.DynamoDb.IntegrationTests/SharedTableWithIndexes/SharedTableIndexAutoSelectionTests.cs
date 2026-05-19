@@ -1,6 +1,4 @@
-using EntityFrameworkCore.DynamoDb.Diagnostics;
 using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SharedTableWithIndexes;
@@ -79,12 +77,17 @@ public class SharedTableIndexAutoSelectionTests(DynamoContainerFixture fixture)
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task On_BaseTypeQuery_NoIndexPkConstraint_FallsBackToBaseTable()
     {
-        _ = await Db.WorkOrders.Where(o => o.Status == "OPEN").ToListAsync(CancellationToken);
+        var results =
+            await Db.WorkOrders.Where(o => o.Status == "OPEN").ToListAsync(CancellationToken);
+
+        results.Should().HaveCount(3).And.OnlyContain(o => o.Status == "OPEN");
 
         LoggerFactory
             .QueryDiagnosticEvents
             .Should()
-            .Contain(e => e.EventId.Id == DynamoEventId.NoCompatibleSecondaryIndexFound.Id);
+            .NotContain(e
+                => e.EventId.Id == DynamoEventId.NoCompatibleSecondaryIndexFound.Id
+                || e.EventId.Id == DynamoEventId.SecondaryIndexCandidateRejected.Id);
 
         AssertSql(
             """

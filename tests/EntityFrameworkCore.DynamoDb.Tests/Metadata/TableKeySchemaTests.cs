@@ -31,19 +31,15 @@ public class TableKeySchemaTests
 
     private sealed record SingleKeyEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string Id { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string? Name { get; set; }
     }
 
     private sealed class SingleKeyContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<SingleKeyEntity> Entities { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<SingleKeyEntity>(b =>
             {
@@ -51,14 +47,11 @@ public class TableKeySchemaTests
                 b.HasPartitionKey(x => x.Id);
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static SingleKeyContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<SingleKeyContext>(client));
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void GetPartitionKeyPropertyName_SingleKey_ReturnsConfiguredPropertyName()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -69,9 +62,7 @@ public class TableKeySchemaTests
         entityType.GetPartitionKeyPropertyName().Should().Be("Id");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void GetPartitionKeyProperty_SingleKey_ReturnsConfiguredProperty()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -81,9 +72,7 @@ public class TableKeySchemaTests
         entityType.GetPartitionKeyProperty().Should().BeSameAs(entityType.FindProperty("Id"));
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void GetSortKeyPropertyName_SingleKey_ReturnsNull()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -93,9 +82,7 @@ public class TableKeySchemaTests
         entityType.GetSortKeyPropertyName().Should().BeNull();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void GetSortKeyProperty_SingleKey_ReturnsNull()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -111,17 +98,14 @@ public class TableKeySchemaTests
 
     private sealed record SingleKeyWithAttributeEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string Id { get; set; } = null!;
     }
 
     private sealed class SingleKeyWithAttributeContext(DbContextOptions options) : DbContext(
         options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<SingleKeyWithAttributeEntity> Entities { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<SingleKeyWithAttributeEntity>(b =>
             {
@@ -130,14 +114,11 @@ public class TableKeySchemaTests
                 b.Property(x => x.Id).HasAttributeName("PK");
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static SingleKeyWithAttributeContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<SingleKeyWithAttributeContext>(client));
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void GetPartitionKeyPropertyName_SingleKey_WithHasAttributeName_ReturnsClrPropertyName()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -148,9 +129,7 @@ public class TableKeySchemaTests
         entityType.GetPartitionKeyPropertyName().Should().Be("Id");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void GetPartitionKeyProperty_SingleKey_WithHasAttributeName_ReturnsPkProperty()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -168,22 +147,17 @@ public class TableKeySchemaTests
 
     private sealed record TwoPartKeyEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string PartitionId { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string SortId { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string? Value { get; set; }
     }
 
     private sealed class TwoPartKeyContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<TwoPartKeyEntity> Entities { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<TwoPartKeyEntity>(b =>
             {
@@ -194,14 +168,11 @@ public class TableKeySchemaTests
                 b.HasSortKey(x => x.SortId);
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static TwoPartKeyContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<TwoPartKeyContext>(client));
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void GetPartitionKeyPropertyName_TwoPartKey_ReturnsPartitionPropertyName()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -211,9 +182,7 @@ public class TableKeySchemaTests
         entityType.GetPartitionKeyPropertyName().Should().Be("PartitionId");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void GetPartitionKeyProperty_TwoPartKey_ReturnsPartitionProperty()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -226,9 +195,7 @@ public class TableKeySchemaTests
             .BeSameAs(entityType.FindProperty("PartitionId"));
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void GetSortKeyPropertyName_TwoPartKey_ReturnsSortPropertyName()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -238,9 +205,7 @@ public class TableKeySchemaTests
         entityType.GetSortKeyPropertyName().Should().Be("SortId");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void GetSortKeyProperty_TwoPartKey_ReturnsSortProperty()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -256,20 +221,16 @@ public class TableKeySchemaTests
 
     private sealed record MultiPropEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string Id { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string OtherId { get; set; } = null!;
     }
 
     private sealed class HasPartitionKeyOverrideContext(DbContextOptions options) : DbContext(
         options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<MultiPropEntity> Entities { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<MultiPropEntity>(b =>
             {
@@ -277,14 +238,11 @@ public class TableKeySchemaTests
                 b.HasPartitionKey(x => x.OtherId);
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static HasPartitionKeyOverrideContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<HasPartitionKeyOverrideContext>(client));
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void HasPartitionKey_Lambda_OverridesDefaultDetection()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -297,10 +255,8 @@ public class TableKeySchemaTests
 
     private sealed class HasSortKeyOverrideContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<MultiPropEntity> Entities { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<MultiPropEntity>(b =>
             {
@@ -309,14 +265,11 @@ public class TableKeySchemaTests
                 b.HasSortKey(x => x.Id);
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static HasSortKeyOverrideContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<HasSortKeyOverrideContext>(client));
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void HasSortKey_Lambda_OverridesDefaultDetection()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -333,17 +286,14 @@ public class TableKeySchemaTests
 
     private sealed record AttributeNameEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string Id { get; set; } = null!;
     }
 
     private sealed class HasPartitionKeyWithAttributeNameContext(DbContextOptions options)
         : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<AttributeNameEntity> Entities { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<AttributeNameEntity>(b =>
             {
@@ -352,14 +302,11 @@ public class TableKeySchemaTests
                 b.Property(x => x.Id).HasAttributeName("HASH");
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static HasPartitionKeyWithAttributeNameContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<HasPartitionKeyWithAttributeNameContext>(client));
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void HasPartitionKey_WithHasAttributeName_PropertyDerivesPhysicalName()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -376,25 +323,20 @@ public class TableKeySchemaTests
 
     private sealed record OwnerEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string Id { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public ComplexDetail Detail { get; set; } = null!;
     }
 
     private sealed record ComplexDetail
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string Value { get; set; } = null!;
     }
 
     private sealed class ComplexContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<OwnerEntity> Owners { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<OwnerEntity>(b =>
             {
@@ -403,14 +345,11 @@ public class TableKeySchemaTests
                 b.ComplexProperty(x => x.Detail);
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static ComplexContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<ComplexContext>(client));
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void ComplexType_NoAutoDetection_ReturnsNull()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -427,20 +366,16 @@ public class TableKeySchemaTests
 
     private sealed record TwoPartKeyWithSkAttributeEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string PartitionId { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string SortId { get; set; } = null!;
     }
 
     private sealed class TwoPartKeyWithSkAttributeContext(DbContextOptions options) : DbContext(
         options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<TwoPartKeyWithSkAttributeEntity> Entities { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<TwoPartKeyWithSkAttributeEntity>(b =>
             {
@@ -452,14 +387,11 @@ public class TableKeySchemaTests
                 b.Property(x => x.SortId).HasAttributeName("SK");
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static TwoPartKeyWithSkAttributeContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<TwoPartKeyWithSkAttributeContext>(client));
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void GetSortKeyProperty_TwoPartKey_WithHasAttributeName_ReturnsMappedProperty()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -476,20 +408,16 @@ public class TableKeySchemaTests
 
     private sealed record StringOverridePkEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string Id { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string OtherId { get; set; } = null!;
     }
 
     private sealed class HasPartitionKeyStringNoAttributeContext(DbContextOptions options)
         : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<StringOverridePkEntity> Entities { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<StringOverridePkEntity>(b =>
             {
@@ -497,14 +425,11 @@ public class TableKeySchemaTests
                 b.HasPartitionKey("OtherId");
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static HasPartitionKeyStringNoAttributeContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<HasPartitionKeyStringNoAttributeContext>(client));
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void HasPartitionKey_StringOverride_ReturnsPropertyClrName()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -518,10 +443,8 @@ public class TableKeySchemaTests
     private sealed class HasPartitionKeyStringWithAttributeContext(DbContextOptions options)
         : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<StringOverridePkEntity> Entities { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<StringOverridePkEntity>(b =>
             {
@@ -530,14 +453,11 @@ public class TableKeySchemaTests
                 b.Property(x => x.Id).HasAttributeName("HASH");
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static HasPartitionKeyStringWithAttributeContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<HasPartitionKeyStringWithAttributeContext>(client));
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void HasPartitionKey_StringOverride_WithHasAttributeName_PropertyDerivesPhysicalName()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -554,20 +474,16 @@ public class TableKeySchemaTests
 
     private sealed record SortKeyLambdaAttributeEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string Id { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string OtherId { get; set; } = null!;
     }
 
     private sealed class HasSortKeyLambdaWithAttributeContext(DbContextOptions options) : DbContext(
         options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<SortKeyLambdaAttributeEntity> Entities { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<SortKeyLambdaAttributeEntity>(b =>
             {
@@ -577,14 +493,11 @@ public class TableKeySchemaTests
                 b.Property(x => x.OtherId).HasAttributeName("RANGE");
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static HasSortKeyLambdaWithAttributeContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<HasSortKeyLambdaWithAttributeContext>(client));
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void HasSortKey_Lambda_WithHasAttributeName_PropertyDerivesPhysicalName()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -601,20 +514,16 @@ public class TableKeySchemaTests
 
     private sealed record StringOverrideSkEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string Id { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string OtherId { get; set; } = null!;
     }
 
     private sealed class HasSortKeyStringNoAttributeContext(DbContextOptions options) : DbContext(
         options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<StringOverrideSkEntity> Entities { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<StringOverrideSkEntity>(b =>
             {
@@ -623,14 +532,11 @@ public class TableKeySchemaTests
                 b.HasSortKey("Id");
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static HasSortKeyStringNoAttributeContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<HasSortKeyStringNoAttributeContext>(client));
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void HasSortKey_StringOverride_ReturnsPropertyClrName()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -644,10 +550,8 @@ public class TableKeySchemaTests
     private sealed class HasSortKeyStringWithAttributeContext(DbContextOptions options) : DbContext(
         options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<StringOverrideSkEntity> Entities { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<StringOverrideSkEntity>(b =>
             {
@@ -657,14 +561,11 @@ public class TableKeySchemaTests
                 b.Property(x => x.OtherId).HasAttributeName("RANGE");
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static HasSortKeyStringWithAttributeContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<HasSortKeyStringWithAttributeContext>(client));
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void HasSortKey_StringOverride_WithHasAttributeName_PropertyDerivesPhysicalName()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -686,23 +587,18 @@ public class TableKeySchemaTests
 
     private sealed record ConfigSourceEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string Id { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string OtherId { get; set; } = null!;
     }
 
     private sealed class FluentApiPkConfigSourceContext(DbContextOptions options) : DbContext(
         options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public ConfigurationSource? CapturedPkConfigSource { get; private set; }
 
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<ConfigSourceEntity> Entities { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<ConfigSourceEntity>(b =>
@@ -716,14 +612,11 @@ public class TableKeySchemaTests
             CapturedPkConfigSource = et.GetPartitionKeyPropertyNameConfigurationSource();
         }
 
-        /// <summary>Provides functionality for this member.</summary>
         public static FluentApiPkConfigSourceContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<FluentApiPkConfigSourceContext>(client));
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void GetPartitionKeyPropertyNameConfigurationSource_FluentApi_ReportsExplicitSource()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -736,13 +629,10 @@ public class TableKeySchemaTests
     private sealed class FluentApiSkConfigSourceContext(DbContextOptions options) : DbContext(
         options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public ConfigurationSource? CapturedSkConfigSource { get; private set; }
 
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<ConfigSourceEntity> Entities { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<ConfigSourceEntity>(b =>
@@ -757,14 +647,11 @@ public class TableKeySchemaTests
             CapturedSkConfigSource = et.GetSortKeyPropertyNameConfigurationSource();
         }
 
-        /// <summary>Provides functionality for this member.</summary>
         public static FluentApiSkConfigSourceContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<FluentApiSkConfigSourceContext>(client));
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void GetSortKeyPropertyNameConfigurationSource_FluentApi_ReportsExplicitSource()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -776,26 +663,20 @@ public class TableKeySchemaTests
 
     private sealed record ConventionConfigSourceEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string PK { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string SK { get; set; } = null!;
     }
 
     private sealed class ConventionKeyConfigSourceContext(DbContextOptions options) : DbContext(
         options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public ConfigurationSource? CapturedPkConfigSource { get; private set; }
 
-        /// <summary>Provides functionality for this member.</summary>
         public ConfigurationSource? CapturedSkConfigSource { get; private set; }
 
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<ConventionConfigSourceEntity> Entities { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<ConventionConfigSourceEntity>(b =>
@@ -810,14 +691,11 @@ public class TableKeySchemaTests
             CapturedSkConfigSource = et.GetSortKeyPropertyNameConfigurationSource();
         }
 
-        /// <summary>Provides functionality for this member.</summary>
         public static ConventionKeyConfigSourceContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<ConventionKeyConfigSourceContext>(client));
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void
         GetPartitionKeyPropertyNameConfigurationSource_Convention_IsNotAvailableDuringOnModelCreating()
     {
@@ -828,9 +706,7 @@ public class TableKeySchemaTests
         ctx.CapturedPkConfigSource.Should().BeNull();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void
         GetSortKeyPropertyNameConfigurationSource_Convention_IsNotAvailableDuringOnModelCreating()
     {

@@ -30,19 +30,15 @@ public class DynamoKeyInPrimaryKeyConventionTests
 
     private sealed record AnnotationOnlyPkEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string CustomPk { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string Name { get; set; } = null!;
     }
 
     private sealed class AnnotationOnlyPkContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<AnnotationOnlyPkEntity> Entities { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<AnnotationOnlyPkEntity>(b =>
             {
@@ -51,14 +47,11 @@ public class DynamoKeyInPrimaryKeyConventionTests
                 // No b.HasKey(...) call
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static AnnotationOnlyPkContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<AnnotationOnlyPkContext>(client));
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void HasPartitionKey_WithoutExplicitHasKey_AutoConfiguresEfPrimaryKey()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -79,19 +72,15 @@ public class DynamoKeyInPrimaryKeyConventionTests
 
     private sealed record AnnotationPkSkEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string CustomPk { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string CustomSk { get; set; } = null!;
     }
 
     private sealed class AnnotationPkSkContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<AnnotationPkSkEntity> Entities { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<AnnotationPkSkEntity>(b =>
             {
@@ -101,14 +90,11 @@ public class DynamoKeyInPrimaryKeyConventionTests
                 // No b.HasKey(...) call
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static AnnotationPkSkContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<AnnotationPkSkContext>(client));
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void
         HasPartitionKeyAndSortKey_WithoutExplicitHasKey_AutoConfiguresCompositeEfPrimaryKey()
     {
@@ -133,10 +119,8 @@ public class DynamoKeyInPrimaryKeyConventionTests
 
     private sealed class LateShadowKeyContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<LateShadowKeyEntity> Entities { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<LateShadowKeyEntity>(b =>
             {
@@ -147,14 +131,11 @@ public class DynamoKeyInPrimaryKeyConventionTests
                 b.Property<string>("SK");
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static LateShadowKeyContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<LateShadowKeyContext>(client));
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void HasPartitionAndSortKey_BeforeShadowProperties_ThrowsValidationError()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -174,20 +155,16 @@ public class DynamoKeyInPrimaryKeyConventionTests
 
     private sealed record SortKeyWithAutoDiscoveredPkEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string Identifier { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string Category { get; set; } = null!;
     }
 
     private sealed class SortKeyWithAutoDiscoveredPkContext(DbContextOptions options) : DbContext(
         options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<SortKeyWithAutoDiscoveredPkEntity> Entities { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<SortKeyWithAutoDiscoveredPkEntity>(b =>
             {
@@ -196,14 +173,11 @@ public class DynamoKeyInPrimaryKeyConventionTests
                 // No HasKey, no HasPartitionKey, no conventional partition key name
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static SortKeyWithAutoDiscoveredPkContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<SortKeyWithAutoDiscoveredPkContext>(client));
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void HasSortKey_WithoutPartitionKey_ThrowsValidationError()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -224,19 +198,15 @@ public class DynamoKeyInPrimaryKeyConventionTests
 
     private sealed record RedundantAnnotationEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string Id { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string Name { get; set; } = null!;
     }
 
     private sealed class RedundantAnnotationContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<RedundantAnnotationEntity> Entities { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<RedundantAnnotationEntity>(b =>
             {
@@ -245,14 +215,11 @@ public class DynamoKeyInPrimaryKeyConventionTests
                 // EF would have auto-discovered 'Id' anyway
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static RedundantAnnotationContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<RedundantAnnotationContext>(client));
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void HasPartitionKey_MatchingAutoDiscoveredPk_EfPrimaryKeyIsUnchanged()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -272,19 +239,15 @@ public class DynamoKeyInPrimaryKeyConventionTests
 
     private sealed record ExplicitKeyEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string PkProp { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string SkProp { get; set; } = null!;
     }
 
     private sealed class ExplicitKeyContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<ExplicitKeyEntity> Entities { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ExplicitKeyEntity>(b =>
             {
@@ -294,14 +257,11 @@ public class DynamoKeyInPrimaryKeyConventionTests
                 b.HasSortKey(x => x.SkProp);
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static ExplicitKeyContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<ExplicitKeyContext>(client));
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void ExplicitHasKey_WithAnnotations_IsRejected()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -320,25 +280,20 @@ public class DynamoKeyInPrimaryKeyConventionTests
 
     private sealed record OwnerWithAnnotationEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string Id { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public ComplexPart Detail { get; set; } = null!;
     }
 
     private sealed record ComplexPart
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string Value { get; set; } = null!;
     }
 
     private sealed class ComplexPartContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<OwnerWithAnnotationEntity> Owners { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<OwnerWithAnnotationEntity>(b =>
             {
@@ -347,14 +302,11 @@ public class DynamoKeyInPrimaryKeyConventionTests
                 b.ComplexProperty(x => x.Detail);
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static ComplexPartContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<ComplexPartContext>(client));
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void ComplexType_ConventionDoesNotApply_NoChange()
     {
         var client = Substitute.For<IAmazonDynamoDB>();

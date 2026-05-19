@@ -281,13 +281,6 @@ public class BuiltInDataTypesDynamoTest(
                 });
 
         /// <inheritdoc />
-        protected override async Task CleanAsync(DbContext context)
-        {
-            await context.Database.EnsureDeletedAsync().ConfigureAwait(false);
-            await context.Database.EnsureCreatedAsync().ConfigureAwait(false);
-        }
-
-        /// <inheritdoc />
         protected override void OnModelCreating(ModelBuilder modelBuilder, DbContext context)
         {
             base.OnModelCreating(modelBuilder, context);

@@ -540,12 +540,6 @@ public abstract class FindDynamoTest : FindTestBase<FindDynamoTest.FindDynamoFix
                 .UseDynamo(options
                     => options.DynamoDbClient(DynamoTestStoreFactory.Instance.Client));
 
-        protected override async Task CleanAsync(DbContext context)
-        {
-            await context.Database.EnsureDeletedAsync().ConfigureAwait(false);
-            await context.Database.EnsureCreatedAsync().ConfigureAwait(false);
-        }
-
         protected override void OnModelCreating(ModelBuilder modelBuilder, DbContext context)
         {
             modelBuilder.Entity<IntKey>().ToTable("ints").HasPartitionKey(x => x.Id);

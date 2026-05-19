@@ -26,9 +26,7 @@ public class TableKeySchemaValidationTests
                     .Ignore(DynamoEventId.ScanLikeQueryDetected))
             .Options;
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void SharedTable_ConflictingPartitionKeyNames_Throws()
     {
         var ctx = ConflictingPkContext.Create(MockClient());
@@ -39,9 +37,7 @@ public class TableKeySchemaValidationTests
             .WithMessage("*partition key attribute names*");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void SharedTable_OneHasSortKeyOtherDoesNot_Throws()
     {
         var ctx = MixedSkContext.Create(MockClient());
@@ -49,9 +45,7 @@ public class TableKeySchemaValidationTests
         act.Should().Throw<InvalidOperationException>().WithMessage("*mixed key shapes*");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void SharedTable_ConflictingSortKeyNames_Throws()
     {
         var ctx = ConflictingSkContext.Create(MockClient());
@@ -59,9 +53,7 @@ public class TableKeySchemaValidationTests
         act.Should().Throw<InvalidOperationException>().WithMessage("*sort key attribute names*");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void SharedTable_ConsistentPkOnly_DoesNotThrow()
     {
         var ctx = ConsistentPkOnlyContext.Create(MockClient());
@@ -69,9 +61,7 @@ public class TableKeySchemaValidationTests
         act.Should().NotThrow();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void SharedTable_ConsistentPkSk_DoesNotThrow()
     {
         var ctx = ConsistentPkSkContext.Create(MockClient());
@@ -79,9 +69,7 @@ public class TableKeySchemaValidationTests
         act.Should().NotThrow();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void DifferentTables_DifferentKeySchemas_DoesNotThrow()
     {
         var ctx = DifferentTablesContext.Create(MockClient());
@@ -89,9 +77,7 @@ public class TableKeySchemaValidationTests
         act.Should().NotThrow();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void HasPartitionKey_NonExistentProperty_ThrowsOnValidation()
     {
         var ctx = GhostPartitionKeyContext.Create(MockClient());
@@ -102,9 +88,7 @@ public class TableKeySchemaValidationTests
             .WithMessage("*partition key property 'Ghost'*does not exist*");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void HasSortKey_NonExistentProperty_ThrowsOnValidation()
     {
         var ctx = GhostSortKeyContext.Create(MockClient());
@@ -115,9 +99,7 @@ public class TableKeySchemaValidationTests
             .WithMessage("*sort key property 'Ghost'*does not exist*");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void ExplicitHasKey_WithPartitionKey_OnRootEntity_ThrowsOnValidation()
     {
         var ctx = PartitionKeyNotInEfKeyContext.Create(MockClient());
@@ -129,9 +111,7 @@ public class TableKeySchemaValidationTests
                 "*must use HasPartitionKey(...) and optional HasSortKey(...)*do not use HasKey(...) or [Key]*");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void ExplicitHasKey_WithSortKey_OnRootEntity_ThrowsOnValidation()
     {
         var ctx = SortKeyNotInEfKeyContext.Create(MockClient());
@@ -143,9 +123,7 @@ public class TableKeySchemaValidationTests
                 "*must use HasPartitionKey(...) and optional HasSortKey(...)*do not use HasKey(...) or [Key]*");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void HasSortKey_WithNoResolvablePartitionKey_ThrowsDynamoSpecificError()
     {
         var ctx = SortKeyWithNoResolvablePkContext.Create(MockClient());
@@ -156,9 +134,7 @@ public class TableKeySchemaValidationTests
             .WithMessage("*No DynamoDB partition key is configured*");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void HasPartitionKey_ShadowProperty_ThrowsOnValidation()
     {
         var ctx = ShadowPartitionKeyContext.Create(MockClient());
@@ -169,9 +145,7 @@ public class TableKeySchemaValidationTests
             .WithMessage("*shadow key properties are not supported*");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void HasPartitionKeyAndSortKey_ShadowProperties_ThrowOnValidation()
     {
         var ctx = ShadowPartitionAndSortKeyContext.Create(MockClient());
@@ -182,9 +156,7 @@ public class TableKeySchemaValidationTests
             .WithMessage("*shadow key properties are not supported*");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void SharedTable_KeyProperties_WithMatchingAttributeNames_DoesNotThrow()
     {
         var ctx = SharedTableShadowKeyConsistentContext.Create(MockClient());
@@ -192,9 +164,7 @@ public class TableKeySchemaValidationTests
         act.Should().NotThrow();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void SharedTable_KeyProperties_WithConflictingPartitionAttributeNames_Throws()
     {
         var ctx = SharedTableShadowKeyConflictingPkContext.Create(MockClient());
@@ -205,9 +175,7 @@ public class TableKeySchemaValidationTests
             .WithMessage("*partition key attribute names*");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void HasPartitionKey_BoolType_ThrowsOnValidation()
     {
         var ctx = BoolPartitionKeyContext.Create(MockClient());
@@ -218,9 +186,7 @@ public class TableKeySchemaValidationTests
             .WithMessage("*partition key*must be string, number, or binary*");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void HasSortKey_BoolType_ThrowsOnValidation()
     {
         var ctx = BoolSortKeyContext.Create(MockClient());
@@ -231,9 +197,7 @@ public class TableKeySchemaValidationTests
             .WithMessage("*sort key*must be string, number, or binary*");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void HasPartitionKey_GuidWithoutConverter_DoesNotThrow()
     {
         var ctx = GuidPartitionKeyWithoutConverterContext.Create(MockClient());
@@ -241,9 +205,7 @@ public class TableKeySchemaValidationTests
         act.Should().NotThrow();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void HasPartitionKey_GuidWithStringConverter_DoesNotThrow()
     {
         var ctx = GuidPartitionKeyWithConverterContext.Create(MockClient());
@@ -251,9 +213,7 @@ public class TableKeySchemaValidationTests
         act.Should().NotThrow();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void HasPartitionKey_DateTimeOffsetWithoutConverter_DoesNotThrow()
     {
         var ctx = DateTimeOffsetPartitionKeyWithoutConverterContext.Create(MockClient());
@@ -261,9 +221,7 @@ public class TableKeySchemaValidationTests
         act.Should().NotThrow();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void HasPartitionKey_ConverterWithNullableProviderType_ThrowsOnValidation()
     {
         var ctx = NullableProviderPartitionKeyContext.Create(MockClient());
@@ -274,9 +232,7 @@ public class TableKeySchemaValidationTests
             .WithMessage("*effective provider type 'int?' is nullable*");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void SharedTable_PartitionKeyTypeCategoryMismatch_Throws()
     {
         var ctx = SharedTablePartitionTypeMismatchContext.Create(MockClient());
@@ -287,9 +243,7 @@ public class TableKeySchemaValidationTests
             .WithMessage("*partition key attribute 'PK'*different key type categories*");
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void SharedTable_SortKeyTypeCategoryMismatch_Throws()
     {
         var ctx = SharedTableSortTypeMismatchContext.Create(MockClient());
@@ -306,25 +260,20 @@ public class TableKeySchemaValidationTests
 
     private sealed record EntityA
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string Id { get; set; } = null!;
     }
 
     private sealed record EntityB
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string Id { get; set; } = null!;
     }
 
     private sealed class ConflictingPkContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<EntityA> EntitiesA { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<EntityB> EntitiesB { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<EntityA>(b =>
@@ -341,7 +290,6 @@ public class TableKeySchemaValidationTests
             });
         }
 
-        /// <summary>Provides functionality for this member.</summary>
         public static ConflictingPkContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<ConflictingPkContext>(client));
     }
@@ -352,28 +300,22 @@ public class TableKeySchemaValidationTests
 
     private sealed record EntityC
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string Id { get; set; } = null!;
     }
 
     private sealed record EntityD
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string PartId { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string SortId { get; set; } = null!;
     }
 
     private sealed class MixedSkContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<EntityC> EntitiesC { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<EntityD> EntitiesD { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<EntityC>(b =>
@@ -395,7 +337,6 @@ public class TableKeySchemaValidationTests
             });
         }
 
-        /// <summary>Provides functionality for this member.</summary>
         public static MixedSkContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<MixedSkContext>(client));
     }
@@ -406,31 +347,24 @@ public class TableKeySchemaValidationTests
 
     private sealed record EntityE
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string PartId { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string SortId { get; set; } = null!;
     }
 
     private sealed record EntityF
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string PartId { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string SortId { get; set; } = null!;
     }
 
     private sealed class ConflictingSkContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<EntityE> EntitiesE { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<EntityF> EntitiesF { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<EntityE>(b =>
@@ -450,7 +384,6 @@ public class TableKeySchemaValidationTests
             });
         }
 
-        /// <summary>Provides functionality for this member.</summary>
         public static ConflictingSkContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<ConflictingSkContext>(client));
     }
@@ -461,25 +394,20 @@ public class TableKeySchemaValidationTests
 
     private sealed record EntityG
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string Id { get; set; } = null!;
     }
 
     private sealed record EntityH
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string Id { get; set; } = null!;
     }
 
     private sealed class ConsistentPkOnlyContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<EntityG> EntitiesG { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<EntityH> EntitiesH { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<EntityG>(b =>
@@ -495,7 +423,6 @@ public class TableKeySchemaValidationTests
             });
         }
 
-        /// <summary>Provides functionality for this member.</summary>
         public static ConsistentPkOnlyContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<ConsistentPkOnlyContext>(client));
     }
@@ -506,31 +433,24 @@ public class TableKeySchemaValidationTests
 
     private sealed record EntityI
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string PartId { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string SortId { get; set; } = null!;
     }
 
     private sealed record EntityJ
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string PartId { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string SortId { get; set; } = null!;
     }
 
     private sealed class ConsistentPkSkContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<EntityI> EntitiesI { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<EntityJ> EntitiesJ { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<EntityI>(b =>
@@ -548,7 +468,6 @@ public class TableKeySchemaValidationTests
             });
         }
 
-        /// <summary>Provides functionality for this member.</summary>
         public static ConsistentPkSkContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<ConsistentPkSkContext>(client));
     }
@@ -559,28 +478,22 @@ public class TableKeySchemaValidationTests
 
     private sealed record EntityK
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string Id { get; set; } = null!;
     }
 
     private sealed record EntityL
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string PartId { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string SortId { get; set; } = null!;
     }
 
     private sealed class DifferentTablesContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<EntityK> EntitiesK { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<EntityL> EntitiesL { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<EntityK>(b =>
@@ -599,7 +512,6 @@ public class TableKeySchemaValidationTests
             });
         }
 
-        /// <summary>Provides functionality for this member.</summary>
         public static DifferentTablesContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<DifferentTablesContext>(client));
     }
@@ -610,16 +522,13 @@ public class TableKeySchemaValidationTests
 
     private sealed record GhostPropEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string Id { get; set; } = null!;
     }
 
     private sealed class GhostPartitionKeyContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<GhostPropEntity> Entities { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<GhostPropEntity>(b =>
             {
@@ -627,17 +536,14 @@ public class TableKeySchemaValidationTests
                 b.HasPartitionKey("Ghost");
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static GhostPartitionKeyContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<GhostPartitionKeyContext>(client));
     }
 
     private sealed class GhostSortKeyContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<GhostPropEntity> Entities { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<GhostPropEntity>(b =>
             {
@@ -646,7 +552,6 @@ public class TableKeySchemaValidationTests
                 b.HasSortKey("Ghost");
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static GhostSortKeyContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<GhostSortKeyContext>(client));
     }
@@ -657,20 +562,16 @@ public class TableKeySchemaValidationTests
 
     private sealed record KeyMismatchEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string Id { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string SomeProp { get; set; } = null!;
     }
 
     private sealed class PartitionKeyNotInEfKeyContext(DbContextOptions options) : DbContext(
         options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<KeyMismatchEntity> Entities { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<KeyMismatchEntity>(b =>
             {
@@ -680,17 +581,14 @@ public class TableKeySchemaValidationTests
                 b.HasPartitionKey(x => x.SomeProp);
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static PartitionKeyNotInEfKeyContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<PartitionKeyNotInEfKeyContext>(client));
     }
 
     private sealed class SortKeyNotInEfKeyContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<KeyMismatchEntity> Entities { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<KeyMismatchEntity>(b =>
             {
@@ -701,7 +599,6 @@ public class TableKeySchemaValidationTests
                 b.HasSortKey(x => x.SomeProp);
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static SortKeyNotInEfKeyContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<SortKeyNotInEfKeyContext>(client));
     }
@@ -716,20 +613,16 @@ public class TableKeySchemaValidationTests
         // Properties are not named 'Id', '<EntityName>Id', 'PK', or 'PartitionKey', so neither
         // EF Core key discovery nor the DynamoDB key discovery convention will find a partition
         // key.
-        /// <summary>Provides functionality for this member.</summary>
         public string HashAttr { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string RangeAttr { get; set; } = null!;
     }
 
     private sealed class SortKeyWithNoResolvablePkContext(DbContextOptions options) : DbContext(
         options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<NoDiscoverablePkEntity> Entities { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<NoDiscoverablePkEntity>(b =>
             {
@@ -738,7 +631,6 @@ public class TableKeySchemaValidationTests
                 b.HasSortKey(x => x.RangeAttr);
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static SortKeyWithNoResolvablePkContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<SortKeyWithNoResolvablePkContext>(client));
     }
@@ -751,10 +643,8 @@ public class TableKeySchemaValidationTests
 
     private sealed class ShadowPartitionKeyContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<ShadowKeyEntity> Entities { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ShadowKeyEntity>(b =>
             {
@@ -763,7 +653,6 @@ public class TableKeySchemaValidationTests
                 b.HasPartitionKey("PK");
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static ShadowPartitionKeyContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<ShadowPartitionKeyContext>(client));
     }
@@ -771,10 +660,8 @@ public class TableKeySchemaValidationTests
     private sealed class ShadowPartitionAndSortKeyContext(DbContextOptions options) : DbContext(
         options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<ShadowKeyEntity> Entities { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ShadowKeyEntity>(b =>
             {
@@ -785,7 +672,6 @@ public class TableKeySchemaValidationTests
                 b.HasSortKey("SK");
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static ShadowPartitionAndSortKeyContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<ShadowPartitionAndSortKeyContext>(client));
     }
@@ -805,13 +691,10 @@ public class TableKeySchemaValidationTests
     private sealed class SharedTableShadowKeyConsistentContext(DbContextOptions options)
         : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<SharedShadowEntityA> EntitiesA { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<SharedShadowEntityB> EntitiesB { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<SharedShadowEntityA>(b =>
@@ -833,7 +716,6 @@ public class TableKeySchemaValidationTests
             });
         }
 
-        /// <summary>Provides functionality for this member.</summary>
         public static SharedTableShadowKeyConsistentContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<SharedTableShadowKeyConsistentContext>(client));
     }
@@ -841,13 +723,10 @@ public class TableKeySchemaValidationTests
     private sealed class SharedTableShadowKeyConflictingPkContext(DbContextOptions options)
         : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<SharedShadowEntityA> EntitiesA { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<SharedShadowEntityB> EntitiesB { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<SharedShadowEntityA>(b =>
@@ -869,7 +748,6 @@ public class TableKeySchemaValidationTests
             });
         }
 
-        /// <summary>Provides functionality for this member.</summary>
         public static SharedTableShadowKeyConflictingPkContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<SharedTableShadowKeyConflictingPkContext>(client));
     }
@@ -880,16 +758,13 @@ public class TableKeySchemaValidationTests
 
     private sealed record BoolPartitionKeyEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public bool Id { get; set; }
     }
 
     private sealed class BoolPartitionKeyContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<BoolPartitionKeyEntity> Entities { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<BoolPartitionKeyEntity>(b =>
             {
@@ -897,26 +772,21 @@ public class TableKeySchemaValidationTests
                 b.HasPartitionKey(x => x.Id);
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static BoolPartitionKeyContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<BoolPartitionKeyContext>(client));
     }
 
     private sealed record BoolSortKeyEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string PK { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public bool SK { get; set; }
     }
 
     private sealed class BoolSortKeyContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<BoolSortKeyEntity> Entities { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<BoolSortKeyEntity>(b =>
             {
@@ -925,24 +795,20 @@ public class TableKeySchemaValidationTests
                 b.HasSortKey(x => x.SK);
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static BoolSortKeyContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<BoolSortKeyContext>(client));
     }
 
     private sealed record GuidPartitionKeyEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public Guid Id { get; set; }
     }
 
     private sealed class GuidPartitionKeyWithoutConverterContext(DbContextOptions options)
         : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<GuidPartitionKeyEntity> Entities { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<GuidPartitionKeyEntity>(b =>
             {
@@ -950,7 +816,6 @@ public class TableKeySchemaValidationTests
                 b.HasPartitionKey(x => x.Id);
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static GuidPartitionKeyWithoutConverterContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<GuidPartitionKeyWithoutConverterContext>(client));
     }
@@ -958,10 +823,8 @@ public class TableKeySchemaValidationTests
     private sealed class GuidPartitionKeyWithConverterContext(DbContextOptions options) : DbContext(
         options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<GuidPartitionKeyEntity> Entities { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<GuidPartitionKeyEntity>(b =>
             {
@@ -975,24 +838,20 @@ public class TableKeySchemaValidationTests
                             static value => Guid.Parse(value)));
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static GuidPartitionKeyWithConverterContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<GuidPartitionKeyWithConverterContext>(client));
     }
 
     private sealed record DateTimeOffsetPartitionKeyEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DateTimeOffset Id { get; set; }
     }
 
     private sealed class DateTimeOffsetPartitionKeyWithoutConverterContext(DbContextOptions options)
         : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<DateTimeOffsetPartitionKeyEntity> Entities { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<DateTimeOffsetPartitionKeyEntity>(b =>
             {
@@ -1000,7 +859,6 @@ public class TableKeySchemaValidationTests
                 b.HasPartitionKey(x => x.Id);
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static DateTimeOffsetPartitionKeyWithoutConverterContext Create(
             IAmazonDynamoDB client)
             => new(BuildOptions<DateTimeOffsetPartitionKeyWithoutConverterContext>(client));
@@ -1008,17 +866,14 @@ public class TableKeySchemaValidationTests
 
     private sealed record NullableProviderPartitionKeyEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public int Id { get; set; }
     }
 
     private sealed class NullableProviderPartitionKeyContext(DbContextOptions options) : DbContext(
         options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<NullableProviderPartitionKeyEntity> Entities { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<NullableProviderPartitionKeyEntity>(b =>
             {
@@ -1032,7 +887,6 @@ public class TableKeySchemaValidationTests
                             static value => value ?? 0));
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static NullableProviderPartitionKeyContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<NullableProviderPartitionKeyContext>(client));
     }
@@ -1043,26 +897,21 @@ public class TableKeySchemaValidationTests
 
     private sealed record SharedPartitionTypeEntityA
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string Id { get; set; } = null!;
     }
 
     private sealed record SharedPartitionTypeEntityB
     {
-        /// <summary>Provides functionality for this member.</summary>
         public int Id { get; set; }
     }
 
     private sealed class SharedTablePartitionTypeMismatchContext(DbContextOptions options)
         : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<SharedPartitionTypeEntityA> EntitiesA { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<SharedPartitionTypeEntityB> EntitiesB { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<SharedPartitionTypeEntityA>(b =>
@@ -1080,39 +929,31 @@ public class TableKeySchemaValidationTests
             });
         }
 
-        /// <summary>Provides functionality for this member.</summary>
         public static SharedTablePartitionTypeMismatchContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<SharedTablePartitionTypeMismatchContext>(client));
     }
 
     private sealed record SharedSortTypeEntityA
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string PartId { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string SortId { get; set; } = null!;
     }
 
     private sealed record SharedSortTypeEntityB
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string PartId { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public int SortId { get; set; }
     }
 
     private sealed class SharedTableSortTypeMismatchContext(DbContextOptions options) : DbContext(
         options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<SharedSortTypeEntityA> EntitiesA { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<SharedSortTypeEntityB> EntitiesB { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<SharedSortTypeEntityA>(b =>
@@ -1134,7 +975,6 @@ public class TableKeySchemaValidationTests
             });
         }
 
-        /// <summary>Provides functionality for this member.</summary>
         public static SharedTableSortTypeMismatchContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<SharedTableSortTypeMismatchContext>(client));
     }

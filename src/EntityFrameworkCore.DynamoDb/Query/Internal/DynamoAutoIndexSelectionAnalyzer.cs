@@ -22,7 +22,7 @@ namespace EntityFrameworkCore.DynamoDb.Query.Internal;
 /// <para>
 /// Diagnostic codes:
 /// <list type="bullet">
-///   <item><c>DYNAMO_IDX001</c> — no candidate satisfies the predicate (Warning)</item>
+///   <item><c>DYNAMO_IDX001</c> — targeted candidates failed safety gates (Warning)</item>
 ///   <item><c>DYNAMO_IDX002</c> — multiple candidates tie (Warning)</item>
 ///   <item><c>DYNAMO_IDX003</c> — a single candidate was selected or would be auto-selected (Information)</item>
 ///   <item><c>DYNAMO_IDX004</c> — explicit index selected via .WithIndex() (Information)</item>
@@ -107,11 +107,16 @@ internal sealed class DynamoAutoIndexSelectionAnalyzer : IDynamoIndexSelectionAn
             var gateResult = EvaluateGates(descriptor, constraints);
             if (gateResult != CandidateGateResult.Passed)
             {
-                rejectionDiagnostics.Add(
-                    MakeRejectionDiagnostic(
-                        descriptor,
-                        context.SelectExpression.TableName,
-                        gateResult));
+                // A missing partition-key constraint means the query did not target this index at
+                // all. Do not surface that as an index-selection problem; scan classification owns
+                // the user-facing warning for non-keyed/base-table reads.
+                if (gateResult != CandidateGateResult.NoPkConstraint)
+                    rejectionDiagnostics.Add(
+                        MakeRejectionDiagnostic(
+                            descriptor,
+                            context.SelectExpression.TableName,
+                            gateResult));
+
                 continue;
             }
 
@@ -122,16 +127,23 @@ internal sealed class DynamoAutoIndexSelectionAnalyzer : IDynamoIndexSelectionAn
         // ── 4. No usable candidate ───────────────────────────────────────────
         if (usableCandidates.Count == 0)
         {
+            if (rejectionDiagnostics.Count == 0)
+                return new DynamoIndexSelectionDecision(
+                    null,
+                    DynamoIndexSelectionReason.NoSelection,
+                    []);
+
             // Rejection diagnostics are prepended so callers see per-candidate reasons before
-            // the overall no-selection summary.
+            // the overall no-selection summary. Only emit the summary when at least one secondary
+            // index was actually targeted by the predicate and failed a later gate.
             var diagnostics = new List<DynamoQueryDiagnostic>(rejectionDiagnostics)
             {
                 new(
                     DynamoQueryDiagnosticLevel.Warning,
                     "DYNAMO_IDX001",
-                    $"No secondary index on table '{context.SelectExpression.TableName}' satisfies "
-                    + "the predicate. The query will use the base table. "
-                    + "Ensure the WHERE clause includes an equality constraint on the index partition key."),
+                    $"No targeted secondary index on table '{context.SelectExpression.TableName}' "
+                    + "satisfies all safety gates. The query will use the base table. "
+                    + "Review preceding DYNAMO_IDX005 diagnostics for rejection reasons."),
             };
             return new DynamoIndexSelectionDecision(
                 null,
@@ -316,6 +328,8 @@ internal sealed class DynamoAutoIndexSelectionAnalyzer : IDynamoIndexSelectionAn
     {
         var reason = gateResult switch
         {
+            // Unreachable from Analyze: NoPkConstraint is filtered there because scan
+            // classification owns user-facing warnings for non-keyed/base-table reads.
             CandidateGateResult.NoPkConstraint =>
                 "no equality or IN constraint on the index partition key",
             CandidateGateResult.UnsafeOr =>

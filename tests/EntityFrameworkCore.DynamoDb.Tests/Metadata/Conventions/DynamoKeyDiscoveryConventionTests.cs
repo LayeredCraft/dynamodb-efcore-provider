@@ -30,19 +30,15 @@ public class DynamoKeyDiscoveryConventionTests
 
     private sealed record PkNamedEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string PK { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string Name { get; set; } = null!;
     }
 
     private sealed class PkNamedContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<PkNamedEntity> Entities { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<PkNamedEntity>(b =>
             {
@@ -50,14 +46,11 @@ public class DynamoKeyDiscoveryConventionTests
                 // No HasPartitionKey, no HasKey — convention should do all the work
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static PkNamedContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<PkNamedContext>(client));
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void PropertyNamedPK_AutoConfiguresPartitionKeyAndEfPrimaryKey()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -78,33 +71,26 @@ public class DynamoKeyDiscoveryConventionTests
 
     private sealed record PartitionKeyNamedEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string PartitionKey { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string Name { get; set; } = null!;
     }
 
     private sealed class PartitionKeyNamedContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<PartitionKeyNamedEntity> Entities { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<PartitionKeyNamedEntity>(b =>
             {
                 b.ToTable("PartitionKeyNamedTable");
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static PartitionKeyNamedContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<PartitionKeyNamedContext>(client));
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void PropertyNamedPartitionKey_AutoConfiguresPartitionKeyAndEfPrimaryKey()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -125,28 +111,22 @@ public class DynamoKeyDiscoveryConventionTests
 
     private sealed record IdNamedEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string Id { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string Name { get; set; } = null!;
     }
 
     private sealed class IdNamedContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<IdNamedEntity> Entities { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<IdNamedEntity>(b => b.ToTable("IdNamedTable"));
 
-        /// <summary>Provides functionality for this member.</summary>
         public static IdNamedContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<IdNamedContext>(client));
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void PropertyNamedId_AutoConfiguresFallbackPartitionKeyAndEfPrimaryKey()
     {
@@ -168,28 +148,22 @@ public class DynamoKeyDiscoveryConventionTests
 
     private sealed record UpperIdNamedEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string ID { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string Name { get; set; } = null!;
     }
 
     private sealed class UpperIdNamedContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<UpperIdNamedEntity> Entities { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<UpperIdNamedEntity>(b => b.ToTable("UpperIdNamedTable"));
 
-        /// <summary>Provides functionality for this member.</summary>
         public static UpperIdNamedContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<UpperIdNamedContext>(client));
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void PropertyNamedID_AutoConfiguresFallbackPartitionKeyAndEfPrimaryKey()
     {
@@ -211,19 +185,15 @@ public class DynamoKeyDiscoveryConventionTests
 
     private sealed record ShadowPkWithIdEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string Id { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string Name { get; set; } = null!;
     }
 
     private sealed class ShadowPkWithIdContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<ShadowPkWithIdEntity> Entities { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ShadowPkWithIdEntity>(b =>
             {
@@ -231,12 +201,10 @@ public class DynamoKeyDiscoveryConventionTests
                 b.Property<string>("PK");
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static ShadowPkWithIdContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<ShadowPkWithIdContext>(client));
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void ShadowPropertyNamedPK_DoesNotBlockFallbackId()
     {
@@ -258,28 +226,22 @@ public class DynamoKeyDiscoveryConventionTests
 
     private sealed record IdSkNamedEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string Id { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string SK { get; set; } = null!;
     }
 
     private sealed class IdSkNamedContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<IdSkNamedEntity> Entities { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<IdSkNamedEntity>(b => b.ToTable("IdSkNamedTable"));
 
-        /// <summary>Provides functionality for this member.</summary>
         public static IdSkNamedContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<IdSkNamedContext>(client));
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void PropertiesNamedIdAndSK_AutoConfiguresCompositeEfPrimaryKey()
     {
@@ -302,19 +264,15 @@ public class DynamoKeyDiscoveryConventionTests
 
     private sealed record ExplicitKeyWithIdEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string Id { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string CustomKey { get; set; } = null!;
     }
 
     private sealed class ExplicitKeyWithIdContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<ExplicitKeyWithIdEntity> Entities { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ExplicitKeyWithIdEntity>(b =>
             {
@@ -322,12 +280,10 @@ public class DynamoKeyDiscoveryConventionTests
                 b.HasPartitionKey(x => x.CustomKey);
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static ExplicitKeyWithIdContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<ExplicitKeyWithIdContext>(client));
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void ExplicitHasPartitionKey_OverridesFallbackId()
     {
@@ -348,30 +304,24 @@ public class DynamoKeyDiscoveryConventionTests
 
     private sealed record PartitionKeyAndIdNamedEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string PartitionKey { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string Id { get; set; } = null!;
     }
 
     private sealed class PartitionKeyAndIdNamedContext(DbContextOptions options) : DbContext(
         options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<PartitionKeyAndIdNamedEntity> Entities { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<PartitionKeyAndIdNamedEntity>(b
                 => b.ToTable("PartitionKeyAndIdNamedTable"));
 
-        /// <summary>Provides functionality for this member.</summary>
         public static PartitionKeyAndIdNamedContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<PartitionKeyAndIdNamedContext>(client));
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void PropertyNamedPartitionKey_BeatsFallbackId()
     {
@@ -392,28 +342,22 @@ public class DynamoKeyDiscoveryConventionTests
 
     private sealed record PkAndIdNamedEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string PK { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string Id { get; set; } = null!;
     }
 
     private sealed class PkAndIdNamedContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<PkAndIdNamedEntity> Entities { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<PkAndIdNamedEntity>(b => b.ToTable("PkAndIdNamedTable"));
 
-        /// <summary>Provides functionality for this member.</summary>
         public static PkAndIdNamedContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<PkAndIdNamedContext>(client));
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void PropertyNamedPK_BeatsFallbackId()
     {
@@ -434,33 +378,26 @@ public class DynamoKeyDiscoveryConventionTests
 
     private sealed record PkSkNamedEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string PK { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string SK { get; set; } = null!;
     }
 
     private sealed class PkSkNamedContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<PkSkNamedEntity> Entities { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<PkSkNamedEntity>(b =>
             {
                 b.ToTable("PkSkNamedTable");
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static PkSkNamedContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<PkSkNamedContext>(client));
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void PropertiesNamedPKAndSK_AutoConfiguresCompositeEfPrimaryKey()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -482,33 +419,26 @@ public class DynamoKeyDiscoveryConventionTests
 
     private sealed record PartitionSortKeyNamedEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string PartitionKey { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string SortKey { get; set; } = null!;
     }
 
     private sealed class PartitionSortKeyNamedContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<PartitionSortKeyNamedEntity> Entities { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<PartitionSortKeyNamedEntity>(b =>
             {
                 b.ToTable("PartitionSortKeyNamedTable");
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static PartitionSortKeyNamedContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<PartitionSortKeyNamedContext>(client));
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void PropertiesNamedPartitionKeyAndSortKey_AutoConfiguresCompositeEfPrimaryKey()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -530,22 +460,17 @@ public class DynamoKeyDiscoveryConventionTests
 
     private sealed record ExplicitOverrideEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string PK { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string CustomKey { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string Name { get; set; } = null!;
     }
 
     private sealed class ExplicitOverrideContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<ExplicitOverrideEntity> Entities { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ExplicitOverrideEntity>(b =>
             {
@@ -555,14 +480,11 @@ public class DynamoKeyDiscoveryConventionTests
                 b.HasPartitionKey(x => x.CustomKey);
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static ExplicitOverrideContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<ExplicitOverrideContext>(client));
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void ExplicitHasPartitionKey_OverridesNameBasedDiscovery()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -583,22 +505,17 @@ public class DynamoKeyDiscoveryConventionTests
 
     private sealed record ExplicitSkOverrideEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string PK { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string SK { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string CustomSort { get; set; } = null!;
     }
 
     private sealed class ExplicitSkOverrideContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<ExplicitSkOverrideEntity> Entities { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ExplicitSkOverrideEntity>(b =>
             {
@@ -608,14 +525,11 @@ public class DynamoKeyDiscoveryConventionTests
                 b.HasSortKey(x => x.CustomSort);
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static ExplicitSkOverrideContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<ExplicitSkOverrideContext>(client));
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void ExplicitHasSortKey_OverridesNameBasedDiscovery()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -633,17 +547,14 @@ public class DynamoKeyDiscoveryConventionTests
 
     private sealed record ConventionalPkExplicitSortEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string PK { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string CustomSort { get; set; } = null!;
     }
 
     private sealed class ConventionalPkExplicitSortContext(DbContextOptions options) : DbContext(
         options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<ConventionalPkExplicitSortEntity> Entities { get; set; } = null!;
 
         /// <summary>
@@ -663,9 +574,7 @@ public class DynamoKeyDiscoveryConventionTests
             => new(BuildOptions<ConventionalPkExplicitSortContext>(client));
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void ConventionalPartitionKey_WithExplicitSortKey_ResolvesBothRoles()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -683,17 +592,14 @@ public class DynamoKeyDiscoveryConventionTests
 
     private sealed record ExplicitPartitionConventionalSkEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string CustomPartition { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string SK { get; set; } = null!;
     }
 
     private sealed class ExplicitPartitionConventionalSkContext(DbContextOptions options)
         : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<ExplicitPartitionConventionalSkEntity> Entities { get; set; } = null!;
 
         /// <summary>
@@ -713,9 +619,7 @@ public class DynamoKeyDiscoveryConventionTests
             => new(BuildOptions<ExplicitPartitionConventionalSkContext>(client));
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void ExplicitPartitionKey_WithConventionalSortKey_ResolvesBothRoles()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -733,20 +637,16 @@ public class DynamoKeyDiscoveryConventionTests
 
     private sealed record ExplicitPartitionAmbiguousSortEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string CustomPartition { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string SK { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string SortKey { get; set; } = null!;
     }
 
     private sealed class ExplicitPartitionAmbiguousSortContext(DbContextOptions options)
         : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<ExplicitPartitionAmbiguousSortEntity> Entities { get; set; } = null!;
 
         /// <summary>
@@ -766,9 +666,7 @@ public class DynamoKeyDiscoveryConventionTests
             => new(BuildOptions<ExplicitPartitionAmbiguousSortContext>(client));
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void ExplicitPartitionKey_WithAmbiguousConventionalSortNames_ThrowsAmbiguityError()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -791,34 +689,27 @@ public class DynamoKeyDiscoveryConventionTests
 
     private sealed record WrongCaseEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string pk { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string sk { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string Id { get; set; } = null!;
     }
 
     private sealed class WrongCaseContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<WrongCaseEntity> Entities { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<WrongCaseEntity>(b =>
             {
                 b.ToTable("WrongCaseTable");
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static WrongCaseContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<WrongCaseContext>(client));
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void LowercaseConventionalNames_AutoConfigureCompositeKeyAndBeatFallbackId()
     {
@@ -841,10 +732,8 @@ public class DynamoKeyDiscoveryConventionTests
 
     private sealed record OwnerEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string PK { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public ComplexPart Detail { get; set; } = null!;
     }
 
@@ -852,19 +741,15 @@ public class DynamoKeyDiscoveryConventionTests
     {
         // This property's name would normally trigger discovery on an entity type, but complex
         // types are not entity types, so the convention skips them.
-        /// <summary>Provides functionality for this member.</summary>
         public string SK { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string Value { get; set; } = null!;
     }
 
     private sealed class ComplexConventionContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<OwnerEntity> Owners { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<OwnerEntity>(b =>
             {
@@ -872,7 +757,6 @@ public class DynamoKeyDiscoveryConventionTests
                 b.ComplexProperty(x => x.Detail);
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static ComplexConventionContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<ComplexConventionContext>(client));
     }
@@ -883,9 +767,7 @@ public class DynamoKeyDiscoveryConventionTests
     // without depending on GetPartitionKeyPropertyName()'s fallback path.
     // -------------------------------------------------------------------
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void PropertyNamedPK_SetsAnnotationDirectly_NotJustFallback()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -898,9 +780,7 @@ public class DynamoKeyDiscoveryConventionTests
         entityType["Dynamo:SortKeyPropertyName"].Should().BeNull();
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void PropertiesNamedPKAndSK_SetsBothAnnotationsDirectly()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -919,22 +799,17 @@ public class DynamoKeyDiscoveryConventionTests
 
     private sealed record AmbiguousPkEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string PK { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string PartitionKey { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string Name { get; set; } = null!;
     }
 
     private sealed class AmbiguousPkContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<AmbiguousPkEntity> Entities { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<AmbiguousPkEntity>(b =>
             {
@@ -942,14 +817,11 @@ public class DynamoKeyDiscoveryConventionTests
                 // No HasPartitionKey — convention sees both 'PK' and 'PartitionKey'
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static AmbiguousPkContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<AmbiguousPkContext>(client));
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void BothPKAndPartitionKey_WithoutExplicitOverride_ThrowsAmbiguityError()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -967,22 +839,17 @@ public class DynamoKeyDiscoveryConventionTests
 
     private sealed record AmbiguousSkEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string PK { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string SK { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string SortKey { get; set; } = null!;
     }
 
     private sealed class AmbiguousSkContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<AmbiguousSkEntity> Entities { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<AmbiguousSkEntity>(b =>
             {
@@ -990,14 +857,11 @@ public class DynamoKeyDiscoveryConventionTests
                 // No HasSortKey — convention sees both 'SK' and 'SortKey'
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static AmbiguousSkContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<AmbiguousSkContext>(client));
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void BothSKAndSortKey_WithoutExplicitOverride_ThrowsAmbiguityError()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -1015,22 +879,17 @@ public class DynamoKeyDiscoveryConventionTests
 
     private sealed record ResolvedAmbiguityEntity
     {
-        /// <summary>Provides functionality for this member.</summary>
         public string PK { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string PartitionKey { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         public string SK { get; set; } = null!;
     }
 
     private sealed class ResolvedAmbiguityContext(DbContextOptions options) : DbContext(options)
     {
-        /// <summary>Provides functionality for this member.</summary>
         public DbSet<ResolvedAmbiguityEntity> Entities { get; set; } = null!;
 
-        /// <summary>Provides functionality for this member.</summary>
         protected override void OnModelCreating(ModelBuilder modelBuilder)
             => modelBuilder.Entity<ResolvedAmbiguityEntity>(b =>
             {
@@ -1040,14 +899,11 @@ public class DynamoKeyDiscoveryConventionTests
                 b.HasSortKey(x => x.SK);
             });
 
-        /// <summary>Provides functionality for this member.</summary>
         public static ResolvedAmbiguityContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<ResolvedAmbiguityContext>(client));
     }
 
-    /// <summary>Provides functionality for this member.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    /// <summary>Provides functionality for this member.</summary>
     public void ExplicitHasPartitionKey_ResolvesAmbiguity_DoesNotThrow()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
