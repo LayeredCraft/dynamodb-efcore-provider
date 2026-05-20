@@ -187,8 +187,29 @@ public class CustomConvertersDynamoTest(
     public override Task Can_query_and_update_with_conversion_for_custom_struct()
         => base.Can_query_and_update_with_conversion_for_custom_struct();
 
-    public override Task Can_insert_and_read_back_with_case_insensitive_string_key()
-        => base.Can_insert_and_read_back_with_case_insensitive_string_key();
+    public override async Task Can_insert_and_read_back_with_case_insensitive_string_key()
+    {
+        await using (var context = CreateContext())
+        {
+            var principal =
+                context
+                    .Set<StringKeyDataType>()
+                    .Add(new StringKeyDataType { Id = "Gumball!!" })
+                    .Entity;
+
+            Assert.Equal(1, await context.SaveChangesAsync());
+        }
+
+        await using (var context = CreateContext())
+        {
+            var entity = (await context
+                .Set<StringKeyDataType>()
+                .Where(e => e.Id == "Gumball!!")
+                .ToListAsync()).Single();
+
+            Assert.Equal("Gumball!!", entity.Id);
+        }
+    }
 
     public override Task Can_insert_and_read_back_with_string_list()
         => base.Can_insert_and_read_back_with_string_list();
