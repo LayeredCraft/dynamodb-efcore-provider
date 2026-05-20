@@ -213,8 +213,28 @@ public class CustomConvertersDynamoTest(
         }
     }
 
-    public override Task Can_insert_and_read_back_with_string_list()
-        => base.Can_insert_and_read_back_with_string_list();
+    public override async Task Can_insert_and_read_back_with_string_list()
+    {
+        using (var context = CreateContext())
+        {
+            context
+                .Set<StringListDataType>()
+                .Add(
+                    new StringListDataType
+                    {
+                        Id = 1, Strings = new List<string> { "Gum", "Taffy" },
+                    });
+
+            Assert.Equal(1, await context.SaveChangesAsync());
+        }
+
+        using (var context = CreateContext())
+        {
+            var entity = await context.Set<StringListDataType>().AsAsyncEnumerable().SingleAsync();
+
+            Assert.Equal(["Gum", "Taffy"], entity.Strings);
+        }
+    }
 
     public override async Task Can_insert_and_query_struct_to_string_converter_for_pk()
     {
