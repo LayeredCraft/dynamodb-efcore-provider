@@ -531,11 +531,17 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
             return sqlExpressionFactory.Constant(true, typeof(bool));
 
         var operand = leftNull ? right : left;
+        if (!CanBeNull(operand.Type))
+            return sqlExpressionFactory.Constant(false, typeof(bool));
+
         return sqlExpressionFactory.Binary(
             ExpressionType.OrElse,
             sqlExpressionFactory.IsNull(operand),
             sqlExpressionFactory.IsMissing(operand));
     }
+
+    private static bool CanBeNull(Type type)
+        => !type.IsValueType || Nullable.GetUnderlyingType(type) != null;
 
     private static Expression UnwrapObjectConvert(Expression expression)
     {

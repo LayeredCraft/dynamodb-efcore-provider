@@ -216,6 +216,75 @@ public class ToQueryStringTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ToQueryString_EqualsNullForNonNullableInt_TranslatesToFalse()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var context = ToQueryStringDbContext.Create(client);
+
+        var queryString = context
+            .EqualsItems
+            .AllowScan()
+            .Where(e => e.Count.Equals(null))
+            .ToQueryString();
+
+        queryString
+            .Should()
+            .Be(
+                """
+                SELECT "pk", "count", "enabled", "name", "status"
+                FROM "ToQueryStringEqualsItems"
+                WHERE FALSE
+                """);
+        client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ToQueryString_ObjectEqualsNullForNonNullableBool_TranslatesToFalse()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var context = ToQueryStringDbContext.Create(client);
+
+        var queryString = context
+            .EqualsItems
+            .AllowScan()
+            .Where(e => Equals(e.Enabled, null))
+            .ToQueryString();
+
+        queryString
+            .Should()
+            .Be(
+                """
+                SELECT "pk", "count", "enabled", "name", "status"
+                FROM "ToQueryStringEqualsItems"
+                WHERE FALSE
+                """);
+        client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ToQueryString_ObjectEqualsNullLeftForNonNullableEnum_TranslatesToFalse()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var context = ToQueryStringDbContext.Create(client);
+
+        var queryString = context
+            .EqualsItems
+            .AllowScan()
+            .Where(e => Equals(null, e.Status))
+            .ToQueryString();
+
+        queryString
+            .Should()
+            .Be(
+                """
+                SELECT "pk", "count", "enabled", "name", "status"
+                FROM "ToQueryStringEqualsItems"
+                WHERE FALSE
+                """);
+        client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void ToQueryString_IncompatibleEqualsTypes_TranslatesToFalse()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
