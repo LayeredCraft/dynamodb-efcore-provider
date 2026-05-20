@@ -375,9 +375,9 @@ public class CustomConvertersDynamoTest(
     public override void GroupBy_converted_enum()
         => DynamoTestHelpers.Instance.NoSyncTest(() => base.GroupBy_converted_enum());
 
+    [ConditionalFact(Skip = SkipReason.SubqueryContainsNotSupported)]
     public override void Infer_type_mapping_from_in_subquery_to_item()
-        => DynamoTestHelpers.Instance.NoSyncTest(()
-            => base.Infer_type_mapping_from_in_subquery_to_item());
+        => base.Infer_type_mapping_from_in_subquery_to_item();
 
     public class CustomConvertersDynamoFixture
         : CustomConvertersFixtureBase, IDynamoSpecificationFixture

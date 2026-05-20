@@ -9,6 +9,9 @@ public static class SkipReason
     public const string QueryShapeNotSupported =
         "DynamoDB provider does not support this query shape.";
 
+    public const string SubqueryContainsNotSupported =
+        "DynamoDB provider does not support translating subquery Contains.";
+
     public const string OrderedResultSetNotSupported =
         "DynamoDB does not support guaranteed ordered result sets for this query shape.";
 
