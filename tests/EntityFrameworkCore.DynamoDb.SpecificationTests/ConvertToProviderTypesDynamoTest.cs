@@ -38,8 +38,7 @@ public class ConvertToProviderTypesDynamoTest(
         await base.Can_filter_projection_with_inline_enum_variable(async);
     }
 
-    [ConditionalFact(Skip = SkipReason.ProviderTypeConvertedPredicatesNotSupported)]
-    public override Task Can_query_using_any_data_type() => Task.CompletedTask;
+    public override Task Can_query_using_any_data_type() => base.Can_query_using_any_data_type();
 
     [ConditionalFact(Skip = SkipReason.ProviderTypeConvertedPredicatesNotSupported)]
     public override Task Can_query_using_any_data_type_shadow() => Task.CompletedTask;
