@@ -38,9 +38,6 @@ public sealed class QueryExpressionInterceptionDynamoTest
     public override Task Interceptor_does_not_leak_across_contexts(bool async)
         => Task.CompletedTask;
 
-    private static Task NoSyncTest(bool async, Func<bool, Task> testCode)
-        => DynamoTestHelpers.Instance.NoSyncTest(async, testCode);
-
     public class InterceptionDynamoFixture : InterceptionFixtureBase
     {
         protected override ITestStoreFactory TestStoreFactory => DynamoTestStoreFactory.Instance;
