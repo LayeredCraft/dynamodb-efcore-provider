@@ -37,6 +37,12 @@ namespace EntityFrameworkCore.DynamoDb.Metadata.Conventions;
 public class DynamoKeyDiscoveryConvention(ProviderConventionSetBuilderDependencies dependencies)
     : KeyDiscoveryConvention(dependencies)
 {
+    /// <inheritdoc />
+    protected override bool ShouldDiscoverKeyProperties(IConventionEntityType entityType)
+        // DynamoDB keys apply only to root table entities. Owned types are rejected during model
+        // finalization; skipping key discovery prevents EF owned-collection shadow-key loops first.
+        => !entityType.IsOwned() && base.ShouldDiscoverKeyProperties(entityType);
+
     /// <summary>Configures EF key candidates from DynamoDB conventional-name properties.</summary>
     /// <remarks>
     ///     Key discovery first looks for a DynamoDB-specific partition key property (<c>PK</c> /
