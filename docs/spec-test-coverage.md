@@ -39,19 +39,16 @@ change tracking, concurrency, Find, value converters, interceptors, and more.
 | `ConcurrencyDetectorEnabledTestBase` | 1 | ✓ | ✗ | `ConcurrencyDetector` opt-in |
 | `OptimisticConcurrencyTestBase` | 33 | ✓ | ✗ | ETag / version token concurrency |
 | `FindTestBase` | 69 | ✓ | ✗ | `Find`/`FindAsync` by primary key |
+| `ComplianceTestBase` | 1 | ✗ | ✗ | Compliance marker for implemented provider spec bases |
+| `OverzealousInitializationTestBase` | 1 | ✓ | ✗ | Navigation-based fixup test is explicitly skipped |
+| `LoggingTestBase` | 1 | ✗ | ✗ | Context-initialization logging covered; unsupported include path skipped |
+| `SaveChangesInterceptionTestBase` | 13 | ✗ | ✗ | Transaction-dependent cases are explicitly skipped |
+| `QueryExpressionInterceptionTestBase` | 4 | ✓ | ✗ | `Single`-based query shapes are explicitly skipped |
+| `MaterializationInterceptionTestBase` | 7 | ✓ | ✗ | Materialization interceptor coverage; owned/complex collection cases skipped |
 
 ### Implement Next
 
-High-value, low-effort; DynamoDB behavior is clearly compatible and infrastructure already exists.
-
-| Test Class | Methods | Cosmos | MongoDB | Feasibility | Rationale |
-|---|---:|:---:|:---:|---:|---|
-| `ComplianceTestBase` | 1 | ✗ | ✗ | ~100% | Single compliance marker test; near-zero effort |
-| `OverzealousInitializationTestBase` | 1 | ✓ | ✗ | ~100% | Property initialization guard; single test |
-| `LoggingTestBase` | 1 | ✗ | ✗ | ~90% | Basic logging wiring; single test |
-| `SaveChangesInterceptionTestBase` | 13 | ✗ | ✗ | ~85% | `ISaveChangesInterceptor`; DynamoDB supports SaveChanges |
-| `QueryExpressionInterceptionTestBase` | 4 | ✓ | ✗ | ~85% | Query expression tree interception; small surface |
-| `MaterializationInterceptionTestBase` | 7 | ✓ | ✗ | ~80% | `IMaterializationInterceptor`; DynamoDB materializes entities |
+No non-query specification test classes are currently queued here.
 
 ### Future
 
