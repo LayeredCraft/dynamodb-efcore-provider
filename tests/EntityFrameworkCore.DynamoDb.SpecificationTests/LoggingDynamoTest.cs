@@ -12,7 +12,7 @@ namespace EntityFrameworkCore.DynamoDb.SpecificationTests;
 
 public sealed class LoggingDynamoTest : LoggingTestBase
 {
-    [ConditionalFact(Skip = SkipReason.NavigationPropertiesNotSupported)]
+    [ConditionalFact(Skip = SkipReason.PartitionKeyRequiredOnAllEntities)]
     public override void InvalidIncludePathError_throws_by_default() { }
 
     protected override string ActualMessage(Func<IServiceCollection, DbContextOptionsBuilder> optionsActions)

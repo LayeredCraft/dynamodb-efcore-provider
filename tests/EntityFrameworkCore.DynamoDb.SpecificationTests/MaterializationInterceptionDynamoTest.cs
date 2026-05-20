@@ -25,11 +25,11 @@ public sealed class MaterializationInterceptionDynamoTest(NonSharedFixture fixtu
     public override Task Intercept_query_materialization_for_empty_constructor(bool inject, bool usePooling)
         => base.Intercept_query_materialization_for_empty_constructor(inject, usePooling);
 
-    [ConditionalTheory(Skip = SkipReason.ComplexTypeCollectionsNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.OwnedEntityTypesNotSupported)]
     public override Task Intercept_query_materialization_with_owned_types(bool async, bool usePooling)
         => Task.CompletedTask;
 
-    [ConditionalTheory(Skip = SkipReason.ComplexTypeCollectionsNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.OwnedEntityTypesNotSupported)]
     public override Task Intercept_query_materialization_with_owned_types_projecting_collection(bool async, bool usePooling)
         => Task.CompletedTask;
 

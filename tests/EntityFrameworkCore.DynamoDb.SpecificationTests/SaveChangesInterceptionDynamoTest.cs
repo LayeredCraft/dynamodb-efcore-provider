@@ -38,9 +38,8 @@ public sealed class SaveChangesInterceptionDynamoTest
     public override Task Intercept_SaveChanges_failed(bool async, bool inject, bool noAcceptChanges, bool concurrencyError)
         => Task.CompletedTask;
 
-    [ConditionalTheory(Skip = SkipReason.TransactionsNotSupported)]
     public override Task Intercept_to_suppress_concurrency_exception(bool async, bool inject, bool noAcceptChanges)
-        => Task.CompletedTask;
+        => base.Intercept_to_suppress_concurrency_exception(async, inject, noAcceptChanges);
 
     [ConditionalTheory(Skip = SkipReason.TransactionsNotSupported)]
     public override Task Intercept_SaveChanges_with_multiple_interceptors(bool async, bool inject, bool noAcceptChanges)

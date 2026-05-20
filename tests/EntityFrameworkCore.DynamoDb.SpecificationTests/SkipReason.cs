@@ -18,7 +18,10 @@ public static class SkipReason
     public const string TransactionsNotSupported =
         "DynamoDB provider does not support explicit EF Core transaction scopes via Database.BeginTransaction().";
 
-    public const string ComplexTypeCollectionsNotSupported =
-        "DynamoDB provider does not support complex type collections for this test shape.";
+    public const string OwnedEntityTypesNotSupported =
+        "DynamoDB does not support EF Core owned entity types (OwnsMany/OwnsOne). Use [ComplexType] instead.";
+
+    public const string PartitionKeyRequiredOnAllEntities =
+        "DynamoDB requires every entity type in the model to have a partition key.";
 
 }
