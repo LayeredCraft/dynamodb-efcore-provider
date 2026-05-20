@@ -120,14 +120,13 @@ Uses the `Customer / Employee / Order / Product` dataset with `NorthwindQueryDyn
 |---|---:|:---:|:---:|---|
 | `NorthwindWhereQueryTestBase` | 203 | ✓ | ✓ | Predicate filtering; core WHERE coverage |
 | `NorthwindSelectQueryTestBase` | 186 | ✓ | ✓ | Projections and SELECT shapes |
+| `NorthwindAsNoTrackingQueryTestBase` | 11 | ✗ | ✓ | `AsNoTracking()` passthrough; join/navigation-shaped cases skipped |
+| `NorthwindAsTrackingQueryTestBase` | 5 | ✗ | ✓ | `AsTracking()` on `IQueryable`; sync-only base tests assert async-only provider behavior |
+| `NorthwindQueryTaggingQueryTestBase` | 9 | ✗ | ✓ | `TagWith()` has no translation impact; sync-only base tests assert async-only provider behavior |
 
 ### Implement Next
 
-| Test Class | Methods | Cosmos | MongoDB | Feasibility | Rationale |
-|---|---:|:---:|:---:|---:|---|
-| `NorthwindAsNoTrackingQueryTestBase` | 11 | ✗ | ✓ | ~95% | `AsNoTracking()` is a passthrough for DynamoDB |
-| `NorthwindAsTrackingQueryTestBase` | 5 | ✗ | ✓ | ~95% | `AsTracking()` on `IQueryable`; trivial |
-| `NorthwindQueryTaggingQueryTestBase` | 9 | ✗ | ✓ | ~90% | `TagWith()` query comments; no translation impact |
+No Northwind query specification test classes are currently queued here.
 
 ### Future
 
