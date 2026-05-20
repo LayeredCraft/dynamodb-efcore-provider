@@ -177,8 +177,17 @@ public class ConvertToProviderTypesDynamoTest(
     }
 
     [ConditionalFact]
-    public override Task Can_read_back_bool_mapped_as_int_through_navigation()
-        => base.Can_read_back_bool_mapped_as_int_through_navigation();
+    public override async Task Can_read_back_bool_mapped_as_int_through_navigation()
+    {
+        await using var context = CreateContext();
+        var query =
+            from animal in context.Set<DynamoAnimal>()
+            where animal.Details != null
+            select new { animal.Details.BoolField };
+
+        var result = Assert.Single(await query.ToListAsync());
+        Assert.True(result.BoolField);
+    }
 
     public override Task Can_compare_enum_to_constant() => base.Can_compare_enum_to_constant();
 
