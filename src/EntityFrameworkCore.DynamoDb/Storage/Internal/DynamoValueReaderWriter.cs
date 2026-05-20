@@ -622,6 +622,18 @@ internal static class DynamoValueReaderWriterFactory
         if (converter == null || readerWriter == null)
             return readerWriter;
 
+        var providerType = converter.ProviderClrType;
+        if (readerWriter.ValueType != providerType)
+        {
+            var underlyingProviderType = Nullable.GetUnderlyingType(providerType);
+            if (underlyingProviderType != null && readerWriter.ValueType == underlyingProviderType)
+                readerWriter = CreateNullableReaderWriter(underlyingProviderType, readerWriter);
+            else
+                throw new InvalidOperationException(
+                    $"Converter provider type '{providerType.Name}' does not match DynamoDB reader/writer "
+                    + $"type '{readerWriter.ValueType.Name}'.");
+        }
+
         // Compose the converter once at mapping-construction time so callers can keep working with
         // model CLR values while the inner reader/writer stays focused on the provider CLR type.
         // Activator is acceptable here because this runs when the mapping is built, not in the
@@ -629,7 +641,7 @@ internal static class DynamoValueReaderWriterFactory
         return (DynamoValueReaderWriter)Activator.CreateInstance(
             typeof(DynamoConvertedValueReaderWriter<,>).MakeGenericType(
                 converter.ModelClrType,
-                readerWriter.ValueType),
+                providerType),
             readerWriter,
             converter)!;
     }
