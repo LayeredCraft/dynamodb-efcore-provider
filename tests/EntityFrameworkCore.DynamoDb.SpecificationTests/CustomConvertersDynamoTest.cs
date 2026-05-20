@@ -183,8 +183,31 @@ public class CustomConvertersDynamoTest(
     public override Task Can_query_and_update_with_nullable_converter_on_primary_key()
         => base.Can_query_and_update_with_nullable_converter_on_primary_key();
 
-    public override Task Can_query_and_update_with_conversion_for_custom_type()
-        => base.Can_query_and_update_with_conversion_for_custom_type();
+    public override async Task Can_query_and_update_with_conversion_for_custom_type()
+    {
+        Guid id;
+        await using (var context = CreateContext())
+        {
+            var user =
+                context.Set<User>().Add(new User(Email.Create("eeky_bear@example.com"))).Entity;
+
+            Assert.Equal(1, await context.SaveChangesAsync());
+
+            id = user.Id;
+        }
+
+        await using (var context = CreateContext())
+        {
+            var user =
+                await context
+                    .Set<User>()
+                    .AsAsyncEnumerable()
+                    .SingleAsync(e => e.Id == id && e.Email == "eeky_bear@example.com");
+
+            Assert.Equal(id, user.Id);
+            Assert.Equal("eeky_bear@example.com", user.Email);
+        }
+    }
 
     public override Task Can_query_and_update_with_conversion_for_custom_struct()
         => base.Can_query_and_update_with_conversion_for_custom_struct();
