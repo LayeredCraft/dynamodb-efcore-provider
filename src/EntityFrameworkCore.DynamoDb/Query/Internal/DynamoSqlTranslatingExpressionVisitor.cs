@@ -639,9 +639,12 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         if (sourceNullable != targetNullable)
             return false;
 
-        if (sourceUnderlyingType.IsEnum
-            && Enum.GetUnderlyingType(sourceUnderlyingType) == targetUnderlyingType)
-            return true;
+        if (sourceUnderlyingType.IsEnum)
+        {
+            var enumUnderlyingType = Enum.GetUnderlyingType(sourceUnderlyingType);
+            return enumUnderlyingType == targetUnderlyingType
+                || IsImplicitClrConvert(enumUnderlyingType, targetUnderlyingType);
+        }
 
         return targetUnderlyingType == typeof(int)
             && sourceUnderlyingType is { } source
