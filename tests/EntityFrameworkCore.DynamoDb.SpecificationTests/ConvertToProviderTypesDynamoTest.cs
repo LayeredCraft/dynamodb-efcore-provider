@@ -11,7 +11,6 @@ public class ConvertToProviderTypesDynamoTest(
     : ConvertToProviderTypesTestBase<
         ConvertToProviderTypesDynamoTest.ConvertToProviderTypesDynamoFixture>(fixture)
 {
-    [ConditionalFact]
     public virtual void Check_all_tests_overridden()
         => DynamoTestHelpers.AssertAllTestMethodsOverridden(
             typeof(ConvertToProviderTypesDynamoTest));
@@ -40,19 +39,15 @@ public class ConvertToProviderTypesDynamoTest(
 
     public override Task Can_query_using_any_data_type() => base.Can_query_using_any_data_type();
 
-    [ConditionalFact]
     public override Task Can_query_using_any_data_type_shadow()
         => base.Can_query_using_any_data_type_shadow();
 
-    [ConditionalFact]
     public override Task Can_query_using_any_nullable_data_type()
         => base.Can_query_using_any_nullable_data_type();
 
-    [ConditionalFact]
     public override Task Can_query_using_any_data_type_nullable_shadow()
         => base.Can_query_using_any_data_type_nullable_shadow();
 
-    [ConditionalFact]
     public override Task Can_query_using_any_nullable_data_type_as_literal()
         => base.Can_query_using_any_nullable_data_type_as_literal();
 
@@ -176,7 +171,6 @@ public class ConvertToProviderTypesDynamoTest(
         Assert.Equal(IdentificationMethod.EarTag, result?.Method);
     }
 
-    [ConditionalFact]
     public override async Task Can_read_back_bool_mapped_as_int_through_navigation()
     {
         await using var context = CreateContext();
@@ -201,12 +195,11 @@ public class ConvertToProviderTypesDynamoTest(
     public override Task Can_insert_query_multiline_string()
         => base.Can_insert_query_multiline_string();
 
-    [ConditionalFact]
-    public override void Equals_method_over_enum_works() => base.Equals_method_over_enum_works();
+    public override void Equals_method_over_enum_works()
+        => DynamoTestHelpers.Instance.NoSyncTest(() => base.Equals_method_over_enum_works());
 
-    [ConditionalFact]
     public override void Object_equals_method_over_enum_works()
-        => base.Object_equals_method_over_enum_works();
+        => DynamoTestHelpers.Instance.NoSyncTest(() => base.Object_equals_method_over_enum_works());
 
     private static async Task AssertNoSync(Func<Task> testCode)
     {
