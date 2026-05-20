@@ -40,17 +40,21 @@ public class ConvertToProviderTypesDynamoTest(
 
     public override Task Can_query_using_any_data_type() => base.Can_query_using_any_data_type();
 
-    [ConditionalFact(Skip = SkipReason.ProviderTypeConvertedPredicatesNotSupported)]
-    public override Task Can_query_using_any_data_type_shadow() => Task.CompletedTask;
+    [ConditionalFact]
+    public override Task Can_query_using_any_data_type_shadow()
+        => base.Can_query_using_any_data_type_shadow();
 
-    [ConditionalFact(Skip = SkipReason.ProviderTypeConvertedPredicatesNotSupported)]
-    public override Task Can_query_using_any_nullable_data_type() => Task.CompletedTask;
+    [ConditionalFact]
+    public override Task Can_query_using_any_nullable_data_type()
+        => base.Can_query_using_any_nullable_data_type();
 
-    [ConditionalFact(Skip = SkipReason.ProviderTypeConvertedPredicatesNotSupported)]
-    public override Task Can_query_using_any_data_type_nullable_shadow() => Task.CompletedTask;
+    [ConditionalFact]
+    public override Task Can_query_using_any_data_type_nullable_shadow()
+        => base.Can_query_using_any_data_type_nullable_shadow();
 
-    [ConditionalFact(Skip = SkipReason.BinaryProviderLiteralsNotSupported)]
-    public override Task Can_query_using_any_nullable_data_type_as_literal() => Task.CompletedTask;
+    [ConditionalFact]
+    public override Task Can_query_using_any_nullable_data_type_as_literal()
+        => base.Can_query_using_any_nullable_data_type_as_literal();
 
     public override Task Can_query_with_null_parameters_using_any_nullable_data_type()
         => base.Can_query_with_null_parameters_using_any_nullable_data_type();
@@ -116,7 +120,7 @@ public class ConvertToProviderTypesDynamoTest(
         }
     }
 
-    [ConditionalFact(Skip = SkipReason.ForeignKeysNotSupported)]
+    [ConditionalFact]
     public override Task Can_insert_and_read_back_with_null_binary_foreign_key()
         => base.Can_insert_and_read_back_with_null_binary_foreign_key();
 
@@ -141,7 +145,7 @@ public class ConvertToProviderTypesDynamoTest(
         }
     }
 
-    [ConditionalFact(Skip = SkipReason.ForeignKeysNotSupported)]
+    [ConditionalFact]
     public override Task Can_insert_and_read_back_with_null_string_foreign_key()
         => base.Can_insert_and_read_back_with_null_string_foreign_key();
 
@@ -172,7 +176,7 @@ public class ConvertToProviderTypesDynamoTest(
         Assert.Equal(IdentificationMethod.EarTag, result?.Method);
     }
 
-    [ConditionalFact(Skip = SkipReason.NavigationPropertiesNotSupported)]
+    [ConditionalFact]
     public override Task Can_read_back_bool_mapped_as_int_through_navigation()
         => base.Can_read_back_bool_mapped_as_int_through_navigation();
 
@@ -188,11 +192,12 @@ public class ConvertToProviderTypesDynamoTest(
     public override Task Can_insert_query_multiline_string()
         => base.Can_insert_query_multiline_string();
 
-    [ConditionalFact(Skip = SkipReason.ScalarEqualsTranslationNotSupported)]
-    public override void Equals_method_over_enum_works() { }
+    [ConditionalFact]
+    public override void Equals_method_over_enum_works() => base.Equals_method_over_enum_works();
 
-    [ConditionalFact(Skip = SkipReason.ScalarEqualsTranslationNotSupported)]
-    public override void Object_equals_method_over_enum_works() { }
+    [ConditionalFact]
+    public override void Object_equals_method_over_enum_works()
+        => base.Object_equals_method_over_enum_works();
 
     private static async Task AssertNoSync(Func<Task> testCode)
     {
