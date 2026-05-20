@@ -16,7 +16,7 @@ public static class SkipReason
         "DynamoDB does not support navigation properties.";
 
     public const string TransactionsNotSupported =
-        "DynamoDB provider does not support EF Core transactions.";
+        "DynamoDB provider does not support explicit EF Core transaction scopes via Database.BeginTransaction().";
 
     public const string ComplexTypeCollectionsNotSupported =
         "DynamoDB provider does not support complex type collections for this test shape.";
