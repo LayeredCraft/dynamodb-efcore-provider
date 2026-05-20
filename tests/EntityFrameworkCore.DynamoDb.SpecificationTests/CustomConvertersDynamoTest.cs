@@ -326,6 +326,8 @@ public class CustomConvertersDynamoTest(
 
         protected override void OnModelCreating(ModelBuilder modelBuilder, DbContext context)
         {
+            base.OnModelCreating(modelBuilder, context);
+
             modelBuilder.Entity<BinaryKeyDataType>(b => b.Ignore(e => e.Dependents));
             modelBuilder.Entity<StringKeyDataType>(b => b.Ignore(e => e.Dependents));
 
@@ -340,6 +342,7 @@ public class CustomConvertersDynamoTest(
             modelBuilder.Ignore<StringForeignKeyDataType>();
             modelBuilder.Ignore<BinaryForeignKeyDataType>();
 
+            // TODO: remove and add better discriminator support
             modelBuilder.Entity<BuiltInDataTypesShadow>(b =>
             {
                 b.Ignore("$type");
