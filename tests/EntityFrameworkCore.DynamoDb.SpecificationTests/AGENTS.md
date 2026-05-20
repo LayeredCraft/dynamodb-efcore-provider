@@ -102,14 +102,18 @@ public override void Some_sync_test()
     => NoSyncTest(() => base.Some_sync_test());
 ```
 
-**Unsupported scenarios** — skip with an empty body:
+**Unsupported scenarios** — keep override wired to base implementation, even when skipped. Do not
+use empty bodies or `Task.CompletedTask`; calling base preserves future compatibility if skip
+removed or condition changes:
 
 ```csharp
 [ConditionalFact(Skip = "DynamoDB does not support composite keys.")]
-public override void Some_unsupported_test() { }
+public override void Some_unsupported_test()
+    => base.Some_unsupported_test();
 
 [ConditionalTheory(Skip = "DynamoDB does not support composite keys.")]
-public override Task Some_unsupported_test_async(CancellationType ct) => Task.CompletedTask;
+public override Task Some_unsupported_test_async(CancellationType ct)
+    => base.Some_unsupported_test_async(ct);
 ```
 
 **Assert emitted PartiQL** — call `AssertSql(...)` after the base call. Pass no arguments for

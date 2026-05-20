@@ -32,6 +32,12 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
     private static readonly MethodInfo StringStartsWithMethod =
         ((Func<string, bool>)string.Empty.StartsWith).Method;
 
+    private static readonly MethodInfo ObjectEqualsMethod =
+        typeof(object).GetMethod(nameof(object.Equals), [typeof(object)])!;
+
+    private static readonly MethodInfo ObjectStaticEqualsMethod =
+        typeof(object).GetMethod(nameof(object.Equals), [typeof(object), typeof(object)])!;
+
     private static readonly MethodInfo ArrayEmptyMethod =
         ((Func<object[]>)Array.Empty<object>).Method.GetGenericMethodDefinition();
 
@@ -107,11 +113,10 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         => Visit(expression) as SqlExpression;
 
     /// <summary>Adds a translation error detail message for the current translation attempt.</summary>
-    private void AddTranslationErrorDetails(string details)
-        => TranslationErrorDetails =
-            TranslationErrorDetails == null
-                ? details
-                : TranslationErrorDetails + Environment.NewLine + details;
+    private void AddTranslationErrorDetails(string details) => TranslationErrorDetails =
+        TranslationErrorDetails == null
+            ? details
+            : TranslationErrorDetails + Environment.NewLine + details;
 
     /// <inheritdoc />
     protected override Expression VisitBinary(BinaryExpression node)
@@ -430,15 +435,16 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         if (node.Method.IsGenericMethod
             && node.Method.GetGenericMethodDefinition() == EfPropertyMethod
             && node.Arguments[1] is ConstantExpression { Value: string efPropName })
-        {
             return TranslateEfPropertyAccess(node, efPropName);
-        }
 
         if (node.Method == IsNullMethod
             || node.Method == IsNotNullMethod
             || node.Method == IsMissingMethod
             || node.Method == IsNotMissingMethod)
             return TranslateDynamoDbFunctions(node);
+
+        if (TryTranslateEquals(node) is { } equalsExpression)
+            return equalsExpression;
 
         if (node.Method == StringContainsMethod)
             return TranslateStringContains(node);
@@ -471,6 +477,127 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         AddTranslationErrorDetails(DynamoStrings.MethodCallInPredicateNotSupported);
         return QueryCompilationContext.NotTranslatedExpression;
     }
+
+    private Expression? TryTranslateEquals(MethodCallExpression node)
+    {
+        Expression? leftExpression = null;
+        Expression? rightExpression = null;
+
+        if (node.Object != null
+            && node.Arguments.Count == 1
+            && IsSupportedInstanceEqualsMethod(node.Method))
+        {
+            leftExpression = node.Object;
+            rightExpression = node.Arguments[0];
+        }
+        else if (node.Object == null
+            && node.Arguments.Count == 2
+            && node.Method == ObjectStaticEqualsMethod)
+        {
+            leftExpression = node.Arguments[0];
+            rightExpression = node.Arguments[1];
+        }
+
+        if (leftExpression == null || rightExpression == null)
+            return null;
+
+        var left = TranslateInternal(UnwrapObjectConvert(leftExpression));
+        var right = TranslateInternal(UnwrapObjectConvert(rightExpression));
+
+        if (left is not SqlExpression leftSql || right is not SqlExpression rightSql)
+            return QueryCompilationContext.NotTranslatedExpression;
+
+        if (!IsSupportedEqualsOperand(leftSql) || !IsSupportedEqualsOperand(rightSql))
+            return QueryCompilationContext.NotTranslatedExpression;
+
+        if (TryTranslateEqualsNull(leftSql, rightSql) is { } nullComparison)
+            return nullComparison;
+
+        if (!AreEqualsOperandTypesCompatible(leftSql, rightSql))
+            return sqlExpressionFactory.Constant(false, typeof(bool));
+
+        return sqlExpressionFactory.Binary(ExpressionType.Equal, leftSql, rightSql);
+    }
+
+    private SqlExpression? TryTranslateEqualsNull(SqlExpression left, SqlExpression right)
+    {
+        var leftNull = left is SqlConstantExpression { Value: null };
+        var rightNull = right is SqlConstantExpression { Value: null };
+
+        if (!leftNull && !rightNull)
+            return null;
+
+        if (leftNull && rightNull)
+            return sqlExpressionFactory.Constant(true, typeof(bool));
+
+        var operand = leftNull ? right : left;
+        if (!CanBeNull(operand.Type))
+            return sqlExpressionFactory.Constant(false, typeof(bool));
+
+        return sqlExpressionFactory.Binary(
+            ExpressionType.OrElse,
+            sqlExpressionFactory.IsNull(operand),
+            sqlExpressionFactory.IsMissing(operand));
+    }
+
+    private static bool CanBeNull(Type type)
+        => !type.IsValueType || Nullable.GetUnderlyingType(type) != null;
+
+    private static Expression UnwrapObjectConvert(Expression expression)
+    {
+        while (expression is UnaryExpression
+            {
+                NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked,
+                Type: var targetType,
+            } unaryExpression
+            && targetType == typeof(object))
+            expression = unaryExpression.Operand;
+
+        return expression;
+    }
+
+    private static bool IsSupportedInstanceEqualsMethod(MethodInfo method)
+    {
+        if (method.Name != nameof(object.Equals)
+            || method.ReturnType != typeof(bool)
+            || method.IsStatic
+            || method.GetParameters().Length != 1)
+            return false;
+
+        var declaringType = method.DeclaringType;
+        return method == ObjectEqualsMethod
+            || declaringType == typeof(Enum)
+            || (declaringType != null && IsSupportedEqualsType(declaringType));
+    }
+
+    private static bool IsSupportedEqualsOperand(SqlExpression expression)
+        => expression is SqlConstantExpression { Value: null }
+            || IsSupportedEqualsType(expression.Type);
+
+    private static bool AreEqualsOperandTypesCompatible(SqlExpression left, SqlExpression right)
+    {
+        var leftType = UnwrapNullableType(left.Type);
+        var rightType = UnwrapNullableType(right.Type);
+
+        return leftType == rightType;
+    }
+
+    private static bool IsSupportedEqualsType(Type type)
+    {
+        type = UnwrapNullableType(type);
+        return type.IsEnum
+            || type.IsPrimitive
+            || type == typeof(string)
+            || type == typeof(decimal)
+            || type == typeof(Guid)
+            || type == typeof(DateTime)
+            || type == typeof(DateTimeOffset)
+            || type == typeof(DateOnly)
+            || type == typeof(TimeOnly)
+            || type == typeof(TimeSpan);
+    }
+
+    private static Type UnwrapNullableType(Type type) => Nullable.GetUnderlyingType(type) ?? type;
 
     /// <summary>
     ///     Translates <c>EF.Property&lt;T&gt;(source, "name")</c> to scalar property access,
@@ -639,9 +766,12 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         if (sourceNullable != targetNullable)
             return false;
 
-        if (sourceUnderlyingType.IsEnum
-            && Enum.GetUnderlyingType(sourceUnderlyingType) == targetUnderlyingType)
-            return true;
+        if (sourceUnderlyingType.IsEnum)
+        {
+            var enumUnderlyingType = Enum.GetUnderlyingType(sourceUnderlyingType);
+            return enumUnderlyingType == targetUnderlyingType
+                || IsImplicitClrConvert(enumUnderlyingType, targetUnderlyingType);
+        }
 
         return targetUnderlyingType == typeof(int)
             && sourceUnderlyingType is { } source
@@ -738,15 +868,14 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
     }
 
     /// <summary>Returns the mirrored comparison operator (e.g. <c>&gt;=</c> becomes <c>&lt;=</c>).</summary>
-    private static ExpressionType FlipComparison(ExpressionType op)
-        => op switch
-        {
-            ExpressionType.GreaterThan => ExpressionType.LessThan,
-            ExpressionType.GreaterThanOrEqual => ExpressionType.LessThanOrEqual,
-            ExpressionType.LessThan => ExpressionType.GreaterThan,
-            ExpressionType.LessThanOrEqual => ExpressionType.GreaterThanOrEqual,
-            _ => op,
-        };
+    private static ExpressionType FlipComparison(ExpressionType op) => op switch
+    {
+        ExpressionType.GreaterThan => ExpressionType.LessThan,
+        ExpressionType.GreaterThanOrEqual => ExpressionType.LessThanOrEqual,
+        ExpressionType.LessThan => ExpressionType.GreaterThan,
+        ExpressionType.LessThanOrEqual => ExpressionType.GreaterThanOrEqual,
+        _ => op,
+    };
 
     /// <summary>Translates string.Contains to the DynamoDB contains function.</summary>
     private Expression TranslateStringContains(MethodCallExpression node)

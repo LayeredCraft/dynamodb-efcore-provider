@@ -27,6 +27,8 @@ internal abstract class DynamoValueReaderWriter
 
     internal abstract string WireMemberName { get; }
 
+    internal virtual bool RequiresParameterForPartiQlLiteral => false;
+
     internal abstract Expression CreateReadExpression(
         Expression attributeValueExpression,
         string propertyPath,
@@ -158,6 +160,9 @@ internal sealed class DynamoConvertedValueReaderWriter<TModel, TProvider>(
 
     internal override string WireMemberName => innerReaderWriter.WireMemberName;
 
+    internal override bool RequiresParameterForPartiQlLiteral
+        => innerReaderWriter.RequiresParameterForPartiQlLiteral;
+
     DynamoValueReaderWriter IDynamoConvertedValueReaderWriter.InnerReaderWriter
         => innerReaderWriter;
 
@@ -254,6 +259,9 @@ internal sealed class NullableDynamoValueReaderWriter<TValue>(
 
     internal override string WireMemberName => innerReaderWriter.WireMemberName;
 
+    internal override bool RequiresParameterForPartiQlLiteral
+        => innerReaderWriter.RequiresParameterForPartiQlLiteral;
+
     protected override Expression CreateConstructorExpression()
         => Expression.New(Constructor, innerReaderWriter.ConstructorExpression);
 
@@ -319,6 +327,8 @@ internal sealed class BinaryDynamoValueReaderWriter : DynamoValueReaderWriter<by
 {
     internal override string WireMemberName => nameof(AttributeValue.B);
 
+    internal override bool RequiresParameterForPartiQlLiteral => true;
+
     internal override bool HasValue(AttributeValue attributeValue) => attributeValue.B != null;
 
     protected override byte[] ReadValue(
@@ -378,6 +388,9 @@ internal sealed class ListDynamoValueReaderWriter<TCollection, TElement>(
 
     internal override string WireMemberName => nameof(AttributeValue.L);
 
+    internal override bool RequiresParameterForPartiQlLiteral
+        => elementReaderWriter.RequiresParameterForPartiQlLiteral;
+
     protected override Expression CreateConstructorExpression()
         => Expression.New(Constructor, elementReaderWriter.ConstructorExpression);
 
@@ -422,6 +435,9 @@ internal sealed class DictionaryDynamoValueReaderWriter<TCollection, TValue>(
                 .CreateEnumerableAccessor<TCollection, KeyValuePair<string, TValue>>();
 
     internal override string WireMemberName => nameof(AttributeValue.M);
+
+    internal override bool RequiresParameterForPartiQlLiteral
+        => valueReaderWriter.RequiresParameterForPartiQlLiteral;
 
     protected override Expression CreateConstructorExpression()
         => Expression.New(
@@ -468,6 +484,9 @@ internal sealed class SetDynamoValueReaderWriter<TCollection, TElement>(
 
     internal override string WireMemberName { get; } =
         DynamoValueReaderWriterHelpers.GetSetWireMemberName(elementReaderWriter.WireMemberName);
+
+    internal override bool RequiresParameterForPartiQlLiteral
+        => elementReaderWriter.RequiresParameterForPartiQlLiteral;
 
     protected override Expression CreateConstructorExpression()
         => Expression.New(Constructor, elementReaderWriter.ConstructorExpression);

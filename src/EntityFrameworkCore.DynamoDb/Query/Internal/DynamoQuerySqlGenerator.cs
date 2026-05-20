@@ -167,27 +167,25 @@ public sealed class DynamoQuerySqlGenerator : SqlExpressionVisitor
     /// <inheritdoc />
     protected override Expression VisitSqlConstant(SqlConstantExpression sqlConstantExpression)
     {
-        if (sqlConstantExpression.Value is byte[])
-        {
-            AppendParameter(
-                sqlConstantExpression.Value,
-                sqlConstantExpression.Value.GetType(),
-                sqlConstantExpression.TypeMapping);
-
-            return sqlConstantExpression;
-        }
+        if (sqlConstantExpression.TypeMapping is not DynamoTypeMapping dynamoTypeMapping)
+            throw new InvalidOperationException(
+                $"SqlConstantExpression requires a DynamoTypeMapping. Got: {sqlConstantExpression.TypeMapping?.GetType().Name ?? "null"}");
 
         // Use the runtime value type when available so promoted constants (short property vs int
         // literal) serialize as DynamoDB N without trying to unbox int as short.
-        if (sqlConstantExpression.TypeMapping is DynamoTypeMapping dynamoTypeMapping)
-            _sql.Append(
-                dynamoTypeMapping.GenerateConstant(
-                    sqlConstantExpression.Value,
-                    sqlConstantExpression.Value?.GetType() ?? sqlConstantExpression.Type));
-        else
-            // Fallback for cases without type mapping (shouldn't happen in normal usage)
-            throw new InvalidOperationException(
-                $"SqlConstantExpression requires a DynamoTypeMapping. Got: {sqlConstantExpression.TypeMapping?.GetType().Name ?? "null"}");
+        var sourceType = sqlConstantExpression.Value?.GetType() ?? sqlConstantExpression.Type;
+
+        if (sqlConstantExpression.Value is not null
+            && dynamoTypeMapping.RequiresParameterForPartiQlLiteral)
+        {
+            AppendParameter(
+                sqlConstantExpression.Value,
+                sourceType,
+                sqlConstantExpression.TypeMapping);
+            return sqlConstantExpression;
+        }
+
+        _sql.Append(dynamoTypeMapping.GenerateConstant(sqlConstantExpression.Value, sourceType));
 
         return sqlConstantExpression;
     }

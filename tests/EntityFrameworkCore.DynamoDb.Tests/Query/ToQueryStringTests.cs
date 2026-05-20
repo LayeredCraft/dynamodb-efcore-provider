@@ -22,7 +22,7 @@ public class ToQueryStringTests
         queryString
             .Should()
             .Be("SELECT \"pk\", \"name\"" + Environment.NewLine + "FROM \"ToQueryStringItems\"");
-        client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!, default);
+        client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
@@ -44,7 +44,7 @@ public class ToQueryStringTests
                 + "FROM \"ToQueryStringItems\""
                 + Environment.NewLine
                 + "WHERE \"pk\" = ?");
-        client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!, default);
+        client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
@@ -66,7 +66,262 @@ public class ToQueryStringTests
                 + "FROM \"ToQueryStringBinaryItems\""
                 + Environment.NewLine
                 + "WHERE \"id\" = ?");
-        client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!, default);
+        client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ToQueryString_InlineConvertedBinaryConstant_ParameterizesValue()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var context = ToQueryStringDbContext.Create(client);
+
+        var queryString = context
+            .ConvertedBinaryItems
+            .Where(e => e.Id == -1234567890.01M)
+            .ToQueryString();
+
+        queryString
+            .Should()
+            .Be(
+                """
+                -- p0=<binary:16 bytes>
+                SELECT "id", "name"
+                FROM "ToQueryStringConvertedBinaryItems"
+                WHERE "id" = ?
+                """);
+        client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ToQueryString_InstanceEquals_TranslatesScalarEqualsMethods()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var context = ToQueryStringDbContext.Create(client);
+
+        var queryString = context
+            .EqualsItems
+            .AllowScan()
+            .Where(e => e.Name.Equals("Leia")
+                && e.Count.Equals(7)
+                && e.Enabled.Equals(true)
+                && e.Status.Equals(ToQueryStringStatus.Active))
+            .ToQueryString();
+
+        queryString
+            .Should()
+            .Be(
+                """
+                SELECT "pk", "count", "enabled", "name", "status"
+                FROM "ToQueryStringEqualsItems"
+                WHERE "name" = 'Leia' AND "count" = 7 AND "enabled" = TRUE AND "status" = 'Active'
+                """);
+        client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ToQueryString_ObjectEquals_TranslatesBoxedScalarEqualsMethods()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var context = ToQueryStringDbContext.Create(client);
+
+        var queryString = context
+            .EqualsItems
+            .AllowScan()
+            .Where(e => Equals(e.Name, "Leia")
+                && Equals(e.Count, 7)
+                && Equals(e.Enabled, true)
+                && Equals(e.Status, ToQueryStringStatus.Active))
+            .ToQueryString();
+
+        queryString
+            .Should()
+            .Be(
+                """
+                SELECT "pk", "count", "enabled", "name", "status"
+                FROM "ToQueryStringEqualsItems"
+                WHERE "name" = 'Leia' AND "count" = 7 AND "enabled" = TRUE AND "status" = 'Active'
+                """);
+        client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ToQueryString_EqualsWithParameterLeft_TranslatesScalarEqualsMethod()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var context = ToQueryStringDbContext.Create(client);
+        var name = "Leia";
+
+        var queryString = context
+            .EqualsItems
+            .AllowScan()
+            .Where(e => name.Equals(e.Name))
+            .ToQueryString();
+
+        queryString
+            .Should()
+            .Be(
+                """
+                -- p0='Leia'
+                SELECT "pk", "count", "enabled", "name", "status"
+                FROM "ToQueryStringEqualsItems"
+                WHERE ? = "name"
+                """);
+        client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ToQueryString_ObjectEqualsNull_UsesNullOrMissingSemantics()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var context = ToQueryStringDbContext.Create(client);
+
+        var queryString = context
+            .EqualsItems
+            .AllowScan()
+            .Where(e => Equals(e.Name, null))
+            .ToQueryString();
+
+        queryString
+            .Should()
+            .Be(
+                """
+                SELECT "pk", "count", "enabled", "name", "status"
+                FROM "ToQueryStringEqualsItems"
+                WHERE "name" IS NULL OR "name" IS MISSING
+                """);
+        client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ToQueryString_ObjectEqualsNullLeft_UsesNullOrMissingSemantics()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var context = ToQueryStringDbContext.Create(client);
+
+        var queryString = context
+            .EqualsItems
+            .AllowScan()
+            .Where(e => Equals(null, e.Name))
+            .ToQueryString();
+
+        queryString
+            .Should()
+            .Be(
+                """
+                SELECT "pk", "count", "enabled", "name", "status"
+                FROM "ToQueryStringEqualsItems"
+                WHERE "name" IS NULL OR "name" IS MISSING
+                """);
+        client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ToQueryString_EqualsNullForNonNullableInt_TranslatesToFalse()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var context = ToQueryStringDbContext.Create(client);
+
+        var queryString = context
+            .EqualsItems
+            .AllowScan()
+            .Where(e => e.Count.Equals(null))
+            .ToQueryString();
+
+        queryString
+            .Should()
+            .Be(
+                """
+                SELECT "pk", "count", "enabled", "name", "status"
+                FROM "ToQueryStringEqualsItems"
+                WHERE FALSE
+                """);
+        client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ToQueryString_ObjectEqualsNullForNonNullableBool_TranslatesToFalse()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var context = ToQueryStringDbContext.Create(client);
+
+        var queryString = context
+            .EqualsItems
+            .AllowScan()
+            .Where(e => Equals(e.Enabled, null))
+            .ToQueryString();
+
+        queryString
+            .Should()
+            .Be(
+                """
+                SELECT "pk", "count", "enabled", "name", "status"
+                FROM "ToQueryStringEqualsItems"
+                WHERE FALSE
+                """);
+        client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ToQueryString_ObjectEqualsNullLeftForNonNullableEnum_TranslatesToFalse()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var context = ToQueryStringDbContext.Create(client);
+
+        var queryString = context
+            .EqualsItems
+            .AllowScan()
+            .Where(e => Equals(null, e.Status))
+            .ToQueryString();
+
+        queryString
+            .Should()
+            .Be(
+                """
+                SELECT "pk", "count", "enabled", "name", "status"
+                FROM "ToQueryStringEqualsItems"
+                WHERE FALSE
+                """);
+        client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ToQueryString_IncompatibleEqualsTypes_TranslatesToFalse()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var context = ToQueryStringDbContext.Create(client);
+
+        var queryString = context
+            .EqualsItems
+            .AllowScan()
+            .Where(e => Equals(e.Count, "7"))
+            .ToQueryString();
+
+        queryString
+            .Should()
+            .Be(
+                """
+                SELECT "pk", "count", "enabled", "name", "status"
+                FROM "ToQueryStringEqualsItems"
+                WHERE FALSE
+                """);
+        client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ToQueryString_ObjectTypedParameterEquals_IsNotTranslated()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var context = ToQueryStringDbContext.Create(client);
+        object status = ToQueryStringStatus.Active;
+
+        var act = () => context
+            .EqualsItems
+            .AllowScan()
+            .Where(e => Equals(e.Status, status))
+            .ToQueryString();
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*could not be translated*");
+        client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
     }
 
     [Theory(Timeout = TestConfiguration.DefaultTimeout)]
@@ -106,9 +361,8 @@ public class ToQueryStringTests
 
     private sealed class ToQueryStringEntity
     {
-        public string Pk { get; set; } = null!;
-
         public string Name { get; set; } = null!;
+        public string Pk { get; set; } = null!;
     }
 
     private sealed class ToQueryStringBinaryEntity
@@ -118,11 +372,40 @@ public class ToQueryStringTests
         public string Name { get; set; } = null!;
     }
 
+    private sealed class ToQueryStringConvertedBinaryEntity
+    {
+        public decimal Id { get; set; }
+
+        public string Name { get; set; } = null!;
+    }
+
+    private sealed class ToQueryStringEqualsEntity
+    {
+        public int Count { get; set; }
+
+        public bool Enabled { get; set; }
+
+        public string Name { get; set; } = null!;
+        public string Pk { get; set; } = null!;
+
+        public ToQueryStringStatus Status { get; set; }
+    }
+
+    private enum ToQueryStringStatus
+    {
+        Inactive,
+        Active,
+    }
+
     private sealed class ToQueryStringDbContext(DbContextOptions options) : DbContext(options)
     {
-        public DbSet<ToQueryStringEntity> Items => Set<ToQueryStringEntity>();
-
         public DbSet<ToQueryStringBinaryEntity> BinaryItems => Set<ToQueryStringBinaryEntity>();
+
+        public DbSet<ToQueryStringConvertedBinaryEntity> ConvertedBinaryItems
+            => Set<ToQueryStringConvertedBinaryEntity>();
+
+        public DbSet<ToQueryStringEqualsEntity> EqualsItems => Set<ToQueryStringEqualsEntity>();
+        public DbSet<ToQueryStringEntity> Items => Set<ToQueryStringEntity>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -136,6 +419,20 @@ public class ToQueryStringTests
             {
                 builder.ToTable("ToQueryStringBinaryItems");
                 builder.HasPartitionKey(e => e.Id);
+            });
+
+            modelBuilder.Entity<ToQueryStringConvertedBinaryEntity>(builder =>
+            {
+                builder.ToTable("ToQueryStringConvertedBinaryItems");
+                builder.HasPartitionKey(e => e.Id);
+                builder.Property(e => e.Id).HasConversion<byte[]>();
+            });
+
+            modelBuilder.Entity<ToQueryStringEqualsEntity>(builder =>
+            {
+                builder.ToTable("ToQueryStringEqualsItems");
+                builder.HasPartitionKey(e => e.Pk);
+                builder.Property(e => e.Status).HasConversion<string>();
             });
         }
 

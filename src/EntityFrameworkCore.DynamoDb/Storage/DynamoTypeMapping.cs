@@ -78,6 +78,9 @@ public class DynamoTypeMapping : CoreTypeMapping
 
     internal virtual bool CanWriteToAttributeValue => ReaderWriter != null;
 
+    internal virtual bool RequiresParameterForPartiQlLiteral
+        => ReaderWriter?.RequiresParameterForPartiQlLiteral == true;
+
     /// <summary>Creates the expression-tree fragment used to materialize a single DynamoDB value.</summary>
     internal virtual Expression CreateReadExpression(
         Expression attributeValueExpression,
