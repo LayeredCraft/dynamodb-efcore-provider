@@ -313,8 +313,16 @@ public class CustomConvertersDynamoTest(
         => DynamoTestHelpers.Instance.NoSyncTest(()
             => base.Value_conversion_on_enum_collection_contains());
 
-    public override void Collection_property_as_scalar_Any()
-        => DynamoTestHelpers.Instance.NoSyncTest(() => base.Collection_property_as_scalar_Any());
+    public override async void Collection_property_as_scalar_Any()
+    {
+        await using var context = CreateContext();
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(()
+            => context.Set<CollectionScalar>().Where(e => e.Tags.Any()).ToListAsync());
+
+        Assert.Contains(
+            @"See https://go.microsoft.com/fwlink/?linkid=2101038 for more information.",
+            exception.Message.Replace("\r", "").Replace("\n", ""));
+    }
 
     public override void Collection_property_as_scalar_Count_member()
         => DynamoTestHelpers.Instance.NoSyncTest(()
