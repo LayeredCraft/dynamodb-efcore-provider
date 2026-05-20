@@ -292,6 +292,23 @@ public class QueryTypeMappingInferenceTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Promoted_byte_enum_parameter_uses_property_converter_mapping()
+    {
+        var (client, captured) = CreateClient();
+        await using var context = QueryTypeMappingContext.Create(client);
+        var status = ByteStringStatus.Active;
+
+        await context
+            .Items
+            .AllowScan()
+            .Where(e => (int)e.ByteStringStatus == (int)status)
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        captured.Single().Statement.Should().Contain("WHERE \"byteStringStatus\" = ?");
+        captured.Single().Parameters.Single().S.Should().Be(nameof(ByteStringStatus.Active));
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Nullable_converted_enum_parameter_uses_property_converter_mapping()
     {
         var (client, captured) = CreateClient();
@@ -497,6 +514,12 @@ public class QueryTypeMappingInferenceTests
         Active,
     }
 
+    private enum ByteStringStatus : byte
+    {
+        Inactive,
+        Active,
+    }
+
     private sealed class QueryTypeMappingEntity
     {
         public string Id { get; set; } = null!;
@@ -510,6 +533,8 @@ public class QueryTypeMappingInferenceTests
         public StringStatus StringStatus { get; set; }
 
         public StringStatus? NullableStringStatus { get; set; }
+
+        public ByteStringStatus ByteStringStatus { get; set; }
 
         public QueryTypeMappingProfile Profile { get; set; } = new();
 
@@ -547,6 +572,10 @@ public class QueryTypeMappingInferenceTests
                 builder
                     .Property(e => e.NullableStringStatus)
                     .HasAttributeName("nullableStringStatus")
+                    .HasConversion<string>();
+                builder
+                    .Property(e => e.ByteStringStatus)
+                    .HasAttributeName("byteStringStatus")
                     .HasConversion<string>();
                 builder.ComplexProperty(
                     e => e.Profile,
