@@ -394,27 +394,27 @@ public abstract class NorthwindAggregateOperatorsQueryDynamoTest
     public override Task Where_SingleOrDefault(bool async)
         => Task.CompletedTask;
 
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.OrderedResultSetNotSupported)]
     public override Task First(bool async)
         => Task.CompletedTask;
 
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.OrderedResultSetNotSupported)]
     public override Task First_Predicate(bool async)
         => Task.CompletedTask;
 
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.OrderedResultSetNotSupported)]
     public override Task Where_First(bool async)
         => Task.CompletedTask;
 
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.OrderedResultSetNotSupported)]
     public override Task FirstOrDefault(bool async)
         => Task.CompletedTask;
 
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.OrderedResultSetNotSupported)]
     public override Task FirstOrDefault_Predicate(bool async)
         => Task.CompletedTask;
 
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.OrderedResultSetNotSupported)]
     public override Task Where_FirstOrDefault(bool async)
         => Task.CompletedTask;
 
