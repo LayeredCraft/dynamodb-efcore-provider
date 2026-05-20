@@ -58,6 +58,8 @@ public sealed class DynamoProjectionBindingExpressionVisitor(
             if (!_indexBasedBinding)
                 _selectExpression.ReplaceProjectionMapping(_projectionMapping);
 
+            EnsureNonEmptyProjectionForClientOnlyProjection();
+
             return result;
         }
         finally
@@ -588,6 +590,29 @@ public sealed class DynamoProjectionBindingExpressionVisitor(
             _selectExpression,
             _projectionMembers.Peek(),
             node.Type);
+    }
+
+    /// <summary>
+    ///     Adds a minimal projection for client-only projections so DynamoDB can still return one row
+    ///     per matching item. PartiQL does not support an empty projection list.
+    /// </summary>
+    private void EnsureNonEmptyProjectionForClientOnlyProjection()
+    {
+        if (_projectionMapping.Count > 0 || _selectExpression.Projection.Count > 0)
+            return;
+
+        var entityType = _selectExpression.QueryEntityTypeName is { } entityTypeName
+            ? model.FindEntityType(entityTypeName)
+            : null;
+        var property = entityType?.GetPartitionKeyProperty()
+            ?? entityType?.GetProperties().FirstOrDefault(static p => !p.IsRuntimeOnly());
+        if (property is null)
+            return;
+
+        var sqlProperty = sqlExpressionFactory
+            .Property(property.GetAttributeName(), property.ClrType)
+            .ApplyTypeMapping(property.GetTypeMapping());
+        _selectExpression.AddToProjection(sqlProperty, property.Name);
     }
 
     /// <summary>
