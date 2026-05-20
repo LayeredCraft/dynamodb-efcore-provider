@@ -2,6 +2,8 @@ using EntityFrameworkCore.DynamoDb.Diagnostics;
 using EntityFrameworkCore.DynamoDb.SpecificationTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 
 namespace EntityFrameworkCore.DynamoDb.SpecificationTests;
@@ -191,8 +193,49 @@ public class CustomConvertersDynamoTest(
     public override Task Can_insert_and_read_back_with_string_list()
         => base.Can_insert_and_read_back_with_string_list();
 
-    public override Task Can_insert_and_query_struct_to_string_converter_for_pk()
-        => base.Can_insert_and_query_struct_to_string_converter_for_pk();
+    public override async Task Can_insert_and_query_struct_to_string_converter_for_pk()
+    {
+        await using (var context = CreateContext())
+        {
+            context.Set<Order>().Add(new Order { Id = OrderId.Parse("Id1") });
+
+            Assert.Equal(1, await context.SaveChangesAsync());
+        }
+
+        await using (var context = CreateContext())
+        {
+            // Inline
+            var entity =
+                await context
+                    .Set<Order>()
+                    .Where(o => (string)o.Id == "Id1")
+                    .AsAsyncEnumerable()
+                    .SingleAsync();
+
+            // constant from closure
+            const string idAsStringConstant = "Id1";
+            entity = await context
+                .Set<Order>()
+                .Where(o => (string)o.Id == idAsStringConstant)
+                .AsAsyncEnumerable()
+                .SingleAsync();
+
+            // Variable from closure
+            var idAsStringVariable = "Id1";
+            entity = await context
+                .Set<Order>()
+                .Where(o => (string)o.Id == idAsStringVariable)
+                .AsAsyncEnumerable()
+                .SingleAsync();
+
+            // Inline parsing function
+            entity = await context
+                .Set<Order>()
+                .Where(o => (string)o.Id == OrderId.Parse("Id1").StringValue)
+                .AsAsyncEnumerable()
+                .SingleAsync();
+        }
+    }
 
     public override Task Can_query_custom_type_not_mapped_by_default_equality(bool async)
         => async
@@ -258,8 +301,11 @@ public class CustomConvertersDynamoTest(
         => DynamoTestHelpers.Instance.NoSyncTest(() => base.Collection_enum_as_string_Contains());
 
     public override void Optional_owned_with_converter_reading_non_nullable_column()
-        => DynamoTestHelpers.Instance.NoSyncTest(()
-            => base.Optional_owned_with_converter_reading_non_nullable_column());
+        => DynamoTestHelpers.Instance.NoSyncTest(() =>
+        {
+            using var context = CreateContext();
+            context.Set<Parent>().Select(e => new { e.OwnedWithConverter.Value }).ToList();
+        });
 
     public override Task Id_object_as_entity_key() => base.Id_object_as_entity_key();
 
@@ -341,12 +387,56 @@ public class CustomConvertersDynamoTest(
             modelBuilder.Ignore<AnimalDetails>();
             modelBuilder.Ignore<StringForeignKeyDataType>();
             modelBuilder.Ignore<BinaryForeignKeyDataType>();
+            modelBuilder.Ignore<OwnedWithConverter>();
+
+            modelBuilder.Entity<Parent>(b =>
+            {
+                var ownedWithConverter = b.ComplexProperty(e => e.OwnedWithConverter);
+                ownedWithConverter.IsRequired(false);
+                ownedWithConverter.Property(e => e.Value).HasConversion<string>();
+            });
+
+            modelBuilder.Entity<NullablePrincipal>(b => b.Ignore(e => e.Dependents));
+            modelBuilder.Entity<NonNullableDependent>(b => b.Ignore(e => e.Principal));
+            modelBuilder.Entity<Load>(b => b.HasPartitionKey(e => e.LoadId));
+            modelBuilder.Entity<Blog>(b =>
+            {
+                b.Ignore(e => e.Posts);
+                b.HasPartitionKey(e => e.BlogId);
+            });
+            modelBuilder.Entity<Post>(b =>
+            {
+                b.Ignore(e => e.Blog);
+                b.Property(e => e.BlogId).HasConversion<int?>();
+                b.HasPartitionKey(e => e.PostId);
+            });
+            modelBuilder.Entity<Order>(b
+                => ReconfigureExplicitPrimaryKeyAsPartitionKey(b, nameof(Order.Id)));
+            modelBuilder.Entity<SimpleCounter>(b
+                => ReconfigureExplicitPrimaryKeyAsPartitionKey(b, nameof(SimpleCounter.CounterId)));
+            modelBuilder.Entity<Book>(b
+                => ReconfigureExplicitPrimaryKeyAsPartitionKey(b, nameof(Book.Id)));
 
             // TODO: remove and add better discriminator support
             modelBuilder.Entity<BuiltInDataTypesShadow>(b =>
             {
                 b.Ignore("$type");
             });
+        }
+
+        private static void ReconfigureExplicitPrimaryKeyAsPartitionKey<TEntity>(
+            EntityTypeBuilder<TEntity> builder,
+            string propertyName) where TEntity : class
+        {
+            var primaryKey = builder.Metadata.FindPrimaryKey();
+            if (primaryKey is not null)
+            {
+                var mutableEntityType = builder.Metadata;
+                mutableEntityType.SetPrimaryKey((IReadOnlyList<IMutableProperty>?)null);
+                mutableEntityType.RemoveKey(primaryKey.Properties);
+            }
+
+            builder.HasPartitionKey(propertyName);
         }
 
         public override bool StrictEquality => true;
