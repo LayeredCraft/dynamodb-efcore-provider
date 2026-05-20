@@ -120,7 +120,7 @@ public class ConvertToProviderTypesDynamoTest(
         }
     }
 
-    [ConditionalFact]
+    [ConditionalFact(Skip = SkipReason.ForeignKeysNotSupported)]
     public override Task Can_insert_and_read_back_with_null_binary_foreign_key()
         => base.Can_insert_and_read_back_with_null_binary_foreign_key();
 
@@ -145,7 +145,7 @@ public class ConvertToProviderTypesDynamoTest(
         }
     }
 
-    [ConditionalFact]
+    [ConditionalFact(Skip = SkipReason.ForeignKeysNotSupported)]
     public override Task Can_insert_and_read_back_with_null_string_foreign_key()
         => base.Can_insert_and_read_back_with_null_string_foreign_key();
 
