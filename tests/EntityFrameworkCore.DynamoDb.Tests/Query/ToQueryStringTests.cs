@@ -69,6 +69,29 @@ public class ToQueryStringTests
         client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!, default);
     }
 
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ToQueryString_InlineConvertedBinaryConstant_ParameterizesValue()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var context = ToQueryStringDbContext.Create(client);
+
+        var queryString = context
+            .ConvertedBinaryItems
+            .Where(e => e.Id == -1234567890.01M)
+            .ToQueryString();
+
+        queryString
+            .Should()
+            .Be(
+                """
+                -- p0=<binary:16 bytes>
+                SELECT "id", "name"
+                FROM "ToQueryStringConvertedBinaryItems"
+                WHERE "id" = ?
+                """);
+        client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
     [Theory(Timeout = TestConfiguration.DefaultTimeout)]
     [MemberData(nameof(AttributeValues))]
     public void ToQueryString_AttributeValueFormatting_HandlesSdkV4NullCollections(
@@ -118,11 +141,21 @@ public class ToQueryStringTests
         public string Name { get; set; } = null!;
     }
 
+    private sealed class ToQueryStringConvertedBinaryEntity
+    {
+        public decimal Id { get; set; }
+
+        public string Name { get; set; } = null!;
+    }
+
     private sealed class ToQueryStringDbContext(DbContextOptions options) : DbContext(options)
     {
         public DbSet<ToQueryStringEntity> Items => Set<ToQueryStringEntity>();
 
         public DbSet<ToQueryStringBinaryEntity> BinaryItems => Set<ToQueryStringBinaryEntity>();
+
+        public DbSet<ToQueryStringConvertedBinaryEntity> ConvertedBinaryItems
+            => Set<ToQueryStringConvertedBinaryEntity>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -136,6 +169,13 @@ public class ToQueryStringTests
             {
                 builder.ToTable("ToQueryStringBinaryItems");
                 builder.HasPartitionKey(e => e.Id);
+            });
+
+            modelBuilder.Entity<ToQueryStringConvertedBinaryEntity>(builder =>
+            {
+                builder.ToTable("ToQueryStringConvertedBinaryItems");
+                builder.HasPartitionKey(e => e.Id);
+                builder.Property(e => e.Id).HasConversion<byte[]>();
             });
         }
 
