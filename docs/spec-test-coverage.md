@@ -123,7 +123,6 @@ Uses the `Customer / Employee / Order / Product` dataset with `NorthwindQueryDyn
 |---|---:|:---:|:---:|---|
 | `NorthwindWhereQueryTestBase` | 203 | ✓ | ✓ | Predicate filtering; core WHERE coverage |
 | `NorthwindSelectQueryTestBase` | 186 | ✓ | ✓ | Projections and SELECT shapes |
-| `NorthwindAggregateOperatorsQueryTestBase` | 211 | ✓ | ✓ | First/FirstOrDefault, Contains, Any, All; pure aggregates skipped |
 
 ### Implement Next
 
@@ -156,6 +155,7 @@ Uses the `Customer / Employee / Order / Product` dataset with `NorthwindQueryDyn
 | `NorthwindStringIncludeQueryTestBase` | — | ✗ | ✓ | String-name Include; blocked by navigations |
 | `NorthwindNavigationsQueryTestBase` | 73 | ✗ | ✓ | Navigation property traversal in LINQ |
 | `NorthwindKeylessEntitiesQueryTestBase` | 18 | ✓ | ✓ | Keyless entities require no partition key; all DynamoDB entities need a key |
+| `NorthwindAggregateOperatorsQueryTestBase` | 211 | ✓ | ✓ | Below 70% threshold — Sum, Avg, Min, Max, Count aggregate functions unsupported in PartiQL; ~52% feasibility |
 | `NorthwindCompiledQueryTestBase` | 32 | ✗ | ✓ | `EF.CompileQuery` is sync-focused; DynamoDB provider is async-only |
 | `Ef6GroupByTestBase` | 55 | ✗ | ✓ | Legacy EF6 GROUP BY patterns; no GROUP BY in PartiQL |
 
@@ -285,12 +285,12 @@ translations are low-feasibility until dedicated temporal translation support is
 
 | Category | Implemented | Implement Next | Future | Skip |
 |---|---:|---:|---:|---:|
-| Non-Query (top-level) | 7 classes / 280 methods | 6 classes / 27 methods | 11 classes / 331 methods | 14 classes / 709 methods |
+| Non-Query (top-level) | 7 classes / 278 methods | 6 classes / 27 methods | 11 classes / ~535 methods | 19 classes / ~985 methods |
 | BulkUpdates | — | — | 4 classes / 135 methods | 2 classes / 33 methods |
-| Northwind Query | 3 classes / 600 methods | 3 classes / 25 methods | 5 classes / 518 methods | 8 classes / 580 methods |
-| Other Query | — | — | 13 classes / 432 methods | 14 classes / 1,340 methods |
+| Northwind Query | 2 classes / 389 methods | 3 classes / 25 methods | 5 classes / 518 methods | 9 classes / ~924 methods |
+| Other Query | — | — | 13 classes / ~465 methods | 16 classes / ~1,680 methods |
 | Associations | — | — | 3 classes / 8 methods | 12+ classes / 80+ methods |
-| Translations (need fixture) | — | — | 10 classes / 261 methods | 5 classes / 70 methods |
+| Translations (need fixture) | — | — | 16 classes / ~331 methods | — |
 
 ---
 
