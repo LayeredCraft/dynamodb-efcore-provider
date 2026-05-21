@@ -312,13 +312,13 @@ No near-term specification test classes are currently queued here.
 ### Medium-term (requires investigation or new fixture)
 
 11. `CustomConvertersDynamoTest` / `KeysWithConvertersDynamoTest`
-12. `InheritanceQueryDynamoTest` (discriminator support validation)
-13. `ComplexTypeQueryDynamoTest` (needs `BasicTypesDynamoFixture`)
-14. Translations operator tests (Comparison, Logical, Arithmetic) — needs `BasicTypesDynamoFixture`
-15. `StringTranslationsDynamoTest` — needs `BasicTypesDynamoFixture`
+12. `ComplexTypeQueryDynamoTest` (needs `ComplexTypeDynamoFixture`)
+13. Translations operator tests (Comparison, Logical, Arithmetic) — needs `BasicTypesDynamoFixture`
+14. `StringTranslationsDynamoTest` — needs `BasicTypesDynamoFixture`
 
 ### Long-term (after core coverage is stable)
 
+15. `InheritanceQueryDynamoTest` — blocked on `OfType`, `is`/`GetType()` discriminator translation, and fixture work
 16. `PrimitiveCollectionsQueryDynamoTest`
 17. `NorthwindQueryFiltersDynamoTest`
 18. `BulkUpdates` family — blocked on `ExecuteUpdate`/`ExecuteDelete`
