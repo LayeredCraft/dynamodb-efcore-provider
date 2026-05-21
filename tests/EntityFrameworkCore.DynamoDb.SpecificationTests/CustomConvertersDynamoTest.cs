@@ -500,11 +500,34 @@ public class CustomConvertersDynamoTest(
     public override Task Id_object_as_entity_key() => base.Id_object_as_entity_key();
 
     public override void Composition_over_collection_of_complex_mapped_as_scalar()
-        => DynamoTestHelpers.Instance.NoSyncTest(()
-            => base.Composition_over_collection_of_complex_mapped_as_scalar());
+    {
+        using var context = CreateContext();
+        Assert.Equal(
+            CoreStrings.TranslationFailed(@"l => new {     H = l.Height,     W = l.Width }"),
+            Assert
+                .Throws<InvalidOperationException>(()
+                    => context
+                        .Set<Dashboard>()
+                        .AsNoTracking()
+                        .Select(d => new
+                        {
+                            d.Id,
+                            d.Name,
+                            Layouts =
+                                d
+                                    .Layouts
+                                    .Select(l => new { H = l.Height, W = l.Width })
+                                    .ToList(),
+                        })
+                        .ToListAsync()
+                        .GetAwaiter()
+                        .GetResult())
+                .Message
+                .Replace("\r", "")
+                .Replace("\n", ""));
+    }
 
-    public override void GroupBy_converted_enum()
-        => DynamoTestHelpers.Instance.NoSyncTest(() => base.GroupBy_converted_enum());
+    public override void GroupBy_converted_enum() => base.GroupBy_converted_enum();
 
     [ConditionalFact(Skip = SkipReason.SubqueryContainsNotSupported)]
     public override void Infer_type_mapping_from_in_subquery_to_item()
