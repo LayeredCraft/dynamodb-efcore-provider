@@ -446,6 +446,7 @@ public class CustomConvertersDynamoTest(
     public override Task Select_bool_with_value_conversion_is_used()
         => base.Select_bool_with_value_conversion_is_used();
 
+    [ConditionalFact(Skip = SkipReason.QueryShapeNotSupported + " #243")]
     public override Task Where_conditional_bool_with_value_conversion_is_used()
         => base.Where_conditional_bool_with_value_conversion_is_used();
 
