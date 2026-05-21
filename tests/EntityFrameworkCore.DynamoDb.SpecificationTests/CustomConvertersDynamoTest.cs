@@ -537,33 +537,59 @@ public class CustomConvertersDynamoTest(
                     => options.DynamoDbClient(DynamoTestStoreFactory.Instance.Client))
                 .UseAsyncSeeding(async (context, _, cancellationToken) =>
                 {
+                    var hasChanges = false;
+
                     if (await context
                         .FindAsync<DynamoAnimal>([1], cancellationToken)
-                        .ConfigureAwait(false) is not null)
-                        return;
-
-                    context
-                        .Set<DynamoAnimal>()
-                        .Add(
-                            new DynamoAnimal
-                            {
-                                Id = 1,
-                                IdentificationMethods =
-                                [
-                                    new AnimalIdentification
-                                    {
-                                        Id = 1,
-                                        AnimalId = 1,
-                                        Method = IdentificationMethod.EarTag,
-                                    },
-                                ],
-                                Details = new AnimalDetails
+                        .ConfigureAwait(false) is null)
+                    {
+                        context
+                            .Set<DynamoAnimal>()
+                            .Add(
+                                new DynamoAnimal
                                 {
-                                    Id = 1, AnimalId = 1, BoolField = true,
-                                },
-                            });
+                                    Id = 1,
+                                    IdentificationMethods =
+                                    [
+                                        new AnimalIdentification
+                                        {
+                                            Id = 1,
+                                            AnimalId = 1,
+                                            Method = IdentificationMethod.EarTag,
+                                        },
+                                    ],
+                                    Details = new AnimalDetails
+                                    {
+                                        Id = 1, AnimalId = 1, BoolField = true,
+                                    },
+                                });
 
-                    await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+                        hasChanges = true;
+                    }
+
+                    if (!await context
+                        .Set<RssBlog>()
+                        .AsAsyncEnumerable()
+                        .AnyAsync(b => b.BlogId == 2, cancellationToken)
+                        .ConfigureAwait(false))
+                    {
+                        context
+                            .Set<RssBlog>()
+                            .Add(
+                                new RssBlog
+                                {
+                                    BlogId = 2,
+                                    Url = "http://rssblog.com",
+                                    RssUrl = "http://rssblog.com/rss",
+                                    IsVisible = false,
+                                    ["IndexerVisible"] = true,
+                                });
+
+                        hasChanges = true;
+                    }
+
+                    if (hasChanges)
+                        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
                 });
 
         protected override void OnModelCreating(ModelBuilder modelBuilder, DbContext context)
