@@ -50,6 +50,11 @@ See [Supported Operators](querying/operators.md) for the full list of what does 
 
 Value-converted enum numeric casts are also rejected when compared to parameters. For example, `(int)entity.Status == value` is not translated if `Status` uses `.HasConversion<string>()`, because DynamoDB stores the converted string value. Compare `entity.Status` to an enum value directly, or map the enum numerically.
 
+Scalar value-converted collection membership is not translated. `entity.Values.Contains(value)` is
+supported for native DynamoDB primitive list/set attributes, but not when `Values` is serialized into
+a scalar string or blob by a property value converter. In that case DynamoDB would evaluate substring
+or binary containment rather than collection membership.
+
 **Workaround for unsupported operators:** switch to `AsAsyncEnumerable()` before the unsupported
 operator to move evaluation in-process:
 
@@ -80,8 +85,8 @@ DynamoDB counts *evaluated* items against `Limit` (not matched items), this is o
 `WHERE` clause guarantees at most one evaluation pass before a match:
 
 1. No user-specified `Limit(n)` on the query.
-2. The `WHERE` clause includes a partition-key equality condition.
-3. Any sort-key predicate is a valid DynamoDB key condition (`=`, `<`, `<=`, `>`, `>=`,
+1. The `WHERE` clause includes a partition-key equality condition.
+1. Any sort-key predicate is a valid DynamoDB key condition (`=`, `<`, `<=`, `>`, `>=`,
     `BETWEEN`, `begins_with`).
 
 By default, filtered `First*` queries that fail the partition-key or sort-key safety checks throw
@@ -211,7 +216,7 @@ DynamoDB `ExecuteTransaction` enforces two hard limits:
     max 100), the provider throws `InvalidOperationException` unless
     `TransactionOverflowBehavior.UseChunking` is configured.
 
-2. **No duplicate items within a single transaction.** Writing the same DynamoDB item more than
+1. **No duplicate items within a single transaction.** Writing the same DynamoDB item more than
     once in a single transaction throws `InvalidOperationException` — the provider validates this
     client-side before sending the request to DynamoDB.
 
