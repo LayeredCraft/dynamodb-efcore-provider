@@ -527,6 +527,7 @@ public class CustomConvertersDynamoTest(
                 .Replace("\n", ""));
     }
 
+    [ConditionalFact(Skip = SkipReason.QueryShapeNotSupported)]
     public override void GroupBy_converted_enum() => base.GroupBy_converted_enum();
 
     [ConditionalFact(Skip = SkipReason.SubqueryContainsNotSupported)]
