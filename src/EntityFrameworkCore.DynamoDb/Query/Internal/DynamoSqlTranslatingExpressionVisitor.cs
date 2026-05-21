@@ -5,6 +5,7 @@ using EntityFrameworkCore.DynamoDb.Extensions;
 using EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using EntityFrameworkCore.DynamoDb.Storage;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -16,6 +17,7 @@ namespace EntityFrameworkCore.DynamoDb.Query.Internal;
 /// </summary>
 public sealed class DynamoSqlTranslatingExpressionVisitor(
     ISqlExpressionFactory sqlExpressionFactory,
+    IModel model,
     DynamoQueryCompilationContext? queryCompilationContext = null) : ExpressionVisitor
 {
     private static readonly MethodInfo StringCompareMethod =
@@ -462,6 +464,9 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
             && node.Arguments[1] is ConstantExpression { Value: string efPropName })
             return TranslateEfPropertyAccess(node, efPropName);
 
+        if (node.TryGetIndexerArguments(model, out var indexerSource, out var indexerPropertyName))
+            return TranslatePropertyAccess(indexerSource, indexerPropertyName, node.Type, true);
+
         if (node.Method == IsNullMethod
             || node.Method == IsNotNullMethod
             || node.Method == IsMissingMethod
@@ -713,9 +718,16 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
     ///     supporting nested chains that represent owned-navigation paths.
     /// </summary>
     private Expression TranslateEfPropertyAccess(MethodCallExpression node, string propertyName)
+        => TranslatePropertyAccess(node.Arguments[0], propertyName, node.Type);
+
+    private Expression TranslatePropertyAccess(
+        Expression source,
+        string propertyName,
+        Type resultType,
+        bool requireMappedProperty = false)
     {
         var names = new List<string> { propertyName };
-        var current = node.Arguments[0];
+        var current = source;
         while (true)
             if (current is MethodCallExpression { Method.IsGenericMethod: true } methodCall
                 && methodCall.Method.GetGenericMethodDefinition() == EfPropertyMethod
@@ -744,10 +756,13 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
                 if (rootEntityType.FindProperty(propertyName) is { } rootProperty)
                 {
                     var isPartitionKey = IsEffectivePartitionKey(rootProperty, rootEntityType);
+                    var propertyExpressionType = resultType == typeof(object)
+                        ? rootProperty.ClrType
+                        : resultType;
                     return sqlExpressionFactory.ApplyTypeMapping(
                         sqlExpressionFactory.Property(
                             rootProperty.GetAttributeName(),
-                            node.Type,
+                            propertyExpressionType,
                             isPartitionKey),
                         rootProperty.GetTypeMapping());
                 }
@@ -756,14 +771,20 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
                 return QueryCompilationContext.NotTranslatedExpression;
             }
 
-            return TranslateNestedMemberChain(names, rootEntityType, node.Type);
+            return TranslateNestedMemberChain(names, rootEntityType, resultType);
         }
 
-        var translatedSource = Visit(node.Arguments[0]);
-        if (translatedSource is SqlExpression sqlSource)
-            return new DynamoScalarAccessExpression(sqlSource, propertyName, node.Type);
+        if (requireMappedProperty)
+        {
+            AddTranslationErrorDetails(DynamoStrings.MemberAccessNotSupported);
+            return QueryCompilationContext.NotTranslatedExpression;
+        }
 
-        return sqlExpressionFactory.Property(propertyName, node.Type);
+        var translatedSource = Visit(source);
+        if (translatedSource is SqlExpression sqlSource)
+            return new DynamoScalarAccessExpression(sqlSource, propertyName, resultType);
+
+        return sqlExpressionFactory.Property(propertyName, resultType);
     }
 
     /// <summary>
@@ -832,6 +853,9 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
 
             if (operand is SqlExpression sqlOperand)
             {
+                if (sqlOperand.Type == node.Type)
+                    return sqlOperand;
+
                 if (IsImplicitClrConvert(node.Operand.Type, node.Type))
                     return sqlOperand;
 
