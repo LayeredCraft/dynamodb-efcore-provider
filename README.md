@@ -2,11 +2,9 @@
 
 EF Core Provider for AWS DynamoDB
 
-Documentation: <https://layeredcraft.github.io/dynamodb-efcore-provider/>
+Documentation: <https://dynamodb-ef-core.layeredcraft.dev/>
 
-> [!WARNING]
-> This provider is not production ready yet. Validate behavior carefully before using it in
-> important workloads, and review the current limitations before adopting it.
+> **Note:** This provider is in preview. Review the [current limitations](https://dynamodb-ef-core.layeredcraft.dev/limitations) before adopting it.
 
 Write EF Core models against DynamoDB tables, compose queries with LINQ, and let the provider
 translate supported query shapes into PartiQL executed through the AWS SDK.
