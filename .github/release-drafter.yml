@@ -2,6 +2,8 @@ name-template: 'v$RESOLVED_VERSION'
 tag-template: 'v$RESOLVED_VERSION'
 commitish: main
 
+version-template: '10.0.0'
+
 version-resolver:
   major:
     labels:
