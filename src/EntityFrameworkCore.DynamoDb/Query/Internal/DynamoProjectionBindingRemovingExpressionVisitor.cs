@@ -700,8 +700,8 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
 
     /// <summary>
     ///     Wraps a member-access result in a null check when the containing instance can be
-    ///     <see langword="null" />, returning the default member value instead of throwing during
-    ///     complex-property projection materialization.
+    ///     <see langword="null" />, preserving relational-style failure for non-nullable value
+    ///     members and returning the default member value for nullable/reference members.
     /// </summary>
     /// <param name="instanceExpression">The visited instance expression that owns the accessed member.</param>
     /// <param name="memberAccess">The rewritten member-access expression.</param>
@@ -716,9 +716,15 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
             && Nullable.GetUnderlyingType(instanceExpression.Type) == null)
             return memberAccess;
 
+        Expression nullBranch = IsNonNullableValueType(memberType)
+            ? Throw(
+                New(InvalidOperationExceptionCtor, Constant("Nullable object must have a value.")),
+                memberType)
+            : Default(memberType);
+
         return Condition(
             Equal(instanceExpression, Constant(null, instanceExpression.Type)),
-            Default(memberType),
+            nullBranch,
             memberAccess);
     }
 
