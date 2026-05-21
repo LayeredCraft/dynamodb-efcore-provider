@@ -46,6 +46,7 @@ change tracking, concurrency, Find, value converters, interceptors, and more.
 | `QueryExpressionInterceptionTestBase` | 4 | ✓ | ✗ | `Single`-based query shapes are explicitly skipped |
 | `MaterializationInterceptionTestBase` | 7 | ✓ | ✗ | Materialization interceptor coverage; owned/complex collection cases skipped |
 | `CompositeKeyEndToEndTestBase` | 3 | ✗ | ✗ | PK+SK round-trip covered; three-part composite-key cases skipped |
+| `CustomConvertersTestBase` | 29 | ✓ | ✗ | Value converter round-trips; unsupported converter edge cases explicitly skipped |
 
 ### Implement Next
 
@@ -57,9 +58,8 @@ Feasible but requires investigation or additional provider work before adding.
 
 | Test Class | Methods | Cosmos | MongoDB | Feasibility | Blocker |
 |---|---:|:---:|:---:|---:|---|
-| `CustomConvertersTestBase` | 29 | ✓ | ✗ | ~75% | Value converter round-trips; core converter infrastructure supported |
 | `KeysWithConvertersTestBase` | 47 | ✓ | ✗ | ~70% | Keys that pass through value converters; type mapping validation needed |
-| `ValueConvertersEndToEndTestBase` | 1 | ✗ | ✗ | ~80% | Single E2E converter test; easy follow-on to `CustomConverters` |
+| `ValueConvertersEndToEndTestBase` | 1 | ✗ | ✗ | ~80% | Single E2E converter test; easy follow-on to converter coverage |
 | `ConvertToProviderTypesTestBase` | 2 | ✗ | ✗ | ~75% | `HasConversion<TProvider>` on properties; two tests |
 | `WithConstructorsTestBase` | 41 | ✗ | ✗ | ~70% | Entities using non-default constructors; DynamoDB materializes via EF's normal pipeline |
 | `SeedingTestBase` | 2 | ✗ | ✗ | ~80% | `HasData` seeding; two tests; DynamoDB seeding uses chunking |
@@ -281,7 +281,7 @@ translations are low-feasibility until dedicated temporal translation support is
 
 | Category | Implemented | Implement Next | Future | Skip |
 |---|---:|---:|---:|---:|
-| Non-Query (top-level) | 14 classes / 308 methods | — | 10 classes / 532 methods | 19 classes / 984 methods |
+| Non-Query (top-level) | 15 classes / 337 methods | — | 9 classes / 503 methods | 19 classes / 984 methods |
 | BulkUpdates | — | — | 5 classes / 135+ methods | 1 class / 33 methods |
 | Northwind Query | 7 classes / 441 methods | — | 3 classes / 491 methods | 12 classes / 924+ methods |
 | Other Query | — | — | 13 classes / 465 methods | 16 classes / 1,683 methods |
@@ -304,6 +304,7 @@ translations are low-feasibility until dedicated temporal translation support is
 8. `NorthwindChangeTrackingQueryDynamoTest` — 17 methods
 9. `CompositeKeyEndToEndDynamoTest` — 3 methods
 10. `NorthwindFunctionsQueryDynamoTest` — 10 methods
+11. `CustomConvertersDynamoTest` — 29 methods
 
 ### Near-term (small, high confidence)
 
@@ -311,24 +312,24 @@ No near-term specification test classes are currently queued here.
 
 ### Medium-term (requires investigation or new fixture)
 
-11. `CustomConvertersDynamoTest` / `KeysWithConvertersDynamoTest`
-12. `InheritanceQueryDynamoTest` (discriminator support validation)
-13. `ComplexTypeQueryDynamoTest` (needs `BasicTypesDynamoFixture`)
-14. Translations operator tests (Comparison, Logical, Arithmetic) — needs `BasicTypesDynamoFixture`
-15. `StringTranslationsDynamoTest` — needs `BasicTypesDynamoFixture`
+12. `KeysWithConvertersDynamoTest`
+13. `InheritanceQueryDynamoTest` (discriminator support validation)
+14. `ComplexTypeQueryDynamoTest` (needs `BasicTypesDynamoFixture`)
+15. Translations operator tests (Comparison, Logical, Arithmetic) — needs `BasicTypesDynamoFixture`
+16. `StringTranslationsDynamoTest` — needs `BasicTypesDynamoFixture`
 
 ### Long-term (after core coverage is stable)
 
-16. `PrimitiveCollectionsQueryDynamoTest`
-17. `NorthwindQueryFiltersDynamoTest`
-18. `BulkUpdates` family — blocked on `ExecuteUpdate`/`ExecuteDelete`
-19. Remaining translation tests (Math, Miscellaneous, Enum, Guid)
+17. `PrimitiveCollectionsQueryDynamoTest`
+18. `NorthwindQueryFiltersDynamoTest`
+19. `BulkUpdates` family — blocked on `ExecuteUpdate`/`ExecuteDelete`
+20. Remaining translation tests (Math, Miscellaneous, Enum, Guid)
 
 ### Current totals
 
 | Status | Classes | Methods |
 |---|---:|---:|
-| Implemented | 21 | 749 |
+| Implemented | 22 | 778 |
 | Implement Next | 0 | 0 |
-| Future | 50 | 1,956+ |
+| Future | 49 | 1,927+ |
 | Skip | 61+ | 3,747+ |
