@@ -483,11 +483,19 @@ public class CustomConvertersDynamoTest(
         => base.Collection_enum_as_string_Contains();
 
     public override void Optional_owned_with_converter_reading_non_nullable_column()
-        => DynamoTestHelpers.Instance.NoSyncTest(() =>
-        {
-            using var context = CreateContext();
-            context.Set<Parent>().Select(e => new { e.OwnedWithConverter.Value }).ToList();
-        });
+    {
+        using var context = CreateContext();
+        Assert.Equal(
+            "Nullable object must have a value.",
+            Assert.Throws<InvalidOperationException>(()
+                    => context
+                        .Set<Parent>()
+                        .Select(e => new { e.OwnedWithConverter.Value })
+                        .ToListAsync()
+                        .GetAwaiter()
+                        .GetResult())
+                .Message);
+    }
 
     public override Task Id_object_as_entity_key() => base.Id_object_as_entity_key();
 
