@@ -30,6 +30,13 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         ((Func<IEnumerable<object>, object, bool>)Enumerable.Contains).Method
         .GetGenericMethodDefinition();
 
+    private static readonly MethodInfo QueryableContainsMethod =
+        typeof(Queryable)
+            .GetMethods()
+            .Single(m => m is { Name: nameof(Queryable.Contains), IsGenericMethod: true }
+                && m.GetParameters().Length == 2)
+            .GetGenericMethodDefinition();
+
     private static readonly MethodInfo StringContainsMethod =
         ((Func<string, bool>)string.Empty.Contains).Method;
 
@@ -1067,6 +1074,7 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
     private Expression TranslateCollectionContains(MethodCallExpression node)
     {
         var (collectionExpression, itemExpression) = TryGetCollectionContainsArguments(node);
+        collectionExpression = StripAsQueryable(collectionExpression);
         if (collectionExpression == null || itemExpression == null)
         {
             AddTranslationErrorDetails(DynamoStrings.ContainsCollectionShapeNotSupported);
@@ -1089,6 +1097,18 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
             item is SqlPropertyExpression property && property.IsPartitionKey;
 
         var translatedCollection = TranslateInternal(collectionExpression);
+        if (translatedCollection is SqlExpression collectionSqlExpression
+            && TryGetNativePrimitiveCollectionElementMapping(
+                collectionSqlExpression,
+                out var elementMapping))
+        {
+            var mappedItem = sqlExpressionFactory.ApplyTypeMapping(item, elementMapping);
+            return sqlExpressionFactory.Function(
+                "contains",
+                [collectionSqlExpression, mappedItem],
+                typeof(bool));
+        }
+
         if (translatedCollection is SqlParameterExpression valuesParameter)
             return sqlExpressionFactory.In(item, valuesParameter, isPartitionKeyComparison);
 
@@ -1097,6 +1117,39 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
 
         AddTranslationErrorDetails(DynamoStrings.ContainsCollectionShapeNotSupported);
         return QueryCompilationContext.NotTranslatedExpression;
+    }
+
+    /// <summary>Strips EF's primitive-collection queryable wrapper when present.</summary>
+    private static Expression? StripAsQueryable(Expression? expression)
+        => expression is MethodCallExpression
+        {
+            Method.Name: nameof(Queryable.AsQueryable),
+        } asQueryable
+            ? asQueryable.Arguments[0]
+            : expression;
+
+    /// <summary>
+    ///     Returns the element mapping when the expression is a natively mapped DynamoDB primitive
+    ///     list/set. Scalar value-converted collections intentionally do not qualify.
+    /// </summary>
+    private static bool TryGetNativePrimitiveCollectionElementMapping(
+        SqlExpression collectionExpression,
+        out CoreTypeMapping elementMapping)
+    {
+        elementMapping = null!;
+
+        if (collectionExpression is not SqlPropertyExpression and not DynamoScalarAccessExpression)
+            return false;
+
+        if (!DynamoTypeMappingSource.TryGetListElementType(collectionExpression.Type, out _)
+            && !DynamoTypeMappingSource.TryGetSetElementType(collectionExpression.Type, out _))
+            return false;
+
+        if (collectionExpression.TypeMapping?.ElementTypeMapping is not { } mapping)
+            return false;
+
+        elementMapping = mapping;
+        return true;
     }
 
     /// <summary>Tries to translate a collection expression into inline SQL values.</summary>
@@ -1158,6 +1211,10 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
     {
         if (method.IsGenericMethod
             && method.GetGenericMethodDefinition() == EnumerableContainsMethod)
+            return true;
+
+        if (method.IsGenericMethod
+            && method.GetGenericMethodDefinition() == QueryableContainsMethod)
             return true;
 
         if (method.DeclaringType is not { } declaringType)
