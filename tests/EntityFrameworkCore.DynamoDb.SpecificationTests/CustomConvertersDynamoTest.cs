@@ -463,8 +463,7 @@ public class CustomConvertersDynamoTest(
         => base.Where_bool_gets_converted_to_equality_when_value_conversion_is_used_using_indexer();
 
     public override void Value_conversion_with_property_named_value()
-        => DynamoTestHelpers.Instance.NoSyncTest(()
-            => base.Value_conversion_with_property_named_value());
+        => base.Value_conversion_with_property_named_value();
 
     public override void Value_conversion_on_enum_collection_contains()
         => DynamoTestHelpers.Instance.NoSyncTest(()
