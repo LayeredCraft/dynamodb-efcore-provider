@@ -169,6 +169,10 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         return QueryCompilationContext.NotTranslatedExpression;
     }
 
+    /// <inheritdoc />
+    protected override Expression VisitConditional(ConditionalExpression node)
+        => QueryCompilationContext.NotTranslatedExpression;
+
     /// <summary>
     ///     Translates a nullable complex property operand for null comparisons in predicates.
     ///     Returns the SQL path for the complex map attribute so that <c>== null</c> and
