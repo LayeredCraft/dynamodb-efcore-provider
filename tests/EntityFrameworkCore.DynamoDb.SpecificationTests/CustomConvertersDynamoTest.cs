@@ -213,6 +213,62 @@ public class CustomConvertersDynamoTest(
             await context.SaveChangesAsync();
         }
 
+        await using (var context = CreateContext())
+        {
+            var drivers = (await context.Set<Person>().ToListAsync()).OrderBy(p => p.Name).ToList();
+
+            Assert.Equal(4, drivers.Count);
+
+            Assert.Equal("Kimi", drivers[0].Name);
+            Assert.Equal(222222222, drivers[0].SSN!.Value.Number);
+
+            Assert.Equal("Lewis", drivers[1].Name);
+            Assert.False(drivers[1].SSN.HasValue);
+
+            Assert.Equal("Seb", drivers[2].Name);
+            Assert.Equal(111111111, drivers[2].SSN!.Value.Number);
+
+            Assert.Equal("Valtteri", drivers[3].Name);
+            Assert.False(drivers[3].SSN.HasValue);
+
+            context.Remove(drivers[0]);
+
+            context.Add(
+                new Person
+                {
+                    Id = 5,
+                    Name = "Charles",
+                    SSN = new SocialSecurityNumber { Number = 222222222 },
+                });
+
+            await context.SaveChangesAsync();
+        }
+
+        await using (var context = CreateContext())
+        {
+            var drivers = (await context.Set<Person>().ToListAsync()).OrderBy(p => p.Name).ToList();
+
+            Assert.Equal(4, drivers.Count);
+
+            Assert.Equal("Charles", drivers[0].Name);
+            Assert.Equal(222222222, drivers[0].SSN!.Value.Number);
+
+            Assert.Equal("Lewis", drivers[1].Name);
+            Assert.False(drivers[1].SSN.HasValue);
+
+            Assert.Equal("Seb", drivers[2].Name);
+            Assert.Equal(111111111, drivers[2].SSN!.Value.Number);
+
+            Assert.Equal("Valtteri", drivers[3].Name);
+            Assert.False(drivers[3].SSN.HasValue);
+
+            context.Remove(drivers[0]);
+        }
+    }
+
+    // Relational test relies on foreign-key relationship fixup; DynamoDB provider ignores these
+    // navigations.
+    [ConditionalFact(Skip = SkipReason.ForeignKeysNotSupported)]
     public override Task Can_query_and_update_with_nullable_converter_on_primary_key()
         => base.Can_query_and_update_with_nullable_converter_on_primary_key();
 
@@ -355,6 +411,7 @@ public class CustomConvertersDynamoTest(
         }
     }
 
+    [ConditionalFact(Skip = SkipReason.QueryShapeNotSupported + " #241")]
     public override Task Can_query_custom_type_not_mapped_by_default_equality(bool async)
         => async
             ? base.Can_query_custom_type_not_mapped_by_default_equality(async)
