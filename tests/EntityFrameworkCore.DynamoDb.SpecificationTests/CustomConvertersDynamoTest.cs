@@ -411,7 +411,7 @@ public class CustomConvertersDynamoTest(
         }
     }
 
-    [ConditionalFact(Skip = SkipReason.QueryShapeNotSupported + " #241")]
+    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported + " #241")]
     public override Task Can_query_custom_type_not_mapped_by_default_equality(bool async)
         => async
             ? base.Can_query_custom_type_not_mapped_by_default_equality(async)
