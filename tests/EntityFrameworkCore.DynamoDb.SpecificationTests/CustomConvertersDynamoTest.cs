@@ -476,17 +476,8 @@ public class CustomConvertersDynamoTest(
     public override void Collection_property_as_scalar_Any()
         => base.Collection_property_as_scalar_Any();
 
-    public override async void Collection_property_as_scalar_Count_member()
-    {
-        await using var context = CreateContext();
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(()
-            => context.Set<CollectionScalar>().Where(e => e.Tags.Count == 2).ToListAsync());
-
-        Assert.Equal(
-            CoreStrings.TranslationFailed(
-                @"DbSet<CollectionScalar>()    .Where(c => c.Tags.Count == 2)"),
-            exception.Message.Replace("\r", "").Replace("\n", ""));
-    }
+    public override void Collection_property_as_scalar_Count_member()
+        => base.Collection_property_as_scalar_Count_member();
 
     public override void Collection_enum_as_string_Contains()
         => base.Collection_enum_as_string_Contains();
