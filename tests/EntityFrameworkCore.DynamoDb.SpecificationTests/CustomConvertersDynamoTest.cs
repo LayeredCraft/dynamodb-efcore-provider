@@ -494,7 +494,7 @@ public class CustomConvertersDynamoTest(
     }
 
     public override void Collection_enum_as_string_Contains()
-        => DynamoTestHelpers.Instance.NoSyncTest(() => base.Collection_enum_as_string_Contains());
+        => base.Collection_enum_as_string_Contains();
 
     public override void Optional_owned_with_converter_reading_non_nullable_column()
         => DynamoTestHelpers.Instance.NoSyncTest(() =>
