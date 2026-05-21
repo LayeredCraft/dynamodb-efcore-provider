@@ -907,8 +907,9 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
         if (translation != null)
             return translation;
 
-        AddTranslationErrorDetails(
-            _sqlTranslator.TranslationErrorDetails ?? DynamoStrings.PredicateNotTranslatable);
+        if (_sqlTranslator.TranslationErrorDetails is { } translationErrorDetails)
+            AddTranslationErrorDetails(translationErrorDetails);
+
         return null;
     }
 

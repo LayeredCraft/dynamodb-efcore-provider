@@ -375,9 +375,12 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
             return sqlExpressionFactory.Property(node.Member.Name, node.Type);
         }
 
-        // Multi-level with entity type context: walk the EF model to resolve attribute names
+        // Multi-level access rooted in a scalar property is CLR member access over the model value
+        // (for example, value-converted List<T>.Count), not a DynamoDB document path.
         if (rootEntityType != null)
-            return TranslateNestedMemberChain(names, rootEntityType, node.Type);
+            return rootEntityType.FindProperty(names[0]) != null
+                ? QueryCompilationContext.NotTranslatedExpression
+                : TranslateNestedMemberChain(names, rootEntityType, node.Type);
 
         // Multi-level member access without entity type context is not translatable
         AddTranslationErrorDetails(DynamoStrings.MemberAccessNotSupported);
