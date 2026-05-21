@@ -39,19 +39,17 @@ change tracking, concurrency, Find, value converters, interceptors, and more.
 | `ConcurrencyDetectorEnabledTestBase` | 1 | ✓ | ✗ | `ConcurrencyDetector` opt-in |
 | `OptimisticConcurrencyTestBase` | 33 | ✓ | ✗ | ETag / version token concurrency |
 | `FindTestBase` | 69 | ✓ | ✗ | `Find`/`FindAsync` by primary key |
+| `ComplianceTestBase` | 1 | ✗ | ✗ | Compliance marker for implemented provider spec bases |
+| `OverzealousInitializationTestBase` | 1 | ✓ | ✗ | Navigation-based fixup test is explicitly skipped |
+| `LoggingTestBase` | 1 | ✗ | ✗ | Context-initialization logging covered; unsupported include path skipped |
+| `SaveChangesInterceptionTestBase` | 13 | ✗ | ✗ | Transaction-dependent cases are explicitly skipped |
+| `QueryExpressionInterceptionTestBase` | 4 | ✓ | ✗ | `Single`-based query shapes are explicitly skipped |
+| `MaterializationInterceptionTestBase` | 7 | ✓ | ✗ | Materialization interceptor coverage; owned/complex collection cases skipped |
+| `CompositeKeyEndToEndTestBase` | 3 | ✗ | ✗ | PK+SK round-trip covered; three-part composite-key cases skipped |
 
 ### Implement Next
 
-High-value, low-effort; DynamoDB behavior is clearly compatible and infrastructure already exists.
-
-| Test Class | Methods | Cosmos | MongoDB | Feasibility | Rationale |
-|---|---:|:---:|:---:|---:|---|
-| `ComplianceTestBase` | 1 | ✗ | ✗ | ~100% | Single compliance marker test; near-zero effort |
-| `OverzealousInitializationTestBase` | 1 | ✓ | ✗ | ~100% | Property initialization guard; single test |
-| `LoggingTestBase` | 1 | ✗ | ✗ | ~90% | Basic logging wiring; single test |
-| `SaveChangesInterceptionTestBase` | 13 | ✗ | ✗ | ~85% | `ISaveChangesInterceptor`; DynamoDB supports SaveChanges |
-| `QueryExpressionInterceptionTestBase` | 4 | ✓ | ✗ | ~85% | Query expression tree interception; small surface |
-| `MaterializationInterceptionTestBase` | 7 | ✓ | ✗ | ~80% | `IMaterializationInterceptor`; DynamoDB materializes entities |
+No non-query specification test classes are currently queued here.
 
 ### Future
 
@@ -69,7 +67,6 @@ Feasible but requires investigation or additional provider work before adding.
 | `StoreGeneratedTestBase` | 58 | ✗ | ✗ | ~50% | Store-generated keys and concurrency tokens; partially supported (DynamoDB auto-generates string PKs but not sequences) |
 | `DataAnnotationTestBase` | 84 | ✗ | ✗ | ~40% | Attribute-driven model configuration; many tests exercise relational-only annotations (schema, unique indexes, FK attributes) |
 | `FieldMappingTestBase` | 101 | ✗ | ✗ | ~40% | Backing field mapping; basic field mapping works but tests assume relational load scenarios |
-| `CompositeKeyEndToEndTestBase` | 3 | ✗ | ✗ | ~70% | Composite PK round-trips (PK + SK); DynamoDB supports two-part keys; three tests |
 
 ### Skip — Architectural Constraints
 
@@ -123,21 +120,20 @@ Uses the `Customer / Employee / Order / Product` dataset with `NorthwindQueryDyn
 |---|---:|:---:|:---:|---|
 | `NorthwindWhereQueryTestBase` | 203 | ✓ | ✓ | Predicate filtering; core WHERE coverage |
 | `NorthwindSelectQueryTestBase` | 186 | ✓ | ✓ | Projections and SELECT shapes |
+| `NorthwindAsNoTrackingQueryTestBase` | 11 | ✗ | ✓ | `AsNoTracking()` passthrough; join/navigation-shaped cases skipped |
+| `NorthwindAsTrackingQueryTestBase` | 5 | ✗ | ✓ | `AsTracking()` on `IQueryable`; sync-only base tests assert async-only provider behavior |
+| `NorthwindQueryTaggingQueryTestBase` | 9 | ✗ | ✓ | `TagWith()` has no translation impact; sync-only base tests assert async-only provider behavior |
+| `NorthwindChangeTrackingQueryTestBase` | 17 | ✗ | ✓ | Query tracking behavior and state transitions; join-shaped modifier-precedence cases skipped |
+| `NorthwindFunctionsQueryTestBase` | 10 | ✓ | ✓ | Static equality function covered; navigation/unsupported function cases skipped |
 
 ### Implement Next
 
-| Test Class | Methods | Cosmos | MongoDB | Feasibility | Rationale |
-|---|---:|:---:|:---:|---:|---|
-| `NorthwindAsNoTrackingQueryTestBase` | 11 | ✗ | ✓ | ~95% | `AsNoTracking()` is a passthrough for DynamoDB |
-| `NorthwindAsTrackingQueryTestBase` | 5 | ✗ | ✓ | ~95% | `AsTracking()` on `IQueryable`; trivial |
-| `NorthwindQueryTaggingQueryTestBase` | 9 | ✗ | ✓ | ~90% | `TagWith()` query comments; no translation impact |
+No Northwind query specification test classes are currently queued here.
 
 ### Future
 
 | Test Class | Methods | Cosmos | MongoDB | Feasibility | Blocker |
 |---|---:|:---:|:---:|---:|---|
-| `NorthwindFunctionsQueryTestBase` | 10 | ✓ | ✓ | ~70% | Math/string functions in WHERE; PartiQL coverage is partial |
-| `NorthwindChangeTrackingQueryTestBase` | 17 | ✗ | ✓ | ~70% | Change tracking integration with queries; relational tracking not applicable |
 | `NorthwindQueryFiltersQueryTestBase` | 17 | ✗ | ✓ | ~65% | Global `HasQueryFilter`; feasible but not yet validated at scale |
 | `NorthwindDbFunctionsQueryTestBase` | 5 | ✓ | ✓ | ~60% | `EF.Functions.*`; small surface, mostly skippable |
 | `NorthwindMiscellaneousQueryTestBase` | 469 | ✓ | ✓ | ~35% | Very broad: Take/Skip, cast, null semantics, subqueries, async patterns; too many unsupported operators — below 70% threshold until core coverage matures |
@@ -285,45 +281,54 @@ translations are low-feasibility until dedicated temporal translation support is
 
 | Category | Implemented | Implement Next | Future | Skip |
 |---|---:|---:|---:|---:|
-| Non-Query (top-level) | 7 classes / 278 methods | 6 classes / 27 methods | 11 classes / ~535 methods | 19 classes / ~985 methods |
-| BulkUpdates | — | — | 4 classes / 135 methods | 2 classes / 33 methods |
-| Northwind Query | 2 classes / 389 methods | 3 classes / 25 methods | 5 classes / 518 methods | 9 classes / ~924 methods |
-| Other Query | — | — | 13 classes / ~465 methods | 16 classes / ~1,680 methods |
-| Associations | — | — | 3 classes / 8 methods | 12+ classes / 80+ methods |
-| Translations (need fixture) | — | — | 16 classes / ~331 methods | — |
+| Non-Query (top-level) | 14 classes / 308 methods | — | 10 classes / 532 methods | 19 classes / 984 methods |
+| BulkUpdates | — | — | 5 classes / 135+ methods | 1 class / 33 methods |
+| Northwind Query | 7 classes / 441 methods | — | 3 classes / 491 methods | 12 classes / 924+ methods |
+| Other Query | — | — | 13 classes / 465 methods | 16 classes / 1,683 methods |
+| Associations | — | — | 3 classes / 8 methods | 13+ classes / 123+ methods |
+| Translations (need fixture) | — | — | 16 classes / 321 methods | — |
 
 ---
 
 ## Implementation Order
 
-### Immediate (no new fixtures needed, builds on existing infrastructure)
+### Immediate (complete)
 
-1. `NorthwindAsNoTrackingQueryDynamoTest` — 11 methods, ~all pass
-2. `NorthwindAsTrackingQueryDynamoTest` — 5 methods
-3. `NorthwindQueryTaggingQueryDynamoTest` — 9 methods
-4. `ComplianceDynamoTest` — 1 method
-5. `OverzealousInitializationDynamoTest` — 1 method
-6. `SaveChangesInterceptionDynamoTest` — 13 methods
-7. `QueryExpressionInterceptionDynamoTest` — 4 methods
+1. `ComplianceDynamoTest` — 1 method
+2. `OverzealousInitializationDynamoTest` — 1 method
+3. `SaveChangesInterceptionDynamoTest` — 13 methods
+4. `QueryExpressionInterceptionDynamoTest` — 4 methods
+5. `NorthwindAsNoTrackingQueryDynamoTest` — 11 methods
+6. `NorthwindAsTrackingQueryDynamoTest` — 5 methods
+7. `NorthwindQueryTaggingQueryDynamoTest` — 9 methods
+8. `NorthwindChangeTrackingQueryDynamoTest` — 17 methods
+9. `CompositeKeyEndToEndDynamoTest` — 3 methods
+10. `NorthwindFunctionsQueryDynamoTest` — 10 methods
 
 ### Near-term (small, high confidence)
 
-8. `NorthwindFunctionsQueryDynamoTest` — 10 methods
-9. `NorthwindChangeTrackingQueryDynamoTest` — 17 methods
-10. `MaterializationInterceptionDynamoTest` — 7 methods
-11. `CompositeKeyEndToEndDynamoTest` — 3 methods (validates PK+SK)
+No near-term specification test classes are currently queued here.
 
 ### Medium-term (requires investigation or new fixture)
 
-12. `CustomConvertersDynamoTest` / `KeysWithConvertersDynamoTest`
-13. `InheritanceQueryDynamoTest` (discriminator support validation)
-14. `ComplexTypeQueryDynamoTest` (needs `BasicTypesDynamoFixture`)
-15. Translations operator tests (Comparison, Logical, Arithmetic) — needs `BasicTypesDynamoFixture`
-16. `StringTranslationsDynamoTest` — needs `BasicTypesDynamoFixture`
+11. `CustomConvertersDynamoTest` / `KeysWithConvertersDynamoTest`
+12. `InheritanceQueryDynamoTest` (discriminator support validation)
+13. `ComplexTypeQueryDynamoTest` (needs `BasicTypesDynamoFixture`)
+14. Translations operator tests (Comparison, Logical, Arithmetic) — needs `BasicTypesDynamoFixture`
+15. `StringTranslationsDynamoTest` — needs `BasicTypesDynamoFixture`
 
 ### Long-term (after core coverage is stable)
 
-17. `PrimitiveCollectionsQueryDynamoTest`
-18. `NorthwindQueryFiltersDynamoTest`
-19. `BulkUpdates` family — blocked on `ExecuteUpdate`/`ExecuteDelete`
-20. Remaining translation tests (Math, Miscellaneous, Enum, Guid)
+16. `PrimitiveCollectionsQueryDynamoTest`
+17. `NorthwindQueryFiltersDynamoTest`
+18. `BulkUpdates` family — blocked on `ExecuteUpdate`/`ExecuteDelete`
+19. Remaining translation tests (Math, Miscellaneous, Enum, Guid)
+
+### Current totals
+
+| Status | Classes | Methods |
+|---|---:|---:|
+| Implemented | 21 | 749 |
+| Implement Next | 0 | 0 |
+| Future | 50 | 1,956+ |
+| Skip | 61+ | 3,747+ |

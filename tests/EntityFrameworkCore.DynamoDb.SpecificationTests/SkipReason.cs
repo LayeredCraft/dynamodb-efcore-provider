@@ -17,4 +17,23 @@ public static class SkipReason
 
     public const string NavigationPropertiesNotSupported =
         "DynamoDB does not support navigation properties.";
+
+    public const string JoinsNotSupported =
+        "DynamoDB PartiQL does not support joins.";
+
+    public const string EntityTypeNotMappedInFixture =
+        "This entity type is not mapped in the DynamoDB specification test fixture.";
+
+    public const string ThreePartCompositeKeysNotSupported =
+        "DynamoDB table keys support only a partition key and optional sort key.";
+
+    public const string TransactionsNotSupported =
+        "DynamoDB provider does not support explicit EF Core transaction scopes via Database.BeginTransaction().";
+
+    public const string OwnedEntityTypesNotSupported =
+        "DynamoDB does not support EF Core owned entity types (OwnsMany/OwnsOne). Use [ComplexType] instead.";
+
+    public const string PartitionKeyRequiredOnAllEntities =
+        "DynamoDB requires every entity type in the model to have a partition key.";
+
 }

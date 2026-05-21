@@ -2,7 +2,7 @@
 site_name = "EntityFrameworkCore.DynamoDb"
 site_description = "Entity Framework Core provider for AWS DynamoDB."
 site_author = "LayeredCraft"
-site_url = "https://layeredcraft.github.io/dynamodb-efcore-provider/"
+site_url = "https://dynamodb-ef-core.layeredcraft.dev/"
 repo_url = "https://github.com/LayeredCraft/dynamodb-efcore-provider"
 repo_name = "LayeredCraft/dynamodb-efcore-provider"
 edit_uri = "edit/main/docs/"
