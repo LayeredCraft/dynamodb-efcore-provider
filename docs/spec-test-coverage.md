@@ -161,11 +161,16 @@ No Northwind query specification test classes are currently queued here.
 
 These tests use non-Northwind models and fixtures.
 
+### Implemented
+
+| Test Class | Methods | Cosmos | MongoDB | Notes |
+|---|---:|:---:|:---:|---|
+| `ComplexTypeQueryTestBase` | 74 | ✓ | ✗ | Complex property projection/filter coverage; navigation, set-operation, GroupBy, equality, and pushdown cases skipped |
+
 ### Future
 
 | Test Class | Methods | Cosmos | MongoDB | Feasibility | Rationale |
 |---|---:|:---:|:---:|---:|---|
-| `ComplexTypeQueryTestBase` | 76 | ✓ | ✗ | ~65% | Complex type queries (nested properties in WHERE/SELECT); DynamoDB supports complex types — needs fixture and investigation |
 | `AdHocComplexTypeQueryTestBase` | 13 | ✓ | ✗ | ~65% | Ad-hoc complex type query scenarios; same fixture dependency |
 | `InheritanceQueryTestBase` | 52 | ✓ | ✗ | ~60% | Single-table inheritance with discriminator; DynamoDB has discriminator support |
 | `FiltersInheritanceQueryTestBase` | 11 | ✗ | ✗ | ~55% | Query filters on inherited types |
@@ -284,7 +289,7 @@ translations are low-feasibility until dedicated temporal translation support is
 | Non-Query (top-level) | 14 classes / 308 methods | — | 10 classes / 532 methods | 19 classes / 984 methods |
 | BulkUpdates | — | — | 5 classes / 135+ methods | 1 class / 33 methods |
 | Northwind Query | 7 classes / 441 methods | — | 3 classes / 491 methods | 12 classes / 924+ methods |
-| Other Query | — | — | 13 classes / 465 methods | 16 classes / 1,683 methods |
+| Other Query | 1 class / 74 methods | — | 12 classes / 389 methods | 16 classes / 1,683 methods |
 | Associations | — | — | 3 classes / 8 methods | 13+ classes / 123+ methods |
 | Translations (need fixture) | — | — | 16 classes / 321 methods | — |
 
@@ -304,6 +309,7 @@ translations are low-feasibility until dedicated temporal translation support is
 8. `NorthwindChangeTrackingQueryDynamoTest` — 17 methods
 9. `CompositeKeyEndToEndDynamoTest` — 3 methods
 10. `NorthwindFunctionsQueryDynamoTest` — 10 methods
+11. `ComplexTypeQueryDynamoTest` — 74 methods
 
 ### Near-term (small, high confidence)
 
@@ -311,8 +317,7 @@ No near-term specification test classes are currently queued here.
 
 ### Medium-term (requires investigation or new fixture)
 
-11. `CustomConvertersDynamoTest` / `KeysWithConvertersDynamoTest`
-12. `ComplexTypeQueryDynamoTest` (needs `ComplexTypeDynamoFixture`)
+12. `CustomConvertersDynamoTest` / `KeysWithConvertersDynamoTest`
 13. Translations operator tests (Comparison, Logical, Arithmetic) — needs `BasicTypesDynamoFixture`
 14. `StringTranslationsDynamoTest` — needs `BasicTypesDynamoFixture`
 
@@ -328,7 +333,7 @@ No near-term specification test classes are currently queued here.
 
 | Status | Classes | Methods |
 |---|---:|---:|
-| Implemented | 21 | 749 |
+| Implemented | 22 | 823 |
 | Implement Next | 0 | 0 |
-| Future | 50 | 1,956+ |
+| Future | 49 | 1,880+ |
 | Skip | 61+ | 3,747+ |
