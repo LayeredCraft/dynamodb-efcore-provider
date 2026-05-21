@@ -147,7 +147,7 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
                 operand = TryTranslateComplexPropertyForNullComparison(node.Right)
                     ?? TranslateInternal(node.Right);
 
-            if (operand != null)
+            if (operand != null && operand.TypeMapping?.Converter?.ConvertsNulls != true)
             {
                 var composed = node.NodeType == ExpressionType.Equal
                     ? sqlExpressionFactory.Binary(
@@ -585,6 +585,73 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
 
     private static bool CanBeNull(Type type)
         => !type.IsValueType || Nullable.GetUnderlyingType(type) != null;
+
+    private bool IsConvertedEnumUnderlyingCastComparedToUnderlyingValue(
+        Expression left,
+        Expression right)
+        => IsConvertedEnumUnderlyingCastComparedToUnderlyingValueFrom(left, right)
+            || IsConvertedEnumUnderlyingCastComparedToUnderlyingValueFrom(right, left);
+
+    private bool IsConvertedEnumUnderlyingCastComparedToUnderlyingValueFrom(
+        Expression enumCastExpression,
+        Expression otherExpression)
+    {
+        if (enumCastExpression is not UnaryExpression
+            {
+                NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked,
+            } unaryExpression)
+            return false;
+
+        var enumType = UnwrapNullableType(unaryExpression.Operand.Type);
+        var targetType = UnwrapNullableType(unaryExpression.Type);
+        if (!enumType.IsEnum || targetType != Enum.GetUnderlyingType(enumType))
+            return false;
+
+        if (!TryResolveProperty(unaryExpression.Operand, out var property)
+            || property.GetTypeMapping().Converter is null)
+            return false;
+
+        return ExpressionHasTypeOrElementType(otherExpression, targetType);
+    }
+
+    private bool TryResolveProperty(Expression expression, out IProperty property)
+    {
+        if (TryGetMemberAccessChain(expression, out var names, out var sourceExpression)
+            && names.Count > 0
+            && ResolveRootEntityType(sourceExpression)
+                ?.FindProperty(names[0]) is { } memberProperty)
+        {
+            property = memberProperty;
+            return true;
+        }
+
+        property = null!;
+        return false;
+    }
+
+    private static bool ExpressionHasTypeOrElementType(Expression expression, Type type)
+    {
+        if (expression is UnaryExpression
+            {
+                NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked,
+            } unaryExpression
+            && UnwrapNullableType(unaryExpression.Operand.Type).IsEnum)
+            return false;
+
+        expression = UnwrapObjectConvert(expression);
+        var expressionType = UnwrapNullableType(expression.Type);
+        if (expressionType == type)
+            return true;
+
+        if (expressionType.IsArray)
+            return UnwrapNullableType(expressionType.GetElementType()!) == type;
+
+        if (expressionType.IsGenericType
+            && expressionType.GetGenericArguments().Any(t => UnwrapNullableType(t) == type))
+            return true;
+
+        return false;
+    }
 
     private static Expression UnwrapObjectConvert(Expression expression)
     {
@@ -1083,6 +1150,12 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
             AddTranslationErrorDetails(DynamoStrings.ContainsCollectionShapeNotSupported);
             return QueryCompilationContext.NotTranslatedExpression;
         }
+
+        if (IsConvertedEnumUnderlyingCastComparedToUnderlyingValue(
+            itemExpression,
+            collectionExpression))
+            throw new InvalidOperationException(
+                DynamoStrings.ConvertedEnumUnderlyingCastNotSupported);
 
         var item = TranslateInternal(itemExpression);
         if (item == null)

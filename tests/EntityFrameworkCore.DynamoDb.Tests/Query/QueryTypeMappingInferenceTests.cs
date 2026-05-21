@@ -277,6 +277,25 @@ public class QueryTypeMappingInferenceTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Inline_contains_enum_underlying_cast_on_converted_property_is_rejected()
+    {
+        var (client, captured) = CreateClient();
+        await using var context = QueryTypeMappingContext.Create(client);
+
+        var act = () => context
+            .Items
+            .AllowScan()
+            .Where(e => new[] { 1 }.Contains((int)e.StringStatus))
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*value-converted enum*numeric underlying type*");
+        captured.Should().BeEmpty();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Converted_property_parameter_uses_property_converter_mapping()
     {
         var (client, captured) = CreateClient();
@@ -339,6 +358,55 @@ public class QueryTypeMappingInferenceTests
             .ToListAsync(TestContext.Current.CancellationToken);
 
         captured.Single().Parameters.Single().NULL.Should().BeTrue();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Converts_nulls_converter_null_equality_uses_provider_sentinel()
+    {
+        var (client, captured) = CreateClient();
+        await using var context = QueryTypeMappingContext.Create(client);
+
+        await context
+            .Items
+            .AllowScan()
+            .Where(e => e.NullSentinel == null)
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        captured.Single().Statement.Should().Contain("WHERE \"nullSentinel\" = '__NULL__'");
+        captured.Single().Parameters.Should().BeNullOrEmpty();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Converts_nulls_converter_null_inequality_uses_provider_sentinel()
+    {
+        var (client, captured) = CreateClient();
+        await using var context = QueryTypeMappingContext.Create(client);
+
+        await context
+            .Items
+            .AllowScan()
+            .Where(e => e.NullSentinel != null)
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        captured.Single().Statement.Should().Contain("WHERE \"nullSentinel\" <> '__NULL__'");
+        captured.Single().Parameters.Should().BeNullOrEmpty();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Parameterized_contains_converts_nulls_converter_null_uses_provider_sentinel()
+    {
+        var (client, captured) = CreateClient();
+        await using var context = QueryTypeMappingContext.Create(client);
+        string?[] values = [null];
+
+        await context
+            .Items
+            .AllowScan()
+            .Where(e => values.Contains(e.NullSentinel))
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        captured.Single().Statement.Should().Contain("WHERE \"nullSentinel\" IN [?]");
+        captured.Single().Parameters.Single().S.Should().Be("__NULL__");
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
@@ -811,6 +879,8 @@ public class QueryTypeMappingInferenceTests
 
         public ByteStringStatus ByteStringStatus { get; set; }
 
+        public string? NullSentinel { get; set; }
+
         public QueryTypeMappingProfile Profile { get; set; } = new();
 
         public QueryTypeMappingCode Code { get; set; } = new("A-1");
@@ -869,6 +939,14 @@ public class QueryTypeMappingInferenceTests
                     .Property(e => e.ByteStringStatus)
                     .HasAttributeName("byteStringStatus")
                     .HasConversion<string>();
+                builder
+                    .Property(e => e.NullSentinel)
+                    .HasAttributeName("nullSentinel")
+                    .HasConversion(
+                        new ValueConverter<string?, string?>(
+                            value => value ?? "__NULL__",
+                            value => value == "__NULL__" ? null : value,
+                            true));
                 builder.ComplexProperty(
                     e => e.Profile,
                     profileBuilder =>

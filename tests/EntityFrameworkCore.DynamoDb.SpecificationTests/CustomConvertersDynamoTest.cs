@@ -12,6 +12,7 @@ public class CustomConvertersDynamoTest(
     CustomConvertersDynamoTest.CustomConvertersDynamoFixture fixture)
     : CustomConvertersTestBase<CustomConvertersDynamoTest.CustomConvertersDynamoFixture>(fixture)
 {
+    [ConditionalFact]
     public virtual void Check_all_tests_overridden()
         => DynamoTestHelpers.AssertAllTestMethodsOverridden(typeof(CustomConvertersDynamoTest));
 
@@ -290,8 +291,9 @@ public class CustomConvertersDynamoTest(
             var user =
                 await context
                     .Set<User>()
+                    .Where(e => e.Id == id && e.Email == "eeky_bear@example.com")
                     .AsAsyncEnumerable()
-                    .SingleAsync(e => e.Id == id && e.Email == "eeky_bear@example.com");
+                    .SingleAsync();
 
             Assert.Equal(id, user.Id);
             Assert.Equal("eeky_bear@example.com", user.Email);

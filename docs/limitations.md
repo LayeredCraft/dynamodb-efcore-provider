@@ -34,19 +34,19 @@ request is sent.
 
 See [Supported Operators](querying/operators.md) for the full list of what does translate.
 
-| Category             | Operators                                                                    | Why                                                                         |
-| -------------------- | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| Aggregation          | `Count`, `LongCount`, `Sum`, `Average`, `Min`, `Max`                         | DynamoDB PartiQL has no aggregate functions                                 |
-| Grouping             | `GroupBy`                                                                    | `GROUP BY` is not supported in DynamoDB PartiQL                             |
-| Joins                | `Join`, `GroupJoin`, `LeftJoin`, `RightJoin`, `SelectMany`, `DefaultIfEmpty` | DynamoDB does not support cross-item joins                                  |
-| Set operations       | `Union`, `Concat`, `Except`, `Intersect`                                     | Not supported in DynamoDB PartiQL                                           |
-| Offset / paging      | `Skip`, `Take`, `ElementAt`, `ElementAtOrDefault`                            | DynamoDB has no offset semantics — use `Limit(n)` for an evaluation budget  |
-| Element operators    | `Single`, `SingleOrDefault`, `Any`, `All`                                    | Not supported server-side                                                   |
-| Reverse traversal    | `Last`, `LastOrDefault`, `Reverse`                                           | Requires reverse index traversal, not implemented                           |
-| Deduplication        | `Distinct`                                                                   | `SELECT DISTINCT` is not supported in DynamoDB PartiQL                      |
-| Type filtering       | `OfType<T>`, `Cast<T>`                                                       | Not supported                                                               |
-| Conditional skipping | `SkipWhile`, `TakeWhile`                                                     | Not supported                                                               |
-| Queryable `Contains` | `Queryable.Contains(source, item)`                                           | Not supported; in-memory `collection.Contains(property)` translates to `IN` |
+| Category                                | Operators                                                                    | Why                                                                                                |
+| --------------------------------------- | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Aggregation                             | `Count`, `LongCount`, `Sum`, `Average`, `Min`, `Max`                         | DynamoDB PartiQL has no aggregate functions                                                        |
+| Grouping                                | `GroupBy`                                                                    | `GROUP BY` is not supported in DynamoDB PartiQL                                                    |
+| Joins                                   | `Join`, `GroupJoin`, `LeftJoin`, `RightJoin`, `SelectMany`, `DefaultIfEmpty` | DynamoDB does not support cross-item joins                                                         |
+| Set operations                          | `Union`, `Concat`, `Except`, `Intersect`                                     | Not supported in DynamoDB PartiQL                                                                  |
+| Offset / paging                         | `Skip`, `Take`, `ElementAt`, `ElementAtOrDefault`                            | DynamoDB has no offset semantics — use `Limit(n)` for an evaluation budget                         |
+| Element operators                       | `Single`, `SingleOrDefault`, `Any`, `All`                                    | Not supported server-side                                                                          |
+| Reverse traversal                       | `Last`, `LastOrDefault`, `Reverse`                                           | Requires reverse index traversal, not implemented                                                  |
+| Deduplication                           | `Distinct`                                                                   | `SELECT DISTINCT` is not supported in DynamoDB PartiQL                                             |
+| Type filtering                          | `OfType<T>`, `Cast<T>`                                                       | Not supported                                                                                      |
+| Conditional skipping                    | `SkipWhile`, `TakeWhile`                                                     | Not supported                                                                                      |
+| Queryable `Contains` over query sources | `Queryable.Contains(dbSet, item)`                                            | Not supported; in-memory membership translates to `IN`, native collection membership to `contains` |
 
 Value-converted enum numeric casts are also rejected when compared to parameters. For example, `(int)entity.Status == value` is not translated if `Status` uses `.HasConversion<string>()`, because DynamoDB stores the converted string value. Compare `entity.Status` to an enum value directly, or map the enum numerically.
 
@@ -85,8 +85,8 @@ DynamoDB counts *evaluated* items against `Limit` (not matched items), this is o
 `WHERE` clause guarantees at most one evaluation pass before a match:
 
 1. No user-specified `Limit(n)` on the query.
-1. The `WHERE` clause includes a partition-key equality condition.
-1. Any sort-key predicate is a valid DynamoDB key condition (`=`, `<`, `<=`, `>`, `>=`,
+2. The `WHERE` clause includes a partition-key equality condition.
+3. Any sort-key predicate is a valid DynamoDB key condition (`=`, `<`, `<=`, `>`, `>=`,
     `BETWEEN`, `begins_with`).
 
 By default, filtered `First*` queries that fail the partition-key or sort-key safety checks throw
@@ -216,7 +216,7 @@ DynamoDB `ExecuteTransaction` enforces two hard limits:
     max 100), the provider throws `InvalidOperationException` unless
     `TransactionOverflowBehavior.UseChunking` is configured.
 
-1. **No duplicate items within a single transaction.** Writing the same DynamoDB item more than
+2. **No duplicate items within a single transaction.** Writing the same DynamoDB item more than
     once in a single transaction throws `InvalidOperationException` — the provider validates this
     client-side before sending the request to DynamoDB.
 

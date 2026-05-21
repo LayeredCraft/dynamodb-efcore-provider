@@ -158,6 +158,11 @@ internal sealed class DynamoConvertedValueReaderWriter<TModel, TProvider>(
         typeof(DynamoConvertedValueReaderWriter<TModel, TProvider>).GetConstructor(
             [typeof(DynamoValueReaderWriter<TProvider>), typeof(ValueConverter)])!;
 
+    private static readonly MethodInfo ReadMethod =
+        typeof(DynamoValueReaderWriter<TModel>).GetMethod(
+            nameof(Read),
+            [typeof(AttributeValue), typeof(string), typeof(bool), typeof(IProperty)])!;
+
     internal override string WireMemberName => innerReaderWriter.WireMemberName;
 
     internal override bool RequiresParameterForPartiQlLiteral
@@ -174,22 +179,13 @@ internal sealed class DynamoConvertedValueReaderWriter<TModel, TProvider>(
         string propertyPath,
         bool required,
         IProperty? property)
-    {
-        var providerValueExpression = innerReaderWriter.CreateReadExpression(
+        => CreatePropertyExpression(
             attributeValueExpression,
             propertyPath,
             required,
-            property);
-
-        var modelValueExpression = ReplacingExpressionVisitor.Replace(
-            converter.ConvertFromProviderExpression.Parameters.Single(),
-            providerValueExpression,
-            converter.ConvertFromProviderExpression.Body);
-
-        return modelValueExpression.Type != typeof(TModel)
-            ? Expression.Convert(modelValueExpression, typeof(TModel))
-            : modelValueExpression;
-    }
+            property,
+            ReadMethod,
+            CreateConstructorExpression());
 
     // ── Object-based (boxed) fallback methods ──────────────────────────────────────
     //
