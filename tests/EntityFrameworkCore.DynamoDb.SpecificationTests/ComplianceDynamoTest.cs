@@ -13,6 +13,7 @@ public sealed class ComplianceDynamoTest : ComplianceTestBase
         yield return typeof(ApiConsistencyTestBase<>);
         yield return typeof(BuiltInDataTypesTestBase<>);
         yield return typeof(ComplexTypesTrackingTestBase<>);
+        yield return typeof(CompositeKeyEndToEndTestBase<>);
         yield return typeof(ComplianceTestBase);
         yield return typeof(ConcurrencyDetectorDisabledTestBase<>);
         yield return typeof(ConcurrencyDetectorEnabledTestBase<>);
@@ -25,6 +26,7 @@ public sealed class ComplianceDynamoTest : ComplianceTestBase
         yield return typeof(NorthwindAsNoTrackingQueryTestBase<>);
         yield return typeof(NorthwindAsTrackingQueryTestBase<>);
         yield return typeof(NorthwindChangeTrackingQueryTestBase<>);
+        yield return typeof(NorthwindFunctionsQueryTestBase<>);
         yield return typeof(NorthwindQueryTaggingQueryTestBase<>);
         yield return typeof(NorthwindSelectQueryTestBase<>);
         yield return typeof(NorthwindWhereQueryTestBase<>);
