@@ -3,9 +3,11 @@ using System.Linq.Expressions;
 using System.Reflection;
 using EntityFrameworkCore.DynamoDb.Extensions;
 using EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
+using EntityFrameworkCore.DynamoDb.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EntityFrameworkCore.DynamoDb.Query.Internal;
 
@@ -113,10 +115,11 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         => Visit(expression) as SqlExpression;
 
     /// <summary>Adds a translation error detail message for the current translation attempt.</summary>
-    private void AddTranslationErrorDetails(string details) => TranslationErrorDetails =
-        TranslationErrorDetails == null
-            ? details
-            : TranslationErrorDetails + Environment.NewLine + details;
+    private void AddTranslationErrorDetails(string details)
+        => TranslationErrorDetails =
+            TranslationErrorDetails == null
+                ? details
+                : TranslationErrorDetails + Environment.NewLine + details;
 
     /// <inheritdoc />
     protected override Expression VisitBinary(BinaryExpression node)
@@ -262,6 +265,24 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
     /// <inheritdoc />
     protected override Expression VisitConstant(ConstantExpression node)
         => sqlExpressionFactory.Constant(node.Value, node.Type);
+
+    /// <inheritdoc />
+    protected override Expression VisitNew(NewExpression node)
+        => TryEvaluateToConstant(node, out var sqlConstantExpression)
+            ? sqlConstantExpression
+            : QueryCompilationContext.NotTranslatedExpression;
+
+    /// <inheritdoc />
+    protected override Expression VisitNewArray(NewArrayExpression node)
+        => TryEvaluateToConstant(node, out var sqlConstantExpression)
+            ? sqlConstantExpression
+            : QueryCompilationContext.NotTranslatedExpression;
+
+    /// <inheritdoc />
+    protected override Expression VisitMemberInit(MemberInitExpression node)
+        => TryEvaluateToConstant(node, out var sqlConstantExpression)
+            ? sqlConstantExpression
+            : QueryCompilationContext.NotTranslatedExpression;
 
     /// <inheritdoc />
     protected override Expression VisitParameter(ParameterExpression node)
@@ -501,19 +522,22 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         if (leftExpression == null || rightExpression == null)
             return null;
 
-        var left = TranslateInternal(UnwrapObjectConvert(leftExpression));
-        var right = TranslateInternal(UnwrapObjectConvert(rightExpression));
+        leftExpression = UnwrapObjectConvert(leftExpression);
+        rightExpression = UnwrapObjectConvert(rightExpression);
 
-        if (left is not SqlExpression leftSql || right is not SqlExpression rightSql)
+        if (TranslateInternal(leftExpression) is not { } leftSql
+            || TranslateInternal(rightExpression) is not { } rightSql)
             return QueryCompilationContext.NotTranslatedExpression;
 
-        if (!IsSupportedEqualsOperand(leftSql) || !IsSupportedEqualsOperand(rightSql))
+        var comparisonTypeMapping = InferTypeMapping(leftSql, rightSql);
+        if (!IsSupportedEqualsOperand(leftSql, comparisonTypeMapping)
+            || !IsSupportedEqualsOperand(rightSql, comparisonTypeMapping))
             return QueryCompilationContext.NotTranslatedExpression;
 
         if (TryTranslateEqualsNull(leftSql, rightSql) is { } nullComparison)
             return nullComparison;
 
-        if (!AreEqualsOperandTypesCompatible(leftSql, rightSql))
+        if (!AreEqualsOperandTypesCompatible(leftSql, rightSql, comparisonTypeMapping))
             return sqlExpressionFactory.Constant(false, typeof(bool));
 
         return sqlExpressionFactory.Binary(ExpressionType.Equal, leftSql, rightSql);
@@ -567,19 +591,41 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         var declaringType = method.DeclaringType;
         return method == ObjectEqualsMethod
             || declaringType == typeof(Enum)
-            || (declaringType != null && IsSupportedEqualsType(declaringType));
+            || (declaringType != null
+                && (declaringType.IsValueType || IsSupportedEqualsType(declaringType)));
     }
 
-    private static bool IsSupportedEqualsOperand(SqlExpression expression)
+    private static bool IsSupportedEqualsOperand(
+        SqlExpression expression,
+        CoreTypeMapping? comparisonTypeMapping)
         => expression is SqlConstantExpression { Value: null }
-            || IsSupportedEqualsType(expression.Type);
+            || IsSupportedEqualsType(expression.Type)
+            || IsCompatibleWithConverterMapping(expression, comparisonTypeMapping);
 
-    private static bool AreEqualsOperandTypesCompatible(SqlExpression left, SqlExpression right)
+    private static bool AreEqualsOperandTypesCompatible(
+        SqlExpression left,
+        SqlExpression right,
+        CoreTypeMapping? comparisonTypeMapping)
     {
         var leftType = UnwrapNullableType(left.Type);
         var rightType = UnwrapNullableType(right.Type);
 
-        return leftType == rightType;
+        return leftType == rightType
+            || (IsCompatibleWithConverterMapping(left, comparisonTypeMapping)
+                && IsCompatibleWithConverterMapping(right, comparisonTypeMapping));
+    }
+
+    private static bool IsCompatibleWithConverterMapping(
+        SqlExpression expression,
+        CoreTypeMapping? typeMapping)
+    {
+        if (typeMapping is not DynamoTypeMapping { Converter: not null } dynamoTypeMapping)
+            return false;
+
+        var expressionType = UnwrapNullableType(expression.Type);
+        var modelType = UnwrapNullableType(dynamoTypeMapping.ClrType);
+
+        return modelType.IsValueType && expressionType == modelType;
     }
 
     private static bool IsSupportedEqualsType(Type type)
@@ -598,6 +644,65 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
     }
 
     private static Type UnwrapNullableType(Type type) => Nullable.GetUnderlyingType(type) ?? type;
+
+    private static CoreTypeMapping? InferTypeMapping(SqlExpression left, SqlExpression right)
+        => PreferNonValueMapping(left)
+            ?? PreferNonValueMapping(right) ?? left.TypeMapping ?? right.TypeMapping;
+
+    private static CoreTypeMapping? PreferNonValueMapping(SqlExpression expression)
+        => expression is not SqlConstantExpression and not SqlParameterExpression
+            ? expression.TypeMapping
+            : null;
+
+    private bool TryEvaluateToConstant(
+        Expression expression,
+        out SqlConstantExpression sqlConstantExpression)
+    {
+        if (!CanEvaluate(expression))
+        {
+            sqlConstantExpression = null!;
+            return false;
+        }
+
+        try
+        {
+            var value = Expression
+                .Lambda<Func<object?>>(Expression.Convert(expression, typeof(object)))
+                .Compile(true)
+                .Invoke();
+            sqlConstantExpression = sqlExpressionFactory.Constant(value, expression.Type);
+            return true;
+        }
+        catch
+        {
+            sqlConstantExpression = null!;
+            return false;
+        }
+    }
+
+    private static bool CanEvaluate(Expression expression)
+        => expression switch
+        {
+            ConstantExpression => true,
+            NewExpression newExpression => newExpression.Arguments.All(CanEvaluate),
+            NewArrayExpression newArrayExpression =>
+                newArrayExpression.Expressions.All(CanEvaluate),
+            MemberInitExpression memberInitExpression => CanEvaluate(
+                    memberInitExpression.NewExpression)
+                && memberInitExpression.Bindings.All(CanEvaluate),
+            UnaryExpression
+            {
+                NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked,
+            } unaryExpression => CanEvaluate(unaryExpression.Operand),
+            _ => false,
+        };
+
+    private static bool CanEvaluate(MemberBinding memberBinding)
+        => memberBinding switch
+        {
+            MemberAssignment memberAssignment => CanEvaluate(memberAssignment.Expression),
+            _ => false,
+        };
 
     /// <summary>
     ///     Translates <c>EF.Property&lt;T&gt;(source, "name")</c> to scalar property access,
@@ -868,14 +973,15 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
     }
 
     /// <summary>Returns the mirrored comparison operator (e.g. <c>&gt;=</c> becomes <c>&lt;=</c>).</summary>
-    private static ExpressionType FlipComparison(ExpressionType op) => op switch
-    {
-        ExpressionType.GreaterThan => ExpressionType.LessThan,
-        ExpressionType.GreaterThanOrEqual => ExpressionType.LessThanOrEqual,
-        ExpressionType.LessThan => ExpressionType.GreaterThan,
-        ExpressionType.LessThanOrEqual => ExpressionType.GreaterThanOrEqual,
-        _ => op,
-    };
+    private static ExpressionType FlipComparison(ExpressionType op)
+        => op switch
+        {
+            ExpressionType.GreaterThan => ExpressionType.LessThan,
+            ExpressionType.GreaterThanOrEqual => ExpressionType.LessThanOrEqual,
+            ExpressionType.LessThan => ExpressionType.GreaterThan,
+            ExpressionType.LessThanOrEqual => ExpressionType.GreaterThanOrEqual,
+            _ => op,
+        };
 
     /// <summary>Translates string.Contains to the DynamoDB contains function.</summary>
     private Expression TranslateStringContains(MethodCallExpression node)

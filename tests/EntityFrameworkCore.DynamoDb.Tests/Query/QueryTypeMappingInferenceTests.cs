@@ -2,6 +2,7 @@ using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NSubstitute;
 
 namespace EntityFrameworkCore.DynamoDb.Tests.Query;
@@ -358,6 +359,196 @@ public class QueryTypeMappingInferenceTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Converted_reference_type_instance_equals_is_not_translated()
+    {
+        var (client, captured) = CreateClient();
+        await using var context = QueryTypeMappingContext.Create(client);
+        var code = new QueryTypeMappingCode("A-1");
+
+        var act = () => context
+            .Items
+            .AllowScan()
+            .Where(e => e.Code.Equals(code))
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+        captured.Should().BeEmpty();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task
+        Converted_custom_struct_equals_inline_constant_uses_property_converter_mapping()
+    {
+        var (client, captured) = CreateClient();
+        await using var context = QueryTypeMappingContext.Create(client);
+
+        await context
+            .Items
+            .AllowScan()
+            .Where(e => e.Fuel.Equals(new QueryTypeMappingFuel(1.1)))
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        captured.Single().Statement.Should().Contain("WHERE \"fuel\" = 1.1");
+        captured.Single().Parameters.Should().BeNullOrEmpty();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Converted_custom_struct_equals_parameter_uses_property_converter_mapping()
+    {
+        var (client, captured) = CreateClient();
+        await using var context = QueryTypeMappingContext.Create(client);
+        var fuel = new QueryTypeMappingFuel(1.1);
+
+        await context
+            .Items
+            .AllowScan()
+            .Where(e => e.Fuel.Equals(fuel))
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        captured.Single().Statement.Should().Contain("WHERE \"fuel\" = ?");
+        captured.Single().Parameters.Single().N.Should().Be("1.1");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Reversed_custom_struct_equals_parameter_uses_property_converter_mapping()
+    {
+        var (client, captured) = CreateClient();
+        await using var context = QueryTypeMappingContext.Create(client);
+        var fuel = new QueryTypeMappingFuel(1.1);
+
+        await context
+            .Items
+            .AllowScan()
+            .Where(e => fuel.Equals(e.Fuel))
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        AssertStatementContainsEquality(captured.Single(), "\"fuel\"", "?");
+        captured.Single().Parameters.Single().N.Should().Be("1.1");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task
+        Converted_custom_struct_object_equals_inline_constant_uses_property_converter_mapping()
+    {
+        var (client, captured) = CreateClient();
+        await using var context = QueryTypeMappingContext.Create(client);
+
+        await context
+            .Items
+            .AllowScan()
+            .Where(e => Equals(e.Fuel, new QueryTypeMappingFuel(1.1)))
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        captured.Single().Statement.Should().Contain("WHERE \"fuel\" = 1.1");
+        captured.Single().Parameters.Should().BeNullOrEmpty();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task
+        Object_equals_converted_custom_struct_parameter_uses_property_converter_mapping()
+    {
+        var (client, captured) = CreateClient();
+        await using var context = QueryTypeMappingContext.Create(client);
+        var fuel = new QueryTypeMappingFuel(1.1);
+
+        await context
+            .Items
+            .AllowScan()
+            .Where(e => Equals(e.Fuel, fuel))
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        captured.Single().Statement.Should().Contain("WHERE \"fuel\" = ?");
+        captured.Single().Parameters.Single().N.Should().Be("1.1");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task
+        Reversed_object_equals_converted_custom_struct_parameter_uses_property_converter_mapping()
+    {
+        var (client, captured) = CreateClient();
+        await using var context = QueryTypeMappingContext.Create(client);
+        var fuel = new QueryTypeMappingFuel(1.1);
+
+        await context
+            .Items
+            .AllowScan()
+            .Where(e => Equals(fuel, e.Fuel))
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        AssertStatementContainsEquality(captured.Single(), "\"fuel\"", "?");
+        captured.Single().Parameters.Single().N.Should().Be("1.1");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Converted_custom_struct_binary_equality_uses_property_converter_mapping()
+    {
+        var (client, captured) = CreateClient();
+        await using var context = QueryTypeMappingContext.Create(client);
+        var fuel = new QueryTypeMappingFuel(1.1);
+
+        await context
+            .Items
+            .AllowScan()
+            .Where(e => e.Fuel == fuel)
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        captured.Single().Statement.Should().Contain("WHERE \"fuel\" = ?");
+        captured.Single().Parameters.Single().N.Should().Be("1.1");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task
+        Reversed_converted_custom_struct_binary_equality_uses_property_converter_mapping()
+    {
+        var (client, captured) = CreateClient();
+        await using var context = QueryTypeMappingContext.Create(client);
+        var fuel = new QueryTypeMappingFuel(1.1);
+
+        await context
+            .Items
+            .AllowScan()
+            .Where(e => fuel == e.Fuel)
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        AssertStatementContainsEquality(captured.Single(), "\"fuel\"", "?");
+        captured.Single().Parameters.Single().N.Should().Be("1.1");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Nullable_converted_custom_struct_parameter_uses_property_converter_mapping()
+    {
+        var (client, captured) = CreateClient();
+        await using var context = QueryTypeMappingContext.Create(client);
+        QueryTypeMappingFuel? fuel = new QueryTypeMappingFuel(1.1);
+
+        await context
+            .Items
+            .AllowScan()
+            .Where(e => e.NullableFuel == fuel)
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        captured.Single().Statement.Should().Contain("WHERE \"nullableFuel\" = ?");
+        captured.Single().Parameters.Single().N.Should().Be("1.1");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Nullable_converted_custom_struct_null_parameter_uses_null_attribute_value()
+    {
+        var (client, captured) = CreateClient();
+        await using var context = QueryTypeMappingContext.Create(client);
+        QueryTypeMappingFuel? fuel = null;
+
+        await context
+            .Items
+            .AllowScan()
+            .Where(e => e.NullableFuel == fuel)
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        captured.Single().Statement.Should().Contain("WHERE \"nullableFuel\" = ?");
+        captured.Single().Parameters.Single().NULL.Should().BeTrue();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Inline_converted_enum_constant_uses_property_converter_mapping()
     {
         var (client, captured) = CreateClient();
@@ -422,6 +613,23 @@ public class QueryTypeMappingInferenceTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task
+        Inline_converted_custom_struct_contains_values_use_item_property_converter_mapping()
+    {
+        var (client, captured) = CreateClient();
+        await using var context = QueryTypeMappingContext.Create(client);
+
+        await context
+            .Items
+            .AllowScan()
+            .Where(e => new[] { new QueryTypeMappingFuel(1.1) }.Contains(e.Fuel))
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        captured.Single().Statement.Should().Contain("WHERE \"fuel\" IN [1.1]");
+        captured.Single().Parameters.Should().BeNullOrEmpty();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Parameterized_contains_values_use_item_property_mapping()
     {
         var (client, captured) = CreateClient();
@@ -453,6 +661,61 @@ public class QueryTypeMappingInferenceTests
 
         captured.Single().Statement.Should().Contain("WHERE \"stringStatus\" IN [?]");
         captured.Single().Parameters.Select(p => p.S).Should().Equal(nameof(StringStatus.Active));
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task
+        Parameterized_converted_custom_struct_contains_values_use_item_property_converter_mapping()
+    {
+        var (client, captured) = CreateClient();
+        await using var context = QueryTypeMappingContext.Create(client);
+        var values = new[] { new QueryTypeMappingFuel(1.1), new QueryTypeMappingFuel(2.2) };
+
+        await context
+            .Items
+            .AllowScan()
+            .Where(e => values.Contains(e.Fuel))
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        captured.Single().Statement.Should().Contain("WHERE \"fuel\" IN [?, ?]");
+        captured.Single().Parameters.Select(p => p.N).Should().Equal("1.1", "2.2");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task
+        Parameterized_nullable_converted_custom_struct_contains_values_use_null_attribute_value()
+    {
+        var (client, captured) = CreateClient();
+        await using var context = QueryTypeMappingContext.Create(client);
+        QueryTypeMappingFuel?[] values = [new QueryTypeMappingFuel(1.1), null];
+
+        await context
+            .Items
+            .AllowScan()
+            .Where(e => values.Contains(e.NullableFuel))
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        captured.Single().Statement.Should().Contain("WHERE \"nullableFuel\" IN [?, ?]");
+        captured.Single().Parameters[0].N.Should().Be("1.1");
+        captured.Single().Parameters[1].NULL.Should().BeTrue();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task
+        List_converted_custom_struct_contains_values_use_item_property_converter_mapping()
+    {
+        var (client, captured) = CreateClient();
+        await using var context = QueryTypeMappingContext.Create(client);
+        var values = new List<QueryTypeMappingFuel> { new(1.1), new(2.2) };
+
+        await context
+            .Items
+            .AllowScan()
+            .Where(e => values.Contains(e.Fuel))
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        captured.Single().Statement.Should().Contain("WHERE \"fuel\" IN [?, ?]");
+        captured.Single().Parameters.Select(p => p.N).Should().Equal("1.1", "2.2");
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
@@ -502,6 +765,18 @@ public class QueryTypeMappingInferenceTests
         return (client, captured);
     }
 
+    private static void AssertStatementContainsEquality(
+        ExecuteStatementRequest request,
+        string left,
+        string right)
+    {
+        var statement = request.Statement;
+        (statement.Contains($"WHERE {left} = {right}", StringComparison.Ordinal)
+                || statement.Contains($"WHERE {right} = {left}", StringComparison.Ordinal))
+            .Should()
+            .BeTrue($"expected equality between {left} and {right} in {statement}");
+    }
+
     private enum NumericStatus
     {
         Inactive = 0,
@@ -539,9 +814,15 @@ public class QueryTypeMappingInferenceTests
         public QueryTypeMappingProfile Profile { get; set; } = new();
 
         public QueryTypeMappingCode Code { get; set; } = new("A-1");
+
+        public QueryTypeMappingFuel Fuel { get; set; }
+
+        public QueryTypeMappingFuel? NullableFuel { get; set; }
     }
 
     private sealed record QueryTypeMappingCode(string Value);
+
+    private readonly record struct QueryTypeMappingFuel(double Volume);
 
     private sealed class QueryTypeMappingProfile
     {
@@ -565,6 +846,17 @@ public class QueryTypeMappingInferenceTests
                     .Property(e => e.Code)
                     .HasAttributeName("code")
                     .HasConversion(code => code.Value, value => new QueryTypeMappingCode(value));
+                builder
+                    .Property(e => e.Fuel)
+                    .HasAttributeName("fuel")
+                    .HasConversion(fuel => fuel.Volume, volume => new QueryTypeMappingFuel(volume));
+                builder
+                    .Property(e => e.NullableFuel)
+                    .HasAttributeName("nullableFuel")
+                    .HasConversion(
+                        new ValueConverter<QueryTypeMappingFuel, double>(
+                            fuel => fuel.Volume,
+                            volume => new QueryTypeMappingFuel(volume)));
                 builder
                     .Property(e => e.StringStatus)
                     .HasAttributeName("stringStatus")
