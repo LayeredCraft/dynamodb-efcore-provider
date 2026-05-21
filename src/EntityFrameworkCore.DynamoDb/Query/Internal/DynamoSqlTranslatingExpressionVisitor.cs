@@ -574,6 +574,9 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
             return sqlExpressionFactory.Constant(true, typeof(bool));
 
         var operand = leftNull ? right : left;
+        if (operand.TypeMapping?.Converter?.ConvertsNulls == true)
+            return null;
+
         if (!CanBeNull(operand.Type))
             return sqlExpressionFactory.Constant(false, typeof(bool));
 
@@ -693,6 +696,10 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         SqlExpression right,
         CoreTypeMapping? comparisonTypeMapping)
     {
+        if (left is SqlConstantExpression { Value: null }
+            || right is SqlConstantExpression { Value: null })
+            return true;
+
         var leftType = UnwrapNullableType(left.Type);
         var rightType = UnwrapNullableType(right.Type);
 

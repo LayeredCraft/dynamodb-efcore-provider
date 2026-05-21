@@ -377,6 +377,55 @@ public class QueryTypeMappingInferenceTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Converts_nulls_converter_object_equals_null_uses_provider_sentinel()
+    {
+        var (client, captured) = CreateClient();
+        await using var context = QueryTypeMappingContext.Create(client);
+
+        await context
+            .Items
+            .AllowScan()
+            .Where(e => Equals(e.NullSentinel, null))
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        captured.Single().Statement.Should().Contain("WHERE \"nullSentinel\" = '__NULL__'");
+        captured.Single().Parameters.Should().BeNullOrEmpty();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Converts_nulls_converter_object_equals_reversed_null_uses_provider_sentinel()
+    {
+        var (client, captured) = CreateClient();
+        await using var context = QueryTypeMappingContext.Create(client);
+
+        await context
+            .Items
+            .AllowScan()
+            .Where(e => Equals(null, e.NullSentinel))
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        captured.Single().Statement.Should().Contain("WHERE '__NULL__' = \"nullSentinel\"");
+        captured.Single().Parameters.Should().BeNullOrEmpty();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Converts_nulls_converter_negated_object_equals_null_uses_provider_sentinel()
+    {
+        var (client, captured) = CreateClient();
+        await using var context = QueryTypeMappingContext.Create(client);
+
+        await context
+            .Items
+            .AllowScan()
+            .Where(e => !Equals(e.NullSentinel, null))
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        captured.Single().Statement.Should().Contain("WHERE NOT (\"nullSentinel\" = '__NULL__')");
+        captured.Single().Statement.Should().NotContain("IS MISSING");
+        captured.Single().Parameters.Should().BeNullOrEmpty();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Converts_nulls_converter_null_inequality_uses_provider_sentinel()
     {
         var (client, captured) = CreateClient();
