@@ -466,8 +466,11 @@ public class CustomConvertersDynamoTest(
         => base.Value_conversion_with_property_named_value();
 
     public override void Value_conversion_on_enum_collection_contains()
-        => DynamoTestHelpers.Instance.NoSyncTest(()
-            => base.Value_conversion_on_enum_collection_contains());
+        => Assert.Contains(
+            CoreStrings.TranslationFailed("")[47..],
+            Assert.Throws<InvalidOperationException>(()
+                    => base.Value_conversion_on_enum_collection_contains())
+                .Message);
 
     public override async void Collection_property_as_scalar_Any()
     {
