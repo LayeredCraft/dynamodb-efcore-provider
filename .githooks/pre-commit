@@ -1,2 +1,2 @@
 #!/usr/bin/env sh
-format hook git pre-commit
+format hook git pre-commit --log-level debug
