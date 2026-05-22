@@ -942,17 +942,23 @@ public class DynamoKeyDiscoveryConventionTests
         var client = Substitute.For<IAmazonDynamoDB>();
         var options = BuildOptions<PkNamedContext>(client);
 
-        // Resolve the convention dependencies from the DI container built by UseDynamo.
         using var ctx = new PkNamedContext(options);
         var dependencies = ctx.GetService<ProviderConventionSetBuilderDependencies>();
 
         var convention = new TestableDynamoKeyDiscoveryConvention(dependencies);
 
-        var ownedEntityType = Substitute.For<IConventionEntityType>();
-        ownedEntityType.IsOwned().Returns(true);
+        // IsOwned() is an EF Core extension method — build a real model with an owned
+        // relationship so the method returns true without mocking.
+        var modelBuilder = new ModelBuilder(new Microsoft.EntityFrameworkCore.Metadata.Conventions.ConventionSet());
+        modelBuilder.Entity<OwnedTypeOwner>().OwnsOne<OwnedTypeValue>(nameof(OwnedTypeOwner.Owned));
+        var ownedEntityType = (IConventionEntityType)
+            ((IConventionModel)modelBuilder.Model).FindEntityType(typeof(OwnedTypeValue))!;
 
         convention.ShouldDiscover(ownedEntityType).Should().BeFalse();
     }
+
+    private sealed class OwnedTypeOwner { public int Id { get; set; } public OwnedTypeValue Owned { get; set; } = null!; }
+    private sealed class OwnedTypeValue { public string? Value { get; set; } }
 
     // -------------------------------------------------------------------
 
