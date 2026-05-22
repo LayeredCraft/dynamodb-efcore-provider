@@ -65,7 +65,7 @@ public sealed class SqlBinaryExpression(
             ExpressionType.Subtract => "-",
             ExpressionType.Multiply => "*",
             ExpressionType.Divide => "/",
-            _ => throw new NotSupportedException($"Operator type {operatorType} is not supported"),
+            _ => throw new NotSupportedException($"Operator type {operatorType} is not supported")
         };
 
     /// <inheritdoc />

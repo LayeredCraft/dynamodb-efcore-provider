@@ -32,7 +32,7 @@ public abstract class SqlExpressionVisitor : ExpressionVisitor
             DynamoListIndexExpression listIndex => VisitDynamoListIndex(listIndex),
             SqlDiscriminatorPredicateExpression discriminatorPredicate =>
                 VisitSqlDiscriminatorPredicate(discriminatorPredicate),
-            _ => base.VisitExtension(node),
+            _ => base.VisitExtension(node)
         };
 
     /// <summary>

@@ -345,13 +345,10 @@ public class ToQueryStringTests
             {
                 new AttributeValue
                 {
-                    M = new Dictionary<string, AttributeValue>
-                    {
-                        ["k"] = new() { S = "v" },
-                    },
+                    M = new Dictionary<string, AttributeValue> { ["k"] = new() { S = "v" } }
                 },
                 "{k: 'v'}"
-            },
+            }
         };
 
     private static string FormatAttributeValue(AttributeValue value)
@@ -394,7 +391,7 @@ public class ToQueryStringTests
     private enum ToQueryStringStatus
     {
         Inactive,
-        Active,
+        Active
     }
 
     private sealed class ToQueryStringDbContext(DbContextOptions options) : DbContext(options)

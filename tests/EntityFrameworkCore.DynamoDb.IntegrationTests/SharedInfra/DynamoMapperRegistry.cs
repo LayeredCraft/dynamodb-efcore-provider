@@ -23,7 +23,7 @@ public sealed class DynamoMapperRegistry
                         && @interface.GetGenericTypeDefinition() == mapperInterfaceType)
                     .Select(@interface => new
                     {
-                        ModelType = @interface.GetGenericArguments()[0], MapperType = type,
+                        ModelType = @interface.GetGenericArguments()[0], MapperType = type
                     }))
             .ToArray();
 

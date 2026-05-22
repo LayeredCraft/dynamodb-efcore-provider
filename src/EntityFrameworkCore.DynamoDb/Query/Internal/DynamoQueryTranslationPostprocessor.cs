@@ -50,7 +50,7 @@ internal sealed class DynamoQueryTranslationPostprocessor(
 
         if (query is not ShapedQueryExpression
             {
-                QueryExpression: SelectExpression selectExpression,
+                QueryExpression: SelectExpression selectExpression
             })
             return query;
 
@@ -88,7 +88,7 @@ internal sealed class DynamoQueryTranslationPostprocessor(
             QueryEntityTypeName = selectExpression.QueryEntityTypeName,
             QueryConstraints = queryConstraints,
             AutomaticIndexSelectionMode = mode,
-            IndexSelectionDisabled = dynamoQueryCompilationContext.IndexSelectionDisabled,
+            IndexSelectionDisabled = dynamoQueryCompilationContext.IndexSelectionDisabled
         };
 
         // IDynamoIndexSelectionAnalyzer is a DI singleton injected via the factory, so callers can
@@ -399,7 +399,6 @@ internal sealed class DynamoQueryTranslationPostprocessor(
             validKeyAttrs.Add(effectiveSortKeyAttributeName);
 
         foreach (var ordering in selectExpression.Orderings)
-        {
             if (ordering.Expression is not SqlPropertyExpression prop
                 || !validKeyAttrs.Contains(prop.PropertyName))
             {
@@ -415,7 +414,6 @@ internal sealed class DynamoQueryTranslationPostprocessor(
                     + $"'{selectExpression.TableName}'. '{propName}' is not a key. DynamoDB does "
                     + "not support ordering by arbitrary attributes.");
             }
-        }
 
         // ── 2. Multi-partition leading-PK check ────────────────────────────────
         // When the query spans multiple partitions (PK IN (...)), DynamoDB requires the partition
@@ -602,7 +600,7 @@ internal sealed class DynamoQueryTranslationPostprocessor(
             // inherently non-key.
             DynamoListIndexExpression listIdx => listIdx.Source is not SqlExpression sourceSql
                 || ContainsNonKeyProperty(sourceSql, keyAttributes),
-            _ => false,
+            _ => false
         };
 
     /// <summary>
@@ -635,7 +633,7 @@ internal sealed class DynamoQueryTranslationPostprocessor(
                 && PredicateReferencesAttribute(parentSql, attributeName),
             DynamoListIndexExpression listIdx => listIdx.Source is SqlExpression sourceSql
                 && PredicateReferencesAttribute(sourceSql, attributeName),
-            _ => false,
+            _ => false
         };
 
     /// <summary>Returns <c>true</c> when any OR branch references the active PK or SK.</summary>
@@ -684,7 +682,7 @@ internal sealed class DynamoQueryTranslationPostprocessor(
                 && PredicateHasOrTouchingKey(parentSql, effectivePk, effectiveSortKey),
             DynamoListIndexExpression listIdx => listIdx.Source is SqlExpression sourceSql
                 && PredicateHasOrTouchingKey(sourceSql, effectivePk, effectiveSortKey),
-            _ => false,
+            _ => false
         };
 
     /// <summary>
@@ -707,7 +705,7 @@ internal sealed class DynamoQueryTranslationPostprocessor(
                 && ContainsDiscriminatorPredicate(parentSql),
             DynamoListIndexExpression listIdx => listIdx.Source is SqlExpression sourceSql
                 && ContainsDiscriminatorPredicate(sourceSql),
-            _ => false,
+            _ => false
         };
 
     /// <summary>

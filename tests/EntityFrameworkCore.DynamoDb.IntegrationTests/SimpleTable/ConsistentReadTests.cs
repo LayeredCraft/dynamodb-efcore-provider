@@ -25,7 +25,7 @@ public class ConsistentReadTests(DynamoContainerFixture fixture) : SimpleTableTe
             NullableStringValue = null,
             DateOnlyValue = new DateOnly(2026, 5, 7),
             TimeOnlyValue = new TimeOnly(12, 0, 0),
-            TimeSpanValue = TimeSpan.FromMinutes(17),
+            TimeSpanValue = TimeSpan.FromMinutes(17)
         };
 
         Db.SimpleItems.Add(item);

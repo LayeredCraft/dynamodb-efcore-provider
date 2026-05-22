@@ -56,7 +56,7 @@ public class DynamoEntityItemSerializerSourceTests
             Pk = "E#1",
             Sk = "E1",
             Status = ConvertedStatus.Active,
-            OptionalStatus = ConvertedStatus.Inactive,
+            OptionalStatus = ConvertedStatus.Inactive
         };
 
         db.Add(entity);
@@ -85,7 +85,7 @@ public class DynamoEntityItemSerializerSourceTests
 
         var entity = new ConvertedEnumEntity
         {
-            Pk = "E#2", Sk = "E2", Status = ConvertedStatus.Active, OptionalStatus = null,
+            Pk = "E#2", Sk = "E2", Status = ConvertedStatus.Active, OptionalStatus = null
         };
 
         db.Add(entity);
@@ -113,7 +113,7 @@ public class DynamoEntityItemSerializerSourceTests
 
         var entity = new NullableCollectionEntity
         {
-            Pk = "L#1", Sk = "L1", NullableStatuses = [NullableStatus.Active, null],
+            Pk = "L#1", Sk = "L1", NullableStatuses = [NullableStatus.Active, null]
         };
 
         db.Add(entity);
@@ -145,8 +145,8 @@ public class DynamoEntityItemSerializerSourceTests
             Sk = "M1",
             NullableStatusByCode = new Dictionary<string, NullableStatus?>
             {
-                ["ok"] = NullableStatus.Active, ["missing"] = null,
-            },
+                ["ok"] = NullableStatus.Active, ["missing"] = null
+            }
         };
 
         db.Add(entity);
@@ -173,7 +173,7 @@ public class DynamoEntityItemSerializerSourceTests
 
         var entity = new NullableCollectionEntity
         {
-            Pk = "S#1", Sk = "S1", NullableStatusSet = [NullableStatus.Active, null],
+            Pk = "S#1", Sk = "S1", NullableStatusSet = [NullableStatus.Active, null]
         };
 
         db.Add(entity);
@@ -206,7 +206,7 @@ public class DynamoEntityItemSerializerSourceTests
             Pk = "OS#NULL",
             Sk = "OS1",
             NullableStatusSet = [NullableStatus.Active],
-            OptionalStatusSet = null,
+            OptionalStatusSet = null
         };
 
         db.Add(entity);
@@ -236,7 +236,7 @@ public class DynamoEntityItemSerializerSourceTests
             Pk = "OS#EMPTY",
             Sk = "OS2",
             NullableStatusSet = [NullableStatus.Active],
-            OptionalStatusSet = [],
+            OptionalStatusSet = []
         };
 
         db.Add(entity);
@@ -267,7 +267,7 @@ public class DynamoEntityItemSerializerSourceTests
 
         var entity = new ComplexCollectionEntity
         {
-            Pk = "C#1", Sk = "C1", Contacts = [new ComplexContact { Value = "ok" }, null!],
+            Pk = "C#1", Sk = "C1", Contacts = [new ComplexContact { Value = "ok" }, null!]
         };
 
         db.Add(entity);
@@ -308,18 +308,24 @@ public class DynamoEntityItemSerializerSourceTests
                 Counts =
                     new Dictionary<string, int>(StringComparer.Ordinal)
                     {
-                        ["a"] = 1, ["b"] = 2,
+                        ["a"] = 1, ["b"] = 2
                     },
                 LongCounts =
                     new ReadOnlyDictionary<string, long>(
-                        new Dictionary<string, long>(StringComparer.Ordinal) { ["big"] = 42 }),
+                        new Dictionary<string, long>(StringComparer.Ordinal)
+                        {
+                            ["big"] = 42
+                        }),
                 Flags =
-                    new Dictionary<string, bool>(StringComparer.Ordinal) { ["enabled"] = true },
+                    new Dictionary<string, bool>(StringComparer.Ordinal)
+                    {
+                        ["enabled"] = true
+                    },
                 OptionalFlags =
                     new ReadOnlyDictionary<string, bool?>(
                         new Dictionary<string, bool?>(StringComparer.Ordinal)
                         {
-                            ["yes"] = true, ["unknown"] = null,
+                            ["yes"] = true, ["unknown"] = null
                         }),
                 UnsignedCounts =
                     new ReadOnlyDictionary<string, uint>(
@@ -327,15 +333,15 @@ public class DynamoEntityItemSerializerSourceTests
                 Doubles =
                     new Dictionary<string, double?>(StringComparer.Ordinal)
                     {
-                        ["pi"] = 3.14, ["missing"] = null,
+                        ["pi"] = 3.14, ["missing"] = null
                     },
                 BinaryByName =
                     new Dictionary<string, byte[]>(StringComparer.Ordinal)
                     {
-                        ["blob"] = [4, 5, 6],
+                        ["blob"] = [4, 5, 6]
                     },
-                Payload = [1, 2, 3],
-            },
+                Payload = [1, 2, 3]
+            }
         };
 
         db.Add(entity);
@@ -383,8 +389,8 @@ public class DynamoEntityItemSerializerSourceTests
             Sk = "SC2",
             Details = new ComplexScalarCollectionDetails
             {
-                ConvertedCodes = new ConvertedCodeList("a,b"),
-            },
+                ConvertedCodes = new ConvertedCodeList("a,b")
+            }
         };
 
         db.Add(entity);
@@ -411,8 +417,8 @@ public class DynamoEntityItemSerializerSourceTests
                 ["nested"] =
                     new Dictionary<string, object?>(StringComparer.Ordinal)
                     {
-                        ["inner"] = "value",
-                    },
+                        ["inner"] = "value"
+                    }
             });
 
         var attributeValue = ConvertProviderShapeToAttributeValue(value);
@@ -443,13 +449,13 @@ public class DynamoEntityItemSerializerSourceTests
     private enum NullableStatus
     {
         Active = 1,
-        Inactive = 2,
+        Inactive = 2
     }
 
     private enum ConvertedStatus
     {
         Active = 1,
-        Inactive = 2,
+        Inactive = 2
     }
 
     private sealed class ConvertedEnumEntity

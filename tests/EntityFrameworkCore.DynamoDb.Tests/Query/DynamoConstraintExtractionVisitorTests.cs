@@ -35,14 +35,14 @@ public class DynamoConstraintExtractionVisitorTests
         string? skAttr = null,
         string? indexName = null)
         => new(
-            IndexName: indexName,
-            Kind: indexName is null
+            indexName,
+            indexName is null
                 ? DynamoIndexSourceKind.Table
                 : DynamoIndexSourceKind.GlobalSecondaryIndex,
-            ModelIndex: null,
-            PartitionKeyProperty: MakeProp(pkAttr),
-            SortKeyProperty: skAttr is null ? null : MakeProp(skAttr),
-            ProjectionType: DynamoSecondaryIndexProjectionType.All);
+            null,
+            MakeProp(pkAttr),
+            skAttr is null ? null : MakeProp(skAttr),
+            DynamoSecondaryIndexProjectionType.All);
 
     private static SqlPropertyExpression Prop(string name) => new(name, typeof(string), null);
 
@@ -126,12 +126,7 @@ public class DynamoConstraintExtractionVisitorTests
     {
         // PK IN ["a", "b"]
         var candidates = new[] { MakeDescriptor("PK") };
-        var inExpr = new SqlInExpression(
-            Prop("PK"),
-            [Const("a"), Const("b")],
-            null,
-            isPartitionKeyComparison: true,
-            null);
+        var inExpr = new SqlInExpression(Prop("PK"), [Const("a"), Const("b")], null, true, null);
 
         var result = Extract(inExpr, candidates);
 
@@ -318,7 +313,7 @@ public class DynamoConstraintExtractionVisitorTests
     {
         // No predicate; ORDER BY SK ASC
         var candidates = new[] { MakeDescriptor("PK", "SK") };
-        var orderings = new[] { new OrderingExpression(Prop("SK"), isAscending: true) };
+        var orderings = new[] { new OrderingExpression(Prop("SK"), true) };
 
         var result = Extract(null, candidates, orderings);
 
@@ -497,7 +492,7 @@ public class DynamoConstraintExtractionVisitorTests
         var candidates = new[]
         {
             MakeDescriptor("Status", "CreatedAt", "gsi-a"),
-            MakeDescriptor("CreatedAt", "Type", "gsi-b"),
+            MakeDescriptor("CreatedAt", "Type", "gsi-b")
         };
         var predicate = And(
             BinEq(Prop("Status"), Const("Open")),
@@ -521,7 +516,7 @@ public class DynamoConstraintExtractionVisitorTests
         var candidates = new[]
         {
             MakeDescriptor("Status", "CreatedAt", "gsi-a"),
-            MakeDescriptor("CreatedAt", "Type", "gsi-b"),
+            MakeDescriptor("CreatedAt", "Type", "gsi-b")
         };
         var predicate = BinEq(Prop("CreatedAt"), Const("2024-01-01"));
 
@@ -541,7 +536,7 @@ public class DynamoConstraintExtractionVisitorTests
         var candidates = new[]
         {
             MakeDescriptor("Status", "CreatedAt", "gsi-a"),
-            MakeDescriptor("CreatedAt", "Type", "gsi-b"),
+            MakeDescriptor("CreatedAt", "Type", "gsi-b")
         };
         var between =
             new SqlBetweenExpression(Prop("CreatedAt"), Const("2024-01-01"), Const("2024-12-31"));
@@ -578,7 +573,7 @@ public class DynamoConstraintExtractionVisitorTests
         var candidates = new[]
         {
             MakeDescriptor("Status", "Prefix", "gsi-a"),
-            MakeDescriptor("Prefix", "Type", "gsi-b"),
+            MakeDescriptor("Prefix", "Type", "gsi-b")
         };
         var fn = new SqlFunctionExpression(
             "begins_with",

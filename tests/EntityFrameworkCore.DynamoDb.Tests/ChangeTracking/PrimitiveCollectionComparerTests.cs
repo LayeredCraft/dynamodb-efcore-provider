@@ -32,7 +32,7 @@ public class PrimitiveCollectionComparerTests
 
         IDictionary<string, int> source = new Dictionary<string, int>
         {
-            ["math"] = 10, ["science"] = 12,
+            ["math"] = 10, ["science"] = 12
         };
 
         var snapshot = comparer.Snapshot(source);
@@ -71,12 +71,12 @@ public class PrimitiveCollectionComparerTests
 
         IDictionary<string, int> left = new Dictionary<string, int>
         {
-            ["x"] = 1, ["y"] = 2, ["z"] = 3,
+            ["x"] = 1, ["y"] = 2, ["z"] = 3
         };
 
         IDictionary<string, int> right = new Dictionary<string, int>
         {
-            ["z"] = 3, ["x"] = 1, ["y"] = 2,
+            ["z"] = 3, ["x"] = 1, ["y"] = 2
         };
 
         comparer.Equals(left, right).Should().BeTrue();

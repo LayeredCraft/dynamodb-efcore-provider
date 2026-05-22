@@ -120,8 +120,8 @@ public class ConventionOnlyDiscoveryTests(DynamoContainerFixture fixture)
                     TableName = ComplexTypesItemTable.TableName,
                     Key = new Dictionary<string, AttributeValue>
                     {
-                        ["pk"] = new() { S = "CONVENTION#MISSINGPROFILE" },
-                    },
+                        ["pk"] = new() { S = "CONVENTION#MISSINGPROFILE" }
+                    }
                 },
                 CancellationToken);
         }

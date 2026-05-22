@@ -443,7 +443,7 @@ public class TransactionalSaveChangesTests(DynamoContainerFixture fixture)
             Version = 1,
             Name = "Collision",
             Price = 9.99m,
-            IsActive = true,
+            IsActive = true
         };
 
         Db.Customers.Add(customer);
@@ -536,7 +536,7 @@ public class TransactionalSaveChangesTests(DynamoContainerFixture fixture)
             Version = 1,
             Email = email,
             IsPreferred = false,
-            CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero),
+            CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero)
         };
 
     private SaveChangesTableDbContext CreateConfiguredContext(

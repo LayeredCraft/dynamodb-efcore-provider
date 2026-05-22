@@ -14,25 +14,23 @@ public sealed class QueryExpressionInterceptionDynamoTest
 {
     public QueryExpressionInterceptionDynamoTest(
         InterceptionDynamoFixture fixture,
-        DynamoSpecificationContainerFixture containerFixture)
-        : base(fixture)
+        DynamoSpecificationContainerFixture containerFixture) : base(fixture)
         => _ = containerFixture;
 
     [ConditionalFact]
     public void Check_all_tests_overridden()
-        => DynamoTestHelpers.AssertAllTestMethodsOverridden(typeof(QueryExpressionInterceptionDynamoTest));
+        => DynamoTestHelpers.AssertAllTestMethodsOverridden(
+            typeof(QueryExpressionInterceptionDynamoTest));
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Intercept_query_passively(bool async)
-        => Task.CompletedTask;
+    public override Task Intercept_query_passively(bool async) => Task.CompletedTask;
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Intercept_query_with_multiple_interceptors(bool async)
         => Task.CompletedTask;
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Intercept_to_change_query_expression(bool async)
-        => Task.CompletedTask;
+    public override Task Intercept_to_change_query_expression(bool async) => Task.CompletedTask;
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Interceptor_does_not_leak_across_contexts(bool async)
@@ -45,7 +43,8 @@ public sealed class QueryExpressionInterceptionDynamoTest
         public override DbContextOptionsBuilder AddOptions(DbContextOptionsBuilder builder)
             => base
                 .AddOptions(builder)
-                .UseDynamo(options => options.DynamoDbClient(DynamoTestStoreFactory.Instance.Client));
+                .UseDynamo(options
+                    => options.DynamoDbClient(DynamoTestStoreFactory.Instance.Client));
 
         protected override IServiceCollection InjectInterceptors(
             IServiceCollection serviceCollection,

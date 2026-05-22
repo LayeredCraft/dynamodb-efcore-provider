@@ -33,8 +33,11 @@ public class ParameterlessQueryTests
         _ = await ctx.Users.Where(u => u.Pk == "TENANT#U").ToListAsync();
 
         captured.Should().ContainSingle();
-        captured[0].Parameters.Should().BeNullOrEmpty(
-            "DynamoDB rejects Parameters = [] — must be null or absent when there are no placeholders");
+        captured[0]
+            .Parameters
+            .Should()
+            .BeNullOrEmpty(
+                "DynamoDB rejects Parameters = [] — must be null or absent when there are no placeholders");
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
@@ -43,7 +46,10 @@ public class ParameterlessQueryTests
         var captured = new List<ExecuteStatementRequest>();
         await using var ctx = SharedTableDbContext.Create(CreateMockClient(captured));
 
-        _ = await ctx.Users.Where(u => u.Pk == "TENANT#U" && u.Sk == "USER#1").FirstOrDefaultAsync();
+        _ = await ctx
+            .Users
+            .Where(u => u.Pk == "TENANT#U" && u.Sk == "USER#1")
+            .FirstOrDefaultAsync();
 
         captured.Should().ContainSingle();
         captured[0].Parameters.Should().BeNullOrEmpty();

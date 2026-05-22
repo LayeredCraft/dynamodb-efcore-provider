@@ -96,13 +96,13 @@ public sealed class DynamoModelRuntimeInitializer(ModelRuntimeInitializerDepende
 
         List<DynamoIndexDescriptor> sources =
         [
-            new DynamoIndexDescriptor(
+            new(
                 null,
                 DynamoIndexSourceKind.Table,
                 null,
                 partitionKeyProperty,
                 sourceEntityType.GetSortKeyProperty(),
-                DynamoSecondaryIndexProjectionType.All),
+                DynamoSecondaryIndexProjectionType.All)
         ];
 
         Dictionary<string, DynamoIndexDescriptor> secondaryIndexesByName =
@@ -128,7 +128,7 @@ public sealed class DynamoModelRuntimeInitializer(ModelRuntimeInitializerDepende
                     index,
                     indexName),
                 _ => throw new InvalidOperationException(
-                    $"Secondary index '{indexName}' on entity type '{index.DeclaringEntityType.DisplayName()}' has an unsupported kind '{secondaryIndexKind}'."),
+                    $"Secondary index '{indexName}' on entity type '{index.DeclaringEntityType.DisplayName()}' has an unsupported kind '{secondaryIndexKind}'.")
             };
 
             if (!secondaryIndexesByName.TryGetValue(indexName, out var existingDescriptor))
@@ -174,10 +174,8 @@ public sealed class DynamoModelRuntimeInitializer(ModelRuntimeInitializerDepende
         string indexName)
     {
         if (index.Properties.Count is < 1 or > 2)
-        {
             throw new InvalidOperationException(
                 $"Global secondary index '{indexName}' on entity type '{index.DeclaringEntityType.DisplayName()}' must define one or two key properties.");
-        }
 
         return new DynamoIndexDescriptor(
             indexName,
@@ -195,10 +193,8 @@ public sealed class DynamoModelRuntimeInitializer(ModelRuntimeInitializerDepende
         string indexName)
     {
         if (index.Properties.Count != 1)
-        {
             throw new InvalidOperationException(
                 $"Local secondary index '{indexName}' on entity type '{index.DeclaringEntityType.DisplayName()}' must define exactly one alternate sort-key property.");
-        }
 
         return new DynamoIndexDescriptor(
             indexName,
@@ -230,9 +226,7 @@ public sealed class DynamoModelRuntimeInitializer(ModelRuntimeInitializerDepende
                 if (HaveCompatibleSharedTableSources(
                     sourcesByRootEntityType[leftEntityTypeName],
                     sourcesByRootEntityType[rightEntityTypeName]))
-                {
                     continue;
-                }
 
                 throw new InvalidOperationException(
                     $"Entity types '{leftEntityTypeName}' and '{rightEntityTypeName}' map to DynamoDB table '{tableName}' but expose inconsistent secondary-index metadata.");
@@ -269,9 +263,8 @@ public sealed class DynamoModelRuntimeInitializer(ModelRuntimeInitializerDepende
     }
 
     /// <summary>Determines whether two source descriptors are equivalent for shared-table analysis.</summary>
-    private static bool HasEquivalentSourceSignature(
-        DynamoIndexDescriptor left,
-        DynamoIndexDescriptor right)
+    private static bool
+        HasEquivalentSourceSignature(DynamoIndexDescriptor left, DynamoIndexDescriptor right)
         => left.IndexName == right.IndexName
             && left.Kind == right.Kind
             && left.ProjectionType == right.ProjectionType
@@ -323,6 +316,6 @@ public sealed class DynamoModelRuntimeInitializer(ModelRuntimeInitializerDepende
         Unsupported,
         String,
         Number,
-        Binary,
+        Binary
     }
 }

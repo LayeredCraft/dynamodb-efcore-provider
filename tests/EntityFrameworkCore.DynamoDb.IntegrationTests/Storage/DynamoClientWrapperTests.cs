@@ -35,14 +35,14 @@ public class DynamoClientWrapperTests
                             [
                                 new Dictionary<string, AttributeValue>
                                 {
-                                    ["id"] = new() { S = "A" },
+                                    ["id"] = new() { S = "A" }
                                 },
                                 new Dictionary<string, AttributeValue>
                                 {
-                                    ["id"] = new() { S = "B" },
-                                },
+                                    ["id"] = new() { S = "B" }
+                                }
                             ],
-                            NextToken = "t1",
+                            NextToken = "t1"
                         });
 
                 if (request.NextToken == "t1")
@@ -53,10 +53,10 @@ public class DynamoClientWrapperTests
                             [
                                 new Dictionary<string, AttributeValue>
                                 {
-                                    ["id"] = new() { S = "C" },
-                                },
+                                    ["id"] = new() { S = "C" }
+                                }
                             ],
-                            NextToken = null,
+                            NextToken = null
                         });
 
                 return Task.FromResult(
@@ -71,7 +71,7 @@ public class DynamoClientWrapperTests
 
         var requestPrototype = new ExecuteStatementRequest
         {
-            Statement = "SELECT * FROM Test", Parameters = [],
+            Statement = "SELECT * FROM Test", Parameters = []
         };
 
         var enumerable = wrapper.ExecutePartiQl(requestPrototype);
@@ -114,7 +114,7 @@ public class DynamoClientWrapperTests
                 => options.DynamoDbClientConfig(
                     new AmazonDynamoDBConfig
                     {
-                        ServiceURL = "http://localhost:7001", AuthenticationRegion = "us-east-1",
+                        ServiceURL = "http://localhost:7001", AuthenticationRegion = "us-east-1"
                     }))
             .Options;
         var diagnosticsLogger = CreateCommandLogger(dbContextOptions);
@@ -135,7 +135,7 @@ public class DynamoClientWrapperTests
                 options.DynamoDbClientConfig(
                     new AmazonDynamoDBConfig
                     {
-                        ServiceURL = "http://localhost:7001", AuthenticationRegion = "us-west-1",
+                        ServiceURL = "http://localhost:7001", AuthenticationRegion = "us-west-1"
                     });
                 options.ConfigureDynamoDbClientConfig(config =>
                 {

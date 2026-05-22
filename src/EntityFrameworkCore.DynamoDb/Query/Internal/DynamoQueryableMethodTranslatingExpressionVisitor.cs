@@ -63,7 +63,7 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
     public override Expression Translate(Expression expression)
     {
         // Handle ToPageAsync(), which can only ever be the top-level node in the query tree.
-        if (expression is MethodCallExpression { Method: var method, Arguments: var arguments, }
+        if (expression is MethodCallExpression { Method: var method, Arguments: var arguments }
             && IsDynamoQueryableMethod(method, DynamoQueryableMethods.ToPageAsync))
         {
             if (_subquery)
@@ -80,7 +80,7 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
 
             if (source is not ShapedQueryExpression
                 {
-                    QueryExpression: SelectExpression selectExpression,
+                    QueryExpression: SelectExpression selectExpression
                 } shapedQuery)
                 throw new InvalidOperationException(
                     $"Expected a {nameof(ShapedQueryExpression)} when translating {nameof(DynamoDbQueryableExtensions.ToPageAsync)}.");
@@ -265,7 +265,7 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
                     ? null
                     : token,
                 ConstantExpression { Value: null } => null,
-                _ => null,
+                _ => null
             };
 
             return true;
@@ -289,7 +289,7 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
                 var limitResult = Visit(methodCallExpression.Arguments[0]);
                 if (limitResult is not ShapedQueryExpression
                     {
-                        QueryExpression: SelectExpression limitSelectExpr,
+                        QueryExpression: SelectExpression limitSelectExpr
                     })
                     return limitResult;
 
@@ -318,7 +318,7 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
                 var consistentReadResult = Visit(methodCallExpression.Arguments[0]);
                 if (consistentReadResult is not ShapedQueryExpression
                     {
-                        QueryExpression: SelectExpression consistentReadSelectExpr,
+                        QueryExpression: SelectExpression consistentReadSelectExpr
                     })
                     return consistentReadResult;
 
@@ -353,7 +353,7 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
                     // than silently falling back to the base table.
                     if (methodCallExpression.Arguments[1] is not ConstantExpression
                         {
-                            Value: string indexName,
+                            Value: string indexName
                         })
                         throw new InvalidOperationException(
                             $"'{nameof(DynamoDbQueryableExtensions.WithIndex)}' requires a constant index name. "
@@ -372,7 +372,7 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
 
                 if (unsafeFilteredResult is ShapedQueryExpression
                     {
-                        QueryExpression: SelectExpression unsafeFilteredSelectExpression,
+                        QueryExpression: SelectExpression unsafeFilteredSelectExpression
                     })
                     unsafeFilteredSelectExpression.AllowUnsafeFilteredQueries();
 
@@ -385,7 +385,7 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
 
                 if (allowScanResult is ShapedQueryExpression
                     {
-                        QueryExpression: SelectExpression allowScanSelectExpression,
+                        QueryExpression: SelectExpression allowScanSelectExpression
                     })
                     allowScanSelectExpression.AllowScan();
 
@@ -399,7 +399,7 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
                 var nextTokenResult = Visit(methodCallExpression.Arguments[0]);
                 if (nextTokenResult is not ShapedQueryExpression
                     {
-                        QueryExpression: SelectExpression nextTokenSelectExpr,
+                        QueryExpression: SelectExpression nextTokenSelectExpr
                     })
                     return nextTokenResult;
 
@@ -420,8 +420,10 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
                     nextTokenSelectExpr.ApplySeedNextToken(constantToken);
                 }
                 else
+                {
                     nextTokenSelectExpr.ApplySeedNextTokenExpression(
                         RegisterValidatedWithNextTokenRuntimeParameter(nextTokenArg));
+                }
 
                 return nextTokenResult;
             }
@@ -450,7 +452,7 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
         // Store entity projection in projection mapping under root ProjectionMember
         var projectionMapping = new Dictionary<ProjectionMember, Expression>
         {
-            [new ProjectionMember()] = entityProjection,
+            [new ProjectionMember()] = entityProjection
         };
 
         queryExpression.ReplaceProjectionMapping(projectionMapping);
@@ -513,7 +515,7 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
         {
             SqlBinaryExpression { OperatorType: ExpressionType.OrElse } =>
                 new SqlParenthesizedExpression(predicate),
-            _ => predicate,
+            _ => predicate
         };
     }
 
@@ -919,7 +921,7 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
     {
         if (shapedQueryExpression.ShaperExpression is not StructuralTypeShaperExpression
             {
-                StructuralType: IEntityType entityType,
+                StructuralType: IEntityType entityType
             })
             return null;
 
@@ -966,7 +968,7 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
                 && IsBooleanType(parameterExpression.Type) => WrapBooleanPredicate(
                     parameterExpression,
                     sqlExpressionFactory),
-            _ => expression,
+            _ => expression
         };
 
     /// <summary>Recursively normalizes logical predicates while preserving comparisons.</summary>

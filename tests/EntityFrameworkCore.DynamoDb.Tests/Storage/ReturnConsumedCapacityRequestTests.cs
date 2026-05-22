@@ -71,7 +71,7 @@ public class ReturnConsumedCapacityRequestTests
                 new ExecuteStatementRequest
                 {
                     Statement = "SELECT * FROM T",
-                    ReturnConsumedCapacity = ReturnConsumedCapacity.TOTAL,
+                    ReturnConsumedCapacity = ReturnConsumedCapacity.TOTAL
                 })) { }
 
         captured.Should().NotBeNull();
@@ -95,7 +95,7 @@ public class ReturnConsumedCapacityRequestTests
             .ExecutePartiQl(
                 new ExecuteStatementRequest
                 {
-                    Statement = "SELECT * FROM T", NextToken = "seed-token",
+                    Statement = "SELECT * FROM T", NextToken = "seed-token"
                 })) { }
 
         captured.Should().NotBeNull();

@@ -5,7 +5,8 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.ComplexTypesTable;
 
 public abstract class ComplexCollectionWithIdPropertyTestFixture : DynamoTestFixtureBase
 {
-    protected ComplexCollectionWithIdPropertyTestFixture(DynamoContainerFixture fixture) : base(fixture)
+    protected ComplexCollectionWithIdPropertyTestFixture(DynamoContainerFixture fixture) :
+        base(fixture)
         => EnsureClassTableInitialized(
             AnalysisReportTable.TableName,
             AnalysisReportTable.CreateTable);
@@ -15,8 +16,8 @@ public abstract class ComplexCollectionWithIdPropertyTestFixture : DynamoTestFix
         get
         {
             field ??= new ComplexCollectionWithIdPropertyDbContext(
-                CreateOptions<ComplexCollectionWithIdPropertyDbContext>(
-                    options => options.DynamoDbClient(Client)));
+                CreateOptions<ComplexCollectionWithIdPropertyDbContext>(options
+                    => options.DynamoDbClient(Client)));
             return field;
         }
     }
@@ -87,7 +88,8 @@ public abstract class ComplexTypesTableTestFixture : DynamoTestFixtureBase
         get
         {
             field ??= new ComplexTypesTableDbContext(
-                CreateOptions<ComplexTypesTableDbContext>(options => options.DynamoDbClient(Client)));
+                CreateOptions<ComplexTypesTableDbContext>(options
+                    => options.DynamoDbClient(Client)));
             return field;
         }
     }

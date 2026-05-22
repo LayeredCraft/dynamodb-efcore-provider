@@ -39,7 +39,7 @@ public class SaveChangesEdgeCasesTests(DynamoContainerFixture fixture)
             Version = 1,
             Email = "edge@example.com",
             IsPreferred = false,
-            CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero),
+            CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero)
         };
 
         Db.Customers.Add(customer);

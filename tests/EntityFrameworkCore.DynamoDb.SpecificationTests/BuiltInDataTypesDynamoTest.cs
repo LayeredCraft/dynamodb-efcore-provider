@@ -268,13 +268,13 @@ public class BuiltInDataTypesDynamoTest(
                                     {
                                         Id = 1,
                                         AnimalId = 1,
-                                        Method = IdentificationMethod.EarTag,
-                                    },
+                                        Method = IdentificationMethod.EarTag
+                                    }
                                 ],
                                 Details = new AnimalDetails
                                 {
-                                    Id = 1, AnimalId = 1, BoolField = true,
-                                },
+                                    Id = 1, AnimalId = 1, BoolField = true
+                                }
                             });
 
                     await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);

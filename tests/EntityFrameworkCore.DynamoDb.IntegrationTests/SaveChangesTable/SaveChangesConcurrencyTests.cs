@@ -32,7 +32,7 @@ public class SaveChangesConcurrencyTests(DynamoContainerFixture fixture)
                 ["email"] = new() { S = "existing@example.com" },
                 ["version"] = new() { N = "1" },
                 ["isPreferred"] = new() { BOOL = false },
-                ["createdAt"] = new() { S = "2026-04-01 00:00:00+00:00" },
+                ["createdAt"] = new() { S = "2026-04-01 00:00:00+00:00" }
             },
             CancellationToken);
 
@@ -43,7 +43,7 @@ public class SaveChangesConcurrencyTests(DynamoContainerFixture fixture)
             Version = 1,
             Email = "duplicate@example.com",
             IsPreferred = false,
-            CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero),
+            CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero)
         };
         Db.Customers.Add(duplicate);
 
@@ -75,7 +75,7 @@ public class SaveChangesConcurrencyTests(DynamoContainerFixture fixture)
             Version = 1,
             Email = "before@example.com",
             IsPreferred = false,
-            CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero),
+            CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero)
         };
         await SeedAsync(customer);
 
@@ -110,7 +110,7 @@ public class SaveChangesConcurrencyTests(DynamoContainerFixture fixture)
             Version = 1,
             Email = "before-delete@example.com",
             IsPreferred = false,
-            CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero),
+            CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero)
         };
         await SeedAsync(customer);
 
@@ -120,8 +120,8 @@ public class SaveChangesConcurrencyTests(DynamoContainerFixture fixture)
                 TableName = SaveChangesItemTable.TableName,
                 Key = new Dictionary<string, AttributeValue>
                 {
-                    ["pk"] = new() { S = customer.Pk }, ["sk"] = new() { S = customer.Sk },
-                },
+                    ["pk"] = new() { S = customer.Pk }, ["sk"] = new() { S = customer.Sk }
+                }
             },
             CancellationToken);
 
@@ -158,7 +158,7 @@ public class SaveChangesConcurrencyTests(DynamoContainerFixture fixture)
                 ["email"] = new() { S = "real@example.com" },
                 ["version"] = new() { N = "1" },
                 ["isPreferred"] = new() { BOOL = false },
-                ["createdAt"] = new() { S = "2026-04-01 00:00:00+00:00" },
+                ["createdAt"] = new() { S = "2026-04-01 00:00:00+00:00" }
             },
             CancellationToken);
 
@@ -169,7 +169,7 @@ public class SaveChangesConcurrencyTests(DynamoContainerFixture fixture)
             Version = 1,
             Email = "wrong-before@example.com",
             IsPreferred = false,
-            CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero),
+            CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero)
         };
         Db.Customers.Attach(customer);
         LoggerFactory.Clear();
@@ -210,7 +210,7 @@ public class SaveChangesConcurrencyTests(DynamoContainerFixture fixture)
             Version = 1,
             Email = "ghost-before@example.com",
             IsPreferred = false,
-            CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero),
+            CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero)
         };
         Db.Customers.Attach(customer);
         LoggerFactory.Clear();
@@ -251,7 +251,7 @@ public class SaveChangesConcurrencyTests(DynamoContainerFixture fixture)
             Version = 1,
             Email = "batch-first@example.com",
             IsPreferred = false,
-            CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero),
+            CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero)
         };
         var second = new CustomerItem
         {
@@ -260,7 +260,7 @@ public class SaveChangesConcurrencyTests(DynamoContainerFixture fixture)
             Version = 1,
             Email = "batch-second@example.com",
             IsPreferred = false,
-            CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero),
+            CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero)
         };
         Db.Customers.Add(first);
         await SeedAsync(second);
@@ -293,7 +293,7 @@ public class SaveChangesConcurrencyTests(DynamoContainerFixture fixture)
             Version = 1,
             Email = "batch-missing-first@example.com",
             IsPreferred = false,
-            CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero),
+            CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero)
         };
         var second = new CustomerItem
         {
@@ -302,7 +302,7 @@ public class SaveChangesConcurrencyTests(DynamoContainerFixture fixture)
             Version = 1,
             Email = "batch-missing-second@example.com",
             IsPreferred = false,
-            CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero),
+            CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero)
         };
         Db.Customers.Add(first);
         await SeedAsync(second);
@@ -313,8 +313,8 @@ public class SaveChangesConcurrencyTests(DynamoContainerFixture fixture)
                 TableName = SaveChangesItemTable.TableName,
                 Key = new Dictionary<string, AttributeValue>
                 {
-                    ["pk"] = new() { S = second.Pk }, ["sk"] = new() { S = second.Sk },
-                },
+                    ["pk"] = new() { S = second.Pk }, ["sk"] = new() { S = second.Sk }
+                }
             },
             CancellationToken);
 
@@ -347,7 +347,7 @@ public class SaveChangesConcurrencyTests(DynamoContainerFixture fixture)
             Version = 1,
             Email = "to-delete@example.com",
             IsPreferred = false,
-            CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero),
+            CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero)
         };
         await SeedAsync(customer);
 
@@ -381,7 +381,7 @@ public class SaveChangesConcurrencyTests(DynamoContainerFixture fixture)
             Version = 1,
             Email = "original@example.com",
             IsPreferred = false,
-            CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero),
+            CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero)
         };
         await SeedAsync(customer);
 
@@ -413,7 +413,7 @@ public class SaveChangesConcurrencyTests(DynamoContainerFixture fixture)
             Version = 1,
             Email = "v1@example.com",
             IsPreferred = false,
-            CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero),
+            CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero)
         };
         await SeedAsync(customer);
 
@@ -459,7 +459,7 @@ public class SaveChangesConcurrencyTests(DynamoContainerFixture fixture)
             Version = 1,
             Email = "before@example.com",
             IsPreferred = false,
-            CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero),
+            CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero)
         };
         await SeedAsync(customer);
 
@@ -494,7 +494,7 @@ public class SaveChangesConcurrencyTests(DynamoContainerFixture fixture)
             Version = 1,
             Email = "to-delete@example.com",
             IsPreferred = false,
-            CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero),
+            CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero)
         };
         await SeedAsync(customer);
 

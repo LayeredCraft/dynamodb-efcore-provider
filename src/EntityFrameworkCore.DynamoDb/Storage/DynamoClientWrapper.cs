@@ -85,7 +85,7 @@ public class DynamoClientWrapper : IDynamoClientWrapper
                     Parameters = state.parameters?.Count > 0 ? state.parameters : null,
                     ReturnValuesOnConditionCheckFailure =
                         ReturnValuesOnConditionCheckFailure.ALL_OLD,
-                    ReturnConsumedCapacity = _returnConsumedCapacity,
+                    ReturnConsumedCapacity = _returnConsumedCapacity
                 };
 
                 var commandId = Guid.NewGuid();
@@ -141,7 +141,7 @@ public class DynamoClientWrapper : IDynamoClientWrapper
                 var request = new ExecuteTransactionRequest
                 {
                     TransactStatements = [.. transactionStatements],
-                    ReturnConsumedCapacity = _returnConsumedCapacity,
+                    ReturnConsumedCapacity = _returnConsumedCapacity
                 };
 
                 var commandId = Guid.NewGuid();
@@ -199,7 +199,7 @@ public class DynamoClientWrapper : IDynamoClientWrapper
                 var request = new BatchExecuteStatementRequest
                 {
                     Statements = [.. batchStatements],
-                    ReturnConsumedCapacity = _returnConsumedCapacity,
+                    ReturnConsumedCapacity = _returnConsumedCapacity
                 };
 
                 var commandId = Guid.NewGuid();
@@ -278,7 +278,7 @@ public class DynamoClientWrapper : IDynamoClientWrapper
             NextToken = prototype.NextToken,
             ConsistentRead = prototype.ConsistentRead,
             ReturnConsumedCapacity = prototype.ReturnConsumedCapacity,
-            ReturnValuesOnConditionCheckFailure = prototype.ReturnValuesOnConditionCheckFailure,
+            ReturnValuesOnConditionCheckFailure = prototype.ReturnValuesOnConditionCheckFailure
         };
 
     private sealed class DynamoAsyncEnumerable(

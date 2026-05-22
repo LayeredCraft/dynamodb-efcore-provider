@@ -97,9 +97,14 @@ public class DynamoFindTests
         await using var context = FindTestDbContext.Create(client);
 
         var act = async ()
-            => await context.PkItems.FindAsync(["P#1", "extra"], TestContext.Current.CancellationToken);
+            => await context.PkItems.FindAsync(
+                ["P#1", "extra"],
+                TestContext.Current.CancellationToken);
 
-        await act.Should().ThrowAsync<ArgumentException>().WithMessage("*single key property*2 values*");
+        await act
+            .Should()
+            .ThrowAsync<ArgumentException>()
+            .WithMessage("*single key property*2 values*");
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
@@ -109,9 +114,14 @@ public class DynamoFindTests
         await using var context = FindTestDbContext.Create(client);
 
         var act = async ()
-            => await context.CompositeItems.FindAsync(["P#1"], TestContext.Current.CancellationToken);
+            => await context.CompositeItems.FindAsync(
+                ["P#1"],
+                TestContext.Current.CancellationToken);
 
-        await act.Should().ThrowAsync<ArgumentException>().WithMessage("*2-part composite key*1 values*");
+        await act
+            .Should()
+            .ThrowAsync<ArgumentException>()
+            .WithMessage("*2-part composite key*1 values*");
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
@@ -131,7 +141,7 @@ public class DynamoFindTests
     {
         var (client, captured) = SetupMockClient();
         await using var context = FindTestDbContext.Create(client);
-        var tracked = context.Attach(new PkItem { Pk = "P#tracked", Name = "Tracked", }).Entity;
+        var tracked = context.Attach(new PkItem { Pk = "P#tracked", Name = "Tracked" }).Entity;
 
         var result =
             await context.PkItems.FindAsync(["P#tracked"], TestContext.Current.CancellationToken);
@@ -156,7 +166,7 @@ public class DynamoFindTests
     {
         var (client, captured) = SetupMockClient();
         using var context = FindTestDbContext.Create(client);
-        var tracked = context.Attach(new PkItem { Pk = "P#tracked", Name = "Tracked", }).Entity;
+        var tracked = context.Attach(new PkItem { Pk = "P#tracked", Name = "Tracked" }).Entity;
 
         var result = context.PkItems.Find("P#tracked");
 
@@ -179,8 +189,8 @@ public class DynamoFindTests
         SetupMockClient()
         => SetupMockClient(out _);
 
-    private static (IAmazonDynamoDB client, List<ExecuteStatementRequest> captured)
-        SetupMockClient(out List<CancellationToken> capturedTokens)
+    private static (IAmazonDynamoDB client, List<ExecuteStatementRequest> captured) SetupMockClient(
+        out List<CancellationToken> capturedTokens)
     {
         var client = Substitute.For<IAmazonDynamoDB>();
         var captured = new List<ExecuteStatementRequest>();
@@ -190,7 +200,7 @@ public class DynamoFindTests
             .ExecuteStatementAsync(
                 Arg.Do<ExecuteStatementRequest>(captured.Add),
                 Arg.Do<CancellationToken>(capturedTokens.Add))
-            .Returns(new ExecuteStatementResponse { Items = [], });
+            .Returns(new ExecuteStatementResponse { Items = [] });
 
         return (client, captured);
     }

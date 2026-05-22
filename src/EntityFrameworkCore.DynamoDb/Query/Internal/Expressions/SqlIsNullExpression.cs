@@ -15,7 +15,7 @@ public enum IsNullOperator
     IsMissing,
 
     /// <summary>Tests that an attribute is present in the item.</summary>
-    IsNotMissing,
+    IsNotMissing
 }
 
 /// <summary>Represents a PartiQL IS NULL, IS NOT NULL, IS MISSING, or IS NOT MISSING predicate.</summary>
@@ -69,7 +69,7 @@ public sealed class SqlIsNullExpression : SqlExpression
                 IsNullOperator.IsNotNull => " IS NOT NULL",
                 IsNullOperator.IsMissing => " IS MISSING",
                 IsNullOperator.IsNotMissing => " IS NOT MISSING",
-                _ => throw new NotSupportedException($"IS operator '{Operator}' is not supported."),
+                _ => throw new NotSupportedException($"IS operator '{Operator}' is not supported.")
             });
     }
 

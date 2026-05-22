@@ -20,6 +20,6 @@ internal static class DynamoNamingTranslator
             DynamoAttributeNamingConvention.CamelCase => name.Camelize(),
             DynamoAttributeNamingConvention.KebabCase => name.Kebaberize(),
             DynamoAttributeNamingConvention.UpperSnakeCase => name.Underscore().ToUpperInvariant(),
-            _ => throw new ArgumentOutOfRangeException(nameof(convention), convention, null),
+            _ => throw new ArgumentOutOfRangeException(nameof(convention), convention, null)
         };
 }

@@ -60,14 +60,13 @@ public static class DynamoDbQueryableExtensions
 
             return provider.ExecuteAsync<Task<DynamoPage<TEntity>>>(
                 Expression.Call(
-                    instance: null,
-                    method: DynamoQueryableMethods.ToPageAsync.MakeGenericMethod(typeof(TEntity)),
-                    arguments:
+                    null,
+                    DynamoQueryableMethods.ToPageAsync.MakeGenericMethod(typeof(TEntity)),
                     [
                         source.Expression,
                         Expression.Constant(limit, typeof(int)),
                         Expression.Constant(nextToken, typeof(string)),
-                        Expression.Constant(default(CancellationToken), typeof(CancellationToken)),
+                        Expression.Constant(default(CancellationToken), typeof(CancellationToken))
                     ]),
                 cancellationToken);
         }

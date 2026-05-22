@@ -47,9 +47,8 @@ public class DynamoTestHelpers : TestHelpers
         {
             await testCode(async);
         }
-        catch (InvalidOperationException exception) when (!async && IsExpectedSyncQueryFailure(exception))
-        {
-        }
+        catch (InvalidOperationException exception) when (!async
+            && IsExpectedSyncQueryFailure(exception)) { }
     }
 
     private static bool IsExpectedSyncQueryFailure(InvalidOperationException exception)

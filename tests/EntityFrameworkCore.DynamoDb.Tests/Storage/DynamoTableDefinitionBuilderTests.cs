@@ -110,7 +110,7 @@ public sealed class DynamoTableDefinitionBuilderTests
             BillingModeSummary =
                 new BillingModeSummary { BillingMode = BillingMode.PAY_PER_REQUEST },
             AttributeDefinitions = [new AttributeDefinition("pk", ScalarAttributeType.S)],
-            KeySchema = [new KeySchemaElement("pk", KeyType.HASH)],
+            KeySchema = [new KeySchemaElement("pk", KeyType.HASH)]
         };
 
         var updates =
@@ -128,7 +128,7 @@ public sealed class DynamoTableDefinitionBuilderTests
             .BeEquivalentTo(
                 [
                     ("ByBytes", new[] { ("bytes", ScalarAttributeType.B) }),
-                    ("ByNumber", new[] { ("number", ScalarAttributeType.N) }),
+                    ("ByNumber", new[] { ("number", ScalarAttributeType.N) })
                 ],
                 options => options.WithStrictOrdering());
     }
@@ -158,22 +158,30 @@ public sealed class DynamoTableDefinitionBuilderTests
                 new BillingModeSummary { BillingMode = BillingMode.PAY_PER_REQUEST },
             AttributeDefinitions =
             [
-                new("customer", ScalarAttributeType.S),
-                new("pk", ScalarAttributeType.S),
-                new("sk", ScalarAttributeType.S),
-                new("status", ScalarAttributeType.S),
-                new("extra", ScalarAttributeType.N),
+                new AttributeDefinition("customer", ScalarAttributeType.S),
+                new AttributeDefinition("pk", ScalarAttributeType.S),
+                new AttributeDefinition("sk", ScalarAttributeType.S),
+                new AttributeDefinition("status", ScalarAttributeType.S),
+                new AttributeDefinition("extra", ScalarAttributeType.N)
             ],
-            KeySchema = [new("pk", KeyType.HASH), new("sk", KeyType.RANGE)],
+            KeySchema =
+            [
+                new KeySchemaElement("pk", KeyType.HASH),
+                new KeySchemaElement("sk", KeyType.RANGE)
+            ],
             LocalSecondaryIndexes =
             [
                 new LocalSecondaryIndexDescription
                 {
                     IndexName = "ByStatus",
-                    KeySchema = [new("pk", KeyType.HASH), new("status", KeyType.RANGE)],
-                    Projection = new Projection { ProjectionType = ProjectionType.ALL },
-                },
-            ],
+                    KeySchema =
+                    [
+                        new KeySchemaElement("pk", KeyType.HASH),
+                        new KeySchemaElement("status", KeyType.RANGE)
+                    ],
+                    Projection = new Projection { ProjectionType = ProjectionType.ALL }
+                }
+            ]
         };
 
         var updates =
@@ -206,12 +214,12 @@ public sealed class DynamoTableDefinitionBuilderTests
             [
                 new AttributeDefinition("pk", ScalarAttributeType.S),
                 new AttributeDefinition("sk", ScalarAttributeType.S),
-                new AttributeDefinition("status", ScalarAttributeType.S),
+                new AttributeDefinition("status", ScalarAttributeType.S)
             ],
             KeySchema =
             [
                 new KeySchemaElement("pk", KeyType.HASH),
-                new KeySchemaElement("sk", KeyType.RANGE),
+                new KeySchemaElement("sk", KeyType.RANGE)
             ],
             LocalSecondaryIndexes =
             [
@@ -221,11 +229,11 @@ public sealed class DynamoTableDefinitionBuilderTests
                     KeySchema =
                     [
                         new KeySchemaElement("pk", KeyType.HASH),
-                        new KeySchemaElement("status", KeyType.RANGE),
+                        new KeySchemaElement("status", KeyType.RANGE)
                     ],
-                    Projection = new Projection { ProjectionType = ProjectionType.ALL },
-                },
-            ],
+                    Projection = new Projection { ProjectionType = ProjectionType.ALL }
+                }
+            ]
         };
 
         Action act = ()
@@ -255,12 +263,12 @@ public sealed class DynamoTableDefinitionBuilderTests
             [
                 new AttributeDefinition("pk", ScalarAttributeType.S),
                 new AttributeDefinition("sk", ScalarAttributeType.S),
-                new AttributeDefinition("status", ScalarAttributeType.S),
+                new AttributeDefinition("status", ScalarAttributeType.S)
             ],
             KeySchema =
             [
                 new KeySchemaElement("pk", KeyType.HASH),
-                new KeySchemaElement("sk", KeyType.RANGE),
+                new KeySchemaElement("sk", KeyType.RANGE)
             ],
             LocalSecondaryIndexes =
             [
@@ -270,11 +278,11 @@ public sealed class DynamoTableDefinitionBuilderTests
                     KeySchema =
                     [
                         new KeySchemaElement("pk", KeyType.HASH),
-                        new KeySchemaElement("status", KeyType.RANGE),
+                        new KeySchemaElement("status", KeyType.RANGE)
                     ],
-                    Projection = new Projection { ProjectionType = ProjectionType.ALL },
-                },
-            ],
+                    Projection = new Projection { ProjectionType = ProjectionType.ALL }
+                }
+            ]
         };
 
         var updates =
@@ -304,30 +312,38 @@ public sealed class DynamoTableDefinitionBuilderTests
             TableName = "Indexed",
             AttributeDefinitions =
             [
-                new("customer", ScalarAttributeType.S),
-                new("pk", ScalarAttributeType.S),
-                new("sk", ScalarAttributeType.S),
-                new("status", ScalarAttributeType.S),
+                new AttributeDefinition("customer", ScalarAttributeType.S),
+                new AttributeDefinition("pk", ScalarAttributeType.S),
+                new AttributeDefinition("sk", ScalarAttributeType.S),
+                new AttributeDefinition("status", ScalarAttributeType.S)
             ],
-            KeySchema = [new("pk", KeyType.HASH), new("sk", KeyType.RANGE)],
+            KeySchema =
+            [
+                new KeySchemaElement("pk", KeyType.HASH),
+                new KeySchemaElement("sk", KeyType.RANGE)
+            ],
             GlobalSecondaryIndexes =
             [
                 new GlobalSecondaryIndexDescription
                 {
                     IndexName = "ByCustomer",
-                    KeySchema = [new("customer", KeyType.HASH)],
-                    Projection = new Projection { ProjectionType = ProjectionType.ALL },
-                },
+                    KeySchema = [new KeySchemaElement("customer", KeyType.HASH)],
+                    Projection = new Projection { ProjectionType = ProjectionType.ALL }
+                }
             ],
             LocalSecondaryIndexes =
             [
                 new LocalSecondaryIndexDescription
                 {
                     IndexName = "ByStatus",
-                    KeySchema = [new("pk", KeyType.HASH), new("status", KeyType.RANGE)],
-                    Projection = new Projection { ProjectionType = ProjectionType.ALL },
-                },
-            ],
+                    KeySchema =
+                    [
+                        new KeySchemaElement("pk", KeyType.HASH),
+                        new KeySchemaElement("status", KeyType.RANGE)
+                    ],
+                    Projection = new Projection { ProjectionType = ProjectionType.ALL }
+                }
+            ]
         };
         existing.AttributeDefinitions
             .Single(definition => definition.AttributeName == attributeName)
@@ -361,12 +377,12 @@ public sealed class DynamoTableDefinitionBuilderTests
                 new AttributeDefinition("customer", ScalarAttributeType.S),
                 new AttributeDefinition("pk", ScalarAttributeType.S),
                 new AttributeDefinition("sk", ScalarAttributeType.S),
-                new AttributeDefinition("status", ScalarAttributeType.S),
+                new AttributeDefinition("status", ScalarAttributeType.S)
             ],
             KeySchema =
             [
                 new KeySchemaElement("pk", KeyType.HASH),
-                new KeySchemaElement("sk", KeyType.RANGE),
+                new KeySchemaElement("sk", KeyType.RANGE)
             ],
             GlobalSecondaryIndexes =
             [
@@ -374,8 +390,8 @@ public sealed class DynamoTableDefinitionBuilderTests
                 {
                     IndexName = "ByCustomer",
                     KeySchema = [new KeySchemaElement("customer", KeyType.HASH)],
-                    Projection = new Projection { ProjectionType = ProjectionType.ALL },
-                },
+                    Projection = new Projection { ProjectionType = ProjectionType.ALL }
+                }
             ],
             LocalSecondaryIndexes =
             [
@@ -385,11 +401,11 @@ public sealed class DynamoTableDefinitionBuilderTests
                     KeySchema =
                     [
                         new KeySchemaElement("pk", KeyType.HASH),
-                        new KeySchemaElement("status", KeyType.RANGE),
+                        new KeySchemaElement("status", KeyType.RANGE)
                     ],
-                    Projection = new Projection { ProjectionType = ProjectionType.ALL },
-                },
-            ],
+                    Projection = new Projection { ProjectionType = ProjectionType.ALL }
+                }
+            ]
         };
         existing.AttributeDefinitions.RemoveAll(definition
             => definition.AttributeName == attributeName);

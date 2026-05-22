@@ -27,5 +27,5 @@ internal enum DynamoIndexSourceKind
 {
     Table,
     GlobalSecondaryIndex,
-    LocalSecondaryIndex,
+    LocalSecondaryIndex
 }

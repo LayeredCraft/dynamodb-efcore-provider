@@ -11,7 +11,7 @@ internal enum SkOperator
     GreaterThan,
     GreaterThanOrEqual,
     Between,
-    BeginsWith,
+    BeginsWith
 }
 
 /// <summary>A single key-condition constraint on a sort-key property.</summary>

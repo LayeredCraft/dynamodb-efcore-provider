@@ -80,8 +80,8 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
                         IntValue = item.IntValue,
                         Sub = new NestedSubProjection
                         {
-                            Pk = item.Pk, BoolValue = item.BoolValue,
-                        },
+                            Pk = item.Pk, BoolValue = item.BoolValue
+                        }
                     })
                 .ToListAsync(CancellationToken);
 
@@ -94,8 +94,8 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
                         IntValue = item.IntValue,
                         Sub = new NestedSubProjection
                         {
-                            Pk = item.Pk, BoolValue = item.BoolValue,
-                        },
+                            Pk = item.Pk, BoolValue = item.BoolValue
+                        }
                     })
                 .ToList();
 
@@ -257,7 +257,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
                         item.LongValue,
                         item.FloatValue,
                         item.DoubleValue,
-                        item.DecimalValue,
+                        item.DecimalValue
                     })
                 .ToListAsync(CancellationToken);
 
@@ -271,7 +271,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
                         item.LongValue,
                         item.FloatValue,
                         item.DoubleValue,
-                        item.DecimalValue,
+                        item.DecimalValue
                     })
                 .ToList();
 
@@ -410,8 +410,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
                 .Select(item
                     => new
                     {
-                        item.Pk,
-                        Value = (DateTimeOffset?)item.NullableDateTimeOffsetValue.Value,
+                        item.Pk, Value = (DateTimeOffset?)item.NullableDateTimeOffsetValue.Value
                     })
                 .ToListAsync(CancellationToken);
 
@@ -438,7 +437,8 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
                 .SimpleItems
                 .Select(item => new
                 {
-                    item.Pk, Date = (DateTime?)item.NullableDateTimeOffsetValue.Value.DateTime.Date,
+                    item.Pk,
+                    Date = (DateTime?)item.NullableDateTimeOffsetValue.Value.DateTime.Date
                 })
                 .ToListAsync(CancellationToken);
 
@@ -547,7 +547,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
                     item.NullableStringValue,
                     item.DateOnlyValue,
                     item.TimeOnlyValue,
-                    item.TimeSpanValue,
+                    item.TimeSpanValue
                 })
                 .ToListAsync(CancellationToken);
 
@@ -572,7 +572,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
                     item.NullableStringValue,
                     item.DateOnlyValue,
                     item.TimeOnlyValue,
-                    item.TimeSpanValue,
+                    item.TimeSpanValue
                 })
                 .ToList();
 
@@ -762,7 +762,7 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
                     => new
                     {
                         item.Pk,
-                        Normalized = item.NullableStringValue!.Trim().ToUpperInvariant(),
+                        Normalized = item.NullableStringValue!.Trim().ToUpperInvariant()
                     })
                 .ToListAsync(CancellationToken);
 

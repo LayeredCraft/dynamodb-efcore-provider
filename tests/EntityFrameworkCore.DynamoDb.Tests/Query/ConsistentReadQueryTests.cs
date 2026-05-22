@@ -15,7 +15,7 @@ public class ConsistentReadQueryTests
     public async Task GlobalConsistentRead_AppliesWhenQueryHasNoOverride()
     {
         var (client, captured) = SetupMockClient();
-        await using var context = ConsistentReadDbContext.Create(client, consistentRead: true);
+        await using var context = ConsistentReadDbContext.Create(client, true);
 
         await DrainAsync(
             context.Items.Where(x => x.Pk == "P#1").AsAsyncEnumerable(),
@@ -28,7 +28,7 @@ public class ConsistentReadQueryTests
     public async Task QueryConsistentReadTrue_OverridesGlobalFalse()
     {
         var (client, captured) = SetupMockClient();
-        await using var context = ConsistentReadDbContext.Create(client, consistentRead: false);
+        await using var context = ConsistentReadDbContext.Create(client, false);
 
         await DrainAsync(
             context.Items.Where(x => x.Pk == "P#1").WithConsistentRead().AsAsyncEnumerable(),
@@ -41,7 +41,7 @@ public class ConsistentReadQueryTests
     public async Task QueryConsistentReadFalse_OverridesGlobalTrue()
     {
         var (client, captured) = SetupMockClient();
-        await using var context = ConsistentReadDbContext.Create(client, consistentRead: true);
+        await using var context = ConsistentReadDbContext.Create(client, true);
 
         await DrainAsync(
             context.Items.Where(x => x.Pk == "P#1").WithConsistentRead(false).AsAsyncEnumerable(),
@@ -115,7 +115,7 @@ public class ConsistentReadQueryTests
     public async Task GlobalConsistentRead_OnGlobalSecondaryIndex_DoesNotSendFlag()
     {
         var (client, captured) = SetupMockClient();
-        await using var context = ConsistentReadDbContext.Create(client, consistentRead: true);
+        await using var context = ConsistentReadDbContext.Create(client, true);
 
         await DrainAsync(
             context.Items.Where(x => x.CustomerId == "C#1").AsAsyncEnumerable(),

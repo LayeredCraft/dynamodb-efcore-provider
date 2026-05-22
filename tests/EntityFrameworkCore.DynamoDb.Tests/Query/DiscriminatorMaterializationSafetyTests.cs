@@ -190,8 +190,8 @@ public class DiscriminatorMaterializationSafetyTests
             {
                 ["pK"] = new() { S = "TENANT#1" },
                 ["sK"] = new() { S = "USER#1" },
-                ["name"] = new() { S = "Ada" },
-            },
+                ["name"] = new() { S = "Ada" }
+            }
         ]);
 
         await using var context = SharedTableContext.Create(client);
@@ -218,8 +218,8 @@ public class DiscriminatorMaterializationSafetyTests
                 ["pK"] = new() { S = "TENANT#1" },
                 ["sK"] = new() { S = "ORDER#1" },
                 ["name"] = new() { S = "Ada" },
-                ["$type"] = new() { S = "OrderEntity" },
-            },
+                ["$type"] = new() { S = "OrderEntity" }
+            }
         ]);
 
         await using var context = SharedTableContext.Create(client);
@@ -245,7 +245,7 @@ public class DiscriminatorMaterializationSafetyTests
                 ["sK"] = new() { S = "PERSON#EMP-1" },
                 ["name"] = new() { S = "Eve" },
                 ["department"] = new() { S = "Engineering" },
-                ["$type"] = new() { S = "EmployeeEntity" },
+                ["$type"] = new() { S = "EmployeeEntity" }
             },
             new Dictionary<string, AttributeValue>
             {
@@ -253,8 +253,8 @@ public class DiscriminatorMaterializationSafetyTests
                 ["sK"] = new() { S = "PERSON#MGR-1" },
                 ["name"] = new() { S = "Max" },
                 ["level"] = new() { N = "7" },
-                ["$type"] = new() { S = "ManagerEntity" },
-            },
+                ["$type"] = new() { S = "ManagerEntity" }
+            }
         ]);
 
         await using var context = SharedTableInheritanceContext.Create(client);

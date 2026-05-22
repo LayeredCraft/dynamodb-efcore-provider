@@ -21,9 +21,9 @@ public static class NamingConventionData
                     new SnakeCaseAddress
                     {
                         CityName = "Seattle",
-                        GeoPoint = new SnakeCaseGeoPoint { LatitudeValue = 47.6062m },
-                    },
-            },
+                        GeoPoint = new SnakeCaseGeoPoint { LatitudeValue = 47.6062m }
+                    }
+            }
         },
         new()
         {
@@ -37,17 +37,17 @@ public static class NamingConventionData
                 PreferredAddress = new SnakeCaseAddress
                 {
                     CityName = "Portland",
-                    GeoPoint = new SnakeCaseGeoPoint { LatitudeValue = 45.5152m },
-                },
-            },
-        },
+                    GeoPoint = new SnakeCaseGeoPoint { LatitudeValue = 45.5152m }
+                }
+            }
+        }
     ];
 
     /// <summary>Kebab-case entity seed items.</summary>
     public static readonly List<KebabCaseItem> KebabCaseItems =
     [
         new() { Pk = "KEBAB#1", DisplayName = "Widget", TotalCount = 5 },
-        new() { Pk = "KEBAB#2", DisplayName = "Gadget", TotalCount = 3 },
+        new() { Pk = "KEBAB#2", DisplayName = "Gadget", TotalCount = 3 }
     ];
 
     /// <summary>

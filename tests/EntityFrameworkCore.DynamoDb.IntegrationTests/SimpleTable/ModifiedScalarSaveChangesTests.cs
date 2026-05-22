@@ -26,7 +26,7 @@ public class ModifiedScalarSaveChangesTests(DynamoContainerFixture fixture)
             new GetItemRequest
             {
                 TableName = SimpleItemTable.TableName,
-                Key = new Dictionary<string, AttributeValue> { ["pk"] = new() { S = item.Pk } },
+                Key = new Dictionary<string, AttributeValue> { ["pk"] = new() { S = item.Pk } }
             },
             CancellationToken);
 
@@ -63,7 +63,7 @@ public class ModifiedScalarSaveChangesTests(DynamoContainerFixture fixture)
             new GetItemRequest
             {
                 TableName = SimpleItemTable.TableName,
-                Key = new Dictionary<string, AttributeValue> { ["pk"] = new() { S = item.Pk } },
+                Key = new Dictionary<string, AttributeValue> { ["pk"] = new() { S = item.Pk } }
             },
             CancellationToken);
 
@@ -102,7 +102,7 @@ public class ModifiedScalarSaveChangesTests(DynamoContainerFixture fixture)
             new GetItemRequest
             {
                 TableName = SimpleItemTable.TableName,
-                Key = new Dictionary<string, AttributeValue> { ["pk"] = new() { S = item.Pk } },
+                Key = new Dictionary<string, AttributeValue> { ["pk"] = new() { S = item.Pk } }
             },
             CancellationToken);
 
@@ -141,7 +141,7 @@ public class ModifiedScalarSaveChangesTests(DynamoContainerFixture fixture)
             new GetItemRequest
             {
                 TableName = SimpleItemTable.TableName,
-                Key = new Dictionary<string, AttributeValue> { ["pk"] = new() { S = item.Pk } },
+                Key = new Dictionary<string, AttributeValue> { ["pk"] = new() { S = item.Pk } }
             },
             CancellationToken);
 

@@ -17,7 +17,7 @@ public class SaveChangesModelValidationTests(DynamoContainerFixture fixture)
         {
             Pk = "TENANT#VALIDATION",
             Sk = "MODEL#UNMAPPED-SCALAR",
-            Metadata = new CustomPayload(),
+            Metadata = new CustomPayload()
         };
 
         var act = async () =>
@@ -37,7 +37,7 @@ public class SaveChangesModelValidationTests(DynamoContainerFixture fixture)
     {
         var item = new RowVersionItem
         {
-            Pk = "TENANT#VALIDATION", Sk = "MODEL#ROWVERSION", Token = 1,
+            Pk = "TENANT#VALIDATION", Sk = "MODEL#ROWVERSION", Token = 1
         };
 
         var act = async () =>

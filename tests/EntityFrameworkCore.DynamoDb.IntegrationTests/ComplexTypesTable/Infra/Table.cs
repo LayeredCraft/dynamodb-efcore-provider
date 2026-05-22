@@ -7,38 +7,8 @@ public static class AnalysisReportTable
 {
     public const string TableName = "AnalysisReports";
 
-    public static async Task CreateTable(
-        IAmazonDynamoDB dynamoDb,
-        CancellationToken cancellationToken)
-    {
-        await dynamoDb.CreateTableAsync(
-            new CreateTableRequest
-            {
-                TableName = TableName,
-                AttributeDefinitions =
-                [
-                    new AttributeDefinition
-                    {
-                        AttributeName = "pk", AttributeType = ScalarAttributeType.S,
-                    },
-                ],
-                KeySchema =
-                [
-                    new KeySchemaElement { AttributeName = "pk", KeyType = KeyType.HASH },
-                ],
-                BillingMode = BillingMode.PAY_PER_REQUEST,
-            },
-            cancellationToken);
-    }
-}
-
-public static class CollectionShapeItemTable
-{
-    public const string TableName = "CollectionShapeItems";
-
-    public static async Task CreateTable(
-        IAmazonDynamoDB dynamoDb,
-        CancellationToken cancellationToken)
+    public static async Task
+        CreateTable(IAmazonDynamoDB dynamoDb, CancellationToken cancellationToken)
         => await dynamoDb.CreateTableAsync(
             new CreateTableRequest
             {
@@ -47,14 +17,40 @@ public static class CollectionShapeItemTable
                 [
                     new AttributeDefinition
                     {
-                        AttributeName = "pk", AttributeType = ScalarAttributeType.S,
-                    },
+                        AttributeName = "pk", AttributeType = ScalarAttributeType.S
+                    }
                 ],
                 KeySchema =
                 [
-                    new KeySchemaElement { AttributeName = "pk", KeyType = KeyType.HASH },
+                    new KeySchemaElement { AttributeName = "pk", KeyType = KeyType.HASH }
                 ],
-                BillingMode = BillingMode.PAY_PER_REQUEST,
+                BillingMode = BillingMode.PAY_PER_REQUEST
+            },
+            cancellationToken);
+}
+
+public static class CollectionShapeItemTable
+{
+    public const string TableName = "CollectionShapeItems";
+
+    public static async Task
+        CreateTable(IAmazonDynamoDB dynamoDb, CancellationToken cancellationToken)
+        => await dynamoDb.CreateTableAsync(
+            new CreateTableRequest
+            {
+                TableName = TableName,
+                AttributeDefinitions =
+                [
+                    new AttributeDefinition
+                    {
+                        AttributeName = "pk", AttributeType = ScalarAttributeType.S
+                    }
+                ],
+                KeySchema =
+                [
+                    new KeySchemaElement { AttributeName = "pk", KeyType = KeyType.HASH }
+                ],
+                BillingMode = BillingMode.PAY_PER_REQUEST
             },
             cancellationToken);
 }
@@ -75,14 +71,14 @@ public static class ComplexTypesItemTable
                 [
                     new AttributeDefinition
                     {
-                        AttributeName = "pk", AttributeType = ScalarAttributeType.S,
-                    },
+                        AttributeName = "pk", AttributeType = ScalarAttributeType.S
+                    }
                 ],
                 KeySchema =
                 [
-                    new KeySchemaElement { AttributeName = "pk", KeyType = KeyType.HASH },
+                    new KeySchemaElement { AttributeName = "pk", KeyType = KeyType.HASH }
                 ],
-                BillingMode = BillingMode.PAY_PER_REQUEST,
+                BillingMode = BillingMode.PAY_PER_REQUEST
             },
             cancellationToken);
 

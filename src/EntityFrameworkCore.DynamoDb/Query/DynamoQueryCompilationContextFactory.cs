@@ -4,8 +4,7 @@ namespace EntityFrameworkCore.DynamoDb.Query;
 
 /// <summary>Represents the DynamoQueryCompilationContextFactory type.</summary>
 public sealed class DynamoQueryCompilationContextFactory(
-    QueryCompilationContextDependencies dependencies)
-    : IQueryCompilationContextFactory
+    QueryCompilationContextDependencies dependencies) : IQueryCompilationContextFactory
 {
     /// <summary>Provides functionality for this member.</summary>
     public QueryCompilationContext Create(bool async)

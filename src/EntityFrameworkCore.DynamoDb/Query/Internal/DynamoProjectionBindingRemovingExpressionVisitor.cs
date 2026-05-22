@@ -92,7 +92,7 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
                 [DynamoRuntimeValueSources.CurrentPageResponse] = static queryContextParameter
                     => Property(
                         Convert(queryContextParameter, typeof(DynamoQueryContext)),
-                        nameof(DynamoQueryContext.CurrentPageResponse)),
+                        nameof(DynamoQueryContext.CurrentPageResponse))
             };
 
     /// <summary>
@@ -135,7 +135,7 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
         {
             if (node.Left is MemberExpression
                 {
-                    Member: FieldInfo { IsInitOnly: true },
+                    Member: FieldInfo { IsInitOnly: true }
                 } memberExpression)
                 return memberExpression.Assign(Visit(node.Right));
 
@@ -198,7 +198,7 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
         {
             case MemberExpression
             {
-                Member.Name: nameof(Nullable<int>.Value), Expression: { } source,
+                Member.Name: nameof(Nullable<int>.Value), Expression: { } source
             } when Nullable.GetUnderlyingType(source.Type) != null:
                 nullableSource = source;
                 return true;
@@ -575,9 +575,9 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
             EnumerableMethods.ToList.MakeGenericMethod(elementType),
             entitiesEnumerable);
 
-        Expression populatedResult =
+        var populatedResult =
             ConvertCollectionMaterialization(entitiesExpression, complexProperty.ClrType);
-        Expression missingResult = complexProperty.IsNullable
+        var missingResult = complexProperty.IsNullable
             ? Constant(null, complexProperty.ClrType)
             : ConvertCollectionMaterialization(New(resultListType), complexProperty.ClrType);
 

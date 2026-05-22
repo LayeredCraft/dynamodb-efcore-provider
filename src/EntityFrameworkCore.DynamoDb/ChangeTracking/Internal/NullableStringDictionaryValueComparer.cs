@@ -86,7 +86,7 @@ internal sealed class NullableStringDictionaryValueComparer<TDictionary, TValue>
                 mutableDictionary),
             _ => throw new InvalidOperationException(
                 $"Expected {typeof(TDictionary).Name} to implement IDictionary<string, {typeof(TValue).Name}?> "
-                + "or IReadOnlyDictionary<string, TValue?>."),
+                + "or IReadOnlyDictionary<string, TValue?>.")
         };
 
     private sealed class DictionaryAdapter(IDictionary<string, TValue?> dictionary)

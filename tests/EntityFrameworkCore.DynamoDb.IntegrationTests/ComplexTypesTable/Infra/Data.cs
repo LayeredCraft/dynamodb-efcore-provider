@@ -23,8 +23,8 @@ public static class ComplexTypesItems
                 {
                     Line1 = "10 Main St",
                     City = "Seattle",
-                    Geo = new Geo { Latitude = 47.6062m, Longitude = -122.3321m },
-                },
+                    Geo = new Geo { Latitude = 47.6062m, Longitude = -122.3321m }
+                }
                 // PreferencesByKey =
                 // {
                 //     ["currency"] = new Preference { Value = "USD", Priority = 1 },
@@ -41,16 +41,20 @@ public static class ComplexTypesItems
                         new Payment
                         {
                             Provider = "stripe",
-                            Card = new Card { Last4 = "4242", ExpMonth = 6, ExpYear = 2030 },
+                            Card =
+                                new Card
+                                {
+                                    Last4 = "4242", ExpMonth = 6, ExpYear = 2030
+                                }
                         },
                     Lines =
                     [
                         new OrderLine { Sku = "SKU-1", Quantity = 1 },
-                        new OrderLine { Sku = "SKU-2", Quantity = 2 },
-                    ],
-                },
+                        new OrderLine { Sku = "SKU-2", Quantity = 2 }
+                    ]
+                }
             ],
-            OrderSnapshots = [new OrderSnapshot { SnapshotNumber = "SNAP-1", Total = 100.25m }],
+            OrderSnapshots = [new OrderSnapshot { SnapshotNumber = "SNAP-1", Total = 100.25m }]
             // ContactsByType =
             // {
             //     ["email"] = new ContactMethod
@@ -77,7 +81,7 @@ public static class ComplexTypesItems
             Ratings = [],
             Profile = null,
             Orders = [],
-            OrderSnapshots = [],
+            OrderSnapshots = []
             // ContactsByType =
             // {
             //     ["email"] = new ContactMethod
@@ -98,7 +102,7 @@ public static class ComplexTypesItems
             Ratings = [1, 2, 3],
             Profile = new Profile
             {
-                DisplayName = "Gina", Age = null, Address = null,
+                DisplayName = "Gina", Age = null, Address = null
                 // PreferencesByKey =
                 // {
                 //     ["timezone"] = new Preference { Value = "UTC", Priority = 1 },
@@ -111,7 +115,7 @@ public static class ComplexTypesItems
                     OrderNumber = "G-500",
                     Total = 7.50m,
                     Payment = null,
-                    Lines = [new OrderLine { Sku = "SKU-G1", Quantity = 5 }],
+                    Lines = [new OrderLine { Sku = "SKU-G1", Quantity = 5 }]
                 },
                 new Order
                 {
@@ -124,21 +128,21 @@ public static class ComplexTypesItems
                             Card =
                                 new Card
                                 {
-                                    Last4 = "9999", ExpMonth = 12, ExpYear = 2031,
-                                },
+                                    Last4 = "9999", ExpMonth = 12, ExpYear = 2031
+                                }
                         },
                     Lines =
                     [
                         new OrderLine { Sku = "SKU-G2", Quantity = 1 },
-                        new OrderLine { Sku = "SKU-G3", Quantity = 1 },
-                    ],
-                },
+                        new OrderLine { Sku = "SKU-G3", Quantity = 1 }
+                    ]
+                }
             ],
             OrderSnapshots =
             [
                 new OrderSnapshot { SnapshotNumber = "SNAP-2", Total = 1.25m },
-                new OrderSnapshot { SnapshotNumber = "SNAP-3", Total = 2.50m },
-            ],
+                new OrderSnapshot { SnapshotNumber = "SNAP-3", Total = 2.50m }
+            ]
             // ContactsByType =
             // {
             //     ["email"] = new ContactMethod
@@ -174,10 +178,10 @@ public static class ComplexTypesItems
                     OrderNumber = "D-1",
                     Total = 0.01m,
                     Payment = null,
-                    Lines = [new OrderLine { Sku = "SKU-D1", Quantity = 1 }],
-                },
+                    Lines = [new OrderLine { Sku = "SKU-D1", Quantity = 1 }]
+                }
             ],
-            OrderSnapshots = [],
+            OrderSnapshots = []
             // ContactsByType =
             // {
             //     ["pager"] = new ContactMethod
@@ -185,7 +189,7 @@ public static class ComplexTypesItems
             //         Value = "555-0001", Verified = false, VerifiedAt = null, Notes = [],
             //     },
             // },
-        },
+        }
     ];
 
     public static IReadOnlyList<Dictionary<string, AttributeValue>> AttributeValues()

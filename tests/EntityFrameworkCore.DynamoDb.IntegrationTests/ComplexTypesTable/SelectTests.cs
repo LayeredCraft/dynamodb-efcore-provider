@@ -142,8 +142,8 @@ public class SelectTests(DynamoContainerFixture fixture) : ComplexTypesTableTest
                     TableName = ComplexTypesItemTable.TableName,
                     Key = new Dictionary<string, AttributeValue>
                     {
-                        ["pk"] = new() { S = "OWNED#MISSINGPROFILE" },
-                    },
+                        ["pk"] = new() { S = "OWNED#MISSINGPROFILE" }
+                    }
                 },
                 CancellationToken);
         }

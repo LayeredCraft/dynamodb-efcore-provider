@@ -22,7 +22,7 @@ public class DeletedEntitiesSaveChangesTests(DynamoContainerFixture fixture)
             Version = 1,
             Email = "del@example.com",
             IsPreferred = false,
-            CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero),
+            CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero)
         };
         await SeedAsync(customer);
 
@@ -49,7 +49,7 @@ public class DeletedEntitiesSaveChangesTests(DynamoContainerFixture fixture)
             Version = 1,
             Email = "del-state@example.com",
             IsPreferred = false,
-            CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero),
+            CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero)
         };
         await SeedAsync(customer);
 
@@ -83,7 +83,7 @@ public class DeletedEntitiesSaveChangesTests(DynamoContainerFixture fixture)
             Version = 1,
             Email = "ghost@example.com",
             IsPreferred = false,
-            CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero),
+            CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero)
         };
 
         // Attach and mark Deleted without inserting first — key does not exist in DynamoDB.
@@ -113,7 +113,7 @@ public class DeletedEntitiesSaveChangesTests(DynamoContainerFixture fixture)
             Version = 1,
             Email = "before-modify@example.com",
             IsPreferred = false,
-            CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero),
+            CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero)
         };
         var toDelete = new CustomerItem
         {
@@ -122,7 +122,7 @@ public class DeletedEntitiesSaveChangesTests(DynamoContainerFixture fixture)
             Version = 1,
             Email = "before-delete@example.com",
             IsPreferred = false,
-            CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero),
+            CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero)
         };
         Db.Customers.AddRange(toModify, toDelete);
         await SaveAndClearLogAsync();
@@ -135,7 +135,7 @@ public class DeletedEntitiesSaveChangesTests(DynamoContainerFixture fixture)
             Version = 1,
             Email = "new@example.com",
             IsPreferred = false,
-            CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero),
+            CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero)
         };
 
         Db.Customers.Add(toAdd);

@@ -39,7 +39,7 @@ internal sealed class DynamoAutoIndexSelectionAnalyzer : IDynamoIndexSelectionAn
         Passed,
         NoPkConstraint,
         UnsafeOr,
-        ProjectionMismatch,
+        ProjectionMismatch
     }
 
     /// <summary>
@@ -143,7 +143,7 @@ internal sealed class DynamoAutoIndexSelectionAnalyzer : IDynamoIndexSelectionAn
                     "DYNAMO_IDX001",
                     $"No targeted secondary index on table '{context.SelectExpression.TableName}' "
                     + "satisfies all safety gates. The query will use the base table. "
-                    + "Review preceding DYNAMO_IDX005 diagnostics for rejection reasons."),
+                    + "Review preceding DYNAMO_IDX005 diagnostics for rejection reasons.")
             };
             return new DynamoIndexSelectionDecision(
                 null,
@@ -164,7 +164,7 @@ internal sealed class DynamoAutoIndexSelectionAnalyzer : IDynamoIndexSelectionAn
                     DynamoQueryDiagnosticLevel.Warning,
                     "DYNAMO_IDX002",
                     $"Multiple secondary indexes on table '{context.SelectExpression.TableName}' "
-                    + $"are equally suitable ({tiedNames}). Use .WithIndex() to specify the index explicitly."),
+                    + $"are equally suitable ({tiedNames}). Use .WithIndex() to specify the index explicitly.")
             };
             return new DynamoIndexSelectionDecision(
                 null,
@@ -183,7 +183,7 @@ internal sealed class DynamoAutoIndexSelectionAnalyzer : IDynamoIndexSelectionAn
                 "DYNAMO_IDX003",
                 mode == DynamoAutomaticIndexSelectionMode.On
                     ? $"Index '{winner.IndexName}' on table '{context.SelectExpression.TableName}' was auto-selected."
-                    : $"Index '{winner.IndexName}' on table '{context.SelectExpression.TableName}' would be auto-selected if automatic index selection were On."),
+                    : $"Index '{winner.IndexName}' on table '{context.SelectExpression.TableName}' would be auto-selected if automatic index selection were On.")
         };
 
         if (mode == DynamoAutomaticIndexSelectionMode.On)
@@ -214,7 +214,7 @@ internal sealed class DynamoAutoIndexSelectionAnalyzer : IDynamoIndexSelectionAn
                 DynamoQueryDiagnosticLevel.Information,
                 "DYNAMO_IDX006",
                 $"Index selection was suppressed for table '{context.SelectExpression.TableName}' "
-                + "by '.WithoutIndex()'. The query will execute against the base table."),
+                + "by '.WithoutIndex()'. The query will execute against the base table.")
         };
         return new DynamoIndexSelectionDecision(
             null,
@@ -251,7 +251,7 @@ internal sealed class DynamoAutoIndexSelectionAnalyzer : IDynamoIndexSelectionAn
             new(
                 DynamoQueryDiagnosticLevel.Information,
                 "DYNAMO_IDX004",
-                $"Index '{indexName}' on table '{context.SelectExpression.TableName}' was explicitly selected via WithIndex()."),
+                $"Index '{indexName}' on table '{context.SelectExpression.TableName}' was explicitly selected via WithIndex().")
         };
         return new DynamoIndexSelectionDecision(
             indexName,
@@ -336,7 +336,7 @@ internal sealed class DynamoAutoIndexSelectionAnalyzer : IDynamoIndexSelectionAn
                 "predicate contains an unsafe OR that would produce incorrect results",
             CandidateGateResult.ProjectionMismatch =>
                 $"projection type is {descriptor.ProjectionType} (only ALL projection is auto-selected)",
-            _ => "unknown gate failure",
+            _ => "unknown gate failure"
         };
 
         return new DynamoQueryDiagnostic(

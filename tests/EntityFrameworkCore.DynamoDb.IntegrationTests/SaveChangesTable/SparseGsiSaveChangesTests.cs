@@ -25,7 +25,7 @@ public class SparseGsiSaveChangesTests(DynamoContainerFixture fixture)
             Version = 1,
             Name = "No GSI participation",
             Gs1Pk = null,
-            Gs1Sk = null,
+            Gs1Sk = null
         };
 
         Db.SparseGsiItems.Add(item);
@@ -50,7 +50,7 @@ public class SparseGsiSaveChangesTests(DynamoContainerFixture fixture)
             Name = "Null note",
             OptionalNote = null,
             Gs1Pk = null,
-            Gs1Sk = null,
+            Gs1Sk = null
         };
 
         Db.SparseGsiItems.Add(item);
@@ -73,7 +73,7 @@ public class SparseGsiSaveChangesTests(DynamoContainerFixture fixture)
             Version = 1,
             Name = "GSI participant",
             Gs1Pk = "partition#active",
-            Gs1Sk = "sort#001",
+            Gs1Sk = "sort#001"
         };
 
         Db.SparseGsiItems.Add(item);

@@ -10,5 +10,5 @@ public enum DynamoSecondaryIndexProjectionType
     KeysOnly,
 
     /// <summary>Projects a configured subset of non-key attributes.</summary>
-    Include,
+    Include
 }

@@ -16,14 +16,11 @@ public sealed class LoggingDynamoTest : LoggingTestBase
     [ConditionalFact(Skip = SkipReason.PartitionKeyRequiredOnAllEntities)]
     public override void InvalidIncludePathError_throws_by_default() { }
 
-    protected override TestLogger CreateTestLogger()
-        => new TestLogger<TestLoggingDefinitions>();
+    protected override TestLogger CreateTestLogger() => new TestLogger<TestLoggingDefinitions>();
 
     protected override DbContextOptionsBuilder CreateOptionsBuilder(IServiceCollection services)
     {
-        var serviceProvider = services
-            .AddEntityFrameworkDynamo()
-            .BuildServiceProvider(validateScopes: true);
+        var serviceProvider = services.AddEntityFrameworkDynamo().BuildServiceProvider(true);
 
         return new DbContextOptionsBuilder()
             .UseDynamo()
@@ -37,15 +34,11 @@ public sealed class LoggingDynamoTest : LoggingTestBase
         => new DbContextOptionsBuilder()
             .UseDynamo()
             .Options
-            .FindExtension<DynamoDbOptionsExtension>()!
-            .Info
-            .LogFragment;
+            .FindExtension<DynamoDbOptionsExtension>()!.Info.LogFragment;
 
     protected override string ProviderName => "EntityFrameworkCore.DynamoDb";
 
     protected override string ProviderVersion
-        => typeof(DynamoDbContextOptionsBuilder)
-            .Assembly
-            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()!
-            .InformationalVersion;
+        => typeof(DynamoDbContextOptionsBuilder).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()!.InformationalVersion;
 }

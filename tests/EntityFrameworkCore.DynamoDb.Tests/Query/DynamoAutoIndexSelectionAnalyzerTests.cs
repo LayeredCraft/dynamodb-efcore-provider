@@ -36,14 +36,14 @@ public class DynamoAutoIndexSelectionAnalyzerTests
         string? indexName = null,
         DynamoSecondaryIndexProjectionType projectionType = DynamoSecondaryIndexProjectionType.All)
         => new(
-            IndexName: indexName,
+            indexName,
             indexName is null
                 ? DynamoIndexSourceKind.Table
                 : DynamoIndexSourceKind.GlobalSecondaryIndex,
-            ModelIndex: null,
-            PartitionKeyProperty: MakeProp(pkAttr),
-            SortKeyProperty: skAttr is null ? null : MakeProp(skAttr),
-            ProjectionType: projectionType);
+            null,
+            MakeProp(pkAttr),
+            skAttr is null ? null : MakeProp(skAttr),
+            projectionType);
 
     private static SqlConstantExpression Const(object value) => new(value, value.GetType(), null);
 
@@ -63,8 +63,8 @@ public class DynamoAutoIndexSelectionAnalyzerTests
             (skConditions ?? []).ToDictionary(
                 k => k,
                 _ => new SkConstraint(SkOperator.Equal, Const("v"))),
-            HasUnsafeOr: hasUnsafeOr,
-            OrderingPropertyNames: new HashSet<string>(orderings ?? []));
+            hasUnsafeOr,
+            new HashSet<string>(orderings ?? []));
 
     private static DynamoIndexAnalysisContext BuildContext(
         DynamoAutomaticIndexSelectionMode mode,
@@ -82,7 +82,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
             QueryEntityTypeName = queryEntityTypeName,
             QueryConstraints = constraints,
             AutomaticIndexSelectionMode = mode,
-            IndexSelectionDisabled = indexSelectionDisabled,
+            IndexSelectionDisabled = indexSelectionDisabled
         };
 
     // ── absorbed: explicit hint tests ────────────────────────────────────────
@@ -94,7 +94,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
         {
             MakeDescriptor("CustomerId", indexName: null),
             MakeDescriptor("Status", "CreatedAt", "ByStatus"),
-            MakeDescriptor("Region", "CreatedAt", "ByRegion"),
+            MakeDescriptor("Region", "CreatedAt", "ByRegion")
         };
         var ctx = BuildContext(DynamoAutomaticIndexSelectionMode.Off, candidates, null, "ByStatus");
 
@@ -113,7 +113,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
         var candidates = new List<DynamoIndexDescriptor>
         {
             MakeDescriptor("CustomerId", indexName: null),
-            MakeDescriptor("Status", "CreatedAt", "ByStatus"),
+            MakeDescriptor("Status", "CreatedAt", "ByStatus")
         };
         var ctx = BuildContext(
             DynamoAutomaticIndexSelectionMode.Off,
@@ -135,7 +135,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
             candidates,
             null,
             "Ghost",
-            tableName: "MyTable");
+            "MyTable");
 
         var act = () => Analyzer.Analyze(ctx);
 
@@ -162,7 +162,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
     {
         var invoiceCandidates = new List<DynamoIndexDescriptor>
         {
-            MakeDescriptor("InvoiceId", indexName: null),
+            MakeDescriptor("InvoiceId", indexName: null)
         };
         var ctx = BuildContext(
             DynamoAutomaticIndexSelectionMode.Off,
@@ -182,7 +182,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
         var candidates = new List<DynamoIndexDescriptor>
         {
             MakeDescriptor("CustomerId", indexName: null),
-            MakeDescriptor("Status", "CreatedAt", "ByStatus"),
+            MakeDescriptor("Status", "CreatedAt", "ByStatus")
         };
         var ctx = BuildContext(DynamoAutomaticIndexSelectionMode.Off, candidates, null, "ByStatus");
 
@@ -201,7 +201,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
                 "Status",
                 "CreatedAt",
                 "ByStatus",
-                DynamoSecondaryIndexProjectionType.KeysOnly),
+                DynamoSecondaryIndexProjectionType.KeysOnly)
         };
         var ctx = BuildContext(
             DynamoAutomaticIndexSelectionMode.Off,
@@ -227,7 +227,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
                 "Status",
                 "CreatedAt",
                 "ByStatus",
-                DynamoSecondaryIndexProjectionType.Include),
+                DynamoSecondaryIndexProjectionType.Include)
         };
         var ctx = BuildContext(
             DynamoAutomaticIndexSelectionMode.Off,
@@ -251,9 +251,9 @@ public class DynamoAutoIndexSelectionAnalyzerTests
         var candidates = new List<DynamoIndexDescriptor>
         {
             MakeDescriptor("CustomerId", indexName: null),
-            MakeDescriptor("Status", "CreatedAt", "ByStatus"),
+            MakeDescriptor("Status", "CreatedAt", "ByStatus")
         };
-        var constraints = MakeConstraints(equalityPks: ["Status"]);
+        var constraints = MakeConstraints(["Status"]);
         var ctx = BuildContext(DynamoAutomaticIndexSelectionMode.Off, candidates, constraints);
 
         var decision = Analyzer.Analyze(ctx);
@@ -269,9 +269,9 @@ public class DynamoAutoIndexSelectionAnalyzerTests
         var candidates = new List<DynamoIndexDescriptor>
         {
             MakeDescriptor("CustomerId", indexName: null),
-            MakeDescriptor("Status", "CreatedAt", "ByStatus"),
+            MakeDescriptor("Status", "CreatedAt", "ByStatus")
         };
-        var constraints = MakeConstraints(equalityPks: ["Status"]);
+        var constraints = MakeConstraints(["Status"]);
         var ctx = BuildContext(DynamoAutomaticIndexSelectionMode.Off, candidates, constraints);
 
         var decision = Analyzer.Analyze(ctx);
@@ -287,7 +287,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
         var candidates = new List<DynamoIndexDescriptor>
         {
             MakeDescriptor("CustomerId", indexName: null),
-            MakeDescriptor("Status", "CreatedAt", "ByStatus"),
+            MakeDescriptor("Status", "CreatedAt", "ByStatus")
         };
         var ctx = BuildContext(DynamoAutomaticIndexSelectionMode.Off, candidates, null);
 
@@ -306,9 +306,9 @@ public class DynamoAutoIndexSelectionAnalyzerTests
         var candidates = new List<DynamoIndexDescriptor>
         {
             MakeDescriptor("CustomerId", indexName: null),
-            MakeDescriptor("Status", "CreatedAt", "ByStatus"),
+            MakeDescriptor("Status", "CreatedAt", "ByStatus")
         };
-        var constraints = MakeConstraints(equalityPks: ["Status"]);
+        var constraints = MakeConstraints(["Status"]);
         var ctx = BuildContext(
             DynamoAutomaticIndexSelectionMode.SuggestOnly,
             candidates,
@@ -331,10 +331,10 @@ public class DynamoAutoIndexSelectionAnalyzerTests
         var candidates = new List<DynamoIndexDescriptor>
         {
             MakeDescriptor("CustomerId", indexName: null),
-            MakeDescriptor("Status", "CreatedAt", "ByStatus"),
+            MakeDescriptor("Status", "CreatedAt", "ByStatus")
         };
         // No equality on Status — query did not target ByStatus.
-        var constraints = MakeConstraints(equalityPks: ["Region"]);
+        var constraints = MakeConstraints(["Region"]);
         var ctx = BuildContext(
             DynamoAutomaticIndexSelectionMode.SuggestOnly,
             candidates,
@@ -355,9 +355,9 @@ public class DynamoAutoIndexSelectionAnalyzerTests
         var candidates = new List<DynamoIndexDescriptor>
         {
             MakeDescriptor("CustomerId", indexName: null),
-            MakeDescriptor("Status", indexName: "ByStatus"),
+            MakeDescriptor("Status", indexName: "ByStatus")
         };
-        var constraints = MakeConstraints(equalityPks: ["Status"]);
+        var constraints = MakeConstraints(["Status"]);
         var ctx = BuildContext(DynamoAutomaticIndexSelectionMode.On, candidates, constraints);
 
         var decision = Analyzer.Analyze(ctx);
@@ -375,10 +375,10 @@ public class DynamoAutoIndexSelectionAnalyzerTests
         var candidates = new List<DynamoIndexDescriptor>
         {
             MakeDescriptor("CustomerId", indexName: null),
-            MakeDescriptor("Status", "CreatedAt", "ByStatus"),
+            MakeDescriptor("Status", "CreatedAt", "ByStatus")
         };
         // Region equality does not cover Status PK, so query did not target ByStatus.
-        var constraints = MakeConstraints(equalityPks: ["Region"]);
+        var constraints = MakeConstraints(["Region"]);
         var ctx = BuildContext(DynamoAutomaticIndexSelectionMode.On, candidates, constraints);
 
         var decision = Analyzer.Analyze(ctx);
@@ -393,7 +393,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
     {
         var candidates = new List<DynamoIndexDescriptor>
         {
-            MakeDescriptor("CustomerId", indexName: null),
+            MakeDescriptor("CustomerId", indexName: null)
         };
         var constraints = MakeConstraints(["Region"]);
         var ctx = BuildContext(DynamoAutomaticIndexSelectionMode.On, candidates, constraints);
@@ -412,10 +412,10 @@ public class DynamoAutoIndexSelectionAnalyzerTests
         {
             MakeDescriptor("CustomerId", indexName: null),
             MakeDescriptor("Status", "CreatedAt", "ByStatus"),
-            MakeDescriptor("Region", "CreatedAt", "ByRegion"),
+            MakeDescriptor("Region", "CreatedAt", "ByRegion")
         };
         // Both GSI PKs are present and neither gets a sort-key bonus.
-        var constraints = MakeConstraints(equalityPks: ["Status", "Region"]);
+        var constraints = MakeConstraints(["Status", "Region"]);
         var ctx = BuildContext(DynamoAutomaticIndexSelectionMode.On, candidates, constraints);
 
         var decision = Analyzer.Analyze(ctx);
@@ -435,7 +435,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
         {
             MakeDescriptor("CustomerId", indexName: null),
             MakeDescriptor("Status", indexName: "ByStatus"),
-            MakeDescriptor("Status", "CreatedAt", "ByStatusCreatedAt"),
+            MakeDescriptor("Status", "CreatedAt", "ByStatusCreatedAt")
         };
         var constraints = MakeConstraints(["Status"]);
         var ctx = BuildContext(DynamoAutomaticIndexSelectionMode.On, candidates, constraints);
@@ -457,12 +457,10 @@ public class DynamoAutoIndexSelectionAnalyzerTests
         {
             MakeDescriptor("CustomerId", indexName: null),
             MakeDescriptor("Status", "CreatedAt", "ByStatus"),
-            MakeDescriptor("Region", "CreatedAt", "ByRegion"),
+            MakeDescriptor("Region", "CreatedAt", "ByRegion")
         };
         // Both GSI PKs present, but only ByStatus has a SK condition.
-        var constraints = MakeConstraints(
-            equalityPks: ["Status", "Region"],
-            skConditions: ["CreatedAt"]);
+        var constraints = MakeConstraints(["Status", "Region"], skConditions: ["CreatedAt"]);
         // ByStatus SK = "CreatedAt" → score 1; ByRegion SK = "CreatedAt" → also score 1 ... tie?
         // Wait — both have the same SK attr "CreatedAt" and both would benefit. Let me reconsider.
         // Actually both descriptors have the same skAttr "CreatedAt", so both get +1.
@@ -472,10 +470,10 @@ public class DynamoAutoIndexSelectionAnalyzerTests
         {
             MakeDescriptor("CustomerId", indexName: null),
             MakeDescriptor("Status", "CreatedAt", "ByStatus"),
-            MakeDescriptor("Region", "Priority", "ByRegion"),
+            MakeDescriptor("Region", "Priority", "ByRegion")
         };
         var constraintsSkTiebreak = MakeConstraints(
-            equalityPks: ["Status", "Region"],
+            ["Status", "Region"],
             skConditions: ["CreatedAt"]);
         var ctx = BuildContext(
             DynamoAutomaticIndexSelectionMode.On,
@@ -496,11 +494,9 @@ public class DynamoAutoIndexSelectionAnalyzerTests
         {
             MakeDescriptor("CustomerId", indexName: null),
             MakeDescriptor("Status", "CreatedAt", "ByStatus"),
-            MakeDescriptor("Region", "Priority", "ByRegion"),
+            MakeDescriptor("Region", "Priority", "ByRegion")
         };
-        var constraints = MakeConstraints(
-            equalityPks: ["Status", "Region"],
-            orderings: ["CreatedAt"]);
+        var constraints = MakeConstraints(["Status", "Region"], orderings: ["CreatedAt"]);
         var ctx = BuildContext(DynamoAutomaticIndexSelectionMode.On, candidates, constraints);
 
         var decision = Analyzer.Analyze(ctx);
@@ -519,10 +515,10 @@ public class DynamoAutoIndexSelectionAnalyzerTests
         {
             MakeDescriptor("CustomerId", indexName: null),
             MakeDescriptor("Status", "CreatedAt", "ByStatus"),
-            MakeDescriptor("Region", "Priority", "ByRegion"),
+            MakeDescriptor("Region", "Priority", "ByRegion")
         };
         var constraints = MakeConstraints(
-            equalityPks: ["Status", "Region"],
+            ["Status", "Region"],
             skConditions: ["CreatedAt", "Priority"],
             orderings: ["CreatedAt"]);
         var ctx = BuildContext(DynamoAutomaticIndexSelectionMode.On, candidates, constraints);
@@ -539,9 +535,9 @@ public class DynamoAutoIndexSelectionAnalyzerTests
         var candidates = new List<DynamoIndexDescriptor>
         {
             MakeDescriptor("CustomerId", indexName: null),
-            MakeDescriptor("Status", "CreatedAt", "ByStatus"),
+            MakeDescriptor("Status", "CreatedAt", "ByStatus")
         };
-        var constraints = MakeConstraints(equalityPks: ["Status"], hasUnsafeOr: true);
+        var constraints = MakeConstraints(["Status"], hasUnsafeOr: true);
         var ctx = BuildContext(DynamoAutomaticIndexSelectionMode.On, candidates, constraints);
 
         var decision = Analyzer.Analyze(ctx);
@@ -563,9 +559,9 @@ public class DynamoAutoIndexSelectionAnalyzerTests
                 "Status",
                 "CreatedAt",
                 "ByStatus",
-                DynamoSecondaryIndexProjectionType.KeysOnly),
+                DynamoSecondaryIndexProjectionType.KeysOnly)
         };
-        var constraints = MakeConstraints(equalityPks: ["Status"]);
+        var constraints = MakeConstraints(["Status"]);
         var ctx = BuildContext(DynamoAutomaticIndexSelectionMode.On, candidates, constraints);
 
         var decision = Analyzer.Analyze(ctx);
@@ -584,7 +580,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
         var candidates = new List<DynamoIndexDescriptor>
         {
             MakeDescriptor("CustomerId", indexName: null),
-            MakeDescriptor("Status", "CreatedAt", "ByStatus"),
+            MakeDescriptor("Status", "CreatedAt", "ByStatus")
         };
         // IN constraint on Status PK satisfies Gate 1.
         var constraints = MakeConstraints(inPks: ["Status"]);
@@ -602,7 +598,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
         var candidates = new List<DynamoIndexDescriptor>
         {
             MakeDescriptor("CustomerId", indexName: null),
-            MakeDescriptor("Status", "CreatedAt", "ByStatus"),
+            MakeDescriptor("Status", "CreatedAt", "ByStatus")
         };
         var ctx = BuildContext(DynamoAutomaticIndexSelectionMode.On, candidates, null);
 
@@ -619,7 +615,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
         var candidates = new List<DynamoIndexDescriptor>
         {
             MakeDescriptor("CustomerId", indexName: null),
-            MakeDescriptor("Status", "CreatedAt", "ByStatus"),
+            MakeDescriptor("Status", "CreatedAt", "ByStatus")
         };
         var ctx = BuildContext(DynamoAutomaticIndexSelectionMode.On, candidates, MakeConstraints());
 
@@ -636,9 +632,9 @@ public class DynamoAutoIndexSelectionAnalyzerTests
         var candidates = new List<DynamoIndexDescriptor>
         {
             MakeDescriptor("Status", indexName: null), // base table (IndexName == null)
-            MakeDescriptor("Status", "CreatedAt", "ByStatus"),
+            MakeDescriptor("Status", "CreatedAt", "ByStatus")
         };
-        var constraints = MakeConstraints(equalityPks: ["Status"]);
+        var constraints = MakeConstraints(["Status"]);
         var ctx = BuildContext(DynamoAutomaticIndexSelectionMode.On, candidates, constraints);
 
         var decision = Analyzer.Analyze(ctx);
@@ -655,16 +651,16 @@ public class DynamoAutoIndexSelectionAnalyzerTests
         // equality, the LSI can be used as a key-condition query source.
         var candidates = new List<DynamoIndexDescriptor>
         {
-            MakeDescriptor("CustomerId", "OrderId", indexName: null),
+            MakeDescriptor("CustomerId", "OrderId", null),
             new(
-                IndexName: "ByPriority",
-                Kind: DynamoIndexSourceKind.LocalSecondaryIndex,
-                ModelIndex: null,
-                PartitionKeyProperty: MakeProp("CustomerId"),
-                SortKeyProperty: MakeProp("Priority"),
-                ProjectionType: DynamoSecondaryIndexProjectionType.All),
+                "ByPriority",
+                DynamoIndexSourceKind.LocalSecondaryIndex,
+                null,
+                MakeProp("CustomerId"),
+                MakeProp("Priority"),
+                DynamoSecondaryIndexProjectionType.All)
         };
-        var constraints = MakeConstraints(equalityPks: ["CustomerId"]);
+        var constraints = MakeConstraints(["CustomerId"]);
         var ctx = BuildContext(DynamoAutomaticIndexSelectionMode.On, candidates, constraints);
 
         var decision = Analyzer.Analyze(ctx);
@@ -681,14 +677,14 @@ public class DynamoAutoIndexSelectionAnalyzerTests
         var candidates = new List<DynamoIndexDescriptor>
         {
             MakeDescriptor("CustomerId", indexName: null),
-            MakeDescriptor("Status", "CreatedAt", "ByStatus"),
+            MakeDescriptor("Status", "CreatedAt", "ByStatus")
         };
         var ctx = BuildContext(
             DynamoAutomaticIndexSelectionMode.Off,
             candidates,
             null,
-            explicitHint: "ByStatus",
-            tableName: "Orders");
+            "ByStatus",
+            "Orders");
 
         var decision = Analyzer.Analyze(ctx);
 
@@ -704,11 +700,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
     {
         // Design-time path: no candidates available, validation is skipped and no diagnostic
         // is emitted because there is no runtime model context.
-        var ctx = BuildContext(
-            DynamoAutomaticIndexSelectionMode.Off,
-            [],
-            null,
-            explicitHint: "ByStatus");
+        var ctx = BuildContext(DynamoAutomaticIndexSelectionMode.Off, [], null, "ByStatus");
 
         var decision = Analyzer.Analyze(ctx);
 
@@ -725,10 +717,10 @@ public class DynamoAutoIndexSelectionAnalyzerTests
         var candidates = new List<DynamoIndexDescriptor>
         {
             MakeDescriptor("CustomerId", indexName: null),
-            MakeDescriptor("Status", "CreatedAt", "ByStatus"),
+            MakeDescriptor("Status", "CreatedAt", "ByStatus")
         };
         // Constraint is on Region, not Status — the query did not target ByStatus.
-        var constraints = MakeConstraints(equalityPks: ["Region"]);
+        var constraints = MakeConstraints(["Region"]);
         var ctx = BuildContext(DynamoAutomaticIndexSelectionMode.On, candidates, constraints);
 
         var decision = Analyzer.Analyze(ctx);
@@ -747,10 +739,10 @@ public class DynamoAutoIndexSelectionAnalyzerTests
                 "Status",
                 "CreatedAt",
                 "ByStatus",
-                DynamoSecondaryIndexProjectionType.KeysOnly),
+                DynamoSecondaryIndexProjectionType.KeysOnly)
         };
         // PK is covered but Gate 3 (projection) fails.
-        var constraints = MakeConstraints(equalityPks: ["Status"]);
+        var constraints = MakeConstraints(["Status"]);
         var ctx = BuildContext(DynamoAutomaticIndexSelectionMode.On, candidates, constraints);
 
         var decision = Analyzer.Analyze(ctx);
@@ -766,10 +758,10 @@ public class DynamoAutoIndexSelectionAnalyzerTests
         var candidates = new List<DynamoIndexDescriptor>
         {
             MakeDescriptor("CustomerId", indexName: null),
-            MakeDescriptor("Status", "CreatedAt", "ByStatus"),
+            MakeDescriptor("Status", "CreatedAt", "ByStatus")
         };
         // PK covered but Gate 2 (unsafe OR) fails.
-        var constraints = MakeConstraints(equalityPks: ["Status"], hasUnsafeOr: true);
+        var constraints = MakeConstraints(["Status"], hasUnsafeOr: true);
         var ctx = BuildContext(DynamoAutomaticIndexSelectionMode.On, candidates, constraints);
 
         var decision = Analyzer.Analyze(ctx);
@@ -790,9 +782,9 @@ public class DynamoAutoIndexSelectionAnalyzerTests
                 "Status",
                 "CreatedAt",
                 "ByStatus",
-                DynamoSecondaryIndexProjectionType.KeysOnly),
+                DynamoSecondaryIndexProjectionType.KeysOnly)
         };
-        var constraints = MakeConstraints(equalityPks: ["Status"]);
+        var constraints = MakeConstraints(["Status"]);
         var ctx = BuildContext(DynamoAutomaticIndexSelectionMode.On, candidates, constraints);
 
         var decision = Analyzer.Analyze(ctx);
@@ -813,9 +805,9 @@ public class DynamoAutoIndexSelectionAnalyzerTests
         {
             MakeDescriptor("CustomerId", indexName: null),
             MakeDescriptor("Status", "CreatedAt", "ByStatus"),
-            MakeDescriptor("Region", "CreatedAt", "ByRegion"),
+            MakeDescriptor("Region", "CreatedAt", "ByRegion")
         };
-        var constraints = MakeConstraints(equalityPks: ["Status"]);
+        var constraints = MakeConstraints(["Status"]);
         var ctx = BuildContext(DynamoAutomaticIndexSelectionMode.On, candidates, constraints);
 
         var decision = Analyzer.Analyze(ctx);
@@ -835,9 +827,9 @@ public class DynamoAutoIndexSelectionAnalyzerTests
         var candidates = new List<DynamoIndexDescriptor>
         {
             MakeDescriptor("CustomerId", indexName: null),
-            MakeDescriptor("Status", "CreatedAt", "ByStatus"),
+            MakeDescriptor("Status", "CreatedAt", "ByStatus")
         };
-        var constraints = MakeConstraints(equalityPks: ["Status"]);
+        var constraints = MakeConstraints(["Status"]);
         var ctx = BuildContext(
             DynamoAutomaticIndexSelectionMode.On,
             candidates,
@@ -856,9 +848,9 @@ public class DynamoAutoIndexSelectionAnalyzerTests
         var candidates = new List<DynamoIndexDescriptor>
         {
             MakeDescriptor("CustomerId", indexName: null),
-            MakeDescriptor("Status", "CreatedAt", "ByStatus"),
+            MakeDescriptor("Status", "CreatedAt", "ByStatus")
         };
-        var constraints = MakeConstraints(equalityPks: ["Status"]);
+        var constraints = MakeConstraints(["Status"]);
         var ctx = BuildContext(
             DynamoAutomaticIndexSelectionMode.On,
             candidates,
@@ -883,7 +875,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
         // automatic selection is off.
         var candidates = new List<DynamoIndexDescriptor>
         {
-            MakeDescriptor("CustomerId", indexName: null),
+            MakeDescriptor("CustomerId", indexName: null)
         };
         var ctx = BuildContext(
             DynamoAutomaticIndexSelectionMode.Off,
@@ -905,13 +897,13 @@ public class DynamoAutoIndexSelectionAnalyzerTests
         var candidates = new List<DynamoIndexDescriptor>
         {
             MakeDescriptor("CustomerId", indexName: null),
-            MakeDescriptor("Status", "CreatedAt", "ByStatus"),
+            MakeDescriptor("Status", "CreatedAt", "ByStatus")
         };
         var ctx = BuildContext(
             DynamoAutomaticIndexSelectionMode.Off,
             candidates,
             null,
-            explicitHint: "ByStatus",
+            "ByStatus",
             indexSelectionDisabled: true);
 
         var act = () => Analyzer.Analyze(ctx);

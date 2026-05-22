@@ -8,8 +8,8 @@ namespace EntityFrameworkCore.DynamoDb.SpecificationTests;
 public abstract class CompositeKeyEndToEndDynamoTest
     : CompositeKeyEndToEndTestBase<CompositeKeyEndToEndDynamoTest.CompositeKeyEndToEndDynamoFixture>
 {
-    protected CompositeKeyEndToEndDynamoTest(CompositeKeyEndToEndDynamoFixture fixture)
-        : base(fixture)
+    protected CompositeKeyEndToEndDynamoTest(CompositeKeyEndToEndDynamoFixture fixture) :
+        base(fixture)
         => fixture.ClearSql();
 
     [ConditionalFact]
@@ -32,9 +32,15 @@ public abstract class CompositeKeyEndToEndDynamoTest
         int[] ids;
         await using (var context = CreateContext())
         {
-            var pony1 = context.EarthPonies.Add(new EarthPony { Id1 = 1, Id2 = 7, Name = "Apple Jack 1" }).Entity;
-            var pony2 = context.EarthPonies.Add(new EarthPony { Id1 = 2, Id2 = 7, Name = "Apple Jack 2" }).Entity;
-            var pony3 = context.EarthPonies.Add(new EarthPony { Id1 = 3, Id2 = 7, Name = "Apple Jack 3" }).Entity;
+            var pony1 =
+                context.EarthPonies.Add(new EarthPony { Id1 = 1, Id2 = 7, Name = "Apple Jack 1" })
+                    .Entity;
+            var pony2 =
+                context.EarthPonies.Add(new EarthPony { Id1 = 2, Id2 = 7, Name = "Apple Jack 2" })
+                    .Entity;
+            var pony3 =
+                context.EarthPonies.Add(new EarthPony { Id1 = 3, Id2 = 7, Name = "Apple Jack 3" })
+                    .Entity;
 
             await context.SaveChangesAsync();
             ids = [pony1.Id1, pony2.Id1, pony3.Id1];
@@ -81,8 +87,10 @@ public abstract class CompositeKeyEndToEndDynamoTest
             => DynamoSpecificationFixtureExtensions.ShouldLogDynamoSql(logCategory);
 
         public override DbContextOptionsBuilder AddOptions(DbContextOptionsBuilder builder)
-            => base.AddOptions(builder)
-                .UseDynamo(options => options.DynamoDbClient(DynamoTestStoreFactory.Instance.Client));
+            => base
+                .AddOptions(builder)
+                .UseDynamo(options
+                    => options.DynamoDbClient(DynamoTestStoreFactory.Instance.Client));
 
         protected override async Task CleanAsync(DbContext context)
         {
@@ -100,7 +108,8 @@ public abstract class CompositeKeyEndToEndDynamoTest
             modelBuilder.Ignore<Flyer>();
             modelBuilder.Ignore<Pegasus>();
             modelBuilder.Ignore<Unicorn>();
-            modelBuilder.Entity<EarthPony>()
+            modelBuilder
+                .Entity<EarthPony>()
                 .ToTable("EarthPonies")
                 .HasPartitionKey(e => e.Id1)
                 .HasSortKey(e => e.Id2);
@@ -112,8 +121,7 @@ public abstract class CompositeKeyEndToEndDynamoTest
     {
         public CompositeKeyEndToEndDynamoTestDefault(
             CompositeKeyEndToEndDynamoFixture fixture,
-            DynamoSpecificationContainerFixture containerFixture)
-            : base(fixture)
+            DynamoSpecificationContainerFixture containerFixture) : base(fixture)
             => _ = containerFixture;
     }
 }

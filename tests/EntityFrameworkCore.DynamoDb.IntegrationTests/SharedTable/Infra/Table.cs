@@ -19,19 +19,19 @@ public static class SharedItemTable
                 [
                     new AttributeDefinition
                     {
-                        AttributeName = "pk", AttributeType = ScalarAttributeType.S,
+                        AttributeName = "pk", AttributeType = ScalarAttributeType.S
                     },
                     new AttributeDefinition
                     {
-                        AttributeName = "sk", AttributeType = ScalarAttributeType.S,
-                    },
+                        AttributeName = "sk", AttributeType = ScalarAttributeType.S
+                    }
                 ],
                 KeySchema =
                 [
                     new KeySchemaElement { AttributeName = "pk", KeyType = KeyType.HASH },
-                    new KeySchemaElement { AttributeName = "sk", KeyType = KeyType.RANGE },
+                    new KeySchemaElement { AttributeName = "sk", KeyType = KeyType.RANGE }
                 ],
-                BillingMode = BillingMode.PAY_PER_REQUEST,
+                BillingMode = BillingMode.PAY_PER_REQUEST
             },
             cancellationToken);
 

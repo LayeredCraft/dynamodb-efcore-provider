@@ -17,14 +17,11 @@ public sealed class DynamoQueryContext(
     public IDynamoClientWrapper Client { get; } = client;
 
     /// <summary>Provides functionality for this member.</summary>
-    public IDiagnosticsLogger<DbLoggerCategory.Database.Command> CommandDiagnosticsLogger
-    {
-        get;
-    } = commandLogger;
+    public IDiagnosticsLogger<DbLoggerCategory.Database.Command> CommandDiagnosticsLogger { get; } =
+        commandLogger;
 
     /// <summary>Provides functionality for this member.</summary>
-    public IDiagnosticsLogger<DbLoggerCategory.Query> QueryDiagnosticsLogger { get; } =
-        queryLogger;
+    public IDiagnosticsLogger<DbLoggerCategory.Query> QueryDiagnosticsLogger { get; } = queryLogger;
 
     /// <summary>
     ///     The <see cref="ExecuteStatementResponse" /> from the most recently fetched DynamoDB page.

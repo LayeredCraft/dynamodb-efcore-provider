@@ -204,13 +204,13 @@ public class ScanQueryGuardTests
                 Items = [CreateItem("S#1")],
                 NextToken = "next",
                 ResponseMetadata =
-                    new Amazon.Runtime.ResponseMetadata { RequestId = "request-1" },
+                    new Amazon.Runtime.ResponseMetadata { RequestId = "request-1" }
             },
             new ExecuteStatementResponse
             {
                 Items = [CreateItem("S#2")],
                 ResponseMetadata =
-                    new Amazon.Runtime.ResponseMetadata { RequestId = "request-2" },
+                    new Amazon.Runtime.ResponseMetadata { RequestId = "request-2" }
             });
         await using var context = ScanGuardDbContext.Create(client);
 
@@ -238,10 +238,7 @@ public class ScanQueryGuardTests
         client
             .ExecuteStatementAsync(Arg.Any<ExecuteStatementRequest>(), Arg.Any<CancellationToken>())
             .Returns<Task<ExecuteStatementResponse>>(_
-                => throw new Amazon.DynamoDBv2.Model.InternalServerErrorException("boom")
-                {
-                    RequestId = "failed-request"
-                });
+                => throw new InternalServerErrorException("boom") { RequestId = "failed-request" });
         await using var context = ScanGuardDbContext.Create(client);
 
         var act = async ()
@@ -250,14 +247,13 @@ public class ScanQueryGuardTests
                 .Where(x => x.Pk == "P#1")
                 .ToListAsync(TestContext.Current.CancellationToken);
 
-        await act.Should().ThrowAsync<Amazon.DynamoDBv2.Model.InternalServerErrorException>();
+        await act.Should().ThrowAsync<InternalServerErrorException>();
         observer
             .Events
             .Any(e => e.Key == DynamoEventId.ExecuteStatementFailed.Name
                 && e.Value is DynamoExecuteStatementFailedEventData
                 {
-                    RequestId: "failed-request",
-                    Exception: Amazon.DynamoDBv2.Model.InternalServerErrorException
+                    RequestId: "failed-request", Exception: InternalServerErrorException
                 })
             .Should()
             .BeTrue();
@@ -378,8 +374,8 @@ public class ScanQueryGuardTests
                     Items = [],
                     NextToken = null,
                     ResponseMetadata =
-                        new Amazon.Runtime.ResponseMetadata { RequestId = "request-1" },
-                },
+                        new Amazon.Runtime.ResponseMetadata { RequestId = "request-1" }
+                }
             ]
             : responses;
 
@@ -396,7 +392,7 @@ public class ScanQueryGuardTests
             ["pk"] = new AttributeValue("P#1"),
             ["sk"] = new AttributeValue(sk),
             ["status"] = new AttributeValue("OPEN"),
-            ["total"] = new AttributeValue { N = "1" },
+            ["total"] = new AttributeValue { N = "1" }
         };
 
     private sealed class DynamoDiagnosticObserver

@@ -74,7 +74,7 @@ internal static class DynamoWireValueConversion
                 .ToUInt64(value, CultureInfo.InvariantCulture)
                 .ToString(CultureInfo.InvariantCulture),
             _ => throw new InvalidOperationException(
-                $"Enum type '{value.GetType().Name}' has an unsupported underlying type."),
+                $"Enum type '{value.GetType().Name}' has an unsupported underlying type.")
         };
 
     /// <summary>Formats numeric values for DynamoDB wire output using invariant culture.</summary>
@@ -115,7 +115,7 @@ internal static class DynamoWireValueConversion
     ///     <see cref="AttributeValue.BS" /> and must remain open until request serialization. The
     ///     <see cref="MemoryStream" /> wraps caller-owned memory and does not hold unmanaged resources.
     /// </remarks>
-    internal static MemoryStream CreateBinaryStream(byte[] value) => new(value, writable: false);
+    internal static MemoryStream CreateBinaryStream(byte[] value) => new(value, false);
 
     /// <summary>Converts a provider CLR value to a DynamoDB <see cref="AttributeValue" />.</summary>
     /// <remarks>
@@ -151,7 +151,7 @@ internal static class DynamoWireValueConversion
             decimal dec => new AttributeValue { N = FormatNumber(dec) },
             byte[] bytes => CreateBinaryAttributeValue(bytes),
             _ => throw new NotSupportedException(
-                $"Type {value.GetType()} is not supported for DynamoDB wire conversion"),
+                $"Type {value.GetType()} is not supported for DynamoDB wire conversion")
         };
     }
 
@@ -186,7 +186,7 @@ internal static class DynamoWireValueConversion
             byte[] => throw new NotSupportedException(
                 "Inline PartiQL constants for binary values are not supported. Use parameters instead."),
             _ => throw new NotSupportedException(
-                $"Type {value.GetType()} is not supported for SQL constant generation"),
+                $"Type {value.GetType()} is not supported for SQL constant generation")
         };
     }
 }

@@ -21,7 +21,7 @@ public static class SaveChangesTableItems
             ReferenceIds =
             [
                 Guid.Parse("11111111-2222-3333-4444-555555555555"),
-                Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"),
+                Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
             ],
             Notes = ["seeded", "newsletter"],
             Profile =
@@ -35,7 +35,7 @@ public static class SaveChangesTableItems
                             Line1 = "10 Main St",
                             City = "Seattle",
                             Country = "US",
-                            PostalCode = "98101",
+                            PostalCode = "98101"
                         },
                     BillingAddress =
                         new Address
@@ -43,8 +43,8 @@ public static class SaveChangesTableItems
                             Line1 = "11 Billing Ave",
                             City = "Seattle",
                             Country = "US",
-                            PostalCode = "98102",
-                        },
+                            PostalCode = "98102"
+                        }
                 },
             Contacts =
             [
@@ -55,7 +55,7 @@ public static class SaveChangesTableItems
                     Verified = true,
                     VerifiedAt =
                         new DateTimeOffset(2026, 02, 02, 10, 30, 00, TimeSpan.Zero),
-                    Address = null,
+                    Address = null
                 },
                 new CustomerContact
                 {
@@ -69,10 +69,10 @@ public static class SaveChangesTableItems
                             Line1 = "Mobile",
                             City = "Seattle",
                             Country = "US",
-                            PostalCode = null,
-                        },
-                },
-            ],
+                            PostalCode = null
+                        }
+                }
+            ]
         },
         new()
         {
@@ -88,8 +88,8 @@ public static class SaveChangesTableItems
             ReferenceIds = [],
             Notes = [],
             Profile = null,
-            Contacts = [],
-        },
+            Contacts = []
+        }
     ];
 
     public static readonly List<OrderItem> Orders =
@@ -117,7 +117,7 @@ public static class SaveChangesTableItems
                             Line1 = "10 Main St",
                             City = "Seattle",
                             Country = "US",
-                            PostalCode = "98101",
+                            PostalCode = "98101"
                         },
                     DeliveryWindow =
                         new DeliveryWindow
@@ -138,8 +138,8 @@ public static class SaveChangesTableItems
                                     17,
                                     00,
                                     00,
-                                    TimeSpan.Zero),
-                        },
+                                    TimeSpan.Zero)
+                        }
                 },
             Billing =
                 new BillingDetails
@@ -151,8 +151,8 @@ public static class SaveChangesTableItems
                             Line1 = "11 Billing Ave",
                             City = "Seattle",
                             Country = "US",
-                            PostalCode = "98102",
-                        },
+                            PostalCode = "98102"
+                        }
                 },
             Lines =
             [
@@ -162,7 +162,7 @@ public static class SaveChangesTableItems
                     Quantity = 2,
                     UnitPrice = 25.00m,
                     Metadata =
-                        new Dictionary<string, string> { ["warehouse"] = "A1" },
+                        new Dictionary<string, string> { ["warehouse"] = "A1" }
                 },
                 new OrderLine
                 {
@@ -170,9 +170,9 @@ public static class SaveChangesTableItems
                     Quantity = 1,
                     UnitPrice = 80.00m,
                     Metadata =
-                        new Dictionary<string, string> { ["warehouse"] = "B4" },
-                },
-            ],
+                        new Dictionary<string, string> { ["warehouse"] = "B4" }
+                }
+            ]
         },
         new()
         {
@@ -188,8 +188,8 @@ public static class SaveChangesTableItems
             RiskFlags = [],
             Shipping = null,
             Billing = null,
-            Lines = [],
-        },
+            Lines = []
+        }
     ];
 
     public static readonly List<ProductItem> Products =
@@ -207,10 +207,7 @@ public static class SaveChangesTableItems
             SearchTerms = ["widget", "starter"],
             Metadata = new Dictionary<string, string> { ["brand"] = "Acme", ["region"] = "us" },
             Dimensions =
-                new ProductDimensions
-                {
-                    Height = 10.5m, Width = 3.2m, Depth = 1.1m, Weight = 0.9m,
-                },
+                new ProductDimensions { Height = 10.5m, Width = 3.2m, Depth = 1.1m, Weight = 0.9m },
             Variants =
             [
                 new ProductVariant
@@ -218,16 +215,16 @@ public static class SaveChangesTableItems
                     Code = "WIDGET-BLACK",
                     Color = "black",
                     Backordered = false,
-                    AlternateCodes = ["WBK-1", "WBK-2"],
+                    AlternateCodes = ["WBK-1", "WBK-2"]
                 },
                 new ProductVariant
                 {
                     Code = "WIDGET-RED",
                     Color = "red",
                     Backordered = true,
-                    AlternateCodes = [],
-                },
-            ],
+                    AlternateCodes = []
+                }
+            ]
         },
         new()
         {
@@ -242,8 +239,8 @@ public static class SaveChangesTableItems
             SearchTerms = [],
             Metadata = [],
             Dimensions = null,
-            Variants = [],
-        },
+            Variants = []
+        }
     ];
 
     public static readonly List<SessionItem> Sessions =
@@ -261,7 +258,7 @@ public static class SaveChangesTableItems
             Attributes =
                 new Dictionary<string, string>
                 {
-                    ["ip"] = "203.0.113.42", ["deviceId"] = "dev-1",
+                    ["ip"] = "203.0.113.42", ["deviceId"] = "dev-1"
                 },
             Flags = ["mfa"],
             Device = new SessionDevice
@@ -274,9 +271,9 @@ public static class SaveChangesTableItems
                         Line1 = "Roaming",
                         City = "Portland",
                         Country = "US",
-                        PostalCode = null,
-                    },
-            },
+                        PostalCode = null
+                    }
+            }
         },
         new()
         {
@@ -290,8 +287,8 @@ public static class SaveChangesTableItems
             Scopes = ["profile:read"],
             Attributes = [],
             Flags = [],
-            Device = null,
-        },
+            Device = null
+        }
     ];
 
     public static readonly IReadOnlyList<Dictionary<string, AttributeValue>> AttributeValues =

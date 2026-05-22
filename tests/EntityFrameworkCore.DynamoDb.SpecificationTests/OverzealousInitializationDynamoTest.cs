@@ -7,17 +7,18 @@ namespace EntityFrameworkCore.DynamoDb.SpecificationTests;
 
 [Collection(DynamoSpecificationCollection.Name)]
 public sealed class OverzealousInitializationDynamoTest
-    : OverzealousInitializationTestBase<OverzealousInitializationDynamoTest.OverzealousInitializationDynamoFixture>
+    : OverzealousInitializationTestBase<
+        OverzealousInitializationDynamoTest.OverzealousInitializationDynamoFixture>
 {
     public OverzealousInitializationDynamoTest(
         OverzealousInitializationDynamoFixture fixture,
-        DynamoSpecificationContainerFixture containerFixture)
-        : base(fixture)
+        DynamoSpecificationContainerFixture containerFixture) : base(fixture)
         => _ = containerFixture;
 
     [ConditionalFact]
     public void Check_all_tests_overridden()
-        => DynamoTestHelpers.AssertAllTestMethodsOverridden(typeof(OverzealousInitializationDynamoTest));
+        => DynamoTestHelpers.AssertAllTestMethodsOverridden(
+            typeof(OverzealousInitializationDynamoTest));
 
     [ConditionalFact(Skip = SkipReason.NavigationPropertiesNotSupported)]
     public override void Fixup_ignores_eagerly_initialized_reference_navs() { }
@@ -29,7 +30,8 @@ public sealed class OverzealousInitializationDynamoTest
         public override DbContextOptionsBuilder AddOptions(DbContextOptionsBuilder builder)
             => base
                 .AddOptions(builder)
-                .UseDynamo(options => options.DynamoDbClient(DynamoTestStoreFactory.Instance.Client));
+                .UseDynamo(options
+                    => options.DynamoDbClient(DynamoTestStoreFactory.Instance.Client));
 
         protected override void OnModelCreating(ModelBuilder modelBuilder, DbContext context)
         {

@@ -212,7 +212,7 @@ public class ComplexTypesTrackingDynamoTest
                 // Set the complex property with default values
                 entity.ComplexProp = new MultiPropComplex
                 {
-                    IntValue = 0, BoolValue = false, DateValue = default,
+                    IntValue = 0, BoolValue = false, DateValue = default
                 };
 
                 await context.SaveChangesAsync().ConfigureAwait(false);
@@ -258,7 +258,7 @@ public class ComplexTypesTrackingDynamoTest
                 // Set the complex property with default values
                 entity.ComplexProp = new MultiPropComplex
                 {
-                    IntValue = 0, BoolValue = false, DateValue = default,
+                    IntValue = 0, BoolValue = false, DateValue = default
                 };
 
                 await context.AddAsync(entity).ConfigureAwait(false);
@@ -819,10 +819,12 @@ public class ComplexTypesTrackingDynamoTest
                     async _ =>
                     {
                         await using (var cleanupContext = CreateContext())
+                        {
                             await Fixture
                                 .TestStore
                                 .CleanAsync(cleanupContext)
                                 .ConfigureAwait(false);
+                        }
 
                         await using (var innerContext = CreateContext())
                         {

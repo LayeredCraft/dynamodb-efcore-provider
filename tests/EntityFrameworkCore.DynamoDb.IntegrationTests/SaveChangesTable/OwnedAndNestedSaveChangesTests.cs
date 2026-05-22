@@ -30,7 +30,7 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
             Email = "own1@example.com",
             IsPreferred = false,
             CreatedAt = new DateTimeOffset(2026, 4, 1, 12, 0, 0, TimeSpan.Zero),
-            Profile = new CustomerProfile { DisplayName = "Before", Nickname = null },
+            Profile = new CustomerProfile { DisplayName = "Before", Nickname = null }
         };
         await SeedAsync(item);
 
@@ -73,7 +73,7 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
             Email = "own2@example.com",
             IsPreferred = false,
             CreatedAt = new DateTimeOffset(2026, 4, 2, 12, 0, 0, TimeSpan.Zero),
-            Profile = new CustomerProfile { DisplayName = "Will be removed", Nickname = null },
+            Profile = new CustomerProfile { DisplayName = "Will be removed", Nickname = null }
         };
         await SeedAsync(item);
 
@@ -112,7 +112,7 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
             Email = "own3@example.com",
             IsPreferred = false,
             CreatedAt = new DateTimeOffset(2026, 4, 3, 12, 0, 0, TimeSpan.Zero),
-            Profile = null,
+            Profile = null
         };
         await SeedAsync(item);
 
@@ -163,9 +163,9 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
                 DisplayName = "Depth Test",
                 PreferredAddress = new Address
                 {
-                    Line1 = "1 Main St", City = "OldCity", Country = "US",
-                },
-            },
+                    Line1 = "1 Main St", City = "OldCity", Country = "US"
+                }
+            }
         };
         await SeedAsync(item);
 
@@ -207,9 +207,9 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
             [
                 new CustomerContact
                 {
-                    Kind = "email", Value = "own5@example.com", Verified = false,
-                },
-            ],
+                    Kind = "email", Value = "own5@example.com", Verified = false
+                }
+            ]
         };
         await SeedAsync(item);
 
@@ -252,9 +252,9 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
             [
                 new CustomerContact
                 {
-                    Kind = "email", Value = "own6@example.com", Verified = true,
-                },
-            ],
+                    Kind = "email", Value = "own6@example.com", Verified = true
+                }
+            ]
         };
         await SeedAsync(item);
 
@@ -297,7 +297,7 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
             Email = "own7@example.com",
             IsPreferred = false,
             CreatedAt = new DateTimeOffset(2026, 4, 7, 12, 0, 0, TimeSpan.Zero),
-            Contacts = [contact1, contact2],
+            Contacts = [contact1, contact2]
         };
         await SeedAsync(item);
 
@@ -346,10 +346,10 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
                     Verified = false,
                     Address = new Address
                     {
-                        Line1 = "1 Old Rd", City = "OldCity", Country = "US",
-                    },
-                },
-            ],
+                        Line1 = "1 Old Rd", City = "OldCity", Country = "US"
+                    }
+                }
+            ]
         };
         await SeedAsync(item);
 
@@ -392,9 +392,9 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
             [
                 new CustomerContact
                 {
-                    Kind = "email", Value = "own9@example.com", Verified = true,
-                },
-            ],
+                    Kind = "email", Value = "own9@example.com", Verified = true
+                }
+            ]
         };
         await SeedAsync(item);
 
@@ -431,7 +431,7 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
             CustomerPk = "CUSTOMER#CUST-1",
             Status = "Placed",
             Total = 50m,
-            AppliedCoupons = ["WELCOME10"],
+            AppliedCoupons = ["WELCOME10"]
         };
         await SeedAsync(item);
 
@@ -471,7 +471,7 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
             CustomerPk = "CUSTOMER#CUST-1",
             Status = "Placed",
             Total = 60m,
-            ChargesByCode = new Dictionary<string, decimal> { ["shipping"] = 9.99m },
+            ChargesByCode = new Dictionary<string, decimal> { ["shipping"] = 9.99m }
         };
         await SeedAsync(item);
 
@@ -512,7 +512,7 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
             Email = "own11@example.com",
             IsPreferred = false,
             CreatedAt = new DateTimeOffset(2026, 4, 11, 12, 0, 0, TimeSpan.Zero),
-            Tags = ["vip"],
+            Tags = ["vip"]
         };
         await SeedAsync(item);
 
@@ -554,7 +554,7 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
             Email = "own12@example.com",
             IsPreferred = false,
             CreatedAt = new DateTimeOffset(2026, 4, 12, 12, 0, 0, TimeSpan.Zero),
-            ReferenceIds = [guid1],
+            ReferenceIds = [guid1]
         };
         await SeedAsync(item);
 
@@ -594,7 +594,7 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
             Email = "own13-before@example.com",
             IsPreferred = false,
             CreatedAt = new DateTimeOffset(2026, 4, 13, 12, 0, 0, TimeSpan.Zero),
-            Profile = new CustomerProfile { DisplayName = "Test", Nickname = "before-nick" },
+            Profile = new CustomerProfile { DisplayName = "Test", Nickname = "before-nick" }
         };
         await SeedAsync(item);
 
@@ -634,7 +634,7 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
             Email = "own14-before@example.com",
             IsPreferred = false,
             CreatedAt = new DateTimeOffset(2026, 4, 14, 12, 0, 0, TimeSpan.Zero),
-            Tags = ["original"],
+            Tags = ["original"]
         };
         await SeedAsync(item);
 
@@ -675,7 +675,7 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
             Name = "Test Product",
             Price = 10m,
             IsActive = true,
-            Dimensions = new ProductDimensions { Height = 5m, Width = 3m, Depth = 1m },
+            Dimensions = new ProductDimensions { Height = 5m, Width = 3m, Depth = 1m }
         };
         await SeedAsync(item);
 
@@ -719,9 +719,9 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
                 Method = "Ground",
                 Address = new Address
                 {
-                    Line1 = "1 Ship St", City = "Portland", Country = "US",
-                },
-            },
+                    Line1 = "1 Ship St", City = "Portland", Country = "US"
+                }
+            }
         };
         await SeedAsync(item);
 
@@ -761,7 +761,7 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
             Email = "own17@example.com",
             IsPreferred = false,
             CreatedAt = new DateTimeOffset(2026, 4, 17, 12, 0, 0, TimeSpan.Zero),
-            Profile = new CustomerProfile { DisplayName = "Before", Nickname = null },
+            Profile = new CustomerProfile { DisplayName = "Before", Nickname = null }
         };
         await SeedAsync(item);
 

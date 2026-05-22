@@ -25,14 +25,14 @@ public static class SnakeCaseItemTable
                 [
                     new AttributeDefinition
                     {
-                        AttributeName = "pk", AttributeType = ScalarAttributeType.S,
-                    },
+                        AttributeName = "pk", AttributeType = ScalarAttributeType.S
+                    }
                 ],
                 KeySchema =
                 [
-                    new KeySchemaElement { AttributeName = "pk", KeyType = KeyType.HASH },
+                    new KeySchemaElement { AttributeName = "pk", KeyType = KeyType.HASH }
                 ],
-                BillingMode = BillingMode.PAY_PER_REQUEST,
+                BillingMode = BillingMode.PAY_PER_REQUEST
             },
             cancellationToken);
 
@@ -43,9 +43,9 @@ public static class SnakeCaseItemTable
                     .SnakeCaseAttributeValues
                     .Select(a => new TransactWriteItem
                     {
-                        Put = new Put { TableName = TableName, Item = a },
+                        Put = new Put { TableName = TableName, Item = a }
                     })
-                    .ToList(),
+                    .ToList()
             },
             cancellationToken);
     }
@@ -73,14 +73,14 @@ public static class KebabCaseItemTable
                 [
                     new AttributeDefinition
                     {
-                        AttributeName = "pk", AttributeType = ScalarAttributeType.S,
-                    },
+                        AttributeName = "pk", AttributeType = ScalarAttributeType.S
+                    }
                 ],
                 KeySchema =
                 [
-                    new KeySchemaElement { AttributeName = "pk", KeyType = KeyType.HASH },
+                    new KeySchemaElement { AttributeName = "pk", KeyType = KeyType.HASH }
                 ],
-                BillingMode = BillingMode.PAY_PER_REQUEST,
+                BillingMode = BillingMode.PAY_PER_REQUEST
             },
             cancellationToken);
 
@@ -91,9 +91,9 @@ public static class KebabCaseItemTable
                     .KebabCaseAttributeValues
                     .Select(a => new TransactWriteItem
                     {
-                        Put = new Put { TableName = TableName, Item = a },
+                        Put = new Put { TableName = TableName, Item = a }
                     })
-                    .ToList(),
+                    .ToList()
             },
             cancellationToken);
     }

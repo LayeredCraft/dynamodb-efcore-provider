@@ -22,7 +22,7 @@ public class AddedEntitiesSaveChangesTests(DynamoContainerFixture fixture)
             Name = "Widget",
             Price = 9.99m,
             IsActive = true,
-            PublishedAt = new DateTimeOffset(2024, 6, 1, 0, 0, 0, TimeSpan.Zero),
+            PublishedAt = new DateTimeOffset(2024, 6, 1, 0, 0, 0, TimeSpan.Zero)
             // Owned types intentionally null/empty — scalar-only for this story
         };
 
@@ -49,7 +49,7 @@ public class AddedEntitiesSaveChangesTests(DynamoContainerFixture fixture)
             Version = 1,
             Email = "test@example.com",
             IsPreferred = false,
-            CreatedAt = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero),
+            CreatedAt = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero)
         };
         var order = new OrderItem
         {
@@ -58,7 +58,7 @@ public class AddedEntitiesSaveChangesTests(DynamoContainerFixture fixture)
             Version = 1,
             CustomerPk = "CUST#disc-test",
             Status = "Pending",
-            Total = 50m,
+            Total = 50m
         };
         var product = new ProductItem
         {
@@ -67,7 +67,7 @@ public class AddedEntitiesSaveChangesTests(DynamoContainerFixture fixture)
             Version = 1,
             Name = "Gadget",
             Price = 19.99m,
-            IsActive = true,
+            IsActive = true
         };
         var session = new SessionItem
         {
@@ -76,7 +76,7 @@ public class AddedEntitiesSaveChangesTests(DynamoContainerFixture fixture)
             Version = 1,
             CustomerPk = "CUST#disc-test",
             ExpiresAt = new DateTimeOffset(2025, 1, 1, 0, 0, 0, TimeSpan.Zero),
-            Revoked = false,
+            Revoked = false
         };
 
         Db.Customers.Add(customer);
@@ -107,7 +107,7 @@ public class AddedEntitiesSaveChangesTests(DynamoContainerFixture fixture)
             Name = "Sparse Product",
             Price = 0m,
             IsActive = false,
-            PublishedAt = null,
+            PublishedAt = null
         };
 
         Db.Products.Add(product);
@@ -129,12 +129,9 @@ public class AddedEntitiesSaveChangesTests(DynamoContainerFixture fixture)
             ExpiresAt = new DateTimeOffset(2025, 6, 1, 0, 0, 0, TimeSpan.Zero),
             Scopes = ["read", "write"],
             Attributes =
-                new Dictionary<string, string>
-                {
-                    ["device"] = "ios", ["region"] = "eu-west-1",
-                },
+                new Dictionary<string, string> { ["device"] = "ios", ["region"] = "eu-west-1" },
             Flags = ["trusted", "mfa"],
-            Revoked = false,
+            Revoked = false
         };
 
         Db.Sessions.Add(session);
@@ -160,7 +157,7 @@ public class AddedEntitiesSaveChangesTests(DynamoContainerFixture fixture)
             Version = 1,
             CustomerPk = "CUST#1",
             ExpiresAt = new DateTimeOffset(2025, 6, 1, 0, 0, 0, TimeSpan.Zero),
-            Revoked = false,
+            Revoked = false
         };
 
         AssertEntryState(session, EntityState.Detached);
@@ -190,7 +187,7 @@ public class AddedEntitiesSaveChangesTests(DynamoContainerFixture fixture)
                 ["name"] = new() { S = "Existing" },
                 ["version"] = new() { N = "1" },
                 ["price"] = new() { N = "5" },
-                ["isActive"] = new() { BOOL = true },
+                ["isActive"] = new() { BOOL = true }
             },
             CancellationToken);
 
@@ -201,7 +198,7 @@ public class AddedEntitiesSaveChangesTests(DynamoContainerFixture fixture)
             Version = 2,
             Name = "Duplicate",
             Price = 10m,
-            IsActive = false,
+            IsActive = false
         };
 
         Db.Products.Add(duplicate);
@@ -225,7 +222,7 @@ public class AddedEntitiesSaveChangesTests(DynamoContainerFixture fixture)
                     Version = 1,
                     CustomerPk = "CUST#count-test",
                     Status = "Pending",
-                    Total = i * 10m,
+                    Total = i * 10m
                 })
                 .ToList();
 

@@ -17,5 +17,5 @@ internal sealed record DynamoQueryDiagnostic(
 internal enum DynamoQueryDiagnosticLevel
 {
     Information,
-    Warning,
+    Warning
 }

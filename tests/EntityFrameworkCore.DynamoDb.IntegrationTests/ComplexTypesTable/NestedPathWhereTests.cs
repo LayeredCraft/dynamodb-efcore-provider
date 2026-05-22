@@ -105,7 +105,10 @@ public class NestedPathWhereTests(DynamoContainerFixture fixture)
             await Db.Items.Where(x => x.Tags[0] == "featured").ToListAsync(CancellationToken);
 
         var expected =
-            ComplexTypesItems.Items.Where(x => x.Tags.Count > 0 && x.Tags[0] == "featured").ToList();
+            ComplexTypesItems
+                .Items
+                .Where(x => x.Tags.Count > 0 && x.Tags[0] == "featured")
+                .ToList();
 
         results.Should().BeEquivalentTo(expected);
 

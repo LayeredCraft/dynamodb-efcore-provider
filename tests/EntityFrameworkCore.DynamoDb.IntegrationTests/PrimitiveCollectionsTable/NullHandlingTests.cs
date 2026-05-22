@@ -78,7 +78,7 @@ public class NullHandlingTests(DynamoContainerFixture fixture)
         var item = CreateOptionalCollectionsItem("ITEM#OPTIONAL-ARRAY", true, true, true, false);
         item["optionalArray"] = new AttributeValue
         {
-            L = [new AttributeValue { S = "one" }, new AttributeValue { S = "two" }],
+            L = [new AttributeValue { S = "one" }, new AttributeValue { S = "two" }]
         };
 
         await PutItemAsync(item);
@@ -183,7 +183,7 @@ public class NullHandlingTests(DynamoContainerFixture fixture)
             new Dictionary<string, AttributeValue>(PrimitiveCollectionsItems.AttributeValues[1]);
         var item = new Dictionary<string, AttributeValue>(template)
         {
-            ["pk"] = new() { S = "ITEM#MISSING-OPTIONAL" },
+            ["pk"] = new() { S = "ITEM#MISSING-OPTIONAL" }
         };
         item.Remove("optionalTags");
 
@@ -231,8 +231,8 @@ public class NullHandlingTests(DynamoContainerFixture fixture)
                 {
                     M = new Dictionary<string, AttributeValue>
                     {
-                        ["k1"] = new() { N = "1" }, ["k2"] = new() { N = "2" },
-                    },
+                        ["k1"] = new() { N = "1" }, ["k2"] = new() { N = "2" }
+                    }
                 };
 
         return item;
@@ -252,10 +252,7 @@ public class NullHandlingTests(DynamoContainerFixture fixture)
 
     private Task PutItemAsync(Dictionary<string, AttributeValue> item)
         => Client.PutItemAsync(
-            new PutItemRequest
-            {
-                TableName = PrimitiveCollectionsItemTable.TableName, Item = item,
-            },
+            new PutItemRequest { TableName = PrimitiveCollectionsItemTable.TableName, Item = item },
             CancellationToken);
 
     private sealed class OptionalCollectionsContext(

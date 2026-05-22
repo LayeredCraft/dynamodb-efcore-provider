@@ -38,7 +38,7 @@ public class BinaryDynamoValueReaderWriterTests
         var bytes = new byte[] { 4, 5, 6 };
         var av = new AttributeValue { B = new MemoryStream(bytes, false) };
 
-        var result = _sut.Read(av, "payload", required: true, property: null);
+        var result = _sut.Read(av, "payload", true, null);
 
         result.Should().Equal(bytes);
     }
@@ -48,7 +48,7 @@ public class BinaryDynamoValueReaderWriterTests
     {
         var av = new AttributeValue { S = "not binary" };
 
-        var act = () => _sut.Read(av, "payload", required: true, property: null);
+        var act = () => _sut.Read(av, "payload", true, null);
 
         act.Should().Throw<InvalidOperationException>().WithMessage("*'payload'*");
     }
@@ -58,7 +58,7 @@ public class BinaryDynamoValueReaderWriterTests
     {
         var av = new AttributeValue { S = "not binary" };
 
-        var result = _sut.Read(av, "payload", required: false, property: null);
+        var result = _sut.Read(av, "payload", false, null);
 
         result.Should().BeNull();
     }
@@ -82,7 +82,5 @@ public class BinaryDynamoValueReaderWriterTests
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void WireMemberName_IsBinaryMember()
-    {
-        _sut.WireMemberName.Should().Be(nameof(AttributeValue.B));
-    }
+        => _sut.WireMemberName.Should().Be(nameof(AttributeValue.B));
 }

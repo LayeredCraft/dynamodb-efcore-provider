@@ -23,7 +23,7 @@ public static class PrimitiveCollectionsItems
             [3],
             new Dictionary<string, string>
             {
-                ["tier"] = "silver", ["region"] = "us", ["flag_a"] = "1",
+                ["tier"] = "silver", ["region"] = "us", ["flag_a"] = "1"
             },
             ["opt1", "opt2"]),
         new(
@@ -33,7 +33,7 @@ public static class PrimitiveCollectionsItems
             ["common"],
             [2],
             new Dictionary<string, string>(),
-            ["only"]),
+            ["only"])
     ];
 
     public static readonly IReadOnlyList<Dictionary<string, AttributeValue>> AttributeValues =

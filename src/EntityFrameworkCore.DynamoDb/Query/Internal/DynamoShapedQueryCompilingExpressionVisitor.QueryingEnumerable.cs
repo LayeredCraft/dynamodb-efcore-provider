@@ -197,7 +197,7 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
                             // Maps directly to ExecuteStatementRequest.Limit (evaluation budget).
                             Limit = _limit,
                             NextToken = _seedNextToken,
-                            ConsistentRead = _consistentRead,
+                            ConsistentRead = _consistentRead
                         },
                         _singlePageOnly,
                         // Store the raw response on the query context so the shaper can bind it
@@ -383,12 +383,11 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
                             sqlQuery.Parameters.Count > 0 ? sqlQuery.Parameters.ToList() : null,
                         Limit = _limit,
                         NextToken = _seedNextToken,
-                        ConsistentRead = _consistentRead,
+                        ConsistentRead = _consistentRead
                     },
-                    singlePageOnly: true,
+                    true,
                     response => _queryContext.CurrentPageResponse = response,
-                    suppressConsistentReadDefault: IsGlobalSecondaryIndexSource(
-                        _queryingEnumerable._selectExpression));
+                    IsGlobalSecondaryIndexSource(_queryingEnumerable._selectExpression));
 
                 _queryContext.InitializeStateManager(_queryingEnumerable._standAloneStateManager);
 

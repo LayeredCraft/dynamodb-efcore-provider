@@ -47,15 +47,11 @@ public class DynamoTypeMapping : CoreTypeMapping
         ValueComparer? comparer = null,
         ValueComparer? keyComparer = null) : base(
         new CoreTypeMappingParameters(clrType, null, comparer, keyComparer))
-    {
-        ReaderWriter = CreateReaderWriter(Parameters);
-    }
+        => ReaderWriter = CreateReaderWriter(Parameters);
 
     /// <summary>Creates a mapping from a fully-specified EF Core mapping parameter set.</summary>
     protected DynamoTypeMapping(CoreTypeMappingParameters parameters) : base(parameters)
-    {
-        ReaderWriter = CreateReaderWriter(parameters);
-    }
+        => ReaderWriter = CreateReaderWriter(parameters);
 
     /// <summary>Clones the mapping with updated parameters.</summary>
     protected override CoreTypeMapping Clone(CoreTypeMappingParameters parameters)

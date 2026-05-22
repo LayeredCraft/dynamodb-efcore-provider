@@ -7,5 +7,5 @@ public enum DynamoSecondaryIndexKind
     Global,
 
     /// <summary>Configures the index as a local secondary index (LSI).</summary>
-    Local,
+    Local
 }

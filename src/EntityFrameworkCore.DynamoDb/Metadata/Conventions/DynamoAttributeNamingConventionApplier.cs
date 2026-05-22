@@ -97,7 +97,7 @@ public sealed class DynamoAttributeNamingConventionApplier : IModelFinalizingCon
             var cpSource = cp.GetAttributeNameConfigurationSource();
             if (cpSource is not ConfigurationSource.Explicit
                 and not ConfigurationSource.DataAnnotation)
-                cp.SetAttributeName(descriptor.Translate(cp.Name), fromDataAnnotation: false);
+                cp.SetAttributeName(descriptor.Translate(cp.Name), false);
 
             // Apply naming convention to scalar leaf properties inside the complex type.
             foreach (var lp in cp.ComplexType.GetDeclaredProperties())

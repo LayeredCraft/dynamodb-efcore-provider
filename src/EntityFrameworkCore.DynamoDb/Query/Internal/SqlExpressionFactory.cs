@@ -26,7 +26,7 @@ public sealed class SqlExpressionFactory(ITypeMappingSource typeMappingSource)
                 or ExpressionType.GreaterThanOrEqual
                 or ExpressionType.AndAlso
                 or ExpressionType.OrElse => typeof(bool),
-            _ => left.Type,
+            _ => left.Type
         };
 
         var isLogical = operatorType is ExpressionType.AndAlso or ExpressionType.OrElse;
@@ -250,7 +250,7 @@ public sealed class SqlExpressionFactory(ITypeMappingSource typeMappingSource)
             SqlParameterExpression parameter => parameter.ApplyTypeMapping(typeMapping),
             SqlPropertyExpression property => property.ApplyTypeMapping(typeMapping),
             DynamoScalarAccessExpression scalarAccess => scalarAccess.ApplyTypeMapping(typeMapping),
-            _ => sqlExpression,
+            _ => sqlExpression
         };
     }
 

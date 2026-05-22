@@ -25,5 +25,5 @@ internal enum DynamoIndexSelectionReason
     AutoSelected,
 
     /// <summary>Index selection was explicitly suppressed by <c>.WithoutIndex()</c>.</summary>
-    ExplicitlyDisabled,
+    ExplicitlyDisabled
 }

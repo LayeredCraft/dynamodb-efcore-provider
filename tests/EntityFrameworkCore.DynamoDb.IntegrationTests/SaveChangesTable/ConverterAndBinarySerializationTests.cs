@@ -24,7 +24,7 @@ public class ConverterAndBinarySerializationTests(DynamoContainerFixture fixture
             OccurredAt = new DateTimeOffset(2026, 4, 4, 10, 15, 0, TimeSpan.Zero),
             Payload = payload,
             BinaryTags = new HashSet<byte[]>([firstTag, secondTag], ByteArrayComparer.Instance),
-            History = [firstHistory, secondHistory],
+            History = [firstHistory, secondHistory]
         };
 
         Db.ConverterCoverageItems.Add(entity);
@@ -69,8 +69,8 @@ public class ConverterAndBinarySerializationTests(DynamoContainerFixture fixture
                         BS =
                         [
                             new MemoryStream(firstTag, false),
-                            new MemoryStream(secondTag, false),
-                        ],
+                            new MemoryStream(secondTag, false)
+                        ]
                     },
                 ["history"] = new()
                 {
@@ -78,15 +78,15 @@ public class ConverterAndBinarySerializationTests(DynamoContainerFixture fixture
                     [
                         new AttributeValue
                         {
-                            S = firstHistory.ToString("yyyy-MM-dd HH:mm:sszzz"),
+                            S = firstHistory.ToString("yyyy-MM-dd HH:mm:sszzz")
                         },
                         new AttributeValue
                         {
-                            S = secondHistory.ToString("yyyy-MM-dd HH:mm:sszzz"),
-                        },
-                    ],
+                            S = secondHistory.ToString("yyyy-MM-dd HH:mm:sszzz")
+                        }
+                    ]
                 },
-                ["$type"] = new() { S = nameof(ConverterCoverageItem) },
+                ["$type"] = new() { S = nameof(ConverterCoverageItem) }
             },
             CancellationToken);
 
@@ -106,7 +106,7 @@ public class ConverterAndBinarySerializationTests(DynamoContainerFixture fixture
             OccurredAt = occurredAt,
             Payload = payload,
             BinaryTags = new HashSet<byte[]>([firstTag, secondTag], ByteArrayComparer.Instance),
-            History = [firstHistory, secondHistory],
+            History = [firstHistory, secondHistory]
         };
 
         entity
@@ -135,7 +135,7 @@ public class ConverterAndBinarySerializationTests(DynamoContainerFixture fixture
                 ["occurredAt"] = new() { S = "2026-01-01 00:00:00+00:00" },
                 ["payload"] = new() { B = new MemoryStream(payload, false) },
                 ["history"] = new() { L = [] },
-                ["$type"] = new() { S = nameof(ConverterCoverageItem) },
+                ["$type"] = new() { S = nameof(ConverterCoverageItem) }
             },
             CancellationToken);
 
