@@ -49,16 +49,49 @@ public abstract class ComplexTypeQueryDynamoTest
         => base.Load_complex_type_after_subquery_on_entity_type(async);
 
     public override Task Select_complex_type(bool async)
-        => NoSyncTest(async, async a => await base.Select_complex_type(a));
+        => NoSyncTest(async, async a =>
+        {
+            await base.Select_complex_type(a);
+            AssertSql(
+            """
+            SELECT "shippingAddress"
+            FROM "Customers"
+            """);
+        });
 
     public override Task Select_nested_complex_type(bool async)
-        => NoSyncTest(async, async a => await base.Select_nested_complex_type(a));
+        => NoSyncTest(async, async a =>
+        {
+            await base.Select_nested_complex_type(a);
+            AssertSql(
+            """
+            SELECT "shippingAddress"
+            FROM "Customers"
+            """);
+        });
 
     public override Task Select_single_property_on_nested_complex_type(bool async)
-        => NoSyncTest(async, async a => await base.Select_single_property_on_nested_complex_type(a));
+        => NoSyncTest(async, async a =>
+        {
+            await base.Select_single_property_on_nested_complex_type(a);
+            AssertSql(
+            """
+            SELECT "shippingAddress"
+            FROM "Customers"
+            """);
+        });
 
     public override Task Select_complex_type_Where(bool async)
-        => NoSyncTest(async, async a => await base.Select_complex_type_Where(a));
+        => NoSyncTest(async, async a =>
+        {
+            await base.Select_complex_type_Where(a);
+            AssertSql(
+            """
+            SELECT "shippingAddress"
+            FROM "Customers"
+            WHERE "shippingAddress"."zipCode" = 7728
+            """);
+        });
 
     [ConditionalTheory(Skip = SkipReason.SetOperationsNotSupported)]
     public override Task Select_complex_type_Distinct(bool async)
@@ -117,10 +150,28 @@ public abstract class ComplexTypeQueryDynamoTest
         => base.Union_two_different_complex_type(async);
 
     public override Task Filter_on_property_inside_struct_complex_type(bool async)
-        => NoSyncTest(async, async a => await base.Filter_on_property_inside_struct_complex_type(a));
+        => NoSyncTest(async, async a =>
+        {
+            await base.Filter_on_property_inside_struct_complex_type(a);
+            AssertSql(
+            """
+            SELECT "id", "name", "billingAddress", "shippingAddress"
+            FROM "ValuedCustomers"
+            WHERE "shippingAddress"."zipCode" = 7728
+            """);
+        });
 
     public override Task Filter_on_property_inside_nested_struct_complex_type(bool async)
-        => NoSyncTest(async, async a => await base.Filter_on_property_inside_nested_struct_complex_type(a));
+        => NoSyncTest(async, async a =>
+        {
+            await base.Filter_on_property_inside_nested_struct_complex_type(a);
+            AssertSql(
+            """
+            SELECT "id", "name", "billingAddress", "shippingAddress"
+            FROM "ValuedCustomers"
+            WHERE "shippingAddress"."country"."code" = 'DE'
+            """);
+        });
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Filter_on_property_inside_struct_complex_type_after_subquery(bool async)
@@ -155,18 +206,35 @@ public abstract class ComplexTypeQueryDynamoTest
         => base.Load_struct_complex_type_after_subquery_on_entity_type(async);
 
     public override Task Select_struct_complex_type(bool async)
-        => NoSyncTest(async, async a => await base.Select_struct_complex_type(a));
+        => NoSyncTest(async, async a =>
+        {
+            await base.Select_struct_complex_type(a);
+            AssertSql(
+            """
+            SELECT "shippingAddress"
+            FROM "ValuedCustomers"
+            """);
+        });
 
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.StructComplexTypeProjectionNotSupported)]
     public override Task Select_nested_struct_complex_type(bool async)
         => base.Select_nested_struct_complex_type(async);
 
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.StructComplexTypeProjectionNotSupported)]
     public override Task Select_single_property_on_nested_struct_complex_type(bool async)
         => base.Select_single_property_on_nested_struct_complex_type(async);
 
     public override Task Select_struct_complex_type_Where(bool async)
-        => NoSyncTest(async, async a => await base.Select_struct_complex_type_Where(a));
+        => NoSyncTest(async, async a =>
+        {
+            await base.Select_struct_complex_type_Where(a);
+            AssertSql(
+            """
+            SELECT "shippingAddress"
+            FROM "ValuedCustomers"
+            WHERE "shippingAddress"."zipCode" = 7728
+            """);
+        });
 
     [ConditionalTheory(Skip = SkipReason.SetOperationsNotSupported)]
     public override Task Select_struct_complex_type_Distinct(bool async)
@@ -276,6 +344,7 @@ public abstract class ComplexTypeQueryDynamoTest
     public override Task Same_entity_with_complex_type_projected_twice_with_pushdown_as_part_of_another_projection(bool async)
         => base.Same_entity_with_complex_type_projected_twice_with_pushdown_as_part_of_another_projection(async);
 
+    // Skipped upstream in EF Core (issue #31376) and also unsupported by DynamoDB translation.
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Same_complex_type_projected_twice_with_pushdown_as_part_of_another_projection(bool async)
         => base.Same_complex_type_projected_twice_with_pushdown_as_part_of_another_projection(async);
@@ -307,6 +376,8 @@ public abstract class ComplexTypeQueryDynamoTest
     [ConditionalTheory(Skip = SkipReason.NavigationPropertiesNotSupported)]
     public override Task Project_entity_with_complex_type_pushdown_and_then_left_join(bool async)
         => base.Project_entity_with_complex_type_pushdown_and_then_left_join(async);
+
+    private void AssertSql(params string[] expected) => Fixture.AssertSql(expected);
 
     private static Task NoSyncTest(bool async, Func<bool, Task> testCode)
         => DynamoTestHelpers.Instance.NoSyncTest(async, testCode);

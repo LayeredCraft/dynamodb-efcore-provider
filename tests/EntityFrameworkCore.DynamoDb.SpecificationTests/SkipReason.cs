@@ -9,6 +9,9 @@ public static class SkipReason
     public const string QueryShapeNotSupported =
         "DynamoDB provider does not support this query shape.";
 
+    public const string StructComplexTypeProjectionNotSupported =
+        "DynamoDB provider cannot project nested struct complex types via SELECT.";
+
     public const string OrderedResultSetNotSupported =
         "DynamoDB does not support guaranteed ordered result sets for this query shape.";
 
