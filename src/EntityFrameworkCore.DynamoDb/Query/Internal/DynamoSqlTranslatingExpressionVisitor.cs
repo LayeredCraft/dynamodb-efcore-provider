@@ -130,10 +130,10 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         {
             SqlExpression? operand = null;
             if (node.Right is ConstantExpression { Value: null })
-                operand = TryTranslateComplexPropertyForNullComparison(node.Left)
+                operand = TryTranslateComplexPropertyForStructuralComparison(node.Left)
                     ?? TranslateInternal(node.Left);
             else if (node.Left is ConstantExpression { Value: null })
-                operand = TryTranslateComplexPropertyForNullComparison(node.Right)
+                operand = TryTranslateComplexPropertyForStructuralComparison(node.Right)
                     ?? TranslateInternal(node.Right);
 
             if (operand != null)
@@ -175,14 +175,6 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         AddTranslationErrorDetails(DynamoStrings.UnsupportedBinaryOperator(node.NodeType));
         return QueryCompilationContext.NotTranslatedExpression;
     }
-
-    /// <summary>
-    ///     Translates a nullable complex property operand for null comparisons in predicates.
-    ///     Returns the SQL path for the complex map attribute so that <c>== null</c> and
-    ///     <c>!= null</c> compose against the correct nested document path.
-    /// </summary>
-    private SqlExpression? TryTranslateComplexPropertyForNullComparison(Expression operand)
-        => TryTranslateComplexPropertyForStructuralComparison(operand);
 
     /// <summary>
     ///     Translates whole-complex-property member access to the underlying map attribute path.

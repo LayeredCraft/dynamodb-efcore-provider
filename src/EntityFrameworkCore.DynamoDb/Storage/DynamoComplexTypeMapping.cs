@@ -17,6 +17,7 @@ internal sealed class DynamoComplexTypeMapping(Type clrType, IComplexType comple
     internal override AttributeValue CreateAttributeValue(object? value)
         => EntityWritePlan.SerializeComplexTypeValue(value, complexType);
 
+    // sourceType is intentionally unused; the EF complex type metadata drives map serialization.
     internal override AttributeValue CreateAttributeValue(object? value, Type sourceType)
         => EntityWritePlan.SerializeComplexTypeValue(value, complexType);
 

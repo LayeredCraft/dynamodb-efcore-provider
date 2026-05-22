@@ -17,6 +17,8 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
     dependencies,
     dynamoQueryCompilationContext)
 {
+    private static readonly ValueTypeMemberAccessRewritingVisitor ValueTypeRewriter = new();
+
     private readonly ShapedQueryCompilingExpressionVisitorDependencies _dependencies = dependencies;
 
     private int _runtimeParameterIndex;
@@ -65,7 +67,7 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
             itemParameter,
             selectExpression).Visit(shaperBody);
 
-        shaperBody = new ValueTypeMemberAccessRewritingVisitor().Visit(shaperBody);
+        shaperBody = ValueTypeRewriter.Visit(shaperBody);
 
         var shaperLambda = Expression.Lambda(
             shaperBody,
