@@ -118,9 +118,16 @@ public sealed class DynamoProjectionBindingExpressionVisitor(
 
             // Check if translation failed
             if (visitedArgument == QueryCompilationContext.NotTranslatedExpression)
+            {
+                _projectionMembers.Pop();
                 return visitedArgument;
+            }
+
             if (visitedArgument == null)
+            {
+                _projectionMembers.Pop();
                 return QueryCompilationContext.NotTranslatedExpression;
+            }
 
             _projectionMembers.Pop();
 
@@ -197,9 +204,16 @@ public sealed class DynamoProjectionBindingExpressionVisitor(
             var visitedExpression = Visit(memberAssignment.Expression);
 
             if (visitedExpression == QueryCompilationContext.NotTranslatedExpression)
+            {
+                _projectionMembers.Pop();
                 return visitedExpression;
+            }
+
             if (visitedExpression == null)
+            {
+                _projectionMembers.Pop();
                 return QueryCompilationContext.NotTranslatedExpression;
+            }
 
             _projectionMembers.Pop();
 
@@ -603,7 +617,7 @@ public sealed class DynamoProjectionBindingExpressionVisitor(
         // Try to translate to SQL
         var translation = sqlTranslator.Translate(node);
 
-        if (translation is not SqlPropertyExpression)
+        if (translation is null)
             return QueryCompilationContext.NotTranslatedExpression;
 
         // Store mapping: ProjectionMember → SqlExpression
