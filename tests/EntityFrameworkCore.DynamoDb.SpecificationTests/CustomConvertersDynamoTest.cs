@@ -349,7 +349,7 @@ public abstract class CustomConvertersDynamoTest(
 
     public override async Task Can_insert_and_read_back_with_string_list()
     {
-        using (var context = CreateContext())
+        await using (var context = CreateContext())
         {
             context
                 .Set<StringListDataType>()
@@ -362,7 +362,7 @@ public abstract class CustomConvertersDynamoTest(
             Assert.Equal(1, await context.SaveChangesAsync());
         }
 
-        using (var context = CreateContext())
+        await using (var context = CreateContext())
         {
             var entity = await context.Set<StringListDataType>().AsAsyncEnumerable().SingleAsync();
 
