@@ -233,7 +233,8 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
         private static bool RequiresValueTypeInstanceMaterialization(Expression instanceExpression)
             => instanceExpression.Type.IsValueType
                 && instanceExpression is not ParameterExpression
-                && instanceExpression is not MemberExpression;
+                && instanceExpression is not MemberExpression
+                && instanceExpression is not ConstantExpression;
     }
 
     /// <summary>Validates that the runtime Limit value is positive.</summary>

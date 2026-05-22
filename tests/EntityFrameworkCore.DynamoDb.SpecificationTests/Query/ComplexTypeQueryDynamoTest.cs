@@ -461,6 +461,8 @@ public abstract class ComplexTypeQueryDynamoTest
 
         protected override void OnModelCreating(ModelBuilder modelBuilder, DbContext context)
         {
+            // Do not call the base fixture mapping: it configures navigation-heavy group entities
+            // that DynamoDB cannot map. This fixture maps only supported root document entities.
             modelBuilder.Ignore<CustomerGroup>();
             modelBuilder.Ignore<ValuedCustomerGroup>();
 

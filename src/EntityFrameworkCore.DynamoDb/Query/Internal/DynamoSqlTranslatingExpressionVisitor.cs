@@ -158,6 +158,9 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
 
         if (node.NodeType is ExpressionType.Equal or ExpressionType.NotEqual)
         {
+            // Whole complex-property access does not translate through the scalar member path.
+            // Retry only untranslated operands as complex map paths so property-to-property and
+            // property-to-parameter structural comparisons can compose normally.
             left ??= TryTranslateComplexPropertyForStructuralComparison(node.Left);
             right ??= TryTranslateComplexPropertyForStructuralComparison(node.Right);
         }

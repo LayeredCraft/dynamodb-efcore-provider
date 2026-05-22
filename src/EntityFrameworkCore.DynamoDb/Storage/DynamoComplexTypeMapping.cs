@@ -10,17 +10,15 @@ namespace EntityFrameworkCore.DynamoDb.Storage;
 internal sealed class DynamoComplexTypeMapping(Type clrType, IComplexType complexType)
     : DynamoTypeMapping(clrType)
 {
-    private readonly IComplexType _complexType = complexType;
-
     internal override bool CanWriteToAttributeValue => true;
 
     internal override bool RequiresParameterForPartiQlLiteral => true;
 
     internal override AttributeValue CreateAttributeValue(object? value)
-        => EntityWritePlan.SerializeComplexTypeValue(value, _complexType);
+        => EntityWritePlan.SerializeComplexTypeValue(value, complexType);
 
     internal override AttributeValue CreateAttributeValue(object? value, Type sourceType)
-        => EntityWritePlan.SerializeComplexTypeValue(value, _complexType);
+        => EntityWritePlan.SerializeComplexTypeValue(value, complexType);
 
     public override string GenerateConstant(object? value)
         => throw new NotSupportedException(
@@ -31,5 +29,5 @@ internal sealed class DynamoComplexTypeMapping(Type clrType, IComplexType comple
             "Complex type constants must be sent as DynamoDB query parameters.");
 
     protected override CoreTypeMapping Clone(CoreTypeMappingParameters parameters)
-        => new DynamoComplexTypeMapping(ClrType, _complexType);
+        => new DynamoComplexTypeMapping(parameters.ClrType, complexType);
 }
