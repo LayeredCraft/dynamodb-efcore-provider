@@ -309,16 +309,27 @@ public abstract class DataAnnotationDynamoTest(
         public override DbContextOptionsBuilder AddOptions(DbContextOptionsBuilder builder)
             => base
                 .AddOptions(builder)
+                .ConfigureWarnings(w => w.Log(CoreEventId.MappedEntityTypeIgnoredWarning))
                 .UseDynamo(o => o.DynamoDbClient(DynamoTestStoreFactory.Instance.Client));
 
         protected override bool ShouldLogCategory(string logCategory)
             => base.ShouldLogCategory(logCategory)
                 || DynamoSpecificationFixtureExtensions.ShouldLogDynamoSql(logCategory);
 
-        protected override async Task CleanAsync(DbContext context)
+        protected override void OnModelCreating(ModelBuilder modelBuilder, DbContext context)
         {
-            await context.Database.EnsureDeletedAsync();
-            await context.Database.EnsureCreatedAsync();
+            base.OnModelCreating(modelBuilder, context);
+
+            modelBuilder.Entity<Book>().Ignore(e => e.Label);
+            modelBuilder.Entity<Book>().Ignore(e => e.AlternateLabel);
+            modelBuilder.Entity<Book>().Ignore(e => e.Details);
+
+            modelBuilder.Ignore<BookDetails>();
+            modelBuilder.Ignore<BookLabel>();
+            modelBuilder.Ignore<SpecialBookLabel>();
+            modelBuilder.Ignore<ExtraSpecialBookLabel>();
+            modelBuilder.Ignore<AnotherBookLabel>();
+            modelBuilder.Ignore<AdditionalBookDetails>();
         }
     }
 
