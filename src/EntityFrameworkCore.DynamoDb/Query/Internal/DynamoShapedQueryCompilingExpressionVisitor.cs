@@ -218,7 +218,7 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
             var visitedInstance = Visit(instance);
             if (RequiresValueTypeInstanceMaterialization(visitedInstance))
             {
-                var instanceVariable = Variable(visitedInstance.Type, "valueTypeInstance");
+                var instanceVariable = Variable(visitedInstance.Type, $"valueTypeInstance_{node.Member.Name}");
                 return Block(
                     [instanceVariable],
                     Assign(instanceVariable, visitedInstance),
