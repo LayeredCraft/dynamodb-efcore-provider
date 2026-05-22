@@ -30,11 +30,8 @@ public sealed class DynamoConventionSetBuilder(
             new DynamoKeyDiscoveryConvention(Dependencies));
         conventionSet.Replace<DiscriminatorConvention>(
             new DynamoDiscriminatorConvention(Dependencies));
-        var ownedEntityTypeValidationConvention = new DynamoOwnedEntityTypeValidationConvention();
-        conventionSet.EntityTypeAddedConventions.Add(ownedEntityTypeValidationConvention);
-        conventionSet.ForeignKeyOwnershipChangedConventions.Add(
-            ownedEntityTypeValidationConvention);
-        conventionSet.ModelFinalizingConventions.Add(ownedEntityTypeValidationConvention);
+        conventionSet.ModelFinalizingConventions.Add(
+            new DynamoOwnedEntityTypeValidationConvention());
 
         var relationshipValidationConvention = new DynamoRelationshipValidationConvention();
         // Do not register ForeignKeyAddedConventions here: fixture customization can still ignore

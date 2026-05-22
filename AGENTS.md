@@ -30,6 +30,9 @@ execution.
   `tests/EntityFrameworkCore.DynamoDb.Tests/EntityFrameworkCore.DynamoDb.Tests.csproj`
 - Integration test project:
   `tests/EntityFrameworkCore.DynamoDb.IntegrationTests/EntityFrameworkCore.DynamoDb.IntegrationTests.csproj`
+- Integration tests print generated PartiQL to standard output via `TestPartiQlLoggerFactory`.
+  When debugging query failures, run with xUnit live output (for example `--show-live-output on`)
+  or inspect `AssertSql` failure messages to see captured statements.
 - Docs: `task docs:build`
 
 ## Change Workflow

@@ -36,10 +36,10 @@ internal static class DynamoQueryValueSerializer
         object? value,
         Type? sourceType = null)
     {
-        if (value is null)
+        if (value is null && mapping.Converter?.ConvertsNulls != true)
             return new AttributeValue { NULL = true };
 
-        sourceType ??= value.GetType();
+        sourceType = value is null ? mapping.ClrType : sourceType ?? value.GetType();
         return serializers.GetOrAdd(
             sourceType,
             static (key, mapping) => CompileAttributeValueSerializer(mapping, key),
@@ -58,10 +58,10 @@ internal static class DynamoQueryValueSerializer
         object? value,
         Type? sourceType = null)
     {
-        if (value is null)
+        if (value is null && mapping.Converter?.ConvertsNulls != true)
             return "NULL";
 
-        sourceType ??= value.GetType();
+        sourceType = value is null ? mapping.ClrType : sourceType ?? value.GetType();
         return serializers.GetOrAdd(
             sourceType,
             static (key, mapping) => CompileLiteralSerializer(mapping, key),

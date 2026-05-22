@@ -67,6 +67,34 @@ internal static class DynamoWriteValueSerializerSource
 
     private static AttributeValue NullAttributeValue() => new() { NULL = true };
 
+    private static AttributeValue ConvertNullModelValueToAttributeValue<TProvider>(
+        ValueConverter converter)
+    {
+        if (!converter.ConvertsNulls)
+            return NullAttributeValue();
+
+        var providerValue = converter.ConvertToProvider(null);
+        return providerValue is null
+            ? NullAttributeValue()
+            : DynamoWireValueConversion.ConvertProviderValueToAttributeValue(
+                (TProvider)providerValue);
+    }
+
+    private static AttributeValue ConvertNullModelValueToProviderShapeAttributeValue(
+        ValueConverter converter)
+        => converter.ConvertsNulls
+            ? ConvertProviderShapeToAttributeValue(converter.ConvertToProvider(null))
+            : NullAttributeValue();
+
+    private static object ConvertNullModelValueToSetElement(ValueConverter converter)
+    {
+        if (!converter.ConvertsNulls)
+            throw new InvalidOperationException("DynamoDB sets cannot contain null elements.");
+
+        return converter.ConvertToProvider(null)
+            ?? throw new InvalidOperationException("DynamoDB sets cannot contain null elements.");
+    }
+
     private interface IObjectValueSerializerFactory
     {
         /// <summary>Creates a serializer for the selected value type.</summary>
@@ -323,8 +351,9 @@ internal static class DynamoWriteValueSerializerSource
         public Func<object?, AttributeValue> Create<TProvider>()
         {
             var typed = (ValueConverter<TModel, TProvider>)converter;
+            var valueConverter = converter;
             return value => value is null
-                ? NullAttributeValue()
+                ? ConvertNullModelValueToAttributeValue<TProvider>(valueConverter)
                 : DynamoWireValueConversion.ConvertProviderValueToAttributeValue(
                     typed.ConvertToProviderTyped((TModel)value));
         }
@@ -349,8 +378,9 @@ internal static class DynamoWriteValueSerializerSource
         public Func<object?, AttributeValue> Create<TProvider>()
         {
             var typed = (ValueConverter<TModel, TProvider>)converter;
+            var valueConverter = converter;
             return value => value is null
-                ? NullAttributeValue()
+                ? ConvertNullModelValueToAttributeValue<TProvider>(valueConverter)
                 : DynamoWireValueConversion.ConvertProviderValueToAttributeValue(
                     typed.ConvertToProviderTyped((TModel)value));
         }
@@ -359,7 +389,7 @@ internal static class DynamoWriteValueSerializerSource
     private static Func<object?, AttributeValue> CreateBoxedConvertedPropertySerializer(
         ValueConverter converter)
         => value => value is null
-            ? NullAttributeValue()
+            ? ConvertNullModelValueToProviderShapeAttributeValue(converter)
             : ConvertProviderShapeToAttributeValue(converter.ConvertToProvider(value));
 
     private static Func<object?, AttributeValue> CreateConvertedDictionarySerializer(
@@ -404,11 +434,15 @@ internal static class DynamoWriteValueSerializerSource
         public Func<object?, AttributeValue> Create<TProvider>()
         {
             var typed = (ValueConverter<TValue, TProvider>)converter;
+            var valueConverter = converter;
             return value => value is null
                 ? NullAttributeValue()
                 : DynamoAttributeValueCollectionHelpers.SerializeDictionary(
                     (IEnumerable<KeyValuePair<string, TValue>>)value,
-                    typed.ConvertToProviderTyped);
+                    item => item is null
+                        ? ConvertNullModelValueToAttributeValue<TProvider>(valueConverter)
+                        : DynamoWireValueConversion.ConvertProviderValueToAttributeValue(
+                            typed.ConvertToProviderTyped(item)));
         }
     }
 
@@ -431,6 +465,7 @@ internal static class DynamoWriteValueSerializerSource
         public Func<object?, AttributeValue> Create<TProvider>()
         {
             var typed = (ValueConverter<TValue, TProvider>)converter;
+            var valueConverter = converter;
             return value => value is null
                 ? NullAttributeValue()
                 : DynamoAttributeValueCollectionHelpers.SerializeDictionary(
@@ -438,7 +473,7 @@ internal static class DynamoWriteValueSerializerSource
                     item => item.HasValue
                         ? DynamoWireValueConversion.ConvertProviderValueToAttributeValue(
                             typed.ConvertToProviderTyped(item.Value))
-                        : NullAttributeValue());
+                        : ConvertNullModelValueToAttributeValue<TProvider>(valueConverter));
         }
     }
 
@@ -454,8 +489,9 @@ internal static class DynamoWriteValueSerializerSource
                 var map = new Dictionary<string, AttributeValue>(StringComparer.Ordinal);
                 foreach (DictionaryEntry item in dictionary)
                 {
-                    var providerValue =
-                        item.Value is null ? null : converter.ConvertToProvider(item.Value);
+                    var providerValue = item.Value is null
+                        ? converter.ConvertsNulls ? converter.ConvertToProvider(null) : null
+                        : converter.ConvertToProvider(item.Value);
                     map[(string)item.Key] = ConvertProviderShapeToAttributeValue(providerValue);
                 }
 
@@ -510,11 +546,14 @@ internal static class DynamoWriteValueSerializerSource
         public Func<object?, AttributeValue> Create<TProvider>()
         {
             var typed = (ValueConverter<TElement, TProvider>)converter;
+            var valueConverter = converter;
             return value => value is null
                 ? NullAttributeValue()
                 : DynamoAttributeValueCollectionHelpers.SerializeSet(
                     (IEnumerable<TElement>)value,
-                    typed.ConvertToProviderTyped);
+                    item => item is null
+                        ? (TProvider)ConvertNullModelValueToSetElement(valueConverter)
+                        : typed.ConvertToProviderTyped(item));
         }
     }
 
@@ -537,14 +576,14 @@ internal static class DynamoWriteValueSerializerSource
         public Func<object?, AttributeValue> Create<TProvider>()
         {
             var typed = (ValueConverter<TElement, TProvider>)converter;
+            var valueConverter = converter;
             return value => value is null
                 ? NullAttributeValue()
                 : DynamoAttributeValueCollectionHelpers.SerializeSet(
                     (IEnumerable<TElement?>)value,
                     item => item.HasValue
                         ? typed.ConvertToProviderTyped(item.Value)
-                        : throw new InvalidOperationException(
-                            "DynamoDB sets cannot contain null elements."));
+                        : (TProvider)ConvertNullModelValueToSetElement(valueConverter));
         }
     }
 
@@ -558,11 +597,9 @@ internal static class DynamoWriteValueSerializerSource
             var providerValues = new List<object>();
             foreach (var element in (IEnumerable)value)
             {
-                if (element is null)
-                    throw new InvalidOperationException(
-                        "DynamoDB sets cannot contain null elements.");
-
-                var providerValue = converter.ConvertToProvider(element);
+                var providerValue = element is null
+                    ? ConvertNullModelValueToSetElement(converter)
+                    : converter.ConvertToProvider(element);
                 if (providerValue is null)
                     throw new InvalidOperationException(
                         "DynamoDB sets cannot contain null elements.");
@@ -614,11 +651,15 @@ internal static class DynamoWriteValueSerializerSource
         public Func<object?, AttributeValue> Create<TProvider>()
         {
             var typed = (ValueConverter<TElement, TProvider>)converter;
+            var valueConverter = converter;
             return value => value is null
                 ? NullAttributeValue()
                 : DynamoAttributeValueCollectionHelpers.SerializeList(
                     (IEnumerable<TElement>)value,
-                    typed.ConvertToProviderTyped);
+                    item => item is null
+                        ? ConvertNullModelValueToAttributeValue<TProvider>(valueConverter)
+                        : DynamoWireValueConversion.ConvertProviderValueToAttributeValue(
+                            typed.ConvertToProviderTyped(item)));
         }
     }
 
@@ -641,6 +682,7 @@ internal static class DynamoWriteValueSerializerSource
         public Func<object?, AttributeValue> Create<TProvider>()
         {
             var typed = (ValueConverter<TElement, TProvider>)converter;
+            var valueConverter = converter;
             return value => value is null
                 ? NullAttributeValue()
                 : DynamoAttributeValueCollectionHelpers.SerializeList(
@@ -648,7 +690,7 @@ internal static class DynamoWriteValueSerializerSource
                     item => item.HasValue
                         ? DynamoWireValueConversion.ConvertProviderValueToAttributeValue(
                             typed.ConvertToProviderTyped(item.Value))
-                        : NullAttributeValue());
+                        : ConvertNullModelValueToAttributeValue<TProvider>(valueConverter));
         }
     }
 
@@ -662,7 +704,9 @@ internal static class DynamoWriteValueSerializerSource
             var elements = new List<AttributeValue>();
             foreach (var element in (IEnumerable)value)
             {
-                var providerValue = element is null ? null : converter.ConvertToProvider(element);
+                var providerValue = element is null
+                    ? converter.ConvertsNulls ? converter.ConvertToProvider(null) : null
+                    : converter.ConvertToProvider(element);
                 elements.Add(ConvertProviderShapeToAttributeValue(providerValue));
             }
 
@@ -725,7 +769,9 @@ internal static class DynamoWriteValueSerializerSource
                 throw new NotSupportedException(
                     "Converted dictionary fallback requires key/value pairs with string keys and supported scalar values.");
 
-            var providerValue = modelValue is null ? null : converter.ConvertToProvider(modelValue);
+            var providerValue = modelValue is null
+                ? converter.ConvertsNulls ? converter.ConvertToProvider(null) : null
+                : converter.ConvertToProvider(modelValue);
             map[key] = ConvertProviderShapeToAttributeValue(providerValue);
         }
 
