@@ -69,15 +69,23 @@ Markdown/docs formatting uses `uvx`; C# formatting uses the restored `jb` .NET t
 
 ## Git hooks
 
-To run repo formatting before commits, point Git at the checked-in hooks:
+This repo already includes `.githooks/pre-commit`. Enable it for your clone:
 
 ```sh
 git config core.hooksPath .githooks
 ```
 
-The checked-in pre-commit hook formats staged files and stages formatter output. It fails on partially staged files to avoid committing unstaged changes.
+`format` can also install Git hooks and set `core.hooksPath`:
 
-The pre-commit hook runs:
+```sh
+format hook git install
+```
+
+That command writes `.githooks/pre-commit`, makes it executable, and configures Git to use `.githooks`. It refuses to overwrite an existing hook unless `--force` is passed. Use `--force` only when intentionally regenerating the checked-in hook script.
+
+The pre-commit hook formats staged files and stages formatter output. It fails on partially staged files to avoid committing unstaged changes.
+
+The checked-in hook runs:
 
 ```sh
 format hook git pre-commit --log-level warn
