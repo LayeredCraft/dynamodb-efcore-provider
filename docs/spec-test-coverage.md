@@ -46,6 +46,7 @@ change tracking, concurrency, Find, value converters, interceptors, and more.
 | `QueryExpressionInterceptionTestBase` | 4 | ✓ | ✗ | `Single`-based query shapes are explicitly skipped |
 | `MaterializationInterceptionTestBase` | 7 | ✓ | ✗ | Materialization interceptor coverage; owned/complex collection cases skipped |
 | `CompositeKeyEndToEndTestBase` | 3 | ✗ | ✗ | PK+SK round-trip covered; three-part composite-key cases skipped |
+| `ConvertToProviderTypesTestBase` | 2 | ✗ | ✗ | Additional enum/provider-type conversion query methods beyond `BuiltInDataTypesTestBase` |
 | `CustomConvertersTestBase` | 29 | ✓ | ✗ | Value converter round-trips; unsupported converter edge cases explicitly skipped |
 
 ### Implement Next
@@ -60,7 +61,6 @@ Feasible but requires investigation or additional provider work before adding.
 |---|---:|:---:|:---:|---:|---|
 | `KeysWithConvertersTestBase` | 47 | ✓ | ✗ | ~70% | Keys that pass through value converters; type mapping validation needed |
 | `ValueConvertersEndToEndTestBase` | 1 | ✗ | ✗ | ~80% | Single E2E converter test; easy follow-on to converter coverage |
-| `ConvertToProviderTypesTestBase` | 2 | ✗ | ✗ | ~75% | `HasConversion<TProvider>` on properties; two tests |
 | `WithConstructorsTestBase` | 41 | ✗ | ✗ | ~70% | Entities using non-default constructors; DynamoDB materializes via EF's normal pipeline |
 | `SeedingTestBase` | 2 | ✗ | ✗ | ~80% | `HasData` seeding; two tests; DynamoDB seeding uses chunking |
 | `PropertyValuesTestBase` | 167 | ✗ | ✗ | ~55% | `CurrentValues`/`OriginalValues`/`GetDatabaseValues`; `GetDatabaseValues` requires a read which DynamoDB supports, but relational semantics for shadow keys and navigation tracking reduce coverage |
@@ -161,11 +161,16 @@ No Northwind query specification test classes are currently queued here.
 
 These tests use non-Northwind models and fixtures.
 
+### Implemented
+
+| Test Class | Methods | Cosmos | MongoDB | Notes |
+|---|---:|:---:|:---:|---|
+| `ComplexTypeQueryTestBase` | 74 | ✓ | ✗ | All inherited methods are registered/overridden with explicit outcomes; supported projection/filter, nested struct projection, and complex equality subsets execute, while navigation, set-operation, GroupBy, subquery/Contains, and pushdown cases are explicitly skipped |
+
 ### Future
 
 | Test Class | Methods | Cosmos | MongoDB | Feasibility | Rationale |
 |---|---:|:---:|:---:|---:|---|
-| `ComplexTypeQueryTestBase` | 76 | ✓ | ✗ | ~65% | Complex type queries (nested properties in WHERE/SELECT); DynamoDB supports complex types — needs fixture and investigation |
 | `AdHocComplexTypeQueryTestBase` | 13 | ✓ | ✗ | ~65% | Ad-hoc complex type query scenarios; same fixture dependency |
 | `InheritanceQueryTestBase` | 52 | ✓ | ✗ | ~60% | Single-table inheritance with discriminator; DynamoDB has discriminator support |
 | `FiltersInheritanceQueryTestBase` | 11 | ✗ | ✗ | ~55% | Query filters on inherited types |
@@ -281,10 +286,10 @@ translations are low-feasibility until dedicated temporal translation support is
 
 | Category | Implemented | Implement Next | Future | Skip |
 |---|---:|---:|---:|---:|
-| Non-Query (top-level) | 15 classes / 337 methods | — | 9 classes / 503 methods | 19 classes / 984 methods |
+| Non-Query (top-level) | 16 classes / 339 methods | — | 8 classes / 501 methods | 19 classes / 984 methods |
 | BulkUpdates | — | — | 5 classes / 135+ methods | 1 class / 33 methods |
 | Northwind Query | 7 classes / 441 methods | — | 3 classes / 491 methods | 12 classes / 924+ methods |
-| Other Query | — | — | 13 classes / 465 methods | 16 classes / 1,683 methods |
+| Other Query | 1 class / 74 methods | — | 12 classes / 389 methods | 16 classes / 1,683 methods |
 | Associations | — | — | 3 classes / 8 methods | 13+ classes / 123+ methods |
 | Translations (need fixture) | — | — | 16 classes / 321 methods | — |
 
@@ -304,7 +309,9 @@ translations are low-feasibility until dedicated temporal translation support is
 8. `NorthwindChangeTrackingQueryDynamoTest` — 17 methods
 9. `CompositeKeyEndToEndDynamoTest` — 3 methods
 10. `NorthwindFunctionsQueryDynamoTest` — 10 methods
-11. `CustomConvertersDynamoTest` — 29 methods
+11. `ConvertToProviderTypesDynamoTest` — 2 methods
+12. `CustomConvertersDynamoTest` — 29 methods
+13. `ComplexTypeQueryDynamoTest` — 74 methods
 
 ### Near-term (small, high confidence)
 
@@ -312,24 +319,23 @@ No near-term specification test classes are currently queued here.
 
 ### Medium-term (requires investigation or new fixture)
 
-12. `KeysWithConvertersDynamoTest`
-13. `InheritanceQueryDynamoTest` (discriminator support validation)
-14. `ComplexTypeQueryDynamoTest` (needs `BasicTypesDynamoFixture`)
+14. `KeysWithConvertersDynamoTest`
 15. Translations operator tests (Comparison, Logical, Arithmetic) — needs `BasicTypesDynamoFixture`
 16. `StringTranslationsDynamoTest` — needs `BasicTypesDynamoFixture`
 
 ### Long-term (after core coverage is stable)
 
-17. `PrimitiveCollectionsQueryDynamoTest`
-18. `NorthwindQueryFiltersDynamoTest`
-19. `BulkUpdates` family — blocked on `ExecuteUpdate`/`ExecuteDelete`
-20. Remaining translation tests (Math, Miscellaneous, Enum, Guid)
+17. `InheritanceQueryDynamoTest` — blocked on `OfType`, `is`/`GetType()` discriminator translation, and fixture work
+18. `PrimitiveCollectionsQueryDynamoTest`
+19. `NorthwindQueryFiltersDynamoTest`
+20. `BulkUpdates` family — blocked on `ExecuteUpdate`/`ExecuteDelete`
+21. Remaining translation tests (Math, Miscellaneous, Enum, Guid)
 
 ### Current totals
 
 | Status | Classes | Methods |
 |---|---:|---:|
-| Implemented | 22 | 778 |
+| Implemented | 24 | 854 |
 | Implement Next | 0 | 0 |
-| Future | 49 | 1,927+ |
+| Future | 47 | 1,845+ |
 | Skip | 61+ | 3,747+ |

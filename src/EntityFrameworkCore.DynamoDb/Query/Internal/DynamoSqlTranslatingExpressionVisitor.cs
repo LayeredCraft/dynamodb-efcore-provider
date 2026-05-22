@@ -141,10 +141,10 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         {
             SqlExpression? operand = null;
             if (node.Right is ConstantExpression { Value: null })
-                operand = TryTranslateComplexPropertyForNullComparison(node.Left)
+                operand = TryTranslateComplexPropertyForStructuralComparison(node.Left)
                     ?? TranslateInternal(node.Left);
             else if (node.Left is ConstantExpression { Value: null })
-                operand = TryTranslateComplexPropertyForNullComparison(node.Right)
+                operand = TryTranslateComplexPropertyForStructuralComparison(node.Right)
                     ?? TranslateInternal(node.Right);
 
             if (operand != null && operand.TypeMapping?.Converter?.ConvertsNulls != true)
@@ -167,6 +167,19 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         var left = TranslateInternal(node.Left);
         var right = TranslateInternal(node.Right);
 
+        if (node.NodeType is ExpressionType.Equal or ExpressionType.NotEqual)
+        {
+            // Whole complex-property access does not translate through the scalar member path.
+            // Retry untranslated operands as complex map paths, then bind inline complex object
+            // constants to the discovered complex map mapping when one side is a complex path.
+            left ??= TryTranslateComplexPropertyForStructuralComparison(node.Left);
+            right ??= TryTranslateComplexPropertyForStructuralComparison(node.Right);
+            if (left is SqlExpression { TypeMapping: DynamoComplexTypeMapping } leftComplex)
+                right ??= TryTranslateComplexConstant(node.Right, leftComplex);
+            if (right is SqlExpression { TypeMapping: DynamoComplexTypeMapping } rightComplex)
+                left ??= TryTranslateComplexConstant(node.Left, rightComplex);
+        }
+
         if (left == null || right == null)
             return QueryCompilationContext.NotTranslatedExpression;
 
@@ -178,16 +191,92 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         return QueryCompilationContext.NotTranslatedExpression;
     }
 
+    /// <summary>Translates an inline complex object constant using the matched complex map mapping.</summary>
+    private SqlExpression? TryTranslateComplexConstant(Expression operand, SqlExpression complexPath)
+    {
+        if (ContainsQueryReference(operand))
+            return null;
+
+        if (!IsLiteralShape(operand))
+            return null;
+
+        // ConstantExpression: extract the value directly without compilation
+        if (operand is ConstantExpression constantExpression)
+            return sqlExpressionFactory.ApplyTypeMapping(
+                sqlExpressionFactory.Constant(constantExpression.Value, operand.Type),
+                complexPath.TypeMapping);
+
+        try
+        {
+            var value = Expression.Lambda<Func<object?>>(Expression.Convert(operand, typeof(object)))
+                .Compile(true)
+                .Invoke();
+            return sqlExpressionFactory.ApplyTypeMapping(
+                sqlExpressionFactory.Constant(value, operand.Type),
+                complexPath.TypeMapping);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            AddTranslationErrorDetails(
+                $"Inline complex type constant could not be evaluated: {exception.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>
+    ///     Returns true when the expression is a side-effect-free, safe-to-evaluate literal shape:
+    ///     a <see cref="ConstantExpression"/>, a <see cref="MemberExpression"/> chain rooted at a
+    ///     <see cref="ConstantExpression"/> (closed-over captures), or a Convert/ConvertChecked
+    ///     <see cref="UnaryExpression"/> over one of those shapes.
+    /// </summary>
+    private static bool IsLiteralShape(Expression expression)
+        => expression switch
+        {
+            ConstantExpression => true,
+            // Only allow field access — property getters may execute arbitrary user code.
+            MemberExpression { Member: System.Reflection.FieldInfo } memberExpression
+                => IsLiteralShape(memberExpression.Expression!),
+            UnaryExpression
+            {
+                NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked,
+            } unaryExpression => IsLiteralShape(unaryExpression.Operand),
+            _ => false,
+        };
+
+    private static bool ContainsQueryReference(Expression expression)
+    {
+        var visitor = new QueryReferenceFindingExpressionVisitor();
+        visitor.Visit(expression);
+        return visitor.Found;
+    }
+
+    private sealed class QueryReferenceFindingExpressionVisitor : ExpressionVisitor
+    {
+        public bool Found { get; private set; }
+
+        public override Expression? Visit(Expression? node)
+        {
+            if (node is null || Found)
+                return node;
+
+            if (node is ParameterExpression or QueryParameterExpression or StructuralTypeShaperExpression)
+            {
+                Found = true;
+                return node;
+            }
+
+            return base.Visit(node);
+        }
+    }
+
     /// <inheritdoc />
     protected override Expression VisitConditional(ConditionalExpression node)
         => QueryCompilationContext.NotTranslatedExpression;
 
     /// <summary>
-    ///     Translates a nullable complex property operand for null comparisons in predicates.
-    ///     Returns the SQL path for the complex map attribute so that <c>== null</c> and
-    ///     <c>!= null</c> compose against the correct nested document path.
+    ///     Translates whole-complex-property member access to the underlying map attribute path.
     /// </summary>
-    private SqlExpression? TryTranslateComplexPropertyForNullComparison(Expression operand)
+    private SqlExpression? TryTranslateComplexPropertyForStructuralComparison(Expression operand)
     {
         if (!TryGetMemberAccessChain(operand, out var names, out var sourceExpression))
             return null;
@@ -260,14 +349,20 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
                 return null;
 
             var attributeName = complexProperty.GetAttributeName();
+            var isLast = i == names.Count - 1;
+            var expressionType = isLast ? resultType : complexProperty.ClrType;
+            var typeMapping = isLast
+                ? new DynamoComplexTypeMapping(expressionType, complexProperty.ComplexType)
+                : null;
             sqlExpression = sqlExpression == null
-                ? sqlExpressionFactory.Property(
-                    attributeName,
-                    i == names.Count - 1 ? resultType : complexProperty.ClrType)
+                ? sqlExpressionFactory.ApplyTypeMapping(
+                    sqlExpressionFactory.Property(attributeName, expressionType),
+                    typeMapping)
                 : new DynamoScalarAccessExpression(
                     sqlExpression,
                     attributeName,
-                    i == names.Count - 1 ? resultType : complexProperty.ClrType);
+                    expressionType,
+                    typeMapping);
 
             currentType = complexProperty.ComplexType;
         }
@@ -544,8 +639,20 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         leftExpression = UnwrapObjectConvert(leftExpression);
         rightExpression = UnwrapObjectConvert(rightExpression);
 
-        if (TranslateInternal(leftExpression) is not { } leftSql
-            || TranslateInternal(rightExpression) is not { } rightSql)
+        var leftSql = TranslateInternal(leftExpression);
+        var rightSql = TranslateInternal(rightExpression);
+
+        // Whole complex-property access does not translate through the scalar member path.
+        // Retry untranslated operands as complex map paths first, then bind inline complex
+        // object constants to the discovered mapping — mirrors the same fallback in VisitBinary.
+        leftSql ??= TryTranslateComplexPropertyForStructuralComparison(leftExpression);
+        rightSql ??= TryTranslateComplexPropertyForStructuralComparison(rightExpression);
+        if (leftSql is SqlExpression { TypeMapping: DynamoComplexTypeMapping } leftComplex)
+            rightSql ??= TryTranslateComplexConstant(rightExpression, leftComplex);
+        if (rightSql is SqlExpression { TypeMapping: DynamoComplexTypeMapping } rightComplex)
+            leftSql ??= TryTranslateComplexConstant(leftExpression, rightComplex);
+
+        if (leftSql == null || rightSql == null)
             return QueryCompilationContext.NotTranslatedExpression;
 
         var comparisonTypeMapping = InferTypeMapping(leftSql, rightSql);
@@ -689,7 +796,8 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         CoreTypeMapping? comparisonTypeMapping)
         => expression is SqlConstantExpression { Value: null }
             || IsSupportedEqualsType(expression.Type)
-            || IsCompatibleWithConverterMapping(expression, comparisonTypeMapping);
+            || IsCompatibleWithConverterMapping(expression, comparisonTypeMapping)
+            || expression.TypeMapping is DynamoComplexTypeMapping;
 
     private static bool AreEqualsOperandTypesCompatible(
         SqlExpression left,

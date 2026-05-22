@@ -50,6 +50,14 @@ See [Supported Operators](querying/operators.md) for the full list of what does 
 
 Value-converted enum numeric casts are also rejected when compared to parameters. For example, `(int)entity.Status == value` is not translated if `Status` uses `.HasConversion<string>()`, because DynamoDB stores the converted string value. Compare `entity.Status` to an enum value directly, or map the enum numerically.
 
+Complex property-to-property equality and equality against complex object parameters or inline complex object constants are supported.
+
+### Complex Type Equality
+
+Complex type equality (`==`) translates to whole-map attribute equality in PartiQL. DynamoDB compares the entire stored map, not individual properties. If a DynamoDB item contains unmapped attributes written outside EF Core (out-of-band writes), two items that are structurally equal by CLR properties may not compare equal at the DynamoDB level because the stored maps differ.
+
+Rely on complex type equality only when EF Core is the sole writer of those attributes. If out-of-band writes are possible, compare individual scalar properties instead.
+
 Scalar value-converted collection membership is not translated. `entity.Values.Contains(value)` is
 supported for native DynamoDB primitive list/set attributes, but not when `Values` is serialized into
 a scalar string or blob by a property value converter. In that case DynamoDB would evaluate substring
