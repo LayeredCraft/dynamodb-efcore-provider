@@ -175,25 +175,27 @@ protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
 
 !!! tip "Credentials for DynamoDB Local"
 
-    DynamoDB Local does not validate credentials — any non-empty string works. You have two options:
+````
+DynamoDB Local does not validate credentials — any non-empty string works. You have two options:
 
-    **Option 1 — environment variables.** Set these before running your app or tests and the
-    standard AWS credential chain will pick them up automatically:
+**Option 1 — environment variables.** Set these before running your app or tests and the
+standard AWS credential chain will pick them up automatically:
 
-    ```bash
-    AWS_ACCESS_KEY_ID=local
-    AWS_SECRET_ACCESS_KEY=local
-    ```
+```bash
+AWS_ACCESS_KEY_ID=local
+AWS_SECRET_ACCESS_KEY=local
+```
 
-    **Option 2 — pass credentials explicitly via `BasicAWSCredentials`.** Use this when you cannot
-    or do not want to set environment variables — for example, in a test fixture that manages its
-    own client:
+**Option 2 — pass credentials explicitly via `BasicAWSCredentials`.** Use this when you cannot
+or do not want to set environment variables — for example, in a test fixture that manages its
+own client:
 
-    ```csharp
-    new AmazonDynamoDBClient(
-        new BasicAWSCredentials("test", "test"),
-        new AmazonDynamoDBConfig { ServiceURL = "http://localhost:8000" });
-    ```
+```csharp
+new AmazonDynamoDBClient(
+    new BasicAWSCredentials("test", "test"),
+    new AmazonDynamoDBConfig { ServiceURL = "http://localhost:8000" });
+```
+````
 
 When multiple test contexts need to share a single connection — for example, in a test fixture that
 resets tables between tests — register a shared client via `DynamoDbClient`:
@@ -217,8 +219,8 @@ The provider does not implement its own authentication. All credential resolutio
 standard [AWS credential chain](https://docs.aws.amazon.com/sdk-for-net/v3/developer-guide/creds-assign.html):
 
 1. Environment variables (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`)
-1. `~/.aws/credentials` file
-1. IAM instance profile or ECS task role (when running on AWS)
+2. `~/.aws/credentials` file
+3. IAM instance profile or ECS task role (when running on AWS)
 
 To specify a region without constructing a full config object:
 

@@ -25,18 +25,22 @@ modelBuilder.Entity<Order>(b =>
 
 !!! warning "Do not use HasKey or [Key]"
 
-    `HasKey(...)` and `[Key]` are rejected for root DynamoDB entities.
-    Configure keys with `HasPartitionKey(...)` and optional `HasSortKey(...)` instead.
+```
+`HasKey(...)` and `[Key]` are rejected for root DynamoDB entities.
+Configure keys with `HasPartitionKey(...)` and optional `HasSortKey(...)` instead.
+```
 
 If no explicit `ToTable(...)` is configured, the provider uses the CLR type name as the table
 name.
 
 !!! warning "No EF relationships"
 
-    `HasOne(...)`, `HasMany(...)`, `WithOne(...)`, `WithMany(...)`, `HasForeignKey(...)`,
-    `[ForeignKey]`, and `[InverseProperty]` are not supported. Use complex types for embedded
-    data, or model separate DynamoDB items/tables as separate root entities and join them in
-    application code when needed.
+```
+`HasOne(...)`, `HasMany(...)`, `WithOne(...)`, `WithMany(...)`, `HasForeignKey(...)`,
+`[ForeignKey]`, and `[InverseProperty]` are not supported. Use complex types for embedded
+data, or model separate DynamoDB items/tables as separate root entities and join them in
+application code when needed.
+```
 
 ## Defaults and Overrides
 
@@ -141,9 +145,11 @@ In DynamoDB, a composite table key means exactly two parts: partition key + sort
 
 !!! warning "Composite keys must use partition/sort mapping"
 
-    `HasKey(...)` and `[Key]` are not the source of truth for composite DynamoDB keys.
-    Configure composite keys with `HasPartitionKey(...)` + `HasSortKey(...)`. If an EF primary key
-    shape diverges from the configured DynamoDB key mapping, model finalization throws.
+```
+`HasKey(...)` and `[Key]` are not the source of truth for composite DynamoDB keys.
+Configure composite keys with `HasPartitionKey(...)` + `HasSortKey(...)`. If an EF primary key
+shape diverges from the configured DynamoDB key mapping, model finalization throws.
+```
 
 When a sort key is configured (explicitly or by convention), the provider derives the EF primary
 key as `[partitionKey, sortKey]` in that order.
@@ -172,9 +178,11 @@ public sealed class Order
 
 !!! note "Common validation failures"
 
-    - Configuring `HasKey(...)` or `[Key]` on the entity
-    - Declaring a sort key without a resolvable partition key
-    - Ambiguous conventional names (both `PK` and `PartitionKey`, or both `SK` and `SortKey`)
+```
+- Configuring `HasKey(...)` or `[Key]` on the entity
+- Declaring a sort key without a resolvable partition key
+- Ambiguous conventional names (both `PK` and `PartitionKey`, or both `SK` and `SortKey`)
+```
 
 See [Table and Key Mapping](../configuration/table-key-mapping.md) for full validation rules,
 key-property requirements, and advanced mapping patterns.

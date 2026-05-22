@@ -66,16 +66,20 @@ builder.ComplexProperty(x => x.Profile, profile =>
 
 !!! note "Container attribute names follow the naming convention"
 
-    The DynamoDB attribute key for the complex-property map is subject to the root entity's naming
-    convention, just like any other property. Use `HasAttributeName(...)` on the complex-property
-    builder to override it. See [Attribute Naming](../configuration/attribute-naming.md) for how
-    conventions propagate to nested complex properties.
+```
+The DynamoDB attribute key for the complex-property map is subject to the root entity's naming
+convention, just like any other property. Use `HasAttributeName(...)` on the complex-property
+builder to override it. See [Attribute Naming](../configuration/attribute-naming.md) for how
+conventions propagate to nested complex properties.
+```
 
 !!! note "Explicit configuration is optional for basic discovery"
 
-    Use `ComplexProperty(...)` when you need nested configuration such as explicit attribute names,
-    converters, or other metadata overrides. For a plain nested POCO member, the provider
-    discovers it automatically as a complex property.
+```
+Use `ComplexProperty(...)` when you need nested configuration such as explicit attribute names,
+converters, or other metadata overrides. For a plain nested POCO member, the provider
+discovers it automatically as a complex property.
+```
 
 ## Complex Collections
 
@@ -110,9 +114,11 @@ Supported CLR collection shapes: `List<T>`, `IList<T>`. `ICollection<T>`,
 
 !!! note "Collection updates replace the full list"
 
-    Complex collection updates are written as full-list replacements of the containing DynamoDB
-    attribute. Modifying, adding, or removing an element updates the entire list value, not an
-    in-place list element delta.
+```
+Complex collection updates are written as full-list replacements of the containing DynamoDB
+attribute. Modifying, adding, or removing an element updates the entire list value, not an
+in-place list element delta.
+```
 
 ## Query Behavior
 
@@ -156,8 +162,10 @@ SELECT "pk", "profile" FROM "Customers"
 
 !!! warning "SelectMany is not translated"
 
-    Direct querying of complex collections via `SelectMany` is not supported. `.Include()` has no
-    effect on complex properties and can be omitted.
+```
+Direct querying of complex collections via `SelectMany` is not supported. `.Include()` has no
+effect on complex properties and can be omitted.
+```
 
 ## Nesting Limits and Constraints
 
@@ -168,8 +176,10 @@ nested data shares one item-size budget and is read or written as part of that r
 
 !!! warning "DynamoDB item size limit"
 
-    DynamoDB imposes a maximum item size of 400 KB. Deeply nested or large complex collections
-    count against this limit.
+```
+DynamoDB imposes a maximum item size of 400 KB. Deeply nested or large complex collections
+count against this limit.
+```
 
 Complex types can be nested to any depth. A complex collection can contain nested complex
 properties, which can themselves contain further complex properties.
@@ -205,11 +215,13 @@ Null and missing attribute handling:
 
 !!! warning "Strict materialization"
 
-    Unlike the Cosmos DB EF provider, this provider does not silently skip missing required
-    properties on complex types. If the DynamoDB attribute is absent or is a DynamoDB `NULL` and
-    the EF property is required, materialization throws. Likewise, if a complex property is present
-    but encoded with the wrong DynamoDB wire shape (for example `S` instead of `M`), materialization
-    throws even when the CLR property is nullable. Design your schemas accordingly.
+```
+Unlike the Cosmos DB EF provider, this provider does not silently skip missing required
+properties on complex types. If the DynamoDB attribute is absent or is a DynamoDB `NULL` and
+the EF property is required, materialization throws. Likewise, if a complex property is present
+but encoded with the wrong DynamoDB wire shape (for example `S` instead of `M`), materialization
+throws even when the CLR property is nullable. Design your schemas accordingly.
+```
 
 ## Relationships vs Complex Types
 

@@ -108,10 +108,10 @@ Table-per-type (TPT) and table-per-concrete-type (TPC) are not supported.
 Use this sequence when introducing a new entity type into a shared table:
 
 1. Define the item family and sort-key prefix (for example `ORDER#`, `INVOICE#`, `USER#METADATA`)
-1. Define uniqueness at `(PK, SK)` for that family
-1. Add entity mapping to the shared `ToTable(...)` target with the same PK/SK attribute names
-1. Add query paths that include PK and the intended SK condition (`=`, `begins_with`, range)
-1. Keep discriminator enabled unless keys alone guarantee strict type isolation
+2. Define uniqueness at `(PK, SK)` for that family
+3. Add entity mapping to the shared `ToTable(...)` target with the same PK/SK attribute names
+4. Add query paths that include PK and the intended SK condition (`=`, `begins_with`, range)
+5. Keep discriminator enabled unless keys alone guarantee strict type isolation
 
 ## Discriminator behavior
 
@@ -155,9 +155,11 @@ for the entire group.
 
 !!! warning "Disabling discriminators removes type predicates"
 
-    Without a discriminator, the provider does not inject type-level query filtering.
-    Queries return all items matching key conditions, regardless of CLR type.
-    Only use this when your PK/SK patterns guarantee type separation.
+```
+Without a discriminator, the provider does not inject type-level query filtering.
+Queries return all items matching key conditions, regardless of CLR type.
+Only use this when your PK/SK patterns guarantee type separation.
+```
 
 ## Query behavior
 
@@ -168,8 +170,8 @@ The provider injects discriminator predicates automatically when discrimination 
 At query time, these pieces combine in order:
 
 1. DynamoDB key conditions decide which items are read (PK and optional SK conditions)
-1. Provider discriminator predicate narrows items to allowed CLR types in the shared-table group
-1. Materialization uses discriminator values to create the correct concrete CLR type
+2. Provider discriminator predicate narrows items to allowed CLR types in the shared-table group
+3. Materialization uses discriminator values to create the correct concrete CLR type
 
 This is why key design and discriminator design should be treated as one system, not separate
 features.
@@ -205,41 +207,43 @@ WHERE "pk" = 'TENANT#1' AND "$type" = 'Employee'
 
 !!! danger "Type-only narrowing is not a key-condition optimization"
 
-    The discriminator predicate (`$type = ...`) is a filter, not a partition/sort key condition.
-    DynamoDB applies that filter after reading matching key-range items.
-    AWS documents that `Query` consumes the same read capacity whether a filter expression is
-    present or not.
+````
+The discriminator predicate (`$type = ...`) is a filter, not a partition/sort key condition.
+DynamoDB applies that filter after reading matching key-range items.
+AWS documents that `Query` consumes the same read capacity whether a filter expression is
+present or not.
 
-    In practice, PK + discriminator-only queries can consume more read units and add latency,
-    because DynamoDB reads a broader item set first and then discards non-matching types.
-    The read-cost term is:
+In practice, PK + discriminator-only queries can consume more read units and add latency,
+because DynamoDB reads a broader item set first and then discards non-matching types.
+The read-cost term is:
 
-    - **Provisioned mode**: Read Capacity Units (RCUs)
-    - **On-demand mode**: Read Request Units (RRUs)
+- **Provisioned mode**: Read Capacity Units (RCUs)
+- **On-demand mode**: Read Request Units (RRUs)
 
-    Prefer adding a sort-key predicate (for example, `StartsWith`) that matches your item pattern.
-    In this provider, `string.StartsWith(string)` is translated to DynamoDB `begins_with(...)`.
-    See [Supported Operators](../querying/operators.md) for translation details.
+Prefer adding a sort-key predicate (for example, `StartsWith`) that matches your item pattern.
+In this provider, `string.StartsWith(string)` is translated to DynamoDB `begins_with(...)`.
+See [Supported Operators](../querying/operators.md) for translation details.
 
-    Safer access-pattern query (PK + SK prefix + discriminator):
+Safer access-pattern query (PK + SK prefix + discriminator):
 
-    ```csharp
-    context.Employees
-        .Where(x => x.Pk == "TENANT#1" && x.Sk.StartsWith("EMPLOYEE#"))
-        .ToListAsync();
-    ```
+```csharp
+context.Employees
+    .Where(x => x.Pk == "TENANT#1" && x.Sk.StartsWith("EMPLOYEE#"))
+    .ToListAsync();
+```
 
-    ```sql
-    SELECT "pk", "sk", "$type", "name", "department"
-    FROM "People"
-    WHERE "pk" = 'TENANT#1'
-      AND begins_with("sk", 'EMPLOYEE#')
-      AND "$type" = 'Employee'
-    ```
+```sql
+SELECT "pk", "sk", "$type", "name", "department"
+FROM "People"
+WHERE "pk" = 'TENANT#1'
+  AND begins_with("sk", 'EMPLOYEE#')
+  AND "$type" = 'Employee'
+```
 
-    This query shape aligns with single-table key design: PK selects the item collection, SK prefix
-    narrows to the item family, and discriminator preserves EF type safety.
-    For key-shape examples, continue with [Practical single-table pattern](#practical-single-table-pattern).
+This query shape aligns with single-table key design: PK selects the item collection, SK prefix
+narrows to the item family, and discriminator preserves EF type safety.
+For key-shape examples, continue with [Practical single-table pattern](#practical-single-table-pattern).
+````
 
 Base queries materialize polymorphically (`DbSet<Person>` can return `Employee` and `Manager`).
 When discrimination is active, the discriminator attribute is included in projection.
@@ -251,9 +255,11 @@ Query derived sets directly (for example `context.Employees`) instead.
 
 !!! tip "Index selection with inheritance/shared-table queries"
 
-    With automatic index selection enabled, base-type queries are only routed to indexes declared
-    on the queried base type (or its ancestors). Indexes declared only on sibling derived types are
-    not chosen for base-type queries. See [Index Selection](../querying/index-selection.md).
+```
+With automatic index selection enabled, base-type queries are only routed to indexes declared
+on the queried base type (or its ancestors). Indexes declared only on sibling derived types are
+not chosen for base-type queries. See [Index Selection](../querying/index-selection.md).
+```
 
 ## Practical single-table pattern
 
@@ -288,8 +294,8 @@ filtering may be redundant. Keep it enabled by default unless you have verified 
 Think about single-table modeling as three layered constraints:
 
 1. **Key constraints (PK/SK)** define where an item lives and whether `(PK, SK)` is unique
-1. **Type constraints (discriminator)** define which CLR type an item belongs to
-1. **Query constraints (LINQ shape)** define which subset of that data you read for one use case
+2. **Type constraints (discriminator)** define which CLR type an item belongs to
+3. **Query constraints (LINQ shape)** define which subset of that data you read for one use case
 
 If any layer is weak, results can be broader than intended.
 
@@ -397,11 +403,11 @@ item shapes even when the EF model itself is valid.
 ## Recommended workflow
 
 1. Start from access patterns (what must be fetched together)
-1. Design PK/SK values to satisfy those patterns
-1. Map all participating entity types to one table
-1. Keep discriminators enabled unless key design alone guarantees safe isolation
-1. Validate query shapes on base and derived sets
-1. Inspect generated query text/logs to confirm key-focused predicates (`PK`, `SK`, `begins_with`)
+2. Design PK/SK values to satisfy those patterns
+3. Map all participating entity types to one table
+4. Keep discriminators enabled unless key design alone guarantees safe isolation
+5. Validate query shapes on base and derived sets
+6. Inspect generated query text/logs to confirm key-focused predicates (`PK`, `SK`, `begins_with`)
 
 ## See also
 

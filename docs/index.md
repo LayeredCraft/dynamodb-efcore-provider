@@ -12,11 +12,15 @@ _Use EF Core's familiar LINQ API against Amazon DynamoDB. Queries are translated
 
 !!! note "Community project"
 
-    This is an independent, community-maintained library. It is not affiliated with, endorsed by, or supported by Amazon Web Services or Microsoft.
+```
+This is an independent, community-maintained library. It is not affiliated with, endorsed by, or supported by Amazon Web Services or Microsoft.
+```
 
 !!! note "Preview release"
 
-    This library is in preview. Review [known limitations](limitations.md) before adopting it.
+```
+This library is in preview. Review [known limitations](limitations.md) before adopting it.
+```
 
 ## Requirements
 

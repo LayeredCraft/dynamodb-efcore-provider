@@ -113,10 +113,12 @@ The primitive types. Only `String`, `Number`, and `Binary` can be used as primar
 
 !!! note "No native date/time type"
 
-    DynamoDB has no built-in date or timestamp type. Store dates as ISO 8601 strings
-    (e.g. `"2024-01-15T09:30:00Z"`) for human readability and lexicographic sort order, or as
-    Unix epoch numbers when you need arithmetic. The provider uses EF Core's type mapping
-    metadata to handle `DateTime` and `DateTimeOffset` conversions.
+```
+DynamoDB has no built-in date or timestamp type. Store dates as ISO 8601 strings
+(e.g. `"2024-01-15T09:30:00Z"`) for human readability and lexicographic sort order, or as
+Unix epoch numbers when you need arithmetic. The provider uses EF Core's type mapping
+metadata to handle `DateTime` and `DateTimeOffset` conversions.
+```
 
 ### Document types
 
@@ -235,9 +237,11 @@ modelBuilder.Entity<Order>(b =>
 
 !!! tip "Single-table design with this provider"
 
-    Map multiple entity types to the same table name using `b.ToTable("ShopData")` on each entity.
-    Give each type a sort key whose value includes a distinguishing prefix. The provider routes
-    reads and writes to the correct entity type based on the EF model; DynamoDB handles the storage.
+```
+Map multiple entity types to the same table name using `b.ToTable("ShopData")` on each entity.
+Give each type a sort key whose value includes a distinguishing prefix. The provider routes
+reads and writes to the correct entity type based on the EF model; DynamoDB handles the storage.
+```
 
 ### When multiple tables make sense
 
@@ -291,14 +295,16 @@ in the AWS documentation.
 
 !!! warning "Synchronous I/O is not supported"
 
-    The DynamoDB SDK has no synchronous I/O surface — every network operation is async-only.
-    All operations in this provider follow the same constraint. Use `ToListAsync`,
-    `FirstOrDefaultAsync`, `SaveChangesAsync`, and other async methods throughout. `ToList()`,
-    `SaveChanges()`, and other synchronous methods are not supported and will throw at runtime.
+```
+The DynamoDB SDK has no synchronous I/O surface — every network operation is async-only.
+All operations in this provider follow the same constraint. Use `ToListAsync`,
+`FirstOrDefaultAsync`, `SaveChangesAsync`, and other async methods throughout. `ToList()`,
+`SaveChanges()`, and other synchronous methods are not supported and will throw at runtime.
 
-    Some query operators (including `Single` and `SingleOrDefault`) are not translated yet on
-    `IQueryable` paths. For those shapes, switch to `AsAsyncEnumerable()` and apply
-    `SingleAsync(...)` / `SingleOrDefaultAsync(...)` there.
+Some query operators (including `Single` and `SingleOrDefault`) are not translated yet on
+`IQueryable` paths. For those shapes, switch to `AsAsyncEnumerable()` and apply
+`SingleAsync(...)` / `SingleOrDefaultAsync(...)` there.
+```
 
 ## How This Affects Your EF Core Model
 

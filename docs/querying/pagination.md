@@ -15,7 +15,9 @@ Tokens are pass-through values — the provider does not parse or manipulate the
 
 !!! note
 
-    End of results is always `NextToken == null`. Do not use `Items.Count < limit` as a termination condition — a page can legitimately return zero items while still having a non-null `NextToken` when all evaluated items were filtered out by a non-key `Where` predicate.
+```
+End of results is always `NextToken == null`. Do not use `Items.Count < limit` as a termination condition — a page can legitimately return zero items while still having a non-null `NextToken` when all evaluated items were filtered out by a non-key `Where` predicate.
+```
 
 ## ToPageAsync
 
@@ -89,7 +91,9 @@ With a highly selective filter, DynamoDB may evaluate the entire budget without 
 
 !!! note
 
-    There is no global default page size. Specify the evaluation budget explicitly on each `ToPageAsync` call or via `Limit(n)`.
+```
+There is no global default page size. Specify the evaluation budget explicitly on each `ToPageAsync` call or via `Limit(n)`.
+```
 
 ## Evaluation Budget Reference
 
@@ -138,7 +142,9 @@ if (nextCursor != null)
 
 !!! note
 
-    If you need a continuation token even when a page returns zero items, use `ToPageAsync(limit, token)` instead. `ToPageAsync` always returns `DynamoPage<T>.NextToken`, while entry metadata is only available when at least one tracked entity is materialized.
+```
+If you need a continuation token even when a page returns zero items, use `ToPageAsync(limit, token)` instead. `ToPageAsync` always returns `DynamoPage<T>.NextToken`, while entry metadata is only available when at least one tracked entity is materialized.
+```
 
 All items from the same request share the same response object reference. For `ToListAsync()` without `Limit`, the provider follows all continuation tokens internally; by the time `ToListAsync` returns, those tokens have already been consumed. Use `ToPageAsync` when you need explicit cursor control across requests.
 

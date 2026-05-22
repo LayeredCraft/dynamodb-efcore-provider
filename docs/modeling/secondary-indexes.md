@@ -85,11 +85,13 @@ modelBuilder.Entity<Order>(builder =>
 
 !!! warning "LSI requires a table sort key"
 
-    Calling `HasLocalSecondaryIndex(...)` on an entity without a sort key throws at model
-    finalization.
+```
+Calling `HasLocalSecondaryIndex(...)` on an entity without a sort key throws at model
+finalization.
 
-    The call order does not matter. You can configure the LSI before `HasPartitionKey(...)` /
-    `HasSortKey(...)` as long as table keys are configured by model finalization.
+The call order does not matter. You can configure the LSI before `HasPartitionKey(...)` /
+`HasSortKey(...)` as long as table keys are configured by model finalization.
+```
 
 Additional rules:
 
@@ -122,22 +124,26 @@ entity.HasGlobalSecondaryIndex("ByStatus", x => x.Status, x => x.CreatedAt)
 
 !!! warning "Non-All projection indexes cannot materialize full entities"
 
-    `KeysOnly` / `Include` index usage is not pre-validated by the provider.
+```
+`KeysOnly` / `Include` index usage is not pre-validated by the provider.
 
-    If you explicitly target a non-`All` index via `.WithIndex(...)` and the response omits
-    attributes your query/materializer expects:
+If you explicitly target a non-`All` index via `.WithIndex(...)` and the response omits
+attributes your query/materializer expects:
 
-    - missing required properties throw during materialization,
-    - missing optional properties can materialize as `null` / CLR default.
+- missing required properties throw during materialization,
+- missing optional properties can materialize as `null` / CLR default.
+```
 
 !!! note "Partial projection query support"
 
-    Automatic index selection only considers `All`-projection indexes.
+```
+Automatic index selection only considers `All`-projection indexes.
 
-    `KeysOnly` and `Include` indexes can still be targeted explicitly with `.WithIndex(...)`.
+`KeysOnly` and `Include` indexes can still be targeted explicitly with `.WithIndex(...)`.
 
-    The provider does not currently model `Include` non-key attribute lists in runtime metadata,
-    so it cannot validate projection coverage for explicit index hints before execution.
+The provider does not currently model `Include` non-key attribute lists in runtime metadata,
+so it cannot validate projection coverage for explicit index hints before execution.
+```
 
 ## Using Indexes in Queries
 
@@ -163,7 +169,9 @@ var orders = await context.Orders
 
 !!! warning "WithIndex and WithoutIndex cannot be combined"
 
-    Calling both on the same query throws `InvalidOperationException` at translation time.
+```
+Calling both on the same query throws `InvalidOperationException` at translation time.
+```
 
 When automatic index selection is enabled (see [DbContext Options](../configuration/dbcontext.md)),
 mode controls behavior:

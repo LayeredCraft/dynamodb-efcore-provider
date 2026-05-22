@@ -92,16 +92,20 @@ var profiles = await db.Users
 
 !!! note
 
-    Nested complex-property paths (`u.Profile.Address.City`) are supported in `Where` predicates,
-    translating to dot-notation in PartiQL (`"Profile"."Address"."City"`). In `Select`
-    projections, however, only the top-level complex attribute is projected by the server; deeper
-    extraction happens client-side.
+```
+Nested complex-property paths (`u.Profile.Address.City`) are supported in `Where` predicates,
+translating to dot-notation in PartiQL (`"Profile"."Address"."City"`). In `Select`
+projections, however, only the top-level complex attribute is projected by the server; deeper
+extraction happens client-side.
+```
 
 !!! warning
 
-    Complex-property materialization is shape-strict. If DynamoDB returns a complex property under
-    the expected attribute name but the wire shape is not a map (`M`), the provider throws during
-    shaping instead of treating the value as `null`.
+```
+Complex-property materialization is shape-strict. If DynamoDB returns a complex property under
+the expected attribute name but the wire shape is not a map (`M`), the provider throws during
+shaping instead of treating the value as `null`.
+```
 
 ## See also
 

@@ -9,8 +9,10 @@ _`SaveChangesAsync` reads the EF Core change tracker, compiles each pending enti
 
 !!! warning "Async only"
 
-    The DynamoDB SDK does not expose synchronous write APIs. `SaveChanges` (synchronous) always
-    throws `NotSupportedException`. Always use `SaveChangesAsync`.
+```
+The DynamoDB SDK does not expose synchronous write APIs. `SaveChanges` (synchronous) always
+throws `NotSupportedException`. Always use `SaveChangesAsync`.
+```
 
 ## How Writes Are Compiled
 
@@ -75,9 +77,11 @@ catch (DbUpdateException ex)
 
 !!! note
 
-    `DbUpdateException` (not `DbUpdateConcurrencyException`) is thrown for duplicate key
-    violations because the item already existing is a uniqueness constraint failure, not a
-    stale-read conflict. See [Optimistic Concurrency](concurrency.md) for the distinction.
+```
+`DbUpdateException` (not `DbUpdateConcurrencyException`) is thrown for duplicate key
+violations because the item already existing is a uniqueness constraint failure, not a
+stale-read conflict. See [Optimistic Concurrency](concurrency.md) for the distinction.
+```
 
 If your application cannot guarantee key uniqueness at the application layer, perform a
 read-before-write to check existence before adding, or use a conditional write pattern at the
@@ -184,17 +188,19 @@ validates the compiled statement length before executing any writes and throws
 
 !!! warning "Statement size limit"
 
-    The limit is most likely to be hit on INSERT statements with many mapped properties or large
-    complex-property sub-documents. The error message reports the actual character or byte count:
+````
+The limit is most likely to be hit on INSERT statements with many mapped properties or large
+complex-property sub-documents. The error message reports the actual character or byte count:
 
-    ```
-    The generated PartiQL statement is 9,841 UTF-8 bytes, which exceeds DynamoDB's
-    8,192-byte statement-size limit. Consider reducing the number of mapped scalar
-    properties or splitting the write unit across multiple SaveChanges calls.
-    ```
+```
+The generated PartiQL statement is 9,841 UTF-8 bytes, which exceeds DynamoDB's
+8,192-byte statement-size limit. Consider reducing the number of mapped scalar
+properties or splitting the write unit across multiple SaveChanges calls.
+```
 
-    To fix: reduce the number of mapped properties, split large nested documents into separate items,
-    or batch smaller sets of entities per `SaveChangesAsync` call.
+To fix: reduce the number of mapped properties, split large nested documents into separate items,
+or batch smaller sets of entities per `SaveChangesAsync` call.
+````
 
 ## See also
 

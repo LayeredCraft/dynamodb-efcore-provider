@@ -74,17 +74,19 @@ Each chunk is committed as a separate `ExecuteTransaction` call.
 
 !!! warning "Partial-commit risk with chunking"
 
-    Each chunk is individually atomic, but there is **no atomicity guarantee across chunks**.
-    If chunk 2 fails after chunk 1 has already been committed, your data is left in a
-    partially-saved state with no automatic rollback.
+```
+Each chunk is individually atomic, but there is **no atomicity guarantee across chunks**.
+If chunk 2 fails after chunk 1 has already been committed, your data is left in a
+partially-saved state with no automatic rollback.
 
-    Use `UseChunking` only when:
+Use `UseChunking` only when:
 
-    - The entities in the write unit are logically independent (partial success is acceptable).
-    - The operations are idempotent (a retry can safely re-apply committed chunks).
+- The entities in the write unit are logically independent (partial success is acceptable).
+- The operations are idempotent (a retry can safely re-apply committed chunks).
 
-    Do not use `UseChunking` for write units where coupled invariants must all commit together
-    (e.g., inventory reservation + order creation).
+Do not use `UseChunking` for write units where coupled invariants must all commit together
+(e.g., inventory reservation + order creation).
+```
 
 Chunking also requires that `SaveChangesAsync` is called with `acceptAllChangesOnSuccess: true`
 (the default). Calling `SaveChangesAsync(acceptAllChangesOnSuccess: false)` with chunking

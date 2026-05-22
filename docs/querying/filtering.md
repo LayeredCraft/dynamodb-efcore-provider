@@ -36,7 +36,9 @@ The `EF.Functions` methods are for advanced cases where the `NULL` vs `MISSING` 
 
 !!! note
 
-    Parameterized null — comparing a property to a `null` variable (`x.Prop == someVar` where `someVar` is `null` at runtime) — uses `= ?` with an `AttributeValue { NULL: true }` parameter. This only matches attributes with the `NULL` type, not `MISSING` attributes. This is a DynamoDB engine constraint: the `IS` operator does not accept parameters.
+```
+Parameterized null — comparing a property to a `null` variable (`x.Prop == someVar` where `someVar` is `null` at runtime) — uses `= ?` with an `AttributeValue { NULL: true }` parameter. This only matches attributes with the `NULL` type, not `MISSING` attributes. This is a DynamoDB engine constraint: the `IS` operator does not accept parameters.
+```
 
 ## String Predicates
 
@@ -59,7 +61,9 @@ Only the `string`-parameter overload is supported. Overloads that accept `char`,
 
 !!! note
 
-    `entity.Tags.Contains("x")` — testing whether a *collection attribute* contains a value — is not supported. Only in-memory collection membership (`ids.Contains(entity.Id)`) and string substring checks are translated.
+```
+`entity.Tags.Contains("x")` — testing whether a *collection attribute* contains a value — is not supported. Only in-memory collection membership (`ids.Contains(entity.Id)`) and string substring checks are translated.
+```
 
 ## String Comparisons
 
@@ -96,7 +100,9 @@ var orders = await db.Orders
 
 !!! note
 
-    String comparisons are always case-sensitive and use the byte value of each character. `"Z"` sorts before `"a"` because uppercase letters have lower UTF-8 code points than lowercase. Design sort key prefixes with consistent casing to avoid unexpected ordering.
+```
+String comparisons are always case-sensitive and use the byte value of each character. `"Z"` sorts before `"a"` because uppercase letters have lower UTF-8 code points than lowercase. Design sort key prefixes with consistent casing to avoid unexpected ordering.
+```
 
 ## Range Predicates (BETWEEN)
 
@@ -119,7 +125,9 @@ The rewrite matters for sort key range queries. DynamoDB allows only one key con
 
 !!! warning
 
-    The provider does not validate that `low <= high`. An inverted range like `o.Score >= 500 && o.Score <= 100` rewrites to `"Score" BETWEEN 500 AND 100`, which DynamoDB evaluates as an empty range and returns no results.
+```
+The provider does not validate that `low <= high`. An inverted range like `o.Score >= 500 && o.Score <= 100` rewrites to `"Score" BETWEEN 500 AND 100`, which DynamoDB evaluates as an empty range and returns no results.
+```
 
 ## IN Predicate
 
@@ -231,7 +239,9 @@ db.Orders.Where(o => o.Pk == customerId
 
 !!! note
 
-    DynamoDB distinguishes between *key conditions* (predicates on the partition key or sort key evaluated during index traversal) and *filter expressions* (predicates on non-key attributes applied after items are read). Filter expressions do not reduce read capacity unit consumption — DynamoDB reads the items first, then discards the ones that don't match.
+```
+DynamoDB distinguishes between *key conditions* (predicates on the partition key or sort key evaluated during index traversal) and *filter expressions* (predicates on non-key attributes applied after items are read). Filter expressions do not reduce read capacity unit consumption — DynamoDB reads the items first, then discards the ones that don't match.
+```
 
 In practice, this means a `Limit(n)` query evaluates `n` items and then applies the filter. If only a small fraction of the evaluated items match, fewer results are returned — but DynamoDB consumed read capacity for all `n` evaluated items. With highly selective non-key filters, a page may return zero matching items while still producing a non-null `NextToken`.
 
