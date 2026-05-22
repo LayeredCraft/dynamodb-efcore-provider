@@ -165,17 +165,7 @@ These tests use non-Northwind models and fixtures.
 
 | Test Class | Methods | Cosmos | MongoDB | Notes |
 |---|---:|:---:|:---:|---|
-| `ComplexTypeQueryTestBase` | 74 | ✓ | ✗ | Complex property projection/filter plus property-to-property and parameter equality coverage; navigation, set-operation, GroupBy, inline constant equality, and pushdown cases skipped |
-
-#### Complex type query follow-up work
-
-The remaining skipped complex-type methods are not all architectural blockers. The next focused
-follow-up is **nested struct complex projections**: `Select_nested_struct_complex_type` and
-`Select_single_property_on_nested_struct_complex_type` are feasible but need expression compiler
-work. EF Core materialization emits a `TryExpression` around value-type complex initialization for
-null-safety, and the DynamoDB shaped-query compiler does not currently handle that expression shape.
-Add `TryExpression` handling carefully in the compiling/materialization path before enabling these
-tests because it touches the shaped-query compiler's critical path.
+| `ComplexTypeQueryTestBase` | 74 | ✓ | ✗ | Complex property projection/filter, nested struct projections, and property-to-property/parameter equality coverage; navigation, set-operation, GroupBy, inline constant equality, and pushdown cases skipped |
 
 ### Future
 

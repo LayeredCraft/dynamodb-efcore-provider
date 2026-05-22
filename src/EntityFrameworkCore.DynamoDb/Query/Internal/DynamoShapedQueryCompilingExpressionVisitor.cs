@@ -65,6 +65,8 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
             itemParameter,
             selectExpression).Visit(shaperBody);
 
+        shaperBody = new ValueTypeMemberAccessRewritingVisitor().Visit(shaperBody);
+
         var shaperLambda = Expression.Lambda(
             shaperBody,
             QueryCompilationContext.QueryContextParameter,
@@ -200,6 +202,38 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
                         member));
             }
         }
+    }
+
+    /// <summary>
+    ///     Rewrites value-type member access over try expressions into a temporary assignment.
+    ///     Expression tree compilation rejects direct member access on a value-type TryExpression.
+    /// </summary>
+    private sealed class ValueTypeMemberAccessRewritingVisitor : ExpressionVisitor
+    {
+        protected override Expression VisitMember(MemberExpression node)
+        {
+            if (node.Expression is not { } instance)
+                return base.VisitMember(node);
+
+            var visitedInstance = Visit(instance);
+            if (RequiresValueTypeInstanceMaterialization(visitedInstance))
+            {
+                var instanceVariable = Variable(visitedInstance.Type, "valueTypeInstance");
+                return Block(
+                    [instanceVariable],
+                    Assign(instanceVariable, visitedInstance),
+                    MakeMemberAccess(instanceVariable, node.Member));
+            }
+
+            return visitedInstance == instance
+                ? node
+                : node.Update(visitedInstance);
+        }
+
+        private static bool RequiresValueTypeInstanceMaterialization(Expression instanceExpression)
+            => instanceExpression.Type.IsValueType
+                && instanceExpression is not ParameterExpression
+                && instanceExpression is not MemberExpression;
     }
 
     /// <summary>Validates that the runtime Limit value is positive.</summary>

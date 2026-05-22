@@ -232,13 +232,27 @@ public abstract class ComplexTypeQueryDynamoTest
             """);
         });
 
-    [ConditionalTheory(Skip = SkipReason.NestedStructComplexTypeProjectionNotSupported)]
     public override Task Select_nested_struct_complex_type(bool async)
-        => base.Select_nested_struct_complex_type(async);
+        => NoSyncTest(async, async a =>
+        {
+            await base.Select_nested_struct_complex_type(a);
+            AssertSql(
+            """
+            SELECT "shippingAddress"
+            FROM "ValuedCustomers"
+            """);
+        });
 
-    [ConditionalTheory(Skip = SkipReason.NestedStructComplexTypeProjectionNotSupported)]
     public override Task Select_single_property_on_nested_struct_complex_type(bool async)
-        => base.Select_single_property_on_nested_struct_complex_type(async);
+        => NoSyncTest(async, async a =>
+        {
+            await base.Select_single_property_on_nested_struct_complex_type(a);
+            AssertSql(
+            """
+            SELECT "shippingAddress"
+            FROM "ValuedCustomers"
+            """);
+        });
 
     public override Task Select_struct_complex_type_Where(bool async)
         => NoSyncTest(async, async a =>
