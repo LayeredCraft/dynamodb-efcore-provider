@@ -1,5 +1,6 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
+using EntityFrameworkCore.DynamoDb.Query.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using NSubstitute;
@@ -91,7 +92,7 @@ public class PrimitiveCollectionContainsTranslationTests
         await act
             .Should()
             .ThrowAsync<InvalidOperationException>()
-            .WithMessage("*Contains translation supports in-memory collection membership only*");
+            .WithMessage($"*{DynamoStrings.ContainsCollectionShapeNotSupported}*");
     }
 
     private static (IAmazonDynamoDB Client, List<ExecuteStatementRequest> Captured) CreateClient()
