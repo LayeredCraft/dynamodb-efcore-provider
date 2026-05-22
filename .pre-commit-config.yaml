@@ -1,0 +1,5 @@
+repos:
+  - repo: https://github.com/j-d-ha/format
+    rev: feat/add-git-hook
+    hooks:
+      - id: format
