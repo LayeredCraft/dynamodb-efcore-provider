@@ -155,6 +155,12 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         var left = TranslateInternal(node.Left);
         var right = TranslateInternal(node.Right);
 
+        if (node.NodeType is ExpressionType.Equal or ExpressionType.NotEqual)
+        {
+            left ??= TryTranslateComplexPropertyForStructuralComparison(node.Left);
+            right ??= TryTranslateComplexPropertyForStructuralComparison(node.Right);
+        }
+
         if (left == null || right == null)
             return QueryCompilationContext.NotTranslatedExpression;
 
@@ -172,6 +178,12 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
     ///     <c>!= null</c> compose against the correct nested document path.
     /// </summary>
     private SqlExpression? TryTranslateComplexPropertyForNullComparison(Expression operand)
+        => TryTranslateComplexPropertyForStructuralComparison(operand);
+
+    /// <summary>
+    ///     Translates whole-complex-property member access to the underlying map attribute path.
+    /// </summary>
+    private SqlExpression? TryTranslateComplexPropertyForStructuralComparison(Expression operand)
     {
         if (!TryGetMemberAccessChain(operand, out var names, out var sourceExpression))
             return null;

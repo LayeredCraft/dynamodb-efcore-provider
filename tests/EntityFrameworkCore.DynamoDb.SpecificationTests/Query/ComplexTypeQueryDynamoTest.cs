@@ -97,15 +97,23 @@ public abstract class ComplexTypeQueryDynamoTest
     public override Task Select_complex_type_Distinct(bool async)
         => base.Select_complex_type_Distinct(async);
 
-    [ConditionalTheory(Skip = SkipReason.ComplexTypeStructuralEqualityNotSupported)]
     public override Task Complex_type_equals_complex_type(bool async)
-        => base.Complex_type_equals_complex_type(async);
+        => NoSyncTest(async, async a =>
+        {
+            await base.Complex_type_equals_complex_type(a);
+            AssertSql(
+            """
+            SELECT "id", "name", "billingAddress", "optionalAddress", "shippingAddress"
+            FROM "Customers"
+            WHERE "shippingAddress" = "billingAddress"
+            """);
+        });
 
-    [ConditionalTheory(Skip = SkipReason.ComplexTypeStructuralEqualityNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.ComplexTypeConstantOrParameterEqualityNotSupported)]
     public override Task Complex_type_equals_constant(bool async)
         => base.Complex_type_equals_constant(async);
 
-    [ConditionalTheory(Skip = SkipReason.ComplexTypeStructuralEqualityNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.ComplexTypeConstantOrParameterEqualityNotSupported)]
     public override Task Complex_type_equals_parameter(bool async)
         => base.Complex_type_equals_parameter(async);
 
@@ -240,15 +248,23 @@ public abstract class ComplexTypeQueryDynamoTest
     public override Task Select_struct_complex_type_Distinct(bool async)
         => base.Select_struct_complex_type_Distinct(async);
 
-    [ConditionalTheory(Skip = SkipReason.ComplexTypeStructuralEqualityNotSupported)]
     public override Task Struct_complex_type_equals_struct_complex_type(bool async)
-        => base.Struct_complex_type_equals_struct_complex_type(async);
+        => NoSyncTest(async, async a =>
+        {
+            await base.Struct_complex_type_equals_struct_complex_type(a);
+            AssertSql(
+            """
+            SELECT "id", "name", "billingAddress", "shippingAddress"
+            FROM "ValuedCustomers"
+            WHERE "shippingAddress" = "billingAddress"
+            """);
+        });
 
-    [ConditionalTheory(Skip = SkipReason.ComplexTypeStructuralEqualityNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.ComplexTypeConstantOrParameterEqualityNotSupported)]
     public override Task Struct_complex_type_equals_constant(bool async)
         => base.Struct_complex_type_equals_constant(async);
 
-    [ConditionalTheory(Skip = SkipReason.ComplexTypeStructuralEqualityNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.ComplexTypeConstantOrParameterEqualityNotSupported)]
     public override Task Struct_complex_type_equals_parameter(bool async)
         => base.Struct_complex_type_equals_parameter(async);
 

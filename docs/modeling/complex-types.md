@@ -137,6 +137,20 @@ context.Customers.Where(x => x.Tags[0] == "featured")
 WHERE "tags"[0] = 'featured'
 ```
 
+Complex property-to-property equality also translates when both sides are complex attributes on the
+same item:
+
+```csharp
+context.Customers.Where(x => x.ShippingAddress == x.BillingAddress)
+```
+
+```sql
+WHERE "shippingAddress" = "billingAddress"
+```
+
+Equality against a complex object constant or parameter is not translated. Compare individual nested
+members instead when matching a known complex value.
+
 ### Projections
 
 Nested path access in `Select` is not supported server-side. The provider projects the top-level

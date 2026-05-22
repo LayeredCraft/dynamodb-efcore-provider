@@ -165,7 +165,7 @@ These tests use non-Northwind models and fixtures.
 
 | Test Class | Methods | Cosmos | MongoDB | Notes |
 |---|---:|:---:|:---:|---|
-| `ComplexTypeQueryTestBase` | 74 | ✓ | ✗ | Complex property projection/filter coverage; navigation, set-operation, GroupBy, equality, and pushdown cases skipped |
+| `ComplexTypeQueryTestBase` | 74 | ✓ | ✗ | Complex property projection/filter and property-to-property equality coverage; navigation, set-operation, GroupBy, constant/parameter equality, and pushdown cases skipped |
 
 ### Future
 

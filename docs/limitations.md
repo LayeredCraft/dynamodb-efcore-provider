@@ -50,6 +50,8 @@ See [Supported Operators](querying/operators.md) for the full list of what does 
 
 Value-converted enum numeric casts are also rejected when compared to parameters. For example, `(int)entity.Status == value` is not translated if `Status` uses `.HasConversion<string>()`, because DynamoDB stores the converted string value. Compare `entity.Status` to an enum value directly, or map the enum numerically.
 
+Complex property-to-property equality is supported, but equality against a complex object constant or parameter is not translated. Compare individual nested members instead.
+
 **Workaround for unsupported operators:** switch to `AsAsyncEnumerable()` before the unsupported
 operator to move evaluation in-process:
 
