@@ -233,7 +233,9 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         => expression switch
         {
             ConstantExpression => true,
-            MemberExpression memberExpression => IsLiteralShape(memberExpression.Expression!),
+            // Only allow field access — property getters may execute arbitrary user code.
+            MemberExpression { Member: System.Reflection.FieldInfo } memberExpression
+                => IsLiteralShape(memberExpression.Expression!),
             UnaryExpression
             {
                 NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked,
@@ -640,8 +642,11 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         var leftSql = TranslateInternal(leftExpression);
         var rightSql = TranslateInternal(rightExpression);
 
-        // Retry untranslated operands as inline complex object constants when the other side
-        // resolved to a complex map path — mirrors the same fallback in VisitBinary.
+        // Whole complex-property access does not translate through the scalar member path.
+        // Retry untranslated operands as complex map paths first, then bind inline complex
+        // object constants to the discovered mapping — mirrors the same fallback in VisitBinary.
+        leftSql ??= TryTranslateComplexPropertyForStructuralComparison(leftExpression);
+        rightSql ??= TryTranslateComplexPropertyForStructuralComparison(rightExpression);
         if (leftSql is SqlExpression { TypeMapping: DynamoComplexTypeMapping } leftComplex)
             rightSql ??= TryTranslateComplexConstant(rightExpression, leftComplex);
         if (rightSql is SqlExpression { TypeMapping: DynamoComplexTypeMapping } rightComplex)

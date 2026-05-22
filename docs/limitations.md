@@ -54,7 +54,7 @@ Complex property-to-property equality and equality against complex object parame
 
 ### Complex Type Equality
 
-Complex type equality (`==`) translates to whole-map attribute equality in PartiQL. DynamoDB compares the stored document map byte-for-byte, not property by property. If a DynamoDB item contains unmapped attributes written outside EF Core (out-of-band writes), two items that are structurally equal by CLR properties may not compare equal at the DynamoDB level because the stored maps differ.
+Complex type equality (`==`) translates to whole-map attribute equality in PartiQL. DynamoDB compares the entire stored map, not individual properties. If a DynamoDB item contains unmapped attributes written outside EF Core (out-of-band writes), two items that are structurally equal by CLR properties may not compare equal at the DynamoDB level because the stored maps differ.
 
 Rely on complex type equality only when EF Core is the sole writer of those attributes. If out-of-band writes are possible, compare individual scalar properties instead.
 
