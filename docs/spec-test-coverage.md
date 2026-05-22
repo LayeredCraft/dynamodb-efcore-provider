@@ -165,7 +165,7 @@ These tests use non-Northwind models and fixtures.
 
 | Test Class | Methods | Cosmos | MongoDB | Notes |
 |---|---:|:---:|:---:|---|
-| `ComplexTypeQueryTestBase` | 74 | ✓ | ✗ | Complex property projection/filter, nested struct projections, and property-to-property/parameter equality coverage; navigation, set-operation, GroupBy, inline constant equality, and pushdown cases skipped |
+| `ComplexTypeQueryTestBase` | 74 | ✓ | ✗ | All inherited methods are registered/overridden with explicit outcomes; supported projection/filter, nested struct projection, and property-to-property/parameter equality subsets execute, while navigation, set-operation, GroupBy, inline constant equality, and pushdown cases are explicitly skipped |
 
 ### Future
 

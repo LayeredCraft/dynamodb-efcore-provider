@@ -23,11 +23,11 @@ internal sealed class DynamoComplexTypeMapping(Type clrType, IComplexType comple
 
     public override string GenerateConstant(object? value)
         => throw new NotSupportedException(
-            "Complex type constants must be sent as DynamoDB query parameters.");
+            "Inline complex type constants are not supported in DynamoDB queries. Assign the value to a variable so it can be sent as a query parameter.");
 
     internal override string GenerateConstant(object? value, Type sourceType)
         => throw new NotSupportedException(
-            "Complex type constants must be sent as DynamoDB query parameters.");
+            "Inline complex type constants are not supported in DynamoDB queries. Assign the value to a variable so it can be sent as a query parameter.");
 
     protected override CoreTypeMapping Clone(CoreTypeMappingParameters parameters)
         => new DynamoComplexTypeMapping(parameters.ClrType, complexType);

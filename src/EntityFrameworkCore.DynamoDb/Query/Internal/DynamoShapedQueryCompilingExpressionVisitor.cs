@@ -207,8 +207,9 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
     }
 
     /// <summary>
-    ///     Rewrites value-type member access over try expressions into a temporary assignment.
-    ///     Expression tree compilation rejects direct member access on a value-type TryExpression.
+    ///     Rewrites member access over non-trivial value-type expressions into a temporary assignment.
+    ///     Expression tree compilation rejects direct member access on some value-type expression
+    ///     nodes, such as <see cref="TryExpression" /> emitted by complex struct materialization.
     /// </summary>
     private sealed class ValueTypeMemberAccessRewritingVisitor : ExpressionVisitor
     {
