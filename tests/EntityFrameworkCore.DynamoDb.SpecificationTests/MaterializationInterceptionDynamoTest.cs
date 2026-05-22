@@ -69,10 +69,7 @@ public sealed class MaterializationInterceptionDynamoTest(NonSharedFixture fixtu
         return base.Multiple_materialization_interceptors_can_be_used(inject, usePooling);
     }
 
-    protected override ITestStoreFactory TestStoreFactory
-    {
-        get { return DynamoTestStoreFactory.Instance; }
-    }
+    protected override ITestStoreFactory TestStoreFactory => DynamoTestStoreFactory.Instance;
 
     protected override IServiceCollection InjectInterceptors(
         IServiceCollection serviceCollection,
