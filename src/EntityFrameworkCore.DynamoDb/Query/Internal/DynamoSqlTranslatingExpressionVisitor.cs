@@ -3,6 +3,7 @@ using System.Linq.Expressions;
 using System.Reflection;
 using EntityFrameworkCore.DynamoDb.Extensions;
 using EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
+using EntityFrameworkCore.DynamoDb.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Query;
@@ -256,14 +257,20 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
                 return null;
 
             var attributeName = complexProperty.GetAttributeName();
+            var isLast = i == names.Count - 1;
+            var expressionType = isLast ? resultType : complexProperty.ClrType;
+            var typeMapping = isLast
+                ? new DynamoComplexTypeMapping(expressionType, complexProperty.ComplexType)
+                : null;
             sqlExpression = sqlExpression == null
-                ? sqlExpressionFactory.Property(
-                    attributeName,
-                    i == names.Count - 1 ? resultType : complexProperty.ClrType)
+                ? sqlExpressionFactory.ApplyTypeMapping(
+                    sqlExpressionFactory.Property(attributeName, expressionType),
+                    typeMapping)
                 : new DynamoScalarAccessExpression(
                     sqlExpression,
                     attributeName,
-                    i == names.Count - 1 ? resultType : complexProperty.ClrType);
+                    expressionType,
+                    typeMapping);
 
             currentType = complexProperty.ComplexType;
         }

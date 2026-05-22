@@ -165,28 +165,17 @@ These tests use non-Northwind models and fixtures.
 
 | Test Class | Methods | Cosmos | MongoDB | Notes |
 |---|---:|:---:|:---:|---|
-| `ComplexTypeQueryTestBase` | 74 | ✓ | ✗ | Complex property projection/filter and property-to-property equality coverage; navigation, set-operation, GroupBy, constant/parameter equality, and pushdown cases skipped |
+| `ComplexTypeQueryTestBase` | 74 | ✓ | ✗ | Complex property projection/filter plus property-to-property and parameter equality coverage; navigation, set-operation, GroupBy, inline constant equality, and pushdown cases skipped |
 
 #### Complex type query follow-up work
 
-The remaining skipped complex-type methods are not all architectural blockers. Two small follow-up
-areas are worth separate PRs:
-
-1. **Complex value parameter equality** — `Complex_type_equals_parameter` and the struct equivalent
-   are feasible once whole complex CLR types can be bound as DynamoDB map (`M`) query parameters.
-   Storage serialization for complex maps already exists; the missing query path is likely in
-   `DynamoTypeMappingSource` and parameter binding so an `Address`/`AddressStruct` parameter gets a
-   `DynamoTypeMapping` and serializes to a map `AttributeValue`.
-2. **Nested struct complex projections** — `Select_nested_struct_complex_type` and
-   `Select_single_property_on_nested_struct_complex_type` are feasible but need expression compiler
-   work. EF Core materialization emits a `TryExpression` around value-type complex initialization for
-   null-safety, and the DynamoDB shaped-query compiler does not currently handle that expression
-   shape. Add `TryExpression` handling carefully in the compiling/materialization path before
-   enabling these tests.
-
-Prioritize complex value parameter equality first because it has higher user impact and a narrower
-surface area. Handle nested struct projection second because it touches the shaped-query compiler's
-critical path.
+The remaining skipped complex-type methods are not all architectural blockers. The next focused
+follow-up is **nested struct complex projections**: `Select_nested_struct_complex_type` and
+`Select_single_property_on_nested_struct_complex_type` are feasible but need expression compiler
+work. EF Core materialization emits a `TryExpression` around value-type complex initialization for
+null-safety, and the DynamoDB shaped-query compiler does not currently handle that expression shape.
+Add `TryExpression` handling carefully in the compiling/materialization path before enabling these
+tests because it touches the shaped-query compiler's critical path.
 
 ### Future
 

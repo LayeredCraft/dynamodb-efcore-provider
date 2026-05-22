@@ -109,13 +109,21 @@ public abstract class ComplexTypeQueryDynamoTest
             """);
         });
 
-    [ConditionalTheory(Skip = SkipReason.ComplexTypeConstantOrParameterEqualityNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.ComplexTypeConstantEqualityNotSupported)]
     public override Task Complex_type_equals_constant(bool async)
         => base.Complex_type_equals_constant(async);
 
-    [ConditionalTheory(Skip = SkipReason.ComplexTypeConstantOrParameterEqualityNotSupported)]
     public override Task Complex_type_equals_parameter(bool async)
-        => base.Complex_type_equals_parameter(async);
+        => NoSyncTest(async, async a =>
+        {
+            await base.Complex_type_equals_parameter(a);
+            AssertSql(
+            """
+            SELECT "id", "name", "billingAddress", "optionalAddress", "shippingAddress"
+            FROM "Customers"
+            WHERE "shippingAddress" = ?
+            """);
+        });
 
     [ConditionalTheory(Skip = SkipReason.ComplexTypeSubqueriesNotSupported)]
     public override Task Subquery_over_complex_type(bool async)
@@ -260,13 +268,21 @@ public abstract class ComplexTypeQueryDynamoTest
             """);
         });
 
-    [ConditionalTheory(Skip = SkipReason.ComplexTypeConstantOrParameterEqualityNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.ComplexTypeConstantEqualityNotSupported)]
     public override Task Struct_complex_type_equals_constant(bool async)
         => base.Struct_complex_type_equals_constant(async);
 
-    [ConditionalTheory(Skip = SkipReason.ComplexTypeConstantOrParameterEqualityNotSupported)]
     public override Task Struct_complex_type_equals_parameter(bool async)
-        => base.Struct_complex_type_equals_parameter(async);
+        => NoSyncTest(async, async a =>
+        {
+            await base.Struct_complex_type_equals_parameter(a);
+            AssertSql(
+            """
+            SELECT "id", "name", "billingAddress", "shippingAddress"
+            FROM "ValuedCustomers"
+            WHERE "shippingAddress" = ?
+            """);
+        });
 
     [ConditionalTheory(Skip = SkipReason.ComplexTypeSubqueriesNotSupported)]
     public override Task Subquery_over_struct_complex_type(bool async)

@@ -12,8 +12,8 @@ public static class SkipReason
     public const string NestedStructComplexTypeProjectionNotSupported =
         "DynamoDB provider cannot materialize nested struct complex type projections due to the value-type expression tree shape.";
 
-    public const string ComplexTypeConstantOrParameterEqualityNotSupported =
-        "DynamoDB provider supports complex type property-to-property equality but not equality against complex constants or parameters.";
+    public const string ComplexTypeConstantEqualityNotSupported =
+        "DynamoDB provider supports complex type property-to-property and parameter equality but not equality against inline complex object constants.";
 
     public const string ComplexTypeSubqueriesNotSupported =
         "DynamoDB provider does not support complex type values in subqueries or Contains predicates.";
