@@ -620,6 +620,11 @@ public sealed class DynamoProjectionBindingExpressionVisitor(
         if (translation is null)
             return QueryCompilationContext.NotTranslatedExpression;
 
+        // DynamoDB PartiQL projections are attribute paths, not arbitrary computed SQL. Force
+        // computed expressions through index-based binding so values are calculated client-side.
+        if (translation is not SqlPropertyExpression and not DynamoComplexPropertyAccessExpression)
+            return QueryCompilationContext.NotTranslatedExpression;
+
         // Store mapping: ProjectionMember → SqlExpression
         _projectionMapping[_projectionMembers.Peek()] = translation;
 
