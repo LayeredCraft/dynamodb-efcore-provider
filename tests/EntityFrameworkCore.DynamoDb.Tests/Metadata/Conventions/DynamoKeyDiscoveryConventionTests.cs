@@ -1,6 +1,10 @@
 using Amazon.DynamoDBv2;
+using EntityFrameworkCore.DynamoDb.Metadata.Conventions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
 using NSubstitute;
 
 // ReSharper disable AutoPropertyCanBeMadeGetOnly.Local
@@ -917,6 +921,37 @@ public class DynamoKeyDiscoveryConventionTests
         primaryKey.Properties[1].Name.Should().Be("SK");
         entityType.GetPartitionKeyPropertyName().Should().Be("PK");
         entityType.GetSortKeyPropertyName().Should().Be("SK");
+    }
+
+    // -------------------------------------------------------------------
+    // ShouldDiscoverKeyProperties — owned entity types are skipped
+    // -------------------------------------------------------------------
+
+    /// <summary>Test-only subclass that exposes the protected ShouldDiscoverKeyProperties method.</summary>
+    private sealed class TestableDynamoKeyDiscoveryConvention(
+        ProviderConventionSetBuilderDependencies dependencies)
+        : DynamoKeyDiscoveryConvention(dependencies)
+    {
+        public bool ShouldDiscover(IConventionEntityType entityType)
+            => ShouldDiscoverKeyProperties(entityType);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ShouldDiscoverKeyProperties_ReturnsFalse_ForOwnedEntityType()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        var options = BuildOptions<PkNamedContext>(client);
+
+        // Resolve the convention dependencies from the DI container built by UseDynamo.
+        using var ctx = new PkNamedContext(options);
+        var dependencies = ctx.GetService<ProviderConventionSetBuilderDependencies>();
+
+        var convention = new TestableDynamoKeyDiscoveryConvention(dependencies);
+
+        var ownedEntityType = Substitute.For<IConventionEntityType>();
+        ownedEntityType.IsOwned().Returns(true);
+
+        convention.ShouldDiscover(ownedEntityType).Should().BeFalse();
     }
 
     // -------------------------------------------------------------------

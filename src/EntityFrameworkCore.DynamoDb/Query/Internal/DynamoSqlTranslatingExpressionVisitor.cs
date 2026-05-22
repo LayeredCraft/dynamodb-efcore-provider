@@ -197,10 +197,19 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         if (ContainsQueryReference(operand))
             return null;
 
+        if (!IsLiteralShape(operand))
+            return null;
+
+        // ConstantExpression: extract the value directly without compilation
+        if (operand is ConstantExpression constantExpression)
+            return sqlExpressionFactory.ApplyTypeMapping(
+                sqlExpressionFactory.Constant(constantExpression.Value, operand.Type),
+                complexPath.TypeMapping);
+
         try
         {
             var value = Expression.Lambda<Func<object?>>(Expression.Convert(operand, typeof(object)))
-                .Compile()
+                .Compile(true)
                 .Invoke();
             return sqlExpressionFactory.ApplyTypeMapping(
                 sqlExpressionFactory.Constant(value, operand.Type),
@@ -213,6 +222,24 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
             return null;
         }
     }
+
+    /// <summary>
+    ///     Returns true when the expression is a side-effect-free, safe-to-evaluate literal shape:
+    ///     a <see cref="ConstantExpression"/>, a <see cref="MemberExpression"/> chain rooted at a
+    ///     <see cref="ConstantExpression"/> (closed-over captures), or a Convert/ConvertChecked
+    ///     <see cref="UnaryExpression"/> over one of those shapes.
+    /// </summary>
+    private static bool IsLiteralShape(Expression expression)
+        => expression switch
+        {
+            ConstantExpression => true,
+            MemberExpression memberExpression => IsLiteralShape(memberExpression.Expression!),
+            UnaryExpression
+            {
+                NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked,
+            } unaryExpression => IsLiteralShape(unaryExpression.Operand),
+            _ => false,
+        };
 
     private static bool ContainsQueryReference(Expression expression)
     {
@@ -610,8 +637,17 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         leftExpression = UnwrapObjectConvert(leftExpression);
         rightExpression = UnwrapObjectConvert(rightExpression);
 
-        if (TranslateInternal(leftExpression) is not { } leftSql
-            || TranslateInternal(rightExpression) is not { } rightSql)
+        var leftSql = TranslateInternal(leftExpression);
+        var rightSql = TranslateInternal(rightExpression);
+
+        // Retry untranslated operands as inline complex object constants when the other side
+        // resolved to a complex map path — mirrors the same fallback in VisitBinary.
+        if (leftSql is SqlExpression { TypeMapping: DynamoComplexTypeMapping } leftComplex)
+            rightSql ??= TryTranslateComplexConstant(rightExpression, leftComplex);
+        if (rightSql is SqlExpression { TypeMapping: DynamoComplexTypeMapping } rightComplex)
+            leftSql ??= TryTranslateComplexConstant(leftExpression, rightComplex);
+
+        if (leftSql == null || rightSql == null)
             return QueryCompilationContext.NotTranslatedExpression;
 
         var comparisonTypeMapping = InferTypeMapping(leftSql, rightSql);
@@ -755,7 +791,8 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         CoreTypeMapping? comparisonTypeMapping)
         => expression is SqlConstantExpression { Value: null }
             || IsSupportedEqualsType(expression.Type)
-            || IsCompatibleWithConverterMapping(expression, comparisonTypeMapping);
+            || IsCompatibleWithConverterMapping(expression, comparisonTypeMapping)
+            || expression.TypeMapping is DynamoComplexTypeMapping;
 
     private static bool AreEqualsOperandTypesCompatible(
         SqlExpression left,
