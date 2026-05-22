@@ -31,5 +31,5 @@ internal sealed class DynamoComplexTypeMapping(Type clrType, IComplexType comple
             "Complex type constants must be sent as DynamoDB query parameters.");
 
     protected override CoreTypeMapping Clone(CoreTypeMappingParameters parameters)
-        => new DynamoComplexTypeMapping(parameters.ClrType, _complexType);
+        => new DynamoComplexTypeMapping(ClrType, _complexType);
 }
