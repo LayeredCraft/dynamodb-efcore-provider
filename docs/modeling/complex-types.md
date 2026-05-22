@@ -143,6 +143,27 @@ context.Customers.Where(x => x.Tags[0] == "featured")
 WHERE "tags"[0] = 'featured'
 ```
 
+Complex property-to-property equality also translates when both sides are complex attributes on the
+same item:
+
+```csharp
+context.Customers.Where(x => x.ShippingAddress == x.BillingAddress)
+```
+
+```sql
+WHERE "shippingAddress" = "billingAddress"
+```
+
+Equality against a complex object parameter or inline complex object constant also translates and
+binds the value as a DynamoDB map parameter.
+
+!!! warning "Whole-complex equality caveats"
+
+    Whole-complex equality follows DynamoDB map comparison semantics. It compares the exact stored
+    map shape, so an omitted nested attribute is not necessarily equal to an explicit DynamoDB
+    `NULL` entry. Also, a complex-map equality predicate does not by itself target a partition; add
+    a partition-key predicate when you want to avoid scan-like execution.
+
 ### Projections
 
 Nested path access in `Select` is not supported server-side. The provider projects the top-level

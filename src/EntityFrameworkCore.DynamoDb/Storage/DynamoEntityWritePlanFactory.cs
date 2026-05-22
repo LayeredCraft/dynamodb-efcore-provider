@@ -132,6 +132,17 @@ internal sealed class EntityWritePlan(
     private static readonly ConditionalWeakTable<IComplexType, ComplexTypeWritePlan>
         ComplexTypePlanCache = new();
 
+    /// <summary>Serializes a whole complex type value to a DynamoDB map attribute.</summary>
+    internal static AttributeValue SerializeComplexTypeValue(object? value, IComplexType complexType)
+    {
+        if (value is null)
+            return new AttributeValue { NULL = true };
+
+        var map = new Dictionary<string, AttributeValue>(StringComparer.Ordinal);
+        SerializeComplexTypeIntoMap(value, complexType, map);
+        return new AttributeValue { M = map };
+    }
+
     /// <summary>Recursively serializes a complex type instance into a DynamoDB attribute map.</summary>
     private static void SerializeComplexTypeIntoMap(
         object instance,

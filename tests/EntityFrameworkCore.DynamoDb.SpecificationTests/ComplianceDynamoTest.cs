@@ -12,8 +12,11 @@ public sealed class ComplianceDynamoTest : ComplianceTestBase
     {
         yield return typeof(ApiConsistencyTestBase<>);
         yield return typeof(BuiltInDataTypesTestBase<>);
+        yield return typeof(ComplexTypeQueryTestBase<>);
         yield return typeof(ComplexTypesTrackingTestBase<>);
         yield return typeof(CompositeKeyEndToEndTestBase<>);
+        yield return typeof(ConvertToProviderTypesTestBase<>);
+        yield return typeof(CustomConvertersTestBase<>);
         yield return typeof(ComplianceTestBase);
         yield return typeof(ConcurrencyDetectorDisabledTestBase<>);
         yield return typeof(ConcurrencyDetectorEnabledTestBase<>);

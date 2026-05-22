@@ -264,6 +264,20 @@ public class WhereTests(DynamoContainerFixture fixture) : SimpleTableTestFixture
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Where_CustomMethodCall_DoesNotClientEvaluateOrEmitPartiQl()
+    {
+        var act = async ()
+            => await Db
+                .SimpleItems
+                .Where(item => NormalizeString(item.StringValue) == "ALPHA")
+                .ToListAsync(CancellationToken);
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+
+        AssertSql();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Where_DelegateInvocation_StillThrowsInvalidOperationException()
     {
         var normalize = NormalizeString;

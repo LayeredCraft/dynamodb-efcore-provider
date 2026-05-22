@@ -193,8 +193,14 @@ public sealed class SqlExpressionFactory(ITypeMappingSource typeMappingSource)
         if (!enumType.IsEnum || enumExpression.TypeMapping?.Converter == null)
             return false;
 
-        return otherExpression is SqlParameterExpression
-            && GetValueOrElementType(otherExpression.Type) == Enum.GetUnderlyingType(enumType);
+        return otherExpression switch
+        {
+            SqlParameterExpression parameterExpression => GetValueOrElementType(
+                    parameterExpression.Type)
+                == Enum.GetUnderlyingType(enumType),
+            SqlConstantExpression => false,
+            _ => false,
+        };
     }
 
     private static Type GetValueOrElementType(Type type)

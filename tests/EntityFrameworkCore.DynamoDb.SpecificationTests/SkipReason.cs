@@ -9,6 +9,15 @@ public static class SkipReason
     public const string QueryShapeNotSupported =
         "DynamoDB provider does not support this query shape.";
 
+    public const string ComplexTypeSubqueriesNotSupported =
+        "DynamoDB provider does not support complex type values in subqueries or Contains predicates.";
+
+    public const string SubqueryPushdownNotSupported =
+        "DynamoDB provider does not support the subquery pushdown required by this query shape.";
+
+    public const string SubqueryContainsNotSupported =
+        "DynamoDB provider does not support translating subquery Contains.";
+
     public const string OrderedResultSetNotSupported =
         "DynamoDB does not support guaranteed ordered result sets for this query shape.";
 
@@ -16,6 +25,12 @@ public static class SkipReason
         "DynamoDB does not support navigation properties.";
 
     public const string JoinsNotSupported = "DynamoDB PartiQL does not support joins.";
+
+    public const string SetOperationsNotSupported =
+        "DynamoDB PartiQL does not support set operations.";
+
+    public const string GroupByNotSupported =
+        "DynamoDB PartiQL does not support GROUP BY.";
 
     public const string EntityTypeNotMappedInFixture =
         "This entity type is not mapped in the DynamoDB specification test fixture.";

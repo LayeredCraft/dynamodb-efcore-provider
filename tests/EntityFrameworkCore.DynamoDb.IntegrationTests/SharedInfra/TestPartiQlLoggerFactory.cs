@@ -95,23 +95,37 @@ public sealed class TestPartiQlLoggerFactory : ILoggerFactory
 
             var expectedNormalized = expected.Select(s => s.ReplaceLineEndings()).ToArray();
             var actualNormalized = PartiQlStatements.Select(s => s.ReplaceLineEndings()).ToArray();
+            var capturedMessage = FormatCapturedPartiQl(actualNormalized);
 
             actualNormalized
                 .Should()
                 .HaveSameCount(
                     expectedNormalized,
-                    $"Expected {expectedNormalized.Length} PartiQL statement(s) but captured {actualNormalized.Length}.");
+                    $"Expected {expectedNormalized.Length} PartiQL statement(s) but captured {actualNormalized.Length}.{Environment.NewLine}{capturedMessage}");
 
             var compareCount = Math.Min(expectedNormalized.Length, actualNormalized.Length);
             for (var i = 0; i < compareCount; i++)
                 actualNormalized[i]
                     .Should()
-                    .Be(expectedNormalized[i], $"PartiQL baseline mismatch at index {i}.");
+                    .Be(
+                        expectedNormalized[i],
+                        $"PartiQL baseline mismatch at index {i}.{Environment.NewLine}{capturedMessage}");
         }
         finally
         {
             Clear();
         }
+    }
+
+    private static string FormatCapturedPartiQl(IReadOnlyList<string> statements)
+    {
+        if (statements.Count == 0)
+            return "Captured PartiQL: <none>";
+
+        return string.Join(
+            Environment.NewLine + Environment.NewLine,
+            statements.Select((statement, index)
+                => $"Captured PartiQL[{index}]:{Environment.NewLine}{statement}"));
     }
 
     private void UpdateState(Action<CaptureState> update)
@@ -145,6 +159,9 @@ public sealed class TestPartiQlLoggerFactory : ILoggerFactory
                         .Select(i => (string?)i.Value)
                         .FirstOrDefault()
                     ?? string.Empty;
+
+                Console.WriteLine("Generated PartiQL:");
+                Console.WriteLine(commandText);
 
                 factory.UpdateState(s => s.PartiQlStatements.Add(commandText));
             }

@@ -441,6 +441,36 @@ public sealed class DynamoEntityItemSerializerSource
 
     private static AttributeValue NullAttributeValue() => new() { NULL = true };
 
+    private static AttributeValue ConvertNullModelValueToAttributeValue<TProvider>(
+        ValueConverter converter)
+    {
+        if (!converter.ConvertsNulls)
+            return NullAttributeValue();
+
+        var providerValue = converter.ConvertToProvider(null);
+        return providerValue is null
+            ? NullAttributeValue()
+            : DynamoWireValueConversion.ConvertProviderValueToAttributeValue(
+                (TProvider)providerValue);
+    }
+
+    private static TProvider ConvertNullModelValueToSetElement<TProvider>(
+        IProperty property,
+        ValueConverter converter)
+    {
+        if (!converter.ConvertsNulls)
+            throw new InvalidOperationException(
+                $"Property '{property.DeclaringType.DisplayName()}.{property.Name}': "
+                + "DynamoDB sets cannot contain null values.");
+
+        var providerValue = converter.ConvertToProvider(null)
+            ?? throw new InvalidOperationException(
+                $"Property '{property.DeclaringType.DisplayName()}.{property.Name}': "
+                + "DynamoDB sets cannot contain null values.");
+
+        return (TProvider)providerValue;
+    }
+
     // ── Boxed fallbacks ─────────────────────────────────────────────────────────────
     //
     // Used when the converter model type is not in TryDispatchModelType /
@@ -498,7 +528,7 @@ public sealed class DynamoEntityItemSerializerSource
                 .Select(element =>
                 {
                     if (element is null)
-                        return NullAttributeValue();
+                        return ConvertNullModelValueToAttributeValue<TProvider>(converter);
                     var providerValue = (TProvider)converter.ConvertToProvider(element)!;
                     return DynamoWireValueConversion
                         .ConvertProviderValueToAttributeValue(providerValue);
@@ -525,9 +555,7 @@ public sealed class DynamoEntityItemSerializerSource
                 .Select(element =>
                 {
                     if (element is null)
-                        throw new InvalidOperationException(
-                            $"Property '{property.DeclaringType.DisplayName()}.{property.Name}': "
-                            + "DynamoDB sets cannot contain null values.");
+                        return ConvertNullModelValueToSetElement<TProvider>(property, converter);
                     return (TProvider)converter.ConvertToProvider(element)!;
                 });
             return DynamoAttributeValueCollectionHelpers.SerializeSet(converted);
@@ -556,7 +584,7 @@ public sealed class DynamoEntityItemSerializerSource
                 AttributeValue attributeValue;
                 if (kvp.Value is null)
                 {
-                    attributeValue = NullAttributeValue();
+                    attributeValue = ConvertNullModelValueToAttributeValue<TProvider>(converter);
                 }
                 else
                 {
@@ -696,11 +724,17 @@ public sealed class DynamoEntityItemSerializerSource
         public Func<IUpdateEntry, AttributeValue> Create<TModel>(IProperty property)
         {
             var typed = (ValueConverter<TModel, TProvider>)converter;
-            return entry => DynamoWireValueConversion.ConvertProviderValueToAttributeValue(
-                typed.ConvertToProviderTyped(
-                    entry.CanHaveOriginalValue(property)
-                        ? entry.GetOriginalValue<TModel>(property)
-                        : entry.GetCurrentValue<TModel>(property)));
+            var valueConverter = converter;
+            return entry =>
+            {
+                var value = entry.CanHaveOriginalValue(property)
+                    ? entry.GetOriginalValue<TModel>(property)
+                    : entry.GetCurrentValue<TModel>(property);
+                return value is null
+                    ? ConvertNullModelValueToAttributeValue<TProvider>(valueConverter)
+                    : DynamoWireValueConversion.ConvertProviderValueToAttributeValue(
+                        typed.ConvertToProviderTyped(value));
+            };
         }
     }
 
@@ -720,6 +754,7 @@ public sealed class DynamoEntityItemSerializerSource
             where TUnderlying : struct
         {
             var typed = (ValueConverter<TUnderlying, TProvider>)converter;
+            var valueConverter = converter;
             return entry =>
             {
                 var value = entry.CanHaveOriginalValue(property)
@@ -728,7 +763,7 @@ public sealed class DynamoEntityItemSerializerSource
                 return value.HasValue
                     ? DynamoWireValueConversion.ConvertProviderValueToAttributeValue(
                         typed.ConvertToProviderTyped(value.Value))
-                    : NullAttributeValue();
+                    : ConvertNullModelValueToAttributeValue<TProvider>(valueConverter);
             };
         }
     }
@@ -754,7 +789,7 @@ public sealed class DynamoEntityItemSerializerSource
                 ? entry.GetOriginalValue(property)
                 : entry.GetCurrentValue(property);
             if (originalModelValue is null)
-                return NullAttributeValue();
+                return ConvertNullModelValueToAttributeValue<TProvider>(converter);
             var providerValue = converter.ConvertToProvider(originalModelValue);
             if (providerValue is null)
                 return NullAttributeValue();
@@ -983,8 +1018,15 @@ public sealed class DynamoEntityItemSerializerSource
         public Func<IUpdateEntry, AttributeValue> Create<TModel>(IProperty property)
         {
             var typed = (ValueConverter<TModel, TProvider>)converter;
-            return entry => DynamoWireValueConversion.ConvertProviderValueToAttributeValue(
-                typed.ConvertToProviderTyped(entry.GetCurrentValue<TModel>(property)));
+            var valueConverter = converter;
+            return entry =>
+            {
+                var value = entry.GetCurrentValue<TModel>(property);
+                return value is null
+                    ? ConvertNullModelValueToAttributeValue<TProvider>(valueConverter)
+                    : DynamoWireValueConversion.ConvertProviderValueToAttributeValue(
+                        typed.ConvertToProviderTyped(value));
+            };
         }
     }
 
@@ -1004,13 +1046,14 @@ public sealed class DynamoEntityItemSerializerSource
             where TUnderlying : struct
         {
             var typed = (ValueConverter<TUnderlying, TProvider>)converter;
+            var valueConverter = converter;
             return entry =>
             {
                 var value = entry.GetCurrentValue<TUnderlying?>(property);
                 return value.HasValue
                     ? DynamoWireValueConversion.ConvertProviderValueToAttributeValue(
                         typed.ConvertToProviderTyped(value.Value))
-                    : NullAttributeValue();
+                    : ConvertNullModelValueToAttributeValue<TProvider>(valueConverter);
             };
         }
     }
@@ -1030,6 +1073,7 @@ public sealed class DynamoEntityItemSerializerSource
         public Func<IUpdateEntry, AttributeValue> Create<TElement>(IProperty property)
         {
             var typed = (ValueConverter<TElement, TProvider>)converter;
+            var valueConverter = converter;
             return entry =>
             {
                 var value = entry.GetCurrentValue<IEnumerable<TElement>>(property);
@@ -1037,7 +1081,10 @@ public sealed class DynamoEntityItemSerializerSource
                     ? NullAttributeValue()
                     : DynamoAttributeValueCollectionHelpers.SerializeList(
                         value,
-                        typed.ConvertToProviderTyped);
+                        item => item is null
+                            ? ConvertNullModelValueToAttributeValue<TProvider>(valueConverter)
+                            : DynamoWireValueConversion.ConvertProviderValueToAttributeValue(
+                                typed.ConvertToProviderTyped(item)));
             };
         }
     }
@@ -1058,6 +1105,7 @@ public sealed class DynamoEntityItemSerializerSource
             where TUnderlying : struct
         {
             var typed = (ValueConverter<TUnderlying, TProvider>)converter;
+            var valueConverter = converter;
             return entry =>
             {
                 var value = entry.GetCurrentValue<IEnumerable<TUnderlying?>>(property);
@@ -1068,7 +1116,7 @@ public sealed class DynamoEntityItemSerializerSource
                         item => item.HasValue
                             ? DynamoWireValueConversion.ConvertProviderValueToAttributeValue(
                                 typed.ConvertToProviderTyped(item.Value))
-                            : NullAttributeValue());
+                            : ConvertNullModelValueToAttributeValue<TProvider>(valueConverter));
             };
         }
     }
@@ -1083,6 +1131,7 @@ public sealed class DynamoEntityItemSerializerSource
         public Func<IUpdateEntry, AttributeValue> Create<TElement>(IProperty property)
         {
             var typed = (ValueConverter<TElement, TProvider>)converter;
+            var valueConverter = converter;
             return entry =>
             {
                 var value = entry.GetCurrentValue<IEnumerable<TElement>>(property);
@@ -1090,7 +1139,9 @@ public sealed class DynamoEntityItemSerializerSource
                     ? NullAttributeValue()
                     : DynamoAttributeValueCollectionHelpers.SerializeSet(
                         value,
-                        typed.ConvertToProviderTyped);
+                        item => item is null
+                            ? ConvertNullModelValueToSetElement<TProvider>(property, valueConverter)
+                            : typed.ConvertToProviderTyped(item));
             };
         }
     }
@@ -1111,6 +1162,7 @@ public sealed class DynamoEntityItemSerializerSource
             where TUnderlying : struct
         {
             var typed = (ValueConverter<TUnderlying, TProvider>)converter;
+            var valueConverter = converter;
             return entry =>
             {
                 var value = entry.GetCurrentValue<IEnumerable<TUnderlying?>>(property);
@@ -1120,8 +1172,9 @@ public sealed class DynamoEntityItemSerializerSource
                         value,
                         item => item.HasValue
                             ? typed.ConvertToProviderTyped(item.Value)
-                            : throw new InvalidOperationException(
-                                "DynamoDB sets cannot contain null elements."));
+                            : ConvertNullModelValueToSetElement<TProvider>(
+                                property,
+                                valueConverter));
             };
         }
     }
@@ -1137,6 +1190,7 @@ public sealed class DynamoEntityItemSerializerSource
         public Func<IUpdateEntry, AttributeValue> Create<TValue>(IProperty property)
         {
             var typed = (ValueConverter<TValue, TProvider>)converter;
+            var valueConverter = converter;
             return entry =>
             {
                 var value =
@@ -1145,7 +1199,10 @@ public sealed class DynamoEntityItemSerializerSource
                     ? NullAttributeValue()
                     : DynamoAttributeValueCollectionHelpers.SerializeDictionary(
                         value,
-                        typed.ConvertToProviderTyped);
+                        item => item is null
+                            ? ConvertNullModelValueToAttributeValue<TProvider>(valueConverter)
+                            : DynamoWireValueConversion.ConvertProviderValueToAttributeValue(
+                                typed.ConvertToProviderTyped(item)));
             };
         }
     }
@@ -1166,6 +1223,7 @@ public sealed class DynamoEntityItemSerializerSource
             where TUnderlying : struct
         {
             var typed = (ValueConverter<TUnderlying, TProvider>)converter;
+            var valueConverter = converter;
             return entry =>
             {
                 var value =
@@ -1178,7 +1236,7 @@ public sealed class DynamoEntityItemSerializerSource
                         item => item.HasValue
                             ? DynamoWireValueConversion.ConvertProviderValueToAttributeValue(
                                 typed.ConvertToProviderTyped(item.Value))
-                            : NullAttributeValue());
+                            : ConvertNullModelValueToAttributeValue<TProvider>(valueConverter));
             };
         }
     }

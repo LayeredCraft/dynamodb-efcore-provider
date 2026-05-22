@@ -162,6 +162,12 @@ ______________________________________________________________________
 
 These tests use non-Northwind models and fixtures.
 
+### Implemented
+
+| Test Class | Methods | Cosmos | MongoDB | Notes |
+|---|---:|:---:|:---:|---|
+| `ComplexTypeQueryTestBase` | 74 | ✓ | ✗ | All inherited methods are registered/overridden with explicit outcomes; supported projection/filter, nested struct projection, and complex equality subsets execute, while navigation, set-operation, GroupBy, subquery/Contains, and pushdown cases are explicitly skipped |
+
 ### Future
 
 | Test Class                                   | Methods | Cosmos | MongoDB | Feasibility | Rationale                                                                                                                   |
@@ -305,6 +311,9 @@ ______________________________________________________________________
 8. `NorthwindChangeTrackingQueryDynamoTest` — 17 methods
 9. `CompositeKeyEndToEndDynamoTest` — 3 methods
 10. `NorthwindFunctionsQueryDynamoTest` — 10 methods
+11. `ConvertToProviderTypesDynamoTest` — 2 methods
+12. `CustomConvertersDynamoTest` — 29 methods
+13. `ComplexTypeQueryDynamoTest` — 74 methods
 
 ### Near-term (small, high confidence)
 
