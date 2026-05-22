@@ -20,7 +20,7 @@ public class CustomTypeConverterTests(DynamoContainerFixture fixture)
             Pk = "TEST#CUSTOM",
             Sk = "CONVERTER#CUSTOM-1",
             Code = new ProductCode("PROD-42"),
-            OptionalCode = null,
+            OptionalCode = null
         };
 
         Db.CustomConverterItems.Add(item);
@@ -38,7 +38,7 @@ public class CustomTypeConverterTests(DynamoContainerFixture fixture)
             Pk = "TEST#CUSTOM",
             Sk = "CONVERTER#CUSTOM-2",
             Code = new ProductCode("PROD-1"),
-            OptionalCode = new ProductCode("OPT-7"),
+            OptionalCode = new ProductCode("OPT-7")
         };
 
         Db.CustomConverterItems.Add(item);

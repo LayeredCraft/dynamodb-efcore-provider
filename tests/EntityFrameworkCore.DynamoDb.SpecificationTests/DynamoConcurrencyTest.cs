@@ -80,7 +80,7 @@ public sealed class DynamoConcurrencyTest(DynamoConcurrencyTest.DynamoConcurrenc
                 ctx.PremiumCustomers.Add(
                     new PremiumCustomer
                     {
-                        Id = "4", Name = "Added", Version = 1, LoyaltyLevel = "Bronze",
+                        Id = "4", Name = "Added", Version = 1, LoyaltyLevel = "Bronze"
                     });
                 return Task.CompletedTask;
             },
@@ -112,7 +112,7 @@ public sealed class DynamoConcurrencyTest(DynamoConcurrencyTest.DynamoConcurrenc
                 ctx.PremiumCustomers.Add(
                     new PremiumCustomer
                     {
-                        Id = "5", Name = "Added", Version = 1, LoyaltyLevel = "Bronze",
+                        Id = "5", Name = "Added", Version = 1, LoyaltyLevel = "Bronze"
                     });
                 return Task.CompletedTask;
             },

@@ -19,7 +19,7 @@ internal static partial class SimpleItemMapper
     internal static List<SimpleItem> FromItems(List<Dictionary<string, AttributeValue>> items)
         => items.Select(FromItem).ToList();
 
-    static void AfterToItem(SimpleItem source, Dictionary<string, AttributeValue> item)
+    private static void AfterToItem(SimpleItem source, Dictionary<string, AttributeValue> item)
     {
         item["dateOnlyValue"] =
             new AttributeValue { S = source.DateOnlyValue.ToString("yyyy-MM-dd") };
@@ -27,7 +27,9 @@ internal static partial class SimpleItemMapper
             new AttributeValue { S = source.TimeOnlyValue.ToString("HH:mm:ss") };
     }
 
-    static void AfterFromItem(Dictionary<string, AttributeValue> item, ref SimpleItem entity)
+    private static void AfterFromItem(
+        Dictionary<string, AttributeValue> item,
+        ref SimpleItem entity)
     {
         if (item.TryGetValue("dateOnlyValue", out var d) && d.S is { } dateStr)
             entity.DateOnlyValue = DateOnly.Parse(dateStr, CultureInfo.InvariantCulture);

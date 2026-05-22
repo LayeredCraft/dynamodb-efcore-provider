@@ -13,7 +13,7 @@ public static class OrderItems
             Status = "PENDING",
             CreatedAt = "2024-01-10",
             Region = "US-EAST",
-            Priority = 1,
+            Priority = 1
         },
         new()
         {
@@ -22,7 +22,7 @@ public static class OrderItems
             Status = "SHIPPED",
             CreatedAt = "2024-01-15",
             Region = "US-EAST",
-            Priority = 5,
+            Priority = 5
         },
         new()
         {
@@ -31,7 +31,7 @@ public static class OrderItems
             Status = "DELIVERED",
             CreatedAt = "2024-01-20",
             Region = "US-WEST",
-            Priority = 3,
+            Priority = 3
         },
         new()
         {
@@ -40,7 +40,7 @@ public static class OrderItems
             Status = "PENDING",
             CreatedAt = "2024-01-12",
             Region = "EU-WEST",
-            Priority = 2,
+            Priority = 2
         },
         new()
         {
@@ -49,7 +49,7 @@ public static class OrderItems
             Status = "SHIPPED",
             CreatedAt = "2024-01-18",
             Region = "US-EAST",
-            Priority = 4,
+            Priority = 4
         },
         new()
         {
@@ -58,8 +58,8 @@ public static class OrderItems
             Status = "DELIVERED",
             CreatedAt = "2024-01-05",
             Region = "EU-WEST",
-            Priority = 1,
-        },
+            Priority = 1
+        }
     ];
 
     public static readonly IReadOnlyList<Dictionary<string, AttributeValue>> AttributeValues =

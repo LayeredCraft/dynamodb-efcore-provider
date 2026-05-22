@@ -52,7 +52,7 @@ public sealed class DynamoTableLifecycleOptions
             InitialPollingDelay = InitialPollingDelay,
             MaxPollingDelay = MaxPollingDelay,
             BackoffMultiplier = BackoffMultiplier,
-            Timeout = Timeout,
+            Timeout = Timeout
         };
 
     /// <summary>Validates option values.</summary>

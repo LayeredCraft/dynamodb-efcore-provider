@@ -16,7 +16,7 @@ public class ModifiedScalarSaveChangesTests(DynamoContainerFixture fixture)
             Email = "initial+1@example.com",
             IsPreferred = false,
             CreatedAt = new DateTimeOffset(2026, 3, 1, 12, 0, 0, TimeSpan.Zero),
-            NullableNote = "note-1",
+            NullableNote = "note-1"
         };
         await SeedAsync(item);
 
@@ -45,7 +45,7 @@ public class ModifiedScalarSaveChangesTests(DynamoContainerFixture fixture)
             Email = "initial+2@example.com",
             IsPreferred = false,
             CreatedAt = new DateTimeOffset(2026, 3, 2, 12, 0, 0, TimeSpan.Zero),
-            NullableNote = null,
+            NullableNote = null
         };
         await SeedAsync(item);
 
@@ -75,7 +75,7 @@ public class ModifiedScalarSaveChangesTests(DynamoContainerFixture fixture)
             Email = "initial+3@example.com",
             IsPreferred = false,
             CreatedAt = new DateTimeOffset(2026, 3, 3, 12, 0, 0, TimeSpan.Zero),
-            NullableNote = "to-null",
+            NullableNote = "to-null"
         };
         await SeedAsync(item);
 
@@ -104,7 +104,7 @@ public class ModifiedScalarSaveChangesTests(DynamoContainerFixture fixture)
             Email = "initial+4@example.com",
             IsPreferred = false,
             CreatedAt = new DateTimeOffset(2026, 3, 4, 12, 0, 0, TimeSpan.Zero),
-            NullableNote = null,
+            NullableNote = null
         };
         await SeedAsync(item);
 
@@ -127,7 +127,7 @@ public class ModifiedScalarSaveChangesTests(DynamoContainerFixture fixture)
             Email = "initial+5@example.com",
             IsPreferred = false,
             CreatedAt = new DateTimeOffset(2026, 3, 5, 12, 0, 0, TimeSpan.Zero),
-            NullableNote = null,
+            NullableNote = null
         };
         await SeedAsync(item);
 

@@ -18,7 +18,7 @@ internal static class EnumerableMethods
             types =>
             [
                 typeof(IEnumerable<>).MakeGenericType(types[0]),
-                typeof(Func<,>).MakeGenericType(types[0], types[1]),
+                typeof(Func<,>).MakeGenericType(types[0], types[1])
             ]);
 
         SelectWithOrdinal = GetMethod(
@@ -27,7 +27,7 @@ internal static class EnumerableMethods
             types =>
             [
                 typeof(IEnumerable<>).MakeGenericType(types[0]),
-                typeof(Func<,,>).MakeGenericType(types[0], typeof(int), types[1]),
+                typeof(Func<,,>).MakeGenericType(types[0], typeof(int), types[1])
             ]);
 
         ToList = GetMethod(

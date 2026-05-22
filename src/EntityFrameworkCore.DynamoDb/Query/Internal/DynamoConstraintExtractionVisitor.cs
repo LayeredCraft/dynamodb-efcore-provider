@@ -96,11 +96,11 @@ internal sealed class DynamoConstraintExtractionVisitor
             inConstraints[propName] = values;
 
         return new DynamoQueryConstraints(
-            EqualityConstraints: _equalityConstraints,
-            InConstraints: inConstraints,
-            SkKeyConditions: skKeyConditions,
-            HasUnsafeOr: _hasUnsafeOr,
-            OrderingPropertyNames: _orderingPropertyNames);
+            _equalityConstraints,
+            inConstraints,
+            skKeyConditions,
+            _hasUnsafeOr,
+            _orderingPropertyNames);
     }
 
     // ── recursive conjunct walker ──────────────────────────────────────────────
@@ -194,7 +194,6 @@ internal sealed class DynamoConstraintExtractionVisitor
         var allSamePk = firstPk is not null && pkNames.All(name => name == firstPk);
 
         if (allSamePk)
-        {
             // All branches are PK equalities on the same attribute — safe multi-value IN shape.
             foreach (var branch in branches)
             {
@@ -202,12 +201,9 @@ internal sealed class DynamoConstraintExtractionVisitor
                 if (value is not null)
                     AddToInConstraints(firstPk!, value);
             }
-        }
         else
-        {
             // Conjunctive branches, mixed PK/non-PK branches, or different PK attributes — unsafe.
             _hasUnsafeOr = true;
-        }
     }
 
     /// <summary>
@@ -250,7 +246,7 @@ internal sealed class DynamoConstraintExtractionVisitor
             // PK BETWEEN low AND high — Subject is the attribute.
             SqlBetweenExpression between => between.Subject is SqlPropertyExpression sp
                 && _pkAttributeNames.Contains(sp.PropertyName),
-            _ => false,
+            _ => false
         };
     }
 
@@ -474,16 +470,12 @@ internal sealed class DynamoConstraintExtractionVisitor
             return;
 
         if (inExpr.Values is { } values)
-        {
             foreach (var value in values)
                 AddToInConstraints(prop.PropertyName, value);
-        }
         else if (inExpr.ValuesParameter is { } valuesParameter)
-        {
             // Runtime collection parameter: the analyzer knows an IN exists even without
             // static values. Store the parameter expression as the single entry.
             AddToInConstraints(prop.PropertyName, valuesParameter);
-        }
     }
 
     // ── SK candidate recording ─────────────────────────────────────────────────
@@ -508,15 +500,11 @@ internal sealed class DynamoConstraintExtractionVisitor
             return;
 
         if (!_skCandidates.TryGetValue(propName, out var existing))
-        {
             _skCandidates[propName] = new SkConditionSlot(1, constraint);
-        }
         else
-        {
             // More than one constraint on the same SK property — demote.
             _skCandidates[propName] =
                 existing with { Count = existing.Count + 1, Constraint = null };
-        }
     }
 
     // ── helpers ────────────────────────────────────────────────────────────────
@@ -589,7 +577,7 @@ internal sealed class DynamoConstraintExtractionVisitor
             ExpressionType.LessThanOrEqual => ExpressionType.GreaterThanOrEqual,
             ExpressionType.GreaterThan => ExpressionType.LessThan,
             ExpressionType.GreaterThanOrEqual => ExpressionType.LessThanOrEqual,
-            _ => throw new ArgumentOutOfRangeException(nameof(op), op, null),
+            _ => throw new ArgumentOutOfRangeException(nameof(op), op, null)
         };
 
     /// <summary>Maps a <c>ExpressionType</c> range operator to the corresponding <c>SkOperator</c>.</summary>
@@ -601,7 +589,7 @@ internal sealed class DynamoConstraintExtractionVisitor
             ExpressionType.LessThanOrEqual => SkOperator.LessThanOrEqual,
             ExpressionType.GreaterThan => SkOperator.GreaterThan,
             ExpressionType.GreaterThanOrEqual => SkOperator.GreaterThanOrEqual,
-            _ => throw new ArgumentOutOfRangeException(nameof(op), op, null),
+            _ => throw new ArgumentOutOfRangeException(nameof(op), op, null)
         };
 
     // ── nested types ───────────────────────────────────────────────────────────

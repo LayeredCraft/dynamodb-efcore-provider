@@ -98,12 +98,12 @@ public class ConventionOnlyCollectionShapeTests(DynamoContainerFixture fixture)
             [
                 new ShapeContact
                 {
-                    Label = "mutable", Address = new ShapeAddress { City = "Seattle" },
-                },
+                    Label = "mutable", Address = new ShapeAddress { City = "Seattle" }
+                }
             ],
             InterfaceContacts = new List<ShapeContact>
             {
-                new() { Label = "ilist", Address = new ShapeAddress { City = "Portland" } },
-            },
+                new() { Label = "ilist", Address = new ShapeAddress { City = "Portland" } }
+            }
         };
 }

@@ -4,6 +4,8 @@ EF Core Provider for AWS DynamoDB
 
 Documentation: <https://dynamodb-ef-core.layeredcraft.dev/>
 
+Contributing: [CONTRIBUTING.md](CONTRIBUTING.md)
+
 > **Note:** This provider is in preview. Review the [current limitations](https://dynamodb-ef-core.layeredcraft.dev/limitations) before adopting it.
 
 Write EF Core models against DynamoDB tables, compose queries with LINQ, and let the provider

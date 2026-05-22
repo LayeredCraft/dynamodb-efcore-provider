@@ -33,7 +33,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
             IsPreferred = true,
             CreatedAt = new DateTimeOffset(2026, 03, 01, 12, 00, 00, TimeSpan.Zero),
             NullableNote = null,
-            Profile = null,
+            Profile = null
         };
 
         Db.Customers.Add(entity);
@@ -58,7 +58,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
             Version = 1,
             Email = "tracker@test.com",
             IsPreferred = false,
-            CreatedAt = new DateTimeOffset(2026, 03, 02, 12, 00, 00, TimeSpan.Zero),
+            CreatedAt = new DateTimeOffset(2026, 03, 02, 12, 00, 00, TimeSpan.Zero)
         };
 
         Db.Customers.Add(entity);
@@ -100,8 +100,8 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
                 DisplayName = "Test User",
                 Nickname = "tester",
                 PreferredAddress = null,
-                BillingAddress = null,
-            },
+                BillingAddress = null
+            }
         };
 
         Db.Customers.Add(entity);
@@ -139,7 +139,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
             Email = "noprofile@test.com",
             IsPreferred = false,
             CreatedAt = new DateTimeOffset(2026, 03, 04, 12, 00, 00, TimeSpan.Zero),
-            Profile = null,
+            Profile = null
         };
 
         Db.Customers.Add(entity);
@@ -177,10 +177,10 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
                     Line1 = "42 Nested Rd",
                     City = "Mapville",
                     Country = "US",
-                    PostalCode = "12345",
+                    PostalCode = "12345"
                 },
-                BillingAddress = null,
-            },
+                BillingAddress = null
+            }
         };
 
         Db.Customers.Add(entity);
@@ -235,7 +235,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
                     Verified = true,
                     VerifiedAt =
                         new DateTimeOffset(2026, 01, 01, 00, 00, 00, TimeSpan.Zero),
-                    Address = null,
+                    Address = null
                 },
                 new CustomerContact
                 {
@@ -248,10 +248,10 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
                         Line1 = "1 Phone St",
                         City = "Callton",
                         Country = "US",
-                        PostalCode = null,
-                    },
-                },
-            ],
+                        PostalCode = null
+                    }
+                }
+            ]
         };
 
         Db.Customers.Add(entity);
@@ -297,7 +297,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
             Email = "sset@test.com",
             IsPreferred = false,
             CreatedAt = new DateTimeOffset(2026, 03, 07, 12, 00, 00, TimeSpan.Zero),
-            Tags = ["alpha", "beta", "gamma"],
+            Tags = ["alpha", "beta", "gamma"]
         };
 
         Db.Customers.Add(entity);
@@ -336,8 +336,8 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
             ReferenceIds =
             [
                 Guid.Parse("12345678-1234-1234-1234-1234567890ab"),
-                Guid.Parse("abcdefab-cdef-cdef-cdef-abcdefabcdef"),
-            ],
+                Guid.Parse("abcdefab-cdef-cdef-cdef-abcdefabcdef")
+            ]
         };
 
         Db.Customers.Add(entity);
@@ -380,7 +380,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
             CustomerPk = "CUSTOMER#TEST",
             Status = "New",
             Total = 42.00m,
-            RiskFlags = [1, 4, 9],
+            RiskFlags = [1, 4, 9]
         };
 
         Db.Orders.Add(entity);
@@ -422,8 +422,8 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
             CreatedAt = new DateTimeOffset(2026, 03, 08, 12, 00, 00, TimeSpan.Zero),
             Preferences = new Dictionary<string, string>
             {
-                ["language"] = "en", ["theme"] = "dark",
-            },
+                ["language"] = "en", ["theme"] = "dark"
+            }
         };
 
         Db.Customers.Add(entity);
@@ -465,8 +465,8 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
             Total = 50.00m,
             ChargesByCode = new Dictionary<string, decimal>
             {
-                ["shipping"] = 9.99m, ["tax"] = 4.50m,
-            },
+                ["shipping"] = 9.99m, ["tax"] = 4.50m
+            }
         };
 
         Db.Orders.Add(entity);
@@ -510,7 +510,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
             Email = "list@test.com",
             IsPreferred = false,
             CreatedAt = new DateTimeOffset(2026, 03, 09, 12, 00, 00, TimeSpan.Zero),
-            Notes = ["first note", "second note"],
+            Notes = ["first note", "second note"]
         };
 
         Db.Customers.Add(entity);
@@ -550,7 +550,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
             Email = "emptyset@test.com",
             IsPreferred = false,
             CreatedAt = new DateTimeOffset(2026, 03, 10, 12, 00, 00, TimeSpan.Zero),
-            Tags = [],
+            Tags = []
         };
 
         Db.Customers.Add(entity);
@@ -578,7 +578,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
             Email = "emptylist@test.com",
             IsPreferred = false,
             CreatedAt = new DateTimeOffset(2026, 03, 11, 12, 00, 00, TimeSpan.Zero),
-            Notes = [],
+            Notes = []
         };
 
         Db.Customers.Add(entity);
@@ -609,7 +609,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
             Email = "emptydict@test.com",
             IsPreferred = false,
             CreatedAt = new DateTimeOffset(2026, 03, 12, 12, 00, 00, TimeSpan.Zero),
-            Preferences = [],
+            Preferences = []
         };
 
         Db.Customers.Add(entity);
@@ -672,7 +672,7 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
                                     City = source.Profile.PreferredAddress.City,
                                     Country = source.Profile.PreferredAddress.Country,
                                     PostalCode =
-                                        source.Profile.PreferredAddress.PostalCode,
+                                        source.Profile.PreferredAddress.PostalCode
                                 },
                         BillingAddress =
                             source.Profile.BillingAddress is null
@@ -683,8 +683,8 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
                                     City = source.Profile.BillingAddress.City,
                                     Country = source.Profile.BillingAddress.Country,
                                     PostalCode =
-                                        source.Profile.BillingAddress.PostalCode,
-                                },
+                                        source.Profile.BillingAddress.PostalCode
+                                }
                     },
             Contacts =
                 source.Contacts is null
@@ -704,10 +704,10 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
                                     Line1 = c.Address.Line1,
                                     City = c.Address.City,
                                     Country = c.Address.Country,
-                                    PostalCode = c.Address.PostalCode,
-                                },
+                                    PostalCode = c.Address.PostalCode
+                                }
                         })
-                        .ToList(),
+                        .ToList()
         };
 
         Db.Customers.Add(entity);

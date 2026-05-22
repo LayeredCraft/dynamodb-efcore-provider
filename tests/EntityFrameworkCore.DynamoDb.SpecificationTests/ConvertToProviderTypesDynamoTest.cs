@@ -13,9 +13,8 @@ public class ConvertToProviderTypesDynamoTest(
 {
     [ConditionalFact]
     public virtual void Check_all_tests_overridden()
-    {
-        DynamoTestHelpers.AssertAllTestMethodsOverridden(typeof(ConvertToProviderTypesDynamoTest));
-    }
+        => DynamoTestHelpers.AssertAllTestMethodsOverridden(
+            typeof(ConvertToProviderTypesDynamoTest));
 
     public override async Task Can_filter_projection_with_captured_enum_variable(bool async)
     {
@@ -39,55 +38,34 @@ public class ConvertToProviderTypesDynamoTest(
         await base.Can_filter_projection_with_inline_enum_variable(async);
     }
 
-    public override Task Can_query_using_any_data_type()
-    {
-        return base.Can_query_using_any_data_type();
-    }
+    public override Task Can_query_using_any_data_type() => base.Can_query_using_any_data_type();
 
     public override Task Can_query_using_any_data_type_shadow()
-    {
-        return base.Can_query_using_any_data_type_shadow();
-    }
+        => base.Can_query_using_any_data_type_shadow();
 
     public override Task Can_query_using_any_nullable_data_type()
-    {
-        return base.Can_query_using_any_nullable_data_type();
-    }
+        => base.Can_query_using_any_nullable_data_type();
 
     public override Task Can_query_using_any_data_type_nullable_shadow()
-    {
-        return base.Can_query_using_any_data_type_nullable_shadow();
-    }
+        => base.Can_query_using_any_data_type_nullable_shadow();
 
     public override Task Can_query_using_any_nullable_data_type_as_literal()
-    {
-        return base.Can_query_using_any_nullable_data_type_as_literal();
-    }
+        => base.Can_query_using_any_nullable_data_type_as_literal();
 
     public override Task Can_query_with_null_parameters_using_any_nullable_data_type()
-    {
-        return base.Can_query_with_null_parameters_using_any_nullable_data_type();
-    }
+        => base.Can_query_with_null_parameters_using_any_nullable_data_type();
 
     public override Task Can_insert_and_read_back_all_non_nullable_data_types()
-    {
-        return base.Can_insert_and_read_back_all_non_nullable_data_types();
-    }
+        => base.Can_insert_and_read_back_all_non_nullable_data_types();
 
     public override Task Can_perform_query_with_max_length()
-    {
-        return base.Can_perform_query_with_max_length();
-    }
+        => base.Can_perform_query_with_max_length();
 
     public override Task Can_perform_query_with_ansi_strings_test()
-    {
-        return base.Can_perform_query_with_ansi_strings_test();
-    }
+        => base.Can_perform_query_with_ansi_strings_test();
 
     public override Task Can_insert_and_read_with_max_length_set()
-    {
-        return base.Can_insert_and_read_with_max_length_set();
-    }
+        => base.Can_insert_and_read_with_max_length_set();
 
     public override async Task Can_insert_and_read_back_with_binary_key()
     {
@@ -104,10 +82,8 @@ public class ConvertToProviderTypesDynamoTest(
         }
 
         async Task<BinaryKeyDataType> QueryByBinaryKey(DbContext context, byte[] bytes)
-        {
-            return (await context.Set<BinaryKeyDataType>().Where(e => e.Id == bytes).ToListAsync())
+            => (await context.Set<BinaryKeyDataType>().Where(e => e.Id == bytes).ToListAsync())
                 .Single();
-        }
 
         await using (var context = CreateContext())
         {
@@ -142,9 +118,7 @@ public class ConvertToProviderTypesDynamoTest(
 
     [ConditionalFact(Skip = SkipReason.ForeignKeysNotSupported)]
     public override Task Can_insert_and_read_back_with_null_binary_foreign_key()
-    {
-        return base.Can_insert_and_read_back_with_null_binary_foreign_key();
-    }
+        => base.Can_insert_and_read_back_with_null_binary_foreign_key();
 
     public override async Task Can_insert_and_read_back_with_string_key()
     {
@@ -169,35 +143,23 @@ public class ConvertToProviderTypesDynamoTest(
 
     [ConditionalFact(Skip = SkipReason.ForeignKeysNotSupported)]
     public override Task Can_insert_and_read_back_with_null_string_foreign_key()
-    {
-        return base.Can_insert_and_read_back_with_null_string_foreign_key();
-    }
+        => base.Can_insert_and_read_back_with_null_string_foreign_key();
 
     public override Task Can_insert_and_read_back_all_nullable_data_types_with_values_set_to_null()
-    {
-        return base.Can_insert_and_read_back_all_nullable_data_types_with_values_set_to_null();
-    }
+        => base.Can_insert_and_read_back_all_nullable_data_types_with_values_set_to_null();
 
     public override Task
         Can_insert_and_read_back_all_nullable_data_types_with_values_set_to_non_null()
-    {
-        return base.Can_insert_and_read_back_all_nullable_data_types_with_values_set_to_non_null();
-    }
+        => base.Can_insert_and_read_back_all_nullable_data_types_with_values_set_to_non_null();
 
     public override Task Can_insert_and_read_back_object_backed_data_types()
-    {
-        return base.Can_insert_and_read_back_object_backed_data_types();
-    }
+        => base.Can_insert_and_read_back_object_backed_data_types();
 
     public override Task Can_insert_and_read_back_nullable_backed_data_types()
-    {
-        return base.Can_insert_and_read_back_nullable_backed_data_types();
-    }
+        => base.Can_insert_and_read_back_nullable_backed_data_types();
 
     public override Task Can_insert_and_read_back_non_nullable_backed_data_types()
-    {
-        return base.Can_insert_and_read_back_non_nullable_backed_data_types();
-    }
+        => base.Can_insert_and_read_back_non_nullable_backed_data_types();
 
     public override async Task Can_read_back_mapped_enum_from_collection_first_or_default()
     {
@@ -222,40 +184,23 @@ public class ConvertToProviderTypesDynamoTest(
         Assert.True(result.BoolField);
     }
 
-    public override Task Can_compare_enum_to_constant()
-    {
-        return base.Can_compare_enum_to_constant();
-    }
+    public override Task Can_compare_enum_to_constant() => base.Can_compare_enum_to_constant();
 
-    public override Task Can_compare_enum_to_parameter()
-    {
-        return base.Can_compare_enum_to_parameter();
-    }
+    public override Task Can_compare_enum_to_parameter() => base.Can_compare_enum_to_parameter();
 
-    public override Task Object_to_string_conversion()
-    {
-        return base.Object_to_string_conversion();
-    }
+    public override Task Object_to_string_conversion() => base.Object_to_string_conversion();
 
     public override Task Optional_datetime_reading_null_from_database()
-    {
-        return base.Optional_datetime_reading_null_from_database();
-    }
+        => base.Optional_datetime_reading_null_from_database();
 
     public override Task Can_insert_query_multiline_string()
-    {
-        return base.Can_insert_query_multiline_string();
-    }
+        => base.Can_insert_query_multiline_string();
 
     public override void Equals_method_over_enum_works()
-    {
-        DynamoTestHelpers.Instance.NoSyncTest(() => base.Equals_method_over_enum_works());
-    }
+        => DynamoTestHelpers.Instance.NoSyncTest(() => base.Equals_method_over_enum_works());
 
     public override void Object_equals_method_over_enum_works()
-    {
-        DynamoTestHelpers.Instance.NoSyncTest(() => base.Object_equals_method_over_enum_works());
-    }
+        => DynamoTestHelpers.Instance.NoSyncTest(() => base.Object_equals_method_over_enum_works());
 
     private static async Task AssertNoSync(Func<Task> testCode)
     {
@@ -273,13 +218,10 @@ public class ConvertToProviderTypesDynamoTest(
         protected override ITestStoreFactory TestStoreFactory => DynamoTestStoreFactory.Instance;
 
         protected override bool ShouldLogCategory(string logCategory)
-        {
-            return DynamoSpecificationFixtureExtensions.ShouldLogDynamoSql(logCategory);
-        }
+            => DynamoSpecificationFixtureExtensions.ShouldLogDynamoSql(logCategory);
 
         public override DbContextOptionsBuilder AddOptions(DbContextOptionsBuilder builder)
-        {
-            return base
+            => base
                 .AddOptions(builder)
                 .ConfigureWarnings(warnings => warnings.Ignore(
                     CoreEventId.ManyServiceProvidersCreatedWarning,
@@ -317,7 +259,6 @@ public class ConvertToProviderTypesDynamoTest(
 
                     await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
                 });
-        }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder, DbContext context)
         {

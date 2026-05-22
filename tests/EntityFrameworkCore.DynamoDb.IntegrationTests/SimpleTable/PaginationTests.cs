@@ -189,7 +189,7 @@ public class PaginationTests(DynamoContainerFixture fixture) : SimpleTableTestFi
                 DateTimeOffsetValue = new DateTimeOffset(2026, 1, 5, 0, 0, 0, TimeSpan.Zero),
                 NullableBoolValue = null,
                 NullableIntValue = null,
-                NullableStringValue = marker,
+                NullableStringValue = marker
             })
             .ToList();
 

@@ -170,9 +170,7 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
             if (primaryKey is not IConventionKey conventionKey
                 || conventionKey.GetConfigurationSource() is not (ConfigurationSource.Explicit
                     or ConfigurationSource.DataAnnotation))
-            {
                 continue;
-            }
 
             throw new InvalidOperationException(
                 $"Entity type '{entityType.DisplayName()}' configures an EF primary key explicitly. "
@@ -343,12 +341,10 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
 
             IProperty? skProperty = null;
             if (entityType[DynamoAnnotationNames.SortKeyPropertyName] is string skName)
-            {
                 skProperty = entityType.FindProperty(skName)
                     ?? throw new InvalidOperationException(
                         $"The sort key property '{skName}' configured on entity type "
                         + $"'{entityType.DisplayName()}' does not exist.");
-            }
 
             var expectedPrimaryKey = new List<IProperty> { pkProperty };
             if (skProperty != null && skProperty != pkProperty)
@@ -1007,7 +1003,7 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
         Unsupported,
         String,
         Number,
-        Binary,
+        Binary
     }
 
     /// <summary>Gets the DynamoDB table name annotation configured for an entity type.</summary>

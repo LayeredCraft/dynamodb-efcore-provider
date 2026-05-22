@@ -209,6 +209,6 @@ internal static class DynamoAttributeValueCollectionHelpers
             decimal dec => DynamoWireValueConversion.FormatNumber(dec),
             _ => throw new NotSupportedException(
                 $"DynamoDB set element type '{typeof(T).FullName}' is not supported. "
-                + "Configure a converter to string, number, or byte[]."),
+                + "Configure a converter to string, number, or byte[].")
         };
 }

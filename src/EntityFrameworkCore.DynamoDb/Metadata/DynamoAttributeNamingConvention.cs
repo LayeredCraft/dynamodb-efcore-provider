@@ -39,5 +39,5 @@ public enum DynamoAttributeNamingConvention
     ///     Converts property names to UPPER_SNAKE_CASE using Humanizer. For example: <c>FirstName</c>
     ///     → <c>FIRST_NAME</c>.
     /// </summary>
-    UpperSnakeCase,
+    UpperSnakeCase
 }

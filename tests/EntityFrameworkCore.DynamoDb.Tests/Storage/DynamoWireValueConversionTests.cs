@@ -40,8 +40,7 @@ public class DynamoWireValueConversionTests
     {
         var values = new List<DateTimeOffset>
         {
-            new(2026, 4, 1, 10, 30, 0, TimeSpan.Zero),
-            new(2026, 4, 2, 11, 45, 0, TimeSpan.Zero),
+            new(2026, 4, 1, 10, 30, 0, TimeSpan.Zero), new(2026, 4, 2, 11, 45, 0, TimeSpan.Zero)
         };
 
         var attributeValue = DynamoAttributeValueCollectionHelpers.SerializeList(
@@ -59,7 +58,7 @@ public class DynamoWireValueConversionTests
         var values = new Dictionary<string, Guid>
         {
             ["first"] = Guid.Parse("11111111-1111-1111-1111-111111111111"),
-            ["second"] = Guid.Parse("22222222-2222-2222-2222-222222222222"),
+            ["second"] = Guid.Parse("22222222-2222-2222-2222-222222222222")
         };
 
         var attributeValue = DynamoAttributeValueCollectionHelpers.SerializeDictionary(

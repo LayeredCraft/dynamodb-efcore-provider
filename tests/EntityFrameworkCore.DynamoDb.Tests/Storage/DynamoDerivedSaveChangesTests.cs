@@ -15,10 +15,7 @@ public class DynamoDerivedSaveChangesTests
     {
         var (context, captured) = CreateContext();
         context.Add(
-            new DerivedDocument
-            {
-                Pk = "DOC#1", Sk = "META#1", Name = "before", Extra = "extra",
-            });
+            new DerivedDocument { Pk = "DOC#1", Sk = "META#1", Name = "before", Extra = "extra" });
 
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
@@ -48,7 +45,7 @@ public class DynamoDerivedSaveChangesTests
         var (context, captured) = CreateContext();
         var entity = new DerivedDocument
         {
-            Pk = "DOC#1", Sk = "META#1", Name = "before", Extra = "extra",
+            Pk = "DOC#1", Sk = "META#1", Name = "before", Extra = "extra"
         };
         context.Attach(entity);
         entity.Name = "after";
@@ -74,7 +71,7 @@ public class DynamoDerivedSaveChangesTests
         var (context, captured) = CreateContext();
         var entity = new DerivedDocument
         {
-            Pk = "DOC#1", Sk = "META#1", Name = "before", Extra = "extra",
+            Pk = "DOC#1", Sk = "META#1", Name = "before", Extra = "extra"
         };
         context.Attach(entity);
         context.Remove(entity);
@@ -131,7 +128,7 @@ public class DynamoDerivedSaveChangesTests
                     => captured.Add(
                         new ParameterizedStatement
                         {
-                            Statement = r.Statement, Parameters = r.Parameters,
+                            Statement = r.Statement, Parameters = r.Parameters
                         })),
                 Arg.Any<CancellationToken>())
             .Returns(new ExecuteStatementResponse());

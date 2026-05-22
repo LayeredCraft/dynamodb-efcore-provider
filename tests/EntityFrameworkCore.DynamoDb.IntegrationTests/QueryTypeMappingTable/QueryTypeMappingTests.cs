@@ -360,7 +360,7 @@ public class QueryTypeMappingTests : QueryTypeMappingTestFixture
                     NumericStatus = (MappingStatus)99,
                     StringStatus = (MappingStatus)99,
                     NullableStringStatus = null,
-                    Profile = new QueryTypeMappingProfile { Status = (MappingStatus)99 },
+                    Profile = new QueryTypeMappingProfile { Status = (MappingStatus)99 }
                 });
 
             await Db.SaveChangesAsync(CancellationToken);
@@ -369,7 +369,7 @@ public class QueryTypeMappingTests : QueryTypeMappingTestFixture
                 new GetItemRequest
                 {
                     TableName = "QueryTypeMappingItems",
-                    Key = new Dictionary<string, AttributeValue> { ["pk"] = new() { S = pk }, },
+                    Key = new Dictionary<string, AttributeValue> { ["pk"] = new() { S = pk } }
                 },
                 CancellationToken);
 
@@ -383,7 +383,7 @@ public class QueryTypeMappingTests : QueryTypeMappingTestFixture
                 new DeleteItemRequest
                 {
                     TableName = "QueryTypeMappingItems",
-                    Key = new Dictionary<string, AttributeValue> { ["pk"] = new() { S = pk }, },
+                    Key = new Dictionary<string, AttributeValue> { ["pk"] = new() { S = pk } }
                 },
                 CancellationToken);
         }
@@ -441,14 +441,14 @@ public class QueryTypeMappingTestFixture : DynamoTestFixtureBase
                 [
                     new AttributeDefinition
                     {
-                        AttributeName = "pk", AttributeType = ScalarAttributeType.S,
-                    },
+                        AttributeName = "pk", AttributeType = ScalarAttributeType.S
+                    }
                 ],
                 KeySchema =
                 [
-                    new KeySchemaElement { AttributeName = "pk", KeyType = KeyType.HASH },
+                    new KeySchemaElement { AttributeName = "pk", KeyType = KeyType.HASH }
                 ],
-                BillingMode = BillingMode.PAY_PER_REQUEST,
+                BillingMode = BillingMode.PAY_PER_REQUEST
             },
             cancellationToken);
 
@@ -459,54 +459,56 @@ public class QueryTypeMappingTestFixture : DynamoTestFixtureBase
     [
         new()
         {
-            ["pk"] = new() { S = "ITEM#1" },
-            ["shortValue"] = new() { N = "7" },
-            ["nullableShortValue"] = new() { NULL = true },
-            ["numericStatus"] = new() { N = "1" },
-            ["stringStatus"] = new() { S = nameof(MappingStatus.Active) },
-            ["nullableStringStatus"] = new() { S = nameof(MappingStatus.Active) },
+            ["pk"] = new AttributeValue { S = "ITEM#1" },
+            ["shortValue"] = new AttributeValue { N = "7" },
+            ["nullableShortValue"] = new AttributeValue { NULL = true },
+            ["numericStatus"] = new AttributeValue { N = "1" },
+            ["stringStatus"] = new AttributeValue { S = nameof(MappingStatus.Active) },
+            ["nullableStringStatus"] =
+                new AttributeValue { S = nameof(MappingStatus.Active) },
             ["profile"] =
-                new()
+                new AttributeValue
                 {
                     M = new Dictionary<string, AttributeValue>
                     {
-                        ["status"] = new() { S = nameof(MappingStatus.Active) },
-                    },
-                },
+                        ["status"] = new() { S = nameof(MappingStatus.Active) }
+                    }
+                }
         },
         new()
         {
-            ["pk"] = new() { S = "ITEM#2" },
-            ["shortValue"] = new() { N = "8" },
-            ["nullableShortValue"] = new() { N = "8" },
-            ["numericStatus"] = new() { N = "0" },
-            ["stringStatus"] = new() { S = nameof(MappingStatus.Inactive) },
-            ["nullableStringStatus"] = new() { NULL = true },
+            ["pk"] = new AttributeValue { S = "ITEM#2" },
+            ["shortValue"] = new AttributeValue { N = "8" },
+            ["nullableShortValue"] = new AttributeValue { N = "8" },
+            ["numericStatus"] = new AttributeValue { N = "0" },
+            ["stringStatus"] = new AttributeValue { S = nameof(MappingStatus.Inactive) },
+            ["nullableStringStatus"] = new AttributeValue { NULL = true },
             ["profile"] =
-                new()
+                new AttributeValue
                 {
                     M = new Dictionary<string, AttributeValue>
                     {
-                        ["status"] = new() { S = nameof(MappingStatus.Inactive) },
-                    },
-                },
+                        ["status"] = new() { S = nameof(MappingStatus.Inactive) }
+                    }
+                }
         },
         new()
         {
-            ["pk"] = new() { S = "ITEM#3" },
-            ["shortValue"] = new() { N = "9" },
-            ["nullableShortValue"] = new() { N = "9" },
-            ["numericStatus"] = new() { N = "2" },
-            ["stringStatus"] = new() { S = nameof(MappingStatus.Pending) },
-            ["nullableStringStatus"] = new() { S = nameof(MappingStatus.Pending) },
-            ["profile"] = new()
+            ["pk"] = new AttributeValue { S = "ITEM#3" },
+            ["shortValue"] = new AttributeValue { N = "9" },
+            ["nullableShortValue"] = new AttributeValue { N = "9" },
+            ["numericStatus"] = new AttributeValue { N = "2" },
+            ["stringStatus"] = new AttributeValue { S = nameof(MappingStatus.Pending) },
+            ["nullableStringStatus"] =
+                new AttributeValue { S = nameof(MappingStatus.Pending) },
+            ["profile"] = new AttributeValue
             {
                 M = new Dictionary<string, AttributeValue>
                 {
-                    ["status"] = new() { S = nameof(MappingStatus.Pending) },
-                },
-            },
-        },
+                    ["status"] = new() { S = nameof(MappingStatus.Pending) }
+                }
+            }
+        }
     ];
 }
 
@@ -566,5 +568,5 @@ public enum MappingStatus
 {
     Inactive,
     Active,
-    Pending,
+    Pending
 }

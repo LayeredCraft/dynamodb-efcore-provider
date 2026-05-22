@@ -185,10 +185,11 @@ public class NullComparisonTests(DynamoContainerFixture fixture) : SimpleTableTe
     {
         // Insert an item via the SDK with NullableStringValue absent from the attribute map.
         const string missingItemPk = "ITEM#MISSING-STRING";
-        var template = new Dictionary<string, AttributeValue>(SimpleItems.AttributeValues[0])
-        {
-            ["pk"] = new() { S = missingItemPk },
-        };
+        var template =
+            new Dictionary<string, AttributeValue>(SimpleItems.AttributeValues[0])
+            {
+                ["pk"] = new() { S = missingItemPk }
+            };
         template.Remove("nullableStringValue");
 
         await Client.PutItemAsync(
@@ -223,8 +224,8 @@ public class NullComparisonTests(DynamoContainerFixture fixture) : SimpleTableTe
                     TableName = SimpleItemTable.TableName,
                     Key = new Dictionary<string, AttributeValue>
                     {
-                        ["pk"] = new() { S = missingItemPk },
-                    },
+                        ["pk"] = new() { S = missingItemPk }
+                    }
                 },
                 CancellationToken);
         }

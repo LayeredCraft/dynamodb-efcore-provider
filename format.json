@@ -16,7 +16,7 @@
         "run",
         "jb",
         "cleanupcode",
-        "--profile=Built-in: Reformat Code",
+        "--profile=Built-in: Reformat & Apply Syntax Style",
         "--include=$FILES",
         "--settings=$GLOB_FIRST_BASENAME(*.DotSettings)",
         "--verbosity=FATAL"

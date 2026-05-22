@@ -7,7 +7,8 @@ namespace EntityFrameworkCore.DynamoDb.SpecificationTests;
 [Collection(DynamoSpecificationCollection.Name)]
 public sealed class ConcurrencyDetectorDisabledDynamoTest(
     ConcurrencyDetectorDisabledDynamoTest.ConcurrencyDetectorDisabledDynamoFixture fixture)
-    : ConcurrencyDetectorDisabledTestBase<ConcurrencyDetectorDisabledDynamoTest.ConcurrencyDetectorDisabledDynamoFixture>(fixture)
+    : ConcurrencyDetectorDisabledTestBase<ConcurrencyDetectorDisabledDynamoTest.
+        ConcurrencyDetectorDisabledDynamoFixture>(fixture)
 {
     [ConditionalFact]
     public void Check_all_tests_overridden()

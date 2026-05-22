@@ -113,13 +113,15 @@ property or a getter-only property backed by an EF-mapped field).
 
 !!! warning "Ambiguous key names"
 
-    If an entity type has both a `PK` property and a `PartitionKey` property (or both `SK` and
-    `SortKey`) and no explicit override is configured, the provider throws `InvalidOperationException`
-    during model finalization. Use `HasPartitionKey(...)` and/or `HasSortKey(...)` to resolve the
-    ambiguity.
+```
+If an entity type has both a `PK` property and a `PartitionKey` property (or both `SK` and
+`SortKey`) and no explicit override is configured, the provider throws `InvalidOperationException`
+during model finalization. Use `HasPartitionKey(...)` and/or `HasSortKey(...)` to resolve the
+ambiguity.
 
-    `Id` is only a fallback. If `PK` or `PartitionKey` is present, that DynamoDB-specific name wins
-    over `Id` and does not create ambiguity.
+`Id` is only a fallback. If `PK` or `PartitionKey` is present, that DynamoDB-specific name wins
+over `Id` and does not create ambiguity.
+```
 
 ## Sort Key
 

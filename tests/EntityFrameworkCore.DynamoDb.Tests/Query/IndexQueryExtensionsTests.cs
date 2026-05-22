@@ -169,7 +169,7 @@ public class IndexQueryExtensionsTests
                     new DynamoQueryDiagnostic(
                         DynamoQueryDiagnosticLevel.Warning,
                         "DYNAMO_IDX001",
-                        "No compatible secondary index was found for test query."),
+                        "No compatible secondary index was found for test query.")
                 ]);
     }
 
@@ -185,7 +185,7 @@ public class IndexQueryExtensionsTests
                     new DynamoQueryDiagnostic(
                         DynamoQueryDiagnosticLevel.Warning,
                         "DYNAMO_IDX002",
-                        "Multiple compatible secondary indexes were found for test query."),
+                        "Multiple compatible secondary indexes were found for test query.")
                 ]);
     }
 

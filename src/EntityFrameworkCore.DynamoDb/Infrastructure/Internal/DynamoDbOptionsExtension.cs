@@ -217,7 +217,7 @@ public sealed class DynamoDbOptionsExtension : IDbContextOptionsExtension
             ReturnConsumedCapacity = ReturnConsumedCapacity,
             ConsistentRead = ConsistentRead,
             AllowUnsafeFilteredQueries = AllowUnsafeFilteredQueries,
-            TableLifecycleOptions = TableLifecycleOptions.Clone(),
+            TableLifecycleOptions = TableLifecycleOptions.Clone()
         };
 
     /// <summary>Represents the DynamoOptionsExtensionInfo type.</summary>

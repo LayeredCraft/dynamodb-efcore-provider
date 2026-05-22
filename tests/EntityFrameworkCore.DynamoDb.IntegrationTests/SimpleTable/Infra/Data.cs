@@ -24,7 +24,7 @@ public static class SimpleItems
             NullableStringValue = null,
             DateOnlyValue = new DateOnly(2026, 1, 1),
             TimeOnlyValue = new TimeOnly(10, 0, 0),
-            TimeSpanValue = TimeSpan.FromHours(1),
+            TimeSpanValue = TimeSpan.FromHours(1)
         },
         new()
         {
@@ -44,7 +44,7 @@ public static class SimpleItems
             NullableStringValue = "Null String",
             DateOnlyValue = new DateOnly(2026, 6, 15),
             TimeOnlyValue = new TimeOnly(14, 30, 0),
-            TimeSpanValue = TimeSpan.FromMinutes(90),
+            TimeSpanValue = TimeSpan.FromMinutes(90)
         },
         new()
         {
@@ -64,7 +64,7 @@ public static class SimpleItems
             NullableStringValue = null,
             DateOnlyValue = new DateOnly(2025, 12, 31),
             TimeOnlyValue = new TimeOnly(23, 59, 59),
-            TimeSpanValue = TimeSpan.FromDays(1),
+            TimeSpanValue = TimeSpan.FromDays(1)
         },
         new()
         {
@@ -84,8 +84,8 @@ public static class SimpleItems
             NullableStringValue = null,
             DateOnlyValue = new DateOnly(2000, 1, 1),
             TimeOnlyValue = new TimeOnly(0, 0, 0),
-            TimeSpanValue = TimeSpan.Zero,
-        },
+            TimeSpanValue = TimeSpan.Zero
+        }
     ];
 
     public static readonly List<Dictionary<string, AttributeValue>> AttributeValues =

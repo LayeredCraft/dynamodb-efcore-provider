@@ -309,10 +309,7 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
             else if (sourceExpression is MethodCallExpression
                 {
                     Method.IsGenericMethod: true,
-                    Arguments:
-                    [
-                        var source, ConstantExpression { Value: string efPropertyName },
-                    ],
+                    Arguments: [var source, ConstantExpression { Value: string efPropertyName }]
                 } methodCall
                 && methodCall.Method.GetGenericMethodDefinition() == EfPropertyMethod)
             {
@@ -344,7 +341,7 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         {
             if (currentType.FindComplexProperty(names[i]) is not
                 {
-                    IsCollection: false,
+                    IsCollection: false
                 } complexProperty)
                 return null;
 
@@ -430,7 +427,7 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         }
         else if (current is StructuralTypeShaperExpression
             {
-                StructuralType: IEntityType shaperRootType,
+                StructuralType: IEntityType shaperRootType
             })
         {
             rootEntityType = shaperRootType;
@@ -768,7 +765,7 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         while (expression is UnaryExpression
             {
                 NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked,
-                Type: var targetType,
+                Type: var targetType
             } unaryExpression
             && targetType == typeof(object))
             expression = unaryExpression.Operand;
@@ -1028,7 +1025,7 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
 
         return expression is StructuralTypeShaperExpression
         {
-            StructuralType: IEntityType shaperType,
+            StructuralType: IEntityType shaperType
         }
             ? shaperType
             : null;
@@ -1124,7 +1121,7 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
                 sqlExpressionFactory.IsMissing(operand),
             nameof(DynamoDbFunctionsExtensions.IsNotMissing) => sqlExpressionFactory.IsNotMissing(
                 operand),
-            _ => QueryCompilationContext.NotTranslatedExpression,
+            _ => QueryCompilationContext.NotTranslatedExpression
         };
     }
 
@@ -1136,8 +1133,8 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
     {
         SqlExpression? a = null;
         SqlExpression? b = null;
-        ExpressionType opType = node.NodeType;
-        bool swapOperands = false;
+        var opType = node.NodeType;
+        var swapOperands = false;
 
         if (node.Left is MethodCallExpression leftCall
             && TryTranslateSupportedStringComparisonOperands(leftCall, out a, out b)

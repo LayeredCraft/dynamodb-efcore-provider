@@ -22,7 +22,7 @@ public sealed class DynamoConventionSetBuilder(
         conventionSet.Remove(typeof(ForeignKeyIndexConvention));
 
         conventionSet.Replace<ComplexPropertyDiscoveryConvention>(
-            new DynamoComplexPropertyDiscoveryConvention(Dependencies, useAttributes: true));
+            new DynamoComplexPropertyDiscoveryConvention(Dependencies, true));
 
         conventionSet.Replace<ValueGenerationConvention>(
             new DynamoValueGenerationConvention(Dependencies));

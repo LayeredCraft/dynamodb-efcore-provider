@@ -51,8 +51,10 @@ provider maps to `DbUpdateConcurrencyException`.
 
 !!! note
 
-    The provider does not auto-generate or increment concurrency token values.
-    `IsRowVersion()` and `ValueGeneratedOnAddOrUpdate` are not yet supported.
+```
+The provider does not auto-generate or increment concurrency token values.
+`IsRowVersion()` and `ValueGeneratedOnAddOrUpdate` are not yet supported.
+```
 
 Your application must assign the new token value before calling `SaveChangesAsync`. A common
 pattern is an integer version that the writer increments on each save:

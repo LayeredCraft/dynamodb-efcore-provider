@@ -39,7 +39,7 @@ public abstract class SaveChangesTableTestFixture : DynamoTestFixtureBase
             SaveChangesItemTable.TableName,
             new Dictionary<string, AttributeValue>
             {
-                ["pk"] = pk.ToAttributeValue(), ["sk"] = sk.ToAttributeValue(),
+                ["pk"] = pk.ToAttributeValue(), ["sk"] = sk.ToAttributeValue()
             },
             cancellationToken);
 
@@ -191,8 +191,8 @@ public abstract class SaveChangesTableTestFixture : DynamoTestFixtureBase
                 TableName = SaveChangesItemTable.TableName,
                 Key = new Dictionary<string, AttributeValue>
                 {
-                    ["pk"] = new() { S = pk }, ["sk"] = new() { S = sk },
-                },
+                    ["pk"] = new() { S = pk }, ["sk"] = new() { S = sk }
+                }
             },
             cancellationToken);
 

@@ -63,7 +63,6 @@ internal sealed class DynamoPartiqlStatementFactory(
         // Complex properties are fully replaced when any of their nested scalars changed.
         foreach (var cp in entityType.GetComplexProperties())
             if (cp.IsCollection)
-            {
                 AppendComplexCollectionMutations(
                     publicEntry.ComplexCollection(cp),
                     cp,
@@ -71,9 +70,7 @@ internal sealed class DynamoPartiqlStatementFactory(
                     setClauses,
                     setParameters,
                     removeClauses);
-            }
             else
-            {
                 AppendComplexPropertyMutations(
                     publicEntry.ComplexProperty(cp),
                     cp,
@@ -81,7 +78,6 @@ internal sealed class DynamoPartiqlStatementFactory(
                     setClauses,
                     setParameters,
                     removeClauses);
-            }
 
         return FinalizeUpdateStatement(
             entry,
@@ -113,7 +109,7 @@ internal sealed class DynamoPartiqlStatementFactory(
 
         var parameters = new List<AttributeValue>
         {
-            serializerSource.GetOrBuildOriginalValueSerializer(partitionKeyProperty)(entry),
+            serializerSource.GetOrBuildOriginalValueSerializer(partitionKeyProperty)(entry)
         };
 
         var sqlBuilder = new StringBuilder();
@@ -191,7 +187,7 @@ internal sealed class DynamoPartiqlStatementFactory(
 
         var whereClauses = new List<string>
         {
-            $"\"{EscapeIdentifier(partitionKeyProperty.GetAttributeName())}\" = ?",
+            $"\"{EscapeIdentifier(partitionKeyProperty.GetAttributeName())}\" = ?"
         };
 
         var sortKeyProperty = keyEntityType.GetSortKeyProperty();
@@ -273,7 +269,6 @@ internal sealed class DynamoPartiqlStatementFactory(
                 $"{path}.\"{EscapeIdentifier(((IReadOnlyComplexProperty)nestedComplexProperty).GetAttributeName())}\"";
 
             if (nestedComplexProperty.IsCollection)
-            {
                 AppendComplexCollectionMutations(
                     complexEntry.ComplexCollection(nestedComplexProperty),
                     nestedComplexProperty,
@@ -281,9 +276,7 @@ internal sealed class DynamoPartiqlStatementFactory(
                     setClauses,
                     setParameters,
                     removeClauses);
-            }
             else
-            {
                 AppendComplexPropertyMutations(
                     complexEntry.ComplexProperty(nestedComplexProperty),
                     nestedComplexProperty,
@@ -291,7 +284,6 @@ internal sealed class DynamoPartiqlStatementFactory(
                     setClauses,
                     setParameters,
                     removeClauses);
-            }
         }
     }
 
@@ -350,7 +342,6 @@ internal sealed class DynamoPartiqlStatementFactory(
         }
 
         foreach (var nestedComplexProperty in complexProperty.ComplexType.GetComplexProperties())
-        {
             if (nestedComplexProperty.IsCollection)
             {
                 var nestedCollectionEntry = complexEntry.ComplexCollection(nestedComplexProperty);
@@ -371,7 +362,6 @@ internal sealed class DynamoPartiqlStatementFactory(
                 if (!ShouldReplaceWholeComplexProperty(nestedEntry, nestedComplexProperty))
                     return false;
             }
-        }
 
         return hasModifiedMember;
     }

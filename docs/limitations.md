@@ -121,20 +121,22 @@ var result = await context.Orders
     .FirstOrDefaultAsync(ct);
 ```
 
-!!! warning "Unsafe filtered First* is not a best practice"
+!!! warning "Unsafe filtered First\* is not a best practice"
 
-    `AsUnsafeFilteredQuery()` bypasses the provider's `First` / `FirstOrDefault` safety
-    validation for one query. `AllowUnsafeFilteredQueries()` applies the same bypass to every
-    query in the context.
+```
+`AsUnsafeFilteredQuery()` bypasses the provider's `First` / `FirstOrDefault` safety
+validation for one query. `AllowUnsafeFilteredQueries()` applies the same bypass to every
+query in the context.
 
-    This does not disable scan-like query protection, does not allow explicit `Limit(n)` or
-    `WithNextToken()` with `First*`, and does not change `First*` execution: the provider still
-    sends one request with implicit `Limit=1` when no user limit is specified.
+This does not disable scan-like query protection, does not allow explicit `Limit(n)` or
+`WithNextToken()` with `First*`, and does not change `First*` execution: the provider still
+sends one request with implicit `Limit=1` when no user limit is specified.
 
-    DynamoDB applies filters after evaluating items, so `FirstOrDefaultAsync` can return `null`
-    and `FirstAsync` can throw even when a later item would match. See AWS' notes on
-    [filter expressions](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Query.FilterExpression.html).
-    Use this only for tests or controlled legacy code.
+DynamoDB applies filters after evaluating items, so `FirstOrDefaultAsync` can return `null`
+and `FirstAsync` can throw even when a later item would match. See AWS' notes on
+[filter expressions](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Query.FilterExpression.html).
+Use this only for tests or controlled legacy code.
+```
 
 ```csharp
 var result = await context.Orders

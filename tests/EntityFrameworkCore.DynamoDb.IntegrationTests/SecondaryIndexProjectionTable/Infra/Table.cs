@@ -21,37 +21,36 @@ public static class SecondaryIndexProjectionOrdersTable
                     new AttributeDefinition
                     {
                         AttributeName = "customerId",
-                        AttributeType = ScalarAttributeType.S,
+                        AttributeType = ScalarAttributeType.S
                     },
                     new AttributeDefinition
                     {
-                        AttributeName = "orderId",
-                        AttributeType = ScalarAttributeType.S,
+                        AttributeName = "orderId", AttributeType = ScalarAttributeType.S
                     },
                     new AttributeDefinition
                     {
-                        AttributeName = "status", AttributeType = ScalarAttributeType.S,
+                        AttributeName = "status", AttributeType = ScalarAttributeType.S
                     },
                     new AttributeDefinition
                     {
                         AttributeName = "createdAt",
-                        AttributeType = ScalarAttributeType.S,
+                        AttributeType = ScalarAttributeType.S
                     },
                     new AttributeDefinition
                     {
-                        AttributeName = "region", AttributeType = ScalarAttributeType.S,
-                    },
+                        AttributeName = "region", AttributeType = ScalarAttributeType.S
+                    }
                 ],
                 KeySchema =
                 [
                     new KeySchemaElement
                     {
-                        AttributeName = "customerId", KeyType = KeyType.HASH,
+                        AttributeName = "customerId", KeyType = KeyType.HASH
                     },
                     new KeySchemaElement
                     {
-                        AttributeName = "orderId", KeyType = KeyType.RANGE,
-                    },
+                        AttributeName = "orderId", KeyType = KeyType.RANGE
+                    }
                 ],
                 GlobalSecondaryIndexes =
                 [
@@ -62,20 +61,16 @@ public static class SecondaryIndexProjectionOrdersTable
                         [
                             new KeySchemaElement
                             {
-                                AttributeName = "status",
-                                KeyType = KeyType.HASH,
+                                AttributeName = "status", KeyType = KeyType.HASH
                             },
                             new KeySchemaElement
                             {
                                 AttributeName = "createdAt",
-                                KeyType = KeyType.RANGE,
-                            },
+                                KeyType = KeyType.RANGE
+                            }
                         ],
                         Projection =
-                            new Projection
-                            {
-                                ProjectionType = ProjectionType.KEYS_ONLY,
-                            },
+                            new Projection { ProjectionType = ProjectionType.KEYS_ONLY }
                     },
                     new GlobalSecondaryIndex
                     {
@@ -84,24 +79,23 @@ public static class SecondaryIndexProjectionOrdersTable
                         [
                             new KeySchemaElement
                             {
-                                AttributeName = "region",
-                                KeyType = KeyType.HASH,
+                                AttributeName = "region", KeyType = KeyType.HASH
                             },
                             new KeySchemaElement
                             {
                                 AttributeName = "createdAt",
-                                KeyType = KeyType.RANGE,
-                            },
+                                KeyType = KeyType.RANGE
+                            }
                         ],
                         Projection =
                             new Projection
                             {
                                 ProjectionType = ProjectionType.INCLUDE,
-                                NonKeyAttributes = ["status"],
-                            },
-                    },
+                                NonKeyAttributes = ["status"]
+                            }
+                    }
                 ],
-                BillingMode = BillingMode.PAY_PER_REQUEST,
+                BillingMode = BillingMode.PAY_PER_REQUEST
             },
             cancellationToken);
 

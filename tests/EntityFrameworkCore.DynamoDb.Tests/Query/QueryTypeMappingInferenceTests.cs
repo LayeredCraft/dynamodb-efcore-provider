@@ -110,7 +110,7 @@ public class QueryTypeMappingInferenceTests
             "le" => context.Items.AllowScan().Where(e => e.ShortValue <= value),
             "gt" => context.Items.AllowScan().Where(e => e.ShortValue > value),
             "ge" => context.Items.AllowScan().Where(e => e.ShortValue >= value),
-            _ => throw new InvalidOperationException(),
+            _ => throw new InvalidOperationException()
         };
 
         await query.ToListAsync(TestContext.Current.CancellationToken);
@@ -135,7 +135,7 @@ public class QueryTypeMappingInferenceTests
             "le" => context.Items.AllowScan().Where(e => value <= e.ShortValue),
             "gt" => context.Items.AllowScan().Where(e => value > e.ShortValue),
             "ge" => context.Items.AllowScan().Where(e => value >= e.ShortValue),
-            _ => throw new InvalidOperationException(),
+            _ => throw new InvalidOperationException()
         };
 
         await query.ToListAsync(TestContext.Current.CancellationToken);
@@ -901,19 +901,19 @@ public class QueryTypeMappingInferenceTests
     private enum NumericStatus
     {
         Inactive = 0,
-        Active = 1,
+        Active = 1
     }
 
     private enum StringStatus
     {
         Inactive,
-        Active,
+        Active
     }
 
     private enum ByteStringStatus : byte
     {
         Inactive,
-        Active,
+        Active
     }
 
     private sealed class QueryTypeMappingEntity

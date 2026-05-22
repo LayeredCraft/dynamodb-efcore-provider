@@ -19,9 +19,9 @@ public static class AmazonDynamoDbExtensions
                         TransactItems = chunk
                             .Select(a => new TransactWriteItem
                             {
-                                Put = new Put { TableName = tableName, Item = a },
+                                Put = new Put { TableName = tableName, Item = a }
                             })
-                            .ToList(),
+                            .ToList()
                     },
                     cancellationToken));
     }

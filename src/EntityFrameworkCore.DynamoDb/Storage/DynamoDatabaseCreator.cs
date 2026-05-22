@@ -309,7 +309,7 @@ internal sealed class DynamoDatabaseCreator(
                     {
                         TableName = table.TableName,
                         AttributeDefinitions = updates[i].AttributeDefinitions.ToList(),
-                        GlobalSecondaryIndexUpdates = [updates[i].Update],
+                        GlobalSecondaryIndexUpdates = [updates[i].Update]
                     },
                     cancellationToken)
                 .ConfigureAwait(false);

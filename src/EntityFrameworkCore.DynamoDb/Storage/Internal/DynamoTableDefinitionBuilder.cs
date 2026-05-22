@@ -72,8 +72,8 @@ internal static class DynamoTableDefinitionBuilder
                             {
                                 IndexName = expectedGsi.IndexName,
                                 KeySchema = expectedGsi.KeySchema,
-                                Projection = expectedGsi.Projection,
-                            },
+                                Projection = expectedGsi.Projection
+                            }
                         },
                         GetAttributeDefinitionsForKeySchema(
                             expected.AttributeDefinitions,
@@ -116,7 +116,7 @@ internal static class DynamoTableDefinitionBuilder
                 .OrderBy(static pair => pair.Key, StringComparer.Ordinal)
                 .Select(static pair => new AttributeDefinition(pair.Key, pair.Value))
                 .ToList(),
-            KeySchema = BuildKeySchema(baseSource),
+            KeySchema = BuildKeySchema(baseSource)
         };
 
         var gsis = sources
@@ -126,7 +126,7 @@ internal static class DynamoTableDefinitionBuilder
             {
                 IndexName = source.IndexName,
                 KeySchema = BuildKeySchema(source),
-                Projection = BuildProjection(source),
+                Projection = BuildProjection(source)
             })
             .ToList();
         if (gsis.Count > 0)
@@ -152,7 +152,7 @@ internal static class DynamoTableDefinitionBuilder
                 {
                     IndexName = source.IndexName,
                     KeySchema = BuildKeySchema(source),
-                    Projection = BuildProjection(source),
+                    Projection = BuildProjection(source)
                 };
             })
             .ToList();
@@ -225,7 +225,7 @@ internal static class DynamoTableDefinitionBuilder
             DynamoSecondaryIndexProjectionType.Include => throw new NotSupportedException(
                 $"Secondary index '{source.IndexName}' uses Include projection, but non-key projected attributes are not tracked yet. Use All or KeysOnly."),
             _ => throw new InvalidOperationException(
-                $"Unknown projection type '{source.ProjectionType}'."),
+                $"Unknown projection type '{source.ProjectionType}'.")
         };
 
     private static void AddAttributeDefinition(

@@ -19,27 +19,27 @@ public static class SharedTableWithIndexesItemTable
                 [
                     new AttributeDefinition
                     {
-                        AttributeName = "pk", AttributeType = ScalarAttributeType.S,
+                        AttributeName = "pk", AttributeType = ScalarAttributeType.S
                     },
                     new AttributeDefinition
                     {
-                        AttributeName = "sk", AttributeType = ScalarAttributeType.S,
+                        AttributeName = "sk", AttributeType = ScalarAttributeType.S
                     },
                     new AttributeDefinition
                     {
-                        AttributeName = "status", AttributeType = ScalarAttributeType.S,
+                        AttributeName = "status", AttributeType = ScalarAttributeType.S
                     },
                     new AttributeDefinition
                     {
                         AttributeName =
                             "priority",
-                        AttributeType = ScalarAttributeType.N,
-                    },
+                        AttributeType = ScalarAttributeType.N
+                    }
                 ],
                 KeySchema =
                 [
                     new KeySchemaElement { AttributeName = "pk", KeyType = KeyType.HASH },
-                    new KeySchemaElement { AttributeName = "sk", KeyType = KeyType.RANGE },
+                    new KeySchemaElement { AttributeName = "sk", KeyType = KeyType.RANGE }
                 ],
                 GlobalSecondaryIndexes =
                 [
@@ -52,12 +52,12 @@ public static class SharedTableWithIndexesItemTable
                             {
                                 AttributeName =
                                     "priority",
-                                KeyType = KeyType.HASH,
-                            },
+                                KeyType = KeyType.HASH
+                            }
                         ],
                         Projection =
-                            new Projection { ProjectionType = ProjectionType.ALL },
-                    },
+                            new Projection { ProjectionType = ProjectionType.ALL }
+                    }
                 ],
                 LocalSecondaryIndexes =
                 [
@@ -68,20 +68,20 @@ public static class SharedTableWithIndexesItemTable
                         [
                             new KeySchemaElement
                             {
-                                AttributeName = "pk", KeyType = KeyType.HASH,
+                                AttributeName = "pk", KeyType = KeyType.HASH
                             },
                             new KeySchemaElement
                             {
                                 AttributeName =
                                     "status",
-                                KeyType = KeyType.RANGE,
-                            },
+                                KeyType = KeyType.RANGE
+                            }
                         ],
                         Projection =
-                            new Projection { ProjectionType = ProjectionType.ALL },
-                    },
+                            new Projection { ProjectionType = ProjectionType.ALL }
+                    }
                 ],
-                BillingMode = BillingMode.PAY_PER_REQUEST,
+                BillingMode = BillingMode.PAY_PER_REQUEST
             },
             cancellationToken);
 

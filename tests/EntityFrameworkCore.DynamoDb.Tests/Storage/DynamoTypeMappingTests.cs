@@ -84,8 +84,8 @@ public class DynamoTypeMappingTests
                     [
                         new AttributeValue { N = "1" },
                         new AttributeValue { N = "2" },
-                        new AttributeValue { N = "3" },
-                    ],
+                        new AttributeValue { N = "3" }
+                    ]
                 })
             .Should()
             .Equal(1, 2, 3);

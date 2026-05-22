@@ -27,10 +27,12 @@ you override the convention.
 
 !!! note "Key attributes follow the same convention"
 
-    The naming convention applies to partition key and sort key properties as well. Your DynamoDB
-    table's key schema must use the convention-transformed name. For example, a `CustomerId`
-    property with the default CamelCase convention maps to DynamoDB attribute `"customerId"` — the
-    table must define `"customerId"` as its hash key, not `"CustomerId"`.
+```
+The naming convention applies to partition key and sort key properties as well. Your DynamoDB
+table's key schema must use the convention-transformed name. For example, a `CustomerId`
+property with the default CamelCase convention maps to DynamoDB attribute `"customerId"` — the
+table must define `"customerId"` as its hash key, not `"CustomerId"`.
+```
 
 ## Built-in Conventions
 
@@ -78,9 +80,11 @@ finalization.
 
 !!! note "Scope of convention-based renaming"
 
-    Convention-based renaming applies to EF model members (entity properties, key properties, and
-    complex-property container/member attributes). It does not rewrite ad-hoc nested map keys provided
-    as runtime data values (for example, dictionary entry keys).
+```
+Convention-based renaming applies to EF model members (entity properties, key properties, and
+complex-property container/member attributes). It does not rewrite ad-hoc nested map keys provided
+as runtime data values (for example, dictionary entry keys).
+```
 
 ## Per-Property Override
 
@@ -139,9 +143,9 @@ When multiple sources could apply a name to the same property, the provider reso
 order (highest to lowest):
 
 1. Explicit `HasAttributeName(...)` on the property
-1. Entity-level `HasAttributeNamingConvention(...)` set directly on the entity type
-1. Convention inherited by nested complex properties from the root entity
-1. Provider default: **CamelCase**
+2. Entity-level `HasAttributeNamingConvention(...)` set directly on the entity type
+3. Convention inherited by nested complex properties from the root entity
+4. Provider default: **CamelCase**
 
 ## See also
 

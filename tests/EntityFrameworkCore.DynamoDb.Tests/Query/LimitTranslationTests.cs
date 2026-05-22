@@ -241,10 +241,10 @@ public class LimitTranslationTests
                     [
                         new Dictionary<string, AttributeValue>
                         {
-                            ["pk"] = new AttributeValue { S = "P#1" },
-                        },
+                            ["pk"] = new() { S = "P#1" }
+                        }
                     ],
-                    NextToken = "next-page-token",
+                    NextToken = "next-page-token"
                 });
 
         await using var context = LimitTestDbContext.Create(client);
@@ -268,7 +268,7 @@ public class LimitTranslationTests
 
         client
             .ExecuteStatementAsync(Arg.Any<ExecuteStatementRequest>(), Arg.Any<CancellationToken>())
-            .Returns(new ExecuteStatementResponse { Items = [], NextToken = string.Empty, });
+            .Returns(new ExecuteStatementResponse { Items = [], NextToken = string.Empty });
 
         await using var context = LimitTestDbContext.Create(client);
 

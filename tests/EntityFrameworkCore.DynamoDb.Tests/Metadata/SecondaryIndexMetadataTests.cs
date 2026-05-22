@@ -138,7 +138,7 @@ public class SecondaryIndexMetadataTests
         var optionsBuilder = new DbContextOptionsBuilder<HashOnlyTableContext>();
         UseTestDynamo(optionsBuilder);
 
-        Action act = () =>
+        var act = () =>
         {
             using var context = new HashOnlyTableContext(optionsBuilder.Options);
             _ = context.Model;
@@ -156,7 +156,7 @@ public class SecondaryIndexMetadataTests
         var optionsBuilder = new DbContextOptionsBuilder<DuplicateSortKeyContext>();
         UseTestDynamo(optionsBuilder);
 
-        Action act = () =>
+        var act = () =>
         {
             using var context = new DuplicateSortKeyContext(optionsBuilder.Options);
             _ = context.Model;
@@ -174,7 +174,7 @@ public class SecondaryIndexMetadataTests
         var optionsBuilder = new DbContextOptionsBuilder<DerivedDuplicateSortKeyContext>();
         UseTestDynamo(optionsBuilder);
 
-        Action act = () =>
+        var act = () =>
         {
             using var context = new DerivedDuplicateSortKeyContext(optionsBuilder.Options);
             _ = context.Model;
@@ -193,7 +193,7 @@ public class SecondaryIndexMetadataTests
             new DbContextOptionsBuilder<UnsupportedGlobalPartitionKeyTypeContext>();
         UseTestDynamo(optionsBuilder);
 
-        Action act = () =>
+        var act = () =>
         {
             using var context =
                 new UnsupportedGlobalPartitionKeyTypeContext(optionsBuilder.Options);
@@ -213,7 +213,7 @@ public class SecondaryIndexMetadataTests
         var optionsBuilder = new DbContextOptionsBuilder<UnsupportedGlobalSortKeyTypeContext>();
         UseTestDynamo(optionsBuilder);
 
-        Action act = () =>
+        var act = () =>
         {
             using var context = new UnsupportedGlobalSortKeyTypeContext(optionsBuilder.Options);
             _ = context.Model;
@@ -232,7 +232,7 @@ public class SecondaryIndexMetadataTests
         var optionsBuilder = new DbContextOptionsBuilder<UnsupportedLocalSortKeyTypeContext>();
         UseTestDynamo(optionsBuilder);
 
-        Action act = () =>
+        var act = () =>
         {
             using var context = new UnsupportedLocalSortKeyTypeContext(optionsBuilder.Options);
             _ = context.Model;
@@ -251,7 +251,7 @@ public class SecondaryIndexMetadataTests
         var optionsBuilder = new DbContextOptionsBuilder<DuplicatePartitionKeyContext>();
         UseTestDynamo(optionsBuilder);
 
-        Action act = () =>
+        var act = () =>
         {
             using var context = new DuplicatePartitionKeyContext(optionsBuilder.Options);
             _ = context.Model;
@@ -271,7 +271,7 @@ public class SecondaryIndexMetadataTests
             new DbContextOptionsBuilder<DuplicatePartitionKeyAttributeNameContext>();
         UseTestDynamo(optionsBuilder);
 
-        Action act = () =>
+        var act = () =>
         {
             using var context =
                 new DuplicatePartitionKeyAttributeNameContext(optionsBuilder.Options);
@@ -291,7 +291,7 @@ public class SecondaryIndexMetadataTests
         var optionsBuilder = new DbContextOptionsBuilder<DuplicateGlobalKeyAttributeNameContext>();
         UseTestDynamo(optionsBuilder);
 
-        Action act = () =>
+        var act = () =>
         {
             using var context = new DuplicateGlobalKeyAttributeNameContext(optionsBuilder.Options);
             _ = context.Model;
@@ -311,7 +311,7 @@ public class SecondaryIndexMetadataTests
             new DbContextOptionsBuilder<DerivedUnsupportedGlobalPartitionKeyTypeContext>();
         UseTestDynamo(optionsBuilder);
 
-        Action act = () =>
+        var act = () =>
         {
             using var context =
                 new DerivedUnsupportedGlobalPartitionKeyTypeContext(optionsBuilder.Options);
@@ -391,7 +391,7 @@ public class SecondaryIndexMetadataTests
         var optionsBuilder = new DbContextOptionsBuilder<ConverterGlobalPartitionKeyContext>();
         UseTestDynamo(optionsBuilder);
 
-        Action act = () =>
+        var act = () =>
         {
             using var context = new ConverterGlobalPartitionKeyContext(optionsBuilder.Options);
             _ = context.Model;
@@ -571,7 +571,7 @@ public class SecondaryIndexMetadataTests
             new DbContextOptionsBuilder<SharedTableSameNameDifferentKindsContext>();
         UseTestDynamo(optionsBuilder);
 
-        Action act = () =>
+        var act = () =>
         {
             using var context =
                 new SharedTableSameNameDifferentKindsContext(optionsBuilder.Options);
@@ -591,7 +591,7 @@ public class SecondaryIndexMetadataTests
         var optionsBuilder = new DbContextOptionsBuilder<HierarchyDuplicateIndexConflictContext>();
         UseTestDynamo(optionsBuilder);
 
-        Action act = () =>
+        var act = () =>
         {
             using var context = new HierarchyDuplicateIndexConflictContext(optionsBuilder.Options);
             _ = context.Model;
@@ -624,7 +624,7 @@ public class SecondaryIndexMetadataTests
         var optionsBuilder = new DbContextOptionsBuilder<SharedTableMismatchedIndexTypeContext>();
         UseTestDynamo(optionsBuilder);
 
-        Action act = () =>
+        var act = () =>
         {
             using var context = new SharedTableMismatchedIndexTypeContext(optionsBuilder.Options);
             _ = context.Model;

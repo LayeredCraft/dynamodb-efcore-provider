@@ -30,7 +30,7 @@ public static class DynamoEventId
         ExplicitIndexSelected = CoreEventId.ProviderBaseId + 107,
         SecondaryIndexCandidateRejected = CoreEventId.ProviderBaseId + 108,
         ExplicitIndexSelectionDisabled = CoreEventId.ProviderBaseId + 109,
-        ScanLikeQueryDetected = CoreEventId.ProviderBaseId + 111,
+        ScanLikeQueryDetected = CoreEventId.ProviderBaseId + 111
     }
 
     private static readonly string CommandPrefix = DbLoggerCategory.Database.Command.Name + ".";

@@ -55,7 +55,7 @@ public class QueryCompilationContextTests
 
         var context = new DynamoQueryCompilationContext(dependencies, true)
         {
-            ExplicitIndexName = "ByCustomerCreatedAt",
+            ExplicitIndexName = "ByCustomerCreatedAt"
         };
 
         context.ExplicitIndexName.Should().Be("ByCustomerCreatedAt");

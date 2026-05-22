@@ -19,33 +19,33 @@ public static class NamingConventionsItemTable
                 [
                     new AttributeDefinition
                     {
-                        AttributeName = "pk", AttributeType = ScalarAttributeType.S,
+                        AttributeName = "pk", AttributeType = ScalarAttributeType.S
                     },
                     new AttributeDefinition
                     {
-                        AttributeName = "sk", AttributeType = ScalarAttributeType.S,
+                        AttributeName = "sk", AttributeType = ScalarAttributeType.S
                     },
                     new AttributeDefinition
                     {
-                        AttributeName = "gs1-pk", AttributeType = ScalarAttributeType.S,
+                        AttributeName = "gs1-pk", AttributeType = ScalarAttributeType.S
                     },
                     new AttributeDefinition
                     {
-                        AttributeName = "gs1-sk", AttributeType = ScalarAttributeType.S,
+                        AttributeName = "gs1-sk", AttributeType = ScalarAttributeType.S
                     },
                     new AttributeDefinition
                     {
-                        AttributeName = "gs2-pk", AttributeType = ScalarAttributeType.S,
+                        AttributeName = "gs2-pk", AttributeType = ScalarAttributeType.S
                     },
                     new AttributeDefinition
                     {
-                        AttributeName = "gs2-sk", AttributeType = ScalarAttributeType.S,
-                    },
+                        AttributeName = "gs2-sk", AttributeType = ScalarAttributeType.S
+                    }
                 ],
                 KeySchema =
                 [
                     new KeySchemaElement { AttributeName = "pk", KeyType = KeyType.HASH },
-                    new KeySchemaElement { AttributeName = "sk", KeyType = KeyType.RANGE },
+                    new KeySchemaElement { AttributeName = "sk", KeyType = KeyType.RANGE }
                 ],
                 GlobalSecondaryIndexes =
                 [
@@ -56,17 +56,16 @@ public static class NamingConventionsItemTable
                         [
                             new KeySchemaElement
                             {
-                                AttributeName = "gs1-pk",
-                                KeyType = KeyType.HASH,
+                                AttributeName = "gs1-pk", KeyType = KeyType.HASH
                             },
                             new KeySchemaElement
                             {
                                 AttributeName = "gs1-sk",
-                                KeyType = KeyType.RANGE,
-                            },
+                                KeyType = KeyType.RANGE
+                            }
                         ],
                         Projection =
-                            new Projection { ProjectionType = ProjectionType.ALL },
+                            new Projection { ProjectionType = ProjectionType.ALL }
                     },
                     new GlobalSecondaryIndex
                     {
@@ -75,20 +74,19 @@ public static class NamingConventionsItemTable
                         [
                             new KeySchemaElement
                             {
-                                AttributeName = "gs2-pk",
-                                KeyType = KeyType.HASH,
+                                AttributeName = "gs2-pk", KeyType = KeyType.HASH
                             },
                             new KeySchemaElement
                             {
                                 AttributeName = "gs2-sk",
-                                KeyType = KeyType.RANGE,
-                            },
+                                KeyType = KeyType.RANGE
+                            }
                         ],
                         Projection =
-                            new Projection { ProjectionType = ProjectionType.ALL },
-                    },
+                            new Projection { ProjectionType = ProjectionType.ALL }
+                    }
                 ],
-                BillingMode = BillingMode.PAY_PER_REQUEST,
+                BillingMode = BillingMode.PAY_PER_REQUEST
             },
             cancellationToken);
 
@@ -113,7 +111,7 @@ public static class NamingConventionsItemTable
         var request = new BatchWriteItemRequest
         {
             RequestItems =
-                new Dictionary<string, List<WriteRequest>> { [TableName] = writeRequests },
+                new Dictionary<string, List<WriteRequest>> { [TableName] = writeRequests }
         };
 
         while (request.RequestItems.Count > 0)

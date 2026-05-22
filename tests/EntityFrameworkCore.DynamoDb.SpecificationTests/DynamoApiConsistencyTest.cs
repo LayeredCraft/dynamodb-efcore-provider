@@ -48,7 +48,7 @@ public class DynamoApiConsistencyTest(DynamoApiConsistencyTest.DynamoApiConsiste
             typeof(DynamoPropertyBuilderExtensions),
             typeof(DynamoIndexBuilderExtensions),
             typeof(DynamoSecondaryIndexBuilder),
-            typeof(DynamoSecondaryIndexBuilder<>),
+            typeof(DynamoSecondaryIndexBuilder<>)
         ];
 
         public DynamoApiConsistencyFixture()
@@ -82,7 +82,7 @@ public class DynamoApiConsistencyTest(DynamoApiConsistencyTest.DynamoApiConsiste
                 typeof(IReadOnlyIndex),
                 (typeof(DynamoIndexExtensions), typeof(DynamoIndexExtensions),
                     typeof(DynamoIndexExtensions), typeof(DynamoIndexBuilderExtensions), null!)
-            },
+            }
         };
     }
 }

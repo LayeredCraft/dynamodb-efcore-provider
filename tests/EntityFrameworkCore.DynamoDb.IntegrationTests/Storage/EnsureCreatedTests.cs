@@ -103,8 +103,11 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
                 {
                     TableName = existingTableName,
                     BillingMode = BillingMode.PAY_PER_REQUEST,
-                    AttributeDefinitions = [new("pk", ScalarAttributeType.S)],
-                    KeySchema = [new("pk", KeyType.HASH)],
+                    AttributeDefinitions =
+                    [
+                        new AttributeDefinition("pk", ScalarAttributeType.S)
+                    ],
+                    KeySchema = [new KeySchemaElement("pk", KeyType.HASH)]
                 },
                 CancellationToken);
             await WaitUntilActive(existingTableName);
@@ -216,8 +219,8 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
             {
                 TableName = tableName,
                 BillingMode = BillingMode.PAY_PER_REQUEST,
-                AttributeDefinitions = [new("pk", ScalarAttributeType.S)],
-                KeySchema = [new("pk", KeyType.HASH)],
+                AttributeDefinitions = [new AttributeDefinition("pk", ScalarAttributeType.S)],
+                KeySchema = [new KeySchemaElement("pk", KeyType.HASH)]
             },
             CancellationToken);
         await WaitUntilActive(tableName);
@@ -254,9 +257,14 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
                 BillingMode = BillingMode.PAY_PER_REQUEST,
                 AttributeDefinitions =
                 [
-                    new("pk", ScalarAttributeType.S), new("sk", ScalarAttributeType.S)
+                    new AttributeDefinition("pk", ScalarAttributeType.S),
+                    new AttributeDefinition("sk", ScalarAttributeType.S)
                 ],
-                KeySchema = [new("pk", KeyType.HASH), new("sk", KeyType.RANGE)],
+                KeySchema =
+                [
+                    new KeySchemaElement("pk", KeyType.HASH),
+                    new KeySchemaElement("sk", KeyType.RANGE)
+                ]
             },
             CancellationToken);
         await using var context = CreateContext<GsiContext>();
@@ -288,9 +296,14 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
                 BillingMode = BillingMode.PAY_PER_REQUEST,
                 AttributeDefinitions =
                 [
-                    new("pk", ScalarAttributeType.S), new("sk", ScalarAttributeType.S)
+                    new AttributeDefinition("pk", ScalarAttributeType.S),
+                    new AttributeDefinition("sk", ScalarAttributeType.S)
                 ],
-                KeySchema = [new("pk", KeyType.HASH), new("sk", KeyType.RANGE)],
+                KeySchema =
+                [
+                    new KeySchemaElement("pk", KeyType.HASH),
+                    new KeySchemaElement("sk", KeyType.RANGE)
+                ]
             },
             CancellationToken);
         await using var context = CreateContext<MissingLsiContext>();
@@ -321,7 +334,7 @@ public sealed class EnsureCreatedTests(DynamoContainerFixture fixture)
                 TableName = tableName,
                 BillingMode = BillingMode.PAY_PER_REQUEST,
                 AttributeDefinitions = [new AttributeDefinition("pk", ScalarAttributeType.S)],
-                KeySchema = [new KeySchemaElement("pk", KeyType.HASH)],
+                KeySchema = [new KeySchemaElement("pk", KeyType.HASH)]
             },
             CancellationToken);
         await WaitUntilActive(tableName);

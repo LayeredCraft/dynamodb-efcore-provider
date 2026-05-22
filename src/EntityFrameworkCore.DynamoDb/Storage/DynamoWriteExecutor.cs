@@ -104,7 +104,7 @@ internal sealed class DynamoWriteExecutor(
             AutoTransactionBehavior.WhenNeeded => operationCount > 1,
             AutoTransactionBehavior.Always => operationCount > 1,
             _ => throw new InvalidOperationException(
-                $"Invalid AutoTransactionBehavior: {autoTransactionBehavior}"),
+                $"Invalid AutoTransactionBehavior: {autoTransactionBehavior}")
         };
 
     private static InvalidOperationException CreateAlwaysOverflowException(
@@ -183,7 +183,7 @@ internal sealed class DynamoWriteExecutor(
                     Statement = operation.Statement,
                     Parameters = operation.Parameters,
                     ReturnValuesOnConditionCheckFailure =
-                        ReturnValuesOnConditionCheckFailure.ALL_OLD,
+                        ReturnValuesOnConditionCheckFailure.ALL_OLD
                 });
         }
 
@@ -243,7 +243,7 @@ internal sealed class DynamoWriteExecutor(
                         Statement = operation.Statement,
                         Parameters = operation.Parameters,
                         ReturnValuesOnConditionCheckFailure =
-                            ReturnValuesOnConditionCheckFailure.ALL_OLD,
+                            ReturnValuesOnConditionCheckFailure.ALL_OLD
                     });
             }
 
@@ -312,13 +312,13 @@ internal sealed class DynamoWriteExecutor(
             return new ConditionalCheckFailedException(
                 error.Message ?? "DynamoDB BatchExecuteStatement reported a condition failure.")
             {
-                ErrorCode = error.Code, Item = error.Item,
+                ErrorCode = error.Code, Item = error.Item
             };
 
         return new AmazonDynamoDBException(
             error.Message ?? "DynamoDB BatchExecuteStatement reported a statement failure.")
         {
-            ErrorCode = error.Code,
+            ErrorCode = error.Code
         };
     }
 

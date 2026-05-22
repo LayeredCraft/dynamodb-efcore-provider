@@ -144,7 +144,7 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
 
         // Validate at runtime: Limit must be positive.
         var body = Call(EnsurePositiveLimitMethodInfo, convertedExpression);
-        var valueExtractor = Expression.Lambda(body, QueryCompilationContext.QueryContextParameter);
+        var valueExtractor = Lambda(body, QueryCompilationContext.QueryContextParameter);
 
         return QueryCompilationContext.RegisterRuntimeParameter(parameterName, valueExtractor);
     }
@@ -171,7 +171,7 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
         {
             var member = MakeMemberAccess(
                 instanceVariable,
-                complexProperty.GetMemberInfo(forMaterialization: true, forSet: true));
+                complexProperty.GetMemberInfo(true, true));
 
             if (complexProperty.IsCollection)
             {

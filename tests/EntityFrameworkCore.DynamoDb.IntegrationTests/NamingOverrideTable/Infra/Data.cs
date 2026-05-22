@@ -20,11 +20,11 @@ public static class NamingConventionsItems
             BucketKey = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
             Answers =
             [
-                new() { Message = "African or European?" },
-                new() { Message = "About 24 mph." },
-                new() { Message = "Roughly 11 m/s." },
-                new() { Message = "It depends on the swallow." },
-            ],
+                new QuestionItem.AnswerItem { Message = "African or European?" },
+                new QuestionItem.AnswerItem { Message = "About 24 mph." },
+                new QuestionItem.AnswerItem { Message = "Roughly 11 m/s." },
+                new QuestionItem.AnswerItem { Message = "It depends on the swallow." }
+            ]
         },
         new()
         {
@@ -39,11 +39,11 @@ public static class NamingConventionsItems
             BucketKey = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
             Answers =
             [
-                new() { Message = "Red" },
-                new() { Message = "Blue" },
-                new() { Message = "Yellow" },
-                new() { Message = "Green" },
-            ],
+                new QuestionItem.AnswerItem { Message = "Red" },
+                new QuestionItem.AnswerItem { Message = "Blue" },
+                new QuestionItem.AnswerItem { Message = "Yellow" },
+                new QuestionItem.AnswerItem { Message = "Green" }
+            ]
         },
         new()
         {
@@ -58,11 +58,14 @@ public static class NamingConventionsItems
             BucketKey = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc"),
             Answers =
             [
-                new() { Message = "Coordinated Universal Time." },
-                new() { Message = "Greenwich Mean Time equivalent for offsets." },
-                new() { Message = "Offset +00:00." },
-                new() { Message = "Zulu time." },
-            ],
+                new QuestionItem.AnswerItem { Message = "Coordinated Universal Time." },
+                new QuestionItem.AnswerItem
+                {
+                    Message = "Greenwich Mean Time equivalent for offsets."
+                },
+                new QuestionItem.AnswerItem { Message = "Offset +00:00." },
+                new QuestionItem.AnswerItem { Message = "Zulu time." }
+            ]
         },
         new()
         {
@@ -77,12 +80,12 @@ public static class NamingConventionsItems
             BucketKey = null,
             Answers =
             [
-                new() { Message = "First option." },
-                new() { Message = "Second option." },
-                new() { Message = "Third option." },
-                new() { Message = "Fourth option." },
-            ],
-        },
+                new QuestionItem.AnswerItem { Message = "First option." },
+                new QuestionItem.AnswerItem { Message = "Second option." },
+                new QuestionItem.AnswerItem { Message = "Third option." },
+                new QuestionItem.AnswerItem { Message = "Fourth option." }
+            ]
+        }
     ];
 
     public static readonly IReadOnlyList<Dictionary<string, AttributeValue>> AttributeValues =

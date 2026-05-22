@@ -227,7 +227,7 @@ public sealed class DynamoQuerySqlGenerator : SqlExpressionVisitor
                 IsNullOperator.IsMissing => " IS MISSING",
                 IsNullOperator.IsNotMissing => " IS NOT MISSING",
                 _ => throw new NotSupportedException(
-                    $"IS operator '{sqlIsNullExpression.Operator}' is not supported."),
+                    $"IS operator '{sqlIsNullExpression.Operator}' is not supported.")
             });
         return sqlIsNullExpression;
     }
@@ -354,9 +354,9 @@ public sealed class DynamoQuerySqlGenerator : SqlExpressionVisitor
                 ExpressionType.GreaterThanOrEqual => (500, false),
                 ExpressionType.AndAlso => (200, true),
                 ExpressionType.OrElse => (100, true),
-                _ => default,
+                _ => default
             },
-            _ => default,
+            _ => default
         };
 
         return precedence != default;
@@ -433,7 +433,7 @@ public sealed class DynamoQuerySqlGenerator : SqlExpressionVisitor
             ExpressionType.Subtract => "-",
             ExpressionType.Multiply => "*",
             ExpressionType.Divide => "/",
-            _ => throw new NotSupportedException($"Operator type {operatorType} is not supported"),
+            _ => throw new NotSupportedException($"Operator type {operatorType} is not supported")
         };
 
     /// <summary>Emits an IN predicate using inline SQL values.</summary>
@@ -577,7 +577,7 @@ public sealed class DynamoQuerySqlGenerator : SqlExpressionVisitor
                 scalarAccessExpression.Parent is SqlExpression parentSqlExpression
                     ? TryGetRootPropertyName(parentSqlExpression)
                     : null,
-            _ => null,
+            _ => null
         };
 
     /// <summary>Validates IN-list value count against DynamoDB limits.</summary>

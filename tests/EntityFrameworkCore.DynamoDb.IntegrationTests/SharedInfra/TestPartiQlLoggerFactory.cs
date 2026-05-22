@@ -24,7 +24,9 @@ public sealed class TestPartiQlLoggerFactory : ILoggerFactory
         get
         {
             lock (_sync)
+            {
                 return _state.PartiQlStatements.ToArray();
+            }
         }
     }
 
@@ -34,7 +36,9 @@ public sealed class TestPartiQlLoggerFactory : ILoggerFactory
         get
         {
             lock (_sync)
+            {
                 return _state.ExecuteStatementCalls.ToArray();
+            }
         }
     }
 
@@ -44,7 +48,9 @@ public sealed class TestPartiQlLoggerFactory : ILoggerFactory
         get
         {
             lock (_sync)
+            {
                 return _state.QueryDiagnosticEvents.ToArray();
+            }
         }
     }
 
@@ -52,7 +58,9 @@ public sealed class TestPartiQlLoggerFactory : ILoggerFactory
     public void Clear()
     {
         lock (_sync)
+        {
             _state = new CaptureState();
+        }
     }
 
     /// <inheritdoc />
@@ -123,7 +131,9 @@ public sealed class TestPartiQlLoggerFactory : ILoggerFactory
     private void UpdateState(Action<CaptureState> update)
     {
         lock (_sync)
+        {
             update(_state);
+        }
     }
 
     private sealed class TestPartiQlLogger(TestPartiQlLoggerFactory factory) : ILogger
@@ -213,7 +223,7 @@ public sealed class TestPartiQlLoggerFactory : ILoggerFactory
                     var existing = captureState.ExecuteStatementCalls[lastIndex];
                     captureState.ExecuteStatementCalls[lastIndex] = existing with
                     {
-                        ItemsCount = itemsCount, ResponseNextTokenPresent = nextTokenPresent,
+                        ItemsCount = itemsCount, ResponseNextTokenPresent = nextTokenPresent
                     };
                 });
             }

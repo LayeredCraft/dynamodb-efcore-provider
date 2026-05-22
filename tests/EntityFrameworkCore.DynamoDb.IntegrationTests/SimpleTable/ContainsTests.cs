@@ -319,7 +319,7 @@ public class ContainsTests(DynamoContainerFixture fixture) : SimpleTableTestFixt
                     "ITEM#48",
                     "ITEM#49",
                     "ITEM#50",
-                    "ITEM#51",
+                    "ITEM#51"
                 }.Contains(item.Pk))
                 .ToListAsync(CancellationToken);
 

@@ -24,8 +24,7 @@ public static class SkipReason
     public const string NavigationPropertiesNotSupported =
         "DynamoDB does not support navigation properties.";
 
-    public const string JoinsNotSupported =
-        "DynamoDB PartiQL does not support joins.";
+    public const string JoinsNotSupported = "DynamoDB PartiQL does not support joins.";
 
     public const string SetOperationsNotSupported =
         "DynamoDB PartiQL does not support set operations.";
@@ -47,5 +46,4 @@ public static class SkipReason
 
     public const string PartitionKeyRequiredOnAllEntities =
         "DynamoDB requires every entity type in the model to have a partition key.";
-
 }

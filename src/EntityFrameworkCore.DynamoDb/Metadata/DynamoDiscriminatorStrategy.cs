@@ -7,5 +7,5 @@ public enum DynamoDiscriminatorStrategy
     ///     Uses a dedicated discriminator attribute (for example, <c>$type</c>) to distinguish entity
     ///     types.
     /// </summary>
-    Attribute = 0,
+    Attribute = 0
 }

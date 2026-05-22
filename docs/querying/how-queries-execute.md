@@ -46,7 +46,9 @@ Two fields on the request control result size:
 
 !!! note
 
-    DynamoDB stops processing a request at either the `Limit` item count or 1 MB of processed data, whichever comes first. A page can therefore contain zero matching items while still returning a non-null `NextToken` when many non-matching items were evaluated. Always check `NextToken == null` (not `Items.Count`) to determine end of results.
+```
+DynamoDB stops processing a request at either the `Limit` item count or 1 MB of processed data, whichever comes first. A page can therefore contain zero matching items while still returning a non-null `NextToken` when many non-matching items were evaluated. Always check `NextToken == null` (not `Items.Count`) to determine end of results.
+```
 
 ## Client-Side vs Server-Side Evaluation
 

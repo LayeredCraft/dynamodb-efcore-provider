@@ -14,5 +14,5 @@ public enum TransactionOverflowBehavior
     /// <summary>
     /// Splits overflowing transactional SaveChanges units into multiple ExecuteTransaction calls.
     /// </summary>
-    UseChunking,
+    UseChunking
 }

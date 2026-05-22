@@ -9,7 +9,9 @@ _Queries can target a Global or Local Secondary Index explicitly using index hin
 
 !!! tip "Sample code"
 
-    You can view and run the sample code for this article on GitHub.
+```
+You can view and run the sample code for this article on GitHub.
+```
 
 ## Explicit Index Hints
 

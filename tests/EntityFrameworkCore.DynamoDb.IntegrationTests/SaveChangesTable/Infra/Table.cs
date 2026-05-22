@@ -17,15 +17,27 @@ public static class SaveChangesItemTable
                 TableName = TableName,
                 AttributeDefinitions =
                 [
-                    new AttributeDefinition { AttributeName = "pk", AttributeType = ScalarAttributeType.S },
-                    new AttributeDefinition { AttributeName = "sk", AttributeType = ScalarAttributeType.S },
-                    new AttributeDefinition { AttributeName = "gs1-pk", AttributeType = ScalarAttributeType.S },
-                    new AttributeDefinition { AttributeName = "gs1-sk", AttributeType = ScalarAttributeType.S },
+                    new AttributeDefinition
+                    {
+                        AttributeName = "pk", AttributeType = ScalarAttributeType.S
+                    },
+                    new AttributeDefinition
+                    {
+                        AttributeName = "sk", AttributeType = ScalarAttributeType.S
+                    },
+                    new AttributeDefinition
+                    {
+                        AttributeName = "gs1-pk", AttributeType = ScalarAttributeType.S
+                    },
+                    new AttributeDefinition
+                    {
+                        AttributeName = "gs1-sk", AttributeType = ScalarAttributeType.S
+                    }
                 ],
                 KeySchema =
                 [
                     new KeySchemaElement { AttributeName = "pk", KeyType = KeyType.HASH },
-                    new KeySchemaElement { AttributeName = "sk", KeyType = KeyType.RANGE },
+                    new KeySchemaElement { AttributeName = "sk", KeyType = KeyType.RANGE }
                 ],
                 GlobalSecondaryIndexes =
                 [
@@ -34,13 +46,22 @@ public static class SaveChangesItemTable
                         IndexName = "gs1-index",
                         KeySchema =
                         [
-                            new KeySchemaElement { AttributeName = "gs1-pk", KeyType = KeyType.HASH },
-                            new KeySchemaElement { AttributeName = "gs1-sk", KeyType = KeyType.RANGE },
+                            new KeySchemaElement
+                            {
+                                AttributeName = "gs1-pk", KeyType = KeyType.HASH
+                            },
+                            new KeySchemaElement
+                            {
+                                AttributeName =
+                                    "gs1-sk",
+                                KeyType = KeyType.RANGE
+                            }
                         ],
-                        Projection = new Projection { ProjectionType = ProjectionType.ALL },
-                    },
+                        Projection =
+                            new Projection { ProjectionType = ProjectionType.ALL }
+                    }
                 ],
-                BillingMode = BillingMode.PAY_PER_REQUEST,
+                BillingMode = BillingMode.PAY_PER_REQUEST
             },
             cancellationToken);
 
@@ -52,9 +73,9 @@ public static class SaveChangesItemTable
                         chunk
                             .Select(attributes => new TransactWriteItem
                             {
-                                Put = new Put { TableName = TableName, Item = attributes },
+                                Put = new Put { TableName = TableName, Item = attributes }
                             })
-                            .ToList(),
+                            .ToList()
                 },
                 cancellationToken);
     }

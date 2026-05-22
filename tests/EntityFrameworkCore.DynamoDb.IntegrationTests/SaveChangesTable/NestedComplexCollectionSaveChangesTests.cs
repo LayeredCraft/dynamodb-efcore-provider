@@ -73,14 +73,14 @@ public class NestedComplexCollectionSaveChangesTests : DynamoTestFixtureBase
                 [
                     new AttributeDefinition
                     {
-                        AttributeName = "pk", AttributeType = ScalarAttributeType.S,
-                    },
+                        AttributeName = "pk", AttributeType = ScalarAttributeType.S
+                    }
                 ],
                 KeySchema =
                 [
-                    new KeySchemaElement { AttributeName = "pk", KeyType = KeyType.HASH },
+                    new KeySchemaElement { AttributeName = "pk", KeyType = KeyType.HASH }
                 ],
-                BillingMode = BillingMode.PAY_PER_REQUEST,
+                BillingMode = BillingMode.PAY_PER_REQUEST
             },
             cancellationToken);
 
@@ -113,7 +113,7 @@ public class NestedComplexCollectionSaveChangesTests : DynamoTestFixtureBase
             new GetItemRequest
             {
                 TableName = TableName,
-                Key = new Dictionary<string, AttributeValue> { ["pk"] = new() { S = pk } },
+                Key = new Dictionary<string, AttributeValue> { ["pk"] = new() { S = pk } }
             },
             cancellationToken);
 

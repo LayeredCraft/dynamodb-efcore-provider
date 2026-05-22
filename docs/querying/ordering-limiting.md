@@ -22,7 +22,9 @@ db.Orders
 
 !!! warning "Ordering constraint"
 
-    Only the partition key and sort key attributes may appear in `ORDER BY`. Non-key columns throw an `InvalidOperationException` at query compilation. `ORDER BY` also requires a partition-key equality constraint in `WHERE`; open-ended scans without a key condition cannot use ordering.
+```
+Only the partition key and sort key attributes may appear in `ORDER BY`. Non-key columns throw an `InvalidOperationException` at query compilation. `ORDER BY` also requires a partition-key equality constraint in `WHERE`; open-ended scans without a key condition cannot use ordering.
+```
 
 ### Single-Partition vs Multi-Partition Ordering
 
@@ -90,17 +92,23 @@ var results = await query(db, 50).ToListAsync(cancellationToken);
 
 !!! warning
 
-    `Limit(n)` controls how many items DynamoDB *reads*, not how many matching items are returned. With a selective `Where` filter, a `Limit(25)` query may return 0–25 results even when many more matching items exist beyond the evaluated range. If you need all matching items up to a certain count, paginate with `ToPageAsync` until `NextToken` is `null`, or use `ToListAsync()` without `Limit`.
+```
+`Limit(n)` controls how many items DynamoDB *reads*, not how many matching items are returned. With a selective `Where` filter, a `Limit(25)` query may return 0–25 results even when many more matching items exist beyond the evaluated range. If you need all matching items up to a certain count, paginate with `ToPageAsync` until `NextToken` is `null`, or use `ToListAsync()` without `Limit`.
+```
 
 !!! note "Continuation tokens"
 
-    A `Limit(n)` query does not expose a continuation token automatically. If you want to resume from the position where `Limit(n)` stopped, retrieve the response cursor via `db.Entry(item).GetExecuteStatementResponse()?.NextToken` and seed the next query with `.WithNextToken(token)`. See [Pagination](pagination.md) for the full cursor model.
+```
+A `Limit(n)` query does not expose a continuation token automatically. If you want to resume from the position where `Limit(n)` stopped, retrieve the response cursor via `db.Entry(item).GetExecuteStatementResponse()?.NextToken` and seed the next query with `.WithNextToken(token)`. See [Pagination](pagination.md) for the full cursor model.
+```
 
 !!! warning "First / FirstOrDefault with Limit"
 
-    `First` / `FirstOrDefault` on a key-only query shape sets an implicit `Limit=1` automatically. Combining an explicit `Limit(n)` with `First*` is not supported and throws at translation time — use `.AsAsyncEnumerable().FirstOrDefaultAsync()` instead.
+```
+`First` / `FirstOrDefault` on a key-only query shape sets an implicit `Limit=1` automatically. Combining an explicit `Limit(n)` with `First*` is not supported and throws at translation time — use `.AsAsyncEnumerable().FirstOrDefaultAsync()` instead.
 
-    `AsUnsafeFilteredQuery()` and the global `AllowUnsafeFilteredQueries()` option do not change this rule. They bypass only the provider's `First*` safety validation; they do not change `Limit(n)` semantics.
+`AsUnsafeFilteredQuery()` and the global `AllowUnsafeFilteredQueries()` option do not change this rule. They bypass only the provider's `First*` safety validation; they do not change `Limit(n)` semantics.
+```
 
 ## See also
 

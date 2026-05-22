@@ -10,5 +10,5 @@ public enum DynamoAutomaticIndexSelectionMode
     SuggestOnly = 1,
 
     /// <summary>Automatically selects an unambiguous compatible secondary index.</summary>
-    On = 2,
+    On = 2
 }

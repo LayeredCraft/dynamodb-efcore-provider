@@ -748,7 +748,7 @@ internal static class DynamoValueReaderWriterFactory
                     => decimal.Parse(value, NumberStyles.Float, CultureInfo.InvariantCulture),
                 static value => value.ToString(CultureInfo.InvariantCulture)),
 
-            _ => null,
+            _ => null
         };
 
         return readerWriter != null;
@@ -895,7 +895,7 @@ internal static class DynamoValueReaderWriterHelpers
                         => attributeValue.S
                         ?? throw new InvalidOperationException(
                             "Set element did not serialize to string wire value (S)."))
-                    .ToList(),
+                    .ToList()
             };
 
         if (setWireMemberName == nameof(AttributeValue.NS))
@@ -906,7 +906,7 @@ internal static class DynamoValueReaderWriterHelpers
                         => attributeValue.N
                         ?? throw new InvalidOperationException(
                             "Set element did not serialize to number wire value (N)."))
-                    .ToList(),
+                    .ToList()
             };
 
         return new AttributeValue
@@ -916,7 +916,7 @@ internal static class DynamoValueReaderWriterHelpers
                     => attributeValue.B
                     ?? throw new InvalidOperationException(
                         "Set element did not serialize to binary wire value (B)."))
-                .ToList(),
+                .ToList()
         };
     }
 

@@ -242,7 +242,7 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
             GuidKeyContext.TableName,
             new Dictionary<string, AttributeValue>
             {
-                ["id"] = entity.Id.ToString().ToAttributeValue(),
+                ["id"] = entity.Id.ToString().ToAttributeValue()
             },
             CancellationToken);
 
@@ -287,7 +287,7 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
             ExplicitGuidNoGenerationContext.TableName,
             new Dictionary<string, AttributeValue>
             {
-                ["id"] = entity.Id.ToString().ToAttributeValue(),
+                ["id"] = entity.Id.ToString().ToAttributeValue()
             },
             CancellationToken);
 
@@ -330,7 +330,7 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
             CompositeKeyContext.TableName,
             new Dictionary<string, AttributeValue>
             {
-                ["pk"] = entity.Pk.ToAttributeValue(), ["sk"] = entity.Sk.ToAttributeValue(),
+                ["pk"] = entity.Pk.ToAttributeValue(), ["sk"] = entity.Sk.ToAttributeValue()
             },
             CancellationToken);
 
@@ -365,7 +365,7 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
         {
             Id = Guid.Parse("11111111-2222-3333-4444-555555555555"),
             Sk = "ORDER#1",
-            Name = "composite-guid",
+            Name = "composite-guid"
         };
 
         await using (var context = CreateContext<CompositeGuidKeyContext>())
@@ -382,7 +382,7 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
             new Dictionary<string, AttributeValue>
             {
                 ["id"] = entity.Id.ToString().ToAttributeValue(),
-                ["sk"] = entity.Sk.ToAttributeValue(),
+                ["sk"] = entity.Sk.ToAttributeValue()
             },
             CancellationToken);
 

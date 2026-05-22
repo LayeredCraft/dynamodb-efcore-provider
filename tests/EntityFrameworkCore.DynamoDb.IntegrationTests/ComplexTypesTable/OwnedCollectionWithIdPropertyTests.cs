@@ -39,8 +39,8 @@ public class ComplexCollectionWithIdPropertyTests(DynamoContainerFixture fixture
             Results =
             [
                 new ScoredResult { Id = "question#aaa", Score = 0.9512f },
-                new ScoredResult { Id = "question#bbb", Score = 0.7431f },
-            ],
+                new ScoredResult { Id = "question#bbb", Score = 0.7431f }
+            ]
         };
 
         await Db.AddAsync(report, CancellationToken);
@@ -65,7 +65,7 @@ public class ComplexCollectionWithIdPropertyTests(DynamoContainerFixture fixture
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SaveAndLoad_AnalysisReport_WithEmptyResults_RoundTrips()
     {
-        var report = new AnalysisReport { Pk = "ANALYSIS#EMPTY1", Results = [], };
+        var report = new AnalysisReport { Pk = "ANALYSIS#EMPTY1", Results = [] };
 
         await Db.AddAsync(report, CancellationToken);
         await Db.SaveChangesAsync(CancellationToken);

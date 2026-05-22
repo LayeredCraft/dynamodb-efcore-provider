@@ -12,8 +12,10 @@ configurable overflow behavior, and optimistic concurrency support._
 
 !!! warning "Async only"
 
-    The DynamoDB SDK does not expose synchronous write APIs. `SaveChanges` always throws
-    `NotSupportedException`. Always use `SaveChangesAsync`.
+```
+The DynamoDB SDK does not expose synchronous write APIs. `SaveChanges` always throws
+`NotSupportedException`. Always use `SaveChangesAsync`.
+```
 
 ## How It Works
 
@@ -21,7 +23,7 @@ When you call `SaveChangesAsync`, the provider runs a two-stage pipeline:
 
 1. **Compile** — `DynamoSaveChangesPlanner` inspects every tracked entity and compiles its state
     into a PartiQL statement. Statements are validated before any network call is made.
-1. **Execute** — `DynamoWriteExecutor` sends the compiled statements to DynamoDB using
+2. **Execute** — `DynamoWriteExecutor` sends the compiled statements to DynamoDB using
     `ExecuteStatement` (single operation), `ExecuteTransaction` (multiple operations, atomic), or
     `BatchExecuteStatement` (multiple operations, non-atomic) depending on configuration.
 

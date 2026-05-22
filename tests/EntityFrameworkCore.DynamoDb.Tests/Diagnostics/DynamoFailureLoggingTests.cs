@@ -28,7 +28,7 @@ public class DynamoFailureLoggingTests
         var act = async () =>
         {
             await foreach (var _ in wrapper.ExecutePartiQl(
-                new ExecuteStatementRequest { Statement = "SELECT * FROM T", Limit = 10, })) { }
+                new ExecuteStatementRequest { Statement = "SELECT * FROM T", Limit = 10 })) { }
         };
 
         await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("read failed");

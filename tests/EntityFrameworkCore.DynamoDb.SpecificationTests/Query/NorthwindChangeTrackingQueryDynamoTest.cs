@@ -12,25 +12,24 @@ namespace EntityFrameworkCore.DynamoDb.SpecificationTests.Query;
 public abstract class NorthwindChangeTrackingQueryDynamoTest
     : NorthwindChangeTrackingQueryTestBase<NorthwindQueryDynamoFixture<NoopModelCustomizer>>
 {
-    private const string CustomersSql =
-        """
-        SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
-        FROM "Customers"
-        """;
+    private const string CustomersSql = """
+                                        SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                                        FROM "Customers"
+                                        """;
 
-    private const string EmployeesSql =
-        """
-        SELECT "employeeID", "city", "country", "firstName", "reportsTo", "title"
-        FROM "Employees"
-        """;
+    private const string EmployeesSql = """
+                                        SELECT "employeeID", "city", "country", "firstName", "reportsTo", "title"
+                                        FROM "Employees"
+                                        """;
 
-    protected NorthwindChangeTrackingQueryDynamoTest(NorthwindQueryDynamoFixture<NoopModelCustomizer> fixture)
-        : base(fixture)
+    protected NorthwindChangeTrackingQueryDynamoTest(
+        NorthwindQueryDynamoFixture<NoopModelCustomizer> fixture) : base(fixture)
         => fixture.ClearSql();
 
     [ConditionalFact]
     public virtual void Check_all_tests_overridden()
-        => DynamoTestHelpers.AssertAllTestMethodsOverridden(typeof(NorthwindChangeTrackingQueryDynamoTest));
+        => DynamoTestHelpers.AssertAllTestMethodsOverridden(
+            typeof(NorthwindChangeTrackingQueryDynamoTest));
 
     public override void Entity_reverts_when_state_set_to_unchanged()
     {
@@ -94,7 +93,11 @@ public abstract class NorthwindChangeTrackingQueryDynamoTest
         var customer = GetCustomerAsync(context, "ALFKI").GetAwaiter().GetResult();
         var entry = context.ChangeTracker.Entries<Customer>().Single();
 
-        AssertAttachDoesNotRevert(context, customer, entry, () => context.Set<Customer>().Attach(customer));
+        AssertAttachDoesNotRevert(
+            context,
+            customer,
+            entry,
+            () => context.Set<Customer>().Attach(customer));
     }
 
     public override void Entity_range_does_not_revert_when_attached_dbContext()
@@ -108,7 +111,10 @@ public abstract class NorthwindChangeTrackingQueryDynamoTest
     {
         using var context = CreateContext();
         var customers = GetCustomersAsync(context, "ALFKI", "ANATR").GetAwaiter().GetResult();
-        AssertRangeAttachDoesNotRevert(context, customers, () => context.Set<Customer>().AttachRange(customers));
+        AssertRangeAttachDoesNotRevert(
+            context,
+            customers,
+            () => context.Set<Customer>().AttachRange(customers));
     }
 
     public override void Can_disable_and_reenable_query_result_tracking()
@@ -150,7 +156,9 @@ public abstract class NorthwindChangeTrackingQueryDynamoTest
     {
         using (var context = CreateContext())
         {
-            Assert.Equal(QueryTrackingBehavior.TrackAll, context.ChangeTracker.QueryTrackingBehavior);
+            Assert.Equal(
+                QueryTrackingBehavior.TrackAll,
+                context.ChangeTracker.QueryTrackingBehavior);
             var employees = context.Set<Employee>().ToListAsync().GetAwaiter().GetResult();
             Assert.Equal(9, employees.Count);
             Assert.Equal(9, context.ChangeTracker.Entries().Count());
@@ -168,11 +176,14 @@ public abstract class NorthwindChangeTrackingQueryDynamoTest
         AssertSql(EmployeesSql, EmployeesSql);
     }
 
-    public override void Can_disable_and_reenable_query_result_tracking_query_caching_using_options()
+    public override void
+        Can_disable_and_reenable_query_result_tracking_query_caching_using_options()
     {
         using (var context = CreateContext())
         {
-            Assert.Equal(QueryTrackingBehavior.TrackAll, context.ChangeTracker.QueryTrackingBehavior);
+            Assert.Equal(
+                QueryTrackingBehavior.TrackAll,
+                context.ChangeTracker.QueryTrackingBehavior);
             var employees = context.Set<Employee>().ToListAsync().GetAwaiter().GetResult();
             Assert.Equal(9, employees.Count);
             Assert.Equal(9, context.ChangeTracker.Entries().Count());
@@ -180,7 +191,9 @@ public abstract class NorthwindChangeTrackingQueryDynamoTest
 
         using (var context = CreateNoTrackingContext())
         {
-            Assert.Equal(QueryTrackingBehavior.NoTracking, context.ChangeTracker.QueryTrackingBehavior);
+            Assert.Equal(
+                QueryTrackingBehavior.NoTracking,
+                context.ChangeTracker.QueryTrackingBehavior);
             var employees = context.Set<Employee>().ToListAsync().GetAwaiter().GetResult();
             Assert.Equal(9, employees.Count);
             Assert.Empty(context.ChangeTracker.Entries());
@@ -189,7 +202,8 @@ public abstract class NorthwindChangeTrackingQueryDynamoTest
         AssertSql(EmployeesSql, EmployeesSql);
     }
 
-    public override void Can_disable_and_reenable_query_result_tracking_query_caching_single_context()
+    public override void
+        Can_disable_and_reenable_query_result_tracking_query_caching_single_context()
     {
         using var context = CreateContext();
         Assert.Equal(QueryTrackingBehavior.TrackAll, context.ChangeTracker.QueryTrackingBehavior);
@@ -219,12 +233,14 @@ public abstract class NorthwindChangeTrackingQueryDynamoTest
     public override void Precedence_of_tracking_modifiers()
     {
         using var context = CreateContext();
-        var employees = context.Set<Employee>()
-            .AsNoTracking()
-            .AsTracking()
-            .ToListAsync()
-            .GetAwaiter()
-            .GetResult();
+        var employees =
+            context
+                .Set<Employee>()
+                .AsNoTracking()
+                .AsTracking()
+                .ToListAsync()
+                .GetAwaiter()
+                .GetResult();
 
         Assert.Equal(9, employees.Count);
         Assert.Equal(9, context.ChangeTracker.Entries().Count());
@@ -234,12 +250,14 @@ public abstract class NorthwindChangeTrackingQueryDynamoTest
     public override void Precedence_of_tracking_modifiers2()
     {
         using var context = CreateContext();
-        var employees = context.Set<Employee>()
-            .AsTracking()
-            .AsNoTracking()
-            .ToListAsync()
-            .GetAwaiter()
-            .GetResult();
+        var employees =
+            context
+                .Set<Employee>()
+                .AsTracking()
+                .AsNoTracking()
+                .ToListAsync()
+                .GetAwaiter()
+                .GetResult();
 
         Assert.Equal(9, employees.Count);
         Assert.Empty(context.ChangeTracker.Entries());
@@ -269,7 +287,8 @@ public abstract class NorthwindChangeTrackingQueryDynamoTest
         DbContext context,
         string firstCustomerId,
         string secondCustomerId)
-        => await context.Set<Customer>()
+        => await context
+            .Set<Customer>()
             .Where(c => c.CustomerID == firstCustomerId || c.CustomerID == secondCustomerId)
             .ToListAsync();
 
@@ -330,12 +349,12 @@ public abstract class NorthwindChangeTrackingQueryDynamoTest
     }
 
     [Collection(DynamoSpecificationCollection.Name)]
-    public sealed class NorthwindChangeTrackingQueryDynamoTestDefault : NorthwindChangeTrackingQueryDynamoTest
+    public sealed class NorthwindChangeTrackingQueryDynamoTestDefault
+        : NorthwindChangeTrackingQueryDynamoTest
     {
         public NorthwindChangeTrackingQueryDynamoTestDefault(
             NorthwindQueryDynamoFixture<NoopModelCustomizer> fixture,
-            DynamoSpecificationContainerFixture containerFixture)
-            : base(fixture)
+            DynamoSpecificationContainerFixture containerFixture) : base(fixture)
             => _ = containerFixture;
     }
 }

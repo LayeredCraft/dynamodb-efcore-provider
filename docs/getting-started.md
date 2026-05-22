@@ -78,24 +78,26 @@ public class ShopContext : DbContext
 
 !!! tip "Using dependency injection"
 
-    `OnConfiguring` and DI are not mutually exclusive. A context with `OnConfiguring` can be
-    registered as-is — the container handles lifetime, and the inline configuration handles provider
-    options:
+````
+`OnConfiguring` and DI are not mutually exclusive. A context with `OnConfiguring` can be
+registered as-is — the container handles lifetime, and the inline configuration handles provider
+options:
 
-    ```csharp
-    services.AddDbContext<ShopContext>();
-    ```
+```csharp
+services.AddDbContext<ShopContext>();
+```
 
-    You can also pass the provider options through `AddDbContext` directly, which is useful when you
-    want to supply a pre-configured `IAmazonDynamoDB` instance (for custom retry policies, endpoints,
-    or credentials):
+You can also pass the provider options through `AddDbContext` directly, which is useful when you
+want to supply a pre-configured `IAmazonDynamoDB` instance (for custom retry policies, endpoints,
+or credentials):
 
-    ```csharp
-    services.AddDbContext<ShopContext>(options =>
-        options.UseDynamo(o => o.DynamoDbClient(dynamoClient)));
-    ```
+```csharp
+services.AddDbContext<ShopContext>(options =>
+    options.UseDynamo(o => o.DynamoDbClient(dynamoClient)));
+```
 
-    See [Configuration](configuration/index.md) for all available options.
+See [Configuration](configuration/index.md) for all available options.
+````
 
 ## Map the Entity
 
@@ -166,10 +168,12 @@ await context.SaveChangesAsync();
 
 !!! warning "Everything is async"
 
-    The DynamoDB SDK has no synchronous I/O. All operations — queries and writes alike — must use
-    their async counterparts: `ToListAsync`, `FirstOrDefaultAsync`, `SingleOrDefaultAsync`,
-    `SaveChangesAsync`, and so on. `ToList()`, `SaveChanges()`, and other synchronous methods are
-    not supported and will throw.
+```
+The DynamoDB SDK has no synchronous I/O. All operations — queries and writes alike — must use
+their async counterparts: `ToListAsync`, `FirstOrDefaultAsync`, `SingleOrDefaultAsync`,
+`SaveChangesAsync`, and so on. `ToList()`, `SaveChanges()`, and other synchronous methods are
+not supported and will throw.
+```
 
 ## See Also
 

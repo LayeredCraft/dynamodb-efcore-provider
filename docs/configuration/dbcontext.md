@@ -94,15 +94,17 @@ await db.Orders
 
 !!! warning "Not a best practice"
 
-    `AllowUnsafeFilteredQueries()` bypasses the provider's `First` / `FirstOrDefault` safety
-    validation for every query in the context. It does not disable scan-like query protection, does
-    not allow explicit `Limit(n)` or `WithNextToken()` with `First*`, and does not change `First*`
-    execution: the provider still sends one request with implicit `Limit=1` when no user limit is
-    specified.
+```
+`AllowUnsafeFilteredQueries()` bypasses the provider's `First` / `FirstOrDefault` safety
+validation for every query in the context. It does not disable scan-like query protection, does
+not allow explicit `Limit(n)` or `WithNextToken()` with `First*`, and does not change `First*`
+execution: the provider still sends one request with implicit `Limit=1` when no user limit is
+specified.
 
-    DynamoDB applies filters after evaluating items, so `FirstOrDefaultAsync` can return `null`
-    and `FirstAsync` can throw even when a later item would match. This option is intended for
-    tests or controlled legacy code only.
+DynamoDB applies filters after evaluating items, so `FirstOrDefaultAsync` can return `null`
+and `FirstAsync` can throw even when a later item would match. This option is intended for
+tests or controlled legacy code only.
+```
 
 The option is disabled by default. Enable it globally only when needed:
 
@@ -181,14 +183,18 @@ optionsBuilder.UseDynamo(options =>
 
 !!! warning "Chunking is not globally atomic"
 
-    Each chunk is individually atomic, but the overall `SaveChangesAsync` call is not. If chunk _N_
-    fails, chunks _0..N-1_ are permanently committed and cannot be rolled back. Always re-query the
-    affected entities before retrying a chunked save.
+```
+Each chunk is individually atomic, but the overall `SaveChangesAsync` call is not. If chunk _N_
+fails, chunks _0..N-1_ are permanently committed and cannot be rolled back. Always re-query the
+affected entities before retrying a chunked save.
+```
 
 !!! warning "Chunking requires `acceptAllChangesOnSuccess=true`"
 
-    Chunked transactional saves are not supported for `SaveChangesAsync(false, ...)`. The provider
-    throws `InvalidOperationException` before any chunk is sent.
+```
+Chunked transactional saves are not supported for `SaveChangesAsync(false, ...)`. The provider
+throws `InvalidOperationException` before any chunk is sent.
+```
 
 ### `MaxTransactionSize`
 
@@ -235,9 +241,11 @@ batch boundaries.
 
 !!! warning "Batched multi-root saves require `acceptAllChangesOnSuccess=true`"
 
-    With `AutoTransactionBehavior.Never`, multi-root batched saves are not supported for
-    `SaveChangesAsync(false, ...)`. The provider throws `InvalidOperationException` before writes
-    are sent.
+```
+With `AutoTransactionBehavior.Never`, multi-root batched saves are not supported for
+`SaveChangesAsync(false, ...)`. The provider throws `InvalidOperationException` before writes
+are sent.
+```
 
 ### `DynamoAutomaticIndexSelectionMode`
 
