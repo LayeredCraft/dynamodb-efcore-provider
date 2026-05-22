@@ -9,8 +9,17 @@ public static class SkipReason
     public const string QueryShapeNotSupported =
         "DynamoDB provider does not support this query shape.";
 
-    public const string StructComplexTypeProjectionNotSupported =
-        "DynamoDB provider cannot project nested struct complex types via SELECT.";
+    public const string NestedStructComplexTypeProjectionNotSupported =
+        "DynamoDB provider cannot materialize nested struct complex type projections due to the value-type expression tree shape.";
+
+    public const string ComplexTypeStructuralEqualityNotSupported =
+        "DynamoDB provider supports complex type member access but not structural equality comparisons over whole complex type values.";
+
+    public const string ComplexTypeSubqueriesNotSupported =
+        "DynamoDB provider does not support complex type values in subqueries or Contains predicates.";
+
+    public const string SubqueryPushdownNotSupported =
+        "DynamoDB provider does not support the subquery pushdown required by this query shape.";
 
     public const string OrderedResultSetNotSupported =
         "DynamoDB does not support guaranteed ordered result sets for this query shape.";

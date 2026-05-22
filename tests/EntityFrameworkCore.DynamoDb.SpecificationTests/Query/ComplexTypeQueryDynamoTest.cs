@@ -20,11 +20,11 @@ public abstract class ComplexTypeQueryDynamoTest
     public virtual void Check_all_tests_overridden()
         => DynamoTestHelpers.AssertAllTestMethodsOverridden(typeof(ComplexTypeQueryDynamoTest));
 
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.SubqueryPushdownNotSupported)]
     public override Task Filter_on_property_inside_complex_type_after_subquery(bool async)
         => base.Filter_on_property_inside_complex_type_after_subquery(async);
 
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.SubqueryPushdownNotSupported)]
     public override Task Filter_on_property_inside_nested_complex_type_after_subquery(bool async)
         => base.Filter_on_property_inside_nested_complex_type_after_subquery(async);
 
@@ -44,7 +44,7 @@ public abstract class ComplexTypeQueryDynamoTest
     public override Task Project_complex_type_via_required_navigation(bool async)
         => base.Project_complex_type_via_required_navigation(async);
 
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.SubqueryPushdownNotSupported)]
     public override Task Load_complex_type_after_subquery_on_entity_type(bool async)
         => base.Load_complex_type_after_subquery_on_entity_type(async);
 
@@ -97,23 +97,23 @@ public abstract class ComplexTypeQueryDynamoTest
     public override Task Select_complex_type_Distinct(bool async)
         => base.Select_complex_type_Distinct(async);
 
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.ComplexTypeStructuralEqualityNotSupported)]
     public override Task Complex_type_equals_complex_type(bool async)
         => base.Complex_type_equals_complex_type(async);
 
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.ComplexTypeStructuralEqualityNotSupported)]
     public override Task Complex_type_equals_constant(bool async)
         => base.Complex_type_equals_constant(async);
 
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.ComplexTypeStructuralEqualityNotSupported)]
     public override Task Complex_type_equals_parameter(bool async)
         => base.Complex_type_equals_parameter(async);
 
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.ComplexTypeSubqueriesNotSupported)]
     public override Task Subquery_over_complex_type(bool async)
         => base.Subquery_over_complex_type(async);
 
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.ComplexTypeSubqueriesNotSupported)]
     public override Task Contains_over_complex_type(bool async)
         => base.Contains_over_complex_type(async);
 
@@ -173,11 +173,11 @@ public abstract class ComplexTypeQueryDynamoTest
             """);
         });
 
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.SubqueryPushdownNotSupported)]
     public override Task Filter_on_property_inside_struct_complex_type_after_subquery(bool async)
         => base.Filter_on_property_inside_struct_complex_type_after_subquery(async);
 
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.SubqueryPushdownNotSupported)]
     public override Task Filter_on_property_inside_nested_struct_complex_type_after_subquery(bool async)
         => base.Filter_on_property_inside_nested_struct_complex_type_after_subquery(async);
 
@@ -201,7 +201,7 @@ public abstract class ComplexTypeQueryDynamoTest
     public override Task Project_struct_complex_type_via_required_navigation(bool async)
         => base.Project_struct_complex_type_via_required_navigation(async);
 
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.SubqueryPushdownNotSupported)]
     public override Task Load_struct_complex_type_after_subquery_on_entity_type(bool async)
         => base.Load_struct_complex_type_after_subquery_on_entity_type(async);
 
@@ -216,11 +216,11 @@ public abstract class ComplexTypeQueryDynamoTest
             """);
         });
 
-    [ConditionalTheory(Skip = SkipReason.StructComplexTypeProjectionNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.NestedStructComplexTypeProjectionNotSupported)]
     public override Task Select_nested_struct_complex_type(bool async)
         => base.Select_nested_struct_complex_type(async);
 
-    [ConditionalTheory(Skip = SkipReason.StructComplexTypeProjectionNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.NestedStructComplexTypeProjectionNotSupported)]
     public override Task Select_single_property_on_nested_struct_complex_type(bool async)
         => base.Select_single_property_on_nested_struct_complex_type(async);
 
@@ -240,23 +240,23 @@ public abstract class ComplexTypeQueryDynamoTest
     public override Task Select_struct_complex_type_Distinct(bool async)
         => base.Select_struct_complex_type_Distinct(async);
 
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.ComplexTypeStructuralEqualityNotSupported)]
     public override Task Struct_complex_type_equals_struct_complex_type(bool async)
         => base.Struct_complex_type_equals_struct_complex_type(async);
 
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.ComplexTypeStructuralEqualityNotSupported)]
     public override Task Struct_complex_type_equals_constant(bool async)
         => base.Struct_complex_type_equals_constant(async);
 
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.ComplexTypeStructuralEqualityNotSupported)]
     public override Task Struct_complex_type_equals_parameter(bool async)
         => base.Struct_complex_type_equals_parameter(async);
 
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.ComplexTypeSubqueriesNotSupported)]
     public override Task Subquery_over_struct_complex_type(bool async)
         => base.Subquery_over_struct_complex_type(async);
 
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.ComplexTypeSubqueriesNotSupported)]
     public override Task Contains_over_struct_complex_type(bool async)
         => base.Contains_over_struct_complex_type(async);
 
@@ -292,35 +292,35 @@ public abstract class ComplexTypeQueryDynamoTest
     public override Task Union_two_different_struct_complex_type(bool async)
         => base.Union_two_different_struct_complex_type(async);
 
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.JoinsNotSupported)]
     public override Task Project_same_nested_complex_type_twice_with_pushdown(bool async)
         => base.Project_same_nested_complex_type_twice_with_pushdown(async);
 
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.JoinsNotSupported)]
     public override Task Project_same_entity_with_nested_complex_type_twice_with_pushdown(bool async)
         => base.Project_same_entity_with_nested_complex_type_twice_with_pushdown(async);
 
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.JoinsNotSupported)]
     public override Task Project_same_nested_complex_type_twice_with_double_pushdown(bool async)
         => base.Project_same_nested_complex_type_twice_with_double_pushdown(async);
 
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.JoinsNotSupported)]
     public override Task Project_same_entity_with_nested_complex_type_twice_with_double_pushdown(bool async)
         => base.Project_same_entity_with_nested_complex_type_twice_with_double_pushdown(async);
 
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.JoinsNotSupported)]
     public override Task Project_same_struct_nested_complex_type_twice_with_pushdown(bool async)
         => base.Project_same_struct_nested_complex_type_twice_with_pushdown(async);
 
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.JoinsNotSupported)]
     public override Task Project_same_entity_with_struct_nested_complex_type_twice_with_pushdown(bool async)
         => base.Project_same_entity_with_struct_nested_complex_type_twice_with_pushdown(async);
 
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.JoinsNotSupported)]
     public override Task Project_same_struct_nested_complex_type_twice_with_double_pushdown(bool async)
         => base.Project_same_struct_nested_complex_type_twice_with_double_pushdown(async);
 
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.JoinsNotSupported)]
     public override Task Project_same_entity_with_struct_nested_complex_type_twice_with_double_pushdown(bool async)
         => base.Project_same_entity_with_struct_nested_complex_type_twice_with_double_pushdown(async);
 
@@ -340,12 +340,12 @@ public abstract class ComplexTypeQueryDynamoTest
     public override Task Union_of_same_nested_complex_type_projected_twice_with_double_pushdown(bool async)
         => base.Union_of_same_nested_complex_type_projected_twice_with_double_pushdown(async);
 
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    [ConditionalTheory(Skip = SkipReason.JoinsNotSupported)]
     public override Task Same_entity_with_complex_type_projected_twice_with_pushdown_as_part_of_another_projection(bool async)
         => base.Same_entity_with_complex_type_projected_twice_with_pushdown_as_part_of_another_projection(async);
 
-    // Skipped upstream in EF Core (issue #31376) and also unsupported by DynamoDB translation.
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    // Skipped upstream in EF Core (issue #31376) and also unsupported by DynamoDB JOIN-style translation.
+    [ConditionalTheory(Skip = SkipReason.JoinsNotSupported)]
     public override Task Same_complex_type_projected_twice_with_pushdown_as_part_of_another_projection(bool async)
         => base.Same_complex_type_projected_twice_with_pushdown_as_part_of_another_projection(async);
 
