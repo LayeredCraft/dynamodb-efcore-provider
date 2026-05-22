@@ -5,10 +5,11 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore.TestUtilities;
+using Xunit;
 
 namespace EntityFrameworkCore.DynamoDb.SpecificationTests;
 
-public class CustomConvertersDynamoTest(
+public abstract class CustomConvertersDynamoTest(
     CustomConvertersDynamoTest.CustomConvertersDynamoFixture fixture)
     : CustomConvertersTestBase<CustomConvertersDynamoTest.CustomConvertersDynamoFixture>(fixture)
 {
@@ -536,6 +537,15 @@ public class CustomConvertersDynamoTest(
     [ConditionalFact(Skip = SkipReason.SubqueryContainsNotSupported)]
     public override void Infer_type_mapping_from_in_subquery_to_item()
         => base.Infer_type_mapping_from_in_subquery_to_item();
+
+    [Collection(DynamoSpecificationCollection.Name)]
+    public sealed class CustomConvertersDynamoTestDefault : CustomConvertersDynamoTest
+    {
+        public CustomConvertersDynamoTestDefault(
+            CustomConvertersDynamoFixture fixture,
+            DynamoSpecificationContainerFixture containerFixture) : base(fixture)
+            => _ = containerFixture;
+    }
 
     public class CustomConvertersDynamoFixture
         : CustomConvertersFixtureBase, IDynamoSpecificationFixture
