@@ -158,6 +158,11 @@ internal sealed class DynamoConvertedValueReaderWriter<TModel, TProvider>(
         typeof(DynamoConvertedValueReaderWriter<TModel, TProvider>).GetConstructor(
             [typeof(DynamoValueReaderWriter<TProvider>), typeof(ValueConverter)])!;
 
+    private static readonly MethodInfo ReadMethod =
+        typeof(DynamoValueReaderWriter<TModel>).GetMethod(
+            nameof(Read),
+            [typeof(AttributeValue), typeof(string), typeof(bool), typeof(IProperty)])!;
+
     internal override string WireMemberName => innerReaderWriter.WireMemberName;
 
     internal override bool RequiresParameterForPartiQlLiteral
@@ -174,22 +179,13 @@ internal sealed class DynamoConvertedValueReaderWriter<TModel, TProvider>(
         string propertyPath,
         bool required,
         IProperty? property)
-    {
-        var providerValueExpression = innerReaderWriter.CreateReadExpression(
+        => CreatePropertyExpression(
             attributeValueExpression,
             propertyPath,
             required,
-            property);
-
-        var modelValueExpression = ReplacingExpressionVisitor.Replace(
-            converter.ConvertFromProviderExpression.Parameters.Single(),
-            providerValueExpression,
-            converter.ConvertFromProviderExpression.Body);
-
-        return modelValueExpression.Type != typeof(TModel)
-            ? Expression.Convert(modelValueExpression, typeof(TModel))
-            : modelValueExpression;
-    }
+            property,
+            ReadMethod,
+            CreateConstructorExpression());
 
     // ── Object-based (boxed) fallback methods ──────────────────────────────────────
     //
@@ -622,6 +618,18 @@ internal static class DynamoValueReaderWriterFactory
         if (converter == null || readerWriter == null)
             return readerWriter;
 
+        var providerType = converter.ProviderClrType;
+        if (readerWriter.ValueType != providerType)
+        {
+            var underlyingProviderType = Nullable.GetUnderlyingType(providerType);
+            if (underlyingProviderType != null && readerWriter.ValueType == underlyingProviderType)
+                readerWriter = CreateNullableReaderWriter(underlyingProviderType, readerWriter);
+            else
+                throw new InvalidOperationException(
+                    $"Converter provider type '{providerType.Name}' does not match DynamoDB reader/writer "
+                    + $"type '{readerWriter.ValueType.Name}'.");
+        }
+
         // Compose the converter once at mapping-construction time so callers can keep working with
         // model CLR values while the inner reader/writer stays focused on the provider CLR type.
         // Activator is acceptable here because this runs when the mapping is built, not in the
@@ -629,7 +637,7 @@ internal static class DynamoValueReaderWriterFactory
         return (DynamoValueReaderWriter)Activator.CreateInstance(
             typeof(DynamoConvertedValueReaderWriter<,>).MakeGenericType(
                 converter.ModelClrType,
-                readerWriter.ValueType),
+                providerType),
             readerWriter,
             converter)!;
     }

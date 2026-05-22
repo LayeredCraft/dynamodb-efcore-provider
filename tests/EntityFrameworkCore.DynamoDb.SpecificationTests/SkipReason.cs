@@ -15,6 +15,9 @@ public static class SkipReason
     public const string SubqueryPushdownNotSupported =
         "DynamoDB provider does not support the subquery pushdown required by this query shape.";
 
+    public const string SubqueryContainsNotSupported =
+        "DynamoDB provider does not support translating subquery Contains.";
+
     public const string OrderedResultSetNotSupported =
         "DynamoDB does not support guaranteed ordered result sets for this query shape.";
 

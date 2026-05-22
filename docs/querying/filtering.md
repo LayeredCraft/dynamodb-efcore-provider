@@ -59,7 +59,7 @@ Only the `string`-parameter overload is supported. Overloads that accept `char`,
 
 !!! note
 
-    `entity.Tags.Contains("x")` — testing whether a *collection attribute* contains a value — is not supported. Only in-memory collection membership (`ids.Contains(entity.Id)`) and string substring checks are translated.
+    `contains` is also used for native DynamoDB list/set membership. See [Collection Membership](#collection-membership) below.
 
 ## String Comparisons
 
@@ -133,6 +133,30 @@ db.Orders.Where(o => ids.Contains(o.CustomerId));
 ```
 
 An empty collection translates to a constant-false predicate (`1 = 0`), which returns no results without executing a DynamoDB request. DynamoDB enforces limits on `IN` list size: up to 50 values when the property is a partition key, up to 100 values for non-key attributes. Exceeding the limit throws at execution time.
+
+## Collection Membership
+
+`entity.Collection.Contains(value)` translates to DynamoDB PartiQL `contains(attr, value)` when the
+property is stored as a native DynamoDB primitive list or set attribute.
+
+```csharp
+var tag = "alpha";
+
+db.Items.Where(i => i.Tags.Contains(tag));
+// WHERE contains("Tags", ?)
+```
+
+This is different from `collection.Contains(entity.Property)`, which translates to `IN`. Collection
+membership checks whether a DynamoDB list or set attribute contains a member; `IN` checks whether a
+scalar attribute equals one of several in-memory values.
+
+Value converters on collection elements are honored. For example, enum elements configured with
+`.ElementType(e => e.HasConversion<string>())` bind the searched value as the converted string.
+
+Scalar value-converted collections are not translated. For example, a `List<T>` converted to a
+comma-separated string cannot be safely queried with collection-membership semantics because DynamoDB
+would perform substring matching on the stored string, not list membership. Store values as a native
+DynamoDB list or set when server-side membership queries are required.
 
 ## Queries vs Scans
 

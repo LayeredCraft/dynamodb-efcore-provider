@@ -40,6 +40,7 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
         _sqlExpressionFactory = sqlExpressionFactory;
         _sqlTranslator = new DynamoSqlTranslatingExpressionVisitor(
             sqlExpressionFactory,
+            queryCompilationContext.Model,
             queryCompilationContext as DynamoQueryCompilationContext);
         _projectionBindingExpressionVisitor = new DynamoProjectionBindingExpressionVisitor(
             _sqlTranslator,
@@ -908,6 +909,7 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
 
         AddTranslationErrorDetails(
             _sqlTranslator.TranslationErrorDetails ?? DynamoStrings.PredicateNotTranslatable);
+
         return null;
     }
 

@@ -1,8 +1,10 @@
+using System.Collections;
 using System.Collections.ObjectModel;
 using System.Linq.Expressions;
 using System.Reflection;
 using EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -116,9 +118,16 @@ public sealed class DynamoProjectionBindingExpressionVisitor(
 
             // Check if translation failed
             if (visitedArgument == QueryCompilationContext.NotTranslatedExpression)
+            {
+                _projectionMembers.Pop();
                 return visitedArgument;
+            }
+
             if (visitedArgument == null)
+            {
+                _projectionMembers.Pop();
                 return QueryCompilationContext.NotTranslatedExpression;
+            }
 
             _projectionMembers.Pop();
 
@@ -195,9 +204,16 @@ public sealed class DynamoProjectionBindingExpressionVisitor(
             var visitedExpression = Visit(memberAssignment.Expression);
 
             if (visitedExpression == QueryCompilationContext.NotTranslatedExpression)
+            {
+                _projectionMembers.Pop();
                 return visitedExpression;
+            }
+
             if (visitedExpression == null)
+            {
+                _projectionMembers.Pop();
                 return QueryCompilationContext.NotTranslatedExpression;
+            }
 
             _projectionMembers.Pop();
 
@@ -374,6 +390,9 @@ public sealed class DynamoProjectionBindingExpressionVisitor(
                 : Expression.Convert(memberProjectionBinding, node.Type);
         }
 
+        if (node.Expression is not null && IsConvertedScalarCollectionSource(node.Expression))
+            return QueryCompilationContext.NotTranslatedExpression;
+
         if (!_indexBasedBinding)
         {
             // For other member accesses, try SQL translation.
@@ -477,6 +496,19 @@ public sealed class DynamoProjectionBindingExpressionVisitor(
                 : Expression.Convert(methodProjectionBinding, node.Type);
         }
 
+        if (IsLinqCompositionOverConvertedScalarCollection(node))
+        {
+            if (TryFindSelectLambda(node, out var selector))
+                throw new InvalidOperationException(
+                    CoreStrings.TranslationFailed(
+                        Microsoft.EntityFrameworkCore.Query.ExpressionPrinter.Print(selector)));
+
+            return QueryCompilationContext.NotTranslatedExpression;
+        }
+
+        if (node.Object is not null && IsConvertedScalarCollectionSource(node.Object))
+            return QueryCompilationContext.NotTranslatedExpression;
+
         if (!_indexBasedBinding)
             return QueryCompilationContext.NotTranslatedExpression;
 
@@ -497,6 +529,12 @@ public sealed class DynamoProjectionBindingExpressionVisitor(
 
         return node.Update(objInstance, arguments);
     }
+
+    /// <summary>Blocks indexer composition over opaque scalar converted collections.</summary>
+    protected override Expression VisitIndex(IndexExpression node)
+        => node.Object is not null && IsConvertedScalarCollectionSource(node.Object)
+            ? QueryCompilationContext.NotTranslatedExpression
+            : base.VisitIndex(node);
 
     /// <summary>Builds client-side computed projections (e.g. arithmetic, concat).</summary>
     protected override Expression VisitBinary(BinaryExpression node)
@@ -579,7 +617,12 @@ public sealed class DynamoProjectionBindingExpressionVisitor(
         // Try to translate to SQL
         var translation = sqlTranslator.Translate(node);
 
-        if (translation is not SqlPropertyExpression)
+        if (translation is null)
+            return QueryCompilationContext.NotTranslatedExpression;
+
+        // DynamoDB PartiQL projections are attribute paths, not arbitrary computed SQL. Force
+        // computed expressions through index-based binding so values are calculated client-side.
+        if (translation is not SqlPropertyExpression and not DynamoComplexPropertyAccessExpression)
             return QueryCompilationContext.NotTranslatedExpression;
 
         // Store mapping: ProjectionMember → SqlExpression
@@ -637,6 +680,130 @@ public sealed class DynamoProjectionBindingExpressionVisitor(
 
         return sqlProperty.ApplyTypeMapping(property.GetTypeMapping());
     }
+
+    /// <summary>
+    ///     Returns whether a LINQ collection operator is composing over an opaque scalar property
+    ///     mapped through a value converter.
+    /// </summary>
+    private static bool IsLinqCompositionOverConvertedScalarCollection(MethodCallExpression node)
+    {
+        if (node.Method.DeclaringType != typeof(Enumerable)
+            && node.Method.DeclaringType != typeof(Queryable))
+            return false;
+
+        if (node.Arguments.Count == 0)
+            return false;
+
+        return IsConvertedScalarCollectionSource(node.Arguments[0]);
+    }
+
+    private static bool IsConvertedScalarCollectionSource(Expression expression)
+    {
+        expression = UnwrapConvert(expression);
+
+        if (expression is BinaryExpression { NodeType: ExpressionType.Coalesce } binaryExpression)
+            return IsConvertedScalarCollectionSource(binaryExpression.Left)
+                || IsConvertedScalarCollectionSource(binaryExpression.Right);
+
+        if (expression is ConditionalExpression conditionalExpression)
+            return IsConvertedScalarCollectionSource(conditionalExpression.IfTrue)
+                || IsConvertedScalarCollectionSource(conditionalExpression.IfFalse);
+
+        if (expression is MethodCallExpression methodCallExpression)
+        {
+            if (methodCallExpression.Method.DeclaringType == typeof(Enumerable)
+                || methodCallExpression.Method.DeclaringType == typeof(Queryable))
+                return methodCallExpression.Arguments.Count > 0
+                    && IsConvertedScalarCollectionSource(methodCallExpression.Arguments[0]);
+
+            if (methodCallExpression is
+                {
+                    Method.DeclaringType: var declaringType,
+                    Method.Name: nameof(EF.Property),
+                    Arguments.Count: 2,
+                }
+                && declaringType == typeof(EF)
+                && methodCallExpression.Arguments[1] is ConstantExpression
+                {
+                    Value: string propertyName,
+                })
+            {
+                var structuralType =
+                    (methodCallExpression.Arguments[0] as StructuralTypeShaperExpression)
+                    ?.StructuralType;
+                if (structuralType?.FindComplexProperty(propertyName) is not null)
+                    return false;
+
+                var property = (structuralType as IEntityType)?.FindProperty(propertyName);
+                return IsConvertedScalarCollectionProperty(property);
+            }
+        }
+
+        if (expression is not MemberExpression
+            {
+                Expression: StructuralTypeShaperExpression shaperExpression,
+            } memberExpression)
+            return false;
+
+        var memberPropertyName = memberExpression.Member.Name;
+        if (shaperExpression.StructuralType.FindComplexProperty(memberPropertyName) is not null)
+            return false;
+
+        var memberProperty =
+            (shaperExpression.StructuralType as IEntityType)?.FindProperty(memberPropertyName);
+        return IsConvertedScalarCollectionProperty(memberProperty);
+    }
+
+    private static bool TryFindSelectLambda(Expression expression, out LambdaExpression selector)
+    {
+        expression = UnwrapConvert(expression);
+
+        if (expression is MethodCallExpression methodCallExpression
+            && (methodCallExpression.Method.DeclaringType == typeof(Enumerable)
+                || methodCallExpression.Method.DeclaringType == typeof(Queryable)))
+        {
+            if (methodCallExpression.Method.Name == nameof(Enumerable.Select)
+                && methodCallExpression.Arguments.Count > 1
+                && UnwrapQuote(methodCallExpression.Arguments[1]) is LambdaExpression
+                    lambdaExpression)
+            {
+                selector = lambdaExpression;
+                return true;
+            }
+
+            if (methodCallExpression.Arguments.Count > 0)
+                return TryFindSelectLambda(methodCallExpression.Arguments[0], out selector);
+        }
+
+        selector = null!;
+        return false;
+    }
+
+    private static bool IsConvertedScalarCollectionProperty(IProperty? property)
+        => property?.GetTypeMapping().Converter is not null && IsCollectionLike(property.ClrType);
+
+    private static bool IsCollectionLike(Type type)
+        => type != typeof(string)
+            && type != typeof(byte[])
+            && typeof(IEnumerable).IsAssignableFrom(type);
+
+    private static Expression UnwrapConvert(Expression expression)
+    {
+        while (expression is UnaryExpression
+            {
+                NodeType: ExpressionType.Convert
+                or ExpressionType.ConvertChecked
+                or ExpressionType.TypeAs,
+            } unaryExpression)
+            expression = unaryExpression.Operand;
+
+        return expression;
+    }
+
+    private static Expression UnwrapQuote(Expression expression)
+        => expression is UnaryExpression { NodeType: ExpressionType.Quote } unaryExpression
+            ? unaryExpression.Operand
+            : expression;
 
     /// <summary>
     ///     Gets properties that should be projected for entity materialization, including

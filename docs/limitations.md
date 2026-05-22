@@ -34,23 +34,28 @@ request is sent.
 
 See [Supported Operators](querying/operators.md) for the full list of what does translate.
 
-| Category             | Operators                                                                    | Why                                                                         |
-| -------------------- | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| Aggregation          | `Count`, `LongCount`, `Sum`, `Average`, `Min`, `Max`                         | DynamoDB PartiQL has no aggregate functions                                 |
-| Grouping             | `GroupBy`                                                                    | `GROUP BY` is not supported in DynamoDB PartiQL                             |
-| Joins                | `Join`, `GroupJoin`, `LeftJoin`, `RightJoin`, `SelectMany`, `DefaultIfEmpty` | DynamoDB does not support cross-item joins                                  |
-| Set operations       | `Union`, `Concat`, `Except`, `Intersect`                                     | Not supported in DynamoDB PartiQL                                           |
-| Offset / paging      | `Skip`, `Take`, `ElementAt`, `ElementAtOrDefault`                            | DynamoDB has no offset semantics — use `Limit(n)` for an evaluation budget  |
-| Element operators    | `Single`, `SingleOrDefault`, `Any`, `All`                                    | Not supported server-side                                                   |
-| Reverse traversal    | `Last`, `LastOrDefault`, `Reverse`                                           | Requires reverse index traversal, not implemented                           |
-| Deduplication        | `Distinct`                                                                   | `SELECT DISTINCT` is not supported in DynamoDB PartiQL                      |
-| Type filtering       | `OfType<T>`, `Cast<T>`                                                       | Not supported                                                               |
-| Conditional skipping | `SkipWhile`, `TakeWhile`                                                     | Not supported                                                               |
-| Queryable `Contains` | `Queryable.Contains(source, item)`                                           | Not supported; in-memory `collection.Contains(property)` translates to `IN` |
+| Category                                | Operators                                                                    | Why                                                                                                |
+| --------------------------------------- | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Aggregation                             | `Count`, `LongCount`, `Sum`, `Average`, `Min`, `Max`                         | DynamoDB PartiQL has no aggregate functions                                                        |
+| Grouping                                | `GroupBy`                                                                    | `GROUP BY` is not supported in DynamoDB PartiQL                                                    |
+| Joins                                   | `Join`, `GroupJoin`, `LeftJoin`, `RightJoin`, `SelectMany`, `DefaultIfEmpty` | DynamoDB does not support cross-item joins                                                         |
+| Set operations                          | `Union`, `Concat`, `Except`, `Intersect`                                     | Not supported in DynamoDB PartiQL                                                                  |
+| Offset / paging                         | `Skip`, `Take`, `ElementAt`, `ElementAtOrDefault`                            | DynamoDB has no offset semantics — use `Limit(n)` for an evaluation budget                         |
+| Element operators                       | `Single`, `SingleOrDefault`, `Any`, `All`                                    | Not supported server-side                                                                          |
+| Reverse traversal                       | `Last`, `LastOrDefault`, `Reverse`                                           | Requires reverse index traversal, not implemented                                                  |
+| Deduplication                           | `Distinct`                                                                   | `SELECT DISTINCT` is not supported in DynamoDB PartiQL                                             |
+| Type filtering                          | `OfType<T>`, `Cast<T>`                                                       | Not supported                                                                                      |
+| Conditional skipping                    | `SkipWhile`, `TakeWhile`                                                     | Not supported                                                                                      |
+| Queryable `Contains` over query sources | `Queryable.Contains(dbSet, item)`                                            | Not supported; in-memory membership translates to `IN`, native collection membership to `contains` |
 
 Value-converted enum numeric casts are also rejected when compared to parameters. For example, `(int)entity.Status == value` is not translated if `Status` uses `.HasConversion<string>()`, because DynamoDB stores the converted string value. Compare `entity.Status` to an enum value directly, or map the enum numerically.
 
 Complex property-to-property equality and equality against complex object parameters or inline complex object constants are supported.
+
+Scalar value-converted collection membership is not translated. `entity.Values.Contains(value)` is
+supported for native DynamoDB primitive list/set attributes, but not when `Values` is serialized into
+a scalar string or blob by a property value converter. In that case DynamoDB would evaluate substring
+or binary containment rather than collection membership.
 
 **Workaround for unsupported operators:** switch to `AsAsyncEnumerable()` before the unsupported
 operator to move evaluation in-process:
