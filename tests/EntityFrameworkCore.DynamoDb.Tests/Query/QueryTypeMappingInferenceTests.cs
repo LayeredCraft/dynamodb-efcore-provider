@@ -1,5 +1,6 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
+using EntityFrameworkCore.DynamoDb.Query.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
@@ -491,7 +492,7 @@ public class QueryTypeMappingInferenceTests
         await act
             .Should()
             .ThrowAsync<InvalidOperationException>()
-            .WithMessage("*Method calls are not supported*predicate translation*");
+            .WithMessage($"*{DynamoStrings.MethodCallInPredicateNotSupported}*");
         captured.Should().BeEmpty();
     }
 

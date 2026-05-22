@@ -481,7 +481,14 @@ public abstract class CustomConvertersDynamoTest(
         => base.Collection_property_as_scalar_Any();
 
     public override void Collection_property_as_scalar_Count_member()
-        => base.Collection_property_as_scalar_Count_member();
+    {
+        using var context = CreateContext();
+        Assert.Contains(
+            CoreStrings.TranslationFailed("")[47..],
+            Assert.Throws<InvalidOperationException>(()
+                    => context.Set<CollectionScalar>().Where(e => e.Tags.Count == 2).ToList())
+                .Message);
+    }
 
     public override void Collection_enum_as_string_Contains()
         => base.Collection_enum_as_string_Contains();
