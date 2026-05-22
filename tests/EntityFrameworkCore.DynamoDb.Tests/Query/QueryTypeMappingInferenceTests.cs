@@ -488,7 +488,10 @@ public class QueryTypeMappingInferenceTests
             .Where(e => e.Code.Equals(code))
             .ToListAsync(TestContext.Current.CancellationToken);
 
-        await act.Should().ThrowAsync<InvalidOperationException>();
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*Method calls are not supported*predicate translation*");
         captured.Should().BeEmpty();
     }
 
