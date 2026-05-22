@@ -109,9 +109,17 @@ public abstract class ComplexTypeQueryDynamoTest
             """);
         });
 
-    [ConditionalTheory(Skip = SkipReason.ComplexTypeConstantEqualityNotSupported)]
     public override Task Complex_type_equals_constant(bool async)
-        => base.Complex_type_equals_constant(async);
+        => NoSyncTest(async, async a =>
+        {
+            await base.Complex_type_equals_constant(a);
+            AssertSql(
+            """
+            SELECT "id", "name", "billingAddress", "optionalAddress", "shippingAddress"
+            FROM "Customers"
+            WHERE "shippingAddress" = ?
+            """);
+        });
 
     public override Task Complex_type_equals_parameter(bool async)
         => NoSyncTest(async, async a =>
@@ -282,9 +290,17 @@ public abstract class ComplexTypeQueryDynamoTest
             """);
         });
 
-    [ConditionalTheory(Skip = SkipReason.ComplexTypeConstantEqualityNotSupported)]
     public override Task Struct_complex_type_equals_constant(bool async)
-        => base.Struct_complex_type_equals_constant(async);
+        => NoSyncTest(async, async a =>
+        {
+            await base.Struct_complex_type_equals_constant(a);
+            AssertSql(
+            """
+            SELECT "id", "name", "billingAddress", "shippingAddress"
+            FROM "ValuedCustomers"
+            WHERE "shippingAddress" = ?
+            """);
+        });
 
     public override Task Struct_complex_type_equals_parameter(bool async)
         => NoSyncTest(async, async a =>

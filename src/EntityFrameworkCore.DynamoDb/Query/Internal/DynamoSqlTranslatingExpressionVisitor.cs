@@ -159,10 +159,14 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         if (node.NodeType is ExpressionType.Equal or ExpressionType.NotEqual)
         {
             // Whole complex-property access does not translate through the scalar member path.
-            // Retry only untranslated operands as complex map paths so property-to-property and
-            // property-to-parameter structural comparisons can compose normally.
+            // Retry untranslated operands as complex map paths, then bind inline complex object
+            // constants to the discovered complex map mapping when one side is a complex path.
             left ??= TryTranslateComplexPropertyForStructuralComparison(node.Left);
             right ??= TryTranslateComplexPropertyForStructuralComparison(node.Right);
+            if (left is SqlExpression { TypeMapping: DynamoComplexTypeMapping } leftComplex)
+                right ??= TryTranslateComplexConstant(node.Right, leftComplex);
+            if (right is SqlExpression { TypeMapping: DynamoComplexTypeMapping } rightComplex)
+                left ??= TryTranslateComplexConstant(node.Left, rightComplex);
         }
 
         if (left == null || right == null)
@@ -174,6 +178,55 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
 
         AddTranslationErrorDetails(DynamoStrings.UnsupportedBinaryOperator(node.NodeType));
         return QueryCompilationContext.NotTranslatedExpression;
+    }
+
+    /// <summary>Translates an inline complex object constant using the matched complex map mapping.</summary>
+    private SqlExpression? TryTranslateComplexConstant(Expression operand, SqlExpression complexPath)
+    {
+        if (ContainsQueryReference(operand))
+            return null;
+
+        try
+        {
+            var value = Expression.Lambda<Func<object?>>(Expression.Convert(operand, typeof(object)))
+                .Compile()
+                .Invoke();
+            return sqlExpressionFactory.ApplyTypeMapping(
+                sqlExpressionFactory.Constant(value, operand.Type),
+                complexPath.TypeMapping);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            AddTranslationErrorDetails(
+                $"Inline complex type constant could not be evaluated: {exception.Message}");
+            return null;
+        }
+    }
+
+    private static bool ContainsQueryReference(Expression expression)
+    {
+        var visitor = new QueryReferenceFindingExpressionVisitor();
+        visitor.Visit(expression);
+        return visitor.Found;
+    }
+
+    private sealed class QueryReferenceFindingExpressionVisitor : ExpressionVisitor
+    {
+        public bool Found { get; private set; }
+
+        public override Expression? Visit(Expression? node)
+        {
+            if (node is null || Found)
+                return node;
+
+            if (node is ParameterExpression or QueryParameterExpression or StructuralTypeShaperExpression)
+            {
+                Found = true;
+                return node;
+            }
+
+            return base.Visit(node);
+        }
     }
 
     /// <summary>

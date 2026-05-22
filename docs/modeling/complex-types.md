@@ -148,9 +148,8 @@ context.Customers.Where(x => x.ShippingAddress == x.BillingAddress)
 WHERE "shippingAddress" = "billingAddress"
 ```
 
-Equality against a complex object parameter also translates and binds the value as a DynamoDB map
-parameter. Inline complex object constants are not translated; assign the value to a variable first
-or compare individual nested members.
+Equality against a complex object parameter or inline complex object constant also translates and
+binds the value as a DynamoDB map parameter.
 
 !!! warning "Whole-complex equality caveats"
 

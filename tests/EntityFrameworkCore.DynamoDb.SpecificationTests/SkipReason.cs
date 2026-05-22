@@ -9,9 +9,6 @@ public static class SkipReason
     public const string QueryShapeNotSupported =
         "DynamoDB provider does not support this query shape.";
 
-    public const string ComplexTypeConstantEqualityNotSupported =
-        "DynamoDB provider supports complex type property-to-property and parameter equality but not equality against inline complex object constants.";
-
     public const string ComplexTypeSubqueriesNotSupported =
         "DynamoDB provider does not support complex type values in subqueries or Contains predicates.";
 
