@@ -6,10 +6,13 @@ using Microsoft.EntityFrameworkCore.TestUtilities;
 
 namespace EntityFrameworkCore.DynamoDb.SpecificationTests;
 
-public abstract class KeysWithConvertersDynamoTest(
-    KeysWithConvertersDynamoTest.KeysWithConvertersDynamoFixture fixture)
-    : KeysWithConvertersTestBase<KeysWithConvertersDynamoTest.KeysWithConvertersDynamoFixture>(fixture)
+public abstract class KeysWithConvertersDynamoTest
+    : KeysWithConvertersTestBase<KeysWithConvertersDynamoTest.KeysWithConvertersDynamoFixture>
 {
+    protected KeysWithConvertersDynamoTest(KeysWithConvertersDynamoFixture fixture)
+        : base(fixture)
+        => fixture.ClearSql();
+
     [ConditionalFact]
     public virtual void Check_all_tests_overridden()
         => DynamoTestHelpers.AssertAllTestMethodsOverridden(typeof(KeysWithConvertersDynamoTest));
@@ -29,10 +32,25 @@ public abstract class KeysWithConvertersDynamoTest(
                 .Where(e => e.Id.Equals(new IntStructKey(1)))
                 .ToListAsync());
             Assert.Equal("One", queried.Foo);
+        }
 
+        await using (var context = CreateContext())
+        {
             var found = await context.Set<IntStructKeyPrincipal>().FindAsync(new IntStructKey(1));
             Assert.Equal("One", found?.Foo);
         }
+
+        AssertSql(
+        """
+        SELECT "id", "foo"
+        FROM "IntStructKeyPrincipals"
+        WHERE "id" = 1
+        """,
+        """
+        SELECT "id", "foo"
+        FROM "IntStructKeyPrincipals"
+        WHERE "id" = ?
+        """);
     }
 
     [ConditionalFact]
@@ -52,10 +70,25 @@ public abstract class KeysWithConvertersDynamoTest(
                 .Where(e => e.Id.Equals(new BytesStructKey(key)))
                 .ToListAsync());
             Assert.Equal("Binary", queried.Foo);
+        }
 
+        await using (var context = CreateContext())
+        {
             var found = await context.Set<BytesStructKeyPrincipal>().FindAsync(new BytesStructKey(key));
             Assert.Equal("Binary", found?.Foo);
         }
+
+        AssertSql(
+        """
+        SELECT "id", "foo"
+        FROM "BytesStructKeyPrincipals"
+        WHERE "id" = ?
+        """,
+        """
+        SELECT "id", "foo"
+        FROM "BytesStructKeyPrincipals"
+        WHERE "id" = ?
+        """);
     }
 
     [ConditionalFact(Skip = SkipReason.ForeignKeysNotSupported)]
@@ -245,6 +278,8 @@ public abstract class KeysWithConvertersDynamoTest(
     [ConditionalFact(Skip = SkipReason.ShadowKeysNotSupported)]
     public override Task Can_insert_and_read_back_with_generic_comparable_struct_binary_key_and_required_dependents_with_shadow_FK()
         => base.Can_insert_and_read_back_with_generic_comparable_struct_binary_key_and_required_dependents_with_shadow_FK();
+
+    private void AssertSql(params string[] expected) => Fixture.AssertSql(expected);
 
     public class KeysWithConvertersDynamoFixture : KeysWithConvertersFixtureBase, IDynamoSpecificationFixture
     {

@@ -823,7 +823,10 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         var expressionType = UnwrapNullableType(expression.Type);
         var modelType = UnwrapNullableType(dynamoTypeMapping.ClrType);
 
-        return modelType.IsValueType && expressionType == modelType;
+        // EF's FindAsync builds object-typed parameters around converted key values.
+        return modelType.IsValueType
+            && (expressionType == modelType
+                || expression is SqlParameterExpression && expressionType == typeof(object));
     }
 
     private static bool IsSupportedEqualsType(Type type)
