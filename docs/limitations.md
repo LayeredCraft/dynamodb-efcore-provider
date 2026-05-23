@@ -173,10 +173,10 @@ Allowed partition-key conditions are equality and `IN`. Sort-key predicates are 
 they are DynamoDB key conditions (`=`, `<`, `<=`, `>`, `>=`, `BETWEEN`, `begins_with`). Explicit
 `Limit(n)` and `WithNextToken()` combined with `Single*` throw at translation time.
 
-If DynamoDB returns fewer than two items plus `NextToken` for a validated `Single*` query, the
-provider throws `InvalidOperationException`. This is treated as a guard against an unexpected
-provider/DynamoDB invariant break, not as a signal to page. If two items are returned, EF Core's
-normal `Single*` duplicate detection throws `Sequence contains more than one element.`
+If DynamoDB returns any `NextToken` for a validated `Single*` query, the provider throws
+`InvalidOperationException`. This is treated as a guard against an unexpected provider/DynamoDB
+invariant break, not as a signal to page. Without a continuation token, two returned items use
+EF Core's normal `Single*` duplicate detection and throw `Sequence contains more than one element.`
 
 ### `Find` — Primary-Key Lookup
 

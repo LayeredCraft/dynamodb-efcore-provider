@@ -97,20 +97,20 @@ There is no global default page size. Specify the evaluation budget explicitly o
 
 ## Evaluation Budget Reference
 
-| Query Shape                                             | `ExecuteStatementRequest.Limit` | Pages?                                      |
-| ------------------------------------------------------- | ------------------------------- | ------------------------------------------- |
-| `.Limit(n)` + `ToListAsync()`                           | `n`                             | No (single request)                         |
-| `.ToPageAsync(n, token)`                                | `n`                             | One request                                 |
-| `.WithNextToken(token)` + `ToListAsync()`               | `null` (1 MB/page)              | Yes                                         |
-| `.WithNextToken(token)` + `.Limit(n)` + `ToListAsync()` | `n`                             | No (single request)                         |
-| `.WithNextToken(token)` + `.ToPageAsync(n, null)`       | `n`                             | One request                                 |
-| `First*` (key-only, no explicit limit)                  | `1`                             | No                                          |
-| `First*` + any `Limit(n)`                               | Translation failure             | —                                           |
-| `.Limit(n)` + `AsAsyncEnumerable()` + `First*`          | `n` (client-side selection)     | No                                          |
-| `Single*` (key-condition-only, no explicit limit)       | `2`                             | No; `NextToken` with \<2 items throws guard |
-| `Single*` + any `Limit(n)`                              | Translation failure             | —                                           |
-| `.Limit(n)` + `AsAsyncEnumerable()` + `Single*`         | `n` (client-side selection)     | No                                          |
-| `ToListAsync()` (no limit)                              | `null` (1 MB/page)              | Yes                                         |
+| Query Shape                                             | `ExecuteStatementRequest.Limit` | Pages?                           |
+| ------------------------------------------------------- | ------------------------------- | -------------------------------- |
+| `.Limit(n)` + `ToListAsync()`                           | `n`                             | No (single request)              |
+| `.ToPageAsync(n, token)`                                | `n`                             | One request                      |
+| `.WithNextToken(token)` + `ToListAsync()`               | `null` (1 MB/page)              | Yes                              |
+| `.WithNextToken(token)` + `.Limit(n)` + `ToListAsync()` | `n`                             | No (single request)              |
+| `.WithNextToken(token)` + `.ToPageAsync(n, null)`       | `n`                             | One request                      |
+| `First*` (key-only, no explicit limit)                  | `1`                             | No                               |
+| `First*` + any `Limit(n)`                               | Translation failure             | —                                |
+| `.Limit(n)` + `AsAsyncEnumerable()` + `First*`          | `n` (client-side selection)     | No                               |
+| `Single*` (key-condition-only, no explicit limit)       | `2`                             | No; any `NextToken` throws guard |
+| `Single*` + any `Limit(n)`                              | Translation failure             | —                                |
+| `.Limit(n)` + `AsAsyncEnumerable()` + `Single*`         | `n` (client-side selection)     | No                               |
+| `ToListAsync()` (no limit)                              | `null` (1 MB/page)              | Yes                              |
 
 ## Accessing the Raw Response Token
 

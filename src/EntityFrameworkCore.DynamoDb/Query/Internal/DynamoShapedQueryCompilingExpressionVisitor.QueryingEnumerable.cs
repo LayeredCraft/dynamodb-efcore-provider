@@ -210,8 +210,7 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
                             _queryContext.CurrentPageResponse = response;
 
                             if (_queryingEnumerable._selectExpression.IsSingleTerminal
-                                && response.NextToken is not null
-                                && response.Items.Count < 2)
+                                && response.NextToken is not null)
                                 throw new InvalidOperationException(
                                     DynamoStrings.SingleOrDefaultReturnedContinuationToken);
                         },

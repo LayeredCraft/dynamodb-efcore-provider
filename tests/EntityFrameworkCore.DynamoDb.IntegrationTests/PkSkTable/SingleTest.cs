@@ -62,10 +62,13 @@ public class SingleTest(DynamoContainerFixture fixture) : PkSkTableTestFixture(f
             .Where(item => item.Pk == "P#1")
             .SingleAsync(CancellationToken);
 
-        await act
+        var exception = await act.Should().ThrowAsync<InvalidOperationException>();
+        exception
+            .Which
+            .Message
             .Should()
-            .ThrowAsync<InvalidOperationException>()
-            .WithMessage("*more than one element*");
+            .MatchRegex(
+                "(Sequence contains more than one element\\.|.*continuation token.*Single/SingleOrDefault.*)");
 
         var calls = LoggerFactory.ExecuteStatementCalls.ToList();
         calls.Should().ContainSingle();

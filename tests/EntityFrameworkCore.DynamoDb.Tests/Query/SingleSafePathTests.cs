@@ -99,6 +99,28 @@ public class SingleSafePathTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task SingleOrDefault_ResponseWithTwoItemsAndNextToken_ThrowsProviderGuard()
+    {
+        var (client, captured) = SetupMockClient(
+            new ExecuteStatementResponse
+            {
+                Items = [CreateItem("S#1"), CreateItem("S#2")], NextToken = "next"
+            });
+        await using var context = SingleDbContext.Create(client);
+
+        var act = async () => await context
+            .PkSkItems
+            .Where(x => x.Pk == "P#1")
+            .SingleOrDefaultAsync(TestContext.Current.CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*continuation token*Single/SingleOrDefault*");
+        captured.Should().HaveCount(1);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SingleOrDefault_NonKeyFilter_ThrowsTranslationFailure()
     {
         var client = Substitute.For<IAmazonDynamoDB>();

@@ -100,7 +100,7 @@ internal static class DynamoStrings
 
     /// <summary>Error message when DynamoDB returns continuation for provider-managed Single*.</summary>
     public const string SingleOrDefaultReturnedContinuationToken =
-        "DynamoDB returned fewer than two items and a continuation token for a key-condition-only "
+        "DynamoDB returned a continuation token for a key-condition-only "
         + "Single/SingleOrDefault query. This violates the provider's Single* invariant for "
         + "one-request Limit=2 duplicate detection.";
 
