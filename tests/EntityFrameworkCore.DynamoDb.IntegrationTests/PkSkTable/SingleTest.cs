@@ -10,10 +10,9 @@ public class SingleTest(DynamoContainerFixture fixture) : PkSkTableTestFixture(f
     {
         LoggerFactory.Clear();
 
-        var result = await Db
-            .Items
-            .Where(item => item.Pk == "P#1" && item.Sk == "0002")
-            .SingleAsync(CancellationToken);
+        var result = await Db.Items.SingleAsync(
+            item => item.Pk == "P#1" && item.Sk == "0002",
+            CancellationToken);
 
         var expected = PkSkItems.Items.Single(item => item.Pk == "P#1" && item.Sk == "0002");
         result.Should().BeEquivalentTo(expected);
@@ -33,10 +32,9 @@ public class SingleTest(DynamoContainerFixture fixture) : PkSkTableTestFixture(f
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SingleOrDefaultAsync_KeyOnly_NoMatch_ReturnsNull()
     {
-        var result = await Db
-            .Items
-            .Where(item => item.Pk == "P#2" && item.Sk == "9999")
-            .SingleOrDefaultAsync(CancellationToken);
+        var result = await Db.Items.SingleOrDefaultAsync(
+            item => item.Pk == "P#2" && item.Sk == "9999",
+            CancellationToken);
 
         result.Should().BeNull();
     }
@@ -44,10 +42,9 @@ public class SingleTest(DynamoContainerFixture fixture) : PkSkTableTestFixture(f
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SingleAsync_KeyOnly_NoMatch_ThrowsNoElements()
     {
-        var act = async () => await Db
-            .Items
-            .Where(item => item.Pk == "P#2" && item.Sk == "9999")
-            .SingleAsync(CancellationToken);
+        var act = async () => await Db.Items.SingleAsync(
+            item => item.Pk == "P#2" && item.Sk == "9999",
+            CancellationToken);
 
         await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*no elements*");
     }
@@ -57,10 +54,8 @@ public class SingleTest(DynamoContainerFixture fixture) : PkSkTableTestFixture(f
     {
         LoggerFactory.Clear();
 
-        var act = async () => await Db
-            .Items
-            .Where(item => item.Pk == "P#1")
-            .SingleAsync(CancellationToken);
+        var act = async ()
+            => await Db.Items.SingleAsync(item => item.Pk == "P#1", CancellationToken);
 
         var exception = await act.Should().ThrowAsync<InvalidOperationException>();
         exception
@@ -88,10 +83,9 @@ public class SingleTest(DynamoContainerFixture fixture) : PkSkTableTestFixture(f
         LoggerFactory.Clear();
         var pks = new[] { "P#2", "NOT" };
 
-        var result = await Db
-            .Items
-            .Where(item => pks.Contains(item.Pk) && item.Sk == "0001")
-            .SingleOrDefaultAsync(CancellationToken);
+        var result = await Db.Items.SingleOrDefaultAsync(
+            item => pks.Contains(item.Pk) && item.Sk == "0001",
+            CancellationToken);
 
         var expected = PkSkItems.Items.Single(item => item.Pk == "P#2" && item.Sk == "0001");
         result.Should().BeEquivalentTo(expected);
@@ -111,10 +105,9 @@ public class SingleTest(DynamoContainerFixture fixture) : PkSkTableTestFixture(f
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SingleOrDefaultAsync_NonKeyFilter_ThrowsTranslationFailure()
     {
-        var act = async () => await Db
-            .Items
-            .Where(item => item.Pk == "P#1" && item.IsTarget)
-            .SingleOrDefaultAsync(CancellationToken);
+        var act = async () => await Db.Items.SingleOrDefaultAsync(
+            item => item.Pk == "P#1" && item.IsTarget,
+            CancellationToken);
 
         await act
             .Should()
@@ -127,9 +120,8 @@ public class SingleTest(DynamoContainerFixture fixture) : PkSkTableTestFixture(f
     {
         var act = async () => await Db
             .Items
-            .Where(item => item.Pk == "P#1")
             .Limit(5)
-            .SingleOrDefaultAsync(CancellationToken);
+            .SingleOrDefaultAsync(item => item.Pk == "P#1", CancellationToken);
 
         await act
             .Should()
@@ -142,9 +134,8 @@ public class SingleTest(DynamoContainerFixture fixture) : PkSkTableTestFixture(f
     {
         var act = async () => await Db
             .Items
-            .Where(item => item.Pk == "P#1")
             .WithNextToken("seed-token")
-            .SingleOrDefaultAsync(CancellationToken);
+            .SingleOrDefaultAsync(item => item.Pk == "P#1", CancellationToken);
 
         await act
             .Should()
