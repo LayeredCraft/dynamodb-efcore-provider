@@ -330,7 +330,15 @@ public abstract class DataAnnotationDynamoTest(
             modelBuilder.Ignore<ExtraSpecialBookLabel>();
             modelBuilder.Ignore<AnotherBookLabel>();
             modelBuilder.Ignore<AdditionalBookDetails>();
+            modelBuilder.Ignore<KeylessAndKeyAttributes>();
+            modelBuilder.Ignore<KeylessFluentApiAndKeyAttribute>();
+            modelBuilder.Ignore<KeyFluentApiAndKeylessAttribute>();
+            modelBuilder.Ignore<One>();
+            modelBuilder.Ignore<Two>();
+            modelBuilder.Ignore<Book>();
         }
+
+        protected override Task SeedAsync(PoolableDbContext context) => Task.CompletedTask;
     }
 
     [Collection(DynamoSpecificationCollection.Name)]
