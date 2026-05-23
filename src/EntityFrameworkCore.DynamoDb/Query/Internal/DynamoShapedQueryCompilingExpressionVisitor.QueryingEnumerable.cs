@@ -133,9 +133,10 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
                         "limit",
                         "Limit must be a positive integer.");
 
-                // Single-page when: First* terminal (always one request) OR user set Limit(n)
-                // (per ADR-002, Limit(n) is always a single request).
+                // Single-page when: First*/Single* terminal (always one request) OR user set
+                // Limit(n) (per ADR-002, Limit(n) is always a single request).
                 _singlePageOnly = enumerable._selectExpression.IsFirstTerminal
+                    || enumerable._selectExpression.IsSingleTerminal
                     || enumerable._selectExpression.HasUserLimit;
 
                 _concurrencyDetector = enumerable._threadSafetyChecksEnabled
@@ -201,8 +202,19 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
                         },
                         _singlePageOnly,
                         // Store the raw response on the query context so the shaper can bind it
-                        // to the __executeStatementResponse shadow property of each entity.
-                        response => _queryContext.CurrentPageResponse = response,
+                        // to the __executeStatementResponse shadow property of each entity. For
+                        // Single*, a continuation token means provider key-only/Limit=2 assumptions
+                        // failed, so throw instead of paging.
+                        response =>
+                        {
+                            _queryContext.CurrentPageResponse = response;
+
+                            if (_queryingEnumerable._selectExpression.IsSingleTerminal
+                                && response.NextToken is not null
+                                && response.Items.Count < 2)
+                                throw new InvalidOperationException(
+                                    DynamoStrings.SingleOrDefaultReturnedContinuationToken);
+                        },
                         IsGlobalSecondaryIndexSource(_queryingEnumerable._selectExpression));
 
                     _dataEnumerator = asyncEnumerable.GetAsyncEnumerator(_cancellationToken);

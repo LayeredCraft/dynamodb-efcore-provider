@@ -74,6 +74,36 @@ internal static class DynamoStrings
         + "take the first item client-side: "
         + ".Where(...).Limit(n).AsAsyncEnumerable().FirstOrDefaultAsync(ct)";
 
+    /// <summary>
+    ///     Thrown when <c>Single*</c> is used on a non-key or scan-like path. Server-side
+    ///     <c>Single*</c> is restricted to key-condition-only queries.
+    /// </summary>
+    public static string SingleOrDefaultRequiresKeyOnlyPath(string queryShape)
+        => $"Single/SingleOrDefault on a {queryShape} is not supported server-side. "
+            + "Server-side Single* is restricted to key-condition-only queries (partition-key "
+            + "equality or IN, with only key predicates). For non-key filters or scan-like paths, "
+            + "fetch server-side then select client-side via AsAsyncEnumerable(): "
+            + ".Where(...).AsAsyncEnumerable().SingleOrDefaultAsync(ct)";
+
+    /// <summary>
+    ///     Thrown when <c>Limit(n)</c> and <c>Single*</c> are combined directly.
+    /// </summary>
+    public const string SingleOrDefaultWithUserLimitNotSupported =
+        "Limit(n) cannot be combined with Single/SingleOrDefault directly. "
+        + "Single* requires provider-managed DynamoDB evaluation Limit=2 to detect duplicate "
+        + "matches. Use AsAsyncEnumerable() to explicitly evaluate Single* client-side: "
+        + ".Where(...).Limit(n).AsAsyncEnumerable().SingleOrDefaultAsync(ct)";
+
+    /// <summary>Error message when continuation token is applied to Single*.</summary>
+    public const string SingleOrDefaultWithNextTokenNotSupported =
+        "WithNextToken is not supported with Single/SingleOrDefault query shapes.";
+
+    /// <summary>Error message when DynamoDB returns continuation for provider-managed Single*.</summary>
+    public const string SingleOrDefaultReturnedContinuationToken =
+        "DynamoDB returned fewer than two items and a continuation token for a key-condition-only "
+        + "Single/SingleOrDefault query. This violates the provider's Single* invariant for "
+        + "one-request Limit=2 duplicate detection.";
+
     /// <summary>Error message for unsupported SkipWhile translation.</summary>
     public const string SkipWhileNotSupported =
         "DynamoDB PartiQL does not support SkipWhile translation.";
