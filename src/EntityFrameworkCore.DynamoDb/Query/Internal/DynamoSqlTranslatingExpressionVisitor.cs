@@ -823,10 +823,19 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         var expressionType = UnwrapNullableType(expression.Type);
         var modelType = UnwrapNullableType(dynamoTypeMapping.ClrType);
 
-        // EF's FindAsync builds object-typed parameters around converted key values.
+        // EF's FindAsync routes non-trivial struct keys through EF.Property<object>, which
+        // produces an object-typed SqlParameterExpression at translation time. Mirror EF Core's
+        // GenerateEqualExpression condition (ExpressionExtensions.BuildPredicate): allow the
+        // object-typed passthrough only for value types that are not bool, numeric, or enum —
+        // those types use a typed Expression.Equal path and must not be broadened here.
+        var objectTypedParameterAllowed = expression is SqlParameterExpression
+            && expressionType == typeof(object)
+            && !modelType.IsEnum
+            && modelType != typeof(bool)
+            && !DynamoWireValueConversion.IsNumericType(modelType);
+
         return modelType.IsValueType
-            && (expressionType == modelType
-                || expression is SqlParameterExpression && expressionType == typeof(object));
+            && (expressionType == modelType || objectTypedParameterAllowed);
     }
 
     private static bool IsSupportedEqualsType(Type type)
