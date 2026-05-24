@@ -274,6 +274,94 @@ public class SingleSafePathTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task SingleOrDefault_ManualGsi_PkAndSk_UsesEffectiveIndexKeys()
+    {
+        var (client, captured) = SetupMockClient(
+            new ExecuteStatementResponse { Items = [CreateGsiItem()] });
+        await using var context = GsiDbContext.Create(client);
+
+        var result = await context
+            .GsiItems
+            .WithIndex("ByPriorityStatus")
+            .Where(x => x.Priority == 3 && x.Status == "OPEN")
+            .SingleOrDefaultAsync(TestContext.Current.CancellationToken);
+
+        result.Should().NotBeNull();
+        result!.Priority.Should().Be(3);
+        result.Status.Should().Be("OPEN");
+        captured.Should().HaveCount(1);
+        captured.Single().Limit.Should().Be(2);
+        captured.Single().Statement.Should().Contain("FROM \"GsiTable\".\"ByPriorityStatus\"");
+        captured
+            .Single()
+            .Statement
+            .Should()
+            .Contain("WHERE \"priority\" = 3 AND \"status\" = 'OPEN'");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task SingleOrDefault_AutoGsi_PkAndSk_UsesEffectiveIndexKeys()
+    {
+        var (client, captured) = SetupMockClient(
+            new ExecuteStatementResponse { Items = [CreateGsiItem()] });
+        await using var context = GsiDbContext.Create(client);
+
+        var result = await context
+            .GsiItems
+            .Where(x => x.Priority == 3 && x.Status == "OPEN")
+            .SingleOrDefaultAsync(TestContext.Current.CancellationToken);
+
+        result.Should().NotBeNull();
+        result!.Priority.Should().Be(3);
+        result.Status.Should().Be("OPEN");
+        captured.Should().HaveCount(1);
+        captured.Single().Limit.Should().Be(2);
+        captured.Single().Statement.Should().Contain("FROM \"GsiTable\".\"ByPriorityStatus\"");
+        captured
+            .Single()
+            .Statement
+            .Should()
+            .Contain("WHERE \"priority\" = 3 AND \"status\" = 'OPEN'");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task SingleOrDefault_InheritanceHierarchy_PkAndSkEquality_Succeeds()
+    {
+        var (client, captured) = SetupMockClient(
+            new ExecuteStatementResponse { Items = [CreateChildItem()] });
+        await using var context = InheritanceDbContext.Create(client);
+
+        var result = await context
+            .Children
+            .Where(x => x.Pk == "P#1" && x.Sk == "S#1")
+            .SingleOrDefaultAsync(TestContext.Current.CancellationToken);
+
+        result.Should().NotBeNull();
+        result!.Pk.Should().Be("P#1");
+        result.Sk.Should().Be("S#1");
+        captured.Should().HaveCount(1);
+        captured.Single().Limit.Should().Be(2);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task SingleOrDefault_InheritanceHierarchy_PkOnly_ThrowsTranslationFailure()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        await using var context = InheritanceDbContext.Create(client);
+
+        var act = async () => await context
+            .Children
+            .Where(x => x.Pk == "P#1")
+            .SingleOrDefaultAsync(TestContext.Current.CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*discriminator filter on a multi-item source*");
+        await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SingleOrDefault_UserLimit_ThrowsTranslationFailure()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -334,6 +422,24 @@ public class SingleSafePathTests
             ["isActive"] = new AttributeValue { BOOL = true }
         };
 
+    private static Dictionary<string, AttributeValue> CreateGsiItem()
+        => new()
+        {
+            ["pk"] = new AttributeValue("P#1"),
+            ["sk"] = new AttributeValue("S#1"),
+            ["priority"] = new AttributeValue { N = "3" },
+            ["status"] = new AttributeValue("OPEN")
+        };
+
+    private static Dictionary<string, AttributeValue> CreateChildItem()
+        => new()
+        {
+            ["pk"] = new AttributeValue("P#1"),
+            ["sk"] = new AttributeValue("S#1"),
+            ["label"] = new AttributeValue("active"),
+            ["$type"] = new AttributeValue(nameof(ChildItem))
+        };
+
     private sealed record PkSkItem
     {
         public string Pk { get; set; } = null!;
@@ -342,6 +448,31 @@ public class SingleSafePathTests
 
         public bool IsActive { get; set; }
     }
+
+    private sealed record GsiItem
+    {
+        public string Pk { get; set; } = null!;
+
+        public string Sk { get; set; } = null!;
+
+        public int Priority { get; set; }
+
+        public string Status { get; set; } = null!;
+    }
+
+    private abstract record BaseItem
+    {
+        public string Pk { get; set; } = null!;
+
+        public string Sk { get; set; } = null!;
+    }
+
+    private sealed record ChildItem : BaseItem
+    {
+        public string Label { get; set; } = null!;
+    }
+
+    private sealed record SiblingItem : BaseItem;
 
     private sealed class SingleDbContext(DbContextOptions options) : DbContext(options)
     {
@@ -376,5 +507,57 @@ public class SingleSafePathTests
 
             return new SingleDbContext(builder.Options);
         }
+    }
+
+    private sealed class GsiDbContext(DbContextOptions options) : DbContext(options)
+    {
+        public DbSet<GsiItem> GsiItems => Set<GsiItem>();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<GsiItem>(b =>
+            {
+                b.ToTable("GsiTable");
+                b.HasPartitionKey(x => x.Pk);
+                b.HasSortKey(x => x.Sk);
+                b.HasGlobalSecondaryIndex("ByPriorityStatus", x => x.Priority, x => x.Status);
+            });
+
+        public static GsiDbContext Create(IAmazonDynamoDB client)
+            => new(
+                new DbContextOptionsBuilder<GsiDbContext>()
+                    .UseDynamo(options => options.DynamoDbClient(client))
+                    .ConfigureWarnings(w
+                        => w
+                            .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                            .Ignore(DynamoEventId.ScanLikeQueryDetected))
+                    .Options);
+    }
+
+    private sealed class InheritanceDbContext(DbContextOptions options) : DbContext(options)
+    {
+        public DbSet<ChildItem> Children => Set<ChildItem>();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<BaseItem>(b =>
+            {
+                b.ToTable("InheritanceTable");
+                b.HasPartitionKey(x => x.Pk);
+                b.HasSortKey(x => x.Sk);
+            });
+
+            modelBuilder.Entity<ChildItem>(b => b.HasBaseType<BaseItem>());
+            modelBuilder.Entity<SiblingItem>(b => b.HasBaseType<BaseItem>());
+        }
+
+        public static InheritanceDbContext Create(IAmazonDynamoDB client)
+            => new(
+                new DbContextOptionsBuilder<InheritanceDbContext>()
+                    .UseDynamo(options => options.DynamoDbClient(client))
+                    .ConfigureWarnings(w
+                        => w
+                            .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                            .Ignore(DynamoEventId.ScanLikeQueryDetected))
+                    .Options);
     }
 }

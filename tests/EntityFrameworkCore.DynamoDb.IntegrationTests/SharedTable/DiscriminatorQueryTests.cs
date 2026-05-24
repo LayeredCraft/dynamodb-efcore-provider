@@ -230,6 +230,45 @@ public class DiscriminatorInheritanceQueryTests(DynamoContainerFixture fixture)
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task DerivedQuery_SingleOrDefault_PkAndSkEquality_ReturnsMatchingDerivedItem()
+    {
+        SqlCapture.Clear();
+
+        var result = await InheritanceDb
+            .Employees
+            .Where(employee => employee.Pk == "TENANT#H" && employee.Sk == "PERSON#EMP-1")
+            .SingleOrDefaultAsync(CancellationToken);
+
+        result.Should().NotBeNull();
+        result!.Department.Should().Be("Engineering");
+
+        var calls = SqlCapture.ExecuteStatementCalls.ToList();
+        calls.Should().ContainSingle();
+        calls[0].Limit.Should().Be(2);
+
+        AssertSql(
+            """
+            SELECT "pk", "sk", "$type", "name", "department"
+            FROM "app-table"
+            WHERE "pk" = 'TENANT#H' AND "sk" = 'PERSON#EMP-1' AND "$type" = 'EmployeeEntity'
+            """);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task DerivedQuery_SingleOrDefault_PkOnly_ThrowsTranslationFailure()
+    {
+        var act = async () => await InheritanceDb
+            .Employees
+            .Where(employee => employee.Pk == "TENANT#H")
+            .SingleOrDefaultAsync(CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*discriminator filter on a multi-item source*");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task DerivedQuery_FirstOrDefault_PkOnly_ThrowsTranslationFailure()
     {
         var act = async () => await InheritanceDb
