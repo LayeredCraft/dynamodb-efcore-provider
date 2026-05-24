@@ -188,19 +188,15 @@ internal sealed class DynamoQueryTranslationPostprocessor(
                 false,
                 "runtime key metadata was unavailable");
 
-        if (queryConstraints.InConstraints.ContainsKey(effectivePk))
-            return CreateScanClassification(
-                selectExpression.TableName,
-                sourceDescription,
-                true,
-                $"partition key '{effectivePk}' uses IN/OR instead of a single equality");
+        var hasPkEquality = queryConstraints.EqualityConstraints.ContainsKey(effectivePk);
+        var hasPkIn = queryConstraints.InConstraints.ContainsKey(effectivePk);
 
-        if (!queryConstraints.EqualityConstraints.ContainsKey(effectivePk))
+        if (!hasPkEquality && !hasPkIn)
             return CreateScanClassification(
                 selectExpression.TableName,
                 sourceDescription,
                 true,
-                $"missing equality predicate on partition key '{effectivePk}'");
+                $"missing equality or IN predicate on partition key '{effectivePk}'");
 
         if (selectExpression.Predicate is not null
             && PredicateHasOrTouchingKey(
@@ -229,7 +225,7 @@ internal sealed class DynamoQueryTranslationPostprocessor(
             selectExpression.TableName,
             sourceDescription,
             false,
-            "single partition-key equality");
+            hasPkIn ? "partition-key IN" : "single partition-key equality");
     }
 
     /// <summary>Creates a scan classification with the standard user-facing message.</summary>
@@ -241,7 +237,7 @@ internal sealed class DynamoQueryTranslationPostprocessor(
     {
         var message = isScanLike
             ? $"Scan-like DynamoDB query detected for table '{tableName}' on {sourceDescription}: "
-            + $"{reason}. Add an equality predicate on the active partition key and at most one "
+            + $"{reason}. Add an equality or IN predicate on the active partition key and at most one "
             + "sort-key key condition, configure ConfigureWarnings for DynamoEventId.ScanLikeQueryDetected, "
             + "or append .AllowScan() for an intentional per-query scan."
             : string.Empty;
@@ -519,6 +515,7 @@ internal sealed class DynamoQueryTranslationPostprocessor(
             if (hasDiscriminatorPredicate
                 && !IsSingleItemBaseTableLookup(
                     queryConstraints,
+                    effectivePk,
                     effectiveSortKeyAttributeName,
                     isBaseTableSource))
                 throw new InvalidOperationException(
@@ -583,9 +580,19 @@ internal sealed class DynamoQueryTranslationPostprocessor(
 
         if (hasPkKeyCondition && !hasNonKeyPredicate)
         {
+            if (selectExpression.Predicate is not null
+                && PredicateHasOrTouchingKey(
+                    selectExpression.Predicate,
+                    effectivePk,
+                    effectiveSortKeyAttributeName))
+                throw new InvalidOperationException(
+                    DynamoStrings.SingleOrDefaultRequiresKeyOnlyPath(
+                        "OR predicate references a partition or sort key"));
+
             if (hasDiscriminatorPredicate
                 && !IsSingleItemBaseTableLookup(
                     queryConstraints,
+                    effectivePk,
                     effectiveSortKeyAttributeName,
                     isBaseTableSource))
                 throw new InvalidOperationException(
@@ -783,15 +790,19 @@ internal sealed class DynamoQueryTranslationPostprocessor(
         };
 
     /// <summary>
-    ///     Determines whether a <c>First*</c> query is guaranteed to evaluate at most one base-table
-    ///     item before discriminator filtering.
+    ///     Determines whether a terminal query is guaranteed to evaluate at most one base-table item
+    ///     before discriminator filtering.
     /// </summary>
     private static bool IsSingleItemBaseTableLookup(
         DynamoQueryConstraints queryConstraints,
+        string effectivePk,
         string? effectiveSortKeyAttributeName,
         bool isBaseTableSource)
     {
         if (!isBaseTableSource)
+            return false;
+
+        if (!queryConstraints.EqualityConstraints.ContainsKey(effectivePk))
             return false;
 
         if (effectiveSortKeyAttributeName is null)
