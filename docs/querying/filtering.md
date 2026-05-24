@@ -60,6 +60,7 @@ db.Orders.Where(o => o.Sk.StartsWith("ORDER#2026"));
 Only the `string`-parameter overload is supported. Overloads that accept `char`, `StringComparison`, or culture arguments are not translated and throw at query compilation.
 
 !!! note
+
     `contains` is also used for native DynamoDB list/set membership. See [Collection Membership](#collection-membership) below.
 
 ## String Comparisons
@@ -168,9 +169,8 @@ DynamoDB list or set when server-side membership queries are required.
 Every DynamoDB `ExecuteStatement` request is either a **Query** or a **Scan**. A Query reads only the items in a specific partition; a Scan reads every item in the table (or index). Scans are expensive — they consume read capacity across all partitions and slow down as the table grows.
 
 By default, the provider blocks scan-like reads before any DynamoDB request is sent. A query must
-target exactly one partition with an equality (`=`) predicate on the active partition key. The
-active key is the base-table key unless `.WithIndex(...)` or automatic index selection chooses a
-secondary index.
+use equality (`=`) or `IN` on the active partition key. The active key is the base-table key unless
+`.WithIndex(...)` or automatic index selection chooses a secondary index.
 
 ```csharp
 // ✅ Query — partition key equality
@@ -179,7 +179,7 @@ db.Orders.Where(o => o.Pk == customerId);
 // ✅ Query — PK equality + non-key filter (filter runs after read, still a Query)
 db.Orders.Where(o => o.Pk == customerId && o.Status == "PENDING");
 
-// ❌ Blocked by default — partition key IN is multi-partition
+// ✅ Query — partition key IN is bounded key access
 db.Orders.Where(o => ids.Contains(o.Pk));
 
 // ❌ Scan — comparison on partition key, not equality
@@ -195,12 +195,12 @@ Applying more than one condition to the partition key is almost always a mistake
 default safe form is a single equality. Comparisons (`>`, `<`, `>=`, `<=`), `BETWEEN`, or
 `begins_with` on the partition key do not narrow to a partition and are scan-like.
 
-The scan guard is stricter than raw PartiQL here: partition-key `IN` and partition-key `OR` are
-treated as scan-like because they fan out across multiple partitions. Use separate keyed queries
-when you need to load a known set of partition keys.
+Partition-key `IN` is bounded key access and is allowed by the scan guard. Partition-key `OR`
+remains blocked unless it is rewritten as `IN`, because the provider does not currently normalize
+`OR` predicates into DynamoDB key-condition `IN` predicates.
 
 ```csharp
-// ❌ Blocked by default — multi-partition PK OR
+// ❌ Blocked by default — use ids.Contains(o.Pk) instead
 db.Orders.Where(o => o.Pk == id1 || o.Pk == id2);
 
 // ❌ Scan — OR mixes PK with a non-key attribute

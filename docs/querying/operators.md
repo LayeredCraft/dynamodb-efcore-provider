@@ -92,7 +92,7 @@ The following operators are not supported and throw `InvalidOperationException` 
 
 | Category              | Operators                                                                    | Reason                                                                                          |
 | --------------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| Element operators     | `Any`                                                                        | Not supported server-side; use `AsAsyncEnumerable()` then LINQ-to-objects                       |
+| Element operators     | `Any`, `All`                                                                 | Not supported server-side; use `AsAsyncEnumerable()` then LINQ-to-objects                       |
 | Offset / paging       | `Skip`, `Take`, `ElementAt`, `ElementAtOrDefault`                            | DynamoDB has no offset semantics; use `Limit(n)` for evaluation budget                          |
 | Reverse traversal     | `Last`, `LastOrDefault`, `Reverse`                                           | Requires reverse index traversal, not currently implemented                                     |
 | Deduplication         | `Distinct`                                                                   | `SELECT DISTINCT` is not supported in DynamoDB PartiQL                                          |
