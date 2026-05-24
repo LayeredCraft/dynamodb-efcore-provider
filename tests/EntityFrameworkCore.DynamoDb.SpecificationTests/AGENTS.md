@@ -8,7 +8,7 @@ those tests run against a real DynamoDB Local instance.
 ## Shared Infrastructure
 
 | File                                                   | Role                                                                                                                         |
-|--------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------|
+| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
 | `TestUtilities/DynamoSpecificationContainerFixture.cs` | Shared DynamoDB Local container (Testcontainers). Started asynchronously by spec test infrastructure and disposed after use. |
 | `TestUtilities/DynamoTestStoreFactory.cs`              | Singleton factory. Plugs into EF Core test infra; vends `DynamoTestStore` and `TestSqlLoggerFactory`.                        |
 | `TestUtilities/DynamoTestStore.cs`                     | Per-test store backed by the shared container client.                                                                        |
@@ -84,7 +84,27 @@ public abstract class XxxDynamoTest : XxxTestBase<XxxDynamoTest.XxxDynamoFixture
 }
 ```
 
-### 3. Handle overrides
+### 3. Update tracking files
+
+When adding or removing a DynamoDB implementation of an EF Core spec test base, update both tracking
+files in the same change:
+
+1. `tests/EntityFrameworkCore.DynamoDb.SpecificationTests/ComplianceDynamoTest.cs`
+
+   - Add the EF Core spec base type to `GetBaseTestClasses()` when a concrete DynamoDB test exists.
+   - Use the upstream base type, e.g. `ValueConvertersEndToEndTestBase<>`, not the DynamoDB concrete test type.
+   - Remove entries only when the provider implementation is removed.
+
+2. `docs/spec-test-coverage.md`
+
+   - Move the spec base between `Implemented`, `Implement Next`, `Future`, or `Skip` as status changes.
+   - Keep method counts and notes accurate.
+   - Mention DynamoDB-specific limitations or fixture adaptations in user-facing terms.
+
+These files are compliance/documentation inventory. Keep them synchronized so `ComplianceDynamoTest`
+and the coverage docs tell the same story.
+
+### 4. Handle overrides
 
 Every specification test class must include `Check_all_tests_overridden` and call
 `DynamoTestHelpers.AssertAllTestMethodsOverridden(typeof(CurrentDynamoTestBase))`. Use the provider
@@ -134,7 +154,7 @@ public override async Task Some_async_test(CancellationType ct)
 ## Known DynamoDB Limitations
 
 | Feature        | Skip reason                                   |
-|----------------|-----------------------------------------------|
+| -------------- | --------------------------------------------- |
 | Composite keys | `"DynamoDB does not support composite keys."` |
 | Nullable keys  | `"DynamoDB does not support nullable keys."`  |
 | Shadow keys    | `"DynamoDB does not support shadow keys."`    |
