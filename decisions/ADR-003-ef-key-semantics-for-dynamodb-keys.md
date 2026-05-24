@@ -18,7 +18,7 @@ The current provider treats DynamoDB key annotations as the source of truth:
 - Conventions rebuild the EF primary key as `[partitionKey]` or
   `[partitionKey, sortKey]` when possible.
 - Runtime write, query, and table-generation code resolves DynamoDB keys from those annotations.
-- Validators reject explicit EF primary keys that do not match DynamoDB key annotations.
+- Validators reject explicit EF primary keys for root DynamoDB entities.
 
 This works, but creates two identity concepts: the EF primary key and the DynamoDB key annotations.
 Users coming from EF expect `HasKey(...)` and key discovery to participate in entity identity.
@@ -200,7 +200,7 @@ modelBuilder.Entity<Order>(b =>
 });
 ```
 
-The partition-key hint does not match the first EF key property.
+The partition-key configuration/annotation does not match the first EF key property.
 
 ```csharp
 modelBuilder.Entity<Order>(b =>
@@ -216,8 +216,9 @@ The explicit one-part EF key conflicts with the configured DynamoDB sort key.
 
 During model finalization:
 
-1. If `HasPartitionKey(...)` / `HasSortKey(...)` are configured and there is no primary key, or
-   only a convention-created primary key, synthesize the EF primary key from DynamoDB keys.
+1. If `HasPartitionKey(...)` and optional `HasSortKey(...)` are configured and there is no primary
+   key, or only a convention-created primary key, synthesize the EF primary key from the resolved
+   DynamoDB key roles. Synthesis requires a resolved partition key; a sort key alone is invalid.
 2. If an explicit or data-annotation EF primary key exists and no DynamoDB key annotations exist,
    infer DynamoDB key roles from EF key order.
 3. If both explicit or data-annotation EF primary key and DynamoDB annotations exist, validate that
@@ -240,15 +241,18 @@ For every root DynamoDB table entity:
 
 - Must have an EF primary key or provider key annotations from which one can be synthesized.
 - Final EF primary key must contain one or two properties.
-- First EF key property must be a DynamoDB-compatible scalar key type: string, number, or binary.
-- Second EF key property, if present, must be a DynamoDB-compatible scalar key type.
+- First EF key property must map to a DynamoDB key-compatible scalar attribute type: string (`S`),
+  number (`N`, including supported CLR numeric types), or binary (`B`).
+- Second EF key property, if present, must map to a DynamoDB key-compatible scalar attribute type:
+  string (`S`), number (`N`, including supported CLR numeric types), or binary (`B`).
 - Key properties must be required / non-nullable for DynamoDB key purposes.
 - If `HasPartitionKey(...)` is configured, the property must equal the first EF key property after
   synthesis/inference.
 - If `HasSortKey(...)` is configured, the property must equal the second EF key property after
   synthesis/inference.
-- `HasSortKey(...)` without explicit `HasKey(...)` is valid; provider synthesizes a two-part EF
-  primary key from partition/sort key annotations.
+- `HasSortKey(...)` without explicit `HasKey(...)` is valid only when a partition key is also
+  resolved/configured; provider then synthesizes a two-part EF primary key from partition/sort key
+  annotations.
 - `HasSortKey(...)` with explicit one-part `HasKey(...)` is invalid because the explicit EF key
   conflicts with the DynamoDB sort key.
 - Shared-table mappings must agree on partition/sort key attribute names and key type categories.
@@ -371,7 +375,7 @@ style on all users.
 
 - Decide whether resolved partition/sort key roles should be persisted as annotations, runtime
   annotations, or resolved dynamically from EF primary key.
-- Define exact error messages for mismatched explicit role hints.
+- Define exact error messages for mismatched explicit role configuration/annotations.
 - Update docs to present `HasPartitionKey(...)` / `HasSortKey(...)` first, with `HasKey(...)` as a
   supported EF-native alternative.
 - Add migration guidance before publishing or before the behavior change ships.
@@ -380,7 +384,7 @@ style on all users.
 
 - [ADR-001: Discriminator strategy for shared tables](./ADR-001-discriminator-strategy-for-shared-tables.md)
 - [ADR-002: Row limiting and paging semantics for DynamoDB queries](./ADR-002-pagination-model-options.md)
-- EF Core Cosmos provider prior art in local EF Core repository:
-  - `/Users/jonasha/Repos/CSharp/efcore/src/EFCore.Cosmos/Metadata/Conventions/CosmosKeyDiscoveryConvention.cs`
-  - `/Users/jonasha/Repos/CSharp/efcore/src/EFCore.Cosmos/Metadata/Conventions/CosmosPartitionKeyInPrimaryKeyConvention.cs`
-  - `/Users/jonasha/Repos/CSharp/efcore/src/EFCore.Cosmos/Metadata/Conventions/CosmosJsonIdConvention.cs`
+- EF Core Cosmos provider prior art in the EF Core repository:
+  - `src/EFCore.Cosmos/Metadata/Conventions/CosmosKeyDiscoveryConvention.cs`
+  - `src/EFCore.Cosmos/Metadata/Conventions/CosmosPartitionKeyInPrimaryKeyConvention.cs`
+  - `src/EFCore.Cosmos/Metadata/Conventions/CosmosJsonIdConvention.cs`
