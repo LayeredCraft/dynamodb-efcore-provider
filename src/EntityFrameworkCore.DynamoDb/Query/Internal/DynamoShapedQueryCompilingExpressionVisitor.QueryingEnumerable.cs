@@ -82,8 +82,8 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
             private readonly int? _limit;
 
             /// <summary>
-            ///     True when the query should stop after the first executed request — either because it is a
-            ///     <c>First*</c> terminal or because the user set an explicit <c>Limit(n)</c>.
+            ///     True when the query should stop after the first executed request: <c>First*</c>/<c>Single*</c>
+            ///     terminals (including implicit limits) or user <c>Limit(n)</c>.
             /// </summary>
             private readonly bool _singlePageOnly;
 
@@ -133,8 +133,8 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
                         "limit",
                         "Limit must be a positive integer.");
 
-                // Single-page when: First*/Single* terminal (always one request) OR user set
-                // Limit(n) (per ADR-002, Limit(n) is always a single request).
+                // Single-page when: First*/Single* terminal with implicit limit OR user Limit(n)
+                // (per ADR-002, Limit(n) is always a single request).
                 _singlePageOnly = enumerable._selectExpression.IsFirstTerminal
                     || enumerable._selectExpression.IsSingleTerminal
                     || enumerable._selectExpression.HasUserLimit;

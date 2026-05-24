@@ -30,6 +30,30 @@ public class SingleTest(DynamoContainerFixture fixture) : PkSkTableTestFixture(f
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task SingleOrDefaultAsync_KeyOnly_PkAndSkEquality_ReturnsMatchingItem()
+    {
+        LoggerFactory.Clear();
+
+        var result = await Db.Items.SingleOrDefaultAsync(
+            item => item.Pk == "P#1" && item.Sk == "0002",
+            CancellationToken);
+
+        var expected = PkSkItems.Items.Single(item => item.Pk == "P#1" && item.Sk == "0002");
+        result.Should().BeEquivalentTo(expected);
+
+        var calls = LoggerFactory.ExecuteStatementCalls.ToList();
+        calls.Should().ContainSingle();
+        calls[0].Limit.Should().Be(2);
+
+        AssertSql(
+            """
+            SELECT "pk", "sk", "category", "isTarget"
+            FROM "PkSkItems"
+            WHERE "pk" = 'P#1' AND "sk" = '0002'
+            """);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SingleOrDefaultAsync_KeyOnly_NoMatch_ReturnsNull()
     {
         var result = await Db.Items.SingleOrDefaultAsync(
@@ -99,6 +123,36 @@ public class SingleTest(DynamoContainerFixture fixture) : PkSkTableTestFixture(f
             SELECT "pk", "sk", "category", "isTarget"
             FROM "PkSkItems"
             WHERE "pk" IN [?, ?] AND "sk" = '0001'
+            """);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task SingleOrDefaultAsync_KeyOnly_PkInMultipleMatches_ThrowsMoreThanOneElement()
+    {
+        LoggerFactory.Clear();
+        var pks = new[] { "P#1", "P#2" };
+
+        var act = async () => await Db.Items.SingleOrDefaultAsync(
+            item => pks.Contains(item.Pk),
+            CancellationToken);
+
+        var exception = await act.Should().ThrowAsync<InvalidOperationException>();
+        exception
+            .Which
+            .Message
+            .Should()
+            .MatchRegex(
+                "(Sequence contains more than one element\\.|.*continuation token.*Single/SingleOrDefault.*)");
+
+        var calls = LoggerFactory.ExecuteStatementCalls.ToList();
+        calls.Should().ContainSingle();
+        calls[0].Limit.Should().Be(2);
+
+        AssertSql(
+            """
+            SELECT "pk", "sk", "category", "isTarget"
+            FROM "PkSkItems"
+            WHERE "pk" IN [?, ?]
             """);
     }
 

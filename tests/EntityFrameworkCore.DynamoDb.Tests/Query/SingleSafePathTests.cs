@@ -45,6 +45,24 @@ public class SingleSafePathTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Single_KeyOnly_OneItem_ReturnsItem()
+    {
+        var (client, captured) = SetupMockClient(
+            new ExecuteStatementResponse { Items = [CreateItem("S#1")] });
+        await using var context = SingleDbContext.Create(client);
+
+        var result = await context
+            .PkSkItems
+            .Where(x => x.Pk == "P#1" && x.Sk == "S#1")
+            .SingleAsync(TestContext.Current.CancellationToken);
+
+        result.Pk.Should().Be("P#1");
+        result.Sk.Should().Be("S#1");
+        captured.Should().HaveCount(1);
+        captured.Single().Limit.Should().Be(2);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Single_KeyOnly_ZeroItems_ThrowsNoElements()
     {
         var (client, _) = SetupMockClient(new ExecuteStatementResponse { Items = [] });
@@ -59,6 +77,26 @@ public class SingleSafePathTests
             .Should()
             .ThrowAsync<InvalidOperationException>()
             .WithMessage("Sequence contains no elements.");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Single_TwoItems_ThrowsMoreThanOneElement()
+    {
+        var (client, captured) = SetupMockClient(
+            new ExecuteStatementResponse { Items = [CreateItem("S#1"), CreateItem("S#2")] });
+        await using var context = SingleDbContext.Create(client);
+
+        var act = async () => await context
+            .PkSkItems
+            .Where(x => x.Pk == "P#1")
+            .SingleAsync(TestContext.Current.CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("Sequence contains more than one element.");
+        captured.Should().HaveCount(1);
+        captured.Single().Limit.Should().Be(2);
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
@@ -78,6 +116,7 @@ public class SingleSafePathTests
             .ThrowAsync<InvalidOperationException>()
             .WithMessage("Sequence contains more than one element.");
         captured.Should().HaveCount(1);
+        captured.Single().Limit.Should().Be(2);
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
@@ -85,6 +124,25 @@ public class SingleSafePathTests
     {
         var (client, captured) = SetupMockClient(
             new ExecuteStatementResponse { Items = [CreateItem("S#1")], NextToken = "next" });
+        await using var context = SingleDbContext.Create(client);
+
+        var act = async () => await context
+            .PkSkItems
+            .Where(x => x.Pk == "P#1")
+            .SingleOrDefaultAsync(TestContext.Current.CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*continuation token*Single/SingleOrDefault*");
+        captured.Should().HaveCount(1);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task SingleOrDefault_ZeroItemsWithNextToken_ThrowsProviderGuard()
+    {
+        var (client, captured) = SetupMockClient(
+            new ExecuteStatementResponse { Items = [], NextToken = "next" });
         await using var context = SingleDbContext.Create(client);
 
         var act = async () => await context
@@ -126,6 +184,25 @@ public class SingleSafePathTests
     {
         var client = Substitute.For<IAmazonDynamoDB>();
         await using var context = SingleDbContext.Create(client);
+
+        var act = async () => await context
+            .PkSkItems
+            .Where(x => x.Pk == "P#1" && x.IsActive)
+            .SingleOrDefaultAsync(TestContext.Current.CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*Single/SingleOrDefault*key-condition-only*");
+        await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task
+        SingleOrDefault_GlobalUnsafeFilteredQueries_NonKeyFilter_StillThrowsTranslationFailure()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        await using var context = SingleDbContext.Create(client, true);
 
         var act = async () => await context
             .PkSkItems
