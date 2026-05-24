@@ -172,7 +172,13 @@ internal sealed class DynamoConvertedValueReaderWriter<TModel, TProvider>(
         => innerReaderWriter;
 
     internal override bool HasValue(AttributeValue attributeValue)
-        => innerReaderWriter.HasValue(attributeValue);
+    {
+        if (attributeValue is null)
+            return converter.ConvertsNulls;
+
+        return innerReaderWriter.HasValue(attributeValue)
+            || (converter.ConvertsNulls && attributeValue.NULL == true);
+    }
 
     internal override Expression CreateReadExpression(
         Expression attributeValueExpression,
@@ -196,8 +202,16 @@ internal sealed class DynamoConvertedValueReaderWriter<TModel, TProvider>(
         AttributeValue attributeValue,
         string propertyPath,
         IProperty? property)
-        => (TModel)converter.ConvertFromProvider(
-            innerReaderWriter.Read(attributeValue, propertyPath, true, property))!;
+    {
+        var providerValue =
+            attributeValue is not null
+            && attributeValue.NULL != true
+            && innerReaderWriter.HasValue(attributeValue)
+                ? innerReaderWriter.Read(attributeValue, propertyPath, true, property)
+                : default;
+
+        return (TModel)converter.ConvertFromProvider(providerValue)!;
+    }
 
     public override AttributeValue Write(TModel value)
         => innerReaderWriter.Write((TProvider)converter.ConvertToProvider(value)!);
