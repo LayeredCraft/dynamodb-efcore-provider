@@ -216,21 +216,27 @@ The explicit one-part EF key conflicts with the configured DynamoDB sort key.
 
 During model finalization:
 
-1. If `HasPartitionKey(...)` / `HasSortKey(...)` are configured and no explicit EF key exists,
-   synthesize the EF primary key from DynamoDB keys.
-2. If an explicit EF primary key exists and no DynamoDB key annotations exist, infer DynamoDB key
-   roles from EF key order.
-3. If both explicit EF primary key and DynamoDB annotations exist, validate that they match
-   exactly.
+1. If `HasPartitionKey(...)` / `HasSortKey(...)` are configured and there is no primary key, or
+   only a convention-created primary key, synthesize the EF primary key from DynamoDB keys.
+2. If an explicit or data-annotation EF primary key exists and no DynamoDB key annotations exist,
+   infer DynamoDB key roles from EF key order.
+3. If both explicit or data-annotation EF primary key and DynamoDB annotations exist, validate that
+   they match exactly.
 4. If an EF primary key exists:
    - the first key property maps to the partition key;
    - the second key property maps to the sort key;
    - no third key property is allowed.
 5. Runtime code consumes resolved key roles after finalization.
 
+"Explicit EF primary key" means a key configured with `HasKey(...)`. A data-annotation key means
+key metadata sourced from EF data annotations. A convention-created key means EF discovered the key
+from naming conventions such as `Id`, `PK`, `PartitionKey`, `SK`, or `SortKey`. Provider key APIs
+may replace convention-created keys, but should not silently rewrite explicit or data-annotation
+keys.
+
 ### Validation rules
 
-For every root DynamoDB entity:
+For every root DynamoDB table entity:
 
 - Must have an EF primary key or provider key annotations from which one can be synthesized.
 - Final EF primary key must contain one or two properties.
@@ -246,6 +252,10 @@ For every root DynamoDB entity:
 - `HasSortKey(...)` with explicit one-part `HasKey(...)` is invalid because the explicit EF key
   conflicts with the DynamoDB sort key.
 - Shared-table mappings must agree on partition/sort key attribute names and key type categories.
+- Owned/embedded types are excluded from DynamoDB table key validation because they are stored
+  inside a root document/item rather than as independent table items.
+- Derived entity types use the root table entity's resolved key shape; inheritance mappings must
+  not introduce a conflicting table key.
 
 ### Expected codebase impact
 
@@ -262,7 +272,7 @@ Expected changes:
 
 - Keep conventional key discovery for `PK`, `PartitionKey`, fallback `Id`, `SK`, and `SortKey`.
 - Synthesize EF primary keys from provider key annotations when no explicit EF key exists.
-- Infer missing DynamoDB key annotations or runtime key roles from explicit EF primary key.
+- Infer resolved DynamoDB key roles from explicit EF primary key configuration.
 - Validate conflicts when both configuration styles are present.
 - Avoid silently rewriting explicit EF primary keys.
 
@@ -370,5 +380,7 @@ style on all users.
 
 - [ADR-001: Discriminator strategy for shared tables](./ADR-001-discriminator-strategy-for-shared-tables.md)
 - [ADR-002: Row limiting and paging semantics for DynamoDB queries](./ADR-002-pagination-model-options.md)
-- EF Core Cosmos provider prior art: `CosmosKeyDiscoveryConvention`,
-  `CosmosPartitionKeyInPrimaryKeyConvention`, and `CosmosJsonIdConvention`
+- EF Core Cosmos provider prior art in local EF Core repository:
+  - `/Users/jonasha/Repos/CSharp/efcore/src/EFCore.Cosmos/Metadata/Conventions/CosmosKeyDiscoveryConvention.cs`
+  - `/Users/jonasha/Repos/CSharp/efcore/src/EFCore.Cosmos/Metadata/Conventions/CosmosPartitionKeyInPrimaryKeyConvention.cs`
+  - `/Users/jonasha/Repos/CSharp/efcore/src/EFCore.Cosmos/Metadata/Conventions/CosmosJsonIdConvention.cs`
