@@ -30,7 +30,7 @@ public class SingleSafePathTests
     public async Task SingleOrDefault_KeyOnly_PkIn_UsesImplicitLimit2()
     {
         var (client, captured) = SetupMockClient(new ExecuteStatementResponse { Items = [] });
-        await using var context = SingleDbContext.Create(client);
+        await using var context = SingleDbContext.Create(client, ignoreScanWarnings: false);
         var pks = new[] { "P#1", "P#2" };
 
         var result = await context
@@ -41,6 +41,7 @@ public class SingleSafePathTests
         result.Should().BeNull();
         captured.Should().HaveCount(1);
         captured.Single().Limit.Should().Be(2);
+        captured.Single().Statement.Should().Contain("WHERE \"pk\" IN [?, ?]");
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
@@ -159,6 +160,24 @@ public class SingleSafePathTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task SingleOrDefault_PkOr_ThrowsTranslationFailure()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        await using var context = SingleDbContext.Create(client, ignoreScanWarnings: false);
+
+        var act = async () => await context
+            .PkSkItems
+            .Where(x => x.Pk == "P#1" || x.Pk == "P#2")
+            .SingleOrDefaultAsync(TestContext.Current.CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*OR predicate references*");
+        await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task SingleOrDefault_SkIn_ThrowsTranslationFailure()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -261,7 +280,8 @@ public class SingleSafePathTests
 
         public static SingleDbContext Create(
             IAmazonDynamoDB client,
-            bool allowUnsafeFilteredQueries = false)
+            bool allowUnsafeFilteredQueries = false,
+            bool ignoreScanWarnings = true)
         {
             var builder = new DbContextOptionsBuilder<SingleDbContext>().UseDynamo(options =>
             {
@@ -269,10 +289,13 @@ public class SingleSafePathTests
                 options.AllowUnsafeFilteredQueries(allowUnsafeFilteredQueries);
             });
 
-            builder.ConfigureWarnings(w
-                => w
-                    .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
-                    .Ignore(DynamoEventId.ScanLikeQueryDetected));
+            builder.ConfigureWarnings(w =>
+            {
+                w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning);
+
+                if (ignoreScanWarnings)
+                    w.Ignore(DynamoEventId.ScanLikeQueryDetected);
+            });
 
             return new SingleDbContext(builder.Options);
         }
