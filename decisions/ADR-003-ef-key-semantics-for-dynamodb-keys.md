@@ -1,13 +1,12 @@
+---
+status: Proposed
+date: 2026-05-24
+deciders:
+  - EntityFrameworkCore.DynamoDb maintainers
+supersedes: none
+---
+
 # ADR-003: EF key semantics for DynamoDB keys
-
-## Status
-
-- Proposed
-- **Date:** 2026-05-24
-- **Deciders:** EntityFrameworkCore.DynamoDb maintainers
-- **Supersedes:** none
-
-______________________________________________________________________
 
 ## Context
 
