@@ -46,13 +46,13 @@ _This page is the authoritative reference for which LINQ operators translate to 
 
 Terminal operators execute the query and return results. The provider supports the following terminals:
 
-| LINQ Operator                | Behavior                                         | Notes                                                                                                                 |
-| ---------------------------- | ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
-| `ToListAsync()`              | Fetches all pages; returns `List<T>`             | Provider follows `NextToken` until exhausted                                                                          |
-| `AsAsyncEnumerable()`        | Streams results as `IAsyncEnumerable<T>`         | Marks the explicit client-side evaluation boundary; LINQ applied after this runs in-process                           |
-| `ToPageAsync(limit, token)`  | Single DynamoDB request; returns `DynamoPage<T>` | DynamoDB-specific; use for cursor-based pagination                                                                    |
-| `First` / `FirstOrDefault`   | Implicit `Limit=1`; single request               | Key-only safe path by default; `AsUnsafeFilteredQuery()` bypasses safety validation but can miss later matching items |
-| `Single` / `SingleOrDefault` | Implicit `Limit=2`; single request               | Key-condition-only; allows PK equality or PK `IN`; no unsafe filtered escape hatch yet                                |
+| LINQ Operator                | Behavior                                         | Notes                                                                                                                    |
+| ---------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| `ToListAsync()`              | Fetches all pages; returns `List<T>`             | Provider follows `NextToken` until exhausted                                                                             |
+| `AsAsyncEnumerable()`        | Streams results as `IAsyncEnumerable<T>`         | Marks the explicit client-side evaluation boundary; LINQ applied after this runs in-process                              |
+| `ToPageAsync(limit, token)`  | Single DynamoDB request; returns `DynamoPage<T>` | DynamoDB-specific; use for cursor-based pagination                                                                       |
+| `First` / `FirstOrDefault`   | Implicit `Limit=1`; single request               | Key-only safe path by default; `AsUnsafeFilteredQuery()` bypasses safety validation but can miss later matching items    |
+| `Single` / `SingleOrDefault` | Implicit `Limit=2`; single request               | Key-condition-only; allows PK equality or PK `IN`; shared-table discriminator queries need base-table single-item lookup |
 
 ## Primary-Key Lookup
 

@@ -170,8 +170,12 @@ filtered escape hatch yet: `AsUnsafeFilteredQuery()` and `AllowUnsafeFilteredQue
 bypass `Single*` validation.
 
 Allowed partition-key conditions are equality and `IN`. Sort-key predicates are allowed only when
-they are DynamoDB key conditions (`=`, `<`, `<=`, `>`, `>=`, `BETWEEN`, `begins_with`). Explicit
-`Limit(n)` and `WithNextToken()` combined with `Single*` throw at translation time.
+they are DynamoDB key conditions (`=`, `<`, `<=`, `>`, `>=`, `BETWEEN`, `begins_with`). For
+shared-table inheritance queries with discriminator filters, `Single*` requires a base-table lookup
+that identifies one physical item: PK equality on a PK-only table, or PK+SK equality on a PK+SK
+table. Secondary-index derived-type queries can fail validation even when they include index key
+conditions. Explicit `Limit(n)` and `WithNextToken()` combined with `Single*` throw at translation
+time.
 
 If DynamoDB returns any `NextToken` for a validated `Single*` query, the provider throws
 `InvalidOperationException`. This is treated as a guard against an unexpected provider/DynamoDB

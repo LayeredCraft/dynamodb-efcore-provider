@@ -23,7 +23,95 @@ public class SingleSafePathTests
         result.Should().BeNull();
         captured.Should().HaveCount(1);
         captured.Single().Limit.Should().Be(2);
+        captured.Single().Statement.Should().Contain("WHERE \"pk\" = 'P#1'");
         captured.Single().Statement.Should().NotContain("LIMIT");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task SingleOrDefault_PredicateOverload_KeyOnly_PkEquality_UsesImplicitLimit2()
+    {
+        var (client, captured) = SetupMockClient(new ExecuteStatementResponse { Items = [] });
+        await using var context = SingleDbContext.Create(client);
+
+        var result = await context.PkSkItems.SingleOrDefaultAsync(
+            x => x.Pk == "P#1",
+            TestContext.Current.CancellationToken);
+
+        result.Should().BeNull();
+        captured.Should().HaveCount(1);
+        captured.Single().Limit.Should().Be(2);
+        captured.Single().Statement.Should().Contain("WHERE \"pk\" = 'P#1'");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task SingleOrDefault_PredicateOverload_NonKeyFilter_ThrowsTranslationFailure()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        await using var context = SingleDbContext.Create(client);
+
+        var act = async () => await context.PkSkItems.SingleOrDefaultAsync(
+            x => x.Pk == "P#1" && x.IsActive,
+            TestContext.Current.CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*Single/SingleOrDefault*key-condition-only*");
+        await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task SingleOrDefault_EmptyNextToken_DoesNotThrowProviderGuard()
+    {
+        var (client, captured) = SetupMockClient(
+            new ExecuteStatementResponse { Items = [], NextToken = string.Empty });
+        await using var context = SingleDbContext.Create(client);
+
+        var result = await context
+            .PkSkItems
+            .Where(x => x.Pk == "P#1")
+            .SingleOrDefaultAsync(TestContext.Current.CancellationToken);
+
+        result.Should().BeNull();
+        captured.Should().HaveCount(1);
+        captured.Single().Limit.Should().Be(2);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task SingleOrDefault_OrderedKeyOnlyProjection_UsesImplicitLimit2()
+    {
+        var (client, captured) = SetupMockClient(
+            new ExecuteStatementResponse { Items = [CreateItem("S#1")] });
+        await using var context = SingleDbContext.Create(client);
+
+        var result = await context
+            .PkSkItems
+            .Where(x => x.Pk == "P#1")
+            .OrderBy(x => x.Sk)
+            .Select(x => x.Sk)
+            .SingleOrDefaultAsync(TestContext.Current.CancellationToken);
+
+        result.Should().Be("S#1");
+        captured.Should().HaveCount(1);
+        captured.Single().Limit.Should().Be(2);
+        captured.Single().Statement.Should().Contain("ORDER BY \"sk\" ASC");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task SingleOrDefault_ValueTypeProjection_ZeroItems_ReturnsDefault()
+    {
+        var (client, captured) = SetupMockClient(new ExecuteStatementResponse { Items = [] });
+        await using var context = SingleDbContext.Create(client);
+
+        var result = await context
+            .PkSkItems
+            .Where(x => x.Pk == "P#1")
+            .Select(x => x.IsActive)
+            .SingleOrDefaultAsync(TestContext.Current.CancellationToken);
+
+        result.Should().BeFalse();
+        captured.Should().HaveCount(1);
+        captured.Single().Limit.Should().Be(2);
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]

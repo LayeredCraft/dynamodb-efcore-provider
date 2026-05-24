@@ -96,13 +96,16 @@ internal static class DynamoStrings
 
     /// <summary>Error message when continuation token is applied to Single*.</summary>
     public const string SingleOrDefaultWithNextTokenNotSupported =
-        "WithNextToken is not supported with Single/SingleOrDefault query shapes.";
+        "WithNextToken is not supported with Single/SingleOrDefault query shapes because "
+        + "cardinality cannot be proven from the middle of a paged result set. Remove "
+        + "WithNextToken, or page explicitly and apply Single* client-side if needed.";
 
     /// <summary>Error message when DynamoDB returns continuation for provider-managed Single*.</summary>
     public const string SingleOrDefaultReturnedContinuationToken =
         "DynamoDB returned a continuation token for a key-condition-only "
         + "Single/SingleOrDefault query. This violates the provider's Single* invariant for "
-        + "one-request Limit=2 duplicate detection.";
+        + "one-request Limit=2 duplicate detection. Use a narrower key condition, remove "
+        + "Single*, or page explicitly and apply cardinality checks client-side.";
 
     /// <summary>Error message for unsupported SkipWhile translation.</summary>
     public const string SkipWhileNotSupported =

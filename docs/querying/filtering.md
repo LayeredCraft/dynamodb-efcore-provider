@@ -166,7 +166,7 @@ DynamoDB list or set when server-side membership queries are required.
 
 ## Queries vs Scans
 
-Every DynamoDB `ExecuteStatement` request is either a **Query** or a **Scan**. A Query reads only the items in a specific partition; a Scan reads every item in the table (or index). Scans are expensive — they consume read capacity across all partitions and slow down as the table grows.
+Every DynamoDB `ExecuteStatement` request is either a **Query** or a **Scan**. A Query reads items from one or more keyed partitions; a Scan reads every item in the table (or index). Scans are expensive — they consume read capacity across all partitions and slow down as the table grows.
 
 By default, the provider blocks scan-like reads before any DynamoDB request is sent. A query must
 use equality (`=`) or `IN` on the active partition key. The active key is the base-table key unless
@@ -192,8 +192,9 @@ db.Orders.Where(o => o.Status == "PENDING");
 ### Multiple conditions on the partition key
 
 Applying more than one condition to the partition key is almost always a mistake. The provider's
-default safe form is a single equality. Comparisons (`>`, `<`, `>=`, `<=`), `BETWEEN`, or
-`begins_with` on the partition key do not narrow to a partition and are scan-like.
+default safe forms are equality or partition-key `IN`. Comparisons (`>`, `<`, `>=`, `<=`),
+`BETWEEN`, or `begins_with` on the partition key do not narrow to keyed partitions and are
+scan-like.
 
 Partition-key `IN` is bounded key access and is allowed by the scan guard. Partition-key `OR`
 remains blocked unless it is rewritten as `IN`, because the provider does not currently normalize

@@ -108,6 +108,7 @@ There is no global default page size. Specify the evaluation budget explicitly o
 | `First*` + any `Limit(n)`                               | Translation failure             | —                                |
 | `.Limit(n)` + `AsAsyncEnumerable()` + `First*`          | `n` (client-side selection)     | No                               |
 | `Single*` (key-condition-only, no explicit limit)       | `2`                             | No; any `NextToken` throws guard |
+| `.WithNextToken(token)` + `Single*`                     | Translation failure             | —                                |
 | `Single*` + any `Limit(n)`                              | Translation failure             | —                                |
 | `.Limit(n)` + `AsAsyncEnumerable()` + `Single*`         | `n` (client-side selection)     | No                               |
 | `ToListAsync()` (no limit)                              | `null` (1 MB/page)              | Yes                              |
