@@ -78,7 +78,7 @@ var page = await db.Orders
 
 `WithNextToken` accepts only a non-null, non-whitespace string. It can be applied once per query. When combined with `ToPageAsync(limit, nextToken)`, only one of the two token sources may be non-null; providing a non-null token to both throws at execution.
 
-`WithNextToken` is not supported with `First`/`FirstOrDefault` query shapes.
+`WithNextToken` is not supported with `First`/`FirstOrDefault` or `Single`/`SingleOrDefault` query shapes.
 
 ## Page Size vs Evaluation Budget
 
@@ -97,17 +97,21 @@ There is no global default page size. Specify the evaluation budget explicitly o
 
 ## Evaluation Budget Reference
 
-| Query Shape                                             | `ExecuteStatementRequest.Limit` | Pages?              |
-| ------------------------------------------------------- | ------------------------------- | ------------------- |
-| `.Limit(n)` + `ToListAsync()`                           | `n`                             | No (single request) |
-| `.ToPageAsync(n, token)`                                | `n`                             | One request         |
-| `.WithNextToken(token)` + `ToListAsync()`               | `null` (1 MB/page)              | Yes                 |
-| `.WithNextToken(token)` + `.Limit(n)` + `ToListAsync()` | `n`                             | No (single request) |
-| `.WithNextToken(token)` + `.ToPageAsync(n, null)`       | `n`                             | One request         |
-| `First*` (key-only, no explicit limit)                  | `1`                             | No                  |
-| `First*` + any `Limit(n)`                               | Translation failure             | —                   |
-| `.Limit(n)` + `AsAsyncEnumerable()` + `First*`          | `n` (client-side selection)     | No                  |
-| `ToListAsync()` (no limit)                              | `null` (1 MB/page)              | Yes                 |
+| Query Shape                                             | `ExecuteStatementRequest.Limit` | Pages?                           |
+| ------------------------------------------------------- | ------------------------------- | -------------------------------- |
+| `.Limit(n)` + `ToListAsync()`                           | `n`                             | No (single request)              |
+| `.ToPageAsync(n, token)`                                | `n`                             | One request                      |
+| `.WithNextToken(token)` + `ToListAsync()`               | `null` (1 MB/page)              | Yes                              |
+| `.WithNextToken(token)` + `.Limit(n)` + `ToListAsync()` | `n`                             | No (single request)              |
+| `.WithNextToken(token)` + `.ToPageAsync(n, null)`       | `n`                             | One request                      |
+| `First*` (key-only, no explicit limit)                  | `1`                             | No                               |
+| `First*` + any `Limit(n)`                               | Translation failure             | —                                |
+| `.Limit(n)` + `AsAsyncEnumerable()` + `First*`          | `n` (client-side selection)     | No                               |
+| `Single*` (key-condition-only, no explicit limit)       | `2`                             | No; any `NextToken` throws guard |
+| `.WithNextToken(token)` + `Single*`                     | Translation failure             | —                                |
+| `Single*` + any `Limit(n)`                              | Translation failure             | —                                |
+| `.Limit(n)` + `AsAsyncEnumerable()` + `Single*`         | `n` (client-side selection)     | No                               |
+| `ToListAsync()` (no limit)                              | `null` (1 MB/page)              | Yes                              |
 
 ## Accessing the Raw Response Token
 
