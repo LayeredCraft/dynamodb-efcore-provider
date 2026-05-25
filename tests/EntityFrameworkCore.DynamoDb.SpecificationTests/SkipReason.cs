@@ -29,8 +29,7 @@ public static class SkipReason
     public const string SetOperationsNotSupported =
         "DynamoDB PartiQL does not support set operations.";
 
-    public const string GroupByNotSupported =
-        "DynamoDB PartiQL does not support GROUP BY.";
+    public const string GroupByNotSupported = "DynamoDB PartiQL does not support GROUP BY.";
 
     public const string EntityTypeNotMappedInFixture =
         "This entity type is not mapped in the DynamoDB specification test fixture.";
@@ -46,4 +45,10 @@ public static class SkipReason
 
     public const string PartitionKeyRequiredOnAllEntities =
         "DynamoDB requires every entity type in the model to have a partition key.";
+
+    public const string KeylessEntityTypesNotSupported =
+        "DynamoDB does not support keyless root entity types.";
+
+    public const string GeneratedIntegerKeysNotSupported =
+        "DynamoDB does not support generated integer keys.";
 }

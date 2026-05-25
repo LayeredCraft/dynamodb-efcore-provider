@@ -24,6 +24,7 @@ public sealed class ComplianceDynamoTest : ComplianceTestBase
         yield return typeof(LoggingTestBase);
         yield return typeof(MaterializationInterceptionTestBase<>);
         yield return typeof(OverzealousInitializationTestBase<>);
+        yield return typeof(WithConstructorsTestBase<>);
         yield return typeof(QueryExpressionInterceptionTestBase);
         yield return typeof(SaveChangesInterceptionTestBase);
         yield return typeof(SeedingTestBase);

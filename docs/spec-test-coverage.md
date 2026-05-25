@@ -31,25 +31,26 @@ change tracking, concurrency, Find, value converters, interceptors, and more.
 
 ### Implemented
 
-| Test Class                            | Methods | Cosmos | MongoDB | Notes                                                                        |
-| ------------------------------------- | ------: | :----: | :-----: | ---------------------------------------------------------------------------- |
-| `ApiConsistencyTestBase`              |      18 |   ✓    |    ✓    | Provider API surface/naming conventions                                      |
-| `BuiltInDataTypesTestBase`            |      28 |   ✓    |    ✓    | Scalar type round-trips (bool, int, string, DateTime, etc.)                  |
-| `ComplexTypesTrackingTestBase`        |     128 |   ✓    |    ✗    | Complex type change tracking; DynamoDB complex types fully supported         |
-| `ConcurrencyDetectorDisabledTestBase` |       1 |   ✓    |    ✗    | `ConcurrencyDetector` opt-out                                                |
-| `ConcurrencyDetectorEnabledTestBase`  |       1 |   ✓    |    ✗    | `ConcurrencyDetector` opt-in                                                 |
-| `OptimisticConcurrencyTestBase`       |      33 |   ✓    |    ✗    | ETag / version token concurrency                                             |
-| `FindTestBase`                        |      69 |   ✓    |    ✗    | `Find`/`FindAsync` by primary key                                            |
-| `ComplianceTestBase`                  |       1 |   ✗    |    ✗    | Compliance marker for implemented provider spec bases                        |
-| `OverzealousInitializationTestBase`   |       1 |   ✓    |    ✗    | Navigation-based fixup test is explicitly skipped                            |
-| `LoggingTestBase`                     |       1 |   ✗    |    ✗    | Context-initialization logging covered; unsupported include path skipped     |
-| `SaveChangesInterceptionTestBase`     |      13 |   ✗    |    ✗    | Transaction-dependent cases are explicitly skipped                           |
-| `QueryExpressionInterceptionTestBase` |       4 |   ✓    |    ✗    | Spec `Single` shapes are skipped when they are not key-condition-only         |
-| `MaterializationInterceptionTestBase` |       7 |   ✓    |    ✗    | Materialization interceptor coverage; owned/complex collection cases skipped |
-| `CompositeKeyEndToEndTestBase`        |       3 |   ✗    |    ✗    | PK+SK round-trip covered; three-part composite-key cases skipped             |
-| `ConvertToProviderTypesTestBase`      |       2 |   ✗    |    ✗    | Additional enum/provider-type conversion query methods beyond `BuiltInDataTypesTestBase` |
-| `CustomConvertersTestBase`            |      29 |   ✓    |    ✗    | Value converter round-trips; unsupported converter edge cases explicitly skipped |
-| `SeedingTestBase`                     |       2 |   ✗    |    ✗    | `HasData` seeding is covered; keyless entity seeding is skipped because DynamoDB requires partition keys |
+| Test Class                            | Methods | Cosmos | MongoDB | Notes                                                                                                           |
+| ------------------------------------- | ------: | :----: | :-----: | --------------------------------------------------------------------------------------------------------------- |
+| `ApiConsistencyTestBase`              |      18 |   ✓    |    ✓    | Provider API surface/naming conventions                                                                         |
+| `BuiltInDataTypesTestBase`            |      28 |   ✓    |    ✓    | Scalar type round-trips (bool, int, string, DateTime, etc.)                                                     |
+| `ComplexTypesTrackingTestBase`        |     128 |   ✓    |    ✗    | Complex type change tracking; DynamoDB complex types fully supported                                            |
+| `ConcurrencyDetectorDisabledTestBase` |       1 |   ✓    |    ✗    | `ConcurrencyDetector` opt-out                                                                                   |
+| `ConcurrencyDetectorEnabledTestBase`  |       1 |   ✓    |    ✗    | `ConcurrencyDetector` opt-in                                                                                    |
+| `OptimisticConcurrencyTestBase`       |      33 |   ✓    |    ✗    | ETag / version token concurrency                                                                                |
+| `FindTestBase`                        |      69 |   ✓    |    ✗    | `Find`/`FindAsync` by primary key                                                                               |
+| `ComplianceTestBase`                  |       1 |   ✗    |    ✗    | Compliance marker for implemented provider spec bases                                                           |
+| `OverzealousInitializationTestBase`   |       1 |   ✓    |    ✗    | Navigation-based fixup test is explicitly skipped                                                               |
+| `LoggingTestBase`                     |       1 |   ✗    |    ✗    | Context-initialization logging covered; unsupported include path skipped                                        |
+| `SaveChangesInterceptionTestBase`     |      13 |   ✗    |    ✗    | Transaction-dependent cases are explicitly skipped                                                              |
+| `QueryExpressionInterceptionTestBase` |       4 |   ✓    |    ✗    | Spec `Single` shapes are skipped when they are not key-condition-only                                           |
+| `MaterializationInterceptionTestBase` |       7 |   ✓    |    ✗    | Materialization interceptor coverage; owned/complex collection cases skipped                                    |
+| `CompositeKeyEndToEndTestBase`        |       3 |   ✗    |    ✗    | PK+SK round-trip covered; three-part composite-key cases skipped                                                |
+| `ConvertToProviderTypesTestBase`      |       2 |   ✗    |    ✗    | Additional enum/provider-type conversion query methods beyond `BuiltInDataTypesTestBase`                        |
+| `CustomConvertersTestBase`            |      29 |   ✓    |    ✗    | Value converter round-trips; unsupported converter edge cases explicitly skipped                                |
+| `SeedingTestBase`                     |       2 |   ✗    |    ✗    | `HasData` seeding is covered; keyless entity seeding is skipped because DynamoDB requires partition keys        |
+| `WithConstructorsTestBase`            |      41 |   ✗    |    ✗    | Service-injection materialization covered; relationship, keyless, lazy-loading, and generated-int cases skipped |
 
 ### Implement Next
 
@@ -63,7 +64,6 @@ Feasible but requires investigation or additional provider work before adding.
 | --------------------------------- | ------: | :----: | :-----: | ----------: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `KeysWithConvertersTestBase`      |      47 |   ✓    |    ✗    |        ~70% | Keys that pass through value converters; type mapping validation needed                                                                                                                             |
 | `ValueConvertersEndToEndTestBase` |       1 |   ✗    |    ✗    |        ~80% | Single E2E converter test; base-test `SingleAsync` shape must be adapted to provider key-condition constraints                                                                                      |
-| `WithConstructorsTestBase`        |      41 |   ✗    |    ✗    |        ~70% | Entities using non-default constructors; DynamoDB materializes via EF's normal pipeline                                                                                                             |
 | `PropertyValuesTestBase`          |     167 |   ✗    |    ✗    |        ~55% | `CurrentValues`/`OriginalValues`/`GetDatabaseValues`; `GetDatabaseValues` requires a read which DynamoDB supports, but relational semantics for shadow keys and navigation tracking reduce coverage |
 | `StoreGeneratedTestBase`          |      58 |   ✗    |    ✗    |        ~50% | Store-generated keys and concurrency tokens; partially supported (DynamoDB auto-generates string PKs but not sequences)                                                                             |
 | `DataAnnotationTestBase`          |      84 |   ✗    |    ✗    |        ~40% | Attribute-driven model configuration; many tests exercise relational-only annotations (schema, unique indexes, FK attributes)                                                                       |
@@ -164,26 +164,26 @@ These tests use non-Northwind models and fixtures.
 
 ### Implemented
 
-| Test Class | Methods | Cosmos | MongoDB | Notes |
-|---|---:|:---:|:---:|---|
-| `ComplexTypeQueryTestBase` | 74 | ✓ | ✗ | All inherited methods are registered/overridden with explicit outcomes; supported projection/filter, nested struct projection, and complex equality subsets execute, while navigation, set-operation, GroupBy, subquery/Contains, and pushdown cases are explicitly skipped |
+| Test Class                 | Methods | Cosmos | MongoDB | Notes                                                                                                                                                                                                                                                                       |
+| -------------------------- | ------: | :----: | :-----: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ComplexTypeQueryTestBase` |      74 |   ✓    |    ✗    | All inherited methods are registered/overridden with explicit outcomes; supported projection/filter, nested struct projection, and complex equality subsets execute, while navigation, set-operation, GroupBy, subquery/Contains, and pushdown cases are explicitly skipped |
 
 ### Future
 
-| Test Class                                   | Methods | Cosmos | MongoDB | Feasibility | Rationale                                                                                                                   |
-| -------------------------------------------- | ------: | :----: | :-----: | ----------: | --------------------------------------------------------------------------------------------------------------------------- |
-| `AdHocComplexTypeQueryTestBase`              |      13 |   ✓    |    ✗    |        ~65% | Ad-hoc complex type query scenarios; same fixture dependency                                                                |
-| `InheritanceQueryTestBase`                   |      52 |   ✓    |    ✗    |        ~60% | Single-table inheritance with discriminator; DynamoDB has discriminator support                                             |
-| `FiltersInheritanceQueryTestBase`            |      11 |   ✗    |    ✗    |        ~55% | Query filters on inherited types                                                                                            |
-| `FunkyDataQueryTestBase`                     |      19 |   ✗    |    ✗    |        ~60% | Edge-case strings (null chars, Unicode, SQL injection chars); WHERE translation should handle these                         |
-| `PrimitiveCollectionsQueryTestBase`          |     156 |   ✓    |    ✗    |        ~50% | DynamoDB LIST/SET attribute querying; PartiQL supports `CONTAINS` on lists; complex collection operations not supported     |
-| `NonSharedPrimitiveCollectionsQueryTestBase` |      27 |   ✗    |    ✗    |        ~45% | Primitive collections on non-shared models; same constraints as above                                                       |
-| `QueryFilterFuncletizationTestBase`          |      28 |   ✗    |    ✗    |        ~60% | Parameter funcletization in query filters; translation-level feature                                                        |
-| `AdHocMiscellaneousQueryTestBase`            |      39 |   ✓    |    ✗    |        ~40% | Mixed ad-hoc scenarios; some require unsupported operators                                                                  |
-| `AdHocQueryFiltersQueryTestBase`             |      21 |   ✗    |    ✗    |        ~55% | Ad-hoc global query filter scenarios                                                                                        |
-| `AdHocAdvancedMappingsQueryTestBase`         |      15 |   ✗    |    ✗    |        ~40% | Advanced mapping queries (TPT, TPC, owned types); mixed applicability                                                       |
-| `CompositeKeysQueryTestBase`                 |       7 |   ✗    |    ✗    |        ~70% | Composite key queries; DynamoDB supports PK + SK; small test surface                                                        |
-| `SharedTypeQueryTestBase`                    |       1 |   ✗    |    ✗    |        ~70% | Shared-type entity queries; single test                                                                                     |
+| Test Class                                   | Methods | Cosmos | MongoDB | Feasibility | Rationale                                                                                                               |
+| -------------------------------------------- | ------: | :----: | :-----: | ----------: | ----------------------------------------------------------------------------------------------------------------------- |
+| `AdHocComplexTypeQueryTestBase`              |      13 |   ✓    |    ✗    |        ~65% | Ad-hoc complex type query scenarios; same fixture dependency                                                            |
+| `InheritanceQueryTestBase`                   |      52 |   ✓    |    ✗    |        ~60% | Single-table inheritance with discriminator; DynamoDB has discriminator support                                         |
+| `FiltersInheritanceQueryTestBase`            |      11 |   ✗    |    ✗    |        ~55% | Query filters on inherited types                                                                                        |
+| `FunkyDataQueryTestBase`                     |      19 |   ✗    |    ✗    |        ~60% | Edge-case strings (null chars, Unicode, SQL injection chars); WHERE translation should handle these                     |
+| `PrimitiveCollectionsQueryTestBase`          |     156 |   ✓    |    ✗    |        ~50% | DynamoDB LIST/SET attribute querying; PartiQL supports `CONTAINS` on lists; complex collection operations not supported |
+| `NonSharedPrimitiveCollectionsQueryTestBase` |      27 |   ✗    |    ✗    |        ~45% | Primitive collections on non-shared models; same constraints as above                                                   |
+| `QueryFilterFuncletizationTestBase`          |      28 |   ✗    |    ✗    |        ~60% | Parameter funcletization in query filters; translation-level feature                                                    |
+| `AdHocMiscellaneousQueryTestBase`            |      39 |   ✓    |    ✗    |        ~40% | Mixed ad-hoc scenarios; some require unsupported operators                                                              |
+| `AdHocQueryFiltersQueryTestBase`             |      21 |   ✗    |    ✗    |        ~55% | Ad-hoc global query filter scenarios                                                                                    |
+| `AdHocAdvancedMappingsQueryTestBase`         |      15 |   ✗    |    ✗    |        ~40% | Advanced mapping queries (TPT, TPC, owned types); mixed applicability                                                   |
+| `CompositeKeysQueryTestBase`                 |       7 |   ✗    |    ✗    |        ~70% | Composite key queries; DynamoDB supports PK + SK; small test surface                                                    |
+| `SharedTypeQueryTestBase`                    |       1 |   ✗    |    ✗    |        ~70% | Shared-type entity queries; single test                                                                                 |
 
 ### Skip — Architectural Constraints
 
@@ -287,10 +287,10 @@ ______________________________________________________________________
 
 | Category                    |              Implemented | Implement Next |                   Future |                       Skip |
 | --------------------------- | -----------------------: | -------------: | -----------------------: | -------------------------: |
-| Non-Query (top-level)       | 17 classes / 341 methods |              — |  7 classes / 499 methods |   19 classes / 984 methods |
+| Non-Query (top-level)       | 18 classes / 382 methods |              — |  6 classes / 458 methods |   19 classes / 984 methods |
 | BulkUpdates                 |                        — |              — | 5 classes / 135+ methods |       1 class / 33 methods |
 | Northwind Query             |  7 classes / 441 methods |              — |  3 classes / 491 methods |  12 classes / 924+ methods |
-| Other Query                 |  1 class / 74 methods |              — | 12 classes / 389 methods | 16 classes / 1,683 methods |
+| Other Query                 |     1 class / 74 methods |              — | 12 classes / 389 methods | 16 classes / 1,683 methods |
 | Associations                |                        — |              — |    3 classes / 8 methods | 13+ classes / 123+ methods |
 | Translations (need fixture) |                        — |              — | 16 classes / 321 methods |                          — |
 
@@ -314,6 +314,7 @@ ______________________________________________________________________
 12. `CustomConvertersDynamoTest` — 29 methods
 13. `ComplexTypeQueryDynamoTest` — 74 methods
 14. `SeedingDynamoTest` — 2 methods
+15. `WithConstructorsDynamoTest` — 41 methods
 
 ### Near-term (small, high confidence)
 
@@ -321,23 +322,23 @@ No near-term specification test classes are currently queued here.
 
 ### Medium-term (requires investigation or new fixture)
 
-15. `KeysWithConvertersDynamoTest`
-16. Translations operator tests (Comparison, Logical, Arithmetic) — needs `BasicTypesDynamoFixture`
-17. `StringTranslationsDynamoTest` — needs `BasicTypesDynamoFixture`
+1. `KeysWithConvertersDynamoTest`
+2. Translations operator tests (Comparison, Logical, Arithmetic) — needs `BasicTypesDynamoFixture`
+3. `StringTranslationsDynamoTest` — needs `BasicTypesDynamoFixture`
 
 ### Long-term (after core coverage is stable)
 
-18. `InheritanceQueryDynamoTest` — blocked on `OfType`, `is`/`GetType()` discriminator translation, and fixture work
-19. `PrimitiveCollectionsQueryDynamoTest`
-20. `NorthwindQueryFiltersDynamoTest`
-21. `BulkUpdates` family — blocked on `ExecuteUpdate`/`ExecuteDelete`
-22. Remaining translation tests (Math, Miscellaneous, Enum, Guid)
+1. `InheritanceQueryDynamoTest` — blocked on `OfType`, `is`/`GetType()` discriminator translation, and fixture work
+2. `PrimitiveCollectionsQueryDynamoTest`
+3. `NorthwindQueryFiltersDynamoTest`
+4. `BulkUpdates` family — blocked on `ExecuteUpdate`/`ExecuteDelete`
+5. Remaining translation tests (Math, Miscellaneous, Enum, Guid)
 
 ### Current totals
 
 | Status         | Classes | Methods |
 | -------------- | ------: | ------: |
-| Implemented    |      25 |     856 |
+| Implemented    |      26 |     897 |
 | Implement Next |       0 |       0 |
-| Future         |      46 |  1,843+ |
+| Future         |      45 |  1,802+ |
 | Skip           |     61+ |  3,747+ |
