@@ -50,6 +50,7 @@ change tracking, concurrency, Find, value converters, interceptors, and more.
 | `ConvertToProviderTypesTestBase`      |       2 |   ✗    |    ✗    | Additional enum/provider-type conversion query methods beyond `BuiltInDataTypesTestBase` |
 | `CustomConvertersTestBase`            |      29 |   ✓    |    ✗    | Value converter round-trips; unsupported converter edge cases explicitly skipped |
 | `SeedingTestBase`                     |       2 |   ✗    |    ✗    | `HasData` seeding is covered; keyless entity seeding is skipped because DynamoDB requires partition keys |
+| `KeysWithConvertersTestBase`          |      47 |   ✓    |    ✗    | Converted partition-key mapping has DynamoDB-specific coverage; inherited FK, shadow-FK, and owned-entity cases are explicitly skipped |
 
 ### Implement Next
 
@@ -287,7 +288,7 @@ ______________________________________________________________________
 
 | Category                    |              Implemented | Implement Next |                   Future |                       Skip |
 | --------------------------- | -----------------------: | -------------: | -----------------------: | -------------------------: |
-| Non-Query (top-level)       | 17 classes / 341 methods |              — |  7 classes / 499 methods |   19 classes / 984 methods |
+| Non-Query (top-level)       | 18 classes / 388 methods |              — |  6 classes / 452 methods |   19 classes / 984 methods |
 | BulkUpdates                 |                        — |              — | 5 classes / 135+ methods |       1 class / 33 methods |
 | Northwind Query             |  7 classes / 441 methods |              — |  3 classes / 491 methods |  12 classes / 924+ methods |
 | Other Query                 |  1 class / 74 methods |              — | 12 classes / 389 methods | 16 classes / 1,683 methods |
@@ -337,7 +338,7 @@ No near-term specification test classes are currently queued here.
 
 | Status         | Classes | Methods |
 | -------------- | ------: | ------: |
-| Implemented    |      25 |     856 |
+| Implemented    |      26 |     903 |
 | Implement Next |       0 |       0 |
-| Future         |      46 |  1,843+ |
+| Future         |      45 |  1,796+ |
 | Skip           |     61+ |  3,747+ |
