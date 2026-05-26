@@ -1,12 +1,13 @@
----
-status: Proposed
-date: 2026-05-24
-deciders:
-  - EntityFrameworkCore.DynamoDb maintainers
-supersedes: none
----
-
 # ADR-003: EF key semantics for DynamoDB keys
+
+## Status
+
+- Proposed
+- **Date:** 2026-05-24
+- **Deciders:** EntityFrameworkCore.DynamoDb maintainers
+- **Supersedes:** none
+
+______________________________________________________________________
 
 ## Context
 
@@ -24,9 +25,12 @@ Users coming from EF expect `HasKey(...)` and key discovery to participate in en
 DynamoDB still allows only one partition key and optional sort key, so the provider can support
 normal EF key semantics while still enforcing DynamoDB's key shape.
 
-The desired direction is not to replace the provider APIs. `HasPartitionKey(...)` and
-`HasSortKey(...)` should remain the preferred DynamoDB-facing configuration style. The provider
-should also support regular EF `HasKey(...)` for users who prefer EF-native modeling.
+The desired direction is not to replace the provider APIs. Both configuration styles are
+first-class and equivalent after model finalization: runtime behavior must depend on one finalized
+resolved key model, not on which API the user called. `HasPartitionKey(...)` and
+`HasSortKey(...)` remain the preferred DynamoDB-facing configuration style because they express
+DynamoDB intent directly. The provider should also support regular EF `HasKey(...)` for users who
+prefer EF-native modeling.
 
 The provider is not published yet, so breaking changes are acceptable.
 
@@ -114,8 +118,10 @@ When both are used, validate exact agreement.
 We will use **Option C: dual-entry configuration with one resolved key model**.
 
 `HasPartitionKey(...)` and `HasSortKey(...)` remain the preferred DynamoDB-facing APIs and do not
-require `HasKey(...)`. Regular EF `HasKey(...)` is also supported for one- and two-part keys. If
-both styles are configured, they must describe the same key shape and order.
+require `HasKey(...)`. "Preferred" is documentation and ergonomics guidance only: after model
+finalization, provider-key APIs and EF-key APIs are semantically equivalent. Regular EF
+`HasKey(...)` is also supported for one- and two-part keys. If both styles are configured, they
+must describe the same key shape and order.
 
 ### Public API shape
 
@@ -211,6 +217,19 @@ modelBuilder.Entity<Order>(b =>
 
 The explicit one-part EF key conflicts with the configured DynamoDB sort key.
 
+### Table key resolution scope
+
+Only the EF primary key and provider partition/sort-key annotations participate in DynamoDB table
+key resolution.
+
+- Alternate keys configured with `HasAlternateKey(...)` do not participate in table key resolution.
+- EF indexes and unique indexes do not participate in table key resolution.
+- DynamoDB secondary indexes remain configured through provider secondary-index APIs.
+- Shadow and runtime-only properties cannot be DynamoDB table keys. If an EF primary key used for
+  inference contains a shadow or runtime-only property, validation fails.
+- Complex/embedded properties do not participate in table key resolution; table keys must be
+  top-level scalar properties.
+
 ### Inference rules
 
 During model finalization:
@@ -226,13 +245,32 @@ During model finalization:
    - the first key property maps to the partition key;
    - the second key property maps to the sort key;
    - no third key property is allowed.
-5. Runtime code consumes resolved key roles after finalization.
+5. Runtime code consumes only resolved key roles after finalization. It must not re-infer roles
+   from raw annotations or primary-key order.
 
 "Explicit EF primary key" means a key configured with `HasKey(...)`. A data-annotation key means
 key metadata sourced from EF data annotations. A convention-created key means EF discovered the key
 from naming conventions such as `Id`, `PK`, `PartitionKey`, `SK`, or `SortKey`. Provider key APIs
 may replace convention-created keys, but should not silently rewrite explicit or data-annotation
 keys.
+
+### Resolution phases
+
+Implementation should keep three conceptual phases separate:
+
+1. **Raw configuration capture** stores EF primary-key metadata, provider key annotations, and
+   convention-discovered key hints with configuration-source provenance.
+2. **Resolution** runs in a provider model-finalizing convention after EF key discovery and provider
+   key annotation conventions. It produces one resolved table key shape containing the partition
+   property, optional sort property, source provenance, and finalized ordering.
+3. **Runtime consumption** persists resolved key roles in runtime metadata, such as runtime
+   annotations or the runtime table model. Query, write, and table-creation paths consume only that
+   finalized runtime metadata.
+
+Replacement of convention-created EF primary keys should happen only during resolution. The
+resolver should compute the complete desired key shape first, replace an existing convention key
+only when the desired shape is complete, and then let validation observe the finalized model.
+Explicit and data-annotation primary keys must not be removed, reordered, or silently rewritten.
 
 ### Validation rules
 
@@ -245,6 +283,8 @@ For every root DynamoDB table entity:
 - Second EF key property, if present, must map to a DynamoDB key-compatible scalar attribute type:
   string (`S`), number (`N`, including supported CLR numeric types), or binary (`B`).
 - Key properties must be required / non-nullable for DynamoDB key purposes.
+- Key properties must be mapped CLR properties, not shadow or runtime-only properties.
+- Alternate keys and EF indexes/unique indexes do not affect DynamoDB table key resolution.
 - If `HasPartitionKey(...)` is configured, the property must equal the first EF key property after
   synthesis/inference.
 - If `HasSortKey(...)` is configured, the property must equal the second EF key property after
@@ -255,10 +295,58 @@ For every root DynamoDB table entity:
 - `HasSortKey(...)` with explicit one-part `HasKey(...)` is invalid because the explicit EF key
   conflicts with the DynamoDB sort key.
 - Shared-table mappings must agree on partition/sort key attribute names and key type categories.
-- Owned/embedded types are excluded from DynamoDB table key validation because they are stored
+- Complex/embedded types are excluded from DynamoDB table key validation because they are stored
   inside a root document/item rather than as independent table items.
+- Owned entity types remain governed by the provider's existing owned-type support policy; this ADR
+  does not change owned-type support.
 - Derived entity types use the root table entity's resolved key shape; inheritance mappings must
   not introduce a conflicting table key.
+
+Shared-table mappings are valid when the physical DynamoDB table key schema matches even if CLR
+property names differ:
+
+```csharp
+modelBuilder.Entity<Order>(b =>
+{
+    b.ToTable("AppTable");
+    b.Property(e => e.TenantId).HasAttributeName("PK");
+    b.Property(e => e.OrderId).HasAttributeName("SK");
+    b.HasPartitionKey(e => e.TenantId);
+    b.HasSortKey(e => e.OrderId);
+});
+
+modelBuilder.Entity<User>(b =>
+{
+    b.ToTable("AppTable");
+    b.Property(e => e.AccountId).HasAttributeName("PK");
+    b.Property(e => e.UserId).HasAttributeName("SK");
+    b.HasPartitionKey(e => e.AccountId);
+    b.HasSortKey(e => e.UserId);
+});
+```
+
+Shared-table mappings are invalid when any root type uses a different physical key schema:
+
+```csharp
+modelBuilder.Entity<Order>(b =>
+{
+    b.ToTable("AppTable");
+    b.Property(e => e.TenantId).HasAttributeName("PK");
+    b.Property(e => e.OrderId).HasAttributeName("SK");
+    b.HasPartitionKey(e => e.TenantId);
+    b.HasSortKey(e => e.OrderId);
+});
+
+modelBuilder.Entity<User>(b =>
+{
+    b.ToTable("AppTable");
+    b.Property(e => e.AccountId).HasAttributeName("AccountId");
+    b.HasPartitionKey(e => e.AccountId);
+});
+```
+
+The invalid mapping mixes PK+SK and PK-only shapes and uses a different partition-key attribute
+name for the same physical table.
 
 ### Expected codebase impact
 
@@ -274,9 +362,14 @@ Metadata and conventions likely affected:
 Expected changes:
 
 - Keep conventional key discovery for `PK`, `PartitionKey`, fallback `Id`, `SK`, and `SortKey`.
+- Introduce an internal resolved table key descriptor (name TBD, for example
+  `DynamoResolvedKeyModel`) that captures partition property, optional sort property, source
+  provenance, and finalized order.
 - Synthesize EF primary keys from provider key annotations when no explicit EF key exists.
 - Infer resolved DynamoDB key roles from explicit EF primary key configuration.
 - Validate conflicts when both configuration styles are present.
+- Validate that alternate keys, EF indexes/unique indexes, shadow properties, and runtime-only
+  properties do not become table key sources.
 - Avoid silently rewriting explicit EF primary keys.
 
 Runtime model likely affected:
@@ -287,7 +380,8 @@ Runtime model likely affected:
 
 Expected changes:
 
-- Runtime model resolves partition/sort keys from finalized key metadata.
+- Runtime model persists finalized partition/sort key roles instead of dynamically recomputing
+  them from raw annotations or EF key order.
 - Table definition builder still emits DynamoDB `HASH` and optional `RANGE` key schema.
 
 Writes likely affected:
@@ -372,8 +466,8 @@ style on all users.
 
 **Neutral / Follow-on work:**
 
-- Decide whether resolved partition/sort key roles should be persisted as annotations, runtime
-  annotations, or resolved dynamically from EF primary key.
+- Decide the exact storage shape/name for persisted resolved key roles, such as runtime annotations
+  versus extending `DynamoRuntimeTableModel`; runtime should not recompute roles dynamically.
 - Define exact error messages for mismatched explicit role configuration/annotations.
 - Update docs to present `HasPartitionKey(...)` / `HasSortKey(...)` first, with `HasKey(...)` as a
   supported EF-native alternative.
