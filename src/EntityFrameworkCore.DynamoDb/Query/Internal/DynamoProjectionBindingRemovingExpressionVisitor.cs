@@ -823,11 +823,15 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
         if (valueExpression.Type != type)
             valueExpression = Convert(valueExpression, type);
 
+        var nullValueExpression = dynamoTypeMapping.Converter?.ConvertsNulls == true
+            ? valueExpression
+            : nullReturnExpression;
+
         // item.TryGetValue(...) ? (isDynamoNull ? (required?throw:default) : value) :
         // (required?throw:default)
         var completeExpression = Condition(
             tryGetValueExpression,
-            Condition(isDynamoNullExpression, nullReturnExpression, valueExpression),
+            Condition(isDynamoNullExpression, nullValueExpression, valueExpression),
             missingReturnExpression);
 
         return Block([attributeValueVariable], completeExpression);
