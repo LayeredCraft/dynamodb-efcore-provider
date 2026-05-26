@@ -41,7 +41,7 @@ See [Supported Operators](querying/operators.md) for the full list of what does 
 | Joins                                   | `Join`, `GroupJoin`, `LeftJoin`, `RightJoin`, `SelectMany`, `DefaultIfEmpty` | DynamoDB does not support cross-item joins                                                         |
 | Set operations                          | `Union`, `Concat`, `Except`, `Intersect`                                     | Not supported in DynamoDB PartiQL                                                                  |
 | Offset / paging                         | `Skip`, `Take`, `ElementAt`, `ElementAtOrDefault`                            | DynamoDB has no offset semantics — use `Limit(n)` for an evaluation budget                         |
-| Element operators                       | `Single`, `SingleOrDefault`, `Any`, `All`                                    | Not supported server-side                                                                          |
+| Element operators                       | `Any`, `All`                                                                 | Not supported server-side                                                                          |
 | Reverse traversal                       | `Last`, `LastOrDefault`, `Reverse`                                           | Requires reverse index traversal, not implemented                                                  |
 | Deduplication                           | `Distinct`                                                                   | `SELECT DISTINCT` is not supported in DynamoDB PartiQL                                             |
 | Type filtering                          | `OfType<T>`, `Cast<T>`                                                       | Not supported                                                                                      |
@@ -154,6 +154,34 @@ filtering: a PK-only lookup on a PK-only table, or a PK+SK equality on a PK+SK t
 all other shapes throw — use `AsAsyncEnumerable().FirstOrDefaultAsync()`, or explicitly opt in to
 unsafe filtered `First*` behavior when you accept the DynamoDB filter-expression risk.
 
+### `Single` / `SingleOrDefault` — Key-Condition-Only
+
+`SingleAsync` and `SingleOrDefaultAsync` are supported only for key-condition-only query shapes.
+The provider sends one DynamoDB request with implicit `ExecuteStatementRequest.Limit = 2` and lets
+EF Core enforce cardinality:
+
+- zero returned items: `SingleAsync` throws, `SingleOrDefaultAsync` returns `null` / default
+- one returned item: returns that item
+- two returned items: throws `Sequence contains more than one element.`
+
+Because DynamoDB `Limit` counts evaluated items, not matched rows, `Single*` does not allow non-key
+filters, scan-like predicates, or sort-key filter expressions. Unlike `First*`, there is no unsafe
+filtered escape hatch yet: `AsUnsafeFilteredQuery()` and `AllowUnsafeFilteredQueries()` do not
+bypass `Single*` validation.
+
+Allowed partition-key conditions are equality and `IN`. Sort-key predicates are allowed only when
+they are DynamoDB key conditions (`=`, `<`, `<=`, `>`, `>=`, `BETWEEN`, `begins_with`). For
+shared-table inheritance queries with discriminator filters, `Single*` requires a base-table lookup
+that identifies one physical item: PK equality on a PK-only table, or PK+SK equality on a PK+SK
+table. Secondary-index derived-type queries can fail validation even when they include index key
+conditions. Explicit `Limit(n)` and `WithNextToken()` combined with `Single*` throw at translation
+time.
+
+If DynamoDB returns any `NextToken` for a validated `Single*` query, the provider throws
+`InvalidOperationException`. This is treated as a guard against an unexpected provider/DynamoDB
+invariant break, not as a signal to page. Without a continuation token, two returned items use
+EF Core's normal `Single*` duplicate detection and throw `Sequence contains more than one element.`
+
 ### `Find` — Primary-Key Lookup
 
 `FindAsync` is supported for primary-key lookup. It checks the change tracker first and otherwise
@@ -169,11 +197,12 @@ throws `InvalidOperationException`. Use `FindAsync` for database lookups:
 var order = await context.Orders.FindAsync([customerId, orderId], ct);
 ```
 
-### `WithNextToken` Cannot Combine with `First*`
+### `WithNextToken` Cannot Combine with `First*` or `Single*`
 
-Combining `.WithNextToken(token)` with `FirstAsync` or `FirstOrDefaultAsync` throws
-`InvalidOperationException`. A seeded continuation token implies resuming an arbitrary position in
-a result set, which is incompatible with the server-side `Limit=1` required by `First*`.
+Combining `.WithNextToken(token)` with `FirstAsync`, `FirstOrDefaultAsync`, `SingleAsync`, or
+`SingleOrDefaultAsync` throws `InvalidOperationException`. A seeded continuation token implies
+resuming an arbitrary position in a result set, which is incompatible with provider-managed
+terminal limits (`Limit=1` for `First*`, `Limit=2` for `Single*`).
 
 ### `OrderBy` — Only Key Columns
 

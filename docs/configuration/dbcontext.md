@@ -67,8 +67,8 @@ Most provider options are set on the `DynamoDbContextOptionsBuilder` passed to t
 
 ### Scan-like query warning
 
-Read queries that do not target exactly one partition-key equality on the active table or index
-throw by default. The provider configures `DynamoEventId.ScanLikeQueryDetected` as an explicit
+Read queries that do not use equality or `IN` on the active partition key of the table or active
+index throw by default. The provider configures `DynamoEventId.ScanLikeQueryDetected` as an explicit
 throwing warning to prevent accidental table or index scans.
 
 Configure this event explicitly to allow scan-like queries globally:

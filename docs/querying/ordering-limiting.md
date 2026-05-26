@@ -23,7 +23,7 @@ db.Orders
 !!! warning "Ordering constraint"
 
 ```
-Only the partition key and sort key attributes may appear in `ORDER BY`. Non-key columns throw an `InvalidOperationException` at query compilation. `ORDER BY` also requires a partition-key equality constraint in `WHERE`; open-ended scans without a key condition cannot use ordering.
+Only the partition key and sort key attributes may appear in `ORDER BY`. Non-key columns throw an `InvalidOperationException` at query compilation. `ORDER BY` also requires partition-key equality or `IN` in `WHERE`; open-ended scans without a key condition cannot use ordering.
 ```
 
 ### Single-Partition vs Multi-Partition Ordering
@@ -102,12 +102,12 @@ var results = await query(db, 50).ToListAsync(cancellationToken);
 A `Limit(n)` query does not expose a continuation token automatically. If you want to resume from the position where `Limit(n)` stopped, retrieve the response cursor via `db.Entry(item).GetExecuteStatementResponse()?.NextToken` and seed the next query with `.WithNextToken(token)`. See [Pagination](pagination.md) for the full cursor model.
 ```
 
-!!! warning "First / FirstOrDefault with Limit"
+!!! warning "Terminal operators with Limit"
 
 ```
-`First` / `FirstOrDefault` on a key-only query shape sets an implicit `Limit=1` automatically. Combining an explicit `Limit(n)` with `First*` is not supported and throws at translation time — use `.AsAsyncEnumerable().FirstOrDefaultAsync()` instead.
+`First` / `FirstOrDefault` on a key-only query shape sets an implicit `Limit=1` automatically. `Single` / `SingleOrDefault` on a key-condition-only query shape sets an implicit `Limit=2` automatically. Combining an explicit `Limit(n)` with `First*` or `Single*` is not supported and throws at translation time — use `.AsAsyncEnumerable().FirstOrDefaultAsync()` or `.AsAsyncEnumerable().SingleOrDefaultAsync()` instead.
 
-`AsUnsafeFilteredQuery()` and the global `AllowUnsafeFilteredQueries()` option do not change this rule. They bypass only the provider's `First*` safety validation; they do not change `Limit(n)` semantics.
+`AsUnsafeFilteredQuery()` and the global `AllowUnsafeFilteredQueries()` option do not change this rule. They bypass only the provider's `First*` safety validation; they do not bypass `Single*` key-condition validation or change `Limit(n)` semantics.
 ```
 
 ## See also

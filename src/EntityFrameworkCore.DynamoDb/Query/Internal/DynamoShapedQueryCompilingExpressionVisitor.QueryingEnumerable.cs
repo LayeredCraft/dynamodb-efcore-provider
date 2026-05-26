@@ -82,8 +82,8 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
             private readonly int? _limit;
 
             /// <summary>
-            ///     True when the query should stop after the first executed request — either because it is a
-            ///     <c>First*</c> terminal or because the user set an explicit <c>Limit(n)</c>.
+            ///     True when the query should stop after the first executed request: <c>First*</c>/<c>Single*</c>
+            ///     terminals (including implicit limits) or user <c>Limit(n)</c>.
             /// </summary>
             private readonly bool _singlePageOnly;
 
@@ -133,9 +133,10 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
                         "limit",
                         "Limit must be a positive integer.");
 
-                // Single-page when: First* terminal (always one request) OR user set Limit(n)
+                // Single-page when: First*/Single* terminal with implicit limit OR user Limit(n)
                 // (per ADR-002, Limit(n) is always a single request).
                 _singlePageOnly = enumerable._selectExpression.IsFirstTerminal
+                    || enumerable._selectExpression.IsSingleTerminal
                     || enumerable._selectExpression.HasUserLimit;
 
                 _concurrencyDetector = enumerable._threadSafetyChecksEnabled
@@ -201,8 +202,18 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
                         },
                         _singlePageOnly,
                         // Store the raw response on the query context so the shaper can bind it
-                        // to the __executeStatementResponse shadow property of each entity.
-                        response => _queryContext.CurrentPageResponse = response,
+                        // to the __executeStatementResponse shadow property of each entity. For
+                        // Single*, a continuation token means provider key-only/Limit=2 assumptions
+                        // failed, so throw instead of paging.
+                        response =>
+                        {
+                            _queryContext.CurrentPageResponse = response;
+
+                            if (_queryingEnumerable._selectExpression.IsSingleTerminal
+                                && !string.IsNullOrEmpty(response.NextToken))
+                                throw new InvalidOperationException(
+                                    DynamoStrings.SingleOrDefaultReturnedContinuationToken);
+                        },
                         IsGlobalSecondaryIndexSource(_queryingEnumerable._selectExpression));
 
                     _dataEnumerator = asyncEnumerable.GetAsyncEnumerator(_cancellationToken);

@@ -53,6 +53,13 @@ public sealed class
     public bool IsFirstTerminal { get; private set; }
 
     /// <summary>
+    ///     True when the query terminal is <c>Single*</c> (<c>SingleAsync</c>,
+    ///     <c>SingleOrDefaultAsync</c>). Drives implicit <c>Limit=2</c>, single-page execution,
+    ///     continuation-token guard, and key-only validation in the postprocessor.
+    /// </summary>
+    public bool IsSingleTerminal { get; private set; }
+
+    /// <summary>
     ///     The optional continuation token to seed on the first DynamoDB request when
     ///     <c>.WithNextToken(...)</c> is used.
     /// </summary>
@@ -216,6 +223,9 @@ public sealed class
 
     /// <summary>Marks this query as having a <c>First*</c> terminal.</summary>
     public void MarkAsFirstTerminal() => IsFirstTerminal = true;
+
+    /// <summary>Marks this query as having a <c>Single*</c> terminal.</summary>
+    public void MarkAsSingleTerminal() => IsSingleTerminal = true;
 
     /// <summary>
     ///     Sets the first-request continuation token from a constant value.

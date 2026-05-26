@@ -25,7 +25,7 @@ public class ScanQueryGuardTests
         await act
             .Should()
             .ThrowAsync<InvalidOperationException>()
-            .WithMessage("*Scan-like DynamoDB query detected*missing equality predicate*");
+            .WithMessage("*Scan-like DynamoDB query detected*missing equality or IN predicate*");
         await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
     }
 
@@ -72,22 +72,36 @@ public class ScanQueryGuardTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public async Task PartitionKeyIn_ThrowsByDefault()
+    public async Task PartitionKeyIn_ExecutesByDefault()
     {
         var client = CreateClient();
         await using var context = ScanGuardDbContext.Create(client);
         var keys = new[] { "P#1", "P#2" };
 
+        await context
+            .Items
+            .Where(x => keys.Contains(x.Pk))
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        await client.ReceivedWithAnyArgs(1).ExecuteStatementAsync(default!);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task PartitionKeyOr_ThrowsByDefault()
+    {
+        var client = CreateClient();
+        await using var context = ScanGuardDbContext.Create(client);
+
         var act = async ()
             => await context
                 .Items
-                .Where(x => keys.Contains(x.Pk))
+                .Where(x => x.Pk == "P#1" || x.Pk == "P#2")
                 .ToListAsync(TestContext.Current.CancellationToken);
 
         await act
             .Should()
             .ThrowAsync<InvalidOperationException>()
-            .WithMessage("*partition key 'pk' uses IN/OR*");
+            .WithMessage("*OR predicate references*");
         await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
     }
 
@@ -337,7 +351,7 @@ public class ScanQueryGuardTests
         await act
             .Should()
             .ThrowAsync<InvalidOperationException>()
-            .WithMessage("*Scan-like DynamoDB query detected*missing equality predicate*");
+            .WithMessage("*Scan-like DynamoDB query detected*missing equality or IN predicate*");
         await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
     }
 
@@ -358,7 +372,7 @@ public class ScanQueryGuardTests
         await act
             .Should()
             .ThrowAsync<InvalidOperationException>()
-            .WithMessage("*Scan-like DynamoDB query detected*missing equality predicate*");
+            .WithMessage("*Scan-like DynamoDB query detected*missing equality or IN predicate*");
         await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
     }
 

@@ -122,8 +122,8 @@ internal sealed class DynamoQueryTranslationPostprocessor(
 
         ValidateOrderByConstraints(selectExpression, queryConstraints, effectiveSortKeyAttr);
 
-        // Validate First* safe path: must be key-only (no user limit, no non-key predicates).
-        // Run after index selection so we use the effective key attributes of the chosen source.
+        // Validate First*/Single* safe paths after index selection so we use the effective key
+        // attributes of the chosen source.
         if (selectExpression.IsFirstTerminal)
         {
             // Explicit Limit(n) + First* is ambiguous: Limit(n) may intentionally return
@@ -142,6 +142,19 @@ internal sealed class DynamoQueryTranslationPostprocessor(
                     queryConstraints,
                     effectiveSortKeyAttr,
                     isBaseTableSource);
+        }
+
+        if (selectExpression.IsSingleTerminal)
+        {
+            if (selectExpression.HasUserLimit)
+                throw new InvalidOperationException(
+                    DynamoStrings.SingleOrDefaultWithUserLimitNotSupported);
+
+            ValidateSingleTerminalSafePath(
+                selectExpression,
+                queryConstraints,
+                effectiveSortKeyAttr,
+                isBaseTableSource);
         }
 
         return query;
@@ -175,19 +188,15 @@ internal sealed class DynamoQueryTranslationPostprocessor(
                 false,
                 "runtime key metadata was unavailable");
 
-        if (queryConstraints.InConstraints.ContainsKey(effectivePk))
-            return CreateScanClassification(
-                selectExpression.TableName,
-                sourceDescription,
-                true,
-                $"partition key '{effectivePk}' uses IN/OR instead of a single equality");
+        var hasPkEquality = queryConstraints.EqualityConstraints.ContainsKey(effectivePk);
+        var hasPkIn = queryConstraints.InConstraints.ContainsKey(effectivePk);
 
-        if (!queryConstraints.EqualityConstraints.ContainsKey(effectivePk))
+        if (!hasPkEquality && !hasPkIn)
             return CreateScanClassification(
                 selectExpression.TableName,
                 sourceDescription,
                 true,
-                $"missing equality predicate on partition key '{effectivePk}'");
+                $"missing equality or IN predicate on partition key '{effectivePk}'");
 
         if (selectExpression.Predicate is not null
             && PredicateHasOrTouchingKey(
@@ -216,7 +225,7 @@ internal sealed class DynamoQueryTranslationPostprocessor(
             selectExpression.TableName,
             sourceDescription,
             false,
-            "single partition-key equality");
+            hasPkIn ? "partition-key IN" : "single partition-key equality");
     }
 
     /// <summary>Creates a scan classification with the standard user-facing message.</summary>
@@ -228,7 +237,7 @@ internal sealed class DynamoQueryTranslationPostprocessor(
     {
         var message = isScanLike
             ? $"Scan-like DynamoDB query detected for table '{tableName}' on {sourceDescription}: "
-            + $"{reason}. Add an equality predicate on the active partition key and at most one "
+            + $"{reason}. Add an equality or IN predicate on the active partition key and at most one "
             + "sort-key key condition, configure ConfigureWarnings for DynamoEventId.ScanLikeQueryDetected, "
             + "or append .AllowScan() for an intentional per-query scan."
             : string.Empty;
@@ -506,6 +515,7 @@ internal sealed class DynamoQueryTranslationPostprocessor(
             if (hasDiscriminatorPredicate
                 && !IsSingleItemBaseTableLookup(
                     queryConstraints,
+                    effectivePk,
                     effectiveSortKeyAttributeName,
                     isBaseTableSource))
                 throw new InvalidOperationException(
@@ -537,6 +547,77 @@ internal sealed class DynamoQueryTranslationPostprocessor(
             ? "scan-like path (no partition-key equality)"
             : "non-key predicate";
         throw new InvalidOperationException(DynamoStrings.FirstOrDefaultRequiresKeyOnlyPath(shape));
+    }
+
+    private static void ValidateSingleTerminalSafePath(
+        SelectExpression selectExpression,
+        DynamoQueryConstraints? queryConstraints,
+        string? effectiveSortKeyAttributeName,
+        bool isBaseTableSource)
+    {
+        // Design-time: runtime model unavailable, skip to avoid false negatives.
+        if (queryConstraints is null)
+            return;
+
+        var pkNames = selectExpression.EffectivePartitionKeyPropertyNames;
+        if (pkNames.Count == 0)
+            return; // No descriptor resolved (edge case) — skip silently.
+
+        var effectivePk = pkNames.First();
+
+        // Single* permits partition-key equality or IN. PK IN is still a key condition in
+        // DynamoDB PartiQL and Limit=2 is enough to surface duplicate matching rows in one page.
+        var hasPkKeyCondition = queryConstraints.EqualityConstraints.ContainsKey(effectivePk)
+            || queryConstraints.InConstraints.ContainsKey(effectivePk);
+
+        var hasNonKeyPredicate = selectExpression.Predicate is not null
+            && HasNonKeyPredicates(
+                selectExpression.Predicate,
+                effectivePk,
+                effectiveSortKeyAttributeName);
+        var hasDiscriminatorPredicate = selectExpression.Predicate is not null
+            && ContainsDiscriminatorPredicate(selectExpression.Predicate);
+
+        if (hasPkKeyCondition && !hasNonKeyPredicate)
+        {
+            if (selectExpression.Predicate is not null
+                && PredicateHasOrTouchingKey(
+                    selectExpression.Predicate,
+                    effectivePk,
+                    effectiveSortKeyAttributeName))
+                throw new InvalidOperationException(
+                    DynamoStrings.SingleOrDefaultRequiresKeyOnlyPath(
+                        "OR predicate references a partition or sort key"));
+
+            if (hasDiscriminatorPredicate
+                && !IsSingleItemBaseTableLookup(
+                    queryConstraints,
+                    effectivePk,
+                    effectiveSortKeyAttributeName,
+                    isBaseTableSource))
+                throw new InvalidOperationException(
+                    DynamoStrings.SingleOrDefaultRequiresKeyOnlyPath(
+                        "discriminator filter on a multi-item source"));
+
+            if (effectiveSortKeyAttributeName is not null
+                && selectExpression.Predicate is not null
+                && PredicateReferencesAttribute(
+                    selectExpression.Predicate,
+                    effectiveSortKeyAttributeName)
+                && !queryConstraints.SkKeyConditions.ContainsKey(effectiveSortKeyAttributeName))
+                throw new InvalidOperationException(
+                    DynamoStrings.SingleOrDefaultRequiresKeyOnlyPath(
+                        "sort-key filter predicate (SK IN and SK OR are filter expressions, "
+                        + "not DynamoDB key conditions)"));
+
+            return;
+        }
+
+        var shape = !hasPkKeyCondition
+            ? "scan-like path (no partition-key equality or IN)"
+            : "non-key predicate";
+        throw new InvalidOperationException(
+            DynamoStrings.SingleOrDefaultRequiresKeyOnlyPath(shape));
     }
 
     /// <summary>
@@ -709,15 +790,19 @@ internal sealed class DynamoQueryTranslationPostprocessor(
         };
 
     /// <summary>
-    ///     Determines whether a <c>First*</c> query is guaranteed to evaluate at most one base-table
-    ///     item before discriminator filtering.
+    ///     Determines whether a terminal query is guaranteed to evaluate at most one base-table item
+    ///     before discriminator filtering.
     /// </summary>
     private static bool IsSingleItemBaseTableLookup(
         DynamoQueryConstraints queryConstraints,
+        string effectivePk,
         string? effectiveSortKeyAttributeName,
         bool isBaseTableSource)
     {
         if (!isBaseTableSource)
+            return false;
+
+        if (!queryConstraints.EqualityConstraints.ContainsKey(effectivePk))
             return false;
 
         if (effectiveSortKeyAttributeName is null)

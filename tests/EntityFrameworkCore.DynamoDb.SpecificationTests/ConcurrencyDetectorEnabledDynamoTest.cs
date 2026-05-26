@@ -51,8 +51,7 @@ public sealed class ConcurrencyDetectorEnabledDynamoTest(
         Assert.Null(newProduct);
     }
 
-    [ConditionalTheory(Skip = "DynamoDB does not support Single queries.")]
-    public override Task Single(bool async) => Task.CompletedTask;
+    public override Task Single(bool async) => async ? base.Single(async) : Task.CompletedTask;
 
     public override Task ToList(bool async) => async ? base.ToList(async) : Task.CompletedTask;
 

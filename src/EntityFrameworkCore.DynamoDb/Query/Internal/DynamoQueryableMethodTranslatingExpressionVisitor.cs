@@ -816,11 +816,29 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
         Type returnType,
         bool returnDefault)
     {
-        var operatorName =
-            returnDefault ? nameof(Queryable.SingleOrDefault) : nameof(Queryable.Single);
-        return UnsupportedOperator(
-            operatorName,
-            DynamoStrings.ProviderOperatorNotSupportedYet(operatorName));
+        if (predicate != null)
+        {
+            if (TranslateWhere(source, predicate) is not { } translatedSource)
+                return null;
+
+            source = translatedSource;
+        }
+
+        var selectExpression = (SelectExpression)source.QueryExpression;
+
+        if (selectExpression.SeedNextTokenExpression is not null)
+            throw new InvalidOperationException(
+                DynamoStrings.SingleOrDefaultWithNextTokenNotSupported);
+
+        // Single* needs provider-managed Limit=2 so EF Core's cardinality wrapper can detect
+        // duplicates. DynamoDB Limit is an evaluated-item budget, so postprocessor validation
+        // restricts this to key-condition-only paths.
+        selectExpression.MarkAsSingleTerminal();
+        selectExpression.ApplyImplicitLimit(2);
+
+        return source.ShaperExpression.Type != returnType
+            ? source.UpdateShaperExpression(Expression.Convert(source.ShaperExpression, returnType))
+            : source;
     }
 
     /// <summary>Provides functionality for this member.</summary>

@@ -301,9 +301,9 @@ All operations in this provider follow the same constraint. Use `ToListAsync`,
 `FirstOrDefaultAsync`, `SaveChangesAsync`, and other async methods throughout. `ToList()`,
 `SaveChanges()`, and other synchronous methods are not supported and will throw at runtime.
 
-Some query operators (including `Single` and `SingleOrDefault`) are not translated yet on
-`IQueryable` paths. For those shapes, switch to `AsAsyncEnumerable()` and apply
-`SingleAsync(...)` / `SingleOrDefaultAsync(...)` there.
+`SingleAsync` and `SingleOrDefaultAsync` translate for key-condition-only query shapes. For
+non-key filters, scan-like shapes, or other unsupported operators, switch to `AsAsyncEnumerable()`
+and apply LINQ operators client-side when that data volume is acceptable.
 ```
 
 ## How This Affects Your EF Core Model
