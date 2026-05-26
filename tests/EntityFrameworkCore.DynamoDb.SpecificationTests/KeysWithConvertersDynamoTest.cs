@@ -28,9 +28,8 @@ public abstract class KeysWithConvertersDynamoTest
 
         await using (var context = CreateContext())
         {
-            var queried = Assert.Single(await context.Set<IntStructKeyPrincipal>()
-                .Where(e => e.Id.Equals(new IntStructKey(1)))
-                .ToListAsync());
+            var queried = await context.Set<IntStructKeyPrincipal>()
+                .SingleAsync(e => e.Id.Equals(new IntStructKey(1)));
             Assert.Equal("One", queried.Foo);
         }
 
@@ -66,9 +65,8 @@ public abstract class KeysWithConvertersDynamoTest
 
         await using (var context = CreateContext())
         {
-            var queried = Assert.Single(await context.Set<BytesStructKeyPrincipal>()
-                .Where(e => e.Id.Equals(new BytesStructKey(key)))
-                .ToListAsync());
+            var queried = await context.Set<BytesStructKeyPrincipal>()
+                .SingleAsync(e => e.Id.Equals(new BytesStructKey(key)));
             Assert.Equal("Binary", queried.Foo);
         }
 
@@ -211,71 +209,71 @@ public abstract class KeysWithConvertersDynamoTest
     public override Task Can_query_and_update_owned_entity_with_generic_comparable_int_class_key()
         => base.Can_query_and_update_owned_entity_with_generic_comparable_int_class_key();
 
-    [ConditionalFact(Skip = SkipReason.ShadowKeysNotSupported)]
+    [ConditionalFact(Skip = SkipReason.ForeignKeysNotSupported)]
     public override Task Can_insert_and_read_back_with_struct_key_and_optional_dependents_with_shadow_FK()
         => base.Can_insert_and_read_back_with_struct_key_and_optional_dependents_with_shadow_FK();
 
-    [ConditionalFact(Skip = SkipReason.ShadowKeysNotSupported)]
+    [ConditionalFact(Skip = SkipReason.ForeignKeysNotSupported)]
     public override Task Can_insert_and_read_back_with_comparable_struct_key_and_optional_dependents_with_shadow_FK()
         => base.Can_insert_and_read_back_with_comparable_struct_key_and_optional_dependents_with_shadow_FK();
 
-    [ConditionalFact(Skip = SkipReason.ShadowKeysNotSupported)]
+    [ConditionalFact(Skip = SkipReason.ForeignKeysNotSupported)]
     public override Task Can_insert_and_read_back_with_generic_comparable_struct_key_and_optional_dependents_with_shadow_FK()
         => base.Can_insert_and_read_back_with_generic_comparable_struct_key_and_optional_dependents_with_shadow_FK();
 
-    [ConditionalFact(Skip = SkipReason.ShadowKeysNotSupported)]
+    [ConditionalFact(Skip = SkipReason.ForeignKeysNotSupported)]
     public override Task Can_insert_and_read_back_with_struct_key_and_required_dependents_with_shadow_FK()
         => base.Can_insert_and_read_back_with_struct_key_and_required_dependents_with_shadow_FK();
 
-    [ConditionalFact(Skip = SkipReason.ShadowKeysNotSupported)]
+    [ConditionalFact(Skip = SkipReason.ForeignKeysNotSupported)]
     public override Task Can_insert_and_read_back_with_comparable_struct_key_and_required_dependents_with_shadow_FK()
         => base.Can_insert_and_read_back_with_comparable_struct_key_and_required_dependents_with_shadow_FK();
 
-    [ConditionalFact(Skip = SkipReason.ShadowKeysNotSupported)]
+    [ConditionalFact(Skip = SkipReason.ForeignKeysNotSupported)]
     public override Task Can_insert_and_read_back_with_generic_comparable_struct_key_and_required_dependents_with_shadow_FK()
         => base.Can_insert_and_read_back_with_generic_comparable_struct_key_and_required_dependents_with_shadow_FK();
 
-    [ConditionalFact(Skip = SkipReason.ShadowKeysNotSupported)]
+    [ConditionalFact(Skip = SkipReason.ForeignKeysNotSupported)]
     public override Task Can_insert_and_read_back_with_class_key_and_optional_dependents_with_shadow_FK()
         => base.Can_insert_and_read_back_with_class_key_and_optional_dependents_with_shadow_FK();
 
-    [ConditionalFact(Skip = SkipReason.ShadowKeysNotSupported)]
+    [ConditionalFact(Skip = SkipReason.ForeignKeysNotSupported)]
     public override Task Can_insert_and_read_back_with_bare_class_key_and_optional_dependents_with_shadow_FK()
         => base.Can_insert_and_read_back_with_bare_class_key_and_optional_dependents_with_shadow_FK();
 
-    [ConditionalFact(Skip = SkipReason.ShadowKeysNotSupported)]
+    [ConditionalFact(Skip = SkipReason.ForeignKeysNotSupported)]
     public override Task Can_insert_and_read_back_with_comparable_class_key_and_optional_dependents_with_shadow_FK()
         => base.Can_insert_and_read_back_with_comparable_class_key_and_optional_dependents_with_shadow_FK();
 
-    [ConditionalFact(Skip = SkipReason.ShadowKeysNotSupported)]
+    [ConditionalFact(Skip = SkipReason.ForeignKeysNotSupported)]
     public override Task Can_insert_and_read_back_with_struct_binary_key_and_optional_dependents_with_shadow_FK()
         => base.Can_insert_and_read_back_with_struct_binary_key_and_optional_dependents_with_shadow_FK();
 
-    [ConditionalFact(Skip = SkipReason.ShadowKeysNotSupported)]
+    [ConditionalFact(Skip = SkipReason.ForeignKeysNotSupported)]
     public override Task Can_insert_and_read_back_with_structural_struct_binary_key_and_optional_dependents_with_shadow_FK()
         => base.Can_insert_and_read_back_with_structural_struct_binary_key_and_optional_dependents_with_shadow_FK();
 
-    [ConditionalFact(Skip = SkipReason.ShadowKeysNotSupported)]
+    [ConditionalFact(Skip = SkipReason.ForeignKeysNotSupported)]
     public override Task Can_insert_and_read_back_with_comparable_struct_binary_key_and_optional_dependents_with_shadow_FK()
         => base.Can_insert_and_read_back_with_comparable_struct_binary_key_and_optional_dependents_with_shadow_FK();
 
-    [ConditionalFact(Skip = SkipReason.ShadowKeysNotSupported)]
+    [ConditionalFact(Skip = SkipReason.ForeignKeysNotSupported)]
     public override Task Can_insert_and_read_back_with_generic_comparable_struct_binary_key_and_optional_dependents_with_shadow_FK()
         => base.Can_insert_and_read_back_with_generic_comparable_struct_binary_key_and_optional_dependents_with_shadow_FK();
 
-    [ConditionalFact(Skip = SkipReason.ShadowKeysNotSupported)]
+    [ConditionalFact(Skip = SkipReason.ForeignKeysNotSupported)]
     public override Task Can_insert_and_read_back_with_struct_binary_key_and_required_dependents_with_shadow_FK()
         => base.Can_insert_and_read_back_with_struct_binary_key_and_required_dependents_with_shadow_FK();
 
-    [ConditionalFact(Skip = SkipReason.ShadowKeysNotSupported)]
+    [ConditionalFact(Skip = SkipReason.ForeignKeysNotSupported)]
     public override Task Can_insert_and_read_back_with_comparable_struct_binary_key_and_required_dependents_with_shadow_FK()
         => base.Can_insert_and_read_back_with_comparable_struct_binary_key_and_required_dependents_with_shadow_FK();
 
-    [ConditionalFact(Skip = SkipReason.ShadowKeysNotSupported)]
+    [ConditionalFact(Skip = SkipReason.ForeignKeysNotSupported)]
     public override Task Can_insert_and_read_back_with_structural_struct_binary_key_and_required_dependents_with_shadow_FK()
         => base.Can_insert_and_read_back_with_structural_struct_binary_key_and_required_dependents_with_shadow_FK();
 
-    [ConditionalFact(Skip = SkipReason.ShadowKeysNotSupported)]
+    [ConditionalFact(Skip = SkipReason.ForeignKeysNotSupported)]
     public override Task Can_insert_and_read_back_with_generic_comparable_struct_binary_key_and_required_dependents_with_shadow_FK()
         => base.Can_insert_and_read_back_with_generic_comparable_struct_binary_key_and_required_dependents_with_shadow_FK();
 
