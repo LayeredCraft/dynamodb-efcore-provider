@@ -45,45 +45,6 @@ public class UnsupportedOperatorTranslationTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public async Task SingleOrDefaultAsync_ThrowsTranslationFailureWithDetails()
-    {
-        var client = Substitute.For<IAmazonDynamoDB>();
-        await using var context = UnsupportedOperatorDbContext.Create(client);
-
-        var act = async () => await context.Items.SingleOrDefaultAsync(
-            i => i.Pk == "ITEM#1",
-            TestContext.Current.CancellationToken);
-
-        await act
-            .Should()
-            .ThrowAsync<InvalidOperationException>()
-            .WithMessage("*LINQ operator 'SingleOrDefault'*not currently supported*");
-
-        await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
-    }
-
-    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public async Task SingleAsync_UsesSingleOperatorNameInFailureDetails()
-    {
-        var client = Substitute.For<IAmazonDynamoDB>();
-        await using var context = UnsupportedOperatorDbContext.Create(client);
-
-        var act = async () => await context.Items.SingleAsync(
-            i => i.Pk == "ITEM#1",
-            TestContext.Current.CancellationToken);
-
-        var exceptionAssertion = await act
-            .Should()
-            .ThrowAsync<InvalidOperationException>()
-            .WithMessage("*LINQ operator 'Single'*")
-            .WithMessage("*not currently supported*");
-
-        exceptionAssertion.Which.Message.Should().NotContain("SingleOrDefault");
-
-        await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
-    }
-
-    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task BitwiseComplementInPredicate_ThrowsTranslationFailureWithDetails()
     {
         var client = Substitute.For<IAmazonDynamoDB>();

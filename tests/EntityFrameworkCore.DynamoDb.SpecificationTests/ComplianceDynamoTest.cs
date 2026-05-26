@@ -21,12 +21,14 @@ public sealed class ComplianceDynamoTest : ComplianceTestBase
         yield return typeof(ConcurrencyDetectorDisabledTestBase<>);
         yield return typeof(ConcurrencyDetectorEnabledTestBase<>);
         yield return typeof(FindTestBase<>);
+        yield return typeof(KeysWithConvertersTestBase<>);
         yield return typeof(LoggingTestBase);
         yield return typeof(MaterializationInterceptionTestBase<>);
         yield return typeof(OverzealousInitializationTestBase<>);
         yield return typeof(QueryExpressionInterceptionTestBase);
         yield return typeof(SaveChangesInterceptionTestBase);
         yield return typeof(SeedingTestBase);
+        yield return typeof(ValueConvertersEndToEndTestBase<>);
         yield return typeof(NorthwindAsNoTrackingQueryTestBase<>);
         yield return typeof(NorthwindAsTrackingQueryTestBase<>);
         yield return typeof(NorthwindChangeTrackingQueryTestBase<>);

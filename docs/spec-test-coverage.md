@@ -44,12 +44,14 @@ change tracking, concurrency, Find, value converters, interceptors, and more.
 | `OverzealousInitializationTestBase`   |       1 |   ✓    |    ✗    | Navigation-based fixup test is explicitly skipped                            |
 | `LoggingTestBase`                     |       1 |   ✗    |    ✗    | Context-initialization logging covered; unsupported include path skipped     |
 | `SaveChangesInterceptionTestBase`     |      13 |   ✗    |    ✗    | Transaction-dependent cases are explicitly skipped                           |
-| `QueryExpressionInterceptionTestBase` |       4 |   ✓    |    ✗    | `Single`-based query shapes are explicitly skipped                           |
+| `QueryExpressionInterceptionTestBase` |       4 |   ✓    |    ✗    | Spec `Single` shapes are skipped when they are not key-condition-only         |
 | `MaterializationInterceptionTestBase` |       7 |   ✓    |    ✗    | Materialization interceptor coverage; owned/complex collection cases skipped |
 | `CompositeKeyEndToEndTestBase`        |       3 |   ✗    |    ✗    | PK+SK round-trip covered; three-part composite-key cases skipped             |
 | `ConvertToProviderTypesTestBase`      |       2 |   ✗    |    ✗    | Additional enum/provider-type conversion query methods beyond `BuiltInDataTypesTestBase` |
 | `CustomConvertersTestBase`            |      29 |   ✓    |    ✗    | Value converter round-trips; unsupported converter edge cases explicitly skipped |
 | `SeedingTestBase`                     |       2 |   ✗    |    ✗    | `HasData` seeding is covered; keyless entity seeding is skipped because DynamoDB requires partition keys |
+| `ValueConvertersEndToEndTestBase`     |       1 |   ✗    |    ✗    | End-to-end converter insert/readback; DynamoDB fixture maps `ConvertingEntity` with partition key |
+| `KeysWithConvertersTestBase`          |      47 |   ✓    |    ✗    | Converted partition-key mapping has DynamoDB-specific coverage; inherited FK, shadow-FK, and owned-entity cases are explicitly skipped |
 
 ### Implement Next
 
@@ -62,7 +64,6 @@ Feasible but requires investigation or additional provider work before adding.
 | Test Class                        | Methods | Cosmos | MongoDB | Feasibility | Blocker                                                                                                                                                                                             |
 | --------------------------------- | ------: | :----: | :-----: | ----------: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `KeysWithConvertersTestBase`      |      47 |   ✓    |    ✗    |        ~70% | Keys that pass through value converters; type mapping validation needed                                                                                                                             |
-| `ValueConvertersEndToEndTestBase` |       1 |   ✗    |    ✗    |        ~80% | Single E2E converter test; currently blocked by base-test `SingleAsync` query shape unless adapted                                                                                                  |
 | `WithConstructorsTestBase`        |      41 |   ✗    |    ✗    |        ~70% | Entities using non-default constructors; DynamoDB materializes via EF's normal pipeline                                                                                                             |
 | `PropertyValuesTestBase`          |     167 |   ✗    |    ✗    |        ~55% | `CurrentValues`/`OriginalValues`/`GetDatabaseValues`; `GetDatabaseValues` requires a read which DynamoDB supports, but relational semantics for shadow keys and navigation tracking reduce coverage |
 | `StoreGeneratedTestBase`          |      58 |   ✗    |    ✗    |        ~50% | Store-generated keys and concurrency tokens; partially supported (DynamoDB auto-generates string PKs but not sequences)                                                                             |
@@ -287,7 +288,7 @@ ______________________________________________________________________
 
 | Category                    |              Implemented | Implement Next |                   Future |                       Skip |
 | --------------------------- | -----------------------: | -------------: | -----------------------: | -------------------------: |
-| Non-Query (top-level)       | 17 classes / 341 methods |              — |  7 classes / 499 methods |   19 classes / 984 methods |
+| Non-Query (top-level)       | 18 classes / 388 methods |              — |  6 classes / 452 methods |   19 classes / 984 methods |
 | BulkUpdates                 |                        — |              — | 5 classes / 135+ methods |       1 class / 33 methods |
 | Northwind Query             |  7 classes / 441 methods |              — |  3 classes / 491 methods |  12 classes / 924+ methods |
 | Other Query                 |  1 class / 74 methods |              — | 12 classes / 389 methods | 16 classes / 1,683 methods |
@@ -337,7 +338,7 @@ No near-term specification test classes are currently queued here.
 
 | Status         | Classes | Methods |
 | -------------- | ------: | ------: |
-| Implemented    |      25 |     856 |
+| Implemented    |      26 |     903 |
 | Implement Next |       0 |       0 |
-| Future         |      46 |  1,843+ |
+| Future         |      45 |  1,796+ |
 | Skip           |     61+ |  3,747+ |
