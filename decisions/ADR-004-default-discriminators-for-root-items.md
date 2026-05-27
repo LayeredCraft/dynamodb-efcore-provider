@@ -27,9 +27,11 @@ shapes. Cosmos does **not** add discriminator predicates to every query. It skip
 there is a single concrete type, discriminator mapping is complete, and no other mapped type in the
 same container requires disambiguation.
 
-The DynamoDB provider is not published yet, so breaking model-shape changes are acceptable. This
-lets us choose the cleaner long-term contract rather than carrying legacy compatibility switches for
-single-root items that were written without `$type`.
+The DynamoDB provider has only shipped prerelease packages, with no stable release yet, so a
+breaking model-shape change is still acceptable. This lets us choose the cleaner long-term contract
+rather than carrying legacy compatibility switches for single-root items that were written without
+`$type`. Preview users with existing provider-managed data will need to migrate items, opt out with
+`HasNoDiscriminator()`, or configure incomplete discriminator mapping intentionally.
 
 DynamoDB-specific constraints still matter:
 
@@ -153,12 +155,13 @@ are filtered out by the query predicate instead of being materialized.
 entity opts out the table group. This is an advanced mode: the provider will not inject type-level
 predicates, and key design must guarantee that queries cannot return wrong item shapes.
 
-Because the provider has not shipped, there is no legacy compatibility mode for provider-managed
-items that lack `$type`. Data written outside the provider must satisfy the finalized model
-contract, opt out with `HasNoDiscriminator()`, or intentionally configure incomplete discriminator
-mapping with `IsComplete(false)`. Incomplete mapping keeps discriminator predicates on queries so
-unknown or missing discriminator values are filtered out; it does not make invalid provider-managed
-rows materializable.
+Because the provider has not reached a stable release, there is no long-term legacy compatibility
+mode for provider-managed items that lack `$type`. Existing preview data and data written outside
+the provider must satisfy the finalized model contract, be migrated, opt out with
+`HasNoDiscriminator()`, or intentionally configure incomplete discriminator mapping with
+`IsComplete(false)`. Incomplete mapping keeps discriminator predicates on queries so unknown or
+missing discriminator values are filtered out; it does not make invalid provider-managed rows
+materializable.
 
 ## Rationale
 
@@ -201,10 +204,13 @@ harmful for DynamoDB query semantics because it turns type metadata into a unive
 - Unknown or missing discriminator values are model violations under complete mapping and should
   fail materialization when reached; incomplete mapping filters them out with discriminator
   predicates instead.
-- Explicit secondary-index use must make attributes available for predicate evaluation, result
-  projection, and materialization. Non-`All` GSI/LSI use must be rejected or fail clearly when
-  required attributes may be unavailable, including discriminator predicates for scalar/DTO
-  projections.
+- Explicit secondary-index use must account for every attribute needed for predicate evaluation,
+  result projection, and materialization. GSIs cannot fetch non-projected attributes from the base
+  table, so non-`All` GSI use must be rejected or fail clearly when required attributes may be
+  unavailable, including discriminator predicates for scalar/DTO projections. LSIs can fetch
+  non-projected attributes from the base table at additional read cost and latency; if the provider
+  rejects non-`All` LSI usage before it models this path, that rejection is a conservative provider
+  limitation rather than a DynamoDB attribute-availability limit.
 - Users with exact item-shape requirements must call `HasNoDiscriminator()` and accept weaker type
   safety.
 
@@ -227,9 +233,13 @@ harmful for DynamoDB query semantics because it turns type metadata into a unive
 - Validate duplicate discriminator values within a table group.
 - Ensure projections include the discriminator attribute when predicate evaluation or materialization
   needs it, including scalar/DTO projections that still require discriminator predicates.
-- Require selected secondary indexes to make all attributes required for predicate evaluation, result
-  projection, and materialization available. Explicit non-`All` GSI/LSI use should be rejected or
-  fail clearly when coverage cannot be proven.
+- Require selected GSIs to make all attributes required for predicate evaluation, result projection,
+  and materialization available. Explicit non-`All` GSI use should be rejected or fail clearly when
+  coverage cannot be proven.
+- Define selected-LSI behavior separately: either prove projection coverage, or intentionally allow
+  DynamoDB's base-table fetch path for non-projected attributes with clear diagnostics about the
+  extra read cost and latency. Until that path is implemented, explicit non-`All` LSI use may be
+  rejected as a conservative provider limitation.
 - Update tests for:
   - single root gets `$type` by convention;
   - single-root insert writes `$type`;
@@ -239,8 +249,10 @@ harmful for DynamoDB query semantics because it turns type metadata into a unive
     filters unknown/missing discriminator values;
   - missing/unknown `$type` fails materialization when reached under complete mapping;
   - shared-table and hierarchy queries still filter by discriminator;
-  - explicit non-`All` GSI/LSI use rejects or fails clearly when required predicate, projection, or
+  - explicit non-`All` GSI use rejects or fails clearly when required predicate, projection, or
     materialization attributes may be unavailable;
+  - explicit non-`All` LSI behavior follows the provider's documented policy: either rejects as a
+    conservative limitation or allows DynamoDB base-table fetches with diagnostics;
   - scalar/DTO projections with discriminator predicates still require secondary-index projection
     coverage;
   - `HasNoDiscriminator()` suppresses write/filter/materialization discriminator behavior;
@@ -261,5 +273,7 @@ harmful for DynamoDB query semantics because it turns type metadata into a unive
   `src/EntityFrameworkCore.DynamoDb/Query/Internal/DynamoQueryableMethodTranslatingExpressionVisitor.cs`
 - DynamoDB filter expressions:
   <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Query.FilterExpression.html>
+- DynamoDB Query API projection behavior for indexes:
+  <https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_Query.html>
 - DynamoDB PartiQL `SELECT`:
   <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ql-reference.select.html>
