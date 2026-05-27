@@ -111,8 +111,9 @@ or when mapping is explicitly incomplete.
 - Adds a `$type` attribute to every root item unless explicitly opted out.
 - Manual seed/import data must include valid discriminator values.
 - Requires broader validation for discriminator attribute collisions and index projection coverage.
-- Can surface materialization errors for external/unmapped items in a table unless the model opts
-  into incomplete mapping or disables discriminators.
+- Complete mappings surface materialization errors for reached external/unmapped items with missing
+  or unknown discriminator values; `IsComplete(false)` filters them by query predicate instead, and
+  `HasNoDiscriminator()` leaves type safety to key design.
 
 ### Option D: Configure and filter by discriminator for every query
 
@@ -140,18 +141,24 @@ attribute name is `$type`, and the default discriminator value is the entity typ
 Derived concrete types in a hierarchy receive their own discriminator values. Complex properties and
 future embedded/non-root document shapes do not receive discriminator metadata.
 
-The provider persists discriminator values for root items by default. Query translation injects a
-discriminator predicate only when it is needed to disambiguate possible CLR types or when the
-mapping is explicitly incomplete. Single-concrete-root queries with complete discriminator mapping
-do not get a discriminator predicate by default.
+The provider persists discriminator values for root items by default. Query translation skips a
+discriminator predicate only when the queried type has a single possible concrete CLR type, that
+concrete type's discriminator mapping is complete, and no other mapped type in the same table group
+has a different discriminator value that needs disambiguation. Query translation adds a
+discriminator predicate for multiple possible concrete types or when the mapping is explicitly
+incomplete. With incomplete mapping (`IsComplete(false)`), unknown or missing discriminator values
+are filtered out by the query predicate instead of being materialized.
 
 `HasNoDiscriminator()` remains an explicit opt-out. For a shared table group, opting out on one root
 entity opts out the table group. This is an advanced mode: the provider will not inject type-level
 predicates, and key design must guarantee that queries cannot return wrong item shapes.
 
-Because the provider has not shipped, there is no legacy compatibility mode for existing items that
-lack `$type`. Data written outside the provider must satisfy the finalized model contract or opt out
-of discriminator metadata.
+Because the provider has not shipped, there is no legacy compatibility mode for provider-managed
+items that lack `$type`. Data written outside the provider must satisfy the finalized model
+contract, opt out with `HasNoDiscriminator()`, or intentionally configure incomplete discriminator
+mapping with `IsComplete(false)`. Incomplete mapping keeps discriminator predicates on queries so
+unknown or missing discriminator values are filtered out; it does not make invalid provider-managed
+rows materializable.
 
 ## Rationale
 
@@ -189,11 +196,15 @@ harmful for DynamoDB query semantics because it turns type metadata into a unive
 **Negative / Trade-offs:**
 
 - Every root item stores an extra attribute unless the model opts out.
-- Manual seed data, import jobs, and non-EF writers must write valid discriminator values.
-- Unknown or missing discriminator values are model violations and should fail materialization when
-  reached.
-- Explicit secondary-index queries must only use indexes whose projection includes the
-  discriminator attribute when entity materialization needs it.
+- Manual seed data, import jobs, and non-EF writers must write valid discriminator values for
+  provider-managed rows.
+- Unknown or missing discriminator values are model violations under complete mapping and should
+  fail materialization when reached; incomplete mapping filters them out with discriminator
+  predicates instead.
+- Explicit secondary-index use must make attributes available for predicate evaluation, result
+  projection, and materialization. Non-`All` GSI/LSI use must be rejected or fail clearly when
+  required attributes may be unavailable, including discriminator predicates for scalar/DTO
+  projections.
 - Users with exact item-shape requirements must call `HasNoDiscriminator()` and accept weaker type
   safety.
 
@@ -203,38 +214,47 @@ harmful for DynamoDB query semantics because it turns type metadata into a unive
   discriminators for single-concrete root table groups.
 - Keep `HasNoDiscriminator()` behavior explicit and group-wide for shared table groups.
 - Update discriminator predicate generation to follow Cosmos-style rules:
-  - add predicates for shared-table and hierarchy queries with multiple possible concrete types;
+  - add predicates for queries with multiple possible concrete types;
   - add predicates when discriminator mapping is incomplete;
-  - skip predicates for complete single-concrete-root mappings when no other mapped type in the
-    table group requires disambiguation.
+  - skip predicates only when the queried type has a single possible concrete type, mapping is
+    complete, and no other mapped type in the table group has a different discriminator value that
+    needs disambiguation.
 - Validate discriminator attribute collisions for every discriminated root, not only shared-table
-  groups:
+  groups; collisions must fail model validation:
   - discriminator attribute must not collide with PK/SK attribute names;
-  - discriminator attribute should not collide with any other top-level mapped scalar or complex
+  - discriminator attribute must not collide with any other mapped top-level scalar or complex
     attribute.
 - Validate duplicate discriminator values within a table group.
-- Ensure projections include the discriminator attribute when the materializer needs it.
-- Validate or clearly fail explicit GSI/LSI use when the selected index does not project the
-  discriminator attribute required for materialization.
+- Ensure projections include the discriminator attribute when predicate evaluation or materialization
+  needs it, including scalar/DTO projections that still require discriminator predicates.
+- Require selected secondary indexes to make all attributes required for predicate evaluation, result
+  projection, and materialization available. Explicit non-`All` GSI/LSI use should be rejected or
+  fail clearly when coverage cannot be proven.
 - Update tests for:
   - single root gets `$type` by convention;
   - single-root insert writes `$type`;
-  - single-root query does not add a discriminator predicate under complete mapping;
-  - missing/unknown `$type` fails materialization when reached;
+  - single-root query does not add a discriminator predicate under complete mapping when no
+    same-table type with a different discriminator value needs disambiguation;
+  - incomplete discriminator mapping (`IsComplete(false)`) forces a discriminator predicate and
+    filters unknown/missing discriminator values;
+  - missing/unknown `$type` fails materialization when reached under complete mapping;
   - shared-table and hierarchy queries still filter by discriminator;
+  - explicit non-`All` GSI/LSI use rejects or fails clearly when required predicate, projection, or
+    materialization attributes may be unavailable;
+  - scalar/DTO projections with discriminator predicates still require secondary-index projection
+    coverage;
   - `HasNoDiscriminator()` suppresses write/filter/materialization discriminator behavior;
   - custom discriminator name/value are preserved;
-  - collision validation covers PK/SK and mapped top-level attributes.
+  - duplicate discriminator values fail validation within a table group;
+  - collision validation covers PK/SK and mapped top-level scalar/complex attributes.
 - Update user-facing docs for discriminator defaults, opt-out, storage cost, manual seed data, and
   index projection guidance.
 
 ## References
 
 - [ADR-001: Discriminator strategy for shared DynamoDB tables](./ADR-001-discriminator-strategy-for-shared-tables.md)
-- EF Core Cosmos discriminator convention:
-  `/Users/jonasha/Repos/CSharp/efcore/src/EFCore.Cosmos/Metadata/Conventions/CosmosDiscriminatorConvention.cs`
-- EF Core Cosmos discriminator predicate optimization:
-  `/Users/jonasha/Repos/CSharp/efcore/src/EFCore.Cosmos/Query/Internal/CosmosQueryableMethodTranslatingExpressionVisitor.cs`
+- [EF Core Cosmos discriminator convention](https://github.com/dotnet/efcore/blob/main/src/EFCore.Cosmos/Metadata/Conventions/CosmosDiscriminatorConvention.cs)
+- [EF Core Cosmos discriminator predicate optimization](https://github.com/dotnet/efcore/blob/main/src/EFCore.Cosmos/Query/Internal/CosmosQueryableMethodTranslatingExpressionVisitor.cs)
 - Current DynamoDB discriminator convention:
   `src/EntityFrameworkCore.DynamoDb/Metadata/Conventions/DynamoDiscriminatorConvention.cs`
 - Current DynamoDB query discriminator predicate generation:
