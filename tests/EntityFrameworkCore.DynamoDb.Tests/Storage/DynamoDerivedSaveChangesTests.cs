@@ -91,6 +91,48 @@ public class DynamoDerivedSaveChangesTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task SaveChanges_ModifiedHasKeyOnlyEntity_UsesFinalKeyAttributesInWhereClause()
+    {
+        var (context, captured) = CreateContext();
+        var entity = new HasKeyDocument { TenantId = "TEN#1", OrderId = "ORD#1", Name = "before" };
+        context.Attach(entity);
+        entity.Name = "after";
+
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        captured.Should().ContainSingle();
+        captured[0]
+            .Statement
+            .Should()
+            .Be(
+                """
+                UPDATE "HasKeyDocuments"
+                SET "name" = ?
+                WHERE "tenant_id" = ? AND "order_id" = ?
+                """);
+        captured[0].Parameters.Select(GetStringValue).Should().Equal("after", "TEN#1", "ORD#1");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task SaveChanges_AddedHasKeyOnlyEntity_IncludesFinalKeyAttributes()
+    {
+        var (context, captured) = CreateContext();
+        context.Add(new HasKeyDocument { TenantId = "TEN#1", OrderId = "ORD#1", Name = "created" });
+
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        captured.Should().ContainSingle();
+        captured[0].Statement.Should().StartWith("INSERT INTO \"HasKeyDocuments\"");
+        captured[0].Statement.Should().Contain("'tenant_id': ?");
+        captured[0].Statement.Should().Contain("'order_id': ?");
+        captured[0]
+            .Parameters
+            .Select(GetStringValue)
+            .Should()
+            .Contain(["TEN#1", "ORD#1", "created"]);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void RuntimeModel_StoresTableGroupNameForDerivedAndSharedTableEntities()
     {
         var (context, _) = CreateContext();
@@ -163,6 +205,13 @@ public class DynamoDerivedSaveChangesTests
         public string Extra { get; set; } = null!;
     }
 
+    private sealed class HasKeyDocument
+    {
+        public string TenantId { get; set; } = null!;
+        public string OrderId { get; set; } = null!;
+        public string Name { get; set; } = null!;
+    }
+
     private sealed class SharedRootA
     {
         public string Pk { get; set; } = null!;
@@ -196,6 +245,15 @@ public class DynamoDerivedSaveChangesTests
             modelBuilder.Entity<DerivedDocument>(b =>
             {
                 b.Property(x => x.Extra).HasAttributeName("extra");
+            });
+
+            modelBuilder.Entity<HasKeyDocument>(b =>
+            {
+                b.ToTable("HasKeyDocuments");
+                b.HasKey(x => new { x.TenantId, x.OrderId });
+                b.Property(x => x.TenantId).HasAttributeName("tenant_id");
+                b.Property(x => x.OrderId).HasAttributeName("order_id");
+                b.Property(x => x.Name).HasAttributeName("name");
             });
 
             modelBuilder.Entity<SharedRootA>(b =>
