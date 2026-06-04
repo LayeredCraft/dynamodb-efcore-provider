@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using Amazon.DynamoDBv2;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -158,6 +159,63 @@ public class DynamoEntityKeyMappingConventionTests
     private sealed record SingleExplicitKeyEntity
     {
         public string Id { get; set; } = null!;
+    }
+
+    private sealed record KeyAttributeEntity
+    {
+        [Key]
+        public string Id { get; set; } = null!;
+    }
+
+    private sealed class KeyAttributeContext(DbContextOptions options) : DbContext(options)
+    {
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<KeyAttributeEntity>(b => b.ToTable("KeyAttributeTable"));
+
+        public static KeyAttributeContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<KeyAttributeContext>(client));
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void KeyAttribute_InfersPartitionKeyOnly()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var ctx = KeyAttributeContext.Create(client);
+
+        var entityType = ctx.Model.FindEntityType(typeof(KeyAttributeEntity))!;
+
+        entityType.GetPartitionKeyPropertyName().Should().Be("Id");
+        entityType.GetSortKeyPropertyName().Should().BeNull();
+    }
+
+    [PrimaryKey(nameof(TenantId), nameof(OrderId))]
+    private sealed record PrimaryKeyAttributeEntity
+    {
+        public string TenantId { get; set; } = null!;
+
+        public string OrderId { get; set; } = null!;
+    }
+
+    private sealed class PrimaryKeyAttributeContext(DbContextOptions options) : DbContext(options)
+    {
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<PrimaryKeyAttributeEntity>(b
+                => b.ToTable("PrimaryKeyAttributeTable"));
+
+        public static PrimaryKeyAttributeContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<PrimaryKeyAttributeContext>(client));
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void PrimaryKeyAttribute_InfersPartitionAndSortKey()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var ctx = PrimaryKeyAttributeContext.Create(client);
+
+        var entityType = ctx.Model.FindEntityType(typeof(PrimaryKeyAttributeEntity))!;
+
+        entityType.GetPartitionKeyPropertyName().Should().Be("TenantId");
+        entityType.GetSortKeyPropertyName().Should().Be("OrderId");
     }
 
     private sealed class SingleExplicitKeyContext(DbContextOptions options) : DbContext(options)

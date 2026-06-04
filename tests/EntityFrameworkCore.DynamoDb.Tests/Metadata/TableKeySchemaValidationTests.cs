@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using Amazon.DynamoDBv2;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -119,6 +120,28 @@ public class TableKeySchemaValidationTests
             .Should()
             .Throw<InvalidOperationException>()
             .WithMessage("*sort key 'SomeProp'*EF primary key has only one property*");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void KeyAttribute_WithConflictingPartitionKey_ThrowsTargetedError()
+    {
+        var ctx = KeyAttributeConflictContext.Create(MockClient());
+        var act = () => ctx.Model;
+        act
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage("*partition key 'OtherId'*EF primary key starts with 'Id'*");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void PrimaryKeyAttribute_WithThreeParts_ThrowsDynamoShapeError()
+    {
+        var ctx = ThreePartPrimaryKeyAttributeContext.Create(MockClient());
+        var act = () => ctx.Model;
+        act
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage("*DynamoDB table keys support only one- or two-part keys*");
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
@@ -552,6 +575,56 @@ public class TableKeySchemaValidationTests
 
         public static GhostSortKeyContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<GhostSortKeyContext>(client));
+    }
+
+    private sealed record KeyAttributeConflictEntity
+    {
+        [Key]
+        public string Id { get; set; } = null!;
+
+        public string OtherId { get; set; } = null!;
+    }
+
+    private sealed class KeyAttributeConflictContext(DbContextOptions options) : DbContext(options)
+    {
+        public DbSet<KeyAttributeConflictEntity> Entities { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<KeyAttributeConflictEntity>(b =>
+            {
+                DynamoEntityTypeBuilderExtensions.ToTable(
+                    (EntityTypeBuilder)b,
+                    "KeyAttributeConflictTable");
+                b.HasPartitionKey(x => x.OtherId);
+            });
+
+        public static KeyAttributeConflictContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<KeyAttributeConflictContext>(client));
+    }
+
+    [PrimaryKey(nameof(A), nameof(B), nameof(C))]
+    private sealed record ThreePartPrimaryKeyAttributeEntity
+    {
+        public string A { get; set; } = null!;
+
+        public string B { get; set; } = null!;
+
+        public string C { get; set; } = null!;
+    }
+
+    private sealed class ThreePartPrimaryKeyAttributeContext(DbContextOptions options) : DbContext(
+        options)
+    {
+        public DbSet<ThreePartPrimaryKeyAttributeEntity> Entities { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<ThreePartPrimaryKeyAttributeEntity>(b
+                => DynamoEntityTypeBuilderExtensions.ToTable(
+                    (EntityTypeBuilder)b,
+                    "ThreePartPrimaryKeyAttributeTable"));
+
+        public static ThreePartPrimaryKeyAttributeContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<ThreePartPrimaryKeyAttributeContext>(client));
     }
 
     // -------------------------------------------------------------------
