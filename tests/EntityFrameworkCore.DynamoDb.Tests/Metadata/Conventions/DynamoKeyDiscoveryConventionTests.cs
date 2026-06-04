@@ -923,6 +923,73 @@ public class DynamoKeyDiscoveryConventionTests
         entityType.GetSortKeyPropertyName().Should().Be("SK");
     }
 
+    private sealed record EntityNameIdOnlyEntity
+    {
+        public string EntityNameIdOnlyEntityId { get; set; } = null!;
+    }
+
+    private sealed class EntityNameIdOnlyContext(DbContextOptions options) : DbContext(options)
+    {
+        public DbSet<EntityNameIdOnlyEntity> Entities { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<EntityNameIdOnlyEntity>(b => b.ToTable("EntityNameIdOnlyTable"));
+
+        public static EntityNameIdOnlyContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<EntityNameIdOnlyContext>(client));
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void EntityNameIdConventionKey_InfersPartitionKey_WhenNoDynamoNamesExist()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var ctx = EntityNameIdOnlyContext.Create(client);
+
+        var entityType = ctx.Model.FindEntityType(typeof(EntityNameIdOnlyEntity))!;
+        var primaryKey = entityType.FindPrimaryKey()!;
+
+        primaryKey.Properties.Should().HaveCount(1);
+        primaryKey.Properties[0].Name.Should().Be("EntityNameIdOnlyEntityId");
+        entityType.GetPartitionKeyPropertyName().Should().Be("EntityNameIdOnlyEntityId");
+    }
+
+    private sealed record ExplicitHasKeyResolvesAmbiguousPkEntity
+    {
+        public string PK { get; set; } = null!;
+
+        public string PartitionKey { get; set; } = null!;
+
+        public string CustomId { get; set; } = null!;
+    }
+
+    private sealed class ExplicitHasKeyResolvesAmbiguousPkContext(DbContextOptions options)
+        : DbContext(options)
+    {
+        public DbSet<ExplicitHasKeyResolvesAmbiguousPkEntity> Entities { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<ExplicitHasKeyResolvesAmbiguousPkEntity>(b =>
+            {
+                b.ToTable("ExplicitHasKeyResolvesAmbiguousPkTable");
+                b.HasKey(x => x.CustomId);
+            });
+
+        public static ExplicitHasKeyResolvesAmbiguousPkContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<ExplicitHasKeyResolvesAmbiguousPkContext>(client));
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ExplicitHasKey_ResolvesAmbiguousConventionalPartitionNames()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var ctx = ExplicitHasKeyResolvesAmbiguousPkContext.Create(client);
+
+        var entityType = ctx.Model.FindEntityType(typeof(ExplicitHasKeyResolvesAmbiguousPkEntity))!;
+
+        entityType.GetPartitionKeyPropertyName().Should().Be("CustomId");
+        entityType.GetSortKeyPropertyName().Should().BeNull();
+    }
+
     // -------------------------------------------------------------------
     // ShouldDiscoverKeyProperties — owned entity types are skipped
     // -------------------------------------------------------------------
@@ -949,16 +1016,27 @@ public class DynamoKeyDiscoveryConventionTests
 
         // IsOwned() is an EF Core extension method — build a real model with an owned
         // relationship so the method returns true without mocking.
-        var modelBuilder = new ModelBuilder(new Microsoft.EntityFrameworkCore.Metadata.Conventions.ConventionSet());
+        var modelBuilder =
+            new ModelBuilder(
+                new Microsoft.EntityFrameworkCore.Metadata.Conventions.ConventionSet());
         modelBuilder.Entity<OwnedTypeOwner>().OwnsOne<OwnedTypeValue>(nameof(OwnedTypeOwner.Owned));
-        var ownedEntityType = (IConventionEntityType)
-            ((IConventionModel)modelBuilder.Model).FindEntityType(typeof(OwnedTypeValue))!;
+        var ownedEntityType =
+            (IConventionEntityType)((IConventionModel)modelBuilder.Model).FindEntityType(
+                typeof(OwnedTypeValue))!;
 
         convention.ShouldDiscover(ownedEntityType).Should().BeFalse();
     }
 
-    private sealed class OwnedTypeOwner { public int Id { get; set; } public OwnedTypeValue Owned { get; set; } = null!; }
-    private sealed class OwnedTypeValue { public string? Value { get; set; } }
+    private sealed class OwnedTypeOwner
+    {
+        public int Id { get; set; }
+        public OwnedTypeValue Owned { get; set; } = null!;
+    }
+
+    private sealed class OwnedTypeValue
+    {
+        public string? Value { get; set; }
+    }
 
     // -------------------------------------------------------------------
 

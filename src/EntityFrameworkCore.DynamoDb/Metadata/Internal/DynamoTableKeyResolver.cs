@@ -42,6 +42,15 @@ internal static class DynamoTableKeyResolver
 
         var partitionKey = annotatedPartitionKey ?? ResolvePartitionKeyByConvention(entityType);
         var sortKey = annotatedSortKey ?? ResolveSortKeyByConvention(entityType);
+
+        if (partitionKey is null
+            && primaryKeySource == ConfigurationSource.Convention
+            && primaryKey is { Properties.Count: <= 2 })
+        {
+            partitionKey = primaryKey.Properties[0];
+            sortKey ??= primaryKey.Properties.Count == 2 ? primaryKey.Properties[1] : null;
+        }
+
         ValidateResolvedRoles(entityType, partitionKey, sortKey);
 
         return new DynamoResolvedTableKey(
