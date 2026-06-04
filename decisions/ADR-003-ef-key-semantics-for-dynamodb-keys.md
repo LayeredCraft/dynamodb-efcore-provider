@@ -2,7 +2,7 @@
 
 ## Status
 
-- Proposed
+- Accepted / implemented
 - **Date:** 2026-05-24
 - **Deciders:** EntityFrameworkCore.DynamoDb maintainers
 - **Supersedes:** none
@@ -225,8 +225,7 @@ key resolution.
 - Alternate keys configured with `HasAlternateKey(...)` do not participate in table key resolution.
 - EF indexes and unique indexes do not participate in table key resolution.
 - DynamoDB secondary indexes remain configured through provider secondary-index APIs.
-- Shadow and runtime-only properties cannot be DynamoDB table keys. If an EF primary key used for
-  inference contains a shadow or runtime-only property, validation fails.
+- Typed mapped shadow properties may be DynamoDB table keys when declared in the EF model (for example `Property<string>("PK")`). Runtime-only provider metadata cannot be a DynamoDB table key.
 - Complex/embedded properties do not participate in table key resolution; table keys must be
   top-level scalar properties.
 
@@ -283,7 +282,7 @@ For every root DynamoDB table entity:
 - Second EF key property, if present, must map to a DynamoDB key-compatible scalar attribute type:
   string (`S`), number (`N`, including supported CLR numeric types), or binary (`B`).
 - Key properties must be required / non-nullable for DynamoDB key purposes.
-- Key properties must be mapped CLR properties, not shadow or runtime-only properties.
+- Key properties must be mapped EF properties. CLR properties and typed mapped shadow properties are allowed; runtime-only properties are rejected.
 - Alternate keys and EF indexes/unique indexes do not affect DynamoDB table key resolution.
 - If `HasPartitionKey(...)` is configured, the property must equal the first EF key property after
   synthesis/inference.

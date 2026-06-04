@@ -10,7 +10,7 @@ _Every root entity type in the DynamoDB EF Core provider must declare a partitio
 ## Defining an Entity
 
 Root entity types (non-owned, non-derived) map to DynamoDB tables and must resolve table keys.
-Key mapping can be explicit (`HasPartitionKey(...)`, `HasSortKey(...)`) or convention-based.
+Key mapping can use provider APIs (`HasPartitionKey(...)`, `HasSortKey(...)`), EF key APIs (`HasKey(...)`, `[Key]`, `[PrimaryKey]`), or conventions.
 Root entities are independent DynamoDB items; the provider does not support EF Core foreign-key or
 navigation relationships between them.
 
@@ -23,11 +23,10 @@ modelBuilder.Entity<Order>(b =>
 });
 ```
 
-!!! warning "Do not use HasKey or [Key]"
+!!! tip "Provider key APIs preferred"
 
 ```
-`HasKey(...)` and `[Key]` are rejected for root DynamoDB entities.
-Configure keys with `HasPartitionKey(...)` and optional `HasSortKey(...)` instead.
+`HasPartitionKey(...)` and `HasSortKey(...)` name DynamoDB roles directly and are preferred in docs. EF-native `HasKey(...)`, `[Key]`, and `[PrimaryKey]` are also supported for one- and two-part table keys.
 ```
 
 If no explicit `ToTable(...)` is configured, the provider uses the CLR type name as the table
@@ -46,12 +45,13 @@ application code when needed.
 
 For root entity types, table/key mapping resolves in this order (highest precedence first):
 
-1. Explicit configuration (`ToTable(...)`, `HasPartitionKey(...)`, `HasSortKey(...)`)
-2. Conventions (`PK`/`PartitionKey`, fallback `Id`, `SK`/`SortKey`; table name from CLR type)
-3. Validation outcome (missing partition key throws; partition key resolved with no sort key
+1. Explicit provider configuration (`ToTable(...)`, `HasPartitionKey(...)`, `HasSortKey(...)`)
+2. EF key configuration (`HasKey(...)`, `[Key]`, `[PrimaryKey]`)
+3. Conventions (`PK`/`PartitionKey`, fallback `Id`/`{EntityName}Id`, `SK`/`SortKey`; table name from CLR type)
+4. Validation outcome (missing partition key throws; partition key resolved with no sort key
     means partition-key-only)
 
-`HasKey(...)` and `[Key]` are not DynamoDB key overrides.
+One EF key property maps to the partition key. Two EF key properties map to partition then sort key.
 
 ## Partition Key
 
@@ -143,16 +143,9 @@ case-insensitive).
 
 In DynamoDB, a composite table key means exactly two parts: partition key + sort key.
 
-!!! warning "Composite keys must use partition/sort mapping"
+Composite keys can be configured with provider APIs or EF-native key APIs. With `HasKey(...)` or `[PrimaryKey]`, property order is DynamoDB-significant: first property is the partition key, second property is the sort key. More than two key properties are invalid.
 
-```
-`HasKey(...)` and `[Key]` are not the source of truth for composite DynamoDB keys.
-Configure composite keys with `HasPartitionKey(...)` + `HasSortKey(...)`. If an EF primary key
-shape diverges from the configured DynamoDB key mapping, model finalization throws.
-```
-
-When a sort key is configured (explicitly or by convention), the provider derives the EF primary
-key as `[partitionKey, sortKey]` in that order.
+When provider APIs or conventions configure a sort key, the provider derives the EF primary key as `[partitionKey, sortKey]` in that order.
 
 Explicit composite-key mapping:
 
@@ -179,7 +172,8 @@ public sealed class Order
 !!! note "Common validation failures"
 
 ```
-- Configuring `HasKey(...)` or `[Key]` on the entity
+- EF key has more than two properties
+- EF key and provider key APIs disagree on partition/sort order
 - Declaring a sort key without a resolvable partition key
 - Ambiguous conventional names (both `PK` and `PartitionKey`, or both `SK` and `SortKey`)
 ```

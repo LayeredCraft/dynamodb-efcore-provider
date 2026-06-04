@@ -121,9 +121,7 @@ Key behaviors:
 - **Scalar `null` writes DynamoDB `NULL`.** Setting a scalar property to `null` writes an
     explicit `{ NULL: true }` attribute. Null complex properties and complex collections can be
     represented as removed nested attributes when the provider emits a `REMOVE` for that path.
-- **Primary keys cannot be modified.** Attempting to change a `[Key]`-annotated or key-mapped
-    property on a tracked entity throws `NotSupportedException`. To change an item's key, delete
-    the existing entity and add a new one.
+- **Finalized table keys cannot be modified.** Attempting to change the EF primary key that maps to the DynamoDB partition key or sort key throws `NotSupportedException`. To change an item's key, delete the existing entity and add a new one.
 
 ### Complex Properties in Updates
 
