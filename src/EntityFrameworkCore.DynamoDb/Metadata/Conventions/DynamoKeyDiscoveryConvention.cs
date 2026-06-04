@@ -5,34 +5,13 @@ using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
 
 namespace EntityFrameworkCore.DynamoDb.Metadata.Conventions;
 
-/// <summary>A convention that discovers DynamoDB table keys from CLR property naming conventions.</summary>
+/// <summary>Legacy helper for DynamoDB conventional key-name matching.</summary>
 /// <remarks>
-///     Inherits <c>KeyDiscoveryConvention</c> so that all standard EF Core key-discovery
-///     triggers (entity type added, property added, key removed, foreign key ownership changes, etc.)
-///     are handled by a single replacement convention rather than running alongside the base. The
-///     following property names are recognised (case-insensitive, ordinal comparison):
-///     <list type="bullet">
-///         <item>
-///             <c>PK</c> or <c>PartitionKey</c> — designated as the DynamoDB partition key and
-///             placed first in the EF primary key.
-///         </item>
-///         <item>
-///             <c>Id</c> — designated as the DynamoDB partition key only when no
-///             DynamoDB-specific partition key name exists.
-///         </item>
-///         <item>
-///             <c>SK</c> or <c>SortKey</c> — designated as the DynamoDB sort key and appended after
-///             the partition key in the EF primary key.
-///         </item>
-///     </list>
-///     Convention-level discovery is overridden by explicit <c>HasPartitionKey</c> or
-///     <c>HasSortKey</c> fluent API calls, which set annotations at
-///     <c>Microsoft.EntityFrameworkCore.Metadata.ConfigurationSource.Explicit</c> source and
-///     are handled by <c>DynamoKeyInPrimaryKeyConvention</c>. Root entity types fall back to an
-///     <c>Id</c> property for the partition key only when no <c>PK</c> or <c>PartitionKey</c>
-///     property exists. They never infer DynamoDB table keys from <c>[Key]</c>.
-///     Annotation-setting and ambiguity validation are handled separately by
-///     <c>DynamoKeyAnnotationConvention</c>.
+///     The active provider convention is <see cref="DynamoTableKeyResolutionConvention" />. This type
+///     remains only for shared candidate-selection helpers and compatibility tests. Final key
+///     resolution supports provider APIs, EF <c>HasKey</c>, <c>[Key]</c>, <c>[PrimaryKey]</c>, mapped
+///     shadow keys, and conventional <c>PK</c>/<c>PartitionKey</c>/<c>Id</c> plus
+///     <c>SK</c>/<c>SortKey</c> names.
 /// </remarks>
 public class DynamoKeyDiscoveryConvention(ProviderConventionSetBuilderDependencies dependencies)
     : KeyDiscoveryConvention(dependencies)
@@ -44,13 +23,6 @@ public class DynamoKeyDiscoveryConvention(ProviderConventionSetBuilderDependenci
         => !entityType.IsOwned() && base.ShouldDiscoverKeyProperties(entityType);
 
     /// <summary>Configures EF key candidates from DynamoDB conventional-name properties.</summary>
-    /// <remarks>
-    ///     Key discovery first looks for a DynamoDB-specific partition key property (<c>PK</c> /
-    ///     <c>PartitionKey</c>), then falls back to <c>Id</c> when no DynamoDB-specific name exists.
-    ///     If a conventional sort key property is also present (<c>SK</c> / <c>SortKey</c>), it is
-    ///     appended after the partition key. Annotations are not set here — that is the responsibility
-    ///     of <c>DynamoKeyAnnotationConvention</c>.
-    /// </remarks>
     protected override void ProcessKeyProperties(
         IList<IConventionProperty> keyProperties,
         IConventionEntityType entityType)

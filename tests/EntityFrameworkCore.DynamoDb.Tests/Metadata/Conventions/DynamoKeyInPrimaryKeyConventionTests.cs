@@ -9,11 +9,10 @@ using NSubstitute;
 namespace EntityFrameworkCore.DynamoDb.Tests.Metadata.Conventions;
 
 /// <summary>
-///     Tests for <c>DynamoKeyInPrimaryKeyConvention</c> — verifies that the EF Core primary key
-///     is automatically configured to match the DynamoDB key schema when <c>HasPartitionKey</c> and/or
-///     <c>HasSortKey</c> annotations are set without an explicit <c>HasKey</c> call.
+///     Tests for finalized table-key resolution — verifies that the EF Core primary key is configured
+///     to match DynamoDB key roles from provider APIs, EF <c>HasKey</c>, and mapped shadow keys.
 /// </summary>
-public class DynamoKeyInPrimaryKeyConventionTests
+public class DynamoTableKeyResolutionConventionTests
 {
     private static DbContextOptions BuildOptions<T>(IAmazonDynamoDB client) where T : DbContext
         => new DbContextOptionsBuilder<T>()
