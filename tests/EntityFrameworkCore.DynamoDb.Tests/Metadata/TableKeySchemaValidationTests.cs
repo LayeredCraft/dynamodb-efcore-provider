@@ -63,7 +63,7 @@ public class TableKeySchemaValidationTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public void SharedTable_ConsistentPkSk_DoesNotThrow()
+    public void SharedTable_ConsistentPkSk_WithProviderAndHasKeyStyles_DoesNotThrow()
     {
         var ctx = ConsistentPkSkContext.Create(MockClient());
         var act = () => ctx.Model;
@@ -516,8 +516,7 @@ public class TableKeySchemaValidationTests
             modelBuilder.Entity<EntityJ>(b =>
             {
                 DynamoEntityTypeBuilderExtensions.ToTable((EntityTypeBuilder)b, "SharedTable5");
-                b.HasPartitionKey(x => x.PartId);
-                b.HasSortKey(x => x.SortId);
+                b.HasKey(x => new { x.PartId, x.SortId });
             });
         }
 
