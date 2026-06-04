@@ -156,25 +156,57 @@ public class TableKeySchemaValidationTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public void HasPartitionKey_ShadowProperty_ThrowsOnValidation()
+    public void HasPartitionKey_ShadowProperty_DoesNotThrow()
     {
         var ctx = ShadowPartitionKeyContext.Create(MockClient());
         var act = () => ctx.Model;
-        act
-            .Should()
-            .Throw<InvalidOperationException>()
-            .WithMessage("*shadow key properties are not supported*");
+        act.Should().NotThrow();
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public void HasPartitionKeyAndSortKey_ShadowProperties_ThrowOnValidation()
+    public void HasPartitionKeyAndSortKey_ShadowProperties_DoNotThrow()
     {
         var ctx = ShadowPartitionAndSortKeyContext.Create(MockClient());
+        var act = () => ctx.Model;
+        act.Should().NotThrow();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void HasKey_ShadowProperties_DoNotThrow()
+    {
+        var ctx = ShadowHasKeyContext.Create(MockClient());
+        var act = () => ctx.Model;
+        act.Should().NotThrow();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void HasKey_ShadowBoolKey_ThrowsUnsupportedTypeError()
+    {
+        var ctx = ShadowBoolKeyContext.Create(MockClient());
         var act = () => ctx.Model;
         act
             .Should()
             .Throw<InvalidOperationException>()
-            .WithMessage("*shadow key properties are not supported*");
+            .WithMessage("*partition key*must be string, number, or binary*");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void HasKey_NullableShadowKey_IsMadeRequiredByEfAndValid()
+    {
+        var ctx = NullableShadowKeyContext.Create(MockClient());
+        var act = () => ctx.Model;
+        act.Should().NotThrow();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void RuntimeOnlyProperty_ConfiguredAsKey_ThrowsRuntimeOnlyError()
+    {
+        var ctx = RuntimeOnlyKeyContext.Create(MockClient());
+        var act = () => ctx.Model;
+        act
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage("*runtime-only provider metadata*cannot be used as a table key*");
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
@@ -745,6 +777,78 @@ public class TableKeySchemaValidationTests
 
         public static ShadowPartitionAndSortKeyContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<ShadowPartitionAndSortKeyContext>(client));
+    }
+
+    private sealed class ShadowHasKeyContext(DbContextOptions options) : DbContext(options)
+    {
+        public DbSet<ShadowKeyEntity> Entities { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<ShadowKeyEntity>(b =>
+            {
+                DynamoEntityTypeBuilderExtensions.ToTable(
+                    (EntityTypeBuilder)b,
+                    "ShadowHasKeyTable");
+                b.Property<string>("PK");
+                b.Property<string>("SK");
+                b.HasKey("PK", "SK");
+            });
+
+        public static ShadowHasKeyContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<ShadowHasKeyContext>(client));
+    }
+
+    private sealed class ShadowBoolKeyContext(DbContextOptions options) : DbContext(options)
+    {
+        public DbSet<ShadowKeyEntity> Entities { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<ShadowKeyEntity>(b =>
+            {
+                DynamoEntityTypeBuilderExtensions.ToTable(
+                    (EntityTypeBuilder)b,
+                    "ShadowBoolKeyTable");
+                b.Property<bool>("PK");
+                b.HasKey("PK");
+            });
+
+        public static ShadowBoolKeyContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<ShadowBoolKeyContext>(client));
+    }
+
+    private sealed class NullableShadowKeyContext(DbContextOptions options) : DbContext(options)
+    {
+        public DbSet<ShadowKeyEntity> Entities { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<ShadowKeyEntity>(b =>
+            {
+                DynamoEntityTypeBuilderExtensions.ToTable(
+                    (EntityTypeBuilder)b,
+                    "NullableShadowKeyTable");
+                b.Property<string?>("PK");
+                b.HasKey("PK");
+            });
+
+        public static NullableShadowKeyContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<NullableShadowKeyContext>(client));
+    }
+
+    private sealed class RuntimeOnlyKeyContext(DbContextOptions options) : DbContext(options)
+    {
+        public DbSet<ShadowKeyEntity> Entities { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<ShadowKeyEntity>(b =>
+            {
+                DynamoEntityTypeBuilderExtensions.ToTable(
+                    (EntityTypeBuilder)b,
+                    "RuntimeOnlyKeyTable");
+                b.HasPartitionKey("__executeStatementResponse");
+            });
+
+        public static RuntimeOnlyKeyContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<RuntimeOnlyKeyContext>(client));
     }
 
     private sealed record SharedShadowEntityA

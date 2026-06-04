@@ -136,17 +136,15 @@ public class DynamoKeyInPrimaryKeyConventionTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public void HasPartitionAndSortKey_BeforeShadowProperties_ThrowsValidationError()
+    public void HasPartitionAndSortKey_BeforeShadowProperties_ResolvesShadowKeys()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
-        var ctx = LateShadowKeyContext.Create(client);
+        using var ctx = LateShadowKeyContext.Create(client);
 
-        var act = () => ctx.Model;
+        var entityType = ctx.Model.FindEntityType(typeof(LateShadowKeyEntity))!;
 
-        act
-            .Should()
-            .Throw<InvalidOperationException>()
-            .WithMessage("*shadow key properties are not supported*");
+        entityType.GetPartitionKeyPropertyName().Should().Be("PK");
+        entityType.GetSortKeyPropertyName().Should().Be("SK");
     }
 
     // -------------------------------------------------------------------
@@ -234,7 +232,7 @@ public class DynamoKeyInPrimaryKeyConventionTests
     }
 
     // -------------------------------------------------------------------
-    // Explicit root HasKey is rejected — Dynamo key annotations stay authoritative
+    // Explicit root HasKey can agree with Dynamo key annotations
     // -------------------------------------------------------------------
 
     private sealed record ExplicitKeyEntity
@@ -262,16 +260,15 @@ public class DynamoKeyInPrimaryKeyConventionTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public void ExplicitHasKey_WithAnnotations_IsRejected()
+    public void ExplicitHasKey_WithAnnotations_IsValidWhenRolesMatch()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
-        var act = () => ExplicitKeyContext.Create(client).Model;
+        using var ctx = ExplicitKeyContext.Create(client);
 
-        act
-            .Should()
-            .Throw<InvalidOperationException>()
-            .WithMessage(
-                "*must use HasPartitionKey(...) and optional HasSortKey(...)*do not use HasKey(...) or [Key]*");
+        var entityType = ctx.Model.FindEntityType(typeof(ExplicitKeyEntity))!;
+
+        entityType.GetPartitionKeyPropertyName().Should().Be("PkProp");
+        entityType.GetSortKeyPropertyName().Should().Be("SkProp");
     }
 
     // -------------------------------------------------------------------

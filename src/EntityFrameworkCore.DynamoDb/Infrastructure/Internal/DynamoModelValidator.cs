@@ -291,12 +291,6 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
             throw new InvalidOperationException(
                 $"Entity type '{entityType.DisplayName()}' configures property '{propertyName}' as DynamoDB {keyRole}, "
                 + "but the property is runtime-only provider metadata and cannot be used as a table key.");
-
-        if (property.IsShadowProperty())
-            throw new InvalidOperationException(
-                $"Entity type '{entityType.DisplayName()}' configures property '{propertyName}' as DynamoDB {keyRole}, "
-                + "but shadow key properties are not supported. Map the key to a CLR property (optionally with "
-                + "a backing field) and call HasPartitionKey(...) / HasSortKey(...) on that member.");
     }
 
     /// <summary>

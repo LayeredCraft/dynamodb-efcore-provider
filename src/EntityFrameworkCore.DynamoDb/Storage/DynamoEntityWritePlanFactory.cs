@@ -19,7 +19,6 @@ internal sealed class DynamoEntityWritePlanFactory
     {
         var properties = entityType
             .GetProperties()
-            .Where(static p => !(p.IsShadowProperty() && p.IsKey()))
             // Runtime-only properties are populated by query/runtime pipelines and must never be
             // serialized to DynamoDB.
             .Where(static p => !p.IsRuntimeOnly())
@@ -60,7 +59,7 @@ internal sealed class EntityWritePlan(
             throw new InvalidOperationException(
                 $"No serializer was built for property "
                 + $"'{property.DeclaringType?.DisplayName()}.{property.Name}'. "
-                + "Shadow key properties are not serialized.");
+                + "Runtime-only properties are not serialized.");
 
         return serializer(entry);
     }
@@ -133,7 +132,9 @@ internal sealed class EntityWritePlan(
         ComplexTypePlanCache = new();
 
     /// <summary>Serializes a whole complex type value to a DynamoDB map attribute.</summary>
-    internal static AttributeValue SerializeComplexTypeValue(object? value, IComplexType complexType)
+    internal static AttributeValue SerializeComplexTypeValue(
+        object? value,
+        IComplexType complexType)
     {
         if (value is null)
             return new AttributeValue { NULL = true };
