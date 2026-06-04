@@ -30,6 +30,39 @@ public class ScanQueryGuardTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task HasKeyOnlyPartitionKeyEquality_Executes()
+    {
+        var client = CreateClient();
+        await using var context = HasKeyScanGuardDbContext.Create(client);
+
+        await context
+            .Items
+            .Where(x => x.Pk == "P#1")
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        await client.ReceivedWithAnyArgs(1).ExecuteStatementAsync(default!);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task HasKeyOnlySortKeyOnlyPredicate_ThrowsByDefault()
+    {
+        var client = CreateClient();
+        await using var context = HasKeyScanGuardDbContext.Create(client);
+
+        var act = async ()
+            => await context
+                .Items
+                .Where(x => x.Sk == "S#1")
+                .ToListAsync(TestContext.Current.CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*Scan-like DynamoDB query detected*missing equality or IN predicate*");
+        await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task PartitionKeyEquality_Executes()
     {
         var client = CreateClient();
@@ -475,6 +508,27 @@ public class ScanQueryGuardTests
                 });
 
             return new ScanGuardDbContext(optionsBuilder.Options);
+        }
+    }
+
+    private sealed class HasKeyScanGuardDbContext(DbContextOptions options) : DbContext(options)
+    {
+        public DbSet<ScanGuardItem> Items => Set<ScanGuardItem>();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<ScanGuardItem>(b =>
+            {
+                b.ToTable("HasKeyScanGuardTable");
+                b.HasKey(x => new { x.Pk, x.Sk });
+            });
+
+        public static HasKeyScanGuardDbContext Create(IAmazonDynamoDB client)
+        {
+            var optionsBuilder = new DbContextOptionsBuilder<HasKeyScanGuardDbContext>()
+                .UseDynamo(options => options.DynamoDbClient(client))
+                .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning));
+
+            return new HasKeyScanGuardDbContext(optionsBuilder.Options);
         }
     }
 }
