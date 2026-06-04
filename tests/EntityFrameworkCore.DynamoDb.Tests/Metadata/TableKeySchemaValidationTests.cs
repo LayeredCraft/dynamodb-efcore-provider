@@ -107,8 +107,7 @@ public class TableKeySchemaValidationTests
         act
             .Should()
             .Throw<InvalidOperationException>()
-            .WithMessage(
-                "*must use HasPartitionKey(...) and optional HasSortKey(...)*do not use HasKey(...) or [Key]*");
+            .WithMessage("*partition key 'SomeProp'*EF primary key starts with 'Id'*");
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
@@ -119,8 +118,7 @@ public class TableKeySchemaValidationTests
         act
             .Should()
             .Throw<InvalidOperationException>()
-            .WithMessage(
-                "*must use HasPartitionKey(...) and optional HasSortKey(...)*do not use HasKey(...) or [Key]*");
+            .WithMessage("*sort key 'SomeProp'*EF primary key has only one property*");
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]

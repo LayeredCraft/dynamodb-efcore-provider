@@ -21,7 +21,6 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
         // provider-specific error messages take precedence over EF's generic errors.
         ValidateNoForeignKeyRelationships(model);
         ValidateNoNavigationRelationships(model);
-        ValidateRootEntityDoesNotUseExplicitPrimaryKeyConfiguration(model);
         ValidateRootEntityHasPartitionKey(model);
         ValidateSortKeyHasResolvablePartitionKey(model);
         ValidateConfiguredKeyPropertiesExist(model);
@@ -158,28 +157,6 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
         }
     }
 
-    /// <summary>Rejects explicit EF primary key configuration for root DynamoDB entities.</summary>
-    private static void ValidateRootEntityDoesNotUseExplicitPrimaryKeyConfiguration(IModel model)
-    {
-        foreach (var entityType in EnumerateRootEntityTypes(model))
-        {
-            var primaryKey = entityType.FindPrimaryKey();
-            if (primaryKey is null)
-                continue;
-
-            if (primaryKey is not IConventionKey conventionKey
-                || conventionKey.GetConfigurationSource() is not (ConfigurationSource.Explicit
-                    or ConfigurationSource.DataAnnotation))
-                continue;
-
-            throw new InvalidOperationException(
-                $"Entity type '{entityType.DisplayName()}' configures an EF primary key explicitly. "
-                + "Root DynamoDB entities must use HasPartitionKey(...) and optional HasSortKey(...); "
-                + "do not use HasKey(...) or [Key]. The EF primary key is derived automatically from "
-                + "the DynamoDB key schema.");
-        }
-    }
-
     /// <summary>Validates primitive collection properties against DynamoDB provider shape constraints.</summary>
     protected override void ValidatePrimitiveCollections(
         IModel model,
@@ -249,9 +226,8 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
 
             throw new InvalidOperationException(
                 $"No DynamoDB partition key is configured for entity type '{entityType.DisplayName()}'. "
-                + "Use a conventional property name ('PK' or 'PartitionKey', or fallback 'Id') or call "
-                + "HasPartitionKey(...). The DynamoDB provider does not infer table keys from "
-                + "HasKey(...) or [Key] conventions.");
+                + "Use a conventional property name ('PK' or 'PartitionKey', or fallback 'Id'), call "
+                + "HasPartitionKey(...), or configure a one- or two-part HasKey(...).");
         }
     }
 
