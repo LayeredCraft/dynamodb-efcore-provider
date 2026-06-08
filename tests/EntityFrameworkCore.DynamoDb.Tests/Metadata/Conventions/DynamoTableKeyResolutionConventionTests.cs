@@ -111,7 +111,7 @@ public class DynamoTableKeyResolutionConventionTests
     }
 
     // -------------------------------------------------------------------
-    // Shadow properties used as configured table keys are rejected
+    // Mapped shadow properties used as configured table keys are resolved
     // -------------------------------------------------------------------
 
     private sealed record LateShadowKeyEntity;
