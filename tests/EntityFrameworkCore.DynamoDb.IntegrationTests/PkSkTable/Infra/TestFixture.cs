@@ -37,7 +37,12 @@ public abstract class PkSkTableTestFixture : DynamoTestFixtureBase
         var rawItem = await GetRawItemAsync(item.Pk, item.Sk, cancellationToken);
 
         rawItem.Should().NotBeNull($"item with key ({item.Pk}, {item.Sk}) should exist");
-        PkSkItemMapper.FromItem(rawItem!).Should().BeEquivalentTo(item);
+        rawItem!.Keys.Should().BeEquivalentTo(["pk", "sk", "category", "isTarget"]);
+        rawItem.Should().HaveCount(4);
+        rawItem["pk"].S.Should().Be(item.Pk);
+        rawItem["sk"].S.Should().Be(item.Sk);
+        rawItem["category"].S.Should().Be(item.Category);
+        rawItem["isTarget"].BOOL.Should().Be(item.IsTarget);
     }
 
     protected async Task AssertItemDoesNotExistAsync(
