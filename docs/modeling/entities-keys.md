@@ -26,7 +26,7 @@ modelBuilder.Entity<Order>(b =>
 !!! tip "Provider key APIs preferred"
 
 ```
-`HasPartitionKey(...)` and `HasSortKey(...)` name DynamoDB roles directly and are preferred in docs. EF-native `HasKey(...)`, `[Key]`, and `[PrimaryKey]` are also supported for one- and two-part table keys.
+`HasPartitionKey(...)` and `HasSortKey(...)` name DynamoDB roles directly and are preferred in docs. EF-native `HasKey(...)` and `[PrimaryKey]` are also supported for one- and two-part table keys; property-level `[Key]` supports a single-property partition key.
 ```
 
 If no explicit `ToTable(...)` is configured, the provider uses the CLR type name as the table

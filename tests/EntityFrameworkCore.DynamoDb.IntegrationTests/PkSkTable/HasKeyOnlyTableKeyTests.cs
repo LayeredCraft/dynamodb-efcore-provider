@@ -64,32 +64,39 @@ public class HasKeyOnlyTableKeyTests(DynamoContainerFixture fixture) : PkSkTable
             Pk = "P#has-key-only-save", Sk = "0001", Category = "created", IsTarget = false
         };
 
-        HasKeyOnlyDb.Items.Add(item);
-        await HasKeyOnlyDb.SaveChangesAsync(CancellationToken);
-        await AssertItemExistsInDynamoDbAsync(item, CancellationToken);
+        try
+        {
+            HasKeyOnlyDb.Items.Add(item);
+            await HasKeyOnlyDb.SaveChangesAsync(CancellationToken);
+            await AssertItemExistsInDynamoDbAsync(item, CancellationToken);
 
-        item.Category = "updated";
-        item.IsTarget = true;
-        await HasKeyOnlyDb.SaveChangesAsync(CancellationToken);
-        await AssertItemExistsInDynamoDbAsync(item, CancellationToken);
+            item.Category = "updated";
+            item.IsTarget = true;
+            await HasKeyOnlyDb.SaveChangesAsync(CancellationToken);
+            await AssertItemExistsInDynamoDbAsync(item, CancellationToken);
 
-        HasKeyOnlyDb.Items.Remove(item);
-        await HasKeyOnlyDb.SaveChangesAsync(CancellationToken);
-        await AssertItemDoesNotExistAsync(item.Pk, item.Sk, CancellationToken);
+            HasKeyOnlyDb.Items.Remove(item);
+            await HasKeyOnlyDb.SaveChangesAsync(CancellationToken);
+            await AssertItemDoesNotExistAsync(item.Pk, item.Sk, CancellationToken);
 
-        AssertSql(
-            """
-            INSERT INTO "PkSkItems"
-            VALUE {'pk': ?, 'sk': ?, 'category': ?, 'isTarget': ?}
-            """,
-            """
-            UPDATE "PkSkItems"
-            SET "category" = ?, "isTarget" = ?
-            WHERE "pk" = ? AND "sk" = ?
-            """,
-            """
-            DELETE FROM "PkSkItems"
-            WHERE "pk" = ? AND "sk" = ?
-            """);
+            AssertSql(
+                """
+                INSERT INTO "PkSkItems"
+                VALUE {'pk': ?, 'sk': ?, 'category': ?, 'isTarget': ?}
+                """,
+                """
+                UPDATE "PkSkItems"
+                SET "category" = ?, "isTarget" = ?
+                WHERE "pk" = ? AND "sk" = ?
+                """,
+                """
+                DELETE FROM "PkSkItems"
+                WHERE "pk" = ? AND "sk" = ?
+                """);
+        }
+        finally
+        {
+            await DeleteRawItemAsync(item.Pk, item.Sk, CancellationToken.None);
+        }
     }
 }

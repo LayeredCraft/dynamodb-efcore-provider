@@ -57,6 +57,11 @@ public abstract class PkSkTableTestFixture : DynamoTestFixtureBase
         return response.Item.Count == 0 ? null : response.Item;
     }
 
+    protected Task DeleteRawItemAsync(string pk, string sk, CancellationToken cancellationToken)
+        => Client.DeleteItemAsync(
+            new DeleteItemRequest { TableName = PkSkItemTable.TableName, Key = CreateKey(pk, sk) },
+            cancellationToken);
+
     private static Dictionary<string, AttributeValue> CreateKey(string pk, string sk)
         => new() { ["pk"] = pk.ToAttributeValue(), ["sk"] = sk.ToAttributeValue() };
 }
