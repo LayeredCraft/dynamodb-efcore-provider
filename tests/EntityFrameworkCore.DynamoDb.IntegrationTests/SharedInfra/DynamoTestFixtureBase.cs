@@ -27,8 +27,8 @@ public abstract class DynamoTestFixtureBase
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> TableInitializationLocks =
         new(StringComparer.Ordinal);
 
-    private static readonly ConcurrentDictionary<string, bool> InitializedTables =
-        new(StringComparer.Ordinal);
+    private static readonly ConcurrentDictionary<(Type ClassType, string TableName), bool>
+        InitializedClassTables = new();
 
     private static readonly TestPartiQlLoggerFactory SharedSqlCapture = new();
 
@@ -86,7 +86,8 @@ public abstract class DynamoTestFixtureBase
         string tableName,
         Func<IAmazonDynamoDB, CancellationToken, Task> createTable)
     {
-        if (InitializedTables.ContainsKey(tableName))
+        var classTableKey = (GetType(), tableName);
+        if (InitializedClassTables.ContainsKey(classTableKey))
             return;
 
         var gate = TableInitializationLocks.GetOrAdd(
@@ -96,11 +97,11 @@ public abstract class DynamoTestFixtureBase
 
         try
         {
-            if (InitializedTables.ContainsKey(tableName))
+            if (InitializedClassTables.ContainsKey(classTableKey))
                 return;
 
             RecreateTable(tableName, createTable);
-            InitializedTables[tableName] = true;
+            InitializedClassTables[classTableKey] = true;
         }
         finally
         {

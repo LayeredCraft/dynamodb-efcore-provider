@@ -90,7 +90,7 @@ If both styles are configured, they must agree exactly.
 
 Properties named `PK` or `PartitionKey` (comparison is case-insensitive) are automatically
 designated as the partition key — no explicit `HasPartitionKey` call is needed. If neither exists,
-`Id` is used as a fallback partition key name:
+`Id` or EF-discovered `{EntityName}Id` is used as a fallback partition key name:
 
 ```csharp
 public class Order

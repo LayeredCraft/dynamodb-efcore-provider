@@ -57,8 +57,8 @@ One EF key property maps to the partition key. Two EF key properties map to part
 
 Every DynamoDB table has a partition key. Configure it with `HasPartitionKey(...)` or use
 conventional property names (`PK` or `PartitionKey`, case-insensitive). If neither DynamoDB-specific
-name exists, `Id` is used as a fallback partition key name. `Id` does not create ambiguity when `PK`
-or `PartitionKey` also exists; the DynamoDB-specific name wins.
+name exists, `Id` or EF-discovered `{EntityName}Id` is used as a fallback partition key name. `Id`
+does not create ambiguity when `PK` or `PartitionKey` also exists; the DynamoDB-specific name wins.
 
 `HasPartitionKey(...)` overrides convention-based partition key discovery.
 
