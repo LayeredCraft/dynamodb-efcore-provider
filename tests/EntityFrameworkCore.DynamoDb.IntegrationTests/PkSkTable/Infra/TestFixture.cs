@@ -30,14 +30,15 @@ public abstract class PkSkTableTestFixture : DynamoTestFixtureBase
         }
     }
 
-    protected Task AssertItemExistsInDynamoDbAsync(
+    protected async Task AssertItemExistsInDynamoDbAsync(
         PkSkItem item,
         CancellationToken cancellationToken)
-        => AssertItemExistsInDynamoDbAsync(
-            item,
-            PkSkItemTable.TableName,
-            CreateKey(item.Pk, item.Sk),
-            cancellationToken);
+    {
+        var rawItem = await GetRawItemAsync(item.Pk, item.Sk, cancellationToken);
+
+        rawItem.Should().NotBeNull($"item with key ({item.Pk}, {item.Sk}) should exist");
+        PkSkItemMapper.FromItem(rawItem!).Should().BeEquivalentTo(item);
+    }
 
     protected async Task AssertItemDoesNotExistAsync(
         string pk,
@@ -54,7 +55,7 @@ public abstract class PkSkTableTestFixture : DynamoTestFixtureBase
             new GetItemRequest { TableName = PkSkItemTable.TableName, Key = CreateKey(pk, sk) },
             cancellationToken);
 
-        return response.Item.Count == 0 ? null : response.Item;
+        return response.Item is null || response.Item.Count == 0 ? null : response.Item;
     }
 
     protected Task DeleteRawItemAsync(string pk, string sk, CancellationToken cancellationToken)
