@@ -51,7 +51,7 @@ For root entity types, table/key mapping resolves in this order (highest precede
 4. Validation outcome (missing partition key throws; partition key resolved with no sort key
     means partition-key-only)
 
-One EF key property maps to the partition key. Two EF key properties map to partition then sort key.
+One EF key property maps to the partition key. Two EF key properties map to partition then sort key. If `HasPartitionKey(...)` matches the first property of a two-part EF key and no `HasSortKey(...)` is configured, the second EF key property is still used as the sort key.
 
 ## Partition Key
 
@@ -174,6 +174,7 @@ public sealed class Order
 ```
 - EF key has more than two properties
 - EF key and provider key APIs disagree on partition/sort order
+- Configuring the same property as both partition key and sort key
 - Declaring a sort key without a resolvable partition key
 - Ambiguous conventional names (both `PK` and `PartitionKey`, or both `SK` and `SortKey`)
 ```

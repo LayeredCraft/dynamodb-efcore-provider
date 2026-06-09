@@ -30,7 +30,7 @@ For root entity types, table and key mapping resolves in this order (highest pre
     - Partition key resolved but no sort key configured/discovered: table is treated as
         partition-key-only
 
-Provider key APIs remain preferred because they name DynamoDB roles directly. EF key configuration is also supported: one key property maps to the partition key; two key properties map to partition then sort key.
+Provider key APIs remain preferred because they name DynamoDB roles directly. EF key configuration is also supported: one key property maps to the partition key; two key properties map to partition then sort key. If `HasPartitionKey(...)` agrees with the first property of a two-part EF key and no `HasSortKey(...)` is configured, the second EF key property is used as the sort key.
 
 ## Mapping to a Table
 
@@ -84,7 +84,7 @@ b.HasPartitionKey(x => x.CustomerId);
 b.HasKey(x => x.CustomerId);
 ```
 
-If both styles are configured, they must agree exactly.
+If both styles are configured, they must agree exactly. For example, `HasKey(x => new { x.CustomerId, x.OrderId })` plus `HasPartitionKey(x => x.CustomerId)` still resolves `OrderId` as the sort key when no explicit `HasSortKey(...)` is configured.
 
 ### Convention-based discovery (when no explicit override is configured)
 
@@ -212,6 +212,7 @@ The provider validates the key configuration at model finalization and throws
 - Partition or sort key is runtime-only provider metadata
 - EF key has more than two properties
 - EF key and provider key APIs disagree on partition/sort order
+- Same property is configured as both the partition key and sort key
 - Sort key is declared but no resolvable partition key exists
 - Multiple entity types share a DynamoDB table but disagree on key schema, including:
     - partition key or sort key attribute name

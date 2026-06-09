@@ -80,6 +80,9 @@ internal static class DynamoTableKeyResolver
         var primaryPartitionKey = primaryKey.Properties[0];
         var primarySortKey = primaryKey.Properties.Count == 2 ? primaryKey.Properties[1] : null;
 
+        if (annotatedPartitionKey is not null && annotatedPartitionKey == annotatedSortKey)
+            ValidateResolvedRoles(entityType, annotatedPartitionKey, annotatedSortKey);
+
         if (IsExplicitProviderKey(partitionKeySource)
             && annotatedPartitionKey is not null
             && annotatedPartitionKey != primaryPartitionKey)
@@ -91,6 +94,9 @@ internal static class DynamoTableKeyResolver
 
         if (IsExplicitProviderKey(sortKeySource) && annotatedSortKey is not null)
         {
+            if (annotatedSortKey == primaryPartitionKey)
+                ValidateResolvedRoles(entityType, primaryPartitionKey, annotatedSortKey);
+
             if (primarySortKey is null)
                 throw new InvalidOperationException(
                     $"Entity type '{entityType.DisplayName()}' configures DynamoDB sort key "

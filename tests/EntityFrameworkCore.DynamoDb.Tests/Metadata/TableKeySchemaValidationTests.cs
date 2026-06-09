@@ -156,6 +156,50 @@ public class TableKeySchemaValidationTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void SamePropertyConfiguredAsPartitionAndSortKey_ThrowsTargetedError()
+    {
+        var ctx = SamePropertyPartitionAndSortKeyContext.Create(MockClient());
+        var act = () => ctx.Model;
+        act
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage("*property 'Id'*both the DynamoDB partition key and sort key*");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ExplicitHasKey_WithSamePropertyConfiguredAsPartitionAndSortKey_ThrowsTargetedError()
+    {
+        var ctx = ExplicitHasKeySamePropertyPartitionAndSortKeyContext.Create(MockClient());
+        var act = () => ctx.Model;
+        act
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage("*property 'Id'*both the DynamoDB partition key and sort key*");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ExplicitHasKey_WithSortKeyMatchingImplicitPartitionKey_ThrowsTargetedError()
+    {
+        var ctx = ExplicitHasKeySortKeyMatchesImplicitPartitionKeyContext.Create(MockClient());
+        var act = () => ctx.Model;
+        act
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage("*property 'Id'*both the DynamoDB partition key and sort key*");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ExplicitHasKey_WithReversedPartitionAndSortKeyOrder_ThrowsTargetedError()
+    {
+        var ctx = ReversedKeyOrderContext.Create(MockClient());
+        var act = () => ctx.Model;
+        act
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage("*partition key 'TenantId'*EF primary key starts with 'OrderId'*");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void HasPartitionKey_ShadowProperty_DoesNotThrow()
     {
         var ctx = ShadowPartitionKeyContext.Create(MockClient());
@@ -735,6 +779,90 @@ public class TableKeySchemaValidationTests
 
         public static SortKeyWithNoResolvablePkContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<SortKeyWithNoResolvablePkContext>(client));
+    }
+
+    private sealed class SamePropertyPartitionAndSortKeyContext(DbContextOptions options)
+        : DbContext(options)
+    {
+        public DbSet<KeyMismatchEntity> Entities { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<KeyMismatchEntity>(b =>
+            {
+                DynamoEntityTypeBuilderExtensions.ToTable((EntityTypeBuilder)b, "SamePkSkTable");
+                b.HasPartitionKey(x => x.Id);
+                b.HasSortKey(x => x.Id);
+            });
+
+        public static SamePropertyPartitionAndSortKeyContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<SamePropertyPartitionAndSortKeyContext>(client));
+    }
+
+    private sealed class ExplicitHasKeySamePropertyPartitionAndSortKeyContext(
+        DbContextOptions options) : DbContext(options)
+    {
+        public DbSet<KeyMismatchEntity> Entities { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<KeyMismatchEntity>(b =>
+            {
+                DynamoEntityTypeBuilderExtensions.ToTable(
+                    (EntityTypeBuilder)b,
+                    "ExplicitSamePkSkTable");
+                b.HasKey(x => x.Id);
+                b.HasPartitionKey(x => x.Id);
+                b.HasSortKey(x => x.Id);
+            });
+
+        public static ExplicitHasKeySamePropertyPartitionAndSortKeyContext Create(
+            IAmazonDynamoDB client)
+            => new(BuildOptions<ExplicitHasKeySamePropertyPartitionAndSortKeyContext>(client));
+    }
+
+    private sealed class ExplicitHasKeySortKeyMatchesImplicitPartitionKeyContext(
+        DbContextOptions options) : DbContext(options)
+    {
+        public DbSet<KeyMismatchEntity> Entities { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<KeyMismatchEntity>(b =>
+            {
+                DynamoEntityTypeBuilderExtensions.ToTable(
+                    (EntityTypeBuilder)b,
+                    "ImplicitPartitionSameSortKeyTable");
+                b.HasKey(x => x.Id);
+                b.HasSortKey(x => x.Id);
+            });
+
+        public static ExplicitHasKeySortKeyMatchesImplicitPartitionKeyContext Create(
+            IAmazonDynamoDB client)
+            => new(BuildOptions<ExplicitHasKeySortKeyMatchesImplicitPartitionKeyContext>(client));
+    }
+
+    private sealed record ReversedKeyOrderEntity
+    {
+        public string TenantId { get; set; } = null!;
+
+        public string OrderId { get; set; } = null!;
+    }
+
+    private sealed class ReversedKeyOrderContext(DbContextOptions options) : DbContext(options)
+    {
+        public DbSet<ReversedKeyOrderEntity> Entities { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<ReversedKeyOrderEntity>(b =>
+            {
+                DynamoEntityTypeBuilderExtensions.ToTable(
+                    (EntityTypeBuilder)b,
+                    "ReversedKeyOrderTable");
+                b.HasKey(x => new { x.OrderId, x.TenantId });
+                b.HasPartitionKey(x => x.TenantId);
+                b.HasSortKey(x => x.OrderId);
+            });
+
+        public static ReversedKeyOrderContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<ReversedKeyOrderContext>(client));
     }
 
     // -------------------------------------------------------------------
