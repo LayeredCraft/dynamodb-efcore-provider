@@ -866,7 +866,7 @@ public class TableKeySchemaValidationTests
     }
 
     // -------------------------------------------------------------------
-    // Shadow key properties (unsupported)
+    // Mapped shadow key properties
     // -------------------------------------------------------------------
 
     private sealed record ShadowKeyEntity;

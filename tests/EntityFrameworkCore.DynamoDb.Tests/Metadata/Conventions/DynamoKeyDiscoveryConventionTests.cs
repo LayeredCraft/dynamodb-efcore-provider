@@ -12,10 +12,9 @@ using NSubstitute;
 namespace EntityFrameworkCore.DynamoDb.Tests.Metadata.Conventions;
 
 /// <summary>
-///     Tests for <c>DynamoKeyDiscoveryConvention</c> — verifies that conventional DynamoDB
-///     property names (<c>PK</c>/<c>PartitionKey</c>, fallback <c>Id</c>, <c>SK</c>/<c>SortKey</c>)
-///     are auto-configured as the DynamoDB partition/sort key annotations without any explicit
-///     <c>HasPartitionKey</c> or <c>HasSortKey</c> call.
+///     Tests finalized table-key resolution for conventional DynamoDB property names
+///     (<c>PK</c>/<c>PartitionKey</c>, fallback <c>Id</c>, <c>SK</c>/<c>SortKey</c>) and EF
+///     convention-discovered keys.
 /// </summary>
 public class DynamoKeyDiscoveryConventionTests
 {
