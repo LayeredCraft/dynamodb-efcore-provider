@@ -59,7 +59,7 @@ internal sealed class EntityWritePlan(
             throw new InvalidOperationException(
                 $"No serializer was built for property "
                 + $"'{property.DeclaringType?.DisplayName()}.{property.Name}'. "
-                + "Runtime-only properties are not serialized.");
+                + "Only runtime-only properties are excluded from the write plan.");
 
         return serializer(entry);
     }
