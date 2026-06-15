@@ -757,8 +757,7 @@ public class TableKeySchemaValidationTests
     private sealed record NoDiscoverablePkEntity
     {
         // Properties are not named 'Id', '<EntityName>Id', 'PK', or 'PartitionKey', so neither
-        // EF Core key discovery nor the DynamoDB key discovery convention will find a partition
-        // key.
+        // EF Core key discovery nor DynamoDB table-key resolution will find a partition key.
         public string HashAttr { get; set; } = null!;
 
         public string RangeAttr { get; set; } = null!;

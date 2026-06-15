@@ -150,10 +150,10 @@ internal static class DynamoTableKeyResolver
     private static IConventionProperty? ResolvePartitionKeyByConvention(
         IConventionEntityType entityType)
     {
-        var candidates = DynamoKeyDiscoveryConvention.GetPartitionKeyCandidates(
+        var candidates = DynamoConventionalKeyProperties.GetPartitionKeyCandidates(
             entityType
                 .GetProperties()
-                .Where(DynamoKeyDiscoveryConvention.IsDiscoverableKeyProperty));
+                .Where(DynamoConventionalKeyProperties.IsDiscoverableKeyProperty));
 
         return ResolveSingleConventionalCandidate(
             entityType,
@@ -166,8 +166,8 @@ internal static class DynamoTableKeyResolver
     {
         var candidates = entityType
             .GetProperties()
-            .Where(p => DynamoKeyDiscoveryConvention.IsDiscoverableKeyProperty(p)
-                && DynamoKeyDiscoveryConvention.IsSortKeyName(p.Name))
+            .Where(p => DynamoConventionalKeyProperties.IsDiscoverableKeyProperty(p)
+                && DynamoConventionalKeyProperties.IsSortKeyName(p.Name))
             .ToList();
 
         return ResolveSingleConventionalCandidate(entityType, candidates, "sort key", "HasSortKey");

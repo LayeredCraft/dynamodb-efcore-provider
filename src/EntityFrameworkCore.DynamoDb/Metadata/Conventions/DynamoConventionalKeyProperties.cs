@@ -1,51 +1,17 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Metadata.Conventions;
-using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
 
 namespace EntityFrameworkCore.DynamoDb.Metadata.Conventions;
 
-/// <summary>Legacy helper for DynamoDB conventional key-name matching.</summary>
+/// <summary>Helper for DynamoDB conventional key-name matching.</summary>
 /// <remarks>
-///     The active provider convention is <see cref="DynamoTableKeyResolutionConvention" />. This type
-///     remains only for shared candidate-selection helpers and compatibility tests. Final key
+///     The active provider convention is <see cref="DynamoTableKeyResolutionConvention" />. Final key
 ///     resolution supports provider APIs, EF <c>HasKey</c>, <c>[Key]</c>, <c>[PrimaryKey]</c>, mapped
 ///     shadow keys, and conventional <c>PK</c>/<c>PartitionKey</c>/<c>Id</c> plus
 ///     <c>SK</c>/<c>SortKey</c> names.
 /// </remarks>
-public class DynamoKeyDiscoveryConvention(ProviderConventionSetBuilderDependencies dependencies)
-    : KeyDiscoveryConvention(dependencies)
+internal static class DynamoConventionalKeyProperties
 {
-    /// <inheritdoc />
-    protected override bool ShouldDiscoverKeyProperties(IConventionEntityType entityType)
-        // DynamoDB keys apply only to root table entities. Owned types are rejected during model
-        // finalization; skipping key discovery prevents EF owned-collection shadow-key loops first.
-        => !entityType.IsOwned() && base.ShouldDiscoverKeyProperties(entityType);
-
-    /// <summary>Configures EF key candidates from DynamoDB conventional-name properties.</summary>
-    protected override void ProcessKeyProperties(
-        IList<IConventionProperty> keyProperties,
-        IConventionEntityType entityType)
-    {
-        var properties = entityType.GetProperties().Where(IsDiscoverableKeyProperty).ToList();
-        var pkProperty = GetPartitionKeyCandidates(properties).FirstOrDefault();
-        if (pkProperty == null)
-        {
-            keyProperties.Clear();
-            return;
-        }
-
-        var skProperty = properties.FirstOrDefault(p => IsSortKeyName(p.Name));
-
-        keyProperties.Clear();
-        keyProperties.Add(pkProperty);
-
-        if (skProperty != null && !keyProperties.Contains(skProperty))
-            keyProperties.Add(skProperty);
-
-        base.ProcessKeyProperties(keyProperties, entityType);
-    }
-
     /// <summary>Returns true when the property can be discovered as a conventional DynamoDB key.</summary>
     internal static bool IsDiscoverableKeyProperty(IConventionProperty property)
         => !property.IsShadowProperty() && !property.IsRuntimeOnly();

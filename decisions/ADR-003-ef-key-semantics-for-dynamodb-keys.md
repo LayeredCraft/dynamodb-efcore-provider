@@ -351,7 +351,7 @@ name for the same physical table.
 
 Metadata and conventions likely affected:
 
-- `src/EntityFrameworkCore.DynamoDb/Metadata/Conventions/DynamoKeyDiscoveryConvention.cs`
+- `src/EntityFrameworkCore.DynamoDb/Metadata/Conventions/DynamoConventionalKeyProperties.cs`
 - `src/EntityFrameworkCore.DynamoDb/Metadata/Conventions/DynamoKeyAnnotationConvention.cs`
 - `src/EntityFrameworkCore.DynamoDb/Metadata/Conventions/DynamoKeyInPrimaryKeyConvention.cs`
 - `src/EntityFrameworkCore.DynamoDb/Extensions/DynamoEntityTypeExtensions.cs`

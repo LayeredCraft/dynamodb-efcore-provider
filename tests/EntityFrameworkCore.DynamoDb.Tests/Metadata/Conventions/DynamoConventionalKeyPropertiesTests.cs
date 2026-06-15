@@ -2,9 +2,6 @@ using Amazon.DynamoDBv2;
 using EntityFrameworkCore.DynamoDb.Metadata.Conventions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
 using NSubstitute;
 
 // ReSharper disable AutoPropertyCanBeMadeGetOnly.Local
@@ -16,7 +13,7 @@ namespace EntityFrameworkCore.DynamoDb.Tests.Metadata.Conventions;
 ///     (<c>PK</c>/<c>PartitionKey</c>, fallback <c>Id</c>, <c>SK</c>/<c>SortKey</c>) and EF
 ///     convention-discovered keys.
 /// </summary>
-public class DynamoKeyDiscoveryConventionTests
+public class DynamoConventionalKeyPropertiesTests
 {
     private static DbContextOptions BuildOptions<T>(IAmazonDynamoDB client) where T : DbContext
         => new DbContextOptionsBuilder<T>()
@@ -987,54 +984,6 @@ public class DynamoKeyDiscoveryConventionTests
 
         entityType.GetPartitionKeyPropertyName().Should().Be("CustomId");
         entityType.GetSortKeyPropertyName().Should().BeNull();
-    }
-
-    // -------------------------------------------------------------------
-    // ShouldDiscoverKeyProperties — owned entity types are skipped
-    // -------------------------------------------------------------------
-
-    /// <summary>Test-only subclass that exposes the protected ShouldDiscoverKeyProperties method.</summary>
-    private sealed class TestableDynamoKeyDiscoveryConvention(
-        ProviderConventionSetBuilderDependencies dependencies)
-        : DynamoKeyDiscoveryConvention(dependencies)
-    {
-        public bool ShouldDiscover(IConventionEntityType entityType)
-            => ShouldDiscoverKeyProperties(entityType);
-    }
-
-    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public void ShouldDiscoverKeyProperties_ReturnsFalse_ForOwnedEntityType()
-    {
-        var client = Substitute.For<IAmazonDynamoDB>();
-        var options = BuildOptions<PkNamedContext>(client);
-
-        using var ctx = new PkNamedContext(options);
-        var dependencies = ctx.GetService<ProviderConventionSetBuilderDependencies>();
-
-        var convention = new TestableDynamoKeyDiscoveryConvention(dependencies);
-
-        // IsOwned() is an EF Core extension method — build a real model with an owned
-        // relationship so the method returns true without mocking.
-        var modelBuilder =
-            new ModelBuilder(
-                new Microsoft.EntityFrameworkCore.Metadata.Conventions.ConventionSet());
-        modelBuilder.Entity<OwnedTypeOwner>().OwnsOne<OwnedTypeValue>(nameof(OwnedTypeOwner.Owned));
-        var ownedEntityType =
-            (IConventionEntityType)((IConventionModel)modelBuilder.Model).FindEntityType(
-                typeof(OwnedTypeValue))!;
-
-        convention.ShouldDiscover(ownedEntityType).Should().BeFalse();
-    }
-
-    private sealed class OwnedTypeOwner
-    {
-        public int Id { get; set; }
-        public OwnedTypeValue Owned { get; set; } = null!;
-    }
-
-    private sealed class OwnedTypeValue
-    {
-        public string? Value { get; set; }
     }
 
     // -------------------------------------------------------------------

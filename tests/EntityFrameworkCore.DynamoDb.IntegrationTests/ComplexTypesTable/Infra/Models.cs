@@ -130,7 +130,7 @@ public sealed record AnalysisReport
 
 /// <summary>
 ///     Complex collection element with a CLR property named <c>Id</c> — mirrors the real-world
-///     scenario that triggered the fix in <c>DynamoKeyDiscoveryConvention</c>.
+///     scenario that triggered provider table-key resolution replacing EF Core key discovery.
 /// </summary>
 public sealed record ScoredResult
 {
