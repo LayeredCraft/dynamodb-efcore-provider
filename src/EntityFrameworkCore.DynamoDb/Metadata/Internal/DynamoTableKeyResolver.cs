@@ -80,6 +80,7 @@ internal static class DynamoTableKeyResolver
         var primaryPartitionKey = primaryKey.Properties[0];
         var primarySortKey = primaryKey.Properties.Count == 2 ? primaryKey.Properties[1] : null;
 
+        // Both annotations point to the same property; throw before conflict checks below.
         if (annotatedPartitionKey is not null && annotatedPartitionKey == annotatedSortKey)
             ValidateResolvedRoles(entityType, annotatedPartitionKey, annotatedSortKey);
 
