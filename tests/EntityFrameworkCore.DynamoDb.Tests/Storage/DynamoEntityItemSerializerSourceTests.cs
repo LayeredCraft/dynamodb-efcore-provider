@@ -72,6 +72,34 @@ public class DynamoEntityItemSerializerSourceTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void BuildItem_ShadowKeys_SerializesKeyAttributes()
+    {
+        using var db = new ShadowKeyDbContext(
+            new DbContextOptionsBuilder<ShadowKeyDbContext>()
+                .UseDynamo()
+                .ConfigureWarnings(w
+                    => w
+                        .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                        .Ignore(DynamoEventId.ScanLikeQueryDetected))
+                .Options);
+
+        var entity = new ShadowKeyEntity { Name = "shadow" };
+        var entry = db.Entry(entity);
+        entry.Property("PK").CurrentValue = "S#1";
+        entry.Property("SK").CurrentValue = "S1";
+        entry.State = EntityState.Added;
+
+        var serializer = db.GetService<DynamoEntityItemSerializerSource>();
+        var updateEntry = (IUpdateEntry)entry.GetInfrastructure();
+
+        var item = serializer.BuildItem(updateEntry);
+
+        item["PK"].S.Should().Be("S#1");
+        item["SK"].S.Should().Be("S1");
+        item["name"].S.Should().Be("shadow");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void BuildItem_NullableEnumWithStringConverter_UsesNullAttributeValueForNull()
     {
         using var db = new ConvertedEnumDbContext(
@@ -527,6 +555,25 @@ public class DynamoEntityItemSerializerSourceTests
     }
 
     private sealed record ConvertedCodeList(string Value);
+
+    private sealed class ShadowKeyEntity
+    {
+        public string Name { get; set; } = null!;
+    }
+
+    private sealed class ShadowKeyDbContext(DbContextOptions options) : DbContext(options)
+    {
+        public DbSet<ShadowKeyEntity> Items => Set<ShadowKeyEntity>();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<ShadowKeyEntity>(b =>
+            {
+                b.ToTable("ShadowKeyItems");
+                b.Property<string>("PK").HasAttributeName("PK");
+                b.Property<string>("SK").HasAttributeName("SK");
+                b.HasKey("PK", "SK");
+            });
+    }
 
     private sealed class QuotedTableDbContext(DbContextOptions options) : DbContext(options)
     {

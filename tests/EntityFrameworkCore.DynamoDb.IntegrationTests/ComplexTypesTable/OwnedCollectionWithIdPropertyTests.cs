@@ -4,9 +4,9 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.ComplexTypesTable;
 
 /// <summary>
 ///     Regression tests for the scenario where a complex collection element has a CLR property
-///     named <c>Id</c> with an explicit <c>ComplexCollection</c> lambda configuration. Prior to
-///     the fix in <c>DynamoKeyDiscoveryConvention</c>, EF Core's <c>Id</c>-based key discovery
-///     would interfere with complex type element configuration.
+///     named <c>Id</c> with an explicit <c>ComplexCollection</c> lambda configuration. Before
+///     table-key resolution moved out of EF Core's key-discovery convention, EF Core's
+///     <c>Id</c>-based key discovery would interfere with complex type element configuration.
 /// </summary>
 public class ComplexCollectionWithIdPropertyTests(DynamoContainerFixture fixture)
     : ComplexCollectionWithIdPropertyTestFixture(fixture)

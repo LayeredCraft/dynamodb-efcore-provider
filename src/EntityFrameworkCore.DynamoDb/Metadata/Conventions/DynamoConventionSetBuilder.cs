@@ -26,8 +26,6 @@ public sealed class DynamoConventionSetBuilder(
 
         conventionSet.Replace<ValueGenerationConvention>(
             new DynamoValueGenerationConvention(Dependencies));
-        conventionSet.Replace<KeyDiscoveryConvention>(
-            new DynamoKeyDiscoveryConvention(Dependencies));
         conventionSet.Replace<DiscriminatorConvention>(
             new DynamoDiscriminatorConvention(Dependencies));
         conventionSet.ModelFinalizingConventions.Add(
@@ -41,14 +39,10 @@ public sealed class DynamoConventionSetBuilder(
 
         conventionSet.ModelFinalizingConventions.Add(
             new DynamoComplexContainmentValidationConvention());
-        // Must run before DynamoKeyAnnotationConvention so PK/SK attribute names are already
+        // Must run before DynamoTableKeyResolutionConvention so PK/SK attribute names are already
         // transformed when key validation reads them via GetAttributeName().
         conventionSet.ModelFinalizingConventions.Add(new DynamoAttributeNamingConventionApplier());
-        conventionSet.ModelFinalizingConventions.Add(new DynamoKeyAnnotationConvention());
-
-        var keyInPrimaryKeyConvention = new DynamoKeyInPrimaryKeyConvention(Dependencies);
-        conventionSet.EntityTypeAnnotationChangedConventions.Add(keyInPrimaryKeyConvention);
-        conventionSet.PropertyAddedConventions.Add(keyInPrimaryKeyConvention);
+        conventionSet.ModelFinalizingConventions.Add(new DynamoTableKeyResolutionConvention());
 
         conventionSet.EntityTypeAddedConventions.Add(new DynamoResponseShadowPropertyConvention());
 

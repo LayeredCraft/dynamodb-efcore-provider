@@ -53,6 +53,39 @@ public class DynamoFindTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task FindAsync_HasKeyOnlyPk_UsesBaseTableAndLimit1()
+    {
+        var (client, captured) = SetupMockClient();
+        await using var context = FindTestDbContext.Create(client);
+
+        var result =
+            await context.HasKeyPkItems.FindAsync(["P#1"], TestContext.Current.CancellationToken);
+
+        result.Should().BeNull();
+        captured.Should().ContainSingle();
+        captured.Single().Limit.Should().Be(1);
+        captured.Single().Statement.Should().Contain("FROM \"FindHasKeyPkItems\"");
+        captured.Single().Statement.Should().Contain("\"pk_attr\" = ?");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task FindAsync_HasKeyOnlyComposite_UsesKeyOrderAndLimit1()
+    {
+        var (client, captured) = SetupMockClient();
+        await using var context = FindTestDbContext.Create(client);
+
+        var result = await context.HasKeyCompositeItems.FindAsync(
+            ["P#1", "S#1"],
+            TestContext.Current.CancellationToken);
+
+        result.Should().BeNull();
+        captured.Should().ContainSingle();
+        captured.Single().Limit.Should().Be(1);
+        captured.Single().Statement.Should().Contain("\"pk_attr\" = ?");
+        captured.Single().Statement.Should().Contain("\"sk_attr\" = ?");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task FindAsync_MissingKey_ReturnsNull()
     {
         var (client, _) = SetupMockClient();
@@ -211,6 +244,10 @@ public class DynamoFindTests
 
         public DbSet<CompositeItem> CompositeItems => Set<CompositeItem>();
 
+        public DbSet<HasKeyPkItem> HasKeyPkItems => Set<HasKeyPkItem>();
+
+        public DbSet<HasKeyCompositeItem> HasKeyCompositeItems => Set<HasKeyCompositeItem>();
+
         public static FindTestDbContext Create(IAmazonDynamoDB client)
             => new(
                 new DbContextOptionsBuilder<FindTestDbContext>()
@@ -234,6 +271,21 @@ public class DynamoFindTests
                 builder.HasPartitionKey(x => x.Pk);
                 builder.HasSortKey(x => x.Sk);
             });
+
+            modelBuilder.Entity<HasKeyPkItem>(builder =>
+            {
+                builder.ToTable("FindHasKeyPkItems");
+                builder.HasKey(x => x.Pk);
+                builder.Property(x => x.Pk).HasAttributeName("pk_attr");
+            });
+
+            modelBuilder.Entity<HasKeyCompositeItem>(builder =>
+            {
+                builder.ToTable("FindHasKeyCompositeItems");
+                builder.HasKey(x => new { x.Pk, x.Sk });
+                builder.Property(x => x.Pk).HasAttributeName("pk_attr");
+                builder.Property(x => x.Sk).HasAttributeName("sk_attr");
+            });
         }
     }
 
@@ -245,6 +297,22 @@ public class DynamoFindTests
     }
 
     private sealed class CompositeItem
+    {
+        public string Pk { get; set; } = null!;
+
+        public string Sk { get; set; } = null!;
+
+        public string Name { get; set; } = null!;
+    }
+
+    private sealed class HasKeyPkItem
+    {
+        public string Pk { get; set; } = null!;
+
+        public string Name { get; set; } = null!;
+    }
+
+    private sealed class HasKeyCompositeItem
     {
         public string Pk { get; set; } = null!;
 

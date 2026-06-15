@@ -336,8 +336,7 @@ modelBuilder.Entity<Customer>(b =>
 
 ### Key Configuration
 
-Root entities must use `HasPartitionKey(...)` and, when needed, `HasSortKey(...)`. Using
-`HasKey(...)` or `[Key]` on a root entity throws during model validation.
+Root entities may use `HasPartitionKey(...)`/`HasSortKey(...)`, EF `HasKey(...)`, `[Key]`, `[PrimaryKey]`, or conventions. DynamoDB table keys are limited to one partition key plus optional sort key; EF keys with more than two properties are rejected.
 
 Key properties must be non-nullable and resolve to a DynamoDB key-compatible provider type:
 `string`, a numeric type (`int`, `long`, `decimal`, etc.), or `byte[]`. `bool` key properties

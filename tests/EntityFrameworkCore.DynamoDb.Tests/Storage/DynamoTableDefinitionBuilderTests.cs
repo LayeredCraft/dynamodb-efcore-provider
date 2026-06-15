@@ -37,6 +37,36 @@ public sealed class DynamoTableDefinitionBuilderTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void BuildCreateTableRequests_MapsHasKeyOnlyPkTable()
+    {
+        using var context = CreateContext<HasKeyPkOnlyContext>();
+
+        var request = BuildSingleRequest(context);
+
+        request.TableName.Should().Be("HasKeyPkOnly");
+        request
+            .KeySchema
+            .Select(static key => (key.AttributeName, key.KeyType))
+            .Should()
+            .Equal(("pk", KeyType.HASH));
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void BuildCreateTableRequests_MapsHasKeyOnlyPkSkTable()
+    {
+        using var context = CreateContext<HasKeyPkSkContext>();
+
+        var request = BuildSingleRequest(context);
+
+        request.TableName.Should().Be("HasKeyPkSk");
+        request
+            .KeySchema
+            .Select(static key => (key.AttributeName, key.KeyType))
+            .Should()
+            .Equal(("pk", KeyType.HASH), ("sk", KeyType.RANGE));
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void BuildCreateTableRequests_MapsPkSkGsiAndLsi()
     {
         using var context = CreateContext<IndexedContext>();
@@ -448,6 +478,31 @@ public sealed class DynamoTableDefinitionBuilderTests
                 entity.ToTable("PkOnly");
                 entity.Property(x => x.Id).HasAttributeName("pk");
                 entity.HasPartitionKey(x => x.Id);
+            });
+    }
+
+    private sealed class HasKeyPkOnlyContext(DbContextOptions<HasKeyPkOnlyContext> options)
+        : DbContext(options)
+    {
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<PkOnlyEntity>(entity =>
+            {
+                entity.ToTable("HasKeyPkOnly");
+                entity.Property(x => x.Id).HasAttributeName("pk");
+                entity.HasKey(x => x.Id);
+            });
+    }
+
+    private sealed class HasKeyPkSkContext(DbContextOptions<HasKeyPkSkContext> options) : DbContext(
+        options)
+    {
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<IndexedEntity>(entity =>
+            {
+                entity.ToTable("HasKeyPkSk");
+                entity.Property(x => x.Id).HasAttributeName("pk");
+                entity.Property(x => x.Sort).HasAttributeName("sk");
+                entity.HasKey(x => new { x.Id, x.Sort });
             });
     }
 

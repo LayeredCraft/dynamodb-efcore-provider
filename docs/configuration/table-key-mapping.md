@@ -16,20 +16,21 @@ keys. See [Complex Properties and Collections](../modeling/complex-types.md).
 
 For root entity types, table and key mapping resolves in this order (highest precedence first):
 
-1. Explicit configuration (`ToTable(...)`, `HasPartitionKey(...)`, `HasSortKey(...)`)
-2. Conventions:
+1. Explicit provider configuration (`ToTable(...)`, `HasPartitionKey(...)`, `HasSortKey(...)`)
+2. EF key configuration (`HasKey(...)`, `[Key]`, `[PrimaryKey]`)
+3. Conventions:
     - Table name: CLR type name
     - Partition key property name: `PK` or `PartitionKey` (case-insensitive)
     - Fallback partition key property name: `Id` (case-insensitive), only when no `PK` or
         `PartitionKey` property exists
     - Sort key property name: `SK` or `SortKey` (case-insensitive)
-    - No fallback to `[Key]` or explicit `HasKey(...)` for DynamoDB table keys
-3. Validation outcome:
+    - EF `{EntityName}Id` key discovery when no DynamoDB-specific candidates exist
+4. Validation outcome:
     - No resolvable partition key: model validation throws `InvalidOperationException`
     - Partition key resolved but no sort key configured/discovered: table is treated as
         partition-key-only
 
-`HasKey(...)` and `[Key]` are not DynamoDB table-key overrides for root entities and are rejected.
+Provider key APIs remain preferred because they name DynamoDB roles directly. EF key configuration is also supported: one key property maps to the partition key; two key properties map to partition then sort key. If `HasPartitionKey(...)` agrees with the first property of a two-part EF key and no `HasSortKey(...)` is configured, the second EF key property is used as the sort key.
 
 ## Mapping to a Table
 
@@ -73,24 +74,23 @@ b.HasPartitionKey("CustomerId");
 `HasPartitionKey(...)` is an explicit override of convention-based partition key discovery. If
 both explicit and conventional candidates exist, the explicit mapping wins.
 
-The provider automatically sets the EF Core primary key to match the partition key (or
-`[partitionKey, sortKey]` when a sort key is also declared). **Do not call `HasKey` or apply the
-`[Key]` attribute on root entity types** — the provider rejects those configurations and throws
-during model finalization.
+When provider key APIs are used, the provider automatically sets the EF Core primary key to match the partition key (or `[partitionKey, sortKey]` when a sort key is also declared). You may also configure the same shape with EF-native key APIs:
 
 ```csharp
-// ✗ Not supported for root DynamoDB entities
-b.HasKey(x => x.CustomerId);
-
-// ✓ Correct
+// Provider-style mapping (preferred for DynamoDB role clarity)
 b.HasPartitionKey(x => x.CustomerId);
+
+// EF-native equivalent: one property => partition key
+b.HasKey(x => x.CustomerId);
 ```
+
+If both styles are configured, they must agree exactly. For example, `HasKey(x => new { x.CustomerId, x.OrderId })` plus `HasPartitionKey(x => x.CustomerId)` still resolves `OrderId` as the sort key when no explicit `HasSortKey(...)` is configured.
 
 ### Convention-based discovery (when no explicit override is configured)
 
 Properties named `PK` or `PartitionKey` (comparison is case-insensitive) are automatically
 designated as the partition key — no explicit `HasPartitionKey` call is needed. If neither exists,
-`Id` is used as a fallback partition key name:
+`Id` or EF-discovered `{EntityName}Id` is used as a fallback partition key name:
 
 ```csharp
 public class Order
@@ -161,11 +161,7 @@ same partition/sort key attribute names.
 
 ## Key Property Requirements
 
-Key properties must be real, materialized EF properties. The provider validates this during model
-finalization and rejects:
-
-- Shadow properties
-- Runtime-only properties
+Key properties must exist in the EF model and be materialized into DynamoDB items. The provider allows typed mapped shadow properties (for example `Property<string>("PK")`) and rejects runtime-only provider metadata.
 
 Pure getter-only computed members (for example `public string Pk => $"order#{Id}";`) are not a
 good key-member shape because they have no persisted key storage member of their own. Prefer a
@@ -213,8 +209,10 @@ The provider validates the key configuration at model finalization and throws
 `InvalidOperationException` for common failures such as:
 
 - Partition or sort key property does not exist on the entity type
-- Partition or sort key is a shadow property or runtime-only property
-- Root entity type has an explicit `HasKey(...)` or `[Key]` configured
+- Partition or sort key is runtime-only provider metadata
+- EF key has more than two properties
+- EF key and provider key APIs disagree on partition/sort order
+- Same property is configured as both the partition key and sort key
 - Sort key is declared but no resolvable partition key exists
 - Multiple entity types share a DynamoDB table but disagree on key schema, including:
     - partition key or sort key attribute name

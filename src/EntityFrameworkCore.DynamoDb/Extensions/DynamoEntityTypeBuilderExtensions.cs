@@ -35,9 +35,9 @@ public static class DynamoEntityTypeBuilderExtensions
         ///     entity type.
         /// </summary>
         /// <remarks>
-        ///     This is the authoritative API for configuring the DynamoDB partition key on a root entity.
-        ///     The provider derives the EF primary key automatically from the configured partition key and
-        ///     optional sort key, so root entities should not configure <c>HasKey(...)</c> directly.
+        ///     Prefer this API when you want to make the DynamoDB table-key role explicit. EF
+        ///     <c>HasKey(...)</c> and key attributes are also supported; when both are configured, the
+        ///     EF primary key and DynamoDB key roles must agree.
         /// </remarks>
         /// <param name="propertyName">
         ///     The EF property name whose attribute name maps to the DynamoDB partition key.
@@ -55,11 +55,13 @@ public static class DynamoEntityTypeBuilderExtensions
         ///     type.
         /// </summary>
         /// <remarks>
-        ///     This is the authoritative API for configuring the DynamoDB sort key on a root entity.
-        ///     When present, the provider derives the EF primary key automatically as
-        ///     <c>[partitionKey, sortKey]</c>, so root entities should not configure <c>HasKey(...)</c>
-        ///     directly.
+        ///     Prefer this API when you want to make the DynamoDB table-key role explicit. EF
+        ///     <c>HasKey(...)</c> and key attributes are also supported; when both are configured, the
+        ///     EF primary key and DynamoDB key roles must agree.
         /// </remarks>
+        /// <param name="propertyName">
+        ///     The EF property name whose attribute name maps to the DynamoDB sort key.
+        /// </param>
         /// <returns>The same builder instance so that multiple calls can be chained.</returns>
         public EntityTypeBuilder HasSortKey(string propertyName)
         {
@@ -228,7 +230,14 @@ public static class DynamoEntityTypeBuilderExtensions
         ///     Configures which property provides the DynamoDB partition key attribute name for this
         ///     entity type.
         /// </summary>
-        /// <param name="propertyName">The EF property name whose attribute name maps to the DynamoDB partition key.</param>
+        /// <remarks>
+        ///     Prefer this API when you want to make the DynamoDB table-key role explicit. EF
+        ///     <c>HasKey(...)</c> and key attributes are also supported; when both are configured, the
+        ///     EF primary key and DynamoDB key roles must agree.
+        /// </remarks>
+        /// <param name="propertyName">
+        ///     The EF property name whose attribute name maps to the DynamoDB partition key.
+        /// </param>
         /// <returns>The same builder instance so that multiple calls can be chained.</returns>
         public EntityTypeBuilder<TEntity> HasPartitionKey(string propertyName)
             => (EntityTypeBuilder<TEntity>)((EntityTypeBuilder)entityTypeBuilder).HasPartitionKey(
@@ -238,7 +247,14 @@ public static class DynamoEntityTypeBuilderExtensions
         ///     Configures which property provides the DynamoDB sort key attribute name for this entity
         ///     type.
         /// </summary>
-        /// <param name="propertyName">The EF property name whose attribute name maps to the DynamoDB sort key.</param>
+        /// <remarks>
+        ///     Prefer this API when you want to make the DynamoDB table-key role explicit. EF
+        ///     <c>HasKey(...)</c> and key attributes are also supported; when both are configured, the
+        ///     EF primary key and DynamoDB key roles must agree.
+        /// </remarks>
+        /// <param name="propertyName">
+        ///     The EF property name whose attribute name maps to the DynamoDB sort key.
+        /// </param>
         /// <returns>The same builder instance so that multiple calls can be chained.</returns>
         public EntityTypeBuilder<TEntity> HasSortKey(string propertyName)
             => (EntityTypeBuilder<TEntity>)((EntityTypeBuilder)entityTypeBuilder).HasSortKey(
@@ -249,9 +265,9 @@ public static class DynamoEntityTypeBuilderExtensions
         ///     entity type.
         /// </summary>
         /// <remarks>
-        ///     This is the authoritative API for configuring the DynamoDB partition key on a root entity.
-        ///     The provider derives the EF primary key automatically from the configured partition key and
-        ///     optional sort key, so root entities should not configure <c>HasKey(...)</c> directly.
+        ///     Prefer this API when you want to make the DynamoDB table-key role explicit. EF
+        ///     <c>HasKey(...)</c> and key attributes are also supported; when both are configured, the
+        ///     EF primary key and DynamoDB key roles must agree.
         /// </remarks>
         /// <param name="keyExpression">
         ///     A lambda expression selecting the property that maps to the DynamoDB partition key.
@@ -270,10 +286,9 @@ public static class DynamoEntityTypeBuilderExtensions
         ///     type.
         /// </summary>
         /// <remarks>
-        ///     This is the authoritative API for configuring the DynamoDB sort key on a root entity.
-        ///     When present, the provider derives the EF primary key automatically as
-        ///     <c>[partitionKey, sortKey]</c>, so root entities should not configure <c>HasKey(...)</c>
-        ///     directly.
+        ///     Prefer this API when you want to make the DynamoDB table-key role explicit. EF
+        ///     <c>HasKey(...)</c> and key attributes are also supported; when both are configured, the
+        ///     EF primary key and DynamoDB key roles must agree.
         /// </remarks>
         /// <param name="keyExpression">
         ///     A lambda expression selecting the property that maps to the DynamoDB sort key.

@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using Amazon.DynamoDBv2;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -73,16 +74,17 @@ public class DynamoEntityKeyMappingConventionTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public void ExplicitHasKey_OnRootEntity_IsRejected()
+    public void ExplicitHasKey_OnRootEntity_InfersDynamoKeyMapping()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
-        var act = () => ExplicitKeyOnlyContext.Create(client).Model;
+        using var ctx = ExplicitKeyOnlyContext.Create(client);
 
-        act
-            .Should()
-            .Throw<InvalidOperationException>()
-            .WithMessage(
-                "*must use HasPartitionKey(...) and optional HasSortKey(...)*do not use HasKey(...) or [Key]*");
+        var entityType = ctx.Model.FindEntityType(typeof(ExplicitKeyOnlyEntity))!;
+        var primaryKey = entityType.FindPrimaryKey()!;
+
+        primaryKey.Properties.Select(static p => p.Name).Should().Equal("TenantId", "OrderId");
+        entityType.GetPartitionKeyPropertyName().Should().Be("TenantId");
+        entityType.GetSortKeyPropertyName().Should().Be("OrderId");
     }
 
     private sealed record ExplicitPartitionKeyBeatsConventionEntity
@@ -143,7 +145,7 @@ public class DynamoEntityKeyMappingConventionTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public void ExplicitMultiPropertyHasKey_OnRootEntity_IsRejected()
+    public void ExplicitThreePartHasKey_OnRootEntity_IsRejectedWithDynamoShapeError()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
         var act = () => ThreePartPrimaryKeyContext.Create(client).Model;
@@ -151,7 +153,366 @@ public class DynamoEntityKeyMappingConventionTests
         act
             .Should()
             .Throw<InvalidOperationException>()
-            .WithMessage(
-                "*must use HasPartitionKey(...) and optional HasSortKey(...)*do not use HasKey(...) or [Key]*");
+            .WithMessage("*DynamoDB table keys support only one- or two-part keys*");
+    }
+
+    private sealed record SingleExplicitKeyEntity
+    {
+        public string Id { get; set; } = null!;
+    }
+
+    private sealed record KeyAttributeEntity
+    {
+        [Key]
+        public string Id { get; set; } = null!;
+    }
+
+    private sealed class KeyAttributeContext(DbContextOptions options) : DbContext(options)
+    {
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<KeyAttributeEntity>(b => b.ToTable("KeyAttributeTable"));
+
+        public static KeyAttributeContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<KeyAttributeContext>(client));
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void KeyAttribute_InfersPartitionKeyOnly()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var ctx = KeyAttributeContext.Create(client);
+
+        var entityType = ctx.Model.FindEntityType(typeof(KeyAttributeEntity))!;
+
+        entityType.GetPartitionKeyPropertyName().Should().Be("Id");
+        entityType.GetSortKeyPropertyName().Should().BeNull();
+    }
+
+    [PrimaryKey(nameof(TenantId), nameof(OrderId))]
+    private sealed record PrimaryKeyAttributeEntity
+    {
+        public string TenantId { get; set; } = null!;
+
+        public string OrderId { get; set; } = null!;
+    }
+
+    private sealed class PrimaryKeyAttributeContext(DbContextOptions options) : DbContext(options)
+    {
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<PrimaryKeyAttributeEntity>(b
+                => b.ToTable("PrimaryKeyAttributeTable"));
+
+        public static PrimaryKeyAttributeContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<PrimaryKeyAttributeContext>(client));
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void PrimaryKeyAttribute_InfersPartitionAndSortKey()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var ctx = PrimaryKeyAttributeContext.Create(client);
+
+        var entityType = ctx.Model.FindEntityType(typeof(PrimaryKeyAttributeEntity))!;
+
+        entityType.GetPartitionKeyPropertyName().Should().Be("TenantId");
+        entityType.GetSortKeyPropertyName().Should().Be("OrderId");
+    }
+
+    private sealed class SingleExplicitKeyContext(DbContextOptions options) : DbContext(options)
+    {
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<SingleExplicitKeyEntity>(b =>
+            {
+                b.ToTable("SingleExplicitKeyTable");
+                b.HasKey(x => x.Id);
+            });
+
+        public static SingleExplicitKeyContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<SingleExplicitKeyContext>(client));
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void OnePartExplicitHasKey_InfersPartitionKeyOnly()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var ctx = SingleExplicitKeyContext.Create(client);
+
+        var entityType = ctx.Model.FindEntityType(typeof(SingleExplicitKeyEntity))!;
+
+        entityType.GetPartitionKeyPropertyName().Should().Be("Id");
+        entityType.GetSortKeyPropertyName().Should().BeNull();
+    }
+
+    private sealed record ExplicitKeyWithFallbackIdEntity
+    {
+        public string Id { get; set; } = null!;
+
+        public string CustomId { get; set; } = null!;
+    }
+
+    private sealed class ExplicitKeyWithFallbackIdContext(DbContextOptions options) : DbContext(
+        options)
+    {
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<ExplicitKeyWithFallbackIdEntity>(b =>
+            {
+                b.ToTable("ExplicitKeyWithFallbackIdTable");
+                b.HasKey(x => x.CustomId);
+            });
+
+        public static ExplicitKeyWithFallbackIdContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<ExplicitKeyWithFallbackIdContext>(client));
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ExplicitHasKey_BeatsFallbackIdConvention()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var ctx = ExplicitKeyWithFallbackIdContext.Create(client);
+
+        var entityType = ctx.Model.FindEntityType(typeof(ExplicitKeyWithFallbackIdEntity))!;
+
+        entityType.GetPartitionKeyPropertyName().Should().Be("CustomId");
+        entityType.GetSortKeyPropertyName().Should().BeNull();
+    }
+
+    private sealed record CombinedKeyEntity
+    {
+        public string TenantId { get; set; } = null!;
+
+        public string OrderId { get; set; } = null!;
+
+        public string OtherId { get; set; } = null!;
+    }
+
+    private sealed class MatchingCombinedKeyContext(DbContextOptions options) : DbContext(options)
+    {
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<CombinedKeyEntity>(b =>
+            {
+                b.ToTable("MatchingCombinedKeyTable");
+                b.HasKey(x => new { x.TenantId, x.OrderId });
+                b.HasPartitionKey(x => x.TenantId);
+                b.HasSortKey(x => x.OrderId);
+            });
+
+        public static MatchingCombinedKeyContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<MatchingCombinedKeyContext>(client));
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void MatchingHasKeyAndProviderKeys_IsValid()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var ctx = MatchingCombinedKeyContext.Create(client);
+
+        var entityType = ctx.Model.FindEntityType(typeof(CombinedKeyEntity))!;
+
+        entityType.GetPartitionKeyPropertyName().Should().Be("TenantId");
+        entityType.GetSortKeyPropertyName().Should().Be("OrderId");
+    }
+
+    private sealed class MatchingPartitionKeyOnlyCombinedKeyContext(DbContextOptions options)
+        : DbContext(options)
+    {
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<CombinedKeyEntity>(b =>
+            {
+                b.ToTable("MatchingPartitionKeyOnlyCombinedKeyTable");
+                b.HasKey(x => new { x.TenantId, x.OrderId });
+                b.HasPartitionKey(x => x.TenantId);
+            });
+
+        public static MatchingPartitionKeyOnlyCombinedKeyContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<MatchingPartitionKeyOnlyCombinedKeyContext>(client));
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void MatchingPartitionKeyOnlyWithTwoPartHasKey_InfersSortKey()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var ctx = MatchingPartitionKeyOnlyCombinedKeyContext.Create(client);
+
+        var entityType = ctx.Model.FindEntityType(typeof(CombinedKeyEntity))!;
+
+        entityType.GetPartitionKeyPropertyName().Should().Be("TenantId");
+        entityType.GetSortKeyPropertyName().Should().Be("OrderId");
+    }
+
+    private sealed record ExplicitKeyBeatsConventionalNamesEntity
+    {
+        public string PK { get; set; } = null!;
+
+        public string SK { get; set; } = null!;
+
+        public string TenantId { get; set; } = null!;
+
+        public string OrderId { get; set; } = null!;
+    }
+
+    private sealed class ExplicitKeyBeatsConventionalNamesContext(DbContextOptions options)
+        : DbContext(options)
+    {
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<ExplicitKeyBeatsConventionalNamesEntity>(b =>
+            {
+                b.ToTable("ExplicitKeyBeatsConventionalNamesTable");
+                b.HasKey(x => new { x.TenantId, x.OrderId });
+            });
+
+        public static ExplicitKeyBeatsConventionalNamesContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<ExplicitKeyBeatsConventionalNamesContext>(client));
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ExplicitHasKey_BeatsConventionalPkSkNames()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var ctx = ExplicitKeyBeatsConventionalNamesContext.Create(client);
+
+        var entityType = ctx.Model.FindEntityType(typeof(ExplicitKeyBeatsConventionalNamesEntity))!;
+
+        entityType.GetPartitionKeyPropertyName().Should().Be("TenantId");
+        entityType.GetSortKeyPropertyName().Should().Be("OrderId");
+    }
+
+    private sealed class MismatchedPartitionCombinedKeyContext(DbContextOptions options)
+        : DbContext(options)
+    {
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<CombinedKeyEntity>(b =>
+            {
+                b.ToTable("MismatchedPartitionCombinedKeyTable");
+                b.HasKey(x => new { x.TenantId, x.OrderId });
+                b.HasPartitionKey(x => x.OtherId);
+            });
+
+        public static MismatchedPartitionCombinedKeyContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<MismatchedPartitionCombinedKeyContext>(client));
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void MismatchedHasKeyAndPartitionKey_ThrowsTargetedError()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        var act = () => MismatchedPartitionCombinedKeyContext.Create(client).Model;
+
+        act
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage("*partition key 'OtherId'*EF primary key starts with 'TenantId'*");
+    }
+
+    private sealed class MismatchedSortCombinedKeyContext(DbContextOptions options) : DbContext(
+        options)
+    {
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<CombinedKeyEntity>(b =>
+            {
+                b.ToTable("MismatchedSortCombinedKeyTable");
+                b.HasKey(x => new { x.TenantId, x.OrderId });
+                b.HasSortKey(x => x.OtherId);
+            });
+
+        public static MismatchedSortCombinedKeyContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<MismatchedSortCombinedKeyContext>(client));
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void MismatchedHasKeyAndSortKey_ThrowsTargetedError()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        var act = () => MismatchedSortCombinedKeyContext.Create(client).Model;
+
+        act
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage("*sort key 'OtherId'*second EF primary-key property is 'OrderId'*");
+    }
+
+    private sealed class SortKeyOnlyWithTwoPartHasKeyContext(DbContextOptions options) : DbContext(
+        options)
+    {
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<CombinedKeyEntity>(b =>
+            {
+                b.ToTable("SortKeyOnlyWithTwoPartHasKeyTable");
+                b.HasKey(x => new { x.TenantId, x.OrderId });
+                b.HasSortKey(x => x.OrderId);
+            });
+
+        public static SortKeyOnlyWithTwoPartHasKeyContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<SortKeyOnlyWithTwoPartHasKeyContext>(client));
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void SortKeyOnlyWithTwoPartHasKey_IsValidAndInfersPartitionKey()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var ctx = SortKeyOnlyWithTwoPartHasKeyContext.Create(client);
+
+        var entityType = ctx.Model.FindEntityType(typeof(CombinedKeyEntity))!;
+
+        entityType.GetPartitionKeyPropertyName().Should().Be("TenantId");
+        entityType.GetSortKeyPropertyName().Should().Be("OrderId");
+    }
+
+    private sealed class SortKeyOnSingleHasKeyContext(DbContextOptions options) : DbContext(options)
+    {
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<CombinedKeyEntity>(b =>
+            {
+                b.ToTable("SortKeyOnSingleHasKeyTable");
+                b.HasKey(x => x.TenantId);
+                b.HasSortKey(x => x.OrderId);
+            });
+
+        public static SortKeyOnSingleHasKeyContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<SortKeyOnSingleHasKeyContext>(client));
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void SortKeyWithOnePartHasKey_ThrowsTargetedError()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        var act = () => SortKeyOnSingleHasKeyContext.Create(client).Model;
+
+        act
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage("*sort key 'OrderId'*EF primary key has only one property*");
+    }
+
+    private sealed record SortKeyOnlyEntity
+    {
+        public string Identifier { get; set; } = null!;
+
+        public string OrderId { get; set; } = null!;
+    }
+
+    private sealed class SortKeyOnlyWithoutPrimaryKeyContext(DbContextOptions options) : DbContext(
+        options)
+    {
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<SortKeyOnlyEntity>(b =>
+            {
+                b.ToTable("SortKeyOnlyWithoutPrimaryKeyTable");
+                b.HasSortKey(x => x.OrderId);
+            });
+
+        public static SortKeyOnlyWithoutPrimaryKeyContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<SortKeyOnlyWithoutPrimaryKeyContext>(client));
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void SortKeyOnlyWithoutPrimaryKey_ThrowsPartitionMissingError()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        var act = () => SortKeyOnlyWithoutPrimaryKeyContext.Create(client).Model;
+
+        act
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage("*No DynamoDB partition key is configured*Sort key property 'OrderId'*");
     }
 }

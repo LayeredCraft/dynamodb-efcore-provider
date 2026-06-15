@@ -59,6 +59,28 @@ public class DynamoValueGenerationConventionTests
             .Be(ValueGenerated.OnAdd);
     }
 
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void HasKeyOnlyStringPartitionKey_IsNotValueGeneratedByConvention()
+    {
+        using var ctx = HasKeyStringPartitionKeyContext.Create(Substitute.For<IAmazonDynamoDB>());
+
+        FindProperty<StringPartitionKeyEntity>(ctx, nameof(StringPartitionKeyEntity.Id))
+            .ValueGenerated
+            .Should()
+            .Be(ValueGenerated.Never);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void HasKeyOnlyGuidPartitionKey_IsValueGeneratedByConvention()
+    {
+        using var ctx = HasKeyGuidPartitionKeyContext.Create(Substitute.For<IAmazonDynamoDB>());
+
+        FindProperty<GuidPartitionKeyEntity>(ctx, nameof(GuidPartitionKeyEntity.Id))
+            .ValueGenerated
+            .Should()
+            .Be(ValueGenerated.OnAdd);
+    }
+
     /// <summary>Verifies explicit value generation on non-Guid keys overrides DynamoDB conventions.</summary>
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void ExplicitValueGeneratedOnAdd_ForIntegerKey_IsPreserved()
@@ -190,6 +212,38 @@ public class DynamoValueGenerationConventionTests
 
         public static GuidPartitionKeyContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<GuidPartitionKeyContext>(client));
+    }
+
+    private sealed class HasKeyStringPartitionKeyContext(DbContextOptions options) : DbContext(
+        options)
+    {
+        public DbSet<StringPartitionKeyEntity> Entities { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<StringPartitionKeyEntity>(b =>
+            {
+                b.ToTable("HasKeyStringPartitionKeyTable");
+                b.HasKey(x => x.Id);
+            });
+
+        public static HasKeyStringPartitionKeyContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<HasKeyStringPartitionKeyContext>(client));
+    }
+
+    private sealed class HasKeyGuidPartitionKeyContext(DbContextOptions options) : DbContext(
+        options)
+    {
+        public DbSet<GuidPartitionKeyEntity> Entities { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<GuidPartitionKeyEntity>(b =>
+            {
+                b.ToTable("HasKeyGuidPartitionKeyTable");
+                b.HasKey(x => x.Id);
+            });
+
+        public static HasKeyGuidPartitionKeyContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<HasKeyGuidPartitionKeyContext>(client));
     }
 
     private sealed class ExplicitIntegerGenerationContext(DbContextOptions options) : DbContext(

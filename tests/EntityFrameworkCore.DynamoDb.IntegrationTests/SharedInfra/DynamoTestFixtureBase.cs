@@ -9,24 +9,26 @@ using Microsoft.Extensions.Logging;
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 
 /// <summary>
-///     Base class for all table-scoped test fixtures. Wires a per-test
+///     Base class for all table-scoped test fixtures. Wires the integration-test
 ///     <see cref="TestPartiQlLoggerFactory" /> into every <see cref="DbContext" /> created via
 ///     <see cref="CreateOptions{T}" />, and exposes <see cref="AssertSql" /> so test classes can
 ///     assert emitted PartiQL without any additional setup.
 /// </summary>
 /// <remarks>
-///     xUnit creates a new test-class instance per test method, so <see cref="SqlCapture" /> is
-///     fresh for every test. The buffer is also cleared after each <see cref="AssertSql" /> call,
-///     allowing multiple assertions within a single test.
+///     The SQL capture is shared with the shared internal service provider and cleared for each
+///     test-class instance and after each <see cref="AssertSql" /> call. Integration tests disable
+///     parallel execution at assembly level, so the shared capture is not read or cleared by
+///     concurrent tests.
 /// </remarks>
 public abstract class DynamoTestFixtureBase
 {
     private readonly DynamoContainerFixture _container;
 
-    private static readonly ConcurrentDictionary<Type, SemaphoreSlim> ClassInitializationLocks =
-        new();
+    private static readonly ConcurrentDictionary<string, SemaphoreSlim> TableInitializationLocks =
+        new(StringComparer.Ordinal);
 
-    private static readonly ConcurrentDictionary<Type, bool> InitializedClasses = new();
+    private static readonly ConcurrentDictionary<(Type ClassType, string TableName), bool>
+        InitializedClassTables = new();
 
     private static readonly TestPartiQlLoggerFactory SharedSqlCapture = new();
 
@@ -84,20 +86,22 @@ public abstract class DynamoTestFixtureBase
         string tableName,
         Func<IAmazonDynamoDB, CancellationToken, Task> createTable)
     {
-        var classType = GetType();
-        if (InitializedClasses.ContainsKey(classType))
+        var classTableKey = (GetType(), tableName);
+        if (InitializedClassTables.ContainsKey(classTableKey))
             return;
 
-        var gate = ClassInitializationLocks.GetOrAdd(classType, _ => new SemaphoreSlim(1, 1));
+        var gate = TableInitializationLocks.GetOrAdd(
+            tableName,
+            static _ => new SemaphoreSlim(1, 1));
         gate.Wait();
 
         try
         {
-            if (InitializedClasses.ContainsKey(classType))
+            if (InitializedClassTables.ContainsKey(classTableKey))
                 return;
 
             RecreateTable(tableName, createTable);
-            InitializedClasses[classType] = true;
+            InitializedClassTables[classTableKey] = true;
         }
         finally
         {

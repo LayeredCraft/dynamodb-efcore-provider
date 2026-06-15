@@ -9,11 +9,10 @@ using NSubstitute;
 namespace EntityFrameworkCore.DynamoDb.Tests.Metadata.Conventions;
 
 /// <summary>
-///     Tests for <c>DynamoKeyInPrimaryKeyConvention</c> — verifies that the EF Core primary key
-///     is automatically configured to match the DynamoDB key schema when <c>HasPartitionKey</c> and/or
-///     <c>HasSortKey</c> annotations are set without an explicit <c>HasKey</c> call.
+///     Tests for finalized table-key resolution — verifies that the EF Core primary key is configured
+///     to match DynamoDB key roles from provider APIs, EF <c>HasKey</c>, and mapped shadow keys.
 /// </summary>
-public class DynamoKeyInPrimaryKeyConventionTests
+public class DynamoTableKeyResolutionConventionTests
 {
     private static DbContextOptions BuildOptions<T>(IAmazonDynamoDB client) where T : DbContext
         => new DbContextOptionsBuilder<T>()
@@ -112,7 +111,7 @@ public class DynamoKeyInPrimaryKeyConventionTests
     }
 
     // -------------------------------------------------------------------
-    // Shadow properties used as configured table keys are rejected
+    // Mapped shadow properties used as configured table keys are resolved
     // -------------------------------------------------------------------
 
     private sealed record LateShadowKeyEntity;
@@ -136,17 +135,15 @@ public class DynamoKeyInPrimaryKeyConventionTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public void HasPartitionAndSortKey_BeforeShadowProperties_ThrowsValidationError()
+    public void HasPartitionAndSortKey_BeforeShadowProperties_ResolvesShadowKeys()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
-        var ctx = LateShadowKeyContext.Create(client);
+        using var ctx = LateShadowKeyContext.Create(client);
 
-        var act = () => ctx.Model;
+        var entityType = ctx.Model.FindEntityType(typeof(LateShadowKeyEntity))!;
 
-        act
-            .Should()
-            .Throw<InvalidOperationException>()
-            .WithMessage("*shadow key properties are not supported*");
+        entityType.GetPartitionKeyPropertyName().Should().Be("PK");
+        entityType.GetSortKeyPropertyName().Should().Be("SK");
     }
 
     // -------------------------------------------------------------------
@@ -234,7 +231,7 @@ public class DynamoKeyInPrimaryKeyConventionTests
     }
 
     // -------------------------------------------------------------------
-    // Explicit root HasKey is rejected — Dynamo key annotations stay authoritative
+    // Explicit root HasKey can agree with Dynamo key annotations
     // -------------------------------------------------------------------
 
     private sealed record ExplicitKeyEntity
@@ -262,16 +259,15 @@ public class DynamoKeyInPrimaryKeyConventionTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public void ExplicitHasKey_WithAnnotations_IsRejected()
+    public void ExplicitHasKey_WithAnnotations_IsValidWhenRolesMatch()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
-        var act = () => ExplicitKeyContext.Create(client).Model;
+        using var ctx = ExplicitKeyContext.Create(client);
 
-        act
-            .Should()
-            .Throw<InvalidOperationException>()
-            .WithMessage(
-                "*must use HasPartitionKey(...) and optional HasSortKey(...)*do not use HasKey(...) or [Key]*");
+        var entityType = ctx.Model.FindEntityType(typeof(ExplicitKeyEntity))!;
+
+        entityType.GetPartitionKeyPropertyName().Should().Be("PkProp");
+        entityType.GetSortKeyPropertyName().Should().Be("SkProp");
     }
 
     // -------------------------------------------------------------------

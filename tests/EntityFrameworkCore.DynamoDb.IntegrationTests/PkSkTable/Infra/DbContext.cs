@@ -21,3 +21,15 @@ public class PkSkTableDbContext(DbContextOptions options) : DbContext(options)
             .HasPartitionKey(x => x.Pk)
             .HasSortKey(x => x.Sk);
 }
+
+public class PkSkHasKeyOnlyDbContext(DbContextOptions options) : DbContext(options)
+{
+    public DbSet<PkSkItem> Items { get; set; }
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+        => modelBuilder.Entity<PkSkItem>(b =>
+        {
+            b.ToTable(PkSkItemTable.TableName);
+            b.HasKey(x => new { x.Pk, x.Sk });
+        });
+}

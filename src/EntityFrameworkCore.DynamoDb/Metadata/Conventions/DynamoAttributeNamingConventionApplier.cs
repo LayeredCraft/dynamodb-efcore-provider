@@ -26,7 +26,7 @@ namespace EntityFrameworkCore.DynamoDb.Metadata.Conventions;
 ///         convention from the root entity type.
 ///     </para>
 ///     <para>
-///         This convention must run before <see cref="DynamoKeyAnnotationConvention" /> so that
+///         This convention must run before <see cref="DynamoTableKeyResolutionConvention" /> so that
 ///         partition/sort key attribute names are already transformed when key validation reads them.
 ///     </para>
 /// </remarks>

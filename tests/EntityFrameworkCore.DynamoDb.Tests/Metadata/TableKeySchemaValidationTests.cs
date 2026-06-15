@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using Amazon.DynamoDBv2;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -62,7 +63,7 @@ public class TableKeySchemaValidationTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public void SharedTable_ConsistentPkSk_DoesNotThrow()
+    public void SharedTable_ConsistentPkSk_WithProviderAndHasKeyStyles_DoesNotThrow()
     {
         var ctx = ConsistentPkSkContext.Create(MockClient());
         var act = () => ctx.Model;
@@ -107,8 +108,7 @@ public class TableKeySchemaValidationTests
         act
             .Should()
             .Throw<InvalidOperationException>()
-            .WithMessage(
-                "*must use HasPartitionKey(...) and optional HasSortKey(...)*do not use HasKey(...) or [Key]*");
+            .WithMessage("*partition key 'SomeProp'*EF primary key starts with 'Id'*");
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
@@ -119,8 +119,29 @@ public class TableKeySchemaValidationTests
         act
             .Should()
             .Throw<InvalidOperationException>()
-            .WithMessage(
-                "*must use HasPartitionKey(...) and optional HasSortKey(...)*do not use HasKey(...) or [Key]*");
+            .WithMessage("*sort key 'SomeProp'*EF primary key has only one property*");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void KeyAttribute_WithConflictingPartitionKey_ThrowsTargetedError()
+    {
+        var ctx = KeyAttributeConflictContext.Create(MockClient());
+        var act = () => ctx.Model;
+        act
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage("*partition key 'OtherId'*EF primary key starts with 'Id'*");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void PrimaryKeyAttribute_WithThreeParts_ThrowsDynamoShapeError()
+    {
+        var ctx = ThreePartPrimaryKeyAttributeContext.Create(MockClient());
+        var act = () => ctx.Model;
+        act
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage("*DynamoDB table keys support only one- or two-part keys*");
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
@@ -135,25 +156,101 @@ public class TableKeySchemaValidationTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public void HasPartitionKey_ShadowProperty_ThrowsOnValidation()
+    public void SamePropertyConfiguredAsPartitionAndSortKey_ThrowsTargetedError()
     {
-        var ctx = ShadowPartitionKeyContext.Create(MockClient());
+        var ctx = SamePropertyPartitionAndSortKeyContext.Create(MockClient());
         var act = () => ctx.Model;
         act
             .Should()
             .Throw<InvalidOperationException>()
-            .WithMessage("*shadow key properties are not supported*");
+            .WithMessage("*property 'Id'*both the DynamoDB partition key and sort key*");
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public void HasPartitionKeyAndSortKey_ShadowProperties_ThrowOnValidation()
+    public void ExplicitHasKey_WithSamePropertyConfiguredAsPartitionAndSortKey_ThrowsTargetedError()
     {
-        var ctx = ShadowPartitionAndSortKeyContext.Create(MockClient());
+        var ctx = ExplicitHasKeySamePropertyPartitionAndSortKeyContext.Create(MockClient());
         var act = () => ctx.Model;
         act
             .Should()
             .Throw<InvalidOperationException>()
-            .WithMessage("*shadow key properties are not supported*");
+            .WithMessage("*property 'Id'*both the DynamoDB partition key and sort key*");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ExplicitHasKey_WithSortKeyMatchingImplicitPartitionKey_ThrowsTargetedError()
+    {
+        var ctx = ExplicitHasKeySortKeyMatchesImplicitPartitionKeyContext.Create(MockClient());
+        var act = () => ctx.Model;
+        act
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage("*property 'Id'*both the DynamoDB partition key and sort key*");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ExplicitHasKey_WithReversedPartitionAndSortKeyOrder_ThrowsTargetedError()
+    {
+        var ctx = ReversedKeyOrderContext.Create(MockClient());
+        var act = () => ctx.Model;
+        act
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage("*partition key 'TenantId'*EF primary key starts with 'OrderId'*");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void HasPartitionKey_ShadowProperty_DoesNotThrow()
+    {
+        var ctx = ShadowPartitionKeyContext.Create(MockClient());
+        var act = () => ctx.Model;
+        act.Should().NotThrow();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void HasPartitionKeyAndSortKey_ShadowProperties_DoNotThrow()
+    {
+        var ctx = ShadowPartitionAndSortKeyContext.Create(MockClient());
+        var act = () => ctx.Model;
+        act.Should().NotThrow();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void HasKey_ShadowProperties_DoNotThrow()
+    {
+        var ctx = ShadowHasKeyContext.Create(MockClient());
+        var act = () => ctx.Model;
+        act.Should().NotThrow();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void HasKey_ShadowBoolKey_ThrowsUnsupportedTypeError()
+    {
+        var ctx = ShadowBoolKeyContext.Create(MockClient());
+        var act = () => ctx.Model;
+        act
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage("*partition key*must be string, number, or binary*");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void HasKey_NullableShadowKey_IsMadeRequiredByEfAndValid()
+    {
+        var ctx = NullableShadowKeyContext.Create(MockClient());
+        var act = () => ctx.Model;
+        act.Should().NotThrow();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void RuntimeOnlyProperty_ConfiguredAsKey_ThrowsRuntimeOnlyError()
+    {
+        var ctx = RuntimeOnlyKeyContext.Create(MockClient());
+        var act = () => ctx.Model;
+        act
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage("*runtime-only provider metadata*cannot be used as a table key*");
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
@@ -463,8 +560,7 @@ public class TableKeySchemaValidationTests
             modelBuilder.Entity<EntityJ>(b =>
             {
                 DynamoEntityTypeBuilderExtensions.ToTable((EntityTypeBuilder)b, "SharedTable5");
-                b.HasPartitionKey(x => x.PartId);
-                b.HasSortKey(x => x.SortId);
+                b.HasKey(x => new { x.PartId, x.SortId });
             });
         }
 
@@ -556,6 +652,56 @@ public class TableKeySchemaValidationTests
             => new(BuildOptions<GhostSortKeyContext>(client));
     }
 
+    private sealed record KeyAttributeConflictEntity
+    {
+        [Key]
+        public string Id { get; set; } = null!;
+
+        public string OtherId { get; set; } = null!;
+    }
+
+    private sealed class KeyAttributeConflictContext(DbContextOptions options) : DbContext(options)
+    {
+        public DbSet<KeyAttributeConflictEntity> Entities { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<KeyAttributeConflictEntity>(b =>
+            {
+                DynamoEntityTypeBuilderExtensions.ToTable(
+                    (EntityTypeBuilder)b,
+                    "KeyAttributeConflictTable");
+                b.HasPartitionKey(x => x.OtherId);
+            });
+
+        public static KeyAttributeConflictContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<KeyAttributeConflictContext>(client));
+    }
+
+    [PrimaryKey(nameof(A), nameof(B), nameof(C))]
+    private sealed record ThreePartPrimaryKeyAttributeEntity
+    {
+        public string A { get; set; } = null!;
+
+        public string B { get; set; } = null!;
+
+        public string C { get; set; } = null!;
+    }
+
+    private sealed class ThreePartPrimaryKeyAttributeContext(DbContextOptions options) : DbContext(
+        options)
+    {
+        public DbSet<ThreePartPrimaryKeyAttributeEntity> Entities { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<ThreePartPrimaryKeyAttributeEntity>(b
+                => DynamoEntityTypeBuilderExtensions.ToTable(
+                    (EntityTypeBuilder)b,
+                    "ThreePartPrimaryKeyAttributeTable"));
+
+        public static ThreePartPrimaryKeyAttributeContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<ThreePartPrimaryKeyAttributeContext>(client));
+    }
+
     // -------------------------------------------------------------------
     // New: HasPartitionKey/HasSortKey with property not in EF primary key throws
     // -------------------------------------------------------------------
@@ -611,8 +757,7 @@ public class TableKeySchemaValidationTests
     private sealed record NoDiscoverablePkEntity
     {
         // Properties are not named 'Id', '<EntityName>Id', 'PK', or 'PartitionKey', so neither
-        // EF Core key discovery nor the DynamoDB key discovery convention will find a partition
-        // key.
+        // EF Core key discovery nor DynamoDB table-key resolution will find a partition key.
         public string HashAttr { get; set; } = null!;
 
         public string RangeAttr { get; set; } = null!;
@@ -635,8 +780,92 @@ public class TableKeySchemaValidationTests
             => new(BuildOptions<SortKeyWithNoResolvablePkContext>(client));
     }
 
+    private sealed class SamePropertyPartitionAndSortKeyContext(DbContextOptions options)
+        : DbContext(options)
+    {
+        public DbSet<KeyMismatchEntity> Entities { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<KeyMismatchEntity>(b =>
+            {
+                DynamoEntityTypeBuilderExtensions.ToTable((EntityTypeBuilder)b, "SamePkSkTable");
+                b.HasPartitionKey(x => x.Id);
+                b.HasSortKey(x => x.Id);
+            });
+
+        public static SamePropertyPartitionAndSortKeyContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<SamePropertyPartitionAndSortKeyContext>(client));
+    }
+
+    private sealed class ExplicitHasKeySamePropertyPartitionAndSortKeyContext(
+        DbContextOptions options) : DbContext(options)
+    {
+        public DbSet<KeyMismatchEntity> Entities { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<KeyMismatchEntity>(b =>
+            {
+                DynamoEntityTypeBuilderExtensions.ToTable(
+                    (EntityTypeBuilder)b,
+                    "ExplicitSamePkSkTable");
+                b.HasKey(x => x.Id);
+                b.HasPartitionKey(x => x.Id);
+                b.HasSortKey(x => x.Id);
+            });
+
+        public static ExplicitHasKeySamePropertyPartitionAndSortKeyContext Create(
+            IAmazonDynamoDB client)
+            => new(BuildOptions<ExplicitHasKeySamePropertyPartitionAndSortKeyContext>(client));
+    }
+
+    private sealed class ExplicitHasKeySortKeyMatchesImplicitPartitionKeyContext(
+        DbContextOptions options) : DbContext(options)
+    {
+        public DbSet<KeyMismatchEntity> Entities { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<KeyMismatchEntity>(b =>
+            {
+                DynamoEntityTypeBuilderExtensions.ToTable(
+                    (EntityTypeBuilder)b,
+                    "ImplicitPartitionSameSortKeyTable");
+                b.HasKey(x => x.Id);
+                b.HasSortKey(x => x.Id);
+            });
+
+        public static ExplicitHasKeySortKeyMatchesImplicitPartitionKeyContext Create(
+            IAmazonDynamoDB client)
+            => new(BuildOptions<ExplicitHasKeySortKeyMatchesImplicitPartitionKeyContext>(client));
+    }
+
+    private sealed record ReversedKeyOrderEntity
+    {
+        public string TenantId { get; set; } = null!;
+
+        public string OrderId { get; set; } = null!;
+    }
+
+    private sealed class ReversedKeyOrderContext(DbContextOptions options) : DbContext(options)
+    {
+        public DbSet<ReversedKeyOrderEntity> Entities { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<ReversedKeyOrderEntity>(b =>
+            {
+                DynamoEntityTypeBuilderExtensions.ToTable(
+                    (EntityTypeBuilder)b,
+                    "ReversedKeyOrderTable");
+                b.HasKey(x => new { x.OrderId, x.TenantId });
+                b.HasPartitionKey(x => x.TenantId);
+                b.HasSortKey(x => x.OrderId);
+            });
+
+        public static ReversedKeyOrderContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<ReversedKeyOrderContext>(client));
+    }
+
     // -------------------------------------------------------------------
-    // Shadow key properties (unsupported)
+    // Mapped shadow key properties
     // -------------------------------------------------------------------
 
     private sealed record ShadowKeyEntity;
@@ -674,6 +903,78 @@ public class TableKeySchemaValidationTests
 
         public static ShadowPartitionAndSortKeyContext Create(IAmazonDynamoDB client)
             => new(BuildOptions<ShadowPartitionAndSortKeyContext>(client));
+    }
+
+    private sealed class ShadowHasKeyContext(DbContextOptions options) : DbContext(options)
+    {
+        public DbSet<ShadowKeyEntity> Entities { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<ShadowKeyEntity>(b =>
+            {
+                DynamoEntityTypeBuilderExtensions.ToTable(
+                    (EntityTypeBuilder)b,
+                    "ShadowHasKeyTable");
+                b.Property<string>("PK");
+                b.Property<string>("SK");
+                b.HasKey("PK", "SK");
+            });
+
+        public static ShadowHasKeyContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<ShadowHasKeyContext>(client));
+    }
+
+    private sealed class ShadowBoolKeyContext(DbContextOptions options) : DbContext(options)
+    {
+        public DbSet<ShadowKeyEntity> Entities { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<ShadowKeyEntity>(b =>
+            {
+                DynamoEntityTypeBuilderExtensions.ToTable(
+                    (EntityTypeBuilder)b,
+                    "ShadowBoolKeyTable");
+                b.Property<bool>("PK");
+                b.HasKey("PK");
+            });
+
+        public static ShadowBoolKeyContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<ShadowBoolKeyContext>(client));
+    }
+
+    private sealed class NullableShadowKeyContext(DbContextOptions options) : DbContext(options)
+    {
+        public DbSet<ShadowKeyEntity> Entities { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<ShadowKeyEntity>(b =>
+            {
+                DynamoEntityTypeBuilderExtensions.ToTable(
+                    (EntityTypeBuilder)b,
+                    "NullableShadowKeyTable");
+                b.Property<string?>("PK");
+                b.HasKey("PK");
+            });
+
+        public static NullableShadowKeyContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<NullableShadowKeyContext>(client));
+    }
+
+    private sealed class RuntimeOnlyKeyContext(DbContextOptions options) : DbContext(options)
+    {
+        public DbSet<ShadowKeyEntity> Entities { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<ShadowKeyEntity>(b =>
+            {
+                DynamoEntityTypeBuilderExtensions.ToTable(
+                    (EntityTypeBuilder)b,
+                    "RuntimeOnlyKeyTable");
+                b.HasPartitionKey("__executeStatementResponse");
+            });
+
+        public static RuntimeOnlyKeyContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<RuntimeOnlyKeyContext>(client));
     }
 
     private sealed record SharedShadowEntityA

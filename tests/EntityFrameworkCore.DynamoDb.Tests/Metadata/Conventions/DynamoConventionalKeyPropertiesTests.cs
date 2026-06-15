@@ -2,9 +2,6 @@ using Amazon.DynamoDBv2;
 using EntityFrameworkCore.DynamoDb.Metadata.Conventions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
 using NSubstitute;
 
 // ReSharper disable AutoPropertyCanBeMadeGetOnly.Local
@@ -12,12 +9,11 @@ using NSubstitute;
 namespace EntityFrameworkCore.DynamoDb.Tests.Metadata.Conventions;
 
 /// <summary>
-///     Tests for <c>DynamoKeyDiscoveryConvention</c> — verifies that conventional DynamoDB
-///     property names (<c>PK</c>/<c>PartitionKey</c>, fallback <c>Id</c>, <c>SK</c>/<c>SortKey</c>)
-///     are auto-configured as the DynamoDB partition/sort key annotations without any explicit
-///     <c>HasPartitionKey</c> or <c>HasSortKey</c> call.
+///     Tests finalized table-key resolution for conventional DynamoDB property names
+///     (<c>PK</c>/<c>PartitionKey</c>, fallback <c>Id</c>, <c>SK</c>/<c>SortKey</c>) and EF
+///     convention-discovered keys.
 /// </summary>
-public class DynamoKeyDiscoveryConventionTests
+public class DynamoConventionalKeyPropertiesTests
 {
     private static DbContextOptions BuildOptions<T>(IAmazonDynamoDB client) where T : DbContext
         => new DbContextOptionsBuilder<T>()
@@ -923,42 +919,72 @@ public class DynamoKeyDiscoveryConventionTests
         entityType.GetSortKeyPropertyName().Should().Be("SK");
     }
 
-    // -------------------------------------------------------------------
-    // ShouldDiscoverKeyProperties — owned entity types are skipped
-    // -------------------------------------------------------------------
-
-    /// <summary>Test-only subclass that exposes the protected ShouldDiscoverKeyProperties method.</summary>
-    private sealed class TestableDynamoKeyDiscoveryConvention(
-        ProviderConventionSetBuilderDependencies dependencies)
-        : DynamoKeyDiscoveryConvention(dependencies)
+    private sealed record EntityNameIdOnlyEntity
     {
-        public bool ShouldDiscover(IConventionEntityType entityType)
-            => ShouldDiscoverKeyProperties(entityType);
+        public string EntityNameIdOnlyEntityId { get; set; } = null!;
+    }
+
+    private sealed class EntityNameIdOnlyContext(DbContextOptions options) : DbContext(options)
+    {
+        public DbSet<EntityNameIdOnlyEntity> Entities { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<EntityNameIdOnlyEntity>(b => b.ToTable("EntityNameIdOnlyTable"));
+
+        public static EntityNameIdOnlyContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<EntityNameIdOnlyContext>(client));
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public void ShouldDiscoverKeyProperties_ReturnsFalse_ForOwnedEntityType()
+    public void EntityNameIdConventionKey_InfersPartitionKey_WhenNoDynamoNamesExist()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
-        var options = BuildOptions<PkNamedContext>(client);
+        using var ctx = EntityNameIdOnlyContext.Create(client);
 
-        using var ctx = new PkNamedContext(options);
-        var dependencies = ctx.GetService<ProviderConventionSetBuilderDependencies>();
+        var entityType = ctx.Model.FindEntityType(typeof(EntityNameIdOnlyEntity))!;
+        var primaryKey = entityType.FindPrimaryKey()!;
 
-        var convention = new TestableDynamoKeyDiscoveryConvention(dependencies);
-
-        // IsOwned() is an EF Core extension method — build a real model with an owned
-        // relationship so the method returns true without mocking.
-        var modelBuilder = new ModelBuilder(new Microsoft.EntityFrameworkCore.Metadata.Conventions.ConventionSet());
-        modelBuilder.Entity<OwnedTypeOwner>().OwnsOne<OwnedTypeValue>(nameof(OwnedTypeOwner.Owned));
-        var ownedEntityType = (IConventionEntityType)
-            ((IConventionModel)modelBuilder.Model).FindEntityType(typeof(OwnedTypeValue))!;
-
-        convention.ShouldDiscover(ownedEntityType).Should().BeFalse();
+        primaryKey.Properties.Should().HaveCount(1);
+        primaryKey.Properties[0].Name.Should().Be("EntityNameIdOnlyEntityId");
+        entityType.GetPartitionKeyPropertyName().Should().Be("EntityNameIdOnlyEntityId");
     }
 
-    private sealed class OwnedTypeOwner { public int Id { get; set; } public OwnedTypeValue Owned { get; set; } = null!; }
-    private sealed class OwnedTypeValue { public string? Value { get; set; } }
+    private sealed record ExplicitHasKeyResolvesAmbiguousPkEntity
+    {
+        public string PK { get; set; } = null!;
+
+        public string PartitionKey { get; set; } = null!;
+
+        public string CustomId { get; set; } = null!;
+    }
+
+    private sealed class ExplicitHasKeyResolvesAmbiguousPkContext(DbContextOptions options)
+        : DbContext(options)
+    {
+        public DbSet<ExplicitHasKeyResolvesAmbiguousPkEntity> Entities { get; set; } = null!;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<ExplicitHasKeyResolvesAmbiguousPkEntity>(b =>
+            {
+                b.ToTable("ExplicitHasKeyResolvesAmbiguousPkTable");
+                b.HasKey(x => x.CustomId);
+            });
+
+        public static ExplicitHasKeyResolvesAmbiguousPkContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<ExplicitHasKeyResolvesAmbiguousPkContext>(client));
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ExplicitHasKey_ResolvesAmbiguousConventionalPartitionNames()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        using var ctx = ExplicitHasKeyResolvesAmbiguousPkContext.Create(client);
+
+        var entityType = ctx.Model.FindEntityType(typeof(ExplicitHasKeyResolvesAmbiguousPkEntity))!;
+
+        entityType.GetPartitionKeyPropertyName().Should().Be("CustomId");
+        entityType.GetSortKeyPropertyName().Should().BeNull();
+    }
 
     // -------------------------------------------------------------------
 
