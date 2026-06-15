@@ -20,6 +20,8 @@ public class DynamoTableKeySaveChangesTests
 
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
+        // Column order follows EF Core property ordinals. The discriminator shadow property
+        // is assigned before base/derived CLR properties in this TPH mapping.
         AssertStatement(
             captured,
             """
