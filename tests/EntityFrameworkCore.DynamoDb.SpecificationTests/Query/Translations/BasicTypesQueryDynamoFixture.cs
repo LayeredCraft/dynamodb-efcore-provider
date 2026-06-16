@@ -32,18 +32,4 @@ public class BasicTypesQueryDynamoFixture : BasicTypesQueryFixtureBase, IDynamoS
                 => options
                     .DynamoDbClient(DynamoTestStoreFactory.Instance.Client)
                     .TransactionOverflowBehavior(TransactionOverflowBehavior.UseChunking));
-
-    protected override void OnModelCreating(ModelBuilder modelBuilder, DbContext context)
-    {
-        base.OnModelCreating(modelBuilder, context);
-
-        modelBuilder
-            .Entity<BasicTypesEntity>()
-            .ToTable("BasicTypesEntities")
-            .HasPartitionKey(e => e.Id);
-        modelBuilder
-            .Entity<NullableBasicTypesEntity>()
-            .ToTable("NullableBasicTypesEntities")
-            .HasPartitionKey(e => e.Id);
-    }
 }
