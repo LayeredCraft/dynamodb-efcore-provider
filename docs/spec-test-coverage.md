@@ -263,8 +263,13 @@ Cosmos DB implements all translation categories; MongoDB implements none.
 | Test Class                                  | Methods | Cosmos | Feasibility | Notes                                                             |
 | ------------------------------------------- | ------: | :----: | ----------: | ----------------------------------------------------------------- |
 | `ArithmeticOperatorTranslationsTestBase`    |       5 |   ✓    |        ~80% | `+`, `-`, `*`, `/`, `%`; PartiQL arithmetic on numerics           |
-| `MiscellaneousOperatorTranslationsTestBase` |       2 |   ✓    |        ~70% | Miscellaneous operators; mostly translatable                      |
 | `BitwiseOperatorTranslationsTestBase`       |      15 |   ✓    |        ~20% | `&`, `\|`, `^`, `~`, `<<`, `>>`; PartiQL has no bitwise operators |
+
+#### Skip — DynamoDB Expression Constraints
+
+| Test Class                                  | Methods | Cosmos | Reason                                                                                   |
+| ------------------------------------------- | ------: | :----: | ---------------------------------------------------------------------------------------- |
+| `MiscellaneousOperatorTranslationsTestBase` |       2 |   ✓    | Provider does not translate conditional expressions, and coalesce is not supported today. |
 
 ### Type Translations
 
@@ -301,7 +306,7 @@ ______________________________________________________________________
 | Northwind Query             |  7 classes / 441 methods |              — |  3 classes / 491 methods |  12 classes / 924+ methods |
 | Other Query                 |   1 class / 74 methods |              — | 12 classes / 389 methods | 16 classes / 1,683 methods |
 | Associations                |                        — |              — |    3 classes / 8 methods | 13+ classes / 123+ methods |
-| Translations                |   2 classes / 12 methods |              — | 14 classes / 309 methods |                          — |
+| Translations                |   2 classes / 12 methods |              — | 13 classes / 307 methods |       1 class / 2 methods |
 
 ______________________________________________________________________
 
@@ -352,5 +357,5 @@ No near-term specification test classes are currently queued here.
 | -------------- | ------: | ------: |
 | Implemented    |      28 |     883 |
 | Implement Next |       0 |       0 |
-| Future         |      42 |  1,783+ |
-| Skip           |     62+ |  3,780+ |
+| Future         |      41 |  1,781+ |
+| Skip           |     63+ |  3,782+ |
