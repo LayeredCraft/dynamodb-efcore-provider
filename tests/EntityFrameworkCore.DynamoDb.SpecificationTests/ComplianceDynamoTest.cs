@@ -31,6 +31,7 @@ public sealed class ComplianceDynamoTest : ComplianceTestBase
         yield return typeof(SeedingTestBase);
         yield return typeof(ValueConvertersEndToEndTestBase<>);
         yield return typeof(ComparisonOperatorTranslationsTestBase<>);
+        yield return typeof(LogicalOperatorTranslationsTestBase<>);
         yield return typeof(NorthwindAsNoTrackingQueryTestBase<>);
         yield return typeof(NorthwindAsTrackingQueryTestBase<>);
         yield return typeof(NorthwindChangeTrackingQueryTestBase<>);
