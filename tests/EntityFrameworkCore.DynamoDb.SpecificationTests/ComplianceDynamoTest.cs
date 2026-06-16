@@ -1,6 +1,7 @@
 using System.Reflection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.EntityFrameworkCore.Query.Translations;
 using Microsoft.EntityFrameworkCore.Query.Translations.Operators;
 
 namespace EntityFrameworkCore.DynamoDb.SpecificationTests;
@@ -22,6 +23,7 @@ public sealed class ComplianceDynamoTest : ComplianceTestBase
         yield return typeof(ConcurrencyDetectorDisabledTestBase<>);
         yield return typeof(ConcurrencyDetectorEnabledTestBase<>);
         yield return typeof(FindTestBase<>);
+        yield return typeof(GuidTranslationsTestBase<>);
         yield return typeof(KeysWithConvertersTestBase<>);
         yield return typeof(LoggingTestBase);
         yield return typeof(MaterializationInterceptionTestBase<>);
