@@ -270,12 +270,17 @@ Cosmos DB implements all translation categories; MongoDB implements none.
 
 | Test Class                          | Methods | Cosmos | Feasibility | Notes                                                                                                      |
 | ----------------------------------- | ------: | :----: | ----------: | ---------------------------------------------------------------------------------------------------------- |
-| `StringTranslationsTestBase`        |     100 |   ✓    |        ~75% | `StartsWith`, `EndsWith`, `Contains`, `ToUpper`, `Substring`, etc.; PartiQL supports core string functions |
 | `MathTranslationsTestBase`          |      66 |   ✓    |        ~50% | `Abs`, `Ceiling`, `Floor`, `Round`, `Sqrt`, `Log`, `Power`; PartiQL supports a subset                      |
 | `MiscellaneousTranslationsTestBase` |      18 |   ✓    |        ~60% | Coalesce, null checks, type conversions                                                                    |
 | `EnumTranslationsTestBase`          |      18 |   ✓    |        ~60% | Enum → numeric/string storage; mostly translatable                                                         |
 | `GuidTranslationsTestBase`          |       4 |   ✓    |        ~60% | GUID stored as string; small surface                                                                       |
 | `ByteArrayTranslationsTestBase`     |       7 |   ✓    |        ~40% | DynamoDB Binary type; limited PartiQL function support                                                     |
+
+### Skip — DynamoDB Expression Constraints
+
+| Test Class                    | Methods | Cosmos | Reason                                                                                                               |
+| ----------------------------- | ------: | :----: | -------------------------------------------------------------------------------------------------------------------- |
+| `StringTranslationsTestBase`  |     100 |   ✓    | Broad string API coverage exceeds current DynamoDB predicate support; provider only translates a small native subset. |
 
 ### Temporal Translations
 
@@ -301,7 +306,7 @@ ______________________________________________________________________
 | Northwind Query             |  7 classes / 441 methods |              — |  3 classes / 491 methods |  12 classes / 924+ methods |
 | Other Query                 |   1 class / 74 methods |              — | 12 classes / 389 methods | 16 classes / 1,683 methods |
 | Associations                |                        — |              — |    3 classes / 8 methods | 13+ classes / 123+ methods |
-| Translations                |   2 classes / 12 methods |              — | 14 classes / 309 methods |                          — |
+| Translations                |   2 classes / 12 methods |              — | 13 classes / 209 methods |     1 class / 100 methods |
 
 ______________________________________________________________________
 
@@ -336,15 +341,14 @@ No near-term specification test classes are currently queued here.
 ### Medium-term (requires investigation or new fixture)
 
 18. `ArithmeticOperatorTranslationsDynamoTest`
-19. `StringTranslationsDynamoTest`
 
 ### Long-term (after core coverage is stable)
 
-20. `InheritanceQueryDynamoTest` — blocked on `OfType`, `is`/`GetType()` discriminator translation, and fixture work
-21. `PrimitiveCollectionsQueryDynamoTest`
-22. `NorthwindQueryFiltersDynamoTest`
-23. `BulkUpdates` family — blocked on `ExecuteUpdate`/`ExecuteDelete`
-24. Remaining translation tests (Math, Miscellaneous, Enum, Guid)
+19. `InheritanceQueryDynamoTest` — blocked on `OfType`, `is`/`GetType()` discriminator translation, and fixture work
+20. `PrimitiveCollectionsQueryDynamoTest`
+21. `NorthwindQueryFiltersDynamoTest`
+22. `BulkUpdates` family — blocked on `ExecuteUpdate`/`ExecuteDelete`
+23. Remaining translation tests (Math, Miscellaneous, Enum, Guid)
 
 ### Current totals
 
@@ -352,5 +356,5 @@ No near-term specification test classes are currently queued here.
 | -------------- | ------: | ------: |
 | Implemented    |      28 |     883 |
 | Implement Next |       0 |       0 |
-| Future         |      42 |  1,783+ |
-| Skip           |     62+ |  3,780+ |
+| Future         |      41 |  1,683+ |
+| Skip           |     63+ |  3,880+ |
