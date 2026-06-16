@@ -4,7 +4,6 @@ using EntityFrameworkCore.DynamoDb.SpecificationTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Query.Translations;
-using Microsoft.EntityFrameworkCore.TestModels.BasicTypesModel;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 
 namespace EntityFrameworkCore.DynamoDb.SpecificationTests.Query.Translations;
