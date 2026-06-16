@@ -256,12 +256,12 @@ Cosmos DB implements all translation categories; MongoDB implements none.
 | Test Class                               | Methods | Cosmos | Notes                                                      |
 | ---------------------------------------- | ------: | :----: | ---------------------------------------------------------- |
 | `ComparisonOperatorTranslationsTestBase` |       6 |   ✓    | Equal, not-equal, less/greater-than; core PartiQL comparisons |
+| `LogicalOperatorTranslationsTestBase`    |       6 |   ✓    | `AND`, `OR`, `NOT`, and bool-property predicates |
 
 #### Future
 
 | Test Class                                  | Methods | Cosmos | Feasibility | Notes                                                             |
 | ------------------------------------------- | ------: | :----: | ----------: | ----------------------------------------------------------------- |
-| `LogicalOperatorTranslationsTestBase`       |       6 |   ✓    |        ~95% | `AND`, `OR`, `NOT`; supported                                     |
 | `ArithmeticOperatorTranslationsTestBase`    |       5 |   ✓    |        ~80% | `+`, `-`, `*`, `/`, `%`; PartiQL arithmetic on numerics           |
 | `MiscellaneousOperatorTranslationsTestBase` |       2 |   ✓    |        ~70% | Miscellaneous operators; mostly translatable                      |
 | `BitwiseOperatorTranslationsTestBase`       |      15 |   ✓    |        ~20% | `&`, `\|`, `^`, `~`, `<<`, `>>`; PartiQL has no bitwise operators |
@@ -301,7 +301,7 @@ ______________________________________________________________________
 | Northwind Query             |  7 classes / 441 methods |              — |  3 classes / 491 methods |  12 classes / 924+ methods |
 | Other Query                 |   1 class / 74 methods |              — | 12 classes / 389 methods | 16 classes / 1,683 methods |
 | Associations                |                        — |              — |    3 classes / 8 methods | 13+ classes / 123+ methods |
-| Translations                |    1 class / 6 methods |              — | 15 classes / 315 methods |                          — |
+| Translations                |   2 classes / 12 methods |              — | 14 classes / 309 methods |                          — |
 
 ______________________________________________________________________
 
@@ -327,6 +327,7 @@ This list records recently completed additions; authoritative implemented/not-im
 14. `SeedingDynamoTest` — 2 methods
 15. `KeysWithConvertersDynamoTest` — 47 methods
 16. `ComparisonOperatorTranslationsDynamoTest` — 6 methods
+17. `LogicalOperatorTranslationsDynamoTest` — 6 methods
 
 ### Near-term (small, high confidence)
 
@@ -334,7 +335,6 @@ No near-term specification test classes are currently queued here.
 
 ### Medium-term (requires investigation or new fixture)
 
-17. `LogicalOperatorTranslationsDynamoTest`
 18. `ArithmeticOperatorTranslationsDynamoTest`
 19. `StringTranslationsDynamoTest`
 
@@ -350,7 +350,7 @@ No near-term specification test classes are currently queued here.
 
 | Status         | Classes | Methods |
 | -------------- | ------: | ------: |
-| Implemented    |      27 |     877 |
+| Implemented    |      28 |     883 |
 | Implement Next |       0 |       0 |
-| Future         |      43 |  1,789+ |
+| Future         |      42 |  1,783+ |
 | Skip           |     62+ |  3,780+ |
