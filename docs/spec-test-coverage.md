@@ -38,7 +38,6 @@ change tracking, concurrency, Find, value converters, interceptors, and more.
 | `ComplexTypesTrackingTestBase`        |     128 |   ✓    |    ✗    | Complex type change tracking; DynamoDB complex types fully supported         |
 | `ConcurrencyDetectorDisabledTestBase` |       1 |   ✓    |    ✗    | `ConcurrencyDetector` opt-out                                                |
 | `ConcurrencyDetectorEnabledTestBase`  |       1 |   ✓    |    ✗    | `ConcurrencyDetector` opt-in                                                 |
-| `OptimisticConcurrencyTestBase`       |      33 |   ✓    |    ✗    | ETag / version token concurrency                                             |
 | `FindTestBase`                        |      69 |   ✓    |    ✗    | `Find`/`FindAsync` by primary key                                            |
 | `ComplianceTestBase`                  |       1 |   ✗    |    ✗    | Compliance marker for implemented provider spec bases                        |
 | `OverzealousInitializationTestBase`   |       1 |   ✓    |    ✗    | Navigation-based fixup test is explicitly skipped                            |
@@ -53,6 +52,8 @@ change tracking, concurrency, Find, value converters, interceptors, and more.
 | `ValueConvertersEndToEndTestBase`     |       1 |   ✗    |    ✗    | End-to-end converter insert/readback; DynamoDB fixture maps `ConvertingEntity` with partition key |
 | `KeysWithConvertersTestBase`          |      47 |   ✓    |    ✗    | Converted partition-key mapping has DynamoDB-specific coverage; inherited FK, shadow-FK, and owned-entity cases are explicitly skipped |
 
+Additional provider-specific coverage: `DynamoConcurrencyTest` has 6 local tests for DynamoDB optimistic concurrency behavior. It intentionally does not inherit `OptimisticConcurrencyTestBase` because DynamoDB concurrency semantics differ from the EF Core spec fixture.
+
 ### Implement Next
 
 No non-query specification test classes are currently queued here.
@@ -63,7 +64,6 @@ Feasible but requires investigation or additional provider work before adding.
 
 | Test Class                        | Methods | Cosmos | MongoDB | Feasibility | Blocker                                                                                                                                                                                             |
 | --------------------------------- | ------: | :----: | :-----: | ----------: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `KeysWithConvertersTestBase`      |      47 |   ✓    |    ✗    |        ~70% | Keys that pass through value converters; type mapping validation needed                                                                                                                             |
 | `WithConstructorsTestBase`        |      41 |   ✗    |    ✗    |        ~70% | Entities using non-default constructors; DynamoDB materializes via EF's normal pipeline                                                                                                             |
 | `PropertyValuesTestBase`          |     167 |   ✗    |    ✗    |        ~55% | `CurrentValues`/`OriginalValues`/`GetDatabaseValues`; `GetDatabaseValues` requires a read which DynamoDB supports, but relational semantics for shadow keys and navigation tracking reduce coverage |
 | `StoreGeneratedTestBase`          |      58 |   ✗    |    ✗    |        ~50% | Store-generated keys and concurrency tokens; partially supported (DynamoDB auto-generates string PKs but not sequences)                                                                             |
@@ -74,6 +74,7 @@ Feasible but requires investigation or additional provider work before adding.
 
 | Test Class                                 | Methods | Cosmos | MongoDB | Reason                                                                     |
 | ------------------------------------------ | ------: | :----: | :-----: | -------------------------------------------------------------------------- |
+| `OptimisticConcurrencyTestBase`            |      33 |   ✓    |    ✗    | Covered by provider-specific `DynamoConcurrencyTest`; EF spec fixture semantics do not match DynamoDB concurrency |
 | `LazyLoadTestBase`                         |      97 |   ✗    |    ✗    | Lazy loading requires navigation property support                          |
 | `LazyLoadProxyTestBase`                    |      75 |   ✗    |    ✗    | Lazy load via proxies; requires navigations                                |
 | `LoadTestBase`                             |     106 |   ✗    |    ✗    | Explicit/implicit load operations; navigation-dependent                    |
@@ -244,15 +245,22 @@ ______________________________________________________________________
 
 ## Translations Tests
 
-These tests use the `BasicTypesModel` fixture (separate from Northwind). A dedicated
-`BasicTypesDynamoFixture` must be created before any translation tests can be added.
+These tests use the `BasicTypesModel` fixture (separate from Northwind). The shared
+`BasicTypesQueryDynamoFixture` now covers DynamoDB translation tests over scalar CLR types.
 Cosmos DB implements all translation categories; MongoDB implements none.
 
 ### Operators
 
+#### Implemented
+
+| Test Class                               | Methods | Cosmos | Notes                                                      |
+| ---------------------------------------- | ------: | :----: | ---------------------------------------------------------- |
+| `ComparisonOperatorTranslationsTestBase` |       6 |   ✓    | Equal, not-equal, less/greater-than; core PartiQL comparisons |
+
+#### Future
+
 | Test Class                                  | Methods | Cosmos | Feasibility | Notes                                                             |
 | ------------------------------------------- | ------: | :----: | ----------: | ----------------------------------------------------------------- |
-| `ComparisonOperatorTranslationsTestBase`    |       6 |   ✓    |        ~95% | `<`, `<=`, `>`, `>=`, `==`, `!=`; core PartiQL comparisons        |
 | `LogicalOperatorTranslationsTestBase`       |       6 |   ✓    |        ~95% | `AND`, `OR`, `NOT`; supported                                     |
 | `ArithmeticOperatorTranslationsTestBase`    |       5 |   ✓    |        ~80% | `+`, `-`, `*`, `/`, `%`; PartiQL arithmetic on numerics           |
 | `MiscellaneousOperatorTranslationsTestBase` |       2 |   ✓    |        ~70% | Miscellaneous operators; mostly translatable                      |
@@ -288,16 +296,18 @@ ______________________________________________________________________
 
 | Category                    |              Implemented | Implement Next |                   Future |                       Skip |
 | --------------------------- | -----------------------: | -------------: | -----------------------: | -------------------------: |
-| Non-Query (top-level)       | 18 classes / 388 methods |              — |  6 classes / 452 methods |   19 classes / 984 methods |
+| Non-Query (top-level)       | 18 classes / 356 methods |              — |  5 classes / 451 methods | 20 classes / 1,017 methods |
 | BulkUpdates                 |                        — |              — | 5 classes / 135+ methods |       1 class / 33 methods |
 | Northwind Query             |  7 classes / 441 methods |              — |  3 classes / 491 methods |  12 classes / 924+ methods |
-| Other Query                 |  1 class / 74 methods |              — | 12 classes / 389 methods | 16 classes / 1,683 methods |
+| Other Query                 |   1 class / 74 methods |              — | 12 classes / 389 methods | 16 classes / 1,683 methods |
 | Associations                |                        — |              — |    3 classes / 8 methods | 13+ classes / 123+ methods |
-| Translations (need fixture) |                        — |              — | 16 classes / 321 methods |                          — |
+| Translations                |    1 class / 6 methods |              — | 15 classes / 315 methods |                          — |
 
 ______________________________________________________________________
 
-## Implementation Order
+## Recent Implementation Order
+
+This list records recently completed additions; authoritative implemented/not-implemented status is in the tables above.
 
 ### Immediate (complete)
 
@@ -315,6 +325,8 @@ ______________________________________________________________________
 12. `CustomConvertersDynamoTest` — 29 methods
 13. `ComplexTypeQueryDynamoTest` — 74 methods
 14. `SeedingDynamoTest` — 2 methods
+15. `KeysWithConvertersDynamoTest` — 47 methods
+16. `ComparisonOperatorTranslationsDynamoTest` — 6 methods
 
 ### Near-term (small, high confidence)
 
@@ -322,23 +334,23 @@ No near-term specification test classes are currently queued here.
 
 ### Medium-term (requires investigation or new fixture)
 
-15. `KeysWithConvertersDynamoTest`
-16. Translations operator tests (Comparison, Logical, Arithmetic) — needs `BasicTypesDynamoFixture`
-17. `StringTranslationsDynamoTest` — needs `BasicTypesDynamoFixture`
+17. `LogicalOperatorTranslationsDynamoTest`
+18. `ArithmeticOperatorTranslationsDynamoTest`
+19. `StringTranslationsDynamoTest`
 
 ### Long-term (after core coverage is stable)
 
-18. `InheritanceQueryDynamoTest` — blocked on `OfType`, `is`/`GetType()` discriminator translation, and fixture work
-19. `PrimitiveCollectionsQueryDynamoTest`
-20. `NorthwindQueryFiltersDynamoTest`
-21. `BulkUpdates` family — blocked on `ExecuteUpdate`/`ExecuteDelete`
-22. Remaining translation tests (Math, Miscellaneous, Enum, Guid)
+20. `InheritanceQueryDynamoTest` — blocked on `OfType`, `is`/`GetType()` discriminator translation, and fixture work
+21. `PrimitiveCollectionsQueryDynamoTest`
+22. `NorthwindQueryFiltersDynamoTest`
+23. `BulkUpdates` family — blocked on `ExecuteUpdate`/`ExecuteDelete`
+24. Remaining translation tests (Math, Miscellaneous, Enum, Guid)
 
 ### Current totals
 
 | Status         | Classes | Methods |
 | -------------- | ------: | ------: |
-| Implemented    |      26 |     903 |
+| Implemented    |      27 |     877 |
 | Implement Next |       0 |       0 |
-| Future         |      45 |  1,796+ |
-| Skip           |     61+ |  3,747+ |
+| Future         |      43 |  1,789+ |
+| Skip           |     62+ |  3,780+ |
