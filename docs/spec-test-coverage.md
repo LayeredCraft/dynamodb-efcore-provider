@@ -264,7 +264,6 @@ Cosmos DB implements all translation categories; MongoDB implements none.
 
 | Test Class                                  | Methods | Cosmos | Feasibility | Notes                                                             |
 | ------------------------------------------- | ------: | :----: | ----------: | ----------------------------------------------------------------- |
-| `ArithmeticOperatorTranslationsTestBase`    |       5 |   ✓    |        ~80% | `+`, `-`, `*`, `/`, `%`; PartiQL arithmetic on numerics           |
 | `MiscellaneousOperatorTranslationsTestBase` |       2 |   ✓    |        ~70% | Miscellaneous operators; mostly translatable                      |
 | `BitwiseOperatorTranslationsTestBase`       |      15 |   ✓    |        ~20% | `&`, `\|`, `^`, `~`, `<<`, `>>`; PartiQL has no bitwise operators |
 
@@ -290,6 +289,12 @@ translations are low-feasibility until dedicated temporal translation support is
 | `TimeOnlyTranslationsTestBase`       |      17 |   ✓    |        ~25% | No native time type                 |
 | `TimeSpanTranslationsTestBase`       |       6 |   ✓    |        ~25% | No native duration type             |
 
+### Skip — DynamoDB PartiQL Constraints
+
+| Test Class                               | Methods | Cosmos | Reason |
+| ---------------------------------------- | ------: | :----: | ------ |
+| `ArithmeticOperatorTranslationsTestBase` |       5 |   ✓    | DynamoDB rejects arithmetic operators in `WHERE` conditions; provider currently lets `+`, `-`, and `*` reach execution, while `%` and unary minus fail before execution |
+
 ______________________________________________________________________
 
 ## Coverage Summary
@@ -301,7 +306,7 @@ ______________________________________________________________________
 | Northwind Query             |  7 classes / 441 methods |              — |  3 classes / 491 methods |  12 classes / 924+ methods |
 | Other Query                 |   1 class / 74 methods |              — | 12 classes / 389 methods | 16 classes / 1,683 methods |
 | Associations                |                        — |              — |    3 classes / 8 methods | 13+ classes / 123+ methods |
-| Translations                |   4 classes / 34 methods |              — | 12 classes / 287 methods |                          — |
+| Translations                |   4 classes / 34 methods |              — | 11 classes / 282 methods |       1 class / 5 methods |
 
 ______________________________________________________________________
 
@@ -337,16 +342,15 @@ No near-term specification test classes are currently queued here.
 
 ### Medium-term (requires investigation or new fixture)
 
-20. `ArithmeticOperatorTranslationsDynamoTest`
-21. `StringTranslationsDynamoTest`
+20. `StringTranslationsDynamoTest`
 
 ### Long-term (after core coverage is stable)
 
-22. `InheritanceQueryDynamoTest` — blocked on `OfType`, `is`/`GetType()` discriminator translation, and fixture work
-23. `PrimitiveCollectionsQueryDynamoTest`
-24. `NorthwindQueryFiltersDynamoTest`
-25. `BulkUpdates` family — blocked on `ExecuteUpdate`/`ExecuteDelete`
-26. Remaining translation tests (Math, Miscellaneous)
+21. `InheritanceQueryDynamoTest` — blocked on `OfType`, `is`/`GetType()` discriminator translation, and fixture work
+22. `PrimitiveCollectionsQueryDynamoTest`
+23. `NorthwindQueryFiltersDynamoTest`
+24. `BulkUpdates` family — blocked on `ExecuteUpdate`/`ExecuteDelete`
+25. Remaining translation tests (Math, Miscellaneous)
 
 ### Current totals
 
@@ -354,5 +358,5 @@ No near-term specification test classes are currently queued here.
 | -------------- | ------: | ------: |
 | Implemented    |      30 |     905 |
 | Implement Next |       0 |       0 |
-| Future         |      40 |  1,761+ |
-| Skip           |     62+ |  3,780+ |
+| Future         |      39 |  1,756+ |
+| Skip           |     63+ |  3,785+ |
