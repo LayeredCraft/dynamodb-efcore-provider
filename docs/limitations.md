@@ -217,11 +217,19 @@ whose projection type is not `ALL`. `KEYS_ONLY` and `INCLUDE` index candidates a
 rejected (`DYNAMO_IDX005`) and excluded from selection. Use an explicit `.WithIndex("name")`
 hint to route to a non-ALL index.
 
-### No `string.StartsWith` or `string.Contains` Overloads with Culture / Char
+### String Function Limitations
 
 `string.StartsWith(s)` and `string.Contains(s)` translate to `begins_with` and `contains` in
 PartiQL only for the single-`string`-argument overloads. Overloads that accept a `char`, a
 `StringComparison`, or a `CultureInfo` argument throw at translation time.
+
+DynamoDB PartiQL does not provide `ends_with`, regex, substring, replace, trim, or case-conversion
+functions, so `EndsWith`, `Regex`, `IndexOf`, `Substring`, `Replace`, `Trim*`, `ToUpper`, and
+`ToLower` are not translated.
+
+`string.Length` translates to DynamoDB `size(attr)`. DynamoDB size semantics are not guaranteed to
+match .NET UTF-16 `string.Length` for all Unicode text, so avoid relying on it for non-ASCII string
+length rules.
 
 ### `SELECT *` Never Emitted
 

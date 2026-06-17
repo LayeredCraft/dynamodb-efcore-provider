@@ -259,6 +259,7 @@ Cosmos DB implements all translation categories; MongoDB implements none.
 | `LogicalOperatorTranslationsTestBase`    |       6 |   ✓    | `AND`, `OR`, `NOT`, and bool-property predicates |
 | `GuidTranslationsTestBase`               |       4 |   ✓    | GUID equality, parameterization, and projection; `Guid.NewGuid()` predicate skipped |
 | `EnumTranslationsTestBase`               |      18 |   ✓    | Enum equality for constant, parameter, and nullable shapes; bitwise/`HasFlag` shapes explicitly skipped |
+| `StringTranslationsTestBase`             |     100 |   ✓    | Explicit outcomes for all inherited string translation specs; equality, `Length`/`SIZE`, `IsNullOrEmpty`, `StartsWith(string)`, `Contains(string)`, and sign-based string comparisons execute; unsupported functions/overloads are skipped |
 
 #### Future
 
@@ -271,7 +272,6 @@ Cosmos DB implements all translation categories; MongoDB implements none.
 
 | Test Class                          | Methods | Cosmos | Feasibility | Notes                                                                                                      |
 | ----------------------------------- | ------: | :----: | ----------: | ---------------------------------------------------------------------------------------------------------- |
-| `StringTranslationsTestBase`        |     100 |   ✓    |        ~75% | `StartsWith`, `EndsWith`, `Contains`, `ToUpper`, `Substring`, etc.; PartiQL supports core string functions |
 | `MathTranslationsTestBase`          |      66 |   ✓    |        ~50% | `Abs`, `Ceiling`, `Floor`, `Round`, `Sqrt`, `Log`, `Power`; PartiQL supports a subset                      |
 | `MiscellaneousTranslationsTestBase` |      18 |   ✓    |        ~60% | Coalesce, null checks, type conversions                                                                    |
 | `ByteArrayTranslationsTestBase`     |       7 |   ✓    |        ~40% | DynamoDB Binary type; limited PartiQL function support                                                     |
@@ -306,7 +306,7 @@ ______________________________________________________________________
 | Northwind Query             |  7 classes / 441 methods |              — |  3 classes / 491 methods |  12 classes / 924+ methods |
 | Other Query                 |   1 class / 74 methods |              — | 12 classes / 389 methods | 16 classes / 1,683 methods |
 | Associations                |                        — |              — |    3 classes / 8 methods | 13+ classes / 123+ methods |
-| Translations                |   4 classes / 34 methods |              — | 11 classes / 282 methods |       1 class / 5 methods |
+| Translations                |  5 classes / 134 methods |              — | 10 classes / 182 methods |       1 class / 5 methods |
 
 ______________________________________________________________________
 
@@ -335,6 +335,7 @@ This list records recently completed additions; authoritative implemented/not-im
 17. `LogicalOperatorTranslationsDynamoTest` — 6 methods
 18. `GuidTranslationsDynamoTest` — 4 methods
 19. `EnumTranslationsDynamoTest` — 18 methods
+20. `StringTranslationsDynamoTest` — 100 methods
 
 ### Near-term (small, high confidence)
 
@@ -342,7 +343,7 @@ No near-term specification test classes are currently queued here.
 
 ### Medium-term (requires investigation or new fixture)
 
-20. `StringTranslationsDynamoTest`
+No medium-term specification test classes are currently queued here.
 
 ### Long-term (after core coverage is stable)
 
@@ -356,7 +357,7 @@ No near-term specification test classes are currently queued here.
 
 | Status         | Classes | Methods |
 | -------------- | ------: | ------: |
-| Implemented    |      30 |     905 |
+| Implemented    |      31 |   1,005 |
 | Implement Next |       0 |       0 |
-| Future         |      39 |  1,756+ |
+| Future         |      38 |  1,656+ |
 | Skip           |     63+ |  3,785+ |
