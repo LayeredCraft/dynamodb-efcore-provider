@@ -213,7 +213,7 @@ ______________________________________________________________________
 ## Associations Tests
 
 The `Associations` folder contains tests organized around relationship types. Navigation-based
-sub-families are skipped; complex-property sub-families are future work.
+sub-families are skipped; complex-property sub-families are partially implemented.
 
 ### Implemented
 

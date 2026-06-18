@@ -418,38 +418,20 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
                 sqlExpressionFactory.IsNotNull(complexOperand),
                 sqlExpressionFactory.IsNotMissing(complexOperand))!;
 
-        // Collect the full member chain upward to the root, handling both plain MemberExpression
-        // nodes and EF.Property<T>(...) calls produced by navigation expansion.
-        var names = new List<string>();
-        Expression? current = node;
-        while (true)
-            if (current is MemberExpression me)
-            {
-                if (!IsNullableMember(me.Member, nameof(Nullable<int>.Value)))
-                    names.Add(me.Member.Name);
-
-                current = me.Expression;
-            }
-            else if (current is MethodCallExpression { Method.IsGenericMethod: true } mc
-                && mc.Method.GetGenericMethodDefinition() == EfPropertyMethod
-                && mc.Arguments[1] is ConstantExpression { Value: string efPropName })
-            {
-                names.Add(efPropName);
-                current = mc.Arguments[0];
-            }
-            else
-            {
-                break;
-            }
+        if (!TryGetMemberAccessChain(node, out var names, out var sourceExpression))
+        {
+            AddTranslationErrorDetails(DynamoStrings.MemberAccessNotSupported);
+            return QueryCompilationContext.NotTranslatedExpression;
+        }
 
         // Accept ParameterExpression (WHERE context) or StructuralTypeShaperExpression
         // (SELECT context — EF Core wraps the root entity in a shaper before visiting the lambda).
         IEntityType? rootEntityType = null;
-        if (current is ParameterExpression pe)
+        if (sourceExpression is ParameterExpression pe)
         {
             _lambdaParameterEntityTypes?.TryGetValue(pe, out rootEntityType);
         }
-        else if (current is StructuralTypeShaperExpression
+        else if (sourceExpression is StructuralTypeShaperExpression
             {
                 StructuralType: IEntityType shaperRootType
             })
@@ -461,8 +443,6 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
             AddTranslationErrorDetails(DynamoStrings.MemberAccessNotSupported);
             return QueryCompilationContext.NotTranslatedExpression;
         }
-
-        names.Reverse(); // Root-first order: e.g. [Profile, Address, City]
 
         // Fast path: single-level direct property access — preserve existing behaviour exactly
         if (names.Count == 1)
