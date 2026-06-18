@@ -12,6 +12,9 @@ public static class SkipReason
     public const string ComplexTypeSubqueriesNotSupported =
         "DynamoDB provider does not support complex type values in subqueries or Contains predicates.";
 
+    public const string ComplexCollectionStructuralEqualityNotSupported =
+        "DynamoDB provider does not support structural equality comparisons for complex collection properties. See issue #257.";
+
     public const string SubqueryPushdownNotSupported =
         "DynamoDB provider does not support the subquery pushdown required by this query shape.";
 
@@ -29,8 +32,7 @@ public static class SkipReason
     public const string SetOperationsNotSupported =
         "DynamoDB PartiQL does not support set operations.";
 
-    public const string GroupByNotSupported =
-        "DynamoDB PartiQL does not support GROUP BY.";
+    public const string GroupByNotSupported = "DynamoDB PartiQL does not support GROUP BY.";
 
     public const string EntityTypeNotMappedInFixture =
         "This entity type is not mapped in the DynamoDB specification test fixture.";

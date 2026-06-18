@@ -215,13 +215,18 @@ ______________________________________________________________________
 The `Associations` folder contains tests organized around relationship types. Navigation-based
 sub-families are skipped; complex-property sub-families are future work.
 
+### Implemented
+
+| Test Class                                    | Methods | Cosmos | MongoDB | Notes                                  |
+| --------------------------------------------- | ------: | :----: | :-----: | -------------------------------------- |
+| `ComplexPropertiesStructuralEqualityTestBase` |      16 |   ✗    |    ✗    | Complex property structural equality; scalar and nested complex comparisons execute, while collection equality (issue #257), collection Contains, and complex-null parameter comparison are explicitly skipped |
+
 ### Future
 
-| Test Class                                    | Methods | Cosmos | MongoDB | Feasibility | Notes                                  |
-| --------------------------------------------- | ------: | :----: | :-----: | ----------: | -------------------------------------- |
-| `ComplexPropertiesMiscellaneousTestBase`      |       3 |   ✗    |    ✗    |        ~70% | Miscellaneous complex property queries |
-| `ComplexPropertiesProjectionTestBase`         |       4 |   ✗    |    ✗    |        ~70% | Complex type projections               |
-| `ComplexPropertiesStructuralEqualityTestBase` |       1 |   ✗    |    ✗    |        ~70% | Structural equality on complex types   |
+| Test Class                               | Methods | Cosmos | MongoDB | Feasibility | Notes                                  |
+| ---------------------------------------- | ------: | :----: | :-----: | ----------: | -------------------------------------- |
+| `ComplexPropertiesMiscellaneousTestBase` |       3 |   ✗    |    ✗    |        ~70% | Miscellaneous complex property queries |
+| `ComplexPropertiesProjectionTestBase`    |       4 |   ✗    |    ✗    |        ~70% | Complex type projections               |
 
 ### Skip — Navigation or Set Operation Dependent
 
@@ -305,7 +310,7 @@ ______________________________________________________________________
 | BulkUpdates                 |                        — |              — | 5 classes / 135+ methods |       1 class / 33 methods |
 | Northwind Query             |  7 classes / 441 methods |              — |  3 classes / 491 methods |  12 classes / 924+ methods |
 | Other Query                 |   1 class / 74 methods |              — | 10 classes / 381 methods | 18 classes / 1,691 methods |
-| Associations                |                        — |              — |    3 classes / 8 methods | 13+ classes / 123+ methods |
+| Associations                |  1 class / 16 methods |              — |    2 classes / 7 methods | 13+ classes / 123+ methods |
 | Translations                |  5 classes / 134 methods |              — | 8 classes / 162 methods |       3 classes / 25 methods |
 
 ______________________________________________________________________
@@ -336,6 +341,7 @@ This list records recently completed additions; authoritative implemented/not-im
 18. `GuidTranslationsDynamoTest` — 4 methods
 19. `EnumTranslationsDynamoTest` — 18 methods
 20. `StringTranslationsDynamoTest` — 100 methods
+21. `ComplexPropertiesStructuralEqualityDynamoTest` — 16 methods
 
 ### Near-term (small, high confidence)
 
@@ -347,17 +353,17 @@ No medium-term specification test classes are currently queued here.
 
 ### Long-term (after core coverage is stable)
 
-21. `InheritanceQueryDynamoTest` — blocked on `OfType`, `is`/`GetType()` discriminator translation, and fixture work
-22. `PrimitiveCollectionsQueryDynamoTest`
-23. `NorthwindQueryFiltersDynamoTest`
-24. `BulkUpdates` family — blocked on `ExecuteUpdate`/`ExecuteDelete`
-25. Remaining translation tests (Math, ByteArray)
+22. `InheritanceQueryDynamoTest` — blocked on `OfType`, `is`/`GetType()` discriminator translation, and fixture work
+23. `PrimitiveCollectionsQueryDynamoTest`
+24. `NorthwindQueryFiltersDynamoTest`
+25. `BulkUpdates` family — blocked on `ExecuteUpdate`/`ExecuteDelete`
+26. Remaining translation tests (Math, ByteArray)
 
 ### Current totals
 
 | Status         | Classes | Methods |
 | -------------- | ------: | ------: |
-| Implemented    |      31 |   1,005 |
+| Implemented    |      32 |   1,021 |
 | Implement Next |       0 |       0 |
-| Future         |      33 |  1,587+ |
+| Future         |      32 |  1,586+ |
 | Skip           |     68+ |  3,854+ |
