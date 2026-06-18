@@ -64,7 +64,6 @@ Feasible but requires investigation or additional provider work before adding.
 
 | Test Class                        | Methods | Cosmos | MongoDB | Feasibility | Blocker                                                                                                                                                                                             |
 | --------------------------------- | ------: | :----: | :-----: | ----------: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `WithConstructorsTestBase`        |      41 |   ✗    |    ✗    |        ~70% | Entities using non-default constructors; DynamoDB materializes via EF's normal pipeline                                                                                                             |
 | `PropertyValuesTestBase`          |     167 |   ✗    |    ✗    |        ~55% | `CurrentValues`/`OriginalValues`/`GetDatabaseValues`; `GetDatabaseValues` requires a read which DynamoDB supports, but relational semantics for shadow keys and navigation tracking reduce coverage |
 | `StoreGeneratedTestBase`          |      58 |   ✗    |    ✗    |        ~50% | Store-generated keys and concurrency tokens; partially supported (DynamoDB auto-generates string PKs but not sequences)                                                                             |
 | `DataAnnotationTestBase`          |      84 |   ✗    |    ✗    |        ~40% | Attribute-driven model configuration; many tests exercise relational-only annotations (schema, unique indexes, FK attributes)                                                                       |
@@ -94,6 +93,7 @@ Feasible but requires investigation or additional provider work before adding.
 | `StoreGeneratedFixupTestBase`              |     118 |   ✗    |    ✗    | Store-generated value graph fixup; navigation fixup required               |
 | `JsonTypesTestBase`                        |     242 |   ✓    |    ✗    | JSON column types (`ToJson()`); DynamoDB does not have JSON column mapping |
 | `InterceptionTestBase`                     |       1 |   ✗    |    ✗    | Generic interception base; superseded by specific interceptor tests above  |
+| `WithConstructorsTestBase`                 |      41 |   ✗    |    ✗    | Inherited coverage is dominated by sync-only queries, keyless types, Include/navigation, and lazy-loader navigation scenarios unsupported by DynamoDB |
 
 ______________________________________________________________________
 
@@ -184,7 +184,6 @@ These tests use non-Northwind models and fixtures.
 | `AdHocMiscellaneousQueryTestBase`            |      39 |   ✓    |    ✗    |        ~40% | Mixed ad-hoc scenarios; some require unsupported operators                                                                  |
 | `AdHocQueryFiltersQueryTestBase`             |      21 |   ✗    |    ✗    |        ~55% | Ad-hoc global query filter scenarios                                                                                        |
 | `AdHocAdvancedMappingsQueryTestBase`         |      15 |   ✗    |    ✗    |        ~40% | Advanced mapping queries (TPT, TPC, owned types); mixed applicability                                                       |
-| `CompositeKeysQueryTestBase`                 |       7 |   ✗    |    ✗    |        ~70% | Composite key queries; DynamoDB supports PK + SK; small test surface                                                        |
 | `SharedTypeQueryTestBase`                    |       1 |   ✗    |    ✗    |        ~70% | Shared-type entity queries; single test                                                                                     |
 
 ### Skip — Architectural Constraints
@@ -207,6 +206,7 @@ These tests use non-Northwind models and fixtures.
 | `NullKeysTestBase`                           |       5 |   ✗    |    ✗    | Nullable partition keys; DynamoDB does not support null keys            |
 | `SpatialQueryTestBase`                       |      84 |   ✗    |    ✗    | Geometry/geography spatial queries                                      |
 | `FilteredQueryTestBase`                      |       — |   ✗    |    ✗    | Filtered include queries; navigation-dependent                          |
+| `CompositeKeysQueryTestBase`                 |       7 |   ✗    |    ✗    | Inherited composite-key query specs are navigation-expansion tests over multi-level related collections; DynamoDB supports PK + SK keys but not EF relationship/navigation queries |
 
 ______________________________________________________________________
 
@@ -265,7 +265,6 @@ Cosmos DB implements all translation categories; MongoDB implements none.
 
 | Test Class                                  | Methods | Cosmos | Feasibility | Notes                                                             |
 | ------------------------------------------- | ------: | :----: | ----------: | ----------------------------------------------------------------- |
-| `MiscellaneousOperatorTranslationsTestBase` |       2 |   ✓    |        ~70% | Miscellaneous operators; mostly translatable                      |
 | `BitwiseOperatorTranslationsTestBase`       |      15 |   ✓    |        ~20% | `&`, `\|`, `^`, `~`, `<<`, `>>`; PartiQL has no bitwise operators |
 
 ### Type Translations
@@ -292,8 +291,9 @@ translations are low-feasibility until dedicated temporal translation support is
 
 | Test Class                               | Methods | Cosmos | Reason |
 | ---------------------------------------- | ------: | :----: | ------ |
-| `ArithmeticOperatorTranslationsTestBase` |       5 |   ✓    | DynamoDB rejects arithmetic operators in `WHERE` conditions; provider currently lets `+`, `-`, and `*` reach execution, while `%` and unary minus fail before execution |
-| `MiscellaneousTranslationsTestBase`    |      18 |   ✓    | Random, `System.Convert`, and `Compare`/`CompareTo` methods are not translated in server-side DynamoDB predicates |
+| `ArithmeticOperatorTranslationsTestBase`      |       5 |   ✓    | DynamoDB rejects arithmetic operators in `WHERE` conditions; provider currently lets `+`, `-`, and `*` reach execution, while `%` and unary minus fail before execution |
+| `MiscellaneousOperatorTranslationsTestBase` |       2 |   ✓    | Conditional and null-coalescing predicate shapes are not translated in server-side DynamoDB predicates |
+| `MiscellaneousTranslationsTestBase`          |      18 |   ✓    | Random, `System.Convert`, and `Compare`/`CompareTo` methods are not translated in server-side DynamoDB predicates |
 
 ______________________________________________________________________
 
@@ -301,12 +301,12 @@ ______________________________________________________________________
 
 | Category                    |              Implemented | Implement Next |                   Future |                       Skip |
 | --------------------------- | -----------------------: | -------------: | -----------------------: | -------------------------: |
-| Non-Query (top-level)       | 18 classes / 356 methods |              — |  5 classes / 451 methods | 20 classes / 1,017 methods |
+| Non-Query (top-level)       | 18 classes / 356 methods |              — |  4 classes / 410 methods | 21 classes / 1,058 methods |
 | BulkUpdates                 |                        — |              — | 5 classes / 135+ methods |       1 class / 33 methods |
 | Northwind Query             |  7 classes / 441 methods |              — |  3 classes / 491 methods |  12 classes / 924+ methods |
-| Other Query                 |   1 class / 74 methods |              — | 12 classes / 389 methods | 16 classes / 1,683 methods |
+| Other Query                 |   1 class / 74 methods |              — | 11 classes / 382 methods | 17 classes / 1,690 methods |
 | Associations                |                        — |              — |    3 classes / 8 methods | 13+ classes / 123+ methods |
-| Translations                |  5 classes / 134 methods |              — | 9 classes / 164 methods |       2 classes / 23 methods |
+| Translations                |  5 classes / 134 methods |              — | 8 classes / 162 methods |       3 classes / 25 methods |
 
 ______________________________________________________________________
 
@@ -359,5 +359,5 @@ No medium-term specification test classes are currently queued here.
 | -------------- | ------: | ------: |
 | Implemented    |      31 |   1,005 |
 | Implement Next |       0 |       0 |
-| Future         |      37 |  1,638+ |
-| Skip           |     64+ |  3,803+ |
+| Future         |      34 |  1,588+ |
+| Skip           |     67+ |  3,853+ |
