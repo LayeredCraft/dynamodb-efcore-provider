@@ -1,6 +1,7 @@
 using System.Reflection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.EntityFrameworkCore.Query.Associations.ComplexProperties;
 using Microsoft.EntityFrameworkCore.Query.Translations.Operators;
 
 namespace EntityFrameworkCore.DynamoDb.SpecificationTests;
@@ -30,6 +31,7 @@ public sealed class ComplianceDynamoTest : ComplianceTestBase
         yield return typeof(SaveChangesInterceptionTestBase);
         yield return typeof(SeedingTestBase);
         yield return typeof(ValueConvertersEndToEndTestBase<>);
+        yield return typeof(ComplexPropertiesMiscellaneousTestBase<>);
         yield return typeof(ComparisonOperatorTranslationsTestBase<>);
         yield return typeof(LogicalOperatorTranslationsTestBase<>);
         yield return typeof(NorthwindAsNoTrackingQueryTestBase<>);

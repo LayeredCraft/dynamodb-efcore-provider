@@ -215,13 +215,18 @@ ______________________________________________________________________
 The `Associations` folder contains tests organized around relationship types. Navigation-based
 sub-families are skipped; complex-property sub-families are future work.
 
+### Implemented
+
+| Test Class                               | Methods | Cosmos | MongoDB | Notes                                  |
+| ---------------------------------------- | ------: | :----: | :-----: | -------------------------------------- |
+| `ComplexPropertiesMiscellaneousTestBase` |       6 |   ✗    |    ✗    | Complex property scalar filters execute; nullable value-type complex property `.Value` and `.HasValue` shapes are explicitly skipped |
+
 ### Future
 
-| Test Class                                    | Methods | Cosmos | MongoDB | Feasibility | Notes                                  |
-| --------------------------------------------- | ------: | :----: | :-----: | ----------: | -------------------------------------- |
-| `ComplexPropertiesMiscellaneousTestBase`      |       3 |   ✗    |    ✗    |        ~70% | Miscellaneous complex property queries |
-| `ComplexPropertiesProjectionTestBase`         |       4 |   ✗    |    ✗    |        ~70% | Complex type projections               |
-| `ComplexPropertiesStructuralEqualityTestBase` |       1 |   ✗    |    ✗    |        ~70% | Structural equality on complex types   |
+| Test Class                                    | Methods | Cosmos | MongoDB | Feasibility | Notes                                |
+| --------------------------------------------- | ------: | :----: | :-----: | ----------: | ------------------------------------ |
+| `ComplexPropertiesProjectionTestBase`         |       4 |   ✗    |    ✗    |        ~70% | Complex type projections             |
+| `ComplexPropertiesStructuralEqualityTestBase` |       1 |   ✗    |    ✗    |        ~70% | Structural equality on complex types |
 
 ### Skip — Navigation or Set Operation Dependent
 
@@ -300,7 +305,7 @@ ______________________________________________________________________
 | BulkUpdates                 |                        — |              — | 5 classes / 135+ methods |       1 class / 33 methods |
 | Northwind Query             |  7 classes / 441 methods |              — |  3 classes / 491 methods |  12 classes / 924+ methods |
 | Other Query                 |   1 class / 74 methods |              — | 12 classes / 389 methods | 16 classes / 1,683 methods |
-| Associations                |                        — |              — |    3 classes / 8 methods | 13+ classes / 123+ methods |
+| Associations                |   1 class / 6 methods |              — |    2 classes / 5 methods | 13+ classes / 123+ methods |
 | Translations                |   2 classes / 12 methods |              — | 14 classes / 309 methods |                          — |
 
 ______________________________________________________________________
@@ -328,6 +333,7 @@ This list records recently completed additions; authoritative implemented/not-im
 15. `KeysWithConvertersDynamoTest` — 47 methods
 16. `ComparisonOperatorTranslationsDynamoTest` — 6 methods
 17. `LogicalOperatorTranslationsDynamoTest` — 6 methods
+18. `ComplexPropertiesMiscellaneousDynamoTest` — 6 methods
 
 ### Near-term (small, high confidence)
 
@@ -335,22 +341,22 @@ No near-term specification test classes are currently queued here.
 
 ### Medium-term (requires investigation or new fixture)
 
-18. `ArithmeticOperatorTranslationsDynamoTest`
-19. `StringTranslationsDynamoTest`
+19. `ArithmeticOperatorTranslationsDynamoTest`
+20. `StringTranslationsDynamoTest`
 
 ### Long-term (after core coverage is stable)
 
-20. `InheritanceQueryDynamoTest` — blocked on `OfType`, `is`/`GetType()` discriminator translation, and fixture work
-21. `PrimitiveCollectionsQueryDynamoTest`
-22. `NorthwindQueryFiltersDynamoTest`
-23. `BulkUpdates` family — blocked on `ExecuteUpdate`/`ExecuteDelete`
-24. Remaining translation tests (Math, Miscellaneous, Enum, Guid)
+21. `InheritanceQueryDynamoTest` — blocked on `OfType`, `is`/`GetType()` discriminator translation, and fixture work
+22. `PrimitiveCollectionsQueryDynamoTest`
+23. `NorthwindQueryFiltersDynamoTest`
+24. `BulkUpdates` family — blocked on `ExecuteUpdate`/`ExecuteDelete`
+25. Remaining translation tests (Math, Miscellaneous, Enum, Guid)
 
 ### Current totals
 
 | Status         | Classes | Methods |
 | -------------- | ------: | ------: |
-| Implemented    |      28 |     883 |
+| Implemented    |      29 |     889 |
 | Implement Next |       0 |       0 |
-| Future         |      42 |  1,783+ |
+| Future         |      41 |  1,780+ |
 | Skip           |     62+ |  3,780+ |
