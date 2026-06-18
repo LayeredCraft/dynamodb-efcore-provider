@@ -30,14 +30,43 @@ public abstract class ComplexPropertiesMiscellaneousDynamoTest
     public override Task Where_on_nested_associate_scalar_property()
         => base.Where_on_nested_associate_scalar_property();
 
-    public override Task Where_property_on_non_nullable_value_type()
-        => base.Where_property_on_non_nullable_value_type();
+    public override async Task Where_property_on_non_nullable_value_type()
+    {
+        await base.Where_property_on_non_nullable_value_type();
 
-    public override Task Where_property_on_nullable_value_type_Value()
-        => base.Where_property_on_nullable_value_type_Value();
+        AssertSql(
+            """
+            SELECT "id", "name", "associateCollection", "optionalAssociate", "requiredAssociate"
+            FROM "ValueRootEntities"
+            WHERE "requiredAssociate"."int" = 8
+            """);
+    }
 
-    public override Task Where_HasValue_on_nullable_value_type()
-        => base.Where_HasValue_on_nullable_value_type();
+    public override async Task Where_property_on_nullable_value_type_Value()
+    {
+        await base.Where_property_on_nullable_value_type_Value();
+
+        AssertSql(
+            """
+            SELECT "id", "name", "associateCollection", "optionalAssociate", "requiredAssociate"
+            FROM "ValueRootEntities"
+            WHERE "optionalAssociate"."int" = 8
+            """);
+    }
+
+    public override async Task Where_HasValue_on_nullable_value_type()
+    {
+        await base.Where_HasValue_on_nullable_value_type();
+
+        AssertSql(
+            """
+            SELECT "id", "name", "associateCollection", "optionalAssociate", "requiredAssociate"
+            FROM "ValueRootEntities"
+            WHERE "optionalAssociate" IS NOT NULL AND "optionalAssociate" IS NOT MISSING
+            """);
+    }
+
+    private void AssertSql(params string[] expected) => Fixture.AssertSql(expected);
 
     public class ComplexPropertiesMiscellaneousDynamoFixture
         : ComplexPropertiesFixtureBase, IDynamoSpecificationFixture

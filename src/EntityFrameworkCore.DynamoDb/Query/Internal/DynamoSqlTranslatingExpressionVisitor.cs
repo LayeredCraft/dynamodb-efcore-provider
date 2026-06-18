@@ -444,10 +444,11 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
             return QueryCompilationContext.NotTranslatedExpression;
         }
 
-        // Fast path: single-level direct property access — preserve existing behaviour exactly
+        // Fast path: single-level direct property access.
         if (names.Count == 1)
         {
-            if (rootEntityType?.FindProperty(node.Member.Name) is { } directProperty)
+            var memberName = names[0];
+            if (rootEntityType?.FindProperty(memberName) is { } directProperty)
             {
                 var isPartitionKey = IsEffectivePartitionKey(directProperty, rootEntityType);
                 return sqlExpressionFactory.ApplyTypeMapping(
@@ -468,7 +469,7 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
                 return QueryCompilationContext.NotTranslatedExpression;
             }
 
-            return sqlExpressionFactory.Property(node.Member.Name, node.Type);
+            return sqlExpressionFactory.Property(memberName, node.Type);
         }
 
         // Multi-level access rooted in a scalar property is CLR member access over the model value
