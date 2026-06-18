@@ -219,7 +219,7 @@ sub-families are skipped; complex-property sub-families are future work.
 
 | Test Class                               | Methods | Cosmos | MongoDB | Notes                                  |
 | ---------------------------------------- | ------: | :----: | :-----: | -------------------------------------- |
-| `ComplexPropertiesMiscellaneousTestBase` |       6 |   ✗    |    ✗    | Complex property scalar filters execute; nullable value-type complex property `.Value` and `.HasValue` shapes are explicitly skipped |
+| `ComplexPropertiesMiscellaneousTestBase` |       6 |   ✗    |    ✗    | Complex property scalar filters execute, including nullable value-type complex property `.Value` and `.HasValue` shapes |
 
 ### Future
 

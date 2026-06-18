@@ -33,11 +33,9 @@ public abstract class ComplexPropertiesMiscellaneousDynamoTest
     public override Task Where_property_on_non_nullable_value_type()
         => base.Where_property_on_non_nullable_value_type();
 
-    [ConditionalFact(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Where_property_on_nullable_value_type_Value()
         => base.Where_property_on_nullable_value_type_Value();
 
-    [ConditionalFact(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Where_HasValue_on_nullable_value_type()
         => base.Where_HasValue_on_nullable_value_type();
 

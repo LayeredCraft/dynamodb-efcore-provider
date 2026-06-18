@@ -192,7 +192,9 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
     }
 
     /// <summary>Translates an inline complex object constant using the matched complex map mapping.</summary>
-    private SqlExpression? TryTranslateComplexConstant(Expression operand, SqlExpression complexPath)
+    private SqlExpression? TryTranslateComplexConstant(
+        Expression operand,
+        SqlExpression complexPath)
     {
         if (ContainsQueryReference(operand))
             return null;
@@ -208,9 +210,11 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
 
         try
         {
-            var value = Expression.Lambda<Func<object?>>(Expression.Convert(operand, typeof(object)))
-                .Compile(true)
-                .Invoke();
+            var value =
+                Expression
+                    .Lambda<Func<object?>>(Expression.Convert(operand, typeof(object)))
+                    .Compile(true)
+                    .Invoke();
             return sqlExpressionFactory.ApplyTypeMapping(
                 sqlExpressionFactory.Constant(value, operand.Type),
                 complexPath.TypeMapping);
@@ -234,13 +238,13 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         {
             ConstantExpression => true,
             // Only allow field access — property getters may execute arbitrary user code.
-            MemberExpression { Member: System.Reflection.FieldInfo } memberExpression
-                => IsLiteralShape(memberExpression.Expression!),
+            MemberExpression { Member: System.Reflection.FieldInfo } memberExpression =>
+                IsLiteralShape(memberExpression.Expression!),
             UnaryExpression
             {
-                NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked,
+                NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked
             } unaryExpression => IsLiteralShape(unaryExpression.Operand),
-            _ => false,
+            _ => false
         };
 
     private static bool ContainsQueryReference(Expression expression)
@@ -259,7 +263,9 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
             if (node is null || Found)
                 return node;
 
-            if (node is ParameterExpression or QueryParameterExpression or StructuralTypeShaperExpression)
+            if (node is ParameterExpression
+                or QueryParameterExpression
+                or StructuralTypeShaperExpression)
             {
                 Found = true;
                 return node;
@@ -303,7 +309,9 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         while (true)
             if (sourceExpression is MemberExpression memberExpression)
             {
-                names.Add(memberExpression.Member.Name);
+                if (!IsNullableMember(memberExpression.Member, nameof(Nullable<int>.Value)))
+                    names.Add(memberExpression.Member.Name);
+
                 sourceExpression = memberExpression.Expression;
             }
             else if (sourceExpression is MethodCallExpression
@@ -367,6 +375,11 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         return sqlExpression;
     }
 
+    private static bool IsNullableMember(MemberInfo member, string memberName)
+        => member.Name == memberName
+            && member.DeclaringType is { IsGenericType: true } declaringType
+            && declaringType.GetGenericTypeDefinition() == typeof(Nullable<>);
+
     /// <inheritdoc />
     protected override Expression VisitConstant(ConstantExpression node)
         => sqlExpressionFactory.Constant(node.Value, node.Type);
@@ -396,6 +409,15 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
     /// <inheritdoc />
     protected override Expression VisitMember(MemberExpression node)
     {
+        if (IsNullableMember(node.Member, nameof(Nullable<int>.HasValue))
+            && node.Expression is { } nullableExpression
+            && TryTranslateComplexPropertyForStructuralComparison(nullableExpression) is
+                { } complexOperand)
+            return sqlExpressionFactory.Binary(
+                ExpressionType.AndAlso,
+                sqlExpressionFactory.IsNotNull(complexOperand),
+                sqlExpressionFactory.IsNotMissing(complexOperand))!;
+
         // Collect the full member chain upward to the root, handling both plain MemberExpression
         // nodes and EF.Property<T>(...) calls produced by navigation expansion.
         var names = new List<string>();
@@ -403,7 +425,9 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         while (true)
             if (current is MemberExpression me)
             {
-                names.Add(me.Member.Name);
+                if (!IsNullableMember(me.Member, nameof(Nullable<int>.Value)))
+                    names.Add(me.Member.Name);
+
                 current = me.Expression;
             }
             else if (current is MethodCallExpression { Method.IsGenericMethod: true } mc
@@ -705,7 +729,7 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
     {
         if (enumCastExpression is not UnaryExpression
             {
-                NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked,
+                NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked
             } unaryExpression)
             return false;
 
@@ -740,7 +764,7 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
     {
         if (expression is UnaryExpression
             {
-                NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked,
+                NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked
             } unaryExpression
             && UnwrapNullableType(unaryExpression.Operand.Type).IsEnum)
             return false;
@@ -902,16 +926,16 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
                 && memberInitExpression.Bindings.All(CanEvaluate),
             UnaryExpression
             {
-                NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked,
+                NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked
             } unaryExpression => CanEvaluate(unaryExpression.Operand),
-            _ => false,
+            _ => false
         };
 
     private static bool CanEvaluate(MemberBinding memberBinding)
         => memberBinding switch
         {
             MemberAssignment memberAssignment => CanEvaluate(memberAssignment.Expression),
-            _ => false,
+            _ => false
         };
 
     /// <summary>
@@ -1209,7 +1233,7 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
             ExpressionType.GreaterThanOrEqual => ExpressionType.LessThanOrEqual,
             ExpressionType.LessThan => ExpressionType.GreaterThan,
             ExpressionType.LessThanOrEqual => ExpressionType.GreaterThanOrEqual,
-            _ => op,
+            _ => op
         };
 
     /// <summary>Translates string.Contains to the DynamoDB contains function.</summary>
@@ -1323,7 +1347,7 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
     private static Expression? StripAsQueryable(Expression? expression)
         => expression is MethodCallExpression
         {
-            Method.Name: nameof(Queryable.AsQueryable),
+            Method.Name: nameof(Queryable.AsQueryable)
         } asQueryable
             ? asQueryable.Arguments[0]
             : expression;
