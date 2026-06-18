@@ -184,7 +184,6 @@ These tests use non-Northwind models and fixtures.
 | `AdHocMiscellaneousQueryTestBase`            |      39 |   ✓    |    ✗    |        ~40% | Mixed ad-hoc scenarios; some require unsupported operators                                                                  |
 | `AdHocQueryFiltersQueryTestBase`             |      21 |   ✗    |    ✗    |        ~55% | Ad-hoc global query filter scenarios                                                                                        |
 | `AdHocAdvancedMappingsQueryTestBase`         |      15 |   ✗    |    ✗    |        ~40% | Advanced mapping queries (TPT, TPC, owned types); mixed applicability                                                       |
-| `SharedTypeQueryTestBase`                    |       1 |   ✗    |    ✗    |        ~70% | Shared-type entity queries; single test                                                                                     |
 
 ### Skip — Architectural Constraints
 
@@ -207,6 +206,7 @@ These tests use non-Northwind models and fixtures.
 | `SpatialQueryTestBase`                       |      84 |   ✗    |    ✗    | Geometry/geography spatial queries                                      |
 | `FilteredQueryTestBase`                      |       — |   ✗    |    ✗    | Filtered include queries; navigation-dependent                          |
 | `CompositeKeysQueryTestBase`                 |       7 |   ✗    |    ✗    | Inherited composite-key query specs are navigation-expansion tests over multi-level related collections; DynamoDB supports PK + SK keys but not EF relationship/navigation queries |
+| `SharedTypeQueryTestBase`                    |       1 |   ✗    |    ✗    | Single inherited test queries a keyless entity and filters through subquery Contains; DynamoDB requires a partition key for every root entity and does not support this subquery shape |
 
 ______________________________________________________________________
 
@@ -304,7 +304,7 @@ ______________________________________________________________________
 | Non-Query (top-level)       | 18 classes / 356 methods |              — |  4 classes / 410 methods | 21 classes / 1,058 methods |
 | BulkUpdates                 |                        — |              — | 5 classes / 135+ methods |       1 class / 33 methods |
 | Northwind Query             |  7 classes / 441 methods |              — |  3 classes / 491 methods |  12 classes / 924+ methods |
-| Other Query                 |   1 class / 74 methods |              — | 11 classes / 382 methods | 17 classes / 1,690 methods |
+| Other Query                 |   1 class / 74 methods |              — | 10 classes / 381 methods | 18 classes / 1,691 methods |
 | Associations                |                        — |              — |    3 classes / 8 methods | 13+ classes / 123+ methods |
 | Translations                |  5 classes / 134 methods |              — | 8 classes / 162 methods |       3 classes / 25 methods |
 
@@ -359,5 +359,5 @@ No medium-term specification test classes are currently queued here.
 | -------------- | ------: | ------: |
 | Implemented    |      31 |   1,005 |
 | Implement Next |       0 |       0 |
-| Future         |      34 |  1,588+ |
-| Skip           |     67+ |  3,853+ |
+| Future         |      33 |  1,587+ |
+| Skip           |     68+ |  3,854+ |
