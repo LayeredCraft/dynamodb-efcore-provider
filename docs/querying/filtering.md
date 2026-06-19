@@ -53,10 +53,12 @@ Parameterized null — comparing a property to a `null` variable (`x.Prop == som
 
 ## String Predicates
 
-Two string methods translate to DynamoDB PartiQL functions:
+Several string predicates translate to DynamoDB PartiQL conditions:
 
 - `string.Contains(s)` → `contains(attr, ?)` — a case-sensitive substring check.
 - `string.StartsWith(s)` → `begins_with(attr, ?)` — a case-sensitive prefix match.
+- `string.IsNullOrEmpty(s)` → `attr IS NULL OR attr IS MISSING OR attr = ''`.
+- `s.Length` → `size(attr)` — DynamoDB size semantics; be careful when non-ASCII text matters.
 
 ```csharp
 // Substring check
@@ -68,7 +70,7 @@ db.Orders.Where(o => o.Sk.StartsWith("ORDER#2026"));
 // WHERE begins_with("Sk", ?)
 ```
 
-Only the `string`-parameter overload is supported. Overloads that accept `char`, `StringComparison`, or culture arguments are not translated and throw at query compilation.
+Only the `string`-parameter overloads of `Contains` and `StartsWith` are supported. Overloads that accept `char`, `StringComparison`, or culture arguments are not translated and throw at query compilation. DynamoDB PartiQL has no `ends_with` function, so `EndsWith` is not translated.
 
 !!! note
 
@@ -76,7 +78,7 @@ Only the `string`-parameter overload is supported. Overloads that accept `char`,
 
 ## String Comparisons
 
-DynamoDB compares strings lexicographically (UTF-8 code-point order). C# does not define `<`, `<=`, `>`, `>=` for `string` directly, so use `string.Compare` or `.CompareTo` compared against `0`. Both translate to a direct PartiQL comparison operator and are interchangeable:
+DynamoDB compares strings lexicographically (UTF-8 code-point order). C# does not define `<`, `<=`, `>`, `>=` for `string` directly, so use `string.Compare` or `.CompareTo` compared against sign constants `-1`, `0`, or `1`. Both translate to a direct PartiQL comparison operator and are interchangeable:
 
 ```csharp
 // string.Compare — static form
@@ -94,7 +96,7 @@ var events2 = await db.Events
 // WHERE "Pk" = ? AND "Sk" > ?
 ```
 
-Both forms accept any comparison against the literal `0` (`==`, `!=`, `<`, `<=`, `>`, `>=`). Writing the constant on the left — `0 < e.Sk.CompareTo(bound)` — is also valid; the operator is mirrored automatically.
+Both forms accept comparisons against sign constants `-1`, `0`, or `1`. Writing the constant on the left — `0 < e.Sk.CompareTo(bound)` — is also valid; the operator is mirrored automatically. Comparisons against other constants, such as `42`, are not translated.
 
 Combining a lower and upper bound on the same property triggers the `BETWEEN` rewrite. A common pattern uses `~` (ASCII 126, sorts after all alphanumeric characters) as a sentinel upper bound to capture all items within a prefix:
 
