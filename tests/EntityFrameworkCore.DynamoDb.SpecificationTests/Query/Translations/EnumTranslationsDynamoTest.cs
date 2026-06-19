@@ -1,5 +1,6 @@
 using EntityFrameworkCore.DynamoDb.SpecificationTests.TestUtilities;
 using Microsoft.EntityFrameworkCore.Query.Translations;
+using Microsoft.EntityFrameworkCore.TestModels.BasicTypesModel;
 
 namespace EntityFrameworkCore.DynamoDb.SpecificationTests.Query.Translations;
 
@@ -98,6 +99,19 @@ public abstract class EnumTranslationsDynamoTest
             SELECT "id", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
             FROM "NullableBasicTypesEntity"
             WHERE "enum" = ?
+            """);
+    }
+
+    [ConditionalFact]
+    public virtual async Task Nullable_enum_has_value()
+    {
+        await AssertQuery(ss => ss.Set<NullableBasicTypesEntity>().Where(b => b.Enum.HasValue));
+
+        AssertSql(
+            """
+            SELECT "id", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
+            FROM "NullableBasicTypesEntity"
+            WHERE "enum" IS NOT NULL AND "enum" IS NOT MISSING
             """);
     }
 

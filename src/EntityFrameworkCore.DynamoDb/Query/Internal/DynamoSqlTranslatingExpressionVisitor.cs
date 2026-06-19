@@ -312,7 +312,9 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         while (true)
             if (sourceExpression is MemberExpression memberExpression)
             {
-                names.Add(memberExpression.Member.Name);
+                if (!IsNullableMember(memberExpression.Member, nameof(Nullable<int>.Value)))
+                    names.Add(memberExpression.Member.Name);
+
                 sourceExpression = memberExpression.Expression;
             }
             else if (sourceExpression is MethodCallExpression
@@ -376,6 +378,11 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         return sqlExpression;
     }
 
+    private static bool IsNullableMember(MemberInfo member, string memberName)
+        => member.Name == memberName
+            && member.DeclaringType is { IsGenericType: true } declaringType
+            && declaringType.GetGenericTypeDefinition() == typeof(Nullable<>);
+
     /// <inheritdoc />
     protected override Expression VisitConstant(ConstantExpression node)
         => sqlExpressionFactory.Constant(node.Value, node.Type);
@@ -414,36 +421,35 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
                 : sqlExpressionFactory.Function("size", [instance], typeof(int));
         }
 
-        // Collect the full member chain upward to the root, handling both plain MemberExpression
-        // nodes and EF.Property<T>(...) calls produced by navigation expansion.
-        var names = new List<string>();
-        Expression? current = node;
-        while (true)
-            if (current is MemberExpression me)
-            {
-                names.Add(me.Member.Name);
-                current = me.Expression;
-            }
-            else if (current is MethodCallExpression { Method.IsGenericMethod: true } mc
-                && mc.Method.GetGenericMethodDefinition() == EfPropertyMethod
-                && mc.Arguments[1] is ConstantExpression { Value: string efPropName })
-            {
-                names.Add(efPropName);
-                current = mc.Arguments[0];
-            }
-            else
-            {
-                break;
-            }
+        if (IsNullableMember(node.Member, nameof(Nullable<int>.HasValue))
+            && node.Expression is { } nullableExpression)
+        {
+            var nullableOperand =
+                TryTranslateComplexPropertyForStructuralComparison(nullableExpression)
+                ?? TranslateInternal(nullableExpression);
+
+            return nullableOperand is null
+                ? QueryCompilationContext.NotTranslatedExpression
+                : sqlExpressionFactory.Binary(
+                    ExpressionType.AndAlso,
+                    sqlExpressionFactory.IsNotNull(nullableOperand),
+                    sqlExpressionFactory.IsNotMissing(nullableOperand))!;
+        }
+
+        if (!TryGetMemberAccessChain(node, out var names, out var sourceExpression))
+        {
+            AddTranslationErrorDetails(DynamoStrings.MemberAccessNotSupported);
+            return QueryCompilationContext.NotTranslatedExpression;
+        }
 
         // Accept ParameterExpression (WHERE context) or StructuralTypeShaperExpression
         // (SELECT context — EF Core wraps the root entity in a shaper before visiting the lambda).
         IEntityType? rootEntityType = null;
-        if (current is ParameterExpression pe)
+        if (sourceExpression is ParameterExpression pe)
         {
             _lambdaParameterEntityTypes?.TryGetValue(pe, out rootEntityType);
         }
-        else if (current is StructuralTypeShaperExpression
+        else if (sourceExpression is StructuralTypeShaperExpression
             {
                 StructuralType: IEntityType shaperRootType
             })
@@ -456,12 +462,11 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
             return QueryCompilationContext.NotTranslatedExpression;
         }
 
-        names.Reverse(); // Root-first order: e.g. [Profile, Address, City]
-
-        // Fast path: single-level direct property access — preserve existing behaviour exactly
+        // Fast path: single-level direct property access.
         if (names.Count == 1)
         {
-            if (rootEntityType?.FindProperty(node.Member.Name) is { } directProperty)
+            var memberName = names[0];
+            if (rootEntityType?.FindProperty(memberName) is { } directProperty)
             {
                 var isPartitionKey = IsEffectivePartitionKey(directProperty, rootEntityType);
                 return sqlExpressionFactory.ApplyTypeMapping(
@@ -482,7 +487,7 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
                 return QueryCompilationContext.NotTranslatedExpression;
             }
 
-            return sqlExpressionFactory.Property(node.Member.Name, node.Type);
+            return sqlExpressionFactory.Property(memberName, node.Type);
         }
 
         // Multi-level access rooted in a scalar property is CLR member access over the model value

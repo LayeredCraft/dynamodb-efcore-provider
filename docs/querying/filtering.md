@@ -34,6 +34,17 @@ DynamoDB has two distinct representations of "no value" for an attribute: a `NUL
 
 The `EF.Functions` methods are for advanced cases where the `NULL` vs `MISSING` distinction matters — for example, when querying items written by a non-EF client that may omit attributes entirely.
 
+Nullable complex value objects use the same null/missing rules. `HasValue` checks that the complex map attribute is present and not `NULL`; accessing `.Value.Property` translates to a nested attribute path. The nullable complex property must be a struct-based value object (`Profile?`) configured as optional, not a nullable reference-type complex property.
+
+```csharp
+var active = await db.Customers
+    .Where(c => c.Profile.HasValue && c.Profile.Value.Address.ZipCode == "98101")
+    .ToListAsync(cancellationToken);
+
+// WHERE "Profile" IS NOT NULL AND "Profile" IS NOT MISSING
+//   AND "Profile"."Address"."ZipCode" = ?
+```
+
 !!! note
 
 ```
