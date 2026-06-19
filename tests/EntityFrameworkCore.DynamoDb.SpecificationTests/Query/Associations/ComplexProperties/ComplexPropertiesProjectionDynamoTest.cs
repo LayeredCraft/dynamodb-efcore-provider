@@ -139,15 +139,25 @@ public abstract class ComplexPropertiesProjectionDynamoTest
     public override Task Select_root_with_value_types(QueryTrackingBehavior queryTrackingBehavior)
         => base.Select_root_with_value_types(queryTrackingBehavior);
 
-    [ConditionalTheory(Skip = SkipReason.OrderedResultSetNotSupported)]
+    [ConditionalTheory]
     [MemberData(nameof(TrackingData))]
     public override Task Select_non_nullable_value_type(QueryTrackingBehavior queryTrackingBehavior)
-        => base.Select_non_nullable_value_type(queryTrackingBehavior);
+        // Base test orders by partition key without constraining it. DynamoDB cannot guarantee
+        // global ordering, so use an unordered scan while still exercising value-type complex
+        // projection.
+        => AssertQuery(
+            ss => ss.Set<ValueRootEntity>().Select(x => x.RequiredAssociate),
+            queryTrackingBehavior: queryTrackingBehavior);
 
-    [ConditionalTheory(Skip = SkipReason.OrderedResultSetNotSupported)]
+    [ConditionalTheory]
     [MemberData(nameof(TrackingData))]
     public override Task Select_nullable_value_type(QueryTrackingBehavior queryTrackingBehavior)
-        => base.Select_nullable_value_type(queryTrackingBehavior);
+        // Base test orders by partition key without constraining it. DynamoDB cannot guarantee
+        // global ordering, so use an unordered scan while still exercising nullable value-type
+        // complex projection.
+        => AssertQuery(
+            ss => ss.Set<ValueRootEntity>().Select(x => x.OptionalAssociate),
+            queryTrackingBehavior: queryTrackingBehavior);
 
     [ConditionalTheory(Skip = SkipReason.ComplexProjectionMaterializationGap)]
     [MemberData(nameof(TrackingData))]
