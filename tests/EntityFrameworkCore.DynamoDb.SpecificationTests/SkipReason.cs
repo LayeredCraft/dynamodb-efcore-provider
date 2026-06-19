@@ -15,6 +15,9 @@ public static class SkipReason
     public const string ComplexCollectionStructuralEqualityNotSupported =
         "DynamoDB provider does not support structural equality comparisons for complex collection properties. See issue #257.";
 
+    public const string ComplexProjectionMaterializationGap =
+        "DynamoDB provider does not yet support this complex-property projection materialization shape.";
+
     public const string SubqueryPushdownNotSupported =
         "DynamoDB provider does not support the subquery pushdown required by this query shape.";
 
