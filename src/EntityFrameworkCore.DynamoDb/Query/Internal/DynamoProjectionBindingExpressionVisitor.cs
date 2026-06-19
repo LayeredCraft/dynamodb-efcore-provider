@@ -400,7 +400,8 @@ public sealed class DynamoProjectionBindingExpressionVisitor(
             // nested paths are WHERE-only. Return NotTranslated so EF Core falls back to
             // client-side evaluation via the index-based binding pass.
             var translation = sqlTranslator.Translate(node);
-            if (translation is null or DynamoScalarAccessExpression)
+            if (translation is not SqlPropertyExpression
+                and not DynamoComplexPropertyAccessExpression)
                 return QueryCompilationContext.NotTranslatedExpression;
 
             _projectionMapping[_projectionMembers.Peek()] = translation;
@@ -720,12 +721,12 @@ public sealed class DynamoProjectionBindingExpressionVisitor(
                 {
                     Method.DeclaringType: var declaringType,
                     Method.Name: nameof(EF.Property),
-                    Arguments.Count: 2,
+                    Arguments.Count: 2
                 }
                 && declaringType == typeof(EF)
                 && methodCallExpression.Arguments[1] is ConstantExpression
                 {
-                    Value: string propertyName,
+                    Value: string propertyName
                 })
             {
                 var structuralType =
@@ -741,7 +742,7 @@ public sealed class DynamoProjectionBindingExpressionVisitor(
 
         if (expression is not MemberExpression
             {
-                Expression: StructuralTypeShaperExpression shaperExpression,
+                Expression: StructuralTypeShaperExpression shaperExpression
             } memberExpression)
             return false;
 
@@ -793,7 +794,7 @@ public sealed class DynamoProjectionBindingExpressionVisitor(
             {
                 NodeType: ExpressionType.Convert
                 or ExpressionType.ConvertChecked
-                or ExpressionType.TypeAs,
+                or ExpressionType.TypeAs
             } unaryExpression)
             expression = unaryExpression.Operand;
 

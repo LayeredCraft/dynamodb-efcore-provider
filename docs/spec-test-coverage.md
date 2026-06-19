@@ -64,7 +64,6 @@ Feasible but requires investigation or additional provider work before adding.
 
 | Test Class                        | Methods | Cosmos | MongoDB | Feasibility | Blocker                                                                                                                                                                                             |
 | --------------------------------- | ------: | :----: | :-----: | ----------: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `WithConstructorsTestBase`        |      41 |   ✗    |    ✗    |        ~70% | Entities using non-default constructors; DynamoDB materializes via EF's normal pipeline                                                                                                             |
 | `PropertyValuesTestBase`          |     167 |   ✗    |    ✗    |        ~55% | `CurrentValues`/`OriginalValues`/`GetDatabaseValues`; `GetDatabaseValues` requires a read which DynamoDB supports, but relational semantics for shadow keys and navigation tracking reduce coverage |
 | `StoreGeneratedTestBase`          |      58 |   ✗    |    ✗    |        ~50% | Store-generated keys and concurrency tokens; partially supported (DynamoDB auto-generates string PKs but not sequences)                                                                             |
 | `DataAnnotationTestBase`          |      84 |   ✗    |    ✗    |        ~40% | Attribute-driven model configuration; many tests exercise relational-only annotations (schema, unique indexes, FK attributes)                                                                       |
@@ -94,6 +93,7 @@ Feasible but requires investigation or additional provider work before adding.
 | `StoreGeneratedFixupTestBase`              |     118 |   ✗    |    ✗    | Store-generated value graph fixup; navigation fixup required               |
 | `JsonTypesTestBase`                        |     242 |   ✓    |    ✗    | JSON column types (`ToJson()`); DynamoDB does not have JSON column mapping |
 | `InterceptionTestBase`                     |       1 |   ✗    |    ✗    | Generic interception base; superseded by specific interceptor tests above  |
+| `WithConstructorsTestBase`                 |      41 |   ✗    |    ✗    | Inherited coverage is dominated by sync-only queries, keyless types, Include/navigation, and lazy-loader navigation scenarios unsupported by DynamoDB |
 
 ______________________________________________________________________
 
@@ -184,8 +184,6 @@ These tests use non-Northwind models and fixtures.
 | `AdHocMiscellaneousQueryTestBase`            |      39 |   ✓    |    ✗    |        ~40% | Mixed ad-hoc scenarios; some require unsupported operators                                                                  |
 | `AdHocQueryFiltersQueryTestBase`             |      21 |   ✗    |    ✗    |        ~55% | Ad-hoc global query filter scenarios                                                                                        |
 | `AdHocAdvancedMappingsQueryTestBase`         |      15 |   ✗    |    ✗    |        ~40% | Advanced mapping queries (TPT, TPC, owned types); mixed applicability                                                       |
-| `CompositeKeysQueryTestBase`                 |       7 |   ✗    |    ✗    |        ~70% | Composite key queries; DynamoDB supports PK + SK; small test surface                                                        |
-| `SharedTypeQueryTestBase`                    |       1 |   ✗    |    ✗    |        ~70% | Shared-type entity queries; single test                                                                                     |
 
 ### Skip — Architectural Constraints
 
@@ -207,6 +205,8 @@ These tests use non-Northwind models and fixtures.
 | `NullKeysTestBase`                           |       5 |   ✗    |    ✗    | Nullable partition keys; DynamoDB does not support null keys            |
 | `SpatialQueryTestBase`                       |      84 |   ✗    |    ✗    | Geometry/geography spatial queries                                      |
 | `FilteredQueryTestBase`                      |       — |   ✗    |    ✗    | Filtered include queries; navigation-dependent                          |
+| `CompositeKeysQueryTestBase`                 |       7 |   ✗    |    ✗    | Inherited composite-key query specs are navigation-expansion tests over multi-level related collections; DynamoDB supports PK + SK keys but not EF relationship/navigation queries |
+| `SharedTypeQueryTestBase`                    |       1 |   ✗    |    ✗    | Single inherited test queries a keyless entity and filters through subquery Contains; DynamoDB requires a partition key for every root entity and does not support this subquery shape |
 
 ______________________________________________________________________
 
@@ -215,13 +215,18 @@ ______________________________________________________________________
 The `Associations` folder contains tests organized around relationship types. Navigation-based
 sub-families are skipped; complex-property sub-families are future work.
 
+### Implemented
+
+| Test Class                                    | Methods | Cosmos | MongoDB | Notes                                  |
+| --------------------------------------------- | ------: | :----: | :-----: | -------------------------------------- |
+| `ComplexPropertiesStructuralEqualityTestBase` |      16 |   ✗    |    ✗    | Complex property structural equality; scalar and nested complex comparisons execute, while collection equality (issue #257), collection Contains, and complex-null parameter comparison are explicitly skipped |
+
 ### Future
 
-| Test Class                                    | Methods | Cosmos | MongoDB | Feasibility | Notes                                  |
-| --------------------------------------------- | ------: | :----: | :-----: | ----------: | -------------------------------------- |
-| `ComplexPropertiesMiscellaneousTestBase`      |       3 |   ✗    |    ✗    |        ~70% | Miscellaneous complex property queries |
-| `ComplexPropertiesProjectionTestBase`         |       4 |   ✗    |    ✗    |        ~70% | Complex type projections               |
-| `ComplexPropertiesStructuralEqualityTestBase` |       1 |   ✗    |    ✗    |        ~70% | Structural equality on complex types   |
+| Test Class                               | Methods | Cosmos | MongoDB | Feasibility | Notes                                  |
+| ---------------------------------------- | ------: | :----: | :-----: | ----------: | -------------------------------------- |
+| `ComplexPropertiesMiscellaneousTestBase` |       3 |   ✗    |    ✗    |        ~70% | Miscellaneous complex property queries |
+| `ComplexPropertiesProjectionTestBase`    |       4 |   ✗    |    ✗    |        ~70% | Complex type projections               |
 
 ### Skip — Navigation or Set Operation Dependent
 
@@ -257,24 +262,21 @@ Cosmos DB implements all translation categories; MongoDB implements none.
 | ---------------------------------------- | ------: | :----: | ---------------------------------------------------------- |
 | `ComparisonOperatorTranslationsTestBase` |       6 |   ✓    | Equal, not-equal, less/greater-than; core PartiQL comparisons |
 | `LogicalOperatorTranslationsTestBase`    |       6 |   ✓    | `AND`, `OR`, `NOT`, and bool-property predicates |
+| `GuidTranslationsTestBase`               |       4 |   ✓    | GUID equality, parameterization, and projection; `Guid.NewGuid()` predicate skipped |
+| `EnumTranslationsTestBase`               |      18 |   ✓    | Enum equality for constant, parameter, and nullable shapes; bitwise/`HasFlag` shapes explicitly skipped |
+| `StringTranslationsTestBase`             |     100 |   ✓    | Explicit outcomes for all inherited string translation specs; equality, `Length`/`SIZE`, `IsNullOrEmpty`, `StartsWith(string)`, `Contains(string)`, and sign-based string comparisons execute; unsupported functions/overloads are skipped |
 
 #### Future
 
 | Test Class                                  | Methods | Cosmos | Feasibility | Notes                                                             |
 | ------------------------------------------- | ------: | :----: | ----------: | ----------------------------------------------------------------- |
-| `ArithmeticOperatorTranslationsTestBase`    |       5 |   ✓    |        ~80% | `+`, `-`, `*`, `/`, `%`; PartiQL arithmetic on numerics           |
-| `MiscellaneousOperatorTranslationsTestBase` |       2 |   ✓    |        ~70% | Miscellaneous operators; mostly translatable                      |
 | `BitwiseOperatorTranslationsTestBase`       |      15 |   ✓    |        ~20% | `&`, `\|`, `^`, `~`, `<<`, `>>`; PartiQL has no bitwise operators |
 
 ### Type Translations
 
 | Test Class                          | Methods | Cosmos | Feasibility | Notes                                                                                                      |
 | ----------------------------------- | ------: | :----: | ----------: | ---------------------------------------------------------------------------------------------------------- |
-| `StringTranslationsTestBase`        |     100 |   ✓    |        ~75% | `StartsWith`, `EndsWith`, `Contains`, `ToUpper`, `Substring`, etc.; PartiQL supports core string functions |
 | `MathTranslationsTestBase`          |      66 |   ✓    |        ~50% | `Abs`, `Ceiling`, `Floor`, `Round`, `Sqrt`, `Log`, `Power`; PartiQL supports a subset                      |
-| `MiscellaneousTranslationsTestBase` |      18 |   ✓    |        ~60% | Coalesce, null checks, type conversions                                                                    |
-| `EnumTranslationsTestBase`          |      18 |   ✓    |        ~60% | Enum → numeric/string storage; mostly translatable                                                         |
-| `GuidTranslationsTestBase`          |       4 |   ✓    |        ~60% | GUID stored as string; small surface                                                                       |
 | `ByteArrayTranslationsTestBase`     |       7 |   ✓    |        ~40% | DynamoDB Binary type; limited PartiQL function support                                                     |
 
 ### Temporal Translations
@@ -290,18 +292,26 @@ translations are low-feasibility until dedicated temporal translation support is
 | `TimeOnlyTranslationsTestBase`       |      17 |   ✓    |        ~25% | No native time type                 |
 | `TimeSpanTranslationsTestBase`       |       6 |   ✓    |        ~25% | No native duration type             |
 
+### Skip — DynamoDB PartiQL Constraints
+
+| Test Class                               | Methods | Cosmos | Reason |
+| ---------------------------------------- | ------: | :----: | ------ |
+| `ArithmeticOperatorTranslationsTestBase`      |       5 |   ✓    | DynamoDB rejects arithmetic operators in `WHERE` conditions; provider currently lets `+`, `-`, and `*` reach execution, while `%` and unary minus fail before execution |
+| `MiscellaneousOperatorTranslationsTestBase` |       2 |   ✓    | Conditional and null-coalescing predicate shapes are not translated in server-side DynamoDB predicates |
+| `MiscellaneousTranslationsTestBase`          |      18 |   ✓    | Random, `System.Convert`, and `Compare`/`CompareTo` methods are not translated in server-side DynamoDB predicates |
+
 ______________________________________________________________________
 
 ## Coverage Summary
 
 | Category                    |              Implemented | Implement Next |                   Future |                       Skip |
 | --------------------------- | -----------------------: | -------------: | -----------------------: | -------------------------: |
-| Non-Query (top-level)       | 18 classes / 356 methods |              — |  5 classes / 451 methods | 20 classes / 1,017 methods |
+| Non-Query (top-level)       | 18 classes / 356 methods |              — |  4 classes / 410 methods | 21 classes / 1,058 methods |
 | BulkUpdates                 |                        — |              — | 5 classes / 135+ methods |       1 class / 33 methods |
 | Northwind Query             |  7 classes / 441 methods |              — |  3 classes / 491 methods |  12 classes / 924+ methods |
-| Other Query                 |   1 class / 74 methods |              — | 12 classes / 389 methods | 16 classes / 1,683 methods |
-| Associations                |                        — |              — |    3 classes / 8 methods | 13+ classes / 123+ methods |
-| Translations                |   2 classes / 12 methods |              — | 14 classes / 309 methods |                          — |
+| Other Query                 |   1 class / 74 methods |              — | 10 classes / 381 methods | 18 classes / 1,691 methods |
+| Associations                |  1 class / 16 methods |              — |    2 classes / 7 methods | 13+ classes / 123+ methods |
+| Translations                |  5 classes / 134 methods |              — | 8 classes / 162 methods |       3 classes / 25 methods |
 
 ______________________________________________________________________
 
@@ -328,6 +338,10 @@ This list records recently completed additions; authoritative implemented/not-im
 15. `KeysWithConvertersDynamoTest` — 47 methods
 16. `ComparisonOperatorTranslationsDynamoTest` — 6 methods
 17. `LogicalOperatorTranslationsDynamoTest` — 6 methods
+18. `GuidTranslationsDynamoTest` — 4 methods
+19. `EnumTranslationsDynamoTest` — 18 methods
+20. `StringTranslationsDynamoTest` — 100 methods
+21. `ComplexPropertiesStructuralEqualityDynamoTest` — 16 methods
 
 ### Near-term (small, high confidence)
 
@@ -335,22 +349,21 @@ No near-term specification test classes are currently queued here.
 
 ### Medium-term (requires investigation or new fixture)
 
-18. `ArithmeticOperatorTranslationsDynamoTest`
-19. `StringTranslationsDynamoTest`
+No medium-term specification test classes are currently queued here.
 
 ### Long-term (after core coverage is stable)
 
-20. `InheritanceQueryDynamoTest` — blocked on `OfType`, `is`/`GetType()` discriminator translation, and fixture work
-21. `PrimitiveCollectionsQueryDynamoTest`
-22. `NorthwindQueryFiltersDynamoTest`
-23. `BulkUpdates` family — blocked on `ExecuteUpdate`/`ExecuteDelete`
-24. Remaining translation tests (Math, Miscellaneous, Enum, Guid)
+22. `InheritanceQueryDynamoTest` — blocked on `OfType`, `is`/`GetType()` discriminator translation, and fixture work
+23. `PrimitiveCollectionsQueryDynamoTest`
+24. `NorthwindQueryFiltersDynamoTest`
+25. `BulkUpdates` family — blocked on `ExecuteUpdate`/`ExecuteDelete`
+26. Remaining translation tests (Math, ByteArray)
 
 ### Current totals
 
 | Status         | Classes | Methods |
 | -------------- | ------: | ------: |
-| Implemented    |      28 |     883 |
+| Implemented    |      32 |   1,021 |
 | Implement Next |       0 |       0 |
-| Future         |      42 |  1,783+ |
-| Skip           |     62+ |  3,780+ |
+| Future         |      32 |  1,586+ |
+| Skip           |     68+ |  3,854+ |
