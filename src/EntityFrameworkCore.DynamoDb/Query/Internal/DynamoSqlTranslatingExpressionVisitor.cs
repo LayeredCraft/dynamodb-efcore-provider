@@ -422,13 +422,19 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         }
 
         if (IsNullableMember(node.Member, nameof(Nullable<int>.HasValue))
-            && node.Expression is { } nullableExpression
-            && TryTranslateComplexPropertyForStructuralComparison(nullableExpression) is
-                { } complexOperand)
-            return sqlExpressionFactory.Binary(
-                ExpressionType.AndAlso,
-                sqlExpressionFactory.IsNotNull(complexOperand),
-                sqlExpressionFactory.IsNotMissing(complexOperand))!;
+            && node.Expression is { } nullableExpression)
+        {
+            var nullableOperand =
+                TryTranslateComplexPropertyForStructuralComparison(nullableExpression)
+                ?? TranslateInternal(nullableExpression);
+
+            return nullableOperand is null
+                ? QueryCompilationContext.NotTranslatedExpression
+                : sqlExpressionFactory.Binary(
+                    ExpressionType.AndAlso,
+                    sqlExpressionFactory.IsNotNull(nullableOperand),
+                    sqlExpressionFactory.IsNotMissing(nullableOperand))!;
+        }
 
         if (!TryGetMemberAccessChain(node, out var names, out var sourceExpression))
         {

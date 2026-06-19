@@ -21,14 +21,41 @@ public abstract class ComplexPropertiesMiscellaneousDynamoTest
         => DynamoTestHelpers.AssertAllTestMethodsOverridden(
             typeof(ComplexPropertiesMiscellaneousDynamoTest));
 
-    public override Task Where_on_associate_scalar_property()
-        => base.Where_on_associate_scalar_property();
+    public override async Task Where_on_associate_scalar_property()
+    {
+        await base.Where_on_associate_scalar_property();
 
-    public override Task Where_on_optional_associate_scalar_property()
-        => base.Where_on_optional_associate_scalar_property();
+        AssertSql(
+            """
+            SELECT "id", "name", "associateCollection", "optionalAssociate", "requiredAssociate"
+            FROM "RootEntities"
+            WHERE "requiredAssociate"."int" = 8
+            """);
+    }
 
-    public override Task Where_on_nested_associate_scalar_property()
-        => base.Where_on_nested_associate_scalar_property();
+    public override async Task Where_on_optional_associate_scalar_property()
+    {
+        await base.Where_on_optional_associate_scalar_property();
+
+        AssertSql(
+            """
+            SELECT "id", "name", "associateCollection", "optionalAssociate", "requiredAssociate"
+            FROM "RootEntities"
+            WHERE "optionalAssociate"."int" = 8
+            """);
+    }
+
+    public override async Task Where_on_nested_associate_scalar_property()
+    {
+        await base.Where_on_nested_associate_scalar_property();
+
+        AssertSql(
+            """
+            SELECT "id", "name", "associateCollection", "optionalAssociate", "requiredAssociate"
+            FROM "RootEntities"
+            WHERE "requiredAssociate"."requiredNestedAssociate"."int" = 8
+            """);
+    }
 
     public override async Task Where_property_on_non_nullable_value_type()
     {
