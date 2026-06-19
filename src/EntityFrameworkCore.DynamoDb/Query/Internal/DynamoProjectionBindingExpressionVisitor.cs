@@ -338,27 +338,7 @@ public sealed class DynamoProjectionBindingExpressionVisitor(
                 if (!_indexBasedBinding)
                     return QueryCompilationContext.NotTranslatedExpression;
 
-                var attributeName = ((IReadOnlyComplexProperty)complexProperty).GetAttributeName();
-                _selectExpression.AddEmbeddedAttributeToProjection(attributeName);
-
-                if (complexProperty.IsCollection)
-                {
-                    var elementShaper = new StructuralTypeShaperExpression(
-                        complexProperty.ComplexType,
-                        Expression.Constant(ValueBuffer.Empty),
-                        false);
-
-                    return new DynamoComplexCollectionProjectionExpression(
-                        complexProperty,
-                        elementShaper);
-                }
-
-                var innerShaper = new StructuralTypeShaperExpression(
-                    complexProperty.ComplexType,
-                    Expression.Constant(ValueBuffer.Empty),
-                    complexProperty.IsNullable);
-
-                return new DynamoComplexTypeProjectionExpression(complexProperty, innerShaper);
+                return CreateComplexProjection(complexProperty, node.Type);
             }
 
             var sqlProperty =
@@ -421,8 +401,46 @@ public sealed class DynamoProjectionBindingExpressionVisitor(
         if (instance == null)
             return QueryCompilationContext.NotTranslatedExpression;
 
+        if (IsNullableValueMember(node.Member)
+            && Nullable.GetUnderlyingType(node.Expression.Type) == node.Type)
+        {
+            if (instance is DynamoComplexTypeProjectionExpression complexProjection)
+                return complexProjection.WithClrType(node.Type);
+
+            if (instance.Type == node.Type)
+                return instance;
+        }
+
         return node.Update(instance);
     }
+
+    private Expression CreateComplexProjection(IComplexProperty complexProperty, Type resultType)
+    {
+        var attributeName = ((IReadOnlyComplexProperty)complexProperty).GetAttributeName();
+        _selectExpression.AddEmbeddedAttributeToProjection(attributeName);
+
+        if (complexProperty.IsCollection)
+        {
+            var elementShaper = new StructuralTypeShaperExpression(
+                complexProperty.ComplexType,
+                Expression.Constant(ValueBuffer.Empty),
+                false);
+
+            return new DynamoComplexCollectionProjectionExpression(complexProperty, elementShaper);
+        }
+
+        var innerShaper = new StructuralTypeShaperExpression(
+            complexProperty.ComplexType,
+            Expression.Constant(ValueBuffer.Empty),
+            complexProperty.IsNullable);
+
+        return new DynamoComplexTypeProjectionExpression(complexProperty, innerShaper, resultType);
+    }
+
+    private static bool IsNullableValueMember(MemberInfo member)
+        => member.Name == nameof(Nullable<int>.Value)
+            && member.DeclaringType is { IsGenericType: true } declaringType
+            && declaringType.GetGenericTypeDefinition() == typeof(Nullable<>);
 
     /// <summary>Handles EF.Property&lt;T&gt; calls and general method call expressions.</summary>
     protected override Expression VisitMethodCall(MethodCallExpression node)
@@ -444,27 +462,7 @@ public sealed class DynamoProjectionBindingExpressionVisitor(
                 if (!_indexBasedBinding)
                     return QueryCompilationContext.NotTranslatedExpression;
 
-                var attributeName = ((IReadOnlyComplexProperty)complexProperty).GetAttributeName();
-                _selectExpression.AddEmbeddedAttributeToProjection(attributeName);
-
-                if (complexProperty.IsCollection)
-                {
-                    var elementShaper = new StructuralTypeShaperExpression(
-                        complexProperty.ComplexType,
-                        Expression.Constant(ValueBuffer.Empty),
-                        false);
-
-                    return new DynamoComplexCollectionProjectionExpression(
-                        complexProperty,
-                        elementShaper);
-                }
-
-                var innerShaper = new StructuralTypeShaperExpression(
-                    complexProperty.ComplexType,
-                    Expression.Constant(ValueBuffer.Empty),
-                    complexProperty.IsNullable);
-
-                return new DynamoComplexTypeProjectionExpression(complexProperty, innerShaper);
+                return CreateComplexProjection(complexProperty, node.Type);
             }
 
             var ownerEntityType = ownerStructuralType as IEntityType;

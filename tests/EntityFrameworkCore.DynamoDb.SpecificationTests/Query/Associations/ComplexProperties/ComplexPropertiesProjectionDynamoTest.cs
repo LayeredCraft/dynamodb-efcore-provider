@@ -36,7 +36,7 @@ public abstract class ComplexPropertiesProjectionDynamoTest
         QueryTrackingBehavior queryTrackingBehavior)
         => base.Select_value_type_property_on_null_associate_throws(queryTrackingBehavior);
 
-    [ConditionalTheory(Skip = SkipReason.ComplexProjectionMaterializationGap)]
+    [ConditionalTheory]
     [MemberData(nameof(TrackingData))]
     public override Task Select_nullable_value_type_property_on_null_associate(
         QueryTrackingBehavior queryTrackingBehavior)
@@ -159,11 +159,19 @@ public abstract class ComplexPropertiesProjectionDynamoTest
             ss => ss.Set<ValueRootEntity>().Select(x => x.OptionalAssociate),
             queryTrackingBehavior: queryTrackingBehavior);
 
-    [ConditionalTheory(Skip = SkipReason.ComplexProjectionMaterializationGap)]
+    [ConditionalTheory]
     [MemberData(nameof(TrackingData))]
     public override Task Select_nullable_value_type_with_Value(
-        QueryTrackingBehavior queryTrackingBehavior)
-        => base.Select_nullable_value_type_with_Value(queryTrackingBehavior);
+            QueryTrackingBehavior queryTrackingBehavior)
+        // Base test orders by partition key without constraining it. DynamoDB cannot guarantee
+        // global ordering, so use an unordered scan while still exercising nullable value-type
+        // complex projection through .Value.
+        => AssertQuery(
+            ss => ss.Set<ValueRootEntity>().Select(x => x.OptionalAssociate!.Value),
+            ss => ss
+                .Set<ValueRootEntity>()
+                .Select(x => x.OptionalAssociate == null ? default : x.OptionalAssociate!.Value),
+            queryTrackingBehavior: queryTrackingBehavior);
 
     public class ComplexPropertiesProjectionDynamoFixture
         : ComplexPropertiesFixtureBase, IDynamoSpecificationFixture

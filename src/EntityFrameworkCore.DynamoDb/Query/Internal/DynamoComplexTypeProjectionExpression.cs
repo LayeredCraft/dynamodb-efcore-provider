@@ -27,7 +27,8 @@ namespace EntityFrameworkCore.DynamoDb.Query.Internal;
 /// </remarks>
 internal sealed class DynamoComplexTypeProjectionExpression(
     IComplexProperty complexProperty,
-    Expression innerShaper) : Expression
+    Expression innerShaper,
+    Type? clrType = null) : Expression
 {
     /// <summary>The complex property being projected.</summary>
     public IComplexProperty ComplexProperty { get; } = complexProperty;
@@ -38,11 +39,22 @@ internal sealed class DynamoComplexTypeProjectionExpression(
     /// </summary>
     public Expression InnerShaper { get; } = innerShaper;
 
+    private Type ClrType { get; } = clrType ?? innerShaper.Type;
+
     /// <inheritdoc />
     public override ExpressionType NodeType => ExpressionType.Extension;
 
     /// <inheritdoc />
-    public override Type Type => InnerShaper.Type;
+    public override Type Type => ClrType;
+
+    /// <summary>
+    ///     Returns this projection with the requested result CLR type; nullable complex
+    ///     <c>.Value</c> uses the same inner shaper but projects the non-nullable struct type.
+    /// </summary>
+    public DynamoComplexTypeProjectionExpression WithClrType(Type type)
+        => type == ClrType
+            ? this
+            : new DynamoComplexTypeProjectionExpression(ComplexProperty, InnerShaper, type);
 
     /// <inheritdoc />
     protected override Expression VisitChildren(ExpressionVisitor visitor)
@@ -50,7 +62,7 @@ internal sealed class DynamoComplexTypeProjectionExpression(
         var visited = visitor.Visit(InnerShaper);
         return ReferenceEquals(visited, InnerShaper)
             ? this
-            : new DynamoComplexTypeProjectionExpression(ComplexProperty, visited);
+            : new DynamoComplexTypeProjectionExpression(ComplexProperty, visited, ClrType);
     }
 
     /// <inheritdoc />
