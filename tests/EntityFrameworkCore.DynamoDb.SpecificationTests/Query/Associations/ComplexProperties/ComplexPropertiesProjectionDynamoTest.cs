@@ -78,22 +78,50 @@ public abstract class ComplexPropertiesProjectionDynamoTest
         QueryTrackingBehavior queryTrackingBehavior)
         => base.Select_untranslatable_method_on_associate_scalar_property(queryTrackingBehavior);
 
-    [ConditionalTheory(Skip = SkipReason.OrderedResultSetNotSupported)]
+    [ConditionalTheory]
     [MemberData(nameof(TrackingData))]
     public override Task Select_associate_collection(QueryTrackingBehavior queryTrackingBehavior)
-        => base.Select_associate_collection(queryTrackingBehavior);
+        // Base test orders by partition key without constraining it. DynamoDB cannot guarantee
+        // global ordering, so use an unordered scan while still exercising complex collection
+        // projection.
+        => AssertQuery(
+            ss => ss.Set<RootEntity>().Select(x => x.AssociateCollection),
+            elementSorter: e => e.Count == 0 ? 0 : e[0].Id,
+            elementAsserter: (e, a) => AssertCollection(e, a, elementSorter: r => r.Id),
+            queryTrackingBehavior: queryTrackingBehavior);
 
-    [ConditionalTheory(Skip = SkipReason.OrderedResultSetNotSupported)]
+    [ConditionalTheory]
     [MemberData(nameof(TrackingData))]
     public override Task Select_nested_collection_on_required_associate(
-        QueryTrackingBehavior queryTrackingBehavior)
-        => base.Select_nested_collection_on_required_associate(queryTrackingBehavior);
+            QueryTrackingBehavior queryTrackingBehavior)
+        // Base test orders by partition key without constraining it. DynamoDB cannot guarantee
+        // global ordering, so use an unordered scan while still exercising nested collection
+        // projection.
+        => AssertQuery(
+            ss => ss.Set<RootEntity>().Select(x => x.RequiredAssociate.NestedCollection),
+            elementSorter: e => e.Count == 0 ? 0 : e[0].Id,
+            elementAsserter: (e, a) => AssertCollection(e, a, elementSorter: r => r.Id),
+            queryTrackingBehavior: queryTrackingBehavior);
 
-    [ConditionalTheory(Skip = SkipReason.OrderedResultSetNotSupported)]
+    [ConditionalTheory]
     [MemberData(nameof(TrackingData))]
     public override Task Select_nested_collection_on_optional_associate(
-        QueryTrackingBehavior queryTrackingBehavior)
-        => base.Select_nested_collection_on_optional_associate(queryTrackingBehavior);
+            QueryTrackingBehavior queryTrackingBehavior)
+        // Base test orders by partition key without constraining it. DynamoDB cannot guarantee
+        // global ordering, so use an unordered scan while still exercising nested collection
+        // projection.
+        => AssertQuery(
+            ss => ss
+                .Set<RootEntity>()
+                .Select(x => x.OptionalAssociate!.NestedCollection
+                    ?? new List<NestedAssociateType>()),
+            ss => ss
+                .Set<RootEntity>()
+                .Select(x => x.OptionalAssociate.Maybe(xx => xx!.NestedCollection)
+                    ?? new List<NestedAssociateType>()),
+            elementSorter: e => e.Count == 0 ? 0 : e[0].Id,
+            elementAsserter: (e, a) => AssertCollection(e, a, elementSorter: r => r.Id),
+            queryTrackingBehavior: queryTrackingBehavior);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     [MemberData(nameof(TrackingData))]
