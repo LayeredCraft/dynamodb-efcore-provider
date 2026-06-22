@@ -39,20 +39,20 @@ internal sealed class DynamoComplexTypeProjectionExpression(
     /// </summary>
     public Expression InnerShaper { get; } = innerShaper;
 
-    private Type ClrType { get; } = clrType ?? innerShaper.Type;
+    private Type ProjectionClrType { get; } = clrType ?? innerShaper.Type;
 
     /// <inheritdoc />
     public override ExpressionType NodeType => ExpressionType.Extension;
 
     /// <inheritdoc />
-    public override Type Type => ClrType;
+    public override Type Type => ProjectionClrType;
 
     /// <summary>
     ///     Returns this projection with the requested result CLR type; nullable complex
     ///     <c>.Value</c> uses the same inner shaper but projects the non-nullable struct type.
     /// </summary>
     public DynamoComplexTypeProjectionExpression WithClrType(Type type)
-        => type == ClrType
+        => type == ProjectionClrType
             ? this
             : new DynamoComplexTypeProjectionExpression(ComplexProperty, InnerShaper, type);
 
@@ -62,7 +62,10 @@ internal sealed class DynamoComplexTypeProjectionExpression(
         var visited = visitor.Visit(InnerShaper);
         return ReferenceEquals(visited, InnerShaper)
             ? this
-            : new DynamoComplexTypeProjectionExpression(ComplexProperty, visited, ClrType);
+            : new DynamoComplexTypeProjectionExpression(
+                ComplexProperty,
+                visited,
+                ProjectionClrType);
     }
 
     /// <inheritdoc />
