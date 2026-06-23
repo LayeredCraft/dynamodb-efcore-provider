@@ -153,6 +153,35 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
     {
         if (node.NodeType is ExpressionType.Convert or ExpressionType.ConvertChecked
             && Nullable.GetUnderlyingType(node.Type) != null
+            && node.Operand is MemberExpression memberOperand
+            && memberOperand.Expression is not null
+            && Nullable.GetUnderlyingType(memberOperand.Expression.Type) == null)
+        {
+            var visitedInstance = Visit(memberOperand.Expression);
+            if (visitedInstance == QueryCompilationContext.NotTranslatedExpression
+                || visitedInstance == null)
+                return QueryCompilationContext.NotTranslatedExpression;
+
+            if (ShouldApplyNullPropagation(visitedInstance.Type))
+            {
+                var sourceVariable = Variable(visitedInstance.Type, "nullableMemberSource");
+                var memberAccess = memberOperand.Update(sourceVariable);
+                Expression convertedMember = node.NodeType == ExpressionType.ConvertChecked
+                    ? ConvertChecked(memberAccess, node.Type)
+                    : Convert(memberAccess, node.Type);
+
+                return Block(
+                    [sourceVariable],
+                    Assign(sourceVariable, visitedInstance),
+                    Condition(
+                        Equal(sourceVariable, Constant(null, sourceVariable.Type)),
+                        Default(node.Type),
+                        convertedMember));
+            }
+        }
+
+        if (node.NodeType is ExpressionType.Convert or ExpressionType.ConvertChecked
+            && Nullable.GetUnderlyingType(node.Type) != null
             && TryGetNullableValueSource(node.Operand, out var nullableSource))
         {
             var visitedSource = Visit(nullableSource);
@@ -196,10 +225,9 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
 
         switch (expression)
         {
-            case MemberExpression
-            {
-                Member.Name: nameof(Nullable<int>.Value), Expression: { } source
-            } when Nullable.GetUnderlyingType(source.Type) != null:
+            case MemberExpression { Member: { } member, Expression: { } source }
+                when IsNullableValueMember(member)
+                && Nullable.GetUnderlyingType(source.Type) != null:
                 nullableSource = source;
                 return true;
 
@@ -216,6 +244,11 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
         nullableSource = expression;
         return false;
     }
+
+    private static bool IsNullableValueMember(MemberInfo member)
+        => member.Name == nameof(Nullable<int>.Value)
+            && member.DeclaringType is { IsGenericType: true } declaringType
+            && declaringType.GetGenericTypeDefinition() == typeof(Nullable<>);
 
     /// <summary>Removes conversion nodes when searching for nullable value sources.</summary>
     private static Expression UnwrapConvert(Expression expression)
@@ -249,6 +282,10 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
         if (instanceExpression == QueryCompilationContext.NotTranslatedExpression
             || instanceExpression == null)
             return QueryCompilationContext.NotTranslatedExpression;
+
+        if (IsNullableValueMember(node.Member)
+            && Nullable.GetUnderlyingType(node.Expression.Type) == instanceExpression.Type)
+            return instanceExpression;
 
         var memberAccess = node.Update(instanceExpression);
         return ShouldApplyNullPropagation(instanceExpression.Type)
@@ -459,14 +496,17 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
         var visitedMaterializer = Visit(projection.InnerShaper);
         _attributeContextStack.Pop();
 
+        var resultType = projection.Type;
         Expression complexInstance = cp.IsNullable
             ? Condition(
                 Equal(
                     complexMapVariable,
                     Constant(null, typeof(Dictionary<string, AttributeValue>))),
-                Constant(null, cp.ClrType),
-                Convert(visitedMaterializer, cp.ClrType))
-            : Convert(visitedMaterializer, cp.ClrType);
+                resultType.IsValueType && Nullable.GetUnderlyingType(resultType) == null
+                    ? Default(resultType)
+                    : Constant(null, resultType),
+                Convert(visitedMaterializer, resultType))
+            : Convert(visitedMaterializer, resultType);
 
         return Block(
             [complexMapVariable],

@@ -223,16 +223,16 @@ sub-families are skipped; complex-property sub-families are partially implemente
 
 ### Implemented
 
-| Test Class                                    | Methods | Cosmos | MongoDB | Notes                                                                                                                                                                                                          |
-| --------------------------------------------- | ------: | :----: | :-----: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ComplexPropertiesStructuralEqualityTestBase` |      16 |   ✗    |    ✗    | Complex property structural equality; scalar and nested complex comparisons execute, while collection equality (issue #257), collection Contains, and complex-null parameter comparison are explicitly skipped |
+| Test Class                                    | Methods | Cosmos | MongoDB | Notes                                                                                                                                                                                                                                                                                                                                                                                |
+| --------------------------------------------- | ------: | :----: | :-----: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `ComplexPropertiesStructuralEqualityTestBase` |      16 |   ✗    |    ✗    | Complex property structural equality; scalar and nested complex comparisons execute, while collection equality (issue #257), collection Contains, and complex-null parameter comparison are explicitly skipped                                                                                                                                                                       |
+| `ComplexPropertiesProjectionTestBase`         |      20 |   ✗    |    ✗    | Complex property projections execute for root, scalar, structural, nullable value-type, and collection projections. Ordered base variants are adapted to unordered scans where DynamoDB cannot guarantee global ordering. Explicit skips cover navigation traversal, SelectMany/list flattening, subquery pushdown, and the remaining duplicate-root projection materialization gap. |
 
 ### Future
 
 | Test Class                                    | Methods | Cosmos | MongoDB | Feasibility | Notes                                  |
 | --------------------------------------------- | ------: | :----: | :-----: | ----------: | -------------------------------------- |
 | `ComplexPropertiesMiscellaneousTestBase`      |       3 |   ✗    |    ✗    |        ~70% | Miscellaneous complex property queries |
-| `ComplexPropertiesProjectionTestBase`         |       4 |   ✗    |    ✗    |        ~70% | Complex type projections               |
 | `ComplexPropertiesStructuralEqualityTestBase` |       1 |   ✗    |    ✗    |        ~70% | Structural equality on complex types   |
 
 ### Skip — Navigation or Set Operation Dependent
@@ -317,7 +317,7 @@ ______________________________________________________________________
 | BulkUpdates           |                        — |              — | 5 classes / 135+ methods |       1 class / 33 methods |
 | Northwind Query       |  7 classes / 441 methods |              — |  3 classes / 491 methods |  12 classes / 924+ methods |
 | Other Query           |     1 class / 74 methods |              — | 10 classes / 381 methods | 18 classes / 1,691 methods |
-| Associations          |   2 classes / 22 methods |              — |    3 classes / 8 methods | 13+ classes / 123+ methods |
+| Associations          |   3 classes / 42 methods |              — |    2 classes / 4 methods | 13+ classes / 123+ methods |
 | Translations          |  5 classes / 134 methods |              — |  8 classes / 162 methods |     3 classes / 25 methods |
 
 ______________________________________________________________________
@@ -350,6 +350,7 @@ This list records recently completed additions; authoritative implemented/not-im
 20. `EnumTranslationsDynamoTest` — 18 methods
 21. `StringTranslationsDynamoTest` — 100 methods
 22. `ComplexPropertiesStructuralEqualityDynamoTest` — 16 methods
+23. `ComplexPropertiesProjectionDynamoTest` — 20 methods
 
 ### Near-term (small, high confidence)
 
@@ -371,7 +372,7 @@ No medium-term specification test classes are currently queued here.
 
 | Status         | Classes | Methods |
 | -------------- | ------: | ------: |
-| Implemented    |      33 |   1,027 |
+| Implemented    |      34 |   1,047 |
 | Implement Next |       0 |       0 |
-| Future         |      33 |  1,587+ |
+| Future         |      32 |  1,583+ |
 | Skip           |     68+ |  3,854+ |
