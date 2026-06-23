@@ -44,6 +44,7 @@ public sealed class ComplianceDynamoTest : ComplianceTestBase
         yield return typeof(NorthwindAsTrackingQueryTestBase<>);
         yield return typeof(NorthwindChangeTrackingQueryTestBase<>);
         yield return typeof(NorthwindFunctionsQueryTestBase<>);
+        yield return typeof(NorthwindQueryFiltersQueryTestBase<>);
         yield return typeof(NorthwindQueryTaggingQueryTestBase<>);
         yield return typeof(NorthwindSelectQueryTestBase<>);
         yield return typeof(NorthwindWhereQueryTestBase<>);
