@@ -138,25 +138,25 @@ No Northwind query specification test classes are currently queued here.
 | Test Class                            | Methods | Cosmos | MongoDB | Feasibility | Blocker                                                                                                                                                   |
 | ------------------------------------- | ------: | :----: | :-----: | ----------: | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `NorthwindQueryFiltersQueryTestBase`  |      17 |   ✗    |    ✓    |        ~65% | Global `HasQueryFilter`; feasible but not yet validated at scale                                                                                          |
-| `NorthwindDbFunctionsQueryTestBase`   |       5 |   ✓    |    ✓    |        ~60% | `EF.Functions.*`; small surface, mostly skippable                                                                                                         |
 | `NorthwindMiscellaneousQueryTestBase` |     469 |   ✓    |    ✓    |        ~35% | Very broad: Take/Skip, cast, null semantics, subqueries, async patterns; too many unsupported operators — below 70% threshold until core coverage matures |
 
 ### Skip — Architectural Constraints
 
-| Test Class                                 | Methods | Cosmos | MongoDB | Reason                                                                                                       |
-| ------------------------------------------ | ------: | :----: | :-----: | ------------------------------------------------------------------------------------------------------------ |
-| `NorthwindGroupByQueryTestBase`            |     258 |   ✗    |    ✓    | PartiQL has no `GROUP BY`                                                                                    |
-| `NorthwindJoinQueryTestBase`               |      68 |   ✗    |    ✓    | PartiQL has no `JOIN`                                                                                        |
-| `NorthwindSetOperationsQueryTestBase`      |      91 |   ✗    |    ✓    | `Union`, `Intersect`, `Except` not supported in PartiQL                                                      |
-| `NorthwindIncludeQueryTestBase`            |     118 |   ✗    |    ✓    | Eager loading requires navigation properties                                                                 |
-| `NorthwindIncludeNoTrackingQueryTestBase`  |       — |   ✗    |    ✓    | Include + AsNoTracking; blocked by navigations                                                               |
-| `NorthwindEFPropertyIncludeQueryTestBase`  |       — |   ✗    |    ✓    | `EF.Property`-named Include; blocked by navigations                                                          |
-| `NorthwindStringIncludeQueryTestBase`      |       — |   ✗    |    ✓    | String-name Include; blocked by navigations                                                                  |
-| `NorthwindNavigationsQueryTestBase`        |      73 |   ✗    |    ✓    | Navigation property traversal in LINQ                                                                        |
-| `NorthwindKeylessEntitiesQueryTestBase`    |      18 |   ✓    |    ✓    | Keyless entities require no partition key; all DynamoDB entities need a key                                  |
-| `NorthwindAggregateOperatorsQueryTestBase` |     211 |   ✓    |    ✓    | Below 70% threshold — Sum, Avg, Min, Max, Count aggregate functions unsupported in PartiQL; ~52% feasibility |
-| `NorthwindCompiledQueryTestBase`           |      32 |   ✗    |    ✓    | `EF.CompileQuery` is sync-focused; DynamoDB provider is async-only                                           |
-| `Ef6GroupByTestBase`                       |      55 |   ✗    |    ✓    | Legacy EF6 GROUP BY patterns; no GROUP BY in PartiQL                                                         |
+| Test Class                                 | Methods | Cosmos | MongoDB | Reason                                                                                                                                                                                                                             |
+| ------------------------------------------ | ------: | :----: | :-----: | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NorthwindGroupByQueryTestBase`            |     258 |   ✗    |    ✓    | PartiQL has no `GROUP BY`                                                                                                                                                                                                          |
+| `NorthwindJoinQueryTestBase`               |      68 |   ✗    |    ✓    | PartiQL has no `JOIN`                                                                                                                                                                                                              |
+| `NorthwindSetOperationsQueryTestBase`      |      91 |   ✗    |    ✓    | `Union`, `Intersect`, `Except` not supported in PartiQL                                                                                                                                                                            |
+| `NorthwindIncludeQueryTestBase`            |     118 |   ✗    |    ✓    | Eager loading requires navigation properties                                                                                                                                                                                       |
+| `NorthwindIncludeNoTrackingQueryTestBase`  |       — |   ✗    |    ✓    | Include + AsNoTracking; blocked by navigations                                                                                                                                                                                     |
+| `NorthwindEFPropertyIncludeQueryTestBase`  |       — |   ✗    |    ✓    | `EF.Property`-named Include; blocked by navigations                                                                                                                                                                                |
+| `NorthwindStringIncludeQueryTestBase`      |       — |   ✗    |    ✓    | String-name Include; blocked by navigations                                                                                                                                                                                        |
+| `NorthwindNavigationsQueryTestBase`        |      73 |   ✗    |    ✓    | Navigation property traversal in LINQ                                                                                                                                                                                              |
+| `NorthwindKeylessEntitiesQueryTestBase`    |      18 |   ✓    |    ✓    | Keyless entities require no partition key; all DynamoDB entities need a key                                                                                                                                                        |
+| `NorthwindAggregateOperatorsQueryTestBase` |     211 |   ✓    |    ✓    | Below 70% threshold — Sum, Avg, Min, Max, Count aggregate functions unsupported in PartiQL; ~52% feasibility                                                                                                                       |
+| `NorthwindDbFunctionsQueryTestBase`        |       5 |   ✓    |    ✓    | Inherited coverage is entirely `EF.Functions.Like` through `Count`; DynamoDB PartiQL has no query aggregates, and the provider intentionally exposes native `Contains`/`StartsWith`/equality instead of partial SQL LIKE semantics |
+| `NorthwindCompiledQueryTestBase`           |      32 |   ✗    |    ✓    | `EF.CompileQuery` is sync-focused; DynamoDB provider is async-only                                                                                                                                                                 |
+| `Ef6GroupByTestBase`                       |      55 |   ✗    |    ✓    | Legacy EF6 GROUP BY patterns; no GROUP BY in PartiQL                                                                                                                                                                               |
 
 ______________________________________________________________________
 
@@ -315,7 +315,7 @@ ______________________________________________________________________
 | --------------------- | -----------------------: | -------------: | -----------------------: | -------------------------: |
 | Non-Query (top-level) | 18 classes / 356 methods |              — |  4 classes / 410 methods | 21 classes / 1,058 methods |
 | BulkUpdates           |                        — |              — | 5 classes / 135+ methods |       1 class / 33 methods |
-| Northwind Query       |  7 classes / 441 methods |              — |  3 classes / 491 methods |  12 classes / 924+ methods |
+| Northwind Query       |  7 classes / 441 methods |              — |  2 classes / 486 methods |  13 classes / 929+ methods |
 | Other Query           |     1 class / 74 methods |              — | 10 classes / 381 methods | 18 classes / 1,691 methods |
 | Associations          |   3 classes / 42 methods |              — |    2 classes / 4 methods | 13+ classes / 123+ methods |
 | Translations          |  5 classes / 134 methods |              — |  8 classes / 162 methods |     3 classes / 25 methods |
@@ -374,5 +374,5 @@ No medium-term specification test classes are currently queued here.
 | -------------- | ------: | ------: |
 | Implemented    |      34 |   1,047 |
 | Implement Next |       0 |       0 |
-| Future         |      32 |  1,583+ |
-| Skip           |     68+ |  3,854+ |
+| Future         |      31 |  1,578+ |
+| Skip           |     69+ |  3,859+ |
