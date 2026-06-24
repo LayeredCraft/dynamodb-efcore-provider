@@ -183,6 +183,9 @@ public class BuiltInDataTypesDynamoTest(
     /// <inheritdoc />
     public override Task Can_insert_and_read_back_non_nullable_backed_data_types()
         => base.Can_insert_and_read_back_non_nullable_backed_data_types();
+#else
+    public override Task Can_insert_and_read_back_object_backed_data_types()
+        => base.Can_insert_and_read_back_object_backed_data_types();
 #endif
 
     /// <inheritdoc />

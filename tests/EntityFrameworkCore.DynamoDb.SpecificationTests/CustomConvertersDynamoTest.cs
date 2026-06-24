@@ -161,6 +161,9 @@ public abstract class CustomConvertersDynamoTest(
 
     public override Task Can_insert_and_read_back_non_nullable_backed_data_types()
         => base.Can_insert_and_read_back_non_nullable_backed_data_types();
+#else
+    public override Task Can_insert_and_read_back_object_backed_data_types()
+        => base.Can_insert_and_read_back_object_backed_data_types();
 #endif
 
     public override async Task Can_read_back_mapped_enum_from_collection_first_or_default()

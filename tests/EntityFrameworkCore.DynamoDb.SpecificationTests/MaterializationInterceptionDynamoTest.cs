@@ -72,6 +72,11 @@ public sealed class MaterializationInterceptionDynamoTest(NonSharedFixture fixtu
             .AddOptions(builder)
             .UseDynamo(options => options.DynamoDbClient(DynamoTestStoreFactory.Instance.Client))
             .ConfigureWarnings(w => w.Ignore(DynamoEventId.ScanLikeQueryDetected));
+#else
+    protected override DbContextOptionsBuilder AddNonSharedOptions(DbContextOptionsBuilder builder)
+        => base
+            .AddNonSharedOptions(builder)
+            .ConfigureWarnings(w => w.Ignore(DynamoEventId.ScanLikeQueryDetected));
 #endif
 
     public class DynamoLibraryContext(DbContextOptions options) : LibraryContext(options)
