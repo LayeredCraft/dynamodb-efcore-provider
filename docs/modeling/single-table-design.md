@@ -270,6 +270,11 @@ context.People.Where(x => x.GetType() == typeof(Employee));
 as `Employee` in the example above. For base or intermediate type matching, use `is` or
 `OfType<T>()`.
 
+When `HasNoDiscriminator()` disables discrimination for a shared-table group, derived
+`OfType<T>()`, `is`, and `GetType()` type filters cannot be translated to server-side type
+predicates. Use key predicates or query the concrete `DbSet` directly when your PK/SK pattern
+already isolates types.
+
 `Cast<T>()` is not translated.
 
 !!! tip "Index selection with inheritance/shared-table queries"

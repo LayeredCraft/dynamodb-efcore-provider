@@ -285,8 +285,10 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
     /// <inheritdoc />
     protected override Expression VisitTypeBinary(TypeBinaryExpression node)
         => node.NodeType == ExpressionType.TypeIs
-            ? TryCreateDiscriminatorPredicate(node.Expression, node.TypeOperand, false)
-            ?? QueryCompilationContext.NotTranslatedExpression
+            ? TryCreateDiscriminatorPredicate(node.Expression, node.TypeOperand, false) is
+                { } predicate
+                ? new SqlDiscriminatorPredicateExpression(predicate)
+                : QueryCompilationContext.NotTranslatedExpression
             : QueryCompilationContext.NotTranslatedExpression;
 
     private SqlExpression? TryTranslateGetTypeComparison(BinaryExpression node)
@@ -298,9 +300,11 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
             if (predicate is null)
                 return null;
 
+            var discriminatorPredicate = new SqlDiscriminatorPredicateExpression(predicate);
+
             return node.NodeType == ExpressionType.NotEqual
-                ? sqlExpressionFactory.Not(predicate)
-                : predicate;
+                ? sqlExpressionFactory.Not(discriminatorPredicate)
+                : discriminatorPredicate;
         }
 
         return null;
