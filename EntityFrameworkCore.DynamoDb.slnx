@@ -1,4 +1,11 @@
 <Solution>
+  <Configurations>
+    <BuildType Name="Debug EF10" />
+    <BuildType Name="Release EF10" />
+    <BuildType Name="Debug EF11" />
+    <BuildType Name="Release EF11" />
+    <Platform Name="Any CPU" />
+  </Configurations>
   <Folder Name="/.github/">
     <File Path=".github/workflows/pr-build.yaml" />
     <File Path=".github/workflows/pr-title-check.yaml" />
@@ -8,7 +15,14 @@
   </Folder>
   <Folder Name="/examples/">
     <File Path="examples\Directory.Build.props" />
-    <Project Path="examples/Example.Simple/Example.Simple.csproj" />
+    <Project Path="examples/Example.Simple/Example.Simple.csproj">
+      <Configurations>
+        <ProjectConfiguration Solution="Debug EF10|Any CPU"   Project="Debug EF10|Any CPU" />
+        <ProjectConfiguration Solution="Release EF10|Any CPU" Project="Release EF10|Any CPU" />
+        <ProjectConfiguration Solution="Debug EF11|Any CPU"   Project="Debug EF11|Any CPU" />
+        <ProjectConfiguration Solution="Release EF11|Any CPU" Project="Release EF11|Any CPU" />
+      </Configurations>
+    </Project>
   </Folder>
   <Folder Name="/Solution Items/">
     <File Path="CLAUDE.md" />
@@ -21,12 +35,40 @@
   </Folder>
   <Folder Name="/src/">
     <File Path="src\Directory.Build.props" />
-    <Project Path="src\EntityFrameworkCore.DynamoDb\EntityFrameworkCore.DynamoDb.csproj" />
+    <Project Path="src\EntityFrameworkCore.DynamoDb\EntityFrameworkCore.DynamoDb.csproj">
+      <Configurations>
+        <ProjectConfiguration Solution="Debug EF10|Any CPU"   Project="Debug EF10|Any CPU" />
+        <ProjectConfiguration Solution="Release EF10|Any CPU" Project="Release EF10|Any CPU" />
+        <ProjectConfiguration Solution="Debug EF11|Any CPU"   Project="Debug EF11|Any CPU" />
+        <ProjectConfiguration Solution="Release EF11|Any CPU" Project="Release EF11|Any CPU" />
+      </Configurations>
+    </Project>
   </Folder>
   <Folder Name="/tests/">
     <File Path="tests\Directory.Build.props" />
-    <Project Path="tests\EntityFrameworkCore.DynamoDb.IntegrationTests\EntityFrameworkCore.DynamoDb.IntegrationTests.csproj" />
-    <Project Path="tests\EntityFrameworkCore.DynamoDb.SpecificationTests\EntityFrameworkCore.DynamoDb.SpecificationTests.csproj" />
-    <Project Path="tests\EntityFrameworkCore.DynamoDb.Tests\EntityFrameworkCore.DynamoDb.Tests.csproj" />
+    <Project Path="tests\EntityFrameworkCore.DynamoDb.IntegrationTests\EntityFrameworkCore.DynamoDb.IntegrationTests.csproj">
+      <Configurations>
+        <ProjectConfiguration Solution="Debug EF10|Any CPU"   Project="Debug EF10|Any CPU" />
+        <ProjectConfiguration Solution="Release EF10|Any CPU" Project="Release EF10|Any CPU" />
+        <ProjectConfiguration Solution="Debug EF11|Any CPU"   Project="Debug EF11|Any CPU" />
+        <ProjectConfiguration Solution="Release EF11|Any CPU" Project="Release EF11|Any CPU" />
+      </Configurations>
+    </Project>
+    <Project Path="tests\EntityFrameworkCore.DynamoDb.SpecificationTests\EntityFrameworkCore.DynamoDb.SpecificationTests.csproj">
+      <Configurations>
+        <ProjectConfiguration Solution="Debug EF10|Any CPU"   Project="Debug EF10|Any CPU" />
+        <ProjectConfiguration Solution="Release EF10|Any CPU" Project="Release EF10|Any CPU" />
+        <ProjectConfiguration Solution="Debug EF11|Any CPU"   Project="Debug EF11|Any CPU" />
+        <ProjectConfiguration Solution="Release EF11|Any CPU" Project="Release EF11|Any CPU" />
+      </Configurations>
+    </Project>
+    <Project Path="tests\EntityFrameworkCore.DynamoDb.Tests\EntityFrameworkCore.DynamoDb.Tests.csproj">
+      <Configurations>
+        <ProjectConfiguration Solution="Debug EF10|Any CPU"   Project="Debug EF10|Any CPU" />
+        <ProjectConfiguration Solution="Release EF10|Any CPU" Project="Release EF10|Any CPU" />
+        <ProjectConfiguration Solution="Debug EF11|Any CPU"   Project="Debug EF11|Any CPU" />
+        <ProjectConfiguration Solution="Release EF11|Any CPU" Project="Release EF11|Any CPU" />
+      </Configurations>
+    </Project>
   </Folder>
 </Solution>

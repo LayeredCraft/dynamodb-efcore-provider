@@ -7,13 +7,11 @@ on:
 permissions: write-all
 
 jobs:
-  # To add support for additional .NET versions (e.g. net9, net11), add release branches
-  # (e.g. release/net9) and wire up separate caller workflows targeting those branches.
-
   publish:
-    uses: LayeredCraft/devops-templates/.github/workflows/publish-release.yml@v8.2
+    uses: LayeredCraft/devops-templates/.github/workflows/publish-release.yml@feat/multi-version-support
     with:
       solution: EntityFrameworkCore.DynamoDb.slnx
-      dotnetVersion: 10.0.x
+      dotnetVersion: "10.0.x"   # fallback only — overridden when buildConfiguration=auto
+      buildConfiguration: auto
       hasTests: true
     secrets: inherit

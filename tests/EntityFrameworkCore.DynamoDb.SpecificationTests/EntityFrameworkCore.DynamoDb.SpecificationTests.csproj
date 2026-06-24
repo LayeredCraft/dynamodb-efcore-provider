@@ -6,11 +6,22 @@
     <IsPackable>false</IsPackable>
     <IsAotCompatible>false</IsAotCompatible>
     <IsTestProject>true</IsTestProject>
+    <Configurations>Debug EF10;Release EF10;Debug EF11;Release EF11</Configurations>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug EF10' Or '$(Configuration)' == 'Release EF10'">
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug EF11' Or '$(Configuration)' == 'Release EF11'">
+    <TargetFramework>net11.0</TargetFramework>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Specification.Tests"/>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Aliases="EFCoreRelational"/>
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk"/>
     <PackageReference Include="Testcontainers.DynamoDb"/>
     <PackageReference Include="xunit.runner.visualstudio">

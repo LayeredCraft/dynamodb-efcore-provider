@@ -53,7 +53,11 @@ public sealed class MaterializationInterceptionDynamoTest(NonSharedFixture fixtu
         bool usePooling)
         => base.Multiple_materialization_interceptors_can_be_used(inject, usePooling);
 
+#if NET10_0
     protected override ITestStoreFactory TestStoreFactory => DynamoTestStoreFactory.Instance;
+#else
+    protected override ITestStoreFactory NonSharedTestStoreFactory => DynamoTestStoreFactory.Instance;
+#endif
 
     protected override IServiceCollection InjectInterceptors(
         IServiceCollection serviceCollection,
@@ -62,11 +66,18 @@ public sealed class MaterializationInterceptionDynamoTest(NonSharedFixture fixtu
             serviceCollection.AddEntityFrameworkDynamo(),
             injectedInterceptors);
 
+#if NET10_0
     protected override DbContextOptionsBuilder AddOptions(DbContextOptionsBuilder builder)
         => base
             .AddOptions(builder)
             .UseDynamo(options => options.DynamoDbClient(DynamoTestStoreFactory.Instance.Client))
             .ConfigureWarnings(w => w.Ignore(DynamoEventId.ScanLikeQueryDetected));
+#else
+    protected override DbContextOptionsBuilder AddNonSharedOptions(DbContextOptionsBuilder builder)
+        => base
+            .AddNonSharedOptions(builder)
+            .ConfigureWarnings(w => w.Ignore(DynamoEventId.ScanLikeQueryDetected));
+#endif
 
     public class DynamoLibraryContext(DbContextOptions options) : LibraryContext(options)
     {
