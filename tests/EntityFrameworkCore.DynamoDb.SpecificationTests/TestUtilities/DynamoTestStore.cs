@@ -24,12 +24,13 @@ public class DynamoTestStore(string name, bool shared, DynamoTestStoreFactory fa
         await context.Database.EnsureCreatedAsync().ConfigureAwait(false);
     }
 #else
-    public async Task CleanAsync(DbContext context)
+    public override async Task CleanAsync(DbContext context, bool createTables = true)
     {
         context.ChangeTracker.Clear();
 
         await context.Database.EnsureDeletedAsync().ConfigureAwait(false);
-        await context.Database.EnsureCreatedAsync().ConfigureAwait(false);
+        if (createTables)
+            await context.Database.EnsureCreatedAsync().ConfigureAwait(false);
     }
 #endif
 
