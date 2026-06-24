@@ -39,8 +39,6 @@ fixture model and DynamoDB mapping constraints for every entity involved.
 
 ## Implementation workflow
 
-0. Before editing, ensure the work is on a non-`main` branch. If currently on `main`, create and
-   switch to a focused feature/test branch before making changes.
 1. Identify the target base spec class or existing DynamoDB spec class from the user request and
    `docs/spec-test-coverage.md`.
 2. Create or extend `*DynamoTest.cs` in `tests/EntityFrameworkCore.DynamoDb.SpecificationTests/`.

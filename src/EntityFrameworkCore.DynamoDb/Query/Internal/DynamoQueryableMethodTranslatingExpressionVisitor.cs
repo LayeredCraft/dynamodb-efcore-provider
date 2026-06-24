@@ -814,7 +814,14 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
 
         var discriminatorPredicate = CreateDiscriminatorPredicate(targetEntityType);
         if (discriminatorPredicate is null)
-            return source;
+        {
+            if (IsOfTypeIdentityOrBaseType(sourceEntityType, targetEntityType))
+                return source;
+
+            return UnsupportedOperator(
+                nameof(Queryable.OfType),
+                "The target entity type requires discriminator filtering, but the model has no discriminator predicate to apply.");
+        }
 
         var selectExpression = (SelectExpression)source.QueryExpression;
         selectExpression.ApplyPredicate(
@@ -839,6 +846,12 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
                 projectionBindingExpression,
                 false));
     }
+
+    private static bool IsOfTypeIdentityOrBaseType(
+        IEntityType sourceEntityType,
+        IEntityType targetEntityType)
+        => sourceEntityType == targetEntityType
+            || targetEntityType.IsAssignableFrom(sourceEntityType);
 
     /// <summary>Provides functionality for this member.</summary>
     protected override ShapedQueryExpression? TranslateOrderBy(

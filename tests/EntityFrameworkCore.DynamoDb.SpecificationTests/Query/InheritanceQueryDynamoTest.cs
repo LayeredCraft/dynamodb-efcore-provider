@@ -1,7 +1,6 @@
 using EntityFrameworkCore.DynamoDb.Diagnostics;
 using EntityFrameworkCore.DynamoDb.SpecificationTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestModels.InheritanceModel;
 using Microsoft.EntityFrameworkCore.TestUtilities;
@@ -26,28 +25,90 @@ public abstract class InheritanceQueryDynamoTest
     public override Task Can_query_all_types_when_shared_column(bool async)
         => DynamoTestHelpers.Instance.NoSyncTest(
             async,
-            a => base.Can_query_all_types_when_shared_column(a));
+            async a =>
+            {
+                await base.Can_query_all_types_when_shared_column(a);
+                AssertSql(
+                    """
+                    SELECT "id", "discriminator", "sortIndex", "caffeineGrams", "carbonation", "sugarGrams", "hasMilk"
+                    FROM "Drinks"
+                    WHERE ("discriminator" = 0 OR "discriminator" = 1 OR "discriminator" = 2 OR "discriminator" = 3)
+                    """);
+            });
 
     [ConditionalTheory(Skip = SkipReason.OrderedResultSetNotSupported)]
     public override Task Can_use_of_type_animal(bool async)
         => DynamoTestHelpers.Instance.NoSyncTest(async, a => base.Can_use_of_type_animal(a));
 
     public override Task Can_use_is_kiwi(bool async)
-        => DynamoTestHelpers.Instance.NoSyncTest(async, a => base.Can_use_is_kiwi(a));
+        => DynamoTestHelpers.Instance.NoSyncTest(
+            async,
+            async a =>
+            {
+                await base.Can_use_is_kiwi(a);
+                AssertSql(
+                    """
+                    SELECT "id", "countryId", "discriminator", "name", "species", "isFlightless", "group", "foundOn"
+                    FROM "Animals"
+                    WHERE "discriminator" = 'Kiwi' AND ("discriminator" = 'Eagle' OR "discriminator" = 'Kiwi')
+                    """);
+            });
 
     public override Task Can_use_is_kiwi_with_cast(bool async)
-        => DynamoTestHelpers.Instance.NoSyncTest(async, a => base.Can_use_is_kiwi_with_cast(a));
+        => DynamoTestHelpers.Instance.NoSyncTest(
+            async,
+            async a =>
+            {
+                await base.Can_use_is_kiwi_with_cast(a);
+                AssertSql(
+                    """
+                    SELECT "id", "countryId", "discriminator", "name", "species", "isFlightless", "group", "foundOn"
+                    FROM "Animals"
+                    WHERE ("discriminator" = 'Eagle' OR "discriminator" = 'Kiwi')
+                    """);
+            });
 
     public override Task Can_use_backwards_is_animal(bool async)
-        => DynamoTestHelpers.Instance.NoSyncTest(async, a => base.Can_use_backwards_is_animal(a));
+        => DynamoTestHelpers.Instance.NoSyncTest(
+            async,
+            async a =>
+            {
+                await base.Can_use_backwards_is_animal(a);
+                AssertSql(
+                    """
+                    SELECT "id", "countryId", "discriminator", "name", "species", "isFlightless", "foundOn"
+                    FROM "Animals"
+                    WHERE ("discriminator" = 'Eagle' OR "discriminator" = 'Kiwi') AND "discriminator" = 'Kiwi'
+                    """);
+            });
 
     public override Task Can_use_is_kiwi_with_other_predicate(bool async)
         => DynamoTestHelpers.Instance.NoSyncTest(
             async,
-            a => base.Can_use_is_kiwi_with_other_predicate(a));
+            async a =>
+            {
+                await base.Can_use_is_kiwi_with_other_predicate(a);
+                AssertSql(
+                    """
+                    SELECT "id", "countryId", "discriminator", "name", "species", "isFlightless", "group", "foundOn"
+                    FROM "Animals"
+                    WHERE "discriminator" = 'Kiwi' AND "countryId" = 1 AND ("discriminator" = 'Eagle' OR "discriminator" = 'Kiwi')
+                    """);
+            });
 
     public override Task Can_use_is_kiwi_in_projection(bool async)
-        => DynamoTestHelpers.Instance.NoSyncTest(async, a => base.Can_use_is_kiwi_in_projection(a));
+        => DynamoTestHelpers.Instance.NoSyncTest(
+            async,
+            async a =>
+            {
+                await base.Can_use_is_kiwi_in_projection(a);
+                AssertSql(
+                    """
+                    SELECT "id", "countryId", "discriminator", "name", "species", "isFlightless", "group", "foundOn"
+                    FROM "Animals"
+                    WHERE ("discriminator" = 'Eagle' OR "discriminator" = 'Kiwi')
+                    """);
+            });
 
     [ConditionalTheory(Skip = SkipReason.OrderedResultSetNotSupported)]
     public override Task Can_use_of_type_bird(bool async)
@@ -62,22 +123,62 @@ public abstract class InheritanceQueryDynamoTest
     public override Task Can_use_of_type_bird_with_projection(bool async)
         => DynamoTestHelpers.Instance.NoSyncTest(
             async,
-            a => base.Can_use_of_type_bird_with_projection(a));
+            async a =>
+            {
+                await base.Can_use_of_type_bird_with_projection(a);
+                AssertSql(
+                    """
+                    SELECT "EagleId"
+                    FROM "Animals"
+                    WHERE ("discriminator" = 'Eagle' OR "discriminator" = 'Kiwi') AND ("discriminator" = 'Eagle' OR "discriminator" = 'Kiwi')
+                    """);
+            });
 
     [ConditionalTheory(Skip = SkipReason.OrderedResultSetNotSupported)]
     public override Task Can_use_of_type_bird_first(bool async)
         => DynamoTestHelpers.Instance.NoSyncTest(async, a => base.Can_use_of_type_bird_first(a));
 
     public override Task Can_use_of_type_kiwi(bool async)
-        => DynamoTestHelpers.Instance.NoSyncTest(async, a => base.Can_use_of_type_kiwi(a));
+        => DynamoTestHelpers.Instance.NoSyncTest(
+            async,
+            async a =>
+            {
+                await base.Can_use_of_type_kiwi(a);
+                AssertSql(
+                    """
+                    SELECT "id", "countryId", "discriminator", "name", "species", "isFlightless", "foundOn"
+                    FROM "Animals"
+                    WHERE "discriminator" = 'Kiwi' AND ("discriminator" = 'Eagle' OR "discriminator" = 'Kiwi')
+                    """);
+            });
 
     public override Task Can_use_backwards_of_type_animal(bool async)
         => DynamoTestHelpers.Instance.NoSyncTest(
             async,
-            a => base.Can_use_backwards_of_type_animal(a));
+            async a =>
+            {
+                await base.Can_use_backwards_of_type_animal(a);
+                AssertSql(
+                    """
+                    SELECT "id", "countryId", "discriminator", "name", "species", "isFlightless", "foundOn"
+                    FROM "Animals"
+                    WHERE "discriminator" = 'Kiwi'
+                    """);
+            });
 
     public override Task Can_use_of_type_rose(bool async)
-        => DynamoTestHelpers.Instance.NoSyncTest(async, a => base.Can_use_of_type_rose(a));
+        => DynamoTestHelpers.Instance.NoSyncTest(
+            async,
+            async a =>
+            {
+                await base.Can_use_of_type_rose(a);
+                AssertSql(
+                    """
+                    SELECT "species", "$type", "genus", "name", "hasThorns"
+                    FROM "Plants"
+                    WHERE "$type" = 'Rose' AND ("$type" = 'Daisy' OR "$type" = 'Rose')
+                    """);
+            });
 
     [ConditionalTheory(Skip = SkipReason.OrderedResultSetNotSupported)]
     public override Task Can_query_all_animals(bool async)
@@ -116,22 +217,58 @@ public abstract class InheritanceQueryDynamoTest
     public override Task Can_use_of_type_kiwi_where_south_on_derived_property(bool async)
         => DynamoTestHelpers.Instance.NoSyncTest(
             async,
-            a => base.Can_use_of_type_kiwi_where_south_on_derived_property(a));
+            async a =>
+            {
+                await base.Can_use_of_type_kiwi_where_south_on_derived_property(a);
+                AssertSql(
+                    """
+                    SELECT "id", "countryId", "discriminator", "name", "species", "isFlightless", "foundOn"
+                    FROM "Animals"
+                    WHERE "discriminator" = 'Kiwi' AND "foundOn" = 1 AND ("discriminator" = 'Eagle' OR "discriminator" = 'Kiwi')
+                    """);
+            });
 
     public override Task Can_use_of_type_kiwi_where_north_on_derived_property(bool async)
         => DynamoTestHelpers.Instance.NoSyncTest(
             async,
-            a => base.Can_use_of_type_kiwi_where_north_on_derived_property(a));
+            async a =>
+            {
+                await base.Can_use_of_type_kiwi_where_north_on_derived_property(a);
+                AssertSql(
+                    """
+                    SELECT "id", "countryId", "discriminator", "name", "species", "isFlightless", "foundOn"
+                    FROM "Animals"
+                    WHERE "discriminator" = 'Kiwi' AND "foundOn" = 0 AND ("discriminator" = 'Eagle' OR "discriminator" = 'Kiwi')
+                    """);
+            });
 
     public override Task Discriminator_used_when_projection_over_derived_type(bool async)
         => DynamoTestHelpers.Instance.NoSyncTest(
             async,
-            a => base.Discriminator_used_when_projection_over_derived_type(a));
+            async a =>
+            {
+                await base.Discriminator_used_when_projection_over_derived_type(a);
+                AssertSql(
+                    """
+                    SELECT "foundOn"
+                    FROM "Animals"
+                    WHERE "discriminator" = 'Kiwi'
+                    """);
+            });
 
     public override Task Discriminator_used_when_projection_over_derived_type2(bool async)
         => DynamoTestHelpers.Instance.NoSyncTest(
             async,
-            a => base.Discriminator_used_when_projection_over_derived_type2(a));
+            async a =>
+            {
+                await base.Discriminator_used_when_projection_over_derived_type2(a);
+                AssertSql(
+                    """
+                    SELECT "isFlightless", "discriminator"
+                    FROM "Animals"
+                    WHERE ("discriminator" = 'Eagle' OR "discriminator" = 'Kiwi')
+                    """);
+            });
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Discriminator_with_cast_in_shadow_property(bool async)
@@ -142,7 +279,16 @@ public abstract class InheritanceQueryDynamoTest
     public override Task Discriminator_used_when_projection_over_of_type(bool async)
         => DynamoTestHelpers.Instance.NoSyncTest(
             async,
-            a => base.Discriminator_used_when_projection_over_of_type(a));
+            async a =>
+            {
+                await base.Discriminator_used_when_projection_over_of_type(a);
+                AssertSql(
+                    """
+                    SELECT "foundOn"
+                    FROM "Animals"
+                    WHERE "discriminator" = 'Kiwi' AND ("discriminator" = 'Eagle' OR "discriminator" = 'Kiwi')
+                    """);
+            });
 
     [ConditionalFact(Skip = SkipReason.TransactionsNotSupported)]
     public override Task Can_insert_update_delete() => base.Can_insert_update_delete();
@@ -170,7 +316,16 @@ public abstract class InheritanceQueryDynamoTest
     public override Task Byte_enum_value_constant_used_in_projection(bool async)
         => DynamoTestHelpers.Instance.NoSyncTest(
             async,
-            a => base.Byte_enum_value_constant_used_in_projection(a));
+            async a =>
+            {
+                await base.Byte_enum_value_constant_used_in_projection(a);
+                AssertSql(
+                    """
+                    SELECT "isFlightless"
+                    FROM "Animals"
+                    WHERE "discriminator" = 'Kiwi'
+                    """);
+            });
 
     [ConditionalFact(Skip = SkipReason.OrderedResultSetNotSupported)]
     public override Task Member_access_on_intermediate_type_works()
@@ -183,22 +338,58 @@ public abstract class InheritanceQueryDynamoTest
     public override Task Selecting_only_base_properties_on_base_type(bool async)
         => DynamoTestHelpers.Instance.NoSyncTest(
             async,
-            a => base.Selecting_only_base_properties_on_base_type(a));
+            async a =>
+            {
+                await base.Selecting_only_base_properties_on_base_type(a);
+                AssertSql(
+                    """
+                    SELECT "name"
+                    FROM "Animals"
+                    WHERE ("discriminator" = 'Eagle' OR "discriminator" = 'Kiwi')
+                    """);
+            });
 
     public override Task Selecting_only_base_properties_on_derived_type(bool async)
         => DynamoTestHelpers.Instance.NoSyncTest(
             async,
-            a => base.Selecting_only_base_properties_on_derived_type(a));
+            async a =>
+            {
+                await base.Selecting_only_base_properties_on_derived_type(a);
+                AssertSql(
+                    """
+                    SELECT "name"
+                    FROM "Animals"
+                    WHERE ("discriminator" = 'Eagle' OR "discriminator" = 'Kiwi')
+                    """);
+            });
 
     public override Task Using_is_operator_on_multiple_type_with_no_result(bool async)
         => DynamoTestHelpers.Instance.NoSyncTest(
             async,
-            a => base.Using_is_operator_on_multiple_type_with_no_result(a));
+            async a =>
+            {
+                await base.Using_is_operator_on_multiple_type_with_no_result(a);
+                AssertSql(
+                    """
+                    SELECT "id", "countryId", "discriminator", "name", "species", "isFlightless", "group", "foundOn"
+                    FROM "Animals"
+                    WHERE "discriminator" = 'Kiwi' AND "discriminator" = 'Eagle' AND ("discriminator" = 'Eagle' OR "discriminator" = 'Kiwi')
+                    """);
+            });
 
     public override Task Using_is_operator_with_of_type_on_multiple_type_with_no_result(bool async)
         => DynamoTestHelpers.Instance.NoSyncTest(
             async,
-            a => base.Using_is_operator_with_of_type_on_multiple_type_with_no_result(a));
+            async a =>
+            {
+                await base.Using_is_operator_with_of_type_on_multiple_type_with_no_result(a);
+                AssertSql(
+                    """
+                    SELECT "id", "countryId", "discriminator", "name", "species", "isFlightless", "group"
+                    FROM "Animals"
+                    WHERE "discriminator" = 'Kiwi' AND "discriminator" = 'Eagle' AND ("discriminator" = 'Eagle' OR "discriminator" = 'Kiwi')
+                    """);
+            });
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Using_OfType_on_multiple_type_with_no_result(bool async)
@@ -221,28 +412,66 @@ public abstract class InheritanceQueryDynamoTest
     public override Task GetType_in_hierarchy_in_leaf_type_with_sibling(bool async)
         => DynamoTestHelpers.Instance.NoSyncTest(
             async,
-            a => base.GetType_in_hierarchy_in_leaf_type_with_sibling(a));
+            async a =>
+            {
+                await base.GetType_in_hierarchy_in_leaf_type_with_sibling(a);
+                AssertSql(
+                    """
+                    SELECT "id", "countryId", "discriminator", "name", "species", "isFlightless", "group", "foundOn"
+                    FROM "Animals"
+                    WHERE "discriminator" = 'Eagle' AND ("discriminator" = 'Eagle' OR "discriminator" = 'Kiwi')
+                    """);
+            });
 
     public override Task GetType_in_hierarchy_in_leaf_type_with_sibling2(bool async)
         => DynamoTestHelpers.Instance.NoSyncTest(
             async,
-            a => base.GetType_in_hierarchy_in_leaf_type_with_sibling2(a));
+            async a =>
+            {
+                await base.GetType_in_hierarchy_in_leaf_type_with_sibling2(a);
+                AssertSql(
+                    """
+                    SELECT "id", "countryId", "discriminator", "name", "species", "isFlightless", "group", "foundOn"
+                    FROM "Animals"
+                    WHERE "discriminator" = 'Kiwi' AND ("discriminator" = 'Eagle' OR "discriminator" = 'Kiwi')
+                    """);
+            });
 
     public override Task GetType_in_hierarchy_in_leaf_type_with_sibling2_reverse(bool async)
         => DynamoTestHelpers.Instance.NoSyncTest(
             async,
-            a => base.GetType_in_hierarchy_in_leaf_type_with_sibling2_reverse(a));
+            async a =>
+            {
+                await base.GetType_in_hierarchy_in_leaf_type_with_sibling2_reverse(a);
+                AssertSql(
+                    """
+                    SELECT "id", "countryId", "discriminator", "name", "species", "isFlightless", "group", "foundOn"
+                    FROM "Animals"
+                    WHERE "discriminator" = 'Kiwi' AND ("discriminator" = 'Eagle' OR "discriminator" = 'Kiwi')
+                    """);
+            });
 
     public override Task GetType_in_hierarchy_in_leaf_type_with_sibling2_not_equal(bool async)
         => DynamoTestHelpers.Instance.NoSyncTest(
             async,
-            a => base.GetType_in_hierarchy_in_leaf_type_with_sibling2_not_equal(a));
+            async a =>
+            {
+                await base.GetType_in_hierarchy_in_leaf_type_with_sibling2_not_equal(a);
+                AssertSql(
+                    """
+                    SELECT "id", "countryId", "discriminator", "name", "species", "isFlightless", "group", "foundOn"
+                    FROM "Animals"
+                    WHERE NOT ("discriminator" = 'Kiwi') AND ("discriminator" = 'Eagle' OR "discriminator" = 'Kiwi')
+                    """);
+            });
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Filter_on_property_inside_complex_type_on_derived_type(bool async)
         => base.Filter_on_property_inside_complex_type_on_derived_type(async);
 
     protected override void ClearLog() => Fixture.ClearSql();
+
+    private void AssertSql(params string[] expected) => Fixture.AssertSql(expected);
 
     public class InheritanceQueryDynamoFixture
         : InheritanceQueryFixtureBase, IDynamoSpecificationFixture

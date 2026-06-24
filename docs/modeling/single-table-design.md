@@ -266,6 +266,11 @@ context.People.Where(x => x is Manager);
 context.People.Where(x => x.GetType() == typeof(Employee));
 ```
 
+`GetType()` comparisons are exact-type checks and are supported for concrete mapped entity types,
+such as `Employee` in the example above. Abstract or intermediate hierarchy targets are not
+validated or documented as supported by this provider; use `is` or `OfType<T>()` when you need
+derived-type matching.
+
 `Cast<T>()` is not translated.
 
 !!! tip "Index selection with inheritance/shared-table queries"
