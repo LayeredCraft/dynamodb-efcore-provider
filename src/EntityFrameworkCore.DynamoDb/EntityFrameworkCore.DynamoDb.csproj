@@ -35,14 +35,6 @@
   <ItemGroup>
     <PackageReference Include="AWSSDK.DynamoDBv2"/>
     <PackageReference Include="Humanizer.Core"/>
-  </ItemGroup>
-
-  <!-- EF Core per-version. EF10 uses central version; EF11 uses VersionOverride for preview. -->
-  <ItemGroup Condition="'$(Configuration)' == 'Debug EF10' Or '$(Configuration)' == 'Release EF10'">
     <PackageReference Include="Microsoft.EntityFrameworkCore" PrivateAssets="none"/>
-  </ItemGroup>
-  <ItemGroup Condition="'$(Configuration)' == 'Debug EF11' Or '$(Configuration)' == 'Release EF11'">
-    <PackageReference Include="Microsoft.EntityFrameworkCore" PrivateAssets="none"
-                      VersionOverride="11.0.0-preview.5.26302.115"/>
   </ItemGroup>
 </Project>

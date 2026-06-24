@@ -16,19 +16,9 @@
     <TargetFramework>net11.0</TargetFramework>
   </PropertyGroup>
 
-  <ItemGroup Condition="'$(Configuration)' == 'Debug EF10' Or '$(Configuration)' == 'Release EF10'">
+  <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Specification.Tests"/>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Aliases="EFCoreRelational"/>
-  </ItemGroup>
-  <ItemGroup Condition="'$(Configuration)' == 'Debug EF11' Or '$(Configuration)' == 'Release EF11'">
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Specification.Tests"
-                      VersionOverride="11.0.0-preview.5.26302.115"/>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Aliases="EFCoreRelational"
-                      VersionOverride="11.0.0-preview.5.26302.115"/>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design"
-                      VersionOverride="11.0.0-preview.5.26302.115"/>
-    <PackageReference Include="Microsoft.EntityFrameworkCore"
-                      VersionOverride="11.0.0-preview.5.26302.115"/>
   </ItemGroup>
 
   <ItemGroup>

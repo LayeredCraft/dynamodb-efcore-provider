@@ -20,22 +20,10 @@
     <ProjectReference Include="..\..\src\EntityFrameworkCore.DynamoDb\EntityFrameworkCore.DynamoDb.csproj"/>
   </ItemGroup>
 
-  <ItemGroup Condition="'$(Configuration)' == 'Debug EF10' Or '$(Configuration)' == 'Release EF10'">
+  <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
-  </ItemGroup>
-  <ItemGroup Condition="'$(Configuration)' == 'Debug EF11' Or '$(Configuration)' == 'Release EF11'">
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" VersionOverride="11.0.0-preview.5.26302.115">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
-    <PackageReference Include="Microsoft.EntityFrameworkCore" VersionOverride="11.0.0-preview.5.26302.115"/>
-    <!-- CPM transitive pin only — no compile assets to avoid ToTable ambiguity with our extension -->
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" VersionOverride="11.0.0-preview.5.26302.115">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; buildtransitive</IncludeAssets>
     </PackageReference>
   </ItemGroup>
 </Project>
