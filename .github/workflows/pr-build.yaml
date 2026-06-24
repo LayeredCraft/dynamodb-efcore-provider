@@ -7,12 +7,23 @@ on:
 permissions: write-all
 jobs:
   build:
-    uses: LayeredCraft/devops-templates/.github/workflows/pr-build.yaml@v8.2
+    # Multi-version support: add a new matrix entry for the new EF version.
+    # The release tag prefix (vN.*) drives configuration and SDK selection automatically
+    # in publish-release.yaml via buildConfiguration: auto.
+    # See docs/multi-version-ef-strategy.md for the full strategy.
+    strategy:
+      matrix:
+        include:
+          - configuration: "Debug EF10"
+            dotnetVersion: "10.0.x"
+          - configuration: "Debug EF11"
+            dotnetVersion: "11.0.x"
+    uses: LayeredCraft/devops-templates/.github/workflows/pr-build.yaml@feat/multi-version-support
     with:
       solution: EntityFrameworkCore.DynamoDb.slnx
       hasTests: true
       useMtpRunner: true
-      dotnetVersion: |
-        10.0.x
+      buildConfiguration: ${{ matrix.configuration }}
+      dotnetVersion: ${{ matrix.dotnetVersion }}
       runCdk: false
     secrets: inherit

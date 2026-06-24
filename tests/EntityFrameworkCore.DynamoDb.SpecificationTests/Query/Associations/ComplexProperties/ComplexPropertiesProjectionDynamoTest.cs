@@ -254,6 +254,13 @@ public abstract class ComplexPropertiesProjectionDynamoTest
             """);
     }
 
+#if !NET10_0
+    [MemberData(nameof(TrackingData))]
+    public override Task Select_associate_and_target_to_index_based_binding_via_closure(
+        QueryTrackingBehavior queryTrackingBehavior)
+        => base.Select_associate_and_target_to_index_based_binding_via_closure(queryTrackingBehavior);
+#endif
+
     private void AssertSql(params string[] expected) => Fixture.AssertSql(expected);
 
     public class ComplexPropertiesProjectionDynamoFixture

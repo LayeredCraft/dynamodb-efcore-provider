@@ -1865,6 +1865,32 @@ public abstract class NorthwindWhereQueryDynamoTest
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Take_and_Distinct_evaluation_order(bool async) => Task.CompletedTask;
 
+#if !NET10_0
+    [ConditionalTheory(Skip = SkipReason.SubqueryContainsNotSupported)]
+    [InlineData(false, true)]
+    [InlineData(false, false)]
+    public override Task Where_Enumerable_conditional_null_check_with_Contains(bool async, bool withNull)
+        => base.Where_Enumerable_conditional_null_check_with_Contains(async, withNull);
+
+    [ConditionalTheory(Skip = SkipReason.SubqueryContainsNotSupported)]
+    [InlineData(false, true)]
+    [InlineData(false, false)]
+    public override Task Where_Enumerable_conditional_not_null_check_with_Contains(bool async, bool withNull)
+        => base.Where_Enumerable_conditional_not_null_check_with_Contains(async, withNull);
+
+    [ConditionalTheory(Skip = SkipReason.SubqueryContainsNotSupported)]
+    [InlineData(false, true)]
+    [InlineData(false, false)]
+    public override Task Where_Queryable_conditional_null_check_with_Contains(bool async, bool withNull)
+        => base.Where_Queryable_conditional_null_check_with_Contains(async, withNull);
+
+    [ConditionalTheory(Skip = SkipReason.SubqueryContainsNotSupported)]
+    [InlineData(false, true)]
+    [InlineData(false, false)]
+    public override Task Where_Queryable_conditional_not_null_check_with_Contains(bool async, bool withNull)
+        => base.Where_Queryable_conditional_not_null_check_with_Contains(async, withNull);
+#endif
+
     private void AssertSql(params string[] expected) => Fixture.AssertSql(expected);
 
     private static Task NoSyncTest(bool async, Func<bool, Task> testCode)
