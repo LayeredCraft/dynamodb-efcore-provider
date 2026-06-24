@@ -16,11 +16,6 @@
     <TargetFramework>net11.0</TargetFramework>
   </PropertyGroup>
 
-  <!-- Satisfy CPM transitive pin for EF11 — provider pulls 11.x but central pins 10.x -->
-  <ItemGroup Condition="'$(Configuration)' == 'Debug EF11' Or '$(Configuration)' == 'Release EF11'">
-    <PackageReference Include="Microsoft.EntityFrameworkCore" VersionOverride="11.0.0-preview.5.26302.115"/>
-  </ItemGroup>
-
   <ItemGroup>
     <PackageReference Include="AutoFixture.AutoNSubstitute"/>
     <PackageReference Include="AutoFixture.Xunit3"/>
