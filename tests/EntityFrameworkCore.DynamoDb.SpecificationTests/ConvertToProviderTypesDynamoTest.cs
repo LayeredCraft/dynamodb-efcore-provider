@@ -38,6 +38,7 @@ public class ConvertToProviderTypesDynamoTest(
         await base.Can_filter_projection_with_inline_enum_variable(async);
     }
 
+#if NET10_0
     public override Task Can_query_using_any_data_type() => base.Can_query_using_any_data_type();
 
     public override Task Can_query_using_any_data_type_shadow()
@@ -57,6 +58,7 @@ public class ConvertToProviderTypesDynamoTest(
 
     public override Task Can_insert_and_read_back_all_non_nullable_data_types()
         => base.Can_insert_and_read_back_all_non_nullable_data_types();
+#endif
 
     public override Task Can_perform_query_with_max_length()
         => base.Can_perform_query_with_max_length();
@@ -145,6 +147,7 @@ public class ConvertToProviderTypesDynamoTest(
     public override Task Can_insert_and_read_back_with_null_string_foreign_key()
         => base.Can_insert_and_read_back_with_null_string_foreign_key();
 
+#if NET10_0
     public override Task Can_insert_and_read_back_all_nullable_data_types_with_values_set_to_null()
         => base.Can_insert_and_read_back_all_nullable_data_types_with_values_set_to_null();
 
@@ -160,6 +163,7 @@ public class ConvertToProviderTypesDynamoTest(
 
     public override Task Can_insert_and_read_back_non_nullable_backed_data_types()
         => base.Can_insert_and_read_back_non_nullable_backed_data_types();
+#endif
 
     public override async Task Can_read_back_mapped_enum_from_collection_first_or_default()
     {
@@ -279,10 +283,12 @@ public class ConvertToProviderTypesDynamoTest(
             modelBuilder.Ignore<BinaryForeignKeyDataType>();
 
             // TODO: remove and add better discriminator support
+#if NET10_0
             modelBuilder.Entity<BuiltInDataTypesShadow>(b =>
             {
                 b.Ignore("$type");
             });
+#endif
         }
 
         public override bool StrictEquality => true;

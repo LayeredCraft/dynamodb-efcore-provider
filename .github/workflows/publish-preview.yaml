@@ -15,13 +15,25 @@ on:
 permissions: write-all
 
 jobs:
-  # To add support for additional .NET versions (e.g. net9, net11), add release branches
-  # (e.g. release/net9) and wire up separate caller workflows targeting those branches.
-
   publish:
-    uses: LayeredCraft/devops-templates/.github/workflows/publish-preview.yml@v8.2
+    # Multi-version support: add a new matrix entry for the new EF version.
+    # The release tag prefix (vN.*) drives configuration and SDK selection automatically
+    # in publish-release.yaml via buildConfiguration: auto.
+    # See docs/multi-version-ef-strategy.md for the full strategy.
+    strategy:
+      matrix:
+        include:
+          - configuration: "Release EF10"
+            dotnetVersion: "10.0.x"
+            drafterConfig: "release-drafter-ef10.yml"
+          - configuration: "Release EF11"
+            dotnetVersion: "11.0.x"
+            drafterConfig: "release-drafter-ef11.yml"
+    uses: LayeredCraft/devops-templates/.github/workflows/publish-preview.yml@feat/multi-version-support
     with:
       solution: EntityFrameworkCore.DynamoDb.slnx
-      dotnetVersion: 10.0.x
+      buildConfiguration: ${{ matrix.configuration }}
+      dotnetVersion: ${{ matrix.dotnetVersion }}
+      drafterConfig: ${{ matrix.drafterConfig }}
       hasTests: true
     secrets: inherit

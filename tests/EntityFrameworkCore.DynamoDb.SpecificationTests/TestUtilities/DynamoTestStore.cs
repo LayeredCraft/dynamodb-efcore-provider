@@ -15,6 +15,7 @@ public class DynamoTestStore(string name, bool shared, DynamoTestStoreFactory fa
         => builder.UseDynamo(options => options.DynamoDbClient(Client));
 
     /// <inheritdoc />
+#if NET10_0
     public override async Task CleanAsync(DbContext context)
     {
         context.ChangeTracker.Clear();
@@ -22,6 +23,15 @@ public class DynamoTestStore(string name, bool shared, DynamoTestStoreFactory fa
         await context.Database.EnsureDeletedAsync().ConfigureAwait(false);
         await context.Database.EnsureCreatedAsync().ConfigureAwait(false);
     }
+#else
+    public async Task CleanAsync(DbContext context)
+    {
+        context.ChangeTracker.Clear();
+
+        await context.Database.EnsureDeletedAsync().ConfigureAwait(false);
+        await context.Database.EnsureCreatedAsync().ConfigureAwait(false);
+    }
+#endif
 
     protected override async Task InitializeAsync(
         Func<DbContext> createContext,

@@ -48,6 +48,7 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
     ///     This override is kept as a defense-in-depth safety net that produces a DynamoDB-specific
     ///     error instead of EF Core's generic message if an owned type somehow reaches validation.
     /// </remarks>
+#if NET10_0
     protected override void ValidateOwnership(
         IModel model,
         IDiagnosticsLogger<DbLoggerCategory.Model.Validation> logger)
@@ -58,6 +59,15 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
                 || entityType.FindOwnership() != null)
                 throw DynamoModelValidationErrors.OwnedEntityTypesNotSupported(entityType);
     }
+#else
+    protected override void ValidateOwnership(
+        IEntityType entityType,
+        IDiagnosticsLogger<DbLoggerCategory.Model.Validation> logger)
+    {
+        if (entityType.IsOwned() || entityType.FindOwnership() != null)
+            throw DynamoModelValidationErrors.OwnedEntityTypesNotSupported(entityType);
+    }
+#endif
 
     /// <summary>Rejects non-ownership EF foreign-key relationships before EF base validation.</summary>
     private static void ValidateNoForeignKeyRelationships(IModel model)
@@ -158,6 +168,7 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
     }
 
     /// <summary>Validates primitive collection properties against DynamoDB provider shape constraints.</summary>
+#if NET10_0
     protected override void ValidatePrimitiveCollections(
         IModel model,
         IDiagnosticsLogger<DbLoggerCategory.Model.Validation> logger)
@@ -172,6 +183,26 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
                 ValidateComplexType(complexProperty.ComplexType);
         }
     }
+#else
+    // EF11 refactored to per-property validation; base handles iteration, we validate each property.
+    protected override void ValidatePrimitiveCollection(
+        IProperty property,
+        IDiagnosticsLogger<DbLoggerCategory.Model.Validation> logger)
+    {
+        base.ValidatePrimitiveCollection(property, logger);
+
+        if (property.IsPrimitiveCollection
+            && !DynamoTypeMappingSource.IsSupportedPrimitiveCollectionShape(property.ClrType))
+            throw new InvalidOperationException(
+                $"Property '{property.DeclaringType.DisplayName()}.{property.Name}' uses primitive collection CLR type "
+                + $"'{property.ClrType.Name}', which is not supported by the DynamoDB provider. "
+                + "Supported list shapes: T[], List<T>, IList<T>. "
+                + "Supported set shapes: HashSet<T>, ISet<T>, IReadOnlySet<T>. "
+                + "Supported dictionary shapes: Dictionary<string,TValue>, IDictionary<string,TValue>, "
+                + "IReadOnlyDictionary<string,TValue>, ReadOnlyDictionary<string,TValue>. "
+                + "Custom or derived concrete collection types are not supported.");
+    }
+#endif
 
     /// <summary>Recursively validates primitive collection properties on a complex type graph.</summary>
     private static void ValidateComplexType(IComplexType complexType)
@@ -808,11 +839,17 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
     ///     EF Core's base <c>ValidatePropertyMapping</c> calls this virtual when it finds an
     ///     explicitly-configured property with no type mapping. Overriding it here lets usDbLoggerCategory.Model.Validationpecific message before the generic EF error is emitted.
     /// </remarks>
-    protected override void
-        ThrowPropertyNotMappedException(
-            string propertyType,
-            IConventionTypeBase structuralType,
-            IConventionProperty unmappedProperty)
+#if NET10_0
+    protected override void ThrowPropertyNotMappedException(
+        string propertyType,
+        IConventionTypeBase structuralType,
+        IConventionProperty unmappedProperty)
+#else
+    protected override void ThrowPropertyNotMappedException(
+        string propertyType,
+        ITypeBase structuralType,
+        IProperty unmappedProperty)
+#endif
         => throw new InvalidOperationException(
             $"Property '{structuralType.DisplayName()}.{unmappedProperty.Name}' of CLR type "
             + $"'{propertyType}' cannot be mapped because DynamoDB does not support this type. "
