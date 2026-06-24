@@ -48,7 +48,13 @@ public class DynamoTestHelpers : TestHelpers
             await testCode(async);
         }
         catch (InvalidOperationException exception) when (!async
-            && IsExpectedSyncQueryFailure(exception)) { }
+            && IsExpectedSyncQueryFailure(exception))
+        {
+            return;
+        }
+
+        if (!async)
+            Assert.Fail("Expected DynamoDB sync query failure.");
     }
 
     private static bool IsExpectedSyncQueryFailure(InvalidOperationException exception)

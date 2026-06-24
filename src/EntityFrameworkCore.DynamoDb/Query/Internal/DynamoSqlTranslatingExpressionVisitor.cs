@@ -245,8 +245,8 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         {
             ConstantExpression => true,
             // Only allow field access — property getters may execute arbitrary user code.
-            MemberExpression { Member: System.Reflection.FieldInfo } memberExpression =>
-                IsLiteralShape(memberExpression.Expression!),
+            MemberExpression { Member: FieldInfo } memberExpression => IsLiteralShape(
+                memberExpression.Expression!),
             UnaryExpression
             {
                 NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked
@@ -320,8 +320,14 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
 
         if (getTypeSide is MethodCallExpression
             {
-                Object: { } source, Method.Name: nameof(object.GetType)
+                Object: { } source,
+                Method.Name: nameof(GetType),
+                Method.DeclaringType: var declaringType,
+                Method.ReturnType: var returnType,
+                Arguments.Count: 0
             }
+            && declaringType == typeof(object)
+            && returnType == typeof(Type)
             && typeSide is ConstantExpression { Value: Type comparedType })
         {
             instance = source;
@@ -355,7 +361,7 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
 
         if (!sourceEntityType.GetRootType().IsAssignableFrom(targetEntityType)
             || !targetEntityType.GetRootType().IsAssignableFrom(sourceEntityType))
-            return exact ? sqlExpressionFactory.Constant(false, typeof(bool)) : null;
+            return exact ? CreateFalsePredicate() : null;
 
         var discriminatorProperty = targetEntityType.FindDiscriminatorProperty();
         if (discriminatorProperty is null)
@@ -395,12 +401,18 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
 
         return predicate switch
         {
-            null => sqlExpressionFactory.Constant(false, typeof(bool)),
+            null => CreateFalsePredicate(),
             SqlBinaryExpression { OperatorType: ExpressionType.OrElse } =>
                 new SqlParenthesizedExpression(predicate),
             _ => predicate
         };
     }
+
+    private SqlExpression CreateFalsePredicate()
+        => sqlExpressionFactory.Binary(
+            ExpressionType.Equal,
+            sqlExpressionFactory.Constant(1, typeof(int)),
+            sqlExpressionFactory.Constant(0, typeof(int)))!;
 
     /// <inheritdoc />
     protected override Expression VisitConditional(ConditionalExpression node)

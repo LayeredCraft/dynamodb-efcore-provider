@@ -820,7 +820,7 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
 
             return UnsupportedOperator(
                 nameof(Queryable.OfType),
-                "The target entity type requires discriminator filtering, but the model has no discriminator predicate to apply.");
+                DynamoStrings.OfTypeRequiresDiscriminatorPredicate);
         }
 
         var selectExpression = (SelectExpression)source.QueryExpression;

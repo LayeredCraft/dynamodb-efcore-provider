@@ -397,17 +397,33 @@ public abstract class InheritanceQueryDynamoTest
             async,
             a => base.Using_OfType_on_multiple_type_with_no_result(a));
 
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task GetType_in_hierarchy_in_abstract_base_type(bool async)
         => DynamoTestHelpers.Instance.NoSyncTest(
             async,
-            a => base.GetType_in_hierarchy_in_abstract_base_type(a));
+            async a =>
+            {
+                await base.GetType_in_hierarchy_in_abstract_base_type(a);
+                AssertSql(
+                    """
+                    SELECT "id", "countryId", "discriminator", "name", "species", "isFlightless", "group", "foundOn"
+                    FROM "Animals"
+                    WHERE 1 = 0 AND ("discriminator" = 'Eagle' OR "discriminator" = 'Kiwi')
+                    """);
+            });
 
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task GetType_in_hierarchy_in_intermediate_type(bool async)
         => DynamoTestHelpers.Instance.NoSyncTest(
             async,
-            a => base.GetType_in_hierarchy_in_intermediate_type(a));
+            async a =>
+            {
+                await base.GetType_in_hierarchy_in_intermediate_type(a);
+                AssertSql(
+                    """
+                    SELECT "id", "countryId", "discriminator", "name", "species", "isFlightless", "group", "foundOn"
+                    FROM "Animals"
+                    WHERE 1 = 0 AND ("discriminator" = 'Eagle' OR "discriminator" = 'Kiwi')
+                    """);
+            });
 
     public override Task GetType_in_hierarchy_in_leaf_type_with_sibling(bool async)
         => DynamoTestHelpers.Instance.NoSyncTest(
