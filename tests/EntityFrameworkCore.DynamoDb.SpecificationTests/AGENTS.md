@@ -153,10 +153,11 @@ public override async Task Some_async_test(CancellationType ct)
 
 ## Known DynamoDB Limitations
 
-| Feature        | Skip reason                                   |
-| -------------- | --------------------------------------------- |
-| Composite keys | `"DynamoDB does not support composite keys."` |
-| Nullable keys  | `"DynamoDB does not support nullable keys."`  |
-| Shadow keys    | `"DynamoDB does not support shadow keys."`    |
+| Feature        | Skip reason                            |
+| -------------- | -------------------------------------- |
+| Composite keys | `SkipReason.CompositeKeysNotSupported` |
+| Nullable keys  | `SkipReason.NullableKeysNotSupported`  |
+| Shadow keys    | `SkipReason.ShadowKeysNotSupported`    |
 
-Define skip-reason constants at the top of each test class.
+Use shared constants from `SkipReason.cs` for recurring provider limitations. Use local/literal skip
+reasons only for one-off method-specific gaps.
