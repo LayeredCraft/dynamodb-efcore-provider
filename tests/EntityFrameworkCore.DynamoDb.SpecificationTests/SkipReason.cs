@@ -37,6 +37,9 @@ public static class SkipReason
 
     public const string GroupByNotSupported = "DynamoDB PartiQL does not support GROUP BY.";
 
+    public const string CountAggregatesNotSupported =
+        "DynamoDB PartiQL does not support COUNT aggregates.";
+
     public const string EntityTypeNotMappedInFixture =
         "This entity type is not mapped in the DynamoDB specification test fixture.";
 

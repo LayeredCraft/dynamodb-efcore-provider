@@ -21,7 +21,7 @@ public abstract class NorthwindQueryFiltersQueryDynamoTest
         => DynamoTestHelpers.AssertAllTestMethodsOverridden(
             typeof(NorthwindQueryFiltersQueryDynamoTest));
 
-    [ConditionalTheory(Skip = "DynamoDB PartiQL does not support COUNT aggregates.")]
+    [ConditionalTheory(Skip = SkipReason.CountAggregatesNotSupported)]
     public override Task Count_query(bool async) => base.Count_query(async);
 
     public override Task Materialized_query(bool async)
