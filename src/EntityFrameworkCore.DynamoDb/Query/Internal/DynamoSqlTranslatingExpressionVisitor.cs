@@ -136,6 +136,10 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
     /// <inheritdoc />
     protected override Expression VisitBinary(BinaryExpression node)
     {
+        if (node.NodeType is ExpressionType.Equal or ExpressionType.NotEqual
+            && TryTranslateGetTypeComparison(node) is { } getTypeComparison)
+            return getTypeComparison;
+
         // Translate string.Compare(a, b) OP 0 → a OP b
         if (TryTranslateStringCompare(node) is { } stringCompareResult)
             return stringCompareResult;
@@ -276,6 +280,126 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
 
             return base.Visit(node);
         }
+    }
+
+    /// <inheritdoc />
+    protected override Expression VisitTypeBinary(TypeBinaryExpression node)
+        => node.NodeType == ExpressionType.TypeIs
+            ? TryCreateDiscriminatorPredicate(node.Expression, node.TypeOperand, false)
+            ?? QueryCompilationContext.NotTranslatedExpression
+            : QueryCompilationContext.NotTranslatedExpression;
+
+    private SqlExpression? TryTranslateGetTypeComparison(BinaryExpression node)
+    {
+        if (TryUnwrapGetTypeComparison(node.Left, node.Right, out var instance, out var type)
+            || TryUnwrapGetTypeComparison(node.Right, node.Left, out instance, out type))
+        {
+            var predicate = TryCreateDiscriminatorPredicate(instance, type, true);
+            if (predicate is null)
+                return null;
+
+            return node.NodeType == ExpressionType.NotEqual
+                ? sqlExpressionFactory.Not(predicate)
+                : predicate;
+        }
+
+        return null;
+    }
+
+    private static bool TryUnwrapGetTypeComparison(
+        Expression getTypeSide,
+        Expression typeSide,
+        out Expression instance,
+        out Type type)
+    {
+        instance = null!;
+        type = null!;
+
+        getTypeSide = UnwrapConvert(getTypeSide);
+        typeSide = UnwrapConvert(typeSide);
+
+        if (getTypeSide is MethodCallExpression
+            {
+                Object: { } source, Method.Name: nameof(object.GetType)
+            }
+            && typeSide is ConstantExpression { Value: Type comparedType })
+        {
+            instance = source;
+            type = comparedType;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static Expression UnwrapConvert(Expression expression)
+    {
+        while (expression is UnaryExpression
+            {
+                NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked
+            } unaryExpression)
+            expression = unaryExpression.Operand;
+
+        return expression;
+    }
+
+    private SqlExpression? TryCreateDiscriminatorPredicate(
+        Expression source,
+        Type targetClrType,
+        bool exact)
+    {
+        var sourceEntityType = ResolveRootEntityType(source);
+        var targetEntityType = model.FindEntityType(targetClrType);
+        if (sourceEntityType is null || targetEntityType is null)
+            return null;
+
+        if (!sourceEntityType.GetRootType().IsAssignableFrom(targetEntityType)
+            || !targetEntityType.GetRootType().IsAssignableFrom(sourceEntityType))
+            return exact ? sqlExpressionFactory.Constant(false, typeof(bool)) : null;
+
+        var discriminatorProperty = targetEntityType.FindDiscriminatorProperty();
+        if (discriminatorProperty is null)
+            return null;
+
+        var discriminatorColumn = sqlExpressionFactory.ApplyTypeMapping(
+            sqlExpressionFactory.Property(
+                discriminatorProperty.GetAttributeName(),
+                discriminatorProperty.ClrType),
+            discriminatorProperty.GetTypeMapping());
+
+        var concreteTypes = exact
+            ? targetEntityType.ClrType.IsAbstract ? [] : [targetEntityType]
+            : targetEntityType
+                .GetConcreteDerivedTypesInclusive()
+                .Where(static entityType => !entityType.ClrType.IsAbstract);
+
+        SqlExpression? predicate = null;
+        foreach (var concreteType in concreteTypes)
+        {
+            var discriminatorValue = concreteType.GetDiscriminatorValue();
+            if (discriminatorValue is null)
+                continue;
+
+            var equals = sqlExpressionFactory.Binary(
+                ExpressionType.Equal,
+                discriminatorColumn,
+                sqlExpressionFactory.Constant(discriminatorValue, discriminatorProperty.ClrType));
+
+            if (equals is null)
+                return null;
+
+            predicate = predicate is null
+                ? equals
+                : sqlExpressionFactory.Binary(ExpressionType.OrElse, predicate, equals);
+        }
+
+        return predicate switch
+        {
+            null => sqlExpressionFactory.Constant(false, typeof(bool)),
+            SqlBinaryExpression { OperatorType: ExpressionType.OrElse } =>
+                new SqlParenthesizedExpression(predicate),
+            _ => predicate
+        };
     }
 
     /// <inheritdoc />

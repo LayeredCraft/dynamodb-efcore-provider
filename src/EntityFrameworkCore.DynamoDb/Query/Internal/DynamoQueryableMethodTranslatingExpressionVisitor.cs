@@ -520,6 +520,52 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
         };
     }
 
+    private SqlExpression? CreateDiscriminatorPredicate(IEntityType entityType)
+    {
+        var discriminatorProperty = entityType.FindDiscriminatorProperty();
+        if (discriminatorProperty is null)
+            return null;
+
+        var discriminatorColumn = _sqlExpressionFactory.ApplyTypeMapping(
+            _sqlExpressionFactory.Property(
+                discriminatorProperty.GetAttributeName(),
+                discriminatorProperty.ClrType),
+            discriminatorProperty.GetTypeMapping());
+
+        SqlExpression? predicate = null;
+        foreach (var concreteType in entityType.GetConcreteDerivedTypesInclusive())
+        {
+            if (concreteType.ClrType.IsAbstract)
+                continue;
+
+            var discriminatorValue = concreteType.GetDiscriminatorValue();
+            if (discriminatorValue is null)
+                continue;
+
+            var equals = _sqlExpressionFactory.Binary(
+                ExpressionType.Equal,
+                discriminatorColumn,
+                _sqlExpressionFactory.Constant(discriminatorValue, discriminatorProperty.ClrType));
+
+            if (equals is null)
+                throw new InvalidOperationException(
+                    $"Failed to create discriminator predicate for entity type '{entityType.DisplayName()}'.");
+
+            predicate = predicate is null
+                ? equals
+                : _sqlExpressionFactory.Binary(ExpressionType.OrElse, predicate, equals)
+                ?? throw new InvalidOperationException(
+                    $"Failed to compose discriminator predicate for entity type '{entityType.DisplayName()}'.");
+        }
+
+        return predicate switch
+        {
+            SqlBinaryExpression { OperatorType: ExpressionType.OrElse } =>
+                new SqlParenthesizedExpression(predicate),
+            _ => predicate
+        };
+    }
+
     /// <summary>
     ///     Determines whether discriminator filtering is required for the root entity type's table
     ///     group.
@@ -749,7 +795,50 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
     protected override ShapedQueryExpression? TranslateOfType(
         ShapedQueryExpression source,
         Type resultType)
-        => UnsupportedOperator(nameof(Queryable.OfType), DynamoStrings.OfTypeNotSupportedYet);
+    {
+        if (source.ShaperExpression is not StructuralTypeShaperExpression
+            {
+                StructuralType: IEntityType sourceEntityType
+            })
+            return UnsupportedOperator(
+                nameof(Queryable.OfType),
+                DynamoStrings.OfTypeNotSupportedYet);
+
+        var targetEntityType = QueryCompilationContext.Model.FindEntityType(resultType);
+        if (targetEntityType is null
+            || !sourceEntityType.GetRootType().IsAssignableFrom(targetEntityType)
+            || !targetEntityType.GetRootType().IsAssignableFrom(sourceEntityType))
+            return UnsupportedOperator(
+                nameof(Queryable.OfType),
+                DynamoStrings.OfTypeNotSupportedYet);
+
+        var discriminatorPredicate = CreateDiscriminatorPredicate(targetEntityType);
+        if (discriminatorPredicate is null)
+            return source;
+
+        var selectExpression = (SelectExpression)source.QueryExpression;
+        selectExpression.ApplyPredicate(
+            new SqlDiscriminatorPredicateExpression(discriminatorPredicate));
+
+        var entityProjection =
+            new DynamoEntityProjectionExpression(targetEntityType, _sqlExpressionFactory);
+        selectExpression.ReplaceProjectionMapping(
+            new Dictionary<ProjectionMember, Expression>
+            {
+                [new ProjectionMember()] = entityProjection
+            });
+
+        var projectionBindingExpression = new ProjectionBindingExpression(
+            selectExpression,
+            new ProjectionMember(),
+            typeof(ValueBuffer));
+
+        return source.UpdateShaperExpression(
+            new StructuralTypeShaperExpression(
+                targetEntityType,
+                projectionBindingExpression,
+                false));
+    }
 
     /// <summary>Provides functionality for this member.</summary>
     protected override ShapedQueryExpression? TranslateOrderBy(

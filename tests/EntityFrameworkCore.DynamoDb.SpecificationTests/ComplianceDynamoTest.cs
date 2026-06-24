@@ -26,6 +26,7 @@ public sealed class ComplianceDynamoTest : ComplianceTestBase
         yield return typeof(FindTestBase<>);
         yield return typeof(EnumTranslationsTestBase<>);
         yield return typeof(GuidTranslationsTestBase<>);
+        yield return typeof(InheritanceQueryTestBase<>);
         yield return typeof(StringTranslationsTestBase<>);
         yield return typeof(KeysWithConvertersTestBase<>);
         yield return typeof(LoggingTestBase);
