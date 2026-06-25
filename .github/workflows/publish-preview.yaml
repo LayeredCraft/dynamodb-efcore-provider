@@ -29,7 +29,7 @@ jobs:
           - configuration: "Release EF11"
             dotnetVersion: "11.0.x"
             drafterConfig: "release-drafter-ef11.yml"
-    uses: LayeredCraft/devops-templates/.github/workflows/publish-preview.yml@feat/multi-version-support
+    uses: LayeredCraft/devops-templates/.github/workflows/publish-preview.yml@v9.0
     with:
       solution: EntityFrameworkCore.DynamoDb.slnx
       buildConfiguration: ${{ matrix.configuration }}
