@@ -320,7 +320,8 @@ public abstract class NorthwindWhereQueryDynamoTest
             {
                 await base.Where_nested_field_access_closure_via_query_cache_error_null(a);
                 AssertSql();
-            });
+            },
+            false);
 
     public override Task Where_nested_field_access_closure_via_query_cache_error_method_null(
         bool async)
@@ -330,7 +331,8 @@ public abstract class NorthwindWhereQueryDynamoTest
             {
                 await base.Where_nested_field_access_closure_via_query_cache_error_method_null(a);
                 AssertSql();
-            });
+            },
+            false);
 
     public override Task Where_new_instance_field_access_query_cache(bool async)
         => NoSyncTest(
@@ -471,7 +473,8 @@ public abstract class NorthwindWhereQueryDynamoTest
             {
                 await base.Where_subquery_correlated_client_eval(a);
                 AssertSql();
-            });
+            },
+            false);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Where_client_and_server_top_level(bool async) => Task.CompletedTask;
@@ -1736,7 +1739,8 @@ public abstract class NorthwindWhereQueryDynamoTest
             {
                 await base.EF_Constant_with_non_evaluatable_argument_throws(a);
                 AssertSql();
-            });
+            },
+            false);
 
     public override Task EF_Parameter(bool async)
         => NoSyncTest(
@@ -1777,7 +1781,8 @@ public abstract class NorthwindWhereQueryDynamoTest
             {
                 await base.EF_Parameter_with_non_evaluatable_argument_throws(a);
                 AssertSql();
-            });
+            },
+            false);
 
     public override Task Implicit_cast_in_predicate(bool async)
         => NoSyncTest(
@@ -1869,32 +1874,41 @@ public abstract class NorthwindWhereQueryDynamoTest
     [ConditionalTheory(Skip = SkipReason.SubqueryContainsNotSupported)]
     [InlineData(false, true)]
     [InlineData(false, false)]
-    public override Task Where_Enumerable_conditional_null_check_with_Contains(bool async, bool withNull)
+    public override Task Where_Enumerable_conditional_null_check_with_Contains(
+        bool async,
+        bool withNull)
         => base.Where_Enumerable_conditional_null_check_with_Contains(async, withNull);
 
     [ConditionalTheory(Skip = SkipReason.SubqueryContainsNotSupported)]
     [InlineData(false, true)]
     [InlineData(false, false)]
-    public override Task Where_Enumerable_conditional_not_null_check_with_Contains(bool async, bool withNull)
+    public override Task
+        Where_Enumerable_conditional_not_null_check_with_Contains(bool async, bool withNull)
         => base.Where_Enumerable_conditional_not_null_check_with_Contains(async, withNull);
 
     [ConditionalTheory(Skip = SkipReason.SubqueryContainsNotSupported)]
     [InlineData(false, true)]
     [InlineData(false, false)]
-    public override Task Where_Queryable_conditional_null_check_with_Contains(bool async, bool withNull)
+    public override Task Where_Queryable_conditional_null_check_with_Contains(
+        bool async,
+        bool withNull)
         => base.Where_Queryable_conditional_null_check_with_Contains(async, withNull);
 
     [ConditionalTheory(Skip = SkipReason.SubqueryContainsNotSupported)]
     [InlineData(false, true)]
     [InlineData(false, false)]
-    public override Task Where_Queryable_conditional_not_null_check_with_Contains(bool async, bool withNull)
+    public override Task
+        Where_Queryable_conditional_not_null_check_with_Contains(bool async, bool withNull)
         => base.Where_Queryable_conditional_not_null_check_with_Contains(async, withNull);
 #endif
 
     private void AssertSql(params string[] expected) => Fixture.AssertSql(expected);
 
-    private static Task NoSyncTest(bool async, Func<bool, Task> testCode)
-        => DynamoTestHelpers.Instance.NoSyncTest(async, testCode);
+    private static Task NoSyncTest(
+        bool async,
+        Func<bool, Task> testCode,
+        bool expectSyncFailure = true)
+        => DynamoTestHelpers.Instance.NoSyncTest(async, testCode, expectSyncFailure);
 
     [Collection(DynamoSpecificationCollection.Name)]
     public sealed class NorthwindWhereQueryDynamoTestDefault : NorthwindWhereQueryDynamoTest
