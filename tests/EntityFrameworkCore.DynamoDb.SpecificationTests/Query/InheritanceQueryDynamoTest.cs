@@ -33,11 +33,20 @@ public abstract class InheritanceQueryDynamoTest
             {
                 await base.Can_query_all_types_when_shared_column(a);
                 AssertSql(
+#if NET11_0_OR_GREATER
+                    """
+                    SELECT "id", "discriminator", "sortIndex", "caffeineGrams", "carbonation", "ints", "sugarGrams", "hasMilk", "complexTypeCollection", "parentComplexType", "childComplexType"
+                    FROM "Drinks"
+                    WHERE ("discriminator" = 0 OR "discriminator" = 1 OR "discriminator" = 2 OR "discriminator" = 3)
+                    """
+#else
                     """
                     SELECT "id", "discriminator", "sortIndex", "caffeineGrams", "carbonation", "sugarGrams", "hasMilk"
                     FROM "Drinks"
                     WHERE ("discriminator" = 0 OR "discriminator" = 1 OR "discriminator" = 2 OR "discriminator" = 3)
-                    """);
+                    """
+#endif
+                );
             });
 
     [ConditionalTheory(Skip = SkipReason.OrderedResultSetNotSupported)]
@@ -521,37 +530,12 @@ public abstract class InheritanceQueryDynamoTest
 
         protected override void OnModelCreating(ModelBuilder modelBuilder, DbContext context)
         {
-            modelBuilder.Entity<Kiwi>();
-            modelBuilder.Entity<Eagle>();
-            modelBuilder.Entity<Bird>();
-            modelBuilder.Entity<Animal>();
-            modelBuilder.Entity<Rose>();
-            modelBuilder.Entity<Daisy>();
-            modelBuilder.Entity<Flower>();
-            modelBuilder.Entity<Plant>().HasKey(e => e.Species);
-            modelBuilder.Entity<Country>();
-            modelBuilder.Entity<Drink>();
-            modelBuilder.Entity<Tea>();
-            modelBuilder.Entity<Lilt>();
-            modelBuilder.Entity<Coke>();
+            base.OnModelCreating(modelBuilder, context);
 
-            modelBuilder.Ignore<AnimalQuery>();
-            modelBuilder.Ignore<BirdQuery>();
             modelBuilder.Ignore<KiwiQuery>();
             modelBuilder.Ignore<EagleQuery>();
-
-            modelBuilder
-                .Entity<Bird>()
-                .HasDiscriminator<string>("Discriminator")
-                .IsComplete(IsDiscriminatorMappingComplete);
-            modelBuilder
-                .Entity<Drink>()
-                .HasDiscriminator(e => e.Discriminator)
-                .HasValue<Drink>(DrinkType.Drink)
-                .HasValue<Coke>(DrinkType.Coke)
-                .HasValue<Lilt>(DrinkType.Lilt)
-                .HasValue<Tea>(DrinkType.Tea)
-                .IsComplete(IsDiscriminatorMappingComplete);
+            modelBuilder.Ignore<BirdQuery>();
+            modelBuilder.Ignore<AnimalQuery>();
 
             modelBuilder.Entity<Animal>().ToTable("Animals").HasPartitionKey(e => e.Id);
             modelBuilder.Entity<Country>(entity =>
