@@ -3,7 +3,9 @@ using EntityFrameworkCore.DynamoDb.SpecificationTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.TestModels.InheritanceModel;
 using Microsoft.EntityFrameworkCore.TestUtilities;
-#if NET11_0_OR_GREATER
+#if NET10_0
+using Microsoft.EntityFrameworkCore.Query;
+#else
 using Microsoft.EntityFrameworkCore.Query.Inheritance;
 #endif
 
