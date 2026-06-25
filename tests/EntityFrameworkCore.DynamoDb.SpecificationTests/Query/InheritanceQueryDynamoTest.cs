@@ -1,13 +1,13 @@
-using EntityFrameworkCore.DynamoDb.Diagnostics;
-using EntityFrameworkCore.DynamoDb.SpecificationTests.TestUtilities;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.TestModels.InheritanceModel;
-using Microsoft.EntityFrameworkCore.TestUtilities;
 #if NET10_0
 using Microsoft.EntityFrameworkCore.Query;
 #else
 using Microsoft.EntityFrameworkCore.Query.Inheritance;
 #endif
+using EntityFrameworkCore.DynamoDb.Diagnostics;
+using EntityFrameworkCore.DynamoDb.SpecificationTests.TestUtilities;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.TestModels.InheritanceModel;
+using Microsoft.EntityFrameworkCore.TestUtilities;
 
 namespace EntityFrameworkCore.DynamoDb.SpecificationTests.Query;
 
@@ -48,6 +48,22 @@ public abstract class InheritanceQueryDynamoTest
 #endif
                 );
             });
+
+#if NET11_0_OR_GREATER
+    public override Task Primitive_collection_on_subtype(bool async)
+        => DynamoTestHelpers.Instance.NoSyncTest(
+            async,
+            async a =>
+            {
+                await base.Primitive_collection_on_subtype(a);
+                AssertSql(
+                    """
+                    SELECT "id", "discriminator", "sortIndex", "caffeineGrams", "carbonation", "ints", "sugarGrams", "hasMilk", "complexTypeCollection", "parentComplexType", "childComplexType"
+                    FROM "Drinks"
+                    WHERE ("discriminator" = 0 OR "discriminator" = 1 OR "discriminator" = 2 OR "discriminator" = 3) AND size("ints") > 0
+                    """);
+            });
+#endif
 
     [ConditionalTheory(Skip = SkipReason.OrderedResultSetNotSupported)]
     public override Task Can_use_of_type_animal(bool async)

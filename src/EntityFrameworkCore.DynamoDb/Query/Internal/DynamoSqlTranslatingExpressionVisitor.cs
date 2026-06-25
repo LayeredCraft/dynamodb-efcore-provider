@@ -37,6 +37,18 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
                 && m.GetParameters().Length == 2)
             .GetGenericMethodDefinition();
 
+    private static readonly MethodInfo EnumerableAnyMethod = typeof(Enumerable)
+        .GetMethods()
+        .Single(m => m is { Name: nameof(Enumerable.Any), IsGenericMethod: true }
+            && m.GetParameters().Length == 1)
+        .GetGenericMethodDefinition();
+
+    private static readonly MethodInfo QueryableAnyMethod = typeof(Queryable)
+        .GetMethods()
+        .Single(m => m is { Name: nameof(Queryable.Any), IsGenericMethod: true }
+            && m.GetParameters().Length == 1)
+        .GetGenericMethodDefinition();
+
     private static readonly MethodInfo StringContainsMethod =
         ((Func<string, bool>)string.Empty.Contains).Method;
 
@@ -766,6 +778,9 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
 
         if (IsCollectionContainsMethod(node.Method))
             return TranslateCollectionContains(node);
+
+        if (IsCollectionAnyWithoutPredicateMethod(node.Method))
+            return TranslateCollectionAny(node);
 
         if (node.Method.IsGenericMethod
             && (node.Method.GetGenericMethodDefinition() == EnumerableElementAtMethod
@@ -1532,6 +1547,22 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         return QueryCompilationContext.NotTranslatedExpression;
     }
 
+    /// <summary>Translates primitive-collection Any() to a size check.</summary>
+    private Expression TranslateCollectionAny(MethodCallExpression node)
+    {
+        var sourceExpression = StripAsQueryable(node.Arguments.ElementAtOrDefault(0));
+        if (sourceExpression is null)
+            return QueryCompilationContext.NotTranslatedExpression;
+
+        if (TranslateInternal(sourceExpression) is not SqlExpression source)
+            return QueryCompilationContext.NotTranslatedExpression;
+
+        return sqlExpressionFactory.Binary(
+            ExpressionType.GreaterThan,
+            sqlExpressionFactory.Function("size", [source], typeof(int)),
+            sqlExpressionFactory.Constant(0, typeof(int)))!;
+    }
+
     /// <summary>Strips EF's primitive-collection queryable wrapper when present.</summary>
     private static Expression? StripAsQueryable(Expression? expression)
         => expression is MethodCallExpression
@@ -1618,6 +1649,12 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
 
         return true;
     }
+
+    /// <summary>Returns whether a method represents a primitive-collection Any() call without predicate.</summary>
+    private static bool IsCollectionAnyWithoutPredicateMethod(MethodInfo method)
+        => method.IsGenericMethod
+            && (method.GetGenericMethodDefinition() == EnumerableAnyMethod
+                || method.GetGenericMethodDefinition() == QueryableAnyMethod);
 
     /// <summary>Returns whether a method represents an in-memory collection Contains call.</summary>
     private static bool IsCollectionContainsMethod(MethodInfo method)
