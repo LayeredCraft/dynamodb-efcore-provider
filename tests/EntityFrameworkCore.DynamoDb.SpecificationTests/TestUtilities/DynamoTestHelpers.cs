@@ -53,7 +53,10 @@ public class DynamoTestHelpers : TestHelpers
         catch (InvalidOperationException exception) when (!async
             && IsExpectedSyncQueryFailure(exception))
         {
-            return;
+            if (expectSyncFailure)
+                return;
+
+            throw;
         }
 
         if (!async && expectSyncFailure)

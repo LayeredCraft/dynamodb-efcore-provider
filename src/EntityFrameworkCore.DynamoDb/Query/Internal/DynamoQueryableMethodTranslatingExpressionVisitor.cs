@@ -806,8 +806,7 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
 
         var targetEntityType = QueryCompilationContext.Model.FindEntityType(resultType);
         if (targetEntityType is null
-            || !sourceEntityType.GetRootType().IsAssignableFrom(targetEntityType)
-            || !targetEntityType.GetRootType().IsAssignableFrom(sourceEntityType))
+            || sourceEntityType.GetRootType() != targetEntityType.GetRootType())
             return UnsupportedOperator(
                 nameof(Queryable.OfType),
                 DynamoStrings.OfTypeNotSupportedYet);
@@ -850,8 +849,7 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
     private static bool IsOfTypeIdentityOrBaseType(
         IEntityType sourceEntityType,
         IEntityType targetEntityType)
-        => sourceEntityType == targetEntityType
-            || targetEntityType.IsAssignableFrom(sourceEntityType);
+        => targetEntityType.IsAssignableFrom(sourceEntityType);
 
     /// <summary>Provides functionality for this member.</summary>
     protected override ShapedQueryExpression? TranslateOrderBy(

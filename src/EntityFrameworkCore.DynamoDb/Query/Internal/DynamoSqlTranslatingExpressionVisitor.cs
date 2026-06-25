@@ -296,12 +296,15 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
 
     /// <inheritdoc />
     protected override Expression VisitTypeBinary(TypeBinaryExpression node)
-        => node.NodeType == ExpressionType.TypeIs
-            ? TryCreateDiscriminatorPredicate(node.Expression, node.TypeOperand, false) is
-                { } predicate
-                ? new SqlDiscriminatorPredicateExpression(predicate)
-                : QueryCompilationContext.NotTranslatedExpression
+    {
+        if (node.NodeType != ExpressionType.TypeIs)
+            return QueryCompilationContext.NotTranslatedExpression;
+
+        return TryCreateDiscriminatorPredicate(node.Expression, node.TypeOperand, false) is
+            { } predicate
+            ? new SqlDiscriminatorPredicateExpression(predicate)
             : QueryCompilationContext.NotTranslatedExpression;
+    }
 
     private SqlExpression? TryTranslateGetTypeComparison(BinaryExpression node)
     {
@@ -375,8 +378,7 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         if (sourceEntityType is null || targetEntityType is null)
             return null;
 
-        if (!sourceEntityType.GetRootType().IsAssignableFrom(targetEntityType)
-            || !targetEntityType.GetRootType().IsAssignableFrom(sourceEntityType))
+        if (sourceEntityType.GetRootType() != targetEntityType.GetRootType())
             return exact ? CreateFalsePredicate() : null;
 
         var discriminatorProperty = targetEntityType.FindDiscriminatorProperty();
@@ -1566,7 +1568,10 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         if (TranslateInternal(sourceExpression) is not SqlExpression source)
             return QueryCompilationContext.NotTranslatedExpression;
 
-        return sqlExpressionFactory.IsNotMissing(source);
+        return sqlExpressionFactory.Binary(
+            ExpressionType.GreaterThan,
+            sqlExpressionFactory.Function("size", [source], typeof(int)),
+            sqlExpressionFactory.Constant(0, typeof(int)))!;
     }
 
     /// <summary>Strips EF's primitive-collection queryable wrapper when present.</summary>
