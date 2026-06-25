@@ -1,9 +1,8 @@
 using EntityFrameworkCore.DynamoDb.Diagnostics;
 using EntityFrameworkCore.DynamoDb.SpecificationTests.TestUtilities;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Query;
-using Microsoft.EntityFrameworkCore.TestModels.InheritanceModel;
-using Microsoft.EntityFrameworkCore.TestUtilities;
+#if NET11_0_OR_GREATER
+using Microsoft.EntityFrameworkCore.Query.Inheritance;
+#endif
 
 namespace EntityFrameworkCore.DynamoDb.SpecificationTests.Query;
 
