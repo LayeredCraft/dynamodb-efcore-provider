@@ -123,6 +123,10 @@ internal static class DynamoStrings
     public const string OfTypeNotSupportedYet =
         "OfType translation is not currently supported by this provider.";
 
+    /// <summary>Error message for missing discriminator predicate during OfType translation.</summary>
+    public const string OfTypeRequiresDiscriminatorPredicate =
+        "The target entity type requires discriminator filtering, but the model has no discriminator predicate to apply.";
+
     /// <summary>Error message for predicates that cannot be translated to PartiQL.</summary>
     public const string PredicateNotTranslatable =
         "The predicate could not be translated to DynamoDB PartiQL.";

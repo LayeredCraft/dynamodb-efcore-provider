@@ -21,7 +21,23 @@ execution.
 
 ## Commands
 
-- Build: `dotnet build`
+- This repo uses named EF build configurations, not plain `Debug`/`Release`:
+  - `Debug EF10`, `Release EF10` -> `net10.0`, EF Core 10 packages
+  - `Debug EF11`, `Release EF11` -> `net11.0`, EF Core 11 packages
+- Prefer Taskfile wrappers so restore/build/test use the same configuration:
+  - Build EF10: `task build:ef10`
+  - Build EF11: `task build:ef11`
+  - Build both debug targets: `task build:all`
+  - Build arbitrary config: `task build CONFIG="Debug EF11"`
+  - Test arbitrary config: `task test CONFIG="Debug EF10"`
+  - Spec tests: `task test:spec CONFIG="Debug EF11"`
+  - Pack releases: `task pack:ef10`, `task pack:ef11`
+- If EF11 fails locally because installed SDK is older than CI, use `task build:ef11:ci-sdk`; it
+  installs the current 11.0 SDK into `.dotnet/ef11` and builds with that SDK.
+- Raw CLI equivalent must pass the configuration to restore and build/test:
+  - `dotnet restore EntityFrameworkCore.DynamoDb.slnx -p:Configuration="Debug EF11"`
+  - `dotnet build EntityFrameworkCore.DynamoDb.slnx --configuration "Debug EF11" --no-restore`
+  - `dotnet test <project-or-slnx> --configuration "Debug EF11" --no-build`
 - Manage NuGet packages with the `dotnet` CLI (`dotnet add package`, `dotnet package update`,
   `dotnet remove package`, etc.); do not hand-edit package references unless the CLI cannot express
   the needed change.

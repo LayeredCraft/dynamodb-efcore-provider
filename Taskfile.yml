@@ -3,52 +3,178 @@ version: '3'
 dotenv:
   - .env
 
+vars:
+  SOLUTION: EntityFrameworkCore.DynamoDb.slnx
+  EF11_DOTNET_DIR: .dotnet/ef11
+
 tasks:
   clean:
-    desc: Clean the project
+    desc: Clean build artifacts without requiring restored assets
     silent: true
     cmds:
-      - echo "🧹 Cleaning"
+      - echo "🧹 Cleaning build artifacts"
       - '[ -d ./.nupkg ] && rm -r ./.nupkg || true'
-      - dotnet clean --configuration Release
+      - find . -type d \( -name bin -o -name obj \) -prune -exec rm -rf {} +
       - echo "✅ Cleaning complete"
-      
+
   restore:
-    desc: Restore the project's dependencies'
+    desc: Restore dependencies for CONFIG (default Debug EF10)
     silent: true
-    deps: [ clean ]
+    vars:
+      CONFIG: '{{.CONFIG | default "Debug EF10"}}'
     cmds:
-      - echo "📥 Restoring dependencies"
-      - dotnet restore
+      - echo "📥 Restoring {{.CONFIG}}"
+      - dotnet restore {{.SOLUTION}} -p:Configuration="{{.CONFIG}}"
       - echo "✅ Dependencies restored"
-  
+
   build:
-    desc: Build the project
+    desc: Build CONFIG (default Debug EF10). Example, task build CONFIG="Debug EF11"
     silent: true
-    deps: [ restore ]
+    vars:
+      CONFIG: '{{.CONFIG | default "Debug EF10"}}'
     cmds:
-      - echo "🔨 Building Release"
-      - dotnet build --configuration Release --no-restore
-      - echo "✅ Release build complete"  
-  
+      - task: restore
+        vars: { CONFIG: '{{.CONFIG}}' }
+      - echo "🔨 Building {{.CONFIG}}"
+      - dotnet build {{.SOLUTION}} --configuration "{{.CONFIG}}" --no-restore
+      - echo "✅ {{.CONFIG}} build complete"
+
+  build:ef10:
+    desc: Build Debug EF10
+    cmds:
+      - task: build
+        vars: { CONFIG: 'Debug EF10' }
+
+  build:ef11:
+    desc: Build Debug EF11 with installed/default dotnet SDK
+    cmds:
+      - task: build
+        vars: { CONFIG: 'Debug EF11' }
+
+  sdk:ef11:
+    desc: Install CI-matching .NET 11 SDK into .dotnet/ef11
+    silent: true
+    cmds:
+      - echo "📥 Installing .NET 11 SDK to {{.EF11_DOTNET_DIR}}"
+      - mkdir -p {{.EF11_DOTNET_DIR}}
+      - curl -sSL https://dot.net/v1/dotnet-install.sh -o {{.EF11_DOTNET_DIR}}/dotnet-install.sh
+      - bash {{.EF11_DOTNET_DIR}}/dotnet-install.sh --channel 11.0 --install-dir {{.EF11_DOTNET_DIR}} --skip-non-versioned-files
+      - '{{.EF11_DOTNET_DIR}}/dotnet --version'
+      - echo "✅ .NET 11 SDK ready"
+
+  build:ef11:ci-sdk:
+    desc: Build Debug EF11 using .dotnet/ef11 SDK (runs sdk:ef11 first)
+    deps: [ sdk:ef11 ]
+    silent: true
+    cmds:
+      - echo "📥 Restoring Debug EF11 with CI-matching SDK"
+      - DOTNET_ROOT={{.EF11_DOTNET_DIR}} PATH={{.EF11_DOTNET_DIR}}:$PATH dotnet restore {{.SOLUTION}} -p:Configuration="Debug EF11"
+      - echo "🔨 Building Debug EF11 with CI-matching SDK"
+      - DOTNET_ROOT={{.EF11_DOTNET_DIR}} PATH={{.EF11_DOTNET_DIR}}:$PATH dotnet build {{.SOLUTION}} --configuration "Debug EF11" --no-restore
+      - echo "✅ Debug EF11 build complete"
+
+  build:all:
+    desc: Build Debug EF10 and Debug EF11
+    cmds:
+      - task: build:ef10
+      - task: build:ef11
+
+  test:
+    desc: Test solution for CONFIG (default Debug EF10). Example, task test CONFIG="Debug EF11"
+    silent: true
+    vars:
+      CONFIG: '{{.CONFIG | default "Debug EF10"}}'
+    cmds:
+      - task: build
+        vars: { CONFIG: '{{.CONFIG}}' }
+      - echo "🧪 Testing {{.CONFIG}}"
+      - dotnet test {{.SOLUTION}} --configuration "{{.CONFIG}}" --no-build
+
+  test:ef10:
+    desc: Test Debug EF10
+    cmds:
+      - task: test
+        vars: { CONFIG: 'Debug EF10' }
+
+  test:ef11:
+    desc: Test Debug EF11 with installed/default dotnet SDK
+    cmds:
+      - task: test
+        vars: { CONFIG: 'Debug EF11' }
+
+  test:unit:
+    desc: Test unit project for CONFIG (default Debug EF10)
+    silent: true
+    vars:
+      CONFIG: '{{.CONFIG | default "Debug EF10"}}'
+    cmds:
+      - task: build
+        vars: { CONFIG: '{{.CONFIG}}' }
+      - dotnet test tests/EntityFrameworkCore.DynamoDb.Tests/EntityFrameworkCore.DynamoDb.Tests.csproj --configuration "{{.CONFIG}}" --no-build
+
+  test:spec:
+    desc: Test specification project for CONFIG (default Debug EF10). Optional FILTER="..."
+    silent: true
+    vars:
+      CONFIG: '{{.CONFIG | default "Debug EF10"}}'
+      FILTER: '{{.FILTER | default ""}}'
+    cmds:
+      - task: build
+        vars: { CONFIG: '{{.CONFIG}}' }
+      - echo "🧪 Testing spec {{.CONFIG}}{{if .FILTER}} filter={{.FILTER}}{{end}}"
+      - '{{if .FILTER}}dotnet test tests/EntityFrameworkCore.DynamoDb.SpecificationTests/EntityFrameworkCore.DynamoDb.SpecificationTests.csproj --configuration "{{.CONFIG}}" --no-build --filter "{{.FILTER}}"{{else}}dotnet test tests/EntityFrameworkCore.DynamoDb.SpecificationTests/EntityFrameworkCore.DynamoDb.SpecificationTests.csproj --configuration "{{.CONFIG}}" --no-build{{end}}'
+
+  test:spec:ef10:
+    desc: Test specification project against Debug EF10. Optional FILTER="..."
+    cmds:
+      - task: test:spec
+        vars: { CONFIG: 'Debug EF10', FILTER: '{{.FILTER | default ""}}' }
+
+  test:spec:ef11:
+    desc: Test specification project against Debug EF11. Optional FILTER="..."
+    cmds:
+      - task: test:spec
+        vars: { CONFIG: 'Debug EF11', FILTER: '{{.FILTER | default ""}}' }
+
+  test:spec:all:
+    desc: Test specification project against Debug EF10 and Debug EF11. Optional FILTER="..."
+    cmds:
+      - task: test:spec:ef10
+        vars: { FILTER: '{{.FILTER | default ""}}' }
+      - task: test:spec:ef11
+        vars: { FILTER: '{{.FILTER | default ""}}' }
+
   pack:
-    desc: Pack the project for distribution
+    desc: Pack CONFIG (default Release EF10). Example, task pack CONFIG="Release EF11"
     silent: true
-    deps: [ build ]
+    vars:
+      CONFIG: '{{.CONFIG | default "Release EF10"}}'
     cmds:
-      - echo "📦 Packing Packages"
-      - dotnet pack --configuration Release --no-build --output ./.nupkg
-      - echo "✅ Packed"   
-    
+      - echo "📦 Packing {{.CONFIG}}"
+      - dotnet restore {{.SOLUTION}} -p:Configuration="{{.CONFIG}}"
+      - dotnet pack src/EntityFrameworkCore.DynamoDb/EntityFrameworkCore.DynamoDb.csproj --configuration "{{.CONFIG}}" --no-restore --output ./.nupkg
+      - echo "✅ Packed {{.CONFIG}}"
+
+  pack:ef10:
+    desc: Pack Release EF10
+    cmds:
+      - task: pack
+        vars: { CONFIG: 'Release EF10' }
+
+  pack:ef11:
+    desc: Pack Release EF11
+    cmds:
+      - task: pack
+        vars: { CONFIG: 'Release EF11' }
+
   publish:
-    desc: Publish the package to a package registry
+    desc: Publish packages from .nupkg to NuGet
     silent: true
-    deps: [ pack ]
     cmds:
       - echo "🚀 Publishing"
       - dotnet nuget push ./.nupkg/*.nupkg --source https://api.nuget.org/v3/index.json --api-key $NUGET_API_KEY_LOCAL --skip-duplicate
-      - echo "✨ Published"    
-    
+      - echo "✨ Published"
+
   docs:serve:
     desc: Serve docs locally with Zensical
     silent: true
@@ -63,4 +189,3 @@ tasks:
       - echo "📖 Building Docs"
       - uv run zensical build -f zensical.toml
       - echo "✅ Docs built"
-  

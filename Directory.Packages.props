@@ -41,14 +41,21 @@
                     Version="$(EFCoreVersion)" />
   </ItemGroup>
   <ItemGroup Label="Microsoft Extensions net10" Condition="'$(TargetFramework)' == 'net10.0'">
+    <PackageVersion Include="Microsoft.Extensions.Caching.Abstractions" Version="10.0.8" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions"
                     Version="10.0.8" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.8" />
+    <PackageVersion Include="Microsoft.Extensions.Options" Version="10.0.8" />
+    <PackageVersion Include="Microsoft.Extensions.Primitives" Version="10.0.8" />
   </ItemGroup>
   <ItemGroup Label="Microsoft Extensions net11" Condition="'$(TargetFramework)' == 'net11.0'">
+    <PackageVersion Include="Microsoft.Extensions.Caching.Abstractions"
+                    Version="11.0.0-preview.5.26302.115" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions"
                     Version="11.0.0-preview.5.26302.115" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions"
                     Version="11.0.0-preview.5.26302.115" />
+    <PackageVersion Include="Microsoft.Extensions.Options" Version="11.0.0-preview.5.26302.115" />
+    <PackageVersion Include="Microsoft.Extensions.Primitives" Version="11.0.0-preview.5.26302.115" />
   </ItemGroup>
 </Project>

@@ -34,19 +34,19 @@ request is sent.
 
 See [Supported Operators](querying/operators.md) for the full list of what does translate.
 
-| Category                                | Operators                                                                    | Why                                                                                                |
-| --------------------------------------- | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| Aggregation                             | `Count`, `LongCount`, `Sum`, `Average`, `Min`, `Max`                         | DynamoDB PartiQL has no aggregate functions                                                        |
-| Grouping                                | `GroupBy`                                                                    | `GROUP BY` is not supported in DynamoDB PartiQL                                                    |
-| Joins                                   | `Join`, `GroupJoin`, `LeftJoin`, `RightJoin`, `SelectMany`, `DefaultIfEmpty` | DynamoDB does not support cross-item joins                                                         |
-| Set operations                          | `Union`, `Concat`, `Except`, `Intersect`                                     | Not supported in DynamoDB PartiQL                                                                  |
-| Offset / paging                         | `Skip`, `Take`, `ElementAt`, `ElementAtOrDefault`                            | DynamoDB has no offset semantics — use `Limit(n)` for an evaluation budget                         |
-| Element operators                       | `Any`, `All`                                                                 | Not supported server-side                                                                          |
-| Reverse traversal                       | `Last`, `LastOrDefault`, `Reverse`                                           | Requires reverse index traversal, not implemented                                                  |
-| Deduplication                           | `Distinct`                                                                   | `SELECT DISTINCT` is not supported in DynamoDB PartiQL                                             |
-| Type filtering                          | `OfType<T>`, `Cast<T>`                                                       | Not supported                                                                                      |
-| Conditional skipping                    | `SkipWhile`, `TakeWhile`                                                     | Not supported                                                                                      |
-| Queryable `Contains` over query sources | `Queryable.Contains(dbSet, item)`                                            | Not supported; in-memory membership translates to `IN`, native collection membership to `contains` |
+| Category                                | Operators                                                                    | Why                                                                                                                                                                                                                                 |
+| --------------------------------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Aggregation                             | `Count`, `LongCount`, `Sum`, `Average`, `Min`, `Max`                         | DynamoDB PartiQL has no aggregate functions                                                                                                                                                                                         |
+| Grouping                                | `GroupBy`                                                                    | `GROUP BY` is not supported in DynamoDB PartiQL                                                                                                                                                                                     |
+| Joins                                   | `Join`, `GroupJoin`, `LeftJoin`, `RightJoin`, `SelectMany`, `DefaultIfEmpty` | DynamoDB does not support cross-item joins                                                                                                                                                                                          |
+| Set operations                          | `Union`, `Concat`, `Except`, `Intersect`                                     | Not supported in DynamoDB PartiQL                                                                                                                                                                                                   |
+| Offset / paging                         | `Skip`, `Take`, `ElementAt`, `ElementAtOrDefault`                            | DynamoDB has no offset semantics — use `Limit(n)` for an evaluation budget                                                                                                                                                          |
+| Element operators                       | `Any`, `All`                                                                 | Not supported server-side                                                                                                                                                                                                           |
+| Reverse traversal                       | `Last`, `LastOrDefault`, `Reverse`                                           | Requires reverse index traversal, not implemented                                                                                                                                                                                   |
+| Deduplication                           | `Distinct`                                                                   | `SELECT DISTINCT` is not supported in DynamoDB PartiQL                                                                                                                                                                              |
+| Type casting                            | `Cast<T>`                                                                    | Not supported; TPH discriminator filtering via `OfType<TDerived>()` and `is` requires active discriminator metadata; `GetType()` checks require active discriminator metadata and are limited to exact concrete mapped entity types |
+| Conditional skipping                    | `SkipWhile`, `TakeWhile`                                                     | Not supported                                                                                                                                                                                                                       |
+| Queryable `Contains` over query sources | `Queryable.Contains(dbSet, item)`                                            | Not supported; in-memory membership translates to `IN`, native collection membership to `contains`                                                                                                                                  |
 
 Value-converted enum numeric casts are also rejected when compared to parameters. For example, `(int)entity.Status == value` is not translated if `Status` uses `.HasConversion<string>()`, because DynamoDB stores the converted string value. Compare `entity.Status` to an enum value directly, or map the enum numerically.
 
@@ -396,8 +396,13 @@ provider cannot guarantee auto-increment semantics on DynamoDB item writes.
 
 ### Shared-Table Discriminator Constraints
 
-When multiple entity types share the same DynamoDB table, a discriminator is required. The
-following constraints are validated at startup:
+When multiple entity types share the same DynamoDB table, discriminator metadata is required only
+when the provider needs server-side type discrimination or type filtering. `HasNoDiscriminator()`
+can disable discriminator metadata for a shared-table group when your key design already isolates
+entity types. With discriminator metadata disabled, derived `OfType<T>()`, `is`, and `GetType()`
+type filters cannot be translated.
+
+When discriminator metadata is enabled, the following constraints are validated at startup:
 
 - Discriminator values must be unique within the table group.
 - All entity types in the group must use the same discriminator attribute name.
