@@ -5,6 +5,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <Configurations>Debug EF10;Release EF10;Debug EF11;Release EF11</Configurations>
+    <!-- These references are required for public API types (IServiceCollection, EventId, ILogger).
+         .NET 11 package pruning currently reports them as redundant, but removing them breaks compilation. -->
+    <NoWarn>$(NoWarn);NU1510</NoWarn>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)' == 'Debug EF10'">
