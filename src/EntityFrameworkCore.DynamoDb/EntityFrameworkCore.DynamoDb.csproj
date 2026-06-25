@@ -29,12 +29,14 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="EntityFrameworkCore.DynamoDb.Tests"/>
+    <InternalsVisibleTo Include="EntityFrameworkCore.DynamoDb.Tests" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="AWSSDK.DynamoDBv2"/>
-    <PackageReference Include="Humanizer.Core"/>
-    <PackageReference Include="Microsoft.EntityFrameworkCore" PrivateAssets="none"/>
+    <PackageReference Include="AWSSDK.DynamoDBv2" />
+    <PackageReference Include="Humanizer.Core" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" PrivateAssets="none" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
   </ItemGroup>
 </Project>
