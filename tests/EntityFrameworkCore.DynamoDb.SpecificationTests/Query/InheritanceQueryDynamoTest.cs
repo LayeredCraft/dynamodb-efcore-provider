@@ -1,5 +1,8 @@
 using EntityFrameworkCore.DynamoDb.Diagnostics;
 using EntityFrameworkCore.DynamoDb.SpecificationTests.TestUtilities;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.TestModels.InheritanceModel;
+using Microsoft.EntityFrameworkCore.TestUtilities;
 #if NET11_0_OR_GREATER
 using Microsoft.EntityFrameworkCore.Query.Inheritance;
 #endif
@@ -480,9 +483,11 @@ public abstract class InheritanceQueryDynamoTest
                     """);
             });
 
+#if !NET11_0_OR_GREATER
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Filter_on_property_inside_complex_type_on_derived_type(bool async)
         => base.Filter_on_property_inside_complex_type_on_derived_type(async);
+#endif
 
     protected override void ClearLog() => Fixture.ClearSql();
 

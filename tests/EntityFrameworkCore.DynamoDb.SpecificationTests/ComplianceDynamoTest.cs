@@ -4,6 +4,9 @@ using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.Associations.ComplexProperties;
 using Microsoft.EntityFrameworkCore.Query.Translations;
 using Microsoft.EntityFrameworkCore.Query.Translations.Operators;
+#if NET11_0_OR_GREATER
+using Microsoft.EntityFrameworkCore.Query.Inheritance;
+#endif
 
 namespace EntityFrameworkCore.DynamoDb.SpecificationTests;
 
