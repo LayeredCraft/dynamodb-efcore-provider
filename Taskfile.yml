@@ -113,14 +113,36 @@ tasks:
       - dotnet test tests/EntityFrameworkCore.DynamoDb.Tests/EntityFrameworkCore.DynamoDb.Tests.csproj --configuration "{{.CONFIG}}" --no-build
 
   test:spec:
-    desc: Test specification project for CONFIG (default Debug EF10)
+    desc: Test specification project for CONFIG (default Debug EF10). Optional FILTER="..."
     silent: true
     vars:
       CONFIG: '{{.CONFIG | default "Debug EF10"}}'
+      FILTER: '{{.FILTER | default ""}}'
     cmds:
       - task: build
         vars: { CONFIG: '{{.CONFIG}}' }
-      - dotnet test tests/EntityFrameworkCore.DynamoDb.SpecificationTests/EntityFrameworkCore.DynamoDb.SpecificationTests.csproj --configuration "{{.CONFIG}}" --no-build
+      - echo "🧪 Testing spec {{.CONFIG}}{{if .FILTER}} filter={{.FILTER}}{{end}}"
+      - '{{if .FILTER}}dotnet test tests/EntityFrameworkCore.DynamoDb.SpecificationTests/EntityFrameworkCore.DynamoDb.SpecificationTests.csproj --configuration "{{.CONFIG}}" --no-build --filter "{{.FILTER}}"{{else}}dotnet test tests/EntityFrameworkCore.DynamoDb.SpecificationTests/EntityFrameworkCore.DynamoDb.SpecificationTests.csproj --configuration "{{.CONFIG}}" --no-build{{end}}'
+
+  test:spec:ef10:
+    desc: Test specification project against Debug EF10. Optional FILTER="..."
+    cmds:
+      - task: test:spec
+        vars: { CONFIG: 'Debug EF10', FILTER: '{{.FILTER | default ""}}' }
+
+  test:spec:ef11:
+    desc: Test specification project against Debug EF11. Optional FILTER="..."
+    cmds:
+      - task: test:spec
+        vars: { CONFIG: 'Debug EF11', FILTER: '{{.FILTER | default ""}}' }
+
+  test:spec:all:
+    desc: Test specification project against Debug EF10 and Debug EF11. Optional FILTER="..."
+    cmds:
+      - task: test:spec:ef10
+        vars: { FILTER: '{{.FILTER | default ""}}' }
+      - task: test:spec:ef11
+        vars: { FILTER: '{{.FILTER | default ""}}' }
 
   pack:
     desc: Pack CONFIG (default Release EF10). Example, task pack CONFIG="Release EF11"

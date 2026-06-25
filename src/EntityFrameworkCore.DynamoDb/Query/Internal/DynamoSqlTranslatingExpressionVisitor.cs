@@ -1210,6 +1210,15 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
     /// </summary>
     private IEntityType? ResolveRootEntityType(Expression? expression)
     {
+        if (expression is UnaryExpression
+            {
+                NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked
+            } unaryExpression
+            && model.FindEntityType(unaryExpression.Type) is { } convertedEntityType)
+            return convertedEntityType;
+
+        expression = expression is null ? null : UnwrapConvert(expression);
+
         if (expression is ParameterExpression parameter && _lambdaParameterEntityTypes != null)
         {
             _lambdaParameterEntityTypes.TryGetValue(parameter, out var parameterEntityType);
@@ -1557,10 +1566,7 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         if (TranslateInternal(sourceExpression) is not SqlExpression source)
             return QueryCompilationContext.NotTranslatedExpression;
 
-        return sqlExpressionFactory.Binary(
-            ExpressionType.GreaterThan,
-            sqlExpressionFactory.Function("size", [source], typeof(int)),
-            sqlExpressionFactory.Constant(0, typeof(int)))!;
+        return sqlExpressionFactory.IsNotMissing(source);
     }
 
     /// <summary>Strips EF's primitive-collection queryable wrapper when present.</summary>

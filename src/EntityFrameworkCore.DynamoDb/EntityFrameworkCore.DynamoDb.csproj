@@ -36,10 +36,13 @@
     <PackageReference Include="AWSSDK.DynamoDBv2" />
     <PackageReference Include="Humanizer.Core" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" PrivateAssets="none" />
+    <PackageReference Include="Microsoft.Extensions.Caching.Abstractions" NoWarn="NU1510" />
     <!-- Required for public API types (IServiceCollection, EventId, ILogger).
          .NET 11 package pruning currently reports these as redundant, but removing them breaks compilation. -->
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions"
                       NoWarn="NU1510" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" NoWarn="NU1510" />
+    <PackageReference Include="Microsoft.Extensions.Options" NoWarn="NU1510" />
+    <PackageReference Include="Microsoft.Extensions.Primitives" NoWarn="NU1510" />
   </ItemGroup>
 </Project>

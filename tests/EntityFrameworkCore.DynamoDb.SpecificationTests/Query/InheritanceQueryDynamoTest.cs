@@ -60,7 +60,7 @@ public abstract class InheritanceQueryDynamoTest
                     """
                     SELECT "id", "discriminator", "sortIndex", "caffeineGrams", "carbonation", "ints", "sugarGrams", "hasMilk", "complexTypeCollection", "parentComplexType", "childComplexType"
                     FROM "Drinks"
-                    WHERE ("discriminator" = 0 OR "discriminator" = 1 OR "discriminator" = 2 OR "discriminator" = 3) AND size("ints") > 0
+                    WHERE "ints" IS NOT MISSING AND ("discriminator" = 0 OR "discriminator" = 1 OR "discriminator" = 2 OR "discriminator" = 3)
                     """);
             });
 #endif
