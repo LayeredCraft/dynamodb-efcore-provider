@@ -8,7 +8,7 @@ permissions: write-all
 
 jobs:
   publish:
-    uses: LayeredCraft/devops-templates/.github/workflows/publish-release.yml@feat/multi-version-support
+    uses: LayeredCraft/devops-templates/.github/workflows/publish-release.yml@v9.0
     with:
       solution: EntityFrameworkCore.DynamoDb.slnx
       dotnetVersion: "10.0.x"   # fallback only — overridden when buildConfiguration=auto
