@@ -3,7 +3,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestModels.Northwind;
 using Microsoft.EntityFrameworkCore.TestUtilities;
-using Xunit;
 
 namespace EntityFrameworkCore.DynamoDb.SpecificationTests.Query;
 
@@ -75,7 +74,8 @@ public abstract class NorthwindAsNoTrackingQueryDynamoTest
                         .FirstAsync(c => c.CustomerID == "ALFKI");
 
                 Assert.NotEqual(customer.CompanyName, customer2.CompanyName);
-            });
+            },
+            false);
 
     [ConditionalTheory(Skip = SkipReason.NavigationPropertiesNotSupported)]
     public override Task Include_reference_and_collection(bool async) => Task.CompletedTask;
@@ -115,8 +115,11 @@ public abstract class NorthwindAsNoTrackingQueryDynamoTest
 
     private void AssertSql(params string[] expected) => Fixture.AssertSql(expected);
 
-    private static Task NoSyncTest(bool async, Func<bool, Task> testCode)
-        => DynamoTestHelpers.Instance.NoSyncTest(async, testCode);
+    private static Task NoSyncTest(
+        bool async,
+        Func<bool, Task> testCode,
+        bool expectSyncFailure = true)
+        => DynamoTestHelpers.Instance.NoSyncTest(async, testCode, expectSyncFailure);
 
     [Collection(DynamoSpecificationCollection.Name)]
     public sealed class NorthwindAsNoTrackingQueryDynamoTestDefault

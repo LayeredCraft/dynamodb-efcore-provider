@@ -4,13 +4,45 @@
 
 This document analyzes how the MongoDB EF Core provider supports EF8, EF9, and EF10 from a single codebase — no separate release branches — and maps those findings into a concrete strategy for the DynamoDB provider to support EF10, EF11, and future versions.
 
----
+## Quick Start
+
+Use named build configurations. Plain `Debug`/`Release` are not valid project configurations for this repo.
+
+| Goal                     | Command                              |
+| ------------------------ | ------------------------------------ |
+| Build EF10               | `task build:ef10`                    |
+| Build EF11               | `task build:ef11`                    |
+| Build both debug targets | `task build:all`                     |
+| Test EF10                | `task test CONFIG="Debug EF10"`      |
+| Test EF11                | `task test CONFIG="Debug EF11"`      |
+| Test spec project only   | `task test:spec CONFIG="Debug EF11"` |
+| Pack EF10                | `task pack:ef10`                     |
+| Pack EF11                | `task pack:ef11`                     |
+
+Raw `dotnet` commands must pass the same configuration to restore and build/test:
+
+```bash
+dotnet restore EntityFrameworkCore.DynamoDb.slnx -p:Configuration="Debug EF11"
+dotnet build EntityFrameworkCore.DynamoDb.slnx --configuration "Debug EF11" --no-restore
+dotnet test tests/EntityFrameworkCore.DynamoDb.SpecificationTests/EntityFrameworkCore.DynamoDb.SpecificationTests.csproj --configuration "Debug EF11" --no-build
+```
+
+EF11 requires a current .NET 11 SDK matching CI's `11.0.x` channel. If a local SDK is older than CI, use:
+
+```bash
+task build:ef11:ci-sdk
+```
+
+That installs the current 11.0 SDK under `.dotnet/ef11` and builds with it.
+
+______________________________________________________________________
 
 ## Part 1: How MongoDB Does It
 
 ### 1.1 The Core Mechanism: Configuration-Driven Compilation
 
 MongoDB does **not** use:
+
 - Separate branches per EF version
 - Traditional multi-targeting (`<TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>`)
 
@@ -25,6 +57,7 @@ Debug EF10  → net10.0 → #define EF10
 The target framework itself is conditional:
 
 **`src/MongoDB.EntityFrameworkCore/MongoDB.EntityFrameworkCore.csproj` (lines 3, 44, 51):**
+
 ```xml
 <!-- Default (EF8 / EF9) -->
 <TargetFramework>net8.0</TargetFramework>
@@ -43,6 +76,7 @@ The target framework itself is conditional:
 ```
 
 **`src/MongoDB.EntityFrameworkCore/MongoDB.EntityFrameworkCore.csproj` (line 7):**
+
 ```xml
 <Configurations>Debug EF8;Release EF8;Debug EF9;Release EF9;Debug EF10;Release EF10</Configurations>
 ```
@@ -52,6 +86,7 @@ The target framework itself is conditional:
 All EF Core version pins live in one file:
 
 **`Versions.props` (lines 3–5):**
+
 ```xml
 <EF8Version>8.0.27</EF8Version>
 <EF9Version>9.0.16</EF9Version>
@@ -61,6 +96,7 @@ All EF Core version pins live in one file:
 Each build configuration references the matching constant:
 
 **`src/MongoDB.EntityFrameworkCore/MongoDB.EntityFrameworkCore.csproj` (lines 65–75):**
+
 ```xml
 <ItemGroup Condition=" '$(Configuration)' == 'Release EF8' Or '$(Configuration)' == 'Debug EF8' ">
   <PackageReference Include="Microsoft.EntityFrameworkCore" Version="$(EF8Version)" />
@@ -78,6 +114,7 @@ Each build configuration references the matching constant:
 ### 1.3 CI: Each Version Tested Independently
 
 **`evergreen/evergreen.yml` (lines 165, 179, 193):**
+
 ```bash
 BUILD_CONFIGURATION="Debug EF8"
 BUILD_CONFIGURATION="Debug EF9"
@@ -85,24 +122,25 @@ BUILD_CONFIGURATION="Debug EF10"
 ```
 
 **`evergreen/run-tests.sh` (line 12):**
+
 ```bash
 dotnet test "./MongoDB.EFCoreProvider.sln" -c "${BUILD_CONFIGURATION}" ...
 ```
 
 The configuration variable flows straight into `dotnet build`/`dotnet test` — no wrapper scripts needed.
 
----
+______________________________________________________________________
 
 ## Part 2: Complete Compiler Directive Inventory
 
 ### 2.1 Pattern Reference Table
 
-| Pattern | Meaning |
-|---|---|
-| `#if EF8` | EF8 only — typically legacy code that EF9+ absorbed |
-| `#if EF8 \|\| EF9` | Pre-EF10 code — API shapes that EF10 reworked |
-| `#if EF10` | EF10-specific code (new API signature) |
-| `#if !EF8` | EF9+ code (feature added in EF9) |
+| Pattern            | Meaning                                                                |
+| ------------------ | ---------------------------------------------------------------------- |
+| `#if EF8`          | EF8 only — typically legacy code that EF9+ absorbed                    |
+| `#if EF8 \|\| EF9` | Pre-EF10 code — API shapes that EF10 reworked                          |
+| `#if EF10`         | EF10-specific code (new API signature)                                 |
+| `#if !EF8`         | EF9+ code (feature added in EF9)                                       |
 | `#if !EF8 && !EF9` | EF10-only (equivalent to `#if EF10` when three versions are supported) |
 
 ### 2.2 ChangeTracking: Entire Files Behind `#if`
@@ -110,6 +148,7 @@ The configuration variable flows straight into `dotnet build`/`dotnet test` — 
 Some files are wrapped entirely — the compiler skips them when the symbol is absent.
 
 **`src/MongoDB.EntityFrameworkCore/ChangeTracking/ListOfNullableValueTypesComparer.cs` (lines 6–221):**
+
 ```csharp
 #if EF8
 // Entire class: legacy nullable-value-type list comparer
@@ -127,6 +166,7 @@ internal sealed class ListOfNullableValueTypesComparer<TConcreteList, TElement>
 ```
 
 **`src/MongoDB.EntityFrameworkCore/ChangeTracking/StringDictionaryComparerLegacy.cs` (lines 6–102):**
+
 ```csharp
 #if EF8 || EF9
 // Pre-EF10 dictionary comparer — two types (nullable + non-nullable)
@@ -141,6 +181,7 @@ public sealed class StringDictionaryComparer<TElement, TCollection>
 ```
 
 **`src/MongoDB.EntityFrameworkCore/ChangeTracking/StringDictionaryComparer.cs` (lines 6–180):**
+
 ```csharp
 #if !EF8 && !EF9
 // EF10 redesigned the dictionary comparer entirely
@@ -160,6 +201,7 @@ public sealed class StringDictionaryComparer<TDictionary, TElement>
 ### 2.3 Storage: API Shape Changes
 
 **`src/MongoDB.EntityFrameworkCore/Storage/MongoTypeMappingSource.cs` (lines 129–133):**
+
 ```csharp
 // Element comparer composition API changed between EF9 and EF10
 #if EF8 || EF9
@@ -170,6 +212,7 @@ public sealed class StringDictionaryComparer<TDictionary, TElement>
 ```
 
 **`src/MongoDB.EntityFrameworkCore/Storage/MongoTypeMappingSource.cs` (lines 197–209):**
+
 ```csharp
 // Dictionary comparer instantiation differs by version
 #if EF8 || EF9
@@ -193,6 +236,7 @@ public sealed class StringDictionaryComparer<TDictionary, TElement>
 EF10 introduced a dedicated `QueryParameterExpression` type. EF8/9 used `ParameterExpression` with a name-prefix string check. This pattern appears in four query files.
 
 **`src/MongoDB.EntityFrameworkCore/Query/MongoProjectionBindingExpressionVisitor.cs` (lines 85–112):**
+
 ```csharp
 #if EF8 || EF9
 case ParameterExpression parameterExpression:
@@ -212,6 +256,7 @@ case ParameterExpression parameterExpression:
 ```
 
 **`src/MongoDB.EntityFrameworkCore/Query/MongoProjectionBindingExpressionVisitor.cs` (lines 675–685):**
+
 ```csharp
 // QueryContext API: ParameterValues → Parameters
 #if EF8 || EF9
@@ -224,6 +269,7 @@ private static T GetParameterValue<T>(QueryContext queryContext, string paramete
 ```
 
 **`src/MongoDB.EntityFrameworkCore/Query/MongoShapedQueryCompilingExpressionVisitor.cs` (lines 237–241):**
+
 ```csharp
 // EF10 renamed entity materializer injection method
 #if EF8 || EF9
@@ -234,6 +280,7 @@ shaperBody = InjectStructuralTypeMaterializers(shaperBody);
 ```
 
 **`src/MongoDB.EntityFrameworkCore/Query/MongoShapedQueryCompilingExpressionVisitor.cs` (lines 621–633):**
+
 ```csharp
 #if EF8 || EF9
 if (expression is ParameterExpression param
@@ -253,6 +300,7 @@ if (expression is Microsoft.EntityFrameworkCore.Query.QueryParameterExpression q
 ### 2.5 Query: Bulk Operations (EF9 → EF10 Signature Break)
 
 **`src/MongoDB.EntityFrameworkCore/Query/MongoQueryableMethodTranslatingExpressionVisitor.cs` (lines 84–89):**
+
 ```csharp
 // ExecuteDelete/ExecuteUpdate didn't exist in EF8
 #if !EF8
@@ -262,6 +310,7 @@ if (expression is Microsoft.EntityFrameworkCore.Query.QueryParameterExpression q
 ```
 
 **`src/MongoDB.EntityFrameworkCore/Query/MongoQueryableMethodTranslatingExpressionVisitor.cs` (lines 196–246):**
+
 ```csharp
 // TranslateExecuteUpdate signature completely changed in EF10
 #if EF10
@@ -284,6 +333,7 @@ protected override Expression? TranslateExecuteUpdate(
 ### 2.6 Query: New Join Methods in EF10
 
 **`src/MongoDB.EntityFrameworkCore/Query/MongoQueryableMethodTranslatingExpressionVisitor.cs` (lines 121–130):**
+
 ```csharp
 switch (methodDefinition.Name)
 {
@@ -304,6 +354,7 @@ switch (methodDefinition.Name)
 ### 2.7 Diagnostics Telemetry
 
 **`src/MongoDB.EntityFrameworkCore/Query/QueryingEnumerable.cs` (lines 158–164):**
+
 ```csharp
 // Query telemetry API changed between EF8 and EF9+
 #if !EF8
@@ -318,6 +369,7 @@ switch (methodDefinition.Name)
 ### 2.8 Metadata: Internal Namespace Relocation
 
 **`src/MongoDB.EntityFrameworkCore/Metadata/Conventions/BsonIgnoreAttributeConvention.cs` (lines 23–26):**
+
 ```csharp
 // EF9 moved internal convention types to a new namespace
 #if EF8
@@ -327,24 +379,24 @@ using Microsoft.EntityFrameworkCore.Internal;
 #endif
 ```
 
----
+______________________________________________________________________
 
 ## Part 3: What Changes Between EF Versions (Summary)
 
 This is the full catalog of breaking API changes that required `#if` guards:
 
-| Area | EF8 → EF9 | EF9 → EF10 |
-|---|---|---|
-| **Bulk Operations** | Added `ExecuteDelete`/`ExecuteUpdate` | `TranslateExecuteUpdate` receives structured `ExecuteUpdateSetter[]` instead of a lambda |
-| **Query Parameters** | `ParameterExpression` + name prefix | `QueryParameterExpression` type; `queryContext.Parameters` (was `.ParameterValues`) |
-| **ValueComparer API** | No change | `.ToNullableComparer()` → `.ComposeConversion()` |
-| **Dictionary Comparers** | Two types (nullable + non-nullable) | One type; reversed generic params; no `readOnly` ctor param |
-| **Materializer injection** | `InjectEntityMaterializers` | `InjectStructuralTypeMaterializers` |
-| **Diagnostics telemetry** | `EventSource.Log.QueryExecuting()` | `MetricsData.ReportQueryExecuting()` |
-| **Internal namespace** | `Metadata.Internal` | `.Internal` |
-| **Join methods** | Internal only | `LeftJoin`/`RightJoin` on `Queryable` become public |
+| Area                       | EF8 → EF9                             | EF9 → EF10                                                                               |
+| -------------------------- | ------------------------------------- | ---------------------------------------------------------------------------------------- |
+| **Bulk Operations**        | Added `ExecuteDelete`/`ExecuteUpdate` | `TranslateExecuteUpdate` receives structured `ExecuteUpdateSetter[]` instead of a lambda |
+| **Query Parameters**       | `ParameterExpression` + name prefix   | `QueryParameterExpression` type; `queryContext.Parameters` (was `.ParameterValues`)      |
+| **ValueComparer API**      | No change                             | `.ToNullableComparer()` → `.ComposeConversion()`                                         |
+| **Dictionary Comparers**   | Two types (nullable + non-nullable)   | One type; reversed generic params; no `readOnly` ctor param                              |
+| **Materializer injection** | `InjectEntityMaterializers`           | `InjectStructuralTypeMaterializers`                                                      |
+| **Diagnostics telemetry**  | `EventSource.Log.QueryExecuting()`    | `MetricsData.ReportQueryExecuting()`                                                     |
+| **Internal namespace**     | `Metadata.Internal`                   | `.Internal`                                                                              |
+| **Join methods**           | Internal only                         | `LeftJoin`/`RightJoin` on `Queryable` become public                                      |
 
----
+______________________________________________________________________
 
 ## Part 4: Recommended Strategy for DynamoDB Provider
 
@@ -354,22 +406,22 @@ The DynamoDB provider uses the **same custom build-configuration approach as Mon
 
 **The one thing we do differently:** MongoDB uses custom `DefineConstants` (`EF8`, `EF9`, `EF10`) because EF8 and EF9 both target `net8.0` — the SDK can't tell them apart. The DynamoDB provider always has a 1:1 mapping (EF10 = `net10.0`, EF11 = `net11.0`), so the SDK's built-in TFM symbols (`NET10_0`, `NET11_0`) are sufficient. **No custom `DefineConstants` needed.**
 
-| | MongoDB | DynamoDB |
-|---|---|---|
-| Custom build configurations | ✓ `Debug EF8` / `Release EF8` etc. | ✓ `Debug EF10` / `Release EF10` etc. |
-| Custom `DefineConstants` | ✓ `EF8`, `EF9`, `EF10` — required (EF8+EF9 share `net8.0`) | ✗ not needed — each config has a unique TFM |
-| `#if` symbols used | `#if EF8`, `#if EF9`, `#if EF10` | `#if NET10_0`, `#if NET11_0` (built-in) |
-| Separate version lines | ✓ `v8.*`, `v9.*`, `v10.*` | ✓ `v10.*`, `v11.*` |
+|                             | MongoDB                                                    | DynamoDB                                    |
+| --------------------------- | ---------------------------------------------------------- | ------------------------------------------- |
+| Custom build configurations | ✓ `Debug EF8` / `Release EF8` etc.                         | ✓ `Debug EF10` / `Release EF10` etc.        |
+| Custom `DefineConstants`    | ✓ `EF8`, `EF9`, `EF10` — required (EF8+EF9 share `net8.0`) | ✗ not needed — each config has a unique TFM |
+| `#if` symbols used          | `#if EF8`, `#if EF9`, `#if EF10`                           | `#if NET10_0`, `#if NET11_0` (built-in)     |
+| Separate version lines      | ✓ `v8.*`, `v9.*`, `v10.*`                                  | ✓ `v10.*`, `v11.*`                          |
 
 The comparison against the currently-commented branch-per-version approach:
 
-| | Branch-per-version | Configuration-based (our approach) |
-|---|---|---|
-| **Bug fixes** | Cherry-pick to N branches | Fix once — all configurations get it |
-| **New features** | Parallel development on N branches | Single PR with `#if` guards |
-| **Code review** | Review same change N times | Review once |
-| **Merge conflicts** | Constant divergence risk | None — single source of truth |
-| **CI complexity** | N separate pipelines | Add one matrix entry per version |
+|                     | Branch-per-version                 | Configuration-based (our approach)   |
+| ------------------- | ---------------------------------- | ------------------------------------ |
+| **Bug fixes**       | Cherry-pick to N branches          | Fix once — all configurations get it |
+| **New features**    | Parallel development on N branches | Single PR with `#if` guards          |
+| **Code review**     | Review same change N times         | Review once                          |
+| **Merge conflicts** | Constant divergence risk           | None — single source of truth        |
+| **CI complexity**   | N separate pipelines               | Add one matrix entry per version     |
 
 ### 4.2 Migration Plan
 
@@ -378,6 +430,7 @@ The comparison against the currently-commented branch-per-version approach:
 The DynamoDB provider uses `ManagePackageVersionsCentrally=true`. EF Core packages need per-configuration versions, so move them out of `Directory.Packages.props` and into the provider csproj using `VersionOverride`:
 
 **`Directory.Packages.props`** — remove the EF Core entries (they'll be managed in the csproj):
+
 ```xml
 <!-- Remove these — now managed per-configuration in the provider csproj -->
 <!-- <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.8" /> -->
@@ -390,6 +443,7 @@ All other packages (AWS SDK, test packages, etc.) remain in central management u
 #### Step 2: Add build configurations to the provider csproj
 
 **`src/EntityFrameworkCore.DynamoDb/EntityFrameworkCore.DynamoDb.csproj`:**
+
 ```xml
 <Project Sdk="Microsoft.NET.Sdk">
 
@@ -510,14 +564,14 @@ internal sealed class SomeLegacyComparer<T> : ValueComparer<T>
 
 Based on MongoDB's experience, these DynamoDB provider areas are highest-risk for EF11 breaks:
 
-| Area | Files | Likely Break Pattern |
-|---|---|---|
-| **Query parameter handling** | `DynamoShapedQueryCompilingExpressionVisitor.cs` | `QueryParameterExpression` type changes; `queryContext.Parameters` API |
-| **Bulk operations** | Query translator | `TranslateExecuteUpdate` signature change (lambda → structured setters) |
-| **ValueComparer** | `ChangeTracking/*.cs` — `ListValueComparer`, `StringDictionaryValueComparer`, etc. | `.ToNullableComparer()` → `.ComposeConversion()` |
-| **Materializer injection** | `DynamoShapedQueryCompilingExpressionVisitor.cs` | Method renames (`InjectEntityMaterializers` → ...) |
-| **Diagnostics** | `Diagnostics/` | Telemetry API changes (EventSource → Metrics pattern) |
-| **Internal namespaces** | Convention classes in `Metadata/Conventions/` | Namespace relocations across EF versions |
+| Area                         | Files                                                                              | Likely Break Pattern                                                    |
+| ---------------------------- | ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| **Query parameter handling** | `DynamoShapedQueryCompilingExpressionVisitor.cs`                                   | `QueryParameterExpression` type changes; `queryContext.Parameters` API  |
+| **Bulk operations**          | Query translator                                                                   | `TranslateExecuteUpdate` signature change (lambda → structured setters) |
+| **ValueComparer**            | `ChangeTracking/*.cs` — `ListValueComparer`, `StringDictionaryValueComparer`, etc. | `.ToNullableComparer()` → `.ComposeConversion()`                        |
+| **Materializer injection**   | `DynamoShapedQueryCompilingExpressionVisitor.cs`                                   | Method renames (`InjectEntityMaterializers` → ...)                      |
+| **Diagnostics**              | `Diagnostics/`                                                                     | Telemetry API changes (EventSource → Metrics pattern)                   |
+| **Internal namespaces**      | Convention classes in `Metadata/Conventions/`                                      | Namespace relocations across EF versions                                |
 
 ### 4.4 The Killer Workflow When EF11 Ships
 
@@ -533,19 +587,20 @@ Adding EF11 support reduces to a mechanical sequence driven entirely by the comp
 
 The compiler errors from step 3 are a **complete and exact list** of required `#if` guards. No guesswork, no documentation spelunking — the compiler tells you everything that changed.
 
----
+______________________________________________________________________
 
 ## Part 5: NuGet Packaging
 
 Each build configuration produces its own `.nupkg` with its own version number. The EF10 configuration builds `EntityFrameworkCore.DynamoDb 10.x.x`; the EF11 configuration builds `EntityFrameworkCore.DynamoDb 11.x.x`. These are published as separate GitHub Releases with separate NuGet versions.
 
 Consumers install one package (`dotnet add package EntityFrameworkCore.DynamoDb`), and NuGet's dependency resolution selects the correct version based on their project's `<TargetFramework>`:
+
 - `net10.0` project → NuGet resolves `10.x.x` (the highest compatible `10.*` release)
 - `net11.0` project → NuGet resolves `11.x.x`
 
 The major version in the package version IS the EF Core compatibility signal. This is the same convention used by EF Core itself, Npgsql, Pomelo, and MongoDB's own provider.
 
----
+______________________________________________________________________
 
 ## Appendix: Quick Reference
 
@@ -606,7 +661,7 @@ internal sealed class SomeLegacyComparer<T> : ValueComparer<T>
 #endif
 ```
 
----
+______________________________________________________________________
 
 ## Part 6: CI & Release Workflow Strategy
 
@@ -614,10 +669,10 @@ internal sealed class SomeLegacyComparer<T> : ValueComparer<T>
 
 The current publishing workflows delegate to shared reusable workflows in `LayeredCraft/devops-templates`:
 
-| Caller workflow | Trigger | Shared template |
-|---|---|---|
-| `pr-build.yaml` | PR against `main` | `devops-templates/pr-build.yaml@v8.2` |
-| `publish-preview.yaml` | Push to `main` | `devops-templates/publish-preview.yml@v8.2` |
+| Caller workflow        | Trigger                  | Shared template                             |
+| ---------------------- | ------------------------ | ------------------------------------------- |
+| `pr-build.yaml`        | PR against `main`        | `devops-templates/pr-build.yaml@v8.2`       |
+| `publish-preview.yaml` | Push to `main`           | `devops-templates/publish-preview.yml@v8.2` |
 | `publish-release.yaml` | GitHub Release published | `devops-templates/publish-release.yml@v8.2` |
 
 All three shared templates hardcode `--configuration Release`:
@@ -969,6 +1024,7 @@ No changes to this file ever needed when adding a new EF version.
 Two separate config files in `.github/`, each scoped to its own tag namespace via `tag-filter`:
 
 **`.github/release-drafter-ef10.yml`:**
+
 ```yaml
 tag-template: 'v10.$MINOR.$PATCH'
 tag-filter: '^v10\.'
@@ -985,6 +1041,7 @@ categories:
 ```
 
 **`.github/release-drafter-ef11.yml`:**
+
 ```yaml
 tag-template: 'v11.$MINOR.$PATCH'
 tag-filter: '^v11\.'
@@ -1005,12 +1062,14 @@ Each drafter only considers tags in its own version namespace. On the first EF11
 ### 6.5 Complete Change Checklist When Adding EF11
 
 **`devops-templates` repo (do this first):**
+
 - [ ] Add `buildConfiguration` input (default: `Release`) + `resolve` job to `publish-release.yml`
 - [ ] Add `buildConfiguration` (default: `Release`) and `drafterConfig` (default: `release-drafter.yml`) inputs to `publish-preview.yml`
 - [ ] Add `buildConfiguration` input (default: `release`) to `pr-build.yaml`
 - [ ] Bump template version tag (e.g. `v9.0`)
 
 **DynamoDB provider — project files:**
+
 - [ ] Add `Debug EF11` / `Release EF11` configuration blocks to provider csproj (set `<TargetFramework>net11.0</TargetFramework>` only — no `DefineConstants`)
 - [ ] Add conditional EF11 `<PackageReference>` block to provider csproj
 - [ ] Add `<VersionPrefix Condition="'$(TargetFramework)' == 'net11.0'">11.0.0</VersionPrefix>` to provider csproj
@@ -1018,6 +1077,7 @@ Each drafter only considers tags in its own version namespace. On the first EF11
 - [ ] Update `global.json` — set `rollForward: latestMajor` (or pin .NET 11 SDK)
 
 **DynamoDB provider — GitHub workflows:**
+
 - [ ] Update `pr-build.yaml` — add EF11 matrix entry
 - [ ] Update `publish-preview.yaml` — add EF11 matrix entry
 - [ ] Bump devops-templates version reference in all three caller workflows (e.g. `@v8.2` → `@v9.0`)
@@ -1026,6 +1086,7 @@ Each drafter only considers tags in its own version namespace. On the first EF11
 - [ ] Remove old `.github/release-drafter.yml`
 
 **DynamoDB provider — source code:**
+
 - [ ] Run `dotnet build --configuration "Debug EF11"` — each compiler error = one required `#if` guard
 - [ ] Wrap each breaking API difference in `#if NET10_0` / `#else` / `#endif`
 - [ ] Run `dotnet test --configuration "Debug EF10"` and `dotnet test --configuration "Debug EF11"` — both must pass

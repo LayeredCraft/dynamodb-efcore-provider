@@ -37,6 +37,18 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
                 && m.GetParameters().Length == 2)
             .GetGenericMethodDefinition();
 
+    private static readonly MethodInfo EnumerableAnyMethod = typeof(Enumerable)
+        .GetMethods()
+        .Single(m => m is { Name: nameof(Enumerable.Any), IsGenericMethod: true }
+            && m.GetParameters().Length == 1)
+        .GetGenericMethodDefinition();
+
+    private static readonly MethodInfo QueryableAnyMethod = typeof(Queryable)
+        .GetMethods()
+        .Single(m => m is { Name: nameof(Queryable.Any), IsGenericMethod: true }
+            && m.GetParameters().Length == 1)
+        .GetGenericMethodDefinition();
+
     private static readonly MethodInfo StringContainsMethod =
         ((Func<string, bool>)string.Empty.Contains).Method;
 
@@ -136,6 +148,10 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
     /// <inheritdoc />
     protected override Expression VisitBinary(BinaryExpression node)
     {
+        if (node.NodeType is ExpressionType.Equal or ExpressionType.NotEqual
+            && TryTranslateGetTypeComparison(node) is { } getTypeComparison)
+            return getTypeComparison;
+
         // Translate string.Compare(a, b) OP 0 → a OP b
         if (TryTranslateStringCompare(node) is { } stringCompareResult)
             return stringCompareResult;
@@ -241,8 +257,8 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         {
             ConstantExpression => true,
             // Only allow field access — property getters may execute arbitrary user code.
-            MemberExpression { Member: System.Reflection.FieldInfo } memberExpression =>
-                IsLiteralShape(memberExpression.Expression!),
+            MemberExpression { Member: FieldInfo } memberExpression => IsLiteralShape(
+                memberExpression.Expression!),
             UnaryExpression
             {
                 NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked
@@ -277,6 +293,144 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
             return base.Visit(node);
         }
     }
+
+    /// <inheritdoc />
+    protected override Expression VisitTypeBinary(TypeBinaryExpression node)
+    {
+        if (node.NodeType != ExpressionType.TypeIs)
+            return QueryCompilationContext.NotTranslatedExpression;
+
+        return TryCreateDiscriminatorPredicate(node.Expression, node.TypeOperand, false) is
+            { } predicate
+            ? new SqlDiscriminatorPredicateExpression(predicate)
+            : QueryCompilationContext.NotTranslatedExpression;
+    }
+
+    private SqlExpression? TryTranslateGetTypeComparison(BinaryExpression node)
+    {
+        if (TryUnwrapGetTypeComparison(node.Left, node.Right, out var instance, out var type)
+            || TryUnwrapGetTypeComparison(node.Right, node.Left, out instance, out type))
+        {
+            var predicate = TryCreateDiscriminatorPredicate(instance, type, true);
+            if (predicate is null)
+                return null;
+
+            var discriminatorPredicate = new SqlDiscriminatorPredicateExpression(predicate);
+
+            return node.NodeType == ExpressionType.NotEqual
+                ? sqlExpressionFactory.Not(discriminatorPredicate)
+                : discriminatorPredicate;
+        }
+
+        return null;
+    }
+
+    private static bool TryUnwrapGetTypeComparison(
+        Expression getTypeSide,
+        Expression typeSide,
+        out Expression instance,
+        out Type type)
+    {
+        instance = null!;
+        type = null!;
+
+        getTypeSide = UnwrapConvert(getTypeSide);
+        typeSide = UnwrapConvert(typeSide);
+
+        if (getTypeSide is MethodCallExpression
+            {
+                Object: { } source,
+                Method.Name: nameof(GetType),
+                Method.DeclaringType: var declaringType,
+                Method.ReturnType: var returnType,
+                Arguments.Count: 0
+            }
+            && declaringType == typeof(object)
+            && returnType == typeof(Type)
+            && typeSide is ConstantExpression { Value: Type comparedType })
+        {
+            instance = source;
+            type = comparedType;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static Expression UnwrapConvert(Expression expression)
+    {
+        while (expression is UnaryExpression
+            {
+                NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked
+            } unaryExpression)
+            expression = unaryExpression.Operand;
+
+        return expression;
+    }
+
+    private SqlExpression? TryCreateDiscriminatorPredicate(
+        Expression source,
+        Type targetClrType,
+        bool exact)
+    {
+        var sourceEntityType = ResolveRootEntityType(source);
+        var targetEntityType = model.FindEntityType(targetClrType);
+        if (sourceEntityType is null || targetEntityType is null)
+            return null;
+
+        if (sourceEntityType.GetRootType() != targetEntityType.GetRootType())
+            return exact ? CreateFalsePredicate() : null;
+
+        var discriminatorProperty = targetEntityType.FindDiscriminatorProperty();
+        if (discriminatorProperty is null)
+            return null;
+
+        var discriminatorColumn = sqlExpressionFactory.ApplyTypeMapping(
+            sqlExpressionFactory.Property(
+                discriminatorProperty.GetAttributeName(),
+                discriminatorProperty.ClrType),
+            discriminatorProperty.GetTypeMapping());
+
+        var concreteTypes = exact
+            ? targetEntityType.ClrType.IsAbstract ? [] : [targetEntityType]
+            : targetEntityType
+                .GetConcreteDerivedTypesInclusive()
+                .Where(static entityType => !entityType.ClrType.IsAbstract);
+
+        SqlExpression? predicate = null;
+        foreach (var concreteType in concreteTypes)
+        {
+            var discriminatorValue = concreteType.GetDiscriminatorValue();
+            if (discriminatorValue is null)
+                continue;
+
+            var equals = sqlExpressionFactory.Binary(
+                ExpressionType.Equal,
+                discriminatorColumn,
+                sqlExpressionFactory.Constant(discriminatorValue, discriminatorProperty.ClrType));
+
+            if (equals is null)
+                return null;
+
+            predicate = predicate is null
+                ? equals
+                : sqlExpressionFactory.Binary(ExpressionType.OrElse, predicate, equals);
+        }
+
+        return predicate switch
+        {
+            null => CreateFalsePredicate(),
+            SqlBinaryExpression { OperatorType: ExpressionType.OrElse } =>
+                new SqlParenthesizedExpression(predicate),
+            _ => predicate
+        };
+    }
+
+    private SqlExpression CreateFalsePredicate()
+        => sqlExpressionFactory.Binary(
+            ExpressionType.Equal,
+            sqlExpressionFactory.Constant(1, typeof(int)),
+            sqlExpressionFactory.Constant(0, typeof(int)))!;
 
     /// <inheritdoc />
     protected override Expression VisitConditional(ConditionalExpression node)
@@ -626,6 +780,9 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
 
         if (IsCollectionContainsMethod(node.Method))
             return TranslateCollectionContains(node);
+
+        if (IsCollectionAnyWithoutPredicateMethod(node.Method))
+            return TranslateCollectionAny(node);
 
         if (node.Method.IsGenericMethod
             && (node.Method.GetGenericMethodDefinition() == EnumerableElementAtMethod
@@ -1055,6 +1212,15 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
     /// </summary>
     private IEntityType? ResolveRootEntityType(Expression? expression)
     {
+        if (expression is UnaryExpression
+            {
+                NodeType: ExpressionType.Convert or ExpressionType.ConvertChecked
+            } unaryExpression
+            && model.FindEntityType(unaryExpression.Type) is { } convertedEntityType)
+            return convertedEntityType;
+
+        expression = expression is null ? null : UnwrapConvert(expression);
+
         if (expression is ParameterExpression parameter && _lambdaParameterEntityTypes != null)
         {
             _lambdaParameterEntityTypes.TryGetValue(parameter, out var parameterEntityType);
@@ -1392,6 +1558,22 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         return QueryCompilationContext.NotTranslatedExpression;
     }
 
+    /// <summary>Translates primitive-collection Any() to a size check.</summary>
+    private Expression TranslateCollectionAny(MethodCallExpression node)
+    {
+        var sourceExpression = StripAsQueryable(node.Arguments.ElementAtOrDefault(0));
+        if (sourceExpression is null)
+            return QueryCompilationContext.NotTranslatedExpression;
+
+        if (TranslateInternal(sourceExpression) is not SqlExpression source)
+            return QueryCompilationContext.NotTranslatedExpression;
+
+        return sqlExpressionFactory.Binary(
+            ExpressionType.GreaterThan,
+            sqlExpressionFactory.Function("size", [source], typeof(int)),
+            sqlExpressionFactory.Constant(0, typeof(int)))!;
+    }
+
     /// <summary>Strips EF's primitive-collection queryable wrapper when present.</summary>
     private static Expression? StripAsQueryable(Expression? expression)
         => expression is MethodCallExpression
@@ -1478,6 +1660,12 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
 
         return true;
     }
+
+    /// <summary>Returns whether a method represents a primitive-collection Any() call without predicate.</summary>
+    private static bool IsCollectionAnyWithoutPredicateMethod(MethodInfo method)
+        => method.IsGenericMethod
+            && (method.GetGenericMethodDefinition() == EnumerableAnyMethod
+                || method.GetGenericMethodDefinition() == QueryableAnyMethod);
 
     /// <summary>Returns whether a method represents an in-memory collection Contains call.</summary>
     private static bool IsCollectionContainsMethod(MethodInfo method)

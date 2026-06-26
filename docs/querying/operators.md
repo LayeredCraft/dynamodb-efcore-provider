@@ -32,6 +32,7 @@ _This page is the authoritative reference for which LINQ operators translate to 
 | `string.Length`                                       | `size(attr)`                                   | DynamoDB `size` semantics; for strings, use with care when non-ASCII text matters                                                                                                                                                                                                     |
 | `string.IsNullOrEmpty(s)`                             | `attr IS NULL OR attr IS MISSING OR attr = ''` | Matches DynamoDB `NULL`, missing attributes, or empty string                                                                                                                                                                                                                          |
 | `collection.Contains(prop)`                           | `prop IN [?, ...]`                             | In-memory collection membership; max 50 PK values, 100 non-key values                                                                                                                                                                                                                 |
+| `OfType<TDerived>()`                                  | discriminator predicate                        | TPH inheritance only; filters by concrete discriminator values for the requested derived type. `x is TDerived` translates when the target type can be expressed as discriminator values. `x.GetType() == typeof(TConcrete)` translates only for exact concrete mapped entity types.   |
 
 ## Projection Operators
 
@@ -105,7 +106,7 @@ The following operators are not supported and throw `InvalidOperationException` 
 | Joins                 | `Join`, `GroupJoin`, `SelectMany`, `LeftJoin`, `RightJoin`, `DefaultIfEmpty` | DynamoDB does not support cross-item joins                                                      |
 | Set operations        | `Union`, `Concat`, `Except`, `Intersect`                                     | Not supported                                                                                   |
 | Conditional filtering | `SkipWhile`, `TakeWhile`                                                     | Not supported                                                                                   |
-| Type filtering        | `OfType<T>`, `Cast<T>`                                                       | Not supported                                                                                   |
+| Type casting          | `Cast<T>`                                                                    | Not supported; use TPH inheritance queries with `OfType<TDerived>()` for type filtering         |
 
 ## Scalar Type Support
 

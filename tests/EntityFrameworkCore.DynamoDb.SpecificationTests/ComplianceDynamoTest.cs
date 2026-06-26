@@ -4,6 +4,9 @@ using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.Associations.ComplexProperties;
 using Microsoft.EntityFrameworkCore.Query.Translations;
 using Microsoft.EntityFrameworkCore.Query.Translations.Operators;
+#if NET11_0_OR_GREATER
+using Microsoft.EntityFrameworkCore.Query.Inheritance;
+#endif
 
 namespace EntityFrameworkCore.DynamoDb.SpecificationTests;
 
@@ -26,6 +29,7 @@ public sealed class ComplianceDynamoTest : ComplianceTestBase
         yield return typeof(FindTestBase<>);
         yield return typeof(EnumTranslationsTestBase<>);
         yield return typeof(GuidTranslationsTestBase<>);
+        yield return typeof(InheritanceQueryTestBase<>);
         yield return typeof(StringTranslationsTestBase<>);
         yield return typeof(KeysWithConvertersTestBase<>);
         yield return typeof(LoggingTestBase);

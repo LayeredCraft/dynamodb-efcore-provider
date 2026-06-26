@@ -247,10 +247,34 @@ For key-shape examples, continue with [Practical single-table pattern](#practica
 Base queries materialize polymorphically (`DbSet<Person>` can return `Employee` and `Manager`).
 When discrimination is active, the discriminator attribute is included in projection.
 
-### `OfType<TDerived>()` limitation
+### Type filtering
 
-`Queryable.OfType<TDerived>()` is not currently translated by the provider.
-Query derived sets directly (for example `context.Employees`) instead.
+`Queryable.OfType<TDerived>()` translates to a discriminator predicate for TPH hierarchies:
+
+```csharp
+context.People
+    .OfType<Employee>()
+    .Where(x => x.Pk == "TENANT#1")
+    .ToListAsync();
+```
+
+Type tests in predicates also translate when they can be expressed as discriminator checks:
+
+```csharp
+context.People.Where(x => x is Manager);
+context.People.Where(x => x.GetType() == typeof(Employee));
+```
+
+`GetType()` comparisons are exact-type checks. Use them for concrete mapped leaf types, such
+as `Employee` in the example above. For base or intermediate type matching, use `is` or
+`OfType<T>()`.
+
+When `HasNoDiscriminator()` disables discrimination for a shared-table group, derived
+`OfType<T>()`, `is`, and `GetType()` type filters cannot be translated to server-side type
+predicates. Use key predicates or query the concrete `DbSet` directly when your PK/SK pattern
+already isolates types.
+
+`Cast<T>()` is not translated.
 
 !!! tip "Index selection with inheritance/shared-table queries"
 

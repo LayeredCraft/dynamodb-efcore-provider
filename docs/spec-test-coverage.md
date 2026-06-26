@@ -166,16 +166,16 @@ These tests use non-Northwind models and fixtures.
 
 ### Implemented
 
-| Test Class                 | Methods | Cosmos | MongoDB | Notes                                                                                                                                                                                                                                                                       |
-| -------------------------- | ------: | :----: | :-----: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ComplexTypeQueryTestBase` |      74 |   ✓    |    ✗    | All inherited methods are registered/overridden with explicit outcomes; supported projection/filter, nested struct projection, and complex equality subsets execute, while navigation, set-operation, GroupBy, subquery/Contains, and pushdown cases are explicitly skipped |
+| Test Class                 | Methods | Cosmos | MongoDB | Notes                                                                                                                                                                                                                                                                                                                                                                     |
+| -------------------------- | ------: | :----: | :-----: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ComplexTypeQueryTestBase` |      74 |   ✓    |    ✗    | All inherited methods are registered/overridden with explicit outcomes; supported projection/filter, nested struct projection, and complex equality subsets execute, while navigation, set-operation, GroupBy, subquery/Contains, and pushdown cases are explicitly skipped                                                                                               |
+| `InheritanceQueryTestBase` |      52 |   ✓    |    ✗    | Single-table inheritance with discriminator predicates is covered, including `OfType`, `is`, `GetType()` leaf checks, derived-property filters, and discriminator projections. Skips remain for keyless views, navigations/includes, transactions, set operations, non-key ordered result assumptions, scan-like `Single`, and a few unsupported projection/query shapes. |
 
 ### Future
 
 | Test Class                                   | Methods | Cosmos | MongoDB | Feasibility | Rationale                                                                                                               |
 | -------------------------------------------- | ------: | :----: | :-----: | ----------: | ----------------------------------------------------------------------------------------------------------------------- |
 | `AdHocComplexTypeQueryTestBase`              |      13 |   ✓    |    ✗    |        ~65% | Ad-hoc complex type query scenarios; same fixture dependency                                                            |
-| `InheritanceQueryTestBase`                   |      52 |   ✓    |    ✗    |        ~60% | Single-table inheritance with discriminator; DynamoDB has discriminator support                                         |
 | `FiltersInheritanceQueryTestBase`            |      11 |   ✗    |    ✗    |        ~55% | Query filters on inherited types                                                                                        |
 | `FunkyDataQueryTestBase`                     |      19 |   ✗    |    ✗    |        ~60% | Edge-case strings (null chars, Unicode, SQL injection chars); WHERE translation should handle these                     |
 | `PrimitiveCollectionsQueryTestBase`          |     156 |   ✓    |    ✗    |        ~50% | DynamoDB LIST/SET attribute querying; PartiQL supports `CONTAINS` on lists; complex collection operations not supported |
@@ -316,7 +316,7 @@ ______________________________________________________________________
 | Non-Query (top-level) | 18 classes / 356 methods |              — |  4 classes / 410 methods | 21 classes / 1,058 methods |
 | BulkUpdates           |                        — |              — | 5 classes / 135+ methods |       1 class / 33 methods |
 | Northwind Query       |  8 classes / 458 methods |              — |    1 class / 469 methods |  13 classes / 929+ methods |
-| Other Query           |     1 class / 74 methods |              — | 10 classes / 381 methods | 18 classes / 1,691 methods |
+| Other Query           |  2 classes / 126 methods |              — |  9 classes / 329 methods | 18 classes / 1,691 methods |
 | Associations          |   3 classes / 42 methods |              — |    2 classes / 4 methods | 13+ classes / 123+ methods |
 | Translations          |  5 classes / 134 methods |              — |  8 classes / 162 methods |     3 classes / 25 methods |
 
@@ -351,6 +351,7 @@ This list records recently completed additions; authoritative implemented/not-im
 21. `StringTranslationsDynamoTest` — 100 methods
 22. `ComplexPropertiesStructuralEqualityDynamoTest` — 16 methods
 23. `ComplexPropertiesProjectionDynamoTest` — 20 methods
+24. `InheritanceQueryDynamoTest` — 52 methods
 
 ### Near-term (small, high confidence)
 
@@ -362,16 +363,15 @@ No medium-term specification test classes are currently queued here.
 
 ### Long-term (after core coverage is stable)
 
-1. `InheritanceQueryDynamoTest` — blocked on `OfType`, `is`/`GetType()` discriminator translation, and fixture work
-2. `PrimitiveCollectionsQueryDynamoTest`
-3. `BulkUpdates` family — blocked on `ExecuteUpdate`/`ExecuteDelete`
-4. Remaining translation tests (Math, ByteArray)
+1. `PrimitiveCollectionsQueryDynamoTest`
+2. `BulkUpdates` family — blocked on `ExecuteUpdate`/`ExecuteDelete`
+3. Remaining translation tests (Math, ByteArray)
 
 ### Current totals
 
 | Status         | Classes | Methods |
 | -------------- | ------: | ------: |
-| Implemented    |      35 |   1,064 |
+| Implemented    |      36 |   1,116 |
 | Implement Next |       0 |       0 |
-| Future         |      30 |  1,561+ |
+| Future         |      29 |  1,509+ |
 | Skip           |     69+ |  3,859+ |
