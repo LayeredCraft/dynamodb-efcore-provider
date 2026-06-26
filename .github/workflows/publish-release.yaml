@@ -4,14 +4,26 @@ on:
   release:
     types: [published]
 
-permissions: write-all
+permissions:
+  contents: write
 
 jobs:
-  publish:
-    uses: LayeredCraft/devops-templates/.github/workflows/publish-release.yml@v9.0
+  build:
+    uses: LayeredCraft/devops-templates/.github/workflows/publish-release.yml@v10.0
     with:
       solution: EntityFrameworkCore.DynamoDb.slnx
       dotnetVersion: "10.0.x"   # fallback only — overridden when buildConfiguration=auto
       buildConfiguration: auto
       hasTests: true
     secrets: inherit
+
+  push:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: LayeredCraft/devops-templates/.github/actions/nuget-push@v10.0
+        with:
+          nuget_user: ${{ secrets.NUGET_USER }}
