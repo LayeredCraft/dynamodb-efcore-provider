@@ -17,7 +17,7 @@ public class NotOperatorTests(DynamoContainerFixture fixture) : SimpleTableTestF
 
         AssertSql(
             """
-            SELECT "pk", "boolValue", "dateOnlyValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableDateTimeOffsetValue", "nullableIntValue", "nullableStringValue", "stringValue", "timeOnlyValue", "timeSpanValue"
+            SELECT "pk", "$type", "boolValue", "dateOnlyValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableDateTimeOffsetValue", "nullableIntValue", "nullableStringValue", "stringValue", "timeOnlyValue", "timeSpanValue"
             FROM "SimpleItems"
             WHERE NOT ("boolValue" = TRUE)
             """);
@@ -38,7 +38,7 @@ public class NotOperatorTests(DynamoContainerFixture fixture) : SimpleTableTestF
 
         AssertSql(
             """
-            SELECT "pk", "boolValue", "dateOnlyValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableDateTimeOffsetValue", "nullableIntValue", "nullableStringValue", "stringValue", "timeOnlyValue", "timeSpanValue"
+            SELECT "pk", "$type", "boolValue", "dateOnlyValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableDateTimeOffsetValue", "nullableIntValue", "nullableStringValue", "stringValue", "timeOnlyValue", "timeSpanValue"
             FROM "SimpleItems"
             WHERE NOT ("boolValue" = TRUE AND "intValue" > 50)
             """);

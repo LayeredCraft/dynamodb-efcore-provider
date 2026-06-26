@@ -65,7 +65,7 @@ public class OrderByTests(DynamoContainerFixture fixture) : PkSkTableTestFixture
 
         AssertSql(
             """
-            SELECT "pk", "sk", "category", "isTarget"
+            SELECT "pk", "sk", "$type", "category", "isTarget"
             FROM "PkSkItems"
             WHERE "pk" = 'P#1'
             ORDER BY "sk" ASC
@@ -97,7 +97,7 @@ public class OrderByTests(DynamoContainerFixture fixture) : PkSkTableTestFixture
 
         AssertSql(
             """
-            SELECT "pk", "sk", "category", "isTarget"
+            SELECT "pk", "sk", "$type", "category", "isTarget"
             FROM "PkSkItems"
             WHERE "pk" = 'P#1'
             ORDER BY "sk" DESC
@@ -127,7 +127,7 @@ public class OrderByTests(DynamoContainerFixture fixture) : PkSkTableTestFixture
 
         AssertSql(
             """
-            SELECT "pk", "sk", "category", "isTarget"
+            SELECT "pk", "sk", "$type", "category", "isTarget"
             FROM "PkSkItems"
             WHERE "pk" = 'P#1'
             ORDER BY "pk" ASC
@@ -158,7 +158,7 @@ public class OrderByTests(DynamoContainerFixture fixture) : PkSkTableTestFixture
 
         AssertSql(
             """
-            SELECT "pk", "sk", "category", "isTarget"
+            SELECT "pk", "sk", "$type", "category", "isTarget"
             FROM "PkSkItems"
             WHERE "pk" = 'P#1'
             ORDER BY "pk" ASC, "sk" ASC
@@ -192,7 +192,7 @@ public class OrderByTests(DynamoContainerFixture fixture) : PkSkTableTestFixture
 
         AssertSql(
             """
-            SELECT "pk", "sk", "category", "isTarget"
+            SELECT "pk", "sk", "$type", "category", "isTarget"
             FROM "PkSkItems"
             WHERE "pk" = 'P#1'
             ORDER BY "pk" DESC, "sk" DESC
@@ -230,7 +230,7 @@ public class OrderByTests(DynamoContainerFixture fixture) : PkSkTableTestFixture
 
         AssertSql(
             """
-            SELECT "pk", "sk", "category", "isTarget"
+            SELECT "pk", "sk", "$type", "category", "isTarget"
             FROM "PkSkItems"
             WHERE "pk" IN [?, ?]
             ORDER BY "pk" ASC, "sk" ASC
@@ -266,7 +266,7 @@ public class OrderByTests(DynamoContainerFixture fixture) : PkSkTableTestFixture
 
         AssertSql(
             """
-            SELECT "pk", "sk", "category", "isTarget"
+            SELECT "pk", "sk", "$type", "category", "isTarget"
             FROM "PkSkItems"
             WHERE "pk" IN [?, ?]
             ORDER BY "pk" DESC, "sk" DESC

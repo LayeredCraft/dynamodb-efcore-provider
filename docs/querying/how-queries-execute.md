@@ -82,7 +82,7 @@ var partiQl = db.Orders
     .ToQueryString();
 
 // -- p0='CUSTOMER#123'
-// SELECT "pk", "sk", "total"
+// SELECT "pk", "sk", "$type", "total"
 // FROM "Orders"
 // WHERE "CustomerId" = ?
 ```

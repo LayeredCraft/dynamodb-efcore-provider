@@ -21,6 +21,7 @@ internal static partial class SimpleItemMapper
 
     private static void AfterToItem(SimpleItem source, Dictionary<string, AttributeValue> item)
     {
+        item["$type"] = new AttributeValue { S = nameof(SimpleItem) };
         item["dateOnlyValue"] =
             new AttributeValue { S = source.DateOnlyValue.ToString("yyyy-MM-dd") };
         item["timeOnlyValue"] =

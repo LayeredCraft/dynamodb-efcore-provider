@@ -15,4 +15,7 @@ internal static partial class PkSkItemMapper
 
     internal static List<PkSkItem> FromItems(List<Dictionary<string, AttributeValue>> items)
         => items.Select(FromItem).ToList();
+
+    private static void AfterToItem(PkSkItem source, Dictionary<string, AttributeValue> item)
+        => item["$type"] = new AttributeValue { S = nameof(PkSkItem) };
 }

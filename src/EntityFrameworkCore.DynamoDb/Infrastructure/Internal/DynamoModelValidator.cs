@@ -577,8 +577,7 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
         => entityType[DynamoAnnotationNames.DiscriminatorDisabled] as bool? == true;
 
     /// <summary>
-    ///     Validates that the shared-table discriminator attribute does not collide with PK/SK
-    ///     attributes.
+    ///     Validates that the discriminator attribute does not collide with PK/SK attributes.
     /// </summary>
     private static void ValidateDiscriminatorKeyNameCollisions(
         string tableName,
@@ -594,7 +593,7 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
                 discriminatorAttributeName,
                 StringComparison.Ordinal))
                 throw new InvalidOperationException(
-                    $"Entity type '{entityType.DisplayName()}' is mapped to shared DynamoDB table '{tableName}' and uses discriminator attribute name '{discriminatorAttributeName}', "
+                    $"Entity type '{entityType.DisplayName()}' is mapped to DynamoDB table '{tableName}' and uses discriminator attribute name '{discriminatorAttributeName}', "
                     + "which collides with the partition key attribute name. Discriminator attributes must not reuse PK attribute names.");
 
             var sortKeyAttributeName = entityType.GetSortKeyProperty()?.GetAttributeName();
@@ -603,7 +602,7 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
                 discriminatorAttributeName,
                 StringComparison.Ordinal))
                 throw new InvalidOperationException(
-                    $"Entity type '{entityType.DisplayName()}' is mapped to shared DynamoDB table '{tableName}' and uses discriminator attribute name '{discriminatorAttributeName}', "
+                    $"Entity type '{entityType.DisplayName()}' is mapped to DynamoDB table '{tableName}' and uses discriminator attribute name '{discriminatorAttributeName}', "
                     + "which collides with the sort key attribute name. Discriminator attributes must not reuse SK attribute names.");
         }
     }

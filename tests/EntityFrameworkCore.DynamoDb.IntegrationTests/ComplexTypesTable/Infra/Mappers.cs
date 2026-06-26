@@ -15,4 +15,9 @@ internal static partial class ComplexTypesItemMapper
 
     internal static List<ComplexShapeItem> FromItems(List<Dictionary<string, AttributeValue>> items)
         => items.Select(FromItem).ToList();
+
+    private static void AfterToItem(
+        ComplexShapeItem source,
+        Dictionary<string, AttributeValue> item)
+        => item["$type"] = new AttributeValue { S = nameof(ComplexShapeItem) };
 }

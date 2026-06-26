@@ -37,7 +37,7 @@ public class ConventionOnlyDiscoveryTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "orderSnapshots", "orders", "profile"
+            SELECT "pk", "$type", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "orderSnapshots", "orders", "profile"
             FROM "ComplexTypesItems"
             """);
     }
@@ -57,7 +57,7 @@ public class ConventionOnlyDiscoveryTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "orderSnapshots", "orders", "profile"
+            SELECT "pk", "$type", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "orderSnapshots", "orders", "profile"
             FROM "ComplexTypesItems"
             WHERE "profile"."displayName" = 'Ada'
             """);
