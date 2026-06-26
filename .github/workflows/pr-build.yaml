@@ -19,7 +19,7 @@ jobs:
             dotnetVersion: "10.0.x"
           - configuration: "Debug EF11"
             dotnetVersion: "11.0.x"
-    uses: LayeredCraft/devops-templates/.github/workflows/pr-build.yaml@v10.0
+    uses: LayeredCraft/devops-templates/.github/workflows/pr-build.yaml@v10.1
     with:
       solution: EntityFrameworkCore.DynamoDb.slnx
       hasTests: true
