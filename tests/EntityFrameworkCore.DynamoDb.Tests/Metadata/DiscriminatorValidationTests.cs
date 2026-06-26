@@ -281,6 +281,22 @@ public class DiscriminatorValidationTests
             => new(BuildOptions<SingleTypeValidContext>(client));
     }
 
+    private sealed class SingleTypeHasNoDiscriminatorContext(DbContextOptions options) : DbContext(
+        options)
+    {
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<UserEntity>(b =>
+            {
+                b.ToTable("Users");
+                b.HasPartitionKey(x => x.PK);
+                b.HasSortKey(x => x.SK);
+                b.HasNoDiscriminator();
+            });
+
+        public static SingleTypeHasNoDiscriminatorContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<SingleTypeHasNoDiscriminatorContext>(client));
+    }
+
     private sealed class SingleTypeMissingDiscriminatorValueContext(DbContextOptions options)
         : DbContext(options)
     {
@@ -467,6 +483,17 @@ public class DiscriminatorValidationTests
     {
         var client = MockClient();
         using var context = SingleTypeValidContext.Create(client);
+
+        var act = () => context.Model;
+
+        act.Should().NotThrow();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void SingleType_WithHasNoDiscriminator_IsValid()
+    {
+        var client = MockClient();
+        using var context = SingleTypeHasNoDiscriminatorContext.Create(client);
 
         var act = () => context.Model;
 

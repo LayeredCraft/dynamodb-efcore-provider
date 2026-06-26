@@ -402,8 +402,8 @@ validated at startup:
 
 - Discriminator values must be unique within the table group.
 - All entity types in the group must use the same discriminator attribute name.
-- The discriminator attribute name must not collide with the partition key or sort key attribute
-    names.
+- The discriminator attribute name must not collide with any mapped property attribute name
+    (partition key, sort key, or regular properties).
 
 The default discriminator attribute name is `$type`. Existing tables without this attribute must be
 backfilled or mapped with `HasNoDiscriminator()`.
