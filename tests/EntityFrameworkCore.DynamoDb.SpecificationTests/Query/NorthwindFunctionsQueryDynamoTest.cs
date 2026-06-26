@@ -56,7 +56,7 @@ public abstract class NorthwindFunctionsQueryDynamoTest
                 await base.Static_equals_nullable_datetime_compared_to_non_nullable(a);
                 AssertSql(
                     """
-                    SELECT "orderID", "customerID", "employeeID", "orderDate"
+                    SELECT "orderID", "$type", "customerID", "employeeID", "orderDate"
                     FROM "Orders"
                     WHERE "orderDate" = ?
                     """);

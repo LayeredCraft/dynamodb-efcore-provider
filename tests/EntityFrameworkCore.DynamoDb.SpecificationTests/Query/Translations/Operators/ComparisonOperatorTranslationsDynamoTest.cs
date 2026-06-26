@@ -22,7 +22,7 @@ public abstract class ComparisonOperatorTranslationsDynamoTest
 
         AssertSql(
             """
-            SELECT "id", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
+            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
             FROM "BasicTypesEntity"
             WHERE "int" = 8
             """);
@@ -34,7 +34,7 @@ public abstract class ComparisonOperatorTranslationsDynamoTest
 
         AssertSql(
             """
-            SELECT "id", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
+            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
             FROM "BasicTypesEntity"
             WHERE "int" <> 8
             """);
@@ -46,7 +46,7 @@ public abstract class ComparisonOperatorTranslationsDynamoTest
 
         AssertSql(
             """
-            SELECT "id", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
+            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
             FROM "BasicTypesEntity"
             WHERE "int" > 8
             """);
@@ -58,7 +58,7 @@ public abstract class ComparisonOperatorTranslationsDynamoTest
 
         AssertSql(
             """
-            SELECT "id", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
+            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
             FROM "BasicTypesEntity"
             WHERE "int" >= 8
             """);
@@ -70,7 +70,7 @@ public abstract class ComparisonOperatorTranslationsDynamoTest
 
         AssertSql(
             """
-            SELECT "id", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
+            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
             FROM "BasicTypesEntity"
             WHERE "int" < 8
             """);
@@ -82,7 +82,7 @@ public abstract class ComparisonOperatorTranslationsDynamoTest
 
         AssertSql(
             """
-            SELECT "id", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
+            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
             FROM "BasicTypesEntity"
             WHERE "int" <= 8
             """);

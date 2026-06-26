@@ -27,7 +27,7 @@ public abstract class NorthwindAsNoTrackingQueryDynamoTest
                 await base.Entity_not_added_to_state_manager(useParam, a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     """);
             });
@@ -91,7 +91,7 @@ public abstract class NorthwindAsNoTrackingQueryDynamoTest
                 await base.Where_simple_shadow(a);
                 AssertSql(
                     """
-                    SELECT "employeeID", "city", "country", "firstName", "reportsTo", "title"
+                    SELECT "employeeID", "$type", "city", "country", "firstName", "reportsTo", "title"
                     FROM "Employees"
                     WHERE "title" = 'Sales Representative'
                     """);
@@ -105,7 +105,7 @@ public abstract class NorthwindAsNoTrackingQueryDynamoTest
                 await base.Query_fast_path_when_ctor_binding(a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     """);
             });
