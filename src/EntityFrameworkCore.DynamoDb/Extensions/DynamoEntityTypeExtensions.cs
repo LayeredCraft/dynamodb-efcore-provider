@@ -43,7 +43,7 @@ public static class DynamoEntityTypeExtensions
                 DynamoAnnotationNames.SortKeyPropertyName,
                 name.NullButNotEmpty());
 
-        /// <summary>Sets the discriminator strategy used for DynamoDB shared-table mappings.</summary>
+        /// <summary>Sets the discriminator strategy used for DynamoDB entity type metadata.</summary>
         /// <param name="strategy">
         ///     The strategy to apply, or <see langword="null" /> to clear the explicit setting.
         /// </param>
@@ -139,7 +139,7 @@ public static class DynamoEntityTypeExtensions
             return name is not null ? entityType.FindProperty(name) : null;
         }
 
-        /// <summary>Gets the configured discriminator strategy for DynamoDB shared-table mappings.</summary>
+        /// <summary>Gets the configured discriminator strategy for DynamoDB entity type metadata.</summary>
         /// <returns>
         ///     The configured strategy when present; otherwise
         ///     <c>DynamoDiscriminatorStrategy.Attribute</c>.
@@ -201,7 +201,7 @@ public static class DynamoEntityTypeExtensions
             return name is not null ? entityType.FindProperty(name) : null;
         }
 
-        /// <summary>Gets the configured discriminator strategy for DynamoDB shared-table mappings.</summary>
+        /// <summary>Gets the configured discriminator strategy for DynamoDB entity type metadata.</summary>
         /// <returns>
         ///     The configured strategy when present; otherwise
         ///     <c>DynamoDiscriminatorStrategy.Attribute</c>.
@@ -305,7 +305,7 @@ public static class DynamoEntityTypeExtensions
                 ?.GetConfigurationSource();
 
         /// <summary>
-        ///     Sets the discriminator strategy used for DynamoDB shared-table mappings at the given
+        ///     Sets the discriminator strategy used for DynamoDB entity type metadata at the given
         ///     configuration source.
         /// </summary>
         /// <param name="strategy">

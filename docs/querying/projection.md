@@ -12,9 +12,9 @@ _`Select` expressions translate to an explicit PartiQL column list; projections 
 Three projection shapes are supported: entity, scalar, and DTO/anonymous.
 
 ```csharp
-// Entity projection — all mapped properties are selected
+// Entity projection — all mapped properties and required shadow properties are selected
 var orders = await db.Orders.ToListAsync(cancellationToken);
-// SELECT "OrderId", "CustomerId", "Status", "Total", "CreatedAt" FROM "Orders"
+// SELECT "OrderId", "$type", "CustomerId", "Status", "Total", "CreatedAt" FROM "Orders"
 
 // Scalar projection — single column
 var ids = await db.Orders.Select(o => o.OrderId).ToListAsync(cancellationToken);
