@@ -117,16 +117,14 @@ Use this sequence when introducing a new entity type into a shared table:
 
 ### Default behavior
 
-When a shared-table group contains two or more concrete types, the provider configures a
-discriminator automatically.
+The provider configures a discriminator automatically for every mapped entity type, including
+single-type tables. This keeps query filtering and materialization behavior consistent as models grow
+from one type to shared-table or inheritance mappings.
 
 Defaults:
 
 - Attribute name: `$type`
 - Attribute value per type: entity short name (for example `"User"`, `"Order"`, `"Manager"`)
-
-When a shared-table group resolves to exactly one concrete type, a discriminator is not persisted
-for that group.
 
 ### Change discriminator attribute name
 
@@ -136,9 +134,10 @@ Use a model-level override:
 modelBuilder.HasEmbeddedDiscriminatorName("$kind");
 ```
 
-### Disable discriminators for a shared table
+### Disable discriminators
 
-If your key design already guarantees type isolation, you can disable discriminator filtering:
+If your key design already guarantees type isolation, or you need to map existing items without a
+`$type` attribute, you can disable discriminator filtering:
 
 ```csharp
 modelBuilder.Entity<User>(b =>
@@ -150,8 +149,8 @@ modelBuilder.Entity<User>(b =>
 });
 ```
 
-Calling `HasNoDiscriminator()` on any root entity in a shared-table group disables discrimination
-for the entire group.
+Calling `HasNoDiscriminator()` on any root entity in a table group disables discrimination for the
+entire group.
 
 !!! warning "Disabling discriminators removes type predicates"
 
@@ -408,7 +407,7 @@ item shapes even when the EF model itself is valid.
 
 ### Keep or disable discriminator?
 
-- Keep enabled (recommended): when shared partitions can contain multiple CLR types for the same
+- Keep enabled (recommended): default behavior, and required when shared partitions can contain multiple CLR types for the same
     query path
 - Consider disabling: only when PK/SK patterns guarantee mutually exclusive type reads and you
     deliberately want no type predicate injection

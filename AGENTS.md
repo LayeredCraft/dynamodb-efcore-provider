@@ -42,6 +42,8 @@ execution.
   `dotnet remove package`, etc.); do not hand-edit package references unless the CLI cannot express
   the needed change.
 - Run tests through the .NET test MCP server whenever available.
+- Before returning testing results for any code change, run both EF-version suites:
+  `task test:ef10` and `task test:ef11`.
 - Unit test project:
   `tests/EntityFrameworkCore.DynamoDb.Tests/EntityFrameworkCore.DynamoDb.Tests.csproj`
 - Integration test project:

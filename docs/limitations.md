@@ -394,22 +394,19 @@ update the token value before calling `SaveChangesAsync`.
 `IsRowVersion()` and `ValueGenerated.OnAddOrUpdate` throw during model validation because the
 provider cannot guarantee auto-increment semantics on DynamoDB item writes.
 
-### Shared-Table Discriminator Constraints
+### Discriminator Constraints
 
-When multiple entity types share the same DynamoDB table, discriminator metadata is required only
-when the provider needs server-side type discrimination or type filtering. `HasNoDiscriminator()`
-can disable discriminator metadata for a shared-table group when your key design already isolates
-entity types. With discriminator metadata disabled, derived `OfType<T>()`, `is`, and `GetType()`
-type filters cannot be translated.
-
-When discriminator metadata is enabled, the following constraints are validated at startup:
+A discriminator is configured by default for every mapped entity type. Shared-table mappings and
+inheritance rely on it for type-safe filtering and materialization. The following constraints are
+validated at startup:
 
 - Discriminator values must be unique within the table group.
 - All entity types in the group must use the same discriminator attribute name.
-- The discriminator attribute name must not collide with the partition key or sort key attribute
-    names.
+- The discriminator attribute name must not collide with any mapped property attribute name
+    (partition key, sort key, or regular properties).
 
-The default discriminator attribute name is `$type`.
+The default discriminator attribute name is `$type`. Existing tables without this attribute must be
+backfilled or mapped with `HasNoDiscriminator()`.
 
 See [Single-Table Design](modeling/single-table-design.md).
 

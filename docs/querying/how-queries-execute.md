@@ -12,7 +12,7 @@ _The provider compiles LINQ expressions into PartiQL `SELECT` statements and exe
 When you execute a LINQ query, the provider runs it through a multi-stage compilation pipeline before any network call is made:
 
 1. **`DynamoQueryableMethodTranslatingExpressionVisitor`** walks the LINQ expression tree and builds a `SelectExpression` — an internal query model representing the projected columns, `WHERE` predicate, `ORDER BY` orderings, and evaluation limit.
-2. **`DynamoQueryTranslationPostprocessor`** finalizes the `SelectExpression`: it injects discriminator predicates for shared-table entity types and runs index selection analysis to determine whether a GSI or LSI should be used.
+2. **`DynamoQueryTranslationPostprocessor`** finalizes the `SelectExpression`: it applies discriminator predicates when shared-table, inheritance, or multi-concrete table groups need type filtering, and runs index selection analysis to determine whether a GSI or LSI should be used.
 3. **`DynamoQuerySqlGenerator`** converts the `SelectExpression` into a PartiQL `SELECT` statement with positional `?` placeholders and a matching `AttributeValue` parameter list.
 
 `FindAsync` uses EF Core's normal entity-finder path. It checks the change tracker first; if the
@@ -82,7 +82,7 @@ var partiQl = db.Orders
     .ToQueryString();
 
 // -- p0='CUSTOMER#123'
-// SELECT "pk", "sk", "total"
+// SELECT "pk", "sk", "$type", "total"
 // FROM "Orders"
 // WHERE "CustomerId" = ?
 ```

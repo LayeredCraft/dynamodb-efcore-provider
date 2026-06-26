@@ -19,4 +19,9 @@ internal static partial class PrimitiveCollectionsItemMapper
 
     internal static partial PrimitiveCollectionsItem FromItem(
         Dictionary<string, AttributeValue> item);
+
+    private static void AfterToItem(
+        PrimitiveCollectionsItem source,
+        Dictionary<string, AttributeValue> item)
+        => item["$type"] = new AttributeValue { S = nameof(PrimitiveCollectionsItem) };
 }

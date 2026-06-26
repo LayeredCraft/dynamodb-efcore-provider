@@ -20,7 +20,7 @@ public abstract class GuidTranslationsDynamoTest
 
         AssertSql(
             """
-            SELECT "id", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
+            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
             FROM "BasicTypesEntity"
             WHERE "guid" = 'df36f493-463f-4123-83f9-6b135deeb7ba'
             """);
@@ -32,7 +32,7 @@ public abstract class GuidTranslationsDynamoTest
 
         AssertSql(
             """
-            SELECT "id", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
+            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
             FROM "BasicTypesEntity"
             WHERE "guid" = ?
             """);

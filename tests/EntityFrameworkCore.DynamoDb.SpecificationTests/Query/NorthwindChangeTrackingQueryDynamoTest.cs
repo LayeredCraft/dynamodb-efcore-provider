@@ -13,12 +13,12 @@ public abstract class NorthwindChangeTrackingQueryDynamoTest
     : NorthwindChangeTrackingQueryTestBase<NorthwindQueryDynamoFixture<NoopModelCustomizer>>
 {
     private const string CustomersSql = """
-                                        SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                                        SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                                         FROM "Customers"
                                         """;
 
     private const string EmployeesSql = """
-                                        SELECT "employeeID", "city", "country", "firstName", "reportsTo", "title"
+                                        SELECT "employeeID", "$type", "city", "country", "firstName", "reportsTo", "title"
                                         FROM "Employees"
                                         """;
 

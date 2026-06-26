@@ -282,18 +282,18 @@ In practice, this means a `Limit(n)` query evaluates `n` items and then applies 
 
 The provider never silently drops a `WHERE` predicate. Every condition you write is sent to DynamoDB; there is no implicit server-side stripping of unsupported filter shapes.
 
-## Discriminator Filtering (Single-Table Design)
+## Discriminator Filtering
 
-When multiple entity types share a single DynamoDB table, the provider automatically injects a discriminator predicate into every query on that entity type. The discriminator predicate composes with any user-supplied `Where` clause using `AND`.
+The provider configures, projects, and persists discriminator attributes by default. It adds discriminator predicates only when a shared-table or inheritance group has multiple concrete types and the query needs type filtering. Those predicates compose with any user-supplied `Where` clause using `AND`.
 
 ```sql
--- DbSet<OrderEntity> on a shared table
+-- DbSet<OrderEntity>
 SELECT "Pk", "Sk", "Total", "$type"
 FROM "app-table"
 WHERE "Pk" = 'CUSTOMER#42' AND "$type" = 'OrderEntity'
 ```
 
-For inheritance hierarchies, querying a base type includes all concrete discriminator values in the hierarchy. See [Single-Table Design](../modeling/single-table-design.md) for configuration details.
+For inheritance hierarchies, querying a base type includes all concrete discriminator values in the hierarchy. Use `HasNoDiscriminator()` only when key patterns or existing data require opt-out. See [Single-Table Design](../modeling/single-table-design.md) for configuration details.
 
 ## See also
 

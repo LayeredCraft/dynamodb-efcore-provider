@@ -47,7 +47,9 @@ public class AttributeNameOverrideTests
         // Arrange: item stored with the DynamoDB attribute name key.
         var item = new Dictionary<string, AttributeValue>
         {
-            ["id"] = new() { S = "e#1" }, ["display_name"] = new() { S = "Ada Lovelace" }
+            ["id"] = new() { S = "e#1" },
+            ["$type"] = new() { S = nameof(RenameEntity) },
+            ["display_name"] = new() { S = "Ada Lovelace" }
         };
 
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -75,7 +77,9 @@ public class AttributeNameOverrideTests
         // Arrange: item stored with the CLR property name instead of the overridden attribute name.
         var item = new Dictionary<string, AttributeValue>
         {
-            ["id"] = new() { S = "e#2" }, ["FullName"] = new() { S = "Should not appear" }
+            ["id"] = new() { S = "e#2" },
+            ["$type"] = new() { S = nameof(RenameEntity) },
+            ["FullName"] = new() { S = "Should not appear" }
         };
 
         var client = Substitute.For<IAmazonDynamoDB>();

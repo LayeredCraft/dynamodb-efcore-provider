@@ -27,7 +27,7 @@ public abstract class ComplexPropertiesMiscellaneousDynamoTest
 
         AssertSql(
             """
-            SELECT "id", "name", "associateCollection", "optionalAssociate", "requiredAssociate"
+            SELECT "id", "$type", "name", "associateCollection", "optionalAssociate", "requiredAssociate"
             FROM "RootEntities"
             WHERE "requiredAssociate"."int" = 8
             """);
@@ -39,7 +39,7 @@ public abstract class ComplexPropertiesMiscellaneousDynamoTest
 
         AssertSql(
             """
-            SELECT "id", "name", "associateCollection", "optionalAssociate", "requiredAssociate"
+            SELECT "id", "$type", "name", "associateCollection", "optionalAssociate", "requiredAssociate"
             FROM "RootEntities"
             WHERE "optionalAssociate"."int" = 8
             """);
@@ -51,7 +51,7 @@ public abstract class ComplexPropertiesMiscellaneousDynamoTest
 
         AssertSql(
             """
-            SELECT "id", "name", "associateCollection", "optionalAssociate", "requiredAssociate"
+            SELECT "id", "$type", "name", "associateCollection", "optionalAssociate", "requiredAssociate"
             FROM "RootEntities"
             WHERE "requiredAssociate"."requiredNestedAssociate"."int" = 8
             """);
@@ -63,7 +63,7 @@ public abstract class ComplexPropertiesMiscellaneousDynamoTest
 
         AssertSql(
             """
-            SELECT "id", "name", "associateCollection", "optionalAssociate", "requiredAssociate"
+            SELECT "id", "$type", "name", "associateCollection", "optionalAssociate", "requiredAssociate"
             FROM "ValueRootEntities"
             WHERE "requiredAssociate"."int" = 8
             """);
@@ -75,7 +75,7 @@ public abstract class ComplexPropertiesMiscellaneousDynamoTest
 
         AssertSql(
             """
-            SELECT "id", "name", "associateCollection", "optionalAssociate", "requiredAssociate"
+            SELECT "id", "$type", "name", "associateCollection", "optionalAssociate", "requiredAssociate"
             FROM "ValueRootEntities"
             WHERE "optionalAssociate"."int" = 8
             """);
@@ -87,7 +87,7 @@ public abstract class ComplexPropertiesMiscellaneousDynamoTest
 
         AssertSql(
             """
-            SELECT "id", "name", "associateCollection", "optionalAssociate", "requiredAssociate"
+            SELECT "id", "$type", "name", "associateCollection", "optionalAssociate", "requiredAssociate"
             FROM "ValueRootEntities"
             WHERE "optionalAssociate" IS NOT NULL AND "optionalAssociate" IS NOT MISSING
             """);

@@ -17,7 +17,7 @@ public class SelectTests(DynamoContainerFixture fixture) : ComplexTypesTableTest
 
         AssertSql(
             """
-            SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "orderSnapshots", "orders", "profile"
+            SELECT "pk", "$type", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "orderSnapshots", "orders", "profile"
             FROM "ComplexTypesItems"
             """);
     }
@@ -171,7 +171,7 @@ public class SelectTests(DynamoContainerFixture fixture) : ComplexTypesTableTest
 
         AssertSql(
             """
-            SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "orderSnapshots", "orders", "profile"
+            SELECT "pk", "$type", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "orderSnapshots", "orders", "profile"
             FROM "ComplexTypesItems"
             WHERE "pk" = 'OWNED#3'
             """);
@@ -194,7 +194,7 @@ public class SelectTests(DynamoContainerFixture fixture) : ComplexTypesTableTest
 
         AssertSql(
             """
-            SELECT "pk", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "orderSnapshots", "orders", "profile"
+            SELECT "pk", "$type", "createdAt", "guidValue", "intValue", "ratings", "stringValue", "tags", "orderSnapshots", "orders", "profile"
             FROM "ComplexTypesItems"
             WHERE "pk" = 'OWNED#3'
             """);

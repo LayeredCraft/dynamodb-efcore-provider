@@ -30,7 +30,7 @@ public class SecondaryIndexSingleTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "customerId", "orderId", "createdAt", "priority", "region", "status"
+            SELECT "customerId", "orderId", "$type", "createdAt", "priority", "region", "status"
             FROM "SecondaryIndexOrders"."ByStatus"
             WHERE "status" = 'PENDING' AND "createdAt" = '2024-01-10'
             """);
@@ -57,7 +57,7 @@ public class SecondaryIndexSingleTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "customerId", "orderId", "createdAt", "priority", "region", "status"
+            SELECT "customerId", "orderId", "$type", "createdAt", "priority", "region", "status"
             FROM "SecondaryIndexOrders"."ByStatus"
             WHERE "status" = 'PENDING' AND "createdAt" = '2024-01-10'
             """);

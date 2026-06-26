@@ -22,7 +22,7 @@ public abstract class LogicalOperatorTranslationsDynamoTest
 
         AssertSql(
             """
-            SELECT "id", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
+            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
             FROM "BasicTypesEntity"
             WHERE "int" = 8 AND "string" = 'Seattle'
             """);
@@ -34,7 +34,7 @@ public abstract class LogicalOperatorTranslationsDynamoTest
 
         AssertSql(
             """
-            SELECT "id", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
+            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
             FROM "BasicTypesEntity"
             WHERE "bool" = TRUE AND "string" = 'Seattle'
             """);
@@ -46,7 +46,7 @@ public abstract class LogicalOperatorTranslationsDynamoTest
 
         AssertSql(
             """
-            SELECT "id", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
+            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
             FROM "BasicTypesEntity"
             WHERE "int" = 999 OR "string" = 'Seattle'
             """);
@@ -58,7 +58,7 @@ public abstract class LogicalOperatorTranslationsDynamoTest
 
         AssertSql(
             """
-            SELECT "id", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
+            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
             FROM "BasicTypesEntity"
             WHERE "bool" = TRUE OR "string" = 'Seattle'
             """);
@@ -70,7 +70,7 @@ public abstract class LogicalOperatorTranslationsDynamoTest
 
         AssertSql(
             """
-            SELECT "id", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
+            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
             FROM "BasicTypesEntity"
             WHERE NOT ("int" = 999)
             """);
@@ -82,7 +82,7 @@ public abstract class LogicalOperatorTranslationsDynamoTest
 
         AssertSql(
             """
-            SELECT "id", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
+            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
             FROM "BasicTypesEntity"
             WHERE NOT ("bool" = TRUE)
             """);

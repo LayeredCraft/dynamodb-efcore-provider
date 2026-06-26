@@ -28,7 +28,7 @@ public class HasKeyOnlyTableKeyTests(DynamoContainerFixture fixture) : PkSkTable
 
         AssertSql(
             """
-            SELECT "pk", "sk", "category", "isTarget"
+            SELECT "pk", "sk", "$type", "category", "isTarget"
             FROM "PkSkItems"
             WHERE "pk" = 'P#1' AND "sk" = '0002'
             """);
@@ -49,7 +49,7 @@ public class HasKeyOnlyTableKeyTests(DynamoContainerFixture fixture) : PkSkTable
 
         AssertSql(
             """
-            SELECT "pk", "sk", "category", "isTarget"
+            SELECT "pk", "sk", "$type", "category", "isTarget"
             FROM "PkSkItems"
             WHERE "pk" = 'P#1'
             ORDER BY "sk" ASC
@@ -82,7 +82,7 @@ public class HasKeyOnlyTableKeyTests(DynamoContainerFixture fixture) : PkSkTable
             AssertSql(
                 """
                 INSERT INTO "PkSkItems"
-                VALUE {'pk': ?, 'sk': ?, 'category': ?, 'isTarget': ?}
+                VALUE {'pk': ?, 'sk': ?, '$type': ?, 'category': ?, 'isTarget': ?}
                 """,
                 """
                 UPDATE "PkSkItems"

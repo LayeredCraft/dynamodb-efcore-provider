@@ -337,7 +337,7 @@ public class QueryTypeMappingTests : QueryTypeMappingTestFixture
             .Should()
             .OnlyContain(statement => statement
                 == """
-                   SELECT "pk", "nullableShortValue", "nullableStringStatus", "numericStatus", "shortValue", "stringStatus", "profile"
+                   SELECT "pk", "$type", "nullableShortValue", "nullableStringStatus", "numericStatus", "shortValue", "stringStatus", "profile"
                    FROM "QueryTypeMappingItems"
                    WHERE "stringStatus" IN [?, ?, ?]
                    """);
@@ -460,6 +460,7 @@ public class QueryTypeMappingTestFixture : DynamoTestFixtureBase
         new()
         {
             ["pk"] = new AttributeValue { S = "ITEM#1" },
+            ["$type"] = new AttributeValue { S = nameof(QueryTypeMappingItem) },
             ["shortValue"] = new AttributeValue { N = "7" },
             ["nullableShortValue"] = new AttributeValue { NULL = true },
             ["numericStatus"] = new AttributeValue { N = "1" },
@@ -478,6 +479,7 @@ public class QueryTypeMappingTestFixture : DynamoTestFixtureBase
         new()
         {
             ["pk"] = new AttributeValue { S = "ITEM#2" },
+            ["$type"] = new AttributeValue { S = nameof(QueryTypeMappingItem) },
             ["shortValue"] = new AttributeValue { N = "8" },
             ["nullableShortValue"] = new AttributeValue { N = "8" },
             ["numericStatus"] = new AttributeValue { N = "0" },
@@ -495,6 +497,7 @@ public class QueryTypeMappingTestFixture : DynamoTestFixtureBase
         new()
         {
             ["pk"] = new AttributeValue { S = "ITEM#3" },
+            ["$type"] = new AttributeValue { S = nameof(QueryTypeMappingItem) },
             ["shortValue"] = new AttributeValue { N = "9" },
             ["nullableShortValue"] = new AttributeValue { N = "9" },
             ["numericStatus"] = new AttributeValue { N = "2" },

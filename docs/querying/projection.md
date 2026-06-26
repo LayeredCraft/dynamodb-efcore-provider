@@ -12,9 +12,9 @@ _`Select` expressions translate to an explicit PartiQL column list; projections 
 Three projection shapes are supported: entity, scalar, and DTO/anonymous.
 
 ```csharp
-// Entity projection — all mapped properties are selected
+// Entity projection — all mapped properties and required shadow properties are selected
 var orders = await db.Orders.ToListAsync(cancellationToken);
-// SELECT "OrderId", "CustomerId", "Status", "Total", "CreatedAt" FROM "Orders"
+// SELECT "OrderId", "$type", "CustomerId", "Status", "Total", "CreatedAt" FROM "Orders"
 
 // Scalar projection — single column
 var ids = await db.Orders.Select(o => o.OrderId).ToListAsync(cancellationToken);
@@ -33,9 +33,8 @@ The provider never emits `SELECT *`. Every projection results in an explicit col
 
 Property reads for entity, scalar, and DTO leaf attributes execute server-side: the generated PartiQL lists each attribute by name, and DynamoDB returns only those attributes in the response. Duplicate attributes in a projection are deduplicated before the SQL is generated.
 
-Shadow properties — such as the discriminator column for shared-table entities — are included in
-the projection automatically when the materializer needs them, even if they have no corresponding
-CLR member.
+Shadow properties — such as the default discriminator column — are included in the projection
+automatically when the materializer needs them, even if they have no corresponding CLR member.
 
 ## Client-Side Projections
 

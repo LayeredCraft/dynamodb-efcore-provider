@@ -212,7 +212,10 @@ public class NullHandlingTests(DynamoContainerFixture fixture)
         bool includeOptionalDictionary,
         bool useDynamoNull)
     {
-        var item = new Dictionary<string, AttributeValue> { ["pk"] = new() { S = pk } };
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["pk"] = new() { S = pk }, ["$type"] = new() { S = nameof(OptionalCollectionsItem) }
+        };
 
         if (includeOptionalList)
             item["optionalList"] = useDynamoNull
