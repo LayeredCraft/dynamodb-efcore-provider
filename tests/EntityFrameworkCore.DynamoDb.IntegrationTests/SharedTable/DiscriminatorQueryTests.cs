@@ -76,7 +76,7 @@ public class DiscriminatorQuerySingleTypeTests(DynamoContainerFixture fixture)
         => new(CreateOptions<SharedTableSingleTypeDbContext>(o => o.DynamoDbClient(Client)));
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public async Task SingleTypeTable_DoesNotInjectDiscriminatorPredicate()
+    public async Task SingleTypeTable_ProjectsDiscriminator_ButDoesNotInjectWherePredicate()
     {
         var results = await SingleTypeDb
             .Users

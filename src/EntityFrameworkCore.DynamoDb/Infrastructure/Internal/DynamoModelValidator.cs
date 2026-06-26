@@ -537,12 +537,14 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
             expectedDiscriminatorProperty.GetKeyValueComparer());
         valuesByEntityType[expectedDiscriminatorValue] = first;
 
+        // If any concrete type has a discriminator, they all should — the convention normalizes the
+        // whole group before model finalization. Any type missing it here is a misconfiguration and
+        // will throw on the FindDiscriminatorProperty() guard below.
         foreach (var entityType in orderedConcreteTypes.Where(entityType => entityType != first))
         {
             var discriminatorProperty = entityType.FindDiscriminatorProperty()
                 ?? throw new InvalidOperationException(
-                    $"Entity type '{entityType.DisplayName()}' is mapped to shared DynamoDB table '{tableName}' but does not define a discriminator property. "
-                    + "Shared-table mappings with multiple entity types require a discriminator property.");
+                    $"Entity type '{entityType.DisplayName()}' is mapped to DynamoDB table '{tableName}' but does not define a discriminator property.");
 
             var discriminatorAttributeName = discriminatorProperty.GetAttributeName();
             if (!string.Equals(
@@ -567,9 +569,9 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
             }
         }
 
-        ValidateDiscriminatorKeyNameCollisions(
+        ValidateDiscriminatorAttributeNameCollisions(
             tableName,
-            rootEntityTypes,
+            orderedConcreteTypes,
             expectedDiscriminatorAttributeName);
     }
 
@@ -577,33 +579,40 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
         => entityType[DynamoAnnotationNames.DiscriminatorDisabled] as bool? == true;
 
     /// <summary>
-    ///     Validates that the discriminator attribute does not collide with PK/SK attributes.
+    ///     Validates that the discriminator attribute does not collide with mapped attributes.
     /// </summary>
-    private static void ValidateDiscriminatorKeyNameCollisions(
+    private static void ValidateDiscriminatorAttributeNameCollisions(
         string tableName,
-        IEnumerable<IEntityType> rootEntityTypes,
+        IEnumerable<IEntityType> concreteTypes,
         string discriminatorAttributeName)
     {
-        foreach (var entityType in rootEntityTypes)
+        foreach (var entityType in concreteTypes)
         {
-            var partitionKeyAttributeName =
-                entityType.GetPartitionKeyProperty()?.GetAttributeName();
-            if (string.Equals(
-                partitionKeyAttributeName,
-                discriminatorAttributeName,
-                StringComparison.Ordinal))
-                throw new InvalidOperationException(
-                    $"Entity type '{entityType.DisplayName()}' is mapped to DynamoDB table '{tableName}' and uses discriminator attribute name '{discriminatorAttributeName}', "
-                    + "which collides with the partition key attribute name. Discriminator attributes must not reuse PK attribute names.");
+            var discriminatorProperty = entityType.FindDiscriminatorProperty();
 
-            var sortKeyAttributeName = entityType.GetSortKeyProperty()?.GetAttributeName();
-            if (string.Equals(
-                sortKeyAttributeName,
-                discriminatorAttributeName,
-                StringComparison.Ordinal))
+            foreach (var property in entityType.GetProperties())
+            {
+                if (property == discriminatorProperty)
+                    continue;
+
+                if (!string.Equals(
+                    property.GetAttributeName(),
+                    discriminatorAttributeName,
+                    StringComparison.Ordinal))
+                    continue;
+
+                var message =
+                    property == entityType.GetPartitionKeyProperty()
+                        ?
+                        "which collides with the partition key attribute name. Discriminator attributes must not reuse PK attribute names."
+                        : property == entityType.GetSortKeyProperty()
+                            ? "which collides with the sort key attribute name. Discriminator attributes must not reuse SK attribute names."
+                            : $"which collides with mapped property '{property.Name}'. Discriminator attributes must not reuse mapped attribute names.";
+
                 throw new InvalidOperationException(
                     $"Entity type '{entityType.DisplayName()}' is mapped to DynamoDB table '{tableName}' and uses discriminator attribute name '{discriminatorAttributeName}', "
-                    + "which collides with the sort key attribute name. Discriminator attributes must not reuse SK attribute names.");
+                    + message);
+            }
         }
     }
 
