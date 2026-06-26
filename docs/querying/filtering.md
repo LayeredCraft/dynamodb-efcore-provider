@@ -284,7 +284,7 @@ The provider never silently drops a `WHERE` predicate. Every condition you write
 
 ## Discriminator Filtering
 
-The provider configures discriminators by default and automatically injects a discriminator predicate into every query on that entity type. The discriminator predicate composes with any user-supplied `Where` clause using `AND`.
+The provider configures, projects, and persists discriminator attributes by default. It adds discriminator predicates only when a shared-table or inheritance group has multiple concrete types and the query needs type filtering. Those predicates compose with any user-supplied `Where` clause using `AND`.
 
 ```sql
 -- DbSet<OrderEntity>

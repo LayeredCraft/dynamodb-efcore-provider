@@ -47,10 +47,10 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
         AssertSql(
             """
             INSERT INTO "value-generation-int-keys"
-            VALUE {'id': ?, 'name': ?}
+            VALUE {'id': ?, '$type': ?, 'name': ?}
             """,
             """
-            SELECT "id", "name"
+            SELECT "id", "$type", "name"
             FROM "value-generation-int-keys"
             WHERE "id" = 123
             """);
@@ -87,10 +87,10 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
         AssertSql(
             """
             INSERT INTO "value-generation-int-keys"
-            VALUE {'id': ?, 'name': ?}
+            VALUE {'id': ?, '$type': ?, 'name': ?}
             """,
             """
-            SELECT "id", "name"
+            SELECT "id", "$type", "name"
             FROM "value-generation-int-keys"
             WHERE "id" = 0
             """);
@@ -127,10 +127,10 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
         AssertSql(
             """
             INSERT INTO "value-generation-string-keys"
-            VALUE {'id': ?, 'name': ?}
+            VALUE {'id': ?, '$type': ?, 'name': ?}
             """,
             """
-            SELECT "id", "name"
+            SELECT "id", "$type", "name"
             FROM "value-generation-string-keys"
             WHERE "id" = ?
             """);
@@ -170,10 +170,10 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
         AssertSql(
             """
             INSERT INTO "value-generation-binary-keys"
-            VALUE {'id': ?, 'name': ?}
+            VALUE {'id': ?, '$type': ?, 'name': ?}
             """,
             """
-            SELECT "id", "name"
+            SELECT "id", "$type", "name"
             FROM "value-generation-binary-keys"
             WHERE "id" = ?
             """);
@@ -212,10 +212,10 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
         AssertSql(
             """
             INSERT INTO "value-generation-generated-int-keys"
-            VALUE {'id': ?, 'name': ?}
+            VALUE {'id': ?, '$type': ?, 'name': ?}
             """,
             """
-            SELECT "id", "name"
+            SELECT "id", "$type", "name"
             FROM "value-generation-generated-int-keys"
             WHERE "id" = ?
             """);
@@ -257,10 +257,10 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
         AssertSql(
             """
             INSERT INTO "value-generation-guid-keys"
-            VALUE {'id': ?, 'name': ?}
+            VALUE {'id': ?, '$type': ?, 'name': ?}
             """,
             """
-            SELECT "id", "name"
+            SELECT "id", "$type", "name"
             FROM "value-generation-guid-keys"
             WHERE "id" = ?
             """);
@@ -302,10 +302,10 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
         AssertSql(
             """
             INSERT INTO "value-generation-explicit-guid-keys"
-            VALUE {'id': ?, 'name': ?}
+            VALUE {'id': ?, '$type': ?, 'name': ?}
             """,
             """
-            SELECT "id", "name"
+            SELECT "id", "$type", "name"
             FROM "value-generation-explicit-guid-keys"
             WHERE "id" = ?
             """);
@@ -348,10 +348,10 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
         AssertSql(
             """
             INSERT INTO "value-generation-composite-keys"
-            VALUE {'pk': ?, 'sk': ?, 'name': ?}
+            VALUE {'pk': ?, 'sk': ?, '$type': ?, 'name': ?}
             """,
             """
-            SELECT "pk", "sk", "name"
+            SELECT "pk", "sk", "$type", "name"
             FROM "value-generation-composite-keys"
             WHERE "pk" = ? AND "sk" = ?
             """);
@@ -400,10 +400,10 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
         AssertSql(
             """
             INSERT INTO "value-generation-composite-guid-keys"
-            VALUE {'id': ?, 'sk': ?, 'name': ?}
+            VALUE {'id': ?, 'sk': ?, '$type': ?, 'name': ?}
             """,
             """
-            SELECT "id", "sk", "name"
+            SELECT "id", "sk", "$type", "name"
             FROM "value-generation-composite-guid-keys"
             WHERE "id" = ? AND "sk" = ?
             """);

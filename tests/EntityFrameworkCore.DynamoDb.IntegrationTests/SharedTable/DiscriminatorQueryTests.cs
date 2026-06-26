@@ -87,7 +87,7 @@ public class DiscriminatorQuerySingleTypeTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "pk", "sk", "name"
+            SELECT "pk", "sk", "$type", "name"
             FROM "app-table"
             WHERE "pk" = 'TENANT#U'
             """);

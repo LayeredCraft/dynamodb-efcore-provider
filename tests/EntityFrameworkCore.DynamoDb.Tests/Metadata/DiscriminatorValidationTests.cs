@@ -265,6 +265,55 @@ public class DiscriminatorValidationTests
             => new(BuildOptions<DiscriminatorSortKeyCollisionContext>(client));
     }
 
+    private sealed class SingleTypeMissingDiscriminatorValueContext(DbContextOptions options)
+        : DbContext(options)
+    {
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<UserEntity>(b =>
+            {
+                b.ToTable("Users");
+                b.HasPartitionKey(x => x.PK);
+                b.HasSortKey(x => x.SK);
+                b.Metadata.SetDiscriminatorValue(null);
+            });
+
+        public static SingleTypeMissingDiscriminatorValueContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<SingleTypeMissingDiscriminatorValueContext>(client));
+    }
+
+    private sealed class SingleTypeDiscriminatorPartitionKeyCollisionContext(
+        DbContextOptions options) : DbContext(options)
+    {
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<UserEntity>(b =>
+            {
+                b.ToTable("Users");
+                b.HasPartitionKey(x => x.PK);
+                b.HasSortKey(x => x.SK);
+                b.Property(x => x.PK).HasAttributeName("$type");
+            });
+
+        public static SingleTypeDiscriminatorPartitionKeyCollisionContext Create(
+            IAmazonDynamoDB client)
+            => new(BuildOptions<SingleTypeDiscriminatorPartitionKeyCollisionContext>(client));
+    }
+
+    private sealed class SingleTypeDiscriminatorSortKeyCollisionContext(DbContextOptions options)
+        : DbContext(options)
+    {
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<UserEntity>(b =>
+            {
+                b.ToTable("Users");
+                b.HasPartitionKey(x => x.PK);
+                b.HasSortKey(x => x.SK);
+                b.Property(x => x.SK).HasAttributeName("$type");
+            });
+
+        public static SingleTypeDiscriminatorSortKeyCollisionContext Create(IAmazonDynamoDB client)
+            => new(BuildOptions<SingleTypeDiscriminatorSortKeyCollisionContext>(client));
+    }
+
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void SharedTableMultipleTypes_WithConventionDiscriminator_IsValid()
     {
@@ -371,6 +420,45 @@ public class DiscriminatorValidationTests
     {
         var client = MockClient();
         using var context = DiscriminatorSortKeyCollisionContext.Create(client);
+
+        var act = () => context.Model;
+
+        act
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage("*collides with the sort key attribute name*");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void SingleType_WithMissingDiscriminatorValue_Throws()
+    {
+        var client = MockClient();
+        using var context = SingleTypeMissingDiscriminatorValueContext.Create(client);
+
+        var act = () => context.Model;
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*discriminator value*");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void SingleType_WhenDiscriminatorNameCollidesWithPartitionKey_Throws()
+    {
+        var client = MockClient();
+        using var context = SingleTypeDiscriminatorPartitionKeyCollisionContext.Create(client);
+
+        var act = () => context.Model;
+
+        act
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage("*collides with the partition key attribute name*");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void SingleType_WhenDiscriminatorNameCollidesWithSortKey_Throws()
+    {
+        var client = MockClient();
+        using var context = SingleTypeDiscriminatorSortKeyCollisionContext.Create(client);
 
         var act = () => context.Model;
 
