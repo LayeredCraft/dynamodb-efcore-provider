@@ -389,10 +389,10 @@ public abstract class PrimitiveCollectionsQueryDynamoTest
         => base.Multidimensional_array_is_not_supported();
 #endif
 
-    [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
+    [ConditionalFact]
     public override Task Column_collection_Count_method() => base.Column_collection_Count_method();
 
-    [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
+    [ConditionalFact]
     public override Task Column_collection_Length() => base.Column_collection_Length();
 
     [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
@@ -570,6 +570,12 @@ public abstract class PrimitiveCollectionsQueryDynamoTest
     [ConditionalFact(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Parameter_collection_in_subquery_Count_as_compiled_query()
         => base.Parameter_collection_in_subquery_Count_as_compiled_query();
+
+#if NET11_0_OR_GREATER
+    [ConditionalFact(Skip = SkipReason.QueryShapeNotSupported)]
+    public override Task Compiled_query_with_uncorrelated_parameter_collection_expression()
+        => base.Compiled_query_with_uncorrelated_parameter_collection_expression();
+#endif
 
     [ConditionalFact(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task

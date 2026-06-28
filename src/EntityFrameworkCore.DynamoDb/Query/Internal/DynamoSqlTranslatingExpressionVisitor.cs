@@ -49,6 +49,18 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
             && m.GetParameters().Length == 1)
         .GetGenericMethodDefinition();
 
+    private static readonly MethodInfo EnumerableCountMethod = typeof(Enumerable)
+        .GetMethods()
+        .Single(m => m is { Name: nameof(Enumerable.Count), IsGenericMethod: true }
+            && m.GetParameters().Length == 1)
+        .GetGenericMethodDefinition();
+
+    private static readonly MethodInfo QueryableCountMethod = typeof(Queryable)
+        .GetMethods()
+        .Single(m => m is { Name: nameof(Queryable.Count), IsGenericMethod: true }
+            && m.GetParameters().Length == 1)
+        .GetGenericMethodDefinition();
+
     private static readonly MethodInfo StringContainsMethod =
         ((Func<string, bool>)string.Empty.Contains).Method;
 
@@ -599,6 +611,16 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
                 : sqlExpressionFactory.Function("size", [instance], typeof(int));
         }
 
+        if (node is
+            {
+                Member.Name: nameof(Array.Length) or nameof(ICollection.Count),
+                Expression: { } collectionExpression
+            }
+            && collectionExpression.Type != typeof(string)
+            && TranslateInternal(collectionExpression) is SqlExpression collection
+            && TryGetNativePrimitiveCollectionElementMapping(collection, out _))
+            return sqlExpressionFactory.Function("size", [collection], typeof(int));
+
         if (IsNullableMember(node.Member, nameof(Nullable<int>.HasValue))
             && node.Expression is { } nullableExpression)
         {
@@ -807,6 +829,9 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
 
         if (IsCollectionAnyWithoutPredicateMethod(node.Method))
             return TranslateCollectionAny(node);
+
+        if (IsCollectionCountWithoutPredicateMethod(node.Method))
+            return TranslateCollectionCount(node);
 
         if (node.Method.IsGenericMethod
             && (node.Method.GetGenericMethodDefinition() == EnumerableElementAtMethod
@@ -1587,17 +1612,31 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
     /// <summary>Translates primitive-collection Any() to a size check.</summary>
     private Expression TranslateCollectionAny(MethodCallExpression node)
     {
-        var sourceExpression = StripAsQueryable(node.Arguments.ElementAtOrDefault(0));
-        if (sourceExpression is null)
-            return QueryCompilationContext.NotTranslatedExpression;
-
-        if (TranslateInternal(sourceExpression) is not SqlExpression source)
-            return QueryCompilationContext.NotTranslatedExpression;
+        var size = TranslateCollectionSize(node.Arguments.ElementAtOrDefault(0));
+        if (size is not SqlExpression sizeExpression)
+            return size;
 
         return sqlExpressionFactory.Binary(
             ExpressionType.GreaterThan,
-            sqlExpressionFactory.Function("size", [source], typeof(int)),
+            sizeExpression,
             sqlExpressionFactory.Constant(0, typeof(int)))!;
+    }
+
+    /// <summary>Translates primitive-collection Count() to size().</summary>
+    private Expression TranslateCollectionCount(MethodCallExpression node)
+        => TranslateCollectionSize(node.Arguments.ElementAtOrDefault(0));
+
+    private Expression TranslateCollectionSize(Expression? sourceArgument)
+    {
+        var sourceExpression = StripAsQueryable(sourceArgument);
+        if (sourceExpression is null)
+            return QueryCompilationContext.NotTranslatedExpression;
+
+        if (TranslateInternal(sourceExpression) is not SqlExpression source
+            || !TryGetNativePrimitiveCollectionElementMapping(source, out _))
+            return QueryCompilationContext.NotTranslatedExpression;
+
+        return sqlExpressionFactory.Function("size", [source], typeof(int));
     }
 
     /// <summary>Strips EF's primitive-collection queryable wrapper when present.</summary>
@@ -1692,6 +1731,12 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         => method.IsGenericMethod
             && (method.GetGenericMethodDefinition() == EnumerableAnyMethod
                 || method.GetGenericMethodDefinition() == QueryableAnyMethod);
+
+    /// <summary>Returns whether a method represents a primitive-collection Count() call without predicate.</summary>
+    private static bool IsCollectionCountWithoutPredicateMethod(MethodInfo method)
+        => method.IsGenericMethod
+            && (method.GetGenericMethodDefinition() == EnumerableCountMethod
+                || method.GetGenericMethodDefinition() == QueryableCountMethod);
 
     /// <summary>Returns whether a method represents an in-memory collection Contains call.</summary>
     private static bool IsCollectionContainsMethod(MethodInfo method)
