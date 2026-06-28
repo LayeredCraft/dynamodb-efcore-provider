@@ -9,15 +9,19 @@ Detailed audit of skipped `PrimitiveCollectionsQueryDynamoTest` methods. Classif
 - Larger fix clusters are `IN` null semantics, value-converted collection values, `size()`/index translations, and primitive-list projection/client shaping.
 - True long-term blocks are joins, set operations, `Skip`/`Take`, ordering inside list elements, owned types, and broad list-element query pipelines.
 
-## Quick unskip / should run candidates
+## Quick unskip results
 
-These should be tried first with focused tests. If they fail, likely small provider/test issue.
+Focused EF10/EF11 runs now pass these formerly skipped methods:
 
 - Inline scalar `Contains`: zero/one/two/three values, captured parameters, EF.Parameter/EF.Constant.
 - Parameter collection `Contains`: `HashSet<int>`, DateTime, bool, null collection, empty collection.
 - Column collection: bool `Contains`, `Any`, direct index/`ElementAt` for int/string.
-- Non-query/model checks: `Multidimensional_array_is_not_supported`, `Column_with_custom_converter` expected-failure path.
-- Compiled scalar parameter cast: `Parameter_collection_in_subquery_and_Convert_as_compiled_query`.
+
+Kept skipped after focused EF11 failures:
+
+- `Multidimensional_array_is_not_supported`: provider throws `ArgumentException` while upstream expects `InvalidOperationException`.
+- `Column_with_custom_converter`: upstream uses `SingleAsync` on a scan-like path, which DynamoDB provider intentionally rejects.
+- `Parameter_collection_in_subquery_and_Convert_as_compiled_query`: still requires subquery support.
 
 ## Provider gaps likely fixable
 
@@ -53,9 +57,8 @@ Keep skipped unless provider gains a primitive-list subquery/client-projection p
 
 ## Recommended implementation order
 
-1. Unskip quick candidates and run focused EF10/EF11 tests.
-2. Fix `Contains` recognizers and simple scalar type-mapping gaps.
-3. Add `size()` translations for primitive collection `Count`/`Length`/`Any` consistency.
-4. Add basic list-index translations in projection/predicate paths.
-5. Revisit nullable `IN` semantics and value-converted values.
-6. Defer list-element sequence pipeline work until larger design.
+1. Fix `Contains` recognizers and simple scalar type-mapping gaps.
+2. Add `size()` translations for primitive collection `Count`/`Length`/`Any` consistency.
+3. Add basic list-index translations in projection/predicate paths.
+4. Revisit nullable `IN` semantics and value-converted values.
+5. Defer list-element sequence pipeline work until larger design.

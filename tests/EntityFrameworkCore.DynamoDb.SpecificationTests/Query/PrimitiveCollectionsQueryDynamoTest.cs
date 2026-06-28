@@ -48,27 +48,27 @@ public abstract class PrimitiveCollectionsQueryDynamoTest
     public override Task Inline_collection_Count_with_three_values()
         => base.Inline_collection_Count_with_three_values();
 
-    [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
+    [ConditionalFact]
     public override Task Inline_collection_Contains_with_zero_values()
         => base.Inline_collection_Contains_with_zero_values();
 
-    [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
+    [ConditionalFact]
     public override Task Inline_collection_Contains_with_one_value()
         => base.Inline_collection_Contains_with_one_value();
 
-    [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
+    [ConditionalFact]
     public override Task Inline_collection_Contains_with_two_values()
         => base.Inline_collection_Contains_with_two_values();
 
-    [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
+    [ConditionalFact]
     public override Task Inline_collection_Contains_with_three_values()
         => base.Inline_collection_Contains_with_three_values();
 
-    [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
+    [ConditionalFact]
     public override Task Inline_collection_Contains_with_all_parameters()
         => base.Inline_collection_Contains_with_all_parameters();
 
-    [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
+    [ConditionalFact]
     public override Task Inline_collection_Contains_with_constant_and_parameter()
         => base.Inline_collection_Contains_with_constant_and_parameter();
 
@@ -136,7 +136,7 @@ public abstract class PrimitiveCollectionsQueryDynamoTest
     public override Task Inline_collection_of_nullable_value_type_with_null_Max()
         => base.Inline_collection_of_nullable_value_type_with_null_Max();
 
-    [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
+    [ConditionalFact]
     public override Task Inline_collection_with_single_parameter_element_Contains()
         => base.Inline_collection_with_single_parameter_element_Contains();
 
@@ -144,11 +144,11 @@ public abstract class PrimitiveCollectionsQueryDynamoTest
     public override Task Inline_collection_with_single_parameter_element_Count()
         => base.Inline_collection_with_single_parameter_element_Count();
 
-    [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
+    [ConditionalFact]
     public override Task Inline_collection_Contains_with_EF_Parameter()
         => base.Inline_collection_Contains_with_EF_Parameter();
 
-    [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
+    [ConditionalFact]
     public override Task Inline_collection_Contains_with_IEnumerable_EF_Parameter()
         => base.Inline_collection_Contains_with_IEnumerable_EF_Parameter();
 
@@ -169,7 +169,7 @@ public abstract class PrimitiveCollectionsQueryDynamoTest
     public override Task Parameter_collection_of_ints_Contains_int()
         => base.Parameter_collection_of_ints_Contains_int();
 
-    [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
+    [ConditionalFact]
     public override Task Parameter_collection_HashSet_of_ints_Contains_int()
         => base.Parameter_collection_HashSet_of_ints_Contains_int();
 
@@ -243,11 +243,11 @@ public abstract class PrimitiveCollectionsQueryDynamoTest
     public override Task Parameter_collection_of_nullable_strings_Contains_nullable_string()
         => base.Parameter_collection_of_nullable_strings_Contains_nullable_string();
 
-    [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
+    [ConditionalFact]
     public override Task Parameter_collection_of_DateTimes_Contains()
         => base.Parameter_collection_of_DateTimes_Contains();
 
-    [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
+    [ConditionalFact]
     public override Task Parameter_collection_of_bools_Contains()
         => base.Parameter_collection_of_bools_Contains();
 
@@ -255,11 +255,11 @@ public abstract class PrimitiveCollectionsQueryDynamoTest
     public override Task Parameter_collection_of_enums_Contains()
         => base.Parameter_collection_of_enums_Contains();
 
-    [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
+    [ConditionalFact]
     public override Task Parameter_collection_null_Contains()
         => base.Parameter_collection_null_Contains();
 
-    [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
+    [ConditionalFact]
     public override Task Parameter_collection_empty_Contains()
         => base.Parameter_collection_empty_Contains();
 
@@ -361,7 +361,7 @@ public abstract class PrimitiveCollectionsQueryDynamoTest
     public override Task Column_collection_of_nullable_strings_contains_null()
         => base.Column_collection_of_nullable_strings_contains_null();
 
-    [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
+    [ConditionalFact]
     public override Task Column_collection_of_bools_Contains()
         => base.Column_collection_of_bools_Contains();
 
@@ -402,10 +402,10 @@ public abstract class PrimitiveCollectionsQueryDynamoTest
     [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
     public override Task Column_collection_Where_Count() => base.Column_collection_Where_Count();
 
-    [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
+    [ConditionalFact]
     public override Task Column_collection_index_int() => base.Column_collection_index_int();
 
-    [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
+    [ConditionalFact]
     public override Task Column_collection_index_string() => base.Column_collection_index_string();
 
     [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
@@ -447,7 +447,7 @@ public abstract class PrimitiveCollectionsQueryDynamoTest
     public override Task Parameter_collection_index_Column_equal_constant()
         => base.Parameter_collection_index_Column_equal_constant();
 
-    [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
+    [ConditionalFact]
     public override Task Column_collection_ElementAt() => base.Column_collection_ElementAt();
 
     [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
@@ -495,7 +495,7 @@ public abstract class PrimitiveCollectionsQueryDynamoTest
     public override Task Column_collection_Where_ElementAt()
         => base.Column_collection_Where_ElementAt();
 
-    [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
+    [ConditionalFact]
     public override Task Column_collection_Any() => base.Column_collection_Any();
 
     [ConditionalFact(Skip = SkipReason.SetOperationsNotSupported)]
