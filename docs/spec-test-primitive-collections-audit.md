@@ -54,8 +54,26 @@ Keep these skipped unless provider gains a primitive-list subquery/client-projec
 | Primitive-list projection shaping         | `Project_collection_of_ints_simple`, `Project_multiple_collections`, `Project_primitive_collections_element`                                                                                                                                                 | Requires stable client-side materialization/order semantics for list projections.                                                                                                                                                                                                                            |
 | Primitive list equality / `SequenceEqual` | `Column_collection_equality_parameter_collection`, `Column_collection_equality_inline_collection`, `Column_collection_equality_inline_collection_with_parameters`, `Column_collection_Where_equality_inline_collection`                                      | DynamoDB PartiQL can compare document values, but provider lacks list literal/parameter equality binding and does not translate filtered/concatenated list pipelines. Keep skipped until equality gets a dedicated design covering null/missing attributes, element type mapping, and DynamoDB Local parity. |
 
+## Primitive collection projection pipeline design
+
+Goal: support projection-only primitive LIST reads without pretending DynamoDB can run relational operators inside a single list attribute.
+
+Feasible first slice:
+
+1. Server projects whole LIST attributes and scalar list indexes only.
+2. Materializer shapes DynamoDB `L` attributes into CLR primitive arrays/lists using existing element type mappings and converters.
+3. Client assertion/order semantics remain entity-row based; element order is DynamoDB list order.
+4. Translation explicitly rejects list-element `Where`, `OrderBy`, `Skip`, `Take`, joins, and set operations before projection.
+
+Implementation boundaries:
+
+- Add tests only for direct projections such as `Select(e => e.Ints)`, anonymous projections containing one or more primitive lists, and scalar index projections already backed by `DynamoListIndexExpression`.
+- Keep filtered/ordered/paged element pipelines skipped until there is a separate client-evaluation design. Running those client-side after server projection could silently change query semantics by moving filters from server to client.
+- Keep owned-entity primitive collection projection skipped because owned types are outside provider support.
+
 ## Recommended implementation order
 
 1. Fix `Contains` recognizers and simple scalar type-mapping gaps.
 2. Revisit nullable `IN` semantics and value-converted values.
-3. Defer list-element sequence pipeline work until larger design.
+3. Add projection-only primitive LIST materialization for direct list projections.
+4. Defer list-element sequence pipeline work until larger design.
