@@ -408,7 +408,7 @@ public abstract class PrimitiveCollectionsQueryDynamoTest
     [ConditionalFact]
     public override Task Column_collection_index_string() => base.Column_collection_index_string();
 
-    [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
+    [ConditionalFact]
     public override Task Column_collection_index_datetime()
         => base.Column_collection_index_datetime();
 
@@ -450,10 +450,10 @@ public abstract class PrimitiveCollectionsQueryDynamoTest
     [ConditionalFact]
     public override Task Column_collection_ElementAt() => base.Column_collection_ElementAt();
 
-    [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
+    [ConditionalFact]
     public override Task Column_collection_First() => base.Column_collection_First();
 
-    [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
+    [ConditionalFact]
     public override Task Column_collection_FirstOrDefault()
         => base.Column_collection_FirstOrDefault();
 

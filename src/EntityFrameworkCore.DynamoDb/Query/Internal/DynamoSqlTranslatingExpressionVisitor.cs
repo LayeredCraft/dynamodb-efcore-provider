@@ -100,6 +100,30 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
                 && m.GetParameters()[1].ParameterType == typeof(int))
             .GetGenericMethodDefinition();
 
+    private static readonly MethodInfo EnumerableFirstMethod = typeof(Enumerable)
+        .GetMethods()
+        .Single(m => m is { Name: nameof(Enumerable.First), IsGenericMethod: true }
+            && m.GetParameters().Length == 1)
+        .GetGenericMethodDefinition();
+
+    private static readonly MethodInfo EnumerableFirstOrDefaultMethod = typeof(Enumerable)
+        .GetMethods()
+        .Single(m => m is { Name: nameof(Enumerable.FirstOrDefault), IsGenericMethod: true }
+            && m.GetParameters().Length == 1)
+        .GetGenericMethodDefinition();
+
+    private static readonly MethodInfo QueryableFirstMethod = typeof(Queryable)
+        .GetMethods()
+        .Single(m => m is { Name: nameof(Queryable.First), IsGenericMethod: true }
+            && m.GetParameters().Length == 1)
+        .GetGenericMethodDefinition();
+
+    private static readonly MethodInfo QueryableFirstOrDefaultMethod = typeof(Queryable)
+        .GetMethods()
+        .Single(m => m is { Name: nameof(Queryable.FirstOrDefault), IsGenericMethod: true }
+            && m.GetParameters().Length == 1)
+        .GetGenericMethodDefinition();
+
     private static readonly MethodInfo EfPropertyMethod =
         typeof(EF)
             .GetMethods(BindingFlags.Public | BindingFlags.Static)
@@ -787,7 +811,14 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         if (node.Method.IsGenericMethod
             && (node.Method.GetGenericMethodDefinition() == EnumerableElementAtMethod
                 || node.Method.GetGenericMethodDefinition() == QueryableElementAtMethod))
-            return TranslateElementAt(node);
+            return TranslateListIndex(node, node.Arguments[1]);
+
+        if (node.Method.IsGenericMethod
+            && (node.Method.GetGenericMethodDefinition() == EnumerableFirstMethod
+                || node.Method.GetGenericMethodDefinition() == EnumerableFirstOrDefaultMethod
+                || node.Method.GetGenericMethodDefinition() == QueryableFirstMethod
+                || node.Method.GetGenericMethodDefinition() == QueryableFirstOrDefaultMethod))
+            return TranslateListIndex(node, Expression.Constant(0));
 
         AddTranslationErrorDetails(DynamoStrings.MethodCallInPredicateNotSupported);
         return QueryCompilationContext.NotTranslatedExpression;
@@ -1474,18 +1505,13 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
     }
 
     /// <summary>
-    ///     Translates <c>Enumerable.ElementAt(source, index)</c> or
-    ///     <c>Queryable.ElementAt(source, index)</c> to a list index access expression. EF Core normalises
-    ///     <c>list[i]</c> to this form, wrapping the source in <c>.AsQueryable()</c> when the collection
-    ///     is a complex collection property.
+    ///     Translates list element access methods to a list index access expression. EF Core normalises
+    ///     <c>list[i]</c> to <c>ElementAt</c>, wrapping the source in <c>.AsQueryable()</c> when the
+    ///     collection is a complex collection property.
     /// </summary>
-    private Expression TranslateElementAt(MethodCallExpression node)
+    private Expression TranslateListIndex(MethodCallExpression node, Expression indexExpression)
     {
-        // Strip the .AsQueryable() wrapper that EF Core adds around complex collection sources.
-        var sourceArg = node.Arguments[0];
-        if (sourceArg is MethodCallExpression { Method.Name: "AsQueryable" } asq)
-            sourceArg = asq.Arguments[0];
-
+        var sourceArg = StripAsQueryable(node.Arguments[0])!;
         var translatedSource = Visit(sourceArg);
         if (translatedSource is not SqlExpression sqlSource)
         {
@@ -1493,7 +1519,7 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
             return QueryCompilationContext.NotTranslatedExpression;
         }
 
-        if (node.Arguments[1] is not ConstantExpression { Value: int index })
+        if (indexExpression is not ConstantExpression { Value: int index })
         {
             AddTranslationErrorDetails(DynamoStrings.ListIndexMustBeConstant);
             return QueryCompilationContext.NotTranslatedExpression;

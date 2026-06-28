@@ -15,7 +15,7 @@ Focused EF10/EF11 runs now pass these formerly skipped methods:
 
 - Inline scalar `Contains`: zero/one/two/three values, captured parameters, EF.Parameter/EF.Constant.
 - Parameter collection `Contains`: `HashSet<int>`, DateTime, bool, null collection, empty collection.
-- Column collection: bool `Contains`, `Any`, direct index/`ElementAt` for int/string.
+- Column collection: bool `Contains`, `Any`, direct index/`ElementAt` for int/string/DateTime, and `First`/`FirstOrDefault` as index 0.
 
 Kept skipped after focused EF11 failures:
 
@@ -38,10 +38,9 @@ Clusters:
 2. Nullable `IN` semantics for nullable columns and nullable collection values.
 3. Value-converted structs/enums in collection parameters and inline constants.
 4. Primitive collection `Count()`/`Length` via PartiQL `size()`.
-5. Primitive collection `First`/`FirstOrDefault`/basic `ElementAt` via list indexes.
-6. Inline finite collection `Any`/`All`/`Count`/`Min`/`Max` rewrites.
-7. Primitive list equality / `SequenceEqual` if DynamoDB PartiQL list equality proves stable.
-8. Simple primitive collection projections currently blocked by order/assertion or missing client projection shaping.
+5. Inline finite collection `Any`/`All`/`Count`/`Min`/`Max` rewrites.
+6. Primitive list equality / `SequenceEqual` if DynamoDB PartiQL list equality proves stable.
+7. Simple primitive collection projections currently blocked by order/assertion or missing client projection shaping.
 
 ## True or long-term architectural blocks
 
@@ -59,6 +58,5 @@ Keep skipped unless provider gains a primitive-list subquery/client-projection p
 
 1. Fix `Contains` recognizers and simple scalar type-mapping gaps.
 2. Add `size()` translations for primitive collection `Count`/`Length`/`Any` consistency.
-3. Add basic list-index translations in projection/predicate paths.
-4. Revisit nullable `IN` semantics and value-converted values.
-5. Defer list-element sequence pipeline work until larger design.
+3. Revisit nullable `IN` semantics and value-converted values.
+4. Defer list-element sequence pipeline work until larger design.
