@@ -166,24 +166,24 @@ These tests use non-Northwind models and fixtures.
 
 ### Implemented
 
-| Test Class                 | Methods | Cosmos | MongoDB | Notes                                                                                                                                                                                                                                                                                                                                                                     |
-| -------------------------- | ------: | :----: | :-----: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ComplexTypeQueryTestBase` |      74 |   ✓    |    ✗    | All inherited methods are registered/overridden with explicit outcomes; supported projection/filter, nested struct projection, and complex equality subsets execute, while navigation, set-operation, GroupBy, subquery/Contains, and pushdown cases are explicitly skipped                                                                                               |
-| `InheritanceQueryTestBase` |      52 |   ✓    |    ✗    | Single-table inheritance with discriminator predicates is covered, including `OfType`, `is`, `GetType()` leaf checks, derived-property filters, and discriminator projections. Skips remain for keyless views, navigations/includes, transactions, set operations, non-key ordered result assumptions, scan-like `Single`, and a few unsupported projection/query shapes. |
+| Test Class                          | Methods | Cosmos | MongoDB | Notes                                                                                                                                                                                                                                                                                                                                                                     |
+| ----------------------------------- | ------: | :----: | :-----: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ComplexTypeQueryTestBase`          |      74 |   ✓    |    ✗    | All inherited methods are registered/overridden with explicit outcomes; supported projection/filter, nested struct projection, and complex equality subsets execute, while navigation, set-operation, GroupBy, subquery/Contains, and pushdown cases are explicitly skipped                                                                                               |
+| `InheritanceQueryTestBase`          |      52 |   ✓    |    ✗    | Single-table inheritance with discriminator predicates is covered, including `OfType`, `is`, `GetType()` leaf checks, derived-property filters, and discriminator projections. Skips remain for keyless views, navigations/includes, transactions, set operations, non-key ordered result assumptions, scan-like `Single`, and a few unsupported projection/query shapes. |
+| `PrimitiveCollectionsQueryTestBase` |     172 |   ✓    |    ✗    | Primitive collection fixture is mapped for DynamoDB LIST attributes. Current coverage runs simple inline/parameter `Contains` and column collection `Contains`; detailed audit in `docs/spec-test-primitive-collections-audit.md` identifies fast unskip candidates, provider gaps, and true long-term blocks.                                                            |
 
 ### Future
 
-| Test Class                                   | Methods | Cosmos | MongoDB | Feasibility | Rationale                                                                                                               |
-| -------------------------------------------- | ------: | :----: | :-----: | ----------: | ----------------------------------------------------------------------------------------------------------------------- |
-| `AdHocComplexTypeQueryTestBase`              |      13 |   ✓    |    ✗    |        ~65% | Ad-hoc complex type query scenarios; same fixture dependency                                                            |
-| `FiltersInheritanceQueryTestBase`            |      11 |   ✗    |    ✗    |        ~55% | Query filters on inherited types                                                                                        |
-| `FunkyDataQueryTestBase`                     |      19 |   ✗    |    ✗    |        ~60% | Edge-case strings (null chars, Unicode, SQL injection chars); WHERE translation should handle these                     |
-| `PrimitiveCollectionsQueryTestBase`          |     156 |   ✓    |    ✗    |        ~50% | DynamoDB LIST/SET attribute querying; PartiQL supports `CONTAINS` on lists; complex collection operations not supported |
-| `NonSharedPrimitiveCollectionsQueryTestBase` |      27 |   ✗    |    ✗    |        ~45% | Primitive collections on non-shared models; same constraints as above                                                   |
-| `QueryFilterFuncletizationTestBase`          |      28 |   ✗    |    ✗    |        ~60% | Parameter funcletization in query filters; translation-level feature                                                    |
-| `AdHocMiscellaneousQueryTestBase`            |      39 |   ✓    |    ✗    |        ~40% | Mixed ad-hoc scenarios; some require unsupported operators                                                              |
-| `AdHocQueryFiltersQueryTestBase`             |      21 |   ✗    |    ✗    |        ~55% | Ad-hoc global query filter scenarios                                                                                    |
-| `AdHocAdvancedMappingsQueryTestBase`         |      15 |   ✗    |    ✗    |        ~40% | Advanced mapping queries (TPT, TPC, owned types); mixed applicability                                                   |
+| Test Class                                   | Methods | Cosmos | MongoDB | Feasibility | Rationale                                                                                           |
+| -------------------------------------------- | ------: | :----: | :-----: | ----------: | --------------------------------------------------------------------------------------------------- |
+| `AdHocComplexTypeQueryTestBase`              |      13 |   ✓    |    ✗    |        ~65% | Ad-hoc complex type query scenarios; same fixture dependency                                        |
+| `FiltersInheritanceQueryTestBase`            |      11 |   ✗    |    ✗    |        ~55% | Query filters on inherited types                                                                    |
+| `FunkyDataQueryTestBase`                     |      19 |   ✗    |    ✗    |        ~60% | Edge-case strings (null chars, Unicode, SQL injection chars); WHERE translation should handle these |
+| `NonSharedPrimitiveCollectionsQueryTestBase` |      27 |   ✗    |    ✗    |        ~45% | Primitive collections on non-shared models; same constraints as above                               |
+| `QueryFilterFuncletizationTestBase`          |      28 |   ✗    |    ✗    |        ~60% | Parameter funcletization in query filters; translation-level feature                                |
+| `AdHocMiscellaneousQueryTestBase`            |      39 |   ✓    |    ✗    |        ~40% | Mixed ad-hoc scenarios; some require unsupported operators                                          |
+| `AdHocQueryFiltersQueryTestBase`             |      21 |   ✗    |    ✗    |        ~55% | Ad-hoc global query filter scenarios                                                                |
+| `AdHocAdvancedMappingsQueryTestBase`         |      15 |   ✗    |    ✗    |        ~40% | Advanced mapping queries (TPT, TPC, owned types); mixed applicability                               |
 
 ### Skip — Architectural Constraints
 
@@ -316,7 +316,7 @@ ______________________________________________________________________
 | Non-Query (top-level) | 18 classes / 356 methods |              — |  4 classes / 410 methods | 21 classes / 1,058 methods |
 | BulkUpdates           |                        — |              — | 5 classes / 135+ methods |       1 class / 33 methods |
 | Northwind Query       |  8 classes / 458 methods |              — |    1 class / 469 methods |  13 classes / 929+ methods |
-| Other Query           |  2 classes / 126 methods |              — |  9 classes / 329 methods | 18 classes / 1,691 methods |
+| Other Query           |  3 classes / 298 methods |              — |  8 classes / 173 methods | 18 classes / 1,691 methods |
 | Associations          |   3 classes / 42 methods |              — |    2 classes / 4 methods | 13+ classes / 123+ methods |
 | Translations          |  5 classes / 134 methods |              — |  8 classes / 162 methods |     3 classes / 25 methods |
 
@@ -363,15 +363,14 @@ No medium-term specification test classes are currently queued here.
 
 ### Long-term (after core coverage is stable)
 
-1. `PrimitiveCollectionsQueryDynamoTest`
-2. `BulkUpdates` family — blocked on `ExecuteUpdate`/`ExecuteDelete`
-3. Remaining translation tests (Math, ByteArray)
+1. `BulkUpdates` family — blocked on `ExecuteUpdate`/`ExecuteDelete`
+2. Remaining translation tests (Math, ByteArray)
 
 ### Current totals
 
 | Status         | Classes | Methods |
 | -------------- | ------: | ------: |
-| Implemented    |      36 |   1,116 |
+| Implemented    |      37 |   1,288 |
 | Implement Next |       0 |       0 |
-| Future         |      29 |  1,509+ |
+| Future         |      28 |  1,353+ |
 | Skip           |     69+ |  3,859+ |
