@@ -1694,6 +1694,23 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
             return true;
         }
 
+        if (collectionExpression is ListInitExpression listInitExpression)
+        {
+            foreach (var initializer in listInitExpression.Initializers)
+            {
+                if (initializer.Arguments.Count != 1)
+                    return false;
+
+                var translated = TranslateInternal(initializer.Arguments[0]);
+                if (translated == null)
+                    return false;
+
+                values.Add(sqlExpressionFactory.ApplyTypeMapping(translated, itemType));
+            }
+
+            return true;
+        }
+
         if (collectionExpression is ConstantExpression constantExpression
             && TryGetConstantEnumerableValues(constantExpression.Value, itemType, values))
             return true;
@@ -1749,6 +1766,15 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
             && method.GetGenericMethodDefinition() == QueryableContainsMethod)
             return true;
 
+        if (method.DeclaringType == typeof(MemoryExtensions)
+            && method.Name == nameof(MemoryExtensions.Contains)
+            && method.ReturnType == typeof(bool)
+            && method.GetParameters().Length is 2 or 3)
+            return method.GetParameters().Length == 2
+                || (method.GetParameters()[2].ParameterType.IsGenericType
+                    && method.GetParameters()[2].ParameterType.GetGenericTypeDefinition()
+                    == typeof(IEqualityComparer<>));
+
         if (method.DeclaringType is not { } declaringType)
             return false;
 
@@ -1779,7 +1805,15 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
     /// <summary>Tries to extract collection and item arguments from a Contains call.</summary>
     private static (Expression? CollectionExpression, Expression? ItemExpression)
         TryGetCollectionContainsArguments(MethodCallExpression node)
-        => node.Method.IsStatic
-            ? (node.Arguments.ElementAtOrDefault(0), node.Arguments.ElementAtOrDefault(1))
-            : (node.Object, node.Arguments.ElementAtOrDefault(0));
+    {
+        if (!node.Method.IsStatic)
+            return (node.Object, node.Arguments.ElementAtOrDefault(0));
+
+        if (node.Method.DeclaringType == typeof(MemoryExtensions)
+            && node.Arguments.Count == 3
+            && node.Arguments[2] is not ConstantExpression { Value: null })
+            return (null, null);
+
+        return (node.Arguments.ElementAtOrDefault(0), node.Arguments.ElementAtOrDefault(1));
+    }
 }

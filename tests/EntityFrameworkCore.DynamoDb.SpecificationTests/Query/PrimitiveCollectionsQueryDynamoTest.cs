@@ -365,13 +365,13 @@ public abstract class PrimitiveCollectionsQueryDynamoTest
     public override Task Column_collection_of_bools_Contains()
         => base.Column_collection_of_bools_Contains();
 
-    [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
+    [ConditionalFact]
     public override Task Contains_on_Enumerable() => base.Contains_on_Enumerable();
 
-    [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
+    [ConditionalFact]
     public override Task Contains_on_MemoryExtensions() => base.Contains_on_MemoryExtensions();
 
-    [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
+    [ConditionalFact]
     public override Task Contains_with_MemoryExtensions_with_null_comparer()
         => base.Contains_with_MemoryExtensions_with_null_comparer();
 

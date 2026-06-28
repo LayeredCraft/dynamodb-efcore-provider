@@ -13,7 +13,7 @@ Detailed audit of skipped `PrimitiveCollectionsQueryDynamoTest` methods. Classif
 
 Focused EF10/EF11 runs now pass these formerly skipped methods:
 
-- Inline scalar `Contains`: zero/one/two/three values, captured parameters, EF.Parameter/EF.Constant.
+- Inline scalar `Contains`: zero/one/two/three values, captured parameters, EF.Parameter/EF.Constant, Enumerable, MemoryExtensions, and ListInit shapes.
 - Parameter collection `Contains`: `HashSet<int>`, DateTime, bool, null collection, empty collection.
 - Column collection: bool `Contains`, `Any`, `Count`, `Length`, direct index/`ElementAt` for int/string/DateTime, and `First`/`FirstOrDefault` as index 0.
 
@@ -34,12 +34,11 @@ Likely files:
 
 Clusters:
 
-1. `ListInitExpression` and `MemoryExtensions.Contains` recognition.
-2. Nullable `IN` semantics for nullable columns and nullable collection values.
-3. Value-converted structs/enums in collection parameters and inline constants.
-4. Inline finite collection `Any`/`All`/`Count`/`Min`/`Max` rewrites.
-5. Primitive list equality / `SequenceEqual` if DynamoDB PartiQL list equality proves stable.
-6. Simple primitive collection projections currently blocked by order/assertion or missing client projection shaping.
+1. Nullable `IN` semantics for nullable columns and nullable collection values.
+2. Value-converted structs/enums in collection parameters and inline constants.
+3. Inline finite collection `Any`/`All`/`Count`/`Min`/`Max` rewrites.
+4. Primitive list equality / `SequenceEqual` if DynamoDB PartiQL list equality proves stable.
+5. Simple primitive collection projections currently blocked by order/assertion or missing client projection shaping.
 
 ## True or long-term architectural blocks
 
