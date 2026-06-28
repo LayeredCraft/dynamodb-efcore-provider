@@ -117,10 +117,11 @@ public class DynamoTableKeySaveChangesTests
             captured,
             """
             INSERT INTO "HasKeyDocuments"
-            VALUE {'tenant_id': ?, 'order_id': ?, 'name': ?}
+            VALUE {'tenant_id': ?, 'order_id': ?, '$type': ?, 'name': ?}
             """,
             "TEN#1",
             "ORD#1",
+            nameof(HasKeyDocument),
             "created");
     }
 
@@ -178,10 +179,11 @@ public class DynamoTableKeySaveChangesTests
             captured,
             """
             INSERT INTO "ShadowHasKeyDocuments"
-            VALUE {'pk_attr': ?, 'sk_attr': ?, 'name': ?}
+            VALUE {'pk_attr': ?, 'sk_attr': ?, '$type': ?, 'name': ?}
             """,
             "TEN#1",
             "ORD#1",
+            nameof(ShadowHasKeyDocument),
             "created");
     }
 

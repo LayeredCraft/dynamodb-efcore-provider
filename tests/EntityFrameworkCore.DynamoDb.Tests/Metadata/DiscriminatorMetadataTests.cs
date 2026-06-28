@@ -182,13 +182,14 @@ public class DiscriminatorMetadataTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public void SingleTableSingleType_DoesNotConfigureDiscriminatorByConvention()
+    public void SingleTableSingleType_UsesDefaultDiscriminatorByConvention()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
         using var context = SingleTypeContext.Create(client);
 
         var entityType = context.Model.FindEntityType(typeof(UserEntity))!;
-        entityType.FindDiscriminatorProperty().Should().BeNull();
+        entityType.FindDiscriminatorProperty()!.Name.Should().Be("$type");
+        entityType.GetDiscriminatorValue().Should().Be("UserEntity");
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
@@ -233,7 +234,7 @@ public class DiscriminatorMetadataTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public void SharedTableThenSplit_DoesNotConfigureDiscriminatorFromStaleIntermediateState()
+    public void SharedTableThenSplit_KeepsDefaultDiscriminatorForEachTable()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
         using var context = SharedTableThenSplitContext.Create(client);
@@ -241,8 +242,10 @@ public class DiscriminatorMetadataTests
         var userEntityType = context.Model.FindEntityType(typeof(UserEntity))!;
         var orderEntityType = context.Model.FindEntityType(typeof(OrderEntity))!;
 
-        userEntityType.FindDiscriminatorProperty().Should().BeNull();
-        orderEntityType.FindDiscriminatorProperty().Should().BeNull();
+        userEntityType.FindDiscriminatorProperty()!.Name.Should().Be("$type");
+        orderEntityType.FindDiscriminatorProperty()!.Name.Should().Be("$type");
+        userEntityType.GetDiscriminatorValue().Should().Be("UserEntity");
+        orderEntityType.GetDiscriminatorValue().Should().Be("OrderEntity");
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]

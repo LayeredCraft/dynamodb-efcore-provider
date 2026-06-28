@@ -28,7 +28,7 @@ public class FindAsyncTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "customerId", "orderId", "createdAt", "priority", "region", "status"
+            SELECT "customerId", "orderId", "$type", "createdAt", "priority", "region", "status"
             FROM "SecondaryIndexOrders"
             WHERE "customerId" = ? AND "orderId" = ?
             """);
@@ -46,7 +46,7 @@ public class FindAsyncTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "customerId", "orderId", "createdAt", "priority", "region", "status"
+            SELECT "customerId", "orderId", "$type", "createdAt", "priority", "region", "status"
             FROM "SecondaryIndexOrders"."ByStatus"
             WHERE "status" = 'PENDING'
             """);

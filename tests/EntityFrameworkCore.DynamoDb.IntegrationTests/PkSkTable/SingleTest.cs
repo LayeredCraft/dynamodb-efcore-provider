@@ -23,7 +23,7 @@ public class SingleTest(DynamoContainerFixture fixture) : PkSkTableTestFixture(f
 
         AssertSql(
             """
-            SELECT "pk", "sk", "category", "isTarget"
+            SELECT "pk", "sk", "$type", "category", "isTarget"
             FROM "PkSkItems"
             WHERE "pk" = 'P#1' AND "sk" = '0002'
             """);
@@ -47,7 +47,7 @@ public class SingleTest(DynamoContainerFixture fixture) : PkSkTableTestFixture(f
 
         AssertSql(
             """
-            SELECT "pk", "sk", "category", "isTarget"
+            SELECT "pk", "sk", "$type", "category", "isTarget"
             FROM "PkSkItems"
             WHERE "pk" = 'P#1' AND "sk" = '0002'
             """);
@@ -95,7 +95,7 @@ public class SingleTest(DynamoContainerFixture fixture) : PkSkTableTestFixture(f
 
         AssertSql(
             """
-            SELECT "pk", "sk", "category", "isTarget"
+            SELECT "pk", "sk", "$type", "category", "isTarget"
             FROM "PkSkItems"
             WHERE "pk" = 'P#1'
             """);
@@ -120,7 +120,7 @@ public class SingleTest(DynamoContainerFixture fixture) : PkSkTableTestFixture(f
 
         AssertSql(
             """
-            SELECT "pk", "sk", "category", "isTarget"
+            SELECT "pk", "sk", "$type", "category", "isTarget"
             FROM "PkSkItems"
             WHERE "pk" IN [?, ?] AND "sk" = '0001'
             """);
@@ -150,7 +150,7 @@ public class SingleTest(DynamoContainerFixture fixture) : PkSkTableTestFixture(f
 
         AssertSql(
             """
-            SELECT "pk", "sk", "category", "isTarget"
+            SELECT "pk", "sk", "$type", "category", "isTarget"
             FROM "PkSkItems"
             WHERE "pk" IN [?, ?]
             """);

@@ -15,4 +15,7 @@ internal static partial class OrderItemMapper
 
     internal static List<OrderItem> FromItems(List<Dictionary<string, AttributeValue>> items)
         => items.Select(FromItem).ToList();
+
+    private static void AfterToItem(OrderItem source, Dictionary<string, AttributeValue> item)
+        => item["$type"] = new AttributeValue { S = nameof(OrderItem) };
 }

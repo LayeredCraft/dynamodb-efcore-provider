@@ -22,7 +22,7 @@ public class FindAsyncTests(DynamoContainerFixture fixture) : PkSkTableTestFixtu
 
         AssertSql(
             """
-            SELECT "pk", "sk", "category", "isTarget"
+            SELECT "pk", "sk", "$type", "category", "isTarget"
             FROM "PkSkItems"
             WHERE "pk" = ? AND "sk" = ?
             """);

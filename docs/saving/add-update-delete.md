@@ -53,6 +53,7 @@ INSERT INTO "Orders"
 VALUE {
     'pk': ?,
     'sk': ?,
+    '$type': ?,
     'status': ?,
     'total': ?
 }

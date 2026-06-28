@@ -36,7 +36,7 @@ public abstract class NorthwindAsTrackingQueryDynamoTest
         Assert.Equal(91, context.ChangeTracker.Entries().Count());
         AssertSql(
             """
-            SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+            SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
             FROM "Customers"
             """);
     }

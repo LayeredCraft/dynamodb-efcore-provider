@@ -17,7 +17,7 @@ public class SelectTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "pk", "sk", "bucketId", "bucketKey", "categoryId", "dateSubmitted", "game", "gs1-pk", "gs1-sk", "gs2-pk", "gs2-sk", "id", "message", "recordType", "tags", "answers"
+            SELECT "pk", "sk", "$type", "bucketId", "bucketKey", "categoryId", "dateSubmitted", "game", "gs1-pk", "gs1-sk", "gs2-pk", "gs2-sk", "id", "message", "recordType", "tags", "answers"
             FROM "NamingConventionsItems"
             """);
     }

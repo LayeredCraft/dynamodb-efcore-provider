@@ -21,7 +21,10 @@ public class ToQueryStringTests
 
         queryString
             .Should()
-            .Be("SELECT \"pk\", \"name\"" + Environment.NewLine + "FROM \"ToQueryStringItems\"");
+            .Be(
+                "SELECT \"pk\", \"$type\", \"name\""
+                + Environment.NewLine
+                + "FROM \"ToQueryStringItems\"");
         client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
     }
 
@@ -39,7 +42,7 @@ public class ToQueryStringTests
             .Be(
                 "-- p0='tenant''1'"
                 + Environment.NewLine
-                + "SELECT \"pk\", \"name\""
+                + "SELECT \"pk\", \"$type\", \"name\""
                 + Environment.NewLine
                 + "FROM \"ToQueryStringItems\""
                 + Environment.NewLine
@@ -61,7 +64,7 @@ public class ToQueryStringTests
             .Be(
                 "-- p0=<binary:3 bytes>"
                 + Environment.NewLine
-                + "SELECT \"id\", \"name\""
+                + "SELECT \"id\", \"$type\", \"name\""
                 + Environment.NewLine
                 + "FROM \"ToQueryStringBinaryItems\""
                 + Environment.NewLine
@@ -85,7 +88,7 @@ public class ToQueryStringTests
             .Be(
                 """
                 -- p0=<binary:16 bytes>
-                SELECT "id", "name"
+                SELECT "id", "$type", "name"
                 FROM "ToQueryStringConvertedBinaryItems"
                 WHERE "id" = ?
                 """);
@@ -111,7 +114,7 @@ public class ToQueryStringTests
             .Should()
             .Be(
                 """
-                SELECT "pk", "count", "enabled", "name", "status"
+                SELECT "pk", "$type", "count", "enabled", "name", "status"
                 FROM "ToQueryStringEqualsItems"
                 WHERE "name" = 'Leia' AND "count" = 7 AND "enabled" = TRUE AND "status" = 'Active'
                 """);
@@ -137,7 +140,7 @@ public class ToQueryStringTests
             .Should()
             .Be(
                 """
-                SELECT "pk", "count", "enabled", "name", "status"
+                SELECT "pk", "$type", "count", "enabled", "name", "status"
                 FROM "ToQueryStringEqualsItems"
                 WHERE "name" = 'Leia' AND "count" = 7 AND "enabled" = TRUE AND "status" = 'Active'
                 """);
@@ -162,7 +165,7 @@ public class ToQueryStringTests
             .Be(
                 """
                 -- p0='Leia'
-                SELECT "pk", "count", "enabled", "name", "status"
+                SELECT "pk", "$type", "count", "enabled", "name", "status"
                 FROM "ToQueryStringEqualsItems"
                 WHERE ? = "name"
                 """);
@@ -185,7 +188,7 @@ public class ToQueryStringTests
             .Should()
             .Be(
                 """
-                SELECT "pk", "count", "enabled", "name", "status"
+                SELECT "pk", "$type", "count", "enabled", "name", "status"
                 FROM "ToQueryStringEqualsItems"
                 WHERE "name" IS NULL OR "name" IS MISSING
                 """);
@@ -208,7 +211,7 @@ public class ToQueryStringTests
             .Should()
             .Be(
                 """
-                SELECT "pk", "count", "enabled", "name", "status"
+                SELECT "pk", "$type", "count", "enabled", "name", "status"
                 FROM "ToQueryStringEqualsItems"
                 WHERE "name" IS NULL OR "name" IS MISSING
                 """);
@@ -231,7 +234,7 @@ public class ToQueryStringTests
             .Should()
             .Be(
                 """
-                SELECT "pk", "count", "enabled", "name", "status"
+                SELECT "pk", "$type", "count", "enabled", "name", "status"
                 FROM "ToQueryStringEqualsItems"
                 WHERE FALSE
                 """);
@@ -254,7 +257,7 @@ public class ToQueryStringTests
             .Should()
             .Be(
                 """
-                SELECT "pk", "count", "enabled", "name", "status"
+                SELECT "pk", "$type", "count", "enabled", "name", "status"
                 FROM "ToQueryStringEqualsItems"
                 WHERE FALSE
                 """);
@@ -277,7 +280,7 @@ public class ToQueryStringTests
             .Should()
             .Be(
                 """
-                SELECT "pk", "count", "enabled", "name", "status"
+                SELECT "pk", "$type", "count", "enabled", "name", "status"
                 FROM "ToQueryStringEqualsItems"
                 WHERE FALSE
                 """);
@@ -300,7 +303,7 @@ public class ToQueryStringTests
             .Should()
             .Be(
                 """
-                SELECT "pk", "count", "enabled", "name", "status"
+                SELECT "pk", "$type", "count", "enabled", "name", "status"
                 FROM "ToQueryStringEqualsItems"
                 WHERE FALSE
                 """);

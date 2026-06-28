@@ -31,7 +31,7 @@ public class SecondaryIndexWithoutIndexTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "customerId", "orderId", "createdAt", "priority", "region", "status"
+            SELECT "customerId", "orderId", "$type", "createdAt", "priority", "region", "status"
             FROM "SecondaryIndexOrders"
             WHERE "status" = 'PENDING'
             """);

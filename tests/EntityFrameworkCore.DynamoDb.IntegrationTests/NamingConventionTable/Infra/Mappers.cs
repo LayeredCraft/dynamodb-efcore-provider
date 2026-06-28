@@ -19,6 +19,9 @@ internal static partial class SnakeCaseItemMapper
     internal static List<Dictionary<string, AttributeValue>> ToItems(
         IEnumerable<SnakeCaseItem> sources)
         => sources.Select(ToItem).ToList();
+
+    private static void AfterToItem(SnakeCaseItem source, Dictionary<string, AttributeValue> item)
+        => item["$type"] = new AttributeValue { S = nameof(SnakeCaseItem) };
 }
 
 /// <summary>
@@ -34,4 +37,7 @@ internal static partial class KebabCaseItemMapper
     internal static List<Dictionary<string, AttributeValue>> ToItems(
         IEnumerable<KebabCaseItem> sources)
         => sources.Select(ToItem).ToList();
+
+    private static void AfterToItem(KebabCaseItem source, Dictionary<string, AttributeValue> item)
+        => item["$type"] = new AttributeValue { S = nameof(KebabCaseItem) };
 }

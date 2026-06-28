@@ -107,7 +107,7 @@ the table name and the full PartiQL statement that will be sent:
 ```
 info: Microsoft.EntityFrameworkCore.Database.Command[30100]
       Executing DynamoDB PartiQL query for table 'Orders'
-      SELECT "PK", "SK", "Status", "Total" FROM "Orders"
+      SELECT "PK", "SK", "$type", "Status", "Total" FROM "Orders"
       WHERE "PK" = ?
 ```
 
@@ -193,7 +193,7 @@ Fires for each write operation (INSERT, UPDATE, or DELETE) before it is sent to 
 ```
 info: Microsoft.EntityFrameworkCore.Database.Command[30110]
       Executing DynamoDB PartiQL write for table 'Orders'
-      INSERT INTO "Orders" VALUE {'PK': ?, 'SK': ?, 'Status': ?, 'Total': ?}
+      INSERT INTO "Orders" VALUE {'PK': ?, 'SK': ?, '$type': ?, 'Status': ?, 'Total': ?}
 ```
 
 This event fires per-statement, not per-batch. When a `SaveChangesAsync` call produces multiple
@@ -359,7 +359,7 @@ on each round-trip.
 ```
 info: ...Database.Command[30100]
       Executing DynamoDB PartiQL query for table 'Orders'
-      SELECT * FROM "Orders" WHERE "PK" = ?
+      SELECT "PK", "SK", "$type", "Status", "Total" FROM "Orders" WHERE "PK" = ?
 
 info: ...Database.Command[30101]
       Executing DynamoDB ExecuteStatement request (limit: 25, nextTokenPresent: False, seedNextTokenPresent: False)

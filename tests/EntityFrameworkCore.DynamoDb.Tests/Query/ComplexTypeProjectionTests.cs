@@ -44,7 +44,10 @@ public class ComplexTypeProjectionTests
         bool includeProfileAttribute = true,
         bool profileIsNull = false)
     {
-        var item = new Dictionary<string, AttributeValue> { ["pk"] = new() { S = pk } };
+        var item = new Dictionary<string, AttributeValue>
+        {
+            ["pk"] = new() { S = pk }, ["$type"] = new() { S = nameof(EntityA) }
+        };
 
         if (includeProfileAttribute)
             item["profile"] = profileIsNull
@@ -305,7 +308,9 @@ public class ComplexTypeProjectionTests
     {
         var item = new Dictionary<string, AttributeValue>
         {
-            ["pk"] = new() { S = "A#6aa" }, ["profile"] = new() { S = "legacy-shape" }
+            ["pk"] = new() { S = "A#6aa" },
+            ["$type"] = new() { S = nameof(EntityA) },
+            ["profile"] = new() { S = "legacy-shape" }
         };
 
         var client = CreateMockClientReturning(item);
@@ -355,7 +360,9 @@ public class ComplexTypeProjectionTests
     {
         var item = new Dictionary<string, AttributeValue>
         {
-            ["pk"] = new() { S = "C#2" }, ["addresses"] = new() { NULL = true }
+            ["pk"] = new() { S = "C#2" },
+            ["$type"] = new() { S = nameof(NullableComplexCollectionEntity) },
+            ["addresses"] = new() { NULL = true }
         };
 
         var client = CreateMockClientReturning(item);

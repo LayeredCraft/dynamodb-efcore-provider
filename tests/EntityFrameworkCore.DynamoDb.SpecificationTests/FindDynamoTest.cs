@@ -212,7 +212,7 @@ public abstract class FindDynamoTest : FindTestBase<FindDynamoTest.FindDynamoFix
 
         AssertSql(
             """
-            SELECT "id", "foo", "ownedCollection", "ownedReference"
+            SELECT "id", "$type", "foo", "ownedCollection", "ownedReference"
             FROM "ints"
             WHERE "id" = ?
             """);
@@ -225,7 +225,7 @@ public abstract class FindDynamoTest : FindTestBase<FindDynamoTest.FindDynamoFix
 
         AssertSql(
             """
-            SELECT "id", "foo", "ownedCollection", "ownedReference"
+            SELECT "id", "$type", "foo", "ownedCollection", "ownedReference"
             FROM "ints"
             WHERE "id" = ?
             """);
@@ -237,7 +237,7 @@ public abstract class FindDynamoTest : FindTestBase<FindDynamoTest.FindDynamoFix
 
         AssertSql(
             """
-            SELECT "id", "foo"
+            SELECT "id", "$type", "foo"
             FROM "strings"
             WHERE "id" = ?
             """);
@@ -250,7 +250,7 @@ public abstract class FindDynamoTest : FindTestBase<FindDynamoTest.FindDynamoFix
 
         AssertSql(
             """
-            SELECT "id", "foo"
+            SELECT "id", "$type", "foo"
             FROM "strings"
             WHERE "id" = ?
             """);
@@ -270,7 +270,7 @@ public abstract class FindDynamoTest : FindTestBase<FindDynamoTest.FindDynamoFix
 
         AssertSql(
             """
-            SELECT "id1", "id2", "foo"
+            SELECT "id1", "id2", "$type", "foo"
             FROM "composite"
             WHERE "id1" = ? AND "id2" = ?
             """);
@@ -283,7 +283,7 @@ public abstract class FindDynamoTest : FindTestBase<FindDynamoTest.FindDynamoFix
 
         AssertSql(
             """
-            SELECT "id1", "id2", "foo"
+            SELECT "id1", "id2", "$type", "foo"
             FROM "composite"
             WHERE "id1" = ? AND "id2" = ?
             """);

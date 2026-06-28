@@ -24,7 +24,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_simple(a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "city" = 'London'
                     """);
@@ -44,7 +44,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 queryString = await base.Where_simple_closure(a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "city" = ?
                     """);
@@ -61,7 +61,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_indexer_closure(a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "city" = ?
                     """);
@@ -75,7 +75,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_dictionary_key_access_closure(a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "city" = ?
                     """);
@@ -89,7 +89,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_tuple_item_closure(a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "city" = ?
                     """);
@@ -103,7 +103,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_named_tuple_item_closure(a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "city" = ?
                     """);
@@ -117,7 +117,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_simple_closure_constant(a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE ? = TRUE
                     """);
@@ -131,12 +131,12 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_simple_closure_via_query_cache(a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "city" = ?
                     """,
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "city" = ?
                     """);
@@ -150,12 +150,12 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_method_call_nullable_type_closure_via_query_cache(a);
                 AssertSql(
                     """
-                    SELECT "employeeID", "city", "country", "firstName", "reportsTo", "title"
+                    SELECT "employeeID", "$type", "city", "country", "firstName", "reportsTo", "title"
                     FROM "Employees"
                     WHERE "reportsTo" = ?
                     """,
                     """
-                    SELECT "employeeID", "city", "country", "firstName", "reportsTo", "title"
+                    SELECT "employeeID", "$type", "city", "country", "firstName", "reportsTo", "title"
                     FROM "Employees"
                     WHERE "reportsTo" = ?
                     """);
@@ -169,12 +169,12 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_method_call_nullable_type_reverse_closure_via_query_cache(a);
                 AssertSql(
                     """
-                    SELECT "employeeID", "city", "country", "firstName", "reportsTo", "title"
+                    SELECT "employeeID", "$type", "city", "country", "firstName", "reportsTo", "title"
                     FROM "Employees"
                     WHERE "employeeID" > ?
                     """,
                     """
-                    SELECT "employeeID", "city", "country", "firstName", "reportsTo", "title"
+                    SELECT "employeeID", "$type", "city", "country", "firstName", "reportsTo", "title"
                     FROM "Employees"
                     WHERE "employeeID" > ?
                     """);
@@ -188,12 +188,12 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_method_call_closure_via_query_cache(a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "city" = ?
                     """,
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "city" = ?
                     """);
@@ -207,12 +207,12 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_field_access_closure_via_query_cache(a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "city" = ?
                     """,
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "city" = ?
                     """);
@@ -226,12 +226,12 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_property_access_closure_via_query_cache(a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "city" = ?
                     """,
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "city" = ?
                     """);
@@ -245,12 +245,12 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_static_field_access_closure_via_query_cache(a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "city" = ?
                     """,
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "city" = ?
                     """);
@@ -264,12 +264,12 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_static_property_access_closure_via_query_cache(a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "city" = ?
                     """,
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "city" = ?
                     """);
@@ -283,12 +283,12 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_nested_field_access_closure_via_query_cache(a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "city" = ?
                     """,
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "city" = ?
                     """);
@@ -302,12 +302,12 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_nested_property_access_closure_via_query_cache(a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "city" = ?
                     """,
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "city" = ?
                     """);
@@ -342,12 +342,12 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_new_instance_field_access_query_cache(a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "city" = ?
                     """,
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "city" = ?
                     """);
@@ -361,12 +361,12 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_new_instance_field_access_closure_via_query_cache(a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "city" = ?
                     """,
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "city" = ?
                     """);
@@ -380,17 +380,17 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_simple_closure_via_query_cache_nullable_type(a);
                 AssertSql(
                     """
-                    SELECT "employeeID", "city", "country", "firstName", "reportsTo", "title"
+                    SELECT "employeeID", "$type", "city", "country", "firstName", "reportsTo", "title"
                     FROM "Employees"
                     WHERE "reportsTo" = ?
                     """,
                     """
-                    SELECT "employeeID", "city", "country", "firstName", "reportsTo", "title"
+                    SELECT "employeeID", "$type", "city", "country", "firstName", "reportsTo", "title"
                     FROM "Employees"
                     WHERE "reportsTo" = ?
                     """,
                     """
-                    SELECT "employeeID", "city", "country", "firstName", "reportsTo", "title"
+                    SELECT "employeeID", "$type", "city", "country", "firstName", "reportsTo", "title"
                     FROM "Employees"
                     WHERE "reportsTo" = ?
                     """);
@@ -404,17 +404,17 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_simple_closure_via_query_cache_nullable_type_reverse(a);
                 AssertSql(
                     """
-                    SELECT "employeeID", "city", "country", "firstName", "reportsTo", "title"
+                    SELECT "employeeID", "$type", "city", "country", "firstName", "reportsTo", "title"
                     FROM "Employees"
                     WHERE "reportsTo" = ?
                     """,
                     """
-                    SELECT "employeeID", "city", "country", "firstName", "reportsTo", "title"
+                    SELECT "employeeID", "$type", "city", "country", "firstName", "reportsTo", "title"
                     FROM "Employees"
                     WHERE "reportsTo" = ?
                     """,
                     """
-                    SELECT "employeeID", "city", "country", "firstName", "reportsTo", "title"
+                    SELECT "employeeID", "$type", "city", "country", "firstName", "reportsTo", "title"
                     FROM "Employees"
                     WHERE "reportsTo" = ?
                     """);
@@ -431,7 +431,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_simple_shadow(a);
                 AssertSql(
                     """
-                    SELECT "employeeID", "city", "country", "firstName", "reportsTo", "title"
+                    SELECT "employeeID", "$type", "city", "country", "firstName", "reportsTo", "title"
                     FROM "Employees"
                     WHERE "title" = 'Sales Representative'
                     """);
@@ -527,7 +527,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_comparison_nullable_type_not_null(a);
                 AssertSql(
                     """
-                    SELECT "employeeID", "city", "country", "firstName", "reportsTo", "title"
+                    SELECT "employeeID", "$type", "city", "country", "firstName", "reportsTo", "title"
                     FROM "Employees"
                     WHERE "reportsTo" = 2
                     """);
@@ -541,7 +541,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_comparison_nullable_type_null(a);
                 AssertSql(
                     """
-                    SELECT "employeeID", "city", "country", "firstName", "reportsTo", "title"
+                    SELECT "employeeID", "$type", "city", "country", "firstName", "reportsTo", "title"
                     FROM "Employees"
                     WHERE "reportsTo" IS NULL OR "reportsTo" IS MISSING
                     """);
@@ -555,7 +555,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_simple_reversed(a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE 'London' = "city"
                     """);
@@ -569,7 +569,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_is_null(a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "region" IS NULL OR "region" IS MISSING
                     """);
@@ -589,7 +589,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_is_not_null(a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "city" IS NOT NULL AND "city" IS NOT MISSING
                     """);
@@ -639,7 +639,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_bool_member(a);
                 AssertSql(
                     """
-                    SELECT "productID", "discontinued", "productName", "supplierID", "unitPrice", "unitsInStock"
+                    SELECT "productID", "$type", "discontinued", "productName", "supplierID", "unitPrice", "unitsInStock"
                     FROM "Products"
                     WHERE "discontinued" = TRUE
                     """);
@@ -653,7 +653,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_bool_member_false(a);
                 AssertSql(
                     """
-                    SELECT "productID", "discontinued", "productName", "supplierID", "unitPrice", "unitsInStock"
+                    SELECT "productID", "$type", "discontinued", "productName", "supplierID", "unitPrice", "unitsInStock"
                     FROM "Products"
                     WHERE NOT ("discontinued" = TRUE)
                     """);
@@ -670,7 +670,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_bool_member_negated_twice(a);
                 AssertSql(
                     """
-                    SELECT "productID", "discontinued", "productName", "supplierID", "unitPrice", "unitsInStock"
+                    SELECT "productID", "$type", "discontinued", "productName", "supplierID", "unitPrice", "unitsInStock"
                     FROM "Products"
                     WHERE NOT (NOT ("discontinued" = TRUE))
                     """);
@@ -684,7 +684,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_bool_member_shadow(a);
                 AssertSql(
                     """
-                    SELECT "productID", "discontinued", "productName", "supplierID", "unitPrice", "unitsInStock"
+                    SELECT "productID", "$type", "discontinued", "productName", "supplierID", "unitPrice", "unitsInStock"
                     FROM "Products"
                     WHERE "discontinued" = TRUE
                     """);
@@ -698,7 +698,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_bool_member_false_shadow(a);
                 AssertSql(
                     """
-                    SELECT "productID", "discontinued", "productName", "supplierID", "unitPrice", "unitsInStock"
+                    SELECT "productID", "$type", "discontinued", "productName", "supplierID", "unitPrice", "unitsInStock"
                     FROM "Products"
                     WHERE NOT ("discontinued" = TRUE)
                     """);
@@ -715,7 +715,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_bool_member_in_complex_predicate(a);
                 AssertSql(
                     """
-                    SELECT "productID", "discontinued", "productName", "supplierID", "unitPrice", "unitsInStock"
+                    SELECT "productID", "$type", "discontinued", "productName", "supplierID", "unitPrice", "unitsInStock"
                     FROM "Products"
                     WHERE "productID" > 100 AND "discontinued" = TRUE OR "discontinued" = TRUE
                     """);
@@ -729,7 +729,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_bool_member_compared_to_binary_expression(a);
                 AssertSql(
                     """
-                    SELECT "productID", "discontinued", "productName", "supplierID", "unitPrice", "unitsInStock"
+                    SELECT "productID", "$type", "discontinued", "productName", "supplierID", "unitPrice", "unitsInStock"
                     FROM "Products"
                     WHERE "discontinued" = ("productID" > 50)
                     """);
@@ -743,7 +743,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_not_bool_member_compared_to_not_bool_member(a);
                 AssertSql(
                     """
-                    SELECT "productID", "discontinued", "productName", "supplierID", "unitPrice", "unitsInStock"
+                    SELECT "productID", "$type", "discontinued", "productName", "supplierID", "unitPrice", "unitsInStock"
                     FROM "Products"
                     WHERE NOT ("discontinued" = TRUE) = NOT ("discontinued" = TRUE)
                     """);
@@ -760,7 +760,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                         a);
                 AssertSql(
                     """
-                    SELECT "productID", "discontinued", "productName", "supplierID", "unitPrice", "unitsInStock"
+                    SELECT "productID", "$type", "discontinued", "productName", "supplierID", "unitPrice", "unitsInStock"
                     FROM "Products"
                     WHERE NOT ("productID" > 50) = NOT ("productID" > 20)
                     """);
@@ -774,7 +774,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_not_bool_member_compared_to_binary_expression(a);
                 AssertSql(
                     """
-                    SELECT "productID", "discontinued", "productName", "supplierID", "unitPrice", "unitsInStock"
+                    SELECT "productID", "$type", "discontinued", "productName", "supplierID", "unitPrice", "unitsInStock"
                     FROM "Products"
                     WHERE NOT ("discontinued" = TRUE) = ("productID" > 50)
                     """);
@@ -788,7 +788,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_bool_parameter(a);
                 AssertSql(
                     """
-                    SELECT "productID", "discontinued", "productName", "supplierID", "unitPrice", "unitsInStock"
+                    SELECT "productID", "$type", "discontinued", "productName", "supplierID", "unitPrice", "unitsInStock"
                     FROM "Products"
                     WHERE ? = TRUE
                     """);
@@ -802,7 +802,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_bool_parameter_compared_to_binary_expression(a);
                 AssertSql(
                     """
-                    SELECT "productID", "discontinued", "productName", "supplierID", "unitPrice", "unitsInStock"
+                    SELECT "productID", "$type", "discontinued", "productName", "supplierID", "unitPrice", "unitsInStock"
                     FROM "Products"
                     WHERE ("productID" > 50) <> ?
                     """);
@@ -817,7 +817,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_bool_member_and_parameter_compared_to_binary_expression_nested(a);
                 AssertSql(
                     """
-                    SELECT "productID", "discontinued", "productName", "supplierID", "unitPrice", "unitsInStock"
+                    SELECT "productID", "$type", "discontinued", "productName", "supplierID", "unitPrice", "unitsInStock"
                     FROM "Products"
                     WHERE "discontinued" = (("productID" > 50) <> ?)
                     """);
@@ -831,7 +831,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_de_morgan_or_optimized(a);
                 AssertSql(
                     """
-                    SELECT "productID", "discontinued", "productName", "supplierID", "unitPrice", "unitsInStock"
+                    SELECT "productID", "$type", "discontinued", "productName", "supplierID", "unitPrice", "unitsInStock"
                     FROM "Products"
                     WHERE NOT ("discontinued" = TRUE OR "productID" < 20)
                     """);
@@ -845,7 +845,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_de_morgan_and_optimized(a);
                 AssertSql(
                     """
-                    SELECT "productID", "discontinued", "productName", "supplierID", "unitPrice", "unitsInStock"
+                    SELECT "productID", "$type", "discontinued", "productName", "supplierID", "unitPrice", "unitsInStock"
                     FROM "Products"
                     WHERE NOT ("discontinued" = TRUE AND "productID" < 20)
                     """);
@@ -859,7 +859,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_complex_negated_expression_optimized(a);
                 AssertSql(
                     """
-                    SELECT "productID", "discontinued", "productName", "supplierID", "unitPrice", "unitsInStock"
+                    SELECT "productID", "$type", "discontinued", "productName", "supplierID", "unitPrice", "unitsInStock"
                     FROM "Products"
                     WHERE NOT (NOT (NOT ("discontinued" = TRUE) AND "productID" < 60) OR NOT ("productID" > 30))
                     """);
@@ -873,7 +873,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_short_member_comparison(a);
                 AssertSql(
                     """
-                    SELECT "productID", "discontinued", "productName", "supplierID", "unitPrice", "unitsInStock"
+                    SELECT "productID", "$type", "discontinued", "productName", "supplierID", "unitPrice", "unitsInStock"
                     FROM "Products"
                     WHERE "unitsInStock" > 10
                     """);
@@ -902,7 +902,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_default(a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "fax" IS NULL OR "fax" IS MISSING
                     """);
@@ -916,7 +916,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_expression_invoke_1(a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "customerID" = 'ALFKI'
                     """);
@@ -933,7 +933,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_expression_invoke_3(a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "customerID" = 'ALFKI'
                     """);
@@ -947,7 +947,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_ternary_boolean_condition_true(a);
                 AssertSql(
                     """
-                    SELECT "productID", "discontinued", "productName", "supplierID", "unitPrice", "unitsInStock"
+                    SELECT "productID", "$type", "discontinued", "productName", "supplierID", "unitPrice", "unitsInStock"
                     FROM "Products"
                     WHERE "unitsInStock" >= 20
                     """);
@@ -961,7 +961,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_ternary_boolean_condition_false(a);
                 AssertSql(
                     """
-                    SELECT "productID", "discontinued", "productName", "supplierID", "unitPrice", "unitsInStock"
+                    SELECT "productID", "$type", "discontinued", "productName", "supplierID", "unitPrice", "unitsInStock"
                     FROM "Products"
                     WHERE "unitsInStock" < 20
                     """);
@@ -975,7 +975,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_ternary_boolean_condition_with_another_condition(a);
                 AssertSql(
                     """
-                    SELECT "productID", "discontinued", "productName", "supplierID", "unitPrice", "unitsInStock"
+                    SELECT "productID", "$type", "discontinued", "productName", "supplierID", "unitPrice", "unitsInStock"
                     FROM "Products"
                     WHERE "productID" < ? AND "unitsInStock" >= 20
                     """);
@@ -989,7 +989,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_ternary_boolean_condition_with_false_as_result_true(a);
                 AssertSql(
                     """
-                    SELECT "productID", "discontinued", "productName", "supplierID", "unitPrice", "unitsInStock"
+                    SELECT "productID", "$type", "discontinued", "productName", "supplierID", "unitPrice", "unitsInStock"
                     FROM "Products"
                     WHERE "unitsInStock" >= 20
                     """);
@@ -1044,7 +1044,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_compare_null(a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE ("region" IS NULL OR "region" IS MISSING) AND "country" = 'UK'
                     """);
@@ -1058,7 +1058,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_compare_null_with_cast_to_object(a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "region" IS NULL OR "region" IS MISSING
                     """);
@@ -1072,7 +1072,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_compare_with_both_cast_to_object(a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "city" = 'London'
                     """);
@@ -1103,7 +1103,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_chain(a);
                 AssertSql(
                     """
-                    SELECT "orderID", "customerID", "employeeID", "orderDate"
+                    SELECT "orderID", "$type", "customerID", "employeeID", "orderDate"
                     FROM "Orders"
                     WHERE "customerID" = 'QUICK' AND "orderDate" > '1998-01-01 00:00:00'
                     """);
@@ -1120,7 +1120,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_array_index(a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "customerID" = ?
                     """);
@@ -1152,7 +1152,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.TypeBinary_short_circuit(a);
                 AssertSql(
                     """
-                    SELECT "orderID", "customerID", "employeeID", "orderDate"
+                    SELECT "orderID", "$type", "customerID", "employeeID", "orderDate"
                     FROM "Orders"
                     WHERE ? = TRUE
                     """);
@@ -1166,7 +1166,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Decimal_cast_to_double_works(a);
                 AssertSql(
                     """
-                    SELECT "productID", "discontinued", "productName", "supplierID", "unitPrice", "unitsInStock"
+                    SELECT "productID", "$type", "discontinued", "productName", "supplierID", "unitPrice", "unitsInStock"
                     FROM "Products"
                     WHERE "unitPrice" > 100
                     """);
@@ -1183,12 +1183,12 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Enclosing_class_settable_member_generates_parameter(a);
                 AssertSql(
                     """
-                    SELECT "orderID", "customerID", "employeeID", "orderDate"
+                    SELECT "orderID", "$type", "customerID", "employeeID", "orderDate"
                     FROM "Orders"
                     WHERE "orderID" = ?
                     """,
                     """
-                    SELECT "orderID", "customerID", "employeeID", "orderDate"
+                    SELECT "orderID", "$type", "customerID", "employeeID", "orderDate"
                     FROM "Orders"
                     WHERE "orderID" = ?
                     """);
@@ -1202,7 +1202,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Enclosing_class_readonly_member_generates_parameter(a);
                 AssertSql(
                     """
-                    SELECT "orderID", "customerID", "employeeID", "orderDate"
+                    SELECT "orderID", "$type", "customerID", "employeeID", "orderDate"
                     FROM "Orders"
                     WHERE "orderID" = ?
                     """);
@@ -1216,7 +1216,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Enclosing_class_const_member_does_not_generate_parameter(a);
                 AssertSql(
                     """
-                    SELECT "orderID", "customerID", "employeeID", "orderDate"
+                    SELECT "orderID", "$type", "customerID", "employeeID", "orderDate"
                     FROM "Orders"
                     WHERE "orderID" = 10274
                     """);
@@ -1230,7 +1230,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Generic_Ilist_contains_translates_to_server(a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "city" IN [?]
                     """);
@@ -1253,7 +1253,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Two_parameters_with_same_name_get_uniquified(a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "customerID" = ? OR "customerID" = ?
                     """);
@@ -1267,7 +1267,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Two_parameters_with_same_case_insensitive_name_get_uniquified(a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "customerID" = ? OR "customerID" = ?
                     """);
@@ -1340,7 +1340,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_list_object_contains_over_value_type(a);
                 AssertSql(
                     """
-                    SELECT "orderID", "customerID", "employeeID", "orderDate"
+                    SELECT "orderID", "$type", "customerID", "employeeID", "orderDate"
                     FROM "Orders"
                     WHERE "orderID" IN [?, ?]
                     """);
@@ -1354,7 +1354,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_array_of_object_contains_over_value_type(a);
                 AssertSql(
                     """
-                    SELECT "orderID", "customerID", "employeeID", "orderDate"
+                    SELECT "orderID", "$type", "customerID", "employeeID", "orderDate"
                     FROM "Orders"
                     WHERE "orderID" IN [?, ?]
                     """);
@@ -1368,7 +1368,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Multiple_OrElse_on_same_column_converted_to_in_with_overlap(a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "customerID" = 'ALFKI' OR "customerID" = 'ANATR' OR "customerID" = 'ANTON' OR "customerID" = 'ANATR'
                     """);
@@ -1385,7 +1385,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                         a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "region" = 'WA' OR "region" = 'OR' OR "region" IS NULL OR "region" IS MISSING OR "region" = 'BC'
                     """);
@@ -1402,7 +1402,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                         a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "customerID" IN ['ALFKI', 'ANATR'] OR "customerID" = 'ANTON'
                     """);
@@ -1420,7 +1420,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                         a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "customerID" = 'ANTON' OR "customerID" IN ['ALFKI', 'ANATR'] OR "customerID" = 'ALFKI'
                     """);
@@ -1438,7 +1438,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                         a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "customerID" IN ['ALFKI', 'ANATR'] OR "customerID" IN ['ALFKI', 'ANTON']
                     """);
@@ -1456,7 +1456,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                         a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE NOT ("customerID" IN ['ALFKI', 'ANATR']) AND NOT ("customerID" IN ['ALFKI', 'ANTON'])
                     """);
@@ -1471,7 +1471,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Multiple_AndAlso_on_same_column_converted_to_in_using_parameters(a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "customerID" <> ? AND "customerID" <> ? AND "customerID" <> ?
                     """);
@@ -1489,7 +1489,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                         a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "customerID" IN [?, ?] OR "customerID" = 'ANTON'
                     """);
@@ -1506,7 +1506,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                         a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "region" = 'WA' OR "region" = 'OR' OR "region" = ? OR "region" = 'BC'
                     """);
@@ -1520,7 +1520,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Parameter_array_Contains_OrElse_comparison_with_constant(a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "customerID" IN [?, ?] OR "customerID" = 'ANTON'
                     """);
@@ -1536,7 +1536,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                     .Parameter_array_Contains_OrElse_comparison_with_parameter_with_overlap(a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "customerID" = ? OR "customerID" IN [?, ?] OR "customerID" = ?
                     """);
@@ -1550,7 +1550,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Two_sets_of_comparison_combine_correctly(a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "customerID" IN ['ALFKI', 'ANATR'] AND ("customerID" = 'ANATR' OR "customerID" = 'ANTON')
                     """);
@@ -1564,7 +1564,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Two_sets_of_comparison_combine_correctly2(a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "region" <> 'WA' AND "region" <> 'OR' AND "region" IS NOT NULL AND "region" IS NOT MISSING OR "region" <> 'WA' AND "region" IS NOT NULL AND "region" IS NOT MISSING
                     """);
@@ -1580,7 +1580,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                     .Filter_with_property_compared_to_null_wrapped_in_explicit_convert_to_object(a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "region" IS NULL OR "region" IS MISSING
                     """);
@@ -1594,7 +1594,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Filter_with_EF_Property_using_closure_for_property_name(a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "customerID" = 'ALFKI'
                     """);
@@ -1608,7 +1608,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Filter_with_EF_Property_using_function_for_property_name(a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "customerID" = 'ALFKI'
                     """);
@@ -1686,7 +1686,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_Contains_and_comparison(a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "customerID" IN [?, ?, ?] AND "city" = 'Seattle'
                     """);
@@ -1700,7 +1700,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Where_Contains_or_comparison(a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "customerID" IN [?, ?] OR "city" = 'Seattle'
                     """);
@@ -1750,7 +1750,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.EF_Parameter(a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "customerID" = ?
                     """);
@@ -1764,7 +1764,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.EF_Parameter_with_subtree(a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE "customerID" = ?
                     """);
@@ -1792,27 +1792,27 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Implicit_cast_in_predicate(a);
                 AssertSql(
                     """
-                    SELECT "orderID", "customerID", "employeeID", "orderDate"
+                    SELECT "orderID", "$type", "customerID", "employeeID", "orderDate"
                     FROM "Orders"
                     WHERE "customerID" = '1337'
                     """,
                     """
-                    SELECT "orderID", "customerID", "employeeID", "orderDate"
+                    SELECT "orderID", "$type", "customerID", "employeeID", "orderDate"
                     FROM "Orders"
                     WHERE "customerID" = ?
                     """,
                     """
-                    SELECT "orderID", "customerID", "employeeID", "orderDate"
+                    SELECT "orderID", "$type", "customerID", "employeeID", "orderDate"
                     FROM "Orders"
                     WHERE "customerID" = ?
                     """,
                     """
-                    SELECT "orderID", "customerID", "employeeID", "orderDate"
+                    SELECT "orderID", "$type", "customerID", "employeeID", "orderDate"
                     FROM "Orders"
                     WHERE "customerID" = ?
                     """,
                     """
-                    SELECT "orderID", "customerID", "employeeID", "orderDate"
+                    SELECT "orderID", "$type", "customerID", "employeeID", "orderDate"
                     FROM "Orders"
                     WHERE "customerID" = '1337'
                     """);
@@ -1855,7 +1855,7 @@ public abstract class NorthwindWhereQueryDynamoTest
                 await base.Simplifiable_coalesce_over_nullable(a);
                 AssertSql(
                     """
-                    SELECT "orderID", "customerID", "employeeID", "orderDate"
+                    SELECT "orderID", "$type", "customerID", "employeeID", "orderDate"
                     FROM "Orders"
                     WHERE "orderID" = ?
                     """);

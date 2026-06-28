@@ -21,7 +21,7 @@ public class ContainsTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "pk", "labelSet", "metadata", "optionalTags", "ratingSet", "scoresByCategory", "tags"
+            SELECT "pk", "$type", "labelSet", "metadata", "optionalTags", "ratingSet", "scoresByCategory", "tags"
             FROM "PrimitiveCollectionsItems"
             WHERE contains("tags", ?)
             """);
@@ -43,7 +43,7 @@ public class ContainsTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "pk", "labelSet", "metadata", "optionalTags", "ratingSet", "scoresByCategory", "tags"
+            SELECT "pk", "$type", "labelSet", "metadata", "optionalTags", "ratingSet", "scoresByCategory", "tags"
             FROM "PrimitiveCollectionsItems"
             WHERE contains("labelSet", ?)
             """);
@@ -63,7 +63,7 @@ public class ContainsTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "pk", "labelSet", "metadata", "optionalTags", "ratingSet", "scoresByCategory", "tags"
+            SELECT "pk", "$type", "labelSet", "metadata", "optionalTags", "ratingSet", "scoresByCategory", "tags"
             FROM "PrimitiveCollectionsItems"
             WHERE contains("ratingSet", 2)
             """);

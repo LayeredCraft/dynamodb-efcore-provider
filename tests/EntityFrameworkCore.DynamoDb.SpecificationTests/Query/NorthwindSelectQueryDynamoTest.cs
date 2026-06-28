@@ -51,7 +51,7 @@ public abstract class NorthwindSelectQueryDynamoTest
                 await base.Projection_when_arithmetic_expressions(a);
                 AssertSql(
                     """
-                    SELECT "orderID", "customerID", "employeeID", "orderDate"
+                    SELECT "orderID", "$type", "customerID", "employeeID", "orderDate"
                     FROM "Orders"
                     """);
             });
@@ -222,7 +222,7 @@ public abstract class NorthwindSelectQueryDynamoTest
                 await base.Select_customer_table(a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     """);
             });
@@ -235,7 +235,7 @@ public abstract class NorthwindSelectQueryDynamoTest
                 await base.Select_customer_identity(a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     """);
             });
@@ -895,7 +895,7 @@ public abstract class NorthwindSelectQueryDynamoTest
                 await base.Client_method_in_projection_requiring_materialization_1(a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE begins_with("customerID", 'A')
                     """);
@@ -909,7 +909,7 @@ public abstract class NorthwindSelectQueryDynamoTest
                 await base.Client_method_in_projection_requiring_materialization_2(a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     WHERE begins_with("customerID", 'A')
                     """);
@@ -1229,7 +1229,7 @@ public abstract class NorthwindSelectQueryDynamoTest
                 await base.Entity_passed_to_DTO_constructor_works(a);
                 AssertSql(
                     """
-                    SELECT "customerID", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
+                    SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
                     FROM "Customers"
                     """);
             });

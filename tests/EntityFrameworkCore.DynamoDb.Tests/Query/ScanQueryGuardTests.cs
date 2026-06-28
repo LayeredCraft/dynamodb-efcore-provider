@@ -439,7 +439,8 @@ public class ScanQueryGuardTests
             ["pk"] = new AttributeValue("P#1"),
             ["sk"] = new AttributeValue(sk),
             ["status"] = new AttributeValue("OPEN"),
-            ["total"] = new AttributeValue { N = "1" }
+            ["total"] = new AttributeValue { N = "1" },
+            ["$type"] = new AttributeValue(nameof(ScanGuardItem))
         };
 
     private sealed class DynamoDiagnosticObserver

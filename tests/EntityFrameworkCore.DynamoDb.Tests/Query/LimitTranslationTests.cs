@@ -241,7 +241,8 @@ public class LimitTranslationTests
                     [
                         new Dictionary<string, AttributeValue>
                         {
-                            ["pk"] = new() { S = "P#1" }
+                            ["pk"] = new() { S = "P#1" },
+                            ["$type"] = new() { S = nameof(LimitTestEntity) }
                         }
                     ],
                     NextToken = "next-page-token"

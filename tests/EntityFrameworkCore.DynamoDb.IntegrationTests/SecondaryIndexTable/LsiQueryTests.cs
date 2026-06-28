@@ -33,7 +33,7 @@ public class LsiQueryTests(DynamoContainerFixture fixture) : SecondaryIndexTable
 
         AssertSql(
             """
-            SELECT "customerId", "orderId", "createdAt", "priority", "region", "status"
+            SELECT "customerId", "orderId", "$type", "createdAt", "priority", "region", "status"
             FROM "SecondaryIndexOrders"."ByCreatedAt"
             WHERE "customerId" = 'C#1'
             ORDER BY "createdAt" ASC
@@ -64,7 +64,7 @@ public class LsiQueryTests(DynamoContainerFixture fixture) : SecondaryIndexTable
 
         AssertSql(
             """
-            SELECT "customerId", "orderId", "createdAt", "priority", "region", "status"
+            SELECT "customerId", "orderId", "$type", "createdAt", "priority", "region", "status"
             FROM "SecondaryIndexOrders"."ByCreatedAt"
             WHERE "customerId" = 'C#1' AND "createdAt" >= '2024-01-12' AND "createdAt" <= '2024-01-18'
             """);
@@ -98,7 +98,7 @@ public class LsiQueryTests(DynamoContainerFixture fixture) : SecondaryIndexTable
 
         AssertSql(
             """
-            SELECT "customerId", "orderId", "createdAt", "priority", "region", "status"
+            SELECT "customerId", "orderId", "$type", "createdAt", "priority", "region", "status"
             FROM "SecondaryIndexOrders"."ByPriority"
             WHERE "customerId" = 'C#1'
             ORDER BY "priority" ASC
@@ -122,7 +122,7 @@ public class LsiQueryTests(DynamoContainerFixture fixture) : SecondaryIndexTable
 
         AssertSql(
             """
-            SELECT "customerId", "orderId", "createdAt", "priority", "region", "status"
+            SELECT "customerId", "orderId", "$type", "createdAt", "priority", "region", "status"
             FROM "SecondaryIndexOrders"."ByPriority"
             WHERE "customerId" = 'C#1' AND "priority" >= 3
             """);
@@ -139,7 +139,7 @@ public class LsiQueryTests(DynamoContainerFixture fixture) : SecondaryIndexTable
 
         AssertSql(
             """
-            SELECT "customerId", "orderId", "createdAt", "priority", "region", "status"
+            SELECT "customerId", "orderId", "$type", "createdAt", "priority", "region", "status"
             FROM "SecondaryIndexOrders"."ByCreatedAt"
             WHERE "customerId" = 'C#2'
             """);

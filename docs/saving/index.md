@@ -31,7 +31,7 @@ The mapping from EF Core entity state to DynamoDB write operation:
 
 | EF Entity State | PartiQL Statement                                             |
 | --------------- | ------------------------------------------------------------- |
-| `Added`         | `INSERT INTO "Table" VALUE {'pk': ?, ...}`                    |
+| `Added`         | `INSERT INTO "Table" VALUE {'pk': ?, '$type': ?, ...}`        |
 | `Modified`      | `UPDATE "Table" SET "prop" = ? REMOVE "other" WHERE "pk" = ?` |
 | `Deleted`       | `DELETE FROM "Table" WHERE "pk" = ?`                          |
 

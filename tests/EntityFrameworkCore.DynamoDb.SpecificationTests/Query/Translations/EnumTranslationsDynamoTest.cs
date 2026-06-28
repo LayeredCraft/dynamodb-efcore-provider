@@ -24,7 +24,7 @@ public abstract class EnumTranslationsDynamoTest
 
         AssertSql(
             """
-            SELECT "id", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
+            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
             FROM "BasicTypesEntity"
             WHERE "enum" = 0
             """);
@@ -36,7 +36,7 @@ public abstract class EnumTranslationsDynamoTest
 
         AssertSql(
             """
-            SELECT "id", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
+            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
             FROM "BasicTypesEntity"
             WHERE "enum" = ?
             """);
@@ -48,7 +48,7 @@ public abstract class EnumTranslationsDynamoTest
 
         AssertSql(
             """
-            SELECT "id", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
+            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
             FROM "NullableBasicTypesEntity"
             WHERE "enum" = 0
             """);
@@ -60,7 +60,7 @@ public abstract class EnumTranslationsDynamoTest
 
         AssertSql(
             """
-            SELECT "id", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
+            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
             FROM "NullableBasicTypesEntity"
             WHERE "enum" = ?
             """);
@@ -72,7 +72,7 @@ public abstract class EnumTranslationsDynamoTest
 
         AssertSql(
             """
-            SELECT "id", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
+            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
             FROM "NullableBasicTypesEntity"
             WHERE "enum" IS NULL OR "enum" IS MISSING
             """);
@@ -84,7 +84,7 @@ public abstract class EnumTranslationsDynamoTest
 
         AssertSql(
             """
-            SELECT "id", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
+            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
             FROM "NullableBasicTypesEntity"
             WHERE "enum" = ?
             """);
@@ -96,7 +96,7 @@ public abstract class EnumTranslationsDynamoTest
 
         AssertSql(
             """
-            SELECT "id", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
+            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
             FROM "NullableBasicTypesEntity"
             WHERE "enum" = ?
             """);
@@ -109,7 +109,7 @@ public abstract class EnumTranslationsDynamoTest
 
         AssertSql(
             """
-            SELECT "id", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
+            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
             FROM "NullableBasicTypesEntity"
             WHERE "enum" IS NOT NULL AND "enum" IS NOT MISSING
             """);

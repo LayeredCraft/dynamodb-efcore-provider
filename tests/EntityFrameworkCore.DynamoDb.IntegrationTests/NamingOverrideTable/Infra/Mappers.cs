@@ -13,4 +13,7 @@ internal static partial class NamingConventionsItemMapper
 {
     internal static partial Dictionary<string, AttributeValue> ToItem(QuestionItem source);
     internal static partial QuestionItem FromItem(Dictionary<string, AttributeValue> item);
+
+    private static void AfterToItem(QuestionItem source, Dictionary<string, AttributeValue> item)
+        => item["$type"] = new AttributeValue { S = nameof(QuestionItem) };
 }

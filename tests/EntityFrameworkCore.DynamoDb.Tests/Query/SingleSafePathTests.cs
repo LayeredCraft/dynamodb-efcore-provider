@@ -507,7 +507,8 @@ public class SingleSafePathTests
         {
             ["pk"] = new AttributeValue("P#1"),
             ["sk"] = new AttributeValue(sk),
-            ["isActive"] = new AttributeValue { BOOL = true }
+            ["isActive"] = new AttributeValue { BOOL = true },
+            ["$type"] = new AttributeValue(nameof(PkSkItem))
         };
 
     private static Dictionary<string, AttributeValue> CreateGsiItem()
@@ -516,7 +517,8 @@ public class SingleSafePathTests
             ["pk"] = new AttributeValue("P#1"),
             ["sk"] = new AttributeValue("S#1"),
             ["priority"] = new AttributeValue { N = "3" },
-            ["status"] = new AttributeValue("OPEN")
+            ["status"] = new AttributeValue("OPEN"),
+            ["$type"] = new AttributeValue(nameof(GsiItem))
         };
 
     private static Dictionary<string, AttributeValue> CreateChildItem()

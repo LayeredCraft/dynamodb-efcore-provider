@@ -25,7 +25,7 @@ public class SecondaryIndexSuggestOnlyAutoSelectionTests(DynamoContainerFixture 
 
         AssertSql(
             """
-            SELECT "customerId", "orderId", "createdAt", "priority", "region", "status"
+            SELECT "customerId", "orderId", "$type", "createdAt", "priority", "region", "status"
             FROM "SecondaryIndexOrders"
             WHERE "status" = 'PENDING'
             """);

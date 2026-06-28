@@ -36,7 +36,7 @@ public class NamingConventionTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "pk", "custom_attr", "first_name", "item_count", "profile"
+            SELECT "pk", "$type", "custom_attr", "first_name", "item_count", "profile"
             FROM "NamingConventionSnakeCase"
             """);
     }
@@ -62,7 +62,7 @@ public class NamingConventionTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "pk", "custom_attr", "first_name", "item_count", "profile"
+            SELECT "pk", "$type", "custom_attr", "first_name", "item_count", "profile"
             FROM "NamingConventionSnakeCase"
             WHERE "profile"."preferred_address"."geo_point"."latitude_value" > 46
             """);
@@ -91,7 +91,7 @@ public class NamingConventionTests(DynamoContainerFixture fixture)
 
         AssertSql(
             """
-            SELECT "pk", "display-name", "total-count"
+            SELECT "pk", "$type", "display-name", "total-count"
             FROM "NamingConventionKebabCase"
             """);
     }
