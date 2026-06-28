@@ -42,15 +42,17 @@ Clusters:
 
 ## True or long-term architectural blocks
 
-Keep skipped unless provider gains a primitive-list subquery/client-projection pipeline:
+Keep these skipped unless provider gains a primitive-list subquery/client-projection pipeline or DynamoDB limits change:
 
-- Joins over collection elements.
-- Set operations: `Union`, `Concat`, `Except`, `Intersect`, `Distinct` over list elements.
-- `Skip`/`Take` over primitive list elements.
-- `OrderBy` inside primitive list elements.
-- Filtered list subqueries feeding `ElementAt`, `Count`, `Contains`.
-- Owned entity scenarios.
-- Huge `IN` values beyond DynamoDB/provider limits: 50 partition-key values, 100 non-key values.
+| Block                                   | Representative methods                                                                                                                                                                                                                                       | Reason                                                                                                                 |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| Joins over collection elements          | `Parameter_collection_empty_Join`, `Column_collection_Join_parameter_collection`, `Inline_collection_Join_ordered_column_collection`                                                                                                                         | DynamoDB PartiQL has no relational join pipeline over LIST elements.                                                   |
+| Set operations over list elements       | `Column_collection_Distinct`, `Column_collection_Union_parameter_collection`, `Column_collection_Intersect_inline_collection`, `Inline_collection_Except_column_collection`, `Project_inline_collection_with_Union`, `Project_inline_collection_with_Concat` | DynamoDB PartiQL does not support `Union`, `Concat`, `Except`, `Intersect`, or `Distinct` over unnested list elements. |
+| Paging inside list elements             | `Column_collection_Skip`, `Column_collection_Take`, `Column_collection_Skip_Take`, `Column_collection_Where_Skip_Take`, nullable collection paging projections                                                                                               | DynamoDB cannot apply `Skip`/`Take` within a single attribute list server-side.                                        |
+| Ordering/filtering inside list elements | `Column_collection_OrderByDescending_ElementAt`, `Column_collection_Where_ElementAt`, `Project_collection_of_datetimes_filtered`                                                                                                                             | Provider has no list-element subquery pipeline to filter/order before indexing or projection.                          |
+| Owned entity primitive collections      | `Project_collection_from_entity_type_with_owned`                                                                                                                                                                                                             | Provider intentionally does not support EF owned entity types; use complex types instead.                              |
+| Huge in-memory collections              | `Parameter_collection_*_huge_number_of_values*`                                                                                                                                                                                                              | DynamoDB/provider limits cap `IN` values: 50 partition-key values, 100 non-key values.                                 |
+| Primitive-list projection shaping       | `Project_collection_of_ints_simple`, `Project_multiple_collections`, `Project_primitive_collections_element`                                                                                                                                                 | Requires stable client-side materialization/order semantics for list projections.                                      |
 
 ## Recommended implementation order
 
