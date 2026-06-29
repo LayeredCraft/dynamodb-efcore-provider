@@ -19,7 +19,7 @@ Focused EF10/EF11 runs now pass these formerly skipped methods:
 Kept skipped after focused EF11 failures:
 
 - `Parameter_collection_Contains_with_EF_Constant`: forced constant expansion for parameter collections remains blocked by provider primitive collection translation limits.
-- `Multidimensional_array_is_not_supported`: provider throws `ArgumentException` while upstream expects `InvalidOperationException`.
+- `Multidimensional_array_is_not_supported`: unskipped after provider list-shape validation stopped treating multidimensional arrays as supported one-dimensional LIST shapes.
 - `Column_with_custom_converter`: upstream uses `SingleAsync` on a scan-like path, which DynamoDB provider intentionally rejects.
 - `Parameter_collection_in_subquery_and_Convert_as_compiled_query`: still requires subquery support.
 
@@ -37,6 +37,7 @@ Clusters:
 1. Remaining value-converted nullable-comparer and nullable-collection edge cases.
 2. Inline finite collection `Any`/`All`/`Count`/`Min`/`Max` rewrites.
 3. Primitive collection projection gaps split between direct LIST projection materialization/shaping and ordered-result assertion adaptations for scan-like test cases.
+4. Direct primitive LIST projection materialization remains a design-only task; implementation follow-up is tracked by `dynamodb-efcore-provider-m62` and should start with whole-attribute projection only.
 
 ## True or long-term architectural blocks
 
@@ -55,7 +56,7 @@ Keep these skipped unless provider gains a primitive-list subquery/client-projec
 
 ## Primitive collection projection pipeline design
 
-Goal: support projection-only primitive LIST reads without pretending DynamoDB can run relational operators inside a single list attribute.
+Goal: support projection-only primitive LIST reads without pretending DynamoDB can run relational operators inside a single list attribute. This section is design record for `dynamodb-efcore-provider-m62`; implementation should be split into follow-up beads before code changes.
 
 Feasible first slice:
 

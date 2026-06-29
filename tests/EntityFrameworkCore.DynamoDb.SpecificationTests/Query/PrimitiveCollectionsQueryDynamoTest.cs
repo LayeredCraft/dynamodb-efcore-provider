@@ -464,9 +464,16 @@ public abstract class PrimitiveCollectionsQueryDynamoTest
     public override Task Parameter_with_inferred_value_converter()
         => base.Parameter_with_inferred_value_converter();
 
-    [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
-    public override Task Multidimensional_array_is_not_supported()
-        => base.Multidimensional_array_is_not_supported();
+    [ConditionalFact]
+    public override async Task Multidimensional_array_is_not_supported()
+    {
+        var exception =
+ await Assert.ThrowsAsync<InvalidOperationException>(() => InitializeNonSharedTest<TestContext>(
+            onModelCreating: mb => mb.Entity<TestEntity>().Property(typeof(int[,]), "MultidimensionalArray")));
+
+        Assert.Contains("MultidimensionalArray", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("int[,]", exception.Message, StringComparison.Ordinal);
+    }
 #endif
 
     [ConditionalFact]
