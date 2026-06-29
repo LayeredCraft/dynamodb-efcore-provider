@@ -21,8 +21,22 @@ public abstract class PrimitiveCollectionsQueryDynamoTest
         => fixture.ClearSql();
 
     [ConditionalFact]
-    public override Task Inline_collection_of_ints_Contains()
-        => base.Inline_collection_of_ints_Contains();
+    public virtual void Check_all_tests_overridden()
+        => DynamoTestHelpers.AssertAllTestMethodsOverridden(
+            typeof(PrimitiveCollectionsQueryDynamoTest));
+
+    [ConditionalFact]
+    public override async Task Inline_collection_of_ints_Contains()
+    {
+        await base.Inline_collection_of_ints_Contains();
+
+        AssertSql(
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE "int" IN [10, 999]
+            """);
+    }
 
     [ConditionalFact]
     public override Task Inline_collection_of_nullable_ints_Contains()
@@ -166,18 +180,56 @@ public abstract class PrimitiveCollectionsQueryDynamoTest
     public override Task Parameter_collection_Count() => base.Parameter_collection_Count();
 
     [ConditionalFact]
-    public override Task Parameter_collection_of_ints_Contains_int()
-        => base.Parameter_collection_of_ints_Contains_int();
+    public override async Task Parameter_collection_of_ints_Contains_int()
+    {
+        await base.Parameter_collection_of_ints_Contains_int();
+
+        AssertSql(
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE "int" IN [?, ?]
+            """,
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE NOT ("int" IN [?, ?])
+            """);
+    }
 
     [ConditionalFact]
     public override Task Parameter_collection_HashSet_of_ints_Contains_int()
         => base.Parameter_collection_HashSet_of_ints_Contains_int();
+
+#if NET11_0_OR_GREATER
+    [ConditionalFact]
+    public override Task Parameter_collection_FrozenSet_of_ints_Contains_int()
+        => base.Parameter_collection_FrozenSet_of_ints_Contains_int();
+#endif
 
     [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
     public override Task Parameter_collection_ImmutableArray_of_ints_Contains_int()
         => base.Parameter_collection_ImmutableArray_of_ints_Contains_int();
 
 #if NET11_0_OR_GREATER
+    [ConditionalFact]
+    public override Task Parameter_collection_IReadOnlySet_of_ints_Contains_int()
+        => base.Parameter_collection_IReadOnlySet_of_ints_Contains_int();
+
+    [ConditionalFact]
+    public override Task Parameter_collection_ReadOnlyCollectionWithContains_of_ints_Contains_int()
+        => base.Parameter_collection_ReadOnlyCollectionWithContains_of_ints_Contains_int();
+#endif
+
+#if NET11_0_OR_GREATER
+    [ConditionalFact]
+    public override Task Static_readonly_collection_List_of_ints_Contains_int()
+        => base.Static_readonly_collection_List_of_ints_Contains_int();
+
+    [ConditionalFact]
+    public override Task Static_readonly_collection_FrozenSet_of_ints_Contains_int()
+        => base.Static_readonly_collection_FrozenSet_of_ints_Contains_int();
+
     [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
     public override Task Static_readonly_collection_ImmutableArray_of_ints_Contains_int()
         => base.Static_readonly_collection_ImmutableArray_of_ints_Contains_int();
@@ -357,6 +409,20 @@ public abstract class PrimitiveCollectionsQueryDynamoTest
     public override Task Column_collection_of_nullable_ints_Contains_null()
         => base.Column_collection_of_nullable_ints_Contains_null();
 
+#if NET11_0_OR_GREATER
+    [ConditionalFact]
+    public override Task Column_collection_of_strings_Contains()
+        => base.Column_collection_of_strings_Contains();
+
+    [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
+    public override Task Column_collection_of_strings_Contains_null()
+        => base.Column_collection_of_strings_Contains_null();
+#else
+    [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
+    public override Task Column_collection_of_strings_contains_null()
+        => base.Column_collection_of_strings_contains_null();
+#endif
+
     [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
     public override Task Column_collection_of_nullable_strings_contains_null()
         => base.Column_collection_of_nullable_strings_contains_null();
@@ -369,7 +435,17 @@ public abstract class PrimitiveCollectionsQueryDynamoTest
     public override Task Contains_on_Enumerable() => base.Contains_on_Enumerable();
 
     [ConditionalFact]
-    public override Task Contains_on_MemoryExtensions() => base.Contains_on_MemoryExtensions();
+    public override async Task Contains_on_MemoryExtensions()
+    {
+        await base.Contains_on_MemoryExtensions();
+
+        AssertSql(
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE "int" IN [10, 999]
+            """);
+    }
 
     [ConditionalFact]
     public override Task Contains_with_MemoryExtensions_with_null_comparer()
@@ -385,15 +461,39 @@ public abstract class PrimitiveCollectionsQueryDynamoTest
         => base.Constant_with_inferred_value_converter();
 
     [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
+    public override Task Parameter_with_inferred_value_converter()
+        => base.Parameter_with_inferred_value_converter();
+
+    [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
     public override Task Multidimensional_array_is_not_supported()
         => base.Multidimensional_array_is_not_supported();
 #endif
 
     [ConditionalFact]
-    public override Task Column_collection_Count_method() => base.Column_collection_Count_method();
+    public override async Task Column_collection_Count_method()
+    {
+        await base.Column_collection_Count_method();
+
+        AssertSql(
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE size("ints") = 2
+            """);
+    }
 
     [ConditionalFact]
-    public override Task Column_collection_Length() => base.Column_collection_Length();
+    public override async Task Column_collection_Length()
+    {
+        await base.Column_collection_Length();
+
+        AssertSql(
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE size("ints") = 2
+            """);
+    }
 
     [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
     public override Task Column_collection_Count_with_predicate()
@@ -403,7 +503,17 @@ public abstract class PrimitiveCollectionsQueryDynamoTest
     public override Task Column_collection_Where_Count() => base.Column_collection_Where_Count();
 
     [ConditionalFact]
-    public override Task Column_collection_index_int() => base.Column_collection_index_int();
+    public override async Task Column_collection_index_int()
+    {
+        await base.Column_collection_index_int();
+
+        AssertSql(
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE "ints"[1] = 10
+            """);
+    }
 
     [ConditionalFact]
     public override Task Column_collection_index_string() => base.Column_collection_index_string();
@@ -448,10 +558,30 @@ public abstract class PrimitiveCollectionsQueryDynamoTest
         => base.Parameter_collection_index_Column_equal_constant();
 
     [ConditionalFact]
-    public override Task Column_collection_ElementAt() => base.Column_collection_ElementAt();
+    public override async Task Column_collection_ElementAt()
+    {
+        await base.Column_collection_ElementAt();
+
+        AssertSql(
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE "ints"[1] = 10
+            """);
+    }
 
     [ConditionalFact]
-    public override Task Column_collection_First() => base.Column_collection_First();
+    public override async Task Column_collection_First()
+    {
+        await base.Column_collection_First();
+
+        AssertSql(
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE "ints"[0] = 1
+            """);
+    }
 
     [ConditionalFact]
     public override Task Column_collection_FirstOrDefault()
@@ -496,7 +626,17 @@ public abstract class PrimitiveCollectionsQueryDynamoTest
         => base.Column_collection_Where_ElementAt();
 
     [ConditionalFact]
-    public override Task Column_collection_Any() => base.Column_collection_Any();
+    public override async Task Column_collection_Any()
+    {
+        await base.Column_collection_Any();
+
+        AssertSql(
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE size("ints") > 0
+            """);
+    }
 
     [ConditionalFact(Skip = SkipReason.SetOperationsNotSupported)]
     public override Task Column_collection_Distinct() => base.Column_collection_Distinct();
@@ -680,6 +820,14 @@ public abstract class PrimitiveCollectionsQueryDynamoTest
     [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
     public override Task Values_of_enum_casted_to_underlying_value()
         => base.Values_of_enum_casted_to_underlying_value();
+
+#if NET11_0_OR_GREATER
+    [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
+    public override Task Subquery_over_primitive_collection_on_inheritance_derived_type()
+        => base.Subquery_over_primitive_collection_on_inheritance_derived_type();
+#endif
+
+    private void AssertSql(params string[] expected) => Fixture.AssertSql(expected);
 
     public class PrimitiveCollectionsQueryDynamoFixture
         : PrimitiveCollectionsQueryFixtureBase, IDynamoSpecificationFixture
