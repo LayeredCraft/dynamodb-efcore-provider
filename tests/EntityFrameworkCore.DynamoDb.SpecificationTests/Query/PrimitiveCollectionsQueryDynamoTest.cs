@@ -200,11 +200,11 @@ public abstract class PrimitiveCollectionsQueryDynamoTest
         Parameter_collection_of_nullable_ints_Contains_nullable_int_with_EF_Parameter()
         => base.Parameter_collection_of_nullable_ints_Contains_nullable_int_with_EF_Parameter();
 
-    [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
+    [ConditionalFact]
     public override Task Parameter_collection_of_structs_Contains_struct()
         => base.Parameter_collection_of_structs_Contains_struct();
 
-    [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
+    [ConditionalFact]
     public override Task Parameter_collection_of_structs_Contains_nullable_struct()
         => base.Parameter_collection_of_structs_Contains_nullable_struct();
 
@@ -217,7 +217,7 @@ public abstract class PrimitiveCollectionsQueryDynamoTest
     public override Task Parameter_collection_of_nullable_structs_Contains_struct()
         => base.Parameter_collection_of_nullable_structs_Contains_struct();
 
-    [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
+    [ConditionalFact]
     public override Task Parameter_collection_of_nullable_structs_Contains_nullable_struct()
         => base.Parameter_collection_of_nullable_structs_Contains_nullable_struct();
 
@@ -251,7 +251,7 @@ public abstract class PrimitiveCollectionsQueryDynamoTest
     public override Task Parameter_collection_of_bools_Contains()
         => base.Parameter_collection_of_bools_Contains();
 
-    [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
+    [ConditionalFact]
     public override Task Parameter_collection_of_enums_Contains()
         => base.Parameter_collection_of_enums_Contains();
 
