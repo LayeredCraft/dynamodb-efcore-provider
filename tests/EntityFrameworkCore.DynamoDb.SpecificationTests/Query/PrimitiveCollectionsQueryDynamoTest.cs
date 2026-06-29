@@ -187,15 +187,15 @@ public abstract class PrimitiveCollectionsQueryDynamoTest
     public override Task Parameter_collection_of_ints_Contains_nullable_int()
         => base.Parameter_collection_of_ints_Contains_nullable_int();
 
-    [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
+    [ConditionalFact]
     public override Task Parameter_collection_of_nullable_ints_Contains_int()
         => base.Parameter_collection_of_nullable_ints_Contains_int();
 
-    [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
+    [ConditionalFact]
     public override Task Parameter_collection_of_nullable_ints_Contains_nullable_int()
         => base.Parameter_collection_of_nullable_ints_Contains_nullable_int();
 
-    [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
+    [ConditionalFact]
     public override Task
         Parameter_collection_of_nullable_ints_Contains_nullable_int_with_EF_Parameter()
         => base.Parameter_collection_of_nullable_ints_Contains_nullable_int_with_EF_Parameter();
@@ -231,15 +231,15 @@ public abstract class PrimitiveCollectionsQueryDynamoTest
     public override Task Parameter_collection_of_strings_Contains_string()
         => base.Parameter_collection_of_strings_Contains_string();
 
-    [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
+    [ConditionalFact]
     public override Task Parameter_collection_of_strings_Contains_nullable_string()
         => base.Parameter_collection_of_strings_Contains_nullable_string();
 
-    [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
+    [ConditionalFact]
     public override Task Parameter_collection_of_nullable_strings_Contains_string()
         => base.Parameter_collection_of_nullable_strings_Contains_string();
 
-    [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
+    [ConditionalFact]
     public override Task Parameter_collection_of_nullable_strings_Contains_nullable_string()
         => base.Parameter_collection_of_nullable_strings_Contains_nullable_string();
 

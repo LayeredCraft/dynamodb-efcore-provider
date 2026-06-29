@@ -14,7 +14,7 @@ Detailed audit of skipped `PrimitiveCollectionsQueryDynamoTest` methods. Classif
 Focused EF10/EF11 runs now pass these formerly skipped methods:
 
 - Inline scalar `Contains`: zero/one/two/three values, captured parameters, EF.Parameter/EF.Constant, Enumerable, MemoryExtensions, and ListInit shapes.
-- Parameter collection `Contains`: `HashSet<int>`, DateTime, bool, enum, value-converted `WrappedId`, nullable `WrappedId` property comparisons, null collection, empty collection.
+- Parameter collection `Contains`: `HashSet<int>`, DateTime, bool, enum, nullable int/string values, value-converted `WrappedId`, nullable `WrappedId` property comparisons, null collection, empty collection.
 - Column collection: bool `Contains`, `Any`, `Count`, `Length`, direct index/`ElementAt` for int/string/DateTime, and `First`/`FirstOrDefault` as index 0.
 
 Kept skipped after focused EF11 failures:
@@ -34,10 +34,9 @@ Likely files:
 
 Clusters:
 
-1. Nullable `IN` semantics for nullable columns and nullable collection values.
-2. Remaining value-converted nullable-comparer and nullable-collection edge cases.
-3. Inline finite collection `Any`/`All`/`Count`/`Min`/`Max` rewrites.
-4. Simple primitive collection projections currently blocked by order/assertion or missing client projection shaping.
+1. Remaining value-converted nullable-comparer and nullable-collection edge cases.
+2. Inline finite collection `Any`/`All`/`Count`/`Min`/`Max` rewrites.
+3. Simple primitive collection projections currently blocked by order/assertion or missing client projection shaping.
 
 ## True or long-term architectural blocks
 
