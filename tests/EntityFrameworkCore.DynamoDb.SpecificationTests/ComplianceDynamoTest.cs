@@ -27,6 +27,7 @@ public sealed class ComplianceDynamoTest : ComplianceTestBase
         yield return typeof(ConcurrencyDetectorDisabledTestBase<>);
         yield return typeof(ConcurrencyDetectorEnabledTestBase<>);
         yield return typeof(FindTestBase<>);
+        yield return typeof(FunkyDataQueryTestBase<>);
         yield return typeof(EnumTranslationsTestBase<>);
         yield return typeof(GuidTranslationsTestBase<>);
         yield return typeof(InheritanceQueryTestBase<>);
