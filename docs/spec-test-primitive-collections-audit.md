@@ -16,12 +16,15 @@ Focused EF10/EF11 runs now pass these formerly skipped methods:
 - Parameter collection `Contains`: `HashSet<int>`, DateTime, bool, enum, nullable int/string values, value-converted `WrappedId`, nullable `WrappedId` property comparisons including nullable-comparer properties, null collection, empty collection.
 - Column collection: bool `Contains`, `Any`, `Count`, `Length`, direct index/`ElementAt` for int/string/DateTime, and `First`/`FirstOrDefault` as index 0.
 
-Kept skipped after focused EF11 failures:
+Still skipped after focused EF11 failures:
 
 - `Parameter_collection_Contains_with_EF_Constant`: forced constant expansion for parameter collections remains blocked by provider primitive collection translation limits.
-- `Multidimensional_array_is_not_supported`: unskipped after provider list-shape validation stopped treating multidimensional arrays as supported one-dimensional LIST shapes.
 - `Column_with_custom_converter`: upstream uses `SingleAsync` on a scan-like path, which DynamoDB provider intentionally rejects.
 - `Parameter_collection_in_subquery_and_Convert_as_compiled_query`: still requires subquery support.
+
+Now enabled as a guard test:
+
+- `Multidimensional_array_is_not_supported`: provider list-shape validation rejects multidimensional arrays instead of treating them as supported one-dimensional LIST shapes.
 
 ## Provider gaps likely fixable
 

@@ -467,9 +467,9 @@ public abstract class PrimitiveCollectionsQueryDynamoTest
     [ConditionalFact]
     public override async Task Multidimensional_array_is_not_supported()
     {
-        var exception =
- await Assert.ThrowsAsync<InvalidOperationException>(() => InitializeNonSharedTest<TestContext>(
-            onModelCreating: mb => mb.Entity<TestEntity>().Property(typeof(int[,]), "MultidimensionalArray")));
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => InitializeNonSharedTest<TestContext>(
+                onModelCreating: mb => mb.Entity<TestEntity>().Property(typeof(int[,]), "MultidimensionalArray")));
 
         Assert.Contains("MultidimensionalArray", exception.Message, StringComparison.Ordinal);
         Assert.Contains("int[,]", exception.Message, StringComparison.Ordinal);
