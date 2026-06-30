@@ -198,13 +198,41 @@ public abstract class PrimitiveCollectionsQueryDynamoTest
     }
 
     [ConditionalFact]
-    public override Task Parameter_collection_HashSet_of_ints_Contains_int()
-        => base.Parameter_collection_HashSet_of_ints_Contains_int();
+    public override async Task Parameter_collection_HashSet_of_ints_Contains_int()
+    {
+        await base.Parameter_collection_HashSet_of_ints_Contains_int();
+
+        AssertSql(
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE "int" IN [?, ?]
+            """,
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE NOT ("int" IN [?, ?])
+            """);
+    }
 
 #if NET11_0_OR_GREATER
     [ConditionalFact]
-    public override Task Parameter_collection_FrozenSet_of_ints_Contains_int()
-        => base.Parameter_collection_FrozenSet_of_ints_Contains_int();
+    public override async Task Parameter_collection_FrozenSet_of_ints_Contains_int()
+    {
+        await base.Parameter_collection_FrozenSet_of_ints_Contains_int();
+
+        AssertSql(
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE "int" IN [?, ?]
+            """,
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE NOT ("int" IN [?, ?])
+            """);
+    }
 #endif
 
     [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
@@ -213,22 +241,78 @@ public abstract class PrimitiveCollectionsQueryDynamoTest
 
 #if NET11_0_OR_GREATER
     [ConditionalFact]
-    public override Task Parameter_collection_IReadOnlySet_of_ints_Contains_int()
-        => base.Parameter_collection_IReadOnlySet_of_ints_Contains_int();
+    public override async Task Parameter_collection_IReadOnlySet_of_ints_Contains_int()
+    {
+        await base.Parameter_collection_IReadOnlySet_of_ints_Contains_int();
+
+        AssertSql(
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE "int" IN [?, ?]
+            """,
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE NOT ("int" IN [?, ?])
+            """);
+    }
 
     [ConditionalFact]
-    public override Task Parameter_collection_ReadOnlyCollectionWithContains_of_ints_Contains_int()
-        => base.Parameter_collection_ReadOnlyCollectionWithContains_of_ints_Contains_int();
+    public override async Task Parameter_collection_ReadOnlyCollectionWithContains_of_ints_Contains_int()
+    {
+        await base.Parameter_collection_ReadOnlyCollectionWithContains_of_ints_Contains_int();
+
+        AssertSql(
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE "int" IN [?, ?]
+            """,
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE NOT ("int" IN [?, ?])
+            """);
+    }
 #endif
 
 #if NET11_0_OR_GREATER
     [ConditionalFact]
-    public override Task Static_readonly_collection_List_of_ints_Contains_int()
-        => base.Static_readonly_collection_List_of_ints_Contains_int();
+    public override async Task Static_readonly_collection_List_of_ints_Contains_int()
+    {
+        await base.Static_readonly_collection_List_of_ints_Contains_int();
+
+        AssertSql(
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE "int" IN [10, 999]
+            """,
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE NOT ("int" IN [10, 999])
+            """);
+    }
 
     [ConditionalFact]
-    public override Task Static_readonly_collection_FrozenSet_of_ints_Contains_int()
-        => base.Static_readonly_collection_FrozenSet_of_ints_Contains_int();
+    public override async Task Static_readonly_collection_FrozenSet_of_ints_Contains_int()
+    {
+        await base.Static_readonly_collection_FrozenSet_of_ints_Contains_int();
+
+        AssertSql(
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE "int" IN [10, 999]
+            """,
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE NOT ("int" IN [10, 999])
+            """);
+    }
 
     [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
     public override Task Static_readonly_collection_ImmutableArray_of_ints_Contains_int()
@@ -236,84 +320,307 @@ public abstract class PrimitiveCollectionsQueryDynamoTest
 #endif
 
     [ConditionalFact]
-    public override Task Parameter_collection_of_ints_Contains_nullable_int()
-        => base.Parameter_collection_of_ints_Contains_nullable_int();
+    public override async Task Parameter_collection_of_ints_Contains_nullable_int()
+    {
+        await base.Parameter_collection_of_ints_Contains_nullable_int();
+
+        AssertSql(
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE "nullableInt" IN [?, ?]
+            """,
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE NOT ("nullableInt" IN [?, ?])
+            """);
+    }
 
     [ConditionalFact]
-    public override Task Parameter_collection_of_nullable_ints_Contains_int()
-        => base.Parameter_collection_of_nullable_ints_Contains_int();
+    public override async Task Parameter_collection_of_nullable_ints_Contains_int()
+    {
+        await base.Parameter_collection_of_nullable_ints_Contains_int();
+
+        AssertSql(
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE "int" IN [?, ?]
+            """,
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE NOT ("int" IN [?, ?])
+            """);
+    }
 
     [ConditionalFact]
-    public override Task Parameter_collection_of_nullable_ints_Contains_nullable_int()
-        => base.Parameter_collection_of_nullable_ints_Contains_nullable_int();
+    public override async Task Parameter_collection_of_nullable_ints_Contains_nullable_int()
+    {
+        await base.Parameter_collection_of_nullable_ints_Contains_nullable_int();
+
+        AssertSql(
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE "nullableInt" IN [?, ?]
+            """,
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE NOT ("nullableInt" IN [?, ?])
+            """);
+    }
 
     [ConditionalFact]
-    public override Task
+    public override async Task
         Parameter_collection_of_nullable_ints_Contains_nullable_int_with_EF_Parameter()
-        => base.Parameter_collection_of_nullable_ints_Contains_nullable_int_with_EF_Parameter();
+    {
+        await base.Parameter_collection_of_nullable_ints_Contains_nullable_int_with_EF_Parameter();
+
+        AssertSql(
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE "nullableInt" IN [?, ?]
+            """);
+    }
 
     [ConditionalFact]
-    public override Task Parameter_collection_of_structs_Contains_struct()
-        => base.Parameter_collection_of_structs_Contains_struct();
+    public override async Task Parameter_collection_of_structs_Contains_struct()
+    {
+        await base.Parameter_collection_of_structs_Contains_struct();
+
+        AssertSql(
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE "wrappedId" IN [?, ?]
+            """,
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE NOT ("wrappedId" IN [?, ?])
+            """);
+    }
 
     [ConditionalFact]
-    public override Task Parameter_collection_of_structs_Contains_nullable_struct()
-        => base.Parameter_collection_of_structs_Contains_nullable_struct();
+    public override async Task Parameter_collection_of_structs_Contains_nullable_struct()
+    {
+        await base.Parameter_collection_of_structs_Contains_nullable_struct();
+
+        AssertSql(
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE "nullableWrappedId" IN [?, ?]
+            """,
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE NOT ("nullableWrappedId" IN [?, ?])
+            """);
+    }
 
     [ConditionalFact]
-    public override Task
+    public override async Task
         Parameter_collection_of_structs_Contains_nullable_struct_with_nullable_comparer()
-        => base.Parameter_collection_of_structs_Contains_nullable_struct_with_nullable_comparer();
+    {
+        await base
+            .Parameter_collection_of_structs_Contains_nullable_struct_with_nullable_comparer();
+
+        AssertSql(
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE "nullableWrappedIdWithNullableComparer" IN [?, ?]
+            """,
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE NOT ("nullableWrappedId" IN [?, ?])
+            """);
+    }
 
     [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
     public override Task Parameter_collection_of_nullable_structs_Contains_struct()
         => base.Parameter_collection_of_nullable_structs_Contains_struct();
 
     [ConditionalFact]
-    public override Task Parameter_collection_of_nullable_structs_Contains_nullable_struct()
-        => base.Parameter_collection_of_nullable_structs_Contains_nullable_struct();
+    public override async Task Parameter_collection_of_nullable_structs_Contains_nullable_struct()
+    {
+        await base.Parameter_collection_of_nullable_structs_Contains_nullable_struct();
+
+        AssertSql(
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE "nullableWrappedId" IN [?, ?]
+            """,
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE NOT ("nullableWrappedId" IN [?, ?])
+            """);
+    }
 
     [ConditionalFact]
-    public override Task
+    public override async Task
         Parameter_collection_of_nullable_structs_Contains_nullable_struct_with_nullable_comparer()
-        => base
+    {
+        await base
             .Parameter_collection_of_nullable_structs_Contains_nullable_struct_with_nullable_comparer();
 
-    [ConditionalFact]
-    public override Task Parameter_collection_of_strings_Contains_string()
-        => base.Parameter_collection_of_strings_Contains_string();
+        AssertSql(
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE "nullableWrappedIdWithNullableComparer" IN [?, ?]
+            """,
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE NOT ("nullableWrappedIdWithNullableComparer" IN [?, ?])
+            """);
+    }
 
     [ConditionalFact]
-    public override Task Parameter_collection_of_strings_Contains_nullable_string()
-        => base.Parameter_collection_of_strings_Contains_nullable_string();
+    public override async Task Parameter_collection_of_strings_Contains_string()
+    {
+        await base.Parameter_collection_of_strings_Contains_string();
+
+        AssertSql(
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE "string" IN [?, ?]
+            """,
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE NOT ("string" IN [?, ?])
+            """);
+    }
 
     [ConditionalFact]
-    public override Task Parameter_collection_of_nullable_strings_Contains_string()
-        => base.Parameter_collection_of_nullable_strings_Contains_string();
+    public override async Task Parameter_collection_of_strings_Contains_nullable_string()
+    {
+        await base.Parameter_collection_of_strings_Contains_nullable_string();
+
+        AssertSql(
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE "nullableString" IN [?, ?]
+            """,
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE NOT ("nullableString" IN [?, ?])
+            """);
+    }
 
     [ConditionalFact]
-    public override Task Parameter_collection_of_nullable_strings_Contains_nullable_string()
-        => base.Parameter_collection_of_nullable_strings_Contains_nullable_string();
+    public override async Task Parameter_collection_of_nullable_strings_Contains_string()
+    {
+        await base.Parameter_collection_of_nullable_strings_Contains_string();
+
+        AssertSql(
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE "string" IN [?, ?]
+            """,
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE NOT ("string" IN [?, ?])
+            """);
+    }
 
     [ConditionalFact]
-    public override Task Parameter_collection_of_DateTimes_Contains()
-        => base.Parameter_collection_of_DateTimes_Contains();
+    public override async Task Parameter_collection_of_nullable_strings_Contains_nullable_string()
+    {
+        await base.Parameter_collection_of_nullable_strings_Contains_nullable_string();
+
+        AssertSql(
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE "nullableString" IN [?, ?]
+            """,
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE NOT ("nullableString" IN [?, ?])
+            """);
+    }
 
     [ConditionalFact]
-    public override Task Parameter_collection_of_bools_Contains()
-        => base.Parameter_collection_of_bools_Contains();
+    public override async Task Parameter_collection_of_DateTimes_Contains()
+    {
+        await base.Parameter_collection_of_DateTimes_Contains();
+
+        AssertSql(
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE "dateTime" IN [?, ?]
+            """);
+    }
 
     [ConditionalFact]
-    public override Task Parameter_collection_of_enums_Contains()
-        => base.Parameter_collection_of_enums_Contains();
+    public override async Task Parameter_collection_of_bools_Contains()
+    {
+        await base.Parameter_collection_of_bools_Contains();
+
+        AssertSql(
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE "bool" IN [?]
+            """);
+    }
 
     [ConditionalFact]
-    public override Task Parameter_collection_null_Contains()
-        => base.Parameter_collection_null_Contains();
+    public override async Task Parameter_collection_of_enums_Contains()
+    {
+        await base.Parameter_collection_of_enums_Contains();
+
+        AssertSql(
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE "enum" IN [?, ?]
+            """);
+    }
 
     [ConditionalFact]
-    public override Task Parameter_collection_empty_Contains()
-        => base.Parameter_collection_empty_Contains();
+    public override async Task Parameter_collection_null_Contains()
+    {
+        await base.Parameter_collection_null_Contains();
+
+        AssertSql(
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE 1 = 0
+            """);
+    }
+
+    [ConditionalFact]
+    public override async Task Parameter_collection_empty_Contains()
+    {
+        await base.Parameter_collection_empty_Contains();
+
+        AssertSql(
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE 1 = 0
+            """);
+    }
 
     [ConditionalFact(Skip = SkipReason.JoinsNotSupported)]
     public override Task Parameter_collection_empty_Join()
@@ -398,8 +705,17 @@ public abstract class PrimitiveCollectionsQueryDynamoTest
             .Parameter_collection_of_ints_Contains_int_with_huge_number_of_values_over_5_operations_mixed_parameters_constants();
 
     [ConditionalFact]
-    public override Task Column_collection_of_ints_Contains()
-        => base.Column_collection_of_ints_Contains();
+    public override async Task Column_collection_of_ints_Contains()
+    {
+        await base.Column_collection_of_ints_Contains();
+
+        AssertSql(
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE contains("ints", 10)
+            """);
+    }
 
     [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
     public override Task Column_collection_of_nullable_ints_Contains()
@@ -411,8 +727,17 @@ public abstract class PrimitiveCollectionsQueryDynamoTest
 
 #if NET11_0_OR_GREATER
     [ConditionalFact]
-    public override Task Column_collection_of_strings_Contains()
-        => base.Column_collection_of_strings_Contains();
+    public override async Task Column_collection_of_strings_Contains()
+    {
+        await base.Column_collection_of_strings_Contains();
+
+        AssertSql(
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE contains("strings", '10')
+            """);
+    }
 
     [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
     public override Task Column_collection_of_strings_Contains_null()
@@ -428,8 +753,17 @@ public abstract class PrimitiveCollectionsQueryDynamoTest
         => base.Column_collection_of_nullable_strings_contains_null();
 
     [ConditionalFact]
-    public override Task Column_collection_of_bools_Contains()
-        => base.Column_collection_of_bools_Contains();
+    public override async Task Column_collection_of_bools_Contains()
+    {
+        await base.Column_collection_of_bools_Contains();
+
+        AssertSql(
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE contains("bools", TRUE)
+            """);
+    }
 
     [ConditionalFact]
     public override Task Contains_on_Enumerable() => base.Contains_on_Enumerable();
