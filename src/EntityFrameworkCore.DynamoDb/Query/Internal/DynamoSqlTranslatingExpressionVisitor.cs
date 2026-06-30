@@ -1885,8 +1885,9 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
             && method.Name == nameof(MemoryExtensions.Contains)
             && method.ReturnType == typeof(bool)
             && method.GetParameters().Length is 2 or 3)
-            return method.GetParameters().Length == 2
-                || (method.GetParameters()[2].ParameterType.IsGenericType
+            return (method.GetParameters().Length == 2 && method.IsGenericMethod)
+                || (method.GetParameters().Length == 3
+                    && method.GetParameters()[2].ParameterType.IsGenericType
                     && method.GetParameters()[2].ParameterType.GetGenericTypeDefinition()
                     == typeof(IEqualityComparer<>));
 

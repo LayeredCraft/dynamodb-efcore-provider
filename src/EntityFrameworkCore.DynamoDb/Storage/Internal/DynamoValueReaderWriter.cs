@@ -163,6 +163,8 @@ internal sealed class DynamoConvertedValueReaderWriter<TModel, TProvider>(
             nameof(Read),
             [typeof(AttributeValue), typeof(string), typeof(bool), typeof(IProperty)])!;
 
+    // These reflection lookups are tied to the abstract DynamoValueReaderWriter<TValue> contract.
+    // If those signatures change, class initialization should fail rather than build invalid trees.
     private static readonly MethodInfo WriteMethod =
         typeof(DynamoValueReaderWriter<TModel>).GetMethod(nameof(Write), [typeof(TModel)])!;
 

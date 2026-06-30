@@ -16,6 +16,9 @@ public abstract class PrimitiveCollectionsQueryDynamoTest
     private const string UnsupportedPrimitiveCollectionQueryShape =
         "DynamoDB provider does not yet support this primitive collection query shape.";
 
+    private const string OutOfBoundsListIndexReturnsNull =
+        "DynamoDB returns NULL for out-of-bounds list index access; upstream test expects an exception.";
+
     protected PrimitiveCollectionsQueryDynamoTest(PrimitiveCollectionsQueryDynamoFixture fixture) :
         base(fixture)
         => fixture.ClearSql();
@@ -863,7 +866,7 @@ public abstract class PrimitiveCollectionsQueryDynamoTest
     public override Task Column_collection_index_datetime()
         => base.Column_collection_index_datetime();
 
-    [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
+    [ConditionalFact(Skip = OutOfBoundsListIndexReturnsNull)]
     public override Task Column_collection_index_beyond_end()
         => base.Column_collection_index_beyond_end();
 
