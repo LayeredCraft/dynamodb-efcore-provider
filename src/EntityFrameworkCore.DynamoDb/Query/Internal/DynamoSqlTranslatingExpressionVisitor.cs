@@ -49,6 +49,42 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
             && m.GetParameters().Length == 1)
         .GetGenericMethodDefinition();
 
+    private static readonly MethodInfo EnumerableAnyPredicateMethod = typeof(Enumerable)
+        .GetMethods()
+        .Single(m => m is { Name: nameof(Enumerable.Any), IsGenericMethod: true }
+            && m.GetParameters().Length == 2)
+        .GetGenericMethodDefinition();
+
+    private static readonly MethodInfo QueryableAnyPredicateMethod = typeof(Queryable)
+        .GetMethods()
+        .Single(m => m is { Name: nameof(Queryable.Any), IsGenericMethod: true }
+            && m.GetParameters().Length == 2)
+        .GetGenericMethodDefinition();
+
+    private static readonly MethodInfo EnumerableAllMethod = typeof(Enumerable)
+        .GetMethods()
+        .Single(m => m is { Name: nameof(Enumerable.All), IsGenericMethod: true }
+            && m.GetParameters().Length == 2)
+        .GetGenericMethodDefinition();
+
+    private static readonly MethodInfo QueryableAllMethod = typeof(Queryable)
+        .GetMethods()
+        .Single(m => m is { Name: nameof(Queryable.All), IsGenericMethod: true }
+            && m.GetParameters().Length == 2)
+        .GetGenericMethodDefinition();
+
+    private static readonly MethodInfo EnumerableCountMethod = typeof(Enumerable)
+        .GetMethods()
+        .Single(m => m is { Name: nameof(Enumerable.Count), IsGenericMethod: true }
+            && m.GetParameters().Length == 1)
+        .GetGenericMethodDefinition();
+
+    private static readonly MethodInfo QueryableCountMethod = typeof(Queryable)
+        .GetMethods()
+        .Single(m => m is { Name: nameof(Queryable.Count), IsGenericMethod: true }
+            && m.GetParameters().Length == 1)
+        .GetGenericMethodDefinition();
+
     private static readonly MethodInfo StringContainsMethod =
         ((Func<string, bool>)string.Empty.Contains).Method;
 
@@ -99,6 +135,30 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
                 && m.GetParameters().Length == 2
                 && m.GetParameters()[1].ParameterType == typeof(int))
             .GetGenericMethodDefinition();
+
+    private static readonly MethodInfo EnumerableFirstMethod = typeof(Enumerable)
+        .GetMethods()
+        .Single(m => m is { Name: nameof(Enumerable.First), IsGenericMethod: true }
+            && m.GetParameters().Length == 1)
+        .GetGenericMethodDefinition();
+
+    private static readonly MethodInfo EnumerableFirstOrDefaultMethod = typeof(Enumerable)
+        .GetMethods()
+        .Single(m => m is { Name: nameof(Enumerable.FirstOrDefault), IsGenericMethod: true }
+            && m.GetParameters().Length == 1)
+        .GetGenericMethodDefinition();
+
+    private static readonly MethodInfo QueryableFirstMethod = typeof(Queryable)
+        .GetMethods()
+        .Single(m => m is { Name: nameof(Queryable.First), IsGenericMethod: true }
+            && m.GetParameters().Length == 1)
+        .GetGenericMethodDefinition();
+
+    private static readonly MethodInfo QueryableFirstOrDefaultMethod = typeof(Queryable)
+        .GetMethods()
+        .Single(m => m is { Name: nameof(Queryable.FirstOrDefault), IsGenericMethod: true }
+            && m.GetParameters().Length == 1)
+        .GetGenericMethodDefinition();
 
     private static readonly MethodInfo EfPropertyMethod =
         typeof(EF)
@@ -575,6 +635,16 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
                 : sqlExpressionFactory.Function("size", [instance], typeof(int));
         }
 
+        if (node is
+            {
+                Member.Name: nameof(Array.Length) or nameof(ICollection.Count),
+                Expression: { } collectionExpression
+            }
+            && collectionExpression.Type != typeof(string)
+            && TranslateInternal(collectionExpression) is SqlExpression collection
+            && TryGetNativePrimitiveCollectionElementMapping(collection, out _))
+            return sqlExpressionFactory.Function("size", [collection], typeof(int));
+
         if (IsNullableMember(node.Member, nameof(Nullable<int>.HasValue))
             && node.Expression is { } nullableExpression)
         {
@@ -784,10 +854,26 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         if (IsCollectionAnyWithoutPredicateMethod(node.Method))
             return TranslateCollectionAny(node);
 
+        if (IsCollectionAnyPredicateMethod(node.Method))
+            return TranslateInlineCollectionPredicate(node, ExpressionType.OrElse);
+
+        if (IsCollectionAllMethod(node.Method))
+            return TranslateInlineCollectionPredicate(node, ExpressionType.AndAlso);
+
+        if (IsCollectionCountWithoutPredicateMethod(node.Method))
+            return TranslateCollectionCount(node);
+
         if (node.Method.IsGenericMethod
             && (node.Method.GetGenericMethodDefinition() == EnumerableElementAtMethod
                 || node.Method.GetGenericMethodDefinition() == QueryableElementAtMethod))
-            return TranslateElementAt(node);
+            return TranslateListIndex(node, node.Arguments[1]);
+
+        if (node.Method.IsGenericMethod
+            && (node.Method.GetGenericMethodDefinition() == EnumerableFirstMethod
+                || node.Method.GetGenericMethodDefinition() == EnumerableFirstOrDefaultMethod
+                || node.Method.GetGenericMethodDefinition() == QueryableFirstMethod
+                || node.Method.GetGenericMethodDefinition() == QueryableFirstOrDefaultMethod))
+            return TranslateListIndex(node, Expression.Constant(0));
 
         AddTranslationErrorDetails(DynamoStrings.MethodCallInPredicateNotSupported);
         return QueryCompilationContext.NotTranslatedExpression;
@@ -1474,33 +1560,29 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
     }
 
     /// <summary>
-    ///     Translates <c>Enumerable.ElementAt(source, index)</c> or
-    ///     <c>Queryable.ElementAt(source, index)</c> to a list index access expression. EF Core normalises
-    ///     <c>list[i]</c> to this form, wrapping the source in <c>.AsQueryable()</c> when the collection
-    ///     is a complex collection property.
+    ///     Translates list element access methods to a list index access expression. EF Core normalises
+    ///     <c>list[i]</c> to <c>ElementAt</c>, wrapping the source in <c>.AsQueryable()</c> when the
+    ///     collection is a complex collection property.
     /// </summary>
-    private Expression TranslateElementAt(MethodCallExpression node)
+    private Expression TranslateListIndex(MethodCallExpression node, Expression indexExpression)
     {
-        // Strip the .AsQueryable() wrapper that EF Core adds around complex collection sources.
-        var sourceArg = node.Arguments[0];
-        if (sourceArg is MethodCallExpression { Method.Name: "AsQueryable" } asq)
-            sourceArg = asq.Arguments[0];
-
-        var translatedSource = Visit(sourceArg);
-        if (translatedSource is not SqlExpression sqlSource)
+        var sourceArg = StripAsQueryable(node.Arguments[0]);
+        if (sourceArg is null
+            || Visit(sourceArg) is not SqlExpression sqlSource
+            || !TryGetNativePrimitiveListElementMapping(sqlSource, out var elementMapping))
         {
             AddTranslationErrorDetails(DynamoStrings.MemberAccessNotSupported);
             return QueryCompilationContext.NotTranslatedExpression;
         }
 
-        if (node.Arguments[1] is not ConstantExpression { Value: int index })
+        if (indexExpression is not ConstantExpression { Value: int index })
         {
             AddTranslationErrorDetails(DynamoStrings.ListIndexMustBeConstant);
             return QueryCompilationContext.NotTranslatedExpression;
         }
 
         var elementType = node.Method.GetGenericArguments()[0];
-        return new DynamoListIndexExpression(sqlSource, index, elementType);
+        return new DynamoListIndexExpression(sqlSource, index, elementType, elementMapping);
     }
 
     /// <summary>Translates in-memory collection Contains calls to IN predicates.</summary>
@@ -1561,17 +1643,63 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
     /// <summary>Translates primitive-collection Any() to a size check.</summary>
     private Expression TranslateCollectionAny(MethodCallExpression node)
     {
-        var sourceExpression = StripAsQueryable(node.Arguments.ElementAtOrDefault(0));
-        if (sourceExpression is null)
-            return QueryCompilationContext.NotTranslatedExpression;
-
-        if (TranslateInternal(sourceExpression) is not SqlExpression source)
-            return QueryCompilationContext.NotTranslatedExpression;
+        var size = TranslateCollectionSize(node.Arguments.ElementAtOrDefault(0));
+        if (size is not SqlExpression sizeExpression)
+            return size;
 
         return sqlExpressionFactory.Binary(
             ExpressionType.GreaterThan,
-            sqlExpressionFactory.Function("size", [source], typeof(int)),
+            sizeExpression,
             sqlExpressionFactory.Constant(0, typeof(int)))!;
+    }
+
+    /// <summary>Translates primitive-collection Count() to size().</summary>
+    private Expression TranslateCollectionCount(MethodCallExpression node)
+        => TranslateCollectionSize(node.Arguments.ElementAtOrDefault(0));
+
+    private Expression TranslateInlineCollectionPredicate(
+        MethodCallExpression node,
+        ExpressionType aggregateOperator)
+    {
+        var sourceExpression = StripAsQueryable(node.Arguments.ElementAtOrDefault(0));
+        if (sourceExpression is null
+            || UnwrapLambda(node.Arguments.ElementAtOrDefault(1)) is not { } lambda
+            || !TryTranslateInlineValues(
+                sourceExpression,
+                lambda.Parameters[0].Type,
+                out var values))
+            return QueryCompilationContext.NotTranslatedExpression;
+
+        SqlExpression? result = null;
+        foreach (var value in values)
+        {
+            var body =
+                new ReplacingExpressionVisitor([lambda.Parameters[0]], [value]).Visit(lambda.Body);
+            if (TranslateInternal(body) is not SqlExpression predicate)
+                return QueryCompilationContext.NotTranslatedExpression;
+
+            result = result is null
+                ? predicate
+                : sqlExpressionFactory.Binary(aggregateOperator, result, predicate);
+        }
+
+        return result
+            ?? sqlExpressionFactory.Constant(
+                aggregateOperator == ExpressionType.AndAlso,
+                typeof(bool));
+    }
+
+    private Expression TranslateCollectionSize(Expression? sourceArgument)
+    {
+        var sourceExpression = StripAsQueryable(sourceArgument);
+        if (sourceExpression is null)
+            return QueryCompilationContext.NotTranslatedExpression;
+
+        if (TranslateInternal(sourceExpression) is not SqlExpression source
+            || !TryGetNativePrimitiveCollectionElementMapping(source, out _))
+            return QueryCompilationContext.NotTranslatedExpression;
+
+        return sqlExpressionFactory.Function("size", [source], typeof(int));
     }
 
     /// <summary>Strips EF's primitive-collection queryable wrapper when present.</summary>
@@ -1600,8 +1728,37 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
             && !DynamoTypeMappingSource.TryGetSetElementType(collectionExpression.Type, out _))
             return false;
 
-        if (collectionExpression.TypeMapping?.ElementTypeMapping is not { } mapping)
+        return TryGetElementMapping(collectionExpression, out elementMapping);
+    }
+
+    /// <summary>
+    ///     Returns the element mapping when the expression is a natively mapped DynamoDB primitive
+    ///     list. Sets and scalar value-converted collections intentionally do not qualify.
+    /// </summary>
+    private static bool TryGetNativePrimitiveListElementMapping(
+        SqlExpression collectionExpression,
+        out CoreTypeMapping elementMapping)
+    {
+        elementMapping = null!;
+
+        if (collectionExpression is not SqlPropertyExpression and not DynamoScalarAccessExpression)
             return false;
+
+        if (!DynamoTypeMappingSource.TryGetListElementType(collectionExpression.Type, out _))
+            return false;
+
+        return TryGetElementMapping(collectionExpression, out elementMapping);
+    }
+
+    private static bool TryGetElementMapping(
+        SqlExpression collectionExpression,
+        out CoreTypeMapping elementMapping)
+    {
+        if (collectionExpression.TypeMapping?.ElementTypeMapping is not { } mapping)
+        {
+            elementMapping = null!;
+            return false;
+        }
 
         elementMapping = mapping;
         return true;
@@ -1620,6 +1777,23 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
             foreach (var element in newArrayExpression.Expressions)
             {
                 var translated = TranslateInternal(element);
+                if (translated == null)
+                    return false;
+
+                values.Add(sqlExpressionFactory.ApplyTypeMapping(translated, itemType));
+            }
+
+            return true;
+        }
+
+        if (collectionExpression is ListInitExpression listInitExpression)
+        {
+            foreach (var initializer in listInitExpression.Initializers)
+            {
+                if (initializer.Arguments.Count != 1)
+                    return false;
+
+                var translated = TranslateInternal(initializer.Arguments[0]);
                 if (translated == null)
                     return false;
 
@@ -1667,6 +1841,35 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
             && (method.GetGenericMethodDefinition() == EnumerableAnyMethod
                 || method.GetGenericMethodDefinition() == QueryableAnyMethod);
 
+    /// <summary>Returns whether a method represents a primitive-collection Any(predicate) call.</summary>
+    private static bool IsCollectionAnyPredicateMethod(MethodInfo method)
+        => method.IsGenericMethod
+            && (method.GetGenericMethodDefinition() == EnumerableAnyPredicateMethod
+                || method.GetGenericMethodDefinition() == QueryableAnyPredicateMethod);
+
+    /// <summary>Returns whether a method represents a primitive-collection All(predicate) call.</summary>
+    private static bool IsCollectionAllMethod(MethodInfo method)
+        => method.IsGenericMethod
+            && (method.GetGenericMethodDefinition() == EnumerableAllMethod
+                || method.GetGenericMethodDefinition() == QueryableAllMethod);
+
+    /// <summary>Returns whether a method represents a primitive-collection Count() call without predicate.</summary>
+    private static bool IsCollectionCountWithoutPredicateMethod(MethodInfo method)
+        => method.IsGenericMethod
+            && (method.GetGenericMethodDefinition() == EnumerableCountMethod
+                || method.GetGenericMethodDefinition() == QueryableCountMethod);
+
+    private static LambdaExpression? UnwrapLambda(Expression? expression)
+        => expression switch
+        {
+            LambdaExpression lambda => lambda,
+            UnaryExpression
+            {
+                NodeType: ExpressionType.Quote, Operand: LambdaExpression lambda
+            } => lambda,
+            _ => null
+        };
+
     /// <summary>Returns whether a method represents an in-memory collection Contains call.</summary>
     private static bool IsCollectionContainsMethod(MethodInfo method)
     {
@@ -1677,6 +1880,16 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         if (method.IsGenericMethod
             && method.GetGenericMethodDefinition() == QueryableContainsMethod)
             return true;
+
+        if (method.DeclaringType == typeof(MemoryExtensions)
+            && method.Name == nameof(MemoryExtensions.Contains)
+            && method.ReturnType == typeof(bool)
+            && method.GetParameters().Length is 2 or 3)
+            return (method.GetParameters().Length == 2 && method.IsGenericMethod)
+                || (method.GetParameters().Length == 3
+                    && method.GetParameters()[2].ParameterType.IsGenericType
+                    && method.GetParameters()[2].ParameterType.GetGenericTypeDefinition()
+                    == typeof(IEqualityComparer<>));
 
         if (method.DeclaringType is not { } declaringType)
             return false;
@@ -1708,7 +1921,15 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
     /// <summary>Tries to extract collection and item arguments from a Contains call.</summary>
     private static (Expression? CollectionExpression, Expression? ItemExpression)
         TryGetCollectionContainsArguments(MethodCallExpression node)
-        => node.Method.IsStatic
-            ? (node.Arguments.ElementAtOrDefault(0), node.Arguments.ElementAtOrDefault(1))
-            : (node.Object, node.Arguments.ElementAtOrDefault(0));
+    {
+        if (!node.Method.IsStatic)
+            return (node.Object, node.Arguments.ElementAtOrDefault(0));
+
+        if (node.Method.DeclaringType == typeof(MemoryExtensions)
+            && node.Arguments.Count == 3
+            && node.Arguments[2] is not ConstantExpression { Value: null })
+            return (null, null);
+
+        return (node.Arguments.ElementAtOrDefault(0), node.Arguments.ElementAtOrDefault(1));
+    }
 }

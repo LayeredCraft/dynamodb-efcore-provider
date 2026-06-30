@@ -120,11 +120,15 @@ public sealed class SqlExpressionFactory(ITypeMappingSource typeMappingSource)
     {
         SqlInExpression.ValidateValueSource(null, valuesParameter);
         var mappedItem = ApplyDefaultTypeMapping(item);
-        ThrowIfConvertedEnumComparedToUnderlyingNumber(mappedItem, valuesParameter);
+        var mappedValuesParameter =
+            valuesParameter.TypeMapping is null && mappedItem.TypeMapping is not null
+                ? (SqlParameterExpression)ApplyTypeMapping(valuesParameter, mappedItem.TypeMapping)
+                : valuesParameter;
+        ThrowIfConvertedEnumComparedToUnderlyingNumber(mappedItem, mappedValuesParameter);
         return new SqlInExpression(
             mappedItem,
             null,
-            valuesParameter,
+            mappedValuesParameter,
             isPartitionKeyComparison,
             typeMappingSource.FindMapping(typeof(bool)));
     }
@@ -199,7 +203,7 @@ public sealed class SqlExpressionFactory(ITypeMappingSource typeMappingSource)
                     parameterExpression.Type)
                 == Enum.GetUnderlyingType(enumType),
             SqlConstantExpression => false,
-            _ => false,
+            _ => false
         };
     }
 

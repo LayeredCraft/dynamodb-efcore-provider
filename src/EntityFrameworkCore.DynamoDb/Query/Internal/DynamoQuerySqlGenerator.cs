@@ -33,7 +33,7 @@ public sealed class DynamoQuerySqlGenerator : SqlExpressionVisitor
         try
         {
             VisitSelect(selectExpression);
-            return new DynamoPartiQlQuery(_sql.ToString(), _parameters);
+            return new DynamoPartiQlQuery(_sql.ToString(), [.. _parameters]);
         }
         finally
         {

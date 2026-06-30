@@ -194,6 +194,12 @@ public class DynamoTypeMappingSource(TypeMappingSourceDependencies dependencies)
     {
         if (clrType.IsArray)
         {
+            if (clrType.GetArrayRank() != 1)
+            {
+                elementType = null!;
+                return false;
+            }
+
             elementType = clrType.GetElementType()!;
             return true;
         }
