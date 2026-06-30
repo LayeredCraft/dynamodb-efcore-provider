@@ -41,7 +41,7 @@ See [Supported Operators](querying/operators.md) for the full list of what does 
 | Joins                                   | `Join`, `GroupJoin`, `LeftJoin`, `RightJoin`, `SelectMany`, `DefaultIfEmpty` | DynamoDB does not support cross-item joins                                                                                                                                                                                          |
 | Set operations                          | `Union`, `Concat`, `Except`, `Intersect`                                     | Not supported in DynamoDB PartiQL                                                                                                                                                                                                   |
 | Offset / paging                         | `Skip`, `Take`, `ElementAt`, `ElementAtOrDefault`                            | DynamoDB has no offset semantics — use `Limit(n)` for an evaluation budget                                                                                                                                                          |
-| Element operators                       | `Any`, `All`                                                                 | Not supported server-side                                                                                                                                                                                                           |
+| Element operators                       | `Any`, `All` except inline finite collection predicate rewrites              | General server-side element operators are not supported                                                                                                                                                                             |
 | Reverse traversal                       | `Last`, `LastOrDefault`, `Reverse`                                           | Requires reverse index traversal, not implemented                                                                                                                                                                                   |
 | Deduplication                           | `Distinct`                                                                   | `SELECT DISTINCT` is not supported in DynamoDB PartiQL                                                                                                                                                                              |
 | Type casting                            | `Cast<T>`                                                                    | Not supported; TPH discriminator filtering via `OfType<TDerived>()` and `is` requires active discriminator metadata; `GetType()` checks require active discriminator metadata and are limited to exact concrete mapped entity types |
@@ -62,6 +62,10 @@ Scalar value-converted collection membership is not translated. `entity.Values.C
 supported for native DynamoDB primitive list/set attributes, but not when `Values` is serialized into
 a scalar string or blob by a property value converter. In that case DynamoDB would evaluate substring
 or binary containment rather than collection membership.
+
+Inline finite primitive collection predicates such as `new[] { 1, 2 }.Any(x => x == entity.Value)`
+and `new[] { 1, 2 }.All(x => x != entity.Value)` are rewritten to finite scalar predicates. Other
+predicate aggregates, including `Count(predicate)`, `Min`, and `Max`, remain unsupported server-side.
 
 **Workaround for unsupported operators:** switch to `AsAsyncEnumerable()` before the unsupported
 operator to move evaluation in-process:

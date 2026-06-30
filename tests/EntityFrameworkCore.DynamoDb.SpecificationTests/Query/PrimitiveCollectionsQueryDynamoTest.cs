@@ -94,11 +94,11 @@ public abstract class PrimitiveCollectionsQueryDynamoTest
     public override Task Inline_collection_List_Contains_with_mixed_value_types()
         => base.Inline_collection_List_Contains_with_mixed_value_types();
 
-    [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
+    [ConditionalFact]
     public override Task Inline_collection_Contains_as_Any_with_predicate()
         => base.Inline_collection_Contains_as_Any_with_predicate();
 
-    [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
+    [ConditionalFact]
     public override Task Inline_collection_negated_Contains_as_All()
         => base.Inline_collection_negated_Contains_as_All();
 
@@ -235,7 +235,7 @@ public abstract class PrimitiveCollectionsQueryDynamoTest
         => base.Static_readonly_collection_ImmutableArray_of_ints_Contains_int();
 #endif
 
-    [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
+    [ConditionalFact]
     public override Task Parameter_collection_of_ints_Contains_nullable_int()
         => base.Parameter_collection_of_ints_Contains_nullable_int();
 
