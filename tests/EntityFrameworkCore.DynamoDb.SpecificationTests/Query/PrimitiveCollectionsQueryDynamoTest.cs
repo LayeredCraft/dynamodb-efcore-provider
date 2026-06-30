@@ -260,7 +260,7 @@ public abstract class PrimitiveCollectionsQueryDynamoTest
     public override Task Parameter_collection_of_structs_Contains_nullable_struct()
         => base.Parameter_collection_of_structs_Contains_nullable_struct();
 
-    [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
+    [ConditionalFact]
     public override Task
         Parameter_collection_of_structs_Contains_nullable_struct_with_nullable_comparer()
         => base.Parameter_collection_of_structs_Contains_nullable_struct_with_nullable_comparer();
@@ -273,7 +273,7 @@ public abstract class PrimitiveCollectionsQueryDynamoTest
     public override Task Parameter_collection_of_nullable_structs_Contains_nullable_struct()
         => base.Parameter_collection_of_nullable_structs_Contains_nullable_struct();
 
-    [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
+    [ConditionalFact]
     public override Task
         Parameter_collection_of_nullable_structs_Contains_nullable_struct_with_nullable_comparer()
         => base

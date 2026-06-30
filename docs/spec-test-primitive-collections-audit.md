@@ -5,7 +5,7 @@ Detailed audit of skipped `PrimitiveCollectionsQueryDynamoTest` methods. Classif
 ## Summary
 
 - Recently unskipped coverage now includes simple scalar `Contains`, several parameter-collection `Contains` shapes, column-list `Any`, `size()` translations, and direct list indexing.
-- Remaining provider gaps are `IN` null semantics, value-converted nullable edge cases, inline finite collection aggregates/predicates, and primitive-list projection/client shaping.
+- Remaining provider gaps are `IN` null semantics, one nullable value-converted collection edge case, inline finite collection aggregates beyond simple predicate rewrites, and primitive-list projection/client shaping.
 - True long-term blocks are joins, set operations, `Skip`/`Take`, ordering/filtering inside list elements, owned types, and broad list-element query pipelines.
 
 ## Quick unskip results
@@ -13,7 +13,7 @@ Detailed audit of skipped `PrimitiveCollectionsQueryDynamoTest` methods. Classif
 Focused EF10/EF11 runs now pass these formerly skipped methods:
 
 - Inline scalar `Contains`: zero/one/two/three values, captured parameters, EF.Parameter, Enumerable, MemoryExtensions, and ListInit shapes.
-- Parameter collection `Contains`: `HashSet<int>`, DateTime, bool, enum, nullable int/string values, value-converted `WrappedId`, nullable `WrappedId` property comparisons, null collection, empty collection.
+- Parameter collection `Contains`: `HashSet<int>`, DateTime, bool, enum, nullable int/string values, value-converted `WrappedId`, nullable `WrappedId` property comparisons including nullable-comparer properties, null collection, empty collection.
 - Column collection: bool `Contains`, `Any`, `Count`, `Length`, direct index/`ElementAt` for int/string/DateTime, and `First`/`FirstOrDefault` as index 0.
 
 Kept skipped after focused EF11 failures:
@@ -34,8 +34,8 @@ Likely files:
 
 Clusters:
 
-1. Remaining value-converted nullable-comparer and nullable-collection edge cases.
-2. Inline finite collection `Any`/`All`/`Count`/`Min`/`Max` rewrites.
+1. Remaining nullable collection `IN` edge case where `List<WrappedId?>` is compared to non-nullable `WrappedId`.
+2. Inline finite collection `Count`/`Min`/`Max` rewrites; simple `Any(predicate)`/`All(predicate)` rewrites are now supported.
 3. Primitive collection projection gaps split between direct LIST projection materialization/shaping and ordered-result assertion adaptations for scan-like test cases.
 4. Direct primitive LIST projection materialization remains a design-only task; implementation follow-up is tracked by `dynamodb-efcore-provider-m62` and should start with whole-attribute projection only.
 
@@ -73,7 +73,7 @@ Implementation boundaries:
 
 ## Recommended implementation order
 
-1. Revisit nullable `IN` semantics and remaining value-converted nullable edge cases.
-2. Add inline finite collection `Any`/`All`/`Count`/`Min`/`Max` rewrites where semantics are clear.
+1. Revisit nullable `IN` semantics for nullable collection parameters compared to non-nullable converted properties.
+2. Add inline finite collection `Count`/`Min`/`Max` rewrites where semantics are clear.
 3. Add projection-only primitive LIST materialization for direct list projections.
 4. Defer list-element sequence pipeline work until larger design.
