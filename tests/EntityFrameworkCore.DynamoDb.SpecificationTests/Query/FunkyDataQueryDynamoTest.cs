@@ -32,7 +32,13 @@ public abstract class FunkyDataQueryDynamoTest
     public override Task String_contains_on_argument_with_wildcard_column_negated(bool async)
         => base.String_contains_on_argument_with_wildcard_column_negated(async);
 
+    [ConditionalTheory(Skip = "DynamoDB PartiQL begins_with rejects null arguments.")]
     public override Task String_starts_with_on_argument_with_wildcard_constant(bool async)
+        => base.String_starts_with_on_argument_with_wildcard_constant(async);
+
+    [ConditionalTheory]
+    [MemberData(nameof(IsAsyncData))]
+    public Task String_starts_with_on_argument_with_wildcard_constant_non_null(bool async)
         => NoSyncTest(
             async,
             async a =>
@@ -104,7 +110,13 @@ public abstract class FunkyDataQueryDynamoTest
                         .Select(c => c.FirstName));
             });
 
+    [ConditionalTheory(Skip = "DynamoDB PartiQL begins_with rejects null arguments.")]
     public override Task String_starts_with_on_argument_with_wildcard_parameter(bool async)
+        => base.String_starts_with_on_argument_with_wildcard_parameter(async);
+
+    [ConditionalTheory]
+    [MemberData(nameof(IsAsyncData))]
+    public Task String_starts_with_on_argument_with_wildcard_parameter_non_null(bool async)
         => NoSyncTest(
             async,
             async a =>
