@@ -72,7 +72,9 @@ Entity properties typed as collections materialize from DynamoDB set and list at
 | `Dictionary<string, TValue>`, `IDictionary<string, TValue>` | `M`                     | `Dictionary<string, TValue>`         |
 | `IReadOnlyDictionary<string, TValue>`                       | `M`                     | `ReadOnlyDictionary<string, TValue>` |
 
-Interface-typed properties receive a concrete instance that implements the declared interface. Collection properties are selected by name like any scalar; their contents are deserialized from the `AttributeValue` during shaping.
+Interface-typed properties receive a concrete instance that implements the declared interface. Collection properties are selected by name like any scalar when materializing full entities or DTOs/anonymous objects that include the property; their contents are deserialized from the `AttributeValue` during shaping.
+
+Directly shaping a primitive collection as the top-level query result, such as `Select(e => e.Tags)` or `Select(e => e.Tags.ToList())`, is not currently supported. Project an entity or DTO that contains the collection property, or materialize entities first and select the collection client-side.
 
 ## Complex Property Projections
 

@@ -1566,9 +1566,10 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
     /// </summary>
     private Expression TranslateListIndex(MethodCallExpression node, Expression indexExpression)
     {
-        var sourceArg = StripAsQueryable(node.Arguments[0])!;
-        var translatedSource = Visit(sourceArg);
-        if (translatedSource is not SqlExpression sqlSource)
+        var sourceArg = StripAsQueryable(node.Arguments[0]);
+        if (sourceArg is null
+            || Visit(sourceArg) is not SqlExpression sqlSource
+            || !TryGetNativePrimitiveListElementMapping(sqlSource, out var elementMapping))
         {
             AddTranslationErrorDetails(DynamoStrings.MemberAccessNotSupported);
             return QueryCompilationContext.NotTranslatedExpression;
@@ -1581,7 +1582,7 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         }
 
         var elementType = node.Method.GetGenericArguments()[0];
-        return new DynamoListIndexExpression(sqlSource, index, elementType);
+        return new DynamoListIndexExpression(sqlSource, index, elementType, elementMapping);
     }
 
     /// <summary>Translates in-memory collection Contains calls to IN predicates.</summary>
@@ -1727,8 +1728,37 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
             && !DynamoTypeMappingSource.TryGetSetElementType(collectionExpression.Type, out _))
             return false;
 
-        if (collectionExpression.TypeMapping?.ElementTypeMapping is not { } mapping)
+        return TryGetElementMapping(collectionExpression, out elementMapping);
+    }
+
+    /// <summary>
+    ///     Returns the element mapping when the expression is a natively mapped DynamoDB primitive
+    ///     list. Sets and scalar value-converted collections intentionally do not qualify.
+    /// </summary>
+    private static bool TryGetNativePrimitiveListElementMapping(
+        SqlExpression collectionExpression,
+        out CoreTypeMapping elementMapping)
+    {
+        elementMapping = null!;
+
+        if (collectionExpression is not SqlPropertyExpression and not DynamoScalarAccessExpression)
             return false;
+
+        if (!DynamoTypeMappingSource.TryGetListElementType(collectionExpression.Type, out _))
+            return false;
+
+        return TryGetElementMapping(collectionExpression, out elementMapping);
+    }
+
+    private static bool TryGetElementMapping(
+        SqlExpression collectionExpression,
+        out CoreTypeMapping elementMapping)
+    {
+        if (collectionExpression.TypeMapping?.ElementTypeMapping is not { } mapping)
+        {
+            elementMapping = null!;
+            return false;
+        }
 
         elementMapping = mapping;
         return true;

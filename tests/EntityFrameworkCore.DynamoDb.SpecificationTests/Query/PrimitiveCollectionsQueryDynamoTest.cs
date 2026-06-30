@@ -591,8 +591,17 @@ public abstract class PrimitiveCollectionsQueryDynamoTest
     }
 
     [ConditionalFact]
-    public override Task Column_collection_FirstOrDefault()
-        => base.Column_collection_FirstOrDefault();
+    public override async Task Column_collection_FirstOrDefault()
+    {
+        await base.Column_collection_FirstOrDefault();
+
+        AssertSql(
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE "ints"[0] = 1
+            """);
+    }
 
     [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
     public override Task Column_collection_Single() => base.Column_collection_Single();
