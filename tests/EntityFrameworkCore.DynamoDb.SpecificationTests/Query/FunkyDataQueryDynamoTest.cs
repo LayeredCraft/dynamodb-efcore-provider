@@ -32,13 +32,155 @@ public abstract class FunkyDataQueryDynamoTest
     public override Task String_contains_on_argument_with_wildcard_column_negated(bool async)
         => base.String_contains_on_argument_with_wildcard_column_negated(async);
 
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task String_starts_with_on_argument_with_wildcard_constant(bool async)
-        => base.String_starts_with_on_argument_with_wildcard_constant(async);
+        => NoSyncTest(
+            async,
+            async a =>
+            {
+                await AssertQuery(
+                    a,
+                    ss => ss
+                        .Set<FunkyCustomer>()
+                        .Where(c => c.FirstName.StartsWith("%B"))
+                        .Select(c => c.FirstName),
+                    ss => ss
+                        .Set<FunkyCustomer>()
+                        .Where(c => c.FirstName.MaybeScalar(x => x.StartsWith("%B")) == true)
+                        .Select(c => c.FirstName));
 
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+                await AssertQuery(
+                    a,
+                    ss => ss
+                        .Set<FunkyCustomer>()
+                        .Where(c => c.FirstName.StartsWith("_B"))
+                        .Select(c => c.FirstName),
+                    ss => ss
+                        .Set<FunkyCustomer>()
+                        .Where(c => c.FirstName.MaybeScalar(x => x.StartsWith("_B")) == true)
+                        .Select(c => c.FirstName));
+
+                await AssertQuery(
+                    a,
+                    ss => ss
+                        .Set<FunkyCustomer>()
+                        .Where(c => c.FirstName.StartsWith(""))
+                        .Select(c => c.FirstName),
+                    ss => ss
+                        .Set<FunkyCustomer>()
+                        .Where(c => c.FirstName != null)
+                        .Select(c => c.FirstName));
+
+                await AssertQuery(
+                    a,
+                    ss => ss
+                        .Set<FunkyCustomer>()
+                        .Where(c => c.FirstName.StartsWith("_Ba_"))
+                        .Select(c => c.FirstName),
+                    ss => ss
+                        .Set<FunkyCustomer>()
+                        .Where(c => c.FirstName.MaybeScalar(x => x.StartsWith("_Ba_")) == true)
+                        .Select(c => c.FirstName));
+
+                await AssertQuery(
+                    a,
+                    ss => ss
+                        .Set<FunkyCustomer>()
+                        .Where(c => !c.FirstName.StartsWith("%B%a%r"))
+                        .Select(c => c.FirstName),
+                    ss => ss
+                        .Set<FunkyCustomer>()
+                        .Where(c => c.FirstName.MaybeScalar(x => x.StartsWith("%B%a%r")) != true)
+                        .Select(c => c.FirstName));
+
+                await AssertQuery(
+                    a,
+                    ss => ss
+                        .Set<FunkyCustomer>()
+                        .Where(c => !c.FirstName.StartsWith(""))
+                        .Select(c => c.FirstName),
+                    ss => ss
+                        .Set<FunkyCustomer>()
+                        .Where(c => c.FirstName == null)
+                        .Select(c => c.FirstName));
+            });
+
     public override Task String_starts_with_on_argument_with_wildcard_parameter(bool async)
-        => base.String_starts_with_on_argument_with_wildcard_parameter(async);
+        => NoSyncTest(
+            async,
+            async a =>
+            {
+                var prm1 = "%B";
+                await AssertQuery(
+                    a,
+                    ss => ss
+                        .Set<FunkyCustomer>()
+                        .Where(c => c.FirstName.StartsWith(prm1))
+                        .Select(c => c.FirstName),
+                    ss => ss
+                        .Set<FunkyCustomer>()
+                        .Where(c => c.FirstName.MaybeScalar(x => x.StartsWith(prm1)) == true)
+                        .Select(c => c.FirstName));
+
+                var prm2 = "_B";
+                await AssertQuery(
+                    a,
+                    ss => ss
+                        .Set<FunkyCustomer>()
+                        .Where(c => c.FirstName.StartsWith(prm2))
+                        .Select(c => c.FirstName),
+                    ss => ss
+                        .Set<FunkyCustomer>()
+                        .Where(c => c.FirstName.MaybeScalar(x => x.StartsWith(prm2)) == true)
+                        .Select(c => c.FirstName));
+
+                var prm4 = "";
+                await AssertQuery(
+                    a,
+                    ss => ss
+                        .Set<FunkyCustomer>()
+                        .Where(c => c.FirstName.StartsWith(prm4))
+                        .Select(c => c.FirstName),
+                    ss => ss
+                        .Set<FunkyCustomer>()
+                        .Where(c => c.FirstName != null)
+                        .Select(c => c.FirstName));
+
+                var prm5 = "_Ba_";
+                await AssertQuery(
+                    a,
+                    ss => ss
+                        .Set<FunkyCustomer>()
+                        .Where(c => c.FirstName.StartsWith(prm5))
+                        .Select(c => c.FirstName),
+                    ss => ss
+                        .Set<FunkyCustomer>()
+                        .Where(c => c.FirstName.MaybeScalar(x => x.StartsWith(prm5)) == true)
+                        .Select(c => c.FirstName));
+
+                var prm6 = "%B%a%r";
+                await AssertQuery(
+                    a,
+                    ss => ss
+                        .Set<FunkyCustomer>()
+                        .Where(c => !c.FirstName.StartsWith(prm6))
+                        .Select(c => c.FirstName),
+                    ss => ss
+                        .Set<FunkyCustomer>()
+                        .Where(c => c.FirstName.MaybeScalar(x => x.StartsWith(prm6)) != true)
+                        .Select(c => c.FirstName));
+
+                var prm7 = "";
+                await AssertQuery(
+                    a,
+                    ss => ss
+                        .Set<FunkyCustomer>()
+                        .Where(c => !c.FirstName.StartsWith(prm7))
+                        .Select(c => c.FirstName),
+                    ss => ss
+                        .Set<FunkyCustomer>()
+                        .Where(c => c.FirstName == null)
+                        .Select(c => c.FirstName));
+            });
 
     public override Task String_starts_with_on_argument_with_bracket(bool async)
         => NoSyncTest(async, base.String_starts_with_on_argument_with_bracket);
