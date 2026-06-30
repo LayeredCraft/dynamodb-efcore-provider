@@ -98,12 +98,30 @@ public abstract class PrimitiveCollectionsQueryDynamoTest
         => base.Inline_collection_List_Contains_with_mixed_value_types();
 
     [ConditionalFact]
-    public override Task Inline_collection_Contains_as_Any_with_predicate()
-        => base.Inline_collection_Contains_as_Any_with_predicate();
+    public override async Task Inline_collection_Contains_as_Any_with_predicate()
+    {
+        await base.Inline_collection_Contains_as_Any_with_predicate();
+
+        AssertSql(
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE "id" IN [2, 999]
+            """);
+    }
 
     [ConditionalFact]
-    public override Task Inline_collection_negated_Contains_as_All()
-        => base.Inline_collection_negated_Contains_as_All();
+    public override async Task Inline_collection_negated_Contains_as_All()
+    {
+        await base.Inline_collection_negated_Contains_as_All();
+
+        AssertSql(
+            """
+            SELECT "id", "$type", "bool", "bools", "dateTime", "dateTimes", "enum", "enums", "int", "ints", "nullableInt", "nullableInts", "nullableString", "nullableStrings", "nullableWrappedId", "nullableWrappedIdWithNullableComparer", "string", "strings", "wrappedId"
+            FROM "PrimitiveCollections"
+            WHERE NOT ("id" IN [2, 999])
+            """);
+    }
 
     [ConditionalFact(Skip = UnsupportedPrimitiveCollectionQueryShape)]
     public override Task Inline_collection_Min_with_two_values()
