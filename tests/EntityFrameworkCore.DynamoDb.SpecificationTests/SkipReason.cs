@@ -20,6 +20,9 @@ public static class SkipReason
 
     public const string EndsWithNotSupported = "DynamoDB PartiQL has no ends_with function.";
 
+    public const string BeginsWithRejectsNullArgument =
+        "DynamoDB PartiQL begins_with rejects null arguments.";
+
     public const string StringAggregateNotSupported =
         "DynamoDB PartiQL has no GROUP BY or string aggregate support.";
 

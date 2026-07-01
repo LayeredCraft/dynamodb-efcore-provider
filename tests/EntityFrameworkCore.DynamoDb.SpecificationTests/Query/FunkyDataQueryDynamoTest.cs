@@ -32,7 +32,7 @@ public abstract class FunkyDataQueryDynamoTest
     public override Task String_contains_on_argument_with_wildcard_column_negated(bool async)
         => base.String_contains_on_argument_with_wildcard_column_negated(async);
 
-    [ConditionalTheory(Skip = "DynamoDB PartiQL begins_with rejects null arguments.")]
+    [ConditionalTheory(Skip = SkipReason.BeginsWithRejectsNullArgument)]
     public override Task String_starts_with_on_argument_with_wildcard_constant(bool async)
         => base.String_starts_with_on_argument_with_wildcard_constant(async);
 
@@ -110,7 +110,7 @@ public abstract class FunkyDataQueryDynamoTest
                         .Select(c => c.FirstName));
             });
 
-    [ConditionalTheory(Skip = "DynamoDB PartiQL begins_with rejects null arguments.")]
+    [ConditionalTheory(Skip = SkipReason.BeginsWithRejectsNullArgument)]
     public override Task String_starts_with_on_argument_with_wildcard_parameter(bool async)
         => base.String_starts_with_on_argument_with_wildcard_parameter(async);
 
@@ -195,7 +195,55 @@ public abstract class FunkyDataQueryDynamoTest
             });
 
     public override Task String_starts_with_on_argument_with_bracket(bool async)
-        => NoSyncTest(async, base.String_starts_with_on_argument_with_bracket);
+        => NoSyncTest(
+            async,
+            async a =>
+            {
+                await AssertQuery(
+                    a,
+                    ss => ss.Set<FunkyCustomer>().Where(c => c.FirstName.StartsWith("[")),
+                    ss => ss
+                        .Set<FunkyCustomer>()
+                        .Where(c => c.FirstName.MaybeScalar(x => x.StartsWith("[")) == true));
+
+                await AssertQuery(
+                    a,
+                    ss => ss.Set<FunkyCustomer>().Where(c => c.FirstName.StartsWith("B[")),
+                    ss => ss
+                        .Set<FunkyCustomer>()
+                        .Where(c => c.FirstName.MaybeScalar(x => x.StartsWith("B[")) == true));
+
+                await AssertQuery(
+                    a,
+                    ss => ss.Set<FunkyCustomer>().Where(c => c.FirstName.StartsWith("B[[a^")),
+                    ss => ss
+                        .Set<FunkyCustomer>()
+                        .Where(c => c.FirstName.MaybeScalar(x => x.StartsWith("B[[a^")) == true));
+
+                var prm1 = "[";
+                await AssertQuery(
+                    a,
+                    ss => ss.Set<FunkyCustomer>().Where(c => c.FirstName.StartsWith(prm1)),
+                    ss => ss
+                        .Set<FunkyCustomer>()
+                        .Where(c => c.FirstName.MaybeScalar(x => x.StartsWith(prm1)) == true));
+
+                var prm2 = "B[";
+                await AssertQuery(
+                    a,
+                    ss => ss.Set<FunkyCustomer>().Where(c => c.FirstName.StartsWith(prm2)),
+                    ss => ss
+                        .Set<FunkyCustomer>()
+                        .Where(c => c.FirstName.MaybeScalar(x => x.StartsWith(prm2)) == true));
+
+                var prm3 = "B[[a^";
+                await AssertQuery(
+                    a,
+                    ss => ss.Set<FunkyCustomer>().Where(c => c.FirstName.StartsWith(prm3)),
+                    ss => ss
+                        .Set<FunkyCustomer>()
+                        .Where(c => c.FirstName.MaybeScalar(x => x.StartsWith(prm3)) == true));
+            });
 
     [ConditionalTheory(Skip = SkipReason.JoinsNotSupported)]
     public override Task String_starts_with_on_argument_with_wildcard_column(bool async)
