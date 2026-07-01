@@ -52,8 +52,37 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
     private static readonly MethodInfo StringContainsMethod =
         ((Func<string, bool>)string.Empty.Contains).Method;
 
+    private static readonly MethodInfo StringContainsCharMethod =
+        typeof(string).GetMethod(nameof(string.Contains), [typeof(char)])!;
+
+    private static readonly MethodInfo StringContainsWithComparisonMethod =
+        typeof(string).GetMethod(
+            nameof(string.Contains),
+            [typeof(string), typeof(StringComparison)])!;
+
     private static readonly MethodInfo StringStartsWithMethod =
         ((Func<string, bool>)string.Empty.StartsWith).Method;
+
+    private static readonly MethodInfo StringStartsWithCharMethod =
+        typeof(string).GetMethod(nameof(string.StartsWith), [typeof(char)])!;
+
+    private static readonly MethodInfo StringStartsWithWithComparisonMethod =
+        typeof(string).GetMethod(
+            nameof(string.StartsWith),
+            [typeof(string), typeof(StringComparison)])!;
+
+    private static readonly MethodInfo StringEqualsWithComparisonMethod =
+        typeof(string).GetMethod(
+            nameof(string.Equals),
+            [typeof(string), typeof(StringComparison)])!;
+
+    private static readonly MethodInfo StringStaticEqualsMethod =
+        typeof(string).GetMethod(nameof(string.Equals), [typeof(string), typeof(string)])!;
+
+    private static readonly MethodInfo StringStaticEqualsWithComparisonMethod =
+        typeof(string).GetMethod(
+            nameof(string.Equals),
+            [typeof(string), typeof(string), typeof(StringComparison)])!;
 
     private static readonly MethodInfo StringIsNullOrEmptyMethod =
         typeof(string).GetMethod(nameof(string.IsNullOrEmpty), [typeof(string)])!;
@@ -758,7 +787,9 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         if (node.Method == StringIsNullOrEmptyMethod)
             return TranslateStringIsNullOrEmpty(node);
 
-        if (node.Method == StringContainsMethod)
+        if (node.Method == StringContainsMethod
+            || node.Method == StringContainsCharMethod
+            || IsOrdinalStringComparisonMethod(node, StringContainsWithComparisonMethod))
             return TranslateStringContains(node);
 
         if (node.Method.DeclaringType == typeof(string)
@@ -768,7 +799,9 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
             return QueryCompilationContext.NotTranslatedExpression;
         }
 
-        if (node.Method == StringStartsWithMethod)
+        if (node.Method == StringStartsWithMethod
+            || node.Method == StringStartsWithCharMethod
+            || IsOrdinalStringComparisonMethod(node, StringStartsWithWithComparisonMethod))
             return TranslateStringStartsWith(node);
 
         if (node.Method.DeclaringType == typeof(string)
@@ -805,9 +838,23 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
             leftExpression = node.Object;
             rightExpression = node.Arguments[0];
         }
+        else if (node.Object != null
+            && node.Arguments.Count == 2
+            && IsOrdinalStringComparisonMethod(node, StringEqualsWithComparisonMethod))
+        {
+            leftExpression = node.Object;
+            rightExpression = node.Arguments[0];
+        }
         else if (node.Object == null
             && node.Arguments.Count == 2
-            && node.Method == ObjectStaticEqualsMethod)
+            && (node.Method == ObjectStaticEqualsMethod || node.Method == StringStaticEqualsMethod))
+        {
+            leftExpression = node.Arguments[0];
+            rightExpression = node.Arguments[1];
+        }
+        else if (node.Object == null
+            && node.Arguments.Count == 3
+            && IsOrdinalStringComparisonMethod(node, StringStaticEqualsWithComparisonMethod))
         {
             leftExpression = node.Arguments[0];
             rightExpression = node.Arguments[1];
@@ -875,6 +922,12 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
 
     private static bool CanBeNull(Type type)
         => !type.IsValueType || Nullable.GetUnderlyingType(type) != null;
+
+    private static bool IsOrdinalStringComparisonMethod(
+        MethodCallExpression node,
+        MethodInfo method)
+        => node.Method == method
+            && node.Arguments[^1] is ConstantExpression { Value: StringComparison.Ordinal };
 
     private bool IsConvertedEnumUnderlyingCastComparedToUnderlyingValue(
         Expression left,

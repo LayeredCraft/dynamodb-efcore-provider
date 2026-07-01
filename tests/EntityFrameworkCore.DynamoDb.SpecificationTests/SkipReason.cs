@@ -9,6 +9,25 @@ public static class SkipReason
     public const string QueryShapeNotSupported =
         "DynamoDB provider does not support this query shape.";
 
+    public const string CaseInsensitiveStringComparisonNotSupported =
+        "DynamoDB PartiQL does not support case-insensitive string comparisons.";
+
+    public const string StringFunctionNotSupported =
+        "DynamoDB PartiQL has no corresponding string function for this operation.";
+
+    public const string SameAttributeStringFunctionOperandsNotSupported =
+        "DynamoDB rejects string functions when both operands reference the same attribute.";
+
+    public const string EndsWithNotSupported = "DynamoDB PartiQL has no ends_with function.";
+
+    public const string StringAggregateNotSupported =
+        "DynamoDB PartiQL has no GROUP BY or string aggregate support.";
+
+    public const string RegexNotSupported = "DynamoDB PartiQL has no regex support.";
+
+    public const string StringCompareSignConstantsOnly =
+        "DynamoDB provider translates string.Compare/CompareTo only for sign constants -1, 0, or 1.";
+
     public const string ComplexTypeSubqueriesNotSupported =
         "DynamoDB provider does not support complex type values in subqueries or Contains predicates.";
 
