@@ -95,6 +95,100 @@ public class PrimitiveCollectionContainsTranslationTests
             .WithMessage($"*{DynamoStrings.ContainsCollectionShapeNotSupported}*");
     }
 
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Converted_enum_list_property_element_at_uses_element_converter_mapping()
+    {
+        var (client, captured) = CreateClient();
+        await using var context = PrimitiveCollectionContainsContext.Create(client);
+        var status = CollectionStatus.Active;
+
+        await context
+            .Items
+            .AllowScan()
+            .Where(e => e.Statuses.ElementAt(0) == status)
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        captured.Single().Statement.Should().Contain("WHERE \"statuses\"[0] = ?");
+        captured.Single().Parameters.Single().S.Should().Be(nameof(CollectionStatus.Active));
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Converted_enum_list_property_first_or_default_uses_element_converter_mapping()
+    {
+        var (client, captured) = CreateClient();
+        await using var context = PrimitiveCollectionContainsContext.Create(client);
+        var status = CollectionStatus.Active;
+
+        await context
+            .Items
+            .AllowScan()
+            .Where(e => e.Statuses.FirstOrDefault() == status)
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        captured.Single().Statement.Should().Contain("WHERE \"statuses\"[0] = ?");
+        captured.Single().Parameters.Single().S.Should().Be(nameof(CollectionStatus.Active));
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Set_property_element_at_remains_unsupported()
+    {
+        var (client, captured) = CreateClient();
+        await using var context = PrimitiveCollectionContainsContext.Create(client);
+        var label = "common";
+
+        var act = () => context
+            .Items
+            .AllowScan()
+            .Where(e => e.LabelSet.ElementAt(0) == label)
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage($"*{DynamoStrings.MemberAccessNotSupported}*");
+        captured.Should().BeEmpty();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Set_property_first_remains_unsupported()
+    {
+        var (client, captured) = CreateClient();
+        await using var context = PrimitiveCollectionContainsContext.Create(client);
+        var label = "common";
+
+        var act = () => context
+            .Items
+            .AllowScan()
+            .Where(e => e.LabelSet.First() == label)
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage($"*{DynamoStrings.MemberAccessNotSupported}*");
+        captured.Should().BeEmpty();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Scalar_value_converted_collection_element_at_remains_unsupported()
+    {
+        var (client, captured) = CreateClient();
+        await using var context = PrimitiveCollectionContainsContext.Create(client);
+        var status = CollectionStatus.Active;
+
+        var act = () => context
+            .Items
+            .AllowScan()
+            .Where(e => e.CsvStatuses.ElementAt(0) == status)
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage($"*{DynamoStrings.MemberAccessNotSupported}*");
+        captured.Should().BeEmpty();
+    }
+
     private static (IAmazonDynamoDB Client, List<ExecuteStatementRequest> Captured) CreateClient()
     {
         var captured = new List<ExecuteStatementRequest>();
@@ -111,7 +205,7 @@ public class PrimitiveCollectionContainsTranslationTests
     private enum CollectionStatus
     {
         Inactive,
-        Active,
+        Active
     }
 
     private sealed class PrimitiveCollectionContainsEntity

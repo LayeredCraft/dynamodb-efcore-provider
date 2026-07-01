@@ -9,7 +9,7 @@ _`Select` expressions translate to an explicit PartiQL column list; projections 
 
 ## Basic Select
 
-Three projection shapes are supported: entity, scalar, and DTO/anonymous.
+Three projection shapes are supported for scalar and supported structured values: entity, scalar, and DTO/anonymous. Primitive collection projection has extra limits covered below.
 
 ```csharp
 // Entity projection — all mapped properties and required shadow properties are selected
@@ -31,7 +31,7 @@ The provider never emits `SELECT *`. Every projection results in an explicit col
 
 ## Server-Side Projections
 
-Property reads for entity, scalar, and DTO leaf attributes execute server-side: the generated PartiQL lists each attribute by name, and DynamoDB returns only those attributes in the response. Duplicate attributes in a projection are deduplicated before the SQL is generated.
+Property reads for entity, scalar, and supported DTO leaf attributes execute server-side: the generated PartiQL lists each attribute by name, and DynamoDB returns only those attributes in the response. Duplicate attributes in a projection are deduplicated before the SQL is generated.
 
 Shadow properties — such as the default discriminator column — are included in the projection
 automatically when the materializer needs them, even if they have no corresponding CLR member.
@@ -72,7 +72,9 @@ Entity properties typed as collections materialize from DynamoDB set and list at
 | `Dictionary<string, TValue>`, `IDictionary<string, TValue>` | `M`                     | `Dictionary<string, TValue>`         |
 | `IReadOnlyDictionary<string, TValue>`                       | `M`                     | `ReadOnlyDictionary<string, TValue>` |
 
-Interface-typed properties receive a concrete instance that implements the declared interface. Collection properties are selected by name like any scalar; their contents are deserialized from the `AttributeValue` during shaping.
+Interface-typed properties receive a concrete instance that implements the declared interface. Collection properties are selected and deserialized when materializing full entities.
+
+Projection-only shaping for primitive collection values is narrower than full entity materialization. Directly shaping a primitive collection as the top-level query result, such as `Select(e => e.Tags)` or `Select(e => e.Tags.ToList())`, is not currently supported. DTO or anonymous projections that include primitive collection properties are also not currently supported. Project an entity, or materialize entities first and select the collection client-side.
 
 ## Complex Property Projections
 
