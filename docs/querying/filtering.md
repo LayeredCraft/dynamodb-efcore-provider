@@ -172,6 +172,13 @@ scalar attribute equals one of several in-memory values.
 Value converters on collection elements are honored. For example, enum elements configured with
 `.ElementType(e => e.HasConversion<string>())` bind the searched value as the converted string.
 
+A `byte[]` property maps to one DynamoDB Binary (`B`) attribute, not to a list of byte values.
+`bytes.Length` translates to `size(attr)`, `bytes.Any()` translates to `size(attr) > 0`, and
+`bytes.SequenceEqual(value)` translates to binary equality. Byte membership (`bytes.Contains(b)`),
+indexing (`bytes[0]`), and `First()` are not translated because DynamoDB PartiQL does not expose
+byte-level operations over a Binary attribute. Use a native numeric list/set when you need individual
+byte membership, or a binary set when you need membership among whole binary blobs.
+
 Scalar value-converted collections are not translated. For example, a `List<T>` converted to a
 comma-separated string cannot be safely queried with collection-membership semantics because DynamoDB
 would perform substring matching on the stored string, not list membership. Store values as a native

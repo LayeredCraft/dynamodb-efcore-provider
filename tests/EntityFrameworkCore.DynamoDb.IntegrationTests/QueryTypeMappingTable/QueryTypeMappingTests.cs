@@ -122,6 +122,117 @@ public class QueryTypeMappingTests : QueryTypeMappingTestFixture
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Binary_length_filter_returns_expected_item()
+    {
+        var result = await Db
+            .Items
+            .AsNoTracking()
+            .Where(item => item.BinaryValue.Length == 4)
+            .Select(item => item.Pk)
+            .ToListAsync(CancellationToken);
+
+        result.Should().Equal("ITEM#1");
+
+        AssertSql(
+            """
+            SELECT "pk"
+            FROM "QueryTypeMappingItems"
+            WHERE size("binaryValue") = 4
+            """);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Binary_sequence_equal_parameter_returns_expected_item()
+    {
+        var value = new byte[] { 5, 6, 7 };
+
+        var result = await Db
+            .Items
+            .AsNoTracking()
+            .Where(item => item.BinaryValue.SequenceEqual(value))
+            .Select(item => item.Pk)
+            .ToListAsync(CancellationToken);
+
+        result.Should().Equal("ITEM#2");
+
+        AssertSql(
+            """
+            SELECT "pk"
+            FROM "QueryTypeMappingItems"
+            WHERE "binaryValue" = ?
+            """);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Binary_contains_byte_is_rejected()
+    {
+        var act = () => Db
+            .Items
+            .AsNoTracking()
+            .Where(item => item.BinaryValue.Contains((byte)5))
+            .Select(item => item.Pk)
+            .ToListAsync(CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage(
+                "*could not be translated*Contains translation supports in-memory collection membership only*");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Binary_sequence_equal_list_parameter_is_rejected()
+    {
+        List<byte> value = [5, 6, 7];
+
+        var act = () => Db
+            .Items
+            .AsNoTracking()
+            .Where(item => item.BinaryValue.SequenceEqual(value))
+            .Select(item => item.Pk)
+            .ToListAsync(CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*could not be translated*");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Converted_binary_length_is_rejected()
+    {
+        var act = () => Db
+            .Items
+            .AsNoTracking()
+            .Where(item => item.ConvertedBinaryValue.Length == 4)
+            .Select(item => item.Pk)
+            .ToListAsync(CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*could not be translated*");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Converted_binary_sequence_equal_is_rejected()
+    {
+        var value = new byte[] { 5, 6, 7 };
+
+        var act = () => Db
+            .Items
+            .AsNoTracking()
+            .Where(item => item.ConvertedBinaryValue.SequenceEqual(value))
+            .Select(item => item.Pk)
+            .ToListAsync(CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*could not be translated*");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Numeric_enum_parameter_comparison_returns_expected_item()
     {
         var status = MappingStatus.Active;
@@ -337,7 +448,7 @@ public class QueryTypeMappingTests : QueryTypeMappingTestFixture
             .Should()
             .OnlyContain(statement => statement
                 == """
-                   SELECT "pk", "$type", "nullableShortValue", "nullableStringStatus", "numericStatus", "shortValue", "stringStatus", "profile"
+                   SELECT "pk", "$type", "binaryValue", "convertedBinaryValue", "nullableShortValue", "nullableStringStatus", "numericStatus", "shortValue", "stringStatus", "profile"
                    FROM "QueryTypeMappingItems"
                    WHERE "stringStatus" IN [?, ?, ?]
                    """);
@@ -467,6 +578,8 @@ public class QueryTypeMappingTestFixture : DynamoTestFixtureBase
             ["stringStatus"] = new AttributeValue { S = nameof(MappingStatus.Active) },
             ["nullableStringStatus"] =
                 new AttributeValue { S = nameof(MappingStatus.Active) },
+            ["binaryValue"] = new AttributeValue { B = new MemoryStream([1, 2, 3, 4]) },
+            ["convertedBinaryValue"] = new AttributeValue { S = "AQIDBA==" },
             ["profile"] =
                 new AttributeValue
                 {
@@ -485,6 +598,8 @@ public class QueryTypeMappingTestFixture : DynamoTestFixtureBase
             ["numericStatus"] = new AttributeValue { N = "0" },
             ["stringStatus"] = new AttributeValue { S = nameof(MappingStatus.Inactive) },
             ["nullableStringStatus"] = new AttributeValue { NULL = true },
+            ["binaryValue"] = new AttributeValue { B = new MemoryStream([5, 6, 7]) },
+            ["convertedBinaryValue"] = new AttributeValue { S = "BQYH" },
             ["profile"] =
                 new AttributeValue
                 {
@@ -504,6 +619,8 @@ public class QueryTypeMappingTestFixture : DynamoTestFixtureBase
             ["stringStatus"] = new AttributeValue { S = nameof(MappingStatus.Pending) },
             ["nullableStringStatus"] =
                 new AttributeValue { S = nameof(MappingStatus.Pending) },
+            ["binaryValue"] = new AttributeValue { B = new MemoryStream([8, 9]) },
+            ["convertedBinaryValue"] = new AttributeValue { S = "CAk=" },
             ["profile"] = new AttributeValue
             {
                 M = new Dictionary<string, AttributeValue>
@@ -530,6 +647,13 @@ public sealed class QueryTypeMappingDbContext(DbContextOptions options) : DbCont
                 .Property(item => item.NullableShortValue)
                 .HasAttributeName("nullableShortValue");
             builder.Property(item => item.NumericStatus).HasAttributeName("numericStatus");
+            builder.Property(item => item.BinaryValue).HasAttributeName("binaryValue");
+            builder
+                .Property(item => item.ConvertedBinaryValue)
+                .HasAttributeName("convertedBinaryValue")
+                .HasConversion(
+                    value => Convert.ToBase64String(value),
+                    value => Convert.FromBase64String(value));
             builder
                 .Property(item => item.StringStatus)
                 .HasAttributeName("stringStatus")
@@ -558,6 +682,10 @@ public sealed record QueryTypeMappingItem
     public MappingStatus StringStatus { get; set; }
 
     public MappingStatus? NullableStringStatus { get; set; }
+
+    public byte[] BinaryValue { get; set; } = [];
+
+    public byte[] ConvertedBinaryValue { get; set; } = [];
 
     public QueryTypeMappingProfile Profile { get; set; } = new();
 }
