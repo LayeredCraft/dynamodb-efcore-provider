@@ -122,16 +122,17 @@ public override void Some_sync_test()
     => NoSyncTest(() => base.Some_sync_test());
 ```
 
-**Unsupported scenarios** — keep override wired to base implementation, even when skipped. Do not
-use empty bodies or `Task.CompletedTask`; calling base preserves future compatibility if skip
-removed or condition changes:
+**Unsupported scenarios** — use centralized constants from `SkipReason.cs` for recurring provider
+limitations and keep overrides wired to base implementation, even when skipped. Do not use empty
+bodies or `Task.CompletedTask`; calling base preserves future compatibility if skip removed or
+condition changes:
 
 ```csharp
-[ConditionalFact(Skip = "DynamoDB does not support composite keys.")]
+[ConditionalFact(Skip = SkipReason.ThreePartCompositeKeysNotSupported)]
 public override void Some_unsupported_test()
     => base.Some_unsupported_test();
 
-[ConditionalTheory(Skip = "DynamoDB does not support composite keys.")]
+[ConditionalTheory(Skip = SkipReason.ThreePartCompositeKeysNotSupported)]
 public override Task Some_unsupported_test_async(CancellationType ct)
     => base.Some_unsupported_test_async(ct);
 ```
@@ -153,11 +154,12 @@ public override async Task Some_async_test(CancellationType ct)
 
 ## Known DynamoDB Limitations
 
-| Feature        | Skip reason                            |
-| -------------- | -------------------------------------- |
-| Composite keys | `SkipReason.CompositeKeysNotSupported` |
-| Nullable keys  | `SkipReason.NullableKeysNotSupported`  |
-| Shadow keys    | `SkipReason.ShadowKeysNotSupported`    |
+| Feature                   | Skip reason                                     |
+| ------------------------- | ----------------------------------------------- |
+| Three-part composite keys | `SkipReason.ThreePartCompositeKeysNotSupported` |
+| Nullable keys             | `SkipReason.NullableKeysNotSupported`           |
+| Shadow keys               | `SkipReason.ShadowKeysNotSupported`             |
 
-Use shared constants from `SkipReason.cs` for recurring provider limitations. Use local/literal skip
-reasons only for one-off method-specific gaps.
+Use shared constants from `SkipReason.cs` for skip reasons in new work. Add a new centralized
+constant when none exists. Older tests may still contain local/literal reasons, but avoid adding new
+ones unless there is a deliberate one-off assertion with no provider-support meaning.
