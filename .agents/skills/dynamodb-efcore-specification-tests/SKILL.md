@@ -107,22 +107,23 @@ public sealed class XxxDynamoTestDefault : XxxDynamoTest
 ```
 
 8. Override every inherited test method. No method left undecided. First pass should keep methods
-   unblocked: call `base` for all plausibly supported cases, wrap expected sync-query paths with
-   `NoSyncTest`, and avoid skips until a failure has been investigated. Only pre-skip cases that are
-   obviously impossible from the method name/body and already covered by a canonical `SkipReason`
-   such as joins, navigations, or `GROUP BY`.
-9. Run the whole target class or method family with all overrides present. Treat the first red run
-   as
+   unblocked: call `base` for inherited tests and wrap expected sync-query paths with `NoSyncTest`.
+   Do not add support-classification skips before the first red run; failures are the evidence used
+   for classification.
+9. Run the whole target class or method family with all overrides present. Treat the first red run as
    the classification input, not as failure of the implementation approach.
-10. Split failures into small clusters and use scout/research subagents for triage when available;
-    see "Subagent failure triage workflow" below. The parent agent owns final classification.
+10. Split failures into small clusters and use scout/research subagents for triage when there is more
+    than one failure or a failure has unclear support status; see "Subagent failure triage workflow"
+    below. The parent agent owns final classification.
 11. Update `ComplianceDynamoTest.GetBaseTestClasses()` when adding/removing implemented base class.
 12. Update `docs/spec-test-coverage.md` in same change.
 13. Run focused tests, then compliance/broader spec tests when practical.
 
 ## Override decision taxonomy
 
-For each inherited method, classify before coding.
+For each inherited method, classify before finalizing the override. The first implementation pass
+runs inherited methods to collect evidence; the final pass turns that evidence into supported calls,
+fixture fixes, provider fixes, sync wrappers, or centralized skips.
 
 ### Supported async query or behavior
 
@@ -163,10 +164,8 @@ relational navigation graphs, arbitrary multi-table relationship behavior, `GROU
 operations, explicit EF transaction scopes, and key shapes DynamoDB tables cannot represent.
 
 Centralize skip reasons in
-`tests/EntityFrameworkCore.DynamoDb.SpecificationTests/SkipReason.cs`. Use existing constants for
-shared durable constraints and add new constants there when a reason is likely to recur. Do not add
-per-class skip constants. Avoid local/literal skip strings except for truly one-off upstream quirks
-that should not become shared policy.
+`tests/EntityFrameworkCore.DynamoDb.SpecificationTests/SkipReason.cs`. Use existing constants or add
+new constants there. Do not add per-class constants or local/literal skip strings.
 
 Keep skipped overrides wired to the inherited base implementation whenever possible. Do not copy
 legacy empty skipped overrides or `Task.CompletedTask` skip bodies from older classes; introduce
@@ -191,9 +190,9 @@ Common durable constraints:
 ### Provider gap
 
 If test expectation is compatible with DynamoDB and PartiQL, do not hide it behind an architectural
-skip. Treat it as provider work: fix provider behavior so the spec test passes, or leave a narrowly
-documented provider-gap skip only when the fix exceeds approved scope. Provider-gap skip reasons
-should also be centralized in `SkipReason.cs` when they are durable or repeated.
+skip. Treat it as provider work and fix provider behavior so the spec test passes. Defer with a
+provider-gap skip only when the user explicitly approves deferral or the task scope forbids provider
+changes; the skip reason must be centralized in `SkipReason.cs` and mention the tracked gap.
 
 Typical provider-gap areas:
 
@@ -214,23 +213,25 @@ workflow, not optional polish, when many inherited tests fail.
    override guard.
 2. Run the whole target class or focused method family.
 3. Group failures by method or by same exception/query-shape cluster.
-4. In the parent/orchestrator session, launch scout/research subagents for each failure or cluster.
-   Prefer fresh-context scouts with the failure output and exact file paths. Do not launch subagents
-   from child-worker sessions.
+4. In the parent/orchestrator session, launch scout/research subagents for each failure or cluster
+   when there is more than one failure or a failure has unclear support status. Prefer fresh-context
+   scouts with the failure output and exact file paths. Use researcher only when external DynamoDB,
+   PartiQL, or EF Core evidence is needed. Do not launch subagents from child-worker sessions.
 5. Require each scout to classify the failure as exactly one primary category:
-  - **DynamoDB architectural constraint**: DynamoDB/PartiQL cannot express the behavior, e.g.
-    joins, relationship navigation graphs, `GROUP BY`, set operations, unsupported key shape, or
-    explicit transaction semantics. Result: skip with canonical `SkipReason` and update docs/counts
-    when coverage meaning changes.
-  - **Provider gap**: DynamoDB/PartiQL can express the behavior, but this provider cannot translate,
-    generate, execute, materialize, or map it yet. Result: update provider and make test pass unless
-    scope explicitly says to defer with a tracked centralized skip reason.
-  - **Test/fixture bug**: mapping, table/key config, seed data, logging hook, scan opt-in, or
-    assertion baseline is wrong. Result: fix spec fixture/test code.
-  - **Expected sync-query path**: failure is from unsupported sync query enumeration. Result: wrap
-    with `NoSyncTest`, not a skip.
-  - **Environmental failure**: DynamoDB Local/Testcontainers/SDK setup issue. Result: fix or report
-    environment; do not change support classification.
+   - **DynamoDB architectural constraint**: DynamoDB/PartiQL cannot express the behavior, e.g.
+     joins, relationship navigation graphs, `GROUP BY`, set operations, unsupported key shape, or
+     explicit transaction semantics. Result: skip with canonical `SkipReason` and update docs/counts
+     when coverage meaning changes.
+   - **Provider gap**: DynamoDB/PartiQL can express the behavior, but this provider cannot translate,
+     generate, execute, materialize, or map it yet. Result: update provider and make test pass unless
+     the user explicitly approves deferral or scope forbids provider changes; any deferred skip uses
+     a tracked centralized `SkipReason`.
+   - **Test/fixture bug**: mapping, table/key config, seed data, logging hook, scan opt-in, or
+     assertion baseline is wrong. Result: fix spec fixture/test code.
+   - **Expected sync-query path**: failure is from unsupported sync query enumeration. Result: wrap
+     with `NoSyncTest`, not a skip.
+   - **Environmental failure**: DynamoDB Local/Testcontainers/SDK setup issue. Result: fix or report
+     environment; do not change support classification.
 6. Parent agent reconciles scout reports, applies fixes/skips centrally, and keeps `SkipReason.cs`,
    `ComplianceDynamoTest`, and `docs/spec-test-coverage.md` consistent.
 
@@ -255,6 +256,23 @@ Require each scout to answer with evidence, not vibes:
 
 Then reconcile scouts centrally. Do not let scouts mass-skip failures; classify each one from
 evidence. Human/lead agent makes final classification.
+
+## Pressure-test support decisions
+
+Before marking a class or method cluster done, challenge every skip and provider-gap decision:
+
+- Did every inherited method run in the first red pass, then end as a supported call, intentional
+  sync-query wrapper, fixture/provider fix, or centralized `SkipReason` skip?
+- For every skip, is the reason a durable DynamoDB/PartiQL/model constraint rather than current
+  provider behavior?
+- For every provider-gap failure, did the agent identify the likely provider layer and attempt the
+  fix when in scope?
+- Did at least one scout report, external source, upstream base method, or comparable provider test
+  support each non-obvious classification?
+- Are `SkipReason.cs`, `ComplianceDynamoTest`, and `docs/spec-test-coverage.md` consistent with the
+  final classification?
+
+If any answer is no, keep triaging. Do not convert uncertainty into a skip.
 
 ## Failure triage checklist
 
