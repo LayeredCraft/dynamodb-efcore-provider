@@ -1,6 +1,6 @@
 ---
 name: dynamodb-efcore-specification-tests
-description: Use when implementing, extending, classifying, or debugging EF Core cross-provider specification tests for the DynamoDB EF Core provider, especially Specification.Tests bases, *TestBase<TFixture> inheritance, Dynamo test overrides, ComplianceDynamoTest inventory, skip/pass/fail classification, and spec-test coverage planning.
+description: "Use for DynamoDB EF Core specification-test work: adding, extending, classifying, or debugging tests under tests/EntityFrameworkCore.DynamoDb.SpecificationTests, overriding EF Core *TestBase<TFixture> bases, triaging pass/skip/fail outcomes, updating ComplianceDynamoTest, or editing docs/spec-test-coverage.md. Not for normal unit/integration suites."
 ---
 
 # DynamoDB EF Core Specification Tests
@@ -28,7 +28,10 @@ triage failures with evidence.
   - candidate status (`Implemented`, `Implement Next`, `Future`, `Skip`)
   - method counts and notes
   - threshold rule for newly implemented base classes: implement only when DynamoDB can meaningfully
-    cover about 70% or more of unique methods, including accurate explicit skips
+    cover about 70% or more of unique methods. Count passing/adapted methods, intentional sync
+    wrappers, and durable DynamoDB architectural skips. Do not count provider-gap deferrals as
+    coverage. If a class would be mostly skips, implement only when the docs explicitly choose to
+    document that unsupported surface.
 3. Read target upstream EF Core base test from
    `~/Repos/CSharp/efcore/test/EFCore.Specification.Tests/`.
 4. Read closest existing DynamoDB spec class in same family. Prefer newer/compliant examples over
@@ -46,7 +49,10 @@ triage failures with evidence.
 2. Create or extend `*DynamoTest.cs` in `tests/EntityFrameworkCore.DynamoDb.SpecificationTests/`.
 3. Reuse existing shared family fixtures when present, especially
    `NorthwindQueryDynamoFixture<TModelCustomizer>` and `BasicTypesQueryDynamoFixture`. Otherwise
-   create a fixture by extending the base fixture type from the upstream spec test.
+   create a fixture by extending the base fixture type from the upstream spec test. Inspect upstream
+   fixture hooks before copying patterns: `CreateContext`, `AddOptions`, `OnModelCreating`,
+   `CleanAsync`, `SeedAsync`, expected data, entity sorters/assertors, model customizers, service
+   replacement, logging, and test-store lifetime.
 4. Wire shared DynamoDB infrastructure:
   - all live-DynamoDB fixtures: `DynamoTestStoreFactory.Instance`
   - all live-DynamoDB fixtures:
@@ -108,16 +114,26 @@ public sealed class XxxDynamoTestDefault : XxxDynamoTest
 
 8. Override every inherited test method. No method left undecided. First pass should keep methods
    unblocked: call `base` for inherited tests and wrap expected sync-query paths with `NoSyncTest`.
-   Do not add support-classification skips before the first red run; failures are the evidence used
-   for classification.
-9. Run the whole target class or method family with all overrides present. Treat the first red run as
+   Avoid support-classification skips before the first red run; failures are the evidence used for
+   classification. Exception: when the upstream method body clearly and statically requires a
+   durable DynamoDB constraint (navigation graph, FK relationship, keyless type, explicit
+   transaction, >2-part key), an early skip is acceptable only with a cited upstream shape and
+   centralized `SkipReason`. Never pre-skip provider gaps.
+9. For large inherited surfaces, bootstrap mechanically: create the class/fixture skeleton, compile,
+   run only the override guard, copy missing method names/signatures from guard failures, preserve
+   upstream attributes/parameters/return types, and repeat until the guard passes. Redirect test
+   output to a file if the runner truncates guard failures. Use simple base calls or `NoSyncTest`
+   wrappers first; do not hand-classify 100+ methods from memory.
+10. Run the whole target class or method family with all overrides present. Treat the first red run as
    the classification input, not as failure of the implementation approach.
-10. Split failures into small clusters and use scout/research subagents for triage when there is more
+11. Split failures into small clusters and use scout/research subagents for triage when there is more
     than one failure or a failure has unclear support status; see "Subagent failure triage workflow"
     below. The parent agent owns final classification.
-11. Update `ComplianceDynamoTest.GetBaseTestClasses()` when adding/removing implemented base class.
-12. Update `docs/spec-test-coverage.md` in same change.
-13. Run focused tests, then compliance/broader spec tests when practical.
+12. Update `ComplianceDynamoTest.GetBaseTestClasses()` when adding/removing implemented base class.
+    If a base exists only for some target frameworks, wrap `using` statements and `yield return`
+    entries in matching `#if` guards.
+13. Update `docs/spec-test-coverage.md` in same change.
+14. Run focused tests, then compliance/broader spec tests when practical.
 
 ## Override decision taxonomy
 
@@ -165,11 +181,13 @@ operations, explicit EF transaction scopes, and key shapes DynamoDB tables canno
 
 Centralize skip reasons in
 `tests/EntityFrameworkCore.DynamoDb.SpecificationTests/SkipReason.cs`. Use existing constants or add
-new constants there. Do not add per-class constants or local/literal skip strings.
+new constants there. Do not add per-class constants or local/literal skip strings for new work;
+legacy tests may still contain older patterns.
 
 Keep skipped overrides wired to the inherited base implementation whenever possible. Do not copy
-legacy empty skipped overrides or `Task.CompletedTask` skip bodies from older classes; introduce
-such exceptions only when calling base is unsafe, and document why.
+legacy empty skipped overrides or `Task.CompletedTask` skip bodies from older classes. Introduce a
+no-op skipped body only when calling base is unsafe (for example, model creation fails before xUnit
+can apply the skip), and add an adjacent comment naming the unsafe side effect or exception.
 
 ```csharp
 [ConditionalTheory(Skip = SkipReason.JoinsNotSupported)]
@@ -192,7 +210,9 @@ Common durable constraints:
 If test expectation is compatible with DynamoDB and PartiQL, do not hide it behind an architectural
 skip. Treat it as provider work and fix provider behavior so the spec test passes. Defer with a
 provider-gap skip only when the user explicitly approves deferral or the task scope forbids provider
-changes; the skip reason must be centralized in `SkipReason.cs` and mention the tracked gap.
+changes; the skip reason must be centralized in `SkipReason.cs` and mention the tracked gap. Existing
+provider-gap constants are not blanket permission to skip new failures; cite the tracked issue or
+scope decision when using them.
 
 Typical provider-gap areas:
 
@@ -203,6 +223,13 @@ Typical provider-gap areas:
   `src/EntityFrameworkCore.DynamoDb/Query/Internal/DynamoShapedQueryCompilingExpressionVisitor.cs`
 - execution in `src/EntityFrameworkCore.DynamoDb/Storage/DynamoClientWrapper.cs`
 - type mapping in `src/EntityFrameworkCore.DynamoDb/Storage/DynamoTypeMappingSource.cs`
+
+Route by symptom:
+
+- “could not be translated” or method-call pattern missing → translator visitors/method translators
+- malformed or baseline-mismatched PartiQL → `DynamoQuerySqlGenerator` or stale `AssertSql`
+- AWS SDK validation/runtime item mismatch → `DynamoClientWrapper` or serializer/wire-shape code
+- wrong CLR values/materialization → shaped-query compiler or type mapping
 
 ## Subagent failure triage workflow
 
@@ -216,7 +243,8 @@ workflow, not optional polish, when many inherited tests fail.
 4. In the parent/orchestrator session, launch scout/research subagents for each failure or cluster
    when there is more than one failure or a failure has unclear support status. Prefer fresh-context
    scouts with the failure output and exact file paths. Use researcher only when external DynamoDB,
-   PartiQL, or EF Core evidence is needed. Do not launch subagents from child-worker sessions.
+   PartiQL, or EF Core evidence is needed. Do not launch subagents from child-worker sessions; if
+   running as a child/subagent, do local targeted triage and return failure clusters to the parent.
 5. Require each scout to classify the failure as exactly one primary category:
    - **DynamoDB architectural constraint**: DynamoDB/PartiQL cannot express the behavior, e.g.
      joins, relationship navigation graphs, `GROUP BY`, set operations, unsupported key shape, or
@@ -245,7 +273,12 @@ recommended code change, needed SkipReason/docs update, and confidence.
 If claiming unsupported, cite the DynamoDB/PartiQL capability gap. If claiming provider gap, name likely provider file.
 ```
 
-Require each scout to answer with evidence, not vibes:
+Require each scout to answer with evidence, not vibes. A compact table is ideal:
+
+| Method | Upstream intent/line | Dynamo override | Async/sync | Exception or PartiQL | Capability evidence | Classification | Action | Skip/docs impact |
+| ------ | -------------------- | --------------- | ---------- | -------------------- | ------------------- | -------------- | ------ | ---------------- |
+
+Include:
 
 - exact base method behavior and assertion intent
 - exact exception, generated PartiQL, or baseline mismatch
@@ -278,8 +311,9 @@ If any answer is no, keep triaging. Do not convert uncertainty into a skip.
 
 For each failure ask, in order:
 
-1. Did sync variant run? Use `DynamoTestHelpers.Instance.NoSyncTest(...)` or a local wrapper if
-   failure is expected sync query enumeration.
+1. Did sync variant run? Use inherited/local `NoSyncTest(...)` when existing family classes expose
+   one; otherwise use `DynamoTestHelpers.Instance.NoSyncTest(...)` if failure is expected sync query
+   enumeration.
 2. Is fixture wrong? Missing table/key/ignored navigation/seed data often masquerades as provider
    bug.
 3. Is `AssertSql` stale? Inspect captured `PartiQL baseline mismatch` details.
@@ -290,7 +324,8 @@ For each failure ask, in order:
    changes.
 6. Can DynamoDB PartiQL express query? If yes, treat failure as provider gap until proven otherwise.
 7. Is result ordering assumed without stable DynamoDB order? Use existing ordered-result skip reason
-   or adapt assertion only when base allows.
+   or adapt assertion only when base allows. Sort-key queries may have stable DynamoDB order; scans
+   and many filtered shapes do not.
 8. Is failure environmental? DynamoDB Local/Testcontainers/setup failure should not change test
    classification.
 
@@ -318,19 +353,19 @@ must agree.
 Use the .NET test MCP server when available. CLI fallback focused class/method:
 
 ```bash
-dotnet test tests/EntityFrameworkCore.DynamoDb.SpecificationTests/EntityFrameworkCore.DynamoDb.SpecificationTests.csproj --filter "FullyQualifiedName~ClassOrMethod"
+task test:spec CONFIG="Debug EF10" FILTER="FullyQualifiedName~ClassOrMethod"
 ```
 
 Compliance inventory:
 
 ```bash
-dotnet test tests/EntityFrameworkCore.DynamoDb.SpecificationTests/EntityFrameworkCore.DynamoDb.SpecificationTests.csproj --filter "FullyQualifiedName~ComplianceDynamoTest"
+task test:spec CONFIG="Debug EF10" FILTER="FullyQualifiedName~ComplianceDynamoTest"
 ```
 
 Full spec project when practical:
 
 ```bash
-dotnet test tests/EntityFrameworkCore.DynamoDb.SpecificationTests/EntityFrameworkCore.DynamoDb.SpecificationTests.csproj
+task test:spec:all
 ```
 
 When debugging query baselines, inspect assertion failures and captured `PartiQL baseline mismatch`
