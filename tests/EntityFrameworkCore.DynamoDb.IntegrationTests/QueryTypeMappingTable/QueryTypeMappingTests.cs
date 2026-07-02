@@ -181,6 +181,24 @@ public class QueryTypeMappingTests : QueryTypeMappingTestFixture
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Binary_sequence_equal_list_parameter_is_rejected()
+    {
+        List<byte> value = [5, 6, 7];
+
+        var act = () => Db
+            .Items
+            .AsNoTracking()
+            .Where(item => item.BinaryValue.SequenceEqual(value))
+            .Select(item => item.Pk)
+            .ToListAsync(CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*could not be translated*");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Numeric_enum_parameter_comparison_returns_expected_item()
     {
         var status = MappingStatus.Active;

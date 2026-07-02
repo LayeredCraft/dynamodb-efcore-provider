@@ -1664,7 +1664,7 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         if (left == null || right == null)
             return QueryCompilationContext.NotTranslatedExpression;
 
-        if (!IsBinaryScalarExpression(left) && !IsBinaryScalarExpression(right))
+        if (!IsBinaryScalarExpression(left) || !IsBinaryScalarExpression(right))
             return QueryCompilationContext.NotTranslatedExpression;
 
         return sqlExpressionFactory.Binary(ExpressionType.Equal, left, right)!;

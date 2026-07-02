@@ -272,7 +272,7 @@ Cosmos DB implements all translation categories; MongoDB implements none.
 | `GuidTranslationsTestBase`               |       4 |   ✓    | GUID equality, parameterization, and projection; `Guid.NewGuid()` predicate skipped                                                                                                                                                        |
 | `EnumTranslationsTestBase`               |      18 |   ✓    | Enum equality for constant, parameter, and nullable shapes; bitwise/`HasFlag` shapes explicitly skipped                                                                                                                                    |
 | `StringTranslationsTestBase`             |     100 |   ✓    | Explicit outcomes for all inherited string translation specs; equality, `Length`/`SIZE`, `IsNullOrEmpty`, `StartsWith(string)`, `Contains(string)`, and sign-based string comparisons execute; unsupported functions/overloads are skipped |
-| `ByteArrayTranslationsTestBase`          |       8 |   ✓    | Binary length, non-empty, and equality execute via DynamoDB `size`/binary `=`; byte membership and byte indexing are skipped because `byte[]` maps to one Binary attribute, not a byte collection                                          |
+| `ByteArrayTranslationsTestBase`          |       8 |   ✓    | Binary length, non-empty, and equality execute via DynamoDB `size`/binary `=`; 5 byte-level membership/indexing methods are explicitly skipped because `byte[]` maps to one Binary attribute, not a byte collection                        |
 
 #### Future
 
@@ -306,7 +306,6 @@ translations are low-feasibility until dedicated temporal translation support is
 | `ArithmeticOperatorTranslationsTestBase`    |       5 |   ✓    | DynamoDB rejects arithmetic operators in `WHERE` conditions; provider currently lets `+`, `-`, and `*` reach execution, while `%` and unary minus fail before execution |
 | `MiscellaneousOperatorTranslationsTestBase` |       2 |   ✓    | Conditional and null-coalescing predicate shapes are not translated in server-side DynamoDB predicates                                                                  |
 | `MiscellaneousTranslationsTestBase`         |      18 |   ✓    | Random, `System.Convert`, and `Compare`/`CompareTo` methods are not translated in server-side DynamoDB predicates                                                       |
-| `ByteArrayTranslationsTestBase`             |       5 |   ✓    | Byte-level indexing and membership are unsupported for Binary attributes; use native list/set properties when member containment semantics are required                 |
 
 ______________________________________________________________________
 
@@ -319,7 +318,7 @@ ______________________________________________________________________
 | Northwind Query       |  8 classes / 458 methods |              — |    1 class / 469 methods |  13 classes / 929+ methods |
 | Other Query           |  4 classes / 317 methods |              — |  7 classes / 154 methods | 18 classes / 1,691 methods |
 | Associations          |   3 classes / 42 methods |              — |    2 classes / 4 methods | 13+ classes / 123+ methods |
-| Translations          |  6 classes / 142 methods |              — |  7 classes / 155 methods |     4 classes / 30 methods |
+| Translations          |  6 classes / 142 methods |              — |  7 classes / 155 methods |     3 classes / 25 methods |
 
 ______________________________________________________________________
 
@@ -377,4 +376,4 @@ No medium-term specification test classes are currently queued here.
 | Implemented    |      39 |   1,315 |
 | Implement Next |       0 |       0 |
 | Future         |      26 |  1,327+ |
-| Skip           |     70+ |  3,864+ |
+| Skip           |     69+ |  3,859+ |
