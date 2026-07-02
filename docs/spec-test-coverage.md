@@ -272,6 +272,7 @@ Cosmos DB implements all translation categories; MongoDB implements none.
 | `GuidTranslationsTestBase`               |       4 |   ✓    | GUID equality, parameterization, and projection; `Guid.NewGuid()` predicate skipped                                                                                                                                                        |
 | `EnumTranslationsTestBase`               |      18 |   ✓    | Enum equality for constant, parameter, and nullable shapes; bitwise/`HasFlag` shapes explicitly skipped                                                                                                                                    |
 | `StringTranslationsTestBase`             |     100 |   ✓    | Explicit outcomes for all inherited string translation specs; equality, `Length`/`SIZE`, `IsNullOrEmpty`, `StartsWith(string)`, `Contains(string)`, and sign-based string comparisons execute; unsupported functions/overloads are skipped |
+| `ByteArrayTranslationsTestBase`          |       8 |   ✓    | Binary length, non-empty, and equality execute via DynamoDB `size`/binary `=`; byte membership and byte indexing are skipped because `byte[]` maps to one Binary attribute, not a byte collection                                          |
 
 #### Future
 
@@ -281,10 +282,9 @@ Cosmos DB implements all translation categories; MongoDB implements none.
 
 ### Type Translations
 
-| Test Class                      | Methods | Cosmos | Feasibility | Notes                                                                                 |
-| ------------------------------- | ------: | :----: | ----------: | ------------------------------------------------------------------------------------- |
-| `MathTranslationsTestBase`      |      66 |   ✓    |        ~50% | `Abs`, `Ceiling`, `Floor`, `Round`, `Sqrt`, `Log`, `Power`; PartiQL supports a subset |
-| `ByteArrayTranslationsTestBase` |       7 |   ✓    |        ~40% | DynamoDB Binary type; limited PartiQL function support                                |
+| Test Class                 | Methods | Cosmos | Feasibility | Notes                                                                                 |
+| -------------------------- | ------: | :----: | ----------: | ------------------------------------------------------------------------------------- |
+| `MathTranslationsTestBase` |      66 |   ✓    |        ~50% | `Abs`, `Ceiling`, `Floor`, `Round`, `Sqrt`, `Log`, `Power`; PartiQL supports a subset |
 
 ### Temporal Translations
 
@@ -306,6 +306,7 @@ translations are low-feasibility until dedicated temporal translation support is
 | `ArithmeticOperatorTranslationsTestBase`    |       5 |   ✓    | DynamoDB rejects arithmetic operators in `WHERE` conditions; provider currently lets `+`, `-`, and `*` reach execution, while `%` and unary minus fail before execution |
 | `MiscellaneousOperatorTranslationsTestBase` |       2 |   ✓    | Conditional and null-coalescing predicate shapes are not translated in server-side DynamoDB predicates                                                                  |
 | `MiscellaneousTranslationsTestBase`         |      18 |   ✓    | Random, `System.Convert`, and `Compare`/`CompareTo` methods are not translated in server-side DynamoDB predicates                                                       |
+| `ByteArrayTranslationsTestBase`             |       5 |   ✓    | Byte-level indexing and membership are unsupported for Binary attributes; use native list/set properties when member containment semantics are required                 |
 
 ______________________________________________________________________
 
@@ -318,7 +319,7 @@ ______________________________________________________________________
 | Northwind Query       |  8 classes / 458 methods |              — |    1 class / 469 methods |  13 classes / 929+ methods |
 | Other Query           |  4 classes / 317 methods |              — |  7 classes / 154 methods | 18 classes / 1,691 methods |
 | Associations          |   3 classes / 42 methods |              — |    2 classes / 4 methods | 13+ classes / 123+ methods |
-| Translations          |  5 classes / 134 methods |              — |  8 classes / 162 methods |     3 classes / 25 methods |
+| Translations          |  6 classes / 142 methods |              — |  7 classes / 155 methods |     4 classes / 30 methods |
 
 ______________________________________________________________________
 
@@ -354,6 +355,7 @@ This list records recently completed additions; authoritative implemented/not-im
 24. `InheritanceQueryDynamoTest` — 52 methods
 25. `PrimitiveCollectionsQueryDynamoTest` — 172 methods
 26. `FunkyDataQueryDynamoTest` — 19 methods
+27. `ByteArrayTranslationsDynamoTest` — 8 methods
 
 ### Near-term (small, high confidence)
 
@@ -366,13 +368,13 @@ No medium-term specification test classes are currently queued here.
 ### Long-term (after core coverage is stable)
 
 1. `BulkUpdates` family — blocked on `ExecuteUpdate`/`ExecuteDelete`
-2. Remaining translation tests (Math, ByteArray)
+2. Remaining translation tests (Math)
 
 ### Current totals
 
 | Status         | Classes | Methods |
 | -------------- | ------: | ------: |
-| Implemented    |      38 |   1,307 |
+| Implemented    |      39 |   1,315 |
 | Implement Next |       0 |       0 |
-| Future         |      27 |  1,334+ |
-| Skip           |     69+ |  3,859+ |
+| Future         |      26 |  1,327+ |
+| Skip           |     70+ |  3,864+ |
