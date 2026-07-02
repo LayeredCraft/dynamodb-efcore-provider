@@ -30,12 +30,6 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         ((Func<IEnumerable<object>, object, bool>)Enumerable.Contains).Method
         .GetGenericMethodDefinition();
 
-    private static readonly MethodInfo EnumerableSequenceEqualMethod = typeof(Enumerable)
-        .GetMethods()
-        .Single(m => m is { Name: nameof(Enumerable.SequenceEqual), IsGenericMethod: true }
-            && m.GetParameters().Length == 2)
-        .GetGenericMethodDefinition();
-
     private static readonly MethodInfo QueryableContainsMethod =
         typeof(Queryable)
             .GetMethods()
@@ -677,8 +671,7 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
             }
             && collectionExpression.Type != typeof(string)
             && TranslateInternal(collectionExpression) is SqlExpression collection
-            && (TryGetNativePrimitiveCollectionElementMapping(collection, out _)
-                || IsBinaryScalarExpression(collection)))
+            && TryGetNativePrimitiveCollectionElementMapping(collection, out _))
             return sqlExpressionFactory.Function("size", [collection], typeof(int));
 
         if (IsNullableMember(node.Member, nameof(Nullable<int>.HasValue))
@@ -887,9 +880,6 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
             AddTranslationErrorDetails(DynamoStrings.StringStartsWithOverloadNotSupported);
             return QueryCompilationContext.NotTranslatedExpression;
         }
-
-        if (IsByteArraySequenceEqualMethod(node.Method))
-            return TranslateByteArraySequenceEqual(node);
 
         if (IsCollectionContainsMethod(node.Method))
             return TranslateCollectionContains(node);
@@ -1387,14 +1377,6 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
     /// <inheritdoc />
     protected override Expression VisitUnary(UnaryExpression node)
     {
-        if (node.NodeType == ExpressionType.ArrayLength)
-        {
-            var operand = Visit(node.Operand);
-            return operand is SqlExpression sqlOperand && IsBinaryScalarExpression(sqlOperand)
-                ? sqlExpressionFactory.Function("size", [sqlOperand], typeof(int))
-                : QueryCompilationContext.NotTranslatedExpression;
-        }
-
         if (node.NodeType is ExpressionType.Convert or ExpressionType.ConvertChecked)
         {
             var operand = Visit(node.Operand);
@@ -1656,20 +1638,6 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         return new DynamoListIndexExpression(sqlSource, index, elementType, elementMapping);
     }
 
-    /// <summary>Translates byte-array SequenceEqual to binary equality.</summary>
-    private Expression TranslateByteArraySequenceEqual(MethodCallExpression node)
-    {
-        var left = TranslateInternal(StripAsQueryable(node.Arguments[0])!);
-        var right = TranslateInternal(StripAsQueryable(node.Arguments[1])!);
-        if (left == null || right == null)
-            return QueryCompilationContext.NotTranslatedExpression;
-
-        if (!IsBinaryScalarExpression(left) && !IsBinaryScalarExpression(right))
-            return QueryCompilationContext.NotTranslatedExpression;
-
-        return sqlExpressionFactory.Binary(ExpressionType.Equal, left, right)!;
-    }
-
     /// <summary>Translates in-memory collection Contains calls to IN predicates.</summary>
     private Expression TranslateCollectionContains(MethodCallExpression node)
     {
@@ -1781,8 +1749,7 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
             return QueryCompilationContext.NotTranslatedExpression;
 
         if (TranslateInternal(sourceExpression) is not SqlExpression source
-            || (!TryGetNativePrimitiveCollectionElementMapping(source, out _)
-                && !IsBinaryScalarExpression(source)))
+            || !TryGetNativePrimitiveCollectionElementMapping(source, out _))
             return QueryCompilationContext.NotTranslatedExpression;
 
         return sqlExpressionFactory.Function("size", [source], typeof(int));
@@ -1801,13 +1768,6 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
     ///     Returns the element mapping when the expression is a natively mapped DynamoDB primitive
     ///     list/set. Scalar value-converted collections intentionally do not qualify.
     /// </summary>
-    private static bool IsBinaryScalarExpression(SqlExpression expression)
-        => expression.Type == typeof(byte[])
-            && expression is SqlPropertyExpression
-                or DynamoScalarAccessExpression
-                or SqlParameterExpression
-                or SqlConstantExpression;
-
     private static bool TryGetNativePrimitiveCollectionElementMapping(
         SqlExpression collectionExpression,
         out CoreTypeMapping elementMapping)
@@ -1927,12 +1887,6 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
 
         return true;
     }
-
-    /// <summary>Returns whether a method represents byte-array SequenceEqual.</summary>
-    private static bool IsByteArraySequenceEqualMethod(MethodInfo method)
-        => method.IsGenericMethod
-            && method.GetGenericMethodDefinition() == EnumerableSequenceEqualMethod
-            && method.GetGenericArguments()[0] == typeof(byte);
 
     /// <summary>Returns whether a method represents a primitive-collection Any() call without predicate.</summary>
     private static bool IsCollectionAnyWithoutPredicateMethod(MethodInfo method)

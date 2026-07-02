@@ -31,12 +31,6 @@ public static class SkipReason
     public const string StringCompareSignConstantsOnly =
         "DynamoDB provider translates string.Compare/CompareTo only for sign constants -1, 0, or 1.";
 
-    public const string ByteArrayElementAccessNotSupported =
-        "DynamoDB PartiQL does not support indexing into binary attributes.";
-
-    public const string ByteArrayContainsElementNotSupported =
-        "DynamoDB PartiQL contains() supports set/list membership, but byte[] maps to a single binary attribute rather than a byte collection.";
-
     public const string ComplexTypeSubqueriesNotSupported =
         "DynamoDB provider does not support complex type values in subqueries or Contains predicates.";
 

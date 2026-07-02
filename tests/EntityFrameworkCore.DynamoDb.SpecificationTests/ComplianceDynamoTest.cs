@@ -44,7 +44,6 @@ public sealed class ComplianceDynamoTest : ComplianceTestBase
         yield return typeof(ComplexPropertiesMiscellaneousTestBase<>);
         yield return typeof(ComplexPropertiesProjectionTestBase<>);
         yield return typeof(ComplexPropertiesStructuralEqualityTestBase<>);
-        yield return typeof(ByteArrayTranslationsTestBase<>);
         yield return typeof(ComparisonOperatorTranslationsTestBase<>);
         yield return typeof(LogicalOperatorTranslationsTestBase<>);
         yield return typeof(NorthwindAsNoTrackingQueryTestBase<>);

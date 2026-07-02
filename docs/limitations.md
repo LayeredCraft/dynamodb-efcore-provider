@@ -63,11 +63,6 @@ supported for native DynamoDB primitive list/set attributes, but not when `Value
 a scalar string or blob by a property value converter. In that case DynamoDB would evaluate substring
 or binary containment rather than collection membership.
 
-`byte[]` properties map to one DynamoDB Binary attribute. The provider translates binary length,
-non-empty checks, and equality (`Length`, parameterless `Any()`, and `SequenceEqual`). It does not
-translate byte-level membership or indexing (`Contains(byte)`, `[index]`, `First()`) because
-DynamoDB PartiQL has no byte-level operators over Binary attributes.
-
 Native DynamoDB primitive collection attributes support a few direct operations: membership
 `Contains(value)`, parameterless `Any()`, `Count`/`Count()`/`Length`, direct list indexing or
 `ElementAt(index)` with a constant numeric index, and `First()`/`FirstOrDefault()` as constant
