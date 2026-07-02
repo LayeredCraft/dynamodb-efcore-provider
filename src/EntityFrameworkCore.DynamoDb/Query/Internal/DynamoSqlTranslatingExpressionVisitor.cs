@@ -1803,6 +1803,7 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
     /// </summary>
     private static bool IsBinaryScalarExpression(SqlExpression expression)
         => expression.Type == typeof(byte[])
+            && expression.TypeMapping is DynamoTypeMapping { Converter: null }
             && expression is SqlPropertyExpression
                 or DynamoScalarAccessExpression
                 or SqlParameterExpression

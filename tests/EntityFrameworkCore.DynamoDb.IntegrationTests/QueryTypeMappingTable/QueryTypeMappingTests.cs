@@ -199,6 +199,40 @@ public class QueryTypeMappingTests : QueryTypeMappingTestFixture
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Converted_binary_length_is_rejected()
+    {
+        var act = () => Db
+            .Items
+            .AsNoTracking()
+            .Where(item => item.ConvertedBinaryValue.Length == 4)
+            .Select(item => item.Pk)
+            .ToListAsync(CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*could not be translated*");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Converted_binary_sequence_equal_is_rejected()
+    {
+        var value = new byte[] { 5, 6, 7 };
+
+        var act = () => Db
+            .Items
+            .AsNoTracking()
+            .Where(item => item.ConvertedBinaryValue.SequenceEqual(value))
+            .Select(item => item.Pk)
+            .ToListAsync(CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*could not be translated*");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Numeric_enum_parameter_comparison_returns_expected_item()
     {
         var status = MappingStatus.Active;
@@ -414,7 +448,7 @@ public class QueryTypeMappingTests : QueryTypeMappingTestFixture
             .Should()
             .OnlyContain(statement => statement
                 == """
-                   SELECT "pk", "$type", "binaryValue", "nullableShortValue", "nullableStringStatus", "numericStatus", "shortValue", "stringStatus", "profile"
+                   SELECT "pk", "$type", "binaryValue", "convertedBinaryValue", "nullableShortValue", "nullableStringStatus", "numericStatus", "shortValue", "stringStatus", "profile"
                    FROM "QueryTypeMappingItems"
                    WHERE "stringStatus" IN [?, ?, ?]
                    """);
@@ -545,6 +579,7 @@ public class QueryTypeMappingTestFixture : DynamoTestFixtureBase
             ["nullableStringStatus"] =
                 new AttributeValue { S = nameof(MappingStatus.Active) },
             ["binaryValue"] = new AttributeValue { B = new MemoryStream([1, 2, 3, 4]) },
+            ["convertedBinaryValue"] = new AttributeValue { S = "AQIDBA==" },
             ["profile"] =
                 new AttributeValue
                 {
@@ -564,6 +599,7 @@ public class QueryTypeMappingTestFixture : DynamoTestFixtureBase
             ["stringStatus"] = new AttributeValue { S = nameof(MappingStatus.Inactive) },
             ["nullableStringStatus"] = new AttributeValue { NULL = true },
             ["binaryValue"] = new AttributeValue { B = new MemoryStream([5, 6, 7]) },
+            ["convertedBinaryValue"] = new AttributeValue { S = "BQYH" },
             ["profile"] =
                 new AttributeValue
                 {
@@ -584,6 +620,7 @@ public class QueryTypeMappingTestFixture : DynamoTestFixtureBase
             ["nullableStringStatus"] =
                 new AttributeValue { S = nameof(MappingStatus.Pending) },
             ["binaryValue"] = new AttributeValue { B = new MemoryStream([8, 9]) },
+            ["convertedBinaryValue"] = new AttributeValue { S = "CAk=" },
             ["profile"] = new AttributeValue
             {
                 M = new Dictionary<string, AttributeValue>
@@ -611,6 +648,12 @@ public sealed class QueryTypeMappingDbContext(DbContextOptions options) : DbCont
                 .HasAttributeName("nullableShortValue");
             builder.Property(item => item.NumericStatus).HasAttributeName("numericStatus");
             builder.Property(item => item.BinaryValue).HasAttributeName("binaryValue");
+            builder
+                .Property(item => item.ConvertedBinaryValue)
+                .HasAttributeName("convertedBinaryValue")
+                .HasConversion(
+                    value => Convert.ToBase64String(value),
+                    value => Convert.FromBase64String(value));
             builder
                 .Property(item => item.StringStatus)
                 .HasAttributeName("stringStatus")
@@ -641,6 +684,8 @@ public sealed record QueryTypeMappingItem
     public MappingStatus? NullableStringStatus { get; set; }
 
     public byte[] BinaryValue { get; set; } = [];
+
+    public byte[] ConvertedBinaryValue { get; set; } = [];
 
     public QueryTypeMappingProfile Profile { get; set; } = new();
 }
