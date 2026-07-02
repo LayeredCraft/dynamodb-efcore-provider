@@ -47,18 +47,24 @@ public class StartsWithTests(DynamoContainerFixture fixture) : SimpleTableTestFi
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public async Task Where_StringStartsWith_WithStringComparisonOverload_StillThrows()
+    public async Task
+        Where_StringStartsWith_WithStringComparisonOrdinal_TranslatesToPartiQlBeginsWith()
     {
-        var act = async ()
-            => await Db
-                .SimpleItems
-                .Where(item => item.StringValue.StartsWith("a", StringComparison.Ordinal))
-                .Select(item => item.Pk)
-                .ToListAsync(CancellationToken);
+        var resultItems = await Db
+            .SimpleItems
+            .Where(item => item.StringValue.StartsWith("a", StringComparison.Ordinal))
+            .ToListAsync(CancellationToken);
 
-        await act
-            .Should()
-            .ThrowAsync<InvalidOperationException>()
-            .WithMessage("*Only string.StartsWith(string)*");
+        var expected = SimpleItems.Items.Where(item
+            => item.StringValue.StartsWith("a", StringComparison.Ordinal));
+
+        resultItems.Should().BeEquivalentTo(expected);
+
+        AssertSql(
+            """
+            SELECT "pk", "$type", "boolValue", "dateOnlyValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableDateTimeOffsetValue", "nullableIntValue", "nullableStringValue", "stringValue", "timeOnlyValue", "timeSpanValue"
+            FROM "SimpleItems"
+            WHERE begins_with("stringValue", 'a')
+            """);
     }
 }

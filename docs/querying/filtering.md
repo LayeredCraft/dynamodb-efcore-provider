@@ -55,8 +55,8 @@ Parameterized null — comparing a property to a `null` variable (`x.Prop == som
 
 Several string predicates translate to DynamoDB PartiQL conditions:
 
-- `string.Contains(s)` → `contains(attr, ?)` — a case-sensitive substring check.
-- `string.StartsWith(s)` → `begins_with(attr, ?)` — a case-sensitive prefix match.
+- `string.Contains(s)` / `string.Contains(c)` → `contains(attr, ?)` — a case-sensitive substring check.
+- `string.StartsWith(s)` / `string.StartsWith(c)` → `begins_with(attr, ?)` — a case-sensitive prefix match.
 - `string.IsNullOrEmpty(s)` → `attr IS NULL OR attr IS MISSING OR attr = ''`.
 - `s.Length` → `size(attr)` — DynamoDB size semantics; be careful when non-ASCII text matters.
 
@@ -70,7 +70,7 @@ db.Orders.Where(o => o.Sk.StartsWith("ORDER#2026"));
 // WHERE begins_with("Sk", ?)
 ```
 
-Only the `string`-parameter overloads of `Contains` and `StartsWith` are supported. Overloads that accept `char`, `StringComparison`, or culture arguments are not translated and throw at query compilation. DynamoDB PartiQL has no `ends_with` function, so `EndsWith` is not translated.
+`Contains` and `StartsWith` support `string`, `char`, and `StringComparison.Ordinal` overloads. Other `StringComparison` values and culture arguments are not translated and throw at query compilation. DynamoDB PartiQL has no `ends_with` function, so `EndsWith` is not translated.
 
 !!! note
 

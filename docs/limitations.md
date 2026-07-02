@@ -232,8 +232,8 @@ hint to route to a non-ALL index.
 ### String Function Limitations
 
 `string.StartsWith(s)` and `string.Contains(s)` translate to `begins_with` and `contains` in
-PartiQL only for the single-`string`-argument overloads. Overloads that accept a `char`, a
-`StringComparison`, or a `CultureInfo` argument throw at translation time.
+PartiQL for `string`, `char`, and `StringComparison.Ordinal` overloads. Other
+`StringComparison` values and `CultureInfo` arguments throw at translation time.
 
 DynamoDB PartiQL does not provide `ends_with`, regex, substring, replace, trim, or case-conversion
 functions, so `EndsWith`, `Regex`, `IndexOf`, `Substring`, `Replace`, `Trim*`, `ToUpper`, and
