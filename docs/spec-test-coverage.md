@@ -57,7 +57,9 @@ Additional provider-specific coverage: `DynamoConcurrencyTest` has 6 local tests
 
 ### Implement Next
 
-No non-query specification test classes are currently queued here.
+| Test Class                                           | Methods | Cosmos | MongoDB | Notes                                                                                               |
+| ---------------------------------------------------- | ------: | :----: | :-----: | --------------------------------------------------------------------------------------------------- |
+| `EntityFrameworkServiceCollectionExtensionsTestBase` |       3 |   ✗    |    ✗    | Provider service-registration and lifetime checks; no DynamoDB table/query fixture should be needed |
 
 ### Future
 
@@ -172,6 +174,12 @@ These tests use non-Northwind models and fixtures.
 | `FiltersInheritanceQueryTestBase`   |      11 |   ✗    |    ✗    | Global query filters on inherited types execute for discriminator predicates, projections, and derived sets; ordered-result and sync-only `GetDatabaseValues` cases are skipped                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `PrimitiveCollectionsQueryTestBase` |     172 |   ✓    |    ✗    | Primitive collection coverage distinguishes list-like DynamoDB `L` attributes from set-like `SS`/`NS`/`BS` attributes where applicable. Current focused validation passes 49 supported methods on EF10 and 56 on EF11 across inline/parameter `Contains`, MemoryExtensions/ListInit `Contains`, scalar and value-converted collection parameters, column `Contains`/`Any`/`Count`/`Length`, direct list indexing/first-element access, and the EF11 multidimensional-array guard; `docs/spec-test-primitive-collections-audit.md` summarizes user-facing primitive collection query support, limitations, and future work. |
 | `FunkyDataQueryTestBase`            |      19 |   ✗    |    ✗    | Edge-case string data with wildcard-like characters; `Contains` and provider-specific non-null `StartsWith` cases execute, while inherited null-argument `StartsWith` branches, column cross-products, `EndsWith`, and unsupported character operators are explicitly skipped                                                                                                                                                                                                                                                                                                                                              |
+
+### Implement Next
+
+| Test Class                             | Methods | Cosmos | MongoDB | Notes                                                                                                                          |
+| -------------------------------------- | ------: | :----: | :-----: | ------------------------------------------------------------------------------------------------------------------------------ |
+| `InheritanceComplexTypesQueryTestBase` |       9 |   ✗    |    ✗    | Complex-type filters/projections over inheritance; likely reuses inheritance fixture. Complex collection subquery likely skip. |
 
 ### Future
 
@@ -304,14 +312,14 @@ ______________________________________________________________________
 
 ## Coverage Summary
 
-| Category              |              Implemented | Implement Next |                   Future |                        Skip |
-| --------------------- | -----------------------: | -------------: | -----------------------: | --------------------------: |
-| Non-Query (top-level) | 18 classes / 356 methods |              — |                        — |  25 classes / 1,403 methods |
-| BulkUpdates           |                        — |              — | 5 classes / 135+ methods |        1 class / 33 methods |
-| Northwind Query       |  8 classes / 458 methods |              — |                        — | 14 classes / 1,398+ methods |
-| Other Query           |  5 classes / 328 methods |              — |                        — |  23 classes / 1,814 methods |
-| Associations          |   3 classes / 42 methods |              — |                        — |  13+ classes / 123+ methods |
-| Translations          |  7 classes / 161 methods |              — |                        — |     9 classes / 171 methods |
+| Category              |              Implemented |      Implement Next |                   Future |                        Skip |
+| --------------------- | -----------------------: | ------------------: | -----------------------: | --------------------------: |
+| Non-Query (top-level) | 18 classes / 356 methods | 1 class / 3 methods |                        — |  25 classes / 1,403 methods |
+| BulkUpdates           |                        — |                   — | 5 classes / 135+ methods |        1 class / 33 methods |
+| Northwind Query       |  8 classes / 458 methods |                   — |                        — | 14 classes / 1,398+ methods |
+| Other Query           |  5 classes / 328 methods | 1 class / 9 methods |                        — |  23 classes / 1,814 methods |
+| Associations          |   3 classes / 42 methods |                   — |                        — |  13+ classes / 123+ methods |
+| Translations          |  7 classes / 161 methods |                   — |                        — |     9 classes / 171 methods |
 
 ______________________________________________________________________
 
@@ -353,11 +361,13 @@ This list records recently completed additions; authoritative implemented/not-im
 
 ### Near-term (small, high confidence)
 
-No near-term specification test classes are currently queued here.
+1. `InheritanceComplexTypesQueryTestBase` — 9 methods
+2. `EntityFrameworkServiceCollectionExtensionsTestBase` — 3 methods
 
 ### Medium-term (requires investigation or new fixture)
 
-No medium-term specification test classes are currently queued here.
+1. `TypeTestBase` — generic scalar type fixture matrix; likely overlaps existing built-in type and primitive collection coverage
+2. `SingletonInterceptorsTestBase` — verify upstream/provider-specific derived test pattern before implementation
 
 ### Long-term (after core coverage is stable)
 
@@ -369,6 +379,6 @@ No medium-term specification test classes are currently queued here.
 | Status         | Classes | Methods |
 | -------------- | ------: | ------: |
 | Implemented    |      41 |   1,345 |
-| Implement Next |       0 |       0 |
+| Implement Next |       2 |      12 |
 | Future         |       5 |    126+ |
 | Skip           |     85+ |  4,942+ |
