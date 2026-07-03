@@ -136,9 +136,7 @@ No Northwind query specification test classes are currently queued here.
 
 ### Future
 
-| Test Class                            | Methods | Cosmos | MongoDB | Feasibility | Blocker                                                                                                                                                   |
-| ------------------------------------- | ------: | :----: | :-----: | ----------: | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `NorthwindMiscellaneousQueryTestBase` |     469 |   ✓    |    ✓    |        ~35% | Very broad: Take/Skip, cast, null semantics, subqueries, async patterns; too many unsupported operators — below 70% threshold until core coverage matures |
+No Northwind query specification test classes are currently queued here.
 
 ### Skip — Architectural Constraints
 
@@ -154,6 +152,7 @@ No Northwind query specification test classes are currently queued here.
 | `NorthwindNavigationsQueryTestBase`        |      73 |   ✗    |    ✓    | Navigation property traversal in LINQ                                                                                                                                                                                              |
 | `NorthwindKeylessEntitiesQueryTestBase`    |      18 |   ✓    |    ✓    | Keyless entities require no partition key; all DynamoDB entities need a key                                                                                                                                                        |
 | `NorthwindAggregateOperatorsQueryTestBase` |     211 |   ✓    |    ✓    | Below 70% threshold — Sum, Avg, Min, Max, Count aggregate functions unsupported in PartiQL; ~52% feasibility                                                                                                                       |
+| `NorthwindMiscellaneousQueryTestBase`      |     469 |   ✓    |    ✓    | Below threshold: broad suite mixes Take/Skip, casts, null semantics, subqueries, async/sync patterns, and many unsupported operators; not meaningful until core query surface expands                                              |
 | `NorthwindDbFunctionsQueryTestBase`        |       5 |   ✓    |    ✓    | Inherited coverage is entirely `EF.Functions.Like` through `Count`; DynamoDB PartiQL has no query aggregates, and the provider intentionally exposes native `Contains`/`StartsWith`/equality instead of partial SQL LIKE semantics |
 | `NorthwindCompiledQueryTestBase`           |      32 |   ✗    |    ✓    | `EF.CompileQuery` is sync-focused; DynamoDB provider is async-only                                                                                                                                                                 |
 | `Ef6GroupByTestBase`                       |      55 |   ✗    |    ✓    | Legacy EF6 GROUP BY patterns; no GROUP BY in PartiQL                                                                                                                                                                               |
@@ -305,14 +304,14 @@ ______________________________________________________________________
 
 ## Coverage Summary
 
-| Category              |              Implemented | Implement Next |                   Future |                       Skip |
-| --------------------- | -----------------------: | -------------: | -----------------------: | -------------------------: |
-| Non-Query (top-level) | 18 classes / 356 methods |              — |                        — | 25 classes / 1,403 methods |
-| BulkUpdates           |                        — |              — | 5 classes / 135+ methods |       1 class / 33 methods |
-| Northwind Query       |  8 classes / 458 methods |              — |    1 class / 469 methods |  13 classes / 929+ methods |
-| Other Query           |  5 classes / 328 methods |              — |                        — | 23 classes / 1,814 methods |
-| Associations          |   3 classes / 42 methods |              — |                        — | 13+ classes / 123+ methods |
-| Translations          |  7 classes / 161 methods |              — |                        — |    9 classes / 171 methods |
+| Category              |              Implemented | Implement Next |                   Future |                        Skip |
+| --------------------- | -----------------------: | -------------: | -----------------------: | --------------------------: |
+| Non-Query (top-level) | 18 classes / 356 methods |              — |                        — |  25 classes / 1,403 methods |
+| BulkUpdates           |                        — |              — | 5 classes / 135+ methods |        1 class / 33 methods |
+| Northwind Query       |  8 classes / 458 methods |              — |                        — | 14 classes / 1,398+ methods |
+| Other Query           |  5 classes / 328 methods |              — |                        — |  23 classes / 1,814 methods |
+| Associations          |   3 classes / 42 methods |              — |                        — |  13+ classes / 123+ methods |
+| Translations          |  7 classes / 161 methods |              — |                        — |     9 classes / 171 methods |
 
 ______________________________________________________________________
 
@@ -371,5 +370,5 @@ No medium-term specification test classes are currently queued here.
 | -------------- | ------: | ------: |
 | Implemented    |      41 |   1,345 |
 | Implement Next |       0 |       0 |
-| Future         |       6 |    594+ |
-| Skip           |     84+ |  4,473+ |
+| Future         |       5 |    125+ |
+| Skip           |     85+ |  4,942+ |
