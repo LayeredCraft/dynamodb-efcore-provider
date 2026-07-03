@@ -63,10 +63,9 @@ No non-query specification test classes are currently queued here.
 
 Feasible but requires investigation or additional provider work before adding.
 
-| Test Class               | Methods | Cosmos | MongoDB | Feasibility | Blocker                                                                                                                       |
-| ------------------------ | ------: | :----: | :-----: | ----------: | ----------------------------------------------------------------------------------------------------------------------------- |
-| `DataAnnotationTestBase` |      84 |   ✗    |    ✗    |        ~40% | Attribute-driven model configuration; many tests exercise relational-only annotations (schema, unique indexes, FK attributes) |
-| `FieldMappingTestBase`   |     101 |   ✗    |    ✗    |        ~40% | Backing field mapping; basic field mapping works but tests assume relational load scenarios                                   |
+| Test Class             | Methods | Cosmos | MongoDB | Feasibility | Blocker                                                                                     |
+| ---------------------- | ------: | :----: | :-----: | ----------: | ------------------------------------------------------------------------------------------- |
+| `FieldMappingTestBase` |     101 |   ✗    |    ✗    |        ~40% | Backing field mapping; basic field mapping works but tests assume relational load scenarios |
 
 ### Skip — Architectural Constraints
 
@@ -74,6 +73,7 @@ Feasible but requires investigation or additional provider work before adding.
 | ------------------------------------------ | ------: | :----: | :-----: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `PropertyValuesTestBase`                   |      97 |   ✗    |    ✗    | Below threshold: inherited coverage relies heavily on shadow properties, relationship/join entities, synchronous lookups, and `GetDatabaseValues` readback semantics that do not map cleanly to DynamoDB |
 | `StoreGeneratedTestBase`                   |      58 |   ✗    |    ✗    | Below threshold: most inherited cases require relational store-generated/computed values, identity columns, database defaults, or key-generation semantics that DynamoDB does not provide                |
+| `DataAnnotationTestBase`                   |      89 |   ✗    |    ✗    | Below threshold: inherited coverage is dominated by relationship annotations, FK/index behavior, schema/table/column relational facets, owned entity attributes, and relational save/readback semantics  |
 | `OptimisticConcurrencyTestBase`            |      33 |   ✓    |    ✗    | Covered by provider-specific `DynamoConcurrencyTest`; EF spec fixture semantics do not match DynamoDB concurrency                                                                                        |
 | `LazyLoadTestBase`                         |      97 |   ✗    |    ✗    | Lazy loading requires navigation property support                                                                                                                                                        |
 | `LazyLoadProxyTestBase`                    |      75 |   ✗    |    ✗    | Lazy load via proxies; requires navigations                                                                                                                                                              |
@@ -308,7 +308,7 @@ ______________________________________________________________________
 
 | Category              |              Implemented | Implement Next |                   Future |                       Skip |
 | --------------------- | -----------------------: | -------------: | -----------------------: | -------------------------: |
-| Non-Query (top-level) | 18 classes / 356 methods |              — |  2 classes / 185 methods | 23 classes / 1,213 methods |
+| Non-Query (top-level) | 18 classes / 356 methods |              — |    1 class / 101 methods | 24 classes / 1,302 methods |
 | BulkUpdates           |                        — |              — | 5 classes / 135+ methods |       1 class / 33 methods |
 | Northwind Query       |  8 classes / 458 methods |              — |    1 class / 469 methods |  13 classes / 929+ methods |
 | Other Query           |  5 classes / 328 methods |              — |                        — | 23 classes / 1,814 methods |
@@ -372,5 +372,5 @@ No medium-term specification test classes are currently queued here.
 | -------------- | ------: | ------: |
 | Implemented    |      41 |   1,345 |
 | Implement Next |       0 |       0 |
-| Future         |       8 |    779+ |
-| Skip           |     82+ |  4,283+ |
+| Future         |       7 |    695+ |
+| Skip           |     83+ |  4,372+ |
