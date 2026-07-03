@@ -274,6 +274,7 @@ Cosmos DB implements all translation categories; MongoDB implements none.
 | `EnumTranslationsTestBase`               |      18 |   ✓    | Enum equality for constant, parameter, and nullable shapes; bitwise/`HasFlag` shapes explicitly skipped                                                                                                                                    |
 | `StringTranslationsTestBase`             |     100 |   ✓    | Explicit outcomes for all inherited string translation specs; equality, `Length`/`SIZE`, `IsNullOrEmpty`, `StartsWith(string)`, `Contains(string)`, and sign-based string comparisons execute; unsupported functions/overloads are skipped |
 | `ByteArrayTranslationsTestBase`          |       8 |   ✓    | Binary length, non-empty, and equality execute via DynamoDB `size`/binary `=`; 5 byte-level membership/indexing methods are explicitly skipped because `byte[]` maps to one Binary attribute, not a byte collection                        |
+| `DateTimeTranslationsTestBase`           |      19 |   ✓    | Constant/parameter `DateTime` equality executes for `Parse` and `new DateTime(...)`; date/time member and current-time functions are skipped because DynamoDB PartiQL has no temporal functions                                            |
 
 #### Future
 
@@ -292,13 +293,12 @@ expressions.
 DynamoDB has no native date/time types; values are stored as ISO 8601 strings. Temporal
 translations are low-feasibility until dedicated temporal translation support is added.
 
-| Test Class                           | Methods | Cosmos | Feasibility | Notes                               |
-| ------------------------------------ | ------: | :----: | ----------: | ----------------------------------- |
-| `DateTimeTranslationsTestBase`       |      19 |   ✓    |        ~35% | No native date functions in PartiQL |
-| `DateTimeOffsetTranslationsTestBase` |      24 |   ✓    |        ~30% | Same constraint as `DateTime`       |
-| `DateOnlyTranslationsTestBase`       |      18 |   ✓    |        ~30% | No native date-only type            |
-| `TimeOnlyTranslationsTestBase`       |      17 |   ✓    |        ~25% | No native time type                 |
-| `TimeSpanTranslationsTestBase`       |       6 |   ✓    |        ~25% | No native duration type             |
+| Test Class                           | Methods | Cosmos | Feasibility | Notes                         |
+| ------------------------------------ | ------: | :----: | ----------: | ----------------------------- |
+| `DateTimeOffsetTranslationsTestBase` |      24 |   ✓    |        ~30% | Same constraint as `DateTime` |
+| `DateOnlyTranslationsTestBase`       |      18 |   ✓    |        ~30% | No native date-only type      |
+| `TimeOnlyTranslationsTestBase`       |      17 |   ✓    |        ~25% | No native time type           |
+| `TimeSpanTranslationsTestBase`       |       6 |   ✓    |        ~25% | No native duration type       |
 
 ### Skip — DynamoDB PartiQL Constraints
 
@@ -320,7 +320,7 @@ ______________________________________________________________________
 | Northwind Query       |  8 classes / 458 methods |              — |    1 class / 469 methods |  13 classes / 929+ methods |
 | Other Query           |  4 classes / 317 methods |              — |  7 classes / 154 methods | 18 classes / 1,691 methods |
 | Associations          |   3 classes / 42 methods |              — |    2 classes / 4 methods | 13+ classes / 123+ methods |
-| Translations          |  6 classes / 142 methods |              — |   6 classes / 89 methods |     4 classes / 91 methods |
+| Translations          |  7 classes / 161 methods |              — |   5 classes / 70 methods |     4 classes / 91 methods |
 
 ______________________________________________________________________
 
@@ -357,6 +357,7 @@ This list records recently completed additions; authoritative implemented/not-im
 25. `PrimitiveCollectionsQueryDynamoTest` — 172 methods
 26. `FunkyDataQueryDynamoTest` — 19 methods
 27. `ByteArrayTranslationsDynamoTest` — 8 methods
+28. `DateTimeTranslationsDynamoTest` — 19 methods
 
 ### Near-term (small, high confidence)
 
@@ -375,7 +376,7 @@ No medium-term specification test classes are currently queued here.
 
 | Status         | Classes | Methods |
 | -------------- | ------: | ------: |
-| Implemented    |      39 |   1,315 |
+| Implemented    |      40 |   1,334 |
 | Implement Next |       0 |       0 |
-| Future         |      25 |  1,261+ |
+| Future         |      24 |  1,242+ |
 | Skip           |     70+ |  3,925+ |

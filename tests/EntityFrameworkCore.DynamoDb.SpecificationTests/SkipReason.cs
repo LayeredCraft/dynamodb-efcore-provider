@@ -37,6 +37,9 @@ public static class SkipReason
     public const string ByteArrayContainsElementNotSupported =
         "DynamoDB PartiQL contains() supports set/list membership, but byte[] maps to a single binary attribute rather than a byte collection.";
 
+    public const string TemporalFunctionNotSupported =
+        "DynamoDB PartiQL has no corresponding temporal function for this operation.";
+
     public const string ComplexTypeSubqueriesNotSupported =
         "DynamoDB provider does not support complex type values in subqueries or Contains predicates.";
 

@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.Associations.ComplexProperties;
 using Microsoft.EntityFrameworkCore.Query.Translations;
 using Microsoft.EntityFrameworkCore.Query.Translations.Operators;
+using Microsoft.EntityFrameworkCore.Query.Translations.Temporal;
 #if NET11_0_OR_GREATER
 using Microsoft.EntityFrameworkCore.Query.Inheritance;
 #endif
@@ -46,6 +47,7 @@ public sealed class ComplianceDynamoTest : ComplianceTestBase
         yield return typeof(ComplexPropertiesStructuralEqualityTestBase<>);
         yield return typeof(ByteArrayTranslationsTestBase<>);
         yield return typeof(ComparisonOperatorTranslationsTestBase<>);
+        yield return typeof(DateTimeTranslationsTestBase<>);
         yield return typeof(LogicalOperatorTranslationsTestBase<>);
         yield return typeof(NorthwindAsNoTrackingQueryTestBase<>);
         yield return typeof(NorthwindAsTrackingQueryTestBase<>);
