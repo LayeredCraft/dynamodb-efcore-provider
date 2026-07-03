@@ -104,7 +104,7 @@ are deferred until those features land.
 
 | Test Class                              | Methods | Cosmos | MongoDB | Status                                              |
 | --------------------------------------- | ------: | :----: | :-----: | --------------------------------------------------- |
-| `NorthwindBulkUpdatesTestBase`          |      90 |   ✗    |    ✗    | Future — blocked on `ExecuteUpdate`/`ExecuteDelete` |
+| `NorthwindBulkUpdatesTestBase`          |      91 |   ✗    |    ✗    | Future — blocked on `ExecuteUpdate`/`ExecuteDelete` |
 | `FiltersInheritanceBulkUpdatesTestBase` |      16 |   ✗    |    ✗    | Future — same blocker                               |
 | `InheritanceBulkUpdatesTestBase`        |      18 |   ✗    |    ✗    | Future — same blocker                               |
 | `NonSharedModelBulkUpdatesTestBase`     |      11 |   ✗    |    ✗    | Future — same blocker                               |
@@ -370,5 +370,5 @@ No medium-term specification test classes are currently queued here.
 | -------------- | ------: | ------: |
 | Implemented    |      41 |   1,345 |
 | Implement Next |       0 |       0 |
-| Future         |       5 |    125+ |
+| Future         |       5 |    126+ |
 | Skip           |     85+ |  4,942+ |
