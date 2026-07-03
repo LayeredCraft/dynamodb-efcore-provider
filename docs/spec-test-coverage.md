@@ -171,6 +171,7 @@ These tests use non-Northwind models and fixtures.
 | ----------------------------------- | ------: | :----: | :-----: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ComplexTypeQueryTestBase`          |      74 |   ✓    |    ✗    | All inherited methods are registered/overridden with explicit outcomes; supported projection/filter, nested struct projection, and complex equality subsets execute, while navigation, set-operation, GroupBy, subquery/Contains, and pushdown cases are explicitly skipped                                                                                                                                                                                                                                                                                                                                                |
 | `InheritanceQueryTestBase`          |      52 |   ✓    |    ✗    | Single-table inheritance with discriminator predicates is covered, including `OfType`, `is`, `GetType()` leaf checks, derived-property filters, and discriminator projections. Skips remain for keyless views, navigations/includes, transactions, set operations, non-key ordered result assumptions, scan-like `Single`, and a few unsupported projection/query shapes.                                                                                                                                                                                                                                                  |
+| `FiltersInheritanceQueryTestBase`   |      11 |   ✗    |    ✗    | Global query filters on inherited types execute for discriminator predicates, projections, and derived sets; ordered-result and sync-only `GetDatabaseValues` cases are skipped                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `PrimitiveCollectionsQueryTestBase` |     172 |   ✓    |    ✗    | Primitive collection coverage distinguishes list-like DynamoDB `L` attributes from set-like `SS`/`NS`/`BS` attributes where applicable. Current focused validation passes 49 supported methods on EF10 and 56 on EF11 across inline/parameter `Contains`, MemoryExtensions/ListInit `Contains`, scalar and value-converted collection parameters, column `Contains`/`Any`/`Count`/`Length`, direct list indexing/first-element access, and the EF11 multidimensional-array guard; `docs/spec-test-primitive-collections-audit.md` summarizes user-facing primitive collection query support, limitations, and future work. |
 | `FunkyDataQueryTestBase`            |      19 |   ✗    |    ✗    | Edge-case string data with wildcard-like characters; `Contains` and provider-specific non-null `StartsWith` cases execute, while inherited null-argument `StartsWith` branches, column cross-products, `EndsWith`, and unsupported character operators are explicitly skipped                                                                                                                                                                                                                                                                                                                                              |
 
@@ -178,7 +179,6 @@ These tests use non-Northwind models and fixtures.
 
 | Test Class                                   | Methods | Cosmos | MongoDB | Feasibility | Rationale                                                             |
 | -------------------------------------------- | ------: | :----: | :-----: | ----------: | --------------------------------------------------------------------- |
-| `FiltersInheritanceQueryTestBase`            |      11 |   ✗    |    ✗    |        ~55% | Query filters on inherited types                                      |
 | `NonSharedPrimitiveCollectionsQueryTestBase` |      27 |   ✗    |    ✗    |        ~45% | Primitive collections on non-shared models; same constraints as above |
 | `QueryFilterFuncletizationTestBase`          |      28 |   ✗    |    ✗    |        ~60% | Parameter funcletization in query filters; translation-level feature  |
 | `AdHocMiscellaneousQueryTestBase`            |      39 |   ✓    |    ✗    |        ~40% | Mixed ad-hoc scenarios; some require unsupported operators            |
@@ -316,7 +316,7 @@ ______________________________________________________________________
 | Non-Query (top-level) | 18 classes / 356 methods |              — |  4 classes / 410 methods | 21 classes / 1,058 methods |
 | BulkUpdates           |                        — |              — | 5 classes / 135+ methods |       1 class / 33 methods |
 | Northwind Query       |  8 classes / 458 methods |              — |    1 class / 469 methods |  13 classes / 929+ methods |
-| Other Query           |  4 classes / 317 methods |              — |  6 classes / 141 methods | 19 classes / 1,709 methods |
+| Other Query           |  5 classes / 328 methods |              — |  5 classes / 130 methods | 19 classes / 1,709 methods |
 | Associations          |   3 classes / 42 methods |              — |    2 classes / 4 methods | 13+ classes / 123+ methods |
 | Translations          |  7 classes / 161 methods |              — |                        — |    9 classes / 171 methods |
 
@@ -356,6 +356,7 @@ This list records recently completed additions; authoritative implemented/not-im
 26. `FunkyDataQueryDynamoTest` — 19 methods
 27. `ByteArrayTranslationsDynamoTest` — 8 methods
 28. `DateTimeTranslationsDynamoTest` — 19 methods
+29. `FiltersInheritanceQueryDynamoTest` — 11 methods
 
 ### Near-term (small, high confidence)
 
@@ -374,7 +375,7 @@ No medium-term specification test classes are currently queued here.
 
 | Status         | Classes | Methods |
 | -------------- | ------: | ------: |
-| Implemented    |      40 |   1,334 |
+| Implemented    |      41 |   1,345 |
 | Implement Next |       0 |       0 |
-| Future         |      18 |  1,149+ |
+| Future         |      17 |  1,138+ |
 | Skip           |     76+ |  4,023+ |

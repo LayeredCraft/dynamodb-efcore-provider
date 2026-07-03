@@ -58,6 +58,9 @@ public static class SkipReason
     public const string OrderedResultSetNotSupported =
         "DynamoDB does not support guaranteed ordered result sets for this query shape.";
 
+    public const string SyncQueriesNotSupported =
+        "DynamoDB provider supports async query execution only.";
+
     public const string NavigationPropertiesNotSupported =
         "DynamoDB does not support navigation properties.";
 
