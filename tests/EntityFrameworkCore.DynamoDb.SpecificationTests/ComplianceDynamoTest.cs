@@ -25,6 +25,9 @@ public sealed class ComplianceDynamoTest : ComplianceTestBase
         yield return typeof(ConvertToProviderTypesTestBase<>);
         yield return typeof(CustomConvertersTestBase<>);
         yield return typeof(ComplianceTestBase);
+#if NET11_0_OR_GREATER
+        yield return typeof(EntityFrameworkServiceCollectionExtensionsTestBase);
+#endif
         yield return typeof(ConcurrencyDetectorDisabledTestBase<>);
         yield return typeof(ConcurrencyDetectorEnabledTestBase<>);
         yield return typeof(FindTestBase<>);
