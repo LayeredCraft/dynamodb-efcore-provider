@@ -295,7 +295,6 @@ translations are low-feasibility until dedicated temporal translation support is
 
 | Test Class                     | Methods | Cosmos | Feasibility | Notes                   |
 | ------------------------------ | ------: | :----: | ----------: | ----------------------- |
-| `TimeOnlyTranslationsTestBase` |      17 |   ✓    |        ~25% | No native time type     |
 | `TimeSpanTranslationsTestBase` |       6 |   ✓    |        ~25% | No native duration type |
 
 ### Skip — DynamoDB PartiQL Constraints
@@ -305,6 +304,7 @@ translations are low-feasibility until dedicated temporal translation support is
 | `ArithmeticOperatorTranslationsTestBase`    |       5 |   ✓    | DynamoDB rejects arithmetic operators in `WHERE` conditions; provider currently lets `+`, `-`, and `*` reach execution, while `%` and unary minus fail before execution                                                       |
 | `DateOnlyTranslationsTestBase`              |      18 |   ✓    | Inherited coverage has no meaningful executable DynamoDB surface: every method requires unsupported date-part extraction, date arithmetic, or date/time conversion in server-side predicates                                  |
 | `DateTimeOffsetTranslationsTestBase`        |      24 |   ✓    | Inherited coverage has no meaningful executable DynamoDB surface: temporal members/functions require unsupported temporal operations, and the only constant equality case is expressed through unsupported `COUNT` aggregates |
+| `TimeOnlyTranslationsTestBase`              |      17 |   ✓    | Inherited coverage has no meaningful executable DynamoDB surface: every method requires unsupported time-part extraction, time arithmetic, or date/time conversion in server-side predicates                                  |
 | `MathTranslationsTestBase`                  |      66 |   ✓    | DynamoDB PartiQL does not support server-side math functions in `WHERE` or projection expressions                                                                                                                             |
 | `MiscellaneousOperatorTranslationsTestBase` |       2 |   ✓    | Conditional and null-coalescing predicate shapes are not translated in server-side DynamoDB predicates                                                                                                                        |
 | `MiscellaneousTranslationsTestBase`         |      18 |   ✓    | Random, `System.Convert`, and `Compare`/`CompareTo` methods are not translated in server-side DynamoDB predicates                                                                                                             |
@@ -320,7 +320,7 @@ ______________________________________________________________________
 | Northwind Query       |  8 classes / 458 methods |              — |    1 class / 469 methods |  13 classes / 929+ methods |
 | Other Query           |  4 classes / 317 methods |              — |  7 classes / 154 methods | 18 classes / 1,691 methods |
 | Associations          |   3 classes / 42 methods |              — |    2 classes / 4 methods | 13+ classes / 123+ methods |
-| Translations          |  7 classes / 161 methods |              — |   3 classes / 28 methods |    6 classes / 133 methods |
+| Translations          |  7 classes / 161 methods |              — |   2 classes / 11 methods |    7 classes / 150 methods |
 
 ______________________________________________________________________
 
@@ -378,5 +378,5 @@ No medium-term specification test classes are currently queued here.
 | -------------- | ------: | ------: |
 | Implemented    |      40 |   1,334 |
 | Implement Next |       0 |       0 |
-| Future         |      22 |  1,200+ |
-| Skip           |     72+ |  3,967+ |
+| Future         |      21 |  1,183+ |
+| Skip           |     73+ |  3,984+ |
