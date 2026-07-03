@@ -178,7 +178,6 @@ These tests use non-Northwind models and fixtures.
 
 | Test Class                                   | Methods | Cosmos | MongoDB | Feasibility | Rationale                                                             |
 | -------------------------------------------- | ------: | :----: | :-----: | ----------: | --------------------------------------------------------------------- |
-| `AdHocComplexTypeQueryTestBase`              |      13 |   ✓    |    ✗    |        ~65% | Ad-hoc complex type query scenarios; same fixture dependency          |
 | `FiltersInheritanceQueryTestBase`            |      11 |   ✗    |    ✗    |        ~55% | Query filters on inherited types                                      |
 | `NonSharedPrimitiveCollectionsQueryTestBase` |      27 |   ✗    |    ✗    |        ~45% | Primitive collections on non-shared models; same constraints as above |
 | `QueryFilterFuncletizationTestBase`          |      28 |   ✗    |    ✗    |        ~60% | Parameter funcletization in query filters; translation-level feature  |
@@ -188,26 +187,27 @@ These tests use non-Northwind models and fixtures.
 
 ### Skip — Architectural Constraints
 
-| Test Class                                   | Methods | Cosmos | MongoDB | Reason                                                                                                                                                                                 |
-| -------------------------------------------- | ------: | :----: | :-----: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ComplexNavigationsQueryTestBase`            |     308 |   ✗    |    ✗    | Navigation-heavy hierarchical queries                                                                                                                                                  |
-| `ComplexNavigationsCollectionsQueryTestBase` |     156 |   ✗    |    ✗    | Navigation collection queries                                                                                                                                                          |
-| `GearsOfWarQueryTestBase`                    |     594 |   ✗    |    ✗    | Large navigation/join-heavy test suite                                                                                                                                                 |
-| `InheritanceRelationshipsQueryTestBase`      |      48 |   ✗    |    ✗    | Inheritance + navigation relationships                                                                                                                                                 |
-| `IncludeOneToOneTestBase`                    |      12 |   ✗    |    ✗    | One-to-one Include; navigation-dependent                                                                                                                                               |
-| `ManyToManyQueryTestBase`                    |     104 |   ✗    |    ✓    | Many-to-many join table queries                                                                                                                                                        |
-| `ManyToManyNoTrackingQueryTestBase`          |       1 |   ✗    |    ✗    | M:M + no-tracking; navigation-dependent                                                                                                                                                |
-| `OwnedQueryTestBase`                         |      95 |   ✓    |    ✗    | Owned entity queries; owned entities not supported in DynamoDB provider                                                                                                                |
-| `OwnedEntityQueryTestBase`                   |      11 |   ✓    |    ✗    | Owned entity edge cases; same constraint                                                                                                                                               |
-| `JsonQueryTestBase`                          |     203 |   ✓    |    ✗    | JSON column (`ToJson()`) queries; DynamoDB has no JSON column mapping                                                                                                                  |
-| `AdHocJsonQueryTestBase`                     |      40 |   ✓    |    ✓    | Ad-hoc JSON column scenarios; same constraint                                                                                                                                          |
-| `AdHocNavigationsQueryTestBase`              |      20 |   ✗    |    ✗    | Ad-hoc navigation scenarios                                                                                                                                                            |
-| `AdHocManyToManyQueryTestBase`               |       2 |   ✗    |    ✗    | Ad-hoc M:M queries                                                                                                                                                                     |
-| `NullKeysTestBase`                           |       5 |   ✗    |    ✗    | Nullable partition keys; DynamoDB does not support null keys                                                                                                                           |
-| `SpatialQueryTestBase`                       |      84 |   ✗    |    ✗    | Geometry/geography spatial queries                                                                                                                                                     |
-| `FilteredQueryTestBase`                      |       — |   ✗    |    ✗    | Filtered include queries; navigation-dependent                                                                                                                                         |
-| `CompositeKeysQueryTestBase`                 |       7 |   ✗    |    ✗    | Inherited composite-key query specs are navigation-expansion tests over multi-level related collections; DynamoDB supports PK + SK keys but not EF relationship/navigation queries     |
-| `SharedTypeQueryTestBase`                    |       1 |   ✗    |    ✗    | Single inherited test queries a keyless entity and filters through subquery Contains; DynamoDB requires a partition key for every root entity and does not support this subquery shape |
+| Test Class                                   | Methods | Cosmos | MongoDB | Reason                                                                                                                                                                                    |
+| -------------------------------------------- | ------: | :----: | :-----: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ComplexNavigationsQueryTestBase`            |     308 |   ✗    |    ✗    | Navigation-heavy hierarchical queries                                                                                                                                                     |
+| `ComplexNavigationsCollectionsQueryTestBase` |     156 |   ✗    |    ✗    | Navigation collection queries                                                                                                                                                             |
+| `GearsOfWarQueryTestBase`                    |     594 |   ✗    |    ✗    | Large navigation/join-heavy test suite                                                                                                                                                    |
+| `InheritanceRelationshipsQueryTestBase`      |      48 |   ✗    |    ✗    | Inheritance + navigation relationships                                                                                                                                                    |
+| `IncludeOneToOneTestBase`                    |      12 |   ✗    |    ✗    | One-to-one Include; navigation-dependent                                                                                                                                                  |
+| `ManyToManyQueryTestBase`                    |     104 |   ✗    |    ✓    | Many-to-many join table queries                                                                                                                                                           |
+| `ManyToManyNoTrackingQueryTestBase`          |       1 |   ✗    |    ✗    | M:M + no-tracking; navigation-dependent                                                                                                                                                   |
+| `OwnedQueryTestBase`                         |      95 |   ✓    |    ✗    | Owned entity queries; owned entities not supported in DynamoDB provider                                                                                                                   |
+| `OwnedEntityQueryTestBase`                   |      11 |   ✓    |    ✗    | Owned entity edge cases; same constraint                                                                                                                                                  |
+| `JsonQueryTestBase`                          |     203 |   ✓    |    ✗    | JSON column (`ToJson()`) queries; DynamoDB has no JSON column mapping                                                                                                                     |
+| `AdHocJsonQueryTestBase`                     |      40 |   ✓    |    ✓    | Ad-hoc JSON column scenarios; same constraint                                                                                                                                             |
+| `AdHocNavigationsQueryTestBase`              |      20 |   ✗    |    ✗    | Ad-hoc navigation scenarios                                                                                                                                                               |
+| `AdHocManyToManyQueryTestBase`               |       2 |   ✗    |    ✗    | Ad-hoc M:M queries                                                                                                                                                                        |
+| `NullKeysTestBase`                           |       5 |   ✗    |    ✗    | Nullable partition keys; DynamoDB does not support null keys                                                                                                                              |
+| `SpatialQueryTestBase`                       |      84 |   ✗    |    ✗    | Geometry/geography spatial queries                                                                                                                                                        |
+| `FilteredQueryTestBase`                      |       — |   ✗    |    ✗    | Filtered include queries; navigation-dependent                                                                                                                                            |
+| `CompositeKeysQueryTestBase`                 |       7 |   ✗    |    ✗    | Inherited composite-key query specs are navigation-expansion tests over multi-level related collections; DynamoDB supports PK + SK keys but not EF relationship/navigation queries        |
+| `SharedTypeQueryTestBase`                    |       1 |   ✗    |    ✗    | Single inherited test queries a keyless entity and filters through subquery Contains; DynamoDB requires a partition key for every root entity and does not support this subquery shape    |
+| `AdHocComplexTypeQueryTestBase`              |      18 |   ✓    |    ✗    | Below threshold: ad-hoc scenarios are dominated by owned types, optional complex discriminators, indexes/alternate keys, and update/delete semantics outside DynamoDB query spec coverage |
 
 ______________________________________________________________________
 
@@ -316,7 +316,7 @@ ______________________________________________________________________
 | Non-Query (top-level) | 18 classes / 356 methods |              — |  4 classes / 410 methods | 21 classes / 1,058 methods |
 | BulkUpdates           |                        — |              — | 5 classes / 135+ methods |       1 class / 33 methods |
 | Northwind Query       |  8 classes / 458 methods |              — |    1 class / 469 methods |  13 classes / 929+ methods |
-| Other Query           |  4 classes / 317 methods |              — |  7 classes / 154 methods | 18 classes / 1,691 methods |
+| Other Query           |  4 classes / 317 methods |              — |  6 classes / 141 methods | 19 classes / 1,709 methods |
 | Associations          |   3 classes / 42 methods |              — |    2 classes / 4 methods | 13+ classes / 123+ methods |
 | Translations          |  7 classes / 161 methods |              — |                        — |    9 classes / 171 methods |
 
@@ -376,5 +376,5 @@ No medium-term specification test classes are currently queued here.
 | -------------- | ------: | ------: |
 | Implemented    |      40 |   1,334 |
 | Implement Next |       0 |       0 |
-| Future         |      19 |  1,162+ |
-| Skip           |     75+ |  4,005+ |
+| Future         |      18 |  1,149+ |
+| Skip           |     76+ |  4,023+ |
