@@ -278,9 +278,7 @@ Cosmos DB implements all translation categories; MongoDB implements none.
 
 #### Future
 
-| Test Class                            | Methods | Cosmos | Feasibility | Notes                                                             |
-| ------------------------------------- | ------: | :----: | ----------: | ----------------------------------------------------------------- |
-| `BitwiseOperatorTranslationsTestBase` |      15 |   ✓    |        ~20% | `&`, `\|`, `^`, `~`, `<<`, `>>`; PartiQL has no bitwise operators |
+No operator translation test classes are currently queued here.
 
 ### Type Translations
 
@@ -300,6 +298,7 @@ No temporal translation test classes are currently queued here.
 | Test Class                                  | Methods | Cosmos | Reason                                                                                                                                                                                                                        |
 | ------------------------------------------- | ------: | :----: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ArithmeticOperatorTranslationsTestBase`    |       5 |   ✓    | DynamoDB rejects arithmetic operators in `WHERE` conditions; provider currently lets `+`, `-`, and `*` reach execution, while `%` and unary minus fail before execution                                                       |
+| `BitwiseOperatorTranslationsTestBase`       |      15 |   ✓    | DynamoDB PartiQL has no bitwise operators or shifts; boolean `&`/\`                                                                                                                                                           |
 | `DateOnlyTranslationsTestBase`              |      18 |   ✓    | Inherited coverage has no meaningful executable DynamoDB surface: every method requires unsupported date-part extraction, date arithmetic, or date/time conversion in server-side predicates                                  |
 | `DateTimeOffsetTranslationsTestBase`        |      24 |   ✓    | Inherited coverage has no meaningful executable DynamoDB surface: temporal members/functions require unsupported temporal operations, and the only constant equality case is expressed through unsupported `COUNT` aggregates |
 | `TimeOnlyTranslationsTestBase`              |      17 |   ✓    | Inherited coverage has no meaningful executable DynamoDB surface: every method requires unsupported time-part extraction, time arithmetic, or date/time conversion in server-side predicates                                  |
@@ -319,7 +318,7 @@ ______________________________________________________________________
 | Northwind Query       |  8 classes / 458 methods |              — |    1 class / 469 methods |  13 classes / 929+ methods |
 | Other Query           |  4 classes / 317 methods |              — |  7 classes / 154 methods | 18 classes / 1,691 methods |
 | Associations          |   3 classes / 42 methods |              — |    2 classes / 4 methods | 13+ classes / 123+ methods |
-| Translations          |  7 classes / 161 methods |              — |                        — |    8 classes / 156 methods |
+| Translations          |  7 classes / 161 methods |              — |                        — |    9 classes / 171 methods |
 
 ______________________________________________________________________
 
@@ -377,5 +376,5 @@ No medium-term specification test classes are currently queued here.
 | -------------- | ------: | ------: |
 | Implemented    |      40 |   1,334 |
 | Implement Next |       0 |       0 |
-| Future         |      20 |  1,177+ |
-| Skip           |     74+ |  3,990+ |
+| Future         |      19 |  1,162+ |
+| Skip           |     75+ |  4,005+ |
