@@ -229,10 +229,9 @@ sub-families are skipped; complex-property sub-families are partially implemente
 
 ### Future
 
-| Test Class                                    | Methods | Cosmos | MongoDB | Feasibility | Notes                                  |
-| --------------------------------------------- | ------: | :----: | :-----: | ----------: | -------------------------------------- |
-| `ComplexPropertiesMiscellaneousTestBase`      |       3 |   ✗    |    ✗    |        ~70% | Miscellaneous complex property queries |
-| `ComplexPropertiesStructuralEqualityTestBase` |       1 |   ✗    |    ✗    |        ~70% | Structural equality on complex types   |
+| Test Class                                    | Methods | Cosmos | MongoDB | Feasibility | Notes                                |
+| --------------------------------------------- | ------: | :----: | :-----: | ----------: | ------------------------------------ |
+| `ComplexPropertiesStructuralEqualityTestBase` |       1 |   ✗    |    ✗    |        ~70% | Structural equality on complex types |
 
 ### Skip — Navigation or Set Operation Dependent
 
@@ -315,7 +314,7 @@ ______________________________________________________________________
 | BulkUpdates           |                        — |              — | 5 classes / 135+ methods |       1 class / 33 methods |
 | Northwind Query       |  8 classes / 458 methods |              — |    1 class / 469 methods |  13 classes / 929+ methods |
 | Other Query           |  5 classes / 328 methods |              — |                        — | 23 classes / 1,814 methods |
-| Associations          |   3 classes / 42 methods |              — |    2 classes / 4 methods | 13+ classes / 123+ methods |
+| Associations          |   3 classes / 42 methods |              — |       1 class / 1 method | 13+ classes / 123+ methods |
 | Translations          |  7 classes / 161 methods |              — |                        — |    9 classes / 171 methods |
 
 ______________________________________________________________________
@@ -375,5 +374,5 @@ No medium-term specification test classes are currently queued here.
 | -------------- | ------: | ------: |
 | Implemented    |      41 |   1,345 |
 | Implement Next |       0 |       0 |
-| Future         |      12 |  1,008+ |
+| Future         |      11 |  1,005+ |
 | Skip           |     80+ |  4,128+ |
