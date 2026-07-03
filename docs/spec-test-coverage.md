@@ -293,17 +293,17 @@ expressions.
 DynamoDB has no native date/time types; values are stored as ISO 8601 strings. Temporal
 translations are low-feasibility until dedicated temporal translation support is added.
 
-| Test Class                     | Methods | Cosmos | Feasibility | Notes                    |
-| ------------------------------ | ------: | :----: | ----------: | ------------------------ |
-| `DateOnlyTranslationsTestBase` |      18 |   ✓    |        ~30% | No native date-only type |
-| `TimeOnlyTranslationsTestBase` |      17 |   ✓    |        ~25% | No native time type      |
-| `TimeSpanTranslationsTestBase` |       6 |   ✓    |        ~25% | No native duration type  |
+| Test Class                     | Methods | Cosmos | Feasibility | Notes                   |
+| ------------------------------ | ------: | :----: | ----------: | ----------------------- |
+| `TimeOnlyTranslationsTestBase` |      17 |   ✓    |        ~25% | No native time type     |
+| `TimeSpanTranslationsTestBase` |       6 |   ✓    |        ~25% | No native duration type |
 
 ### Skip — DynamoDB PartiQL Constraints
 
 | Test Class                                  | Methods | Cosmos | Reason                                                                                                                                                                                                                        |
 | ------------------------------------------- | ------: | :----: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ArithmeticOperatorTranslationsTestBase`    |       5 |   ✓    | DynamoDB rejects arithmetic operators in `WHERE` conditions; provider currently lets `+`, `-`, and `*` reach execution, while `%` and unary minus fail before execution                                                       |
+| `DateOnlyTranslationsTestBase`              |      18 |   ✓    | Inherited coverage has no meaningful executable DynamoDB surface: every method requires unsupported date-part extraction, date arithmetic, or date/time conversion in server-side predicates                                  |
 | `DateTimeOffsetTranslationsTestBase`        |      24 |   ✓    | Inherited coverage has no meaningful executable DynamoDB surface: temporal members/functions require unsupported temporal operations, and the only constant equality case is expressed through unsupported `COUNT` aggregates |
 | `MathTranslationsTestBase`                  |      66 |   ✓    | DynamoDB PartiQL does not support server-side math functions in `WHERE` or projection expressions                                                                                                                             |
 | `MiscellaneousOperatorTranslationsTestBase` |       2 |   ✓    | Conditional and null-coalescing predicate shapes are not translated in server-side DynamoDB predicates                                                                                                                        |
@@ -320,7 +320,7 @@ ______________________________________________________________________
 | Northwind Query       |  8 classes / 458 methods |              — |    1 class / 469 methods |  13 classes / 929+ methods |
 | Other Query           |  4 classes / 317 methods |              — |  7 classes / 154 methods | 18 classes / 1,691 methods |
 | Associations          |   3 classes / 42 methods |              — |    2 classes / 4 methods | 13+ classes / 123+ methods |
-| Translations          |  7 classes / 161 methods |              — |   4 classes / 46 methods |    5 classes / 115 methods |
+| Translations          |  7 classes / 161 methods |              — |   3 classes / 28 methods |    6 classes / 133 methods |
 
 ______________________________________________________________________
 
@@ -378,5 +378,5 @@ No medium-term specification test classes are currently queued here.
 | -------------- | ------: | ------: |
 | Implemented    |      40 |   1,334 |
 | Implement Next |       0 |       0 |
-| Future         |      23 |  1,218+ |
-| Skip           |     71+ |  3,949+ |
+| Future         |      22 |  1,200+ |
+| Skip           |     72+ |  3,967+ |
