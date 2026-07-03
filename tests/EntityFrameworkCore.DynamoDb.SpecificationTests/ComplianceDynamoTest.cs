@@ -33,6 +33,9 @@ public sealed class ComplianceDynamoTest : ComplianceTestBase
         yield return typeof(GuidTranslationsTestBase<>);
         yield return typeof(FiltersInheritanceQueryTestBase<>);
         yield return typeof(InheritanceQueryTestBase<>);
+#if NET11_0_OR_GREATER
+        yield return typeof(InheritanceComplexTypesQueryTestBase<>);
+#endif
         yield return typeof(StringTranslationsTestBase<>);
         yield return typeof(KeysWithConvertersTestBase<>);
         yield return typeof(LoggingTestBase);
