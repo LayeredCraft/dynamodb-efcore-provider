@@ -12,7 +12,8 @@ constraints.
 
 **Threshold rule:** A test class is worth implementing if the DynamoDB provider can meaningfully cover
 ≥70% of its methods — either by passing or by providing an explicit, accurate skip reason.
-Tests that are always skipped still have value: they document known limitations and prevent false regressions.
+If no inherited methods are supportable and every test would be skipped, do not implement a DynamoDB
+spec class; track the class only in this document with the unsupported rationale.
 
 > Each test method typically runs as both an async and sync variant in the test runner,
 > so method counts below are unique test methods (not total test runs).
