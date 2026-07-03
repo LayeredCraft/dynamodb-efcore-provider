@@ -282,9 +282,9 @@ Cosmos DB implements all translation categories; MongoDB implements none.
 
 ### Type Translations
 
-| Test Class                 | Methods | Cosmos | Feasibility | Notes                                                                                 |
-| -------------------------- | ------: | :----: | ----------: | ------------------------------------------------------------------------------------- |
-| `MathTranslationsTestBase` |      66 |   ✓    |        ~50% | `Abs`, `Ceiling`, `Floor`, `Round`, `Sqrt`, `Log`, `Power`; PartiQL supports a subset |
+No type translation test classes are currently queued here. `MathTranslationsTestBase` is skipped
+because DynamoDB PartiQL does not support server-side math functions in `WHERE` or projection
+expressions.
 
 ### Temporal Translations
 
@@ -304,6 +304,7 @@ translations are low-feasibility until dedicated temporal translation support is
 | Test Class                                  | Methods | Cosmos | Reason                                                                                                                                                                  |
 | ------------------------------------------- | ------: | :----: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ArithmeticOperatorTranslationsTestBase`    |       5 |   ✓    | DynamoDB rejects arithmetic operators in `WHERE` conditions; provider currently lets `+`, `-`, and `*` reach execution, while `%` and unary minus fail before execution |
+| `MathTranslationsTestBase`                  |      66 |   ✓    | DynamoDB PartiQL does not support server-side math functions in `WHERE` or projection expressions                                                                       |
 | `MiscellaneousOperatorTranslationsTestBase` |       2 |   ✓    | Conditional and null-coalescing predicate shapes are not translated in server-side DynamoDB predicates                                                                  |
 | `MiscellaneousTranslationsTestBase`         |      18 |   ✓    | Random, `System.Convert`, and `Compare`/`CompareTo` methods are not translated in server-side DynamoDB predicates                                                       |
 
@@ -318,7 +319,7 @@ ______________________________________________________________________
 | Northwind Query       |  8 classes / 458 methods |              — |    1 class / 469 methods |  13 classes / 929+ methods |
 | Other Query           |  4 classes / 317 methods |              — |  7 classes / 154 methods | 18 classes / 1,691 methods |
 | Associations          |   3 classes / 42 methods |              — |    2 classes / 4 methods | 13+ classes / 123+ methods |
-| Translations          |  6 classes / 142 methods |              — |  7 classes / 155 methods |     3 classes / 25 methods |
+| Translations          |  6 classes / 142 methods |              — |   6 classes / 89 methods |     4 classes / 91 methods |
 
 ______________________________________________________________________
 
@@ -367,7 +368,7 @@ No medium-term specification test classes are currently queued here.
 ### Long-term (after core coverage is stable)
 
 1. `BulkUpdates` family — blocked on `ExecuteUpdate`/`ExecuteDelete`
-2. Remaining translation tests (Math)
+2. Remaining translation tests (temporal)
 
 ### Current totals
 
@@ -375,5 +376,5 @@ No medium-term specification test classes are currently queued here.
 | -------------- | ------: | ------: |
 | Implemented    |      39 |   1,315 |
 | Implement Next |       0 |       0 |
-| Future         |      26 |  1,327+ |
-| Skip           |     69+ |  3,859+ |
+| Future         |      25 |  1,261+ |
+| Skip           |     70+ |  3,925+ |
