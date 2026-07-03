@@ -63,38 +63,38 @@ No non-query specification test classes are currently queued here.
 
 Feasible but requires investigation or additional provider work before adding.
 
-| Test Class               | Methods | Cosmos | MongoDB | Feasibility | Blocker                                                                                                                                                                                             |
-| ------------------------ | ------: | :----: | :-----: | ----------: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `PropertyValuesTestBase` |     167 |   ✗    |    ✗    |        ~55% | `CurrentValues`/`OriginalValues`/`GetDatabaseValues`; `GetDatabaseValues` requires a read which DynamoDB supports, but relational semantics for shadow keys and navigation tracking reduce coverage |
-| `StoreGeneratedTestBase` |      58 |   ✗    |    ✗    |        ~50% | Store-generated keys and concurrency tokens; partially supported (DynamoDB auto-generates string PKs but not sequences)                                                                             |
-| `DataAnnotationTestBase` |      84 |   ✗    |    ✗    |        ~40% | Attribute-driven model configuration; many tests exercise relational-only annotations (schema, unique indexes, FK attributes)                                                                       |
-| `FieldMappingTestBase`   |     101 |   ✗    |    ✗    |        ~40% | Backing field mapping; basic field mapping works but tests assume relational load scenarios                                                                                                         |
+| Test Class               | Methods | Cosmos | MongoDB | Feasibility | Blocker                                                                                                                       |
+| ------------------------ | ------: | :----: | :-----: | ----------: | ----------------------------------------------------------------------------------------------------------------------------- |
+| `StoreGeneratedTestBase` |      58 |   ✗    |    ✗    |        ~50% | Store-generated keys and concurrency tokens; partially supported (DynamoDB auto-generates string PKs but not sequences)       |
+| `DataAnnotationTestBase` |      84 |   ✗    |    ✗    |        ~40% | Attribute-driven model configuration; many tests exercise relational-only annotations (schema, unique indexes, FK attributes) |
+| `FieldMappingTestBase`   |     101 |   ✗    |    ✗    |        ~40% | Backing field mapping; basic field mapping works but tests assume relational load scenarios                                   |
 
 ### Skip — Architectural Constraints
 
-| Test Class                                 | Methods | Cosmos | MongoDB | Reason                                                                                                                                                |
-| ------------------------------------------ | ------: | :----: | :-----: | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `OptimisticConcurrencyTestBase`            |      33 |   ✓    |    ✗    | Covered by provider-specific `DynamoConcurrencyTest`; EF spec fixture semantics do not match DynamoDB concurrency                                     |
-| `LazyLoadTestBase`                         |      97 |   ✗    |    ✗    | Lazy loading requires navigation property support                                                                                                     |
-| `LazyLoadProxyTestBase`                    |      75 |   ✗    |    ✗    | Lazy load via proxies; requires navigations                                                                                                           |
-| `LoadTestBase`                             |     106 |   ✗    |    ✗    | Explicit/implicit load operations; navigation-dependent                                                                                               |
-| `FieldsOnlyLoadTestBase`                   |     120 |   ✗    |    ✗    | Load entities with field-only backing; navigation-dependent                                                                                           |
-| `ManyToManyLoadTestBase`                   |      26 |   ✗    |    ✗    | M:M load; requires navigation and join table semantics                                                                                                |
-| `ManyToManyFieldsLoadTestBase`             |      23 |   ✗    |    ✗    | Same as above with field backing                                                                                                                      |
-| `ManyToManyTrackingTestBase`               |      46 |   ✗    |    ✗    | M:M relationship tracking; no relational tracking                                                                                                     |
-| `UnidirectionalManyToManyLoadTestBase`     |      22 |   ✗    |    ✗    | Unidirectional M:M load; navigation-dependent                                                                                                         |
-| `UnidirectionalManyToManyTrackingTestBase` |      20 |   ✗    |    ✗    | Unidirectional M:M tracking; no relational tracking                                                                                                   |
-| `MonsterFixupTestBase`                     |       3 |   ✗    |    ✗    | Graph fixup for complex navigation graphs                                                                                                             |
-| `ConferencePlannerTestBase`                |      22 |   ✗    |    ✗    | Real-world app with navigation properties and joins                                                                                                   |
-| `MusicStoreTestBase`                       |      18 |   ✗    |    ✗    | Real-world app; navigation properties and aggregations                                                                                                |
-| `NotificationEntitiesTestBase`             |       2 |   ✗    |    ✗    | `INotifyPropertyChanged` entities; relational tracking semantics                                                                                      |
-| `DataBindingTestBase`                      |      37 |   ✗    |    ✗    | WPF/WinForms data binding; not applicable to document stores                                                                                          |
-| `SpatialTestBase`                          |       5 |   ✗    |    ✗    | Geometry/geography types; DynamoDB has no spatial support                                                                                             |
-| `SerializationTestBase`                    |       1 |   ✗    |    ✗    | EF model serialization; provider-specific serialization not implemented                                                                               |
-| `StoreGeneratedFixupTestBase`              |     118 |   ✗    |    ✗    | Store-generated value graph fixup; navigation fixup required                                                                                          |
-| `JsonTypesTestBase`                        |     242 |   ✓    |    ✗    | JSON column types (`ToJson()`); DynamoDB does not have JSON column mapping                                                                            |
-| `InterceptionTestBase`                     |       1 |   ✗    |    ✗    | Generic interception base; superseded by specific interceptor tests above                                                                             |
-| `WithConstructorsTestBase`                 |      41 |   ✗    |    ✗    | Inherited coverage is dominated by sync-only queries, keyless types, Include/navigation, and lazy-loader navigation scenarios unsupported by DynamoDB |
+| Test Class                                 | Methods | Cosmos | MongoDB | Reason                                                                                                                                                                                                   |
+| ------------------------------------------ | ------: | :----: | :-----: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PropertyValuesTestBase`                   |      97 |   ✗    |    ✗    | Below threshold: inherited coverage relies heavily on shadow properties, relationship/join entities, synchronous lookups, and `GetDatabaseValues` readback semantics that do not map cleanly to DynamoDB |
+| `OptimisticConcurrencyTestBase`            |      33 |   ✓    |    ✗    | Covered by provider-specific `DynamoConcurrencyTest`; EF spec fixture semantics do not match DynamoDB concurrency                                                                                        |
+| `LazyLoadTestBase`                         |      97 |   ✗    |    ✗    | Lazy loading requires navigation property support                                                                                                                                                        |
+| `LazyLoadProxyTestBase`                    |      75 |   ✗    |    ✗    | Lazy load via proxies; requires navigations                                                                                                                                                              |
+| `LoadTestBase`                             |     106 |   ✗    |    ✗    | Explicit/implicit load operations; navigation-dependent                                                                                                                                                  |
+| `FieldsOnlyLoadTestBase`                   |     120 |   ✗    |    ✗    | Load entities with field-only backing; navigation-dependent                                                                                                                                              |
+| `ManyToManyLoadTestBase`                   |      26 |   ✗    |    ✗    | M:M load; requires navigation and join table semantics                                                                                                                                                   |
+| `ManyToManyFieldsLoadTestBase`             |      23 |   ✗    |    ✗    | Same as above with field backing                                                                                                                                                                         |
+| `ManyToManyTrackingTestBase`               |      46 |   ✗    |    ✗    | M:M relationship tracking; no relational tracking                                                                                                                                                        |
+| `UnidirectionalManyToManyLoadTestBase`     |      22 |   ✗    |    ✗    | Unidirectional M:M load; navigation-dependent                                                                                                                                                            |
+| `UnidirectionalManyToManyTrackingTestBase` |      20 |   ✗    |    ✗    | Unidirectional M:M tracking; no relational tracking                                                                                                                                                      |
+| `MonsterFixupTestBase`                     |       3 |   ✗    |    ✗    | Graph fixup for complex navigation graphs                                                                                                                                                                |
+| `ConferencePlannerTestBase`                |      22 |   ✗    |    ✗    | Real-world app with navigation properties and joins                                                                                                                                                      |
+| `MusicStoreTestBase`                       |      18 |   ✗    |    ✗    | Real-world app; navigation properties and aggregations                                                                                                                                                   |
+| `NotificationEntitiesTestBase`             |       2 |   ✗    |    ✗    | `INotifyPropertyChanged` entities; relational tracking semantics                                                                                                                                         |
+| `DataBindingTestBase`                      |      37 |   ✗    |    ✗    | WPF/WinForms data binding; not applicable to document stores                                                                                                                                             |
+| `SpatialTestBase`                          |       5 |   ✗    |    ✗    | Geometry/geography types; DynamoDB has no spatial support                                                                                                                                                |
+| `SerializationTestBase`                    |       1 |   ✗    |    ✗    | EF model serialization; provider-specific serialization not implemented                                                                                                                                  |
+| `StoreGeneratedFixupTestBase`              |     118 |   ✗    |    ✗    | Store-generated value graph fixup; navigation fixup required                                                                                                                                             |
+| `JsonTypesTestBase`                        |     242 |   ✓    |    ✗    | JSON column types (`ToJson()`); DynamoDB does not have JSON column mapping                                                                                                                               |
+| `InterceptionTestBase`                     |       1 |   ✗    |    ✗    | Generic interception base; superseded by specific interceptor tests above                                                                                                                                |
+| `WithConstructorsTestBase`                 |      41 |   ✗    |    ✗    | Inherited coverage is dominated by sync-only queries, keyless types, Include/navigation, and lazy-loader navigation scenarios unsupported by DynamoDB                                                    |
 
 ______________________________________________________________________
 
@@ -308,7 +308,7 @@ ______________________________________________________________________
 
 | Category              |              Implemented | Implement Next |                   Future |                       Skip |
 | --------------------- | -----------------------: | -------------: | -----------------------: | -------------------------: |
-| Non-Query (top-level) | 18 classes / 356 methods |              — |  4 classes / 410 methods | 21 classes / 1,058 methods |
+| Non-Query (top-level) | 18 classes / 356 methods |              — |  3 classes / 243 methods | 22 classes / 1,155 methods |
 | BulkUpdates           |                        — |              — | 5 classes / 135+ methods |       1 class / 33 methods |
 | Northwind Query       |  8 classes / 458 methods |              — |    1 class / 469 methods |  13 classes / 929+ methods |
 | Other Query           |  5 classes / 328 methods |              — |                        — | 23 classes / 1,814 methods |
@@ -372,5 +372,5 @@ No medium-term specification test classes are currently queued here.
 | -------------- | ------: | ------: |
 | Implemented    |      41 |   1,345 |
 | Implement Next |       0 |       0 |
-| Future         |      10 |  1,004+ |
-| Skip           |     80+ |  4,128+ |
+| Future         |       9 |    837+ |
+| Skip           |     81+ |  4,225+ |
