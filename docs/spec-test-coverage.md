@@ -180,7 +180,6 @@ These tests use non-Northwind models and fixtures.
 | Test Class                                   | Methods | Cosmos | MongoDB | Feasibility | Rationale                                                             |
 | -------------------------------------------- | ------: | :----: | :-----: | ----------: | --------------------------------------------------------------------- |
 | `NonSharedPrimitiveCollectionsQueryTestBase` |      27 |   ✗    |    ✗    |        ~45% | Primitive collections on non-shared models; same constraints as above |
-| `AdHocMiscellaneousQueryTestBase`            |      39 |   ✓    |    ✗    |        ~40% | Mixed ad-hoc scenarios; some require unsupported operators            |
 | `AdHocQueryFiltersQueryTestBase`             |      21 |   ✗    |    ✗    |        ~55% | Ad-hoc global query filter scenarios                                  |
 | `AdHocAdvancedMappingsQueryTestBase`         |      15 |   ✗    |    ✗    |        ~40% | Advanced mapping queries (TPT, TPC, owned types); mixed applicability |
 
@@ -208,6 +207,7 @@ These tests use non-Northwind models and fixtures.
 | `SharedTypeQueryTestBase`                    |       1 |   ✗    |    ✗    | Single inherited test queries a keyless entity and filters through subquery Contains; DynamoDB requires a partition key for every root entity and does not support this subquery shape    |
 | `AdHocComplexTypeQueryTestBase`              |      18 |   ✓    |    ✗    | Below threshold: ad-hoc scenarios are dominated by owned types, optional complex discriminators, indexes/alternate keys, and update/delete semantics outside DynamoDB query spec coverage |
 | `QueryFilterFuncletizationTestBase`          |      28 |   ✗    |    ✗    | Inherited coverage is sync-query-only (`ToList`/`Single`), while DynamoDB provider supports async query execution only; no meaningful executable async surface                            |
+| `AdHocMiscellaneousQueryTestBase`            |      40 |   ✓    |    ✗    | Broad ad-hoc scenarios are dominated by joins, includes, navigations, `GROUP BY`, set operations, compiled sync queries, query cache internals, and other unsupported/non-DynamoDB shapes |
 
 ______________________________________________________________________
 
@@ -316,7 +316,7 @@ ______________________________________________________________________
 | Non-Query (top-level) | 18 classes / 356 methods |              — |  4 classes / 410 methods | 21 classes / 1,058 methods |
 | BulkUpdates           |                        — |              — | 5 classes / 135+ methods |       1 class / 33 methods |
 | Northwind Query       |  8 classes / 458 methods |              — |    1 class / 469 methods |  13 classes / 929+ methods |
-| Other Query           |  5 classes / 328 methods |              — |  4 classes / 102 methods | 20 classes / 1,737 methods |
+| Other Query           |  5 classes / 328 methods |              — |   3 classes / 63 methods | 21 classes / 1,777 methods |
 | Associations          |   3 classes / 42 methods |              — |    2 classes / 4 methods | 13+ classes / 123+ methods |
 | Translations          |  7 classes / 161 methods |              — |                        — |    9 classes / 171 methods |
 
@@ -377,5 +377,5 @@ No medium-term specification test classes are currently queued here.
 | -------------- | ------: | ------: |
 | Implemented    |      41 |   1,345 |
 | Implement Next |       0 |       0 |
-| Future         |      16 |  1,110+ |
-| Skip           |     77+ |  4,051+ |
+| Future         |      15 |  1,071+ |
+| Skip           |     78+ |  4,091+ |
