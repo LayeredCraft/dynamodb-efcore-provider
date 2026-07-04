@@ -55,7 +55,7 @@ change tracking, concurrency, Find, value converters, interceptors, and more.
 | `EntityFrameworkServiceCollectionExtensionsTestBase` |       3 |   ✗    |    ✗    | Provider service registration is idempotent and expected service lifetimes are covered without a DynamoDB table fixture                                                                                           |
 | `TypeTestBase<T, TFixture>`                          |       4 |   ✗    |    ✗    | Scalar type matrix coverage through dedicated DynamoDB classes for bool, numeric types, string, GUID, temporal types, and byte arrays                                                                             |
 
-Additional provider-specific coverage: `DynamoConcurrencyTest` has 6 local tests for DynamoDB optimistic concurrency behavior. It intentionally does not inherit `OptimisticConcurrencyTestBase` because DynamoDB concurrency semantics differ from the EF Core spec fixture.
+Additional provider-specific coverage: `DynamoConcurrencyTest` has 5 local tests for DynamoDB optimistic concurrency behavior. It intentionally does not inherit `OptimisticConcurrencyTestBase` because DynamoDB concurrency semantics differ from the EF Core spec fixture.
 
 `TypeTestBase<T, TFixture>` EF11 equality query coverage runs for bool, numeric, string, GUID, temporal, and byte-array scalar classes; EF11 save/readback coverage runs through explicit `SaveChanges` overrides. EF10 type classes keep explicit skipped equality decisions because the inherited EF10 query shape is not supported. Primitive collection aggregate cases are skipped because DynamoDB PartiQL has no `COUNT` aggregate support.
 
@@ -419,7 +419,7 @@ No medium-term specification test classes are currently queued here.
 
 | Status         | Classes | Methods |
 | -------------- | ------: | ------: |
-| Implemented    |      45 |   1,393 |
+| Implemented    |      44 |   1,375 |
 | Implement Next |       0 |       0 |
 | Future         |       5 |    136+ |
 | Skip           |     85+ |  4,942+ |
