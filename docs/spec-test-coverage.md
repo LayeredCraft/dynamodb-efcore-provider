@@ -367,7 +367,7 @@ No near-term specification test classes are currently queued here.
 
 ### Medium-term (requires investigation or new fixture)
 
-1. `TypeTestBase` — generic scalar type fixture matrix; numeric/string/bool/Guid/DateTime/DateOnly/TimeOnly scalar fixtures are covered, remaining TimeSpan and binary fixtures need separate support decisions
+1. `TypeTestBase` — generic scalar type fixture matrix; numeric/string/bool/Guid/temporal scalar fixtures are covered, remaining binary fixture needs separate support decision
 2. `SingletonInterceptorsTestBase` — verify upstream/provider-specific derived test pattern before implementation
 
 ### Long-term (after core coverage is stable)
