@@ -323,6 +323,48 @@ ______________________________________________________________________
 
 ______________________________________________________________________
 
+## Provider Feature Backlog vs DynamoDB Limits
+
+This section separates spec-test work that can plausibly become executable after provider work from
+coverage that is permanently blocked by DynamoDB/PartiQL capabilities. DynamoDB PartiQL supports
+`SELECT`, `INSERT`, `UPDATE`, and `DELETE`; writes target one item per statement, and query support is
+bounded by DynamoDB key access, document paths, and the documented function/operator subset.
+
+### Future-supportable with provider work
+
+| Provider feature                           | DynamoDB capability                                                                                         | Spec areas unlocked or improved                                                                                |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Key-addressable `ExecuteDelete`            | `DELETE FROM table WHERE key = ...` is supported for a single item                                          | Bulk update/delete specs where predicates can be reduced to item keys                                          |
+| Key-addressable `ExecuteUpdate`            | `UPDATE table SET/REMOVE ... WHERE key = ...` is supported for a single item                                | Bulk update specs for simple scalar/complex-property assignments over known keys                               |
+| Client-expanded batch/transaction writes   | Batch PartiQL supports up to 25 statements; transactions support up to 100 all-read or all-write statements | Broader bulk specs when the provider can first select keys, then issue per-item statements                     |
+| Temporal equality/range translation        | ISO 8601 strings can be compared lexically when stored in normalized form                                   | More `DateTime` coverage and limited `DateOnly`/`DateTimeOffset`/`TimeOnly`/`TimeSpan` equality or range cases |
+| `Take`/limit and continuation-token paging | DynamoDB paginates PartiQL results with continuation tokens                                                 | Miscellaneous query specs that need bounded result sets without relational offset semantics                    |
+| Key-based ordering                         | `ORDER BY` is available for key-query patterns                                                              | Ordered-result specs over partition/sort-key queries                                                           |
+| Document/complex-type path querying        | DynamoDB supports map/list document attributes and paths                                                    | More complex-property and primitive-collection query/projection cases                                          |
+| Additional supported string/list functions | DynamoDB supports `begins_with`, `contains`, `size`, `attribute_type`, and `missing`                        | More string, collection, and null/missing translation coverage                                                 |
+| Sync query execution policy                | DynamoDB SDK capability is not the blocker; provider currently chooses async-only query execution           | Sync-only spec methods and compiled-query specs, if provider deliberately adds sync execution                  |
+| Provider-side defaults/conventions         | Application/provider code can synthesize values before writes                                               | Narrow non-relational subsets of store-generated/default-value specs, not database-computed values             |
+
+### Permanently blocked by DynamoDB limitations
+
+| Requested capability                              | DynamoDB limitation                                                                                         | Affected spec areas                                                                                      |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Joins and navigation traversal                    | DynamoDB PartiQL has no `JOIN` and DynamoDB has no relational FK graph query model                          | Include, navigation, load/lazy-load, associations, many-to-many, GearsOfWar, complex-navigation suites   |
+| `GROUP BY` and server aggregates                  | DynamoDB PartiQL has no `GROUP BY` or aggregate query functions such as `COUNT`, `SUM`, `AVG`, `MIN`, `MAX` | Northwind aggregate/group-by specs, aggregate collection subqueries, `EF.Functions.Like` through `Count` |
+| Set operations                                    | `Union`, `Intersect`, and `Except` are not supported by DynamoDB PartiQL                                    | Northwind set-operation specs, complex-property set-operation specs                                      |
+| Offset `Skip`                                     | DynamoDB uses continuation tokens, not offset pagination                                                    | Relational paging specs that require stable offset semantics                                             |
+| Global non-key ordering                           | DynamoDB does not guarantee globally ordered scans; ordering is key-query oriented                          | Ordered-result specs over non-key scans                                                                  |
+| Keyless root entities and null keys               | DynamoDB items require non-null table key attributes                                                        | Keyless entity specs, null-key specs, shared-type keyless query specs                                    |
+| Composite keys beyond partition key plus sort key | DynamoDB table identity has at most partition key and sort key                                              | Multi-column composite-key specs beyond two key attributes                                               |
+| JSON-column parity                                | DynamoDB has document attributes, not relational JSON column mapping via `ToJson()`                         | JSON type/query/ad-hoc JSON column specs                                                                 |
+| Owned-entity relational semantics                 | Provider maps nested shapes as complex/document values; DynamoDB has no owned table/relationship model      | Owned query/entity specs unless rewritten as complex-type coverage                                       |
+| Spatial types/functions                           | DynamoDB has no native spatial type or spatial query functions                                              | Spatial tests and spatial query tests                                                                    |
+| Bitwise and broad math/temporal functions         | DynamoDB PartiQL exposes only a small operator/function subset                                              | Bitwise, math-function, temporal-member/function translation specs                                       |
+| Database-computed/store-generated values          | DynamoDB has no relational computed columns, identity columns, or database defaults                         | Store-generated and store-generated-fixup specs                                                          |
+| Relational transactions                           | DynamoDB transactions are limited item-statement transactions, not EF relational transaction semantics      | Specs requiring relational transaction scopes or cross-query relational semantics                        |
+
+______________________________________________________________________
+
 ## Recent Implementation Order
 
 This list records recently completed additions; authoritative implemented/not-implemented status is in the tables above.
