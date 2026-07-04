@@ -297,7 +297,7 @@ DynamoDB has no native date/time types; values are stored as ISO 8601 strings. `
 | Test Class                                  | Methods | Cosmos | Reason                                                                                                                                                                                                                        |
 | ------------------------------------------- | ------: | :----: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ArithmeticOperatorTranslationsTestBase`    |       5 |   ✓    | DynamoDB rejects arithmetic operators in `WHERE` conditions; provider currently lets `+`, `-`, and `*` reach execution, while `%` and unary minus fail before execution                                                       |
-| `BitwiseOperatorTranslationsTestBase`       |      15 |   ✓    | DynamoDB PartiQL has no bitwise operators or shifts; boolean `&`/\`                                                                                                                                                           |
+| `BitwiseOperatorTranslationsTestBase`       |      15 |   ✓    | DynamoDB PartiQL has no bitwise operators or shifts; boolean bitwise operator shapes are not meaningful for DynamoDB predicates                                                                                               |
 | `DateOnlyTranslationsTestBase`              |      18 |   ✓    | Inherited coverage has no meaningful executable DynamoDB surface: every method requires unsupported date-part extraction, date arithmetic, or date/time conversion in server-side predicates                                  |
 | `DateTimeOffsetTranslationsTestBase`        |      24 |   ✓    | Inherited coverage has no meaningful executable DynamoDB surface: temporal members/functions require unsupported temporal operations, and the only constant equality case is expressed through unsupported `COUNT` aggregates |
 | `TimeOnlyTranslationsTestBase`              |      17 |   ✓    | Inherited coverage has no meaningful executable DynamoDB surface: every method requires unsupported time-part extraction, time arithmetic, or date/time conversion in server-side predicates                                  |
@@ -312,8 +312,8 @@ ______________________________________________________________________
 
 | Category              |              Implemented | Implement Next |                   Future |                        Skip |
 | --------------------- | -----------------------: | -------------: | -----------------------: | --------------------------: |
-| Non-Query (top-level) | 19 classes / 359 methods |              — |                        — |  25 classes / 1,403 methods |
-| BulkUpdates           |                        — |              — | 5 classes / 135+ methods |        1 class / 33 methods |
+| Non-Query (top-level) | 20 classes / 377 methods |              — |                        — |  25 classes / 1,403 methods |
+| BulkUpdates           |                        — |              — | 5 classes / 136+ methods |        1 class / 33 methods |
 | Northwind Query       |  8 classes / 458 methods |              — |                        — | 14 classes / 1,398+ methods |
 | Other Query           |  6 classes / 337 methods |              — |                        — |  23 classes / 1,814 methods |
 | Associations          |   3 classes / 42 methods |              — |                        — |  13+ classes / 123+ methods |
@@ -419,7 +419,7 @@ No medium-term specification test classes are currently queued here.
 
 | Status         | Classes | Methods |
 | -------------- | ------: | ------: |
-| Implemented    |      44 |   1,375 |
+| Implemented    |      45 |   1,393 |
 | Implement Next |       0 |       0 |
-| Future         |       5 |    126+ |
+| Future         |       5 |    136+ |
 | Skip           |     85+ |  4,942+ |
