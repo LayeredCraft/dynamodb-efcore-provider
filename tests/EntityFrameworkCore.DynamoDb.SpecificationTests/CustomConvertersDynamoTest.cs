@@ -442,13 +442,11 @@ public abstract class CustomConvertersDynamoTest(
     public override Task Field_on_derived_type_retrieved_via_cast_applies_value_converter()
         => base.Field_on_derived_type_retrieved_via_cast_applies_value_converter();
 
-    // DynamoDB PartiQL does not support joins.
-    [ConditionalFact(Skip = SkipReason.QueryShapeNotSupported)]
+    [ConditionalFact(Skip = SkipReason.JoinsNotSupported)]
     public override Task Value_conversion_is_appropriately_used_for_join_condition()
         => base.Value_conversion_is_appropriately_used_for_join_condition();
 
-    // DynamoDB PartiQL does not support joins.
-    [ConditionalFact(Skip = SkipReason.QueryShapeNotSupported)]
+    [ConditionalFact(Skip = SkipReason.JoinsNotSupported)]
     public override Task Value_conversion_is_appropriately_used_for_left_join_condition()
         => base.Value_conversion_is_appropriately_used_for_left_join_condition();
 
