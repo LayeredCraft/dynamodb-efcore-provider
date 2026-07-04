@@ -56,7 +56,7 @@ change tracking, concurrency, Find, value converters, interceptors, and more.
 
 Additional provider-specific coverage: `DynamoConcurrencyTest` has 6 local tests for DynamoDB optimistic concurrency behavior. It intentionally does not inherit `OptimisticConcurrencyTestBase` because DynamoDB concurrency semantics differ from the EF Core spec fixture.
 
-`DynamoIntTypeTest`, `DynamoStringTypeTest`, `DynamoBoolTypeTest`, `DynamoGuidTypeTest`, `DynamoByteTypeTest`, `DynamoShortTypeTest`, `DynamoLongTypeTest`, `DynamoDecimalTypeTest`, `DynamoDoubleTypeTest`, `DynamoFloatTypeTest`, `DynamoDateTimeTypeTest`, and `DynamoDateTimeOffsetTypeTest` start `TypeTestBase<T>` coverage for scalar type behavior: equality query coverage runs on EF10/EF11, EF11 save/readback coverage runs, and the primitive collection aggregate case is skipped because DynamoDB PartiQL has no `COUNT` aggregate support.
+`TypeTestBase<T>` scalar matrix coverage is implemented through dedicated DynamoDB classes for bool, numeric types, string, GUID, temporal types, and byte arrays. Equality query coverage runs on EF10/EF11, EF11 save/readback coverage runs, and primitive collection aggregate cases are skipped because DynamoDB PartiQL has no `COUNT` aggregate support.
 
 ### Implement Next
 
@@ -367,8 +367,7 @@ No near-term specification test classes are currently queued here.
 
 ### Medium-term (requires investigation or new fixture)
 
-1. `TypeTestBase` — generic scalar type fixture matrix; numeric/string/bool/Guid/temporal scalar fixtures are covered, remaining binary fixture needs separate support decision
-2. `SingletonInterceptorsTestBase` — verify upstream/provider-specific derived test pattern before implementation
+No medium-term specification test classes are currently queued here.
 
 ### Long-term (after core coverage is stable)
 
