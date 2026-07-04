@@ -222,6 +222,8 @@ public abstract class CustomConvertersDynamoTest(
 
         await using (var context = CreateContext())
         {
+            // DynamoDB scans have no stable server ordering; order client-side for deterministic
+            // assertions while preserving converter persistence coverage.
             var drivers = (await context.Set<Person>().ToListAsync()).OrderBy(p => p.Name).ToList();
 
             Assert.Equal(4, drivers.Count);
@@ -253,6 +255,8 @@ public abstract class CustomConvertersDynamoTest(
 
         await using (var context = CreateContext())
         {
+            // DynamoDB scans have no stable server ordering; order client-side for deterministic
+            // assertions while preserving converter persistence coverage.
             var drivers = (await context.Set<Person>().ToListAsync()).OrderBy(p => p.Name).ToList();
 
             Assert.Equal(4, drivers.Count);
@@ -317,6 +321,8 @@ public abstract class CustomConvertersDynamoTest(
 
         await using (var context = CreateContext())
         {
+            // Upstream uses SingleAsync(predicate); DynamoDB permits Single only after async
+            // enumeration here because this is not a partition-key constrained query shape.
             var load = await context
                 .Set<Load>()
                 .Where(e => e.LoadId == 1 && e.Fuel.Equals(new Fuel(1.1)))
@@ -373,6 +379,8 @@ public abstract class CustomConvertersDynamoTest(
 
         await using (var context = CreateContext())
         {
+            // Avoid server Single on unconstrained scan; this test only needs collection converter
+            // materialization coverage.
             var entity = await context.Set<StringListDataType>().AsAsyncEnumerable().SingleAsync();
 
             Assert.Equal(["Gum", "Taffy"], entity.Strings);
