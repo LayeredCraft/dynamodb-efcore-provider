@@ -32,27 +32,27 @@ change tracking, concurrency, Find, value converters, interceptors, and more.
 
 ### Implemented
 
-| Test Class                                           | Methods | Cosmos | MongoDB | Notes                                                                                                                                  |
-| ---------------------------------------------------- | ------: | :----: | :-----: | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `ApiConsistencyTestBase`                             |      18 |   ✓    |    ✓    | Provider API surface/naming conventions                                                                                                |
-| `BuiltInDataTypesTestBase`                           |      28 |   ✓    |    ✓    | Scalar type round-trips (bool, int, string, DateTime, etc.)                                                                            |
-| `ComplexTypesTrackingTestBase`                       |     128 |   ✓    |    ✗    | Complex type change tracking; DynamoDB complex types fully supported                                                                   |
-| `ConcurrencyDetectorDisabledTestBase`                |       1 |   ✓    |    ✗    | `ConcurrencyDetector` opt-out                                                                                                          |
-| `ConcurrencyDetectorEnabledTestBase`                 |       1 |   ✓    |    ✗    | `ConcurrencyDetector` opt-in                                                                                                           |
-| `FindTestBase`                                       |      69 |   ✓    |    ✗    | `Find`/`FindAsync` by primary key                                                                                                      |
-| `ComplianceTestBase`                                 |       1 |   ✗    |    ✗    | Compliance marker for implemented provider spec bases                                                                                  |
-| `OverzealousInitializationTestBase`                  |       1 |   ✓    |    ✗    | Navigation-based fixup test is explicitly skipped                                                                                      |
-| `LoggingTestBase`                                    |       1 |   ✗    |    ✗    | Context-initialization logging covered; unsupported include path skipped                                                               |
-| `SaveChangesInterceptionTestBase`                    |      13 |   ✗    |    ✗    | Transaction-dependent cases are explicitly skipped                                                                                     |
-| `QueryExpressionInterceptionTestBase`                |       4 |   ✓    |    ✗    | Spec `Single` shapes are skipped when they are not key-condition-only                                                                  |
-| `MaterializationInterceptionTestBase`                |       7 |   ✓    |    ✗    | Materialization interceptor coverage; owned/complex collection cases skipped                                                           |
-| `CompositeKeyEndToEndTestBase`                       |       3 |   ✗    |    ✗    | PK+SK round-trip covered; three-part composite-key cases skipped                                                                       |
-| `ConvertToProviderTypesTestBase`                     |       2 |   ✗    |    ✗    | Additional enum/provider-type conversion query methods beyond `BuiltInDataTypesTestBase`                                               |
-| `CustomConvertersTestBase`                           |      29 |   ✓    |    ✗    | Value converter round-trips; unsupported converter edge cases explicitly skipped                                                       |
-| `SeedingTestBase`                                    |       2 |   ✗    |    ✗    | `HasData` seeding is covered; keyless entity seeding is skipped because DynamoDB requires partition keys                               |
-| `ValueConvertersEndToEndTestBase`                    |       1 |   ✗    |    ✗    | End-to-end converter insert/readback; DynamoDB fixture maps `ConvertingEntity` with partition key                                      |
-| `KeysWithConvertersTestBase`                         |      47 |   ✓    |    ✗    | Converted partition-key mapping has DynamoDB-specific coverage; inherited FK, shadow-FK, and owned-entity cases are explicitly skipped |
-| `EntityFrameworkServiceCollectionExtensionsTestBase` |       3 |   ✗    |    ✗    | Provider service registration is idempotent and expected service lifetimes are covered without a DynamoDB table fixture                |
+| Test Class                                           | Methods | Cosmos | MongoDB | Notes                                                                                                                                     |
+| ---------------------------------------------------- | ------: | :----: | :-----: | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `ApiConsistencyTestBase`                             |      18 |   ✓    |    ✓    | Provider API surface/naming conventions                                                                                                   |
+| `BuiltInDataTypesTestBase`                           |      28 |   ✓    |    ✓    | Scalar type round-trips (bool, int, string, DateTime, etc.)                                                                               |
+| `ComplexTypesTrackingTestBase`                       |     128 |   ✓    |    ✗    | Complex type change tracking; DynamoDB complex types fully supported                                                                      |
+| `ConcurrencyDetectorDisabledTestBase`                |       1 |   ✓    |    ✗    | `ConcurrencyDetector` opt-out; sync rows are explicitly skipped because DynamoDB has async-only query/save execution                      |
+| `ConcurrencyDetectorEnabledTestBase`                 |       1 |   ✓    |    ✗    | `ConcurrencyDetector` opt-in; sync rows are explicitly skipped because DynamoDB has async-only query/save execution                       |
+| `FindTestBase`                                       |      69 |   ✓    |    ✗    | `Find`/`FindAsync` by primary key                                                                                                         |
+| `ComplianceTestBase`                                 |       1 |   ✗    |    ✗    | Compliance marker for implemented provider spec bases plus guardrail for new skipped no-op override drift                                 |
+| `OverzealousInitializationTestBase`                  |       1 |   ✓    |    ✗    | Navigation-based fixup test is explicitly skipped                                                                                         |
+| `LoggingTestBase`                                    |       1 |   ✗    |    ✗    | Context-initialization logging covered; unsupported include path skipped                                                                  |
+| `SaveChangesInterceptionTestBase`                    |      13 |   ✗    |    ✗    | Transaction-dependent cases are explicitly skipped                                                                                        |
+| `QueryExpressionInterceptionTestBase`                |       4 |   ✓    |    ✗    | Spec `Single` shapes are skipped when they are not key-condition-only                                                                     |
+| `MaterializationInterceptionTestBase`                |       7 |   ✓    |    ✗    | Materialization interceptor coverage; owned/complex collection cases skipped                                                              |
+| `CompositeKeyEndToEndTestBase`                       |       3 |   ✗    |    ✗    | PK+SK round-trip covered; three-part composite-key cases skipped                                                                          |
+| `ConvertToProviderTypesTestBase`                     |       2 |   ✗    |    ✗    | Additional enum/provider-type conversion query methods beyond `BuiltInDataTypesTestBase`                                                  |
+| `CustomConvertersTestBase`                           |      29 |   ✓    |    ✗    | Value converter round-trips; scalar DynamoDB converter coverage is split from inherited FK/navigation cases, which are explicitly skipped |
+| `SeedingTestBase`                                    |       2 |   ✗    |    ✗    | `HasData` seeding is covered; keyless entity seeding is skipped because DynamoDB requires partition keys                                  |
+| `ValueConvertersEndToEndTestBase`                    |       1 |   ✗    |    ✗    | End-to-end converter insert/readback; DynamoDB fixture maps `ConvertingEntity` with partition key                                         |
+| `KeysWithConvertersTestBase`                         |      47 |   ✓    |    ✗    | Converted partition-key mapping has DynamoDB-specific coverage; inherited FK, shadow-FK, and owned-entity cases are explicitly skipped    |
+| `EntityFrameworkServiceCollectionExtensionsTestBase` |       3 |   ✗    |    ✗    | Provider service registration is idempotent and expected service lifetimes are covered without a DynamoDB table fixture                   |
 
 Additional provider-specific coverage: `DynamoConcurrencyTest` has 6 local tests for DynamoDB optimistic concurrency behavior. It intentionally does not inherit `OptimisticConcurrencyTestBase` because DynamoDB concurrency semantics differ from the EF Core spec fixture.
 
@@ -124,7 +124,7 @@ Uses the `Customer / Employee / Order / Product` dataset with `NorthwindQueryDyn
 
 | Test Class                             | Methods | Cosmos | MongoDB | Notes                                                                                                                            |
 | -------------------------------------- | ------: | :----: | :-----: | -------------------------------------------------------------------------------------------------------------------------------- |
-| `NorthwindWhereQueryTestBase`          |     203 |   ✓    |    ✓    | Predicate filtering; core WHERE coverage                                                                                         |
+| `NorthwindWhereQueryTestBase`          |     203 |   ✓    |    ✓    | Predicate filtering; skipped unsupported shapes delegate to upstream base methods so inherited intent stays visible              |
 | `NorthwindSelectQueryTestBase`         |     186 |   ✓    |    ✓    | Projections and SELECT shapes                                                                                                    |
 | `NorthwindAsNoTrackingQueryTestBase`   |      11 |   ✗    |    ✓    | `AsNoTracking()` passthrough; join/navigation-shaped cases skipped                                                               |
 | `NorthwindAsTrackingQueryTestBase`     |       5 |   ✗    |    ✓    | `AsTracking()` on `IQueryable`; sync-only base tests assert async-only provider behavior                                         |
