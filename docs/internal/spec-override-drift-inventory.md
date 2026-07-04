@@ -34,3 +34,9 @@ Tracked by bead `dynamodb-efcore-provider-ar7.1`.
 3. Custom converters inherited-vs-provider split.
 4. Re-test remaining active custom overrides and document/factor adapters.
 5. Add guardrail once exception list known.
+
+## Retest evidence
+
+- `CustomConvertersDynamoTest`: focused EF10 class run passed after adapter comments/split (`61` total, `47` succeeded, `14` skipped). Retained custom bodies are DynamoDB adapters for async-only execution, client ordering after scans, or scalar converter coverage without FK/navigation semantics.
+- `NorthwindWhereQueryDynamoTest`: focused EF10 class run passed after skipped no-op overrides delegated to base (`300` total, `193` succeeded, `107` skipped).
+- `ConcurrencyDetector*DynamoTest`: focused EF10 run passed after replacing silent sync rows with explicit skips/base delegation (`18` total, `2` succeeded, `16` skipped).
