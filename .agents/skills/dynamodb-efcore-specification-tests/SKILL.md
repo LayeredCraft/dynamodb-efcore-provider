@@ -159,6 +159,37 @@ For each inherited method, classify before finalizing the override. The first im
 runs inherited methods to collect evidence; the final pass turns that evidence into supported calls,
 fixture fixes, provider fixes, sync wrappers, or centralized skips.
 
+### Spec override standard
+
+Specification tests must stay honest about upstream spec coverage. Do not rewrite an inherited EF
+Core specification test with complex DynamoDB-specific custom logic just to make it pass. If the
+provider override would need to replace the upstream test body with a custom setup/query/update/assert
+flow, altered query shape, client-side substitution, or otherwise test a different scenario, mark the
+inherited spec method unsupported instead.
+
+Allowed limited overrides:
+
+- call the matching `base` method directly;
+- wrap the matching `base` method in `NoSyncTest(...)` for expected sync query-enumeration failures;
+- assert additional provider details after the base call, such as generated PartiQL with
+  `AssertSql(...)`;
+- add narrow assertions that do not replace the upstream test scenario;
+- skip with a centralized `SkipReason`, while delegating to `base` when safe.
+
+Disallowed spec override pattern:
+
+- copying or replacing the upstream method body with custom provider-specific logic;
+- changing query shape to avoid unsupported parts of the upstream test;
+- moving server behavior to client-side evaluation/sorting/enumeration to make the inherited spec
+  pass;
+- custom setup/update/assert flow that means upstream changes would not be inherited.
+
+When an inherited spec method cannot run without a complex rewrite, skip the spec method with the
+accurate canonical `SkipReason`. Then check whether the important provider behavior or edge is
+covered by the integration test project. If it is not covered and the behavior is important, add or
+update an integration test there. Integration tests are where DynamoDB-specific full coverage belongs;
+spec tests are for upstream behavior that can run without semantic substitution.
+
 ### Supported async query or behavior
 
 Call base implementation. Assert generated PartiQL when query emits SQL.

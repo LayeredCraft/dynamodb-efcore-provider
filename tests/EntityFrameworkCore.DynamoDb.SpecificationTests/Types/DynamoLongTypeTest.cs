@@ -1,4 +1,3 @@
-using System.Linq.Expressions;
 using EntityFrameworkCore.DynamoDb.Diagnostics;
 using EntityFrameworkCore.DynamoDb.SpecificationTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
@@ -51,19 +50,8 @@ public sealed class DynamoLongTypeTest(
     [ConditionalFact(Skip = SkipReason.CountAggregatesNotSupported)]
     public override Task Primitive_collection_in_query() => base.Primitive_collection_in_query();
 #else
-    public override async Task Equality_in_query()
-    {
-        await using var context = Fixture.CreateContext();
-
-        var results =
-            await context
-                .Set<TypeEntity<long>>()
-                .Where(e => e.Value.Equals(Fixture.Value))
-                .ToListAsync();
-        var result = results.Single();
-
-        Assert.Equal(Fixture.Value, result.Value, Fixture.Comparer);
-    }
+    [ConditionalFact(Skip = SkipReason.QueryShapeNotSupported)]
+    public override Task Equality_in_query() => base.Equality_in_query();
 #endif
 
     public class LongTypeFixture : TypeFixtureBase<long>, IDynamoSpecificationFixture

@@ -25,37 +25,19 @@ public sealed class ConcurrencyDetectorDisabledDynamoTest(
     public override Task Find(bool async) => base.Find(async);
 
     [ConditionalTheory(Skip = SkipReason.SyncQueriesNotSupported)]
-    public override Task First(bool async)
-        => ConcurrencyDetectorTest(async c
-            => await c.Products.Where(p => p.Id == 1).AsUnsafeFilteredQuery().FirstAsync());
+    public override Task First(bool async) => base.First(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Last(bool async) => base.Last(async);
 
     [ConditionalTheory(Skip = SkipReason.SyncSaveChangesNotSupported)]
-    public override Task SaveChanges(bool async) => SaveChangesAsync();
+    public override Task SaveChanges(bool async) => base.SaveChanges(async);
 
     [ConditionalTheory(Skip = SkipReason.SyncQueriesNotSupported)]
     public override Task Single(bool async) => base.Single(async);
 
     [ConditionalTheory(Skip = SkipReason.SyncQueriesNotSupported)]
-    public override Task ToList(bool async)
-        => ConcurrencyDetectorTest(async c => await c.Products.AllowScan().ToListAsync());
-
-    private async Task SaveChangesAsync()
-    {
-        await ConcurrencyDetectorTest(async c =>
-        {
-            c.Products.Add(new Product { Id = 3, Name = "Unicorn Horseshoe Protection Pack" });
-            return await c.SaveChangesAsync();
-        });
-
-        await using var verificationContext = CreateContext();
-        var newProduct = await verificationContext.Products.FirstOrDefaultAsync(p => p.Id == 3);
-        Assert.NotNull(newProduct);
-        verificationContext.Products.Remove(newProduct);
-        await verificationContext.SaveChangesAsync();
-    }
+    public override Task ToList(bool async) => base.ToList(async);
 
     /// <summary>Fixture for DynamoDB concurrency detector disabled tests.</summary>
     public class ConcurrencyDetectorDisabledDynamoFixture : ConcurrencyDetectorFixtureBase
