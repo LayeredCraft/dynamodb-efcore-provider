@@ -31,6 +31,33 @@ public sealed class ComplianceDynamoTest : ComplianceTestBase
         Assert.Empty(offenders);
     }
 
+    [ConditionalFact]
+    public void Skipped_no_op_override_detection_handles_block_returns_and_comments()
+    {
+        const string Source = """
+                              public class SampleDynamoTest
+                              {
+                                  [ConditionalFact(Skip = SkipReason.NotSupported)]
+                                  public override Task Empty_block_with_comment()
+                                  {
+                                      // DynamoDB cannot support this shape.
+                                      return Task.CompletedTask;
+                                  }
+
+                                  [ConditionalFact(Skip = SkipReason.NotSupported)]
+                                  public override Task Calls_base()
+                                  {
+                                      return base.Calls_base();
+                                  }
+                              }
+                              """;
+
+        var offenders = FindSkippedNoOpOverrides("/repo", "/repo/SampleDynamoTest.cs", Source)
+            .ToList();
+
+        Assert.Equal(["SampleDynamoTest.cs: Empty_block_with_comment"], offenders);
+    }
+
     protected override Assembly TargetAssembly { get; } = typeof(ComplianceDynamoTest).Assembly;
 
     private static readonly ISet<string> AllowedLegacyNoOpOverrideFiles =
@@ -72,7 +99,7 @@ public sealed class ComplianceDynamoTest : ComplianceTestBase
         string source)
     {
         var pattern = new Regex(
-            @"\[Conditional(?:Fact|Theory)\([^\]]*Skip\s*=\s*[^\]]+\)\][\s\S]*?public\s+override\s+(?:async\s+)?(?:Task(?:<[^>]+>)?|void|\w+)\s+(?<method>\w+)\s*\([^)]*\)[\s\S]*?(?:=>\s*Task\.CompletedTask\s*;|=>\s*default\s*;|\{\s*(?:return\s*;)?\s*\})",
+            @"\[Conditional(?:Fact|Theory)\([^\]]*Skip\s*=\s*[^\]]+\)\][\s\S]*?public\s+override\s+(?:async\s+)?(?:Task(?:<[^>]+>)?|void|\w+)\s+(?<method>\w+)\s*\([^)]*\)[\s\S]*?(?:=>\s*Task\.CompletedTask\s*;|=>\s*default\s*;|\{\s*(?:(?://[^\r\n]*(?:\r?\n)?|/\*[\s\S]*?\*/)\s*)*(?:return\s+Task\.CompletedTask\s*;|return\s*;)?\s*\})",
             RegexOptions.Multiline);
 
         foreach (Match match in pattern.Matches(source))
