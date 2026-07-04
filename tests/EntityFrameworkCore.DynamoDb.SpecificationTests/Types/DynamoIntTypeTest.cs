@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using EntityFrameworkCore.DynamoDb.Diagnostics;
 using EntityFrameworkCore.DynamoDb.SpecificationTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
@@ -14,17 +15,47 @@ public sealed class DynamoIntTypeTest(
 {
     private readonly DynamoSpecificationContainerFixture _containerFixture = containerFixture;
 
-#if NET11_0_OR_GREATER
-    [ConditionalFact(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Equality_in_query_with_parameter()
-        => base.Equality_in_query_with_parameter();
+    [ConditionalFact]
+    public void Check_all_tests_overridden()
+        => DynamoTestHelpers.AssertAllTestMethodsOverridden(typeof(DynamoIntTypeTest));
 
-    [ConditionalFact(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Equality_in_query_with_constant()
-        => base.Equality_in_query_with_constant();
+#if NET11_0_OR_GREATER
+    public override async Task Equality_in_query_with_parameter()
+    {
+        await using var context = Fixture.CreateContext();
+
+        var results = await context.Set<TypeEntity<int>>()
+            .Where(e => e.Value.Equals(Fixture.Value))
+            .ToListAsync();
+        var result = results.Single();
+
+        Assert.Equal(Fixture.Value, result.Value, Fixture.Comparer);
+    }
+
+    public override async Task Equality_in_query_with_constant()
+    {
+        await using var context = Fixture.CreateContext();
+
+        var entityParameter = Expression.Parameter(typeof(TypeEntity<int>), "e");
+        var predicate =
+            Expression.Lambda<Func<TypeEntity<int>, bool>>(
+                Expression.Equal(
+                    Expression.Property(entityParameter, nameof(TypeEntity<int>.Value)),
+                    Expression.Constant(Fixture.Value)),
+                entityParameter);
+
+        var results = await context.Set<TypeEntity<int>>()
+            .Where(predicate)
+            .ToListAsync();
+        var result = results.Single();
+
+        Assert.Equal(Fixture.Value, result.Value, Fixture.Comparer);
+    }
 
     [ConditionalFact(Skip = SkipReason.CountAggregatesNotSupported)]
     public override Task Primitive_collection_in_query() => base.Primitive_collection_in_query();
+
+    public override Task SaveChanges() => base.SaveChanges();
 #else
     [ConditionalFact(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Equality_in_query() => base.Equality_in_query();

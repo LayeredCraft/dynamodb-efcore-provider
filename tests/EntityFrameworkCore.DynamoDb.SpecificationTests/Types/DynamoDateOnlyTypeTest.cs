@@ -15,6 +15,10 @@ public sealed class DynamoDateOnlyTypeTest(
 {
     private readonly DynamoSpecificationContainerFixture _containerFixture = containerFixture;
 
+    [ConditionalFact]
+    public void Check_all_tests_overridden()
+        => DynamoTestHelpers.AssertAllTestMethodsOverridden(typeof(DynamoDateOnlyTypeTest));
+
 #if NET11_0_OR_GREATER
     public override async Task Equality_in_query_with_parameter()
     {
@@ -50,6 +54,8 @@ public sealed class DynamoDateOnlyTypeTest(
 
     [ConditionalFact(Skip = SkipReason.CountAggregatesNotSupported)]
     public override Task Primitive_collection_in_query() => base.Primitive_collection_in_query();
+
+    public override Task SaveChanges() => base.SaveChanges();
 #else
     [ConditionalFact(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Equality_in_query() => base.Equality_in_query();
