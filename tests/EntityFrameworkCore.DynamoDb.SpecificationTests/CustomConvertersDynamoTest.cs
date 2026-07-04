@@ -209,13 +209,11 @@ public abstract class CustomConvertersDynamoTest(
                 new Person { Id = 1, Name = "Lewis" },
                 new Person
                 {
-                    Id = 2, Name = "Seb", SSN = new SocialSecurityNumber { Number = 111111111 },
+                    Id = 2, Name = "Seb", SSN = new SocialSecurityNumber { Number = 111111111 }
                 },
                 new Person
                 {
-                    Id = 3,
-                    Name = "Kimi",
-                    SSN = new SocialSecurityNumber { Number = 222222222 },
+                    Id = 3, Name = "Kimi", SSN = new SocialSecurityNumber { Number = 222222222 }
                 },
                 new Person { Id = 4, Name = "Valtteri" });
 
@@ -247,7 +245,7 @@ public abstract class CustomConvertersDynamoTest(
                 {
                     Id = 5,
                     Name = "Charles",
-                    SSN = new SocialSecurityNumber { Number = 222222222 },
+                    SSN = new SocialSecurityNumber { Number = 222222222 }
                 });
 
             await context.SaveChangesAsync();
@@ -330,15 +328,19 @@ public abstract class CustomConvertersDynamoTest(
         }
     }
 
-    public override async Task Can_insert_and_read_back_with_case_insensitive_string_key()
+    // Upstream test validates case-insensitive FK relationship fixup and Include. DynamoDB has no
+    // FK/navigation support, so scalar key converter coverage lives in provider-specific test
+    // below.
+    [ConditionalFact(Skip = SkipReason.ForeignKeysNotSupported)]
+    public override Task Can_insert_and_read_back_with_case_insensitive_string_key()
+        => base.Can_insert_and_read_back_with_case_insensitive_string_key();
+
+    [ConditionalFact]
+    public async Task Can_insert_and_read_back_with_case_insensitive_string_key_scalar_dynamo()
     {
         await using (var context = CreateContext())
         {
-            var principal =
-                context
-                    .Set<StringKeyDataType>()
-                    .Add(new StringKeyDataType { Id = "Gumball!!" })
-                    .Entity;
+            context.Set<StringKeyDataType>().Add(new StringKeyDataType { Id = "Gumball!!" });
 
             Assert.Equal(1, await context.SaveChangesAsync());
         }
@@ -363,7 +365,7 @@ public abstract class CustomConvertersDynamoTest(
                 .Add(
                     new StringListDataType
                     {
-                        Id = 1, Strings = new List<string> { "Gum", "Taffy" },
+                        Id = 1, Strings = new List<string> { "Gum", "Taffy" }
                     });
 
             Assert.Equal(1, await context.SaveChangesAsync());
@@ -535,7 +537,7 @@ public abstract class CustomConvertersDynamoTest(
                                 d
                                     .Layouts
                                     .Select(l => new { H = l.Height, W = l.Width })
-                                    .ToList(),
+                                    .ToList()
                         })
                         .ToListAsync()
                         .GetAwaiter()
@@ -600,13 +602,13 @@ public abstract class CustomConvertersDynamoTest(
                                         {
                                             Id = 1,
                                             AnimalId = 1,
-                                            Method = IdentificationMethod.EarTag,
-                                        },
+                                            Method = IdentificationMethod.EarTag
+                                        }
                                     ],
                                     Details = new AnimalDetails
                                     {
-                                        Id = 1, AnimalId = 1, BoolField = true,
-                                    },
+                                        Id = 1, AnimalId = 1, BoolField = true
+                                    }
                                 });
 
                         hasChanges = true;
@@ -627,7 +629,7 @@ public abstract class CustomConvertersDynamoTest(
                                     Url = "http://rssblog.com",
                                     RssUrl = "http://rssblog.com/rss",
                                     IsVisible = false,
-                                    ["IndexerVisible"] = true,
+                                    ["IndexerVisible"] = true
                                 });
 
                         hasChanges = true;
