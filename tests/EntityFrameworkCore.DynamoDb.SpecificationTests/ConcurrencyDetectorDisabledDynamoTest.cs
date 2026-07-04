@@ -15,31 +15,35 @@ public sealed class ConcurrencyDetectorDisabledDynamoTest(
         => DynamoTestHelpers.AssertAllTestMethodsOverridden(
             typeof(ConcurrencyDetectorDisabledDynamoTest));
 
-    [ConditionalTheory(Skip = "DynamoDB does not support Any queries.")]
-    public override Task Any(bool async) => Task.CompletedTask;
+    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    public override Task Any(bool async) => base.Any(async);
 
-    [ConditionalTheory(Skip = "DynamoDB does not support Count queries.")]
-    public override Task Count(bool async) => Task.CompletedTask;
+    [ConditionalTheory(Skip = SkipReason.CountAggregatesNotSupported)]
+    public override Task Count(bool async) => base.Count(async);
 
-    public override Task Find(bool async) => async ? base.Find(async) : Task.CompletedTask;
+    [ConditionalTheory(Skip = SkipReason.SyncQueriesNotSupported)]
+    public override Task Find(bool async) => base.Find(async);
 
+    [ConditionalTheory(Skip = SkipReason.SyncQueriesNotSupported)]
     public override Task First(bool async)
-    {
-        if (!async)
-            return Task.CompletedTask;
-
-        return ConcurrencyDetectorTest(async c
+        => ConcurrencyDetectorTest(async c
             => await c.Products.Where(p => p.Id == 1).AsUnsafeFilteredQuery().FirstAsync());
-    }
 
-    [ConditionalTheory(Skip = "DynamoDB does not support Last queries.")]
-    public override Task Last(bool async) => Task.CompletedTask;
+    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    public override Task Last(bool async) => base.Last(async);
 
-    public override async Task SaveChanges(bool async)
+    [ConditionalTheory(Skip = SkipReason.SyncSaveChangesNotSupported)]
+    public override Task SaveChanges(bool async) => SaveChangesAsync();
+
+    [ConditionalTheory(Skip = SkipReason.SyncQueriesNotSupported)]
+    public override Task Single(bool async) => base.Single(async);
+
+    [ConditionalTheory(Skip = SkipReason.SyncQueriesNotSupported)]
+    public override Task ToList(bool async)
+        => ConcurrencyDetectorTest(async c => await c.Products.AllowScan().ToListAsync());
+
+    private async Task SaveChangesAsync()
     {
-        if (!async)
-            return;
-
         await ConcurrencyDetectorTest(async c =>
         {
             c.Products.Add(new Product { Id = 3, Name = "Unicorn Horseshoe Protection Pack" });
@@ -51,16 +55,6 @@ public sealed class ConcurrencyDetectorDisabledDynamoTest(
         Assert.NotNull(newProduct);
         verificationContext.Products.Remove(newProduct);
         await verificationContext.SaveChangesAsync();
-    }
-
-    public override Task Single(bool async) => async ? base.Single(async) : Task.CompletedTask;
-
-    public override Task ToList(bool async)
-    {
-        if (!async)
-            return Task.CompletedTask;
-
-        return ConcurrencyDetectorTest(async c => await c.Products.AllowScan().ToListAsync());
     }
 
     /// <summary>Fixture for DynamoDB concurrency detector disabled tests.</summary>

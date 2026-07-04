@@ -15,31 +15,34 @@ public sealed class ConcurrencyDetectorEnabledDynamoTest(
         => DynamoTestHelpers.AssertAllTestMethodsOverridden(
             typeof(ConcurrencyDetectorEnabledDynamoTest));
 
-    [ConditionalTheory(Skip = "DynamoDB does not support Any queries.")]
-    public override Task Any(bool async) => Task.CompletedTask;
+    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    public override Task Any(bool async) => base.Any(async);
 
-    [ConditionalTheory(Skip = "DynamoDB does not support Count queries.")]
-    public override Task Count(bool async) => Task.CompletedTask;
+    [ConditionalTheory(Skip = SkipReason.CountAggregatesNotSupported)]
+    public override Task Count(bool async) => base.Count(async);
 
-    public override Task Find(bool async) => async ? base.Find(async) : Task.CompletedTask;
+    [ConditionalTheory(Skip = SkipReason.SyncQueriesNotSupported)]
+    public override Task Find(bool async) => base.Find(async);
 
+    [ConditionalTheory(Skip = SkipReason.SyncQueriesNotSupported)]
     public override Task First(bool async)
-    {
-        if (!async)
-            return Task.CompletedTask;
-
-        return ConcurrencyDetectorTest(async c
+        => ConcurrencyDetectorTest(async c
             => await c.Products.AsUnsafeFilteredQuery().FirstAsync());
-    }
 
-    [ConditionalTheory(Skip = "DynamoDB does not support Last queries.")]
-    public override Task Last(bool async) => Task.CompletedTask;
+    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    public override Task Last(bool async) => base.Last(async);
 
-    public override async Task SaveChanges(bool async)
+    [ConditionalTheory(Skip = SkipReason.SyncSaveChangesNotSupported)]
+    public override Task SaveChanges(bool async) => SaveChangesAsync();
+
+    [ConditionalTheory(Skip = SkipReason.SyncQueriesNotSupported)]
+    public override Task Single(bool async) => base.Single(async);
+
+    [ConditionalTheory(Skip = SkipReason.SyncQueriesNotSupported)]
+    public override Task ToList(bool async) => base.ToList(async);
+
+    private async Task SaveChangesAsync()
     {
-        if (!async)
-            return;
-
         await ConcurrencyDetectorTest(async c =>
         {
             c.Products.Add(new Product { Id = 2, Name = "Unicorn Replacement Horn Pack" });
@@ -50,10 +53,6 @@ public sealed class ConcurrencyDetectorEnabledDynamoTest(
         var newProduct = await ctx.Products.FirstOrDefaultAsync(p => p.Id == 2);
         Assert.Null(newProduct);
     }
-
-    public override Task Single(bool async) => async ? base.Single(async) : Task.CompletedTask;
-
-    public override Task ToList(bool async) => async ? base.ToList(async) : Task.CompletedTask;
 
     /// <summary>Fixture for DynamoDB concurrency detector tests.</summary>
     public class ConcurrencyDetectorEnabledDynamoFixture : ConcurrencyDetectorFixtureBase

@@ -61,6 +61,9 @@ public static class SkipReason
     public const string SyncQueriesNotSupported =
         "DynamoDB provider supports async query execution only.";
 
+    public const string SyncSaveChangesNotSupported =
+        "DynamoDB provider supports async SaveChanges only.";
+
     public const string NavigationPropertiesNotSupported =
         "DynamoDB does not support navigation properties.";
 
