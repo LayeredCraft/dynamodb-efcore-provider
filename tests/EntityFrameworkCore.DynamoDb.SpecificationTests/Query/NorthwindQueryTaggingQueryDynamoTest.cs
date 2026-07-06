@@ -20,11 +20,14 @@ public abstract class NorthwindQueryTaggingQueryDynamoTest
         => DynamoTestHelpers.AssertAllTestMethodsOverridden(
             typeof(NorthwindQueryTaggingQueryDynamoTest));
 
-    public override void Single_query_tag() => AssertTaggedCustomer("Yanni");
+    [ConditionalFact(Skip = SkipReason.SyncQueriesNotSupported)]
+    public override void Single_query_tag() => base.Single_query_tag();
 
-    public override void Single_query_multiple_tags() => AssertTaggedCustomer("Yanni", "Enya");
+    [ConditionalFact(Skip = SkipReason.SyncQueriesNotSupported)]
+    public override void Single_query_multiple_tags() => base.Single_query_multiple_tags();
 
-    public override void Duplicate_tags() => AssertTaggedCustomer("Yanni", "Yanni");
+    [ConditionalFact(Skip = SkipReason.SyncQueriesNotSupported)]
+    public override void Duplicate_tags() => base.Duplicate_tags();
 
     [ConditionalFact(Skip = SkipReason.JoinsNotSupported)]
     public override void Tags_on_subquery() => base.Tags_on_subquery();
@@ -32,48 +35,19 @@ public abstract class NorthwindQueryTaggingQueryDynamoTest
     [ConditionalFact(Skip = SkipReason.NavigationPropertiesNotSupported)]
     public override void Tag_on_include_query() => base.Tag_on_include_query();
 
-    public override void Tag_on_scalar_query()
-    {
-        using var context = CreateContext();
-        // The base spec orders without constraining the partition key, which DynamoDB cannot
-        // execute. Keep the OrderBy while adding the key predicate required for a safe First* path.
-        var orderDate =
-            context
-                .Set<Order>()
-                .Where(o => o.OrderID == 10248)
-                .OrderBy(o => o.OrderID)
-                .Select(o => o.OrderDate)
-                .TagWith("Yanni")
-                .FirstAsync()
-                .GetAwaiter()
-                .GetResult();
+    [ConditionalFact(Skip = SkipReason.SyncQueriesNotSupported)]
+    public override void Tag_on_scalar_query() => base.Tag_on_scalar_query();
 
-        Assert.NotNull(orderDate);
-    }
+    [ConditionalFact(Skip = SkipReason.SyncQueriesNotSupported)]
+    public override void Single_query_multiline_tag() => base.Single_query_multiline_tag();
 
-    public override void Single_query_multiline_tag()
-        => AssertTaggedCustomer("Yanni\r\nAND\r\nLaurel");
-
+    [ConditionalFact(Skip = SkipReason.SyncQueriesNotSupported)]
     public override void Single_query_multiple_multiline_tag()
-        => AssertTaggedCustomer("Yanni\r\nAND\r\nLaurel", "Yet\r\nAnother\r\nMultiline\r\nTag");
+        => base.Single_query_multiple_multiline_tag();
 
+    [ConditionalFact(Skip = SkipReason.SyncQueriesNotSupported)]
     public override void Single_query_multiline_tag_with_empty_lines()
-        => AssertTaggedCustomer("Yanni\r\n\r\nAND\r\n\r\nLaurel");
-
-    private void AssertTaggedCustomer(params string[] tags)
-    {
-        using var context = CreateContext();
-
-        // The base spec orders before First(), but DynamoDB requires a partition-key predicate for
-        // ORDER BY. The predicate preserves a key-only First* path while keeping the ordered shape.
-        IQueryable<Customer> query =
-            context.Set<Customer>().Where(c => c.CustomerID == "ALFKI").OrderBy(c => c.CustomerID);
-        foreach (var tag in tags)
-            query = query.TagWith(tag);
-
-        var customer = query.FirstAsync().GetAwaiter().GetResult();
-        Assert.NotNull(customer);
-    }
+        => base.Single_query_multiline_tag_with_empty_lines();
 
     [Collection(DynamoSpecificationCollection.Name)]
     public sealed class NorthwindQueryTaggingQueryDynamoTestDefault

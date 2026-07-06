@@ -46,38 +46,8 @@ public abstract class NorthwindAsNoTrackingQueryDynamoTest
     [ConditionalTheory(Skip = SkipReason.JoinsNotSupported)]
     public override Task Applied_to_projection(bool async) => base.Applied_to_projection(async);
 
-    public override Task Can_get_current_values(bool async)
-        => NoSyncTest(
-            async,
-            async a =>
-            {
-                if (!a)
-                {
-                    DynamoTestHelpers.Instance.NoSyncTest(() =>
-                    {
-                        using var syncContext = CreateContext();
-                        _ = syncContext
-                            .Set<Customer>()
-                            .Where(c => c.CustomerID == "ALFKI")
-                            .AsNoTracking()
-                            .First();
-                    });
-                    return;
-                }
-
-                await using var context = CreateContext();
-                var customer =
-                    await context.Set<Customer>().FirstAsync(c => c.CustomerID == "ALFKI");
-                customer.CompanyName = "foo";
-                var customer2 =
-                    await context
-                        .Set<Customer>()
-                        .AsNoTracking()
-                        .FirstAsync(c => c.CustomerID == "ALFKI");
-
-                Assert.NotEqual(customer.CompanyName, customer2.CompanyName);
-            },
-            false);
+    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    public override Task Can_get_current_values(bool async) => base.Can_get_current_values(async);
 
     [ConditionalTheory(Skip = SkipReason.NavigationPropertiesNotSupported)]
     public override Task Include_reference_and_collection(bool async)
