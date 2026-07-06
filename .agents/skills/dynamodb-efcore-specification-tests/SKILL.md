@@ -30,7 +30,11 @@ triage failures with evidence.
   - threshold rule for newly implemented base classes: implement only when DynamoDB can meaningfully
     cover about 70% or more of unique methods. Count passing/adapted methods, intentional sync
     wrappers, and durable DynamoDB architectural skips. Do not count provider-gap deferrals as
-    coverage. If a class would be mostly skips, implement only when the docs explicitly choose to
+    coverage. If no inherited tests are supportable and every method would be skipped, do not create
+    or keep a `*DynamoTest.cs` class for that base. Update only `docs/spec-test-coverage.md` with
+    `Skip`/`Future` status, method count, and concise rationale. If a class would be mostly skips
+    but
+    still has some meaningful supported coverage, implement only when the docs explicitly choose to
     document that unsupported surface.
 3. Read target upstream EF Core base test from
    `~/Repos/CSharp/efcore/test/EFCore.Specification.Tests/`.
@@ -46,14 +50,20 @@ triage failures with evidence.
 
 1. Identify the target base spec class or existing DynamoDB spec class from the user request and
    `docs/spec-test-coverage.md`.
-2. Create or extend `*DynamoTest.cs` in `tests/EntityFrameworkCore.DynamoDb.SpecificationTests/`.
-3. Reuse existing shared family fixtures when present, especially
+2. Decide whether implementation is warranted before creating code. If the target base has zero
+   supportable inherited tests and all methods would need architectural skips, do not implement the
+   class, do not add it to `ComplianceDynamoTest`, and remove any skeleton created during discovery.
+   Record the decision in `docs/spec-test-coverage.md` instead.
+3. Create or extend `*DynamoTest.cs` in `tests/EntityFrameworkCore.DynamoDb.SpecificationTests/`
+   only when at least one inherited test is supportable or the coverage docs explicitly call for a
+   mostly-skipped class.
+4. Reuse existing shared family fixtures when present, especially
    `NorthwindQueryDynamoFixture<TModelCustomizer>` and `BasicTypesQueryDynamoFixture`. Otherwise
    create a fixture by extending the base fixture type from the upstream spec test. Inspect upstream
    fixture hooks before copying patterns: `CreateContext`, `AddOptions`, `OnModelCreating`,
    `CleanAsync`, `SeedAsync`, expected data, entity sorters/assertors, model customizers, service
    replacement, logging, and test-store lifetime.
-4. Wire shared DynamoDB infrastructure:
+5. Wire shared DynamoDB infrastructure:
   - all live-DynamoDB fixtures: `DynamoTestStoreFactory.Instance`
   - all live-DynamoDB fixtures:
     `.UseDynamo(o => o.DynamoDbClient(DynamoTestStoreFactory.Instance.Client))`
@@ -66,14 +76,16 @@ triage failures with evidence.
     store factory/client wiring consistent with existing spec tests
   - override upstream `ClearLog()` to call `Fixture.ClearSql()` when the base class exposes a
     log-clearing hook
-5. Map every entity DynamoDB needs:
+
+6. Map every entity DynamoDB needs:
   - table name
   - partition key via `HasPartitionKey(...)`
   - sort key only when the EF key shape or test identity requires a two-part DynamoDB key
   - ignore only fixture-only types not needed for supported cases
   - any inherited test requiring ignored navigations/keyless/owned/FK-heavy types needs an explicit
     skip override with a canonical `SkipReason`
-6. Add an xUnit-discovered concrete test class using the closest existing pattern:
+
+7. Add an xUnit-discovered concrete test class using the closest existing pattern:
   - if provider test class is abstract, add nested `*DynamoTestDefault` (or multiple concrete
     variants when upstream requires it) and pass provider fixture to base constructor
   - if provider test class can be concrete, annotate that class with
@@ -86,7 +98,8 @@ triage failures with evidence.
   - inject/assign `DynamoSpecificationContainerFixture` for live-DynamoDB tests when needed to force
     container startup before `DynamoTestStoreFactory.Instance.Client` is used
   - spec utility tests that do not touch DynamoDB Local do not need the collection/container
-7. Add override guard:
+
+8. Add override guard:
 
 ```csharp
 [ConditionalFact]
@@ -112,34 +125,70 @@ public sealed class XxxDynamoTestDefault : XxxDynamoTest
 }
 ```
 
-8. Override every inherited test method. No method left undecided. First pass should keep methods
+9. Override every inherited test method. No method left undecided. First pass should keep methods
    unblocked: call `base` for inherited tests and wrap expected sync-query paths with `NoSyncTest`.
    Avoid support-classification skips before the first red run; failures are the evidence used for
    classification. Exception: when the upstream method body clearly and statically requires a
    durable DynamoDB constraint (navigation graph, FK relationship, keyless type, explicit
    transaction, >2-part key), an early skip is acceptable only with a cited upstream shape and
    centralized `SkipReason`. Never pre-skip provider gaps.
-9. For large inherited surfaces, bootstrap mechanically: create the class/fixture skeleton, compile,
+10. For large inherited surfaces, bootstrap mechanically: create the class/fixture skeleton,
+    compile,
    run only the override guard, copy missing method names/signatures from guard failures, preserve
    upstream attributes/parameters/return types, and repeat until the guard passes. Redirect test
    output to a file if the runner truncates guard failures. Use simple base calls or `NoSyncTest`
    wrappers first; do not hand-classify 100+ methods from memory.
-10. Run the whole target class or method family with all overrides present. Treat the first red run as
+11. Run the whole target class or method family with all overrides present. Treat the first red run
+    as
    the classification input, not as failure of the implementation approach.
-11. Split failures into small clusters and use scout/research subagents for triage when there is more
+12. Split failures into small clusters and use scout/research subagents for triage when there is
+    more
     than one failure or a failure has unclear support status; see "Subagent failure triage workflow"
     below. The parent agent owns final classification.
-12. Update `ComplianceDynamoTest.GetBaseTestClasses()` when adding/removing implemented base class.
+13. Update `ComplianceDynamoTest.GetBaseTestClasses()` when adding/removing implemented base class.
     If a base exists only for some target frameworks, wrap `using` statements and `yield return`
     entries in matching `#if` guards.
-13. Update `docs/spec-test-coverage.md` in same change.
-14. Run focused tests, then compliance/broader spec tests when practical.
+14. Update `docs/spec-test-coverage.md` in same change. For zero-supportable bases, this is the only
+    required artifact: mark the base as skipped/future, note that all inherited tests require
+    unsupported DynamoDB features, and leave executable inventory unchanged.
+15. Run focused tests, then compliance/broader spec tests when practical.
 
 ## Override decision taxonomy
 
 For each inherited method, classify before finalizing the override. The first implementation pass
 runs inherited methods to collect evidence; the final pass turns that evidence into supported calls,
 fixture fixes, provider fixes, sync wrappers, or centralized skips.
+
+### Spec override standard
+
+Specification tests must stay honest about upstream spec coverage. Do not rewrite an inherited EF
+Core specification test with complex DynamoDB-specific custom logic just to make it pass. If the
+provider override would need to replace the upstream test body with a custom setup/query/update/assert
+flow, altered query shape, client-side substitution, or otherwise test a different scenario, mark the
+inherited spec method unsupported instead.
+
+Allowed limited overrides:
+
+- call the matching `base` method directly;
+- wrap the matching `base` method in `NoSyncTest(...)` for expected sync query-enumeration failures;
+- assert additional provider details after the base call, such as generated PartiQL with
+  `AssertSql(...)`;
+- add narrow assertions that do not replace the upstream test scenario;
+- skip with a centralized `SkipReason`, while delegating to `base` when safe.
+
+Disallowed spec override pattern:
+
+- copying or replacing the upstream method body with custom provider-specific logic;
+- changing query shape to avoid unsupported parts of the upstream test;
+- moving server behavior to client-side evaluation/sorting/enumeration to make the inherited spec
+  pass;
+- custom setup/update/assert flow that means upstream changes would not be inherited.
+
+When an inherited spec method cannot run without a complex rewrite, skip the spec method with the
+accurate canonical `SkipReason`. Then check whether the important provider behavior or edge is
+covered by the integration test project. If it is not covered and the behavior is important, add or
+update an integration test there. Integration tests are where DynamoDB-specific full coverage belongs;
+spec tests are for upstream behavior that can run without semantic substitution.
 
 ### Supported async query or behavior
 
@@ -382,6 +431,8 @@ text. The current runner may not support older xUnit live-output switches such a
   exception
 - supported methods call base and assert PartiQL/results as appropriate
 - provider gaps fixed or explicitly left with documented rationale
-- `ComplianceDynamoTest` updated when implemented-base inventory changes
-- `docs/spec-test-coverage.md` updated as coverage inventory
+- `ComplianceDynamoTest` updated when implemented-base inventory changes; zero-supportable bases are
+  not added
+- `docs/spec-test-coverage.md` updated as coverage inventory, including zero-supportable bases that
+  are documented instead of implemented
 - focused tests run; broader tests run or reason documented

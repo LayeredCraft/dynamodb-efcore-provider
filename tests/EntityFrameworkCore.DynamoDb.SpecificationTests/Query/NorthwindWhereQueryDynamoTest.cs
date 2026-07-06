@@ -31,7 +31,8 @@ public abstract class NorthwindWhereQueryDynamoTest
             });
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Where_as_queryable_expression(bool async) => Task.CompletedTask;
+    public override Task Where_as_queryable_expression(bool async)
+        => base.Where_as_queryable_expression(async);
 
     public override async Task<string> Where_simple_closure(bool async)
     {
@@ -421,7 +422,8 @@ public abstract class NorthwindWhereQueryDynamoTest
             });
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Where_subquery_closure_via_query_cache(bool async) => Task.CompletedTask;
+    public override Task Where_subquery_closure_via_query_cache(bool async)
+        => base.Where_subquery_closure_via_query_cache(async);
 
     public override Task Where_simple_shadow(bool async)
         => NoSyncTest(
@@ -452,19 +454,23 @@ public abstract class NorthwindWhereQueryDynamoTest
             });
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Where_simple_shadow_projection_mixed(bool async) => Task.CompletedTask;
+    public override Task Where_simple_shadow_projection_mixed(bool async)
+        => base.Where_simple_shadow_projection_mixed(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Where_simple_shadow_subquery(bool async) => Task.CompletedTask;
+    public override Task Where_simple_shadow_subquery(bool async)
+        => base.Where_simple_shadow_subquery(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Where_shadow_subquery_FirstOrDefault(bool async) => Task.CompletedTask;
+    public override Task Where_shadow_subquery_FirstOrDefault(bool async)
+        => base.Where_shadow_subquery_FirstOrDefault(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Where_client(bool async) => Task.CompletedTask;
+    public override Task Where_client(bool async) => base.Where_client(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Where_subquery_correlated(bool async) => Task.CompletedTask;
+    public override Task Where_subquery_correlated(bool async)
+        => base.Where_subquery_correlated(async);
 
     public override Task Where_subquery_correlated_client_eval(bool async)
         => NoSyncTest(
@@ -477,47 +483,51 @@ public abstract class NorthwindWhereQueryDynamoTest
             false);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Where_client_and_server_top_level(bool async) => Task.CompletedTask;
+    public override Task Where_client_and_server_top_level(bool async)
+        => base.Where_client_and_server_top_level(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Where_client_or_server_top_level(bool async) => Task.CompletedTask;
+    public override Task Where_client_or_server_top_level(bool async)
+        => base.Where_client_or_server_top_level(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Where_client_and_server_non_top_level(bool async) => Task.CompletedTask;
+    public override Task Where_client_and_server_non_top_level(bool async)
+        => base.Where_client_and_server_non_top_level(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Where_client_deep_inside_predicate_and_server_top_level(bool async)
-        => Task.CompletedTask;
+        => base.Where_client_deep_inside_predicate_and_server_top_level(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Where_equals_method_int(bool async) => Task.CompletedTask;
+    public override Task Where_equals_method_int(bool async) => base.Where_equals_method_int(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Where_equals_using_object_overload_on_mismatched_types(bool async)
-        => Task.CompletedTask;
+        => base.Where_equals_using_object_overload_on_mismatched_types(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Where_equals_using_int_overload_on_mismatched_types(bool async)
-        => Task.CompletedTask;
+        => base.Where_equals_using_int_overload_on_mismatched_types(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Where_equals_on_mismatched_types_nullable_int_long(bool async)
-        => Task.CompletedTask;
+        => base.Where_equals_on_mismatched_types_nullable_int_long(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Where_equals_on_mismatched_types_int_nullable_int(bool async)
-        => Task.CompletedTask;
+        => base.Where_equals_on_mismatched_types_int_nullable_int(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Where_equals_on_mismatched_types_nullable_long_nullable_int(bool async)
-        => Task.CompletedTask;
+        => base.Where_equals_on_mismatched_types_nullable_long_nullable_int(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Where_equals_on_matched_nullable_int_types(bool async)
-        => Task.CompletedTask;
+        => base.Where_equals_on_matched_nullable_int_types(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Where_equals_on_null_nullable_int_types(bool async) => Task.CompletedTask;
+    public override Task Where_equals_on_null_nullable_int_types(bool async)
+        => base.Where_equals_on_null_nullable_int_types(async);
 
     public override Task Where_comparison_nullable_type_not_null(bool async)
         => NoSyncTest(
@@ -576,10 +586,10 @@ public abstract class NorthwindWhereQueryDynamoTest
             });
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Where_null_is_null(bool async) => Task.CompletedTask;
+    public override Task Where_null_is_null(bool async) => base.Where_null_is_null(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Where_constant_is_null(bool async) => Task.CompletedTask;
+    public override Task Where_constant_is_null(bool async) => base.Where_constant_is_null(async);
 
     public override Task Where_is_not_null(bool async)
         => NoSyncTest(
@@ -596,40 +606,48 @@ public abstract class NorthwindWhereQueryDynamoTest
             });
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Where_null_is_not_null(bool async) => Task.CompletedTask;
+    public override Task Where_null_is_not_null(bool async) => base.Where_null_is_not_null(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Where_constant_is_not_null(bool async) => Task.CompletedTask;
+    public override Task Where_constant_is_not_null(bool async)
+        => base.Where_constant_is_not_null(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Where_identity_comparison(bool async) => Task.CompletedTask;
+    public override Task Where_identity_comparison(bool async)
+        => base.Where_identity_comparison(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Where_in_optimization_multiple(bool async) => Task.CompletedTask;
+    public override Task Where_in_optimization_multiple(bool async)
+        => base.Where_in_optimization_multiple(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Where_not_in_optimization1(bool async) => Task.CompletedTask;
+    public override Task Where_not_in_optimization1(bool async)
+        => base.Where_not_in_optimization1(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Where_not_in_optimization2(bool async) => Task.CompletedTask;
+    public override Task Where_not_in_optimization2(bool async)
+        => base.Where_not_in_optimization2(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Where_not_in_optimization3(bool async) => Task.CompletedTask;
+    public override Task Where_not_in_optimization3(bool async)
+        => base.Where_not_in_optimization3(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Where_not_in_optimization4(bool async) => Task.CompletedTask;
+    public override Task Where_not_in_optimization4(bool async)
+        => base.Where_not_in_optimization4(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Where_select_many_and(bool async) => Task.CompletedTask;
+    public override Task Where_select_many_and(bool async) => base.Where_select_many_and(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Where_primitive(bool async) => Task.CompletedTask;
+    public override Task Where_primitive(bool async) => base.Where_primitive(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Where_primitive_tracked(bool async) => Task.CompletedTask;
+    public override Task Where_primitive_tracked(bool async) => base.Where_primitive_tracked(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Where_primitive_tracked2(bool async) => Task.CompletedTask;
+    public override Task Where_primitive_tracked2(bool async)
+        => base.Where_primitive_tracked2(async);
 
     public override Task Where_bool_member(bool async)
         => NoSyncTest(
@@ -660,7 +678,8 @@ public abstract class NorthwindWhereQueryDynamoTest
             });
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Where_bool_client_side_negated(bool async) => Task.CompletedTask;
+    public override Task Where_bool_client_side_negated(bool async)
+        => base.Where_bool_client_side_negated(async);
 
     public override Task Where_bool_member_negated_twice(bool async)
         => NoSyncTest(
@@ -705,7 +724,8 @@ public abstract class NorthwindWhereQueryDynamoTest
             });
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Where_bool_member_equals_constant(bool async) => Task.CompletedTask;
+    public override Task Where_bool_member_equals_constant(bool async)
+        => base.Where_bool_member_equals_constant(async);
 
     public override Task Where_bool_member_in_complex_predicate(bool async)
         => NoSyncTest(
@@ -880,19 +900,20 @@ public abstract class NorthwindWhereQueryDynamoTest
             });
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Where_comparison_to_nullable_bool(bool async) => Task.CompletedTask;
+    public override Task Where_comparison_to_nullable_bool(bool async)
+        => base.Where_comparison_to_nullable_bool(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Where_true(bool async) => Task.CompletedTask;
+    public override Task Where_true(bool async) => base.Where_true(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Where_false(bool async) => Task.CompletedTask;
+    public override Task Where_false(bool async) => base.Where_false(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Where_bool_closure(bool async) => Task.CompletedTask;
+    public override Task Where_bool_closure(bool async) => base.Where_bool_closure(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Where_poco_closure(bool async) => Task.CompletedTask;
+    public override Task Where_poco_closure(bool async) => base.Where_poco_closure(async);
 
     public override Task Where_default(bool async)
         => NoSyncTest(
@@ -923,7 +944,8 @@ public abstract class NorthwindWhereQueryDynamoTest
             });
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Where_expression_invoke_2(bool async) => Task.CompletedTask;
+    public override Task Where_expression_invoke_2(bool async)
+        => base.Where_expression_invoke_2(async);
 
     public override Task Where_expression_invoke_3(bool async)
         => NoSyncTest(
@@ -997,44 +1019,47 @@ public abstract class NorthwindWhereQueryDynamoTest
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Where_ternary_boolean_condition_with_false_as_result_false(bool async)
-        => Task.CompletedTask;
+        => base.Where_ternary_boolean_condition_with_false_as_result_false(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Where_ternary_boolean_condition_negated(bool async) => Task.CompletedTask;
+    public override Task Where_ternary_boolean_condition_negated(bool async)
+        => base.Where_ternary_boolean_condition_negated(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Where_compare_constructed_equal(bool async) => Task.CompletedTask;
+    public override Task Where_compare_constructed_equal(bool async)
+        => base.Where_compare_constructed_equal(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Where_compare_constructed_multi_value_equal(bool async)
-        => Task.CompletedTask;
+        => base.Where_compare_constructed_multi_value_equal(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Where_compare_constructed_multi_value_not_equal(bool async)
-        => Task.CompletedTask;
+        => base.Where_compare_constructed_multi_value_not_equal(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Where_compare_tuple_constructed_equal(bool async) => Task.CompletedTask;
+    public override Task Where_compare_tuple_constructed_equal(bool async)
+        => base.Where_compare_tuple_constructed_equal(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Where_compare_tuple_constructed_multi_value_equal(bool async)
-        => Task.CompletedTask;
+        => base.Where_compare_tuple_constructed_multi_value_equal(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Where_compare_tuple_constructed_multi_value_not_equal(bool async)
-        => Task.CompletedTask;
+        => base.Where_compare_tuple_constructed_multi_value_not_equal(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Where_compare_tuple_create_constructed_equal(bool async)
-        => Task.CompletedTask;
+        => base.Where_compare_tuple_create_constructed_equal(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Where_compare_tuple_create_constructed_multi_value_equal(bool async)
-        => Task.CompletedTask;
+        => base.Where_compare_tuple_create_constructed_multi_value_equal(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Where_compare_tuple_create_constructed_multi_value_not_equal(bool async)
-        => Task.CompletedTask;
+        => base.Where_compare_tuple_create_constructed_multi_value_not_equal(async);
 
     public override Task Where_compare_null(bool async)
         => NoSyncTest(
@@ -1093,7 +1118,7 @@ public abstract class NorthwindWhereQueryDynamoTest
             });
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Where_Is_on_same_type(bool async) => Task.CompletedTask;
+    public override Task Where_Is_on_same_type(bool async) => base.Where_Is_on_same_type(async);
 
     public override Task Where_chain(bool async)
         => NoSyncTest(
@@ -1110,7 +1135,8 @@ public abstract class NorthwindWhereQueryDynamoTest
             });
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Where_navigation_contains(bool async) => Task.CompletedTask;
+    public override Task Where_navigation_contains(bool async)
+        => base.Where_navigation_contains(async);
 
     public override Task Where_array_index(bool async)
         => NoSyncTest(
@@ -1128,21 +1154,23 @@ public abstract class NorthwindWhereQueryDynamoTest
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Where_multiple_contains_in_subquery_with_or(bool async)
-        => Task.CompletedTask;
+        => base.Where_multiple_contains_in_subquery_with_or(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Where_multiple_contains_in_subquery_with_and(bool async)
-        => Task.CompletedTask;
+        => base.Where_multiple_contains_in_subquery_with_and(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Where_contains_on_navigation(bool async) => Task.CompletedTask;
+    public override Task Where_contains_on_navigation(bool async)
+        => base.Where_contains_on_navigation(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Where_subquery_FirstOrDefault_is_null(bool async) => Task.CompletedTask;
+    public override Task Where_subquery_FirstOrDefault_is_null(bool async)
+        => base.Where_subquery_FirstOrDefault_is_null(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Where_subquery_FirstOrDefault_compared_to_entity(bool async)
-        => Task.CompletedTask;
+        => base.Where_subquery_FirstOrDefault_compared_to_entity(async);
 
     public override Task TypeBinary_short_circuit(bool async)
         => NoSyncTest(
@@ -1173,7 +1201,7 @@ public abstract class NorthwindWhereQueryDynamoTest
             });
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Where_is_conditional(bool async) => Task.CompletedTask;
+    public override Task Where_is_conditional(bool async) => base.Where_is_conditional(async);
 
     public override Task Enclosing_class_settable_member_generates_parameter(bool async)
         => NoSyncTest(
@@ -1239,11 +1267,11 @@ public abstract class NorthwindWhereQueryDynamoTest
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Filter_non_nullable_value_after_FirstOrDefault_on_empty_collection(
         bool async)
-        => Task.CompletedTask;
+        => base.Filter_non_nullable_value_after_FirstOrDefault_on_empty_collection(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Using_same_parameter_twice_in_query_generates_one_sql_parameter(bool async)
-        => Task.CompletedTask;
+        => base.Using_same_parameter_twice_in_query_generates_one_sql_parameter(async);
 
     public override Task Two_parameters_with_same_name_get_uniquified(bool async)
         => NoSyncTest(
@@ -1274,63 +1302,72 @@ public abstract class NorthwindWhereQueryDynamoTest
             });
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Where_Queryable_ToList_Count(bool async) => Task.CompletedTask;
+    public override Task Where_Queryable_ToList_Count(bool async)
+        => base.Where_Queryable_ToList_Count(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Where_Queryable_ToList_Contains(bool async) => Task.CompletedTask;
+    public override Task Where_Queryable_ToList_Contains(bool async)
+        => base.Where_Queryable_ToList_Contains(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Where_Queryable_ToArray_Count(bool async) => Task.CompletedTask;
+    public override Task Where_Queryable_ToArray_Count(bool async)
+        => base.Where_Queryable_ToArray_Count(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Where_Queryable_ToArray_Contains(bool async) => Task.CompletedTask;
+    public override Task Where_Queryable_ToArray_Contains(bool async)
+        => base.Where_Queryable_ToArray_Contains(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Where_Queryable_AsEnumerable_Count(bool async) => Task.CompletedTask;
+    public override Task Where_Queryable_AsEnumerable_Count(bool async)
+        => base.Where_Queryable_AsEnumerable_Count(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Where_Queryable_AsEnumerable_Contains(bool async) => Task.CompletedTask;
+    public override Task Where_Queryable_AsEnumerable_Contains(bool async)
+        => base.Where_Queryable_AsEnumerable_Contains(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Where_Queryable_AsEnumerable_Contains_negated(bool async)
-        => Task.CompletedTask;
+        => base.Where_Queryable_AsEnumerable_Contains_negated(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Where_Queryable_ToList_Count_member(bool async) => Task.CompletedTask;
+    public override Task Where_Queryable_ToList_Count_member(bool async)
+        => base.Where_Queryable_ToList_Count_member(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Where_Queryable_ToArray_Length_member(bool async) => Task.CompletedTask;
+    public override Task Where_Queryable_ToArray_Length_member(bool async)
+        => base.Where_Queryable_ToArray_Length_member(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Where_collection_navigation_ToList_Count(bool async) => Task.CompletedTask;
+    public override Task Where_collection_navigation_ToList_Count(bool async)
+        => base.Where_collection_navigation_ToList_Count(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Where_collection_navigation_ToList_Contains(bool async)
-        => Task.CompletedTask;
+        => base.Where_collection_navigation_ToList_Contains(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Where_collection_navigation_ToArray_Count(bool async)
-        => Task.CompletedTask;
+        => base.Where_collection_navigation_ToArray_Count(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Where_collection_navigation_ToArray_Contains(bool async)
-        => Task.CompletedTask;
+        => base.Where_collection_navigation_ToArray_Contains(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Where_collection_navigation_AsEnumerable_Count(bool async)
-        => Task.CompletedTask;
+        => base.Where_collection_navigation_AsEnumerable_Count(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Where_collection_navigation_AsEnumerable_Contains(bool async)
-        => Task.CompletedTask;
+        => base.Where_collection_navigation_AsEnumerable_Contains(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Where_collection_navigation_ToList_Count_member(bool async)
-        => Task.CompletedTask;
+        => base.Where_collection_navigation_ToList_Count_member(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Where_collection_navigation_ToArray_Length_member(bool async)
-        => Task.CompletedTask;
+        => base.Where_collection_navigation_ToArray_Length_member(async);
 
     public override Task Where_list_object_contains_over_value_type(bool async)
         => NoSyncTest(
@@ -1616,67 +1653,67 @@ public abstract class NorthwindWhereQueryDynamoTest
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task FirstOrDefault_over_scalar_projection_compared_to_null(bool async)
-        => Task.CompletedTask;
+        => base.FirstOrDefault_over_scalar_projection_compared_to_null(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task FirstOrDefault_over_scalar_projection_compared_to_not_null(bool async)
-        => Task.CompletedTask;
+        => base.FirstOrDefault_over_scalar_projection_compared_to_not_null(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task FirstOrDefault_over_custom_projection_compared_to_null(bool async)
-        => Task.CompletedTask;
+        => base.FirstOrDefault_over_custom_projection_compared_to_null(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task FirstOrDefault_over_custom_projection_compared_to_not_null(bool async)
-        => Task.CompletedTask;
+        => base.FirstOrDefault_over_custom_projection_compared_to_not_null(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task SingleOrDefault_over_custom_projection_compared_to_null(bool async)
-        => Task.CompletedTask;
+        => base.SingleOrDefault_over_custom_projection_compared_to_null(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task SingleOrDefault_over_custom_projection_compared_to_not_null(bool async)
-        => Task.CompletedTask;
+        => base.SingleOrDefault_over_custom_projection_compared_to_not_null(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task LastOrDefault_over_custom_projection_compared_to_null(bool async)
-        => Task.CompletedTask;
+        => base.LastOrDefault_over_custom_projection_compared_to_null(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task LastOrDefault_over_custom_projection_compared_to_not_null(bool async)
-        => Task.CompletedTask;
+        => base.LastOrDefault_over_custom_projection_compared_to_not_null(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task First_over_custom_projection_compared_to_null(bool async)
-        => Task.CompletedTask;
+        => base.First_over_custom_projection_compared_to_null(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task First_over_custom_projection_compared_to_not_null(bool async)
-        => Task.CompletedTask;
+        => base.First_over_custom_projection_compared_to_not_null(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task ElementAt_over_custom_projection_compared_to_not_null(bool async)
-        => Task.CompletedTask;
+        => base.ElementAt_over_custom_projection_compared_to_not_null(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task ElementAtOrDefault_over_custom_projection_compared_to_null(bool async)
-        => Task.CompletedTask;
+        => base.ElementAtOrDefault_over_custom_projection_compared_to_null(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Single_over_custom_projection_compared_to_null(bool async)
-        => Task.CompletedTask;
+        => base.Single_over_custom_projection_compared_to_null(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Single_over_custom_projection_compared_to_not_null(bool async)
-        => Task.CompletedTask;
+        => base.Single_over_custom_projection_compared_to_not_null(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Last_over_custom_projection_compared_to_null(bool async)
-        => Task.CompletedTask;
+        => base.Last_over_custom_projection_compared_to_null(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Last_over_custom_projection_compared_to_not_null(bool async)
-        => Task.CompletedTask;
+        => base.Last_over_custom_projection_compared_to_not_null(async);
 
     public override Task Where_Contains_and_comparison(bool async)
         => NoSyncTest(
@@ -1707,30 +1744,35 @@ public abstract class NorthwindWhereQueryDynamoTest
             });
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task GetType_on_non_hierarchy1(bool async) => Task.CompletedTask;
+    public override Task GetType_on_non_hierarchy1(bool async)
+        => base.GetType_on_non_hierarchy1(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task GetType_on_non_hierarchy2(bool async) => Task.CompletedTask;
+    public override Task GetType_on_non_hierarchy2(bool async)
+        => base.GetType_on_non_hierarchy2(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task GetType_on_non_hierarchy3(bool async) => Task.CompletedTask;
+    public override Task GetType_on_non_hierarchy3(bool async)
+        => base.GetType_on_non_hierarchy3(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task GetType_on_non_hierarchy4(bool async) => Task.CompletedTask;
+    public override Task GetType_on_non_hierarchy4(bool async)
+        => base.GetType_on_non_hierarchy4(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Case_block_simplification_works_correctly(bool async)
-        => Task.CompletedTask;
+        => base.Case_block_simplification_works_correctly(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task EF_Constant(bool async) => Task.CompletedTask;
+    public override Task EF_Constant(bool async) => base.EF_Constant(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task EF_Constant_with_subtree(bool async) => Task.CompletedTask;
+    public override Task EF_Constant_with_subtree(bool async)
+        => base.EF_Constant_with_subtree(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task EF_Constant_does_not_parameterized_as_part_of_bigger_subtree(bool async)
-        => Task.CompletedTask;
+        => base.EF_Constant_does_not_parameterized_as_part_of_bigger_subtree(async);
 
     public override Task EF_Constant_with_non_evaluatable_argument_throws(bool async)
         => NoSyncTest(
@@ -1772,7 +1814,7 @@ public abstract class NorthwindWhereQueryDynamoTest
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task EF_Parameter_does_not_parameterized_as_part_of_bigger_subtree(bool async)
-        => Task.CompletedTask;
+        => base.EF_Parameter_does_not_parameterized_as_part_of_bigger_subtree(async);
 
     public override Task EF_Parameter_with_non_evaluatable_argument_throws(bool async)
         => NoSyncTest(
@@ -1862,13 +1904,16 @@ public abstract class NorthwindWhereQueryDynamoTest
             });
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Take_and_Where_evaluation_order(bool async) => Task.CompletedTask;
+    public override Task Take_and_Where_evaluation_order(bool async)
+        => base.Take_and_Where_evaluation_order(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Skip_and_Where_evaluation_order(bool async) => Task.CompletedTask;
+    public override Task Skip_and_Where_evaluation_order(bool async)
+        => base.Skip_and_Where_evaluation_order(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Take_and_Distinct_evaluation_order(bool async) => Task.CompletedTask;
+    public override Task Take_and_Distinct_evaluation_order(bool async)
+        => base.Take_and_Distinct_evaluation_order(async);
 
 #if !NET10_0
     [ConditionalTheory(Skip = SkipReason.SubqueryContainsNotSupported)]

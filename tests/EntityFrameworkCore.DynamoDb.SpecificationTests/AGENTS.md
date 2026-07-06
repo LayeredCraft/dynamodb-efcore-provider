@@ -109,7 +109,9 @@ and the coverage docs tell the same story.
 Every specification test class must include `Check_all_tests_overridden` and call
 `DynamoTestHelpers.AssertAllTestMethodsOverridden(typeof(CurrentDynamoTestBase))`. Use the provider
 spec-test base type, not `GetType()`, because concrete nested xUnit classes inherit from the
-abstract provider base class.
+abstract provider base class. Exception: when an upstream base exposes non-virtual tests that must be
+shadowed with `new`, use local reflection that filters overridable inherited tests and document why
+beside the check.
 
 Explicitly override every inherited spec test method. Each override must run the base test, skip
 with a provider limitation reason, expect provider-specific failure, or assert provider-specific

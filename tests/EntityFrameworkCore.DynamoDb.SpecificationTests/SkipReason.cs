@@ -37,6 +37,9 @@ public static class SkipReason
     public const string ByteArrayContainsElementNotSupported =
         "DynamoDB PartiQL contains() supports set/list membership, but byte[] maps to a single binary attribute rather than a byte collection.";
 
+    public const string TemporalFunctionNotSupported =
+        "DynamoDB PartiQL has no corresponding temporal function for this operation.";
+
     public const string ComplexTypeSubqueriesNotSupported =
         "DynamoDB provider does not support complex type values in subqueries or Contains predicates.";
 
@@ -54,6 +57,12 @@ public static class SkipReason
 
     public const string OrderedResultSetNotSupported =
         "DynamoDB does not support guaranteed ordered result sets for this query shape.";
+
+    public const string SyncQueriesNotSupported =
+        "DynamoDB provider supports async query execution only.";
+
+    public const string SyncSaveChangesNotSupported =
+        "DynamoDB provider supports async SaveChanges only.";
 
     public const string NavigationPropertiesNotSupported =
         "DynamoDB does not support navigation properties.";

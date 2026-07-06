@@ -209,13 +209,11 @@ public abstract class CustomConvertersDynamoTest(
                 new Person { Id = 1, Name = "Lewis" },
                 new Person
                 {
-                    Id = 2, Name = "Seb", SSN = new SocialSecurityNumber { Number = 111111111 },
+                    Id = 2, Name = "Seb", SSN = new SocialSecurityNumber { Number = 111111111 }
                 },
                 new Person
                 {
-                    Id = 3,
-                    Name = "Kimi",
-                    SSN = new SocialSecurityNumber { Number = 222222222 },
+                    Id = 3, Name = "Kimi", SSN = new SocialSecurityNumber { Number = 222222222 }
                 },
                 new Person { Id = 4, Name = "Valtteri" });
 
@@ -224,6 +222,8 @@ public abstract class CustomConvertersDynamoTest(
 
         await using (var context = CreateContext())
         {
+            // DynamoDB scans have no stable server ordering; order client-side for deterministic
+            // assertions while preserving converter persistence coverage.
             var drivers = (await context.Set<Person>().ToListAsync()).OrderBy(p => p.Name).ToList();
 
             Assert.Equal(4, drivers.Count);
@@ -247,7 +247,7 @@ public abstract class CustomConvertersDynamoTest(
                 {
                     Id = 5,
                     Name = "Charles",
-                    SSN = new SocialSecurityNumber { Number = 222222222 },
+                    SSN = new SocialSecurityNumber { Number = 222222222 }
                 });
 
             await context.SaveChangesAsync();
@@ -255,6 +255,8 @@ public abstract class CustomConvertersDynamoTest(
 
         await using (var context = CreateContext())
         {
+            // DynamoDB scans have no stable server ordering; order client-side for deterministic
+            // assertions while preserving converter persistence coverage.
             var drivers = (await context.Set<Person>().ToListAsync()).OrderBy(p => p.Name).ToList();
 
             Assert.Equal(4, drivers.Count);
@@ -319,6 +321,8 @@ public abstract class CustomConvertersDynamoTest(
 
         await using (var context = CreateContext())
         {
+            // Upstream uses SingleAsync(predicate); DynamoDB permits Single only after async
+            // enumeration here because this is not a partition-key constrained query shape.
             var load = await context
                 .Set<Load>()
                 .Where(e => e.LoadId == 1 && e.Fuel.Equals(new Fuel(1.1)))
@@ -330,15 +334,19 @@ public abstract class CustomConvertersDynamoTest(
         }
     }
 
-    public override async Task Can_insert_and_read_back_with_case_insensitive_string_key()
+    // Upstream test validates case-insensitive FK relationship fixup and Include. DynamoDB has no
+    // FK/navigation support, so scalar key converter coverage lives in provider-specific test
+    // below.
+    [ConditionalFact(Skip = SkipReason.ForeignKeysNotSupported)]
+    public override Task Can_insert_and_read_back_with_case_insensitive_string_key()
+        => base.Can_insert_and_read_back_with_case_insensitive_string_key();
+
+    [ConditionalFact]
+    public async Task Can_insert_and_read_back_with_case_insensitive_string_key_scalar_dynamo()
     {
         await using (var context = CreateContext())
         {
-            var principal =
-                context
-                    .Set<StringKeyDataType>()
-                    .Add(new StringKeyDataType { Id = "Gumball!!" })
-                    .Entity;
+            context.Set<StringKeyDataType>().Add(new StringKeyDataType { Id = "Gumball!!" });
 
             Assert.Equal(1, await context.SaveChangesAsync());
         }
@@ -363,7 +371,7 @@ public abstract class CustomConvertersDynamoTest(
                 .Add(
                     new StringListDataType
                     {
-                        Id = 1, Strings = new List<string> { "Gum", "Taffy" },
+                        Id = 1, Strings = new List<string> { "Gum", "Taffy" }
                     });
 
             Assert.Equal(1, await context.SaveChangesAsync());
@@ -371,6 +379,8 @@ public abstract class CustomConvertersDynamoTest(
 
         await using (var context = CreateContext())
         {
+            // Avoid server Single on unconstrained scan; this test only needs collection converter
+            // materialization coverage.
             var entity = await context.Set<StringListDataType>().AsAsyncEnumerable().SingleAsync();
 
             Assert.Equal(["Gum", "Taffy"], entity.Strings);
@@ -432,13 +442,11 @@ public abstract class CustomConvertersDynamoTest(
     public override Task Field_on_derived_type_retrieved_via_cast_applies_value_converter()
         => base.Field_on_derived_type_retrieved_via_cast_applies_value_converter();
 
-    // DynamoDB PartiQL does not support joins.
-    [ConditionalFact(Skip = SkipReason.QueryShapeNotSupported)]
+    [ConditionalFact(Skip = SkipReason.JoinsNotSupported)]
     public override Task Value_conversion_is_appropriately_used_for_join_condition()
         => base.Value_conversion_is_appropriately_used_for_join_condition();
 
-    // DynamoDB PartiQL does not support joins.
-    [ConditionalFact(Skip = SkipReason.QueryShapeNotSupported)]
+    [ConditionalFact(Skip = SkipReason.JoinsNotSupported)]
     public override Task Value_conversion_is_appropriately_used_for_left_join_condition()
         => base.Value_conversion_is_appropriately_used_for_left_join_condition();
 
@@ -535,7 +543,7 @@ public abstract class CustomConvertersDynamoTest(
                                 d
                                     .Layouts
                                     .Select(l => new { H = l.Height, W = l.Width })
-                                    .ToList(),
+                                    .ToList()
                         })
                         .ToListAsync()
                         .GetAwaiter()
@@ -600,13 +608,13 @@ public abstract class CustomConvertersDynamoTest(
                                         {
                                             Id = 1,
                                             AnimalId = 1,
-                                            Method = IdentificationMethod.EarTag,
-                                        },
+                                            Method = IdentificationMethod.EarTag
+                                        }
                                     ],
                                     Details = new AnimalDetails
                                     {
-                                        Id = 1, AnimalId = 1, BoolField = true,
-                                    },
+                                        Id = 1, AnimalId = 1, BoolField = true
+                                    }
                                 });
 
                         hasChanges = true;
@@ -627,7 +635,7 @@ public abstract class CustomConvertersDynamoTest(
                                     Url = "http://rssblog.com",
                                     RssUrl = "http://rssblog.com/rss",
                                     IsVisible = false,
-                                    ["IndexerVisible"] = true,
+                                    ["IndexerVisible"] = true
                                 });
 
                         hasChanges = true;

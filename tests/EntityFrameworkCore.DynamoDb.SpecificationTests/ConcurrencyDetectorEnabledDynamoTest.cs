@@ -15,45 +15,93 @@ public sealed class ConcurrencyDetectorEnabledDynamoTest(
         => DynamoTestHelpers.AssertAllTestMethodsOverridden(
             typeof(ConcurrencyDetectorEnabledDynamoTest));
 
-    [ConditionalTheory(Skip = "DynamoDB does not support Any queries.")]
-    public override Task Any(bool async) => Task.CompletedTask;
+    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    public override Task Any(bool async) => base.Any(async);
 
-    [ConditionalTheory(Skip = "DynamoDB does not support Count queries.")]
-    public override Task Count(bool async) => Task.CompletedTask;
+    [ConditionalTheory(Skip = SkipReason.CountAggregatesNotSupported)]
+    public override Task Count(bool async) => base.Count(async);
 
-    public override Task Find(bool async) => async ? base.Find(async) : Task.CompletedTask;
+    public override Task Find(bool async)
+    {
+        if (!async)
+        {
+            AssertSyncQueryUnsupported(context => context.Products.Find(1));
+            return Task.CompletedTask;
+        }
+
+        return base.Find(async);
+    }
 
     public override Task First(bool async)
     {
         if (!async)
+        {
+            AssertSyncQueryUnsupported(context => context.Products.AsUnsafeFilteredQuery().First());
             return Task.CompletedTask;
+        }
 
-        return ConcurrencyDetectorTest(async c
-            => await c.Products.AsUnsafeFilteredQuery().FirstAsync());
+        return ConcurrencyDetectorTest(async context
+            => await context.Products.AsUnsafeFilteredQuery().FirstAsync());
     }
 
-    [ConditionalTheory(Skip = "DynamoDB does not support Last queries.")]
-    public override Task Last(bool async) => Task.CompletedTask;
+    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    public override Task Last(bool async) => base.Last(async);
 
     public override async Task SaveChanges(bool async)
     {
         if (!async)
-            return;
-
-        await ConcurrencyDetectorTest(async c =>
         {
-            c.Products.Add(new Product { Id = 2, Name = "Unicorn Replacement Horn Pack" });
-            return await c.SaveChangesAsync();
+            AssertSyncSaveChangesUnsupported(2, "Unicorn Replacement Horn Pack");
+            return;
+        }
+
+        await ConcurrencyDetectorTest(async context =>
+        {
+            context.Products.Add(new Product { Id = 2, Name = "Unicorn Replacement Horn Pack" });
+            return await context.SaveChangesAsync();
         });
 
-        await using var ctx = CreateContext();
-        var newProduct = await ctx.Products.FirstOrDefaultAsync(p => p.Id == 2);
+        await using var context = CreateContext();
+        var newProduct = await context.Products.FirstOrDefaultAsync(p => p.Id == 2);
         Assert.Null(newProduct);
     }
 
-    public override Task Single(bool async) => async ? base.Single(async) : Task.CompletedTask;
+    public override Task Single(bool async)
+    {
+        if (!async)
+        {
+            AssertSyncQueryUnsupported(context => context.Products.Single(p => p.Id == 1));
+            return Task.CompletedTask;
+        }
 
-    public override Task ToList(bool async) => async ? base.ToList(async) : Task.CompletedTask;
+        return base.Single(async);
+    }
+
+    public override Task ToList(bool async)
+    {
+        if (!async)
+        {
+            AssertSyncQueryUnsupported(context => context.Products.AllowScan().ToList());
+            return Task.CompletedTask;
+        }
+
+        return base.ToList(async);
+    }
+
+    private void AssertSyncQueryUnsupported(Action<ConcurrencyDetectorDbContext> testCode)
+    {
+        using var context = CreateContext();
+        DynamoTestHelpers.Instance.NoSyncTest(() => testCode(context));
+    }
+
+    private void AssertSyncSaveChangesUnsupported(int id, string name)
+    {
+        using var context = CreateContext();
+        context.Products.Add(new Product { Id = id, Name = name });
+
+        var exception = Assert.Throws<NotSupportedException>(() => context.SaveChanges());
+        Assert.Contains("synchronous SaveChanges", exception.Message);
+    }
 
     /// <summary>Fixture for DynamoDB concurrency detector tests.</summary>
     public class ConcurrencyDetectorEnabledDynamoFixture : ConcurrencyDetectorFixtureBase
