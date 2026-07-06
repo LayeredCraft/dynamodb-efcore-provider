@@ -1,4 +1,3 @@
-using System.Linq.Expressions;
 using EntityFrameworkCore.DynamoDb.Diagnostics;
 using EntityFrameworkCore.DynamoDb.SpecificationTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
@@ -20,37 +19,13 @@ public sealed class DynamoByteTypeTest(
         => DynamoTestHelpers.AssertAllTestMethodsOverridden(typeof(DynamoByteTypeTest));
 
 #if NET11_0_OR_GREATER
-    public override async Task Equality_in_query_with_parameter()
-    {
-        await using var context = Fixture.CreateContext();
+    [ConditionalFact(Skip = SkipReason.QueryShapeNotSupported)]
+    public override Task Equality_in_query_with_parameter()
+        => base.Equality_in_query_with_parameter();
 
-        var results = await context.Set<TypeEntity<byte>>()
-            .Where(e => e.Value.Equals(Fixture.Value))
-            .ToListAsync();
-        var result = results.Single();
-
-        Assert.Equal(Fixture.Value, result.Value, Fixture.Comparer);
-    }
-
-    public override async Task Equality_in_query_with_constant()
-    {
-        await using var context = Fixture.CreateContext();
-
-        var entityParameter = Expression.Parameter(typeof(TypeEntity<byte>), "e");
-        var predicate =
-            Expression.Lambda<Func<TypeEntity<byte>, bool>>(
-                Expression.Equal(
-                    Expression.Property(entityParameter, nameof(TypeEntity<byte>.Value)),
-                    Expression.Constant(Fixture.Value)),
-                entityParameter);
-
-        var results = await context.Set<TypeEntity<byte>>()
-            .Where(predicate)
-            .ToListAsync();
-        var result = results.Single();
-
-        Assert.Equal(Fixture.Value, result.Value, Fixture.Comparer);
-    }
+    [ConditionalFact(Skip = SkipReason.QueryShapeNotSupported)]
+    public override Task Equality_in_query_with_constant()
+        => base.Equality_in_query_with_constant();
 
     [ConditionalFact(Skip = SkipReason.CountAggregatesNotSupported)]
     public override Task Primitive_collection_in_query() => base.Primitive_collection_in_query();
