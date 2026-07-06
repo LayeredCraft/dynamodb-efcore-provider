@@ -30,7 +30,7 @@ public sealed class ComplianceDynamoTest : ComplianceTestBase
     }
 
     [ConditionalFact]
-    public void Spec_tests_do_not_add_unapproved_custom_no_base_overrides_in_cleaned_files()
+    public void Spec_tests_do_not_add_unapproved_custom_no_base_overrides_for_thinned_methods()
     {
         var sourceRoot = LocateSourceRoot();
         var cleanupFiles = ThinOverrideCleanupFiles().ToList();
@@ -96,6 +96,10 @@ public sealed class ComplianceDynamoTest : ComplianceTestBase
                               {
                                   public override Task Calls_base()
                                       => base.Calls_base();
+
+                                  public override Task Calls_line_wrapped_base()
+                                      => base
+                                          .Calls_line_wrapped_base();
 
                                   public override Task Custom_body()
                                   {
@@ -270,7 +274,7 @@ public sealed class ComplianceDynamoTest : ComplianceTestBase
                 ? match.Groups["expr"].Value
                 : match.Groups["body"].Value;
 
-            if (body.Contains("base.", StringComparison.Ordinal))
+            if (Regex.IsMatch(body, @"\bbase\s*\.", RegexOptions.CultureInvariant))
                 continue;
 
             var relativePath = Path.GetRelativePath(sourceRoot, path);
