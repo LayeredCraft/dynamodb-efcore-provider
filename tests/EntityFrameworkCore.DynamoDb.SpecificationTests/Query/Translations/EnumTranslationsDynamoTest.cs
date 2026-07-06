@@ -8,9 +8,6 @@ namespace EntityFrameworkCore.DynamoDb.SpecificationTests.Query.Translations;
 public abstract class EnumTranslationsDynamoTest
     : EnumTranslationsTestBase<BasicTypesQueryDynamoFixture>
 {
-    private const string BitwiseSkipReason =
-        "DynamoDB PartiQL does not support bitwise enum operators or Enum.HasFlag translation.";
-
     protected EnumTranslationsDynamoTest(BasicTypesQueryDynamoFixture fixture) : base(fixture)
         => fixture.ClearSql();
 
@@ -115,43 +112,43 @@ public abstract class EnumTranslationsDynamoTest
             """);
     }
 
-    [ConditionalFact(Skip = BitwiseSkipReason)]
+    [ConditionalFact(Skip = SkipReason.BitwiseEnumOperatorsNotSupported)]
     public override Task Bitwise_and_enum_constant() => base.Bitwise_and_enum_constant();
 
-    [ConditionalFact(Skip = BitwiseSkipReason)]
+    [ConditionalFact(Skip = SkipReason.BitwiseEnumOperatorsNotSupported)]
     public override Task Bitwise_and_integral_constant() => base.Bitwise_and_integral_constant();
 
-    [ConditionalFact(Skip = BitwiseSkipReason)]
+    [ConditionalFact(Skip = SkipReason.BitwiseEnumOperatorsNotSupported)]
     public override Task Bitwise_and_nullable_enum_with_constant()
         => base.Bitwise_and_nullable_enum_with_constant();
 
-    [ConditionalFact(Skip = BitwiseSkipReason)]
+    [ConditionalFact(Skip = SkipReason.BitwiseEnumOperatorsNotSupported)]
     public override Task Where_bitwise_and_nullable_enum_with_null_constant()
         => base.Where_bitwise_and_nullable_enum_with_null_constant();
 
-    [ConditionalFact(Skip = BitwiseSkipReason)]
+    [ConditionalFact(Skip = SkipReason.BitwiseEnumOperatorsNotSupported)]
     public override Task Where_bitwise_and_nullable_enum_with_non_nullable_parameter()
         => base.Where_bitwise_and_nullable_enum_with_non_nullable_parameter();
 
-    [ConditionalFact(Skip = BitwiseSkipReason)]
+    [ConditionalFact(Skip = SkipReason.BitwiseEnumOperatorsNotSupported)]
     public override Task Where_bitwise_and_nullable_enum_with_nullable_parameter()
         => base.Where_bitwise_and_nullable_enum_with_nullable_parameter();
 
-    [ConditionalFact(Skip = BitwiseSkipReason)]
+    [ConditionalFact(Skip = SkipReason.BitwiseEnumOperatorsNotSupported)]
     public override Task Bitwise_or() => base.Bitwise_or();
 
-    [ConditionalFact(Skip = BitwiseSkipReason)]
+    [ConditionalFact(Skip = SkipReason.BitwiseEnumOperatorsNotSupported)]
     public override Task Bitwise_projects_values_in_select()
         => base.Bitwise_projects_values_in_select();
 
-    [ConditionalFact(Skip = BitwiseSkipReason)]
+    [ConditionalFact(Skip = SkipReason.BitwiseEnumOperatorsNotSupported)]
     public override Task HasFlag() => base.HasFlag();
 
-    [ConditionalFact(Skip = BitwiseSkipReason)]
+    [ConditionalFact(Skip = SkipReason.BitwiseEnumOperatorsNotSupported)]
     public override Task HasFlag_with_non_nullable_parameter()
         => base.HasFlag_with_non_nullable_parameter();
 
-    [ConditionalFact(Skip = BitwiseSkipReason)]
+    [ConditionalFact(Skip = SkipReason.BitwiseEnumOperatorsNotSupported)]
     public override Task HasFlag_with_nullable_parameter()
         => base.HasFlag_with_nullable_parameter();
 

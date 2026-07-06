@@ -49,8 +49,7 @@ public abstract class GuidTranslationsDynamoTest
             """);
     }
 
-    [ConditionalFact(
-        Skip = "DynamoDB provider does not translate Guid.NewGuid() in server-side predicates.")]
+    [ConditionalFact(Skip = SkipReason.GuidNewGuidPredicateNotSupported)]
     public override async Task NewGuid() => await base.NewGuid();
 
     private void AssertSql(params string[] expected) => Fixture.AssertSql(expected);

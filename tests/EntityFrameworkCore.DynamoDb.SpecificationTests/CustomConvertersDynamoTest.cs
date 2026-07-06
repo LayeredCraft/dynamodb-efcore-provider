@@ -431,7 +431,7 @@ public abstract class CustomConvertersDynamoTest(
         }
     }
 
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported + " #241")]
+    [ConditionalTheory(Skip = SkipReason.CustomTypeEqualityIssue241)]
     public override Task Can_query_custom_type_not_mapped_by_default_equality(bool async)
         => async
             ? base.Can_query_custom_type_not_mapped_by_default_equality(async)
@@ -464,11 +464,11 @@ public abstract class CustomConvertersDynamoTest(
     public override Task Select_bool_with_value_conversion_is_used()
         => base.Select_bool_with_value_conversion_is_used();
 
-    [ConditionalFact(Skip = SkipReason.QueryShapeNotSupported + " #243")]
+    [ConditionalFact(Skip = SkipReason.ConditionalBoolValueConversionIssue243)]
     public override Task Where_conditional_bool_with_value_conversion_is_used()
         => base.Where_conditional_bool_with_value_conversion_is_used();
 
-    [ConditionalFact(Skip = SkipReason.QueryShapeNotSupported + " #243")]
+    [ConditionalFact(Skip = SkipReason.ConditionalBoolValueConversionIssue243)]
     public override Task Select_conditional_bool_with_value_conversion_is_used()
         => base.Select_conditional_bool_with_value_conversion_is_used();
 
