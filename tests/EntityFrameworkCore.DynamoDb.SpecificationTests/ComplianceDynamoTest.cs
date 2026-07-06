@@ -22,8 +22,6 @@ public sealed class ComplianceDynamoTest : ComplianceTestBase
         var offenders = Directory
             .EnumerateFiles(sourceRoot, "*.cs", SearchOption.AllDirectories)
             .Where(path => !path.EndsWith("ComplianceDynamoTest.cs", StringComparison.Ordinal))
-            .Where(path => !AllowedLegacyNoOpOverrideFiles.Contains(
-                Path.GetRelativePath(sourceRoot, path).Replace(Path.DirectorySeparatorChar, '/')))
             .SelectMany(path => FindSkippedNoOpOverrides(sourceRoot, path, File.ReadAllText(path)))
             .Order(StringComparer.Ordinal)
             .ToList();
@@ -59,19 +57,6 @@ public sealed class ComplianceDynamoTest : ComplianceTestBase
     }
 
     protected override Assembly TargetAssembly { get; } = typeof(ComplianceDynamoTest).Assembly;
-
-    private static readonly ISet<string> AllowedLegacyNoOpOverrideFiles =
-        new HashSet<string>(StringComparer.Ordinal)
-        {
-            "FindDynamoTest.cs",
-            "LoggingDynamoTest.cs",
-            "MaterializationInterceptionDynamoTest.cs",
-            "OverzealousInitializationDynamoTest.cs",
-            "Query/NorthwindAsNoTrackingQueryDynamoTest.cs",
-            "Query/NorthwindSelectQueryDynamoTest.cs",
-            "QueryExpressionInterceptionDynamoTest.cs",
-            "SaveChangesInterceptionDynamoTest.cs"
-        };
 
     private static string LocateSourceRoot()
     {

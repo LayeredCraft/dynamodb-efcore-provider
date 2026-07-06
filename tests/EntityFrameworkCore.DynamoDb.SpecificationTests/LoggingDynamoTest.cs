@@ -14,7 +14,8 @@ namespace EntityFrameworkCore.DynamoDb.SpecificationTests;
 public sealed class LoggingDynamoTest : LoggingTestBase
 {
     [ConditionalFact(Skip = SkipReason.PartitionKeyRequiredOnAllEntities)]
-    public override void InvalidIncludePathError_throws_by_default() { }
+    public override void InvalidIncludePathError_throws_by_default()
+        => base.InvalidIncludePathError_throws_by_default();
 
     protected override TestLogger CreateTestLogger() => new TestLogger<TestLoggingDefinitions>();
 

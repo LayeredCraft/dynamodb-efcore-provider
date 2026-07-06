@@ -21,7 +21,8 @@ public sealed class OverzealousInitializationDynamoTest
             typeof(OverzealousInitializationDynamoTest));
 
     [ConditionalFact(Skip = SkipReason.NavigationPropertiesNotSupported)]
-    public override void Fixup_ignores_eagerly_initialized_reference_navs() { }
+    public override void Fixup_ignores_eagerly_initialized_reference_navs()
+        => base.Fixup_ignores_eagerly_initialized_reference_navs();
 
     public class OverzealousInitializationDynamoFixture : OverzealousInitializationFixtureBase
     {

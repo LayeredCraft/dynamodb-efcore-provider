@@ -33,16 +33,18 @@ public abstract class NorthwindAsNoTrackingQueryDynamoTest
             });
 
     [ConditionalTheory(Skip = SkipReason.JoinsNotSupported)]
-    public override Task Applied_to_body_clause(bool async) => Task.CompletedTask;
+    public override Task Applied_to_body_clause(bool async) => base.Applied_to_body_clause(async);
 
     [ConditionalTheory(Skip = SkipReason.JoinsNotSupported)]
-    public override Task Applied_to_multiple_body_clauses(bool async) => Task.CompletedTask;
+    public override Task Applied_to_multiple_body_clauses(bool async)
+        => base.Applied_to_multiple_body_clauses(async);
 
     [ConditionalTheory(Skip = SkipReason.JoinsNotSupported)]
-    public override Task Applied_to_body_clause_with_projection(bool async) => Task.CompletedTask;
+    public override Task Applied_to_body_clause_with_projection(bool async)
+        => base.Applied_to_body_clause_with_projection(async);
 
     [ConditionalTheory(Skip = SkipReason.JoinsNotSupported)]
-    public override Task Applied_to_projection(bool async) => Task.CompletedTask;
+    public override Task Applied_to_projection(bool async) => base.Applied_to_projection(async);
 
     public override Task Can_get_current_values(bool async)
         => NoSyncTest(
@@ -78,10 +80,12 @@ public abstract class NorthwindAsNoTrackingQueryDynamoTest
             false);
 
     [ConditionalTheory(Skip = SkipReason.NavigationPropertiesNotSupported)]
-    public override Task Include_reference_and_collection(bool async) => Task.CompletedTask;
+    public override Task Include_reference_and_collection(bool async)
+        => base.Include_reference_and_collection(async);
 
     [ConditionalTheory(Skip = SkipReason.NavigationPropertiesNotSupported)]
-    public override Task Applied_after_navigation_expansion(bool async) => Task.CompletedTask;
+    public override Task Applied_after_navigation_expansion(bool async)
+        => base.Applied_after_navigation_expansion(async);
 
     public override Task Where_simple_shadow(bool async)
         => NoSyncTest(
@@ -111,7 +115,7 @@ public abstract class NorthwindAsNoTrackingQueryDynamoTest
             });
 
     [ConditionalTheory(Skip = SkipReason.JoinsNotSupported)]
-    public override Task SelectMany_simple(bool async) => Task.CompletedTask;
+    public override Task SelectMany_simple(bool async) => base.SelectMany_simple(async);
 
     private void AssertSql(params string[] expected) => Fixture.AssertSql(expected);
 
