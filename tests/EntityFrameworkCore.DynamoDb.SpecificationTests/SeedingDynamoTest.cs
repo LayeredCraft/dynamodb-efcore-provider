@@ -32,7 +32,8 @@ public abstract class SeedingDynamoTest : SeedingTestBase, IAsyncLifetime
 
         Assert.Empty(context.ChangeTracker.Entries());
 
-        var seeds = (await context.Set<Seed>().AllowScan().ToListAsync()).OrderBy(e => e.Id).ToList();
+        var seeds =
+            (await context.Set<Seed>().AllowScan().ToListAsync()).OrderBy(e => e.Id).ToList();
         Assert.Equal(2, seeds.Count);
         Assert.Equal(321, seeds[0].Id);
         Assert.Equal("Apple", seeds[0].Species);
