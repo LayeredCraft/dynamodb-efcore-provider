@@ -23,6 +23,9 @@ Reference implementations used as guides:
 - **Cosmos DB** — `EFCore.Cosmos.FunctionalTests` (closest architectural analogue)
 - **MongoDB** — `MongoDB.EntityFrameworkCore.SpecificationTests` (broadest non-relational coverage)
 
+See `docs/spec-test-custom-overrides-audit.md` for the method-by-method coverage matrix used before
+refactoring DynamoDB-specific custom spec override bodies.
+
 ______________________________________________________________________
 
 ## Non-Query Tests
