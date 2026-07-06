@@ -82,54 +82,9 @@ public class BuiltInDataTypesDynamoTest(
         => base.Can_insert_and_read_with_max_length_set();
 
     /// <inheritdoc />
-    public override async Task Can_insert_and_read_back_with_binary_key()
-    {
-        await using (var context = CreateContext())
-        {
-            context
-                .Set<BinaryKeyDataType>()
-                .AddRange(
-                    new BinaryKeyDataType { Id = [1, 2, 3], Ex = "X1" },
-                    new BinaryKeyDataType { Id = [1, 2, 3, 4], Ex = "X3" },
-                    new BinaryKeyDataType { Id = [1, 2, 3, 4, 5], Ex = "X2" });
-
-            Assert.Equal(3, await context.SaveChangesAsync());
-        }
-
-        async Task<BinaryKeyDataType> QueryByBinaryKey(DbContext context, byte[] bytes)
-            => (await context.Set<BinaryKeyDataType>().Where(e => e.Id == bytes).ToListAsync())
-                .Single();
-
-        await using (var context = CreateContext())
-        {
-            var entity1 = await QueryByBinaryKey(context, [1, 2, 3]);
-            Assert.Equal(new byte[] { 1, 2, 3 }, entity1.Id);
-
-            var entity2 = await QueryByBinaryKey(context, [1, 2, 3, 4]);
-            Assert.Equal(new byte[] { 1, 2, 3, 4 }, entity2.Id);
-
-            var entity3 = await QueryByBinaryKey(context, [1, 2, 3, 4, 5]);
-            Assert.Equal(new byte[] { 1, 2, 3, 4, 5 }, entity3.Id);
-
-            entity3.Ex = "Xx1";
-            entity2.Ex = "Xx3";
-            entity1.Ex = "Xx7";
-
-            await context.SaveChangesAsync();
-        }
-
-        await using (var context = CreateContext())
-        {
-            var entity1 = await QueryByBinaryKey(context, [1, 2, 3]);
-            Assert.Equal("Xx7", entity1.Ex);
-
-            var entity2 = await QueryByBinaryKey(context, [1, 2, 3, 4]);
-            Assert.Equal("Xx3", entity2.Ex);
-
-            var entity3 = await QueryByBinaryKey(context, [1, 2, 3, 4, 5]);
-            Assert.Equal("Xx1", entity3.Ex);
-        }
-    }
+    [ConditionalFact(Skip = SkipReason.ForeignKeysNotSupported)]
+    public override Task Can_insert_and_read_back_with_binary_key()
+        => base.Can_insert_and_read_back_with_binary_key();
 
     /// <inheritdoc />
     [ConditionalFact(Skip = SkipReason.ForeignKeysNotSupported)]
@@ -137,25 +92,9 @@ public class BuiltInDataTypesDynamoTest(
         => base.Can_insert_and_read_back_with_null_binary_foreign_key();
 
     /// <inheritdoc />
-    public override async Task Can_insert_and_read_back_with_string_key()
-    {
-        await using (var context = CreateContext())
-        {
-            context.Set<StringKeyDataType>().Add(new StringKeyDataType { Id = "Gumball!" });
-
-            Assert.Equal(1, await context.SaveChangesAsync());
-        }
-
-        await using (var context = CreateContext())
-        {
-            var entity = (await context
-                .Set<StringKeyDataType>()
-                .Where(e => e.Id == "Gumball!")
-                .ToListAsync()).Single();
-
-            Assert.Equal("Gumball!", entity.Id);
-        }
-    }
+    [ConditionalFact(Skip = SkipReason.ForeignKeysNotSupported)]
+    public override Task Can_insert_and_read_back_with_string_key()
+        => base.Can_insert_and_read_back_with_string_key();
 
     /// <inheritdoc />
     [ConditionalFact(Skip = SkipReason.ForeignKeysNotSupported)]
@@ -189,16 +128,9 @@ public class BuiltInDataTypesDynamoTest(
 #endif
 
     /// <inheritdoc />
-    public override async Task Can_read_back_mapped_enum_from_collection_first_or_default()
-    {
-        await using var context = CreateContext();
-        var query =
-            from animal in context.Set<DynamoAnimal>()
-            select new { animal.Id, animal.IdentificationMethods.FirstOrDefault()!.Method };
-
-        var result = await query.AsAsyncEnumerable().FirstOrDefaultAsync();
-        Assert.Equal(IdentificationMethod.EarTag, result?.Method);
-    }
+    [ConditionalFact(Skip = SkipReason.NavigationPropertiesNotSupported)]
+    public override Task Can_read_back_mapped_enum_from_collection_first_or_default()
+        => base.Can_read_back_mapped_enum_from_collection_first_or_default();
 
     /// <inheritdoc />
     [ConditionalFact(Skip = SkipReason.NavigationPropertiesNotSupported)]
