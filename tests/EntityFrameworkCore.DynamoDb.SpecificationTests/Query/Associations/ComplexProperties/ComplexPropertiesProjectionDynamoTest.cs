@@ -48,17 +48,6 @@ public abstract class ComplexPropertiesProjectionDynamoTest
         QueryTrackingBehavior queryTrackingBehavior)
         => base.Select_nullable_value_type_property_on_null_associate(queryTrackingBehavior);
 
-    public override async Task Select_associate(QueryTrackingBehavior queryTrackingBehavior)
-    {
-        await base.Select_associate(queryTrackingBehavior);
-
-        AssertSql(
-            """
-            SELECT "requiredAssociate"
-            FROM "RootEntities"
-            """);
-    }
-
     public override Task Select_optional_associate(QueryTrackingBehavior queryTrackingBehavior)
         => base.Select_optional_associate(queryTrackingBehavior);
 
@@ -92,69 +81,22 @@ public abstract class ComplexPropertiesProjectionDynamoTest
         QueryTrackingBehavior queryTrackingBehavior)
         => base.Select_untranslatable_method_on_associate_scalar_property(queryTrackingBehavior);
 
-    public override async Task Select_associate_collection(
+    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    [MemberData(nameof(TrackingData))]
+    public override Task Select_associate_collection(QueryTrackingBehavior queryTrackingBehavior)
+        => base.Select_associate_collection(queryTrackingBehavior);
+
+    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    [MemberData(nameof(TrackingData))]
+    public override Task Select_nested_collection_on_required_associate(
         QueryTrackingBehavior queryTrackingBehavior)
-    {
-        // Base test orders by partition key without constraining it. DynamoDB cannot guarantee
-        // global ordering, so use an unordered scan while still exercising complex collection
-        // projection.
-        await AssertQuery(
-            ss => ss.Set<RootEntity>().Select(x => x.AssociateCollection),
-            elementSorter: e => e.Count == 0 ? 0 : e[0].Id,
-            elementAsserter: (e, a) => AssertCollection(e, a, elementSorter: r => r.Id),
-            queryTrackingBehavior: queryTrackingBehavior);
+        => base.Select_nested_collection_on_required_associate(queryTrackingBehavior);
 
-        AssertSql(
-            """
-            SELECT "associateCollection"
-            FROM "RootEntities"
-            """);
-    }
-
-    public override async Task Select_nested_collection_on_required_associate(
+    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    [MemberData(nameof(TrackingData))]
+    public override Task Select_nested_collection_on_optional_associate(
         QueryTrackingBehavior queryTrackingBehavior)
-    {
-        // Base test orders by partition key without constraining it. DynamoDB cannot guarantee
-        // global ordering, so use an unordered scan while still exercising nested collection
-        // projection.
-        await AssertQuery(
-            ss => ss.Set<RootEntity>().Select(x => x.RequiredAssociate.NestedCollection),
-            elementSorter: e => e.Count == 0 ? 0 : e[0].Id,
-            elementAsserter: (e, a) => AssertCollection(e, a, elementSorter: r => r.Id),
-            queryTrackingBehavior: queryTrackingBehavior);
-
-        AssertSql(
-            """
-            SELECT "requiredAssociate"
-            FROM "RootEntities"
-            """);
-    }
-
-    public override async Task Select_nested_collection_on_optional_associate(
-        QueryTrackingBehavior queryTrackingBehavior)
-    {
-        // Base test orders by partition key without constraining it. DynamoDB cannot guarantee
-        // global ordering, so use an unordered scan while still exercising nested collection
-        // projection.
-        await AssertQuery(
-            ss => ss
-                .Set<RootEntity>()
-                .Select(x => x.OptionalAssociate!.NestedCollection
-                    ?? new List<NestedAssociateType>()),
-            ss => ss
-                .Set<RootEntity>()
-                .Select(x => x.OptionalAssociate.Maybe(xx => xx!.NestedCollection)
-                    ?? new List<NestedAssociateType>()),
-            elementSorter: e => e.Count == 0 ? 0 : e[0].Id,
-            elementAsserter: (e, a) => AssertCollection(e, a, elementSorter: r => r.Id),
-            queryTrackingBehavior: queryTrackingBehavior);
-
-        AssertSql(
-            """
-            SELECT "optionalAssociate"
-            FROM "RootEntities"
-            """);
-    }
+        => base.Select_nested_collection_on_optional_associate(queryTrackingBehavior);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     [MemberData(nameof(TrackingData))]
@@ -200,65 +142,28 @@ public abstract class ComplexPropertiesProjectionDynamoTest
     public override Task Select_root_with_value_types(QueryTrackingBehavior queryTrackingBehavior)
         => base.Select_root_with_value_types(queryTrackingBehavior);
 
-    public override async Task Select_non_nullable_value_type(
+    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    [MemberData(nameof(TrackingData))]
+    public override Task Select_non_nullable_value_type(QueryTrackingBehavior queryTrackingBehavior)
+        => base.Select_non_nullable_value_type(queryTrackingBehavior);
+
+    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    [MemberData(nameof(TrackingData))]
+    public override Task Select_nullable_value_type(QueryTrackingBehavior queryTrackingBehavior)
+        => base.Select_nullable_value_type(queryTrackingBehavior);
+
+    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    [MemberData(nameof(TrackingData))]
+    public override Task Select_nullable_value_type_with_Value(
         QueryTrackingBehavior queryTrackingBehavior)
-    {
-        // Base test orders by partition key without constraining it. DynamoDB cannot guarantee
-        // global ordering, so use an unordered scan while still exercising value-type complex
-        // projection.
-        await AssertQuery(
-            ss => ss.Set<ValueRootEntity>().Select(x => x.RequiredAssociate),
-            queryTrackingBehavior: queryTrackingBehavior);
-
-        AssertSql(
-            """
-            SELECT "requiredAssociate"
-            FROM "ValueRootEntities"
-            """);
-    }
-
-    public override async Task Select_nullable_value_type(
-        QueryTrackingBehavior queryTrackingBehavior)
-    {
-        // Base test orders by partition key without constraining it. DynamoDB cannot guarantee
-        // global ordering, so use an unordered scan while still exercising nullable value-type
-        // complex projection.
-        await AssertQuery(
-            ss => ss.Set<ValueRootEntity>().Select(x => x.OptionalAssociate),
-            queryTrackingBehavior: queryTrackingBehavior);
-
-        AssertSql(
-            """
-            SELECT "optionalAssociate"
-            FROM "ValueRootEntities"
-            """);
-    }
-
-    public override async Task Select_nullable_value_type_with_Value(
-        QueryTrackingBehavior queryTrackingBehavior)
-    {
-        // Base test orders by partition key without constraining it. DynamoDB cannot guarantee
-        // global ordering, so use an unordered scan while still exercising nullable value-type
-        // complex projection through .Value.
-        await AssertQuery(
-            ss => ss.Set<ValueRootEntity>().Select(x => x.OptionalAssociate!.Value),
-            ss => ss
-                .Set<ValueRootEntity>()
-                .Select(x => x.OptionalAssociate == null ? default : x.OptionalAssociate!.Value),
-            queryTrackingBehavior: queryTrackingBehavior);
-
-        AssertSql(
-            """
-            SELECT "optionalAssociate"
-            FROM "ValueRootEntities"
-            """);
-    }
+        => base.Select_nullable_value_type_with_Value(queryTrackingBehavior);
 
 #if !NET10_0
     [MemberData(nameof(TrackingData))]
     public override Task Select_associate_and_target_to_index_based_binding_via_closure(
         QueryTrackingBehavior queryTrackingBehavior)
-        => base.Select_associate_and_target_to_index_based_binding_via_closure(queryTrackingBehavior);
+        => base.Select_associate_and_target_to_index_based_binding_via_closure(
+            queryTrackingBehavior);
 #endif
 
     private void AssertSql(params string[] expected) => Fixture.AssertSql(expected);
