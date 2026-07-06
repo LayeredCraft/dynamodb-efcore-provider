@@ -33,9 +33,13 @@ public sealed class ComplianceDynamoTest : ComplianceTestBase
     public void Spec_tests_do_not_add_unapproved_custom_no_base_overrides_in_cleaned_files()
     {
         var sourceRoot = LocateSourceRoot();
-        var offenders = ThinOverrideCleanupFiles()
+        var cleanupFiles = ThinOverrideCleanupFiles().ToList();
+        var missingFiles = MissingThinOverrideCleanupFiles(sourceRoot, cleanupFiles).ToList();
+
+        Assert.Empty(missingFiles);
+
+        var offenders = cleanupFiles
             .Select(path => Path.Combine(sourceRoot, path))
-            .Where(File.Exists)
             .SelectMany(path => FindCustomNoBaseOverrides(sourceRoot, path, File.ReadAllText(path)))
             .Where(offender => ThinOverrideCleanupMethodNames.Contains(MethodName(offender)))
             .Where(offender => !AllowedCustomNoBaseOverrides.Contains(offender))
@@ -43,6 +47,18 @@ public sealed class ComplianceDynamoTest : ComplianceTestBase
             .ToList();
 
         Assert.Empty(offenders);
+    }
+
+    [ConditionalFact]
+    public void Thin_override_cleanup_inventory_reports_missing_files()
+    {
+        var missingFiles = MissingThinOverrideCleanupFiles(
+                "/repo",
+                ["PresentDynamoTest.cs", "MissingDynamoTest.cs"],
+                fileExists: path => path.EndsWith("PresentDynamoTest.cs", StringComparison.Ordinal))
+            .ToList();
+
+        Assert.Equal(["MissingDynamoTest.cs"], missingFiles);
     }
 
     [ConditionalFact]
@@ -200,7 +216,8 @@ public sealed class ComplianceDynamoTest : ComplianceTestBase
         yield return "Query/NorthwindChangeTrackingQueryDynamoTest.cs";
         yield return "Query/NorthwindQueryFiltersQueryDynamoTest.cs";
         yield return "Query/NorthwindQueryTaggingQueryDynamoTest.cs";
-        yield return "Query/ComplexPropertiesProjectionDynamoTest.cs";
+        yield return
+            "Query/Associations/ComplexProperties/ComplexPropertiesProjectionDynamoTest.cs";
         yield return "Query/FunkyDataQueryDynamoTest.cs";
         yield return "Query/PrimitiveCollectionsQueryDynamoTest.cs";
 
@@ -208,6 +225,18 @@ public sealed class ComplianceDynamoTest : ComplianceTestBase
             Path.Combine(LocateSourceRoot(), "Types"),
             "Dynamo*TypeTest.cs"))
             yield return Path.GetRelativePath(LocateSourceRoot(), path);
+    }
+
+    private static IEnumerable<string> MissingThinOverrideCleanupFiles(
+        string sourceRoot,
+        IEnumerable<string> relativePaths,
+        Func<string, bool>? fileExists = null)
+    {
+        fileExists ??= File.Exists;
+
+        return relativePaths
+            .Where(path => !fileExists(Path.Combine(sourceRoot, path)))
+            .Order(StringComparer.Ordinal);
     }
 
     private static IEnumerable<string> FindSkippedNoOpOverrides(
