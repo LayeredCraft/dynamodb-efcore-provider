@@ -48,6 +48,17 @@ public abstract class ComplexPropertiesProjectionDynamoTest
         QueryTrackingBehavior queryTrackingBehavior)
         => base.Select_nullable_value_type_property_on_null_associate(queryTrackingBehavior);
 
+    public override async Task Select_associate(QueryTrackingBehavior queryTrackingBehavior)
+    {
+        await base.Select_associate(queryTrackingBehavior);
+
+        AssertSql(
+            """
+            SELECT "requiredAssociate"
+            FROM "RootEntities"
+            """);
+    }
+
     public override Task Select_optional_associate(QueryTrackingBehavior queryTrackingBehavior)
         => base.Select_optional_associate(queryTrackingBehavior);
 
