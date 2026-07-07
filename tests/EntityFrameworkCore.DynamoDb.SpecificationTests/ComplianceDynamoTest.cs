@@ -50,6 +50,28 @@ public sealed class ComplianceDynamoTest : ComplianceTestBase
     }
 
     [ConditionalFact]
+    public void Spec_tests_do_not_add_custom_execution_logic_for_thinned_methods()
+    {
+        var sourceRoot = LocateSourceRoot();
+        var cleanupFiles = ThinOverrideCleanupFiles().ToList();
+        var missingFiles = MissingThinOverrideCleanupFiles(sourceRoot, cleanupFiles).ToList();
+
+        Assert.Empty(missingFiles);
+
+        var offenders = cleanupFiles
+            .Select(path => Path.Combine(sourceRoot, path))
+            .SelectMany(path => FindCustomExecutionLogicOverrides(
+                sourceRoot,
+                path,
+                File.ReadAllText(path)))
+            .Where(offender => ThinOverrideCleanupMethodNames.Contains(MethodName(offender)))
+            .Order(StringComparer.Ordinal)
+            .ToList();
+
+        Assert.Empty(offenders);
+    }
+
+    [ConditionalFact]
     public void Thin_override_cleanup_inventory_reports_missing_files()
     {
         var missingFiles = MissingThinOverrideCleanupFiles(
@@ -114,15 +136,35 @@ public sealed class ComplianceDynamoTest : ComplianceTestBase
         Assert.Equal(["SampleDynamoTest.cs: Custom_body"], offenders);
     }
 
+    [ConditionalFact]
+    public void Custom_execution_logic_detection_handles_base_plus_custom_query()
+    {
+        const string Source = """
+                              public class SampleDynamoTest
+                              {
+                                  public override Task Calls_base()
+                                      => base.Calls_base();
+
+                                  public override async Task Custom_query_then_base()
+                                  {
+                                      using var context = CreateContext();
+                                      await context.Set<Customer>().ToListAsync();
+                                      await base.Custom_query_then_base();
+                                  }
+                              }
+                              """;
+
+        var offenders =
+            FindCustomExecutionLogicOverrides("/repo", "/repo/SampleDynamoTest.cs", Source)
+                .ToList();
+
+        Assert.Equal(["SampleDynamoTest.cs: Custom_query_then_base"], offenders);
+    }
+
     protected override Assembly TargetAssembly { get; } = typeof(ComplianceDynamoTest).Assembly;
 
     private static readonly ISet<string> AllowedCustomNoBaseOverrides =
-        new HashSet<string>(StringComparer.Ordinal)
-        {
-            // Store-lifecycle guard: upstream sync/ORDER BY shape cannot run on DynamoDB, but this
-            // method verifies seeding leaves the change tracker clean after DynamoDB async cleanup.
-            "SeedingDynamoTest.cs: Seeding_does_not_leave_context_contaminated"
-        };
+        new HashSet<string>(StringComparer.Ordinal);
 
     private static readonly ISet<string> ThinOverrideCleanupMethodNames =
         new HashSet<string>(StringComparer.Ordinal)
@@ -264,6 +306,43 @@ public sealed class ComplianceDynamoTest : ComplianceTestBase
         string path,
         string source)
     {
+        foreach (var (method, body) in FindOverrideBodies(source))
+        {
+            if (Regex.IsMatch(body, @"\bbase\s*\.", RegexOptions.CultureInvariant))
+                continue;
+
+            var relativePath = Path.GetRelativePath(sourceRoot, path);
+            yield return $"{relativePath}: {method}";
+        }
+    }
+
+    private static IEnumerable<string> FindCustomExecutionLogicOverrides(
+        string sourceRoot,
+        string path,
+        string source)
+    {
+        string[] customExecutionTokens =
+        [
+            "CreateContext(",
+            ".ToListAsync(",
+            ".AsAsyncEnumerable(",
+            ".AllowScan(",
+            ".AsUnsafeFilteredQuery(",
+            "ExecuteWithStrategyInTransactionAsync"
+        ];
+
+        foreach (var (method, body) in FindOverrideBodies(source))
+        {
+            if (!customExecutionTokens.Any(token => body.Contains(token, StringComparison.Ordinal)))
+                continue;
+
+            var relativePath = Path.GetRelativePath(sourceRoot, path);
+            yield return $"{relativePath}: {method}";
+        }
+    }
+
+    private static IEnumerable<(string Method, string Body)> FindOverrideBodies(string source)
+    {
         var pattern = new Regex(
             @"public\s+override\s+(?:async\s+)?(?:Task(?:<[^>]+>)?|void|\w+)\s+(?<method>\w+)\s*\([^)]*\)\s*(?:(?<expr>=>[\s\S]*?;)|(?<body>\{(?:[^{}]|\{[^{}]*\})*\}))",
             RegexOptions.Multiline);
@@ -274,11 +353,7 @@ public sealed class ComplianceDynamoTest : ComplianceTestBase
                 ? match.Groups["expr"].Value
                 : match.Groups["body"].Value;
 
-            if (Regex.IsMatch(body, @"\bbase\s*\.", RegexOptions.CultureInvariant))
-                continue;
-
-            var relativePath = Path.GetRelativePath(sourceRoot, path);
-            yield return $"{relativePath}: {match.Groups["method"].Value}";
+            yield return (match.Groups["method"].Value, body);
         }
     }
 

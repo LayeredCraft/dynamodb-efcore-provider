@@ -17,28 +17,18 @@ public class BuiltInDataTypesDynamoTest(
         => DynamoTestHelpers.AssertAllTestMethodsOverridden(typeof(BuiltInDataTypesDynamoTest));
 
     /// <inheritdoc />
-    public override async Task Can_filter_projection_with_captured_enum_variable(bool async)
-    {
-        if (!async)
-        {
-            await AssertNoSync(() => base.Can_filter_projection_with_captured_enum_variable(async));
-            return;
-        }
-
-        await base.Can_filter_projection_with_captured_enum_variable(async);
-    }
+    public override Task Can_filter_projection_with_captured_enum_variable(bool async)
+        => async
+            ? base.Can_filter_projection_with_captured_enum_variable(async)
+            : DynamoTestHelpers.Instance.NoSyncTest(()
+                => base.Can_filter_projection_with_captured_enum_variable(async));
 
     /// <inheritdoc />
-    public override async Task Can_filter_projection_with_inline_enum_variable(bool async)
-    {
-        if (!async)
-        {
-            await AssertNoSync(() => base.Can_filter_projection_with_inline_enum_variable(async));
-            return;
-        }
-
-        await base.Can_filter_projection_with_inline_enum_variable(async);
-    }
+    public override Task Can_filter_projection_with_inline_enum_variable(bool async)
+        => async
+            ? base.Can_filter_projection_with_inline_enum_variable(async)
+            : DynamoTestHelpers.Instance.NoSyncTest(()
+                => base.Can_filter_projection_with_inline_enum_variable(async));
 
 #if NET10_0
     /// <inheritdoc />
@@ -153,14 +143,6 @@ public class BuiltInDataTypesDynamoTest(
     /// <inheritdoc />
     public override Task Can_insert_query_multiline_string()
         => base.Can_insert_query_multiline_string();
-
-    private static async Task AssertNoSync(Func<Task> testCode)
-    {
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(testCode);
-
-        Assert.Contains("Sync enumerating", exception.Message);
-        Assert.Contains("DynamoDB", exception.Message);
-    }
 
     private void AssertSql(params string[] expected) => Fixture.AssertSql(expected);
 

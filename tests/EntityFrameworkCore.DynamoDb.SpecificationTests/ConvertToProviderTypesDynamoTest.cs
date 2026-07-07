@@ -16,27 +16,17 @@ public class ConvertToProviderTypesDynamoTest(
         => DynamoTestHelpers.AssertAllTestMethodsOverridden(
             typeof(ConvertToProviderTypesDynamoTest));
 
-    public override async Task Can_filter_projection_with_captured_enum_variable(bool async)
-    {
-        if (!async)
-        {
-            await AssertNoSync(() => base.Can_filter_projection_with_captured_enum_variable(async));
-            return;
-        }
+    public override Task Can_filter_projection_with_captured_enum_variable(bool async)
+        => async
+            ? base.Can_filter_projection_with_captured_enum_variable(async)
+            : DynamoTestHelpers.Instance.NoSyncTest(()
+                => base.Can_filter_projection_with_captured_enum_variable(async));
 
-        await base.Can_filter_projection_with_captured_enum_variable(async);
-    }
-
-    public override async Task Can_filter_projection_with_inline_enum_variable(bool async)
-    {
-        if (!async)
-        {
-            await AssertNoSync(() => base.Can_filter_projection_with_inline_enum_variable(async));
-            return;
-        }
-
-        await base.Can_filter_projection_with_inline_enum_variable(async);
-    }
+    public override Task Can_filter_projection_with_inline_enum_variable(bool async)
+        => async
+            ? base.Can_filter_projection_with_inline_enum_variable(async)
+            : DynamoTestHelpers.Instance.NoSyncTest(()
+                => base.Can_filter_projection_with_inline_enum_variable(async));
 
 #if NET10_0
     public override Task Can_query_using_any_data_type() => base.Can_query_using_any_data_type();
@@ -131,14 +121,6 @@ public class ConvertToProviderTypesDynamoTest(
 
     public override void Object_equals_method_over_enum_works()
         => DynamoTestHelpers.Instance.NoSyncTest(() => base.Object_equals_method_over_enum_works());
-
-    private static async Task AssertNoSync(Func<Task> testCode)
-    {
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(testCode);
-
-        Assert.Contains("Sync enumerating", exception.Message);
-        Assert.Contains("DynamoDB", exception.Message);
-    }
 
     public class ConvertToProviderTypesDynamoFixture
         : ConvertToProviderTypesFixtureBase, IDynamoSpecificationFixture
