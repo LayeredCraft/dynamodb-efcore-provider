@@ -30,7 +30,7 @@ public sealed class ComplianceDynamoTest : ComplianceTestBase
     }
 
     [ConditionalFact]
-    public void Spec_tests_do_not_add_unapproved_custom_no_base_overrides_for_thinned_methods()
+    public void Spec_tests_do_not_add_unapproved_custom_no_base_overrides_for_cleanup_inventory()
     {
         var sourceRoot = LocateSourceRoot();
         var cleanupFiles = ThinOverrideCleanupFiles().ToList();
@@ -50,7 +50,7 @@ public sealed class ComplianceDynamoTest : ComplianceTestBase
     }
 
     [ConditionalFact]
-    public void Spec_tests_do_not_add_custom_execution_logic_for_thinned_methods()
+    public void Spec_tests_do_not_add_known_custom_execution_logic_for_cleanup_inventory()
     {
         var sourceRoot = LocateSourceRoot();
         var cleanupFiles = ThinOverrideCleanupFiles().ToList();
@@ -161,11 +161,42 @@ public sealed class ComplianceDynamoTest : ComplianceTestBase
         Assert.Equal(["SampleDynamoTest.cs: Custom_query_then_base"], offenders);
     }
 
+    [ConditionalFact]
+    public void Override_body_detection_handles_deeply_nested_custom_logic()
+    {
+        const string Source = """
+                              public class SampleDynamoTest
+                              {
+                                  public override async Task Custom_query_then_base()
+                                  {
+                                      using (var context = CreateContext())
+                                      {
+                                          if (await context.Set<Customer>().CountAsync() > 0)
+                                          {
+                                              Assert.Equal(1, await context.Set<Customer>().SingleAsync(c => c.Id == 1));
+                                          }
+                                      }
+
+                                      await base.Custom_query_then_base();
+                                  }
+                              }
+                              """;
+
+        var offenders =
+            FindCustomExecutionLogicOverrides("/repo", "/repo/SampleDynamoTest.cs", Source)
+                .ToList();
+
+        Assert.Equal(["SampleDynamoTest.cs: Custom_query_then_base"], offenders);
+    }
+
     protected override Assembly TargetAssembly { get; } = typeof(ComplianceDynamoTest).Assembly;
 
     private static readonly ISet<string> AllowedCustomNoBaseOverrides =
         new HashSet<string>(StringComparer.Ordinal);
 
+    // Guard the finite cleanup inventory from this refactor. Broader override policy is enforced by
+    // Spec_tests_do_not_add_skipped_no_op_overrides and each class' Check_all_tests_overridden
+    // guard.
     private static readonly ISet<string> ThinOverrideCleanupMethodNames =
         new HashSet<string>(StringComparer.Ordinal)
         {
@@ -325,9 +356,14 @@ public sealed class ComplianceDynamoTest : ComplianceTestBase
         [
             "CreateContext(",
             ".ToListAsync(",
+            ".SingleAsync(",
+            ".CountAsync(",
             ".AsAsyncEnumerable(",
             ".AllowScan(",
             ".AsUnsafeFilteredQuery(",
+            "context.Add(",
+            "Assert.Equal",
+            "Assert.Throws",
             "ExecuteWithStrategyInTransactionAsync"
         ];
 
@@ -343,18 +379,62 @@ public sealed class ComplianceDynamoTest : ComplianceTestBase
 
     private static IEnumerable<(string Method, string Body)> FindOverrideBodies(string source)
     {
-        var pattern = new Regex(
-            @"public\s+override\s+(?:async\s+)?(?:Task(?:<[^>]+>)?|void|\w+)\s+(?<method>\w+)\s*\([^)]*\)\s*(?:(?<expr>=>[\s\S]*?;)|(?<body>\{(?:[^{}]|\{[^{}]*\})*\}))",
+        var signaturePattern = new Regex(
+            @"public\s+override\s+(?:async\s+)?(?:Task(?:<[^>]+>)?|void|\w+)\s+(?<method>\w+)\s*\([^)]*\)",
             RegexOptions.Multiline);
 
-        foreach (Match match in pattern.Matches(source))
+        foreach (Match match in signaturePattern.Matches(source))
         {
-            var body = match.Groups["expr"].Success
-                ? match.Groups["expr"].Value
-                : match.Groups["body"].Value;
+            var bodyStart = SkipWhitespace(source, match.Index + match.Length);
+            var bodyEnd =
+                bodyStart < source.Length
+                && source[bodyStart] == '='
+                && bodyStart + 1 < source.Length
+                && source[bodyStart + 1] == '>'
+                    ? FindExpressionBodyEnd(source, bodyStart)
+                    : FindBlockBodyEnd(source, bodyStart);
 
-            yield return (match.Groups["method"].Value, body);
+            if (bodyEnd < 0)
+                continue;
+
+            yield return (match.Groups["method"].Value, source[bodyStart..bodyEnd]);
         }
+    }
+
+    private static int SkipWhitespace(string source, int index)
+    {
+        while (index < source.Length && char.IsWhiteSpace(source[index]))
+            index++;
+
+        return index;
+    }
+
+    private static int FindExpressionBodyEnd(string source, int start)
+    {
+        var end = source.IndexOf(';', start);
+        return end < 0 ? -1 : end + 1;
+    }
+
+    private static int FindBlockBodyEnd(string source, int start)
+    {
+        if (start >= source.Length || source[start] != '{')
+            return -1;
+
+        var depth = 0;
+        for (var i = start; i < source.Length; i++)
+            switch (source[i])
+            {
+                case '{':
+                    depth++;
+                    break;
+                case '}':
+                    depth--;
+                    if (depth == 0)
+                        return i + 1;
+                    break;
+            }
+
+        return -1;
     }
 
     protected override IEnumerable<Type> GetBaseTestClasses()

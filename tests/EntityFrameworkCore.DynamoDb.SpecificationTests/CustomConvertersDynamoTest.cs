@@ -68,7 +68,7 @@ public abstract class CustomConvertersDynamoTest(
     public override Task Can_insert_and_read_with_max_length_set()
         => base.Can_insert_and_read_with_max_length_set();
 
-    [ConditionalFact(Skip = SkipReason.ForeignKeysNotSupported)]
+    [ConditionalFact(Skip = SkipReason.SharedDataTypesFixtureRequiresForeignKeys)]
     public override Task Can_insert_and_read_back_with_binary_key()
         => base.Can_insert_and_read_back_with_binary_key();
 
@@ -76,7 +76,7 @@ public abstract class CustomConvertersDynamoTest(
     public override Task Can_insert_and_read_back_with_null_binary_foreign_key()
         => base.Can_insert_and_read_back_with_null_binary_foreign_key();
 
-    [ConditionalFact(Skip = SkipReason.ForeignKeysNotSupported)]
+    [ConditionalFact(Skip = SkipReason.SharedDataTypesFixtureRequiresForeignKeys)]
     public override Task Can_insert_and_read_back_with_string_key()
         => base.Can_insert_and_read_back_with_string_key();
 

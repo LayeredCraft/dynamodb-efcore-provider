@@ -6,6 +6,9 @@ public static class SkipReason
     public const string ShadowKeysNotSupported = "DynamoDB does not support shadow keys.";
     public const string ForeignKeysNotSupported = "DynamoDB does not support foreign keys.";
 
+    public const string SharedDataTypesFixtureRequiresForeignKeys =
+        "This shared EF Core data-types fixture requires foreign-key relationship mappings that DynamoDB does not support.";
+
     public const string QueryShapeNotSupported =
         "DynamoDB provider does not support this query shape.";
 
