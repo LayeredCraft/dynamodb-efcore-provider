@@ -287,9 +287,6 @@ public sealed class DynamoQuerySqlGenerator : SqlExpressionVisitor
         return projectionExpression;
     }
 
-    /// <inheritdoc />
-    protected override Expression VisitExtension(Expression node) => base.VisitExtension(node);
-
     /// <summary>
     ///     Emits a nested scalar path segment as <c>"Parent"."PropertyName"</c> by recursively
     ///     visiting the parent first then appending a dot and the quoted segment name.

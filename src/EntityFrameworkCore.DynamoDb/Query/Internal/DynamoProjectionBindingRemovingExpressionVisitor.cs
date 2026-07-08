@@ -35,18 +35,6 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
     SelectExpression selectExpression) : ExpressionVisitor
 {
     // Reflection cache for efficient expression tree construction
-    private static readonly PropertyInfo AttributeValueSProperty =
-        typeof(AttributeValue).GetProperty(nameof(AttributeValue.S))!;
-
-    private static readonly PropertyInfo AttributeValueBoolProperty =
-        typeof(AttributeValue).GetProperty(nameof(AttributeValue.BOOL))!;
-
-    private static readonly PropertyInfo AttributeValueNProperty =
-        typeof(AttributeValue).GetProperty(nameof(AttributeValue.N))!;
-
-    private static readonly PropertyInfo AttributeValueBProperty =
-        typeof(AttributeValue).GetProperty(nameof(AttributeValue.B))!;
-
     private static readonly PropertyInfo AttributeValueNullProperty =
         typeof(AttributeValue).GetProperty(nameof(AttributeValue.NULL))!;
 
@@ -1019,55 +1007,6 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
     /// <summary>Determines whether a CLR type is a non-nullable value type.</summary>
     private static bool IsNonNullableValueType(Type type)
         => type.IsValueType && Nullable.GetUnderlyingType(type) == null;
-
-    /// <summary>
-    ///     Builds a typed collection materialization expression for strict list/set/dictionary
-    ///     shapes.
-    /// </summary>
-    private static Expression CreateCollectionValueExpression(
-        Expression attributeValueExpression,
-        Type targetType,
-        CoreTypeMapping? typeMapping,
-        string propertyPath,
-        bool required,
-        IProperty? property)
-    {
-        if (DynamoTypeMappingSource.TryGetDictionaryValueType(
-            targetType,
-            out var valueType,
-            out var readOnly))
-            return CreateDictionaryMaterializationExpression(
-                attributeValueExpression,
-                targetType,
-                valueType,
-                readOnly,
-                typeMapping?.ElementTypeMapping,
-                propertyPath,
-                required,
-                property);
-
-        if (DynamoTypeMappingSource.TryGetSetElementType(targetType, out var setElementType))
-            return CreateSetMaterializationExpression(
-                attributeValueExpression,
-                targetType,
-                setElementType,
-                typeMapping?.ElementTypeMapping,
-                propertyPath,
-                required,
-                property);
-
-        if (DynamoTypeMappingSource.TryGetListElementType(targetType, out var listElementType))
-            return CreateListMaterializationExpression(
-                attributeValueExpression,
-                targetType,
-                listElementType,
-                typeMapping?.ElementTypeMapping,
-                propertyPath,
-                required,
-                property);
-
-        return Default(targetType);
-    }
 
     /// <summary>
     ///     Builds a typed conversion expression from <c>AttributeValue</c> to a model CLR
