@@ -453,19 +453,7 @@ public class DynamoAutoIndexSelectionAnalyzerTests
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void On_SkBonusTiebreaks_ClearWinner_AutoSelected()
     {
-        var candidates = new List<DynamoIndexDescriptor>
-        {
-            MakeDescriptor("CustomerId", indexName: null),
-            MakeDescriptor("Status", "CreatedAt", "ByStatus"),
-            MakeDescriptor("Region", "CreatedAt", "ByRegion")
-        };
-        // Both GSI PKs present, but only ByStatus has a SK condition.
-        var constraints = MakeConstraints(["Status", "Region"], skConditions: ["CreatedAt"]);
-        // ByStatus SK = "CreatedAt" → score 1; ByRegion SK = "CreatedAt" → also score 1 ... tie?
-        // Wait — both have the same SK attr "CreatedAt" and both would benefit. Let me reconsider.
-        // Actually both descriptors have the same skAttr "CreatedAt", so both get +1.
-        // We need a different setup for tie-breaking via SK.
-        // Use ByStatus with SK "CreatedAt" (gets +1) and ByRegion with SK "Priority" (gets 0).
+        // ByStatus has a SK condition match ("CreatedAt", +1); ByRegion's SK ("Priority") does not.
         var candidatesSkTiebreak = new List<DynamoIndexDescriptor>
         {
             MakeDescriptor("CustomerId", indexName: null),
