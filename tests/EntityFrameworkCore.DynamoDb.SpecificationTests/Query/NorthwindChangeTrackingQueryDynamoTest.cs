@@ -31,238 +31,62 @@ public abstract class NorthwindChangeTrackingQueryDynamoTest
         => DynamoTestHelpers.AssertAllTestMethodsOverridden(
             typeof(NorthwindChangeTrackingQueryDynamoTest));
 
+    [ConditionalFact(Skip = SkipReason.SyncQueriesNotSupported)]
     public override void Entity_reverts_when_state_set_to_unchanged()
-    {
-        using var context = CreateContext();
-        var customer = GetCustomerAsync(context, "ALFKI").GetAwaiter().GetResult();
-        Assert.NotEqual("425-882-8080", customer.Phone);
+        => base.Entity_reverts_when_state_set_to_unchanged();
 
-        var entry = context.ChangeTracker.Entries<Customer>().Single();
-        var phone = customer.Phone;
-        customer.Phone = "425-882-8080";
-        context.ChangeTracker.DetectChanges();
+    [ConditionalFact(Skip = SkipReason.SyncQueriesNotSupported)]
+    public override void Multiple_entities_can_revert() => base.Multiple_entities_can_revert();
 
-        Assert.Equal(customer.CustomerID, entry.Property(c => c.CustomerID).CurrentValue);
-        Assert.Equal(EntityState.Modified, entry.State);
-        Assert.Equal("425-882-8080", entry.Property(c => c.Phone).CurrentValue);
-
-        entry.State = EntityState.Unchanged;
-
-        Assert.Equal(customer.CustomerID, entry.Property(c => c.CustomerID).CurrentValue);
-        Assert.Equal(phone, entry.Property(c => c.Phone).CurrentValue);
-        Assert.Equal(EntityState.Unchanged, entry.State);
-    }
-
-    public override void Multiple_entities_can_revert()
-    {
-        using var context = CreateContext();
-        var customers = context.Set<Customer>().ToListAsync().GetAwaiter().GetResult();
-        var postalCodes = customers.Select(c => c.PostalCode).ToList();
-        var regions = customers.Select(c => c.Region).ToList();
-
-        foreach (var customer in customers)
-        {
-            customer.PostalCode = "98052";
-            customer.Region = "'Murica";
-        }
-
-        Assert.Equal(91, context.ChangeTracker.Entries().Count());
-        Assert.Equal("98052", customers[0].PostalCode);
-        Assert.Equal("'Murica", customers[0].Region);
-
-        foreach (var entry in context.ChangeTracker.Entries().ToList())
-            entry.State = EntityState.Unchanged;
-
-        Assert.Equal(postalCodes, customers.Select(c => c.PostalCode));
-        Assert.Equal(regions, customers.Select(c => c.Region));
-        AssertSql(CustomersSql);
-    }
-
+    [ConditionalFact(Skip = SkipReason.SyncQueriesNotSupported)]
     public override void Entity_does_not_revert_when_attached_on_DbContext()
-    {
-        using var context = CreateContext();
-        var customer = GetCustomerAsync(context, "ALFKI").GetAwaiter().GetResult();
-        var entry = context.ChangeTracker.Entries<Customer>().Single();
+        => base.Entity_does_not_revert_when_attached_on_DbContext();
 
-        AssertAttachDoesNotRevert(context, customer, entry, () => context.Attach(customer));
-    }
-
+    [ConditionalFact(Skip = SkipReason.SyncQueriesNotSupported)]
     public override void Entity_does_not_revert_when_attached_on_DbSet()
-    {
-        using var context = CreateContext();
-        var customer = GetCustomerAsync(context, "ALFKI").GetAwaiter().GetResult();
-        var entry = context.ChangeTracker.Entries<Customer>().Single();
+        => base.Entity_does_not_revert_when_attached_on_DbSet();
 
-        AssertAttachDoesNotRevert(
-            context,
-            customer,
-            entry,
-            () => context.Set<Customer>().Attach(customer));
-    }
-
+    [ConditionalFact(Skip = SkipReason.SyncQueriesNotSupported)]
     public override void Entity_range_does_not_revert_when_attached_dbContext()
-    {
-        using var context = CreateContext();
-        var customers = GetCustomersAsync(context, "ALFKI", "ANATR").GetAwaiter().GetResult();
-        AssertRangeAttachDoesNotRevert(context, customers, () => context.AttachRange(customers));
-    }
+        => base.Entity_range_does_not_revert_when_attached_dbContext();
 
+    [ConditionalFact(Skip = SkipReason.SyncQueriesNotSupported)]
     public override void Entity_range_does_not_revert_when_attached_dbSet()
-    {
-        using var context = CreateContext();
-        var customers = GetCustomersAsync(context, "ALFKI", "ANATR").GetAwaiter().GetResult();
-        AssertRangeAttachDoesNotRevert(
-            context,
-            customers,
-            () => context.Set<Customer>().AttachRange(customers));
-    }
+        => base.Entity_range_does_not_revert_when_attached_dbSet();
 
+    [ConditionalFact(Skip = SkipReason.SyncQueriesNotSupported)]
     public override void Can_disable_and_reenable_query_result_tracking()
-    {
-        using var context = CreateContext();
-        Assert.Equal(QueryTrackingBehavior.TrackAll, context.ChangeTracker.QueryTrackingBehavior);
+        => base.Can_disable_and_reenable_query_result_tracking();
 
-        var first = GetEmployeeAsync(context, 1).GetAwaiter().GetResult();
-        Assert.NotNull(first);
-        Assert.Single(context.ChangeTracker.Entries());
-
-        context.ChangeTracker.QueryTrackingBehavior = QueryTrackingBehavior.NoTracking;
-        var second = GetEmployeeAsync(context, 2).GetAwaiter().GetResult();
-        Assert.NotNull(second);
-        Assert.Single(context.ChangeTracker.Entries());
-
-        context.ChangeTracker.QueryTrackingBehavior = QueryTrackingBehavior.TrackAll;
-        var employees = context.Set<Employee>().ToListAsync().GetAwaiter().GetResult();
-        Assert.Equal(9, employees.Count);
-        Assert.Equal(9, context.ChangeTracker.Entries().Count());
-    }
-
+    [ConditionalFact(Skip = SkipReason.SyncQueriesNotSupported)]
     public override void Can_disable_and_reenable_query_result_tracking_starting_with_NoTracking()
-    {
-        using var context = CreateNoTrackingContext();
-        Assert.Equal(QueryTrackingBehavior.NoTracking, context.ChangeTracker.QueryTrackingBehavior);
+        => base.Can_disable_and_reenable_query_result_tracking_starting_with_NoTracking();
 
-        var first = GetEmployeeAsync(context, 1).GetAwaiter().GetResult();
-        Assert.NotNull(first);
-        Assert.Empty(context.ChangeTracker.Entries());
-
-        context.ChangeTracker.QueryTrackingBehavior = QueryTrackingBehavior.TrackAll;
-        var second = GetEmployeeAsync(context, 2).GetAwaiter().GetResult();
-        Assert.NotNull(second);
-        Assert.Single(context.ChangeTracker.Entries());
-    }
-
+    [ConditionalFact(Skip = SkipReason.SyncQueriesNotSupported)]
     public override void Can_disable_and_reenable_query_result_tracking_query_caching()
-    {
-        using (var context = CreateContext())
-        {
-            Assert.Equal(
-                QueryTrackingBehavior.TrackAll,
-                context.ChangeTracker.QueryTrackingBehavior);
-            var employees = context.Set<Employee>().ToListAsync().GetAwaiter().GetResult();
-            Assert.Equal(9, employees.Count);
-            Assert.Equal(9, context.ChangeTracker.Entries().Count());
-        }
+        => base.Can_disable_and_reenable_query_result_tracking_query_caching();
 
-        using (var context = CreateContext())
-        {
-            context.ChangeTracker.QueryTrackingBehavior = QueryTrackingBehavior.NoTracking;
-            var employees = context.Set<Employee>().ToListAsync().GetAwaiter().GetResult();
-            Assert.Equal(9, employees.Count);
-            Assert.Empty(context.ChangeTracker.Entries());
-            context.ChangeTracker.QueryTrackingBehavior = QueryTrackingBehavior.TrackAll;
-        }
-
-        AssertSql(EmployeesSql, EmployeesSql);
-    }
-
+    [ConditionalFact(Skip = SkipReason.SyncQueriesNotSupported)]
     public override void
         Can_disable_and_reenable_query_result_tracking_query_caching_using_options()
-    {
-        using (var context = CreateContext())
-        {
-            Assert.Equal(
-                QueryTrackingBehavior.TrackAll,
-                context.ChangeTracker.QueryTrackingBehavior);
-            var employees = context.Set<Employee>().ToListAsync().GetAwaiter().GetResult();
-            Assert.Equal(9, employees.Count);
-            Assert.Equal(9, context.ChangeTracker.Entries().Count());
-        }
+        => base.Can_disable_and_reenable_query_result_tracking_query_caching_using_options();
 
-        using (var context = CreateNoTrackingContext())
-        {
-            Assert.Equal(
-                QueryTrackingBehavior.NoTracking,
-                context.ChangeTracker.QueryTrackingBehavior);
-            var employees = context.Set<Employee>().ToListAsync().GetAwaiter().GetResult();
-            Assert.Equal(9, employees.Count);
-            Assert.Empty(context.ChangeTracker.Entries());
-        }
-
-        AssertSql(EmployeesSql, EmployeesSql);
-    }
-
+    [ConditionalFact(Skip = SkipReason.SyncQueriesNotSupported)]
     public override void
         Can_disable_and_reenable_query_result_tracking_query_caching_single_context()
-    {
-        using var context = CreateContext();
-        Assert.Equal(QueryTrackingBehavior.TrackAll, context.ChangeTracker.QueryTrackingBehavior);
+        => base.Can_disable_and_reenable_query_result_tracking_query_caching_single_context();
 
-        context.ChangeTracker.QueryTrackingBehavior = QueryTrackingBehavior.NoTracking;
-        var employees = context.Set<Employee>().ToListAsync().GetAwaiter().GetResult();
-        Assert.Equal(9, employees.Count);
-        Assert.Empty(context.ChangeTracker.Entries());
-
-        context.ChangeTracker.QueryTrackingBehavior = QueryTrackingBehavior.TrackAll;
-        employees = context.Set<Employee>().ToListAsync().GetAwaiter().GetResult();
-        Assert.Equal(9, employees.Count);
-        Assert.Equal(9, context.ChangeTracker.Entries().Count());
-        AssertSql(EmployeesSql, EmployeesSql);
-    }
-
+    [ConditionalFact(Skip = SkipReason.SyncQueriesNotSupported)]
     public override void AsTracking_switches_tracking_on_when_off_in_options()
-    {
-        using var context = CreateNoTrackingContext();
-        var employees = context.Set<Employee>().AsTracking().ToListAsync().GetAwaiter().GetResult();
+        => base.AsTracking_switches_tracking_on_when_off_in_options();
 
-        Assert.Equal(9, employees.Count);
-        Assert.Equal(9, context.ChangeTracker.Entries().Count());
-        AssertSql(EmployeesSql);
-    }
-
+    [ConditionalFact(Skip = SkipReason.SyncQueriesNotSupported)]
     public override void Precedence_of_tracking_modifiers()
-    {
-        using var context = CreateContext();
-        var employees =
-            context
-                .Set<Employee>()
-                .AsNoTracking()
-                .AsTracking()
-                .ToListAsync()
-                .GetAwaiter()
-                .GetResult();
+        => base.Precedence_of_tracking_modifiers();
 
-        Assert.Equal(9, employees.Count);
-        Assert.Equal(9, context.ChangeTracker.Entries().Count());
-        AssertSql(EmployeesSql);
-    }
-
+    [ConditionalFact(Skip = SkipReason.SyncQueriesNotSupported)]
     public override void Precedence_of_tracking_modifiers2()
-    {
-        using var context = CreateContext();
-        var employees =
-            context
-                .Set<Employee>()
-                .AsTracking()
-                .AsNoTracking()
-                .ToListAsync()
-                .GetAwaiter()
-                .GetResult();
-
-        Assert.Equal(9, employees.Count);
-        Assert.Empty(context.ChangeTracker.Entries());
-        AssertSql(EmployeesSql);
-    }
+        => base.Precedence_of_tracking_modifiers2();
 
     [ConditionalFact(Skip = SkipReason.JoinsNotSupported)]
     public override void Precedence_of_tracking_modifiers3()

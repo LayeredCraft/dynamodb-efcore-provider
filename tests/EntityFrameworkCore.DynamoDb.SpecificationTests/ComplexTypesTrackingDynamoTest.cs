@@ -240,61 +240,10 @@ public class ComplexTypesTrackingDynamoTest
             });
     }
 
+    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Can_null_complex_property_with_default_values_and_multiple_properties(
         bool async)
-    {
-        if (!async)
-            return Task.CompletedTask;
-
-        var id = Guid.NewGuid();
-        return ExecuteWithStrategyInTransactionAsync(
-            async context =>
-            {
-                var entity = Fixture.UseProxies
-                    ? context.CreateProxy<EntityWithOptionalMultiPropComplex>()
-                    : new EntityWithOptionalMultiPropComplex();
-
-                entity.Id = id;
-                // Set the complex property with default values
-                entity.ComplexProp = new MultiPropComplex
-                {
-                    IntValue = 0, BoolValue = false, DateValue = default
-                };
-
-                await context.AddAsync(entity).ConfigureAwait(false);
-                await context.SaveChangesAsync().ConfigureAwait(false);
-
-                Assert.NotNull(entity.ComplexProp);
-            },
-            async context =>
-            {
-                var entity =
-                    await context
-                        .Set<EntityWithOptionalMultiPropComplex>()
-                        .AsAsyncEnumerable()
-                        .SingleAsync(e => e.Id == id)
-                        .ConfigureAwait(false);
-
-                Assert.NotNull(entity.ComplexProp);
-
-                entity.ComplexProp = null;
-
-                await context.SaveChangesAsync().ConfigureAwait(false);
-
-                Assert.Null(entity.ComplexProp);
-            },
-            async context =>
-            {
-                var entity =
-                    await context
-                        .Set<EntityWithOptionalMultiPropComplex>()
-                        .AsAsyncEnumerable()
-                        .SingleAsync(e => e.Id == id)
-                        .ConfigureAwait(false);
-
-                Assert.Null(entity.ComplexProp);
-            });
-    }
+        => base.Can_null_complex_property_with_default_values_and_multiple_properties(async);
 
     public override void Can_mark_complex_type_properties_modified(bool trackFromQuery)
         => base.Can_mark_complex_type_properties_modified(trackFromQuery);

@@ -9,6 +9,25 @@ public abstract class ValueConvertersEndToEndDynamoTest(
     : ValueConvertersEndToEndTestBase<
         ValueConvertersEndToEndDynamoTest.ValueConvertersEndToEndDynamoFixture>(fixture)
 {
+    [ConditionalFact]
+    public virtual void Check_all_tests_overridden()
+    {
+        var testClass = typeof(ValueConvertersEndToEndDynamoTest);
+        // ValueConvertersEndToEndTestBase includes protected converter unit facts; only inherited
+        // public spec tests are part of this provider override surface.
+        var inheritedPublicOverridableTests = testClass
+            .GetMethods()
+            .Where(method => method.DeclaringType != testClass
+                && method.IsPublic
+                && method.IsVirtual
+                && !method.IsFinal
+                && (Attribute.IsDefined(method, typeof(ConditionalFactAttribute))
+                    || Attribute.IsDefined(method, typeof(ConditionalTheoryAttribute))))
+            .Select(method => method.Name);
+
+        Assert.Empty(inheritedPublicOverridableTests);
+    }
+
     public override Task Can_insert_and_read_back_with_conversions(int[] valueOrder)
         => base.Can_insert_and_read_back_with_conversions(valueOrder);
 

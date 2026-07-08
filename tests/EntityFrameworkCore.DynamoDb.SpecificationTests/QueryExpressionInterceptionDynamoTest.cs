@@ -23,18 +23,20 @@ public sealed class QueryExpressionInterceptionDynamoTest
             typeof(QueryExpressionInterceptionDynamoTest));
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Intercept_query_passively(bool async) => Task.CompletedTask;
+    public override Task Intercept_query_passively(bool async)
+        => base.Intercept_query_passively(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Intercept_query_with_multiple_interceptors(bool async)
-        => Task.CompletedTask;
+        => base.Intercept_query_with_multiple_interceptors(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
-    public override Task Intercept_to_change_query_expression(bool async) => Task.CompletedTask;
+    public override Task Intercept_to_change_query_expression(bool async)
+        => base.Intercept_to_change_query_expression(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Interceptor_does_not_leak_across_contexts(bool async)
-        => Task.CompletedTask;
+        => base.Interceptor_does_not_leak_across_contexts(async);
 
     public class InterceptionDynamoFixture : InterceptionFixtureBase
     {

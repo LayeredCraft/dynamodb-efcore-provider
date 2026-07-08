@@ -6,8 +6,20 @@ public static class SkipReason
     public const string ShadowKeysNotSupported = "DynamoDB does not support shadow keys.";
     public const string ForeignKeysNotSupported = "DynamoDB does not support foreign keys.";
 
+    public const string SharedDataTypesFixtureRequiresForeignKeys =
+        "This shared EF Core data-types fixture requires foreign-key relationship mappings that DynamoDB does not support.";
+
     public const string QueryShapeNotSupported =
         "DynamoDB provider does not support this query shape.";
+
+    public const string GuidNewGuidPredicateNotSupported =
+        "DynamoDB provider does not translate Guid.NewGuid() in server-side predicates.";
+
+    public const string CustomTypeEqualityIssue241 =
+        "DynamoDB provider does not support this query shape. See issue #241.";
+
+    public const string ConditionalBoolValueConversionIssue243 =
+        "DynamoDB provider does not support this query shape. See issue #243.";
 
     public const string CaseInsensitiveStringComparisonNotSupported =
         "DynamoDB PartiQL does not support case-insensitive string comparisons.";
@@ -76,6 +88,15 @@ public static class SkipReason
 
     public const string CountAggregatesNotSupported =
         "DynamoDB PartiQL does not support COUNT aggregates.";
+
+    public const string PrimitiveCollectionQueryShapeNotSupported =
+        "DynamoDB provider does not yet support this primitive collection query shape.";
+
+    public const string OutOfBoundsListIndexReturnsNull =
+        "DynamoDB returns NULL for out-of-bounds list index access; upstream test expects an exception.";
+
+    public const string BitwiseEnumOperatorsNotSupported =
+        "DynamoDB PartiQL does not support bitwise enum operators or Enum.HasFlag translation.";
 
     public const string EntityTypeNotMappedInFixture =
         "This entity type is not mapped in the DynamoDB specification test fixture.";

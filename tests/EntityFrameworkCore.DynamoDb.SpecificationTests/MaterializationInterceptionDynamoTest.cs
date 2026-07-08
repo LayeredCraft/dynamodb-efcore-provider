@@ -35,13 +35,15 @@ public sealed class MaterializationInterceptionDynamoTest(NonSharedFixture fixtu
     public override Task Intercept_query_materialization_with_owned_types(
         bool async,
         bool usePooling)
-        => Task.CompletedTask;
+        => base.Intercept_query_materialization_with_owned_types(async, usePooling);
 
     [ConditionalTheory(Skip = SkipReason.OwnedEntityTypesNotSupported)]
     public override Task Intercept_query_materialization_with_owned_types_projecting_collection(
         bool async,
         bool usePooling)
-        => Task.CompletedTask;
+        => base.Intercept_query_materialization_with_owned_types_projecting_collection(
+            async,
+            usePooling);
 
     public override Task Intercept_query_materialization_for_full_constructor(
         bool inject,
@@ -56,7 +58,8 @@ public sealed class MaterializationInterceptionDynamoTest(NonSharedFixture fixtu
 #if NET10_0
     protected override ITestStoreFactory TestStoreFactory => DynamoTestStoreFactory.Instance;
 #else
-    protected override ITestStoreFactory NonSharedTestStoreFactory => DynamoTestStoreFactory.Instance;
+    protected override ITestStoreFactory NonSharedTestStoreFactory
+        => DynamoTestStoreFactory.Instance;
 #endif
 
     protected override IServiceCollection InjectInterceptors(

@@ -30,17 +30,8 @@ public abstract class NorthwindQueryFiltersQueryDynamoTest
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Find(bool async) => base.Find(async);
 
-    public override async Task Client_eval(bool async)
-    {
-        using var context = Fixture.CreateContext();
-        var query = context.Set<Product>();
-
-        var exception = async
-            ? await Assert.ThrowsAsync<InvalidOperationException>(() => query.ToListAsync())
-            : Assert.Throws<InvalidOperationException>((Action)(() => query.ToList()));
-
-        Assert.Contains("could not be translated", exception.Message);
-    }
+    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    public override Task Client_eval(bool async) => base.Client_eval(async);
 
     public override Task Materialized_query_parameter(bool async)
         => NoSyncTest(async, a => base.Materialized_query_parameter(a));

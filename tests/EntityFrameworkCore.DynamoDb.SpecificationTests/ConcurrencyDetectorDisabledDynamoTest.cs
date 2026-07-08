@@ -32,42 +32,21 @@ public sealed class ConcurrencyDetectorDisabledDynamoTest(
         return base.Find(async);
     }
 
-    public override Task First(bool async)
-    {
-        if (!async)
-        {
-            AssertSyncQueryUnsupported(context
-                => context.Products.Where(p => p.Id == 1).AsUnsafeFilteredQuery().First());
-            return Task.CompletedTask;
-        }
-
-        return ConcurrencyDetectorTest(async context
-            => await context.Products.Where(p => p.Id == 1).AsUnsafeFilteredQuery().FirstAsync());
-    }
+    [ConditionalTheory(Skip = SkipReason.OrderedResultSetNotSupported)]
+    public override Task First(bool async) => base.First(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Last(bool async) => base.Last(async);
 
-    public override async Task SaveChanges(bool async)
+    public override Task SaveChanges(bool async)
     {
         if (!async)
         {
             AssertSyncSaveChangesUnsupported(3, "Unicorn Horseshoe Protection Pack");
-            return;
+            return Task.CompletedTask;
         }
 
-        await ConcurrencyDetectorTest(async context =>
-        {
-            context.Products.Add(
-                new Product { Id = 3, Name = "Unicorn Horseshoe Protection Pack" });
-            return await context.SaveChangesAsync();
-        });
-
-        await using var verificationContext = CreateContext();
-        var newProduct = await verificationContext.Products.FirstOrDefaultAsync(p => p.Id == 3);
-        Assert.NotNull(newProduct);
-        verificationContext.Products.Remove(newProduct);
-        await verificationContext.SaveChangesAsync();
+        return base.SaveChanges(async);
     }
 
     public override Task Single(bool async)
@@ -81,17 +60,8 @@ public sealed class ConcurrencyDetectorDisabledDynamoTest(
         return base.Single(async);
     }
 
-    public override Task ToList(bool async)
-    {
-        if (!async)
-        {
-            AssertSyncQueryUnsupported(context => context.Products.AllowScan().ToList());
-            return Task.CompletedTask;
-        }
-
-        return ConcurrencyDetectorTest(async context
-            => await context.Products.AllowScan().ToListAsync());
-    }
+    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    public override Task ToList(bool async) => base.ToList(async);
 
     private void AssertSyncQueryUnsupported(Action<ConcurrencyDetectorDbContext> testCode)
     {

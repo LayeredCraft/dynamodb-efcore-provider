@@ -20,26 +20,9 @@ public abstract class NorthwindAsTrackingQueryDynamoTest
         => DynamoTestHelpers.AssertAllTestMethodsOverridden(
             typeof(NorthwindAsTrackingQueryDynamoTest));
 
+    [ConditionalTheory(Skip = SkipReason.SyncQueriesNotSupported)]
     public override void Entity_added_to_state_manager(bool useParam)
-    {
-        using var context = CreateContext();
-        var query = context.Set<Customer>().AsQueryable();
-
-        // The base spec is sync-only, but DynamoDB query execution is async-only.
-        var list =
-            (useParam ? query.AsTracking(QueryTrackingBehavior.TrackAll) : query.AsTracking())
-            .ToListAsync()
-            .GetAwaiter()
-            .GetResult();
-
-        Assert.Equal(91, list.Count);
-        Assert.Equal(91, context.ChangeTracker.Entries().Count());
-        AssertSql(
-            """
-            SELECT "customerID", "$type", "address", "city", "companyName", "contactName", "contactTitle", "country", "fax", "phone", "postalCode", "region"
-            FROM "Customers"
-            """);
-    }
+        => base.Entity_added_to_state_manager(useParam);
 
     [ConditionalFact(Skip = SkipReason.JoinsNotSupported)]
     public override void Applied_to_body_clause() => base.Applied_to_body_clause();

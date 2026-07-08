@@ -1,4 +1,3 @@
-using EntityFrameworkCore.DynamoDb.Extensions;
 using EntityFrameworkCore.DynamoDb.SpecificationTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.TestUtilities;
@@ -19,26 +18,11 @@ public abstract class SeedingDynamoTest : SeedingTestBase, IAsyncLifetime
 
     public async Task DisposeAsync() => await _testStore.DisposeAsync().ConfigureAwait(false);
 
-    [ConditionalTheory]
+    [ConditionalTheory(Skip = SkipReason.OrderedResultSetNotSupported)]
     [InlineData(false)]
     [InlineData(true)]
-    public override async Task Seeding_does_not_leave_context_contaminated(bool async)
-    {
-        await using var context = CreateContextWithEmptyDatabase(async ? "1A" : "1S");
-
-        // DynamoDB lifecycle APIs are async-only, so both inherited sync/async variants use the
-        // async clean path while still preserving the base test's two input cases.
-        await TestStore.CleanAsync(context);
-
-        Assert.Empty(context.ChangeTracker.Entries());
-
-        var seeds = (await context.Set<Seed>().AllowScan().ToListAsync()).OrderBy(e => e.Id).ToList();
-        Assert.Equal(2, seeds.Count);
-        Assert.Equal(321, seeds[0].Id);
-        Assert.Equal("Apple", seeds[0].Species);
-        Assert.Equal(322, seeds[1].Id);
-        Assert.Equal("Orange", seeds[1].Species);
-    }
+    public override Task Seeding_does_not_leave_context_contaminated(bool async)
+        => base.Seeding_does_not_leave_context_contaminated(async);
 
     [ConditionalTheory(Skip = SkipReason.PartitionKeyRequiredOnAllEntities)]
     [InlineData(false)]

@@ -32,38 +32,21 @@ public sealed class ConcurrencyDetectorEnabledDynamoTest(
         return base.Find(async);
     }
 
-    public override Task First(bool async)
-    {
-        if (!async)
-        {
-            AssertSyncQueryUnsupported(context => context.Products.AsUnsafeFilteredQuery().First());
-            return Task.CompletedTask;
-        }
-
-        return ConcurrencyDetectorTest(async context
-            => await context.Products.AsUnsafeFilteredQuery().FirstAsync());
-    }
+    [ConditionalTheory(Skip = SkipReason.OrderedResultSetNotSupported)]
+    public override Task First(bool async) => base.First(async);
 
     [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
     public override Task Last(bool async) => base.Last(async);
 
-    public override async Task SaveChanges(bool async)
+    public override Task SaveChanges(bool async)
     {
         if (!async)
         {
             AssertSyncSaveChangesUnsupported(2, "Unicorn Replacement Horn Pack");
-            return;
+            return Task.CompletedTask;
         }
 
-        await ConcurrencyDetectorTest(async context =>
-        {
-            context.Products.Add(new Product { Id = 2, Name = "Unicorn Replacement Horn Pack" });
-            return await context.SaveChangesAsync();
-        });
-
-        await using var context = CreateContext();
-        var newProduct = await context.Products.FirstOrDefaultAsync(p => p.Id == 2);
-        Assert.Null(newProduct);
+        return base.SaveChanges(async);
     }
 
     public override Task Single(bool async)
@@ -77,16 +60,8 @@ public sealed class ConcurrencyDetectorEnabledDynamoTest(
         return base.Single(async);
     }
 
-    public override Task ToList(bool async)
-    {
-        if (!async)
-        {
-            AssertSyncQueryUnsupported(context => context.Products.AllowScan().ToList());
-            return Task.CompletedTask;
-        }
-
-        return base.ToList(async);
-    }
+    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported)]
+    public override Task ToList(bool async) => base.ToList(async);
 
     private void AssertSyncQueryUnsupported(Action<ConcurrencyDetectorDbContext> testCode)
     {

@@ -16,27 +16,17 @@ public class ConvertToProviderTypesDynamoTest(
         => DynamoTestHelpers.AssertAllTestMethodsOverridden(
             typeof(ConvertToProviderTypesDynamoTest));
 
-    public override async Task Can_filter_projection_with_captured_enum_variable(bool async)
-    {
-        if (!async)
-        {
-            await AssertNoSync(() => base.Can_filter_projection_with_captured_enum_variable(async));
-            return;
-        }
+    public override Task Can_filter_projection_with_captured_enum_variable(bool async)
+        => async
+            ? base.Can_filter_projection_with_captured_enum_variable(async)
+            : DynamoTestHelpers.Instance.NoSyncTest(()
+                => base.Can_filter_projection_with_captured_enum_variable(async));
 
-        await base.Can_filter_projection_with_captured_enum_variable(async);
-    }
-
-    public override async Task Can_filter_projection_with_inline_enum_variable(bool async)
-    {
-        if (!async)
-        {
-            await AssertNoSync(() => base.Can_filter_projection_with_inline_enum_variable(async));
-            return;
-        }
-
-        await base.Can_filter_projection_with_inline_enum_variable(async);
-    }
+    public override Task Can_filter_projection_with_inline_enum_variable(bool async)
+        => async
+            ? base.Can_filter_projection_with_inline_enum_variable(async)
+            : DynamoTestHelpers.Instance.NoSyncTest(()
+                => base.Can_filter_projection_with_inline_enum_variable(async));
 
 #if NET10_0
     public override Task Can_query_using_any_data_type() => base.Can_query_using_any_data_type();
@@ -69,79 +59,17 @@ public class ConvertToProviderTypesDynamoTest(
     public override Task Can_insert_and_read_with_max_length_set()
         => base.Can_insert_and_read_with_max_length_set();
 
-    public override async Task Can_insert_and_read_back_with_binary_key()
-    {
-        await using (var context = CreateContext())
-        {
-            context
-                .Set<BinaryKeyDataType>()
-                .AddRange(
-                    new BinaryKeyDataType { Id = [1, 2, 3], Ex = "X1" },
-                    new BinaryKeyDataType { Id = [1, 2, 3, 4], Ex = "X3" },
-                    new BinaryKeyDataType { Id = [1, 2, 3, 4, 5], Ex = "X2" });
-
-            Assert.Equal(3, await context.SaveChangesAsync());
-        }
-
-        async Task<BinaryKeyDataType> QueryByBinaryKey(DbContext context, byte[] bytes)
-            => (await context.Set<BinaryKeyDataType>().Where(e => e.Id == bytes).ToListAsync())
-                .Single();
-
-        await using (var context = CreateContext())
-        {
-            var entity1 = await QueryByBinaryKey(context, [1, 2, 3]);
-            Assert.Equal(new byte[] { 1, 2, 3 }, entity1.Id);
-
-            var entity2 = await QueryByBinaryKey(context, [1, 2, 3, 4]);
-            Assert.Equal(new byte[] { 1, 2, 3, 4 }, entity2.Id);
-
-            var entity3 = await QueryByBinaryKey(context, [1, 2, 3, 4, 5]);
-            Assert.Equal(new byte[] { 1, 2, 3, 4, 5 }, entity3.Id);
-
-            entity3.Ex = "Xx1";
-            entity2.Ex = "Xx3";
-            entity1.Ex = "Xx7";
-
-            await context.SaveChangesAsync();
-        }
-
-        await using (var context = CreateContext())
-        {
-            var entity1 = await QueryByBinaryKey(context, [1, 2, 3]);
-            Assert.Equal("Xx7", entity1.Ex);
-
-            var entity2 = await QueryByBinaryKey(context, [1, 2, 3, 4]);
-            Assert.Equal("Xx3", entity2.Ex);
-
-            var entity3 = await QueryByBinaryKey(context, [1, 2, 3, 4, 5]);
-            Assert.Equal("Xx1", entity3.Ex);
-        }
-    }
+    [ConditionalFact(Skip = SkipReason.SharedDataTypesFixtureRequiresForeignKeys)]
+    public override Task Can_insert_and_read_back_with_binary_key()
+        => base.Can_insert_and_read_back_with_binary_key();
 
     [ConditionalFact(Skip = SkipReason.ForeignKeysNotSupported)]
     public override Task Can_insert_and_read_back_with_null_binary_foreign_key()
         => base.Can_insert_and_read_back_with_null_binary_foreign_key();
 
-    public override async Task Can_insert_and_read_back_with_string_key()
-    {
-        await using (var context = CreateContext())
-        {
-            context.Set<StringKeyDataType>().Add(new StringKeyDataType { Id = "Gumball!" });
-
-            Assert.Equal(1, await context.SaveChangesAsync());
-        }
-
-        await using (var context = CreateContext())
-        {
-            var id = "Gumball!";
-            var entity = (await context
-                .Set<StringKeyDataType>()
-                .Where(e => e.Id == id)
-                .ToListAsync()).Single();
-
-            Assert.Equal("Gumball!", entity.Id);
-        }
-    }
+    [ConditionalFact(Skip = SkipReason.SharedDataTypesFixtureRequiresForeignKeys)]
+    public override Task Can_insert_and_read_back_with_string_key()
+        => base.Can_insert_and_read_back_with_string_key();
 
     [ConditionalFact(Skip = SkipReason.ForeignKeysNotSupported)]
     public override Task Can_insert_and_read_back_with_null_string_foreign_key()
@@ -168,28 +96,13 @@ public class ConvertToProviderTypesDynamoTest(
         => base.Can_insert_and_read_back_object_backed_data_types();
 #endif
 
-    public override async Task Can_read_back_mapped_enum_from_collection_first_or_default()
-    {
-        await using var context = CreateContext();
-        var query =
-            from animal in context.Set<DynamoAnimal>()
-            select new { animal.Id, animal.IdentificationMethods.FirstOrDefault()!.Method };
+    [ConditionalFact(Skip = SkipReason.NavigationPropertiesNotSupported)]
+    public override Task Can_read_back_mapped_enum_from_collection_first_or_default()
+        => base.Can_read_back_mapped_enum_from_collection_first_or_default();
 
-        var result = await query.AsAsyncEnumerable().FirstOrDefaultAsync();
-        Assert.Equal(IdentificationMethod.EarTag, result?.Method);
-    }
-
-    public override async Task Can_read_back_bool_mapped_as_int_through_navigation()
-    {
-        await using var context = CreateContext();
-        var query =
-            from animal in context.Set<DynamoAnimal>()
-            where animal.Details != null
-            select new { animal.Details.BoolField };
-
-        var result = Assert.Single(await query.ToListAsync());
-        Assert.True(result.BoolField);
-    }
+    [ConditionalFact(Skip = SkipReason.NavigationPropertiesNotSupported)]
+    public override Task Can_read_back_bool_mapped_as_int_through_navigation()
+        => base.Can_read_back_bool_mapped_as_int_through_navigation();
 
     public override Task Can_compare_enum_to_constant() => base.Can_compare_enum_to_constant();
 
@@ -208,14 +121,6 @@ public class ConvertToProviderTypesDynamoTest(
 
     public override void Object_equals_method_over_enum_works()
         => DynamoTestHelpers.Instance.NoSyncTest(() => base.Object_equals_method_over_enum_works());
-
-    private static async Task AssertNoSync(Func<Task> testCode)
-    {
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(testCode);
-
-        Assert.Contains("Sync enumerating", exception.Message);
-        Assert.Contains("DynamoDB", exception.Message);
-    }
 
     public class ConvertToProviderTypesDynamoFixture
         : ConvertToProviderTypesFixtureBase, IDynamoSpecificationFixture

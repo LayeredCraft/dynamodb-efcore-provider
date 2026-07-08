@@ -68,78 +68,17 @@ public abstract class CustomConvertersDynamoTest(
     public override Task Can_insert_and_read_with_max_length_set()
         => base.Can_insert_and_read_with_max_length_set();
 
-    public override async Task Can_insert_and_read_back_with_binary_key()
-    {
-        await using (var context = CreateContext())
-        {
-            context
-                .Set<BinaryKeyDataType>()
-                .AddRange(
-                    new BinaryKeyDataType { Id = [1, 2, 3], Ex = "X1" },
-                    new BinaryKeyDataType { Id = [1, 2, 3, 4], Ex = "X3" },
-                    new BinaryKeyDataType { Id = [1, 2, 3, 4, 5], Ex = "X2" });
-
-            Assert.Equal(3, await context.SaveChangesAsync());
-        }
-
-        async Task<BinaryKeyDataType> QueryByBinaryKey(DbContext context, byte[] bytes)
-            => (await context.Set<BinaryKeyDataType>().Where(e => e.Id == bytes).ToListAsync())
-                .Single();
-
-        await using (var context = CreateContext())
-        {
-            var entity1 = await QueryByBinaryKey(context, [1, 2, 3]);
-            Assert.Equal(new byte[] { 1, 2, 3 }, entity1.Id);
-
-            var entity2 = await QueryByBinaryKey(context, [1, 2, 3, 4]);
-            Assert.Equal(new byte[] { 1, 2, 3, 4 }, entity2.Id);
-
-            var entity3 = await QueryByBinaryKey(context, [1, 2, 3, 4, 5]);
-            Assert.Equal(new byte[] { 1, 2, 3, 4, 5 }, entity3.Id);
-
-            entity3.Ex = "Xx1";
-            entity2.Ex = "Xx3";
-            entity1.Ex = "Xx7";
-
-            await context.SaveChangesAsync();
-        }
-
-        await using (var context = CreateContext())
-        {
-            var entity1 = await QueryByBinaryKey(context, [1, 2, 3]);
-            Assert.Equal("Xx7", entity1.Ex);
-
-            var entity2 = await QueryByBinaryKey(context, [1, 2, 3, 4]);
-            Assert.Equal("Xx3", entity2.Ex);
-
-            var entity3 = await QueryByBinaryKey(context, [1, 2, 3, 4, 5]);
-            Assert.Equal("Xx1", entity3.Ex);
-        }
-    }
+    [ConditionalFact(Skip = SkipReason.SharedDataTypesFixtureRequiresForeignKeys)]
+    public override Task Can_insert_and_read_back_with_binary_key()
+        => base.Can_insert_and_read_back_with_binary_key();
 
     [ConditionalFact(Skip = SkipReason.ForeignKeysNotSupported)]
     public override Task Can_insert_and_read_back_with_null_binary_foreign_key()
         => base.Can_insert_and_read_back_with_null_binary_foreign_key();
 
-    public override async Task Can_insert_and_read_back_with_string_key()
-    {
-        await using (var context = CreateContext())
-        {
-            context.Set<StringKeyDataType>().Add(new StringKeyDataType { Id = "Gumball!" });
-
-            Assert.Equal(1, await context.SaveChangesAsync());
-        }
-
-        await using (var context = CreateContext())
-        {
-            var entity = (await context
-                .Set<StringKeyDataType>()
-                .Where(e => e.Id == "Gumball!")
-                .ToListAsync()).Single();
-
-            Assert.Equal("Gumball!", entity.Id);
-        }
-    }
+    [ConditionalFact(Skip = SkipReason.SharedDataTypesFixtureRequiresForeignKeys)]
+    public override Task Can_insert_and_read_back_with_string_key()
+        => base.Can_insert_and_read_back_with_string_key();
 
     [ConditionalFact(Skip = SkipReason.ForeignKeysNotSupported)]
     public override Task Can_insert_and_read_back_with_null_string_foreign_key()
@@ -166,28 +105,13 @@ public abstract class CustomConvertersDynamoTest(
         => base.Can_insert_and_read_back_object_backed_data_types();
 #endif
 
-    public override async Task Can_read_back_mapped_enum_from_collection_first_or_default()
-    {
-        await using var context = CreateContext();
-        var query =
-            from animal in context.Set<DynamoAnimal>()
-            select new { animal.Id, animal.IdentificationMethods.FirstOrDefault()!.Method };
+    [ConditionalFact(Skip = SkipReason.NavigationPropertiesNotSupported)]
+    public override Task Can_read_back_mapped_enum_from_collection_first_or_default()
+        => base.Can_read_back_mapped_enum_from_collection_first_or_default();
 
-        var result = await query.AsAsyncEnumerable().FirstOrDefaultAsync();
-        Assert.Equal(IdentificationMethod.EarTag, result?.Method);
-    }
-
-    public override async Task Can_read_back_bool_mapped_as_int_through_navigation()
-    {
-        await using var context = CreateContext();
-        var query =
-            from animal in context.Set<DynamoAnimal>()
-            where animal.Details != null
-            select new { animal.Details.BoolField };
-
-        var result = Assert.Single(await query.ToListAsync());
-        Assert.True(result.BoolField);
-    }
+    [ConditionalFact(Skip = SkipReason.NavigationPropertiesNotSupported)]
+    public override Task Can_read_back_bool_mapped_as_int_through_navigation()
+        => base.Can_read_back_bool_mapped_as_int_through_navigation();
 
     public override Task Can_compare_enum_to_constant() => base.Can_compare_enum_to_constant();
 
@@ -201,81 +125,9 @@ public abstract class CustomConvertersDynamoTest(
     public override Task Can_insert_query_multiline_string()
         => base.Can_insert_query_multiline_string();
 
-    public override async Task Can_query_and_update_with_nullable_converter_on_unique_index()
-    {
-        await using (var context = CreateContext())
-        {
-            context.AddRange(
-                new Person { Id = 1, Name = "Lewis" },
-                new Person
-                {
-                    Id = 2, Name = "Seb", SSN = new SocialSecurityNumber { Number = 111111111 }
-                },
-                new Person
-                {
-                    Id = 3, Name = "Kimi", SSN = new SocialSecurityNumber { Number = 222222222 }
-                },
-                new Person { Id = 4, Name = "Valtteri" });
-
-            await context.SaveChangesAsync();
-        }
-
-        await using (var context = CreateContext())
-        {
-            // DynamoDB scans have no stable server ordering; order client-side for deterministic
-            // assertions while preserving converter persistence coverage.
-            var drivers = (await context.Set<Person>().ToListAsync()).OrderBy(p => p.Name).ToList();
-
-            Assert.Equal(4, drivers.Count);
-
-            Assert.Equal("Kimi", drivers[0].Name);
-            Assert.Equal(222222222, drivers[0].SSN!.Value.Number);
-
-            Assert.Equal("Lewis", drivers[1].Name);
-            Assert.False(drivers[1].SSN.HasValue);
-
-            Assert.Equal("Seb", drivers[2].Name);
-            Assert.Equal(111111111, drivers[2].SSN!.Value.Number);
-
-            Assert.Equal("Valtteri", drivers[3].Name);
-            Assert.False(drivers[3].SSN.HasValue);
-
-            context.Remove(drivers[0]);
-
-            context.Add(
-                new Person
-                {
-                    Id = 5,
-                    Name = "Charles",
-                    SSN = new SocialSecurityNumber { Number = 222222222 }
-                });
-
-            await context.SaveChangesAsync();
-        }
-
-        await using (var context = CreateContext())
-        {
-            // DynamoDB scans have no stable server ordering; order client-side for deterministic
-            // assertions while preserving converter persistence coverage.
-            var drivers = (await context.Set<Person>().ToListAsync()).OrderBy(p => p.Name).ToList();
-
-            Assert.Equal(4, drivers.Count);
-
-            Assert.Equal("Charles", drivers[0].Name);
-            Assert.Equal(222222222, drivers[0].SSN!.Value.Number);
-
-            Assert.Equal("Lewis", drivers[1].Name);
-            Assert.False(drivers[1].SSN.HasValue);
-
-            Assert.Equal("Seb", drivers[2].Name);
-            Assert.Equal(111111111, drivers[2].SSN!.Value.Number);
-
-            Assert.Equal("Valtteri", drivers[3].Name);
-            Assert.False(drivers[3].SSN.HasValue);
-
-            context.Remove(drivers[0]);
-        }
-    }
+    [ConditionalFact(Skip = SkipReason.OrderedResultSetNotSupported)]
+    public override Task Can_query_and_update_with_nullable_converter_on_unique_index()
+        => base.Can_query_and_update_with_nullable_converter_on_unique_index();
 
     // Relational test relies on foreign-key relationship fixup; DynamoDB provider ignores these
     // navigations.
@@ -283,56 +135,13 @@ public abstract class CustomConvertersDynamoTest(
     public override Task Can_query_and_update_with_nullable_converter_on_primary_key()
         => base.Can_query_and_update_with_nullable_converter_on_primary_key();
 
-    public override async Task Can_query_and_update_with_conversion_for_custom_type()
-    {
-        Guid id;
-        await using (var context = CreateContext())
-        {
-            var user =
-                context.Set<User>().Add(new User(Email.Create("eeky_bear@example.com"))).Entity;
+    [ConditionalFact(Skip = SkipReason.QueryShapeNotSupported)]
+    public override Task Can_query_and_update_with_conversion_for_custom_type()
+        => base.Can_query_and_update_with_conversion_for_custom_type();
 
-            Assert.Equal(1, await context.SaveChangesAsync());
-
-            id = user.Id;
-        }
-
-        await using (var context = CreateContext())
-        {
-            var user =
-                await context
-                    .Set<User>()
-                    .Where(e => e.Id == id && e.Email == "eeky_bear@example.com")
-                    .AsAsyncEnumerable()
-                    .SingleAsync();
-
-            Assert.Equal(id, user.Id);
-            Assert.Equal("eeky_bear@example.com", user.Email);
-        }
-    }
-
-    public override async Task Can_query_and_update_with_conversion_for_custom_struct()
-    {
-        await using (var context = CreateContext())
-        {
-            context.Set<Load>().Add(new Load { LoadId = 1, Fuel = new Fuel(1.1) });
-
-            Assert.Equal(1, await context.SaveChangesAsync());
-        }
-
-        await using (var context = CreateContext())
-        {
-            // Upstream uses SingleAsync(predicate); DynamoDB permits Single only after async
-            // enumeration here because this is not a partition-key constrained query shape.
-            var load = await context
-                .Set<Load>()
-                .Where(e => e.LoadId == 1 && e.Fuel.Equals(new Fuel(1.1)))
-                .AsAsyncEnumerable()
-                .SingleAsync();
-
-            Assert.Equal(1, load.LoadId);
-            Assert.Equal(1.1, load.Fuel.Volume);
-        }
-    }
+    [ConditionalFact(Skip = SkipReason.QueryShapeNotSupported)]
+    public override Task Can_query_and_update_with_conversion_for_custom_struct()
+        => base.Can_query_and_update_with_conversion_for_custom_struct();
 
     // Upstream test validates case-insensitive FK relationship fixup and Include. DynamoDB has no
     // FK/navigation support, so scalar key converter coverage lives in provider-specific test
@@ -362,76 +171,15 @@ public abstract class CustomConvertersDynamoTest(
         }
     }
 
-    public override async Task Can_insert_and_read_back_with_string_list()
-    {
-        await using (var context = CreateContext())
-        {
-            context
-                .Set<StringListDataType>()
-                .Add(
-                    new StringListDataType
-                    {
-                        Id = 1, Strings = new List<string> { "Gum", "Taffy" }
-                    });
+    [ConditionalFact(Skip = SkipReason.QueryShapeNotSupported)]
+    public override Task Can_insert_and_read_back_with_string_list()
+        => base.Can_insert_and_read_back_with_string_list();
 
-            Assert.Equal(1, await context.SaveChangesAsync());
-        }
+    [ConditionalFact(Skip = SkipReason.QueryShapeNotSupported)]
+    public override Task Can_insert_and_query_struct_to_string_converter_for_pk()
+        => base.Can_insert_and_query_struct_to_string_converter_for_pk();
 
-        await using (var context = CreateContext())
-        {
-            // Avoid server Single on unconstrained scan; this test only needs collection converter
-            // materialization coverage.
-            var entity = await context.Set<StringListDataType>().AsAsyncEnumerable().SingleAsync();
-
-            Assert.Equal(["Gum", "Taffy"], entity.Strings);
-        }
-    }
-
-    public override async Task Can_insert_and_query_struct_to_string_converter_for_pk()
-    {
-        await using (var context = CreateContext())
-        {
-            context.Set<Order>().Add(new Order { Id = OrderId.Parse("Id1") });
-
-            Assert.Equal(1, await context.SaveChangesAsync());
-        }
-
-        await using (var context = CreateContext())
-        {
-            // Inline
-            var entity =
-                await context
-                    .Set<Order>()
-                    .Where(o => (string)o.Id == "Id1")
-                    .AsAsyncEnumerable()
-                    .SingleAsync();
-
-            // constant from closure
-            const string idAsStringConstant = "Id1";
-            entity = await context
-                .Set<Order>()
-                .Where(o => (string)o.Id == idAsStringConstant)
-                .AsAsyncEnumerable()
-                .SingleAsync();
-
-            // Variable from closure
-            var idAsStringVariable = "Id1";
-            entity = await context
-                .Set<Order>()
-                .Where(o => (string)o.Id == idAsStringVariable)
-                .AsAsyncEnumerable()
-                .SingleAsync();
-
-            // Inline parsing function
-            entity = await context
-                .Set<Order>()
-                .Where(o => (string)o.Id == OrderId.Parse("Id1").StringValue)
-                .AsAsyncEnumerable()
-                .SingleAsync();
-        }
-    }
-
-    [ConditionalTheory(Skip = SkipReason.QueryShapeNotSupported + " #241")]
+    [ConditionalTheory(Skip = SkipReason.CustomTypeEqualityIssue241)]
     public override Task Can_query_custom_type_not_mapped_by_default_equality(bool async)
         => async
             ? base.Can_query_custom_type_not_mapped_by_default_equality(async)
@@ -464,11 +212,11 @@ public abstract class CustomConvertersDynamoTest(
     public override Task Select_bool_with_value_conversion_is_used()
         => base.Select_bool_with_value_conversion_is_used();
 
-    [ConditionalFact(Skip = SkipReason.QueryShapeNotSupported + " #243")]
+    [ConditionalFact(Skip = SkipReason.ConditionalBoolValueConversionIssue243)]
     public override Task Where_conditional_bool_with_value_conversion_is_used()
         => base.Where_conditional_bool_with_value_conversion_is_used();
 
-    [ConditionalFact(Skip = SkipReason.QueryShapeNotSupported + " #243")]
+    [ConditionalFact(Skip = SkipReason.ConditionalBoolValueConversionIssue243)]
     public override Task Select_conditional_bool_with_value_conversion_is_used()
         => base.Select_conditional_bool_with_value_conversion_is_used();
 
@@ -495,63 +243,22 @@ public abstract class CustomConvertersDynamoTest(
     public override void Collection_property_as_scalar_Any()
         => base.Collection_property_as_scalar_Any();
 
+    [ConditionalFact(Skip = SkipReason.CountAggregatesNotSupported)]
     public override void Collection_property_as_scalar_Count_member()
-    {
-        using var context = CreateContext();
-        Assert.Contains(
-            CoreStrings.TranslationFailed("")[47..],
-            Assert.Throws<InvalidOperationException>(()
-                    => context.Set<CollectionScalar>().Where(e => e.Tags.Count == 2).ToList())
-                .Message);
-    }
+        => base.Collection_property_as_scalar_Count_member();
 
     public override void Collection_enum_as_string_Contains()
         => base.Collection_enum_as_string_Contains();
 
+    [ConditionalFact(Skip = SkipReason.OwnedEntityTypesNotSupported)]
     public override void Optional_owned_with_converter_reading_non_nullable_column()
-    {
-        using var context = CreateContext();
-        Assert.Equal(
-            "Nullable object must have a value.",
-            Assert.Throws<InvalidOperationException>(()
-                    => context
-                        .Set<Parent>()
-                        .Select(e => new { e.OwnedWithConverter.Value })
-                        .ToListAsync()
-                        .GetAwaiter()
-                        .GetResult())
-                .Message);
-    }
+        => base.Optional_owned_with_converter_reading_non_nullable_column();
 
     public override Task Id_object_as_entity_key() => base.Id_object_as_entity_key();
 
+    [ConditionalFact(Skip = SkipReason.QueryShapeNotSupported)]
     public override void Composition_over_collection_of_complex_mapped_as_scalar()
-    {
-        using var context = CreateContext();
-        Assert.Equal(
-            CoreStrings.TranslationFailed(@"l => new {     H = l.Height,     W = l.Width }"),
-            Assert
-                .Throws<InvalidOperationException>(()
-                    => context
-                        .Set<Dashboard>()
-                        .AsNoTracking()
-                        .Select(d => new
-                        {
-                            d.Id,
-                            d.Name,
-                            Layouts =
-                                d
-                                    .Layouts
-                                    .Select(l => new { H = l.Height, W = l.Width })
-                                    .ToList()
-                        })
-                        .ToListAsync()
-                        .GetAwaiter()
-                        .GetResult())
-                .Message
-                .Replace("\r", "")
-                .Replace("\n", ""));
-    }
+        => base.Composition_over_collection_of_complex_mapped_as_scalar();
 
     [ConditionalFact(Skip = SkipReason.QueryShapeNotSupported)]
     public override void GroupBy_converted_enum() => base.GroupBy_converted_enum();

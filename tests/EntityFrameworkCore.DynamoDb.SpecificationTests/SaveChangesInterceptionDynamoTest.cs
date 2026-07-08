@@ -27,21 +27,21 @@ public sealed class SaveChangesInterceptionDynamoTest
         bool async,
         bool inject,
         bool noAcceptChanges)
-        => Task.CompletedTask;
+        => base.Intercept_SaveChanges_passively(async, inject, noAcceptChanges);
 
     [ConditionalTheory(Skip = SkipReason.TransactionsNotSupported)]
     public override Task Intercept_SaveChanges_to_suppress_save(
         bool async,
         bool inject,
         bool noAcceptChanges)
-        => Task.CompletedTask;
+        => base.Intercept_SaveChanges_to_suppress_save(async, inject, noAcceptChanges);
 
     [ConditionalTheory(Skip = SkipReason.TransactionsNotSupported)]
     public override Task Intercept_SaveChanges_to_change_result(
         bool async,
         bool inject,
         bool noAcceptChanges)
-        => Task.CompletedTask;
+        => base.Intercept_SaveChanges_to_change_result(async, inject, noAcceptChanges);
 
     [ConditionalTheory(Skip = SkipReason.TransactionsNotSupported)]
     public override Task Intercept_SaveChanges_failed(
@@ -49,7 +49,7 @@ public sealed class SaveChangesInterceptionDynamoTest
         bool inject,
         bool noAcceptChanges,
         bool concurrencyError)
-        => Task.CompletedTask;
+        => base.Intercept_SaveChanges_failed(async, inject, noAcceptChanges, concurrencyError);
 
     public override Task Intercept_to_suppress_concurrency_exception(
         bool async,
@@ -62,7 +62,7 @@ public sealed class SaveChangesInterceptionDynamoTest
         bool async,
         bool inject,
         bool noAcceptChanges)
-        => Task.CompletedTask;
+        => base.Intercept_SaveChanges_with_multiple_interceptors(async, inject, noAcceptChanges);
 
     protected override bool SupportsOptimisticConcurrency => false;
 

@@ -40,6 +40,21 @@ public class DynamoTestHelpers : TestHelpers
         Assert.Fail("Expected DynamoDB sync query failure.");
     }
 
+    /// <summary>Runs an async test and verifies that DynamoDB sync query execution fails.</summary>
+    public async Task NoSyncTest(Func<Task> testCode)
+    {
+        try
+        {
+            await testCode();
+        }
+        catch (InvalidOperationException exception) when (IsExpectedSyncQueryFailure(exception))
+        {
+            return;
+        }
+
+        Assert.Fail("Expected DynamoDB sync query failure.");
+    }
+
     /// <summary>Runs an async-aware test and optionally verifies that sync DynamoDB query execution fails.</summary>
     public async Task NoSyncTest(
         bool async,
