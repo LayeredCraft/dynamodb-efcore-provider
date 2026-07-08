@@ -6,8 +6,8 @@ on:
       - main
 permissions: write-all
 jobs:
-  build:
-    name: build
+  application-build:
+    name: application build (${{ matrix.configuration }}, ${{ matrix.dotnetVersion }})
     # Multi-version support: add a new matrix entry for the new EF version.
     # The release tag prefix (vN.*) drives configuration and SDK selection automatically
     # in publish-release.yaml via buildConfiguration: auto.
@@ -28,3 +28,11 @@ jobs:
       dotnetVersion: ${{ matrix.dotnetVersion }}
       runCdk: false
     secrets: inherit
+
+  build:
+    name: build
+    needs: application-build
+    if: ${{ always() }}
+    uses: ./.github/workflows/required-build-check.yaml
+    with:
+      applicationBuildResult: ${{ needs.application-build.result }}
