@@ -1,4 +1,11 @@
 version: 2
+
+multi-ecosystem-groups:
+  infrastructure:
+    schedule:
+      interval: "weekly"
+      day: "wednesday"
+
 updates:
   - package-ecosystem: "nuget"
     directory: "/"
@@ -12,86 +19,62 @@ updates:
       prefix: "chore"
       include: "scope"
     groups:
-      dotnet:
+      dotnet-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+        patterns:
+          - "*"
+      dotnet-major:
+        update-types:
+          - "major"
         patterns:
           - "*"
 
   - package-ecosystem: "dotnet-sdk"
     directory: "/"
-    schedule:
-      interval: "weekly"
-      day: "wednesday"
+    patterns:
+      - "*"
+    multi-ecosystem-group: "infrastructure"
     open-pull-requests-limit: 25
     cooldown:
       default-days: 7
     commit-message:
       prefix: "chore"
       include: "scope"
-    groups:
-      dotnet-sdk:
-        patterns:
-          - "*"
 
   - package-ecosystem: "github-actions"
     directory: "/"
-    schedule:
-      interval: "weekly"
-      day: "wednesday"
+    patterns:
+      - "*"
+    multi-ecosystem-group: "infrastructure"
     open-pull-requests-limit: 25
     cooldown:
       default-days: 7
     commit-message:
       prefix: "chore"
       include: "scope"
-    groups:
-      github-actions:
-        patterns:
-          - "*"
 
   - package-ecosystem: "docker-compose"
     directory: "/examples/Example.Simple"
-    schedule:
-      interval: "weekly"
-      day: "wednesday"
+    patterns:
+      - "*"
+    multi-ecosystem-group: "infrastructure"
     open-pull-requests-limit: 25
     cooldown:
       default-days: 7
     commit-message:
       prefix: "chore"
       include: "scope"
-    groups:
-      docker-compose:
-        patterns:
-          - "*"
 
   - package-ecosystem: "uv"
     directory: "/"
-    schedule:
-      interval: "weekly"
-      day: "wednesday"
+    patterns:
+      - "*"
+    multi-ecosystem-group: "infrastructure"
     open-pull-requests-limit: 25
     cooldown:
       default-days: 7
     commit-message:
       prefix: "chore"
       include: "scope"
-    groups:
-      uv:
-        patterns:
-          - "*"
-
-  - package-ecosystem: "npm"
-    directory: "/.opencode"
-    schedule:
-      interval: "weekly"
-      day: "wednesday"
-    open-pull-requests-limit: 25
-    cooldown:
-      default-days: 7
-    commit-message:
-      prefix: "chore"
-      include: "scope"
-    groups:
-      npm:
-        patterns:
-          - "*"
