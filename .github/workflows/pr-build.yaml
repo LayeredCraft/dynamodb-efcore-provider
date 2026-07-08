@@ -28,3 +28,11 @@ jobs:
       dotnetVersion: ${{ matrix.dotnetVersion }}
       runCdk: false
     secrets: inherit
+
+  build:
+    name: build
+    needs: application-build
+    if: ${{ always() }}
+    uses: ./.github/workflows/required-build-check.yaml
+    with:
+      applicationBuildResult: ${{ needs.application-build.result }}
