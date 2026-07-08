@@ -5,6 +5,10 @@ multi-ecosystem-groups:
     schedule:
       interval: "weekly"
       day: "wednesday"
+    open-pull-requests-limit: 25
+    commit-message:
+      prefix: "chore"
+      include: "scope"
 
 updates:
   - package-ecosystem: "nuget"
@@ -36,45 +40,29 @@ updates:
     patterns:
       - "*"
     multi-ecosystem-group: "infrastructure"
-    open-pull-requests-limit: 25
     cooldown:
       default-days: 7
-    commit-message:
-      prefix: "chore"
-      include: "scope"
 
   - package-ecosystem: "github-actions"
     directory: "/"
     patterns:
       - "*"
     multi-ecosystem-group: "infrastructure"
-    open-pull-requests-limit: 25
     cooldown:
       default-days: 7
-    commit-message:
-      prefix: "chore"
-      include: "scope"
 
   - package-ecosystem: "docker-compose"
     directory: "/examples/Example.Simple"
     patterns:
       - "*"
     multi-ecosystem-group: "infrastructure"
-    open-pull-requests-limit: 25
     cooldown:
       default-days: 7
-    commit-message:
-      prefix: "chore"
-      include: "scope"
 
   - package-ecosystem: "uv"
     directory: "/"
     patterns:
       - "*"
     multi-ecosystem-group: "infrastructure"
-    open-pull-requests-limit: 25
     cooldown:
       default-days: 7
-    commit-message:
-      prefix: "chore"
-      include: "scope"
