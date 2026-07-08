@@ -54,12 +54,6 @@ internal abstract class DynamoValueReaderWriter
             Expression.Constant(required),
             Expression.Constant(property, typeof(IProperty)));
 
-    protected static Expression CreateMethodCallExpression(
-        MethodInfo methodInfo,
-        Expression instanceExpression,
-        params Expression[] arguments)
-        => Expression.Call(instanceExpression, methodInfo, arguments);
-
     protected string CreateMissingValueMessage(string propertyPath)
         => $"Required property '{propertyPath}' did not contain a value for expected DynamoDB wire member '{WireMemberName}'.";
 }
