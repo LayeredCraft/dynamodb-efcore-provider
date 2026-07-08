@@ -25,11 +25,6 @@ public static class ComplexTypesItems
                     City = "Seattle",
                     Geo = new Geo { Latitude = 47.6062m, Longitude = -122.3321m }
                 }
-                // PreferencesByKey =
-                // {
-                //     ["currency"] = new Preference { Value = "USD", Priority = 1 },
-                //     ["theme"] = new Preference { Value = "light", Priority = 2 },
-                // },
             },
             Orders =
             [
@@ -55,20 +50,6 @@ public static class ComplexTypesItems
                 }
             ],
             OrderSnapshots = [new OrderSnapshot { SnapshotNumber = "SNAP-1", Total = 100.25m }]
-            // ContactsByType =
-            // {
-            //     ["email"] = new ContactMethod
-            //     {
-            //         Value = "ada@example.com",
-            //         Verified = true,
-            //         VerifiedAt = new DateTimeOffset(2026, 01, 02, 10, 0, 0, TimeSpan.Zero),
-            //         Notes = ["primary", "billing"],
-            //     },
-            //     ["sms"] = new ContactMethod
-            //     {
-            //         Value = "+12065550123", Verified = false, VerifiedAt = null, Notes = [],
-            //     },
-            // },
         },
         new()
         {
@@ -82,14 +63,6 @@ public static class ComplexTypesItems
             Profile = null,
             Orders = [],
             OrderSnapshots = []
-            // ContactsByType =
-            // {
-            //     ["email"] = new ContactMethod
-            //     {
-            //         Value = "beta@example.com", Verified = false, VerifiedAt = null, Notes =
-            // ["pending"],
-            //     },
-            // },
         },
         new()
         {
@@ -103,10 +76,6 @@ public static class ComplexTypesItems
             Profile = new Profile
             {
                 DisplayName = "Gina", Age = null, Address = null
-                // PreferencesByKey =
-                // {
-                //     ["timezone"] = new Preference { Value = "UTC", Priority = 1 },
-                // },
             },
             Orders =
             [
@@ -143,23 +112,6 @@ public static class ComplexTypesItems
                 new OrderSnapshot { SnapshotNumber = "SNAP-2", Total = 1.25m },
                 new OrderSnapshot { SnapshotNumber = "SNAP-3", Total = 2.50m }
             ]
-            // ContactsByType =
-            // {
-            //     ["email"] = new ContactMethod
-            //     {
-            //         Value = "gamma@example.com",
-            //         Verified = true,
-            //         VerifiedAt = new DateTimeOffset(2026, 01, 10, 12, 0, 0, TimeSpan.Zero),
-            //         Notes = ["secondary"],
-            //     },
-            //     ["phone"] = new ContactMethod
-            //     {
-            //         Value = "+12065550999",
-            //         Verified = true,
-            //         VerifiedAt = new DateTimeOffset(2026, 01, 10, 12, 5, 0, TimeSpan.Zero),
-            //         Notes = [],
-            //     },
-            // },
         },
         new()
         {
@@ -182,13 +134,6 @@ public static class ComplexTypesItems
                 }
             ],
             OrderSnapshots = []
-            // ContactsByType =
-            // {
-            //     ["pager"] = new ContactMethod
-            //     {
-            //         Value = "555-0001", Verified = false, VerifiedAt = null, Notes = [],
-            //     },
-            // },
         }
     ];
 

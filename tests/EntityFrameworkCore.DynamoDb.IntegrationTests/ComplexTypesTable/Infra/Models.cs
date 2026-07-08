@@ -22,8 +22,6 @@ public sealed record ComplexShapeItem
     public string StringValue { get; set; } = null!;
 
     public List<string> Tags { get; set; } = [];
-
-    // public Dictionary<string, ContactMethod> ContactsByType { get; set; } = [];
 }
 
 /// <summary>Represents the Profile type.</summary>
@@ -34,8 +32,6 @@ public sealed record Profile
     public int? Age { get; set; }
 
     public string DisplayName { get; set; } = null!;
-
-    // public Dictionary<string, Preference> PreferencesByKey { get; set; } = [];
 }
 
 /// <summary>Represents the Address type.</summary>
@@ -101,24 +97,6 @@ public sealed record OrderSnapshot
 
     public decimal Total { get; set; }
 }
-
-// public sealed record ContactMethod
-// {
-//     public string Value { get; set; } = null!;
-//
-//     public bool Verified { get; set; }
-//
-//     public DateTimeOffset? VerifiedAt { get; set; }
-//
-//     public List<string> Notes { get; set; } = [];
-// }
-
-// public sealed record Preference
-// {
-//     public string Value { get; set; } = null!;
-//
-//     public int Priority { get; set; }
-// }
 
 /// <summary>Root entity that owns a collection of <see cref="ScoredResult"/> elements.</summary>
 public sealed record AnalysisReport
