@@ -59,10 +59,7 @@ public class TableKeySchemaTests
 
         var entityType = ctx.Model.FindEntityType(typeof(SingleKeyEntity))!;
         // No HasAttributeName configured → property name is "Id"
-        entityType
-            .GetPartitionKeyPropertyName()
-            .Should()
-            .Be("BROKEN_FOR_REQUIRED_CHECK_VALIDATION");
+        entityType.GetPartitionKeyPropertyName().Should().Be("Id");
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
