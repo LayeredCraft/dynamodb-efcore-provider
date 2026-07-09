@@ -2,7 +2,6 @@ using Amazon.DynamoDBv2;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.PkSkTable;
 
-/// <summary>Represents the PkSkTableDbContext type.</summary>
 public class PkSkTableDbContext(DbContextOptions options) : DbContext(options)
 {
     public DbSet<PkSkItem> Items { get; set; }

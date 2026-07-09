@@ -2,7 +2,6 @@ using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.PrimitiveCollectionsTable;
 
-/// <summary>Represents the SelectTests type.</summary>
 public class SelectTests(DynamoContainerFixture fixture)
     : PrimitiveCollectionsTableTestFixture(fixture)
 {

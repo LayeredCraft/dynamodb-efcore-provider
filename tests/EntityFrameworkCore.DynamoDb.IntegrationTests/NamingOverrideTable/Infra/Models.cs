@@ -1,6 +1,5 @@
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.NamingOverrideTable.Infra;
 
-/// <summary>Represents the QuestionItem type.</summary>
 public sealed record QuestionItem
 {
     private string _pk = null!;

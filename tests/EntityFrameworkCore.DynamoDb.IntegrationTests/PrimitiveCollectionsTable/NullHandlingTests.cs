@@ -4,7 +4,6 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.PrimitiveCollectionsTable;
 
-/// <summary>Represents the NullHandlingTests type.</summary>
 public class NullHandlingTests(DynamoContainerFixture fixture)
     : PrimitiveCollectionsTableTestFixture(fixture)
 {

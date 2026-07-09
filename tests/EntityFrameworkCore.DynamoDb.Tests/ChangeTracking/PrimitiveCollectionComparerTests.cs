@@ -3,7 +3,6 @@ using Microsoft.EntityFrameworkCore.ChangeTracking;
 
 namespace EntityFrameworkCore.DynamoDb.Tests.ChangeTracking;
 
-/// <summary>Represents the PrimitiveCollectionComparerTests type.</summary>
 public class PrimitiveCollectionComparerTests
 {
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
