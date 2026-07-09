@@ -436,7 +436,7 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
         await SeedAsync(item);
 
         // Replace the collection reference so EF Core's snapshot comparison detects the change.
-        item.AppliedCoupons = [..item.AppliedCoupons, "SUMMER5"];
+        item.AppliedCoupons = [.. item.AppliedCoupons, "SUMMER5"];
 
         await SaveChangesShouldAffectAsync(1);
 
