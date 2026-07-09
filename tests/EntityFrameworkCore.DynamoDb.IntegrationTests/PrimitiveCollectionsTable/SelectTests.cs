@@ -20,7 +20,7 @@ public class SelectTests(DynamoContainerFixture fixture)
             """);
     }
 
-    [Fact(Skip = "Collection projection rewriting for anonymous types is not implemented yet.")]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Select_AnonymousProjection_WithCollectionProperties()
     {
         var results =

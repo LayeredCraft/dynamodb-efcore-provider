@@ -11,9 +11,6 @@ namespace EntityFrameworkCore.DynamoDb.SpecificationTests;
 public class ComplexTypesTrackingDynamoTest
     : ComplexTypesTrackingTestBase<ComplexTypesTrackingDynamoTest.ComplexTypesTrackingDynamoFixture>
 {
-    // DynamoDB SDK write APIs are async-only. Sync rows inherited from EF Core specification tests
-    // intentionally no-op here; sync SaveChanges behavior is covered by provider-specific tests.
-
     /// <summary>Creates complex type tracking specification tests.</summary>
     public ComplexTypesTrackingDynamoTest(
         ComplexTypesTrackingDynamoFixture fixture,
@@ -26,72 +23,76 @@ public class ComplexTypesTrackingDynamoTest
         => DynamoTestHelpers.AssertAllTestMethodsOverridden(typeof(ComplexTypesTrackingDynamoTest));
 
     public override Task Can_track_entity_with_complex_objects(EntityState state, bool async)
-        => async ? base.Can_track_entity_with_complex_objects(state, async) : Task.CompletedTask;
+        => async
+            ? base.Can_track_entity_with_complex_objects(state, async)
+            : AssertSyncLifecycleUnsupported();
 
     public override Task Can_track_entity_with_complex_structs(EntityState state, bool async)
-        => async ? base.Can_track_entity_with_complex_structs(state, async) : Task.CompletedTask;
+        => async
+            ? base.Can_track_entity_with_complex_structs(state, async)
+            : AssertSyncLifecycleUnsupported();
 
     public override Task
         Can_track_entity_with_complex_readonly_structs(EntityState state, bool async)
         => async
             ? base.Can_track_entity_with_complex_readonly_structs(state, async)
-            : Task.CompletedTask;
+            : AssertSyncLifecycleUnsupported();
 
     public override Task Can_track_entity_with_complex_record_objects(EntityState state, bool async)
         => async
             ? base.Can_track_entity_with_complex_record_objects(state, async)
-            : Task.CompletedTask;
+            : AssertSyncLifecycleUnsupported();
 
     public override Task
         Can_track_entity_with_complex_objects_with_fields(EntityState state, bool async)
         => async
             ? base.Can_track_entity_with_complex_objects_with_fields(state, async)
-            : Task.CompletedTask;
+            : AssertSyncLifecycleUnsupported();
 
     public override Task
         Can_track_entity_with_complex_structs_with_fields(EntityState state, bool async)
         => async
             ? base.Can_track_entity_with_complex_structs_with_fields(state, async)
-            : Task.CompletedTask;
+            : AssertSyncLifecycleUnsupported();
 
     public override Task
         Can_track_entity_with_complex_readonly_structs_with_fields(EntityState state, bool async)
         => async
             ? base.Can_track_entity_with_complex_readonly_structs_with_fields(state, async)
-            : Task.CompletedTask;
+            : AssertSyncLifecycleUnsupported();
 
     public override Task
         Can_track_entity_with_complex_record_objects_with_fields(EntityState state, bool async)
         => async
             ? base.Can_track_entity_with_complex_record_objects_with_fields(state, async)
-            : Task.CompletedTask;
+            : AssertSyncLifecycleUnsupported();
 
     public override Task
         Can_track_entity_with_complex_type_collections(EntityState state, bool async)
         => async
             ? base.Can_track_entity_with_complex_type_collections(state, async)
-            : Task.CompletedTask;
+            : AssertSyncLifecycleUnsupported();
 
     public override Task Can_change_state_from_Deleted_with_complex_collection(
         EntityState newState,
         bool async)
         => async
             ? base.Can_change_state_from_Deleted_with_complex_collection(newState, async)
-            : Task.CompletedTask;
+            : AssertSyncLifecycleUnsupported();
 
     public override Task Can_change_state_from_Deleted_with_complex_record_collection(
         EntityState newState,
         bool async)
         => async
             ? base.Can_change_state_from_Deleted_with_complex_record_collection(newState, async)
-            : Task.CompletedTask;
+            : AssertSyncLifecycleUnsupported();
 
     public override Task Can_change_state_from_Deleted_with_complex_field_collection(
         EntityState newState,
         bool async)
         => async
             ? base.Can_change_state_from_Deleted_with_complex_field_collection(newState, async)
-            : Task.CompletedTask;
+            : AssertSyncLifecycleUnsupported();
 
     public override Task Can_change_state_from_Deleted_with_complex_field_record_collection(
         EntityState newState,
@@ -100,59 +101,59 @@ public class ComplexTypesTrackingDynamoTest
             ? base.Can_change_state_from_Deleted_with_complex_field_record_collection(
                 newState,
                 async)
-            : Task.CompletedTask;
+            : AssertSyncLifecycleUnsupported();
 
     public override Task
         Can_track_entity_with_complex_record_collections(EntityState state, bool async)
         => async
             ? base.Can_track_entity_with_complex_record_collections(state, async)
-            : Task.CompletedTask;
+            : AssertSyncLifecycleUnsupported();
 
     public override Task
         Can_track_entity_with_complex_field_collections(EntityState state, bool async)
         => async
             ? base.Can_track_entity_with_complex_field_collections(state, async)
-            : Task.CompletedTask;
+            : AssertSyncLifecycleUnsupported();
 
     public override Task
         Can_track_entity_with_complex_record_collections_with_fields(EntityState state, bool async)
         => async
             ? base.Can_track_entity_with_complex_record_collections_with_fields(state, async)
-            : Task.CompletedTask;
+            : AssertSyncLifecycleUnsupported();
 
     public override Task Can_track_entity_with_complex_type_array_collections(
         EntityState state,
         bool async)
         => async
             ? base.Can_track_entity_with_complex_type_array_collections(state, async)
-            : Task.CompletedTask;
+            : AssertSyncLifecycleUnsupported();
 
     public override Task Can_track_entity_with_complex_struct_array_collections(
         EntityState state,
         bool async)
         => async
             ? base.Can_track_entity_with_complex_struct_array_collections(state, async)
-            : Task.CompletedTask;
+            : AssertSyncLifecycleUnsupported();
 
     public override Task Can_track_entity_with_complex_readonly_struct_array_collections(
         EntityState state,
         bool async)
         => async
             ? base.Can_track_entity_with_complex_readonly_struct_array_collections(state, async)
-            : Task.CompletedTask;
+            : AssertSyncLifecycleUnsupported();
 
     public override Task Can_track_entity_with_complex_record_array_collections(
         EntityState state,
         bool async)
         => async
             ? base.Can_track_entity_with_complex_record_array_collections(state, async)
-            : Task.CompletedTask;
+            : AssertSyncLifecycleUnsupported();
 
     public override Task
         Can_track_entity_with_complex_property_bag_collections(EntityState state, bool async)
         => async
             ? base.Can_track_entity_with_complex_property_bag_collections(state, async)
-            : Task.CompletedTask;
+            : AssertSyncLifecycleUnsupported();
 
     public override Task
         Can_save_null_second_level_complex_property_with_required_properties(bool async)
@@ -163,7 +164,7 @@ public class ComplexTypesTrackingDynamoTest
                 await context.AddAsync(yogurt).ConfigureAwait(false);
                 await context.SaveChangesAsync().ConfigureAwait(false);
             })
-            : Task.CompletedTask;
+            : AssertSyncLifecycleUnsupported();
 
     public override Task
         Can_save_null_third_level_complex_property_with_all_optional_properties(bool async)
@@ -174,13 +175,13 @@ public class ComplexTypesTrackingDynamoTest
                 await context.AddAsync(yogurt).ConfigureAwait(false);
                 await context.SaveChangesAsync().ConfigureAwait(false);
             })
-            : Task.CompletedTask;
+            : AssertSyncLifecycleUnsupported();
 
     public override Task
         Can_save_default_values_in_optional_complex_property_with_multiple_properties(bool async)
     {
         if (!async)
-            return Task.CompletedTask;
+            return AssertSyncLifecycleUnsupported();
 
         var id = Guid.NewGuid();
         return ExecuteWithStrategyInTransactionAsync(
@@ -364,7 +365,7 @@ public class ComplexTypesTrackingDynamoTest
             bool async)
         => async
             ? base.Can_change_state_from_Deleted_with_complex_struct_collection(newState, async)
-            : Task.CompletedTask;
+            : AssertSyncLifecycleUnsupported();
 
     public override Task
         Can_change_state_from_Deleted_with_complex_readonly_struct_collection(
@@ -374,7 +375,7 @@ public class ComplexTypesTrackingDynamoTest
             ? base.Can_change_state_from_Deleted_with_complex_readonly_struct_collection(
                 newState,
                 async)
-            : Task.CompletedTask;
+            : AssertSyncLifecycleUnsupported();
 
     public override Task
         Can_change_state_from_Deleted_with_complex_field_struct_collection(
@@ -384,7 +385,7 @@ public class ComplexTypesTrackingDynamoTest
             ? base.Can_change_state_from_Deleted_with_complex_field_struct_collection(
                 newState,
                 async)
-            : Task.CompletedTask;
+            : AssertSyncLifecycleUnsupported();
 
     public override Task
         Can_change_state_from_Deleted_with_complex_field_readonly_struct_collection(
@@ -394,13 +395,13 @@ public class ComplexTypesTrackingDynamoTest
             ? base.Can_change_state_from_Deleted_with_complex_field_readonly_struct_collection(
                 newState,
                 async)
-            : Task.CompletedTask;
+            : AssertSyncLifecycleUnsupported();
 
     public override Task
         Can_track_entity_with_complex_struct_collections(EntityState state, bool async)
         => async
             ? base.Can_track_entity_with_complex_struct_collections(state, async)
-            : Task.CompletedTask;
+            : AssertSyncLifecycleUnsupported();
 
     public override void Can_mark_complex_struct_collection_properties_modified(bool trackFromQuery)
         => base.Can_mark_complex_struct_collection_properties_modified(trackFromQuery);
@@ -419,7 +420,7 @@ public class ComplexTypesTrackingDynamoTest
         Can_track_entity_with_complex_readonly_struct_collections(EntityState state, bool async)
         => async
             ? base.Can_track_entity_with_complex_readonly_struct_collections(state, async)
-            : Task.CompletedTask;
+            : AssertSyncLifecycleUnsupported();
 
     public override void
         Can_mark_complex_readonly_struct_collection_properties_modified(bool trackFromQuery)
@@ -465,7 +466,7 @@ public class ComplexTypesTrackingDynamoTest
         Can_track_entity_with_complex_struct_collections_with_fields(EntityState state, bool async)
         => async
             ? base.Can_track_entity_with_complex_struct_collections_with_fields(state, async)
-            : Task.CompletedTask;
+            : AssertSyncLifecycleUnsupported();
 
     public override void
         Can_mark_complex_struct_collections_with_fields_properties_modified(bool trackFromQuery)
@@ -507,7 +508,7 @@ public class ComplexTypesTrackingDynamoTest
             ? base.Can_track_entity_with_complex_readonly_struct_collections_with_fields(
                 state,
                 async)
-            : Task.CompletedTask;
+            : AssertSyncLifecycleUnsupported();
 
     public override void
         Can_mark_complex_readonly_struct_collections_with_fields_properties_modified(
@@ -618,12 +619,12 @@ public class ComplexTypesTrackingDynamoTest
     public override Task Throws_only_when_saving_with_null_top_level_complex_property(bool async)
         => async
             ? base.Throws_only_when_saving_with_null_top_level_complex_property(async)
-            : Task.CompletedTask;
+            : AssertSyncLifecycleUnsupported();
 
     public override Task Throws_only_when_saving_with_null_second_level_complex_property(bool async)
         => async
             ? base.Throws_only_when_saving_with_null_second_level_complex_property(async)
-            : Task.CompletedTask;
+            : AssertSyncLifecycleUnsupported();
 
     public override void Detect_changes_in_complex_struct_type_properties(bool trackFromQuery)
         => base.Detect_changes_in_complex_struct_type_properties(trackFromQuery);
@@ -820,6 +821,13 @@ public class ComplexTypesTrackingDynamoTest
     }
 
     /// <summary>Fixture for DynamoDB complex type tracking specification tests.</summary>
+    private Task AssertSyncLifecycleUnsupported()
+    {
+        using var context = CreateContext();
+        Assert.Throws<NotSupportedException>(() => context.Database.EnsureCreated());
+        return Task.CompletedTask;
+    }
+
     public class ComplexTypesTrackingDynamoFixture : FixtureBase, IDynamoSpecificationFixture
     {
         public TestSqlLoggerFactory TestSqlLoggerFactory => (TestSqlLoggerFactory)ListLoggerFactory;

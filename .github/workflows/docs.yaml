@@ -5,7 +5,7 @@ on:
     branches: [ main ]
     paths:
       - 'docs/**'
-      - 'zensical.yml'
+      - 'zensical.toml'
       - '.github/workflows/docs.yaml'
       - 'pyproject.toml'
       - 'uv.lock'
@@ -14,18 +14,16 @@ on:
     branches: [ main ]
     paths:
       - 'docs/**'
-      - 'zensical.yml'
+      - 'zensical.toml'
       - '.github/workflows/docs.yaml'
       - 'pyproject.toml'
       - 'uv.lock'
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: "pages"
+  group: ${{ github.event_name == 'pull_request' && format('docs-pr-{0}', github.event.pull_request.number) || 'pages' }}
   cancel-in-progress: true
 
 jobs:
@@ -55,27 +53,29 @@ jobs:
       - name: Install the project
         run: uv sync --locked --all-extras --dev
 
-      - name: Setup Pages
-        id: pages
-        uses: actions/configure-pages@v5
-
       - name: Build documentation
-        run: |
-          uv run zensical build --clean
+        run: uv run zensical build -f zensical.toml --clean
 
       - name: Upload artifact
+        if: github.event_name == 'push'
         uses: actions/upload-pages-artifact@v4
         with:
           path: site
 
   deploy:
-    if: github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

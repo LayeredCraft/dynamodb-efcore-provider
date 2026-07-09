@@ -18,7 +18,8 @@ nav = [
     { "Client Setup" = "configuration/client-setup.md" },
     { "DbContext Options" = "configuration/dbcontext.md" },
     { "Table and Key Mapping" = "configuration/table-key-mapping.md" },
-    { "Attribute Naming" = "configuration/attribute-naming.md" }
+    { "Attribute Naming" = "configuration/attribute-naming.md" },
+    { "Table Lifecycle" = "configuration/lifecycle.md" }
   ] },
   { "Data Modeling" = [
     { "Overview" = "modeling/index.md" },

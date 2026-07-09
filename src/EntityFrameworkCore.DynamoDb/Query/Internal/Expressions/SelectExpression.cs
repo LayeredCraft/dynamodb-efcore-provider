@@ -379,7 +379,7 @@ public sealed class
         // Prefer alias deduplication first so independently-built equivalent SQL expressions still
         // resolve to a stable projection ordinal for the same logical column.
         for (var i = 0; i < _projection.Count; i++)
-            if (string.Equals(_projection[i].Alias, alias, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(_projection[i].Alias, alias, StringComparison.Ordinal))
                 return i;
 
         for (var i = 0; i < _projection.Count; i++)

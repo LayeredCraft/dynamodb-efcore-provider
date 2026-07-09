@@ -865,7 +865,6 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
             return TranslateStringIsNullOrEmpty(node);
 
         if (node.Method == StringContainsMethod
-            || node.Method == StringContainsCharMethod
             || IsOrdinalStringComparisonMethod(node, StringContainsWithComparisonMethod))
             return TranslateStringContains(node);
 
@@ -877,7 +876,6 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         }
 
         if (node.Method == StringStartsWithMethod
-            || node.Method == StringStartsWithCharMethod
             || IsOrdinalStringComparisonMethod(node, StringStartsWithWithComparisonMethod))
             return TranslateStringStartsWith(node);
 
@@ -1488,7 +1486,7 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
 
     /// <summary>
     ///     Translates supported Dynamo lexical string comparison shapes to SQL binary comparisons.
-    ///     Supported forms compare <c>string.Compare(a, b)</c> or <c>a.CompareTo(b)</c> to -1, 0, or 1.
+    ///     Supported forms compare <c>string.Compare(a, b)</c> or <c>a.CompareTo(b)</c> to 0.
     /// </summary>
     private Expression? TryTranslateStringCompare(BinaryExpression node)
     {
@@ -1532,21 +1530,6 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         => comparand switch
         {
             0 => op,
-            1 => op switch
-            {
-                ExpressionType.Equal or ExpressionType.GreaterThanOrEqual => ExpressionType
-                    .GreaterThan,
-                ExpressionType.NotEqual or ExpressionType.LessThan =>
-                    ExpressionType.LessThanOrEqual,
-                _ => null
-            },
-            -1 => op switch
-            {
-                ExpressionType.Equal or ExpressionType.LessThanOrEqual => ExpressionType.LessThan,
-                ExpressionType.NotEqual or ExpressionType.GreaterThan => ExpressionType
-                    .GreaterThanOrEqual,
-                _ => null
-            },
             _ => null
         };
 

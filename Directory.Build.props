@@ -9,6 +9,9 @@
     <RepositoryType>git</RepositoryType>
     <Authors>Jonas Ha &amp; Nick Cipollina</Authors>
     <PackageProjectUrl>https://github.com/layeredcraft/dynamodb-efcore-provider</PackageProjectUrl>
+    <Description>Entity Framework Core provider for AWS DynamoDB with LINQ-to-PartiQL translation, DynamoDB key modeling, and AWS SDK execution.</Description>
+    <PackageTags>EntityFrameworkCore;EFCore;DynamoDB;AWS;PartiQL;database-provider</PackageTags>
+    <PackageReleaseNotes>See the GitHub releases for version-specific changes.</PackageReleaseNotes>
     <PackageIcon>icon.png</PackageIcon>
     <!-- NuGet.org specific -->
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
@@ -17,11 +20,8 @@
     <CheckEolTargetFramework>false</CheckEolTargetFramework>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <DebugType>embedded</DebugType>
-    <NoPackageAnalysis>true</NoPackageAnalysis>
     <LangVersion>latest</LangVersion>
     <GeneratePackageOnBuild>False</GeneratePackageOnBuild>
-    <EmbedUntrackedSources>true</EmbedUntrackedSources>
-    <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <IsPackable>false</IsPackable>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>

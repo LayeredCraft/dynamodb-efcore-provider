@@ -4,7 +4,8 @@ on:
   pull_request:
     branches:
       - main
-permissions: write-all
+permissions:
+  contents: read
 jobs:
   application-build:
     name: application build (${{ matrix.configuration }}, ${{ matrix.dotnetVersion }})
@@ -19,7 +20,7 @@ jobs:
             dotnetVersion: "10.0.x"
           - configuration: "Debug EF11"
             dotnetVersion: "11.0.x"
-    uses: LayeredCraft/devops-templates/.github/workflows/pr-build.yaml@v10.1
+    uses: LayeredCraft/devops-templates/.github/workflows/pr-build.yaml@76a2269c95c0f17eaac80d3020c783ff10be4371
     with:
       solution: EntityFrameworkCore.DynamoDb.slnx
       hasTests: true
@@ -27,7 +28,6 @@ jobs:
       buildConfiguration: ${{ matrix.configuration }}
       dotnetVersion: ${{ matrix.dotnetVersion }}
       runCdk: false
-    secrets: inherit
 
   build:
     name: build

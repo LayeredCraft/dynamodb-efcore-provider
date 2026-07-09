@@ -88,8 +88,8 @@ var openOrders = await context.Orders
 - Async query execution is supported.
 - `SaveChangesAsync` is implemented for Added/Modified/Deleted root entities.
 - Synchronous `SaveChanges` is not supported (DynamoDB API is async-only).
-- LINQ support is partial; use `docs/operators.md` as the source of truth for supported query
-  shapes.
+- LINQ support is partial; use `docs/querying/operators.md` as the source of truth for supported
+  query shapes.
 - Table mapping, key mapping, owned types, and secondary-index metadata are supported.
 - Optimistic concurrency is opt-in via `.IsConcurrencyToken()` / `[ConcurrencyCheck]`; token
   values are application-managed.
