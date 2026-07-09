@@ -79,7 +79,9 @@ public class DynamoClientWrapper : IDynamoClientWrapper, IDisposable
         Action<ExecuteStatementResponse>? onPageFetched = null,
         bool suppressConsistentReadDefault = false)
     {
-        var request = CloneExecuteStatementRequest(statementRequest, false);
+        DynamoPartiQlStatementValidator.ValidateStatementLength(statementRequest.Statement, "read");
+
+        var request = CloneExecuteStatementRequest(statementRequest, true);
         request.ReturnConsumedCapacity ??= _returnConsumedCapacity;
         if (!suppressConsistentReadDefault)
             request.ConsistentRead ??= _consistentRead;
@@ -292,7 +294,7 @@ public class DynamoClientWrapper : IDynamoClientWrapper, IDisposable
             Statement = prototype.Statement,
             Parameters =
                 cloneParameters && prototype.Parameters is not null
-                    ? [..prototype.Parameters]
+                    ? [.. prototype.Parameters]
                     : prototype.Parameters,
             Limit = prototype.Limit,
             NextToken = prototype.NextToken,
