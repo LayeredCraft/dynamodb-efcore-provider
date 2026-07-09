@@ -3,15 +3,15 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.NamingOverrideTable.Infra;
 
-/// <summary>Represents the ComplexTypesTableDbContext type.</summary>
-public class NamingConventionsTableDbContext(DbContextOptions options) : DbContext(options)
+/// <summary>DbContext for explicit attribute-name override integration tests.</summary>
+public class NamingOverridesTableDbContext(DbContextOptions options) : DbContext(options)
 {
     public DbSet<QuestionItem> Items => Set<QuestionItem>();
 
     /// <summary>Creates a context configured to use the provided DynamoDB client instance.</summary>
-    public static NamingConventionsTableDbContext Create(IAmazonDynamoDB client)
+    public static NamingOverridesTableDbContext Create(IAmazonDynamoDB client)
         => new(
-            new DbContextOptionsBuilder<NamingConventionsTableDbContext>()
+            new DbContextOptionsBuilder<NamingOverridesTableDbContext>()
                 .UseDynamo(options => options.DynamoDbClient(client))
                 .ConfigureWarnings(w
                     => w
@@ -23,7 +23,7 @@ public class NamingConventionsTableDbContext(DbContextOptions options) : DbConte
     protected override void OnModelCreating(ModelBuilder modelBuilder)
         => modelBuilder.Entity<QuestionItem>(builder =>
         {
-            builder.ToTable(NamingConventionsItemTable.TableName);
+            builder.ToTable(NamingOverridesItemTable.TableName);
             builder.HasPartitionKey(x => x.Pk);
             builder.HasSortKey(x => x.Sk);
             builder.HasGlobalSecondaryIndex("gs1-index", x => x.Gs1Pk, x => x.Gs1Sk);

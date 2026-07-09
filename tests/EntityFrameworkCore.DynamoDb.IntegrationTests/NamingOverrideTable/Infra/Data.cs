@@ -2,8 +2,8 @@ using Amazon.DynamoDBv2.Model;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.NamingOverrideTable.Infra;
 
-/// <summary>Deterministic seed items for naming convention tests.</summary>
-public static class NamingConventionsItems
+/// <summary>Deterministic seed items for naming override tests.</summary>
+public static class NamingOverridesItems
 {
     public static readonly List<QuestionItem> Items =
     [
@@ -93,5 +93,5 @@ public static class NamingConventionsItems
 
     /// <summary>Converts deterministic test items to DynamoDB attribute maps.</summary>
     private static IReadOnlyList<Dictionary<string, AttributeValue>> CreateAttributeValues()
-        => Items.Select(NamingConventionsItemMapper.ToItem).ToList();
+        => Items.Select(NamingOverridesItemMapper.ToItem).ToList();
 }

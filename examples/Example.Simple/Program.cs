@@ -17,14 +17,14 @@ var context = scope.ServiceProvider.GetRequiredService<DynamoDbContext>();
 Console.WriteLine("\n=== Example 1: Query All Items ===");
 var allItems = await context.Items.ToListAsync();
 foreach (var item in allItems)
-    Console.WriteLine($"Item: {item.Id}, {item.Name}, {item.Desciption}");
+    Console.WriteLine($"Item: {item.Id}, {item.Name}, {item.Description}");
 
 // Example 2: Parameterized WHERE clause (demonstrates parameter inlining)
 Console.WriteLine("\n=== Example 2: Parameterized WHERE Clause ===");
 var searchId = "item-4";
 var filteredItems = await context.Items.Where(i => i.Id == searchId).ToListAsync();
 foreach (var item in filteredItems)
-    Console.WriteLine($"Filtered Item: {item.Id}, {item.Name}, {item.Desciption}");
+    Console.WriteLine($"Filtered Item: {item.Id}, {item.Name}, {item.Description}");
 
 // Example 3: Multiple WHERE conditions with parameters
 Console.WriteLine("\n=== Example 3: Multiple Conditions ===");
@@ -36,7 +36,7 @@ var rangeItems =
         .Where(i => i.Id.CompareTo(minId) >= 0 && i.Id.CompareTo(maxId) <= 0)
         .ToListAsync();
 foreach (var item in rangeItems)
-    Console.WriteLine($"Range Item: {item.Id}, {item.Name}, {item.Desciption}");
+    Console.WriteLine($"Range Item: {item.Id}, {item.Name}, {item.Description}");
 
 // Example 4: OrderBy query
 Console.WriteLine("\n=== Example 4: Ordered Query ===");
@@ -47,7 +47,7 @@ var orderedItems =
         .OrderBy(i => i.Id)
         .ToListAsync();
 foreach (var item in orderedItems)
-    Console.WriteLine($"Ordered Item: {item.Id}, {item.Name}, {item.Desciption}");
+    Console.WriteLine($"Ordered Item: {item.Id}, {item.Name}, {item.Description}");
 
 Console.WriteLine("\nDONE");
 
@@ -70,5 +70,5 @@ public class Item
 {
     public required string Id { get; set; }
     public required string Name { get; set; }
-    public required string Desciption { get; set; }
+    public required string Description { get; set; }
 }

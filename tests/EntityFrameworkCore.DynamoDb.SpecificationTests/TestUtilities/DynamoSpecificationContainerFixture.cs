@@ -1,5 +1,6 @@
 using Amazon.DynamoDBv2;
 using Amazon.Runtime;
+using EntityFrameworkCore.DynamoDb.TestUtilities;
 using Testcontainers.DynamoDb;
 
 namespace EntityFrameworkCore.DynamoDb.SpecificationTests.TestUtilities;
@@ -7,8 +8,6 @@ namespace EntityFrameworkCore.DynamoDb.SpecificationTests.TestUtilities;
 /// <summary>Collection fixture that owns the shared DynamoDB Local container.</summary>
 public sealed class DynamoSpecificationContainerFixture : IAsyncLifetime
 {
-    private const string DynamoDbLocalImage = "amazon/dynamodb-local:2.6.1";
-
     private static readonly SemaphoreSlim StartLock = new(1, 1);
     private static DynamoDbContainer? _container;
     private static AmazonDynamoDBClient? _client;
@@ -32,7 +31,7 @@ public sealed class DynamoSpecificationContainerFixture : IAsyncLifetime
             if (_client is not null)
                 return _client;
 
-            _container = new DynamoDbBuilder(DynamoDbLocalImage).Build();
+            _container = new DynamoDbBuilder(DynamoDbLocalImage.Name).Build();
             await _container.StartAsync().ConfigureAwait(false);
 
             _client = new AmazonDynamoDBClient(
