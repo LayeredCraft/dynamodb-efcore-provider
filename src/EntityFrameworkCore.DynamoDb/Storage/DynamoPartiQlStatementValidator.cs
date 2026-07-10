@@ -16,7 +16,8 @@ internal static class DynamoPartiQlStatementValidator
             throw new InvalidOperationException(
                 $"The generated PartiQL {operation} statement is {statement.Length} characters "
                 + $"(ASCII-equivalent bytes), which exceeds DynamoDB's "
-                + $"{MaxStatementLength}-byte statement-size limit.");
+                + $"{MaxStatementLength}-byte statement-size limit. "
+                + GetRemediation(operation));
         }
 
         var byteCount = Encoding.UTF8.GetByteCount(statement);
@@ -25,8 +26,20 @@ internal static class DynamoPartiQlStatementValidator
 
         throw new InvalidOperationException(
             $"The generated PartiQL {operation} statement is {byteCount} UTF-8 bytes, "
-            + $"which exceeds DynamoDB's {MaxStatementLength}-byte statement-size limit.");
+            + $"which exceeds DynamoDB's {MaxStatementLength}-byte statement-size limit. "
+            + GetRemediation(operation));
     }
+
+    private static string GetRemediation(string operation)
+        => operation switch
+        {
+            "write" => "Consider reducing the number of mapped scalar properties or splitting "
+                + "the write unit across multiple SaveChanges calls.",
+            "read" => "Consider narrowing the projection, simplifying the predicate, or splitting "
+                + "the query into smaller requests.",
+            _ => "Consider reducing statement complexity or splitting the operation into "
+                + "smaller requests."
+        };
 
     private static bool ContainsNonAscii(string value) => value.Any(static ch => ch > 0x7F);
 }
