@@ -113,7 +113,10 @@ public class DynamoEntityItemSerializerSourceTests
 
         var entity = new ConvertedEnumEntity
         {
-            Pk = "E#2", Sk = "E2", Status = ConvertedStatus.Active, OptionalStatus = null
+            Pk = "E#2",
+            Sk = "E2",
+            Status = ConvertedStatus.Active,
+            OptionalStatus = null
         };
 
         db.Add(entity);
@@ -141,7 +144,9 @@ public class DynamoEntityItemSerializerSourceTests
 
         var entity = new NullableCollectionEntity
         {
-            Pk = "L#1", Sk = "L1", NullableStatuses = [NullableStatus.Active, null]
+            Pk = "L#1",
+            Sk = "L1",
+            NullableStatuses = [NullableStatus.Active, null]
         };
 
         db.Add(entity);
@@ -173,7 +178,8 @@ public class DynamoEntityItemSerializerSourceTests
             Sk = "M1",
             NullableStatusByCode = new Dictionary<string, NullableStatus?>
             {
-                ["ok"] = NullableStatus.Active, ["missing"] = null
+                ["ok"] = NullableStatus.Active,
+                ["missing"] = null
             }
         };
 
@@ -201,7 +207,9 @@ public class DynamoEntityItemSerializerSourceTests
 
         var entity = new NullableCollectionEntity
         {
-            Pk = "S#1", Sk = "S1", NullableStatusSet = [NullableStatus.Active, null]
+            Pk = "S#1",
+            Sk = "S1",
+            NullableStatusSet = [NullableStatus.Active, null]
         };
 
         db.Add(entity);
@@ -295,7 +303,9 @@ public class DynamoEntityItemSerializerSourceTests
 
         var entity = new ComplexCollectionEntity
         {
-            Pk = "C#1", Sk = "C1", Contacts = [new ComplexContact { Value = "ok" }, null!]
+            Pk = "C#1",
+            Sk = "C1",
+            Contacts = [new ComplexContact { Value = "ok" }, null!]
         };
 
         db.Add(entity);
@@ -336,7 +346,8 @@ public class DynamoEntityItemSerializerSourceTests
                 Counts =
                     new Dictionary<string, int>(StringComparer.Ordinal)
                     {
-                        ["a"] = 1, ["b"] = 2
+                        ["a"] = 1,
+                        ["b"] = 2
                     },
                 LongCounts =
                     new ReadOnlyDictionary<string, long>(
@@ -353,7 +364,8 @@ public class DynamoEntityItemSerializerSourceTests
                     new ReadOnlyDictionary<string, bool?>(
                         new Dictionary<string, bool?>(StringComparer.Ordinal)
                         {
-                            ["yes"] = true, ["unknown"] = null
+                            ["yes"] = true,
+                            ["unknown"] = null
                         }),
                 UnsignedCounts =
                     new ReadOnlyDictionary<string, uint>(
@@ -361,7 +373,8 @@ public class DynamoEntityItemSerializerSourceTests
                 Doubles =
                     new Dictionary<string, double?>(StringComparer.Ordinal)
                     {
-                        ["pi"] = 3.14, ["missing"] = null
+                        ["pi"] = 3.14,
+                        ["missing"] = null
                     },
                 BinaryByName =
                     new Dictionary<string, byte[]>(StringComparer.Ordinal)

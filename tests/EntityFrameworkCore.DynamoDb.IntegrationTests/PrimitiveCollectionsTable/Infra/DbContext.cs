@@ -1,6 +1,5 @@
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.PrimitiveCollectionsTable;
 
-/// <summary>Represents the PrimitiveCollectionsDbContext type.</summary>
 public class PrimitiveCollectionsDbContext(DbContextOptions<PrimitiveCollectionsDbContext> options)
     : DbContext(options)
 {

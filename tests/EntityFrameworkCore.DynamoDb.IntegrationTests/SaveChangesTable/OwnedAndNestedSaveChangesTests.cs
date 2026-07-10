@@ -163,7 +163,9 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
                 DisplayName = "Depth Test",
                 PreferredAddress = new Address
                 {
-                    Line1 = "1 Main St", City = "OldCity", Country = "US"
+                    Line1 = "1 Main St",
+                    City = "OldCity",
+                    Country = "US"
                 }
             }
         };
@@ -436,7 +438,7 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
         await SeedAsync(item);
 
         // Replace the collection reference so EF Core's snapshot comparison detects the change.
-        item.AppliedCoupons = [..item.AppliedCoupons, "SUMMER5"];
+        item.AppliedCoupons = [.. item.AppliedCoupons, "SUMMER5"];
 
         await SaveChangesShouldAffectAsync(1);
 
@@ -719,7 +721,9 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
                 Method = "Ground",
                 Address = new Address
                 {
-                    Line1 = "1 Ship St", City = "Portland", Country = "US"
+                    Line1 = "1 Ship St",
+                    City = "Portland",
+                    Country = "US"
                 }
             }
         };

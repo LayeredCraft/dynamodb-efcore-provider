@@ -6,7 +6,6 @@ using NSubstitute;
 
 namespace EntityFrameworkCore.DynamoDb.Tests.Metadata;
 
-/// <summary>Represents the DiscriminatorMetadataTests type.</summary>
 public class DiscriminatorMetadataTests
 {
     private static DbContextOptions BuildOptions<T>(IAmazonDynamoDB client) where T : DbContext

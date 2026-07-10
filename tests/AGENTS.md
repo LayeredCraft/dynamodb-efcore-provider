@@ -16,6 +16,10 @@
   belongs in integration tests.
 - If a test only exercises an internal helper or factory and can run entirely in-memory with a local
   `DbContext`, it belongs in unit tests.
+- Exception: mock-client tests may stay in the integration project when they verify query execution
+  pipeline boundaries that live there (for example generated `ExecuteStatementRequest` pagination,
+  continuation-token behavior, or parameterless query execution) and moving them would duplicate
+  integration-only fixtures or internals.
 
 ## Unit Test Placement
 

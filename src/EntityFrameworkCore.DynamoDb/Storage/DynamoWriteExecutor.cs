@@ -312,7 +312,8 @@ internal sealed class DynamoWriteExecutor(
             return new ConditionalCheckFailedException(
                 error.Message ?? "DynamoDB BatchExecuteStatement reported a condition failure.")
             {
-                ErrorCode = error.Code, Item = error.Item
+                ErrorCode = error.Code,
+                Item = error.Item
             };
 
         return new AmazonDynamoDBException(

@@ -46,7 +46,8 @@ public class ComplexTypeProjectionTests
     {
         var item = new Dictionary<string, AttributeValue>
         {
-            ["pk"] = new() { S = pk }, ["$type"] = new() { S = nameof(EntityA) }
+            ["pk"] = new() { S = pk },
+            ["$type"] = new() { S = nameof(EntityA) }
         };
 
         if (includeProfileAttribute)
@@ -68,7 +69,8 @@ public class ComplexTypeProjectionTests
             {
                 M = new Dictionary<string, AttributeValue>
                 {
-                    ["displayName"] = new() { S = "Ada" }, ["age"] = new() { N = "39" }
+                    ["displayName"] = new() { S = "Ada" },
+                    ["age"] = new() { N = "39" }
                 }
             }
         };
@@ -100,7 +102,8 @@ public class ComplexTypeProjectionTests
             {
                 M = new Dictionary<string, AttributeValue>
                 {
-                    ["displayName"] = new() { S = "Bob" }, ["age"] = new() { N = "25" }
+                    ["displayName"] = new() { S = "Bob" },
+                    ["age"] = new() { N = "25" }
                 }
             }
         };
@@ -132,7 +135,8 @@ public class ComplexTypeProjectionTests
             {
                 M = new Dictionary<string, AttributeValue>
                 {
-                    ["displayName"] = new() { S = "Cleo" }, ["age"] = new() { N = "42" }
+                    ["displayName"] = new() { S = "Cleo" },
+                    ["age"] = new() { N = "42" }
                 }
             }
         };
@@ -161,7 +165,8 @@ public class ComplexTypeProjectionTests
             "A#3",
             new Dictionary<string, AttributeValue>
             {
-                ["displayName"] = new() { S = "Dora" }, ["age"] = new() { N = "31" }
+                ["displayName"] = new() { S = "Dora" },
+                ["age"] = new() { N = "31" }
             });
 
         var client = CreateMockClientReturning(item);
@@ -188,7 +193,8 @@ public class ComplexTypeProjectionTests
             "A#4",
             new Dictionary<string, AttributeValue>
             {
-                ["displayName"] = new() { S = "Eve" }, ["age"] = new() { N = "28" }
+                ["displayName"] = new() { S = "Eve" },
+                ["age"] = new() { N = "28" }
             });
 
         var client = CreateMockClientReturning(item);
@@ -280,7 +286,8 @@ public class ComplexTypeProjectionTests
     {
         var item = new Dictionary<string, AttributeValue>
         {
-            ["pk"] = new() { S = "A#6a" }, ["profile"] = new() { S = "legacy-shape" }
+            ["pk"] = new() { S = "A#6a" },
+            ["profile"] = new() { S = "legacy-shape" }
         };
 
         var client = CreateMockClientReturning(item);
@@ -387,7 +394,8 @@ public class ComplexTypeProjectionTests
             "A#6b",
             new Dictionary<string, AttributeValue>
             {
-                ["displayName"] = new() { S = "Ada" }, ["age"] = new() { N = "39" }
+                ["displayName"] = new() { S = "Ada" },
+                ["age"] = new() { N = "39" }
             });
 
         var client = CreateMockClientReturning(item, r => capturedRequest = r);

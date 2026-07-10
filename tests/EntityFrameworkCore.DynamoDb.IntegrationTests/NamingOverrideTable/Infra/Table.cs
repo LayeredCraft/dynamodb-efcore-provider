@@ -3,9 +3,9 @@ using Amazon.DynamoDBv2.Model;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.NamingOverrideTable.Infra;
 
-public static class NamingConventionsItemTable
+public static class NamingOverridesItemTable
 {
-    public const string TableName = "NamingConventionsItems";
+    public const string TableName = "NamingOverridesItems";
 
     public static async Task CreateTable(
         IAmazonDynamoDB dynamoDb,
@@ -91,7 +91,7 @@ public static class NamingConventionsItemTable
             cancellationToken);
 
         var writeRequests =
-            NamingConventionsItems
+            NamingOverridesItems
                 .AttributeValues
                 .Select(item => new WriteRequest { PutRequest = new PutRequest { Item = item } })
                 .ToList();

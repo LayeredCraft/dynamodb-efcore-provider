@@ -40,8 +40,8 @@ public static class SkipReason
 
     public const string RegexNotSupported = "DynamoDB PartiQL has no regex support.";
 
-    public const string StringCompareSignConstantsOnly =
-        "DynamoDB provider translates string.Compare/CompareTo only for sign constants -1, 0, or 1.";
+    public const string StringCompareZeroComparisonsOnly =
+        "DynamoDB provider translates string.Compare/CompareTo only for comparisons against 0 because .NET only guarantees negative, zero, or positive results.";
 
     public const string ByteArrayElementAccessNotSupported =
         "DynamoDB PartiQL does not support indexing into binary attributes.";

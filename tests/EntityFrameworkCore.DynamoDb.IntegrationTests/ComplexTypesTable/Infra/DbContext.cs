@@ -103,7 +103,6 @@ public class ConventionOnlyCollectionShapeDbContext(DbContextOptions options) : 
         });
 }
 
-/// <summary>Represents the ComplexTypesTableDbContext type.</summary>
 public class ComplexTypesTableDbContext(DbContextOptions options) : DbContext(options)
 {
     public DbSet<ComplexShapeItem> Items => Set<ComplexShapeItem>();

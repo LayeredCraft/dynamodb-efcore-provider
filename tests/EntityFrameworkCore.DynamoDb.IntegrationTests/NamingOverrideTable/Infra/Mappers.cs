@@ -9,7 +9,7 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.NamingOverrideTable.Infr
 [DynamoField(nameof(QuestionItem.Gs2Pk), AttributeName = "gs2-pk")]
 [DynamoField(nameof(QuestionItem.Gs2Sk), AttributeName = "gs2-sk")]
 [DynamoIgnore("IsQuestionRecordType")]
-internal static partial class NamingConventionsItemMapper
+internal static partial class NamingOverridesItemMapper
 {
     internal static partial Dictionary<string, AttributeValue> ToItem(QuestionItem source);
     internal static partial QuestionItem FromItem(Dictionary<string, AttributeValue> item);

@@ -223,7 +223,8 @@ public sealed class TestPartiQlLoggerFactory : ILoggerFactory
                     var existing = captureState.ExecuteStatementCalls[lastIndex];
                     captureState.ExecuteStatementCalls[lastIndex] = existing with
                     {
-                        ItemsCount = itemsCount, ResponseNextTokenPresent = nextTokenPresent
+                        ItemsCount = itemsCount,
+                        ResponseNextTokenPresent = nextTokenPresent
                     };
                 });
             }

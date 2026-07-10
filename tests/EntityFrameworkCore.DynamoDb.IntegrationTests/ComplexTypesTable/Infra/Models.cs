@@ -1,6 +1,5 @@
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.ComplexTypesTable;
 
-/// <summary>Represents the ComplexShapeItem type.</summary>
 public sealed record ComplexShapeItem
 {
     public DateTimeOffset CreatedAt { get; set; }
@@ -24,7 +23,6 @@ public sealed record ComplexShapeItem
     public List<string> Tags { get; set; } = [];
 }
 
-/// <summary>Represents the Profile type.</summary>
 public sealed record Profile
 {
     public Address? Address { get; set; }
@@ -34,7 +32,6 @@ public sealed record Profile
     public string DisplayName { get; set; } = null!;
 }
 
-/// <summary>Represents the Address type.</summary>
 public sealed record Address
 {
     public string City { get; set; } = null!;
@@ -44,7 +41,6 @@ public sealed record Address
     public string Line1 { get; set; } = null!;
 }
 
-/// <summary>Represents the Geo type.</summary>
 public sealed record Geo
 {
     public decimal Latitude { get; set; }
@@ -52,7 +48,6 @@ public sealed record Geo
     public decimal Longitude { get; set; }
 }
 
-/// <summary>Represents the Order type.</summary>
 public sealed record Order
 {
     public List<OrderLine> Lines { get; set; } = [];
@@ -64,7 +59,6 @@ public sealed record Order
     public decimal Total { get; set; }
 }
 
-/// <summary>Represents the Payment type.</summary>
 public sealed record Payment
 {
     public Card? Card { get; set; }
@@ -72,7 +66,6 @@ public sealed record Payment
     public string Provider { get; set; } = null!;
 }
 
-/// <summary>Represents the Card type.</summary>
 public sealed record Card
 {
     public int ExpMonth { get; set; }
@@ -82,7 +75,6 @@ public sealed record Card
     public string Last4 { get; set; } = null!;
 }
 
-/// <summary>Represents the OrderLine type.</summary>
 public sealed record OrderLine
 {
     public int Quantity { get; set; }
@@ -90,7 +82,6 @@ public sealed record OrderLine
     public string Sku { get; set; } = null!;
 }
 
-/// <summary>Represents the OrderSnapshot type.</summary>
 public sealed record OrderSnapshot
 {
     public string SnapshotNumber { get; set; } = null!;

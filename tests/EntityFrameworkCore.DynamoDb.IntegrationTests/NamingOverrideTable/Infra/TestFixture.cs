@@ -3,21 +3,21 @@ using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.NamingOverrideTable.Infra;
 
-public abstract class NamingConventionsTableTestFixture : DynamoTestFixtureBase
+public abstract class NamingOverridesTableTestFixture : DynamoTestFixtureBase
 {
-    protected NamingConventionsTableTestFixture(DynamoContainerFixture container) : base(container)
+    protected NamingOverridesTableTestFixture(DynamoContainerFixture container) : base(container)
         => EnsureClassTableInitialized(
-            NamingConventionsItemTable.TableName,
-            NamingConventionsItemTable.CreateTable);
+            NamingOverridesItemTable.TableName,
+            NamingOverridesItemTable.CreateTable);
 
     protected TestPartiQlLoggerFactory LoggerFactory => SqlCapture;
 
-    public NamingConventionsTableDbContext Db
+    public NamingOverridesTableDbContext Db
     {
         get
         {
-            field ??= new NamingConventionsTableDbContext(
-                CreateOptions<NamingConventionsTableDbContext>(options
+            field ??= new NamingOverridesTableDbContext(
+                CreateOptions<NamingOverridesTableDbContext>(options
                     => options.DynamoDbClient(Client)));
             return field;
         }
@@ -27,6 +27,6 @@ public abstract class NamingConventionsTableTestFixture : DynamoTestFixtureBase
         Dictionary<string, AttributeValue> item,
         CancellationToken cancellationToken)
         => Client.PutItemAsync(
-            new PutItemRequest { TableName = NamingConventionsItemTable.TableName, Item = item },
+            new PutItemRequest { TableName = NamingOverridesItemTable.TableName, Item = item },
             cancellationToken);
 }

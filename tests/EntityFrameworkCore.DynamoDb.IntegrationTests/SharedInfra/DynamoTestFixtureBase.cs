@@ -24,6 +24,8 @@ public abstract class DynamoTestFixtureBase
 {
     private readonly DynamoContainerFixture _container;
 
+    private static readonly TimeSpan TableLifecycleTimeout = TimeSpan.FromSeconds(30);
+
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> TableInitializationLocks =
         new(StringComparer.Ordinal);
 
@@ -93,14 +95,15 @@ public abstract class DynamoTestFixtureBase
         var gate = TableInitializationLocks.GetOrAdd(
             tableName,
             static _ => new SemaphoreSlim(1, 1));
-        gate.Wait();
+        using var timeout = new CancellationTokenSource(TableLifecycleTimeout);
+        gate.Wait(timeout.Token);
 
         try
         {
             if (InitializedClassTables.ContainsKey(classTableKey))
                 return;
 
-            RecreateTable(tableName, createTable);
+            RecreateTable(tableName, createTable, timeout.Token);
             InitializedClassTables[classTableKey] = true;
         }
         finally
@@ -111,10 +114,9 @@ public abstract class DynamoTestFixtureBase
 
     private void RecreateTable(
         string tableName,
-        Func<IAmazonDynamoDB, CancellationToken, Task> createTable)
-        => RecreateTableAsync(tableName, createTable, CancellationToken.None)
-            .GetAwaiter()
-            .GetResult();
+        Func<IAmazonDynamoDB, CancellationToken, Task> createTable,
+        CancellationToken cancellationToken)
+        => RecreateTableAsync(tableName, createTable, cancellationToken).GetAwaiter().GetResult();
 
     private async Task RecreateTableAsync(
         string tableName,
@@ -150,8 +152,23 @@ public abstract class DynamoTestFixtureBase
             {
                 return;
             }
+            catch (OperationCanceledException ex)
+            {
+                throw new TimeoutException(
+                    $"Timed out waiting for DynamoDB table '{tableName}' to be deleted.",
+                    ex);
+            }
 
-            await Task.Delay(TimeSpan.FromMilliseconds(100), cancellationToken);
+            try
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(100), cancellationToken);
+            }
+            catch (OperationCanceledException ex)
+            {
+                throw new TimeoutException(
+                    $"Timed out waiting for DynamoDB table '{tableName}' to be deleted.",
+                    ex);
+            }
         }
     }
 
@@ -175,8 +192,23 @@ public abstract class DynamoTestFixtureBase
                     return;
             }
             catch (ResourceNotFoundException) { }
+            catch (OperationCanceledException ex)
+            {
+                throw new TimeoutException(
+                    $"Timed out waiting for DynamoDB table '{tableName}' to become ACTIVE.",
+                    ex);
+            }
 
-            await Task.Delay(TimeSpan.FromMilliseconds(100), cancellationToken);
+            try
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(100), cancellationToken);
+            }
+            catch (OperationCanceledException ex)
+            {
+                throw new TimeoutException(
+                    $"Timed out waiting for DynamoDB table '{tableName}' to become ACTIVE.",
+                    ex);
+            }
         }
     }
 

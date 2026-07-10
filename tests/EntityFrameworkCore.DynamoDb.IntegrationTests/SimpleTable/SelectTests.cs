@@ -80,7 +80,8 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
                         IntValue = item.IntValue,
                         Sub = new NestedSubProjection
                         {
-                            Pk = item.Pk, BoolValue = item.BoolValue
+                            Pk = item.Pk,
+                            BoolValue = item.BoolValue
                         }
                     })
                 .ToListAsync(CancellationToken);
@@ -94,7 +95,8 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
                         IntValue = item.IntValue,
                         Sub = new NestedSubProjection
                         {
-                            Pk = item.Pk, BoolValue = item.BoolValue
+                            Pk = item.Pk,
+                            BoolValue = item.BoolValue
                         }
                     })
                 .ToList();
@@ -410,7 +412,8 @@ public class SelectTests(DynamoContainerFixture fixture) : SimpleTableTestFixtur
                 .Select(item
                     => new
                     {
-                        item.Pk, Value = (DateTimeOffset?)item.NullableDateTimeOffsetValue.Value
+                        item.Pk,
+                        Value = (DateTimeOffset?)item.NullableDateTimeOffsetValue.Value
                     })
                 .ToListAsync(CancellationToken);
 

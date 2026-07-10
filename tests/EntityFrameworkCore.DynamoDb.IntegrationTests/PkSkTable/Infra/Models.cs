@@ -1,6 +1,5 @@
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.PkSkTable;
 
-/// <summary>Represents the PkSkItem type.</summary>
 public sealed record PkSkItem
 {
     public string Pk { get; set; } = null!;

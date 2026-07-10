@@ -85,7 +85,10 @@ public class SaveChangesEdgeCasesTests(DynamoContainerFixture fixture)
             await context.SaveChangesAsync(CancellationToken);
         };
 
-        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*8192*");
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*8192*Consider reducing the number of mapped scalar properties*");
 
         // Guard fired before the write — item must not exist in DynamoDB.
         await AssertItemDoesNotExistAsync(pk, sk, CancellationToken);
