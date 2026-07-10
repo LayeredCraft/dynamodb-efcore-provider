@@ -14,7 +14,8 @@ Scope: entire repo, read-only analysis plus local validation. Installed cleanup 
 | `task test:ef11`                                            | Passed: 3500 total, 2590 succeeded, 910 skipped                                                                                                                                                                                                |
 | `task docs:build`                                           | Passed                                                                                                                                                                                                                                         |
 | `task pack:ef10 && task pack:ef11`                          | Initially failed release intent: both produced/overwrote `EntityFrameworkCore.DynamoDb.0.0.2-alpha.nupkg`; fixed: clean pack now emits `EntityFrameworkCore.DynamoDb.10.0.0-alpha.nupkg` and `EntityFrameworkCore.DynamoDb.11.0.0-alpha.nupkg` |
-| `dotnet format ... --verify-no-changes`                     | Initially failed: whitespace/charset fixes needed; fixed in this PR                                                                                                                                                                            |
+| `dotnet format ... --verify-no-changes`                     | Initially failed: whitespace/charset fixes needed; fixed in this PR and kept clean after repo hook formatting                                                                                                                                  |
+| `format hook git pre-commit --log-level warn`               | Passed; commit hook reported unmatched workflow YAML files but made no changes, and `dotnet format` remained clean                                                                                                                             |
 | `dotnet list ... package --vulnerable --include-transitive` | No vulnerable packages found                                                                                                                                                                                                                   |
 | `dotnet list ... package --outdated --include-transitive`   | Outdated patch/transitive packages found; top-level `AWSSDK.DynamoDBv2` 4.0.101 -> 4.0.101.1                                                                                                                                                   |
 | `git clean -ndX`                                            | Many ignored local artifacts present; preview only, no deletion                                                                                                                                                                                |
@@ -54,12 +55,13 @@ Scope: entire repo, read-only analysis plus local validation. Installed cleanup 
 
 ## High priority
 
-05. **PR build has broad permissions/secrets to external reusable workflow**
+05. **Build/publish workflows have broad permissions/secrets to external reusable workflows**
 
-    **Status:** Fixed in this PR. PR workflow uses narrower permissions, no inherited secrets, and a pinned reusable workflow reference.
+    **Status:** Fixed in this PR. PR and publish workflows use narrower permissions, no inherited secrets, and pinned reusable workflow/action references.
 
-    - Original evidence: `.github/workflows/pr-build.yaml:7` used `permissions: write-all`; line `22` referenced external workflow tag `@v10.1`; line `30` used `secrets: inherit`.
-    - Fix applied: least-privilege permissions, remove inherited secrets, pin reusable workflow reference.
+    - Original PR evidence: `.github/workflows/pr-build.yaml:7` used `permissions: write-all`; line `22` referenced external workflow tag `@v10.1`; line `30` used `secrets: inherit`.
+    - Additional publish evidence: `.github/workflows/publish-preview.yaml` and `.github/workflows/publish-release.yaml` used workflow-level write permissions, external `@v10.1` refs, and `secrets: inherit`.
+    - Fix applied: least-privilege caller permissions, remove inherited secrets where templates do not declare custom required secrets, and pin reusable workflow/action references to `76a2269c95c0f17eaac80d3020c783ff10be4371`.
 
 06. **Docs workflow watches wrong config and over-grants permissions**
 
@@ -197,7 +199,7 @@ Scope: entire repo, read-only analysis plus local validation. Installed cleanup 
     **Status:** Fixed in this PR.
 
     - Original evidence: `dotnet format --verify-no-changes` failed across `DynamoSaveChangesPlanner.cs`, `DynamoWriteExecutor.cs`, `Check.cs`, many tests, and `examples/Example.Simple/Program.cs` charset.
-    - Fix applied: run `dotnet format` and keep `dotnet format --verify-no-changes` clean.
+    - Fix applied: run repo hook formatter and `dotnet format`; keep `format hook git pre-commit --log-level warn` passing and `dotnet format --verify-no-changes` clean. Hook reports workflow YAML as unmatched formatter inputs but does not alter them.
 
 27. **Ignored local cruft present**
 
@@ -213,4 +215,4 @@ Scope: entire repo, read-only analysis plus local validation. Installed cleanup 
 5. Run format-only cleanup separately.
 6. Remove dead code/placeholders and polish XML comments.
 7. Add/expand coverage matrices and negative guards.
-8. Final validation: `task test:ef10`, `task test:ef11`, `task docs:build`, `task pack:ef10`, `task pack:ef11`, inspect nupkgs.
+8. Final validation: repo hook formatter, `dotnet format --verify-no-changes`, `git diff --check`, `task test:ef10`, `task test:ef11`, `task docs:build`, clean `task pack:ef10`/`task pack:ef11`, inspect nupkgs.

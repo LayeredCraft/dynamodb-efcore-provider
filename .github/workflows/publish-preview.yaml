@@ -13,11 +13,13 @@ on:
       - 'requirements.txt'
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
   build:
+    permissions:
+      contents: read
+      pull-requests: read
     # Multi-version support: add a new matrix entry for the new EF version.
     # The release tag prefix (vN.*) drives configuration and SDK selection automatically
     # in publish-release.yaml via buildConfiguration: auto.
@@ -33,7 +35,7 @@ jobs:
             dotnetVersion: "11.0.x"
             drafterConfig: "release-drafter-ef11.yml"
             artifact_name: "nuget-packages-ef11"
-    uses: LayeredCraft/devops-templates/.github/workflows/publish-preview.yml@v10.1
+    uses: LayeredCraft/devops-templates/.github/workflows/publish-preview.yml@76a2269c95c0f17eaac80d3020c783ff10be4371
     with:
       solution: EntityFrameworkCore.DynamoDb.slnx
       buildConfiguration: ${{ matrix.configuration }}
@@ -41,7 +43,6 @@ jobs:
       drafterConfig: ${{ matrix.drafterConfig }}
       hasTests: true
       artifact_name: ${{ matrix.artifact_name }}
-    secrets: inherit
 
   push:
     needs: build
@@ -50,7 +51,7 @@ jobs:
       id-token: write
       contents: read
     steps:
-      - uses: LayeredCraft/devops-templates/.github/actions/nuget-push@v10.1
+      - uses: LayeredCraft/devops-templates/.github/actions/nuget-push@76a2269c95c0f17eaac80d3020c783ff10be4371
         with:
           nuget_user: ${{ secrets.NUGET_USER }}
           artifact_name: "nuget-packages-ef*"
