@@ -2,36 +2,40 @@
 
 Branch: `chore/codebase-cleanup-release-prep`
 
-Scope: entire repo, read-only analysis plus local validation. Installed cleanup skills are repo-local. Subagent audit artifacts live under `.pi-subagents/artifacts/outputs/6102b418-9fe7-4bc2-ac91-84d0504c536f/cleanup-audit/`.
+Scope: entire repo, read-only analysis plus local validation. Installed cleanup skills are repo-local. This is a historical audit summary; findings fixed by this PR are marked for traceability.
 
 ## Validation run
 
-| Check                                                       | Result                                                                                          |
-| ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `task build:ef10`                                           | Passed                                                                                          |
-| `task build:ef11`                                           | Passed                                                                                          |
-| `task test:ef10`                                            | Passed: 3437 total, 2569 succeeded, 868 skipped                                                 |
-| `task test:ef11`                                            | Passed: 3500 total, 2590 succeeded, 910 skipped                                                 |
-| `task docs:build`                                           | Passed                                                                                          |
-| `task pack:ef10 && task pack:ef11`                          | Failed release intent: both produced/overwrote `EntityFrameworkCore.DynamoDb.0.0.2-alpha.nupkg` |
-| `dotnet format ... --verify-no-changes`                     | Failed: whitespace/charset fixes needed                                                         |
-| `dotnet list ... package --vulnerable --include-transitive` | No vulnerable packages found                                                                    |
-| `dotnet list ... package --outdated --include-transitive`   | Outdated patch/transitive packages found; top-level `AWSSDK.DynamoDBv2` 4.0.101 -> 4.0.101.1    |
-| `git clean -ndX`                                            | Many ignored local artifacts present; preview only, no deletion                                 |
+| Check                                                       | Result                                                                                                                                          |
+| ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `task build:ef10`                                           | Passed                                                                                                                                          |
+| `task build:ef11`                                           | Passed                                                                                                                                          |
+| `task test:ef10`                                            | Passed: 3437 total, 2569 succeeded, 868 skipped                                                                                                 |
+| `task test:ef11`                                            | Passed: 3500 total, 2590 succeeded, 910 skipped                                                                                                 |
+| `task docs:build`                                           | Passed                                                                                                                                          |
+| `task pack:ef10 && task pack:ef11`                          | Initially failed release intent: both produced/overwrote `EntityFrameworkCore.DynamoDb.0.0.2-alpha.nupkg`; fixed by preserving EF-line versions |
+| `dotnet format ... --verify-no-changes`                     | Initially failed: whitespace/charset fixes needed; tracked trailing whitespace fixed in this pass                                               |
+| `dotnet list ... package --vulnerable --include-transitive` | No vulnerable packages found                                                                                                                    |
+| `dotnet list ... package --outdated --include-transitive`   | Outdated patch/transitive packages found; top-level `AWSSDK.DynamoDBv2` 4.0.101 -> 4.0.101.1                                                    |
+| `git clean -ndX`                                            | Many ignored local artifacts present; preview only, no deletion                                                                                 |
 
-## Critical / release blockers
+## Original critical / release findings
 
 1. **Package versioning broken for EF10/EF11 release packages**
 
-   - Evidence: `Directory.Build.props:3-4` sets concrete `<Version>0.0.2-alpha</Version>`; provider csproj only sets `VersionPrefix` per TFM at `src/EntityFrameworkCore.DynamoDb/EntityFrameworkCore.DynamoDb.csproj:23-29`; `Taskfile.yml:147-155` does not pass version.
-   - Observed: `task pack:ef10` and `task pack:ef11` both produced `.nupkg/EntityFrameworkCore.DynamoDb.0.0.2-alpha.nupkg`; EF11 overwrote EF10.
-   - Fix: remove global `<Version>` or override `Version`/`PackageVersion` per EF line; make pack task require/pass `VERSION`.
+   **Status:** Fixed in this PR. `Directory.Build.props` no longer pins concrete `Version`; provider `VersionPrefix` remains `10.0.0` for EF10 and `11.0.0` for EF11, with the existing prerelease suffix applied.
+
+   - Original evidence: `Directory.Build.props:3-4` set concrete `<Version>0.0.2-alpha</Version>`; provider csproj only set `VersionPrefix` per TFM at `src/EntityFrameworkCore.DynamoDb/EntityFrameworkCore.DynamoDb.csproj:23-29`; `Taskfile.yml:147-155` did not pass version.
+   - Observed before fix: `task pack:ef10` and `task pack:ef11` both produced `.nupkg/EntityFrameworkCore.DynamoDb.0.0.2-alpha.nupkg`; EF11 overwrote EF10.
+   - Fix applied: remove global `<Version>` so SDK package version follows EF-line `VersionPrefix`, while global `VersionSuffix` preserves prerelease package semantics.
 
 2. **`string.Compare` / `CompareTo` against `1` or `-1` is semantically wrong**
 
-   - Evidence: `DynamoSqlTranslatingExpressionVisitor.cs:1489-1551` maps `== 1` to `>` and `== -1` to `<`.
-   - Bug: .NET compare contract is negative/zero/positive, not exact `-1`/`1`; provider can silently return wrong rows.
-   - Fix: only translate comparisons against `0`, or reject exact non-zero comparands.
+   **Status:** Fixed in this PR. Translation now supports compare-to-zero shapes only; non-zero comparands are rejected.
+
+   - Original evidence: `DynamoSqlTranslatingExpressionVisitor.cs:1489-1551` mapped `== 1` to `>` and `== -1` to `<`.
+   - Bug: .NET compare contract is negative/zero/positive, not exact `-1`/`1`; provider could silently return wrong rows.
+   - Fix applied: only translate comparisons against `0`; reject exact non-zero comparands.
 
 3. **Non-skipped spec rows pass without executing sync branch**
 
@@ -41,54 +45,72 @@ Scope: entire repo, read-only analysis plus local validation. Installed cleanup 
 
 4. **Release drafter EF-specific configs unused**
 
-   - Evidence: `.github/release-drafter-ef10.yml` and `-ef11.yml` define `v10.*`/`v11.*`, but `.github/workflows/release-drafter.yaml:15-20` calls reusable workflow without matrix/config input; generic `.github/release-drafter.yml` remains active.
+   **Status:** Fixed in this PR. Release drafter workflow now uses EF-specific configs.
+
+   - Original evidence: `.github/release-drafter-ef10.yml` and `-ef11.yml` defined `v10.*`/`v11.*`, but `.github/workflows/release-drafter.yaml:15-20` called reusable workflow without matrix/config input; generic `.github/release-drafter.yml` remained active.
    - Risk: releases/tags may not select intended EF line.
-   - Fix: matrix two drafter jobs or explicitly pass EF-specific config.
+   - Fix applied: matrix/config usage for EF-specific drafter jobs.
 
 ## High priority
 
 05. **PR build has broad permissions/secrets to external reusable workflow**
 
-    - Evidence: `.github/workflows/pr-build.yaml:7` uses `permissions: write-all`; line `22` references external workflow tag `@v10.1`; line `30` uses `secrets: inherit`.
-    - Fix: least-privilege permissions, remove inherited secrets if not required, pin to SHA/protected tags.
+    **Status:** Fixed in this PR. PR workflow uses narrower permissions, no inherited secrets, and a pinned reusable workflow reference.
+
+    - Original evidence: `.github/workflows/pr-build.yaml:7` used `permissions: write-all`; line `22` referenced external workflow tag `@v10.1`; line `30` used `secrets: inherit`.
+    - Fix applied: least-privilege permissions, remove inherited secrets, pin reusable workflow reference.
 
 06. **Docs workflow watches wrong config and over-grants permissions**
 
-    - Evidence: `.github/workflows/docs.yaml` watches `zensical.yml`, but repo uses `zensical.toml`; build command omits `-f zensical.toml`; workflow-level `pages: write`/`id-token: write` applies to PR build.
-    - Fix: watch `zensical.toml`, build with `-f zensical.toml`, scope deploy permissions to deploy job only.
+    **Status:** Fixed in this PR. Docs workflow watches/builds `zensical.toml` and scopes Pages permissions to deploy.
+
+    - Original evidence: `.github/workflows/docs.yaml` watched `zensical.yml`, but repo uses `zensical.toml`; build command omitted `-f zensical.toml`; workflow-level `pages: write`/`id-token: write` applied to PR build.
+    - Fix applied: watch `zensical.toml`, build with `-f zensical.toml`, scope deploy permissions to deploy job only.
 
 07. **NuGet metadata weak while package analysis disabled**
 
-    - Evidence: `Directory.Build.props:20` sets `NoPackageAnalysis=true`; generated nuspec showed `<description>Package Description</description>` and no tags.
-    - Fix: add `Description`, `PackageTags`, release notes strategy; re-enable package analysis or narrowly suppress known false positives.
+    **Status:** Partially fixed in this PR. Package metadata is now present; package-analysis policy remains separate.
+
+    - Original evidence: `Directory.Build.props:20` set `NoPackageAnalysis=true`; generated nuspec showed `<description>Package Description</description>` and no tags.
+    - Fix applied: add `Description`, `PackageTags`, and release notes metadata.
 
 08. **`string.Contains(char)` / `StartsWith(char)` accepted but likely fail generation**
 
-    - Evidence: char overloads routed to string functions in `DynamoSqlTranslatingExpressionVisitor.cs:97-109`, `867-882`, `1611-1630`; no `char` mapping in type mapping source.
-    - Fix: convert `char` to one-character string before SQL function, or reject cleanly.
+    **Status:** Fixed in this PR. Char overloads are rejected during translation with coverage.
+
+    - Original evidence: char overloads routed to string functions in `DynamoSqlTranslatingExpressionVisitor.cs:97-109`, `867-882`, `1611-1630`; no `char` mapping in type mapping source.
+    - Fix applied: reject char overloads cleanly before AWS execution.
 
 09. **Projection alias dedupe ignores case**
 
-    - Evidence: `SelectExpression.cs:377-387` dedupes aliases with `StringComparison.OrdinalIgnoreCase`.
+    **Status:** Fixed in this PR. Alias de-duplication now uses ordinal case-sensitive comparison.
+
+    - Original evidence: `SelectExpression.cs:377-387` deduped aliases with `StringComparison.OrdinalIgnoreCase`.
     - Risk: DynamoDB attributes are case-sensitive; `Name` and `name` can collapse.
-    - Fix: use `StringComparison.Ordinal`.
+    - Fix applied: use `StringComparison.Ordinal`.
 
 10. **Example model typo likely breaks seeded `Description` materialization**
 
-    - Evidence: `examples/Example.Simple/Program.cs` property/output uses `Desciption`; seed JSON uses `Description`.
-    - Fix: rename property or map attribute explicitly.
+    **Status:** Fixed in this PR. Example model now uses the correct `Description` spelling.
+
+    - Original evidence: `examples/Example.Simple/Program.cs` property/output used `Desciption`; seed JSON used `Description`.
+    - Fix applied: rename property/output to `Description`.
 
 ## Medium priority
 
 11. **Provider-owned AWS client not disposed**
 
-    - Evidence: `DynamoClientWrapper.cs:45-52` lazily creates `AmazonDynamoDBClient`; wrapper is scoped (`DynamoServiceCollectionExtensions.cs:43-47`) but does not implement `IDisposable`.
-    - Fix: track ownership and dispose only internally-created client.
+    **Status:** Fixed in this PR. Wrapper tracks ownership and preserves user-supplied clients.
+
+    - Original evidence: `DynamoClientWrapper.cs:45-52` lazily created `AmazonDynamoDBClient`; wrapper is scoped (`DynamoServiceCollectionExtensions.cs:43-47`) but did not implement `IDisposable`.
+    - Fix applied: track ownership and dispose only internally-created client.
 
 12. **Integration fixture lifecycle can ignore cancellation / hang**
 
-    - Evidence: `DynamoTestFixtureBase.cs:93-117` uses sync `gate.Wait()` and `CancellationToken.None`; wait loops at `141-179` run forever until table state changes.
-    - Fix: async initialization or `WaitAsync`, pass test cancellation, add deadlines.
+    **Status:** Fixed in this PR. Fixture lifecycle now uses bounded waits.
+
+    - Original evidence: `DynamoTestFixtureBase.cs:93-117` used sync `gate.Wait()` and `CancellationToken.None`; wait loops at `141-179` ran forever until table state changed.
+    - Fix applied: add deadlines/bounded waits for table lifecycle operations.
 
 13. **DynamoDB Local image mismatch**
 
@@ -97,23 +119,31 @@ Scope: entire repo, read-only analysis plus local validation. Installed cleanup 
 
 14. **Read PartiQL lacks 8KB preflight validation**
 
-    - Evidence: writes validate in `DynamoSaveChangesPlanner.cs:13,128-152`; read SQL generation returns string without equivalent check.
-    - Fix: shared statement byte-size validator for query and write paths.
+    **Status:** Fixed in this PR. Read execution validates statement byte length before AWS calls.
+
+    - Original evidence: writes validated in `DynamoSaveChangesPlanner.cs:13,128-152`; read SQL generation returned string without equivalent check.
+    - Fix applied: shared statement byte-size validator for query and write paths.
 
 15. **`ExecutePartiQl` defers parameter-list snapshot until enumeration**
 
-    - Evidence: `DynamoClientWrapper.cs:62` clones request without parameters; per-enumerator clone happens later.
-    - Fix: clone parameter list at enumerable creation too.
+    **Status:** Fixed in this PR. Parameter list is snapshotted at enumerable creation.
+
+    - Original evidence: `DynamoClientWrapper.cs:62` cloned request without parameters; per-enumerator clone happened later.
+    - Fix applied: clone parameter list at enumerable creation too.
 
 16. **Reversed inclusive range does not normalize to `BETWEEN`**
 
-    - Evidence: normalizer expects property on left for both bounds in `DynamoQueryableMethodTranslatingExpressionVisitor.cs:1138-1178`.
-    - Fix: normalize property-right comparisons too (`low <= prop && prop <= high`).
+    **Status:** Fixed in this PR. Reversed inclusive bounds now normalize to `BETWEEN`.
+
+    - Original evidence: normalizer expected property on left for both bounds in `DynamoQueryableMethodTranslatingExpressionVisitor.cs:1138-1178`.
+    - Fix applied: normalize property-right comparisons too (`low <= prop && prop <= high`).
 
 17. **Public docs stale / broken README path**
 
-    - Evidence: `README.md:91-92` says `docs/operators.md`; actual file is `docs/querying/operators.md`. Docs still emphasize EF10 without clear EF11 package-major guidance.
-    - Fix: update README and docs install/version pages.
+    **Status:** Fixed in this PR. README now points at `docs/querying/operators.md`; install/version docs cover EF-line packages.
+
+    - Original evidence: `README.md:91-92` said `docs/operators.md`; actual file is `docs/querying/operators.md`. Docs still emphasized EF10 without clear EF11 package-major guidance.
+    - Fix applied: update README and docs install/version pages.
 
 18. **Primitive collection projection skipped without executable negative guard**
 

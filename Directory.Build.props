@@ -1,7 +1,7 @@
 <Project>
   <PropertyGroup>
-    <VersionPrefix>0.0.2-alpha</VersionPrefix>
-    <Version>0.0.2-alpha</Version>
+    <VersionPrefix>0.0.2</VersionPrefix>
+    <VersionSuffix>alpha</VersionSuffix>
     <!-- SPDX license identifier for MIT -->
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <!-- Other useful metadata -->

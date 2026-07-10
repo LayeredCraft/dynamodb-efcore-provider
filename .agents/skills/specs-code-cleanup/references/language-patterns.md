@@ -12,7 +12,7 @@ Reference for language-specific formatter commands, import ordering, and search 
 
 ## Import Ordering
 
-**Java**: `java.*` → `jakarta.*`/`javax.*` → third-party → project imports  
+**Java**: `java.*` → `jakarta.*`/`javax.*` → third-party → project imports
 **TypeScript**: external libraries → internal absolute (`@/...`) → internal relative (`./...`)
 
 ## Common Search Patterns
