@@ -163,7 +163,9 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
                 DisplayName = "Depth Test",
                 PreferredAddress = new Address
                 {
-                    Line1 = "1 Main St", City = "OldCity", Country = "US"
+                    Line1 = "1 Main St",
+                    City = "OldCity",
+                    Country = "US"
                 }
             }
         };
@@ -719,7 +721,9 @@ public class OwnedAndNestedSaveChangesTests(DynamoContainerFixture fixture)
                 Method = "Ground",
                 Address = new Address
                 {
-                    Line1 = "1 Ship St", City = "Portland", Country = "US"
+                    Line1 = "1 Ship St",
+                    City = "Portland",
+                    Country = "US"
                 }
             }
         };

@@ -95,7 +95,8 @@ public class ReturnConsumedCapacityRequestTests
             .ExecutePartiQl(
                 new ExecuteStatementRequest
                 {
-                    Statement = "SELECT * FROM T", NextToken = "seed-token"
+                    Statement = "SELECT * FROM T",
+                    NextToken = "seed-token"
                 })) { }
 
         captured.Should().NotBeNull();

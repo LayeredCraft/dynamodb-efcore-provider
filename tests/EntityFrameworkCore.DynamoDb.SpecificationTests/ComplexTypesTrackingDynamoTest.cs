@@ -213,7 +213,9 @@ public class ComplexTypesTrackingDynamoTest
                 // Set the complex property with default values
                 entity.ComplexProp = new MultiPropComplex
                 {
-                    IntValue = 0, BoolValue = false, DateValue = default
+                    IntValue = 0,
+                    BoolValue = false,
+                    DateValue = default
                 };
 
                 await context.SaveChangesAsync().ConfigureAwait(false);

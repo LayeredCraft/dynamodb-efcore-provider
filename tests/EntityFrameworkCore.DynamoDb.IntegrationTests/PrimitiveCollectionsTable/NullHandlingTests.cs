@@ -213,7 +213,8 @@ public class NullHandlingTests(DynamoContainerFixture fixture)
     {
         var item = new Dictionary<string, AttributeValue>
         {
-            ["pk"] = new() { S = pk }, ["$type"] = new() { S = nameof(OptionalCollectionsItem) }
+            ["pk"] = new() { S = pk },
+            ["$type"] = new() { S = nameof(OptionalCollectionsItem) }
         };
 
         if (includeOptionalList)
@@ -233,7 +234,8 @@ public class NullHandlingTests(DynamoContainerFixture fixture)
                 {
                     M = new Dictionary<string, AttributeValue>
                     {
-                        ["k1"] = new() { N = "1" }, ["k2"] = new() { N = "2" }
+                        ["k1"] = new() { N = "1" },
+                        ["k2"] = new() { N = "2" }
                     }
                 };
 

@@ -6,18 +6,18 @@ Scope: entire repo, read-only analysis plus local validation. Installed cleanup 
 
 ## Validation run
 
-| Check                                                       | Result                                                                                                                                          |
-| ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `task build:ef10`                                           | Passed                                                                                                                                          |
-| `task build:ef11`                                           | Passed                                                                                                                                          |
-| `task test:ef10`                                            | Passed: 3437 total, 2569 succeeded, 868 skipped                                                                                                 |
-| `task test:ef11`                                            | Passed: 3500 total, 2590 succeeded, 910 skipped                                                                                                 |
-| `task docs:build`                                           | Passed                                                                                                                                          |
-| `task pack:ef10 && task pack:ef11`                          | Initially failed release intent: both produced/overwrote `EntityFrameworkCore.DynamoDb.0.0.2-alpha.nupkg`; fixed by preserving EF-line versions |
-| `dotnet format ... --verify-no-changes`                     | Initially failed: whitespace/charset fixes needed; tracked trailing whitespace fixed in this pass                                               |
-| `dotnet list ... package --vulnerable --include-transitive` | No vulnerable packages found                                                                                                                    |
-| `dotnet list ... package --outdated --include-transitive`   | Outdated patch/transitive packages found; top-level `AWSSDK.DynamoDBv2` 4.0.101 -> 4.0.101.1                                                    |
-| `git clean -ndX`                                            | Many ignored local artifacts present; preview only, no deletion                                                                                 |
+| Check                                                       | Result                                                                                                                                                                                                                                         |
+| ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `task build:ef10`                                           | Passed                                                                                                                                                                                                                                         |
+| `task build:ef11`                                           | Passed                                                                                                                                                                                                                                         |
+| `task test:ef10`                                            | Passed: 3437 total, 2569 succeeded, 868 skipped                                                                                                                                                                                                |
+| `task test:ef11`                                            | Passed: 3500 total, 2590 succeeded, 910 skipped                                                                                                                                                                                                |
+| `task docs:build`                                           | Passed                                                                                                                                                                                                                                         |
+| `task pack:ef10 && task pack:ef11`                          | Initially failed release intent: both produced/overwrote `EntityFrameworkCore.DynamoDb.0.0.2-alpha.nupkg`; fixed: clean pack now emits `EntityFrameworkCore.DynamoDb.10.0.0-alpha.nupkg` and `EntityFrameworkCore.DynamoDb.11.0.0-alpha.nupkg` |
+| `dotnet format ... --verify-no-changes`                     | Initially failed: whitespace/charset fixes needed; fixed in this PR                                                                                                                                                                            |
+| `dotnet list ... package --vulnerable --include-transitive` | No vulnerable packages found                                                                                                                                                                                                                   |
+| `dotnet list ... package --outdated --include-transitive`   | Outdated patch/transitive packages found; top-level `AWSSDK.DynamoDBv2` 4.0.101 -> 4.0.101.1                                                                                                                                                   |
+| `git clean -ndX`                                            | Many ignored local artifacts present; preview only, no deletion                                                                                                                                                                                |
 
 ## Original critical / release findings
 
@@ -28,6 +28,7 @@ Scope: entire repo, read-only analysis plus local validation. Installed cleanup 
    - Original evidence: `Directory.Build.props:3-4` set concrete `<Version>0.0.2-alpha</Version>`; provider csproj only set `VersionPrefix` per TFM at `src/EntityFrameworkCore.DynamoDb/EntityFrameworkCore.DynamoDb.csproj:23-29`; `Taskfile.yml:147-155` did not pass version.
    - Observed before fix: `task pack:ef10` and `task pack:ef11` both produced `.nupkg/EntityFrameworkCore.DynamoDb.0.0.2-alpha.nupkg`; EF11 overwrote EF10.
    - Fix applied: remove global `<Version>` so SDK package version follows EF-line `VersionPrefix`, while global `VersionSuffix` preserves prerelease package semantics.
+   - Final local pack outputs after cleaning: `.nupkg/EntityFrameworkCore.DynamoDb.10.0.0-alpha.nupkg` and `.nupkg/EntityFrameworkCore.DynamoDb.11.0.0-alpha.nupkg`.
 
 2. **`string.Compare` / `CompareTo` against `1` or `-1` is semantically wrong**
 
@@ -69,10 +70,10 @@ Scope: entire repo, read-only analysis plus local validation. Installed cleanup 
 
 07. **NuGet metadata weak while package analysis disabled**
 
-    **Status:** Partially fixed in this PR. Package metadata is now present; package-analysis policy remains separate.
+    **Status:** Fixed in this PR. Package metadata is now present and package analysis is no longer disabled by `Directory.Build.props`.
 
     - Original evidence: `Directory.Build.props:20` set `NoPackageAnalysis=true`; generated nuspec showed `<description>Package Description</description>` and no tags.
-    - Fix applied: add `Description`, `PackageTags`, and release notes metadata.
+    - Fix applied: add `Description`, `PackageTags`, and release notes metadata; remove the package-analysis opt-out.
 
 08. **`string.Contains(char)` / `StartsWith(char)` accepted but likely fail generation**
 
@@ -114,8 +115,10 @@ Scope: entire repo, read-only analysis plus local validation. Installed cleanup 
 
 13. **DynamoDB Local image mismatch**
 
-    - Evidence: integration uses `amazon/dynamodb-local:latest`; spec fixture pins `amazon/dynamodb-local:2.6.1`.
-    - Fix: centralize/pin image tag.
+    **Status:** Fixed in this PR. Fixtures now use the shared pinned image name from `tests/DynamoDbLocalImage.cs`.
+
+    - Original evidence: integration used `amazon/dynamodb-local:latest`; spec fixture pinned `amazon/dynamodb-local:2.6.1`.
+    - Fix applied: centralize/pin image tag (`amazon/dynamodb-local:3.3.0`).
 
 14. **Read PartiQL lacks 8KB preflight validation**
 
@@ -140,15 +143,17 @@ Scope: entire repo, read-only analysis plus local validation. Installed cleanup 
 
 17. **Public docs stale / broken README path**
 
-    **Status:** Fixed in this PR. README now points at `docs/querying/operators.md`; install/version docs cover EF-line packages.
+    **Status:** Partially fixed in this PR. README now points at `docs/querying/operators.md`; detailed EF-line packaging guidance lives in `docs/multi-version-ef-strategy.md`. Getting-started install docs remain intentionally generic in this PR.
 
     - Original evidence: `README.md:91-92` said `docs/operators.md`; actual file is `docs/querying/operators.md`. Docs still emphasized EF10 without clear EF11 package-major guidance.
-    - Fix applied: update README and docs install/version pages.
+    - Fix applied: update README path and multi-version strategy docs; do not claim user-facing install docs were expanded.
 
 18. **Primitive collection projection skipped without executable negative guard**
 
-    - Evidence: `PrimitiveCollectionsTable/SelectTests.cs:23-45` skipped; docs list feature as future.
-    - Fix: implement feature or add negative test asserting clear unsupported error.
+    **Status:** Fixed in this PR. Primitive collection projection now executes through integration coverage and docs list projection as supported.
+
+    - Original evidence: `PrimitiveCollectionsTable/SelectTests.cs:23-45` skipped; docs listed feature as future.
+    - Fix applied: enable `Select_AnonymousProjection_WithCollectionProperties` with SQL assertion and update query operator docs.
 
 19. **Scalar equality/type mapping coverage is representative, not exhaustive**
 
@@ -189,8 +194,10 @@ Scope: entire repo, read-only analysis plus local validation. Installed cleanup 
 
 26. **Formatting drift**
 
-    - Evidence: `dotnet format --verify-no-changes` failed across `DynamoSaveChangesPlanner.cs`, `DynamoWriteExecutor.cs`, `Check.cs`, many tests, and `examples/Example.Simple/Program.cs` charset.
-    - Fix: run `dotnet format` in dedicated formatting commit.
+    **Status:** Fixed in this PR.
+
+    - Original evidence: `dotnet format --verify-no-changes` failed across `DynamoSaveChangesPlanner.cs`, `DynamoWriteExecutor.cs`, `Check.cs`, many tests, and `examples/Example.Simple/Program.cs` charset.
+    - Fix applied: run `dotnet format` and keep `dotnet format --verify-no-changes` clean.
 
 27. **Ignored local cruft present**
 
@@ -199,7 +206,7 @@ Scope: entire repo, read-only analysis plus local validation. Installed cleanup 
 
 ## Recommended cleanup sequence
 
-1. Fix release packaging/versioning + metadata; verify `pack:ef10` and `pack:ef11` produce distinct correct packages.
+1. Fix release packaging/versioning + metadata; verify `pack:ef10` and `pack:ef11` produce distinct correct packages (`10.0.0-alpha` and `11.0.0-alpha`).
 2. Fix correctness bugs: string compare, char overloads, projection case sensitivity, reversed BETWEEN.
 3. Fix CI/release/docs workflows: release drafter, docs config watch, PR permissions.
 4. Fix test integrity: ComplexTypesTracking no-op sync rows, image pinning, lifecycle cancellation.

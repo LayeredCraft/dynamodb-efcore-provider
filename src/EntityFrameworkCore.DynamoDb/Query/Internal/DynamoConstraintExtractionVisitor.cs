@@ -151,8 +151,8 @@ internal sealed class DynamoConstraintExtractionVisitor
             case SqlDiscriminatorPredicateExpression:
                 break;
 
-            // All other nodes (NOT, IS NULL, custom functions, etc.) are filter predicates
-            // that do not contribute to key-condition constraints — safely ignored.
+                // All other nodes (NOT, IS NULL, custom functions, etc.) are filter predicates
+                // that do not contribute to key-condition constraints — safely ignored.
         }
     }
 

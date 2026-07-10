@@ -11,5 +11,6 @@ public class InlineAutoNSubstituteDataAttribute : InlineAutoDataAttribute
 {
     public InlineAutoNSubstituteDataAttribute(params object[] args) : base(
         new AutoNSubstituteDataAttribute(),
-        args) { }
+        args)
+    { }
 }

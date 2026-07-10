@@ -20,7 +20,10 @@ public class SharedTableIndexAutoSelectionTests(DynamoContainerFixture fixture)
             .BeEquivalentTo(
                 new PriorityWorkOrderEntity
                 {
-                    Pk = "WO#ALPHA", Sk = "WO#001", Status = "OPEN", Priority = 3
+                    Pk = "WO#ALPHA",
+                    Sk = "WO#001",
+                    Status = "OPEN",
+                    Priority = 3
                 });
 
         LoggerFactory
@@ -154,7 +157,10 @@ public class SharedTableIndexAutoSelectionTests(DynamoContainerFixture fixture)
             .BeEquivalentTo(
                 new PriorityWorkOrderEntity
                 {
-                    Pk = "WO#BETA", Sk = "WO#001", Status = "OPEN", Priority = 5
+                    Pk = "WO#BETA",
+                    Sk = "WO#001",
+                    Status = "OPEN",
+                    Priority = 5
                 });
 
         LoggerFactory

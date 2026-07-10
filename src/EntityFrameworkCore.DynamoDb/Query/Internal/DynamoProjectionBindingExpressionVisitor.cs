@@ -89,20 +89,20 @@ public sealed class DynamoProjectionBindingExpressionVisitor(
             case null when !_indexBasedBinding:
                 return QueryCompilationContext.NotTranslatedExpression;
             case null:
-            {
-                var constructorArguments = new Expression[node.Arguments.Count];
-                for (var i = 0; i < constructorArguments.Length; i++)
                 {
-                    var visitedArgument = Visit(node.Arguments[i]);
-                    if (visitedArgument == QueryCompilationContext.NotTranslatedExpression)
-                        return visitedArgument;
-                    if (visitedArgument == null)
-                        return QueryCompilationContext.NotTranslatedExpression;
-                    constructorArguments[i] = visitedArgument;
-                }
+                    var constructorArguments = new Expression[node.Arguments.Count];
+                    for (var i = 0; i < constructorArguments.Length; i++)
+                    {
+                        var visitedArgument = Visit(node.Arguments[i]);
+                        if (visitedArgument == QueryCompilationContext.NotTranslatedExpression)
+                            return visitedArgument;
+                        if (visitedArgument == null)
+                            return QueryCompilationContext.NotTranslatedExpression;
+                        constructorArguments[i] = visitedArgument;
+                    }
 
-                return node.Update(constructorArguments);
-            }
+                    return node.Update(constructorArguments);
+                }
         }
 
         var newArguments = new Expression[node.Arguments.Count];

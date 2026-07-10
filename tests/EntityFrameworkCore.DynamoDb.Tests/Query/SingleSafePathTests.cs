@@ -251,7 +251,8 @@ public class SingleSafePathTests
         var (client, captured) = SetupMockClient(
             new ExecuteStatementResponse
             {
-                Items = [CreateItem("S#1"), CreateItem("S#2")], NextToken = "next"
+                Items = [CreateItem("S#1"), CreateItem("S#2")],
+                NextToken = "next"
             });
         await using var context = SingleDbContext.Create(client);
 

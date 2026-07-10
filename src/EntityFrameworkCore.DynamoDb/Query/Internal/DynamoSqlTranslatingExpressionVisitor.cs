@@ -396,7 +396,7 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
             return QueryCompilationContext.NotTranslatedExpression;
 
         return TryCreateDiscriminatorPredicate(node.Expression, node.TypeOperand, false) is
-            { } predicate
+        { } predicate
             ? new SqlDiscriminatorPredicateExpression(predicate)
             : QueryCompilationContext.NotTranslatedExpression;
     }
@@ -567,10 +567,10 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
                 sourceExpression = memberExpression.Expression;
             }
             else if (sourceExpression is MethodCallExpression
-                {
-                    Method.IsGenericMethod: true,
-                    Arguments: [var source, ConstantExpression { Value: string efPropertyName }]
-                } methodCall
+            {
+                Method.IsGenericMethod: true,
+                Arguments: [var source, ConstantExpression { Value: string efPropertyName }]
+            } methodCall
                 && methodCall.Method.GetGenericMethodDefinition() == EfPropertyMethod)
             {
                 names.Add(efPropertyName);
@@ -710,9 +710,9 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
             _lambdaParameterEntityTypes?.TryGetValue(pe, out rootEntityType);
         }
         else if (sourceExpression is StructuralTypeShaperExpression
-            {
-                StructuralType: IEntityType shaperRootType
-            })
+        {
+            StructuralType: IEntityType shaperRootType
+        })
         {
             rootEntityType = shaperRootType;
         }
