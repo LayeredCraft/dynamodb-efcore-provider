@@ -51,7 +51,7 @@ Scope: entire repo, read-only analysis plus local validation. Installed cleanup 
 
    - Original evidence: `.github/release-drafter-ef10.yml` and `-ef11.yml` defined `v10.*`/`v11.*`, but `.github/workflows/release-drafter.yaml:15-20` called reusable workflow without matrix/config input; generic `.github/release-drafter.yml` remained active.
    - Risk: releases/tags may not select intended EF line.
-   - Fix applied: matrix/config usage for EF-specific drafter jobs.
+   - Fix applied: matrix/config usage for EF-specific drafter jobs; EF10/EF11 configs use Release Drafter v7 `filter-by-range` instead of unsupported `tag-filter`.
 
 ## High priority
 
@@ -61,7 +61,7 @@ Scope: entire repo, read-only analysis plus local validation. Installed cleanup 
 
     - Original PR evidence: `.github/workflows/pr-build.yaml:7` used `permissions: write-all`; line `22` referenced external workflow tag `@v10.1`; line `30` used `secrets: inherit`.
     - Additional publish evidence: `.github/workflows/publish-preview.yaml` and `.github/workflows/publish-release.yaml` used workflow-level write permissions, external `@v10.1` refs, and `secrets: inherit`.
-    - Fix applied: least-privilege caller permissions, remove inherited secrets where templates do not declare custom required secrets, and pin reusable workflow/action references to `76a2269c95c0f17eaac80d3020c783ff10be4371`.
+    - Fix applied: least-privilege caller permissions matching pinned reusable workflow contracts (`pr-build`: `id-token: write`, `contents: write`; `publish-preview`: `contents: write`, `pull-requests: write`; `publish-release`: `contents: write`), remove inherited secrets where templates do not require custom secrets, and pin reusable workflow/action references to `76a2269c95c0f17eaac80d3020c783ff10be4371`.
 
 06. **Docs workflow watches wrong config and over-grants permissions**
 

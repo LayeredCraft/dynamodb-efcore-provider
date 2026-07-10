@@ -10,7 +10,7 @@ permissions:
 jobs:
   build:
     permissions:
-      contents: read
+      contents: write
     uses: LayeredCraft/devops-templates/.github/workflows/publish-release.yml@76a2269c95c0f17eaac80d3020c783ff10be4371
     with:
       solution: EntityFrameworkCore.DynamoDb.slnx

@@ -9,6 +9,9 @@ permissions:
 jobs:
   application-build:
     name: application build (${{ matrix.configuration }}, ${{ matrix.dotnetVersion }})
+    permissions:
+      id-token: write
+      contents: write
     # Multi-version support: add a new matrix entry for the new EF version.
     # The release tag prefix (vN.*) drives configuration and SDK selection automatically
     # in publish-release.yaml via buildConfiguration: auto.

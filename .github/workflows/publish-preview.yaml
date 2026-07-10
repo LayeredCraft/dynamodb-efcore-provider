@@ -18,8 +18,8 @@ permissions:
 jobs:
   build:
     permissions:
-      contents: read
-      pull-requests: read
+      contents: write
+      pull-requests: write
     # Multi-version support: add a new matrix entry for the new EF version.
     # The release tag prefix (vN.*) drives configuration and SDK selection automatically
     # in publish-release.yaml via buildConfiguration: auto.
