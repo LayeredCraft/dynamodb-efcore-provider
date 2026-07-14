@@ -19,7 +19,7 @@ internal static class Check
     /// <summary>Provides functionality for this member.</summary>
     [return: NotNull]
     public static T NotNull<T>(
-        [AllowNull] [NotNull] this T value,
+        [AllowNull][NotNull] this T value,
         [CallerArgumentExpression(nameof(value))] string parameterName = "")
     {
         if (value is null)

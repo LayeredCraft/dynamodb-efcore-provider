@@ -23,11 +23,6 @@ public sealed class DynamoDatabaseCreatorTests
         exception.Message.Should().Be(DatabaseLifecycleNotSupported);
     }
 
-    [Fact(
-        Skip =
-            "EnsureCreatedAsync now performs AWS table lifecycle operations; covered by integration tests.")]
-    public Task EnsureCreatedAsync_ThrowsNotSupportedException() => Task.CompletedTask;
-
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void EnsureDeleted_ThrowsNotSupportedException()
     {
@@ -38,11 +33,6 @@ public sealed class DynamoDatabaseCreatorTests
 
         exception.Message.Should().Be(DatabaseLifecycleNotSupported);
     }
-
-    [Fact(
-        Skip =
-            "EnsureDeletedAsync now performs AWS table lifecycle operations; covered by integration tests.")]
-    public Task EnsureDeletedAsync_ThrowsNotSupportedException() => Task.CompletedTask;
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void CanConnect_ThrowsNotSupportedException()

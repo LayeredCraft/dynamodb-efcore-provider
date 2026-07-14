@@ -160,6 +160,23 @@ public class ReturnConsumedCapacityRequestTests
         captured!.ReturnConsumedCapacity.Should().Be(ReturnConsumedCapacity.TOTAL);
     }
 
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task ExecutePartiQl_LongReadStatement_ThrowsActionableReadMessage()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        await using var context = RequestContext.Create(client);
+        var statement = "SELECT " + new string('x', 8200) + " FROM T";
+
+        var act = () => context
+            .GetService<IDynamoClientWrapper>()
+            .ExecutePartiQl(new ExecuteStatementRequest { Statement = statement });
+
+        act
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage("*8192-byte statement-size limit*Consider narrowing the projection*");
+    }
+
     private sealed class RequestContext(DbContextOptions<RequestContext> options) : DbContext(
         options)
     {

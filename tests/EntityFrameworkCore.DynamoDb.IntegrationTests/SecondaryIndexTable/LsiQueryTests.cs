@@ -129,6 +129,33 @@ public class LsiQueryTests(DynamoContainerFixture fixture) : SecondaryIndexTable
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task ByPriority_Lsi_WithReversedInclusiveSortKeyRange_UsesBetween()
+    {
+        var low = 2;
+        var high = 5;
+
+        var results = await Db
+            .Orders
+            .WithIndex("ByPriority")
+            .Where(o => o.CustomerId == "C#1" && (low <= o.Priority && o.Priority <= high))
+            .ToListAsync(CancellationToken);
+
+        var expected = OrderItems
+            .Items
+            .Where(o => o.CustomerId == "C#1" && (low <= o.Priority && o.Priority <= high))
+            .ToList();
+
+        results.Should().BeEquivalentTo(expected);
+
+        AssertSql(
+            """
+            SELECT "customerId", "orderId", "$type", "createdAt", "priority", "region", "status"
+            FROM "SecondaryIndexOrders"."ByPriority"
+            WHERE "customerId" = 'C#1' AND "priority" BETWEEN ? AND ?
+            """);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ByCreatedAt_Lsi_EmitsCorrectFromSource_ForExecuteStatement()
     {
         _ = await Db

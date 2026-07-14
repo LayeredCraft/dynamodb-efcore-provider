@@ -89,6 +89,23 @@ public class SelectExpressionTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void AddToProjection_CaseOnlyAliases_AreDistinct()
+    {
+        var expr = new SelectExpression("TestTable");
+
+        var upperIndex = expr.AddToProjection(
+            new SqlPropertyExpression("Name", typeof(string), null),
+            "Name");
+        var lowerIndex = expr.AddToProjection(
+            new SqlPropertyExpression("name", typeof(string), null),
+            "name");
+
+        upperIndex.Should().Be(0);
+        lowerIndex.Should().Be(1);
+        expr.Projection.Should().HaveCount(2);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void ApplyPredicate_StillWorks()
     {
         var expr = new SelectExpression("TestTable");

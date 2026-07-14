@@ -59,7 +59,8 @@ public class DynamoApiConsistencyTest(DynamoApiConsistencyTest.DynamoApiConsiste
         public override
             Dictionary<Type, (Type ReadonlyExtensions, Type MutableExtensions, Type
                 ConventionExtensions, Type ConventionBuilderExtensions, Type RuntimeExtensions)>
-            MetadataExtensionTypes { get; } = new()
+            MetadataExtensionTypes
+        { get; } = new()
         {
             {
                 typeof(IReadOnlyEntityType),

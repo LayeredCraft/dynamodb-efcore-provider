@@ -13,9 +13,15 @@ tasks:
     silent: true
     cmds:
       - echo "🧹 Cleaning build artifacts"
-      - '[ -d ./.nupkg ] && rm -r ./.nupkg || true'
+      - task: clean:packages
       - find . -type d \( -name bin -o -name obj \) -prune -exec rm -rf {} +
       - echo "✅ Cleaning complete"
+
+  clean:packages:
+    desc: Clean local package output
+    silent: true
+    cmds:
+      - '[ -d ./.nupkg ] && rm -r ./.nupkg || true'
 
   restore:
     desc: Restore dependencies for CONFIG (default Debug EF10)
@@ -168,10 +174,13 @@ tasks:
         vars: { CONFIG: 'Release EF11' }
 
   publish:
-    desc: Publish packages from .nupkg to NuGet
+    desc: Pack EF10/EF11 from a clean package output and publish to NuGet
     silent: true
     cmds:
       - echo "🚀 Publishing"
+      - task: clean:packages
+      - task: pack:ef10
+      - task: pack:ef11
       - dotnet nuget push ./.nupkg/*.nupkg --source https://api.nuget.org/v3/index.json --api-key $NUGET_API_KEY_LOCAL --skip-duplicate
       - echo "✨ Published"
 

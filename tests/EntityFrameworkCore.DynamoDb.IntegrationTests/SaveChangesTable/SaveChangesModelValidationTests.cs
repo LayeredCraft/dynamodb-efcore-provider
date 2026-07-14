@@ -37,7 +37,9 @@ public class SaveChangesModelValidationTests(DynamoContainerFixture fixture)
     {
         var item = new RowVersionItem
         {
-            Pk = "TENANT#VALIDATION", Sk = "MODEL#ROWVERSION", Token = 1
+            Pk = "TENANT#VALIDATION",
+            Sk = "MODEL#ROWVERSION",
+            Token = 1
         };
 
         var act = async () =>

@@ -61,7 +61,10 @@ public class HasKeyOnlyTableKeyTests(DynamoContainerFixture fixture) : PkSkTable
     {
         var item = new PkSkItem
         {
-            Pk = "P#has-key-only-save", Sk = "0001", Category = "created", IsTarget = false
+            Pk = "P#has-key-only-save",
+            Sk = "0001",
+            Category = "created",
+            IsTarget = false
         };
 
         try

@@ -2,7 +2,6 @@ using Amazon.DynamoDBv2.Model;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.PrimitiveCollectionsTable;
 
-/// <summary>Represents the PrimitiveCollectionsItems type.</summary>
 public static class PrimitiveCollectionsItems
 {
     public static readonly List<PrimitiveCollectionsItem> Items =

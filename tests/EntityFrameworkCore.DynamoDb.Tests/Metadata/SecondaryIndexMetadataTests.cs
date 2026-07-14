@@ -10,7 +10,6 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace EntityFrameworkCore.DynamoDb.Tests.Metadata;
 
-/// <summary>Represents the SecondaryIndexMetadataTests type.</summary>
 public class SecondaryIndexMetadataTests
 {
     private sealed class TestDbContext(DbContextOptions<TestDbContext> options) : DbContext(options)

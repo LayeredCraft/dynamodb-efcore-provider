@@ -37,6 +37,54 @@ public class BetweenTests(DynamoContainerFixture fixture) : SimpleTableTestFixtu
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Where_IntBetween_LowerBoundOnLeft_TranslatesToBetween()
+    {
+        var low = 100;
+        var high = 200000;
+
+        var resultItems = await Db
+            .SimpleItems
+            .Where(item => low <= item.IntValue && item.IntValue <= high)
+            .ToListAsync(CancellationToken);
+
+        var expected =
+            SimpleItems.Items.Where(item => low <= item.IntValue && item.IntValue <= high);
+
+        resultItems.Should().BeEquivalentTo(expected);
+
+        AssertSql(
+            """
+            SELECT "pk", "$type", "boolValue", "dateOnlyValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableDateTimeOffsetValue", "nullableIntValue", "nullableStringValue", "stringValue", "timeOnlyValue", "timeSpanValue"
+            FROM "SimpleItems"
+            WHERE "intValue" BETWEEN ? AND ?
+            """);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Where_IntBetween_UpperBoundOnLeft_TranslatesToBetween()
+    {
+        var low = 100;
+        var high = 200000;
+
+        var resultItems = await Db
+            .SimpleItems
+            .Where(item => item.IntValue >= low && high >= item.IntValue)
+            .ToListAsync(CancellationToken);
+
+        var expected =
+            SimpleItems.Items.Where(item => item.IntValue >= low && high >= item.IntValue);
+
+        resultItems.Should().BeEquivalentTo(expected);
+
+        AssertSql(
+            """
+            SELECT "pk", "$type", "boolValue", "dateOnlyValue", "dateTimeOffsetValue", "decimalValue", "doubleValue", "floatValue", "guidValue", "intValue", "longValue", "nullableBoolValue", "nullableDateTimeOffsetValue", "nullableIntValue", "nullableStringValue", "stringValue", "timeOnlyValue", "timeSpanValue"
+            FROM "SimpleItems"
+            WHERE "intValue" BETWEEN ? AND ?
+            """);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task Where_IntBetween_NoMatchingItems_ReturnsEmpty()
     {
         var low = 300000;

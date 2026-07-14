@@ -194,7 +194,9 @@ public class BuiltInDataTypesDynamoTest(
                                 ],
                                 Details = new AnimalDetails
                                 {
-                                    Id = 1, AnimalId = 1, BoolField = true
+                                    Id = 1,
+                                    AnimalId = 1,
+                                    BoolField = true
                                 }
                             });
 

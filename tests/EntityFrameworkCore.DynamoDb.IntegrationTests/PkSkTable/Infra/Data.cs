@@ -2,7 +2,6 @@ using Amazon.DynamoDBv2.Model;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.PkSkTable;
 
-/// <summary>Represents the PkSkItems type.</summary>
 public static class PkSkItems
 {
     public static readonly List<PkSkItem> Items =

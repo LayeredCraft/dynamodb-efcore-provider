@@ -1,5 +1,5 @@
-tag-template: 'v11.$MINOR.$PATCH'
-tag-filter: '^v11\.'
+tag-template: 'v$RESOLVED_VERSION'
+filter-by-range: '>=11.0.0 <12.0.0'
 version-template: '11.$MINOR.$PATCH'
 name-template: 'v$RESOLVED_VERSION (EF Core 11)'
 commitish: main

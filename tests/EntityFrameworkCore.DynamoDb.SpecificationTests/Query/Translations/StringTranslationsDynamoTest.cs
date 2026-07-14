@@ -216,17 +216,8 @@ public abstract class StringTranslationsDynamoTest
             """);
     }
 
-    public override async Task StartsWith_Literal_Char()
-    {
-        await base.StartsWith_Literal_Char();
-
-        AssertSql(
-            """
-            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
-            FROM "BasicTypesEntity"
-            WHERE begins_with("string", 'S')
-            """);
-    }
+    [ConditionalFact(Skip = SkipReason.StringFunctionNotSupported)]
+    public override Task StartsWith_Literal_Char() => base.StartsWith_Literal_Char();
 
     public override async Task StartsWith_Parameter()
     {
@@ -240,17 +231,8 @@ public abstract class StringTranslationsDynamoTest
             """);
     }
 
-    public override async Task StartsWith_Parameter_Char()
-    {
-        await base.StartsWith_Parameter_Char();
-
-        AssertSql(
-            """
-            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
-            FROM "BasicTypesEntity"
-            WHERE begins_with("string", ?)
-            """);
-    }
+    [ConditionalFact(Skip = SkipReason.StringFunctionNotSupported)]
+    public override Task StartsWith_Parameter_Char() => base.StartsWith_Parameter_Char();
 
     [ConditionalFact(Skip = SkipReason.SameAttributeStringFunctionOperandsNotSupported)]
     public override Task StartsWith_Column() => base.StartsWith_Column();
@@ -312,17 +294,8 @@ public abstract class StringTranslationsDynamoTest
             """);
     }
 
-    public override async Task Contains_Literal_Char()
-    {
-        await base.Contains_Literal_Char();
-
-        AssertSql(
-            """
-            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
-            FROM "BasicTypesEntity"
-            WHERE contains("string", 'e')
-            """);
-    }
+    [ConditionalFact(Skip = SkipReason.StringFunctionNotSupported)]
+    public override Task Contains_Literal_Char() => base.Contains_Literal_Char();
 
     [ConditionalFact(Skip = SkipReason.SameAttributeStringFunctionOperandsNotSupported)]
     public override Task Contains_Column() => base.Contains_Column();
@@ -455,97 +428,20 @@ public abstract class StringTranslationsDynamoTest
             """);
     }
 
-    public override async Task Compare_simple_one()
-    {
-        await base.Compare_simple_one();
+    [ConditionalFact(Skip = SkipReason.StringCompareZeroComparisonsOnly)]
+    public override Task Compare_simple_one() => base.Compare_simple_one();
 
-        AssertSql(
-            """
-            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
-            FROM "BasicTypesEntity"
-            WHERE "string" > 'Seattle'
-            """,
-            """
-            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
-            FROM "BasicTypesEntity"
-            WHERE "string" < 'Seattle'
-            """,
-            """
-            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
-            FROM "BasicTypesEntity"
-            WHERE "string" <= 'Seattle'
-            """,
-            """
-            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
-            FROM "BasicTypesEntity"
-            WHERE "string" <= 'Seattle'
-            """,
-            """
-            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
-            FROM "BasicTypesEntity"
-            WHERE "string" >= 'Seattle'
-            """,
-            """
-            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
-            FROM "BasicTypesEntity"
-            WHERE "string" >= 'Seattle'
-            """);
-    }
+    [ConditionalFact(Skip = SkipReason.StringCompareZeroComparisonsOnly)]
+    public override Task Compare_with_parameter() => base.Compare_with_parameter();
 
-    public override async Task Compare_with_parameter()
-    {
-        await base.Compare_with_parameter();
-
-        AssertSql(
-            """
-            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
-            FROM "BasicTypesEntity"
-            WHERE "string" > ?
-            """,
-            """
-            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
-            FROM "BasicTypesEntity"
-            WHERE "string" < ?
-            """,
-            """
-            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
-            FROM "BasicTypesEntity"
-            WHERE "string" <= ?
-            """,
-            """
-            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
-            FROM "BasicTypesEntity"
-            WHERE "string" <= ?
-            """,
-            """
-            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
-            FROM "BasicTypesEntity"
-            WHERE "string" >= ?
-            """,
-            """
-            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
-            FROM "BasicTypesEntity"
-            WHERE "string" >= ?
-            """);
-    }
-
-    [ConditionalFact(Skip = SkipReason.StringCompareSignConstantsOnly)]
+    [ConditionalFact(Skip = SkipReason.StringCompareZeroComparisonsOnly)]
     public override Task Compare_simple_more_than_one() => base.Compare_simple_more_than_one();
 
     [ConditionalFact(Skip = SkipReason.StringFunctionNotSupported)]
     public override Task Compare_nested() => base.Compare_nested();
 
-    public override async Task Compare_multi_predicate()
-    {
-        await base.Compare_multi_predicate();
-
-        AssertSql(
-            """
-            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
-            FROM "BasicTypesEntity"
-            WHERE "string" >= 'Seattle' AND "string" < 'Toronto'
-            """);
-    }
+    [ConditionalFact(Skip = SkipReason.StringCompareZeroComparisonsOnly)]
+    public override Task Compare_multi_predicate() => base.Compare_multi_predicate();
 
     public override async Task CompareTo_simple_zero()
     {
@@ -584,97 +480,20 @@ public abstract class StringTranslationsDynamoTest
             """);
     }
 
-    public override async Task CompareTo_simple_one()
-    {
-        await base.CompareTo_simple_one();
+    [ConditionalFact(Skip = SkipReason.StringCompareZeroComparisonsOnly)]
+    public override Task CompareTo_simple_one() => base.CompareTo_simple_one();
 
-        AssertSql(
-            """
-            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
-            FROM "BasicTypesEntity"
-            WHERE "string" > 'Seattle'
-            """,
-            """
-            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
-            FROM "BasicTypesEntity"
-            WHERE "string" < 'Seattle'
-            """,
-            """
-            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
-            FROM "BasicTypesEntity"
-            WHERE "string" <= 'Seattle'
-            """,
-            """
-            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
-            FROM "BasicTypesEntity"
-            WHERE "string" <= 'Seattle'
-            """,
-            """
-            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
-            FROM "BasicTypesEntity"
-            WHERE "string" >= 'Seattle'
-            """,
-            """
-            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
-            FROM "BasicTypesEntity"
-            WHERE "string" >= 'Seattle'
-            """);
-    }
+    [ConditionalFact(Skip = SkipReason.StringCompareZeroComparisonsOnly)]
+    public override Task CompareTo_with_parameter() => base.CompareTo_with_parameter();
 
-    public override async Task CompareTo_with_parameter()
-    {
-        await base.CompareTo_with_parameter();
-
-        AssertSql(
-            """
-            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
-            FROM "BasicTypesEntity"
-            WHERE "string" > ?
-            """,
-            """
-            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
-            FROM "BasicTypesEntity"
-            WHERE "string" < ?
-            """,
-            """
-            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
-            FROM "BasicTypesEntity"
-            WHERE "string" <= ?
-            """,
-            """
-            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
-            FROM "BasicTypesEntity"
-            WHERE "string" <= ?
-            """,
-            """
-            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
-            FROM "BasicTypesEntity"
-            WHERE "string" >= ?
-            """,
-            """
-            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
-            FROM "BasicTypesEntity"
-            WHERE "string" >= ?
-            """);
-    }
-
-    [ConditionalFact(Skip = SkipReason.StringCompareSignConstantsOnly)]
+    [ConditionalFact(Skip = SkipReason.StringCompareZeroComparisonsOnly)]
     public override Task CompareTo_simple_more_than_one() => base.CompareTo_simple_more_than_one();
 
     [ConditionalFact(Skip = SkipReason.StringFunctionNotSupported)]
     public override Task CompareTo_nested() => base.CompareTo_nested();
 
-    public override async Task Compare_to_multi_predicate()
-    {
-        await base.Compare_to_multi_predicate();
-
-        AssertSql(
-            """
-            SELECT "id", "$type", "bool", "byte", "byteArray", "dateOnly", "dateTime", "dateTimeOffset", "decimal", "double", "enum", "flagsEnum", "float", "guid", "int", "long", "short", "string", "timeOnly", "timeSpan"
-            FROM "BasicTypesEntity"
-            WHERE "string" >= 'Seattle' AND "string" < 'Toronto'
-            """);
-    }
+    [ConditionalFact(Skip = SkipReason.StringCompareZeroComparisonsOnly)]
+    public override Task Compare_to_multi_predicate() => base.Compare_to_multi_predicate();
 
     [ConditionalFact(Skip = SkipReason.StringAggregateNotSupported)]
     public override Task Join_over_non_nullable_column() => base.Join_over_non_nullable_column();

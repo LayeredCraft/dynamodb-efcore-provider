@@ -4,7 +4,6 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SaveChangesTable;
 
-/// <summary>Represents the SaveChangesTableDbContext type.</summary>
 public class SaveChangesTableDbContext(DbContextOptions options) : DbContext(options)
 {
     public DbSet<CustomerItem> Customers => Set<CustomerItem>();

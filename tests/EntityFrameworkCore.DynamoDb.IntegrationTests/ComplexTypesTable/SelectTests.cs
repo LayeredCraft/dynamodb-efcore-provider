@@ -3,7 +3,6 @@ using EntityFrameworkCore.DynamoDb.IntegrationTests.SharedInfra;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.ComplexTypesTable;
 
-/// <summary>Represents the SelectTests type.</summary>
 public class SelectTests(DynamoContainerFixture fixture) : ComplexTypesTableTestFixture(fixture)
 {
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]

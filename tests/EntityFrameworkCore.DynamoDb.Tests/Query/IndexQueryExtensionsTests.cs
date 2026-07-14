@@ -9,7 +9,6 @@ using NSubstitute;
 
 namespace EntityFrameworkCore.DynamoDb.Tests.Query;
 
-/// <summary>Represents the IndexQueryExtensionsTests type.</summary>
 public class IndexQueryExtensionsTests
 {
     private sealed class TestDbContext(DbContextOptions options) : DbContext(options)

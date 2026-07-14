@@ -14,13 +14,15 @@ using Microsoft.EntityFrameworkCore.Storage;
 namespace EntityFrameworkCore.DynamoDb.Storage;
 
 /// <summary>Represents the DynamoClientWrapper type.</summary>
-public class DynamoClientWrapper : IDynamoClientWrapper
+public class DynamoClientWrapper : IDynamoClientWrapper, IDisposable
 {
     private readonly AmazonDynamoDBConfig? _amazonDynamoDbConfig;
     private readonly ReturnConsumedCapacity? _returnConsumedCapacity;
     private readonly bool _consistentRead;
     private readonly IDiagnosticsLogger<DbLoggerCategory.Database.Command> _commandLogger;
     private readonly IExecutionStrategy _executionStrategy;
+    private bool _ownsClient;
+    private bool _disposed;
 
     /// <summary>Creates a client wrapper using provider options and EF Core execution services.</summary>
     public DynamoClientWrapper(
@@ -47,9 +49,27 @@ public class DynamoClientWrapper : IDynamoClientWrapper
     {
         get
         {
-            field ??= new AmazonDynamoDBClient(_amazonDynamoDbConfig.NotNull());
+            if (field is null)
+            {
+                field = new AmazonDynamoDBClient(_amazonDynamoDbConfig.NotNull());
+                _ownsClient = true;
+            }
+
             return field;
         }
+    }
+
+    /// <summary>Disposes the provider-created DynamoDB client, if this wrapper owns it.</summary>
+    public void Dispose()
+    {
+        if (_disposed)
+            return;
+
+        _disposed = true;
+        if (_ownsClient)
+            Client.Dispose();
+
+        GC.SuppressFinalize(this);
     }
 
     /// <summary>Creates a reusable async enumerable over PartiQL result pages.</summary>
@@ -59,7 +79,9 @@ public class DynamoClientWrapper : IDynamoClientWrapper
         Action<ExecuteStatementResponse>? onPageFetched = null,
         bool suppressConsistentReadDefault = false)
     {
-        var request = CloneExecuteStatementRequest(statementRequest, false);
+        DynamoPartiQlStatementValidator.ValidateStatementLength(statementRequest.Statement, "read");
+
+        var request = CloneExecuteStatementRequest(statementRequest, true);
         request.ReturnConsumedCapacity ??= _returnConsumedCapacity;
         if (!suppressConsistentReadDefault)
             request.ConsistentRead ??= _consistentRead;
@@ -272,7 +294,7 @@ public class DynamoClientWrapper : IDynamoClientWrapper
             Statement = prototype.Statement,
             Parameters =
                 cloneParameters && prototype.Parameters is not null
-                    ? [..prototype.Parameters]
+                    ? [.. prototype.Parameters]
                     : prototype.Parameters,
             Limit = prototype.Limit,
             NextToken = prototype.NextToken,
