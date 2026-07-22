@@ -28,7 +28,7 @@
   </ItemGroup>
   <PropertyGroup Label="EF Core version selection">
     <EFCoreVersion Condition="'$(Configuration)' == 'Debug EF11' Or '$(Configuration)' == 'Release EF11'">
-      [11.0.0-preview.6.26359.118, 12.0.0-1)
+      [11.0.0-preview.5.26302.115, 12.0.0-a)
     </EFCoreVersion>
     <EFCoreVersion Condition="'$(EFCoreVersion)' == ''">[10.0.10, 11.0.0)</EFCoreVersion>
   </PropertyGroup>
