@@ -6,7 +6,7 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.NamingConventionTable;
 /// <summary>
 ///     DbContext for naming convention integration tests. Maps two entity types to separate
 ///     DynamoDB tables — one with <see cref="DynamoAttributeNamingConvention.SnakeCase" /> and one
-///     with <see cref="DynamoAttributeNamingConvention.CamelCase" /> — demonstrating that naming
+///     with <see cref="DynamoAttributeNamingConvention.KebabCase" /> — demonstrating that naming
 ///     conventions are applied per-entity, independently of one another.
 /// </summary>
 public class NamingConventionTableDbContext(DbContextOptions options) : DbContext(options)

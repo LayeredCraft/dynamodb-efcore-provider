@@ -1,5 +1,6 @@
 using Amazon.DynamoDBv2;
 using Amazon.Runtime;
+using EntityFrameworkCore.DynamoDb.TestUtilities;
 using JetBrains.Annotations;
 using Testcontainers.DynamoDb;
 using Testcontainers.Xunit;
@@ -25,5 +26,5 @@ public sealed class DynamoContainerFixture(IMessageSink messageSink)
         }
     }
 
-    protected override DynamoDbBuilder Configure() => new("amazon/dynamodb-local:latest");
+    protected override DynamoDbBuilder Configure() => new(DynamoDbLocalImage.Name);
 }

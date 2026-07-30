@@ -10,7 +10,10 @@ public class ConvertedCollectionAndEscapingSaveChangesTests(DynamoContainerFixtu
     {
         var item = new ConvertedCollectionItem
         {
-            Pk = "TENANT#CONV", Sk = "COLL#ADD-1", Version = 1, Scores = [1, 2, 3]
+            Pk = "TENANT#CONV",
+            Sk = "COLL#ADD-1",
+            Version = 1,
+            Scores = [1, 2, 3]
         };
 
         Db.ConvertedCollectionItems.Add(item);
@@ -30,7 +33,10 @@ public class ConvertedCollectionAndEscapingSaveChangesTests(DynamoContainerFixtu
     {
         var item = new ConvertedCollectionItem
         {
-            Pk = "TENANT#CONV", Sk = "COLL#MOD-1", Version = 1, Scores = [5]
+            Pk = "TENANT#CONV",
+            Sk = "COLL#MOD-1",
+            Version = 1,
+            Scores = [5]
         };
 
         await SeedAsync(item);
@@ -54,7 +60,10 @@ public class ConvertedCollectionAndEscapingSaveChangesTests(DynamoContainerFixtu
     {
         var item = new QuotedAttributeItem
         {
-            Pk = "TENANT#ESC", Sk = "QUOTE#1", Version = 1, DisplayName = "Ada"
+            Pk = "TENANT#ESC",
+            Sk = "QUOTE#1",
+            Version = 1,
+            DisplayName = "Ada"
         };
 
         Db.QuotedAttributeItems.Add(item);
@@ -77,7 +86,10 @@ public class ConvertedCollectionAndEscapingSaveChangesTests(DynamoContainerFixtu
         // A single-quote inside a double-quoted identifier is valid as-is — no escaping needed.
         var item = new QuotedAttributeItem
         {
-            Pk = "TENANT#ESC", Sk = "QUOTE#UPDATE-1", Version = 1, DisplayName = "Ada"
+            Pk = "TENANT#ESC",
+            Sk = "QUOTE#UPDATE-1",
+            Version = 1,
+            DisplayName = "Ada"
         };
 
         await SeedAsync(item);
@@ -104,7 +116,10 @@ public class ConvertedCollectionAndEscapingSaveChangesTests(DynamoContainerFixtu
         // syntax).
         var item = new QuotedAttributeItem
         {
-            Pk = "TENANT#ESC", Sk = "QUOTE#DELETE-1", Version = 1, DisplayName = "Ada"
+            Pk = "TENANT#ESC",
+            Sk = "QUOTE#DELETE-1",
+            Version = 1,
+            DisplayName = "Ada"
         };
 
         await SeedAsync(item);

@@ -99,6 +99,90 @@ public class UnsupportedOperatorTranslationTests
         await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
     }
 
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task StringContainsCharInPredicate_ThrowsTranslationFailureWithDetails()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        await using var context = UnsupportedOperatorDbContext.Create(client);
+
+        var act = async () => await context
+            .Items
+            .Where(i => i.Pk.Contains('1'))
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*Only string.Contains(string)*char*not translated*");
+
+        await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task StringStartsWithCharInPredicate_ThrowsTranslationFailureWithDetails()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        await using var context = UnsupportedOperatorDbContext.Create(client);
+
+        var act = async () => await context
+            .Items
+            .Where(i => i.Pk.StartsWith('i'))
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*Only string.StartsWith(string)*char*not translated*");
+
+        await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
+    [Theory(Timeout = TestConfiguration.DefaultTimeout)]
+    [InlineData(1)]
+    [InlineData(-1)]
+    public async Task
+        StringCompareEqualityAgainstNonzeroInPredicate_ThrowsTranslationFailureWithDetails(
+            int value)
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        await using var context = UnsupportedOperatorDbContext.Create(client);
+
+        var act = async () => await context
+            .Items
+            .Where(i => string.Compare(i.Pk, "item#1") == value)
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*could not be translated*");
+
+        await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
+    [Theory(Timeout = TestConfiguration.DefaultTimeout)]
+    [InlineData(1)]
+    [InlineData(-1)]
+    public async Task
+        StringCompareInequalityAgainstNonzeroInPredicate_ThrowsTranslationFailureWithDetails(
+            int value)
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        await using var context = UnsupportedOperatorDbContext.Create(client);
+
+        var act = async () => await context
+            .Items
+            .Where(i => string.Compare(i.Pk, "item#1") != value)
+            .ToListAsync(TestContext.Current.CancellationToken);
+
+        await act
+            .Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*could not be translated*");
+
+        await client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!);
+    }
+
     private sealed record UnsupportedOperatorEntity
     {
         public string Pk { get; set; } = null!;

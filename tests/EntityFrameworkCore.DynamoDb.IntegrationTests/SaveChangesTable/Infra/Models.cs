@@ -2,7 +2,6 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SaveChangesTable;
 
-/// <summary>Represents the CustomerItem type.</summary>
 public sealed record CustomerItem
 {
     public string Pk { get; set; } = null!;
@@ -32,7 +31,6 @@ public sealed record CustomerItem
     public string? NullableNote { get; set; }
 }
 
-/// <summary>Represents the OrderItem type.</summary>
 public sealed record OrderItem
 {
     public string Pk { get; set; } = null!;
@@ -62,7 +60,6 @@ public sealed record OrderItem
     public string? CancellationReason { get; set; }
 }
 
-/// <summary>Represents the ProductItem type.</summary>
 public sealed record ProductItem
 {
     public string Pk { get; set; } = null!;
@@ -90,7 +87,6 @@ public sealed record ProductItem
     public List<string> SearchTerms { get; set; } = [];
 }
 
-/// <summary>Represents the SessionItem type.</summary>
 public sealed record SessionItem
 {
     public string Pk { get; set; } = null!;
@@ -116,7 +112,6 @@ public sealed record SessionItem
     public DateTimeOffset? LastSeenAt { get; set; }
 }
 
-/// <summary>Represents the ConverterCoverageItem type.</summary>
 public sealed record ConverterCoverageItem
 {
     public string Pk { get; set; } = null!;
@@ -196,7 +191,6 @@ public sealed record QuotedAttributeItem
     public string DisplayName { get; set; } = null!;
 }
 
-/// <summary>Represents the CustomerProfile type.</summary>
 public sealed record CustomerProfile
 {
     public string DisplayName { get; set; } = null!;
@@ -208,7 +202,6 @@ public sealed record CustomerProfile
     public Address? BillingAddress { get; set; }
 }
 
-/// <summary>Represents the CustomerContact type.</summary>
 public sealed record CustomerContact
 {
     public string Kind { get; set; } = null!;
@@ -222,7 +215,6 @@ public sealed record CustomerContact
     public Address? Address { get; set; }
 }
 
-/// <summary>Represents the ShippingDetails type.</summary>
 public sealed record ShippingDetails
 {
     public string Method { get; set; } = null!;
@@ -232,7 +224,6 @@ public sealed record ShippingDetails
     public DeliveryWindow? DeliveryWindow { get; set; }
 }
 
-/// <summary>Represents the BillingDetails type.</summary>
 public sealed record BillingDetails
 {
     public bool SameAsShipping { get; set; }
@@ -240,7 +231,6 @@ public sealed record BillingDetails
     public Address? Address { get; set; }
 }
 
-/// <summary>Represents the OrderLine type.</summary>
 public sealed record OrderLine
 {
     public string Sku { get; set; } = null!;
@@ -252,7 +242,6 @@ public sealed record OrderLine
     public Dictionary<string, string> Metadata { get; set; } = [];
 }
 
-/// <summary>Represents the DeliveryWindow type.</summary>
 public sealed record DeliveryWindow
 {
     public DateTimeOffset Start { get; set; }
@@ -260,7 +249,6 @@ public sealed record DeliveryWindow
     public DateTimeOffset End { get; set; }
 }
 
-/// <summary>Represents the ProductDimensions type.</summary>
 public sealed record ProductDimensions
 {
     public decimal Height { get; set; }
@@ -272,7 +260,6 @@ public sealed record ProductDimensions
     public decimal? Weight { get; set; }
 }
 
-/// <summary>Represents the ProductVariant type.</summary>
 public sealed record ProductVariant
 {
     public string Code { get; set; } = null!;
@@ -284,7 +271,6 @@ public sealed record ProductVariant
     public List<string> AlternateCodes { get; set; } = [];
 }
 
-/// <summary>Represents the SessionDevice type.</summary>
 public sealed record SessionDevice
 {
     public string Platform { get; set; } = null!;
@@ -294,7 +280,6 @@ public sealed record SessionDevice
     public Address? LastKnownAddress { get; set; }
 }
 
-/// <summary>Represents the Address type.</summary>
 public sealed record Address
 {
     public string Line1 { get; set; } = null!;

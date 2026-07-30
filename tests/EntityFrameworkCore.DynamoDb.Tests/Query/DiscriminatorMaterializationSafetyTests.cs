@@ -6,7 +6,6 @@ using NSubstitute;
 
 namespace EntityFrameworkCore.DynamoDb.Tests.Query;
 
-/// <summary>Represents the DiscriminatorMaterializationSafetyTests type.</summary>
 public class DiscriminatorMaterializationSafetyTests
 {
     private static DbContextOptions BuildOptions<T>(IAmazonDynamoDB client) where T : DbContext

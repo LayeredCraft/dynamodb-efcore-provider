@@ -422,7 +422,8 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
             CreatedAt = new DateTimeOffset(2026, 03, 08, 12, 00, 00, TimeSpan.Zero),
             Preferences = new Dictionary<string, string>
             {
-                ["language"] = "en", ["theme"] = "dark"
+                ["language"] = "en",
+                ["theme"] = "dark"
             }
         };
 
@@ -465,7 +466,8 @@ public class WriteValueSerializationTests(DynamoContainerFixture fixture)
             Total = 50.00m,
             ChargesByCode = new Dictionary<string, decimal>
             {
-                ["shipping"] = 9.99m, ["tax"] = 4.50m
+                ["shipping"] = 9.99m,
+                ["tax"] = 4.50m
             }
         };
 

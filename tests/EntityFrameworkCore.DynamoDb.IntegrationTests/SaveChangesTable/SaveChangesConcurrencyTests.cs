@@ -120,7 +120,8 @@ public class SaveChangesConcurrencyTests(DynamoContainerFixture fixture)
                 TableName = SaveChangesItemTable.TableName,
                 Key = new Dictionary<string, AttributeValue>
                 {
-                    ["pk"] = new() { S = customer.Pk }, ["sk"] = new() { S = customer.Sk }
+                    ["pk"] = new() { S = customer.Pk },
+                    ["sk"] = new() { S = customer.Sk }
                 }
             },
             CancellationToken);
@@ -313,7 +314,8 @@ public class SaveChangesConcurrencyTests(DynamoContainerFixture fixture)
                 TableName = SaveChangesItemTable.TableName,
                 Key = new Dictionary<string, AttributeValue>
                 {
-                    ["pk"] = new() { S = second.Pk }, ["sk"] = new() { S = second.Sk }
+                    ["pk"] = new() { S = second.Pk },
+                    ["sk"] = new() { S = second.Sk }
                 }
             },
             CancellationToken);

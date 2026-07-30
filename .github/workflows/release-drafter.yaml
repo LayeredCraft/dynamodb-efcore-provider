@@ -9,12 +9,42 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
+  pull-requests: read
 
 jobs:
+  autolabel:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.event.pull_request.draft != true
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Autolabel pull request
+        uses: release-drafter/release-drafter/autolabeler@4d75298e00d9e34c483e5ff8c68d0ea1c1940c1e
+        with:
+          config-name: release-drafter-ef10.yml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   draft:
-    uses: LayeredCraft/devops-templates/.github/workflows/release-drafter.yml@v10.1
-    with:
-      event_name: ${{ github.event_name }}
-      pr_draft: ${{ github.event.pull_request.draft == true }}
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: write
+      pull-requests: read
+    strategy:
+      matrix:
+        include:
+          - config-name: release-drafter-ef10.yml
+          - config-name: release-drafter-ef11.yml
+    concurrency:
+      group: release-drafter-${{ matrix.config-name }}-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - name: Draft ${{ matrix.config-name }} release
+        uses: release-drafter/release-drafter@4d75298e00d9e34c483e5ff8c68d0ea1c1940c1e
+        with:
+          config-name: ${{ matrix.config-name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

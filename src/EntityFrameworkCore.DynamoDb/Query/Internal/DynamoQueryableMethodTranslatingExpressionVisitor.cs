@@ -1147,45 +1147,58 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
             || andExpression.Right is not SqlBinaryExpression rightBinary)
             return false;
 
-        // Accept (prop >= low) AND (prop <= high)  or the reversed ordering.
-        SqlBinaryExpression? geExpression = null;
-        SqlBinaryExpression? leExpression = null;
-
-        if (leftBinary.OperatorType is ExpressionType.GreaterThanOrEqual
-            && rightBinary.OperatorType is ExpressionType.LessThanOrEqual)
+        if (TryGetBetweenBound(leftBinary, true, out var lowerSubject, out low)
+            && TryGetBetweenBound(rightBinary, false, out var upperSubject, out high)
+            && lowerSubject.PropertyName == upperSubject.PropertyName)
         {
-            geExpression = leftBinary;
-            leExpression = rightBinary;
-        }
-        else if (leftBinary.OperatorType is ExpressionType.LessThanOrEqual
-            && rightBinary.OperatorType is ExpressionType.GreaterThanOrEqual)
-        {
-            leExpression = leftBinary;
-            geExpression = rightBinary;
+            subject = lowerSubject;
+            return true;
         }
 
-        if (geExpression is null || leExpression is null)
-            return false;
+        if (TryGetBetweenBound(rightBinary, true, out lowerSubject, out low)
+            && TryGetBetweenBound(leftBinary, false, out upperSubject, out high)
+            && lowerSubject.PropertyName == upperSubject.PropertyName)
+        {
+            subject = lowerSubject;
+            return true;
+        }
 
-        // Both sides must compare the same property.
-        if (geExpression.Left is not SqlPropertyExpression geProp
-            || leExpression.Left is not SqlPropertyExpression leProp
-            || geProp.PropertyName != leProp.PropertyName)
-            return false;
+        return false;
+    }
 
-        subject = geProp;
-        low = geExpression.Right;
-        high = leExpression.Right;
+    private static bool TryGetBetweenBound(
+        SqlBinaryExpression comparison,
+        bool lower,
+        out SqlPropertyExpression subject,
+        out SqlExpression bound)
+    {
+        subject = null!;
+        bound = null!;
 
-        // TODO: consider normalizing for BETWEEN
-        // NOTE: bounds are taken directly from the expression tree — no normalization or
-        // reordering is performed. If the caller supplies inverted bounds (e.g. prop >= 500
-        // && prop <= 100), the BETWEEN is emitted as-is and DynamoDB will return no results.
-        // This is intentional: the provider does not validate value semantics, only structure.
-        // For sort-key range queries this matters because DynamoDB allows only a single
-        // condition on the sort key; the BETWEEN rewrite satisfies that constraint, but only
-        // when the bounds are in the correct order (low, high).
-        return true;
+        var propertyOnLeftOperator = lower
+            ? ExpressionType.GreaterThanOrEqual
+            : ExpressionType.LessThanOrEqual;
+        var propertyOnRightOperator = lower
+            ? ExpressionType.LessThanOrEqual
+            : ExpressionType.GreaterThanOrEqual;
+
+        if (comparison.OperatorType == propertyOnLeftOperator
+            && comparison.Left is SqlPropertyExpression leftProperty)
+        {
+            subject = leftProperty;
+            bound = comparison.Right;
+            return true;
+        }
+
+        if (comparison.OperatorType == propertyOnRightOperator
+            && comparison.Right is SqlPropertyExpression rightProperty)
+        {
+            subject = rightProperty;
+            bound = comparison.Left;
+            return true;
+        }
+
+        return false;
     }
 
     /// <summary>Wraps a boolean column/parameter into an explicit comparison.</summary>

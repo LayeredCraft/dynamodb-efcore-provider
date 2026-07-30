@@ -12,7 +12,8 @@ public class RequiredPropertyNullHandlingTests(DynamoContainerFixture fixture)
         var template = new Dictionary<string, AttributeValue>(SimpleItems.AttributeValues[0]);
         var item = new Dictionary<string, AttributeValue>(template)
         {
-            ["pk"] = new() { S = "ITEM#BAD-NULL-INT" }, ["intValue"] = new() { NULL = true }
+            ["pk"] = new() { S = "ITEM#BAD-NULL-INT" },
+            ["intValue"] = new() { NULL = true }
         };
 
         await Client.PutItemAsync(

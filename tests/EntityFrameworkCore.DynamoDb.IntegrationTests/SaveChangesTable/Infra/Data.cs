@@ -2,7 +2,6 @@ using Amazon.DynamoDBv2.Model;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.SaveChangesTable;
 
-/// <summary>Represents the SaveChangesTableItems type.</summary>
 public static class SaveChangesTableItems
 {
     public static readonly List<CustomerItem> Customers =

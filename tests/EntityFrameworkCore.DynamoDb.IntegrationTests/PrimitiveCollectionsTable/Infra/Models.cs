@@ -1,6 +1,5 @@
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.PrimitiveCollectionsTable;
 
-/// <summary>Represents the PrimitiveCollectionsItem type.</summary>
 public record PrimitiveCollectionsItem(
     string Pk,
     List<string> Tags,

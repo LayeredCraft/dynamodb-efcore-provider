@@ -94,9 +94,6 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
     private static readonly MethodInfo StringContainsMethod =
         ((Func<string, bool>)string.Empty.Contains).Method;
 
-    private static readonly MethodInfo StringContainsCharMethod =
-        typeof(string).GetMethod(nameof(string.Contains), [typeof(char)])!;
-
     private static readonly MethodInfo StringContainsWithComparisonMethod =
         typeof(string).GetMethod(
             nameof(string.Contains),
@@ -104,9 +101,6 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
 
     private static readonly MethodInfo StringStartsWithMethod =
         ((Func<string, bool>)string.Empty.StartsWith).Method;
-
-    private static readonly MethodInfo StringStartsWithCharMethod =
-        typeof(string).GetMethod(nameof(string.StartsWith), [typeof(char)])!;
 
     private static readonly MethodInfo StringStartsWithWithComparisonMethod =
         typeof(string).GetMethod(
@@ -865,7 +859,6 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
             return TranslateStringIsNullOrEmpty(node);
 
         if (node.Method == StringContainsMethod
-            || node.Method == StringContainsCharMethod
             || IsOrdinalStringComparisonMethod(node, StringContainsWithComparisonMethod))
             return TranslateStringContains(node);
 
@@ -877,7 +870,6 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         }
 
         if (node.Method == StringStartsWithMethod
-            || node.Method == StringStartsWithCharMethod
             || IsOrdinalStringComparisonMethod(node, StringStartsWithWithComparisonMethod))
             return TranslateStringStartsWith(node);
 
@@ -1488,7 +1480,7 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
 
     /// <summary>
     ///     Translates supported Dynamo lexical string comparison shapes to SQL binary comparisons.
-    ///     Supported forms compare <c>string.Compare(a, b)</c> or <c>a.CompareTo(b)</c> to -1, 0, or 1.
+    ///     Supported forms compare <c>string.Compare(a, b)</c> or <c>a.CompareTo(b)</c> to 0.
     /// </summary>
     private Expression? TryTranslateStringCompare(BinaryExpression node)
     {
@@ -1532,21 +1524,6 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         => comparand switch
         {
             0 => op,
-            1 => op switch
-            {
-                ExpressionType.Equal or ExpressionType.GreaterThanOrEqual => ExpressionType
-                    .GreaterThan,
-                ExpressionType.NotEqual or ExpressionType.LessThan =>
-                    ExpressionType.LessThanOrEqual,
-                _ => null
-            },
-            -1 => op switch
-            {
-                ExpressionType.Equal or ExpressionType.LessThanOrEqual => ExpressionType.LessThan,
-                ExpressionType.NotEqual or ExpressionType.GreaterThan => ExpressionType
-                    .GreaterThanOrEqual,
-                _ => null
-            },
             _ => null
         };
 

@@ -71,7 +71,8 @@ public class DynamoClientWrapperTests
 
         var requestPrototype = new ExecuteStatementRequest
         {
-            Statement = "SELECT * FROM Test", Parameters = []
+            Statement = "SELECT * FROM Test",
+            Parameters = []
         };
 
         var enumerable = wrapper.ExecutePartiQl(requestPrototype);
@@ -88,6 +89,69 @@ public class DynamoClientWrapperTests
         nextTokens[1].Should().Be("t1");
         nextTokens[2].Should().BeNull();
         nextTokens[3].Should().Be("t1");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task ExecutePartiQl_SnapshotsParametersAtEnumerableCreation()
+    {
+        var executionStrategy = new TestExecutionStrategy();
+        var dbContextOptions = new DbContextOptionsBuilder<DbContext>().UseDynamo().Options;
+        var diagnosticsLogger = CreateCommandLogger(dbContextOptions);
+        var capturedParameters = new List<List<AttributeValue>?>();
+
+        var client = Substitute.For<IAmazonDynamoDB>();
+        client
+            .ExecuteStatementAsync(
+                Arg.Do<ExecuteStatementRequest>(req => capturedParameters.Add(req.Parameters)),
+                Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(new ExecuteStatementResponse { Items = [] }));
+
+        var wrapper = new TestDynamoClientWrapper(
+            dbContextOptions,
+            executionStrategy,
+            diagnosticsLogger,
+            client);
+
+        var parameters = new List<AttributeValue> { new() { S = "original" } };
+        var requestPrototype = new ExecuteStatementRequest
+        {
+            Statement = "SELECT * FROM Test WHERE pk = ?",
+            Parameters = parameters
+        };
+
+        var enumerable = wrapper.ExecutePartiQl(requestPrototype);
+        parameters[0] = new AttributeValue { S = "mutated" };
+        parameters.Add(new AttributeValue { S = "added" });
+        requestPrototype.Parameters = [new AttributeValue { S = "replaced" }];
+
+        await EnumerateAsync(enumerable);
+
+        capturedParameters.Should().ContainSingle();
+        capturedParameters[0].Should().ContainSingle();
+        capturedParameters[0]![0].S.Should().Be("original");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ExecutePartiQl_RejectsOversizedStatementBeforeAwsCall()
+    {
+        var executionStrategy = new TestExecutionStrategy();
+        var dbContextOptions = new DbContextOptionsBuilder<DbContext>().UseDynamo().Options;
+        var diagnosticsLogger = CreateCommandLogger(dbContextOptions);
+        var client = Substitute.For<IAmazonDynamoDB>();
+        var wrapper = new TestDynamoClientWrapper(
+            dbContextOptions,
+            executionStrategy,
+            diagnosticsLogger,
+            client);
+        var request = new ExecuteStatementRequest { Statement = new string('x', 8193) };
+
+        var act = () => wrapper.ExecutePartiQl(request);
+
+        act
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage("*PartiQL read statement*8192-byte statement-size limit*");
+        client.DidNotReceiveWithAnyArgs().ExecuteStatementAsync(default!, default);
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
@@ -114,7 +178,8 @@ public class DynamoClientWrapperTests
                 => options.DynamoDbClientConfig(
                     new AmazonDynamoDBConfig
                     {
-                        ServiceURL = "http://localhost:7001", AuthenticationRegion = "us-east-1"
+                        ServiceURL = "http://localhost:7001",
+                        AuthenticationRegion = "us-east-1"
                     }))
             .Options;
         var diagnosticsLogger = CreateCommandLogger(dbContextOptions);
@@ -135,7 +200,8 @@ public class DynamoClientWrapperTests
                 options.DynamoDbClientConfig(
                     new AmazonDynamoDBConfig
                     {
-                        ServiceURL = "http://localhost:7001", AuthenticationRegion = "us-west-1"
+                        ServiceURL = "http://localhost:7001",
+                        AuthenticationRegion = "us-west-1"
                     });
                 options.ConfigureDynamoDbClientConfig(config =>
                 {

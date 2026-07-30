@@ -330,7 +330,8 @@ public sealed class ValueGenerationSaveChangesTests(DynamoContainerFixture fixtu
             CompositeKeyContext.TableName,
             new Dictionary<string, AttributeValue>
             {
-                ["pk"] = entity.Pk.ToAttributeValue(), ["sk"] = entity.Sk.ToAttributeValue()
+                ["pk"] = entity.Pk.ToAttributeValue(),
+                ["sk"] = entity.Sk.ToAttributeValue()
             },
             CancellationToken);
 

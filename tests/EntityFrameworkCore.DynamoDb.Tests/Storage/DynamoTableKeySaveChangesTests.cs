@@ -41,7 +41,10 @@ public class DynamoTableKeySaveChangesTests
         var (context, captured) = CreateContext();
         var entity = new DerivedDocument
         {
-            Pk = "DOC#1", Sk = "META#1", Name = "before", Extra = "extra"
+            Pk = "DOC#1",
+            Sk = "META#1",
+            Name = "before",
+            Extra = "extra"
         };
         context.Attach(entity);
         entity.Name = "after";
@@ -66,7 +69,10 @@ public class DynamoTableKeySaveChangesTests
         var (context, captured) = CreateContext();
         var entity = new DerivedDocument
         {
-            Pk = "DOC#1", Sk = "META#1", Name = "before", Extra = "extra"
+            Pk = "DOC#1",
+            Sk = "META#1",
+            Name = "before",
+            Extra = "extra"
         };
         context.Attach(entity);
         context.Remove(entity);
@@ -286,7 +292,8 @@ public class DynamoTableKeySaveChangesTests
                     => captured.Add(
                         new ParameterizedStatement
                         {
-                            Statement = r.Statement, Parameters = r.Parameters
+                            Statement = r.Statement,
+                            Parameters = r.Parameters
                         })),
                 Arg.Any<CancellationToken>())
             .Returns(new ExecuteStatementResponse());

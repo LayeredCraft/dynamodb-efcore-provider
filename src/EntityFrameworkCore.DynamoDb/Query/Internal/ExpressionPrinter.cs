@@ -7,6 +7,11 @@ namespace EntityFrameworkCore.DynamoDb.Query.Internal;
 /// <summary>
 /// Helper class for printing expression trees for debugging.
 /// </summary>
+/// <remarks>
+/// Retained because provider SQL expression nodes expose <c>Print</c> overrides that use this
+/// lightweight printer for diagnostic string generation without depending on EF Core internal
+/// printer extension points.
+/// </remarks>
 public sealed class ExpressionPrinter : ExpressionVisitor
 {
     private readonly StringBuilder _builder = new();
