@@ -33,7 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -46,17 +46,22 @@ jobs:
           python-version-file: "pyproject.toml"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@v8.2.0
         with:
           enable-cache: true
 
       - name: Install the project
         run: uv sync --locked --all-extras --dev
 
+      - name: Setup Pages
+        id: pages
+        uses: actions/configure-pages@v6
+
       - name: Build documentation
         run: uv run zensical build -f zensical.toml --clean
 
       - name: Upload artifact
+        uses: actions/upload-pages-artifact@v5
         if: github.event_name == 'push'
         uses: actions/upload-pages-artifact@v4
         with:
