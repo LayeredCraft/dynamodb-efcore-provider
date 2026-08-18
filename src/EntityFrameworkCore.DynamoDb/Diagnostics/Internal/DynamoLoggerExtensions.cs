@@ -3,6 +3,7 @@ using EntityFrameworkCore.DynamoDb.Query.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Logging;
+using DynamoDbLoggerCategory = Microsoft.EntityFrameworkCore.DynamoDB.DbLoggerCategory;
 
 namespace EntityFrameworkCore.DynamoDb.Diagnostics.Internal;
 
@@ -64,6 +65,49 @@ public static class DynamoLoggerExtensions
 
     private static readonly Func<LogLevel, Action<ILogger, string, Exception?>> LogMessage = level
         => LoggerMessage.Define<string>(level, default, "{message}");
+
+    private static readonly Func<LogLevel, Action<ILogger, double, int, Exception?>>
+        LogConsumedCapacity = level => LoggerMessage.Define<double, int>(
+            level,
+            DynamoEventId.ConsumedCapacity,
+            "Consumed {capacityUnits} estimated capacity units across {entryCount} table(s)");
+
+    /// <summary>Logs DynamoDB consumed capacity (RCU/WCU) reported for an operation.</summary>
+    /// <param name="diagnostics">The capacity diagnostics logger.</param>
+    /// <param name="commandId">Provider command id correlating to the consuming command event.</param>
+    /// <param name="consumedCapacities">Consumed-capacity entries returned by DynamoDB, if any.</param>
+    public static void ConsumedCapacity(
+        this IDiagnosticsLogger<DynamoDbLoggerCategory.Capacity> diagnostics,
+        Guid commandId,
+        IReadOnlyList<ConsumedCapacity>? consumedCapacities)
+    {
+        if (consumedCapacities is null || consumedCapacities.Count == 0)
+            return;
+
+        var definition = Definition(
+            diagnostics,
+            d => d.LogConsumedCapacity,
+            (d, v) => d.LogConsumedCapacity = v,
+            DynamoEventId.ConsumedCapacity,
+            LogLevel.Information,
+            LogConsumedCapacity);
+
+        if (diagnostics.ShouldLog(definition))
+            definition.Log(
+                diagnostics,
+                consumedCapacities.Sum(c => c.CapacityUnits ?? 0),
+                consumedCapacities.Count);
+        if (diagnostics.NeedsEventData(definition, out var ds, out var sl))
+            diagnostics.DispatchEventData(
+                definition,
+                new DynamoConsumedCapacityEventData(
+                    definition,
+                    ConsumedCapacityMessage,
+                    commandId,
+                    consumedCapacities),
+                ds,
+                sl);
+    }
 
     /// <summary>Logs that a PartiQL query is about to be executed.</summary>
     public static void ExecutingPartiQlQuery(
@@ -755,4 +799,12 @@ public static class DynamoLoggerExtensions
     private static string QueryDiagnosticMessage(EventDefinitionBase definition, EventData payload)
         => ((EventDefinition<string>)definition).GenerateMessage(
             ((DynamoQueryDiagnosticEventData)payload).Message);
+
+    private static string ConsumedCapacityMessage(EventDefinitionBase definition, EventData payload)
+    {
+        var p = (DynamoConsumedCapacityEventData)payload;
+        return ((EventDefinition<double, int>)definition).GenerateMessage(
+            p.CapacityUnits,
+            p.ConsumedCapacities.Count);
+    }
 }

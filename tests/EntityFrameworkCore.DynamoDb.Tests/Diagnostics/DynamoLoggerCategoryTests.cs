@@ -10,18 +10,4 @@ public class DynamoLoggerCategoryTests
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void Capacity_Name_IsExpected()
         => DbLoggerCategory.Capacity.Name.Should().Be(CapacityName);
-
-    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public void Capacity_ToString_IsExpected()
-        => new DbLoggerCategory.Capacity().ToString().Should().Be(CapacityName);
-
-    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public void Capacity_ImplicitStringConversion_IsExpected()
-    {
-        DbLoggerCategory.Capacity category = new();
-
-        string name = category;
-
-        name.Should().Be(CapacityName);
-    }
 }

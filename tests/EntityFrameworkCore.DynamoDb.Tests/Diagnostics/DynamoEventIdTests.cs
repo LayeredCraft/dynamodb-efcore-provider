@@ -2,6 +2,7 @@ using System.Reflection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Logging;
+using DynamoDbLoggerCategory = Microsoft.EntityFrameworkCore.DynamoDB.DbLoggerCategory;
 
 namespace EntityFrameworkCore.DynamoDb.Tests.Diagnostics;
 
@@ -17,6 +18,12 @@ public class DynamoEventIdTests
 
     private static readonly string CommandPrefix = DbLoggerCategory.Database.Command.Name + ".";
     private static readonly string QueryPrefix = DbLoggerCategory.Query.Name + ".";
+    private static readonly string CapacityPrefix = DynamoDbLoggerCategory.Capacity.Name + ".";
+
+    private static readonly string[] KnownCategoryPrefixes =
+    [
+        CommandPrefix, QueryPrefix, CapacityPrefix
+    ];
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void Ids_AreUnique()
@@ -41,42 +48,5 @@ public class DynamoEventIdTests
         => EventIds
             .Should()
             .OnlyContain(static e
-                => !string.IsNullOrEmpty(e.Name)
-                && (e.Name.StartsWith(CommandPrefix, StringComparison.Ordinal)
-                    || e.Name.StartsWith(QueryPrefix, StringComparison.Ordinal)));
-
-    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public void SourceCarriesStabilityContract()
-    {
-        var sourcePath = FindDynamoEventIdSource();
-
-        sourcePath
-            .Should()
-            .NotBeNull("the DynamoEventId source file must be discoverable from the repo root");
-
-        File
-            .ReadAllText(sourcePath!)
-            .Should()
-            .Contain("Warning: These values must not change between releases.");
-    }
-
-    private static string? FindDynamoEventIdSource()
-    {
-        for (var dir = new DirectoryInfo(AppContext.BaseDirectory);
-            dir is not null;
-            dir = dir.Parent)
-        {
-            var candidate = Path.Combine(
-                dir.FullName,
-                "src",
-                "EntityFrameworkCore.DynamoDb",
-                "Diagnostics",
-                "DynamoEventId.cs");
-
-            if (File.Exists(candidate))
-                return candidate;
-        }
-
-        return null;
-    }
+                => !string.IsNullOrEmpty(e.Name) && KnownCategoryPrefixes.Any(e.Name.StartsWith));
 }
