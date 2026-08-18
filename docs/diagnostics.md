@@ -51,12 +51,13 @@ development and test contexts, not production deployments.
 
 ## What Gets Logged
 
-The provider uses two EF Core logger categories:
+The provider uses three EF Core logger categories:
 
-| Category           | Full Name                                        | Purpose                            |
-| ------------------ | ------------------------------------------------ | ---------------------------------- |
-| `Database.Command` | `Microsoft.EntityFrameworkCore.Database.Command` | Query and write execution          |
-| `Query`            | `Microsoft.EntityFrameworkCore.Query`            | Index selection during compilation |
+| Category           | Full Name                                         | Purpose                                     |
+| ------------------ | ------------------------------------------------- | ------------------------------------------- |
+| `Database.Command` | `Microsoft.EntityFrameworkCore.Database.Command`  | Query and write execution                   |
+| `Query`            | `Microsoft.EntityFrameworkCore.Query`             | Index selection during compilation          |
+| `Capacity`         | `Microsoft.EntityFrameworkCore.DynamoDB.Capacity` | RCU/WCU consumption and throttling (future) |
 
 **Command events** fire at runtime, once per query execution or once per write statement.
 
@@ -92,6 +93,8 @@ emitted as log events.
 
 Event IDs are stable across releases. You can use them to filter log output programmatically or
 in structured logging sinks.
+
+The `Capacity` category has no events yet; consumed-capacity logging arrives in a future release.
 
 ## Command Events
 
