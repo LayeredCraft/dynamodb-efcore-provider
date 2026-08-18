@@ -35,7 +35,7 @@ jobs:
             dotnetVersion: "11.0.x"
             drafterConfig: "release-drafter-ef11.yml"
             artifact_name: "nuget-packages-ef11"
-    uses: LayeredCraft/devops-templates/.github/workflows/publish-preview.yml@76a2269c95c0f17eaac80d3020c783ff10be4371
+    uses: LayeredCraft/devops-templates/.github/workflows/publish-preview.yml@fa7aa89e829a2b7bb947f5c38ba456189831534a
     with:
       solution: EntityFrameworkCore.DynamoDb.slnx
       buildConfiguration: ${{ matrix.configuration }}
@@ -51,7 +51,7 @@ jobs:
       id-token: write
       contents: read
     steps:
-      - uses: LayeredCraft/devops-templates/.github/actions/nuget-push@76a2269c95c0f17eaac80d3020c783ff10be4371
+      - uses: LayeredCraft/devops-templates/.github/actions/nuget-push@fa7aa89e829a2b7bb947f5c38ba456189831534a
         with:
           nuget_user: ${{ secrets.NUGET_USER }}
           artifact_name: "nuget-packages-ef*"
