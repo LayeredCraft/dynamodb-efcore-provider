@@ -1,5 +1,7 @@
+using System.Diagnostics;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
+using EntityFrameworkCore.DynamoDb.Diagnostics;
 using EntityFrameworkCore.DynamoDb.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -101,6 +103,53 @@ public class CapacityLoggingTests
         capture.Entries.Should().NotContain(e => e.EventId.Id == DynamoEventId.ConsumedCapacity.Id);
     }
 
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task ConsumedCapacity_CommandId_MatchesConsumingCommand()
+    {
+        using var observer = new DynamoDiagnosticObserver();
+        var client = Substitute.For<IAmazonDynamoDB>();
+        client
+            .ExecuteStatementAsync(Arg.Any<ExecuteStatementRequest>(), Arg.Any<CancellationToken>())
+            .Returns(
+                Task.FromResult(
+                    new ExecuteStatementResponse
+                    {
+                        ConsumedCapacity = new ConsumedCapacity
+                        {
+                            TableName = "Test", CapacityUnits = 1.5
+                        }
+                    }));
+
+        await using var context = RequestContext.Create(client);
+        var wrapper = context.GetService<IDynamoClientWrapper>();
+
+        await foreach (var _ in wrapper.ExecutePartiQl(
+            new ExecuteStatementRequest { Statement = "SELECT * FROM Test" })) { }
+
+        // The DiagnosticListener is process-global, so other tests running in
+        // parallel may contribute events. Assert the correlation property rather
+        // than an exact count: every capacity event (this operation's is the one
+        // with 1.5 units) must share its CommandId with a command event.
+        var capacityCommandIds =
+            observer
+                .Snapshot()
+                .Where(e => e.Key == DynamoEventId.ConsumedCapacity.Name
+                    && e.Value is DynamoConsumedCapacityEventData { CapacityUnits: 1.5 })
+                .Select(e => ((DynamoConsumedCapacityEventData)e.Value!).CommandId)
+                .ToList();
+
+        capacityCommandIds.Should().NotBeEmpty();
+
+        var executedCommandIds =
+            observer
+                .Snapshot()
+                .Where(e => e.Key == DynamoEventId.ExecutedExecuteStatement.Name)
+                .Select(e => ((DynamoExecuteStatementExecutedEventData)e.Value!).CommandId)
+                .ToHashSet();
+
+        executedCommandIds.Should().Contain(capacityCommandIds);
+    }
+
     private sealed class RequestContext(DbContextOptions<RequestContext> options) : DbContext(
         options)
     {
@@ -113,6 +162,60 @@ public class CapacityLoggingTests
                 .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning));
 
             return new RequestContext(optionsBuilder.Options);
+        }
+
+        public static RequestContext Create(IAmazonDynamoDB client)
+        {
+            var optionsBuilder = new DbContextOptionsBuilder<RequestContext>();
+            optionsBuilder
+                .UseDynamo(options => options.DynamoDbClient(client))
+                .ConfigureWarnings(w => w.Ignore(CoreEventId.ManyServiceProvidersCreatedWarning));
+
+            return new RequestContext(optionsBuilder.Options);
+        }
+    }
+
+    private sealed class DynamoDiagnosticObserver
+        : IObserver<DiagnosticListener>, IObserver<KeyValuePair<string, object?>>, IDisposable
+    {
+        private readonly IDisposable _subscription;
+        private readonly object _gate = new();
+        private IDisposable? _listenerSubscription;
+        private readonly List<KeyValuePair<string, object?>> _events = [];
+
+        public DynamoDiagnosticObserver()
+            => _subscription = DiagnosticListener.AllListeners.Subscribe(this);
+
+        public void OnNext(DiagnosticListener value)
+        {
+            if (value.Name == DbLoggerCategory.Name)
+                _listenerSubscription = value.Subscribe(this);
+        }
+
+        public void OnNext(KeyValuePair<string, object?> value)
+        {
+            lock (_gate)
+            {
+                _events.Add(value);
+            }
+        }
+
+        public IReadOnlyList<KeyValuePair<string, object?>> Snapshot()
+        {
+            lock (_gate)
+            {
+                return _events.ToList();
+            }
+        }
+
+        public void OnError(Exception error) { }
+
+        public void OnCompleted() { }
+
+        public void Dispose()
+        {
+            _listenerSubscription?.Dispose();
+            _subscription.Dispose();
         }
     }
 
