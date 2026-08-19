@@ -11,7 +11,7 @@ jobs:
   build:
     permissions:
       contents: write
-    uses: LayeredCraft/devops-templates/.github/workflows/publish-release.yml@fa7aa89e829a2b7bb947f5c38ba456189831534a
+    uses: LayeredCraft/devops-templates/.github/workflows/publish-release.yml@7d587b6a23afca8815fd94a4a3d246857b3db08d
     with:
       solution: EntityFrameworkCore.DynamoDb.slnx
       dotnetVersion: "10.0.x"   # fallback only — overridden when buildConfiguration=auto
@@ -25,6 +25,6 @@ jobs:
       id-token: write
       contents: read
     steps:
-      - uses: LayeredCraft/devops-templates/.github/actions/nuget-push@fa7aa89e829a2b7bb947f5c38ba456189831534a
+      - uses: LayeredCraft/devops-templates/.github/actions/nuget-push@7d587b6a23afca8815fd94a4a3d246857b3db08d
         with:
           nuget_user: ${{ secrets.NUGET_USER }}
