@@ -70,7 +70,7 @@ public static class DynamoLoggerExtensions
         LogConsumedCapacity = level => LoggerMessage.Define<double, int>(
             level,
             DynamoEventId.ConsumedCapacity,
-            "Consumed {capacityUnits} estimated capacity units across {entryCount} table(s)");
+            "Consumed {capacityUnits} capacity units across {entryCount} table(s)");
 
     /// <summary>Logs DynamoDB consumed capacity (RCU/WCU) reported for an operation.</summary>
     /// <param name="diagnostics">The capacity diagnostics logger.</param>

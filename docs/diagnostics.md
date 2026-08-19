@@ -368,10 +368,16 @@ optionsBuilder.LogTo(
     DbLoggerCategory.Capacity.Name);
 ```
 
-The message reports the total estimated capacity units and how many consumed-capacity entries were
+The message reports the total capacity units and how many consumed-capacity entries were
 returned. The `ConsumedCapacity` property on the event data carries the raw per-table/index
 entries. This event fires **only when** `ReturnConsumedCapacity` is configured on the options
 builder; otherwise DynamoDB omits capacity and no event is emitted.
+
+The same consumed-capacity payload is also attached to the `ExecutedExecuteStatement` and
+`ExecutedPartiQlWriteRequest` command events in the `Database.Command` category (see their
+`ConsumedCapacity` property). Subscribe to the dedicated `ConsumedCapacity` event when you want
+capacity routed through its own category; rely on the command events when you want capacity
+alongside the rest of the per-command trace.
 
 ## Interpreting Pagination Logs
 

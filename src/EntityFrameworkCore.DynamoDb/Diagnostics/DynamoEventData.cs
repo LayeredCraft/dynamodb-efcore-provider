@@ -251,6 +251,6 @@ public class DynamoConsumedCapacityEventData(
     /// <summary>Gets the consumed-capacity entries returned by DynamoDB for the operation.</summary>
     public virtual IReadOnlyList<ConsumedCapacity> ConsumedCapacities { get; } = consumedCapacities;
 
-    /// <summary>Gets the total estimated capacity units consumed across all entries.</summary>
+    /// <summary>Gets the total capacity units consumed across all entries.</summary>
     public virtual double CapacityUnits => ConsumedCapacities.Sum(c => c.CapacityUnits ?? 0);
 }
