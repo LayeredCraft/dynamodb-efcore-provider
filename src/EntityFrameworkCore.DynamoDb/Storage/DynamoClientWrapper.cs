@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
+using DynamoDbLoggerCategory = Microsoft.EntityFrameworkCore.DynamoDB.DbLoggerCategory;
 
 namespace EntityFrameworkCore.DynamoDb.Storage;
 
@@ -20,6 +21,7 @@ public class DynamoClientWrapper : IDynamoClientWrapper, IDisposable
     private readonly ReturnConsumedCapacity? _returnConsumedCapacity;
     private readonly bool _consistentRead;
     private readonly IDiagnosticsLogger<DbLoggerCategory.Database.Command> _commandLogger;
+    private readonly IDiagnosticsLogger<DynamoDbLoggerCategory.Capacity> _capacityLogger;
     private readonly IExecutionStrategy _executionStrategy;
     private bool _ownsClient;
     private bool _disposed;
@@ -28,7 +30,8 @@ public class DynamoClientWrapper : IDynamoClientWrapper, IDisposable
     public DynamoClientWrapper(
         IDbContextOptions dbContextOptions,
         IExecutionStrategy executionStrategy,
-        IDiagnosticsLogger<DbLoggerCategory.Database.Command> commandLogger)
+        IDiagnosticsLogger<DbLoggerCategory.Database.Command> commandLogger,
+        IDiagnosticsLogger<DynamoDbLoggerCategory.Capacity> capacityLogger)
     {
         var options =
             dbContextOptions.NotNull().FindExtension<DynamoDbOptionsExtension>().NotNull();
@@ -42,6 +45,7 @@ public class DynamoClientWrapper : IDynamoClientWrapper, IDisposable
         _consistentRead = options.ConsistentRead;
         _executionStrategy = executionStrategy.NotNull();
         _commandLogger = commandLogger.NotNull();
+        _capacityLogger = capacityLogger.NotNull();
     }
 
     /// <summary>Gets the resolved DynamoDB client, preferring an explicitly configured client instance.</summary>
@@ -145,6 +149,10 @@ public class DynamoClientWrapper : IDynamoClientWrapper, IDisposable
                     response.ResponseMetadata?.RequestId,
                     response.ConsumedCapacity is null ? null : [response.ConsumedCapacity]);
 
+                _capacityLogger.ConsumedCapacity(
+                    commandId,
+                    response.ConsumedCapacity is null ? null : [response.ConsumedCapacity]);
+
                 return true;
             },
             null,
@@ -201,6 +209,8 @@ public class DynamoClientWrapper : IDynamoClientWrapper, IDisposable
                     commandId,
                     response.ResponseMetadata?.RequestId,
                     response.ConsumedCapacity);
+
+                _capacityLogger.ConsumedCapacity(commandId, response.ConsumedCapacity);
 
                 return true;
             },
@@ -259,6 +269,8 @@ public class DynamoClientWrapper : IDynamoClientWrapper, IDisposable
                     commandId,
                     response.ResponseMetadata?.RequestId,
                     response.ConsumedCapacity);
+
+                _capacityLogger.ConsumedCapacity(commandId, response.ConsumedCapacity);
 
                 var responses = (IReadOnlyList<BatchStatementResponse>)(response.Responses ?? []);
                 var errorCount = responses.Count(r => r.Error is not null);
@@ -456,6 +468,10 @@ public class DynamoClientWrapper : IDynamoClientWrapper, IDisposable
                     _request.Limit,
                     seedNextTokenPresent,
                     response.ConsumedCapacity);
+
+                dynamoEnumerable._dynamoClientWrapper._capacityLogger.ConsumedCapacity(
+                    commandId,
+                    response.ConsumedCapacity is null ? null : [response.ConsumedCapacity]);
 
                 // Notify before items are yielded so callers can capture per-page metadata.
                 dynamoEnumerable._onPageFetched?.Invoke(response);
