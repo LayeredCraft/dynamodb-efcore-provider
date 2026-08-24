@@ -21,7 +21,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Autolabel pull request
-        uses: release-drafter/release-drafter/autolabeler@4d75298e00d9e34c483e5ff8c68d0ea1c1940c1e
+        uses: release-drafter/release-drafter/autolabeler@34d80673e067bdc0c24568d3af899c216adcfaa9
         with:
           config-name: release-drafter-ef10.yml
         env:
@@ -43,7 +43,7 @@ jobs:
       cancel-in-progress: true
     steps:
       - name: Draft ${{ matrix.config-name }} release
-        uses: release-drafter/release-drafter@4d75298e00d9e34c483e5ff8c68d0ea1c1940c1e
+        uses: release-drafter/release-drafter@34d80673e067bdc0c24568d3af899c216adcfaa9
         with:
           config-name: ${{ matrix.config-name }}
         env:
