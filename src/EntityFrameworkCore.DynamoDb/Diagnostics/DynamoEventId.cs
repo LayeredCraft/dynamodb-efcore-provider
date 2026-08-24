@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Logging;
+using DynamoDbLoggerCategory = Microsoft.EntityFrameworkCore.DynamoDB.DbLoggerCategory;
 
 namespace EntityFrameworkCore.DynamoDb.Diagnostics;
 
@@ -30,11 +31,15 @@ public static class DynamoEventId
         ExplicitIndexSelected = CoreEventId.ProviderBaseId + 107,
         SecondaryIndexCandidateRejected = CoreEventId.ProviderBaseId + 108,
         ExplicitIndexSelectionDisabled = CoreEventId.ProviderBaseId + 109,
-        ScanLikeQueryDetected = CoreEventId.ProviderBaseId + 111
+        ScanLikeQueryDetected = CoreEventId.ProviderBaseId + 111,
+
+        // Capacity events
+        ConsumedCapacity = CoreEventId.ProviderBaseId + 117
     }
 
     private static readonly string CommandPrefix = DbLoggerCategory.Database.Command.Name + ".";
     private static readonly string QueryPrefix = DbLoggerCategory.Query.Name + ".";
+    private static readonly string CapacityPrefix = DynamoDbLoggerCategory.Capacity.Name + ".";
 
     /// <summary>
     /// A PartiQL query is going to be executed.
@@ -151,4 +156,14 @@ public static class DynamoEventId
     public static readonly EventId ScanLikeQueryDetected = new(
         (int)Id.ScanLikeQueryDetected,
         QueryPrefix + Id.ScanLikeQueryDetected);
+
+    /// <summary>
+    /// DynamoDB reported consumed capacity (RCU/WCU) for a query or write operation.
+    /// </summary>
+    /// <remarks>
+    /// This event is in the <c>DbLoggerCategory.Capacity</c> category and uses <see cref="DynamoConsumedCapacityEventData" /> payloads.
+    /// It fires only when <c>ReturnConsumedCapacity</c> is configured so DynamoDB returns capacity in the response.
+    /// </remarks>
+    public static readonly EventId ConsumedCapacity =
+        new((int)Id.ConsumedCapacity, CapacityPrefix + Id.ConsumedCapacity);
 }

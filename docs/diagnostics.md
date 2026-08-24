@@ -51,12 +51,13 @@ development and test contexts, not production deployments.
 
 ## What Gets Logged
 
-The provider uses two EF Core logger categories:
+The provider uses three EF Core logger categories:
 
-| Category           | Full Name                                        | Purpose                            |
-| ------------------ | ------------------------------------------------ | ---------------------------------- |
-| `Database.Command` | `Microsoft.EntityFrameworkCore.Database.Command` | Query and write execution          |
-| `Query`            | `Microsoft.EntityFrameworkCore.Query`            | Index selection during compilation |
+| Category           | Full Name                                         | Purpose                            |
+| ------------------ | ------------------------------------------------- | ---------------------------------- |
+| `Database.Command` | `Microsoft.EntityFrameworkCore.Database.Command`  | Query and write execution          |
+| `Query`            | `Microsoft.EntityFrameworkCore.Query`             | Index selection during compilation |
+| `Capacity`         | `Microsoft.EntityFrameworkCore.DynamoDB.Capacity` | RCU/WCU consumption                |
 
 **Command events** fire at runtime, once per query execution or once per write statement.
 
@@ -89,9 +90,13 @@ emitted as log events.
 | `SecondaryIndexCandidateRejected`          | 30108    | `Query`            | Information | `DYNAMO_IDX005` |
 | `ExplicitIndexSelectionDisabled`           | 30109    | `Query`            | Information | `DYNAMO_IDX006` |
 | `ScanLikeQueryDetected`                    | 30111    | `Query`            | Warning     | —               |
+| `ConsumedCapacity`                         | 30117    | `Capacity`         | Information | —               |
 
 Event IDs are stable across releases. You can use them to filter log output programmatically or
 in structured logging sinks.
+
+The `ConsumedCapacity` event fires only when `ReturnConsumedCapacity` is configured on the options
+builder, so DynamoDB includes capacity in the response.
 
 ## Command Events
 
@@ -348,6 +353,26 @@ info: Microsoft.EntityFrameworkCore.Query[30109]
       Index selection was suppressed for table 'Orders' by '.WithoutIndex()'. The query will execute against the base table.
 ```
 
+## Capacity Events
+
+### `ConsumedCapacity` — 30117
+
+Fires after DynamoDB reports consumed capacity for a query page or a write request. It lands in the
+`Microsoft.EntityFrameworkCore.DynamoDB.Capacity` category, so you can route capacity tracking
+independently of command logs:
+
+```csharp
+optionsBuilder.LogTo(
+    Console.WriteLine,
+    LogLevel.Information,
+    DbLoggerCategory.Capacity.Name);
+```
+
+The message reports the total estimated capacity units and how many consumed-capacity entries were
+returned. The `ConsumedCapacity` property on the event data carries the raw per-table/index
+entries. This event fires **only when** `ReturnConsumedCapacity` is configured on the options
+builder; otherwise DynamoDB omits capacity and no event is emitted.
+
 ## Interpreting Pagination Logs
 
 Each DynamoDB page produces a before/after pair of `ExecutingExecuteStatement` and
@@ -493,6 +518,7 @@ EF Core also publishes these events through `DiagnosticListener` using provider-
 | `DynamoPartiQlWriteRequestFailedEventData`   | `PartiQlWriteRequestFailed`                        |
 | `DynamoBatchStatementErrorsEventData`        | `BatchPartiQlWriteReturnedStatementErrors`         |
 | `DynamoQueryDiagnosticEventData`             | Index-selection events and `ScanLikeQueryDetected` |
+| `DynamoConsumedCapacityEventData`            | `ConsumedCapacity`                                 |
 
 Use `commandId` to join request start/completion/failure events in traces. Use AWS `requestId` for
 AWS Support cases and to correlate with SDK/service logs.

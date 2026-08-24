@@ -235,3 +235,22 @@ public class DynamoQueryDiagnosticEventData(
     /// <summary>Gets diagnostic message.</summary>
     public virtual string Message { get; } = message;
 }
+
+/// <summary>DiagnosticSource payload for DynamoDB consumed-capacity events.</summary>
+public class DynamoConsumedCapacityEventData(
+    EventDefinitionBase eventDefinition,
+    Func<EventDefinitionBase, EventData, string> messageGenerator,
+    Guid commandId,
+    IReadOnlyList<ConsumedCapacity> consumedCapacities) : EventData(
+    eventDefinition,
+    messageGenerator)
+{
+    /// <summary>Gets provider command id for correlating back to the consuming command event.</summary>
+    public virtual Guid CommandId { get; } = commandId;
+
+    /// <summary>Gets the consumed-capacity entries returned by DynamoDB for the operation.</summary>
+    public virtual IReadOnlyList<ConsumedCapacity> ConsumedCapacities { get; } = consumedCapacities;
+
+    /// <summary>Gets the total estimated capacity units consumed across all entries.</summary>
+    public virtual double CapacityUnits => ConsumedCapacities.Sum(c => c.CapacityUnits ?? 0);
+}

@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
 using NSubstitute;
+using DynamoDbLoggerCategory = Microsoft.EntityFrameworkCore.DynamoDB.DbLoggerCategory;
 
 namespace EntityFrameworkCore.DynamoDb.IntegrationTests.Storage;
 
@@ -16,6 +17,7 @@ public class DynamoClientWrapperTests
         var executionStrategy = new TestExecutionStrategy();
         var dbContextOptions = new DbContextOptionsBuilder<DbContext>().UseDynamo().Options;
         var diagnosticsLogger = CreateCommandLogger(dbContextOptions);
+        var capacityLogger = CreateCapacityLogger(dbContextOptions);
 
         var client = Substitute.For<IAmazonDynamoDB>();
         var nextTokens = new List<string?>();
@@ -67,12 +69,12 @@ public class DynamoClientWrapperTests
             dbContextOptions,
             executionStrategy,
             diagnosticsLogger,
+            capacityLogger,
             client);
 
         var requestPrototype = new ExecuteStatementRequest
         {
-            Statement = "SELECT * FROM Test",
-            Parameters = []
+            Statement = "SELECT * FROM Test", Parameters = []
         };
 
         var enumerable = wrapper.ExecutePartiQl(requestPrototype);
@@ -97,6 +99,7 @@ public class DynamoClientWrapperTests
         var executionStrategy = new TestExecutionStrategy();
         var dbContextOptions = new DbContextOptionsBuilder<DbContext>().UseDynamo().Options;
         var diagnosticsLogger = CreateCommandLogger(dbContextOptions);
+        var capacityLogger = CreateCapacityLogger(dbContextOptions);
         var capturedParameters = new List<List<AttributeValue>?>();
 
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -110,13 +113,13 @@ public class DynamoClientWrapperTests
             dbContextOptions,
             executionStrategy,
             diagnosticsLogger,
+            capacityLogger,
             client);
 
         var parameters = new List<AttributeValue> { new() { S = "original" } };
         var requestPrototype = new ExecuteStatementRequest
         {
-            Statement = "SELECT * FROM Test WHERE pk = ?",
-            Parameters = parameters
+            Statement = "SELECT * FROM Test WHERE pk = ?", Parameters = parameters
         };
 
         var enumerable = wrapper.ExecutePartiQl(requestPrototype);
@@ -137,11 +140,13 @@ public class DynamoClientWrapperTests
         var executionStrategy = new TestExecutionStrategy();
         var dbContextOptions = new DbContextOptionsBuilder<DbContext>().UseDynamo().Options;
         var diagnosticsLogger = CreateCommandLogger(dbContextOptions);
+        var capacityLogger = CreateCapacityLogger(dbContextOptions);
         var client = Substitute.For<IAmazonDynamoDB>();
         var wrapper = new TestDynamoClientWrapper(
             dbContextOptions,
             executionStrategy,
             diagnosticsLogger,
+            capacityLogger,
             client);
         var request = new ExecuteStatementRequest { Statement = new string('x', 8193) };
 
@@ -163,9 +168,13 @@ public class DynamoClientWrapperTests
             .UseDynamo(options => options.DynamoDbClient(configuredClient))
             .Options;
         var diagnosticsLogger = CreateCommandLogger(dbContextOptions);
+        var capacityLogger = CreateCapacityLogger(dbContextOptions);
 
-        var wrapper =
-            new DynamoClientWrapper(dbContextOptions, executionStrategy, diagnosticsLogger);
+        var wrapper = new DynamoClientWrapper(
+            dbContextOptions,
+            executionStrategy,
+            diagnosticsLogger,
+            capacityLogger);
 
         wrapper.Client.Should().BeSameAs(configuredClient);
     }
@@ -178,14 +187,17 @@ public class DynamoClientWrapperTests
                 => options.DynamoDbClientConfig(
                     new AmazonDynamoDBConfig
                     {
-                        ServiceURL = "http://localhost:7001",
-                        AuthenticationRegion = "us-east-1"
+                        ServiceURL = "http://localhost:7001", AuthenticationRegion = "us-east-1"
                     }))
             .Options;
         var diagnosticsLogger = CreateCommandLogger(dbContextOptions);
+        var capacityLogger = CreateCapacityLogger(dbContextOptions);
 
-        var wrapper =
-            new DynamoClientWrapper(dbContextOptions, executionStrategy, diagnosticsLogger);
+        var wrapper = new DynamoClientWrapper(
+            dbContextOptions,
+            executionStrategy,
+            diagnosticsLogger,
+            capacityLogger);
 
         wrapper.Client.Config.ServiceURL.Should().StartWith("http://localhost:7001");
         wrapper.Client.Config.AuthenticationRegion.Should().Be("us-east-1");
@@ -200,8 +212,7 @@ public class DynamoClientWrapperTests
                 options.DynamoDbClientConfig(
                     new AmazonDynamoDBConfig
                     {
-                        ServiceURL = "http://localhost:7001",
-                        AuthenticationRegion = "us-west-1"
+                        ServiceURL = "http://localhost:7001", AuthenticationRegion = "us-west-1"
                     });
                 options.ConfigureDynamoDbClientConfig(config =>
                 {
@@ -211,9 +222,13 @@ public class DynamoClientWrapperTests
             })
             .Options;
         var diagnosticsLogger = CreateCommandLogger(dbContextOptions);
+        var capacityLogger = CreateCapacityLogger(dbContextOptions);
 
-        var wrapper =
-            new DynamoClientWrapper(dbContextOptions, executionStrategy, diagnosticsLogger);
+        var wrapper = new DynamoClientWrapper(
+            dbContextOptions,
+            executionStrategy,
+            diagnosticsLogger,
+            capacityLogger);
 
         wrapper.Client.Config.ServiceURL.Should().StartWith("http://localhost:7001");
         wrapper.Client.Config.AuthenticationRegion.Should().Be("us-west-1");
@@ -234,9 +249,13 @@ public class DynamoClientWrapperTests
             })
             .Options;
         var diagnosticsLogger = CreateCommandLogger(dbContextOptions);
+        var capacityLogger = CreateCapacityLogger(dbContextOptions);
 
-        var wrapper =
-            new DynamoClientWrapper(dbContextOptions, executionStrategy, diagnosticsLogger);
+        var wrapper = new DynamoClientWrapper(
+            dbContextOptions,
+            executionStrategy,
+            diagnosticsLogger,
+            capacityLogger);
 
         wrapper.Client.Config.ServiceURL.Should().StartWith("http://localhost:7001");
         wrapper.Client.Config.AuthenticationRegion.Should().Be("us-west-2");
@@ -249,6 +268,7 @@ public class DynamoClientWrapperTests
         var executionStrategy = new TestExecutionStrategy();
         var dbContextOptions = new DbContextOptionsBuilder<DbContext>().UseDynamo().Options;
         var diagnosticsLogger = CreateCommandLogger(dbContextOptions);
+        var capacityLogger = CreateCapacityLogger(dbContextOptions);
 
         var client = Substitute.For<IAmazonDynamoDB>();
         client
@@ -259,6 +279,7 @@ public class DynamoClientWrapperTests
             dbContextOptions,
             executionStrategy,
             diagnosticsLogger,
+            capacityLogger,
             client);
 
         await wrapper.ExecuteWriteAsync("INSERT INTO \"Test\" VALUE {'pk': 'a', 'sk': 'b'}", []);
@@ -276,6 +297,7 @@ public class DynamoClientWrapperTests
         var executionStrategy = new TestExecutionStrategy();
         var dbContextOptions = new DbContextOptionsBuilder<DbContext>().UseDynamo().Options;
         var diagnosticsLogger = CreateCommandLogger(dbContextOptions);
+        var capacityLogger = CreateCapacityLogger(dbContextOptions);
 
         var client = Substitute.For<IAmazonDynamoDB>();
         client
@@ -286,6 +308,7 @@ public class DynamoClientWrapperTests
             dbContextOptions,
             executionStrategy,
             diagnosticsLogger,
+            capacityLogger,
             client);
 
         var parameters = new List<AttributeValue> { new() { S = "val" } };
@@ -304,6 +327,13 @@ public class DynamoClientWrapperTests
     {
         using var context = new DbContext(dbContextOptions);
         return context.GetService<IDiagnosticsLogger<DbLoggerCategory.Database.Command>>();
+    }
+
+    private static IDiagnosticsLogger<DynamoDbLoggerCategory.Capacity> CreateCapacityLogger(
+        DbContextOptions<DbContext> dbContextOptions)
+    {
+        using var context = new DbContext(dbContextOptions);
+        return context.GetService<IDiagnosticsLogger<DynamoDbLoggerCategory.Capacity>>();
     }
 
     private static async Task<List<Dictionary<string, AttributeValue>>> EnumerateAsync(
@@ -338,10 +368,12 @@ public class DynamoClientWrapperTests
         IDbContextOptions dbContextOptions,
         IExecutionStrategy executionStrategy,
         IDiagnosticsLogger<DbLoggerCategory.Database.Command> commandLogger,
+        IDiagnosticsLogger<DynamoDbLoggerCategory.Capacity> capacityLogger,
         IAmazonDynamoDB client) : DynamoClientWrapper(
         dbContextOptions,
         executionStrategy,
-        commandLogger)
+        commandLogger,
+        capacityLogger)
     {
         public override IAmazonDynamoDB Client { get; } = client;
     }

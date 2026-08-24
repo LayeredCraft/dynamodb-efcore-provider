@@ -52,4 +52,7 @@ public class DynamoLoggingDefinition : LoggingDefinitions
 
     /// <summary>Cached event definition for scan-like query diagnostic logs.</summary>
     public EventDefinition<string>? LogScanLikeQueryDetected;
+
+    /// <summary>Cached event definition for consumed-capacity logs.</summary>
+    public EventDefinition<double, int>? LogConsumedCapacity;
 }
