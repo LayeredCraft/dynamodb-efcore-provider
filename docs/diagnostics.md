@@ -364,12 +364,12 @@ independently of command logs:
 ```csharp
 optionsBuilder.LogTo(
     Console.WriteLine,
-    LogLevel.Information,
-    DbLoggerCategory.Capacity.Name);
+    [DbLoggerCategory.Capacity.Name],
+    LogLevel.Information);
 ```
 
 The message reports the total capacity units and how many consumed-capacity entries were
-returned. The `ConsumedCapacity` property on the event data carries the raw per-table/index
+returned. The `ConsumedCapacities` property on the event data carries the raw per-table/index
 entries. This event fires **only when** `ReturnConsumedCapacity` is configured on the options
 builder; otherwise DynamoDB omits capacity and no event is emitted.
 
