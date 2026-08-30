@@ -236,6 +236,33 @@ AWS command succeeded, then the provider reports returned statement errors as a 
 normal `SaveChanges` exception/concurrency behavior. DynamoDB can return HTTP success while some
 batch statements failed; treat this warning as a per-item failure signal, not a transport failure.
 
+## SDK Command Interception
+
+`IDynamoDbCommandInterceptor` provides application callbacks around AWS SDK calls issued for query
+pages and `SaveChanges` writes. Register an interceptor through normal EF Core options:
+
+```csharp
+using EntityFrameworkCore.DynamoDb.Diagnostics;
+
+optionsBuilder.AddInterceptors(new MyDynamoDbCommandInterceptor());
+```
+
+Derive from `DynamoDbCommandInterceptor` and override the callbacks for `ExecuteStatement`,
+`ExecuteTransaction`, or `BatchExecuteStatement`. Each command has executing, executed, canceled,
+and failed callbacks. Query callbacks occur once per DynamoDB page; retry attempts receive separate
+callbacks with page and attempt numbers in the event data.
+
+Interceptors registered in EF Core's internal service provider run before interceptors registered
+through `AddInterceptors(...)`. Callbacks cannot suppress SDK calls, replace responses, or configure
+retries.
+
+Interceptor event data exposes the AWS SDK request and response objects. These can contain PartiQL
+text, parameter values, keys, and returned item data. Do not mutate these objects or write sensitive
+values to logs, traces, or metrics.
+
+Interception covers provider calls in query paging and `SaveChanges`. Database lifecycle operations
+and calls made through `context.Database.GetDynamoClient()` are not intercepted.
+
 ## Index Selection Events
 
 These events are emitted by the query compiler during index-selection analysis. Because they fire

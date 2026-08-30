@@ -3,13 +3,15 @@
 Use this quick map to decide which docs to update for a behavior change.
 
 - Operator translation changed -> `docs/operators.md`, `docs/limitations.md` (if partially
-  supported)
+    supported)
 - Pagination/result limits/tokens changed -> `docs/pagination.md`, `docs/operators.md` (if
-  operator-specific)
+    operator-specific)
 - Projection/materialization behavior changed -> `docs/projections.md`, `docs/operators.md` (if
-  query-shape specific)
+    query-shape specific)
 - Provider configuration/option changed -> `docs/configuration.md`
 - New warnings/logs/diagnostics changed -> `docs/diagnostics.md`
+- SDK command interception changed -> `docs/diagnostics.md`; cover registration, lifecycle,
+    ordering, sensitive-data handling, and excluded provider call paths
 - Support/limitations changed -> `docs/limitations.md`, `docs/operators.md`
 - End-to-end query pipeline changed -> `docs/architecture.md`
 - Navigation/site structure changed -> `zensical.toml`
