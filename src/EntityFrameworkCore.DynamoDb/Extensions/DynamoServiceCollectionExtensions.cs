@@ -23,6 +23,7 @@ public static class DynamoServiceCollectionExtensions
         {
             var builder = new EntityFrameworkServicesBuilder(serviceCollection)
                 .TryAdd<LoggingDefinitions, DynamoLoggingDefinition>()
+                .TryAdd<IInterceptorAggregator, DynamoDbCommandInterceptorAggregator>()
                 .TryAdd<IDatabaseProvider, DatabaseProvider<DynamoDbOptionsExtension>>()
                 .TryAdd<IStructuralTypeMaterializerSource, DynamoStructuralTypeMaterializerSource>()
                 .TryAdd<IDatabase, DynamoDatabaseWrapper>()
