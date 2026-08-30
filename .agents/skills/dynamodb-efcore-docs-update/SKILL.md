@@ -19,47 +19,61 @@ verify docs build.
 - Projection/materialization behavior changes
 - Provider option/configuration changes
 - New diagnostics, warnings, or logging changes
+- New or changed SDK command interception API
 - Newly supported or unsupported query shapes
 - Query pipeline architecture flow changes
 
 ## Workflow
 
 1. Classify the behavior change
-  - Operator translation
-  - Pagination semantics
-  - Projection/materialization
-  - Configuration/options
-  - Diagnostics/warnings
-  - Limitations/support matrix
-  - Architecture/pipeline
+
+- Operator translation
+- Pagination semantics
+- Projection/materialization
+- Configuration/options
+- Diagnostics/warnings
+- SDK command interception
+- Limitations/support matrix
+- Architecture/pipeline
 
 2. Update canonical docs first
-  - `docs/operators.md` for operator behavior and examples
-  - `docs/limitations.md` for unsupported or constrained shapes
+
+- `docs/operators.md` for operator behavior and examples
+- `docs/limitations.md` for unsupported or constrained shapes
 
 3. Update topical docs only where impacted
-  - `docs/pagination.md`
-  - `docs/projections.md`
-  - `docs/configuration.md`
-  - `docs/diagnostics.md`
-  - `docs/architecture.md`
+
+- `docs/pagination.md`
+- `docs/projections.md`
+- `docs/configuration.md`
+- `docs/diagnostics.md`
+- `docs/architecture.md`
 
 4. Check example correctness and scope
-  - Keep examples aligned with currently supported translation
-  - Avoid method calls in `Where` unless explicitly supported
-  - Keep content user-facing and concise
-  - Do not add internal test/code links in published docs
+
+- Keep examples aligned with currently supported translation
+- Avoid method calls in `Where` unless explicitly supported
+- Keep content user-facing and concise
+- Do not add internal test/code links in published docs
+
+For SDK command interception, document registration through `AddInterceptors(...)`, covered AWS
+operations, callback ordering, paging/retry behavior, cancellation/failure semantics, and any
+deliberate exclusions. State whether request/response objects can contain sensitive values and
+whether callbacks can mutate, suppress, or replace SDK execution.
 
 5. Add DynamoDB/PartiQL semantic context when needed
-  - If behavior depends on AWS semantics, include a relevant AWS reference
-  - Typical references: ExecuteStatement API, PartiQL SELECT/operators, AttributeValue
+
+- If behavior depends on AWS semantics, include a relevant AWS reference
+- Typical references: ExecuteStatement API, PartiQL SELECT/operators, AttributeValue
 
 6. Update docs site config only if necessary
-  - Edit `zensical.toml` only when navigation or docs config must change
+
+- Edit `zensical.toml` only when navigation or docs config must change
 
 7. Verify docs build
-  - Preferred: `uv run zensical build`
-  - Alternative: `task docs:build`
+
+- Preferred: `uv run zensical build`
+- Alternative: `task docs:build`
 
 ## Output Checklist
 
