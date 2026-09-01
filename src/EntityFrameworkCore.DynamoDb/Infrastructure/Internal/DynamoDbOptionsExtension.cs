@@ -2,6 +2,7 @@ using Amazon.DynamoDBv2;
 using EntityFrameworkCore.DynamoDb.Extensions;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
+using System.Globalization;
 
 namespace EntityFrameworkCore.DynamoDb.Infrastructure.Internal;
 
@@ -270,7 +271,52 @@ public sealed class DynamoDbOptionsExtension : IDbContextOptionsExtension
                 == otherInfo.Extension.AllowUnsafeFilteredQueries;
 
         /// <summary>Provides functionality for this member.</summary>
-        public override void PopulateDebugInfo(IDictionary<string, string> debugInfo) { }
+        public override void PopulateDebugInfo(IDictionary<string, string> debugInfo)
+        {
+            debugInfo["DynamoDB:AutomaticIndexSelectionMode"] =
+                Extension.AutomaticIndexSelectionMode.ToString();
+            debugInfo["DynamoDB:TransactionOverflowBehavior"] =
+                Extension.TransactionOverflowBehavior.ToString();
+            debugInfo["DynamoDB:MaxTransactionSize"] =
+                Extension.MaxTransactionSize.ToString(CultureInfo.InvariantCulture);
+            debugInfo["DynamoDB:MaxBatchWriteSize"] =
+                Extension.MaxBatchWriteSize.ToString(CultureInfo.InvariantCulture);
+            debugInfo["DynamoDB:ReturnConsumedCapacity"] =
+                Extension.ReturnConsumedCapacity?.ToString() ?? "null";
+            debugInfo["DynamoDB:ConsistentRead"] = Extension.ConsistentRead.ToString();
+            debugInfo["DynamoDB:AllowUnsafeFilteredQueries"] =
+                Extension.AllowUnsafeFilteredQueries.ToString();
+            debugInfo["DynamoDB:TableLifecycleWaitForCompletion"] =
+                Extension.TableLifecycleOptions.WaitForCompletion.ToString();
+            debugInfo["DynamoDB:TableLifecycleInitialPollingDelay"] =
+                Extension.TableLifecycleOptions.InitialPollingDelay.ToString(
+                    "c",
+                    CultureInfo.InvariantCulture);
+            debugInfo["DynamoDB:TableLifecycleMaxPollingDelay"] =
+                Extension.TableLifecycleOptions.MaxPollingDelay.ToString(
+                    "c",
+                    CultureInfo.InvariantCulture);
+            debugInfo["DynamoDB:TableLifecycleBackoffMultiplier"] =
+                Extension.TableLifecycleOptions.BackoffMultiplier.ToString(
+                    CultureInfo.InvariantCulture);
+            debugInfo["DynamoDB:TableLifecycleTimeout"] =
+                Extension.TableLifecycleOptions.Timeout?.ToString("c", CultureInfo.InvariantCulture)
+                ?? "null";
+            debugInfo["DynamoDB:DynamoDbClient"] = GetHashCode(Extension.DynamoDbClient);
+            debugInfo["DynamoDB:DynamoDbClientConfig"] =
+                GetHashCode(Extension.DynamoDbClientConfig);
+            debugInfo["DynamoDB:DynamoDbClientConfigAction"] =
+                GetHashCode(Extension.DynamoDbClientConfigAction);
+
+            if (TryGetClientConfigDiagnostics(out var authenticationRegion, out var serviceUrl))
+            {
+                if (authenticationRegion is not null)
+                    debugInfo["DynamoDB:AuthenticationRegion"] = authenticationRegion;
+
+                if (serviceUrl is not null)
+                    debugInfo["DynamoDB:ServiceURL"] = serviceUrl;
+            }
+        }
 
         /// <summary>Provides functionality for this member.</summary>
         public override bool IsDatabaseProvider => true;
@@ -280,23 +326,67 @@ public sealed class DynamoDbOptionsExtension : IDbContextOptionsExtension
         {
             get
             {
-                field ??= $"AutomaticIndexSelectionMode={Extension.AutomaticIndexSelectionMode},"
-                    + $"TransactionOverflowBehavior={Extension.TransactionOverflowBehavior},"
-                    + $"MaxTransactionSize={Extension.MaxTransactionSize},"
-                    + $"MaxBatchWriteSize={Extension.MaxBatchWriteSize},"
-                    + $"ReturnConsumedCapacity={Extension.ReturnConsumedCapacity},"
-                    + $"ConsistentRead={Extension.ConsistentRead},"
-                    + $"AllowUnsafeFilteredQueries={Extension.AllowUnsafeFilteredQueries},"
-                    + $"TableLifecycleWaitForCompletion={Extension.TableLifecycleOptions.WaitForCompletion},"
-                    + $"TableLifecycleInitialPollingDelay={Extension.TableLifecycleOptions.InitialPollingDelay},"
-                    + $"TableLifecycleMaxPollingDelay={Extension.TableLifecycleOptions.MaxPollingDelay},"
-                    + $"TableLifecycleBackoffMultiplier={Extension.TableLifecycleOptions.BackoffMultiplier},"
-                    + $"TableLifecycleTimeout={Extension.TableLifecycleOptions.Timeout},"
-                    + $"DynamoDbClient={Extension.DynamoDbClient is not null},"
-                    + $"DynamoDbClientConfig={Extension.DynamoDbClientConfig is not null},"
-                    + $"DynamoDbClientConfigAction={Extension.DynamoDbClientConfigAction is not null}";
+                field ??= CreateLogFragment();
                 return field;
             }
+        }
+
+        private string CreateLogFragment()
+        {
+            var fragment = $"AutomaticIndexSelectionMode={Extension.AutomaticIndexSelectionMode} "
+                + $"TransactionOverflowBehavior={Extension.TransactionOverflowBehavior} "
+                + $"MaxTransactionSize={Extension.MaxTransactionSize.ToString(CultureInfo.InvariantCulture)} "
+                + $"MaxBatchWriteSize={Extension.MaxBatchWriteSize.ToString(CultureInfo.InvariantCulture)} "
+                + $"ReturnConsumedCapacity={Extension.ReturnConsumedCapacity?.ToString() ?? "null"} "
+                + $"ConsistentRead={Extension.ConsistentRead} "
+                + $"AllowUnsafeFilteredQueries={Extension.AllowUnsafeFilteredQueries} "
+                + $"TableLifecycleWaitForCompletion={Extension.TableLifecycleOptions.WaitForCompletion} "
+                + $"TableLifecycleInitialPollingDelay={Extension.TableLifecycleOptions.InitialPollingDelay.ToString("c", CultureInfo.InvariantCulture)} "
+                + $"TableLifecycleMaxPollingDelay={Extension.TableLifecycleOptions.MaxPollingDelay.ToString("c", CultureInfo.InvariantCulture)} "
+                + $"TableLifecycleBackoffMultiplier={Extension.TableLifecycleOptions.BackoffMultiplier.ToString(CultureInfo.InvariantCulture)} "
+                + $"TableLifecycleTimeout={Extension.TableLifecycleOptions.Timeout?.ToString("c", CultureInfo.InvariantCulture) ?? "null"} "
+                + $"DynamoDbClient={Extension.DynamoDbClient is not null} "
+                + $"DynamoDbClientConfig={Extension.DynamoDbClientConfig is not null} "
+                + $"DynamoDbClientConfigAction={Extension.DynamoDbClientConfigAction is not null} ";
+
+            if (!TryGetClientConfigDiagnostics(out var authenticationRegion, out var serviceUrl))
+                return fragment;
+
+            if (authenticationRegion is not null)
+                fragment += $"AuthenticationRegion={authenticationRegion} ";
+
+            if (serviceUrl is not null)
+                fragment += $"ServiceURL={serviceUrl} ";
+
+            return fragment;
+        }
+
+        private bool TryGetClientConfigDiagnostics(
+            out string? authenticationRegion,
+            out string? serviceUrl)
+        {
+            var config = Extension.DynamoDbClientConfig;
+            authenticationRegion = string.IsNullOrWhiteSpace(config?.AuthenticationRegion)
+                ? null
+                : config.AuthenticationRegion;
+            serviceUrl = SanitizeServiceUrl(config?.ServiceURL);
+            return config is not null;
+        }
+
+        private static string GetHashCode(object? value)
+            => (value?.GetHashCode() ?? 0).ToString(CultureInfo.InvariantCulture);
+
+        internal static string? SanitizeServiceUrl(string? serviceUrl)
+        {
+            if (!Uri.TryCreate(serviceUrl, UriKind.Absolute, out var uri)
+                || string.IsNullOrWhiteSpace(uri.Host)
+                || uri.Port < 0)
+                return null;
+
+            var host = uri.HostNameType == UriHostNameType.IPv6
+                ? $"[{uri.Host.Trim('[', ']')}]"
+                : uri.Host;
+            return $"{uri.Scheme}://{host}:{uri.Port.ToString(CultureInfo.InvariantCulture)}";
         }
     }
 }

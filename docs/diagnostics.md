@@ -619,6 +619,18 @@ The output includes parameter comments with formatted DynamoDB `AttributeValue` 
 the PartiQL text. `ToQueryString()` is for debugging: it does not execute scan-warning behavior,
 log command events, or call DynamoDB.
 
+## Provider option diagnostics
+
+EF Core includes the DynamoDB provider's configured options in its context-options diagnostic
+summary and debug-info dictionary. The summary lists provider settings such as index selection,
+transaction limits, consistent reads, consumed-capacity reporting, and table-lifecycle waits.
+
+When you supply an `AmazonDynamoDBConfig`, the diagnostic output can include its
+`AuthenticationRegion` and `ServiceURL`. The endpoint is always reduced to its scheme, host, and
+port. Credentials, paths, query strings, and URL fragments are omitted. The debug-info keys use
+the `DynamoDB:` prefix; object-valued client settings are represented by hash identities rather
+than object text.
+
 ## Not Yet Available
 
 **Sensitive data logging** — `EnableSensitiveDataLogging()` has no effect on DynamoDB provider
