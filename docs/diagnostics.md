@@ -49,6 +49,61 @@ protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
 `LogTo` accepts any `Action<string>` and applies a minimum level filter. It is meant for
 development and test contexts, not production deployments.
 
+## OpenTelemetry Tracing
+
+The provider does not create OpenTelemetry spans or a separate EF-query `Activity`. For
+request-level tracing, enable the AWS SDK for .NET v4 OpenTelemetry integration in the application
+before creating DynamoDB clients or `DbContext` instances. The SDK then emits telemetry for the
+provider's DynamoDB requests.
+
+Install the AWS instrumentation and an exporter in the application project:
+
+```bash
+dotnet add package OpenTelemetry.Instrumentation.AWS
+dotnet add package OpenTelemetry.Exporter.Console
+```
+
+Configure tracing once during application startup. Replace the Console exporter with your chosen
+exporter in production:
+
+```csharp
+using OpenTelemetry;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
+
+using var tracerProvider = Sdk.CreateTracerProviderBuilder()
+    .ConfigureResource(resource => resource.AddService("orders-api"))
+    .AddAWSInstrumentation()
+    .AddConsoleExporter()
+    .Build();
+
+// Create DynamoDB clients and DbContext instances after configuring tracing.
+```
+
+AWS SDK telemetry is disabled by default. See the AWS SDK documentation for
+[observability](https://docs.aws.amazon.com/sdk-for-net/v4/developer-guide/observability.html)
+and [OpenTelemetry provider configuration](https://docs.aws.amazon.com/sdk-for-net/v4/developer-guide/observability-telemetry-providers-otel.html),
+including exporter and downstream-instrumentation options.
+
+### What Gets Traced
+
+The AWS SDK owns DynamoDB request spans. The provider's query enumeration issues one
+`ExecuteStatement` request for each fetched DynamoDB page, so a paginated query can produce
+multiple request spans. An EF Core execution-strategy retry can issue another SDK request for the
+same page; AWS SDK retry and HTTP-span detail depends on the SDK telemetry configuration.
+
+If enumeration is canceled or stopped early, the provider does not fetch later pages. Existing
+SDK spans still show requests that already started. Use [command events](#command-events),
+[DiagnosticListener payloads](#diagnosticlistener-payloads), [response metadata](#response-metadata),
+[consumed capacity](#consumedcapacity), and [SDK command interception](#sdk-command-interception)
+for the EF-specific table, selected-index, limit, capacity, request-id, and cancellation context
+that request spans do not provide.
+
+Do not treat spans as a safe place for PartiQL text, parameter values, partition or sort keys, or
+AWS request IDs. The provider does not add those values to spans. Interceptor request and response
+objects can contain them, so applications that enrich telemetry through interceptors must apply
+their own data-handling policy.
+
 ## What Gets Logged
 
 The provider uses three EF Core logger categories:
@@ -563,6 +618,18 @@ var partiQl = context.Orders
 The output includes parameter comments with formatted DynamoDB `AttributeValue` values followed by
 the PartiQL text. `ToQueryString()` is for debugging: it does not execute scan-warning behavior,
 log command events, or call DynamoDB.
+
+## Provider option diagnostics
+
+EF Core includes the DynamoDB provider's configured options in its context-options diagnostic
+summary and debug-info dictionary. The summary lists provider settings such as index selection,
+transaction limits, consistent reads, consumed-capacity reporting, and table-lifecycle waits.
+
+When you supply an `AmazonDynamoDBConfig`, the diagnostic output can include its
+`AuthenticationRegion` and `ServiceURL`. The endpoint is always reduced to its scheme, host, and
+port. Credentials, paths, query strings, and URL fragments are omitted. The debug-info keys use
+the `DynamoDB:` prefix; object-valued client settings are represented by hash identities rather
+than object text.
 
 ## Not Yet Available
 
