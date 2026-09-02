@@ -67,11 +67,23 @@ throw `NotSupportedException`; use `EnsureCreatedAsync`, `EnsureDeletedAsync`, a
 
 ## Health checks
 
-ASP.NET Core applications can register the standard EF Core health check for a DynamoDB context:
+ASP.NET Core applications can register the standard EF Core health check for a DynamoDB context.
+Add the EF health-check package that matches the application's EF Core version:
+
+```shell
+dotnet add package Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore
+```
+
+Tag the DynamoDB check as readiness, then map a readiness endpoint:
 
 ```csharp
 builder.Services.AddHealthChecks()
-    .AddDbContextCheck<OrdersContext>();
+    .AddDbContextCheck<OrdersContext>(tags: ["ready"]);
+
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = healthCheck => healthCheck.Tags.Contains("ready")
+});
 ```
 
 By default, `AddDbContextCheck` calls `Database.CanConnectAsync()`. The provider sends a
