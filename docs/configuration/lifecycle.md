@@ -74,6 +74,18 @@ Add the EF health-check package that matches the application's EF Core version:
 dotnet add package Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore
 ```
 
+The health-check package adds EF Core's relational `ToTable` extension. If a DynamoDB model uses
+`ToTable`, invoke the provider's method explicitly to avoid an ambiguous call:
+
+```csharp
+protected override void OnModelCreating(ModelBuilder modelBuilder)
+{
+    DynamoEntityTypeBuilderExtensions.ToTable(
+        modelBuilder.Entity<Order>(),
+        "orders");
+}
+```
+
 Tag the DynamoDB check as readiness, then map a readiness endpoint:
 
 ```csharp

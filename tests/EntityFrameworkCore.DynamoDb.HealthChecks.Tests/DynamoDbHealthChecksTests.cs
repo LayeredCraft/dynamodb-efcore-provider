@@ -1,6 +1,7 @@
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using AwesomeAssertions;
+using EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -77,6 +78,35 @@ public sealed class DynamoDbHealthChecksTests
             .Be(HealthStatus.Unhealthy);
     }
 
+    [Fact(Timeout = 30_000)]
+    public void ToTable_CanBeExplicitlyInvoked_WhenHealthCheckPackageIsInstalled()
+    {
+        var options = new DbContextOptionsBuilder<MappedHealthCheckContext>().UseDynamo().Options;
+
+        using var context = new MappedHealthCheckContext(options);
+
+        var entityType = context.Model.FindEntityType(typeof(HealthCheckItem))!;
+
+        entityType.FindAnnotation(DynamoAnnotationNames.TableName)!
+            .Value
+            .Should()
+            .Be("health-checks");
+    }
+
     private sealed class HealthCheckContext(DbContextOptions<HealthCheckContext> options)
         : DbContext(options);
+
+    private sealed class MappedHealthCheckContext(
+        DbContextOptions<MappedHealthCheckContext> options) : DbContext(options)
+    {
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => DynamoEntityTypeBuilderExtensions.ToTable(
+                modelBuilder.Entity<HealthCheckItem>(),
+                "health-checks");
+    }
+
+    private sealed class HealthCheckItem
+    {
+        public string Id { get; init; } = null!;
+    }
 }
