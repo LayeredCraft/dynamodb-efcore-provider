@@ -47,6 +47,36 @@ public sealed class DynamoDbHealthChecksTests
                 Arg.Any<CancellationToken>());
     }
 
+    [Fact(Timeout = 30_000)]
+    public async Task AddDbContextCheck_ReportsUnhealthy_WhenDynamoDbCannotConnect()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        client
+            .ListTablesAsync(Arg.Any<ListTablesRequest>(), Arg.Any<CancellationToken>())
+            .Returns<Task<ListTablesResponse>>(_
+                => throw new AmazonDynamoDBException("Unavailable"));
+
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddDbContext<HealthCheckContext>(options
+            => options.UseDynamo(dynamo => dynamo.DynamoDbClient(client)));
+        services.AddHealthChecks().AddDbContextCheck<HealthCheckContext>();
+        using var serviceProvider = services.BuildServiceProvider();
+
+        var healthCheckService = serviceProvider.GetRequiredService<HealthCheckService>();
+        var report = await healthCheckService.CheckHealthAsync();
+
+        report.Status.Should().Be(HealthStatus.Unhealthy);
+        report
+            .Entries
+            .Should()
+            .ContainKey(nameof(HealthCheckContext))
+            .WhoseValue
+            .Status
+            .Should()
+            .Be(HealthStatus.Unhealthy);
+    }
+
     private sealed class HealthCheckContext(DbContextOptions<HealthCheckContext> options)
         : DbContext(options);
 }
