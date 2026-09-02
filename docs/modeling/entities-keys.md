@@ -25,21 +25,17 @@ modelBuilder.Entity<Order>(b =>
 
 !!! tip "Provider key APIs preferred"
 
-```
-`HasPartitionKey(...)` and `HasSortKey(...)` name DynamoDB roles directly and are preferred in docs. EF-native `HasKey(...)` and `[PrimaryKey]` are also supported for one- and two-part table keys; property-level `[Key]` supports a single-property partition key.
-```
+    `HasPartitionKey(...)` and `HasSortKey(...)` name DynamoDB roles directly and are preferred in docs. EF-native `HasKey(...)` and `[PrimaryKey]` are also supported for one- and two-part table keys; property-level `[Key]` supports a single-property partition key.
 
 If no explicit `ToTable(...)` is configured, the provider uses the CLR type name as the table
 name.
 
 !!! warning "No EF relationships"
 
-```
-`HasOne(...)`, `HasMany(...)`, `WithOne(...)`, `WithMany(...)`, `HasForeignKey(...)`,
-`[ForeignKey]`, and `[InverseProperty]` are not supported. Use complex types for embedded
-data, or model separate DynamoDB items/tables as separate root entities and join them in
-application code when needed.
-```
+    `HasOne(...)`, `HasMany(...)`, `WithOne(...)`, `WithMany(...)`, `HasForeignKey(...)`,
+    `[ForeignKey]`, and `[InverseProperty]` are not supported. Use complex types for embedded
+    data, or model separate DynamoDB items/tables as separate root entities and join them in
+    application code when needed.
 
 ## Defaults and Overrides
 
@@ -171,13 +167,11 @@ public sealed class Order
 
 !!! note "Common validation failures"
 
-```
-- EF key has more than two properties
-- EF key and provider key APIs disagree on partition/sort order
-- Configuring the same property as both partition key and sort key
-- Declaring a sort key without a resolvable partition key
-- Ambiguous conventional names (both `PK` and `PartitionKey`, or both `SK` and `SortKey`)
-```
+    - EF key has more than two properties
+    - EF key and provider key APIs disagree on partition/sort order
+    - Configuring the same property as both partition key and sort key
+    - Declaring a sort key without a resolvable partition key
+    - Ambiguous conventional names (both `PK` and `PartitionKey`, or both `SK` and `SortKey`)
 
 See [Table and Key Mapping](../configuration/table-key-mapping.md) for full validation rules,
 key-property requirements, and advanced mapping patterns.

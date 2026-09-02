@@ -27,12 +27,10 @@ you override the convention.
 
 !!! note "Key attributes follow the same convention"
 
-```
-The naming convention applies to partition key and sort key properties as well. Your DynamoDB
-table's key schema must use the convention-transformed name. For example, a `CustomerId`
-property with the default CamelCase convention maps to DynamoDB attribute `"customerId"` — the
-table must define `"customerId"` as its hash key, not `"CustomerId"`.
-```
+    The naming convention applies to partition key and sort key properties as well. Your DynamoDB
+    table's key schema must use the convention-transformed name. For example, a `CustomerId`
+    property with the default CamelCase convention maps to DynamoDB attribute `"customerId"` — the
+    table must define `"customerId"` as its hash key, not `"CustomerId"`.
 
 ## Built-in Conventions
 
@@ -80,11 +78,9 @@ finalization.
 
 !!! note "Scope of convention-based renaming"
 
-```
-Convention-based renaming applies to EF model members (entity properties, key properties, and
-complex-property container/member attributes). It does not rewrite ad-hoc nested map keys provided
-as runtime data values (for example, dictionary entry keys).
-```
+    Convention-based renaming applies to EF model members (entity properties, key properties, and
+    complex-property container/member attributes). It does not rewrite ad-hoc nested map keys provided
+    as runtime data values (for example, dictionary entry keys).
 
 ## Per-Property Override
 

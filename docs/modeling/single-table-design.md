@@ -154,11 +154,9 @@ entire group.
 
 !!! warning "Disabling discriminators removes type predicates"
 
-```
-Without a discriminator, the provider does not inject type-level query filtering.
-Queries return all items matching key conditions, regardless of CLR type.
-Only use this when your PK/SK patterns guarantee type separation.
-```
+    Without a discriminator, the provider does not inject type-level query filtering.
+    Queries return all items matching key conditions, regardless of CLR type.
+    Only use this when your PK/SK patterns guarantee type separation.
 
 ## Query behavior
 
@@ -206,43 +204,41 @@ WHERE "pk" = 'TENANT#1' AND "$type" = 'Employee'
 
 !!! danger "Type-only narrowing is not a key-condition optimization"
 
-````
-The discriminator predicate (`$type = ...`) is a filter, not a partition/sort key condition.
-DynamoDB applies that filter after reading matching key-range items.
-AWS documents that `Query` consumes the same read capacity whether a filter expression is
-present or not.
+    The discriminator predicate (`$type = ...`) is a filter, not a partition/sort key condition.
+    DynamoDB applies that filter after reading matching key-range items.
+    AWS documents that `Query` consumes the same read capacity whether a filter expression is
+    present or not.
 
-In practice, PK + discriminator-only queries can consume more read units and add latency,
-because DynamoDB reads a broader item set first and then discards non-matching types.
-The read-cost term is:
+    In practice, PK + discriminator-only queries can consume more read units and add latency,
+    because DynamoDB reads a broader item set first and then discards non-matching types.
+    The read-cost term is:
 
-- **Provisioned mode**: Read Capacity Units (RCUs)
-- **On-demand mode**: Read Request Units (RRUs)
+    - **Provisioned mode**: Read Capacity Units (RCUs)
+    - **On-demand mode**: Read Request Units (RRUs)
 
-Prefer adding a sort-key predicate (for example, `StartsWith`) that matches your item pattern.
-In this provider, `string.StartsWith(string)` is translated to DynamoDB `begins_with(...)`.
-See [Supported Operators](../querying/operators.md) for translation details.
+    Prefer adding a sort-key predicate (for example, `StartsWith`) that matches your item pattern.
+    In this provider, `string.StartsWith(string)` is translated to DynamoDB `begins_with(...)`.
+    See [Supported Operators](../querying/operators.md) for translation details.
 
-Safer access-pattern query (PK + SK prefix + discriminator):
+    Safer access-pattern query (PK + SK prefix + discriminator):
 
-```csharp
-context.Employees
-    .Where(x => x.Pk == "TENANT#1" && x.Sk.StartsWith("EMPLOYEE#"))
-    .ToListAsync();
-```
+    ```csharp
+    context.Employees
+        .Where(x => x.Pk == "TENANT#1" && x.Sk.StartsWith("EMPLOYEE#"))
+        .ToListAsync();
+    ```
 
-```sql
-SELECT "pk", "sk", "$type", "name", "department"
-FROM "People"
-WHERE "pk" = 'TENANT#1'
-  AND begins_with("sk", 'EMPLOYEE#')
-  AND "$type" = 'Employee'
-```
+    ```sql
+    SELECT "pk", "sk", "$type", "name", "department"
+    FROM "People"
+    WHERE "pk" = 'TENANT#1'
+      AND begins_with("sk", 'EMPLOYEE#')
+      AND "$type" = 'Employee'
+    ```
 
-This query shape aligns with single-table key design: PK selects the item collection, SK prefix
-narrows to the item family, and discriminator preserves EF type safety.
-For key-shape examples, continue with [Practical single-table pattern](#practical-single-table-pattern).
-````
+    This query shape aligns with single-table key design: PK selects the item collection, SK prefix
+    narrows to the item family, and discriminator preserves EF type safety.
+    For key-shape examples, continue with [Practical single-table pattern](#practical-single-table-pattern).
 
 Base queries materialize polymorphically (`DbSet<Person>` can return `Employee` and `Manager`).
 When discrimination is active, the discriminator attribute is included in projection.
@@ -278,11 +274,9 @@ already isolates types.
 
 !!! tip "Index selection with inheritance/shared-table queries"
 
-```
-With automatic index selection enabled, base-type queries are only routed to indexes declared
-on the queried base type (or its ancestors). Indexes declared only on sibling derived types are
-not chosen for base-type queries. See [Index Selection](../querying/index-selection.md).
-```
+    With automatic index selection enabled, base-type queries are only routed to indexes declared
+    on the queried base type (or its ancestors). Indexes declared only on sibling derived types are
+    not chosen for base-type queries. See [Index Selection](../querying/index-selection.md).
 
 ## Practical single-table pattern
 
