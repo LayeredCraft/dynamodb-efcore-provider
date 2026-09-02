@@ -12,10 +12,8 @@ configurable overflow behavior, and optimistic concurrency support._
 
 !!! warning "Async only"
 
-```
-The DynamoDB SDK does not expose synchronous write APIs. `SaveChanges` always throws
-`NotSupportedException`. Always use `SaveChangesAsync`.
-```
+    The DynamoDB SDK does not expose synchronous write APIs. `SaveChanges` always throws
+    `NotSupportedException`. Always use `SaveChangesAsync`.
 
 ## How It Works
 
