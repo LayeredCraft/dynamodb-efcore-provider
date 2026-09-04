@@ -27,6 +27,13 @@
       "sourceType": "github",
       "computedHash": "05c97bc3120108acd0b80bdef7fb4fa7c224ba83c8d384ccbc97f92e8a065918"
     },
+    "csharp-tunit": {
+      "source": "github/awesome-copilot",
+      "ref": "main",
+      "sourceType": "github",
+      "skillPath": "skills/csharp-tunit/SKILL.md",
+      "computedHash": "634bf822bdbd01c5d5a8c7c9f473f3818dfca8acca309a0af97cd90a7e39b738"
+    },
     "dynamo-mapper": {
       "source": "LayeredCraft/dynamo-mapper",
       "sourceType": "github",

@@ -79,7 +79,7 @@ public abstract class InheritanceQueryDynamoTest
                     """
                     SELECT "id", "countryId", "discriminator", "name", "species", "isFlightless", "group", "foundOn"
                     FROM "Animals"
-                    WHERE "discriminator" = 'Kiwi' AND ("discriminator" = 'Eagle' OR "discriminator" = 'Kiwi')
+                    WHERE "discriminator" = 'Kiwi'
                     """);
             });
 
@@ -107,7 +107,7 @@ public abstract class InheritanceQueryDynamoTest
                     """
                     SELECT "id", "countryId", "discriminator", "name", "species", "isFlightless", "foundOn"
                     FROM "Animals"
-                    WHERE ("discriminator" = 'Eagle' OR "discriminator" = 'Kiwi') AND "discriminator" = 'Kiwi'
+                    WHERE "discriminator" = 'Kiwi'
                     """);
             });
 
@@ -121,7 +121,7 @@ public abstract class InheritanceQueryDynamoTest
                     """
                     SELECT "id", "countryId", "discriminator", "name", "species", "isFlightless", "group", "foundOn"
                     FROM "Animals"
-                    WHERE "discriminator" = 'Kiwi' AND "countryId" = 1 AND ("discriminator" = 'Eagle' OR "discriminator" = 'Kiwi')
+                    WHERE "discriminator" = 'Kiwi' AND "countryId" = 1
                     """);
             });
 
@@ -159,7 +159,7 @@ public abstract class InheritanceQueryDynamoTest
                     """
                     SELECT "EagleId"
                     FROM "Animals"
-                    WHERE ("discriminator" = 'Eagle' OR "discriminator" = 'Kiwi') AND ("discriminator" = 'Eagle' OR "discriminator" = 'Kiwi')
+                    WHERE ("discriminator" = 'Eagle' OR "discriminator" = 'Kiwi')
                     """);
             });
 
@@ -177,7 +177,7 @@ public abstract class InheritanceQueryDynamoTest
                     """
                     SELECT "id", "countryId", "discriminator", "name", "species", "isFlightless", "foundOn"
                     FROM "Animals"
-                    WHERE "discriminator" = 'Kiwi' AND ("discriminator" = 'Eagle' OR "discriminator" = 'Kiwi')
+                    WHERE "discriminator" = 'Kiwi'
                     """);
             });
 
@@ -205,7 +205,7 @@ public abstract class InheritanceQueryDynamoTest
                     """
                     SELECT "species", "$type", "genus", "name", "hasThorns"
                     FROM "Plants"
-                    WHERE "$type" = 'Rose' AND ("$type" = 'Daisy' OR "$type" = 'Rose')
+                    WHERE "$type" = 'Rose'
                     """);
             });
 
@@ -253,7 +253,7 @@ public abstract class InheritanceQueryDynamoTest
                     """
                     SELECT "id", "countryId", "discriminator", "name", "species", "isFlightless", "foundOn"
                     FROM "Animals"
-                    WHERE "discriminator" = 'Kiwi' AND "foundOn" = 1 AND ("discriminator" = 'Eagle' OR "discriminator" = 'Kiwi')
+                    WHERE "discriminator" = 'Kiwi' AND "foundOn" = 1
                     """);
             });
 
@@ -267,7 +267,7 @@ public abstract class InheritanceQueryDynamoTest
                     """
                     SELECT "id", "countryId", "discriminator", "name", "species", "isFlightless", "foundOn"
                     FROM "Animals"
-                    WHERE "discriminator" = 'Kiwi' AND "foundOn" = 0 AND ("discriminator" = 'Eagle' OR "discriminator" = 'Kiwi')
+                    WHERE "discriminator" = 'Kiwi' AND "foundOn" = 0
                     """);
             });
 
@@ -315,7 +315,7 @@ public abstract class InheritanceQueryDynamoTest
                     """
                     SELECT "foundOn"
                     FROM "Animals"
-                    WHERE "discriminator" = 'Kiwi' AND ("discriminator" = 'Eagle' OR "discriminator" = 'Kiwi')
+                    WHERE "discriminator" = 'Kiwi'
                     """);
             });
 
@@ -402,7 +402,7 @@ public abstract class InheritanceQueryDynamoTest
                     """
                     SELECT "id", "countryId", "discriminator", "name", "species", "isFlightless", "group", "foundOn"
                     FROM "Animals"
-                    WHERE "discriminator" = 'Kiwi' AND "discriminator" = 'Eagle' AND ("discriminator" = 'Eagle' OR "discriminator" = 'Kiwi')
+                    WHERE "discriminator" = 'Kiwi' AND "discriminator" = 'Eagle'
                     """);
             });
 
@@ -416,7 +416,7 @@ public abstract class InheritanceQueryDynamoTest
                     """
                     SELECT "id", "countryId", "discriminator", "name", "species", "isFlightless", "group"
                     FROM "Animals"
-                    WHERE "discriminator" = 'Kiwi' AND "discriminator" = 'Eagle' AND ("discriminator" = 'Eagle' OR "discriminator" = 'Kiwi')
+                    WHERE "discriminator" = 'Kiwi' AND "discriminator" = 'Eagle'
                     """);
             });
 
@@ -436,7 +436,7 @@ public abstract class InheritanceQueryDynamoTest
                     """
                     SELECT "id", "countryId", "discriminator", "name", "species", "isFlightless", "group", "foundOn"
                     FROM "Animals"
-                    WHERE 1 = 0 AND ("discriminator" = 'Eagle' OR "discriminator" = 'Kiwi')
+                    WHERE 1 = 0
                     """);
             });
 
@@ -450,7 +450,7 @@ public abstract class InheritanceQueryDynamoTest
                     """
                     SELECT "id", "countryId", "discriminator", "name", "species", "isFlightless", "group", "foundOn"
                     FROM "Animals"
-                    WHERE 1 = 0 AND ("discriminator" = 'Eagle' OR "discriminator" = 'Kiwi')
+                    WHERE 1 = 0
                     """);
             });
 
@@ -464,7 +464,7 @@ public abstract class InheritanceQueryDynamoTest
                     """
                     SELECT "id", "countryId", "discriminator", "name", "species", "isFlightless", "group", "foundOn"
                     FROM "Animals"
-                    WHERE "discriminator" = 'Eagle' AND ("discriminator" = 'Eagle' OR "discriminator" = 'Kiwi')
+                    WHERE "discriminator" = 'Eagle'
                     """);
             });
 
@@ -478,7 +478,7 @@ public abstract class InheritanceQueryDynamoTest
                     """
                     SELECT "id", "countryId", "discriminator", "name", "species", "isFlightless", "group", "foundOn"
                     FROM "Animals"
-                    WHERE "discriminator" = 'Kiwi' AND ("discriminator" = 'Eagle' OR "discriminator" = 'Kiwi')
+                    WHERE "discriminator" = 'Kiwi'
                     """);
             });
 
@@ -492,7 +492,7 @@ public abstract class InheritanceQueryDynamoTest
                     """
                     SELECT "id", "countryId", "discriminator", "name", "species", "isFlightless", "group", "foundOn"
                     FROM "Animals"
-                    WHERE "discriminator" = 'Kiwi' AND ("discriminator" = 'Eagle' OR "discriminator" = 'Kiwi')
+                    WHERE "discriminator" = 'Kiwi'
                     """);
             });
 

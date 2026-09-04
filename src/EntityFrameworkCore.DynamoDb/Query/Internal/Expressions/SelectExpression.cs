@@ -99,8 +99,130 @@ public sealed class
         if (_deferredDiscriminatorPredicate is null)
             return;
 
-        ApplyPredicate(_deferredDiscriminatorPredicate);
+        if (_deferredDiscriminatorPredicate is not SqlDiscriminatorPredicateExpression
+            {
+                Origin: DiscriminatorPredicateOrigin.RootMaterializer,
+                DiscriminatorAttributeName: { } discriminatorAttributeName
+            }
+            || !ContainsPositiveExplicitDiscriminatorPredicate(
+                Predicate,
+                discriminatorAttributeName))
+            ApplyPredicate(_deferredDiscriminatorPredicate);
+
         _deferredDiscriminatorPredicate = null;
+    }
+
+    private static bool ContainsPositiveExplicitDiscriminatorPredicate(
+        SqlExpression? predicate,
+        string discriminatorAttributeName)
+    {
+        if (predicate is null)
+            return false;
+
+        return predicate switch
+        {
+            SqlBinaryExpression { OperatorType: ExpressionType.AndAlso } binary =>
+                ContainsPositiveExplicitDiscriminatorPredicate(
+                    binary.Left,
+                    discriminatorAttributeName)
+                || ContainsPositiveExplicitDiscriminatorPredicate(
+                    binary.Right,
+                    discriminatorAttributeName),
+            SqlDiscriminatorPredicateExpression
+            {
+                Origin: DiscriminatorPredicateOrigin.Explicit,
+                DiscriminatorAttributeName: { } explicitAttributeName
+            } => string.Equals(
+                explicitAttributeName,
+                discriminatorAttributeName,
+                StringComparison.Ordinal),
+            _ => false
+        };
+    }
+
+    private static bool ContainsEquivalentPositiveDiscriminatorPredicate(
+        SqlExpression? predicate,
+        SqlDiscriminatorPredicateExpression candidate)
+    {
+        if (predicate is null)
+            return false;
+
+        return predicate switch
+        {
+            SqlBinaryExpression { OperatorType: ExpressionType.AndAlso } binary =>
+                ContainsEquivalentPositiveDiscriminatorPredicate(binary.Left, candidate)
+                || ContainsEquivalentPositiveDiscriminatorPredicate(binary.Right, candidate),
+            SqlDiscriminatorPredicateExpression existing => HasSameDiscriminatorValues(
+                existing,
+                candidate),
+            _ => false
+        };
+    }
+
+    private static bool HasSameDiscriminatorValues(
+        SqlDiscriminatorPredicateExpression left,
+        SqlDiscriminatorPredicateExpression right)
+    {
+        if (left.DiscriminatorAttributeName is not { } attributeName
+            || !string.Equals(
+                attributeName,
+                right.DiscriminatorAttributeName,
+                StringComparison.Ordinal)
+            || !TryGetDiscriminatorValues(left.Predicate, attributeName, out var leftValues)
+            || !TryGetDiscriminatorValues(right.Predicate, attributeName, out var rightValues))
+            return false;
+
+        return leftValues.Count == rightValues.Count && leftValues.All(rightValues.Contains);
+    }
+
+    private static bool TryGetDiscriminatorValues(
+        SqlExpression predicate,
+        string discriminatorAttributeName,
+        out HashSet<object?> values)
+    {
+        values = [];
+
+        return CollectDiscriminatorValues(predicate, discriminatorAttributeName, values);
+    }
+
+    private static bool CollectDiscriminatorValues(
+        SqlExpression predicate,
+        string discriminatorAttributeName,
+        HashSet<object?> values)
+        => predicate switch
+        {
+            SqlParenthesizedExpression parenthesized => CollectDiscriminatorValues(
+                parenthesized.Operand,
+                discriminatorAttributeName,
+                values),
+            SqlBinaryExpression { OperatorType: ExpressionType.OrElse } binary =>
+                CollectDiscriminatorValues(binary.Left, discriminatorAttributeName, values)
+                && CollectDiscriminatorValues(binary.Right, discriminatorAttributeName, values),
+            SqlBinaryExpression
+            {
+                OperatorType: ExpressionType.Equal,
+                Left: SqlPropertyExpression { PropertyName: var propertyName },
+                Right: SqlConstantExpression { Value: var value }
+            } when string.Equals(
+                propertyName,
+                discriminatorAttributeName,
+                StringComparison.Ordinal) => AddDiscriminatorValue(values, value),
+            SqlBinaryExpression
+            {
+                OperatorType: ExpressionType.Equal,
+                Left: SqlConstantExpression { Value: var value },
+                Right: SqlPropertyExpression { PropertyName: var propertyName }
+            } when string.Equals(
+                propertyName,
+                discriminatorAttributeName,
+                StringComparison.Ordinal) => AddDiscriminatorValue(values, value),
+            _ => false
+        };
+
+    private static bool AddDiscriminatorValue(HashSet<object?> values, object? value)
+    {
+        values.Add(value);
+        return true;
     }
 
     /// <summary>The name of the DynamoDB table to query.</summary>
@@ -164,7 +286,12 @@ public sealed class
 
     /// <summary>Applies or combines a WHERE predicate.</summary>
     public void ApplyPredicate(SqlExpression predicate)
-        => Predicate =
+    {
+        if (predicate is SqlDiscriminatorPredicateExpression discriminatorPredicate
+            && ContainsEquivalentPositiveDiscriminatorPredicate(Predicate, discriminatorPredicate))
+            return;
+
+        Predicate =
             Predicate == null
                 ? predicate
                 : new SqlBinaryExpression(
@@ -173,6 +300,7 @@ public sealed class
                     predicate,
                     typeof(bool),
                     null);
+    }
 
     /// <summary>Replaces all orderings with a single ordering.</summary>
     public void ApplyOrdering(OrderingExpression ordering)
