@@ -137,12 +137,36 @@ public class SelectExpressionTests
         expr.SetDeferredDiscriminatorPredicate(
             CreateDiscriminatorPredicate(
                 "kind",
-                "Eagle",
+                ["Kiwi", "Eagle"],
                 DiscriminatorPredicateOrigin.RootMaterializer));
 
         expr.ApplyDeferredDiscriminatorPredicate();
 
         expr.Predicate.Should().BeSameAs(explicitPredicate);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ApplyDeferredDiscriminatorPredicate_RetainsRootWhenExplicitFilterBroadensHierarchy()
+    {
+        var expr = new SelectExpression("TestTable");
+        var explicitPredicate = CreateDiscriminatorPredicate("kind", ["Kiwi", "Eagle"]);
+        expr.ApplyPredicate(explicitPredicate);
+        var rootPredicate = CreateDiscriminatorPredicate(
+            "kind",
+            "Kiwi",
+            DiscriminatorPredicateOrigin.RootMaterializer);
+        expr.SetDeferredDiscriminatorPredicate(rootPredicate);
+
+        expr.ApplyDeferredDiscriminatorPredicate();
+
+        expr
+            .Predicate
+            .Should()
+            .BeOfType<SqlBinaryExpression>()
+            .Which
+            .Right
+            .Should()
+            .BeSameAs(rootPredicate);
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
@@ -221,14 +245,32 @@ public class SelectExpressionTests
         string attributeName,
         string value,
         DiscriminatorPredicateOrigin origin = DiscriminatorPredicateOrigin.Explicit)
-    {
-        var predicate = new SqlBinaryExpression(
-            ExpressionType.Equal,
-            new SqlPropertyExpression(attributeName, typeof(string), null),
-            new SqlConstantExpression(value, typeof(string), null),
-            typeof(bool),
-            null);
+        => CreateDiscriminatorPredicate(attributeName, [value], origin);
 
-        return new SqlDiscriminatorPredicateExpression(predicate, attributeName, origin);
+    private static SqlDiscriminatorPredicateExpression CreateDiscriminatorPredicate(
+        string attributeName,
+        IReadOnlyList<string> values,
+        DiscriminatorPredicateOrigin origin = DiscriminatorPredicateOrigin.Explicit)
+    {
+        SqlExpression? predicate = null;
+        foreach (var value in values)
+        {
+            var equals = new SqlBinaryExpression(
+                ExpressionType.Equal,
+                new SqlPropertyExpression(attributeName, typeof(string), null),
+                new SqlConstantExpression(value, typeof(string), null),
+                typeof(bool),
+                null);
+            predicate = predicate is null
+                ? equals
+                : new SqlBinaryExpression(
+                    ExpressionType.OrElse,
+                    predicate,
+                    equals,
+                    typeof(bool),
+                    null);
+        }
+
+        return new SqlDiscriminatorPredicateExpression(predicate!, attributeName, origin);
     }
 }

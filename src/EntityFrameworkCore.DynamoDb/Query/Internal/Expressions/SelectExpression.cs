@@ -103,9 +103,10 @@ public sealed class
             {
                 Origin: DiscriminatorPredicateOrigin.RootMaterializer,
                 DiscriminatorAttributeName: { } discriminatorAttributeName
-            }
+            } rootPredicate
             || !ContainsPositiveExplicitDiscriminatorPredicate(
                 Predicate,
+                rootPredicate,
                 discriminatorAttributeName))
             ApplyPredicate(_deferredDiscriminatorPredicate);
 
@@ -114,6 +115,7 @@ public sealed class
 
     private static bool ContainsPositiveExplicitDiscriminatorPredicate(
         SqlExpression? predicate,
+        SqlDiscriminatorPredicateExpression rootPredicate,
         string discriminatorAttributeName)
     {
         if (predicate is null)
@@ -124,18 +126,21 @@ public sealed class
             SqlBinaryExpression { OperatorType: ExpressionType.AndAlso } binary =>
                 ContainsPositiveExplicitDiscriminatorPredicate(
                     binary.Left,
+                    rootPredicate,
                     discriminatorAttributeName)
                 || ContainsPositiveExplicitDiscriminatorPredicate(
                     binary.Right,
+                    rootPredicate,
                     discriminatorAttributeName),
             SqlDiscriminatorPredicateExpression
-            {
-                Origin: DiscriminatorPredicateOrigin.Explicit,
-                DiscriminatorAttributeName: { } explicitAttributeName
-            } => string.Equals(
-                explicitAttributeName,
-                discriminatorAttributeName,
-                StringComparison.Ordinal),
+                {
+                    Origin: DiscriminatorPredicateOrigin.Explicit,
+                    DiscriminatorAttributeName: { } explicitAttributeName
+                } explicitPredicate => string.Equals(
+                    explicitAttributeName,
+                    discriminatorAttributeName,
+                    StringComparison.Ordinal)
+                && HasDiscriminatorValueSubset(explicitPredicate, rootPredicate),
             _ => false
         };
     }
@@ -173,6 +178,25 @@ public sealed class
             return false;
 
         return leftValues.Count == rightValues.Count && leftValues.All(rightValues.Contains);
+    }
+
+    private static bool HasDiscriminatorValueSubset(
+        SqlDiscriminatorPredicateExpression candidate,
+        SqlDiscriminatorPredicateExpression root)
+    {
+        if (candidate.DiscriminatorAttributeName is not { } attributeName
+            || !string.Equals(
+                attributeName,
+                root.DiscriminatorAttributeName,
+                StringComparison.Ordinal)
+            || !TryGetDiscriminatorValues(
+                candidate.Predicate,
+                attributeName,
+                out var candidateValues)
+            || !TryGetDiscriminatorValues(root.Predicate, attributeName, out var rootValues))
+            return false;
+
+        return candidateValues.All(rootValues.Contains);
     }
 
     private static bool TryGetDiscriminatorValues(
