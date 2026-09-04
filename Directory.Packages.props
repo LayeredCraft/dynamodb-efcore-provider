@@ -7,8 +7,8 @@
   <ItemGroup>
     <PackageVersion Include="AutoFixture.AutoNSubstitute" Version="4.18.1" />
     <PackageVersion Include="AutoFixture.Xunit3" Version="4.19.0" />
-    <PackageVersion Include="AwesomeAssertions" Version="9.5.0" />
-    <PackageVersion Include="AWSSDK.DynamoDBv2" Version="4.0.103.3" />
+    <PackageVersion Include="AwesomeAssertions" Version="9.6.0" />
+    <PackageVersion Include="AWSSDK.DynamoDBv2" Version="4.0.103.5" />
     <PackageVersion Include="Humanizer.Core" Version="3.0.10" />
     <PackageVersion Include="LayeredCraft.DynamoMapper" Version="1.6.6" />
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.400" />
