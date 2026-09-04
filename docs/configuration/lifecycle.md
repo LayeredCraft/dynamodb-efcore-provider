@@ -65,6 +65,72 @@ DynamoDB lifecycle operations are async-only. `EnsureCreated`, `EnsureDeleted`, 
 throw `NotSupportedException`; use `EnsureCreatedAsync`, `EnsureDeletedAsync`, and
 `CanConnectAsync`.
 
+## Health checks
+
+ASP.NET Core applications can register the standard EF Core health check for a DynamoDB context.
+Add the EF health-check package that matches the application's EF Core version:
+
+```shell
+dotnet add package Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore
+```
+
+The health-check package adds EF Core's relational `ToTable` extension. If a DynamoDB model uses
+`ToTable`, invoke the provider's method explicitly to avoid an ambiguous call:
+
+```csharp
+protected override void OnModelCreating(ModelBuilder modelBuilder)
+{
+    DynamoEntityTypeBuilderExtensions.ToTable(
+        modelBuilder.Entity<Order>(),
+        "orders");
+}
+```
+
+Tag the DynamoDB check as readiness, then map a readiness endpoint:
+
+```csharp
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<OrdersContext>(tags: ["ready"]);
+
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = healthCheck => healthCheck.Tags.Contains("ready")
+});
+```
+
+By default, `AddDbContextCheck` calls `Database.CanConnectAsync()`. The provider sends a
+`ListTables` request with `Limit = 1`. A successful check confirms that the application can reach
+the configured DynamoDB endpoint with its configured credentials and has the
+`dynamodb:ListTables` permission. `ListTables` is account-level, so its IAM statement must use
+`"Resource": "*"`.
+
+```json
+{
+  "Effect": "Allow",
+  "Action": "dynamodb:ListTables",
+  "Resource": "*"
+}
+```
+
+The default check does not confirm that mapped tables or indexes exist, that the EF model is valid,
+or that the application can read its data. Treat it as a DynamoDB connectivity check, not a full
+application-readiness check.
+
+For readiness that includes an application table, use the `customTestQuery` overload with a cheap,
+key-based read of a known sentinel item. Choose the table, key, and consistency behavior in the
+application:
+
+```csharp
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<OrdersContext>(
+        customTestQuery: (db, cancellationToken) =>
+            db.Orders.AnyAsync(order => order.Pk == "health-check", cancellationToken));
+```
+
+The sentinel key must use the table's real partition key. Grant this check only the table read
+permission it needs. Keep that readiness check separate from liveness: a liveness endpoint should
+only report whether the process is running, so a transient DynamoDB failure does not restart it.
+
 ## Seeding
 
 `HasData` model seed data is inserted only for entity types mapped to tables created by the current
@@ -81,3 +147,5 @@ APIs are unsupported, configure `UseAsyncSeeding` instead of sync-only `UseSeedi
 - [UpdateTable](https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_UpdateTable.html)
 - [Secondary indexes](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/SecondaryIndexes.html)
 - [Local secondary indexes](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/LSI.html)
+- [ASP.NET Core health checks](https://learn.microsoft.com/aspnet/core/host-and-deploy/health-checks)
+- [DynamoDB IAM actions](https://docs.aws.amazon.com/service-authorization/latest/reference/list_dynamodb.html)
