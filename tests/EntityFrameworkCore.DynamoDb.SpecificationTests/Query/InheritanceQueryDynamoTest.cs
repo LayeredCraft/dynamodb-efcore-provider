@@ -107,7 +107,7 @@ public abstract class InheritanceQueryDynamoTest
                     """
                     SELECT "id", "countryId", "discriminator", "name", "species", "isFlightless", "foundOn"
                     FROM "Animals"
-                    WHERE "discriminator" = 'Kiwi'
+                    WHERE ("discriminator" = 'Eagle' OR "discriminator" = 'Kiwi') AND "discriminator" = 'Kiwi'
                     """);
             });
 
@@ -436,7 +436,7 @@ public abstract class InheritanceQueryDynamoTest
                     """
                     SELECT "id", "countryId", "discriminator", "name", "species", "isFlightless", "group", "foundOn"
                     FROM "Animals"
-                    WHERE 1 = 0
+                    WHERE 1 = 0 AND ("discriminator" = 'Eagle' OR "discriminator" = 'Kiwi')
                     """);
             });
 
@@ -450,7 +450,7 @@ public abstract class InheritanceQueryDynamoTest
                     """
                     SELECT "id", "countryId", "discriminator", "name", "species", "isFlightless", "group", "foundOn"
                     FROM "Animals"
-                    WHERE 1 = 0
+                    WHERE 1 = 0 AND ("discriminator" = 'Eagle' OR "discriminator" = 'Kiwi')
                     """);
             });
 
