@@ -15,14 +15,16 @@ using Microsoft.EntityFrameworkCore.Query;
 
 namespace EntityFrameworkCore.DynamoDb.Query.Internal;
 
+#pragma warning disable CS1591
+
 /// <summary>Represents the DynamoShapedQueryCompilingExpressionVisitor type.</summary>
 public partial class DynamoShapedQueryCompilingExpressionVisitor
 {
-    private sealed class QueryingEnumerable<T>(
+    public sealed class QueryingEnumerable<T>(
         DynamoQueryContext queryContext,
         SelectExpression selectExpression,
         IDynamoQuerySqlGeneratorFactory sqlGeneratorFactory,
-        Func<DynamoQueryContext, Dictionary<string, AttributeValue>, T> shaper,
+        Func<QueryContext, Dictionary<string, AttributeValue>, T> shaper,
         bool standAloneStateManager,
         bool threadSafetyChecksEnabled) : IEnumerable<T>, IAsyncEnumerable<T>, IQueryingEnumerable
     {
@@ -39,8 +41,7 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
         private readonly SelectExpression _selectExpression = selectExpression;
         private readonly IDynamoQuerySqlGeneratorFactory _sqlGeneratorFactory = sqlGeneratorFactory;
 
-        private readonly Func<DynamoQueryContext, Dictionary<string, AttributeValue>, T> _shaper =
-            shaper;
+        private readonly Func<QueryContext, Dictionary<string, AttributeValue>, T> _shaper = shaper;
 
         private readonly bool _standAloneStateManager = standAloneStateManager;
         private readonly bool _threadSafetyChecksEnabled = threadSafetyChecksEnabled;
@@ -70,8 +71,7 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
             private readonly DynamoQueryContext _queryContext;
             private readonly QueryingEnumerable<T> _queryingEnumerable;
 
-            private readonly Func<DynamoQueryContext, Dictionary<string, AttributeValue>, T>
-                _shaper;
+            private readonly Func<QueryContext, Dictionary<string, AttributeValue>, T> _shaper;
 
             private readonly bool _standAloneStateManager;
 
@@ -247,11 +247,11 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
     }
 
 #pragma warning disable EF9102
-    private sealed class PagingQueryingEnumerable<T>(
+    public sealed class PagingQueryingEnumerable<T>(
         DynamoQueryContext queryContext,
         SelectExpression selectExpression,
         IDynamoQuerySqlGeneratorFactory sqlGeneratorFactory,
-        Func<DynamoQueryContext, Dictionary<string, AttributeValue>, T> shaper,
+        Func<QueryContext, Dictionary<string, AttributeValue>, T> shaper,
         bool standAloneStateManager,
         bool threadSafetyChecksEnabled) : IEnumerable<DynamoPage<T>>,
         IAsyncEnumerable<DynamoPage<T>>,
@@ -269,8 +269,7 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
         private readonly IDiagnosticsLogger<DbLoggerCategory.Query> _queryLogger =
             queryContext.QueryDiagnosticsLogger;
 
-        private readonly Func<DynamoQueryContext, Dictionary<string, AttributeValue>, T> _shaper =
-            shaper;
+        private readonly Func<QueryContext, Dictionary<string, AttributeValue>, T> _shaper = shaper;
 
         private readonly bool _standAloneStateManager = standAloneStateManager;
         private readonly bool _threadSafetyChecksEnabled = threadSafetyChecksEnabled;
@@ -620,3 +619,5 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
     private static string? NormalizeToken(string? token)
         => string.IsNullOrWhiteSpace(token) ? null : token;
 }
+
+#pragma warning restore CS1591

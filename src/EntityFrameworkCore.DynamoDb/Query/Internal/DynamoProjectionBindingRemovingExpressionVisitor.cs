@@ -17,6 +17,8 @@ using static System.Linq.Expressions.Expression;
 
 namespace EntityFrameworkCore.DynamoDb.Query.Internal;
 
+#pragma warning disable EF9100
+
 /// <summary>
 ///     Replaces EF Core's abstract ProjectionBindingExpression nodes with concrete expression
 ///     trees that extract property values from Dictionary&lt;string, AttributeValue&gt;.
@@ -102,8 +104,10 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
             && node.Arguments[0] is ProjectionBindingExpression pbe
             && pbe.Type == typeof(ValueBuffer))
         {
-            // new MaterializationContext(ValueBuffer.Empty, ...)
-            List<Expression> newArguments = [Constant(ValueBuffer.Empty)];
+            // The buffer is never read: scalar values come from the DynamoDB item dictionary.
+            // Use a default expression instead of ValueBuffer.Empty so EF's source generator can
+            // emit the materializer for a precompiled query.
+            List<Expression> newArguments = [Default(typeof(ValueBuffer))];
 
             for (var i = 1; i < node.Arguments.Count; i++)
                 newArguments.Add(Visit(node.Arguments[i]));
@@ -413,6 +417,13 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
         if (ReferenceEquals(node, QueryCompilationContext.NotTranslatedExpression))
             return node;
 
+        // Precompiled queries carry their parameter values as liftable constants. Their resolver
+        // expressions belong to EF Core and must not be rewritten as part of the row shaper.
+#pragma warning disable EF9100
+        if (node is LiftableConstantExpression)
+            return node;
+#pragma warning restore EF9100
+
         return base.VisitExtension(node);
     }
 
@@ -661,9 +672,22 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
         {
             var genericMethod = node.Method.GetGenericMethodDefinition();
 
-            if (genericMethod == ExpressionExtensions.ValueBufferTryReadValueMethod)
+            if (genericMethod
+                == Microsoft.EntityFrameworkCore.Infrastructure.ExpressionExtensions
+                    .ValueBufferTryReadValueMethod)
             {
-                var property = (IProperty)((ConstantExpression)node.Arguments[2]).Value!;
+#pragma warning disable EF9100
+                var property = node.Arguments[2] switch
+                {
+                    ConstantExpression { Value: IProperty value } => value,
+                    LiftableConstantExpression
+                    {
+                        OriginalExpression: ConstantExpression { Value: IProperty value }
+                    } => value,
+                    _ => throw new InvalidOperationException(
+                        "Expected an EF Core property metadata constant while compiling the query shaper.")
+                };
+#pragma warning restore EF9100
                 var targetType = node.Type == typeof(object) ? property.ClrType : node.Type;
 
                 // Runtime-only properties are not stored in the DynamoDB item dictionary.
@@ -844,7 +868,7 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
             attributeValueVariable,
             propertyPath,
             required,
-            property);
+            null);
 
         // Condition branches must agree on the exact CLR type. Mapping-owned readers may return a
         // nullable-adapted or provider-compatible expression that still needs normalization here.
@@ -1399,3 +1423,5 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
         => providerType == typeof(string) ? nameof(AttributeValue.SS) :
             providerType == typeof(byte[]) ? nameof(AttributeValue.BS) : nameof(AttributeValue.NS);
 }
+
+#pragma warning restore EF9100

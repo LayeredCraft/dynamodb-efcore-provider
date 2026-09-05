@@ -2,11 +2,17 @@ using Microsoft.EntityFrameworkCore.Query;
 
 namespace EntityFrameworkCore.DynamoDb.Query;
 
+#pragma warning disable EF9100
+
 /// <summary>Represents the DynamoQueryCompilationContext type.</summary>
 public sealed class DynamoQueryCompilationContext(
     QueryCompilationContextDependencies dependencies,
-    bool async) : QueryCompilationContext(dependencies, async)
+    bool async,
+    bool precompiling = false) : QueryCompilationContext(dependencies, async, precompiling)
 {
+    /// <inheritdoc />
+    public override bool SupportsPrecompiledQuery => true;
+
     /// <summary>
     ///     Per-query explicit secondary index name from <c>.WithIndex()</c>. The index name is
     ///     embedded in the PartiQL FROM clause at compile time, so it must be a compile-time constant.
@@ -25,3 +31,5 @@ public sealed class DynamoQueryCompilationContext(
     /// </summary>
     public bool IndexSelectionDisabled { get; internal set; }
 }
+
+#pragma warning restore EF9100

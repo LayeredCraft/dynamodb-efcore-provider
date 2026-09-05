@@ -36,6 +36,10 @@
     <PackageReference Include="AWSSDK.DynamoDBv2" />
     <PackageReference Include="Humanizer.Core" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" PrivateAssets="none" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
     <PackageReference Include="Microsoft.Extensions.Caching.Abstractions" NoWarn="NU1510" />
     <!-- Required for public API types (IServiceCollection, EventId, ILogger).
          .NET 11 package pruning currently reports these as redundant, but removing them breaks compilation. -->

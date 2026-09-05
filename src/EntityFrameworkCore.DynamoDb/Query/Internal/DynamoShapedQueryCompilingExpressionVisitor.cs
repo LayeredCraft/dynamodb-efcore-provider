@@ -1,6 +1,7 @@
 using System.Linq.Expressions;
 using System.Reflection;
 using Amazon.DynamoDBv2.Model;
+using EntityFrameworkCore.DynamoDb.Query;
 using EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
@@ -96,8 +97,8 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
                     BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
                 .Single(c => c.GetParameters().Length == 6),
             queryContextParameter,
-            Constant(selectExpression),
-            Constant(sqlGeneratorFactory),
+            CreateSelectExpressionConstant(selectExpression),
+            CreateSqlGeneratorFactoryConstant(),
             shaperLambda,
             Constant(standAloneStateManager),
             Constant(_dependencies.CoreSingletonOptions.AreThreadSafetyChecksEnabled));
@@ -116,11 +117,54 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
                     BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
                 .Single(c => c.GetParameters().Length == 6),
             queryContextParameter,
-            Constant(selectExpression),
-            Constant(sqlGeneratorFactory),
+            CreateSelectExpressionConstant(selectExpression),
+            CreateSqlGeneratorFactoryConstant(),
             shaperLambda,
             Constant(standAloneStateManager),
             Constant(_dependencies.CoreSingletonOptions.AreThreadSafetyChecksEnabled));
+
+#pragma warning disable EF9100
+    private Expression CreateSelectExpressionConstant(SelectExpression selectExpression)
+    {
+        var context = Parameter(typeof(MaterializerLiftableConstantContext), "context");
+        var resolver = Lambda<Func<MaterializerLiftableConstantContext, object>>(
+            Convert(
+                Call(
+                    typeof(DynamoPrecompiledQueryPlan),
+                    nameof(DynamoPrecompiledQueryPlan.Create),
+                    Type.EmptyTypes,
+                    context,
+                    Constant(DynamoPrecompiledQueryPlan.Serialize(selectExpression))),
+                typeof(object)),
+            context);
+
+        return _dependencies.LiftableConstantFactory.CreateLiftableConstant(
+            selectExpression,
+            resolver,
+            "dynamoSelectExpression",
+            typeof(SelectExpression));
+    }
+
+    private Expression CreateSqlGeneratorFactoryConstant()
+    {
+        var context = Parameter(typeof(MaterializerLiftableConstantContext), "context");
+        var resolver = Lambda<Func<MaterializerLiftableConstantContext, object>>(
+            Convert(
+                Call(
+                    typeof(DynamoPrecompiledQueryPlan),
+                    nameof(DynamoPrecompiledQueryPlan.GetSqlGeneratorFactory),
+                    Type.EmptyTypes,
+                    context),
+                typeof(object)),
+            context);
+
+        return _dependencies.LiftableConstantFactory.CreateLiftableConstant(
+            sqlGeneratorFactory,
+            resolver,
+            "dynamoSqlGeneratorFactory",
+            typeof(IDynamoQuerySqlGeneratorFactory));
+    }
+#pragma warning restore EF9100
 
     /// <summary>
     ///     Normalizes a parameterized <c>Limit(n)</c> expression for runtime evaluation. Constants
@@ -213,6 +257,30 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
     /// </summary>
     private sealed class ValueTypeMemberAccessRewritingVisitor : ExpressionVisitor
     {
+        protected override Expression VisitSwitch(SwitchExpression node)
+        {
+            if (node.Comparison is null)
+                return base.VisitSwitch(node);
+
+            var switchValue = Visit(node.SwitchValue);
+            var defaultBody = Visit(node.DefaultBody) ?? Default(node.Type);
+            var result = defaultBody;
+
+            for (var caseIndex = node.Cases.Count - 1; caseIndex >= 0; caseIndex--)
+            {
+                var @case = node.Cases[caseIndex];
+                var test =
+                    @case
+                        .TestValues
+                        .Select(testValue
+                            => Equal(switchValue, Visit(testValue), false, node.Comparison))
+                        .Aggregate(OrElse);
+                result = Condition(test, Visit(@case.Body), result);
+            }
+
+            return result;
+        }
+
         protected override Expression VisitMember(MemberExpression node)
         {
             if (node.Expression is not { } instance)
@@ -221,16 +289,16 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
             var visitedInstance = Visit(instance);
             if (RequiresValueTypeInstanceMaterialization(visitedInstance))
             {
-                var instanceVariable = Variable(visitedInstance.Type, $"valueTypeInstance_{node.Member.Name}");
+                var instanceVariable = Variable(
+                    visitedInstance.Type,
+                    $"valueTypeInstance_{node.Member.Name}");
                 return Block(
                     [instanceVariable],
                     Assign(instanceVariable, visitedInstance),
                     MakeMemberAccess(instanceVariable, node.Member));
             }
 
-            return visitedInstance == instance
-                ? node
-                : node.Update(visitedInstance);
+            return visitedInstance == instance ? node : node.Update(visitedInstance);
         }
 
         private static bool RequiresValueTypeInstanceMaterialization(Expression instanceExpression)
