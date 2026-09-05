@@ -66,7 +66,8 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
         // This converts abstract ProjectionBindingExpression to concrete property access
         shaperBody = new DynamoProjectionBindingRemovingExpressionVisitor(
             itemParameter,
-            selectExpression).Visit(shaperBody);
+            selectExpression,
+            dynamoQueryCompilationContext.IsPrecompiling).Visit(shaperBody);
 
         shaperBody = ValueTypeRewriter.Visit(shaperBody);
 
@@ -97,19 +98,24 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
                     BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
                 .Single(c => c.GetParameters().Length == 6),
             queryContextParameter,
-            CreateSelectExpressionConstant(selectExpression),
-            CreateSqlGeneratorFactoryConstant(),
+            dynamoQueryCompilationContext.IsPrecompiling
+                ? CreateSelectExpressionConstant(selectExpression)
+                : Constant(selectExpression),
+            dynamoQueryCompilationContext.IsPrecompiling
+                ? CreateSqlGeneratorFactoryConstant()
+                : Constant(sqlGeneratorFactory),
             shaperLambda,
             Constant(standAloneStateManager),
             Constant(_dependencies.CoreSingletonOptions.AreThreadSafetyChecksEnabled));
     }
 
-    private Expression CreatePagingEnumerableExpression(
-        Type shaperType,
-        UnaryExpression queryContextParameter,
-        SelectExpression selectExpression,
-        LambdaExpression shaperLambda,
-        bool standAloneStateManager)
+    private Expression
+        CreatePagingEnumerableExpression(
+            Type shaperType,
+            UnaryExpression queryContextParameter,
+            SelectExpression selectExpression,
+            LambdaExpression shaperLambda,
+            bool standAloneStateManager)
         => New(
             typeof(PagingQueryingEnumerable<>)
                 .MakeGenericType(shaperType)
@@ -117,8 +123,12 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
                     BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
                 .Single(c => c.GetParameters().Length == 6),
             queryContextParameter,
-            CreateSelectExpressionConstant(selectExpression),
-            CreateSqlGeneratorFactoryConstant(),
+            dynamoQueryCompilationContext.IsPrecompiling
+                ? CreateSelectExpressionConstant(selectExpression)
+                : Constant(selectExpression),
+            dynamoQueryCompilationContext.IsPrecompiling
+                ? CreateSqlGeneratorFactoryConstant()
+                : Constant(sqlGeneratorFactory),
             shaperLambda,
             Constant(standAloneStateManager),
             Constant(_dependencies.CoreSingletonOptions.AreThreadSafetyChecksEnabled));

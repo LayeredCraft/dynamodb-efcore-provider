@@ -1,11 +1,13 @@
 using System.Globalization;
 using System.Linq.Expressions;
 using System.Text.Json;
+using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.Extensions;
 using EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using EntityFrameworkCore.DynamoDb.Query.Internal;
 using EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using EntityFrameworkCore.DynamoDb.Storage;
+using EntityFrameworkCore.DynamoDb.Storage.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Query;
@@ -17,6 +19,9 @@ namespace EntityFrameworkCore.DynamoDb.Query;
 /// <summary>Recreates a translated DynamoDB query for an EF Core generated query interceptor.</summary>
 public static class DynamoPrecompiledQueryPlan
 {
+    /// <summary>Provides an addressable empty buffer for generated materialization code.</summary>
+    public static readonly ValueBuffer EmptyValueBuffer = ValueBuffer.Empty;
+
     /// <summary>Creates a serializable representation of a translated query.</summary>
     public static string Serialize(SelectExpression selectExpression)
         => JsonSerializer.Serialize(
@@ -72,6 +77,39 @@ public static class DynamoPrecompiledQueryPlan
         => context.Dependencies.ContextServices.InternalServiceProvider
             .GetRequiredService<IDynamoQuerySqlGeneratorFactory>();
 #pragma warning restore EF9100
+
+    /// <summary>Reads a scalar attribute value used by a generated query interceptor.</summary>
+    public static T ReadValue<T>(
+        Dictionary<string, AttributeValue> item,
+        string attributeName,
+        string propertyPath,
+        bool required)
+    {
+        if (!item.TryGetValue(attributeName, out var attributeValue))
+        {
+            if (required)
+                throw new InvalidOperationException(
+                    $"Required property '{propertyPath}' was not present in the DynamoDB item.");
+
+            return default!;
+        }
+
+        if (attributeValue is null || attributeValue.NULL == true)
+        {
+            if (required)
+                throw new InvalidOperationException(
+                    $"Required property '{propertyPath}' was set to DynamoDB NULL.");
+
+            return default!;
+        }
+
+        var readerWriter =
+            DynamoValueReaderWriterFactory.Create(typeof(T)) as DynamoValueReaderWriter<T>
+            ?? throw new InvalidOperationException(
+                $"No DynamoDB value reader/writer is configured for CLR type '{typeof(T).Name}'.");
+
+        return readerWriter.Read(attributeValue, propertyPath, required, null);
+    }
 
     private static ExpressionPlan Create(SqlExpression expression)
         => expression switch

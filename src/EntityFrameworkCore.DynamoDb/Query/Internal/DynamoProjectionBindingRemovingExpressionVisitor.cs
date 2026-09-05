@@ -34,7 +34,8 @@ namespace EntityFrameworkCore.DynamoDb.Query.Internal;
 /// </remarks>
 public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
     ParameterExpression itemParameter,
-    SelectExpression selectExpression) : ExpressionVisitor
+    SelectExpression selectExpression,
+    bool precompiling) : ExpressionVisitor
 {
     // Reflection cache for efficient expression tree construction
     private static readonly PropertyInfo AttributeValueNullProperty =
@@ -60,6 +61,13 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
 
     private static readonly MethodInfo DictionaryTryGetValueMethod =
         typeof(Dictionary<string, AttributeValue>).GetMethod(nameof(Dictionary<,>.TryGetValue))!;
+
+    private static readonly FieldInfo EmptyValueBufferField =
+        typeof(DynamoPrecompiledQueryPlan).GetField(
+            nameof(DynamoPrecompiledQueryPlan.EmptyValueBuffer))!;
+
+    private static readonly MethodInfo ReadPrecompiledValueMethod =
+        typeof(DynamoPrecompiledQueryPlan).GetMethod(nameof(DynamoPrecompiledQueryPlan.ReadValue))!;
 
     private static readonly ConstantExpression InvariantCultureExpression =
         Constant(CultureInfo.InvariantCulture, typeof(IFormatProvider));
@@ -105,9 +113,11 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
             && pbe.Type == typeof(ValueBuffer))
         {
             // The buffer is never read: scalar values come from the DynamoDB item dictionary.
-            // Use a default expression instead of ValueBuffer.Empty so EF's source generator can
-            // emit the materializer for a precompiled query.
-            List<Expression> newArguments = [Default(typeof(ValueBuffer))];
+            // Generated code needs an addressable field to pass the buffer by readonly reference.
+            List<Expression> newArguments =
+            [
+                precompiling ? Field(null, EmptyValueBufferField) : Default(typeof(ValueBuffer))
+            ];
 
             for (var i = 1; i < node.Arguments.Count; i++)
                 newArguments.Add(Visit(node.Arguments[i]));
@@ -819,59 +829,50 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
         Expression? contextOverride = null)
     {
         var itemParameter = contextOverride ?? _attributeContextStack.Peek();
-        var dynamoTypeMapping = typeMapping as DynamoTypeMapping;
+        var propertyPath = string.IsNullOrWhiteSpace(entityTypeDisplayName)
+            ? propertyName
+            : $"{entityTypeDisplayName}.{propertyName}";
+
+        if (precompiling)
+            return Call(
+                ReadPrecompiledValueMethod.MakeGenericMethod(type),
+                itemParameter,
+                Constant(propertyName),
+                Constant(propertyPath),
+                Constant(required));
+
+        var dynamoTypeMapping = typeMapping as DynamoTypeMapping
+            ?? throw new InvalidOperationException(
+                $"Property '{propertyPath}' does not have a DynamoTypeMapping. "
+                + $"All mapped properties must resolve to a DynamoTypeMapping; got '{typeMapping?.GetType().Name ?? "null"}'.");
 
         var attributeValueVariable = Variable(typeof(AttributeValue), "attributeValue");
-
-        // item.TryGetValue("PropertyName", out attributeValue)
         var tryGetValueExpression = Call(
             itemParameter,
             DictionaryTryGetValueMethod,
             Constant(propertyName),
             attributeValueVariable);
 
-        var propertyPath = string.IsNullOrWhiteSpace(entityTypeDisplayName)
-            ? propertyName
-            : $"{entityTypeDisplayName}.{propertyName}";
-
         var missingReturnExpression = required
             ? CreateThrow(
                 $"Required property '{propertyPath}' was not present in the DynamoDB item.")
             : Default(type);
-
         var nullReturnExpression = required
             ? CreateThrow($"Required property '{propertyPath}' was set to DynamoDB NULL.")
             : Default(type);
-
-        // attributeValue is null OR attributeValue.NULL == true
-        var isAttributeValueNullExpression = Equal(
-            attributeValueVariable,
-            Constant(null, typeof(AttributeValue)));
-
-        // Guard: access to .NULL property would throw NullReferenceException if the
-        // AttributeValue itself is null (item absent from projection). Check for null
-        // first so the outer OrElse short-circuits before reading the flag.
-        var isNullFlagExpression = AndAlso(
-            NotEqual(attributeValueVariable, Constant(null, typeof(AttributeValue))),
-            Equal(
-                Property(attributeValueVariable, AttributeValueNullProperty),
-                Constant(true, typeof(bool?))));
-
-        var isDynamoNullExpression = OrElse(isAttributeValueNullExpression, isNullFlagExpression);
-
-        if (dynamoTypeMapping == null)
-            throw new InvalidOperationException(
-                $"Property '{propertyPath}' does not have a DynamoTypeMapping. "
-                + $"All mapped properties must resolve to a DynamoTypeMapping; got '{typeMapping?.GetType().Name ?? "null"}'.");
+        var isDynamoNullExpression = OrElse(
+            Equal(attributeValueVariable, Constant(null, typeof(AttributeValue))),
+            AndAlso(
+                NotEqual(attributeValueVariable, Constant(null, typeof(AttributeValue))),
+                Equal(
+                    Property(attributeValueVariable, AttributeValueNullProperty),
+                    Constant(true, typeof(bool?)))));
 
         var valueExpression = dynamoTypeMapping.CreateReadExpression(
             attributeValueVariable,
             propertyPath,
             required,
             null);
-
-        // Condition branches must agree on the exact CLR type. Mapping-owned readers may return a
-        // nullable-adapted or provider-compatible expression that still needs normalization here.
         if (valueExpression.Type != type)
             valueExpression = Convert(valueExpression, type);
 
@@ -879,14 +880,12 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
             ? valueExpression
             : nullReturnExpression;
 
-        // item.TryGetValue(...) ? (isDynamoNull ? (required?throw:default) : value) :
-        // (required?throw:default)
-        var completeExpression = Condition(
-            tryGetValueExpression,
-            Condition(isDynamoNullExpression, nullValueExpression, valueExpression),
-            missingReturnExpression);
-
-        return Block([attributeValueVariable], completeExpression);
+        return Block(
+            [attributeValueVariable],
+            Condition(
+                tryGetValueExpression,
+                Condition(isDynamoNullExpression, nullValueExpression, valueExpression),
+                missingReturnExpression));
 
         Expression CreateThrow(string message)
             => Throw(New(InvalidOperationExceptionCtor, Constant(message)), type);

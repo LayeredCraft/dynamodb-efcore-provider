@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.EntityFrameworkCore.Design.Internal;
+using Microsoft.EntityFrameworkCore.Query;
 using EntityFrameworkCore.DynamoDb.Extensions;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -16,6 +17,11 @@ public sealed class DynamoDesignTimeServices : IDesignTimeServices
     public void ConfigureDesignTimeServices(IServiceCollection serviceCollection)
     {
         serviceCollection.AddEntityFrameworkDynamo();
+
+#pragma warning disable EF9100
+        serviceCollection
+            .AddSingleton<IPrecompiledQueryCodeGenerator, DynamoPrecompiledQueryCodeGenerator>();
+#pragma warning restore EF9100
 
 #pragma warning disable EF1001
         new EntityFrameworkDesignServicesBuilder(serviceCollection).TryAddCoreServices();

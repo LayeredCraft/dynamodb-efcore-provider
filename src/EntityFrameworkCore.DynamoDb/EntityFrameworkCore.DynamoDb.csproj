@@ -38,7 +38,7 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore" PrivateAssets="none" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
       <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive; compile</IncludeAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.Extensions.Caching.Abstractions" NoWarn="NU1510" />
     <!-- Required for public API types (IServiceCollection, EventId, ILogger).
