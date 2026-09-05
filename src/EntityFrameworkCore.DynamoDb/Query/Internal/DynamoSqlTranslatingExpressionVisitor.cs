@@ -389,9 +389,12 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         if (node.NodeType != ExpressionType.TypeIs)
             return QueryCompilationContext.NotTranslatedExpression;
 
-        return TryCreateDiscriminatorPredicate(node.Expression, node.TypeOperand, false) is
-            { } predicate
-            ? new SqlDiscriminatorPredicateExpression(predicate)
+        return TryCreateDiscriminatorPredicate(
+            node.Expression,
+            node.TypeOperand,
+            false,
+            out var attributeName) is { } predicate
+            ? new SqlDiscriminatorPredicateExpression(predicate, attributeName)
             : QueryCompilationContext.NotTranslatedExpression;
     }
 
@@ -400,11 +403,13 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         if (TryUnwrapGetTypeComparison(node.Left, node.Right, out var instance, out var type)
             || TryUnwrapGetTypeComparison(node.Right, node.Left, out instance, out type))
         {
-            var predicate = TryCreateDiscriminatorPredicate(instance, type, true);
+            var predicate =
+                TryCreateDiscriminatorPredicate(instance, type, true, out var attributeName);
             if (predicate is null)
                 return null;
 
-            var discriminatorPredicate = new SqlDiscriminatorPredicateExpression(predicate);
+            var discriminatorPredicate =
+                new SqlDiscriminatorPredicateExpression(predicate, attributeName);
 
             return node.NodeType == ExpressionType.NotEqual
                 ? sqlExpressionFactory.Not(discriminatorPredicate)
@@ -460,8 +465,10 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
     private SqlExpression? TryCreateDiscriminatorPredicate(
         Expression source,
         Type targetClrType,
-        bool exact)
+        bool exact,
+        out string? discriminatorAttributeName)
     {
+        discriminatorAttributeName = null;
         var sourceEntityType = ResolveRootEntityType(source);
         var targetEntityType = model.FindEntityType(targetClrType);
         if (sourceEntityType is null || targetEntityType is null)
@@ -473,6 +480,8 @@ public sealed class DynamoSqlTranslatingExpressionVisitor(
         var discriminatorProperty = targetEntityType.FindDiscriminatorProperty();
         if (discriminatorProperty is null)
             return null;
+
+        discriminatorAttributeName = discriminatorProperty.GetAttributeName();
 
         var discriminatorColumn = sqlExpressionFactory.ApplyTypeMapping(
             sqlExpressionFactory.Property(

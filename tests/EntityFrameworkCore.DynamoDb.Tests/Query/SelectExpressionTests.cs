@@ -115,4 +115,162 @@ public class SelectExpressionTests
 
         expr.Predicate.Should().BeSameAs(predicate);
     }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ApplyPredicate_DeduplicatesEquivalentPositiveDiscriminatorPredicates()
+    {
+        var expr = new SelectExpression("TestTable");
+        var predicate = CreateDiscriminatorPredicate("kind", "Kiwi");
+
+        expr.ApplyPredicate(predicate);
+        expr.ApplyPredicate(CreateDiscriminatorPredicate("kind", "Kiwi"));
+
+        expr.Predicate.Should().BeSameAs(predicate);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ApplyDeferredDiscriminatorPredicate_OmitsRootWhenExplicitFilterNarrowsHierarchy()
+    {
+        var expr = new SelectExpression("TestTable");
+        var explicitPredicate = CreateDiscriminatorPredicate("kind", "Kiwi");
+        expr.ApplyPredicate(explicitPredicate);
+        expr.SetDeferredDiscriminatorPredicate(
+            CreateDiscriminatorPredicate(
+                "kind",
+                ["Kiwi", "Eagle"],
+                DiscriminatorPredicateOrigin.RootMaterializer));
+
+        expr.ApplyDeferredDiscriminatorPredicate();
+
+        expr.Predicate.Should().BeSameAs(explicitPredicate);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ApplyDeferredDiscriminatorPredicate_RetainsRootWhenExplicitFilterBroadensHierarchy()
+    {
+        var expr = new SelectExpression("TestTable");
+        var explicitPredicate = CreateDiscriminatorPredicate("kind", ["Kiwi", "Eagle"]);
+        expr.ApplyPredicate(explicitPredicate);
+        var rootPredicate = CreateDiscriminatorPredicate(
+            "kind",
+            "Kiwi",
+            DiscriminatorPredicateOrigin.RootMaterializer);
+        expr.SetDeferredDiscriminatorPredicate(rootPredicate);
+
+        expr.ApplyDeferredDiscriminatorPredicate();
+
+        expr
+            .Predicate
+            .Should()
+            .BeOfType<SqlBinaryExpression>()
+            .Which
+            .Right
+            .Should()
+            .BeSameAs(rootPredicate);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ApplyDeferredDiscriminatorPredicate_RetainsDistinctPositiveFilters()
+    {
+        var expr = new SelectExpression("TestTable");
+        expr.ApplyPredicate(CreateDiscriminatorPredicate("kind", "Kiwi"));
+        var eaglePredicate = CreateDiscriminatorPredicate("kind", "Eagle");
+        expr.ApplyPredicate(eaglePredicate);
+        expr.SetDeferredDiscriminatorPredicate(
+            CreateDiscriminatorPredicate(
+                "kind",
+                "Eagle",
+                DiscriminatorPredicateOrigin.RootMaterializer));
+
+        expr.ApplyDeferredDiscriminatorPredicate();
+
+        expr
+            .Predicate
+            .Should()
+            .BeOfType<SqlBinaryExpression>()
+            .Which
+            .Right
+            .Should()
+            .BeSameAs(eaglePredicate);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ApplyDeferredDiscriminatorPredicate_RetainsRootForNegatedExplicitFilter()
+    {
+        var expr = new SelectExpression("TestTable");
+        var explicitPredicate = CreateDiscriminatorPredicate("kind", "Kiwi");
+        expr.ApplyPredicate(new SqlUnaryExpression(ExpressionType.Not, explicitPredicate, null));
+        var rootPredicate = CreateDiscriminatorPredicate(
+            "kind",
+            "Eagle",
+            DiscriminatorPredicateOrigin.RootMaterializer);
+        expr.SetDeferredDiscriminatorPredicate(rootPredicate);
+
+        expr.ApplyDeferredDiscriminatorPredicate();
+
+        expr
+            .Predicate
+            .Should()
+            .BeOfType<SqlBinaryExpression>()
+            .Which
+            .Right
+            .Should()
+            .BeSameAs(rootPredicate);
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void ApplyDeferredDiscriminatorPredicate_RetainsRootForDifferentDiscriminatorAttribute()
+    {
+        var expr = new SelectExpression("TestTable");
+        expr.ApplyPredicate(CreateDiscriminatorPredicate("otherKind", "Kiwi"));
+        var rootPredicate = CreateDiscriminatorPredicate(
+            "kind",
+            "Eagle",
+            DiscriminatorPredicateOrigin.RootMaterializer);
+        expr.SetDeferredDiscriminatorPredicate(rootPredicate);
+
+        expr.ApplyDeferredDiscriminatorPredicate();
+
+        expr
+            .Predicate
+            .Should()
+            .BeOfType<SqlBinaryExpression>()
+            .Which
+            .Right
+            .Should()
+            .BeSameAs(rootPredicate);
+    }
+
+    private static SqlDiscriminatorPredicateExpression CreateDiscriminatorPredicate(
+        string attributeName,
+        string value,
+        DiscriminatorPredicateOrigin origin = DiscriminatorPredicateOrigin.Explicit)
+        => CreateDiscriminatorPredicate(attributeName, [value], origin);
+
+    private static SqlDiscriminatorPredicateExpression CreateDiscriminatorPredicate(
+        string attributeName,
+        IReadOnlyList<string> values,
+        DiscriminatorPredicateOrigin origin = DiscriminatorPredicateOrigin.Explicit)
+    {
+        SqlExpression? predicate = null;
+        foreach (var value in values)
+        {
+            var equals = new SqlBinaryExpression(
+                ExpressionType.Equal,
+                new SqlPropertyExpression(attributeName, typeof(string), null),
+                new SqlConstantExpression(value, typeof(string), null),
+                typeof(bool),
+                null);
+            predicate = predicate is null
+                ? equals
+                : new SqlBinaryExpression(
+                    ExpressionType.OrElse,
+                    predicate,
+                    equals,
+                    typeof(bool),
+                    null);
+        }
+
+        return new SqlDiscriminatorPredicateExpression(predicate!, attributeName, origin);
+    }
 }
