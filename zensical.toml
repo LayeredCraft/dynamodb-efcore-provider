@@ -31,6 +31,7 @@ nav = [
   { "Querying" = [
     { "Overview" = "querying/index.md" },
     { "How Queries Execute" = "querying/how-queries-execute.md" },
+    { "Precompiled Queries and NativeAOT" = "querying/precompiled-queries.md" },
     { "Supported Operators" = "querying/operators.md" },
     { "Filtering" = "querying/filtering.md" },
     { "Projection" = "querying/projection.md" },

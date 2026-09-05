@@ -11,6 +11,7 @@
     <PackageVersion Include="AWSSDK.DynamoDBv2" Version="4.0.103.5" />
     <PackageVersion Include="Humanizer.Core" Version="3.0.10" />
     <PackageVersion Include="LayeredCraft.DynamoMapper" Version="1.6.6" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Tasks" Version="10.0.11" />
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.400" />
     <!-- Testing Libraries -->
     <PackageVersion Include="coverlet.collector" Version="6.0.4" />

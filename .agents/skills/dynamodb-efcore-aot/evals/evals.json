@@ -1,0 +1,20 @@
+{
+  "skill_name": "dynamodb-efcore-aot",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "The EF Core generated interceptor contains a huge serialized SelectExpression string. Replace it with the smallest provider design that still supports scalar and collection parameters.",
+      "expected_output": "Uses EF Core's generator, emits structured PartiQL command segments, preserves execution metadata, and verifies generated code compiles."
+    },
+    {
+      "id": 2,
+      "prompt": "A precompiled projection using HasConversion<string>() compiles but reads the enum incorrectly. Diagnose and fix it.",
+      "expected_output": "Resolves the property-specific type mapping from the compiled model and adds a generated-code compile test covering the converter."
+    },
+    {
+      "id": 3,
+      "prompt": "Verify this branch really supports NativeAOT for EF10 and EF11 before merge.",
+      "expected_output": "Runs both generated-interceptor configurations, publishes and launches the EF10 native smoke app, runs both full suites, and reports remaining AOT warnings accurately."
+    }
+  ]
+}

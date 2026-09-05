@@ -5,6 +5,7 @@ using System.Text;
 using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.Diagnostics;
 using EntityFrameworkCore.DynamoDb.Diagnostics.Internal;
+using EntityFrameworkCore.DynamoDb.Infrastructure;
 using EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using EntityFrameworkCore.DynamoDb.Storage;
@@ -16,11 +17,12 @@ using Microsoft.EntityFrameworkCore.Query;
 namespace EntityFrameworkCore.DynamoDb.Query.Internal;
 
 #pragma warning disable CS1591
+#pragma warning disable EF9100
 
 /// <summary>Represents the DynamoShapedQueryCompilingExpressionVisitor type.</summary>
 public partial class DynamoShapedQueryCompilingExpressionVisitor
 {
-    public sealed class QueryingEnumerable<T>(
+    internal sealed class QueryingEnumerable<T>(
         DynamoQueryContext queryContext,
         SelectExpression selectExpression,
         IDynamoQuerySqlGeneratorFactory sqlGeneratorFactory,
@@ -40,11 +42,27 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
 
         private readonly SelectExpression _selectExpression = selectExpression;
         private readonly IDynamoQuerySqlGeneratorFactory _sqlGeneratorFactory = sqlGeneratorFactory;
+        private DynamoGeneratedQueryRuntime.QueryTemplate? _precompiledTemplate;
 
         private readonly Func<QueryContext, Dictionary<string, AttributeValue>, T> _shaper = shaper;
 
         private readonly bool _standAloneStateManager = standAloneStateManager;
         private readonly bool _threadSafetyChecksEnabled = threadSafetyChecksEnabled;
+
+        /// <summary>Creates an enumerable backed by a generated PartiQL command template.</summary>
+        internal QueryingEnumerable(
+            DynamoQueryContext queryContext,
+            DynamoGeneratedQueryRuntime.QueryTemplate queryTemplate,
+            Func<QueryContext, Dictionary<string, AttributeValue>, T> shaper,
+            bool standAloneStateManager,
+            bool threadSafetyChecksEnabled) : this(
+            queryContext,
+            queryTemplate.CreateExecutionExpression(),
+            null!,
+            shaper,
+            standAloneStateManager,
+            threadSafetyChecksEnabled)
+            => _precompiledTemplate = queryTemplate;
 
         /// <summary>Provides functionality for this member.</summary>
         public IAsyncEnumerator<T> GetAsyncEnumerator(CancellationToken cancellationToken = default)
@@ -62,7 +80,10 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
 
         /// <summary>Generates the PartiQL query at runtime with parameter values.</summary>
         private DynamoPartiQlQuery GenerateQuery()
-            => _sqlGeneratorFactory.Create().Generate(_selectExpression, _queryContext.Parameters);
+            => _precompiledTemplate?.Render(_queryContext.Parameters)
+                ?? _sqlGeneratorFactory
+                    .Create()
+                    .Generate(_selectExpression, _queryContext.Parameters);
 
         private sealed class AsyncEnumerator : IAsyncEnumerator<T>
         {
@@ -247,7 +268,7 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
     }
 
 #pragma warning disable EF9102
-    public sealed class PagingQueryingEnumerable<T>(
+    internal sealed class PagingQueryingEnumerable<T>(
         DynamoQueryContext queryContext,
         SelectExpression selectExpression,
         IDynamoQuerySqlGeneratorFactory sqlGeneratorFactory,
@@ -265,6 +286,7 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
         private readonly DynamoQueryContext _queryContext = queryContext;
         private readonly SelectExpression _selectExpression = selectExpression;
         private readonly IDynamoQuerySqlGeneratorFactory _sqlGeneratorFactory = sqlGeneratorFactory;
+        private DynamoGeneratedQueryRuntime.QueryTemplate? _precompiledTemplate;
 
         private readonly IDiagnosticsLogger<DbLoggerCategory.Query> _queryLogger =
             queryContext.QueryDiagnosticsLogger;
@@ -273,6 +295,20 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
 
         private readonly bool _standAloneStateManager = standAloneStateManager;
         private readonly bool _threadSafetyChecksEnabled = threadSafetyChecksEnabled;
+
+        internal PagingQueryingEnumerable(
+            DynamoQueryContext queryContext,
+            DynamoGeneratedQueryRuntime.QueryTemplate queryTemplate,
+            Func<QueryContext, Dictionary<string, AttributeValue>, T> shaper,
+            bool standAloneStateManager,
+            bool threadSafetyChecksEnabled) : this(
+            queryContext,
+            queryTemplate.CreateExecutionExpression(),
+            null!,
+            shaper,
+            standAloneStateManager,
+            threadSafetyChecksEnabled)
+            => _precompiledTemplate = queryTemplate;
 
         public IAsyncEnumerator<DynamoPage<T>> GetAsyncEnumerator(
             CancellationToken cancellationToken = default)
@@ -287,7 +323,10 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
         public string ToQueryString() => FormatQueryString(GenerateQuery());
 
         private DynamoPartiQlQuery GenerateQuery()
-            => _sqlGeneratorFactory.Create().Generate(_selectExpression, _queryContext.Parameters);
+            => _precompiledTemplate?.Render(_queryContext.Parameters)
+                ?? _sqlGeneratorFactory
+                    .Create()
+                    .Generate(_selectExpression, _queryContext.Parameters);
 
         private sealed class AsyncEnumerator : IAsyncEnumerator<DynamoPage<T>>
         {

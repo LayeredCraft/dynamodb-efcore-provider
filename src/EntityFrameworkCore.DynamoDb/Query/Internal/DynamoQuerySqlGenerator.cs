@@ -2,11 +2,16 @@ using System.Collections;
 using System.Linq.Expressions;
 using System.Text;
 using Amazon.DynamoDBv2.Model;
+using EntityFrameworkCore.DynamoDb.Infrastructure;
+using EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using EntityFrameworkCore.DynamoDb.Storage;
 using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.EntityFrameworkCore.Query;
 
 namespace EntityFrameworkCore.DynamoDb.Query.Internal;
+
+#pragma warning disable EF9100
 
 /// <summary>
 /// Generates PartiQL SQL from a SelectExpression query model.
@@ -15,6 +20,7 @@ public sealed class DynamoQuerySqlGenerator : SqlExpressionVisitor
 {
     private readonly StringBuilder _sql = new();
     private readonly List<AttributeValue> _parameters = [];
+    private List<DynamoGeneratedQueryRuntime.CommandSegment>? _precompiledSegments;
     private IReadOnlyDictionary<string, object?>? _parameterValues;
     private SelectExpression? _currentSelectExpression;
 
@@ -38,6 +44,54 @@ public sealed class DynamoQuerySqlGenerator : SqlExpressionVisitor
         finally
         {
             _parameterValues = null;
+            _currentSelectExpression = null;
+        }
+    }
+
+    /// <summary>Creates the command template embedded in a generated query interceptor.</summary>
+    internal DynamoGeneratedQueryRuntime.QueryTemplate GeneratePrecompiledTemplate(
+        SelectExpression selectExpression)
+    {
+        _sql.Clear();
+        _parameters.Clear();
+        _precompiledSegments = [];
+
+        try
+        {
+            VisitSelect(selectExpression);
+            FlushTextSegment();
+
+            var (limit, limitParameterName) = GetIntRuntimeValue(
+                selectExpression.LimitExpression,
+                selectExpression.Limit);
+            var (seedNextToken, seedNextTokenParameterName) = GetStringRuntimeValue(
+                selectExpression.SeedNextTokenExpression,
+                selectExpression.SeedNextToken);
+            var (consistentRead, consistentReadParameterName) = GetBoolRuntimeValue(
+                selectExpression.ConsistentReadExpression,
+                selectExpression.ConsistentRead);
+
+            return DynamoGeneratedQueryRuntime.CreateQueryTemplate(
+                [.. _precompiledSegments],
+                selectExpression.TableName,
+                selectExpression.IndexName,
+                selectExpression.IndexSourceKind == DynamoIndexSourceKind.GlobalSecondaryIndex,
+                selectExpression.ScanQueryClassification?.IsScanLike == true,
+                selectExpression.ScanQueryClassification?.Message,
+                selectExpression.ScanAllowed,
+                limit,
+                limitParameterName,
+                seedNextToken,
+                seedNextTokenParameterName,
+                consistentRead,
+                consistentReadParameterName,
+                selectExpression.HasUserLimit,
+                selectExpression.IsFirstTerminal,
+                selectExpression.IsSingleTerminal);
+        }
+        finally
+        {
+            _precompiledSegments = null;
             _currentSelectExpression = null;
         }
     }
@@ -178,6 +232,17 @@ public sealed class DynamoQuerySqlGenerator : SqlExpressionVisitor
         if (sqlConstantExpression.Value is not null
             && dynamoTypeMapping.RequiresParameterForPartiQlLiteral)
         {
+            if (_precompiledSegments is not null)
+            {
+                FlushTextSegment();
+                _precompiledSegments.Add(
+                    DynamoGeneratedQueryRuntime.CommandSegment.Constant(
+                        sqlConstantExpression.Value,
+                        sourceType,
+                        dynamoTypeMapping));
+                return sqlConstantExpression;
+            }
+
             AppendParameter(
                 sqlConstantExpression.Value,
                 sourceType,
@@ -193,6 +258,19 @@ public sealed class DynamoQuerySqlGenerator : SqlExpressionVisitor
     /// <inheritdoc />
     protected override Expression VisitSqlParameter(SqlParameterExpression sqlParameterExpression)
     {
+        if (_precompiledSegments is not null)
+        {
+            FlushTextSegment();
+            _precompiledSegments.Add(
+                DynamoGeneratedQueryRuntime.CommandSegment.Parameter(
+                    sqlParameterExpression.Name,
+                    sqlParameterExpression.Type,
+                    sqlParameterExpression.TypeMapping as DynamoTypeMapping
+                    ?? throw new InvalidOperationException(
+                        "A generated query parameter requires a DynamoDB type mapping.")));
+            return sqlParameterExpression;
+        }
+
         if (_parameterValues == null)
             throw new InvalidOperationException(
                 "Parameter values are unavailable during SQL generation.");
@@ -465,6 +543,32 @@ public sealed class DynamoQuerySqlGenerator : SqlExpressionVisitor
     /// <summary>Emits an IN predicate using runtime parameter expansion.</summary>
     private Expression VisitParameterizedIn(SqlInExpression sqlInExpression)
     {
+        if (_precompiledSegments is not null)
+        {
+            var precompiledValuesParameter = sqlInExpression.ValuesParameter
+                ?? throw new InvalidOperationException(
+                    "IN expression parameter values are required.");
+            var precompiledIsPartitionKeyComparison = IsPartitionKeyComparison(sqlInExpression);
+
+            FlushTextSegment();
+            var segments = _precompiledSegments;
+            _precompiledSegments = null;
+            Visit(sqlInExpression.Item);
+            var itemSql = _sql.ToString();
+            _sql.Clear();
+            _precompiledSegments = segments;
+            segments.Add(
+                DynamoGeneratedQueryRuntime.CommandSegment.Collection(
+                    itemSql,
+                    precompiledValuesParameter.Name,
+                    sqlInExpression.Item.Type,
+                    sqlInExpression.Item.TypeMapping as DynamoTypeMapping
+                    ?? throw new InvalidOperationException(
+                        "A generated IN parameter requires a DynamoDB type mapping."),
+                    precompiledIsPartitionKeyComparison ? 50 : 100));
+            return sqlInExpression;
+        }
+
         if (_parameterValues == null)
             throw new InvalidOperationException(
                 "Parameter values are unavailable during SQL generation.");
@@ -603,4 +707,61 @@ public sealed class DynamoQuerySqlGenerator : SqlExpressionVisitor
 
     /// <summary>Appends a predicate that is guaranteed to evaluate to false.</summary>
     private void AppendAlwaysFalsePredicate() => _sql.Append("1 = 0");
+
+    private void FlushTextSegment()
+    {
+        if (_precompiledSegments is null || _sql.Length == 0)
+            return;
+
+        _precompiledSegments.Add(
+            DynamoGeneratedQueryRuntime.CommandSegment.TextSegment(_sql.ToString()));
+        _sql.Clear();
+    }
+
+    private static (int? Value, string? ParameterName) GetIntRuntimeValue(
+        Expression? expression,
+        int? fallback)
+    {
+        if (expression is null)
+            return (fallback, null);
+
+        if (expression is ConstantExpression { Value: int value })
+            return (value, null);
+
+        if (expression is QueryParameterExpression parameter)
+            return (fallback, parameter.Name);
+
+        throw new InvalidOperationException(
+            $"Generated query execution value '{expression}' was not normalized.");
+    }
+
+    private static (string? Value, string? ParameterName) GetStringRuntimeValue(
+        Expression? expression,
+        string? fallback)
+    {
+        if (expression is null)
+            return (fallback, null);
+        if (expression is ConstantExpression { Value: string value })
+            return (value, null);
+        if (expression is QueryParameterExpression parameter)
+            return (fallback, parameter.Name);
+
+        throw new InvalidOperationException(
+            $"Generated query execution value '{expression}' was not normalized.");
+    }
+
+    private static (bool? Value, string? ParameterName) GetBoolRuntimeValue(
+        Expression? expression,
+        bool? fallback)
+    {
+        if (expression is null)
+            return (fallback, null);
+        if (expression is ConstantExpression { Value: bool value })
+            return (value, null);
+        if (expression is QueryParameterExpression parameter)
+            return (fallback, parameter.Name);
+
+        throw new InvalidOperationException(
+            $"Generated query execution value '{expression}' was not normalized.");
+    }
 }

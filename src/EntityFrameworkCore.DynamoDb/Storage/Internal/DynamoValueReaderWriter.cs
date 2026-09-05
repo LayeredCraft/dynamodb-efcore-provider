@@ -3,6 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using Amazon.DynamoDBv2.Model;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Query;
@@ -28,6 +29,14 @@ internal abstract class DynamoValueReaderWriter
     internal abstract string WireMemberName { get; }
 
     internal virtual bool RequiresParameterForPartiQlLiteral => false;
+
+    internal abstract bool HasValue(AttributeValue attributeValue);
+
+    internal abstract object? ReadObject(
+        AttributeValue attributeValue,
+        string propertyPath,
+        bool required,
+        IProperty? property);
 
     internal abstract Expression CreateReadExpression(
         Expression attributeValueExpression,
@@ -110,7 +119,12 @@ internal abstract class DynamoValueReaderWriter<TValue> : DynamoValueReaderWrite
         return ReadValue(attributeValue, propertyPath, property);
     }
 
-    internal abstract bool HasValue(AttributeValue attributeValue);
+    internal sealed override object? ReadObject(
+        AttributeValue attributeValue,
+        string propertyPath,
+        bool required,
+        IProperty? property)
+        => Read(attributeValue, propertyPath, required, property);
 
     protected abstract TValue ReadValue(
         AttributeValue attributeValue,
@@ -229,9 +243,9 @@ internal sealed class DynamoConvertedValueReaderWriter<TModel, TProvider>(
         // every expression-tree evaluation, forcing recompilation and degrading performance).
         // This is safe because ValueConverter instances are model-lifetime singletons — the
         // same lifetime as compiled queries (both are tied to the service provider).
-        // Trade-off: this pattern is incompatible with precompiled (NativeAOT / ahead-of-time)
-        // query scenarios. EF Core uses the identical approach in JsonConvertedValueReaderWriter
-        // for the same reasons (dotnet/efcore #36856).
+        // NativeAOT uses DynamoAotConvertedValueReaderWriter instead; this path is only used when
+        // dynamic code is available. EF Core uses the same captured-converter approach in
+        // JsonConvertedValueReaderWriter (dotnet/efcore #36856).
         => Expression.New(
             Constructor,
             innerReaderWriter.ConstructorExpression,
@@ -275,6 +289,87 @@ internal sealed class DynamoConvertedValueReaderWriter<TModel, TProvider>(
             ? Expression.Convert(providerValueExpression, typeof(TProvider))
             : providerValueExpression;
     }
+}
+
+/// <summary>
+///     Composes a converter without constructing a closed generic wrapper through reflection.
+/// </summary>
+internal sealed class DynamoAotConvertedValueReaderWriter(
+    DynamoValueReaderWriter innerReaderWriter,
+    ValueConverter converter) : DynamoValueReaderWriter, IDynamoConvertedValueReaderWriter
+{
+    private static readonly MethodInfo ReadObjectMethod =
+        typeof(DynamoValueReaderWriter).GetMethod(
+            nameof(ReadObject),
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+    public override Type ValueType => converter.ModelClrType;
+
+    internal override Expression ConstructorExpression
+        => throw new NotSupportedException(
+            "A NativeAOT converter reader is created by the compiled model.");
+
+    internal override string WireMemberName => innerReaderWriter.WireMemberName;
+
+    internal override bool RequiresParameterForPartiQlLiteral
+        => innerReaderWriter.RequiresParameterForPartiQlLiteral;
+
+    DynamoValueReaderWriter IDynamoConvertedValueReaderWriter.InnerReaderWriter
+        => innerReaderWriter;
+
+    internal override bool HasValue(AttributeValue attributeValue)
+        => attributeValue is not null
+            && (innerReaderWriter.HasValue(attributeValue)
+                || (converter.ConvertsNulls && attributeValue.NULL == true));
+
+    internal override object? ReadObject(
+        AttributeValue attributeValue,
+        string propertyPath,
+        bool required,
+        IProperty? property)
+    {
+        if (!HasValue(attributeValue))
+        {
+            if (required)
+                throw new InvalidOperationException(CreateMissingValueMessage(propertyPath));
+
+            return null;
+        }
+
+        var providerValue =
+            attributeValue.NULL == true
+                ? null
+                : innerReaderWriter.ReadObject(attributeValue, propertyPath, true, property);
+        return converter.ConvertFromProvider(providerValue);
+    }
+
+    internal override Expression CreateReadExpression(
+        Expression attributeValueExpression,
+        string propertyPath,
+        bool required,
+        IProperty? property)
+        => Expression.Convert(
+            Expression.Call(
+                Expression.Constant(this),
+                ReadObjectMethod,
+                attributeValueExpression,
+                Expression.Constant(propertyPath),
+                Expression.Constant(required),
+                Expression.Constant(property, typeof(IProperty))),
+            ValueType);
+
+    internal override Expression CreateWriteExpression(Expression typedValueExpression)
+        => innerReaderWriter.CreateWriteExpression(ConvertToProvider(typedValueExpression));
+
+    internal override Expression CreatePartiQlLiteralExpression(Expression typedValueExpression)
+        => innerReaderWriter.CreatePartiQlLiteralExpression(
+            ConvertToProvider(typedValueExpression));
+
+    private Expression ConvertToProvider(Expression modelValueExpression)
+        => ReplacingExpressionVisitor.Replace(
+            converter.ConvertToProviderExpression.Parameters.Single(),
+            modelValueExpression,
+            converter.ConvertToProviderExpression.Body);
 }
 
 /// <summary>Adapts a non-nullable provider reader/writer for nullable value-type mappings.</summary>
@@ -666,6 +761,9 @@ internal static class DynamoValueReaderWriterFactory
                     $"Converter provider type '{providerType.Name}' does not match DynamoDB reader/writer "
                     + $"type '{readerWriter.ValueType.Name}'.");
         }
+
+        if (!RuntimeFeature.IsDynamicCodeSupported)
+            return new DynamoAotConvertedValueReaderWriter(readerWriter, converter);
 
         // Compose the converter once at mapping-construction time so callers can keep working with
         // model CLR values while the inner reader/writer stays focused on the provider CLR type.

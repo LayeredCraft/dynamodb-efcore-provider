@@ -20,7 +20,9 @@ public sealed class DynamoDesignTimeServices : IDesignTimeServices
 
 #pragma warning disable EF9100
         serviceCollection
-            .AddSingleton<IPrecompiledQueryCodeGenerator, DynamoPrecompiledQueryCodeGenerator>();
+            .AddSingleton<IPrecompiledQueryCodeGenerator, DynamoPrecompiledQueryCodeGenerator>()
+            .AddSingleton<ICSharpRuntimeAnnotationCodeGenerator,
+                DynamoCSharpRuntimeAnnotationCodeGenerator>();
 #pragma warning restore EF9100
 
 #pragma warning disable EF1001

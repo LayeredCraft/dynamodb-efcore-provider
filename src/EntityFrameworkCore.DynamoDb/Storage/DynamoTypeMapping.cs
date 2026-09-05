@@ -34,6 +34,9 @@ namespace EntityFrameworkCore.DynamoDb.Storage;
 /// </remarks>
 public class DynamoTypeMapping : CoreTypeMapping
 {
+    /// <summary>The default mapping instance used by EF Core compiled-model generation.</summary>
+    public static DynamoTypeMapping Default { get; } = new(typeof(object));
+
     internal DynamoValueReaderWriter? ReaderWriter { get; }
 
     private readonly ConcurrentDictionary<Type, Func<object?, AttributeValue>>
@@ -160,7 +163,7 @@ public class DynamoTypeMapping : CoreTypeMapping
             && readOnly;
 
         var readerWriter = DynamoValueReaderWriterFactory.Create(
-            parameters.ClrType,
+            parameters.Converter?.ProviderClrType ?? parameters.ClrType,
             elementReaderWriter,
             readOnlyDictionary);
 

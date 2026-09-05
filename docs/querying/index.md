@@ -11,6 +11,7 @@ The DynamoDB EF Core provider translates LINQ expressions into PartiQL statement
 This section covers how queries are executed, which LINQ operators are supported, and how DynamoDB-specific behaviors like pagination and index selection work.
 
 - [How Queries Execute](how-queries-execute.md) — The LINQ-to-PartiQL translation pipeline and execution model.
+- [Precompiled Queries and NativeAOT](precompiled-queries.md) — Generate query interceptors and publish a NativeAOT application.
 - [Supported Operators](operators.md) — Reference table of supported LINQ operators and their PartiQL equivalents.
 - [Filtering](filtering.md) — How `Where` clauses translate to PartiQL filter expressions.
 - [Projection](projection.md) — How `Select` expressions are evaluated server-side vs client-side.

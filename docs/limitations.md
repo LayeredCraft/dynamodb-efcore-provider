@@ -9,6 +9,19 @@ icon: lucide/triangle-alert
 _The DynamoDB EF Core provider does not support all standard EF Core features. This page is the
 authoritative reference for what is not supported, why, and what workaround (if any) applies._
 
+## NativeAOT and precompiled queries
+
+NativeAOT query support is experimental and follows EF Core's precompiled-query restrictions.
+Queries must be discoverable as static LINQ expressions during the build. Queries assembled at
+runtime from expression trees cannot be intercepted and precompiled.
+
+NativeAOT publishing can report trimming and dynamic-code warnings from EF Core, the AWS SDK, or
+provider paths outside query execution. The provider's smoke build allows those warnings while AOT
+support remains experimental; a warning-free trimmed application is not yet guaranteed.
+
+See [Precompiled Queries and NativeAOT](querying/precompiled-queries.md) for supported setup and
+verification.
+
 ## Database lifecycle
 
 - `SaveChanges` never creates DynamoDB tables. Call `EnsureCreatedAsync` explicitly or provision

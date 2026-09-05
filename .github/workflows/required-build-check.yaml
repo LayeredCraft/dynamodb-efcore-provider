@@ -7,6 +7,10 @@ on:
         description: "Aggregated result of the application build matrix."
         required: true
         type: string
+      nativeAotResult:
+        description: "Result of the NativeAOT smoke build."
+        required: true
+        type: string
 
 jobs:
   build:
@@ -21,6 +25,17 @@ jobs:
               ;;
             *)
               echo "::error::Application build matrix completed with result '${{ inputs.applicationBuildResult }}'."
+              exit 1
+              ;;
+          esac
+      - name: Verify NativeAOT smoke build
+        run: |
+          case "${{ inputs.nativeAotResult }}" in
+            success)
+              echo "NativeAOT smoke build passed."
+              ;;
+            *)
+              echo "::error::NativeAOT smoke build completed with result '${{ inputs.nativeAotResult }}'."
               exit 1
               ;;
           esac

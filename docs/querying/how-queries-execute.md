@@ -88,6 +88,20 @@ var partiQl = db.Orders
 `ToQueryString()` is for debugging only: it does not run scan warnings, log query execution events,
 or execute `ExecuteStatement`.
 
+## Precompiled queries
+
+When EF Core query precompilation is enabled, EF Core generates interceptors for query calls during
+the build. The provider stores the translated PartiQL as a compact command template in those
+interceptors. At runtime it supplies scalar and collection parameter values, creates DynamoDB
+`AttributeValue` parameters, and executes the same query pipeline used by normal compiled queries.
+
+The generated materializer resolves each projected property through the compiled EF model. This
+preserves property-specific value converters without serializing the provider's internal query
+expression tree into generated source.
+
+See [Precompiled Queries and NativeAOT](precompiled-queries.md) for project setup and current
+restrictions.
+
 ## Async Execution
 
 All DynamoDB query execution is async. Attempting to enumerate results synchronously throws

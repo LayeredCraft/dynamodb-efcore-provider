@@ -46,6 +46,14 @@
   </Folder>
   <Folder Name="/tests/">
     <File Path="tests\Directory.Build.props" />
+    <Project Path="tests\EntityFrameworkCore.DynamoDb.AotTests\EntityFrameworkCore.DynamoDb.AotTests.csproj">
+      <Configurations>
+        <ProjectConfiguration Solution="Debug EF10|Any CPU"   Project="Debug EF10|Any CPU" />
+        <ProjectConfiguration Solution="Release EF10|Any CPU" Project="Release EF10|Any CPU" />
+        <ProjectConfiguration Solution="Debug EF11|Any CPU"   Project="Debug EF11|Any CPU" />
+        <ProjectConfiguration Solution="Release EF11|Any CPU" Project="Release EF11|Any CPU" />
+      </Configurations>
+    </Project>
     <Project Path="tests\EntityFrameworkCore.DynamoDb.HealthChecks.Tests\EntityFrameworkCore.DynamoDb.HealthChecks.Tests.csproj">
       <Configurations>
         <ProjectConfiguration Solution="Debug EF10|Any CPU"   Project="Debug EF10|Any CPU" />

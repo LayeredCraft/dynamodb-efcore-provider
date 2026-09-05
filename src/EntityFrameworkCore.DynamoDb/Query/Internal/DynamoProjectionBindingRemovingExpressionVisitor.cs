@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Linq.Expressions;
 using System.Reflection;
 using Amazon.DynamoDBv2.Model;
+using EntityFrameworkCore.DynamoDb.Infrastructure;
 using EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using EntityFrameworkCore.DynamoDb.Storage;
@@ -35,7 +36,9 @@ namespace EntityFrameworkCore.DynamoDb.Query.Internal;
 public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
     ParameterExpression itemParameter,
     SelectExpression selectExpression,
-    bool precompiling) : ExpressionVisitor
+    bool precompiling,
+    ILiftableConstantFactory liftableConstantFactory,
+    IModel model) : ExpressionVisitor
 {
     // Reflection cache for efficient expression tree construction
     private static readonly PropertyInfo AttributeValueNullProperty =
@@ -62,15 +65,22 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
     private static readonly MethodInfo DictionaryTryGetValueMethod =
         typeof(Dictionary<string, AttributeValue>).GetMethod(nameof(Dictionary<,>.TryGetValue))!;
 
-    private static readonly FieldInfo EmptyValueBufferField =
-        typeof(DynamoPrecompiledQueryPlan).GetField(
-            nameof(DynamoPrecompiledQueryPlan.EmptyValueBuffer))!;
+    private static readonly MethodInfo CreateRuntimeValueReaderMethod =
+        typeof(DynamoGeneratedQueryRuntime)
+            .GetMethods()
+            .Single(method
+                => method.Name == nameof(DynamoGeneratedQueryRuntime.CreateValueReader)
+                && method.IsPublic);
 
-    private static readonly MethodInfo ReadPrecompiledValueMethod =
-        typeof(DynamoPrecompiledQueryPlan).GetMethod(nameof(DynamoPrecompiledQueryPlan.ReadValue))!;
+    private static readonly MethodInfo CreateOriginalValueReaderMethod =
+        typeof(DynamoGeneratedQueryRuntime)
+            .GetMethods(BindingFlags.Static | BindingFlags.NonPublic)
+            .Single(method => method.Name == nameof(DynamoGeneratedQueryRuntime.CreateValueReader));
 
     private static readonly ConstantExpression InvariantCultureExpression =
         Constant(CultureInfo.InvariantCulture, typeof(IFormatProvider));
+
+    private int _precompiledReaderIndex;
 
     private static readonly ConstantExpression IntegerNumberStylesExpression =
         Constant(NumberStyles.Integer, typeof(NumberStyles));
@@ -114,10 +124,7 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
         {
             // The buffer is never read: scalar values come from the DynamoDB item dictionary.
             // Generated code needs an addressable field to pass the buffer by readonly reference.
-            List<Expression> newArguments =
-            [
-                precompiling ? Field(null, EmptyValueBufferField) : Default(typeof(ValueBuffer))
-            ];
+            List<Expression> newArguments = [CreateEmptyValueBufferExpression()];
 
             for (var i = 1; i < node.Arguments.Count; i++)
                 newArguments.Add(Visit(node.Arguments[i]));
@@ -429,10 +436,8 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
 
         // Precompiled queries carry their parameter values as liftable constants. Their resolver
         // expressions belong to EF Core and must not be rewritten as part of the row shaper.
-#pragma warning disable EF9100
         if (node is LiftableConstantExpression)
             return node;
-#pragma warning restore EF9100
 
         return base.VisitExtension(node);
     }
@@ -686,7 +691,6 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
                 == Microsoft.EntityFrameworkCore.Infrastructure.ExpressionExtensions
                     .ValueBufferTryReadValueMethod)
             {
-#pragma warning disable EF9100
                 var property = node.Arguments[2] switch
                 {
                     ConstantExpression { Value: IProperty value } => value,
@@ -697,7 +701,6 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
                     _ => throw new InvalidOperationException(
                         "Expected an EF Core property metadata constant while compiling the query shaper.")
                 };
-#pragma warning restore EF9100
                 var targetType = node.Type == typeof(object) ? property.ClrType : node.Type;
 
                 // Runtime-only properties are not stored in the DynamoDB item dictionary.
@@ -834,12 +837,47 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
             : $"{entityTypeDisplayName}.{propertyName}";
 
         if (precompiling)
-            return Call(
-                ReadPrecompiledValueMethod.MakeGenericMethod(type),
-                itemParameter,
-                Constant(propertyName),
-                Constant(propertyPath),
-                Constant(required));
+        {
+            var generatedTypeMapping = typeMapping as DynamoTypeMapping
+                ?? throw new InvalidOperationException(
+                    $"Property '{propertyPath}' does not have a DynamoTypeMapping.");
+            property ??= model
+                .GetEntityTypes()
+                .SelectMany(static entityType => entityType.GetFlattenedProperties())
+                .FirstOrDefault(candidate
+                    => candidate.GetAttributeName() == propertyName
+                    && ReferenceEquals(candidate.GetTypeMapping(), typeMapping));
+
+            var readerType = typeof(Func<,>).MakeGenericType(
+                typeof(Dictionary<string, AttributeValue>),
+                type);
+            var originalReader = CreateOriginalValueReaderMethod
+                .MakeGenericMethod(type)
+                .Invoke(
+                    null,
+                    [generatedTypeMapping, property, propertyName, propertyPath, required]);
+            var context = Parameter(typeof(MaterializerLiftableConstantContext), "context");
+            var resolver = Lambda<Func<MaterializerLiftableConstantContext, object>>(
+                Convert(
+                    Call(
+                        CreateRuntimeValueReaderMethod.MakeGenericMethod(type),
+                        context,
+                        Constant(type, typeof(Type)),
+                        Constant(property?.DeclaringType.Name, typeof(string)),
+                        Constant(property?.Name, typeof(string)),
+                        Constant(propertyName),
+                        Constant(propertyPath),
+                        Constant(required)),
+                    typeof(object)),
+                context);
+            var reader = liftableConstantFactory.CreateLiftableConstant(
+                originalReader,
+                resolver,
+                $"dynamoValueReader{_precompiledReaderIndex++}",
+                readerType);
+
+            return Invoke(reader, itemParameter);
+        }
 
         var dynamoTypeMapping = typeMapping as DynamoTypeMapping
             ?? throw new InvalidOperationException(
@@ -872,7 +910,7 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
             attributeValueVariable,
             propertyPath,
             required,
-            null);
+            property);
         if (valueExpression.Type != type)
             valueExpression = Convert(valueExpression, type);
 
@@ -889,6 +927,21 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
 
         Expression CreateThrow(string message)
             => Throw(New(InvalidOperationExceptionCtor, Constant(message)), type);
+    }
+
+    private Expression CreateEmptyValueBufferExpression()
+    {
+        if (!precompiling)
+            return Default(typeof(ValueBuffer));
+
+        var context = Parameter(typeof(MaterializerLiftableConstantContext), "context");
+        return liftableConstantFactory.CreateLiftableConstant(
+            ValueBuffer.Empty,
+            Lambda<Func<MaterializerLiftableConstantContext, object>>(
+                Convert(Default(typeof(ValueBuffer)), typeof(object)),
+                context),
+            "dynamoEmptyValueBuffer",
+            typeof(ValueBuffer));
     }
 
     /// <summary>

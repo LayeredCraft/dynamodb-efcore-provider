@@ -1,14 +1,18 @@
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Diagnostics;
 using Amazon.DynamoDBv2.Model;
-using EntityFrameworkCore.DynamoDb.Query;
+using EntityFrameworkCore.DynamoDb.Infrastructure;
 using EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
+using EntityFrameworkCore.DynamoDb.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Storage;
 using static System.Linq.Expressions.Expression;
 
 namespace EntityFrameworkCore.DynamoDb.Query.Internal;
+
+#pragma warning disable EF9100
 
 /// <summary>Represents the DynamoShapedQueryCompilingExpressionVisitor type.</summary>
 public partial class DynamoShapedQueryCompilingExpressionVisitor(
@@ -67,7 +71,9 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
         shaperBody = new DynamoProjectionBindingRemovingExpressionVisitor(
             itemParameter,
             selectExpression,
-            dynamoQueryCompilationContext.IsPrecompiling).Visit(shaperBody);
+            dynamoQueryCompilationContext.IsPrecompiling,
+            _dependencies.LiftableConstantFactory,
+            QueryCompilationContext.Model).Visit(shaperBody);
 
         shaperBody = ValueTypeRewriter.Visit(shaperBody);
 
@@ -91,22 +97,28 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
                 shaperLambda,
                 standAloneStateManager);
 
-        return New(
-            typeof(QueryingEnumerable<>)
-                .MakeGenericType(shaperBody.Type)
-                .GetConstructors(
-                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
-                .Single(c => c.GetParameters().Length == 6),
-            queryContextParameter,
-            dynamoQueryCompilationContext.IsPrecompiling
-                ? CreateSelectExpressionConstant(selectExpression)
-                : Constant(selectExpression),
-            dynamoQueryCompilationContext.IsPrecompiling
-                ? CreateSqlGeneratorFactoryConstant()
-                : Constant(sqlGeneratorFactory),
-            shaperLambda,
-            Constant(standAloneStateManager),
-            Constant(_dependencies.CoreSingletonOptions.AreThreadSafetyChecksEnabled));
+        return dynamoQueryCompilationContext.IsPrecompiling
+            ? Call(
+                typeof(DynamoGeneratedQueryRuntime),
+                nameof(DynamoGeneratedQueryRuntime.CreateQueryingEnumerable),
+                [shaperBody.Type],
+                QueryCompilationContext.QueryContextParameter,
+                CreateQueryTemplateConstant(selectExpression),
+                shaperLambda,
+                Constant(standAloneStateManager),
+                Constant(_dependencies.CoreSingletonOptions.AreThreadSafetyChecksEnabled))
+            : New(
+                typeof(QueryingEnumerable<>)
+                    .MakeGenericType(shaperBody.Type)
+                    .GetConstructors(
+                        BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+                    .Single(c => c.GetParameters().Length == 6),
+                queryContextParameter,
+                Constant(selectExpression),
+                Constant(sqlGeneratorFactory),
+                shaperLambda,
+                Constant(standAloneStateManager),
+                Constant(_dependencies.CoreSingletonOptions.AreThreadSafetyChecksEnabled));
     }
 
     private Expression
@@ -116,63 +128,124 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
             SelectExpression selectExpression,
             LambdaExpression shaperLambda,
             bool standAloneStateManager)
-        => New(
-            typeof(PagingQueryingEnumerable<>)
-                .MakeGenericType(shaperType)
-                .GetConstructors(
-                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
-                .Single(c => c.GetParameters().Length == 6),
-            queryContextParameter,
-            dynamoQueryCompilationContext.IsPrecompiling
-                ? CreateSelectExpressionConstant(selectExpression)
-                : Constant(selectExpression),
-            dynamoQueryCompilationContext.IsPrecompiling
-                ? CreateSqlGeneratorFactoryConstant()
-                : Constant(sqlGeneratorFactory),
-            shaperLambda,
-            Constant(standAloneStateManager),
-            Constant(_dependencies.CoreSingletonOptions.AreThreadSafetyChecksEnabled));
+        => dynamoQueryCompilationContext.IsPrecompiling
+            ? Call(
+                typeof(DynamoGeneratedQueryRuntime),
+                nameof(DynamoGeneratedQueryRuntime.CreatePagingQueryingEnumerable),
+                [shaperType],
+                QueryCompilationContext.QueryContextParameter,
+                CreateQueryTemplateConstant(selectExpression),
+                shaperLambda,
+                Constant(standAloneStateManager),
+                Constant(_dependencies.CoreSingletonOptions.AreThreadSafetyChecksEnabled))
+            : New(
+                typeof(PagingQueryingEnumerable<>)
+                    .MakeGenericType(shaperType)
+                    .GetConstructors(
+                        BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+                    .Single(c => c.GetParameters().Length == 6),
+                queryContextParameter,
+                Constant(selectExpression),
+                Constant(sqlGeneratorFactory),
+                shaperLambda,
+                Constant(standAloneStateManager),
+                Constant(_dependencies.CoreSingletonOptions.AreThreadSafetyChecksEnabled));
 
 #pragma warning disable EF9100
-    private Expression CreateSelectExpressionConstant(SelectExpression selectExpression)
+    private Expression CreateQueryTemplateConstant(SelectExpression selectExpression)
     {
+        var template = sqlGeneratorFactory.Create().GeneratePrecompiledTemplate(selectExpression);
         var context = Parameter(typeof(MaterializerLiftableConstantContext), "context");
         var resolver = Lambda<Func<MaterializerLiftableConstantContext, object>>(
-            Convert(
-                Call(
-                    typeof(DynamoPrecompiledQueryPlan),
-                    nameof(DynamoPrecompiledQueryPlan.Create),
-                    Type.EmptyTypes,
-                    context,
-                    Constant(DynamoPrecompiledQueryPlan.Serialize(selectExpression))),
-                typeof(object)),
+            Convert(CreateQueryTemplateExpression(template, context), typeof(object)),
             context);
 
         return _dependencies.LiftableConstantFactory.CreateLiftableConstant(
-            selectExpression,
+            template,
             resolver,
-            "dynamoSelectExpression",
-            typeof(SelectExpression));
+            "dynamoQueryTemplate",
+            typeof(DynamoGeneratedQueryRuntime.QueryTemplate));
     }
 
-    private Expression CreateSqlGeneratorFactoryConstant()
+    private Expression CreateQueryTemplateExpression(
+        DynamoGeneratedQueryRuntime.QueryTemplate template,
+        ParameterExpression context)
     {
-        var context = Parameter(typeof(MaterializerLiftableConstantContext), "context");
-        var resolver = Lambda<Func<MaterializerLiftableConstantContext, object>>(
-            Convert(
-                Call(
-                    typeof(DynamoPrecompiledQueryPlan),
-                    nameof(DynamoPrecompiledQueryPlan.GetSqlGeneratorFactory),
-                    Type.EmptyTypes,
-                    context),
-                typeof(object)),
-            context);
+        var segments = template.Segments.Select(segment => segment.Kind switch
+        {
+            DynamoGeneratedQueryRuntime.SegmentKind.Text => Call(
+                typeof(DynamoGeneratedQueryRuntime.CommandSegment),
+                nameof(DynamoGeneratedQueryRuntime.CommandSegment.TextSegment),
+                Type.EmptyTypes,
+                Constant(segment.Text!)),
+            DynamoGeneratedQueryRuntime.SegmentKind.Parameter => Call(
+                typeof(DynamoGeneratedQueryRuntime.CommandSegment),
+                nameof(DynamoGeneratedQueryRuntime.CommandSegment.Parameter),
+                Type.EmptyTypes,
+                Constant(segment.ParameterName!),
+                Constant(segment.SourceType!, typeof(Type)),
+                CreateTypeMappingExpression(segment.TypeMapping!, context)),
+            DynamoGeneratedQueryRuntime.SegmentKind.Constant => Call(
+                typeof(DynamoGeneratedQueryRuntime.CommandSegment),
+                nameof(DynamoGeneratedQueryRuntime.CommandSegment.Constant),
+                Type.EmptyTypes,
+                Convert(Constant(segment.ConstantValue, segment.SourceType!), typeof(object)),
+                Constant(segment.SourceType!, typeof(Type)),
+                CreateTypeMappingExpression(segment.TypeMapping!, context)),
+            DynamoGeneratedQueryRuntime.SegmentKind.Collection => Call(
+                typeof(DynamoGeneratedQueryRuntime.CommandSegment),
+                nameof(DynamoGeneratedQueryRuntime.CommandSegment.Collection),
+                Type.EmptyTypes,
+                Constant(segment.Text!),
+                Constant(segment.ParameterName!),
+                Constant(segment.SourceType!, typeof(Type)),
+                CreateTypeMappingExpression(segment.TypeMapping!, context),
+                Constant(segment.MaximumValueCount)),
+            _ => throw new UnreachableException()
+        });
 
-        return _dependencies.LiftableConstantFactory.CreateLiftableConstant(
-            sqlGeneratorFactory,
-            resolver,
-            "dynamoSqlGeneratorFactory",
-            typeof(IDynamoQuerySqlGeneratorFactory));
+        return Call(
+            typeof(DynamoGeneratedQueryRuntime),
+            nameof(DynamoGeneratedQueryRuntime.CreateQueryTemplate),
+            Type.EmptyTypes,
+            NewArrayInit(typeof(DynamoGeneratedQueryRuntime.CommandSegment), segments),
+            Constant(template.TableName),
+            Constant(template.IndexName, typeof(string)),
+            Constant(template.IsGlobalSecondaryIndex),
+            Constant(template.IsScanLike),
+            Constant(template.ScanMessage, typeof(string)),
+            Constant(template.ScanAllowed),
+            Constant(template.Limit, typeof(int?)),
+            Constant(template.LimitParameterName, typeof(string)),
+            Constant(template.SeedNextToken, typeof(string)),
+            Constant(template.SeedNextTokenParameterName, typeof(string)),
+            Constant(template.ConsistentRead, typeof(bool?)),
+            Constant(template.ConsistentReadParameterName, typeof(string)),
+            Constant(template.HasUserLimit),
+            Constant(template.IsFirstTerminal),
+            Constant(template.IsSingleTerminal));
+    }
+
+    private Expression CreateTypeMappingExpression(
+        DynamoTypeMapping typeMapping,
+        ParameterExpression context)
+    {
+        var property =
+            QueryCompilationContext
+                .Model
+                .GetEntityTypes()
+                .SelectMany(static entityType => entityType.GetFlattenedProperties())
+                .FirstOrDefault(property
+                    => ReferenceEquals(property.GetTypeMapping(), typeMapping));
+
+        return Call(
+            typeof(DynamoGeneratedQueryRuntime),
+            nameof(DynamoGeneratedQueryRuntime.ResolveTypeMapping),
+            Type.EmptyTypes,
+            context,
+            Constant(typeMapping.ClrType, typeof(Type)),
+            Constant(property?.DeclaringType.Name, typeof(string)),
+            Constant(property?.Name, typeof(string)));
     }
 #pragma warning restore EF9100
 
@@ -267,12 +340,25 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
     /// </summary>
     private sealed class ValueTypeMemberAccessRewritingVisitor : ExpressionVisitor
     {
+        protected override Expression VisitConditional(ConditionalExpression node)
+        {
+            if (node.Test is TypeBinaryExpression
+                {
+                    NodeType: ExpressionType.TypeIs, Expression.Type.IsSealed: true
+                } typeTest
+                && !typeTest.TypeOperand.IsAssignableFrom(typeTest.Expression.Type))
+                return Visit(node.IfFalse);
+
+            return base.VisitConditional(node);
+        }
+
         protected override Expression VisitSwitch(SwitchExpression node)
         {
             if (node.Comparison is null)
                 return base.VisitSwitch(node);
 
             var switchValue = Visit(node.SwitchValue);
+            var switchValueVariable = Variable(switchValue.Type, "switchValue");
             var defaultBody = Visit(node.DefaultBody) ?? Default(node.Type);
             var result = defaultBody;
 
@@ -282,13 +368,16 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
                 var test =
                     @case
                         .TestValues
-                        .Select(testValue
-                            => Equal(switchValue, Visit(testValue), false, node.Comparison))
+                        .Select(testValue => Equal(
+                            switchValueVariable,
+                            Visit(testValue),
+                            false,
+                            node.Comparison))
                         .Aggregate(OrElse);
                 result = Condition(test, Visit(@case.Body), result);
             }
 
-            return result;
+            return Block([switchValueVariable], Assign(switchValueVariable, switchValue), result);
         }
 
         protected override Expression VisitMember(MemberExpression node)

@@ -22,6 +22,7 @@ verify docs build.
 - New or changed SDK command interception API
 - Newly supported or unsupported query shapes
 - Query pipeline architecture flow changes
+- Precompiled-query or NativeAOT behavior changes
 
 ## Workflow
 
@@ -38,16 +39,17 @@ verify docs build.
 
 2. Update canonical docs first
 
-- `docs/operators.md` for operator behavior and examples
+- `docs/querying/operators.md` for operator behavior and examples
 - `docs/limitations.md` for unsupported or constrained shapes
 
 3. Update topical docs only where impacted
 
-- `docs/pagination.md`
-- `docs/projections.md`
-- `docs/configuration.md`
+- `docs/querying/pagination.md`
+- `docs/querying/projection.md`
+- `docs/querying/precompiled-queries.md`
+- `docs/configuration/`
 - `docs/diagnostics.md`
-- `docs/architecture.md`
+- `docs/querying/how-queries-execute.md`
 
 4. Check example correctness and scope
 

@@ -32,10 +32,29 @@ jobs:
       dotnetVersion: ${{ matrix.dotnetVersion }}
       runCdk: false
 
+  native-aot:
+    name: native AOT smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - name: Publish NativeAOT smoke app
+        run: >-
+          dotnet publish
+          testapps/EntityFrameworkCore.DynamoDb.NativeAotSmoke/EntityFrameworkCore.DynamoDb.NativeAotSmoke.csproj
+          --configuration Release
+          --runtime linux-x64
+          --output artifacts/nativeaot-smoke
+      - name: Run NativeAOT smoke app
+        run: ./artifacts/nativeaot-smoke/EntityFrameworkCore.DynamoDb.NativeAotSmoke
+
   build:
     name: build
-    needs: application-build
+    needs: [application-build, native-aot]
     if: ${{ always() }}
     uses: ./.github/workflows/required-build-check.yaml
     with:
       applicationBuildResult: ${{ needs.application-build.result }}
+      nativeAotResult: ${{ needs.native-aot.result }}
