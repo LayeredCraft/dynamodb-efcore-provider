@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 
 await using var server = FakeDynamoServer.Start();
@@ -64,6 +65,9 @@ public enum SmokeStatus
 
 internal sealed class FakeDynamoServer : IAsyncDisposable
 {
+    private const string ExpectedStatement =
+        "SELECT * FROM \"AotSmokeItems\" WHERE \"pk\" IN (?, ?)";
+
     private const string ResponseBody =
         "{\"Items\":[{\"pk\":{\"S\":\"tenant-1\"},\"$type\":{\"S\":\"SmokeItem\"},"
         + "\"name\":{\"S\":\"Native\"},\"status\":{\"S\":\"Active\"}}],"
@@ -100,7 +104,7 @@ internal sealed class FakeDynamoServer : IAsyncDisposable
         _listener.Stop();
         try
         {
-            await _requestTask;
+            await _requestTask.WaitAsync(TimeSpan.FromSeconds(10));
         }
         catch (SocketException) { }
     }
@@ -115,15 +119,94 @@ internal sealed class FakeDynamoServer : IAsyncDisposable
             detectEncodingFromByteOrderMarks: false,
             leaveOpen: true);
 
-        while (await reader.ReadLineAsync() is { Length: > 0 }) { }
+        var headers = await ReadHeadersAsync(reader);
+        var requestBody = await ReadBodyAsync(reader, headers);
+        ValidateRequest(headers, requestBody);
 
         var body = Encoding.UTF8.GetBytes(ResponseBody);
-        var headers = Encoding.ASCII.GetBytes(
+        var responseHeaders = Encoding.ASCII.GetBytes(
             "HTTP/1.1 200 OK\r\n"
             + "Content-Type: application/x-amz-json-1.0\r\n"
             + $"Content-Length: {body.Length}\r\n"
             + "Connection: close\r\n\r\n");
-        await stream.WriteAsync(headers);
+        await stream.WriteAsync(responseHeaders);
         await stream.WriteAsync(body);
+    }
+
+    private static async Task<Dictionary<string, string>> ReadHeadersAsync(StreamReader reader)
+    {
+        var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var requestLine = await reader.ReadLineAsync()
+            ?? throw new InvalidOperationException(
+                "The DynamoDB request did not include a request line.");
+        if (!requestLine.StartsWith("POST ", StringComparison.Ordinal))
+            throw new InvalidOperationException(
+                $"Expected a POST request but received '{requestLine}'.");
+
+        while (await reader.ReadLineAsync() is { Length: > 0 } line)
+        {
+            var separator = line.IndexOf(':');
+            if (separator <= 0)
+                throw new InvalidOperationException($"Invalid HTTP header '{line}'.");
+
+            headers.Add(line[..separator], line[(separator + 1)..].Trim());
+        }
+
+        return headers;
+    }
+
+    private static async Task<string> ReadBodyAsync(
+        StreamReader reader,
+        IReadOnlyDictionary<string, string> headers)
+    {
+        if (!headers.TryGetValue("Content-Length", out var contentLengthText)
+            || !int.TryParse(contentLengthText, out var contentLength)
+            || contentLength < 0)
+            throw new InvalidOperationException(
+                "The DynamoDB request did not include a valid Content-Length header.");
+
+        var body = new char[contentLength];
+        for (var offset = 0; offset < body.Length;)
+        {
+            var read = await reader.ReadBlockAsync(body, offset, body.Length - offset);
+            if (read == 0)
+                throw new InvalidOperationException(
+                    "The DynamoDB request body ended before Content-Length bytes were received.");
+
+            offset += read;
+        }
+
+        return new string(body);
+    }
+
+    private static void ValidateRequest(
+        IReadOnlyDictionary<string, string> headers,
+        string requestBody)
+    {
+        if (!headers.TryGetValue("X-Amz-Target", out var target)
+            || target != "DynamoDB_20120810.ExecuteStatement")
+            throw new InvalidOperationException("Expected an ExecuteStatement request.");
+
+        using var document = JsonDocument.Parse(requestBody);
+        var root = document.RootElement;
+        AssertProperty(root, "Statement", ExpectedStatement);
+        var parameters = root.GetProperty("Parameters");
+        if (parameters.GetArrayLength() != 2)
+            throw new InvalidOperationException(
+                $"Expected two PartiQL parameters but received {parameters.GetArrayLength()}.");
+
+        AssertProperty(parameters[0], "S", "tenant-1");
+        AssertProperty(parameters[1], "S", "tenant-2");
+    }
+
+    private static void AssertProperty(
+        JsonElement element,
+        string propertyName,
+        string expectedValue)
+    {
+        if (!element.TryGetProperty(propertyName, out var property)
+            || property.GetString() != expectedValue)
+            throw new InvalidOperationException(
+                $"Expected request property '{propertyName}' to be '{expectedValue}'.");
     }
 }
