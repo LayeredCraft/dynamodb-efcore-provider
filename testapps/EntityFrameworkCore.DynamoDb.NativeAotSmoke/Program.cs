@@ -10,7 +10,17 @@ Environment.SetEnvironmentVariable("AWS_SECRET_ACCESS_KEY", "local");
 Environment.SetEnvironmentVariable("DYNAMO_AOT_SMOKE_URL", server.ServiceUrl);
 
 var items = await SmokeQueries.LoadItemsAsync();
-if (items is not [{ Pk: "tenant-1", Name: "Native", Status: SmokeStatus.Active }])
+if (items is not
+    [
+        {
+            Pk: "tenant-1",
+            Name: "Native",
+            Status: SmokeStatus.Active,
+            Count: 42,
+            Enabled: true,
+            Payload: [1, 2, 3]
+        }
+    ])
     throw new InvalidOperationException("The generated query returned an unexpected result.");
 
 Console.WriteLine("NativeAOT generated query executed successfully.");
@@ -56,6 +66,9 @@ public sealed class SmokeItem
     public string Pk { get; set; } = null!;
     public string Name { get; set; } = null!;
     public SmokeStatus Status { get; set; }
+    public int? Count { get; set; }
+    public bool Enabled { get; set; }
+    public byte[] Payload { get; set; } = null!;
 }
 
 public enum SmokeStatus
@@ -70,7 +83,8 @@ internal sealed class FakeDynamoServer : IAsyncDisposable
 
     private const string ResponseBody =
         "{\"Items\":[{\"pk\":{\"S\":\"tenant-1\"},\"$type\":{\"S\":\"SmokeItem\"},"
-        + "\"name\":{\"S\":\"Native\"},\"status\":{\"S\":\"Active\"}}],"
+        + "\"name\":{\"S\":\"Native\"},\"status\":{\"S\":\"Active\"},"
+        + "\"count\":{\"N\":\"42\"},\"enabled\":{\"BOOL\":true},\"payload\":{\"B\":\"AQID\"}}],"
         + "\"Count\":1,\"ScannedCount\":1}";
 
     private readonly TcpListener _listener;
