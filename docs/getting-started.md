@@ -164,12 +164,10 @@ context.Products.Remove(product!);
 await context.SaveChangesAsync();
 ```
 
-!!! warning "Everything is async"
+!!! note "Synchronous reads in precompiled queries"
 
-    The DynamoDB SDK has no synchronous I/O. All operations — queries and writes alike — must use
-    their async counterparts: `ToListAsync`, `FirstOrDefaultAsync`, `SingleOrDefaultAsync`,
-    `SaveChangesAsync`, and so on. `ToList()`, `SaveChanges()`, and other synchronous methods are
-    not supported and will throw.
+    Generated precompiled queries can use synchronous terminals such as `ToList()`. Normal query
+    execution and writes remain asynchronous: use `ToListAsync()` and `SaveChangesAsync()`.
 
 ## See Also
 

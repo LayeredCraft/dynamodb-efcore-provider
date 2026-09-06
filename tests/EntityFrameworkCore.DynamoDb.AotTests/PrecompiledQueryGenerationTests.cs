@@ -124,6 +124,15 @@ public class PrecompiledQueryGenerationTests
                               .ToListAsync();
                               }
 
+                              public static List<string> ExecuteSynchronously(DbContextOptions options)
+                              {
+                              using var context = new TestContext(options);
+                              return context.Items
+                              .Where(item => item.Pk == "tenant-1")
+                              .Select(item => item.Name)
+                              .ToList();
+                              }
+
                               public static async Task<List<TestItem>> ExecuteEntities(DbContextOptions options)
                               {
                               await using var context = new TestContext(options);

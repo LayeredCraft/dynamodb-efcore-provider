@@ -70,8 +70,22 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
 
         /// <summary>Provides functionality for this member.</summary>
         public IEnumerator<T> GetEnumerator()
-            => throw new InvalidOperationException(
-                "Sync enumerating is not supported for DynamoDB.");
+        {
+            if (_precompiledTemplate is null)
+                throw new InvalidOperationException(
+                    "Sync enumerating is not supported for DynamoDB.");
+
+            var enumerator = GetAsyncEnumerator();
+            try
+            {
+                while (enumerator.MoveNextAsync().AsTask().GetAwaiter().GetResult())
+                    yield return enumerator.Current;
+            }
+            finally
+            {
+                enumerator.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            }
+        }
 
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
@@ -315,8 +329,22 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
             => new AsyncEnumerator(this, cancellationToken);
 
         public IEnumerator<DynamoPage<T>> GetEnumerator()
-            => throw new InvalidOperationException(
-                "Sync enumerating is not supported for DynamoDB.");
+        {
+            if (_precompiledTemplate is null)
+                throw new InvalidOperationException(
+                    "Sync enumerating is not supported for DynamoDB.");
+
+            var enumerator = GetAsyncEnumerator();
+            try
+            {
+                while (enumerator.MoveNextAsync().AsTask().GetAwaiter().GetResult())
+                    yield return enumerator.Current;
+            }
+            finally
+            {
+                enumerator.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            }
+        }
 
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 

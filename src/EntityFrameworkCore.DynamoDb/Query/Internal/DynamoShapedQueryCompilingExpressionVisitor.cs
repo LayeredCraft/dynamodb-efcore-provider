@@ -100,7 +100,9 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
         return dynamoQueryCompilationContext.IsPrecompiling
             ? Call(
                 typeof(DynamoGeneratedQueryRuntime),
-                nameof(DynamoGeneratedQueryRuntime.CreateQueryingEnumerable),
+                dynamoQueryCompilationContext.IsAsync
+                    ? nameof(DynamoGeneratedQueryRuntime.CreateAsyncQueryingEnumerable)
+                    : nameof(DynamoGeneratedQueryRuntime.CreateQueryingEnumerable),
                 [shaperBody.Type],
                 QueryCompilationContext.QueryContextParameter,
                 CreateQueryTemplateConstant(selectExpression),
@@ -131,7 +133,9 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
         => dynamoQueryCompilationContext.IsPrecompiling
             ? Call(
                 typeof(DynamoGeneratedQueryRuntime),
-                nameof(DynamoGeneratedQueryRuntime.CreatePagingQueryingEnumerable),
+                dynamoQueryCompilationContext.IsAsync
+                    ? nameof(DynamoGeneratedQueryRuntime.CreateAsyncPagingQueryingEnumerable)
+                    : nameof(DynamoGeneratedQueryRuntime.CreatePagingQueryingEnumerable),
                 [shaperType],
                 QueryCompilationContext.QueryContextParameter,
                 CreateQueryTemplateConstant(selectExpression),

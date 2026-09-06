@@ -85,7 +85,7 @@ var openOrders = await context.Orders
 
 ## Current Scope
 
-- Async query execution is supported.
+- Async query execution is supported; generated precompiled queries also support synchronous terminals.
 - `SaveChangesAsync` is implemented for Added/Modified/Deleted root entities.
 - Synchronous `SaveChanges` is not supported (DynamoDB API is async-only).
 - LINQ support is partial; use `docs/querying/operators.md` as the source of truth for supported

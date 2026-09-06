@@ -9,7 +9,7 @@ Environment.SetEnvironmentVariable("AWS_ACCESS_KEY_ID", "local");
 Environment.SetEnvironmentVariable("AWS_SECRET_ACCESS_KEY", "local");
 Environment.SetEnvironmentVariable("DYNAMO_AOT_SMOKE_URL", server.ServiceUrl);
 
-var items = await SmokeQueries.LoadItemsAsync();
+var items = SmokeQueries.LoadItems();
 if (items is not
     [
         {
@@ -24,7 +24,7 @@ if (items is not
     ])
     throw new InvalidOperationException("The generated query returned an unexpected result.");
 
-Console.WriteLine("NativeAOT generated query executed successfully.");
+Console.WriteLine("NativeAOT generated synchronous query executed successfully.");
 
 public sealed class SmokeContext : DbContext
 {
@@ -51,6 +51,16 @@ public sealed class SmokeContext : DbContext
 
 internal static class SmokeQueries
 {
+    internal static List<SmokeItem> LoadItems()
+    {
+        using var context = new SmokeContext();
+        string[] partitionKeys = ["tenant-1", "tenant-2"];
+        return context
+            .Items
+            .Where(item => ((IEnumerable<string>)partitionKeys).Contains(item.Pk))
+            .ToList();
+    }
+
     internal static async Task<List<SmokeItem>> LoadItemsAsync()
     {
         await using var context = new SmokeContext();

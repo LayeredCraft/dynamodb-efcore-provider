@@ -102,12 +102,12 @@ expression tree into generated source.
 See [Precompiled Queries and NativeAOT](precompiled-queries.md) for project setup and current
 restrictions, including the tested NativeAOT model limitations.
 
-## Async Execution
+## Synchronous and async execution
 
-All DynamoDB query execution is async. Attempting to enumerate results synchronously throws
-`InvalidOperationException`. `Find()` can return an already-tracked entity without executing a
-query; use `FindAsync()`, `ToListAsync()`, `FirstOrDefaultAsync()`, `AsAsyncEnumerable()`, or
-`ToPageAsync()` when DynamoDB I/O is needed.
+Normal queries use async methods such as `ToListAsync()` and `FirstOrDefaultAsync()`. Generated
+precompiled queries can use synchronous terminals, which block on DynamoDB's asynchronous SDK
+calls. `Find()` can return an already-tracked entity without executing a query. Use `ToPageAsync()`
+when you need explicit continuation-token control.
 
 ## See also
 

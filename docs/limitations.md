@@ -444,12 +444,12 @@ See [Single-Table Design](modeling/single-table-design.md).
 
 ## Behavioral Differences from Standard EF Core
 
-### Async-Only Execution
+### Synchronous execution
 
-Synchronous query execution throws `InvalidOperationException`. This applies to all query
-enumeration, not just `SaveChanges`. Methods like `ToList()`, `First()`, and `Count()` on a
-`DbSet` will throw. `Find()` can still return an already-tracked entity without querying. Use
-`ToListAsync()`, `FirstAsync()`, `FindAsync()`, `AsAsyncEnumerable()`, etc.
+Normal synchronous query methods throw `InvalidOperationException`. Generated precompiled queries
+can use synchronous terminals by blocking on DynamoDB's asynchronous SDK calls. Synchronous writes
+remain unsupported: use `SaveChangesAsync()`. `Find()` can still return an already-tracked entity
+without querying.
 
 ### `ToQueryString()` Is Debug-Only
 
