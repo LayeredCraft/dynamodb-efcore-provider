@@ -25,14 +25,12 @@ public class PrimitiveCollectionComparerTests
     public void DictionaryComparer_Snapshot_InterfaceDictionary_ReturnsDictionary()
     {
         var elementComparer = ValueComparer.CreateDefault(typeof(int), false);
-        var comparer = new StringDictionaryValueComparer<IDictionary<string, int>, int>(
-            elementComparer,
-            false);
+        var comparer =
+            new StringDictionaryValueComparer<IDictionary<string, int>, int>(elementComparer);
 
         IDictionary<string, int> source = new Dictionary<string, int>
         {
-            ["math"] = 10,
-            ["science"] = 12
+            ["math"] = 10, ["science"] = 12
         };
 
         var snapshot = comparer.Snapshot(source);
@@ -48,8 +46,7 @@ public class PrimitiveCollectionComparerTests
         var elementComparer = ValueComparer.CreateDefault(typeof(int), false);
         var comparer =
             new NullableStringDictionaryValueComparer<IReadOnlyDictionary<string, int?>, int>(
-                elementComparer,
-                false);
+                elementComparer);
 
         IReadOnlyDictionary<string, int?> source =
             new Dictionary<string, int?> { ["a"] = 1, ["b"] = null };
@@ -65,22 +62,17 @@ public class PrimitiveCollectionComparerTests
     public void DictionaryComparer_EqualValues_HaveSameHashCode_WhenInsertionOrderDiffers()
     {
         var elementComparer = ValueComparer.CreateDefault(typeof(int), false);
-        var comparer = new StringDictionaryValueComparer<IDictionary<string, int>, int>(
-            elementComparer,
-            false);
+        var comparer =
+            new StringDictionaryValueComparer<IDictionary<string, int>, int>(elementComparer);
 
         IDictionary<string, int> left = new Dictionary<string, int>
         {
-            ["x"] = 1,
-            ["y"] = 2,
-            ["z"] = 3
+            ["x"] = 1, ["y"] = 2, ["z"] = 3
         };
 
         IDictionary<string, int> right = new Dictionary<string, int>
         {
-            ["z"] = 3,
-            ["x"] = 1,
-            ["y"] = 2
+            ["z"] = 3, ["x"] = 1, ["y"] = 2
         };
 
         comparer.Equals(left, right).Should().BeTrue();

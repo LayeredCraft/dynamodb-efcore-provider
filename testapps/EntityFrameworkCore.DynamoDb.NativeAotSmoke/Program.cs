@@ -18,7 +18,8 @@ if (items is not
             Status: SmokeStatus.Active,
             Count: 42,
             Enabled: true,
-            Payload: [1, 2, 3]
+            Payload: [1, 2, 3],
+            Tags: ["native"]
         }
     ])
     throw new InvalidOperationException("The generated query returned an unexpected result.");
@@ -69,6 +70,7 @@ public sealed class SmokeItem
     public int? Count { get; set; }
     public bool Enabled { get; set; }
     public byte[] Payload { get; set; } = null!;
+    public List<string> Tags { get; set; } = [];
 }
 
 public enum SmokeStatus
@@ -84,7 +86,8 @@ internal sealed class FakeDynamoServer : IAsyncDisposable
     private const string ResponseBody =
         "{\"Items\":[{\"pk\":{\"S\":\"tenant-1\"},\"$type\":{\"S\":\"SmokeItem\"},"
         + "\"name\":{\"S\":\"Native\"},\"status\":{\"S\":\"Active\"},"
-        + "\"count\":{\"N\":\"42\"},\"enabled\":{\"BOOL\":true},\"payload\":{\"B\":\"AQID\"}}],"
+        + "\"count\":{\"N\":\"42\"},\"enabled\":{\"BOOL\":true},\"payload\":{\"B\":\"AQID\"},"
+        + "\"tags\":{\"L\":[{\"S\":\"native\"}]}}],"
         + "\"Count\":1,\"ScannedCount\":1}";
 
     private readonly TcpListener _listener;

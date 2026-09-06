@@ -1,16 +1,25 @@
 using System.Collections;
+using System.Collections.ObjectModel;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace EntityFrameworkCore.DynamoDb.ChangeTracking.Internal;
 
-internal sealed class NullableStringDictionaryValueComparer<TDictionary, TValue>(
-    ValueComparer elementComparer,
-    bool readOnly) : ValueComparer<TDictionary>(
-    (left, right) => Equals(left, right, elementComparer),
-    value => GetHashCode(value, elementComparer),
-    value => Snapshot(value, elementComparer, readOnly))
+/// <summary>Compares a nullable-value primitive dictionary using the value mapping's comparer.</summary>
+public sealed class
+    NullableStringDictionaryValueComparer<TDictionary, TValue>(ValueComparer elementComparer)
+    : ValueComparer<TDictionary>(
+            (left, right) => Equals(left, right, elementComparer),
+            value => GetHashCode(value, elementComparer),
+            value => Snapshot(value, elementComparer, IsReadOnly)),
+        IInfrastructure<ValueComparer>
     where TDictionary : class, IEnumerable<KeyValuePair<string, TValue?>> where TValue : struct
 {
+    private static readonly bool IsReadOnly = typeof(TDictionary).IsGenericType
+        && typeof(TDictionary).GetGenericTypeDefinition() == typeof(ReadOnlyDictionary<,>);
+
+    ValueComparer IInfrastructure<ValueComparer>.Instance => elementComparer;
+
     /// <summary>Compares two nullable-value dictionaries by key and value.</summary>
     private static bool Equals(TDictionary? left, TDictionary? right, ValueComparer elementComparer)
     {

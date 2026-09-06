@@ -20,8 +20,8 @@ provider paths outside query execution. The provider's smoke build allows those 
 support remains experimental; a warning-free trimmed application is not yet guaranteed.
 
 The tested native path supports scalar entity properties, including nullable numbers, Boolean,
-binary, and configured scalar conversions. Primitive collection properties are not supported in
-NativeAOT models: EF Core's compiled-model task currently rejects them before publish.
+binary, configured scalar conversions, and primitive collection properties using the provider's
+supported list, set, and dictionary CLR shapes.
 
 See [Precompiled Queries and NativeAOT](querying/precompiled-queries.md) for supported setup and
 verification.

@@ -17,7 +17,7 @@ public class DynamoTypeMappingSource(TypeMappingSourceDependencies dependencies)
         ListComparerCache = new();
 
     private static readonly
-        ConcurrentDictionary<(Type CollectionType, Type ValueType, bool ReadOnly), ValueComparer>
+        ConcurrentDictionary<(Type CollectionType, Type ValueType), ValueComparer>
         DictionaryComparerCache = new();
 
     private static readonly
@@ -53,14 +53,10 @@ public class DynamoTypeMappingSource(TypeMappingSourceDependencies dependencies)
         if (IsPrimitiveType(nonNullableType))
             return new DynamoTypeMapping(clrType);
 
-        if (TryGetDictionaryValueType(
-            clrType,
-            out var dictionaryValueType,
-            out var readOnlyDictionary))
+        if (TryGetDictionaryValueType(clrType, out var dictionaryValueType, out _))
             return FindDictionaryTypeMapping(
                 clrType,
                 dictionaryValueType,
-                readOnlyDictionary,
                 mappingInfo.ElementTypeMapping);
 
         if (TryGetSetElementType(clrType, out var setElementType))
@@ -76,7 +72,6 @@ public class DynamoTypeMappingSource(TypeMappingSourceDependencies dependencies)
     private CoreTypeMapping? FindDictionaryTypeMapping(
         Type clrType,
         Type valueType,
-        bool readOnlyDictionary,
         CoreTypeMapping? valueMapping)
     {
         valueMapping ??= FindMapping(valueType);
@@ -86,12 +81,8 @@ public class DynamoTypeMappingSource(TypeMappingSourceDependencies dependencies)
         var valueComparer = valueMapping.Comparer ?? ValueComparer.CreateDefault(valueType, false);
 
         var comparer = DictionaryComparerCache.GetOrAdd(
-            (clrType, valueType, readOnlyDictionary),
-            key => CreateDictionaryComparer(
-                key.CollectionType,
-                key.ValueType,
-                key.ReadOnly,
-                valueComparer));
+            (clrType, valueType),
+            key => CreateDictionaryComparer(key.CollectionType, key.ValueType, valueComparer));
 
         return new DynamoTypeMapping(clrType, comparer).WithComposedConverter(
             null,
@@ -158,7 +149,6 @@ public class DynamoTypeMappingSource(TypeMappingSourceDependencies dependencies)
     private static ValueComparer CreateDictionaryComparer(
         Type collectionType,
         Type valueType,
-        bool readOnly,
         ValueComparer elementComparer)
     {
         var nullableUnderlyingType = Nullable.GetUnderlyingType(valueType);
@@ -168,7 +158,7 @@ public class DynamoTypeMappingSource(TypeMappingSourceDependencies dependencies)
                 nullableUnderlyingType ?? valueType)
             : typeof(StringDictionaryValueComparer<,>).MakeGenericType(collectionType, valueType);
 
-        return (ValueComparer)Activator.CreateInstance(comparerType, elementComparer, readOnly)!;
+        return (ValueComparer)Activator.CreateInstance(comparerType, elementComparer)!;
     }
 
     /// <summary>Creates the set comparer implementation for a mapped set shape.</summary>

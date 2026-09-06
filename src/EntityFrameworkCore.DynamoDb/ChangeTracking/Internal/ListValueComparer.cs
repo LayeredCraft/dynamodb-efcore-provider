@@ -1,13 +1,18 @@
 using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace EntityFrameworkCore.DynamoDb.ChangeTracking.Internal;
 
-internal sealed class ListValueComparer<TList, TElement>(ValueComparer elementComparer)
+/// <summary>Compares a primitive list using the element mapping's comparer.</summary>
+public sealed class ListValueComparer<TList, TElement>(ValueComparer elementComparer)
     : ValueComparer<TList>(
-        (left, right) => Equals(left, right, elementComparer),
-        value => GetHashCode(value, elementComparer),
-        value => Snapshot(value, elementComparer)) where TList : class, IEnumerable<TElement>
+            (left, right) => Equals(left, right, elementComparer),
+            value => GetHashCode(value, elementComparer),
+            value => Snapshot(value, elementComparer)),
+        IInfrastructure<ValueComparer> where TList : class, IEnumerable<TElement>
 {
+    ValueComparer IInfrastructure<ValueComparer>.Instance => elementComparer;
+
     /// <summary>Compares two sequences using ordered element equality.</summary>
     private static bool Equals(TList? left, TList? right, ValueComparer elementComparer)
     {

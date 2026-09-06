@@ -76,9 +76,8 @@ for local arrays, which EF Core's query precompiler cannot currently translate.
 - NativeAOT publishing may emit trim and dynamic-code analysis warnings from EF Core, the AWS SDK,
     and provider features outside precompiled query execution. Treat AOT support as experimental.
 - The tested NativeAOT path covers entity materialization with string, nullable numeric, Boolean,
-    binary, and converted scalar properties. EF Core's current compiled-model task rejects
-    primitive collection properties before publishing; do not use collection properties in an AOT
-    model until that upstream limitation is resolved.
+    binary, converted scalar, and primitive collection properties. Primitive collection properties
+    use the provider's supported list, set, and dictionary CLR shapes.
 
 ## Verification
 

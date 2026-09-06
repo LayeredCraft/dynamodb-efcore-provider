@@ -1,13 +1,18 @@
 using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace EntityFrameworkCore.DynamoDb.ChangeTracking.Internal;
 
-internal sealed class SetValueComparer<TSet, TElement>(ValueComparer elementComparer)
+/// <summary>Compares a primitive set using the element mapping's comparer.</summary>
+public sealed class SetValueComparer<TSet, TElement>(ValueComparer elementComparer)
     : ValueComparer<TSet>(
-        (left, right) => Equals(left, right, elementComparer),
-        value => GetHashCode(value, elementComparer),
-        value => Snapshot(value, elementComparer)) where TSet : class, IEnumerable<TElement>
+            (left, right) => Equals(left, right, elementComparer),
+            value => GetHashCode(value, elementComparer),
+            value => Snapshot(value, elementComparer)),
+        IInfrastructure<ValueComparer> where TSet : class, IEnumerable<TElement>
 {
+    ValueComparer IInfrastructure<ValueComparer>.Instance => elementComparer;
+
     /// <summary>Compares two sets using element equality without considering order.</summary>
     private static bool Equals(TSet? left, TSet? right, ValueComparer elementComparer)
     {
