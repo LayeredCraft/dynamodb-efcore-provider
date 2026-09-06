@@ -1,17 +1,48 @@
 using System.Reflection;
 using System.Runtime.Loader;
 using EntityFrameworkCore.DynamoDb.Design.Internal;
+using EntityFrameworkCore.DynamoDb.Infrastructure;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Editing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design.Internal;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Query.Internal;
 
 namespace EntityFrameworkCore.DynamoDb.AotTests;
 
 public class PrecompiledQueryGenerationTests
 {
+    [Fact]
+    public void Generated_runtime_resolves_an_inherited_property_once()
+    {
+        using var context = new InheritanceContext(
+            new DbContextOptionsBuilder<InheritanceContext>().UseDynamo().Options);
+        var property = ResolveProperty(
+            context.Model,
+            typeof(BaseItem).FullName!,
+            nameof(BaseItem.Status));
+
+        property.DeclaringType.Name.Should().Be(typeof(BaseItem).FullName);
+        property.Name.Should().Be(nameof(BaseItem.Status));
+    }
+
+    [Fact]
+    public void Generated_runtime_reports_missing_inherited_property()
+    {
+        using var context = new InheritanceContext(
+            new DbContextOptionsBuilder<InheritanceContext>().UseDynamo().Options);
+
+        var action = () => ResolveProperty(context.Model, typeof(BaseItem).FullName!, "Missing");
+
+        action
+            .Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage("*BaseItem.Missing*was not found*");
+    }
+
     [Fact(Timeout = 60_000)]
     public async Task Generated_interceptor_compiles()
     {
@@ -179,5 +210,56 @@ public class PrecompiledQueryGenerationTests
             return $"{error}{Environment.NewLine}{sourceLine}";
         });
         throw new InvalidOperationException(string.Join(Environment.NewLine, details));
+    }
+
+#pragma warning disable EF9100
+    private static IProperty ResolveProperty(
+        IModel model,
+        string declaringTypeName,
+        string propertyName)
+    {
+        var method = typeof(DynamoGeneratedQueryRuntime).GetMethod(
+            "ResolveProperty",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+        try
+        {
+            return (IProperty)method.Invoke(null, [model, declaringTypeName, propertyName])!;
+        }
+        catch (TargetInvocationException exception) when (
+            exception.InnerException is InvalidOperationException innerException)
+        {
+            throw innerException;
+        }
+    }
+#pragma warning restore EF9100
+
+    private sealed class InheritanceContext(DbContextOptions<InheritanceContext> options)
+        : DbContext(options)
+    {
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<BaseItem>(entity =>
+            {
+                entity.HasPartitionKey(item => item.Pk);
+                entity.Property(item => item.Status).HasConversion<string>();
+            });
+            modelBuilder.Entity<DerivedItem>().HasBaseType<BaseItem>();
+            modelBuilder.Entity<SiblingItem>().HasBaseType<BaseItem>();
+        }
+    }
+
+    private class BaseItem
+    {
+        public string Pk { get; set; } = null!;
+        public TestStatus Status { get; set; }
+    }
+
+    private sealed class DerivedItem : BaseItem { }
+
+    private sealed class SiblingItem : BaseItem { }
+
+    private enum TestStatus
+    {
+        Active
     }
 }

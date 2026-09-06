@@ -445,6 +445,7 @@ public static class DynamoGeneratedQueryRuntime
         => model
                 .GetEntityTypes()
                 .SelectMany(static entityType => entityType.GetFlattenedProperties())
+                .Distinct<IProperty>(ReferenceEqualityComparer.Instance)
                 .SingleOrDefault(property
                     => property.DeclaringType.Name == declaringTypeName
                     && property.Name == propertyName)
