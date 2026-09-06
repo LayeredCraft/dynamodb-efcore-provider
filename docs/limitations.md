@@ -19,6 +19,10 @@ NativeAOT publishing can report trimming and dynamic-code warnings from EF Core,
 provider paths outside query execution. The provider's smoke build allows those warnings while AOT
 support remains experimental; a warning-free trimmed application is not yet guaranteed.
 
+The tested native path supports scalar entity properties, including nullable numbers, Boolean,
+binary, and configured scalar conversions. Primitive collection properties are not supported in
+NativeAOT models: EF Core's compiled-model task currently rejects them before publish.
+
 See [Precompiled Queries and NativeAOT](querying/precompiled-queries.md) for supported setup and
 verification.
 

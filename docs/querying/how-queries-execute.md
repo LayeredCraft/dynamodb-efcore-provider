@@ -99,7 +99,8 @@ The generated materializer resolves each projected property through the compiled
 preserves property-specific value converters without serializing the provider's internal query
 expression tree into generated source.
 
-See [Precompiled Queries and NativeAOT](precompiled-queries.md) for project setup and current
+See [Precompiled Queries and NativeAOT](precompiled-queries.md) for project setup, the tested
+NativeAOT model restrictions, and current
 restrictions.
 
 ## Async Execution

@@ -75,6 +75,24 @@ for local arrays, which EF Core's query precompiler cannot currently translate.
     count. The provider stops reading after the first excess item and throws.
 - NativeAOT publishing may emit trim and dynamic-code analysis warnings from EF Core, the AWS SDK,
     and provider features outside precompiled query execution. Treat AOT support as experimental.
+- The tested NativeAOT path covers entity materialization with string, nullable numeric, Boolean,
+    binary, and converted scalar properties. EF Core's current compiled-model task rejects
+    primitive collection properties before publishing; do not use collection properties in an AOT
+    model until that upstream limitation is resolved.
+
+## Verification
+
+Run generated-interceptor checks for both supported EF configurations:
+
+```bash
+task test:aot-generation CONFIG="Debug EF10"
+task test:aot-generation CONFIG="Debug EF11"
+```
+
+Then publish and run the EF10 native smoke app with `task test:aot-publish`. The smoke app checks
+the generated PartiQL statement, ordered parameters, and materialized values. If interceptor
+generation reports that EF Core's executor template changed, upgrade the provider rewrite and its
+compatibility tests together; do not bypass the failure.
 
 For query translation details, see [How Queries Execute](how-queries-execute.md). For all provider
 restrictions, see [Limitations](../limitations.md).
