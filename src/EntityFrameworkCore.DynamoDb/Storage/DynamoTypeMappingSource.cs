@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.ChangeTracking.Internal;
@@ -12,18 +11,6 @@ namespace EntityFrameworkCore.DynamoDb.Storage;
 public class DynamoTypeMappingSource(TypeMappingSourceDependencies dependencies)
     : TypeMappingSource(dependencies)
 {
-    private static readonly
-        ConcurrentDictionary<(Type CollectionType, Type ElementType), ValueComparer>
-        ListComparerCache = new();
-
-    private static readonly
-        ConcurrentDictionary<(Type CollectionType, Type ValueType), ValueComparer>
-        DictionaryComparerCache = new();
-
-    private static readonly
-        ConcurrentDictionary<(Type CollectionType, Type ElementType), ValueComparer>
-        SetComparerCache = new();
-
     /// <summary>Resolves mapping for a property and propagates element mappings for primitive collections.</summary>
     public override CoreTypeMapping? FindMapping(IProperty property)
     {
@@ -80,9 +67,7 @@ public class DynamoTypeMappingSource(TypeMappingSourceDependencies dependencies)
 
         var valueComparer = valueMapping.Comparer ?? ValueComparer.CreateDefault(valueType, false);
 
-        var comparer = DictionaryComparerCache.GetOrAdd(
-            (clrType, valueType),
-            key => CreateDictionaryComparer(key.CollectionType, key.ValueType, valueComparer));
+        var comparer = CreateDictionaryComparer(clrType, valueType, valueComparer);
 
         return new DynamoTypeMapping(clrType, comparer).WithComposedConverter(
             null,
@@ -110,9 +95,7 @@ public class DynamoTypeMappingSource(TypeMappingSourceDependencies dependencies)
         var elementComparer = elementMapping.Comparer
             ?? ValueComparer.CreateDefault(elementType, false);
 
-        var comparer = SetComparerCache.GetOrAdd(
-            (clrType, elementType),
-            key => CreateSetComparer(key.CollectionType, key.ElementType, elementComparer));
+        var comparer = CreateSetComparer(clrType, elementType, elementComparer);
 
         return new DynamoTypeMapping(clrType, comparer).WithComposedConverter(
             null,
@@ -133,9 +116,7 @@ public class DynamoTypeMappingSource(TypeMappingSourceDependencies dependencies)
         var elementComparer = elementMapping.Comparer
             ?? ValueComparer.CreateDefault(elementType, false);
 
-        var comparer = ListComparerCache.GetOrAdd(
-            (clrType, elementType),
-            key => CreateListComparer(key.CollectionType, key.ElementType, elementComparer));
+        var comparer = CreateListComparer(clrType, elementType, elementComparer);
 
         return new DynamoTypeMapping(clrType, comparer).WithComposedConverter(
             null,

@@ -1,7 +1,9 @@
 using System.Globalization;
 using System.Linq.Expressions;
 using Amazon.DynamoDBv2.Model;
+using EntityFrameworkCore.DynamoDb.ChangeTracking.Internal;
 using EntityFrameworkCore.DynamoDb.Storage;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Metadata;
@@ -113,6 +115,29 @@ public class DynamoTypeMappingTests
         optionalScoresReader(attributeValue).Should().Equal(null, 42);
     }
 
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void PrimitiveCollections_UseTheirPropertySpecificElementComparers()
+    {
+        var caseInsensitive = CreateStringComparer(StringComparer.OrdinalIgnoreCase);
+        var ordinal = CreateStringComparer(StringComparer.Ordinal);
+
+        AssertDistinctComparers(
+            new ListValueComparer<List<string>, string>(caseInsensitive),
+            new ListValueComparer<List<string>, string>(ordinal),
+            new List<string> { "alpha" },
+            new List<string> { "ALPHA" });
+        AssertDistinctComparers(
+            new SetValueComparer<HashSet<string>, string>(caseInsensitive),
+            new SetValueComparer<HashSet<string>, string>(ordinal),
+            new HashSet<string> { "alpha" },
+            new HashSet<string> { "ALPHA" });
+        AssertDistinctComparers(
+            new StringDictionaryValueComparer<Dictionary<string, string>, string>(caseInsensitive),
+            new StringDictionaryValueComparer<Dictionary<string, string>, string>(ordinal),
+            new Dictionary<string, string> { ["name"] = "alpha" },
+            new Dictionary<string, string> { ["name"] = "ALPHA" });
+    }
+
     private static SerializationContext CreateContext()
     {
         var optionsBuilder = new DbContextOptionsBuilder<SerializationContext>();
@@ -127,6 +152,32 @@ public class DynamoTypeMappingTests
 
     private static IProperty GetProperty(DbContext context, string propertyName)
         => context.Model.FindEntityType(typeof(SerializationEntity))!.FindProperty(propertyName)!;
+
+    private static ValueComparer<string> CreateStringComparer(StringComparer comparer)
+        => new(
+            (left, right) => comparer.Equals(left, right),
+            value => value == null ? 0 : comparer.GetHashCode(value),
+            value => value);
+
+    private static void AssertDistinctComparers<TCollection>(
+        ValueComparer<TCollection> caseInsensitiveComparer,
+        ValueComparer<TCollection> ordinalComparer,
+        TCollection alpha,
+        TCollection upperAlpha) where TCollection : class
+    {
+        caseInsensitiveComparer.Equals(alpha, upperAlpha).Should().BeTrue();
+        ordinalComparer.Equals(alpha, upperAlpha).Should().BeFalse();
+        caseInsensitiveComparer
+            .GetHashCode(alpha)
+            .Should()
+            .Be(caseInsensitiveComparer.GetHashCode(upperAlpha));
+        ordinalComparer.GetHashCode(alpha).Should().NotBe(ordinalComparer.GetHashCode(upperAlpha));
+        caseInsensitiveComparer.Snapshot(alpha).Should().NotBeSameAs(alpha);
+        caseInsensitiveComparer
+            .Equals(caseInsensitiveComparer.Snapshot(alpha), upperAlpha)
+            .Should()
+            .BeTrue();
+    }
 
     private static Func<AttributeValue, T> CompileReader<T>(
         DynamoTypeMapping mapping,
