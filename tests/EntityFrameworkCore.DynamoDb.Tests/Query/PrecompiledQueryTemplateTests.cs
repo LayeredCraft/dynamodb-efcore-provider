@@ -63,6 +63,32 @@ public class PrecompiledQueryTemplateTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void Collection_parameter_handles_null_and_rebinds_captured_values()
+    {
+        var mapping = new DynamoTypeMapping(typeof(string));
+        var select = CreateSelect(mapping);
+        select.ApplyPredicate(
+            new SqlInExpression(
+                new SqlPropertyExpression("pk", typeof(string), mapping, true),
+                null,
+                new SqlParameterExpression("keys", typeof(IEnumerable<string>), mapping),
+                true,
+                new DynamoTypeMapping(typeof(bool))));
+
+        var template = new DynamoQuerySqlGenerator().GeneratePrecompiledTemplate(select);
+        var nullValues = template.Render(new Dictionary<string, object?> { ["keys"] = null });
+        var firstExecution = template.Render(
+            new Dictionary<string, object?> { ["keys"] = new[] { "first" } });
+        var secondExecution = template.Render(
+            new Dictionary<string, object?> { ["keys"] = new[] { "second" } });
+
+        nullValues.Sql.Should().EndWith("WHERE 1 = 0");
+        nullValues.Parameters.Should().BeEmpty();
+        firstExecution.Parameters.Single().S.Should().Be("first");
+        secondExecution.Parameters.Single().S.Should().Be("second");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void Collection_parameter_stops_reading_after_the_supported_limit()
     {
         var mapping = new DynamoTypeMapping(typeof(string));
