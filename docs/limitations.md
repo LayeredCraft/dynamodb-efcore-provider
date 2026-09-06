@@ -20,8 +20,9 @@ provider paths outside query execution. The provider's smoke build allows those 
 support remains experimental; a warning-free trimmed application is not yet guaranteed.
 
 The tested native path supports scalar entity properties, including nullable numbers, Boolean,
-binary, configured scalar conversions, and primitive collection properties using the provider's
-supported list, set, and dictionary CLR shapes.
+binary, configured scalar conversions, plus `List<T>`, one-dimensional arrays, `HashSet<T>`,
+`Dictionary<string, T>`, and `ReadOnlyDictionary<string, T>` primitive collection properties with
+non-nullable elements.
 
 See [Precompiled Queries and NativeAOT](querying/precompiled-queries.md) for supported setup and
 verification.

@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -19,10 +20,19 @@ if (items is not
             Count: 42,
             Enabled: true,
             Payload: [1, 2, 3],
-            Tags: ["native"]
+            Tags: ["native"],
+            Aliases: ["aot"]
         }
     ])
     throw new InvalidOperationException("The generated query returned an unexpected result.");
+
+if (!items[0].Labels.SetEquals(["native"])
+    || !items[0].Metadata.TryGetValue("runtime", out var runtime)
+    || runtime != "aot"
+    || !items[0].ReadOnlyMetadata.TryGetValue("mode", out var mode)
+    || mode != "readonly")
+    throw new InvalidOperationException(
+        "The generated query did not materialize primitive collection values.");
 
 Console.WriteLine("NativeAOT generated synchronous query executed successfully.");
 
@@ -81,6 +91,12 @@ public sealed class SmokeItem
     public bool Enabled { get; set; }
     public byte[] Payload { get; set; } = null!;
     public List<string> Tags { get; set; } = [];
+    public string[] Aliases { get; set; } = [];
+    public HashSet<string> Labels { get; set; } = [];
+    public Dictionary<string, string> Metadata { get; set; } = [];
+
+    public ReadOnlyDictionary<string, string> ReadOnlyMetadata { get; set; } =
+        new(new Dictionary<string, string>());
 }
 
 public enum SmokeStatus
@@ -97,7 +113,9 @@ internal sealed class FakeDynamoServer : IAsyncDisposable
         "{\"Items\":[{\"pk\":{\"S\":\"tenant-1\"},\"$type\":{\"S\":\"SmokeItem\"},"
         + "\"name\":{\"S\":\"Native\"},\"status\":{\"S\":\"Active\"},"
         + "\"count\":{\"N\":\"42\"},\"enabled\":{\"BOOL\":true},\"payload\":{\"B\":\"AQID\"},"
-        + "\"tags\":{\"L\":[{\"S\":\"native\"}]}}],"
+        + "\"tags\":{\"L\":[{\"S\":\"native\"}]},\"aliases\":{\"L\":[{\"S\":\"aot\"}]},"
+        + "\"labels\":{\"SS\":[\"native\"]},\"metadata\":{\"M\":{\"runtime\":{\"S\":\"aot\"}}},"
+        + "\"readOnlyMetadata\":{\"M\":{\"mode\":{\"S\":\"readonly\"}}}}],"
         + "\"Count\":1,\"ScannedCount\":1}";
 
     private readonly TcpListener _listener;
