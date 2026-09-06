@@ -15,6 +15,39 @@ namespace EntityFrameworkCore.DynamoDb.AotTests;
 
 public class PrecompiledQueryGenerationTests
 {
+    [Theory]
+    [InlineData("", "template changed")]
+    [InlineData(
+        "            var relationalModel = dbContext.Model.GetRelationalModel();\n",
+        "template changed")]
+    public void Generated_executor_preamble_drift_fails_with_an_actionable_error(
+        string generatedCode,
+        string expectedMessage)
+    {
+        var action = () => RewriteExecutorPreamble(generatedCode);
+
+        action.Should().Throw<InvalidOperationException>().WithMessage($"*{expectedMessage}*");
+    }
+
+    [Fact]
+    public void Generated_executor_preamble_rejects_remaining_relational_references()
+    {
+        var action = () => RewriteExecutorPreamble(
+            RelationalExecutorPreamble + "RelationalMaterializerLiftableConstantContext");
+
+        action.Should().Throw<InvalidOperationException>().WithMessage("*unrecognized relational*");
+    }
+
+    [Fact]
+    public void Generated_executor_preamble_replaces_the_relational_runtime_dependencies()
+    {
+        var rewritten = RewriteExecutorPreamble(RelationalExecutorPreamble);
+
+        rewritten.Should().Contain("MaterializerLiftableConstantContext");
+        rewritten.Should().NotContain("RelationalMaterializerLiftableConstantContext");
+        rewritten.Should().NotContain("IRelationalTypeMappingSource");
+    }
+
     [Fact]
     public void Generated_runtime_resolves_an_inherited_property_once()
     {
@@ -232,6 +265,34 @@ public class PrecompiledQueryGenerationTests
         }
     }
 #pragma warning restore EF9100
+
+    private static readonly string RelationalExecutorPreamble = string.Join(
+        '\n',
+        [
+            "            var relationalModel = dbContext.Model.GetRelationalModel();",
+            "            var relationalTypeMappingSource = dbContext.GetService<IRelationalTypeMappingSource>();",
+            "            var materializerLiftableConstantContext = new RelationalMaterializerLiftableConstantContext(",
+            "                dbContext.GetService<ShapedQueryCompilingExpressionVisitorDependencies>(),",
+            "                dbContext.GetService<RelationalShapedQueryCompilingExpressionVisitorDependencies>(),",
+            "                dbContext.GetService<RelationalCommandBuilderDependencies>());",
+            ""
+        ]);
+
+    private static string RewriteExecutorPreamble(string code)
+    {
+        var method = typeof(DynamoPrecompiledQueryCodeGenerator).GetMethod(
+            "RewriteExecutorPreamble",
+            BindingFlags.NonPublic | BindingFlags.Static)!;
+        try
+        {
+            return (string)method.Invoke(null, [code])!;
+        }
+        catch (TargetInvocationException exception) when (
+            exception.InnerException is InvalidOperationException innerException)
+        {
+            throw innerException;
+        }
+    }
 
     private sealed class InheritanceContext(DbContextOptions<InheritanceContext> options)
         : DbContext(options)
