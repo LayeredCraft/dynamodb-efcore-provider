@@ -20,9 +20,17 @@ provider paths outside query execution. The provider's smoke build allows those 
 support remains experimental; a warning-free trimmed application is not yet guaranteed.
 
 The tested native path supports scalar entity properties, including nullable numbers, Boolean,
-binary, configured scalar conversions, plus `List<T>`, one-dimensional arrays, `HashSet<T>`,
-`Dictionary<string, T>`, and `ReadOnlyDictionary<string, T>` primitive collection properties with
-non-nullable elements.
+binary, configured scalar conversions, and one-dimensional arrays with non-nullable elements.
+
+NativeAOT precompiled queries do not currently support entity materialization that requires EF Core
+to read a non-public mapped field. This includes mutable field-backed collection properties such as
+`List<T>`, `HashSet<T>`, and `Dictionary<string, T>`; auto-properties are affected when EF Core
+selects their backing field. The current EF Core generated field-read accessor is invalid in
+NativeAOT. Keep those collection or dictionary values out of entities materialized by precompiled
+NativeAOT queries until EF Core resolves the issue.
+
+Field-only properties can hit the same limitation. Basic scalar properties and arrays are covered
+by the native smoke test because their materialization uses a field write, not a field read.
 
 See [Precompiled Queries and NativeAOT](querying/precompiled-queries.md) for supported setup and
 verification.

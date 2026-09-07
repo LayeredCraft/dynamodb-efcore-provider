@@ -83,9 +83,11 @@ for local arrays, which EF Core's query precompiler cannot currently translate.
 - NativeAOT publishing may emit trim and dynamic-code analysis warnings from EF Core, the AWS SDK,
     and provider features outside precompiled query execution. Treat AOT support as experimental.
 - The tested NativeAOT path covers entity materialization with string, nullable numeric, Boolean,
-    binary, converted scalar, plus `List<T>`, one-dimensional arrays, `HashSet<T>`,
-    `Dictionary<string, T>`, and `ReadOnlyDictionary<string, T>` primitive collection properties
-    with non-nullable elements.
+    binary, converted scalar, and one-dimensional array properties with non-nullable elements.
+    Entity materialization requiring a read from a non-public mapped field is not supported. This
+    includes mutable field-backed `List<T>`, `HashSet<T>`, and `Dictionary<string, T>` properties,
+    and may include auto-properties when EF Core chooses their backing field. See
+    [Limitations](../limitations.md) before using NativeAOT with collection-valued entity members.
 
 ## Verification
 
