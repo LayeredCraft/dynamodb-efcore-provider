@@ -108,7 +108,7 @@ internal sealed class FakeDynamoServer : IAsyncDisposable
 {
     private const string ExpectedStatement =
         "SELECT \"pk\", \"$type\", \"aliases\", \"count\", \"enabled\", \"labels\", \"metadata\", \"name\", \"payload\", \"readOnlyMetadata\", \"status\", \"tags\"\n"
-        + "FROM \"AotSmokeItems\"\nWHERE \"pk\" IN (?, ?)";
+        + "FROM \"AotSmokeItems\"\nWHERE \"pk\" IN [?, ?]";
 
     private const string ResponseBody =
         "{\"Items\":[{\"pk\":{\"S\":\"tenant-1\"},\"$type\":{\"S\":\"SmokeItem\"},"
@@ -167,7 +167,15 @@ internal sealed class FakeDynamoServer : IAsyncDisposable
 
         var headers = await ReadHeadersAsync(reader);
         var requestBody = await ReadBodyAsync(reader, headers);
-        ValidateRequest(headers, requestBody);
+        Exception? validationException = null;
+        try
+        {
+            ValidateRequest(headers, requestBody);
+        }
+        catch (Exception exception)
+        {
+            validationException = exception;
+        }
 
         var body = Encoding.UTF8.GetBytes(ResponseBody);
         var responseHeaders = Encoding.ASCII.GetBytes(
@@ -177,6 +185,9 @@ internal sealed class FakeDynamoServer : IAsyncDisposable
             + "Connection: close\r\n\r\n");
         await stream.WriteAsync(responseHeaders);
         await stream.WriteAsync(body);
+
+        if (validationException is not null)
+            throw validationException;
     }
 
     private static async Task<Dictionary<string, string>> ReadHeadersAsync(StreamReader reader)
@@ -251,8 +262,10 @@ internal sealed class FakeDynamoServer : IAsyncDisposable
         string expectedValue)
     {
         if (!element.TryGetProperty(propertyName, out var property)
-            || property.GetString() != expectedValue)
+            || property.GetString() is not { } actualValue
+            || actualValue != expectedValue)
             throw new InvalidOperationException(
-                $"Expected request property '{propertyName}' to be '{expectedValue}'.");
+                $"Expected request property '{propertyName}' to be '{expectedValue}', but received "
+                + $"'{property.GetString() ?? "<missing>"}'.");
     }
 }
