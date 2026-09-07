@@ -107,7 +107,8 @@ public enum SmokeStatus
 internal sealed class FakeDynamoServer : IAsyncDisposable
 {
     private const string ExpectedStatement =
-        "SELECT * FROM \"AotSmokeItems\" WHERE \"pk\" IN (?, ?)";
+        "SELECT \"pk\", \"$type\", \"aliases\", \"count\", \"enabled\", \"labels\", \"metadata\", \"name\", \"payload\", \"readOnlyMetadata\", \"status\", \"tags\"\n"
+        + "FROM \"AotSmokeItems\"\nWHERE \"pk\" IN (?, ?)";
 
     private const string ResponseBody =
         "{\"Items\":[{\"pk\":{\"S\":\"tenant-1\"},\"$type\":{\"S\":\"SmokeItem\"},"
