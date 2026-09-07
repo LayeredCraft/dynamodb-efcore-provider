@@ -9,6 +9,13 @@ The provider supports EF Core's generated query interceptors. It does not add a 
 generator. `Microsoft.EntityFrameworkCore.Tasks` finds query calls during the build, asks the
 provider to compile them, and writes the interceptors.
 
+!!! warning "Experimental support"
+
+    Precompiled-query and NativeAOT support relies on EF Core's internal precompilation APIs and
+    a version-specific rewrite of EF Core-generated code. It is covered by CI for the supported EF
+    Core versions, but it is not yet a production-stability guarantee. Test it against your model
+    and workload before adopting it in a production deployment.
+
 ## Project setup
 
 Add the EF Core Tasks package at the same version as your other EF Core packages, enable NativeAOT,

@@ -15,45 +15,6 @@ namespace EntityFrameworkCore.DynamoDb.AotTests;
 
 public class PrecompiledQueryGenerationTests
 {
-    [Theory]
-    [InlineData("", "Expected preamble")]
-    [InlineData(
-        "            var relationalModel = dbContext.Model.GetRelationalModel();\n",
-        "Expected preamble")]
-    public void Generated_executor_preamble_drift_fails_with_an_actionable_error(
-        string generatedCode,
-        string expectedMessage)
-    {
-        var action = () => RewriteExecutorPreamble(generatedCode);
-
-        var exception = action.Should().Throw<InvalidOperationException>().Which;
-
-        exception
-            .Message
-            .Should()
-            .Contain($"EF Core {typeof(PrecompiledQueryCodeGenerator).Assembly.GetName().Version}");
-        exception.Message.Should().Contain(expectedMessage);
-    }
-
-    [Fact]
-    public void Generated_executor_preamble_rejects_remaining_relational_references()
-    {
-        var action = () => RewriteExecutorPreamble(
-            RelationalExecutorPreamble + "RelationalMaterializerLiftableConstantContext");
-
-        action.Should().Throw<InvalidOperationException>().WithMessage("*unrecognized relational*");
-    }
-
-    [Fact]
-    public void Generated_executor_preamble_replaces_the_relational_runtime_dependencies()
-    {
-        var rewritten = RewriteExecutorPreamble(RelationalExecutorPreamble);
-
-        rewritten.Should().Contain("MaterializerLiftableConstantContext");
-        rewritten.Should().NotContain("RelationalMaterializerLiftableConstantContext");
-        rewritten.Should().NotContain("IRelationalTypeMappingSource");
-    }
-
     [Fact]
     public void Generated_runtime_resolves_an_inherited_property_once()
     {
@@ -83,7 +44,8 @@ public class PrecompiledQueryGenerationTests
     }
 
     [Fact(Timeout = 60_000)]
-    public async Task Generated_interceptor_compiles()
+    public async Task
+        Generated_interceptor_compiles_and_upstream_executor_template_matches_rewrite_contract()
     {
         const string source = """
                               using System.Collections.Generic;
@@ -182,8 +144,26 @@ public class PrecompiledQueryGenerationTests
             await using var context = (DbContext)Activator.CreateInstance(
                 assembly.GetType("GeneratedQueryTest.TestContext")!,
                 options)!;
-            var errors = new List<PrecompiledQueryCodeGenerator.QueryPrecompilationError>();
             using var workspace = new AdhocWorkspace();
+            var upstreamErrors = new List<PrecompiledQueryCodeGenerator.QueryPrecompilationError>();
+            var upstreamGeneratedFiles =
+                new PrecompiledQueryCodeGenerator().GeneratePrecompiledQueries(
+                    compilation,
+                    SyntaxGenerator.GetGenerator(workspace, LanguageNames.CSharp),
+                    context,
+                    new Dictionary<MemberInfo, QualifiedName>(),
+                    upstreamErrors,
+                    new HashSet<string>(),
+                    assembly);
+
+            upstreamErrors.Should().BeEmpty();
+            upstreamGeneratedFiles.Should().NotBeEmpty();
+            string
+                .Join(Environment.NewLine, upstreamGeneratedFiles.Select(file => file.Code))
+                .Should()
+                .Contain(RelationalExecutorPreamble);
+
+            var errors = new List<PrecompiledQueryCodeGenerator.QueryPrecompilationError>();
             var generatedFiles =
                 new DynamoPrecompiledQueryCodeGenerator().GeneratePrecompiledQueries(
                     compilation,
@@ -293,22 +273,6 @@ public class PrecompiledQueryGenerationTests
             "                dbContext.GetService<RelationalCommandBuilderDependencies>());",
             ""
         ]);
-
-    private static string RewriteExecutorPreamble(string code)
-    {
-        var method = typeof(DynamoPrecompiledQueryCodeGenerator).GetMethod(
-            "RewriteExecutorPreamble",
-            BindingFlags.NonPublic | BindingFlags.Static)!;
-        try
-        {
-            return (string)method.Invoke(null, [code])!;
-        }
-        catch (TargetInvocationException exception) when (
-            exception.InnerException is InvalidOperationException innerException)
-        {
-            throw innerException;
-        }
-    }
 
     private sealed class InheritanceContext(DbContextOptions<InheritanceContext> options)
         : DbContext(options)
