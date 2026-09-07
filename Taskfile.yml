@@ -129,16 +129,17 @@ tasks:
       - dotnet test tests/EntityFrameworkCore.DynamoDb.AotTests/EntityFrameworkCore.DynamoDb.AotTests.csproj --configuration "{{.CONFIG}}" --no-build
 
   test:aot-publish:
-    desc: Publish and run the EF10 NativeAOT smoke app
+    desc: Publish and run the NativeAOT smoke app for CONFIG (default Release EF10)
     silent: true
     dir: testapps/EntityFrameworkCore.DynamoDb.NativeAotSmoke
     vars:
+      CONFIG: '{{.CONFIG | default "Release EF10"}}'
       RID:
         sh: dotnet --info | awk '/RID:/ { print $2; exit }'
       OUTPUT: '{{.ROOT_DIR}}/artifacts/nativeaot-smoke'
     cmds:
       - dotnet restore EntityFrameworkCore.DynamoDb.NativeAotSmoke.csproj --runtime {{.RID}}
-      - dotnet publish EntityFrameworkCore.DynamoDb.NativeAotSmoke.csproj --configuration Release --runtime {{.RID}} --no-restore --output {{.OUTPUT}}
+      - dotnet publish EntityFrameworkCore.DynamoDb.NativeAotSmoke.csproj --configuration "{{.CONFIG}}" --runtime {{.RID}} --no-restore --output {{.OUTPUT}}
       - '{{.OUTPUT}}/EntityFrameworkCore.DynamoDb.NativeAotSmoke'
 
   test:spec:

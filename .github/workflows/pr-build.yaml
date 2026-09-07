@@ -40,6 +40,8 @@ jobs:
         include:
           - configuration: "Release EF10"
             dotnetVersion: "10.0.x"
+          - configuration: "Release EF11"
+            dotnetVersion: "11.0.x"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
