@@ -89,10 +89,12 @@ task test:aot-generation CONFIG="Debug EF10"
 task test:aot-generation CONFIG="Debug EF11"
 ```
 
-Then publish and run the EF10 native smoke app with `task test:aot-publish`. The smoke app checks
+The provider verifies the generated EF Core 10 and EF Core 11 executor templates in its
+configuration-specific generation tests. Then publish and run the EF10 native smoke app with
+`task test:aot-publish`. The smoke app checks
 the generated PartiQL statement, ordered parameters, and materialized values. If interceptor
-generation reports that EF Core's executor template changed, upgrade the provider rewrite and its
-compatibility tests together; do not bypass the failure.
+generation reports an incompatible EF Core version and expected executor preamble, upgrade the
+provider rewrite and its compatibility tests together; do not bypass the failure.
 
 For query translation details, see [How Queries Execute](how-queries-execute.md). For all provider
 restrictions, see [Limitations](../limitations.md).

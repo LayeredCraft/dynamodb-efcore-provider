@@ -16,17 +16,23 @@ namespace EntityFrameworkCore.DynamoDb.AotTests;
 public class PrecompiledQueryGenerationTests
 {
     [Theory]
-    [InlineData("", "template changed")]
+    [InlineData("", "Expected preamble")]
     [InlineData(
         "            var relationalModel = dbContext.Model.GetRelationalModel();\n",
-        "template changed")]
+        "Expected preamble")]
     public void Generated_executor_preamble_drift_fails_with_an_actionable_error(
         string generatedCode,
         string expectedMessage)
     {
         var action = () => RewriteExecutorPreamble(generatedCode);
 
-        action.Should().Throw<InvalidOperationException>().WithMessage($"*{expectedMessage}*");
+        var exception = action.Should().Throw<InvalidOperationException>().Which;
+
+        exception
+            .Message
+            .Should()
+            .Contain($"EF Core {typeof(PrecompiledQueryCodeGenerator).Assembly.GetName().Version}");
+        exception.Message.Should().Contain(expectedMessage);
     }
 
     [Fact]

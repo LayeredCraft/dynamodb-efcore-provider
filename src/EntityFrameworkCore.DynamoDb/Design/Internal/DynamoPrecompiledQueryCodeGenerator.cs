@@ -129,7 +129,9 @@ public sealed partial class DynamoPrecompiledQueryCodeGenerator : PrecompiledQue
         var matchCount = RelationalExecutorPreamble.Matches(code).Count;
         if (matchCount == 0)
             throw new InvalidOperationException(
-                "EF Core's precompiled-query executor template changed.");
+                $"EF Core {typeof(PrecompiledQueryCodeGenerator).Assembly.GetName().Version} "
+                + "generated an incompatible precompiled-query executor template. Expected preamble "
+                + "starts with 'var relationalModel = dbContext.Model.GetRelationalModel();'.");
 
         var rewrittenCode = RelationalExecutorPreamble.Replace(code, replacement);
         if (rewrittenCode.Contains(
