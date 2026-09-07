@@ -138,7 +138,7 @@ tasks:
         sh: dotnet --info | awk '/RID:/ { print $2; exit }'
       OUTPUT: '{{.ROOT_DIR}}/artifacts/nativeaot-smoke'
     cmds:
-      - dotnet restore EntityFrameworkCore.DynamoDb.NativeAotSmoke.csproj --runtime {{.RID}}
+      - dotnet restore EntityFrameworkCore.DynamoDb.NativeAotSmoke.csproj --runtime {{.RID}} -p:Configuration="{{.CONFIG}}"
       - dotnet publish EntityFrameworkCore.DynamoDb.NativeAotSmoke.csproj --configuration "{{.CONFIG}}" --runtime {{.RID}} --no-restore --output {{.OUTPUT}}
       - '{{.OUTPUT}}/EntityFrameworkCore.DynamoDb.NativeAotSmoke'
 
