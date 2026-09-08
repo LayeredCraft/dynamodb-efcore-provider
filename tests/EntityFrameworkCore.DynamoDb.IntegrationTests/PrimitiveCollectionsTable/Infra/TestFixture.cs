@@ -5,9 +5,15 @@ namespace EntityFrameworkCore.DynamoDb.IntegrationTests.PrimitiveCollectionsTabl
 public abstract class PrimitiveCollectionsTableTestFixture : DynamoTestFixtureBase
 {
     protected PrimitiveCollectionsTableTestFixture(DynamoContainerFixture fixture) : base(fixture)
-        => EnsureClassTableInitialized(
+    {
+        EnsureClassTableInitialized(
             PrimitiveCollectionsItemTable.TableName,
             PrimitiveCollectionsItemTable.CreateTable);
+
+        EnsureClassTableInitialized(
+            MutablePrimitiveCollectionsItemTable.TableName,
+            MutablePrimitiveCollectionsItemTable.CreateTable);
+    }
 
     public PrimitiveCollectionsDbContext Db
     {

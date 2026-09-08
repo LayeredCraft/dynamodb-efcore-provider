@@ -149,6 +149,29 @@ public class CompiledModelExecutionTests
             }
 
             actual.Should().BeEquivalentTo(expected);
+
+            var mutableExpected = new CompiledMutableCollectionItem
+            {
+                Pk = "MUTABLE#1",
+                Charges = new Dictionary<string, decimal> { ["tax"] = 2.5m },
+                Flags = [3, 9],
+                Scores = [4]
+            };
+
+            await using (var context = new CompiledCollectionContext(options))
+            {
+                context.MutableItems.Add(mutableExpected);
+                await context.SaveChangesAsync();
+            }
+
+            CompiledMutableCollectionItem mutableActual;
+            await using (var context = new CompiledCollectionContext(options))
+            {
+                var pk = "MUTABLE#1";
+                mutableActual = await context.MutableItems.SingleAsync(item => item.Pk == pk);
+            }
+
+            mutableActual.Should().BeEquivalentTo(mutableExpected);
         }
         finally
         {
@@ -346,8 +369,12 @@ public sealed class CompiledCollectionContext(DbContextOptions<CompiledCollectio
 {
     public DbSet<CompiledCollectionItem> Items => Set<CompiledCollectionItem>();
 
+    public DbSet<CompiledMutableCollectionItem> MutableItems
+        => Set<CompiledMutableCollectionItem>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
-        => modelBuilder.Entity<CompiledCollectionItem>(entity =>
+    {
+        modelBuilder.Entity<CompiledCollectionItem>(entity =>
         {
             DynamoEntityTypeBuilderExtensions.ToTable(entity, "CompiledCollectionItems");
             entity.HasPartitionKey(item => item.Pk);
@@ -355,6 +382,13 @@ public sealed class CompiledCollectionContext(DbContextOptions<CompiledCollectio
                 .PrimitiveCollection(item => item.ConvertedIds)
                 .ElementType(e => e.HasConversion<string>());
         });
+
+        modelBuilder.Entity<CompiledMutableCollectionItem>(entity =>
+        {
+            DynamoEntityTypeBuilderExtensions.ToTable(entity, "CompiledCollectionItems");
+            entity.HasPartitionKey(item => item.Pk);
+        });
+    }
 }
 
 public sealed record CompiledCollectionItem(
@@ -364,3 +398,14 @@ public sealed record CompiledCollectionItem(
     Dictionary<string, decimal> Charges,
     List<int?> OptionalScores,
     List<Guid> ConvertedIds);
+
+public sealed class CompiledMutableCollectionItem
+{
+    public string Pk { get; set; } = string.Empty;
+
+    public Dictionary<string, decimal> Charges { get; set; } = [];
+
+    public HashSet<int> Flags { get; set; } = [];
+
+    public List<int> Scores { get; set; } = [];
+}
