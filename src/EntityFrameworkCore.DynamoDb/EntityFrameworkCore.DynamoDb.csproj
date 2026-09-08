@@ -30,6 +30,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="EntityFrameworkCore.DynamoDb.Tests" />
+    <InternalsVisibleTo Include="EntityFrameworkCore.DynamoDb.AotTests" />
   </ItemGroup>
 
   <ItemGroup>

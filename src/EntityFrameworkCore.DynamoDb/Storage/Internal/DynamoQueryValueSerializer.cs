@@ -1,128 +1,166 @@
-using System.Collections.Concurrent;
-using System.Linq.Expressions;
-using System.Reflection;
+using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using Amazon.DynamoDBv2.Model;
 
 namespace EntityFrameworkCore.DynamoDb.Storage.Internal;
 
 /// <summary>
-///     Compiles typed serializers for EF's object-shaped runtime value boundary.
+///     Serializes EF's object-shaped runtime value boundary through mapping-owned DynamoDB codecs.
 /// </summary>
 /// <remarks>
-///     EF hands query constants and parameters to type mappings as boxed <see cref="object" />
-///     values. This adapter is the only intended query serialization boxing boundary: it unboxes
-///     once to the source CLR type, then resumes the mapping-owned expression pipeline so value
-///     converters use typed expressions instead of <c>ConvertToProvider(object)</c>.
+///     <para>
+///         EF hands query constants and parameters to type mappings as boxed <see cref="object" />
+///         values. This adapter is the only intended query serialization boxing boundary: it
+///         unboxes once to the source CLR type, then dispatches to hand-written codecs. No
+///         expression trees are built here, so precompiled-query execution stays NativeAOT-safe
+///         (no <c>Expression.Compile</c> and no runtime <c>MakeGenericMethod</c>).
+///     </para>
+///     <para>
+///         Numeric promotions (for example a <see cref="short" /> property compared to an
+///         <see cref="int" /> parameter) serialize using the runtime source type, preserving the
+///         numeric DynamoDB value without unboxing as the property's CLR type.
+///     </para>
 /// </remarks>
 internal static class DynamoQueryValueSerializer
 {
-    private static readonly MethodInfo ConvertProviderValueToAttributeValueMethod =
-        typeof(DynamoWireValueConversion).GetMethod(
-            nameof(DynamoWireValueConversion.ConvertProviderValueToAttributeValue))!;
-
-    private static readonly MethodInfo GenerateBoxedConstantMethod =
-        typeof(DynamoWireValueConversion).GetMethod(
-            nameof(DynamoWireValueConversion.GenerateBoxedConstant))!;
-
-    /// <summary>Serializes a boxed runtime value through a mapping-owned typed delegate cache.</summary>
+    /// <summary>Serializes a boxed runtime value to a DynamoDB attribute value.</summary>
     /// <param name="mapping">DynamoDB type mapping that owns conversion metadata.</param>
-    /// <param name="serializers">Per-mapping serializer cache keyed by runtime source type.</param>
     /// <param name="value">Boxed runtime value to serialize.</param>
     /// <param name="sourceType">Known runtime/source CLR type, or <see langword="null" /> to infer it.</param>
     /// <returns>DynamoDB attribute value for the runtime value.</returns>
     internal static AttributeValue CreateAttributeValue(
         DynamoTypeMapping mapping,
-        ConcurrentDictionary<Type, Func<object?, AttributeValue>> serializers,
         object? value,
         Type? sourceType = null)
     {
         if (value is null && mapping.Converter?.ConvertsNulls != true)
             return new AttributeValue { NULL = true };
 
-        sourceType = value is null ? mapping.ClrType : sourceType ?? value.GetType();
-        return serializers.GetOrAdd(
-            sourceType,
-            static (key, mapping) => CompileAttributeValueSerializer(mapping, key),
-            mapping)(value);
+        sourceType = NormalizeSourceType(value, sourceType, mapping.ClrType);
+
+        if (CanUseMappingExpression(mapping, sourceType))
+            return RequireReaderWriter(mapping, false).WriteBoxed(value);
+
+        if (mapping.Converter is null && IsNumericCompatible(mapping.ClrType, sourceType))
+            return CreateNumericAttributeValue(value!, sourceType);
+
+        if (mapping.Converter is not null)
+            return RequireReaderWriter(mapping, false)
+                .WriteBoxed(ConvertToMappingClrType(value!, mapping.ClrType));
+
+        throw CreateCoercionError(mapping.ClrType, sourceType);
     }
 
-    /// <summary>Generates a PartiQL literal through a mapping-owned typed delegate cache.</summary>
+    /// <summary>Generates a PartiQL literal for a boxed runtime value.</summary>
     /// <param name="mapping">DynamoDB type mapping that owns conversion metadata.</param>
-    /// <param name="serializers">Per-mapping literal serializer cache keyed by runtime source type.</param>
     /// <param name="value">Boxed runtime value to render.</param>
     /// <param name="sourceType">Known runtime/source CLR type, or <see langword="null" /> to infer it.</param>
     /// <returns>PartiQL literal for the runtime value.</returns>
     internal static string GenerateLiteral(
         DynamoTypeMapping mapping,
-        ConcurrentDictionary<Type, Func<object?, string>> serializers,
         object? value,
         Type? sourceType = null)
     {
         if (value is null && mapping.Converter?.ConvertsNulls != true)
             return "NULL";
 
-        sourceType = value is null ? mapping.ClrType : sourceType ?? value.GetType();
-        return serializers.GetOrAdd(
-            sourceType,
-            static (key, mapping) => CompileLiteralSerializer(mapping, key),
-            mapping)(value);
-    }
+        sourceType = NormalizeSourceType(value, sourceType, mapping.ClrType);
 
-    private static Func<object?, AttributeValue> CompileAttributeValueSerializer(
-        DynamoTypeMapping mapping,
-        Type sourceType)
-    {
-        var valueParameter = Expression.Parameter(typeof(object), "value");
-        var typedValue = Expression.Convert(valueParameter, sourceType);
-        var body = CreateAttributeValueBody(mapping, typedValue, sourceType);
-        return Expression.Lambda<Func<object?, AttributeValue>>(body, valueParameter).Compile();
-    }
-
-    private static Func<object?, string> CompileLiteralSerializer(
-        DynamoTypeMapping mapping,
-        Type sourceType)
-    {
-        var valueParameter = Expression.Parameter(typeof(object), "value");
-        var typedValue = Expression.Convert(valueParameter, sourceType);
-        var body = CreateLiteralBody(mapping, typedValue, sourceType);
-        return Expression.Lambda<Func<object?, string>>(body, valueParameter).Compile();
-    }
-
-    private static Expression CreateAttributeValueBody(
-        DynamoTypeMapping mapping,
-        Expression typedValue,
-        Type sourceType)
-    {
         if (CanUseMappingExpression(mapping, sourceType))
-            return mapping.CreateAttributeValueExpression(typedValue);
+            return RequireReaderWriter(mapping, true).ToPartiQlLiteralBoxed(value);
 
-        // Numeric promotions (for example short property compared to int parameter) should stay
-        // numeric DynamoDB values without unboxing the runtime value as the property's CLR type.
         if (mapping.Converter is null && IsNumericCompatible(mapping.ClrType, sourceType))
-            return Expression.Call(
-                ConvertProviderValueToAttributeValueMethod.MakeGenericMethod(sourceType),
-                typedValue);
+            // Inline constants follow the same source-type formatting rule as AttributeValues.
+            return DynamoWireValueConversion.GenerateBoxedConstant(value);
 
-        return mapping.CreateAttributeValueExpression(
-            Expression.Convert(typedValue, mapping.ClrType));
+        if (mapping.Converter is not null)
+            return RequireReaderWriter(mapping, true)
+                .ToPartiQlLiteralBoxed(ConvertToMappingClrType(value!, mapping.ClrType));
+
+        throw CreateCoercionError(mapping.ClrType, sourceType);
     }
 
-    private static Expression CreateLiteralBody(
-        DynamoTypeMapping mapping,
-        Expression typedValue,
-        Type sourceType)
+    private static Type NormalizeSourceType(object? value, Type? sourceType, Type clrType)
     {
-        if (CanUseMappingExpression(mapping, sourceType))
-            return mapping.CreatePartiQlLiteralExpression(typedValue);
+        var resolvedType = value is null ? clrType : sourceType ?? value.GetType();
 
-        // Inline constants follow the same numeric-promotion rule as AttributeValue parameters.
-        if (mapping.Converter is null && IsNumericCompatible(mapping.ClrType, sourceType))
-            return Expression.Call(
-                GenerateBoxedConstantMethod,
-                Expression.Convert(typedValue, typeof(object)));
+        if (value is not null
+                && Nullable.GetUnderlyingType(resolvedType) is { } underlyingSourceType)
+            // A boxed nullable value is the boxed underlying, so dispatch on the runtime type.
+            return underlyingSourceType;
 
-        return mapping.CreatePartiQlLiteralExpression(
-            Expression.Convert(typedValue, mapping.ClrType));
+        return resolvedType;
+    }
+
+    private static DynamoValueReaderWriter RequireReaderWriter(
+        DynamoTypeMapping mapping,
+        bool valueExpressionType)
+        => mapping.ReaderWriter
+            ?? throw new NotSupportedException(
+                $"CLR type '{mapping.ClrType.Name}' is not supported for DynamoDB "
+                + (valueExpressionType
+                    ? "PartiQL constant generation."
+                    : "AttributeValue serialization."));
+
+    private static AttributeValue CreateNumericAttributeValue(object value, Type sourceType)
+        => sourceType.IsEnum
+            // Boxed enum values of any enum type share the object instantiation, which formats
+            // via FormatEnum inside the wire conversion.
+            ? DynamoWireValueConversion.ConvertProviderValueToAttributeValue<object>(value)
+            : sourceType switch
+            {
+                _ when sourceType == typeof(byte) => DynamoWireValueConversion
+                    .ConvertProviderValueToAttributeValue<byte>((byte)value),
+                _ when sourceType == typeof(sbyte) => DynamoWireValueConversion
+                    .ConvertProviderValueToAttributeValue<sbyte>((sbyte)value),
+                _ when sourceType == typeof(short) => DynamoWireValueConversion
+                    .ConvertProviderValueToAttributeValue<short>((short)value),
+                _ when sourceType == typeof(ushort) => DynamoWireValueConversion
+                    .ConvertProviderValueToAttributeValue<ushort>((ushort)value),
+                _ when sourceType == typeof(int) => DynamoWireValueConversion
+                    .ConvertProviderValueToAttributeValue<int>((int)value),
+                _ when sourceType == typeof(uint) => DynamoWireValueConversion
+                    .ConvertProviderValueToAttributeValue<uint>((uint)value),
+                _ when sourceType == typeof(long) => DynamoWireValueConversion
+                    .ConvertProviderValueToAttributeValue<long>((long)value),
+                _ when sourceType == typeof(ulong) => DynamoWireValueConversion
+                    .ConvertProviderValueToAttributeValue<ulong>((ulong)value),
+                _ when sourceType == typeof(float) => DynamoWireValueConversion
+                    .ConvertProviderValueToAttributeValue<float>((float)value),
+                _ when sourceType == typeof(double) => DynamoWireValueConversion
+                    .ConvertProviderValueToAttributeValue<double>((double)value),
+                _ when sourceType == typeof(decimal) => DynamoWireValueConversion
+                    .ConvertProviderValueToAttributeValue<decimal>((decimal)value),
+                // IsNumericCompatible guarantees a numeric source type; the fallthrough is
+                // defensive.
+                _ => throw CreateCoercionError(typeof(object), sourceType)
+            };
+
+    /// <summary>
+    ///     Replicates the expression pipeline's <c>Expression.Convert</c> fallback for converter
+    ///     mappings whose runtime value type does not match the mapped model type (for example an
+    ///     enum constant boxed as its underlying integer, or a boxed value passed as
+    ///     <see cref="object" />), without building expression trees.
+    /// </summary>
+    private static object ConvertToMappingClrType(object value, Type targetType)
+    {
+        var runtimeType = value.GetType();
+
+        if (targetType == runtimeType)
+            return value;
+
+        var effectiveTarget = Nullable.GetUnderlyingType(targetType) ?? targetType;
+        if (effectiveTarget == runtimeType || targetType.IsAssignableFrom(runtimeType))
+            return value;
+
+        if (targetType.IsEnum && DynamoWireValueConversion.IsIntegralType(runtimeType))
+            return Enum.ToObject(targetType, value);
+
+        if (DynamoWireValueConversion.IsNumericType(effectiveTarget)
+            && DynamoWireValueConversion.IsNumericType(runtimeType))
+            return Convert.ChangeType(value, effectiveTarget, CultureInfo.InvariantCulture);
+
+        throw CreateCoercionError(effectiveTarget, runtimeType);
     }
 
     private static bool CanUseMappingExpression(DynamoTypeMapping mapping, Type sourceType)
@@ -141,4 +179,9 @@ internal static class DynamoQueryValueSerializer
         return DynamoWireValueConversion.IsNumericType(nonNullableMappingType)
             && DynamoWireValueConversion.IsNumericType(nonNullableSourceType);
     }
+
+    private static InvalidOperationException CreateCoercionError(Type targetType, Type sourceType)
+        // Match the framework message shape callers previously observed from expression-tree
+        // construction so failure behavior is stable across the AOT rewrite.
+        => new($"No coercion operator is defined between types '{sourceType}' and '{targetType}'.");
 }
