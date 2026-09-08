@@ -471,6 +471,20 @@ public static class DynamoGeneratedQueryRuntime
                 return default!;
             }
 
+            // A NULL wire value must materialize as the CLR default for the requested reader
+            // type. Nullable properties read through converted wrappers lose the null marker
+            // otherwise (default(provider type) is boxed as a non-null value), so resolve the
+            // missing value here, before any wrapper-specific read runs.
+            if (!readerWriter.HasValue(attributeValue))
+            {
+                if (required)
+                    throw new InvalidOperationException(
+                        $"Required property '{propertyPath}' did not contain a value for expected "
+                        + $"DynamoDB wire member '{readerWriter.WireMemberName}'.");
+
+                return default!;
+            }
+
             if (readerWriter is DynamoValueReaderWriter<T> typedReaderWriter)
                 return typedReaderWriter.Read(attributeValue, propertyPath, required, property);
 
