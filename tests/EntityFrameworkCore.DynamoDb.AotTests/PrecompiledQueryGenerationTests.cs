@@ -50,6 +50,30 @@ public class PrecompiledQueryGenerationTests
             .WithMessage("*BaseItem.Missing*was not found*");
     }
 
+    [Fact]
+    public void Generated_runtime_resolves_properties_by_full_type_name_when_short_names_collide()
+    {
+        using var context = new DuplicateNameContext(
+            new DbContextOptionsBuilder<DuplicateNameContext>().UseDynamo().Options);
+
+        var first = ResolveProperty(
+            context.Model,
+            typeof(First.Widget).FullName!,
+            nameof(First.Widget.Pk));
+        first.DeclaringType.Name.Should().Be(typeof(First.Widget).FullName);
+
+        var second = ResolveProperty(
+            context.Model,
+            typeof(Second.Widget).FullName!,
+            nameof(Second.Widget.Pk));
+        second.DeclaringType.Name.Should().Be(typeof(Second.Widget).FullName);
+
+        // Full-name identity must be required: a short-name lookup is ambiguous and must not
+        // silently match one of the colliding entity types.
+        var action = () => ResolveProperty(context.Model, "Widget", nameof(First.Widget.Pk));
+        action.Should().Throw<InvalidOperationException>().WithMessage("*Widget.Pk*was not found*");
+    }
+
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task
         Generated_interceptor_compiles_and_upstream_executor_template_matches_rewrite_contract()
@@ -532,6 +556,24 @@ public class PrecompiledQueryGenerationTests
     private sealed class DerivedItem : BaseItem { }
 
     private sealed class SiblingItem : BaseItem { }
+
+    private sealed class DuplicateNameContext(DbContextOptions<DuplicateNameContext> options)
+        : DbContext(options)
+    {
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<First.Widget>(entity =>
+            {
+                entity.HasPartitionKey(item => item.Pk);
+                DynamoEntityTypeBuilderExtensions.ToTable(entity, "FirstWidgets");
+            });
+            modelBuilder.Entity<Second.Widget>(entity =>
+            {
+                entity.HasPartitionKey(item => item.Pk);
+                DynamoEntityTypeBuilderExtensions.ToTable(entity, "SecondWidgets");
+            });
+        }
+    }
 
     private enum TestStatus
     {
