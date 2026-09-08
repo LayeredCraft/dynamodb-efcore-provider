@@ -44,6 +44,13 @@ falls back to the .NET expression interpreter, matching EF Core's own NativeAOT 
 translation, parameter serialization, and materialization codecs themselves use generated or
 hand-written code only.
 
+Precompiled query constants and parameters must bind to a mapped entity property. The generated
+code resolves each value's type mapping through the property that owns it (including element
+mappings of primitive collections, for example `Contains` over a `List<T>` attribute). A query
+value whose type mapping is not associated with any mapped property fails at precompile time with
+an `InvalidOperationException` instead of silently deferring the failure to first query execution,
+where it would use reflection that is not supported under NativeAOT.
+
 See [Precompiled Queries and NativeAOT](querying/precompiled-queries.md) for supported setup and
 verification.
 

@@ -403,37 +403,48 @@ public static class DynamoGeneratedQueryRuntime
 #pragma warning restore EF9102
 
     /// <summary>Resolves the exact DynamoDB mapping used by generated command parameters.</summary>
+    /// <remarks>
+    ///     Generated code must bind every mapping to its owning model property (optionally through
+    ///     an element-mapping chain). The previous CLR-type <c>FindMapping</c> fallback built codecs
+    ///     via <c>MakeGenericMethod</c>/<c>Activator.CreateInstance</c> reflection, which fails under
+    ///     NativeAOT at first query execution, so it was removed in favor of fail-fast errors.
+    /// </remarks>
     public static DynamoTypeMapping ResolveTypeMapping(
         MaterializerLiftableConstantContext context,
         Type clrType,
-        string? declaringTypeName,
-        string? propertyName)
+        string declaringTypeName,
+        string propertyName,
+        int elementTypeMappingDepth = 0)
     {
-        if (declaringTypeName is not null && propertyName is not null)
-            return ResolveProperty(context.Dependencies.Model, declaringTypeName, propertyName)
-                    .GetTypeMapping() as DynamoTypeMapping
-                ?? throw new InvalidOperationException(
-                    $"Property '{declaringTypeName}.{propertyName}' does not use a DynamoDB type mapping.");
+        var property = ResolveProperty(context.Dependencies.Model, declaringTypeName, propertyName);
+        var mapping = property.GetTypeMapping() as DynamoTypeMapping;
+        for (var index = 0; index < elementTypeMappingDepth && mapping is not null; index++)
+            mapping = mapping.ElementTypeMapping as DynamoTypeMapping;
 
-        return context.Dependencies.TypeMappingSource.FindMapping(clrType) as DynamoTypeMapping
+        return mapping
             ?? throw new InvalidOperationException(
-                $"CLR type '{clrType.Name}' does not use a DynamoDB type mapping.");
+                $"Property '{declaringTypeName}.{propertyName}' does not use a DynamoDB type mapping "
+                + $"at element depth {elementTypeMappingDepth}.");
     }
 
     /// <summary>Creates a property-specific reader used by a generated row shaper.</summary>
     public static Func<Dictionary<string, AttributeValue>, T> CreateValueReader<T>(
         MaterializerLiftableConstantContext context,
         Type clrType,
-        string? declaringTypeName,
-        string? propertyName,
+        string declaringTypeName,
+        string propertyName,
+        int elementTypeMappingDepth,
         string attributeName,
         string propertyPath,
         bool required)
     {
-        var property = declaringTypeName is not null && propertyName is not null
-            ? ResolveProperty(context.Dependencies.Model, declaringTypeName, propertyName)
-            : null;
-        var typeMapping = ResolveTypeMapping(context, clrType, declaringTypeName, propertyName);
+        var property = ResolveProperty(context.Dependencies.Model, declaringTypeName, propertyName);
+        var typeMapping = ResolveTypeMapping(
+            context,
+            clrType,
+            declaringTypeName,
+            propertyName,
+            elementTypeMappingDepth);
 
         return CreateValueReader<T>(typeMapping, property, attributeName, propertyPath, required);
     }

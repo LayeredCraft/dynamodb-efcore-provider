@@ -6,6 +6,7 @@ using EntityFrameworkCore.DynamoDb.Infrastructure;
 using EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using EntityFrameworkCore.DynamoDb.Storage;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Storage;
 using static System.Linq.Expressions.Expression;
@@ -234,22 +235,58 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
         DynamoTypeMapping typeMapping,
         ParameterExpression context)
     {
-        var property =
-            QueryCompilationContext
-                .Model
-                .GetEntityTypes()
-                .SelectMany(static entityType => entityType.GetFlattenedProperties())
-                .FirstOrDefault(property
-                    => ReferenceEquals(property.GetTypeMapping(), typeMapping));
+        // Bind the segment mapping to its owning model property so generated code resolves the
+        // mapping through the (compiled-model-primed) property mapping instead of the
+        // reflection-based FindMapping fallback, which crashes under NativeAOT at first query.
+        // Element mappings (e.g. Contains over a native primitive collection) are bound to the
+        // property that owns the collection plus the element depth in its mapping chain.
+        if (FindOwningPropertyBinding(typeMapping) is not { } binding)
+            throw new InvalidOperationException(
+                $"Cannot precompile this query: a query constant or parameter uses a type mapping "
+                + $"for CLR type '{typeMapping.ClrType.Name}' that is not associated with any model "
+                + $"property. Rewrite the query so the value can be compared against a mapped "
+                + $"property, or map the type on an entity property.");
 
+        var (property, elementDepth) = binding;
         return Call(
             typeof(DynamoGeneratedQueryRuntime),
             nameof(DynamoGeneratedQueryRuntime.ResolveTypeMapping),
             Type.EmptyTypes,
             context,
             Constant(typeMapping.ClrType, typeof(Type)),
-            Constant(property?.DeclaringType.Name, typeof(string)),
-            Constant(property?.Name, typeof(string)));
+            Constant(property.DeclaringType.Name, typeof(string)),
+            Constant(property.Name, typeof(string)),
+            Constant(elementDepth));
+    }
+
+    /// <summary>
+    ///     Finds the model property whose mapping (or one of its element mappings) is the given
+    ///     mapping instance, returning the property and the element depth in its mapping chain.
+    /// </summary>
+    private (IProperty Property, int ElementDepth)? FindOwningPropertyBinding(
+        DynamoTypeMapping typeMapping)
+    {
+        var properties = QueryCompilationContext
+            .Model
+            .GetEntityTypes()
+            .SelectMany(static entityType => entityType.GetFlattenedProperties())
+            .Distinct<IProperty>(ReferenceEqualityComparer.Instance);
+
+        foreach (var property in properties)
+        {
+            var depth = 0;
+            for (var mapping = property.GetTypeMapping() as DynamoTypeMapping;
+                mapping is not null;
+                mapping = mapping.ElementTypeMapping as DynamoTypeMapping)
+            {
+                if (ReferenceEquals(mapping, typeMapping))
+                    return (property, depth);
+
+                depth++;
+            }
+        }
+
+        return null;
     }
 #pragma warning restore EF9100
 

@@ -848,6 +848,19 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
                     => candidate.GetAttributeName() == propertyName
                     && ReferenceEquals(candidate.GetTypeMapping(), typeMapping));
 
+            // Bind the mapping to an owning property (optionally through an element-mapping
+            // chain) so generated code never resolves through the reflection-based FindMapping
+            // fallback, which is AOT-unsafe at first query execution.
+            int elementDepth;
+            if (property is not null)
+                elementDepth = 0;
+            else
+                (property, elementDepth) = FindOwningPropertyBinding(generatedTypeMapping)
+                    ?? throw new InvalidOperationException(
+                        $"Cannot precompile this query: a projected value uses a type mapping for "
+                        + $"CLR type '{generatedTypeMapping.ClrType.Name}' that is not associated "
+                        + $"with any model property.");
+
             var readerType = typeof(Func<,>).MakeGenericType(
                 typeof(Dictionary<string, AttributeValue>),
                 type);
@@ -863,8 +876,9 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
                         CreateRuntimeValueReaderMethod.MakeGenericMethod(type),
                         context,
                         Constant(type, typeof(Type)),
-                        Constant(property?.DeclaringType.Name, typeof(string)),
-                        Constant(property?.Name, typeof(string)),
+                        Constant(property.DeclaringType.Name, typeof(string)),
+                        Constant(property.Name, typeof(string)),
+                        Constant(elementDepth),
                         Constant(propertyName),
                         Constant(propertyPath),
                         Constant(required)),
@@ -942,6 +956,35 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
                 context),
             "dynamoEmptyValueBuffer",
             typeof(ValueBuffer));
+    }
+
+    /// <summary>
+    ///     Finds the model property whose mapping (or one of its element mappings) is the given
+    ///     mapping instance, returning the property and the element depth in its mapping chain.
+    /// </summary>
+    private (IProperty Property, int ElementDepth)? FindOwningPropertyBinding(
+        DynamoTypeMapping typeMapping)
+    {
+        var properties = model
+            .GetEntityTypes()
+            .SelectMany(static entityType => entityType.GetFlattenedProperties())
+            .Distinct<IProperty>(ReferenceEqualityComparer.Instance);
+
+        foreach (var property in properties)
+        {
+            var depth = 0;
+            for (var mapping = property.GetTypeMapping() as DynamoTypeMapping;
+                mapping is not null;
+                mapping = mapping.ElementTypeMapping as DynamoTypeMapping)
+            {
+                if (ReferenceEquals(mapping, typeMapping))
+                    return (property, depth);
+
+                depth++;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>

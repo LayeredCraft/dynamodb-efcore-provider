@@ -80,6 +80,7 @@ public class PrecompiledQueryGenerationTests
                               public string Name { get; set; } = null!;
                               public TestStatus Status { get; set; }
                               public List<string> Tags { get; set; } = [];
+                              public List<System.Guid> ExternalIds { get; set; } = [];
                               }
 
                               public enum TestStatus
@@ -116,6 +117,16 @@ public class PrecompiledQueryGenerationTests
                               .Where(item => keys.Contains(item.Pk))
                               .ToListAsync();
                               }
+
+                              public static async Task<List<TestItem>> ExecuteTagContains(
+                               DbContextOptions options)
+                               {
+                               await using var context = new TestContext(options);
+                               var id = new System.Guid("0f8fad5b-d9cb-469f-a165-70867728950e");
+                               return await context.Items
+                               .Where(item => item.ExternalIds.Contains(id))
+                               .ToListAsync();
+                               }
 
                               public static async Task<TestStatus> ExecuteConvertedProjection(DbContextOptions options)
                               {
@@ -188,6 +199,10 @@ public class PrecompiledQueryGenerationTests
             generatedCode.Should().Contain("CreateQueryTemplate");
             generatedCode.Should().Contain("CreateValueReader");
             generatedCode.Should().Contain("InterceptsLocationAttribute(1,");
+            // Contains over a native primitive collection must bind the element mapping to the
+            // owning property (element depth 1) so runtime resolution never hits the AOT-unsafe
+            // FindMapping fallback.
+            generatedCode.Should().Contain("\"ExternalIds\", 1)");
             generatedCode.Should().NotContain("SelectExpressionJson");
             generatedCode.Should().NotContain("RelationalMaterializerLiftableConstantContext");
 
