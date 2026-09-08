@@ -43,7 +43,8 @@ public sealed partial class DynamoPrecompiledQueryCodeGenerator : PrecompiledQue
 
         foreach (var generatedFile in generatedFiles)
             generatedFile.Code = RewriteLegacyInterceptLocations(
-                RewriteGeneratedFilePreamble(RewriteExecutorPreamble(generatedFile.Code)),
+                RewriteGeneratedFilePreamble(
+                    RewriteExecutorPreamble(generatedFile.Code, generatedFile.Path)),
                 compilation,
                 cancellationToken);
 
@@ -117,7 +118,7 @@ public sealed partial class DynamoPrecompiledQueryCodeGenerator : PrecompiledQue
                 "public InterceptsLocationAttribute(int version, string data) { }");
     }
 
-    private static string RewriteExecutorPreamble(string code)
+    private static string RewriteExecutorPreamble(string code, string hintName)
     {
         var lineEnding = code.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
         var replacement = string.Join(
@@ -138,7 +139,8 @@ public sealed partial class DynamoPrecompiledQueryCodeGenerator : PrecompiledQue
             "RelationalMaterializerLiftableConstantContext",
             StringComparison.Ordinal))
             throw new InvalidOperationException(
-                "EF Core generated an unrecognized relational query-executor preamble.");
+                "EF Core generated an unrecognized relational query-executor preamble "
+                + $"(hint: {hintName}).");
 
         return rewrittenCode;
     }
