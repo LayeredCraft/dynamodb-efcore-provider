@@ -4,27 +4,78 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 
-await using var server = FakeDynamoServer.Start();
-Environment.SetEnvironmentVariable("AWS_ACCESS_KEY_ID", "local");
-Environment.SetEnvironmentVariable("AWS_SECRET_ACCESS_KEY", "local");
-Environment.SetEnvironmentVariable("DYNAMO_AOT_SMOKE_URL", server.ServiceUrl);
+await using (var server = FakeDynamoServer.Start())
+{
+    Environment.SetEnvironmentVariable("AWS_ACCESS_KEY_ID", "local");
+    Environment.SetEnvironmentVariable("AWS_SECRET_ACCESS_KEY", "local");
+    Environment.SetEnvironmentVariable("DYNAMO_AOT_SMOKE_URL", server.ServiceUrl);
 
-var items = SmokeQueries.LoadItems();
-if (items is not
-    [
-        {
-            Pk: "tenant-1",
-            Name: "Native",
-            Status: SmokeStatus.Active,
-            Count: 42,
-            Enabled: true,
-            Payload: [1, 2, 3],
-            Aliases: ["aot"]
-        }
-    ])
-    throw new InvalidOperationException("The generated query returned an unexpected result.");
+    var expectedItem = new SmokeItem
+    {
+        Pk = "tenant-1",
+        Name = "Native",
+        Status = SmokeStatus.Active,
+        Count = 42,
+        Enabled = true,
+        Payload = [1, 2, 3],
+        Aliases = ["aot"]
+    };
 
-Console.WriteLine("NativeAOT generated synchronous query executed successfully.");
+    var items = SmokeQueries.LoadItems();
+    AssertSingleItem(items, expectedItem);
+    Console.WriteLine("NativeAOT generated synchronous query executed successfully.");
+    Console.Out.Flush();
+
+    var asyncItems = await SmokeQueries.LoadItemsAsync();
+    AssertSingleItem(asyncItems, expectedItem);
+    Console.WriteLine("NativeAOT generated asynchronous query executed successfully.");
+    Console.Out.Flush();
+
+    var activeItems = await SmokeQueries.LoadActiveItemsAsync();
+    AssertSingleItem(activeItems, expectedItem);
+    Console.WriteLine("NativeAOT converted-enum parameter query executed successfully.");
+    Console.Out.Flush();
+
+    var countItems = await SmokeQueries.LoadItemsByCountAsync();
+    AssertSingleItem(countItems, expectedItem);
+    Console.WriteLine("NativeAOT numeric parameter query executed successfully.");
+    Console.Out.Flush();
+
+    await using (var context = new SmokeContext())
+    {
+        context.Add(
+            new SmokeItem
+            {
+                Pk = "tenant-9",
+                Name = "Saved",
+                Status = SmokeStatus.Inactive,
+                Count = null,
+                Enabled = false,
+                Payload = [9],
+                Aliases = ["write"]
+            });
+        await context.SaveChangesAsync();
+    }
+
+    Console.WriteLine("NativeAOT SaveChanges write executed successfully.");
+    Console.Out.Flush();
+}
+
+static void AssertSingleItem(List<SmokeItem> items, SmokeItem expected)
+{
+    if (items.Count != 1)
+        throw new InvalidOperationException($"Expected one item but received {items.Count}.");
+
+    var actual = items[0];
+    if (actual.Pk != expected.Pk
+        || actual.Name != expected.Name
+        || actual.Status != expected.Status
+        || actual.Count != expected.Count
+        || actual.Enabled != expected.Enabled
+        || !actual.Payload.SequenceEqual(expected.Payload)
+        || !actual.Aliases.SequenceEqual(expected.Aliases))
+        throw new InvalidOperationException("The generated query returned an unexpected result.");
+}
 
 public sealed class SmokeContext : DbContext
 {
@@ -70,6 +121,28 @@ internal static class SmokeQueries
             .Where(item => ((IEnumerable<string>)partitionKeys).Contains(item.Pk))
             .ToListAsync();
     }
+
+    internal static async Task<List<SmokeItem>> LoadActiveItemsAsync()
+    {
+        await using var context = new SmokeContext();
+        string partitionKey = "tenant-1";
+        var active = SmokeStatus.Active;
+        return await context
+            .Items
+            .Where(item => item.Pk == partitionKey && item.Status == active)
+            .ToListAsync();
+    }
+
+    internal static async Task<List<SmokeItem>> LoadItemsByCountAsync()
+    {
+        await using var context = new SmokeContext();
+        string partitionKey = "tenant-1";
+        int count = 42;
+        return await context
+            .Items
+            .Where(item => item.Pk == partitionKey && item.Count == count)
+            .ToListAsync();
+    }
 }
 
 public sealed class SmokeItem
@@ -85,14 +158,14 @@ public sealed class SmokeItem
 
 public enum SmokeStatus
 {
-    Active
+    Active,
+    Inactive
 }
 
 internal sealed class FakeDynamoServer : IAsyncDisposable
 {
-    private const string ExpectedStatement =
-        "SELECT \"pk\", \"$type\", \"aliases\", \"count\", \"enabled\", \"name\", \"payload\", \"status\"\n"
-        + "FROM \"AotSmokeItems\"\nWHERE \"pk\" IN [?, ?]";
+    private const string SelectPrefix = "SELECT \"pk\", \"$type\", \"aliases\", \"count\", "
+        + "\"enabled\", \"name\", \"payload\", \"status\"\nFROM \"AotSmokeItems\"";
 
     private const string ResponseBody =
         "{\"Items\":[{\"pk\":{\"S\":\"tenant-1\"},\"$type\":{\"S\":\"SmokeItem\"},"
@@ -101,15 +174,18 @@ internal sealed class FakeDynamoServer : IAsyncDisposable
         + "\"aliases\":{\"L\":[{\"S\":\"aot\"}]}}],"
         + "\"Count\":1,\"ScannedCount\":1}";
 
+    private const string WriteResponseBody = "{\"Items\":[],\"Count\":0,\"ScannedCount\":0}";
+
     private readonly TcpListener _listener;
     private readonly Task _requestTask;
+    private int _servedRequests;
 
     private FakeDynamoServer(TcpListener listener)
     {
         _listener = listener;
         var endpoint = (IPEndPoint)listener.LocalEndpoint;
         ServiceUrl = $"http://127.0.0.1:{endpoint.Port}";
-        _requestTask = HandleRequestAsync();
+        _requestTask = ServeRequestsAsync();
     }
 
     public string ServiceUrl { get; }
@@ -123,53 +199,45 @@ internal sealed class FakeDynamoServer : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        if (_requestTask.IsCompleted)
-        {
-            await _requestTask;
-            return;
-        }
-
         _listener.Stop();
         try
         {
             await _requestTask.WaitAsync(TimeSpan.FromSeconds(10));
         }
-        catch (SocketException) { }
+        catch (Exception exception) when (
+            exception is SocketException or OperationCanceledException)
+        {
+            // The listener stop cancels a pending accept after the final served request.
+        }
     }
 
-    private async Task HandleRequestAsync()
+    private const int ExpectedRequestCount = 5;
+
+    private async Task ServeRequestsAsync()
     {
-        using var client = await _listener.AcceptTcpClientAsync();
-        await using var stream = client.GetStream();
-        using var reader = new StreamReader(
-            stream,
-            Encoding.ASCII,
-            detectEncodingFromByteOrderMarks: false,
-            leaveOpen: true);
-
-        var headers = await ReadHeadersAsync(reader);
-        var requestBody = await ReadBodyAsync(reader, headers);
-        Exception? validationException = null;
-        try
+        while (_servedRequests < ExpectedRequestCount)
         {
-            ValidateRequest(headers, requestBody);
-        }
-        catch (Exception exception)
-        {
-            validationException = exception;
-        }
+            using var client = await _listener.AcceptTcpClientAsync();
+            await using var stream = client.GetStream();
+            using var reader = new StreamReader(
+                stream,
+                Encoding.ASCII,
+                detectEncodingFromByteOrderMarks: false,
+                leaveOpen: true);
 
-        var body = Encoding.UTF8.GetBytes(ResponseBody);
-        var responseHeaders = Encoding.ASCII.GetBytes(
-            "HTTP/1.1 200 OK\r\n"
-            + "Content-Type: application/x-amz-json-1.0\r\n"
-            + $"Content-Length: {body.Length}\r\n"
-            + "Connection: close\r\n\r\n");
-        await stream.WriteAsync(responseHeaders);
-        await stream.WriteAsync(body);
+            var headers = await ReadHeadersAsync(reader);
+            var requestBody = await ReadBodyAsync(reader, headers);
+            var isWrite = ValidateRequest(headers, requestBody, _servedRequests++);
 
-        if (validationException is not null)
-            throw validationException;
+            var body = Encoding.UTF8.GetBytes(isWrite ? WriteResponseBody : ResponseBody);
+            var responseHeaders = Encoding.ASCII.GetBytes(
+                "HTTP/1.1 200 OK\r\n"
+                + "Content-Type: application/x-amz-json-1.0\r\n"
+                + $"Content-Length: {body.Length}\r\n"
+                + "Connection: close\r\n\r\n");
+            await stream.WriteAsync(responseHeaders);
+            await stream.WriteAsync(body);
+        }
     }
 
     private static async Task<Dictionary<string, string>> ReadHeadersAsync(StreamReader reader)
@@ -218,17 +286,43 @@ internal sealed class FakeDynamoServer : IAsyncDisposable
         return new string(body);
     }
 
-    private static void ValidateRequest(
+    private static bool ValidateRequest(
         IReadOnlyDictionary<string, string> headers,
-        string requestBody)
+        string requestBody,
+        int requestIndex)
     {
         if (!headers.TryGetValue("X-Amz-Target", out var target)
             || target != "DynamoDB_20120810.ExecuteStatement")
-            throw new InvalidOperationException("Expected an ExecuteStatement request.");
+            throw new InvalidOperationException(
+                $"Expected an ExecuteStatement request but received '{target}'.");
 
         using var document = JsonDocument.Parse(requestBody);
         var root = document.RootElement;
-        AssertProperty(root, "Statement", ExpectedStatement);
+        var statement = root.GetProperty("Statement").GetString() ?? string.Empty;
+
+        if (statement.StartsWith("INSERT", StringComparison.Ordinal))
+        {
+            ValidateWriteRequest(root, statement);
+            return true;
+        }
+
+        if (requestIndex is 0 or 1)
+            ValidatePartitionKeyRequest(root, statement);
+        else if (requestIndex == 2)
+            ValidateStatusRequest(root, statement);
+        else if (requestIndex == 3)
+            ValidateCountRequest(root, statement);
+        else
+            throw new InvalidOperationException(
+                $"Received more read requests ({requestIndex + 1}) than expected.");
+
+        return false;
+    }
+
+    private static void ValidatePartitionKeyRequest(JsonElement root, string statement)
+    {
+        AssertStatement(statement, SelectPrefix + "\nWHERE \"pk\" IN [?, ?]");
+
         var parameters = root.GetProperty("Parameters");
         if (parameters.GetArrayLength() != 2)
             throw new InvalidOperationException(
@@ -236,6 +330,72 @@ internal sealed class FakeDynamoServer : IAsyncDisposable
 
         AssertProperty(parameters[0], "S", "tenant-1");
         AssertProperty(parameters[1], "S", "tenant-2");
+    }
+
+    private static void ValidateStatusRequest(JsonElement root, string statement)
+    {
+        AssertStatement(statement, SelectPrefix + "\nWHERE \"pk\" = ? AND \"status\" = ?");
+
+        var parameters = root.GetProperty("Parameters");
+        if (parameters.GetArrayLength() != 2)
+            throw new InvalidOperationException(
+                $"Expected two PartiQL parameters but received {parameters.GetArrayLength()}.");
+
+        AssertProperty(parameters[0], "S", "tenant-1");
+        AssertProperty(parameters[1], "S", nameof(SmokeStatus.Active));
+    }
+
+    private static void ValidateCountRequest(JsonElement root, string statement)
+    {
+        AssertStatement(statement, SelectPrefix + "\nWHERE \"pk\" = ? AND \"count\" = ?");
+
+        var parameters = root.GetProperty("Parameters");
+        if (parameters.GetArrayLength() != 2)
+            throw new InvalidOperationException(
+                $"Expected two PartiQL parameters but received {parameters.GetArrayLength()}.");
+
+        AssertProperty(parameters[0], "S", "tenant-1");
+        AssertProperty(parameters[1], "N", "42");
+    }
+
+    private static void ValidateWriteRequest(JsonElement root, string statement)
+    {
+        if (!statement.StartsWith("INSERT INTO \"AotSmokeItems\"", StringComparison.Ordinal)
+            || !statement.Contains("'pk': ?", StringComparison.Ordinal))
+            throw new InvalidOperationException(
+                $"Unexpected INSERT statement shape: '{statement}'.");
+
+        var parameters = root.GetProperty("Parameters");
+        if (parameters.GetArrayLength() < 8)
+            throw new InvalidOperationException(
+                $"Expected write parameters but received {parameters.GetArrayLength()}.");
+
+        var hasPartitionKey = false;
+        var hasStatus = false;
+        var hasNullCount = false;
+        foreach (var parameter in parameters.EnumerateArray())
+        {
+            if (parameter.TryGetProperty("S", out var stringValue)
+                && stringValue.GetString() == "tenant-9")
+                hasPartitionKey = true;
+            if (parameter.TryGetProperty("S", out stringValue)
+                && stringValue.GetString() == nameof(SmokeStatus.Inactive))
+                hasStatus = true;
+            if (parameter.TryGetProperty("NULL", out var nullValue) && nullValue.GetBoolean())
+                hasNullCount = true;
+        }
+
+        if (!hasPartitionKey || !hasStatus || !hasNullCount)
+            throw new InvalidOperationException(
+                "The SaveChanges write did not serialize the expected wire values "
+                + $"(pk={hasPartitionKey}, status={hasStatus}, nullCount={hasNullCount}).");
+    }
+
+    private static void AssertStatement(string statement, string expected)
+    {
+        if (statement != expected)
+            throw new InvalidOperationException(
+                $"Expected statement '{expected}' but received '{statement}'.");
     }
 
     private static void AssertProperty(
