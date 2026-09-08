@@ -36,7 +36,7 @@ by the native smoke test because their materialization uses a field write, not a
 
 Primitive-collection properties materialize their codec from compiled-model generated code under
 NativeAOT. A primitive-collection property that also carries a property-level value converter is
-not supported on that path and fails when the compiled model initializes. Converters on the
+not supported on that path and fails when the compiled model is generated. Converters on the
 collection *elements* are supported.
 
 Converted values keep one interpreted seam under NativeAOT: value-converter delegate compilation

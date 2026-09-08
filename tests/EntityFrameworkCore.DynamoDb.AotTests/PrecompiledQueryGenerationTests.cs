@@ -484,6 +484,34 @@ public class PrecompiledQueryGenerationTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void Compiled_model_generation_fails_fast_for_converted_primitive_collections()
+    {
+        using var context = new ConvertedCollectionContext(
+            new DbContextOptionsBuilder<ConvertedCollectionContext>().UseDynamo().Options);
+        var designTimeModel = context.GetService<IDesignTimeModel>()!.Model;
+        var typeMappingSource = context.GetService<ITypeMappingSource>()!;
+        var cSharpHelper = new CSharpHelper(typeMappingSource);
+        var generator = new CSharpRuntimeModelCodeGenerator(
+            new DynamoCSharpRuntimeAnnotationCodeGenerator(
+                new CSharpRuntimeAnnotationCodeGeneratorDependencies(cSharpHelper)),
+            cSharpHelper);
+
+        var generate = () => generator.GenerateModel(
+            designTimeModel,
+            new CompiledModelCodeGenerationOptions
+            {
+                ContextType = typeof(ConvertedCollectionContext),
+                ModelNamespace = nameof(ConvertedCollectionContext),
+                ForNativeAot = true
+            });
+
+        generate
+            .Should()
+            .Throw<NotSupportedException>()
+            .WithMessage("*property-level value converter*not supported*");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void Primed_collection_mappings_round_trip_through_boxed_boundary()
     {
         using var context = new CollectionContext(
@@ -581,6 +609,34 @@ public class PrecompiledQueryGenerationTests
 
     private static object? ReadBoxed(DynamoTypeMapping mapping, AttributeValue attributeValue)
         => mapping.ReaderWriter!.ReadObject(attributeValue, "Path", true, null);
+
+    private sealed class ConvertedCollectionContext(
+        DbContextOptions<ConvertedCollectionContext> options) : DbContext(options)
+    {
+        public DbSet<ConvertedCollectionItem> Items => Set<ConvertedCollectionItem>();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<ConvertedCollectionItem>(entity =>
+            {
+                DynamoEntityTypeBuilderExtensions.ToTable(entity, "ConvertedCollectionItems");
+                entity.HasPartitionKey(item => item.Pk);
+                entity
+                    .Property(item => item.Scores)
+                    .HasConversion(
+                        scores => string.Join(',', scores),
+                        value => value
+                            .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                            .Select(value => int.Parse(value))
+                            .ToList());
+            });
+    }
+
+    private sealed class ConvertedCollectionItem
+    {
+        public string Pk { get; set; } = null!;
+
+        public List<int> Scores { get; set; } = [];
+    }
 
     private sealed class CollectionContext(DbContextOptions<CollectionContext> options) : DbContext(
         options)

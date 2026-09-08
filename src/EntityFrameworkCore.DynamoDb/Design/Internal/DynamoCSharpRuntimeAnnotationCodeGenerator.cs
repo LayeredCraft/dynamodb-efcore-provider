@@ -36,9 +36,22 @@ public sealed class DynamoCSharpRuntimeAnnotationCodeGenerator(
         ValueComparer? keyValueComparer = null,
         ValueComparer? providerValueComparer = null)
     {
-        if (typeMapping is DynamoTypeMapping dynamoMapping
-            && TryEmitPrimedCollectionMapping(dynamoMapping, parameters))
-            return true;
+        if (typeMapping is DynamoTypeMapping dynamoMapping)
+        {
+            // Property-level converters compose outside the collection codec, so the primed
+            // collection shape below would be missed and the mapping emitted unprimed. Fail at
+            // compiled-model generation instead of first query execution under NativeAOT.
+            if (dynamoMapping.Converter is not null
+                && DynamoTypeMappingSource.IsSupportedPrimitiveCollectionShape(
+                    dynamoMapping.ClrType))
+                throw new NotSupportedException(
+                    "Compiled-model DynamoDB collection mappings composed with a property-level "
+                    + "value converter are not supported. Remove the converter (convert the "
+                    + "collection elements instead) or avoid the compiled model for this context.");
+
+            if (TryEmitPrimedCollectionMapping(dynamoMapping, parameters))
+                return true;
+        }
 
         return base.Create(
             typeMapping,
@@ -66,9 +79,7 @@ public sealed class DynamoCSharpRuntimeAnnotationCodeGenerator(
                     : genericDefinition == typeof(SetDynamoValueReaderWriter<,>)
                         ? nameof(DynamoGeneratedModelRuntime.PrimeSetMapping)
                         : null;
-        if (primeMethodName is null
-            || typeMapping.Converter is not null
-            || typeMapping.ClrType == typeof(object))
+        if (primeMethodName is null || typeMapping.ClrType == typeof(object))
             return false;
 
         var genericArguments = readerWriterType.GetGenericArguments();
