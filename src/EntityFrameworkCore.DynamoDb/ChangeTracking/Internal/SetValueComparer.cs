@@ -1,9 +1,11 @@
+using System.ComponentModel;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace EntityFrameworkCore.DynamoDb.ChangeTracking.Internal;
 
 /// <summary>Compares a primitive set using the element mapping's comparer.</summary>
+[EditorBrowsable(EditorBrowsableState.Never)]
 public sealed class SetValueComparer<TSet, TElement>(ValueComparer elementComparer)
     : ValueComparer<TSet>(
             (left, right) => Equals(left, right, elementComparer),

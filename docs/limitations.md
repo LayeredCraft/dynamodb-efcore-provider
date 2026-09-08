@@ -32,6 +32,15 @@ NativeAOT queries until EF Core resolves the issue.
 Field-only properties can hit the same limitation. Basic scalar properties and arrays are covered
 by the native smoke test because their materialization uses a field write, not a field read.
 
+Primitive-collection properties materialize their codec from compiled-model generated code under
+NativeAOT. A primitive-collection property that also carries a property-level value converter is
+not supported on that path and fails when the compiled model initializes.
+
+Converted values keep one interpreted seam under NativeAOT: value-converter delegate compilation
+falls back to the .NET expression interpreter, matching EF Core's own NativeAOT behavior. Query
+translation, parameter serialization, and materialization codecs themselves use generated or
+hand-written code only.
+
 See [Precompiled Queries and NativeAOT](querying/precompiled-queries.md) for supported setup and
 verification.
 

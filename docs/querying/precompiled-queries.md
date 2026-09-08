@@ -12,9 +12,10 @@ provider to compile them, and writes the interceptors.
 !!! warning "Experimental support"
 
     Precompiled-query and NativeAOT support relies on EF Core's internal precompilation APIs and
-    a version-specific rewrite of EF Core-generated code. It is covered by CI for the supported EF
-    Core versions, but it is not yet a production-stability guarantee. Test it against your model
-    and workload before adopting it in a production deployment.
+    a version-specific rewrite of EF Core-generated code. It is not yet a production-stability
+    guarantee. Interceptor generation is exercised in CI for every supported EF Core version;
+    NativeAOT publish-and-run execution is exercised for EF Core 10 only. Test it against your
+    model and workload before adopting it in a production deployment.
 
 ## Project setup
 
@@ -100,8 +101,11 @@ task test:aot-generation CONFIG="Debug EF11"
 
 The provider verifies the generated EF Core 10 and EF Core 11 executor templates in its
 configuration-specific generation tests. Then publish and run the EF10 native smoke app with
-`task test:aot-publish`. The smoke app checks
-the generated PartiQL statement, ordered parameters, and materialized values. If interceptor
+`task test:aot-publish`. The task restores and publishes with the named `Release EF10`
+configuration so it exercises the same build the required CI check gates. The smoke app runs
+synchronous and asynchronous generated queries, a converted-enum parameter query, a numeric
+parameter query, and a `SaveChanges` write against a fake DynamoDB endpoint; it checks the
+generated PartiQL statement, ordered parameters, and materialized values. If interceptor
 generation reports an incompatible EF Core version and expected executor preamble, upgrade the
 provider rewrite and its compatibility tests together; do not bypass the failure.
 

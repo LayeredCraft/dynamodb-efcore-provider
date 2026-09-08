@@ -1,11 +1,13 @@
 using System.Collections;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace EntityFrameworkCore.DynamoDb.ChangeTracking.Internal;
 
 /// <summary>Compares a primitive dictionary using the value mapping's comparer.</summary>
+[EditorBrowsable(EditorBrowsableState.Never)]
 public sealed class
     StringDictionaryValueComparer<TDictionary, TValue>(ValueComparer elementComparer)
     : ValueComparer<TDictionary>(

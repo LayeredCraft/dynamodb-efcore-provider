@@ -1,9 +1,11 @@
+using System.ComponentModel;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace EntityFrameworkCore.DynamoDb.ChangeTracking.Internal;
 
 /// <summary>Compares a primitive list using the element mapping's comparer.</summary>
+[EditorBrowsable(EditorBrowsableState.Never)]
 public sealed class ListValueComparer<TList, TElement>(ValueComparer elementComparer)
     : ValueComparer<TList>(
             (left, right) => Equals(left, right, elementComparer),
