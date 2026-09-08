@@ -91,11 +91,14 @@ public class PrecompiledQueryGenerationTests
                                   public DbSet<TestItem> Items => Set<TestItem>();
 
                                   protected override void OnModelCreating(ModelBuilder modelBuilder)
-                              => modelBuilder.Entity<TestItem>(entity =>
+                              {
+                              modelBuilder.UsePropertyAccessMode(PropertyAccessMode.PreferProperty);
+                              modelBuilder.Entity<TestItem>(entity =>
                               {
                               entity.HasPartitionKey(item => item.Pk);
                               entity.Property(item => item.Status).HasConversion<string>();
                               });
+                              }
                               }
 
                               public sealed class TestItem
@@ -103,7 +106,6 @@ public class PrecompiledQueryGenerationTests
                               public string Pk { get; set; } = null!;
                               public string Name { get; set; } = null!;
                               public TestStatus Status { get; set; }
-                              public List<string> Tags { get; set; } = [];
                               public List<System.Guid> ExternalIds { get; set; } = [];
                               }
 
@@ -125,13 +127,14 @@ public class PrecompiledQueryGenerationTests
                               }
 
                               public static List<string> ExecuteSynchronously(DbContextOptions options)
-                              {
-                              using var context = new TestContext(options);
-                              return context.Items
-                              .Where(item => item.Pk == "tenant-1")
-                              .Select(item => item.Name)
-                              .ToList();
-                              }
+                               {
+                               using var context = new TestContext(options);
+                               var pk = "tenant-1";
+                               return context.Items
+                               .Where(item => item.Pk == pk)
+                               .Select(item => item.Name)
+                               .ToList();
+                               }
 
                               public static async Task<List<TestItem>> ExecuteEntities(DbContextOptions options)
                               {
@@ -148,7 +151,8 @@ public class PrecompiledQueryGenerationTests
                                await using var context = new TestContext(options);
                                var id = new System.Guid("0f8fad5b-d9cb-469f-a165-70867728950e");
                                return await context.Items
-                               .Where(item => item.ExternalIds.Contains(id))
+                               .Where(item
+                               => item.Pk == "tenant-1" && item.ExternalIds.Contains(id))
                                .ToListAsync();
                                }
 
@@ -234,6 +238,101 @@ public class PrecompiledQueryGenerationTests
                 generatedFiles.Select(file
                     => CSharpSyntaxTree.ParseText(file.Code, parseOptions, file.Path)));
             AssertCompilationSucceeded(generatedCompilation);
+            // Interceptor binding failures surface as warnings, not errors: an unbound
+            // interceptor silently falls back to JIT translation and the execution assertions
+            // below would pass without ever exercising the precompiled path.
+            generatedCompilation
+                .GetDiagnostics()
+                .Where(diagnostic
+                    => diagnostic.Severity >= DiagnosticSeverity.Warning
+                    && InterceptorWarningIds.Contains(diagnostic.Id))
+                .Should()
+                .BeEmpty(
+                    string.Join(
+                        Environment.NewLine,
+                        generatedCompilation
+                            .GetDiagnostics()
+                            .Where(diagnostic => diagnostic.Severity >= DiagnosticSeverity.Warning)
+                            .Select(diagnostic => diagnostic.ToString())));
+
+            // Execute the generated interceptor in-process against a fake client so a
+            // wrong-but-self-consistent rewrite cannot pass the shape assertions above.
+            var (generatedLoadContext, generatedAssembly) = EmitAndLoad(generatedCompilation);
+            try
+            {
+                Dictionary<string, AttributeValue> Item(
+                    string pk,
+                    string name,
+                    List<AttributeValue>? externalIds = null)
+                    => new()
+                    {
+                        ["pk"] = new() { S = pk },
+                        ["name"] = new() { S = name },
+                        ["status"] = new() { S = "Active" },
+                        ["$type"] = new() { S = "TestItem" },
+                        ["externalIds"] = new() { L = externalIds ?? [] }
+                    };
+
+                var store = new Dictionary<string, Dictionary<string, AttributeValue>>
+                {
+                    ["tenant-1"] =
+                        Item(
+                            "tenant-1",
+                            "name-1",
+                            [new() { S = "0f8fad5b-d9cb-469f-a165-70867728950e" }]),
+                    ["tenant-2"] = Item("tenant-2", "name-2"),
+                    ["tenant-3"] = Item("tenant-3", "name-3")
+                };
+                var fakeOptions = new DbContextOptionsBuilder().UseDynamo(configure
+                        => configure.DynamoDbClient(
+                            CompiledModelExecutionTests.CreateFakeClient(store)))
+                    .Options;
+
+                var names =
+                    (List<string>)(await InvokeQueryAsync(generatedAssembly, "Execute", fakeOptions)
+                        ?? throw new InvalidOperationException("Execute returned null."));
+                names.Should().BeEquivalentTo(["name-1"], options => options.WithStrictOrdering());
+
+                var syncNames =
+                    (List<string>)(InvokeQuery(
+                            generatedAssembly,
+                            "ExecuteSynchronously",
+                            fakeOptions)
+                        ?? throw new InvalidOperationException(
+                            "ExecuteSynchronously returned null."));
+                syncNames
+                    .Should()
+                    .BeEquivalentTo(["name-1"], options => options.WithStrictOrdering());
+
+                var entities =
+                    ((System.Collections.IEnumerable)(await InvokeQueryAsync(
+                            generatedAssembly,
+                            "ExecuteEntities",
+                            fakeOptions)
+                        ?? throw new InvalidOperationException("ExecuteEntities returned null.")))
+                    .Cast<object>()
+                    .ToList();
+                entities
+                    .Select(item => (string)item.GetType().GetProperty("Pk")!.GetValue(item)!)
+                    .Should()
+                    .BeEquivalentTo(["tenant-1", "tenant-2"]);
+
+                // ExecuteTagContains is asserted at generation time only: materializing or
+                // even projecting through the List<Guid> property pulls in the generated
+                // field-read accessor that NativeAOT does not support yet.
+                var status =
+                    (int)(await InvokeQueryAsync(
+                            generatedAssembly,
+                            "ExecuteConvertedProjection",
+                            fakeOptions)
+                        ?? throw new InvalidOperationException(
+                            "ExecuteConvertedProjection returned null."));
+                status.Should().Be((int)TestStatus.Active);
+            }
+            finally
+            {
+                generatedLoadContext.Unload();
+            }
         }
         finally
         {
@@ -248,6 +347,35 @@ public class PrecompiledQueryGenerationTests
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Select(path => MetadataReference.CreateFromFile(path))
             .ToArray();
+
+    private static readonly HashSet<string> InterceptorWarningIds =
+    [
+        "CS9192", "CS9193", "CS9200", "CS9201", "CS9202", "CS9225"
+    ];
+
+    private static async Task<object?> InvokeQueryAsync(
+        Assembly assembly,
+        string methodName,
+        DbContextOptions options)
+    {
+        var method = assembly.GetType("GeneratedQueryTest.QueryContainer")!.GetMethod(methodName)!;
+        var invoke = method.Invoke(null, [options]);
+        if (invoke is Task task)
+        {
+            await task;
+            return task.GetType().GetProperty("Result")!.GetValue(task);
+        }
+
+        return invoke;
+    }
+
+    private static object? InvokeQuery(
+        Assembly assembly,
+        string methodName,
+        DbContextOptions options)
+        => assembly.GetType("GeneratedQueryTest.QueryContainer")!.GetMethod(methodName)!.Invoke(
+            null,
+            [options]);
 
     private static (AssemblyLoadContext LoadContext, Assembly Assembly) EmitAndLoad(
         Compilation compilation)

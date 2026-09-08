@@ -217,7 +217,7 @@ public class CompiledModelExecutionTests
             BindingFlags.Public | BindingFlags.Static)!.GetValue(null);
     }
 
-    private static IAmazonDynamoDB CreateFakeClient(
+    internal static IAmazonDynamoDB CreateFakeClient(
         Dictionary<string, Dictionary<string, AttributeValue>> store)
     {
         var client = Substitute.For<IAmazonDynamoDB>();
@@ -254,12 +254,50 @@ public class CompiledModelExecutionTests
         if (statement.StartsWith("SELECT", StringComparison.OrdinalIgnoreCase))
         {
             var items = store.Values.ToList();
-            if (statement.Contains("\"pk\" = ?", StringComparison.Ordinal)
-                && request.Parameters is { Count: > 0 })
+            var parameters = request.Parameters ?? [];
+
+            // Map parameter positions by counting '?' placeholders before the predicate so
+            // translator-side parameter reordering cannot silently corrupt the fake filtering.
+            string? FilterByPlaceholder(string predicate)
             {
-                var expectedPk = request.Parameters[0].S;
+                var index = statement.IndexOf(predicate, StringComparison.Ordinal);
+                if (index < 0)
+                    return null;
+                var placeholderIndex = statement
+                    .Substring(0, index)
+                    .Count(character => character == '?');
+                return placeholderIndex < parameters.Count ? parameters[placeholderIndex].S : null;
+            }
+
+            var expectedPk = FilterByPlaceholder("\"pk\" = ?")
+                ?? (PkLiteralRegex.Match(statement) is { Success: true } literalMatch
+                    ? literalMatch.Groups["pk"].Value.Replace("''", "'")
+                    : null);
+            if (expectedPk is not null)
+            {
                 items = items
                     .Where(item => item.TryGetValue("pk", out var pk) && pk.S == expectedPk)
+                    .ToList();
+
+                // `contains("externalIds", ...)` predicates are applied client-side so a wrong
+                // predicate translation cannot silently return every row.
+                var expectedId = FilterByPlaceholder("contains(\"externalIds\"")
+                    ?? (ExternalIdsLiteralRegex.Match(statement) is { Success: true } idMatch
+                        ? idMatch.Groups["id"].Value.Replace("''", "'")
+                        : null);
+                if (expectedId is not null)
+                    items = items
+                        .Where(item => item.TryGetValue("externalIds", out var ids)
+                            && ids.L.Any(id => id.S == expectedId))
+                        .ToList();
+            }
+            else if (statement.Contains("\"pk\" IN", StringComparison.Ordinal))
+            {
+                var expectedPks = parameters.Select(parameter => parameter.S).ToHashSet();
+                items = items
+                    .Where(item => item.TryGetValue("pk", out var pk)
+                        && pk.S is not null
+                        && expectedPks.Contains(pk.S))
                     .ToList();
             }
 
@@ -294,6 +332,13 @@ public class CompiledModelExecutionTests
 
     private static readonly Regex PlaceholderNameRegex =
         new(@"'(?<name>[^']+)'\s*:\s*\?", RegexOptions.Compiled);
+
+    private static readonly Regex PkLiteralRegex =
+        new("\"pk\"\\s*=\\s*'(?<pk>[^']*)'", RegexOptions.Compiled);
+
+    private static readonly Regex ExternalIdsLiteralRegex = new(
+        "contains\\(\"externalIds\",\\s*'(?<id>[^']*)'\\)",
+        RegexOptions.Compiled);
 
     private static IReadOnlyList<MetadataReference> GetMetadataReferences()
         => CandidateAssemblyPaths()
