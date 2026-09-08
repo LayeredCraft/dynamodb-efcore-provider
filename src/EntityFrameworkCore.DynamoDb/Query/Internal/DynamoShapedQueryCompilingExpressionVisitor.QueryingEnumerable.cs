@@ -94,10 +94,19 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
 
         /// <summary>Generates the PartiQL query at runtime with parameter values.</summary>
         private DynamoPartiQlQuery GenerateQuery()
-            => _precompiledTemplate?.Render(_queryContext.Parameters)
-                ?? _sqlGeneratorFactory
-                    .Create()
-                    .Generate(_selectExpression, _queryContext.Parameters);
+        {
+            if (_precompiledTemplate is not null)
+                return _precompiledTemplate.Render(_queryContext.Parameters);
+
+            if (_sqlGeneratorFactory is null)
+                throw new InvalidOperationException(
+                    "The precompiled query template cannot be rendered and no SQL generator "
+                    + "factory is available to regenerate the query.");
+
+            return _sqlGeneratorFactory
+                .Create()
+                .Generate(_selectExpression, _queryContext.Parameters);
+        }
 
         private sealed class AsyncEnumerator : IAsyncEnumerator<T>
         {
@@ -351,10 +360,19 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
         public string ToQueryString() => FormatQueryString(GenerateQuery());
 
         private DynamoPartiQlQuery GenerateQuery()
-            => _precompiledTemplate?.Render(_queryContext.Parameters)
-                ?? _sqlGeneratorFactory
-                    .Create()
-                    .Generate(_selectExpression, _queryContext.Parameters);
+        {
+            if (_precompiledTemplate is not null)
+                return _precompiledTemplate.Render(_queryContext.Parameters);
+
+            if (_sqlGeneratorFactory is null)
+                throw new InvalidOperationException(
+                    "The precompiled query template cannot be rendered and no SQL generator "
+                    + "factory is available to regenerate the query.");
+
+            return _sqlGeneratorFactory
+                .Create()
+                .Generate(_selectExpression, _queryContext.Parameters);
+        }
 
         private sealed class AsyncEnumerator : IAsyncEnumerator<DynamoPage<T>>
         {

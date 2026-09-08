@@ -874,6 +874,11 @@ internal static class DynamoValueReaderWriterFactory
             valueType == typeof(float) ? NullableWrap<float>(readerWriter) :
             valueType == typeof(double) ? NullableWrap<double>(readerWriter) :
             valueType == typeof(decimal) ? NullableWrap<decimal>(readerWriter) :
+            !RuntimeFeature.IsDynamicCodeSupported ? throw new NotSupportedException(
+                $"Nullable values of type '{valueType.Name}' cannot be materialized under "
+                + "NativeAOT because their reader/writer requires runtime generic "
+                + "instantiation. Prime the mapping through the compiled model or map the "
+                + "element type explicitly.") :
             (DynamoValueReaderWriter)CreateNullableReaderWriterMethod
                 .MakeGenericMethod(valueType)
                 .Invoke(null, [readerWriter])!;
@@ -1070,7 +1075,12 @@ internal static class DynamoValueReaderWriterHelpers
         string setWireMemberName)
     {
         var elementRequired = IsRequiredCollectionElement(property, typeof(TElement));
-        var result = new HashSet<TElement>();
+
+        // Honor a model-configured element comparer so app-level Contains/except semantics on
+        // the materialized set match the configured model instead of default reference/equality.
+        var elementComparer =
+            property?.GetElementType()?.GetValueComparer() as IEqualityComparer<TElement>;
+        var result = elementComparer is not null ? new HashSet<TElement>(elementComparer) : [];
 
         if (setWireMemberName == nameof(AttributeValue.SS))
             foreach (var value in attributeValue.SS)

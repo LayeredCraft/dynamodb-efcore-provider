@@ -135,7 +135,7 @@ tasks:
     vars:
       CONFIG: '{{.CONFIG | default "Release EF10"}}'
       RID:
-        sh: dotnet --info | awk '/RID:/ { print $2; exit }'
+        sh: 'os=$(uname -s); arch=$(uname -m); case "$os" in Darwin) rid="osx";; Linux) rid="linux";; *) echo "Unsupported OS for AOT tasks: $os" >&2; exit 1;; esac; case "$arch" in arm64|aarch64) rid="$rid-arm64";; x86_64) rid="$rid-x64";; *) echo "Unsupported architecture: $arch" >&2; exit 1;; esac; echo "$rid"'
       OUTPUT: '{{.ROOT_DIR}}/artifacts/nativeaot-smoke'
     cmds:
       - dotnet restore EntityFrameworkCore.DynamoDb.NativeAotSmoke.csproj -p:Configuration="{{.CONFIG}}" --runtime {{.RID}}
@@ -149,7 +149,7 @@ tasks:
     vars:
       CONFIG: '{{.CONFIG | default "Release EF10"}}'
       RID:
-        sh: dotnet --info | awk '/RID:/ { print $2; exit }'
+        sh: 'os=$(uname -s); arch=$(uname -m); case "$os" in Darwin) rid="osx";; Linux) rid="linux";; *) echo "Unsupported OS for AOT tasks: $os" >&2; exit 1;; esac; case "$arch" in arm64|aarch64) rid="$rid-arm64";; x86_64) rid="$rid-x64";; *) echo "Unsupported architecture: $arch" >&2; exit 1;; esac; echo "$rid"'
       OUTPUT: '{{.ROOT_DIR}}/artifacts/nativeaot-smoke-warnings'
       # Baseline AOT trimmer/AOT-compiler warning IDs observed with the pinned EF/SDK/ILCompiler
       # versions. New warning IDs mean new reflection/dynamic surface (often provider code) and
