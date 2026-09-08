@@ -1,0 +1,366 @@
+using System.Reflection;
+using System.Runtime.Loader;
+using System.Text.RegularExpressions;
+using Amazon.DynamoDBv2;
+using Amazon.DynamoDBv2.Model;
+using EntityFrameworkCore.DynamoDb.Design.Internal;
+using EntityFrameworkCore.DynamoDb.Extensions;
+using EntityFrameworkCore.DynamoDb.Infrastructure;
+using EntityFrameworkCore.DynamoDb.Storage;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Design;
+using Microsoft.EntityFrameworkCore.Design.Internal;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Scaffolding;
+using Microsoft.EntityFrameworkCore.Scaffolding.Internal;
+using Microsoft.EntityFrameworkCore.Storage;
+using NSubstitute;
+
+namespace EntityFrameworkCore.DynamoDb.AotTests;
+
+/// <summary>
+///     Compiles the generated compiled-model code (including primed collection mappings) with Roslyn,
+///     loads it, and executes a real query and SaveChanges against the loaded model.
+/// </summary>
+public class CompiledModelExecutionTests
+{
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task
+        Generated_compiled_model_compiles_and_executes_round_trip_for_primed_collections()
+    {
+        var runtimeOptions = new DbContextOptionsBuilder<CompiledCollectionContext>()
+            .UseDynamo()
+            .Options;
+        using var runtimeContext = new CompiledCollectionContext(runtimeOptions);
+        var designTimeModel = runtimeContext.GetService<IDesignTimeModel>()!.Model;
+
+        var typeMappingSource = runtimeContext.GetService<ITypeMappingSource>()!;
+        var cSharpHelper = new CSharpHelper(typeMappingSource);
+        var generator = new CSharpRuntimeModelCodeGenerator(
+            new DynamoCSharpRuntimeAnnotationCodeGenerator(
+                new CSharpRuntimeAnnotationCodeGeneratorDependencies(cSharpHelper)),
+            cSharpHelper);
+        var generatedFiles = generator.GenerateModel(
+            designTimeModel,
+            new CompiledModelCodeGenerationOptions
+            {
+                ContextType = typeof(CompiledCollectionContext),
+                ModelNamespace = CompiledModelNamespace,
+                ForNativeAot = true
+            });
+
+        var generatedCode = string.Join(Environment.NewLine, generatedFiles.Select(f => f.Code));
+        generatedCode.Should().Contain("PrimeListMapping<");
+        generatedCode.Should().Contain("PrimeSetMapping<HashSet<int>, int>(");
+        generatedCode
+            .Should()
+            .Contain("PrimeDictionaryMapping<Dictionary<string, decimal>, decimal>(");
+        generatedCode.Should().Contain("PrimeListMapping<List<int?>, int?>(");
+        generatedCode.Should().Contain("PrimeListMapping<List<Guid>, Guid>(");
+        generatedCode.Should().Contain("(DynamoTypeMapping)(");
+
+        var parseOptions = new CSharpParseOptions(
+            languageVersion: LanguageVersion.Preview,
+            documentationMode: DocumentationMode.Parse);
+        var compilation = CSharpCompilation.Create(
+            "CompiledModelRoundTripAssembly",
+            generatedFiles.Select(file
+                => CSharpSyntaxTree.ParseText(file.Code, parseOptions, file.Path)),
+            GetMetadataReferences(),
+            new CSharpCompilationOptions(
+                OutputKind.DynamicallyLinkedLibrary,
+                nullableContextOptions: NullableContextOptions.Enable));
+
+        AssertCompilationSucceeded(compilation);
+        var (loadContext, assembly) = EmitAndLoad(compilation);
+
+        try
+        {
+            var compiledModel = FindCompiledModelInstance(assembly);
+            compiledModel.Should().NotBeNull();
+
+            var store = new Dictionary<string, Dictionary<string, AttributeValue>>();
+            var fakeClient = CreateFakeClient(store);
+
+            var options = new DbContextOptionsBuilder<CompiledCollectionContext>()
+                .UseDynamo(configure => configure.DynamoDbClient(fakeClient))
+                .UseModel(compiledModel!)
+                .Options;
+
+            var expected = new CompiledCollectionItem(
+                "PRIMED#1",
+                [1, 2, 3],
+                [7, 11],
+                new Dictionary<string, decimal> { ["tax"] = 1.25m, ["fee"] = 0.5m },
+                [null, 42, null],
+                [new("0f8fad5b-d9cb-469f-a165-70867728950e")]);
+
+            await using (var context = new CompiledCollectionContext(options))
+            {
+                context.Items.Add(expected);
+                await context.SaveChangesAsync();
+            }
+
+            store.Should().ContainKey("PRIMED#1");
+            var storedItem = store["PRIMED#1"];
+
+            // Pin the raw wire shape so symmetric serialize/deserialize bugs cannot pass silently.
+            storedItem["scores"]
+                .L
+                .Select(value => value.N)
+                .Should()
+                .BeEquivalentTo(["1", "2", "3"], options => options.WithStrictOrdering());
+            storedItem["flags"]
+                .NS
+                .Should()
+                .BeEquivalentTo(["7", "11"], options => options.WithStrictOrdering());
+            var charges = storedItem["charges"].M;
+            charges.Should().HaveCount(2);
+            charges["tax"].N.Should().Be("1.25");
+            charges["fee"].N.Should().Be("0.5");
+            var optionalScores = storedItem["optionalScores"].L;
+            optionalScores.Should().HaveCount(3);
+            optionalScores[0].NULL.Should().BeTrue();
+            optionalScores[1].N.Should().Be("42");
+            optionalScores[2].NULL.Should().BeTrue();
+            var convertedIds = storedItem["convertedIds"].L;
+            convertedIds
+                .Select(value => value.S)
+                .Should()
+                .BeEquivalentTo(
+                    ["0f8fad5b-d9cb-469f-a165-70867728950e"],
+                    options => options.WithStrictOrdering());
+
+            // Decoy row makes the pk filter in the SELECT load-bearing: if filtering breaks, the
+            // SingleAsync below fails on count instead of silently returning everything.
+            store["DECOY#1"] = new Dictionary<string, AttributeValue>
+            {
+                ["pk"] = new() { S = "DECOY#1" }
+            };
+
+            CompiledCollectionItem actual;
+            await using (var context = new CompiledCollectionContext(options))
+            {
+                var pk = "PRIMED#1";
+                actual = await context.Items.SingleAsync(item => item.Pk == pk);
+            }
+
+            actual.Should().BeEquivalentTo(expected);
+        }
+        finally
+        {
+            loadContext.Unload();
+        }
+    }
+
+    private const string CompiledModelNamespace = "CompiledModelRoundTrip";
+
+    private static string Describe(AttributeValue value)
+    {
+        if (value.NULL == true)
+            return "NULL";
+        if (value.N is not null)
+            return $"N:{value.N}";
+        if (value.S is not null)
+            return $"S:{value.S}";
+        if (value.NS is { Count: > 0 })
+            return $"NS[{string.Join(",", value.NS)}]";
+        if (value.L is not null)
+            return $"L[{string.Join(",", value.L.Select(Describe))}]";
+        if (value.M is not null)
+            return
+                $"M{{{string.Join(",", value.M.Select(kvp => $"{kvp.Key}={Describe(kvp.Value)}"))}}}";
+        return "?";
+    }
+
+    private static IModel? FindCompiledModelInstance(Assembly assembly)
+    {
+        var modelType = assembly
+            .GetTypes()
+            .SingleOrDefault(type => type
+                .GetProperties(BindingFlags.Public | BindingFlags.Static)
+                .Any(property
+                    => property.Name == "Instance"
+                    && property.CanRead
+                    && typeof(IModel).IsAssignableFrom(property.PropertyType)));
+        if (modelType is null)
+            return null;
+
+        return (IModel?)modelType.GetProperty(
+            "Instance",
+            BindingFlags.Public | BindingFlags.Static)!.GetValue(null);
+    }
+
+    private static IAmazonDynamoDB CreateFakeClient(
+        Dictionary<string, Dictionary<string, AttributeValue>> store)
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+
+        client
+            .ExecuteStatementAsync(Arg.Any<ExecuteStatementRequest>(), Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                var request = callInfo.Arg<ExecuteStatementRequest>()!;
+                return Task.FromResult(HandleExecuteStatement(request, store));
+            });
+
+        client
+            .ExecuteTransactionAsync(
+                Arg.Any<ExecuteTransactionRequest>(),
+                Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                var request = callInfo.Arg<ExecuteTransactionRequest>()!;
+                foreach (var statement in request.TransactStatements ?? [])
+                    HandleWriteStatement(statement.Statement, statement.Parameters ?? [], store);
+
+                return Task.FromResult(new ExecuteTransactionResponse());
+            });
+
+        return client;
+    }
+
+    private static ExecuteStatementResponse HandleExecuteStatement(
+        ExecuteStatementRequest request,
+        Dictionary<string, Dictionary<string, AttributeValue>> store)
+    {
+        var statement = request.Statement.TrimStart();
+        if (statement.StartsWith("SELECT", StringComparison.OrdinalIgnoreCase))
+        {
+            var items = store.Values.ToList();
+            if (statement.Contains("\"pk\" = ?", StringComparison.Ordinal)
+                && request.Parameters is { Count: > 0 })
+            {
+                var expectedPk = request.Parameters[0].S;
+                items = items
+                    .Where(item => item.TryGetValue("pk", out var pk) && pk.S == expectedPk)
+                    .ToList();
+            }
+
+            return new ExecuteStatementResponse { Items = items };
+        }
+
+        HandleWriteStatement(statement, request.Parameters ?? [], store);
+        return new ExecuteStatementResponse();
+    }
+
+    private static void HandleWriteStatement(
+        string statement,
+        IReadOnlyList<AttributeValue> parameters,
+        Dictionary<string, Dictionary<string, AttributeValue>> store)
+    {
+        if (!statement.StartsWith("INSERT", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException(
+                $"Fake client only supports INSERT write statements, got '{statement}'.");
+
+        var names = PlaceholderNameRegex.Matches(statement);
+        if (names.Count != parameters.Count)
+            throw new InvalidOperationException(
+                $"Statement '{statement}' has {names.Count} placeholders but "
+                + $"{parameters.Count} parameters.");
+
+        var item = new Dictionary<string, AttributeValue>();
+        for (var index = 0; index < names.Count; index++)
+            item[names[index].Groups["name"].Value] = parameters[index];
+
+        store[item["pk"].S] = item;
+    }
+
+    private static readonly Regex PlaceholderNameRegex =
+        new(@"'(?<name>[^']+)'\s*:\s*\?", RegexOptions.Compiled);
+
+    private static IReadOnlyList<MetadataReference> GetMetadataReferences()
+        => CandidateAssemblyPaths()
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Select(path =>
+            {
+                try
+                {
+                    return MetadataReference.CreateFromFile(path);
+                }
+                catch (BadImageFormatException)
+                {
+                    // Skip native/non-managed DLLs that cannot serve as metadata references.
+                    return null;
+                }
+            })
+            .Where(reference => reference is not null)
+            .Cast<MetadataReference>()
+            .ToArray();
+
+    private static IEnumerable<string> CandidateAssemblyPaths()
+    {
+        var tpa = (string?)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES");
+        if (tpa is not null)
+            foreach (var path in tpa.Split(Path.PathSeparator))
+                yield return path;
+
+        foreach (var path in Directory.EnumerateFiles(AppContext.BaseDirectory, "*.dll"))
+            yield return path;
+    }
+
+    private static (AssemblyLoadContext LoadContext, Assembly Assembly) EmitAndLoad(
+        Compilation compilation)
+    {
+        using var stream = new MemoryStream();
+        var emitResult = compilation.Emit(stream);
+        emitResult
+            .Success
+            .Should()
+            .BeTrue(string.Join(Environment.NewLine, emitResult.Diagnostics));
+
+        stream.Position = 0;
+        var loadContext = new AssemblyLoadContext(
+            nameof(CompiledModelExecutionTests),
+            isCollectible: true);
+        return (loadContext, loadContext.LoadFromStream(stream));
+    }
+
+    private static void AssertCompilationSucceeded(Compilation compilation)
+    {
+        var errors = compilation
+            .GetDiagnostics()
+            .Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+            .ToArray();
+        if (errors.Length == 0)
+            return;
+
+        var details = errors.Select(error =>
+        {
+            var line = error.Location.GetLineSpan().StartLinePosition.Line;
+            var lines = error.Location.SourceTree?.GetText().Lines;
+            var sourceLine = lines is not null && line < lines.Count
+                ? lines[line].ToString()
+                : string.Empty;
+            return $"{error}{Environment.NewLine}{sourceLine}";
+        });
+        throw new InvalidOperationException(string.Join(Environment.NewLine, details));
+    }
+}
+
+public sealed class CompiledCollectionContext(DbContextOptions<CompiledCollectionContext> options)
+    : DbContext(options)
+{
+    public DbSet<CompiledCollectionItem> Items => Set<CompiledCollectionItem>();
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+        => modelBuilder.Entity<CompiledCollectionItem>(entity =>
+        {
+            DynamoEntityTypeBuilderExtensions.ToTable(entity, "CompiledCollectionItems");
+            entity.HasPartitionKey(item => item.Pk);
+            entity
+                .PrimitiveCollection(item => item.ConvertedIds)
+                .ElementType(e => e.HasConversion<string>());
+        });
+}
+
+public sealed record CompiledCollectionItem(
+    string Pk,
+    List<int> Scores,
+    HashSet<int> Flags,
+    Dictionary<string, decimal> Charges,
+    List<int?> OptionalScores,
+    List<Guid> ConvertedIds);
