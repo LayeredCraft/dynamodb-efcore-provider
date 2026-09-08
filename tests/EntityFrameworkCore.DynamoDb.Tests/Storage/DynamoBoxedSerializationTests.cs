@@ -218,6 +218,75 @@ public class DynamoBoxedSerializationTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void
+        CreateAttributeValue_BoxedIntegralSource_NonNullableEnumMapping_WritesNumericWireValue()
+    {
+        var statusMapping = CreateMapping<BoxedStatus>(nameof(BoxedEntity.Status));
+
+        var attributeValue = statusMapping.CreateAttributeValue(1, typeof(int));
+
+        attributeValue.S.Should().Be(nameof(BoxedStatus.Active));
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void
+        CreateAttributeValue_BoxedIntegralSource_NullableEnumMapping_WritesNumericWireValue()
+    {
+        var nullableStatusMapping = CreateMapping<BoxedStatus?>(nameof(BoxedEntity.NullableStatus));
+
+        var attributeValue = nullableStatusMapping.CreateAttributeValue(1, typeof(int));
+
+        attributeValue.S.Should().Be(nameof(BoxedStatus.Active));
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void CreateAttributeValue_RawIntegralSource_NullableEnumMapping_WritesNumericWireValue()
+    {
+        var nullableRawMapping = CreateMapping<BoxedStatus?>(nameof(BoxedEntity.NullableRawStatus));
+
+        nullableRawMapping.CreateAttributeValue(1, typeof(int)).N.Should().Be("1");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void GenerateConstant_BoxedIntegralSource_NullableEnumMapping_RendersEnumLiteral()
+    {
+        var nullableStatusMapping = CreateMapping<BoxedStatus?>(nameof(BoxedEntity.NullableStatus));
+
+        nullableStatusMapping.GenerateConstant(1, typeof(int)).Should().Be("'Active'");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void CreateAttributeValue_BoxedFloatingSource_EnumTarget_ConvertsToEnum()
+    {
+        var statusMapping = CreateMapping<BoxedStatus>(nameof(BoxedEntity.Status));
+
+        var attributeValue = statusMapping.CreateAttributeValue(1d, typeof(double));
+
+        attributeValue.S.Should().Be(nameof(BoxedStatus.Active));
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void CreateAttributeValue_CrossEnumSource_ConvertsToTargetEnum()
+    {
+        var statusMapping = CreateMapping<BoxedStatus>(nameof(BoxedEntity.Status));
+
+        var attributeValue =
+            statusMapping.CreateAttributeValue(OtherStatus.Active, typeof(OtherStatus));
+
+        attributeValue.S.Should().Be(nameof(BoxedStatus.Active));
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void CreateAttributeValue_EnumSource_OutOfRangeTargetEnum_ThrowsOverflow()
+    {
+        var statusMapping = CreateMapping<BoxedStatus>(nameof(BoxedEntity.RawStatus));
+
+        var act = () => statusMapping.CreateAttributeValue(ULongEnum.Big, typeof(ULongEnum));
+
+        act.Should().Throw<OverflowException>();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void CreateAttributeValue_ConvertedGuid_WritesStringWireValue()
     {
         var guidMapping = CreateMapping<Guid>(nameof(BoxedEntity.ConvertedGuid));
@@ -317,6 +386,7 @@ public class DynamoBoxedSerializationTests
                 builder.HasPartitionKey(x => x.Pk);
                 builder.Property(x => x.ConvertedGuid).HasConversion<string>();
                 builder.Property(x => x.Status).HasConversion<string>();
+                builder.Property(x => x.NullableStatus).HasConversion<string>();
                 builder
                     .Property(x => x.NullText)
                     .HasConversion(
@@ -369,6 +439,10 @@ public class DynamoBoxedSerializationTests
 
         public BoxedStatus RawStatus { get; set; }
 
+        public BoxedStatus? NullableStatus { get; set; }
+
+        public BoxedStatus? NullableRawStatus { get; set; }
+
         public List<int> Scores { get; set; } = [];
 
         public HashSet<int> Flags { get; set; } = [];
@@ -379,5 +453,15 @@ public class DynamoBoxedSerializationTests
     public enum BoxedStatus
     {
         Active = 1
+    }
+
+    public enum OtherStatus
+    {
+        Active = 1
+    }
+
+    public enum ULongEnum : ulong
+    {
+        Big = ulong.MaxValue
     }
 }

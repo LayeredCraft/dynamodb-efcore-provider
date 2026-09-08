@@ -21,6 +21,8 @@ support remains experimental; a warning-free trimmed application is not yet guar
 
 The tested native path supports scalar entity properties, including nullable numbers, Boolean,
 binary, configured scalar conversions, and one-dimensional arrays with non-nullable elements.
+List, set, and dictionary primitive collections whose elements use their own value converter (for
+example `List<Guid>` or `List<SomeEnum>` with string element conversion) are also supported.
 
 NativeAOT precompiled queries do not currently support entity materialization that requires EF Core
 to read a non-public mapped field. This includes mutable field-backed collection properties such as
@@ -34,7 +36,8 @@ by the native smoke test because their materialization uses a field write, not a
 
 Primitive-collection properties materialize their codec from compiled-model generated code under
 NativeAOT. A primitive-collection property that also carries a property-level value converter is
-not supported on that path and fails when the compiled model initializes.
+not supported on that path and fails when the compiled model initializes. Converters on the
+collection *elements* are supported.
 
 Converted values keep one interpreted seam under NativeAOT: value-converter delegate compilation
 falls back to the .NET expression interpreter, matching EF Core's own NativeAOT behavior. Query

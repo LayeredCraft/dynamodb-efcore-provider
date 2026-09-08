@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Runtime.Loader;
+using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.Design.Internal;
 using EntityFrameworkCore.DynamoDb.Infrastructure;
 using EntityFrameworkCore.DynamoDb.Storage;
@@ -283,6 +284,39 @@ public class PrecompiledQueryGenerationTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void Compiled_model_primes_converted_element_collection_codecs_for_native_aot()
+    {
+        using var context = new CollectionContext(
+            new DbContextOptionsBuilder<CollectionContext>().UseDynamo().Options);
+
+        var designTimeModel = context.GetService<IDesignTimeModel>()!.Model;
+        var typeMappingSource = context.GetService<ITypeMappingSource>()!;
+        var cSharpHelper = new CSharpHelper(typeMappingSource);
+        var generator = new CSharpRuntimeModelCodeGenerator(
+            new DynamoCSharpRuntimeAnnotationCodeGenerator(
+                new CSharpRuntimeAnnotationCodeGeneratorDependencies(cSharpHelper)),
+            cSharpHelper);
+        var generatedFiles = generator.GenerateModel(
+            designTimeModel,
+            new CompiledModelCodeGenerationOptions
+            {
+                ContextType = typeof(CollectionContext),
+                ModelNamespace = nameof(CollectionContext),
+                ForNativeAot = true
+            });
+
+        var generatedCode =
+            string.Join(Environment.NewLine, generatedFiles.Select(file => file.Code));
+        generatedCode.Should().Contain("PrimeListMapping<List<Guid>, Guid>(");
+        generatedCode
+            .Should()
+            .Contain(
+                "PrimeListMapping<List<PrecompiledQueryGenerationTests.ConvertedStatus>, "
+                + "PrecompiledQueryGenerationTests.ConvertedStatus>(");
+        generatedCode.Should().Contain("PrimeSetMapping<HashSet<Guid>, Guid>(");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void Primed_collection_mappings_round_trip_through_boxed_boundary()
     {
         using var context = new CollectionContext(
@@ -327,6 +361,60 @@ public class PrecompiledQueryGenerationTests
         optionalScores.L[1].N.Should().Be("42");
     }
 
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void Primed_converted_element_collection_mappings_round_trip_through_boxed_boundary()
+    {
+        using var context = new CollectionContext(
+            new DbContextOptionsBuilder<CollectionContext>().UseDynamo().Options);
+        var entityType = context.Model.FindEntityType(typeof(CollectionItem))!;
+
+        var convertedIdsMapping =
+            (DynamoTypeMapping)entityType.FindProperty(nameof(CollectionItem.ConvertedIds))!
+                .GetTypeMapping();
+        var primedConvertedIdsMapping =
+            DynamoGeneratedModelRuntime.PrimeListMapping<List<Guid>, Guid>(convertedIdsMapping);
+        var expectedId = new Guid("0f8fad5b-d9cb-469f-a165-70867728950e");
+        var convertedIds = primedConvertedIdsMapping.CreateAttributeValue(
+            new List<Guid> { new("0f8fad5b-d9cb-469f-a165-70867728950e") },
+            typeof(List<Guid>));
+        convertedIds.L.Should().HaveCount(1);
+        convertedIds.L[0].S.Should().Be("0f8fad5b-d9cb-469f-a165-70867728950e");
+        ReadBoxed(primedConvertedIdsMapping, convertedIds)
+            .Should()
+            .BeEquivalentTo(new List<Guid> { new("0f8fad5b-d9cb-469f-a165-70867728950e") });
+
+        var statusesMapping =
+            (DynamoTypeMapping)entityType.FindProperty(nameof(CollectionItem.Statuses))!
+                .GetTypeMapping();
+        var primedStatusesMapping =
+            DynamoGeneratedModelRuntime.PrimeListMapping<List<ConvertedStatus>, ConvertedStatus>(
+                statusesMapping);
+        var statuses = primedStatusesMapping.CreateAttributeValue(
+            new List<ConvertedStatus> { ConvertedStatus.Active },
+            typeof(List<ConvertedStatus>));
+        statuses.L.Should().HaveCount(1);
+        statuses.L[0].S.Should().Be("Active");
+        ReadBoxed(primedStatusesMapping, statuses)
+            .Should()
+            .BeEquivalentTo(new List<ConvertedStatus> { ConvertedStatus.Active });
+
+        var convertedFlagsMapping =
+            (DynamoTypeMapping)entityType.FindProperty(nameof(CollectionItem.ConvertedFlags))!
+                .GetTypeMapping();
+        var primedConvertedFlagsMapping =
+            DynamoGeneratedModelRuntime.PrimeSetMapping<HashSet<Guid>, Guid>(convertedFlagsMapping);
+        var convertedFlags = primedConvertedFlagsMapping.CreateAttributeValue(
+            new HashSet<Guid> { new("0f8fad5b-d9cb-469f-a165-70867728950e") },
+            typeof(HashSet<Guid>));
+        convertedFlags.SS.Should().Equal("0f8fad5b-d9cb-469f-a165-70867728950e");
+        ReadBoxed(primedConvertedFlagsMapping, convertedFlags)
+            .Should()
+            .BeEquivalentTo(new HashSet<Guid> { new("0f8fad5b-d9cb-469f-a165-70867728950e") });
+    }
+
+    private static object? ReadBoxed(DynamoTypeMapping mapping, AttributeValue attributeValue)
+        => mapping.ReaderWriter!.ReadObject(attributeValue, "Path", true, null);
+
     private sealed class CollectionContext(DbContextOptions<CollectionContext> options) : DbContext(
         options)
     {
@@ -337,6 +425,15 @@ public class PrecompiledQueryGenerationTests
             {
                 DynamoEntityTypeBuilderExtensions.ToTable(entity, "CollectionItems");
                 entity.HasPartitionKey(item => item.Pk);
+                entity
+                    .PrimitiveCollection(item => item.ConvertedIds)
+                    .ElementType(e => e.HasConversion<string>());
+                entity
+                    .PrimitiveCollection(item => item.Statuses)
+                    .ElementType(e => e.HasConversion<string>());
+                entity
+                    .PrimitiveCollection(item => item.ConvertedFlags)
+                    .ElementType(e => e.HasConversion<string>());
             });
     }
 
@@ -351,6 +448,17 @@ public class PrecompiledQueryGenerationTests
         public Dictionary<string, decimal> Charges { get; set; } = [];
 
         public List<int?> OptionalScores { get; set; } = [];
+
+        public List<Guid> ConvertedIds { get; set; } = [];
+
+        public List<ConvertedStatus> Statuses { get; set; } = [];
+
+        public HashSet<Guid> ConvertedFlags { get; set; } = [];
+    }
+
+    private enum ConvertedStatus
+    {
+        Active
     }
 
     private static IProperty ResolveProperty(

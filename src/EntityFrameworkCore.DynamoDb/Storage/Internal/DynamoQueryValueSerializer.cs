@@ -153,8 +153,18 @@ internal static class DynamoQueryValueSerializer
         if (effectiveTarget == runtimeType || targetType.IsAssignableFrom(runtimeType))
             return value;
 
-        if (targetType.IsEnum && DynamoWireValueConversion.IsIntegralType(runtimeType))
-            return Enum.ToObject(targetType, value);
+        if (effectiveTarget.IsEnum)
+            if (runtimeType.IsEnum || DynamoWireValueConversion.IsNumericType(runtimeType))
+                // Convert through the enum's underlying type so cross-enum sources and nullable
+                // enum targets both land on the right enum instance. Conversion to a narrower
+                // underlying type that cannot hold the source value throws OverflowException,
+                // which is intentional: out-of-range coercions must not silently truncate.
+                return Enum.ToObject(
+                    effectiveTarget,
+                    Convert.ChangeType(
+                        value,
+                        Enum.GetUnderlyingType(effectiveTarget),
+                        CultureInfo.InvariantCulture));
 
         if (DynamoWireValueConversion.IsNumericType(effectiveTarget)
             && DynamoWireValueConversion.IsNumericType(runtimeType))

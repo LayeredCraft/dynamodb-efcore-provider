@@ -175,6 +175,8 @@ internal abstract class DynamoValueReaderWriter<TValue> : DynamoValueReaderWrite
 internal interface IDynamoConvertedValueReaderWriter
 {
     DynamoValueReaderWriter InnerReaderWriter { get; }
+
+    bool ConvertsNulls { get; }
 }
 
 /// <summary>Wraps a provider-level reader/writer with an EF Core <see cref="ValueConverter" />.</summary>
@@ -208,6 +210,8 @@ internal sealed class DynamoConvertedValueReaderWriter<TModel, TProvider>(
 
     DynamoValueReaderWriter IDynamoConvertedValueReaderWriter.InnerReaderWriter
         => innerReaderWriter;
+
+    bool IDynamoConvertedValueReaderWriter.ConvertsNulls => converter.ConvertsNulls;
 
     internal override bool HasValue(AttributeValue attributeValue)
     {
@@ -337,6 +341,8 @@ internal sealed class DynamoAotConvertedValueReaderWriter(
     DynamoValueReaderWriter IDynamoConvertedValueReaderWriter.InnerReaderWriter
         => innerReaderWriter;
 
+    bool IDynamoConvertedValueReaderWriter.ConvertsNulls => converter.ConvertsNulls;
+
     internal override bool HasValue(AttributeValue attributeValue)
         // Mirrors DynamoConvertedValueReaderWriter<TModel, TProvider>.HasValue so converters that
         // intentionally handle nulls behave identically on the NativeAOT path.
@@ -399,6 +405,57 @@ internal sealed class DynamoAotConvertedValueReaderWriter(
             converter.ConvertToProviderExpression.Parameters.Single(),
             modelValueExpression,
             converter.ConvertToProviderExpression.Body);
+}
+
+/// <summary>
+///     Exposes a non-generic converted wrapper (the NativeAOT composition) as a strongly-typed
+///     codec for primitive-collection element mappings.
+/// </summary>
+/// <remarks>
+///     Collection codecs require <see cref="DynamoValueReaderWriter{TValue}" /> for their element
+///     type. Under NativeAOT the composed wrapper cannot be closed over the model CLR type without
+///     <c>MakeGenericType</c>, so this adapter delegates to the boxed APIs of the wrapped codec
+///     instead.
+/// </remarks>
+internal sealed class ConvertedDynamoValueReaderWriter<TValue>(
+    IDynamoConvertedValueReaderWriter convertedReaderWriter) : DynamoValueReaderWriter<TValue>
+{
+    // The converted wrapper itself performs the model<->provider conversion; its InnerReaderWriter
+    // is the provider-level codec underneath the converter and must not receive model values.
+    private readonly DynamoValueReaderWriter _convertedReaderWriter =
+        (DynamoValueReaderWriter)convertedReaderWriter;
+
+    private readonly bool _convertsNulls = convertedReaderWriter.ConvertsNulls;
+
+    internal override string WireMemberName => _convertedReaderWriter.WireMemberName;
+
+    internal override bool RequiresParameterForPartiQlLiteral
+        => _convertedReaderWriter.RequiresParameterForPartiQlLiteral;
+
+    // Collection codecs are composed at runtime, not from compiled-model expression trees; the
+    // AOT wrapper rejects expression-tree construction, and this adapter delegates to it.
+    protected override Expression CreateConstructorExpression()
+        => throw new NotSupportedException(
+            "A NativeAOT converted collection codec is created through CoerceReaderWriter, not expression trees.");
+
+    internal override bool HasValue(AttributeValue attributeValue)
+        => _convertedReaderWriter.HasValue(attributeValue);
+
+    protected override TValue ReadValue(
+        AttributeValue attributeValue,
+        string propertyPath,
+        IProperty? property)
+        => (TValue)_convertedReaderWriter.ReadObject(attributeValue, propertyPath, true, property)!;
+
+    public override AttributeValue Write(TValue value)
+        => value is null && !_convertsNulls
+            ? new AttributeValue { NULL = true }
+            : _convertedReaderWriter.WriteBoxed(value!);
+
+    public override string ToPartiQlLiteral(TValue value)
+        => value is null && !_convertsNulls
+            ? "NULL"
+            : _convertedReaderWriter.ToPartiQlLiteralBoxed(value!);
 }
 
 /// <summary>Adapts a non-nullable provider reader/writer for nullable value-type mappings.</summary>
@@ -835,6 +892,15 @@ internal static class DynamoValueReaderWriterFactory
     {
         if (readerWriter is DynamoValueReaderWriter<TValue> typedReaderWriter)
             return typedReaderWriter;
+
+        // Under NativeAOT, converter compositions arrive as the non-generic converted wrapper.
+        // Re-wrap it in a typed adapter so collection codecs can close over the element CLR type
+        // without MakeGenericType, which is not trimming- or NativeAOT-safe.
+        if (readerWriter is IDynamoConvertedValueReaderWriter
+            && (readerWriter.ValueType == typeof(TValue)
+                || readerWriter.ValueType == Nullable.GetUnderlyingType(typeof(TValue))))
+            return new ConvertedDynamoValueReaderWriter<TValue>(
+                (IDynamoConvertedValueReaderWriter)readerWriter);
 
         var underlyingType = Nullable.GetUnderlyingType(typeof(TValue));
         if (underlyingType != null && readerWriter.ValueType == underlyingType)
