@@ -142,6 +142,33 @@ tasks:
       - dotnet publish EntityFrameworkCore.DynamoDb.NativeAotSmoke.csproj --configuration "{{.CONFIG}}" --runtime {{.RID}} --no-restore --output {{.OUTPUT}}
       - '{{.OUTPUT}}/EntityFrameworkCore.DynamoDb.NativeAotSmoke'
 
+  test:aot-warnings:
+    desc: Fail if the NativeAOT smoke publish reports AOT warning IDs outside the pinned baseline
+    silent: true
+    dir: testapps/EntityFrameworkCore.DynamoDb.NativeAotSmoke
+    vars:
+      CONFIG: '{{.CONFIG | default "Release EF10"}}'
+      RID:
+        sh: dotnet --info | awk '/RID:/ { print $2; exit }'
+      OUTPUT: '{{.ROOT_DIR}}/artifacts/nativeaot-smoke-warnings'
+      # Baseline AOT trimmer/AOT-compiler warning IDs observed with the pinned EF/SDK/ILCompiler
+      # versions. New warning IDs mean new reflection/dynamic surface (often provider code) and
+      # must be reviewed and either fixed or consciously added here. Occurrence counts are not
+      # pinned because MSBuild output duplication makes them non-deterministic.
+      BASELINE: 'IL2026 IL2055 IL2060 IL2067 IL2070 IL2072 IL2075 IL2091 IL2104 IL3050 IL3053'
+    cmds:
+      - dotnet restore EntityFrameworkCore.DynamoDb.NativeAotSmoke.csproj -p:Configuration="{{.CONFIG}}" --runtime {{.RID}}
+      - |
+        dotnet publish EntityFrameworkCore.DynamoDb.NativeAotSmoke.csproj --configuration "{{.CONFIG}}" --runtime {{.RID}} --no-restore --output {{.OUTPUT}} 2>&1 | tee {{.OUTPUT}}.log
+        FOUND=$(grep -oE 'warning IL[0-9]+' {{.OUTPUT}}.log | sort -u | awk '{print $2}' | sort)
+        NEW=$(comm -23 <(echo "$FOUND") <(echo "{{.BASELINE}}" | tr ' ' '\n' | sort))
+        if [ -n "$NEW" ]; then
+          echo "New AOT warning IDs outside the pinned baseline: $NEW"
+          echo "Review the new AOT-unsafe surface, then fix it or update BASELINE in Taskfile.yml."
+          exit 1
+        fi
+        echo "AOT warnings match the pinned baseline: $(echo $FOUND | tr '\n' ' ')"
+
   test:spec:
     desc: Test specification project for CONFIG (default Debug EF10). Optional FILTER="..."
     silent: true
