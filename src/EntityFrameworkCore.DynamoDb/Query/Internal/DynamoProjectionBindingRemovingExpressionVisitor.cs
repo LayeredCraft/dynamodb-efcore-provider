@@ -10,7 +10,6 @@ using EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using EntityFrameworkCore.DynamoDb.Storage;
 using EntityFrameworkCore.DynamoDb.Storage.Internal;
-using System.Diagnostics.CodeAnalysis;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
@@ -82,23 +81,6 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
     private static readonly MethodInfo ReadScalarMethod =
         typeof(DynamoGeneratedQueryRuntime).GetMethod(
             nameof(DynamoGeneratedQueryRuntime.ReadScalar))!;
-
-    private static readonly MethodInfo DictionaryContainsKeyMethod =
-        typeof(Dictionary<string, AttributeValue>).GetMethod(nameof(Dictionary<,>.ContainsKey))!;
-
-    private static readonly MethodInfo DictionaryIndexerGetMethod =
-        typeof(Dictionary<string, AttributeValue>).GetProperty("Item")!.GetMethod!;
-
-    private static readonly MethodInfo HasValueMethod =
-        typeof(DynamoValueReaderWriter).GetMethod(nameof(DynamoValueReaderWriter.HasValue))!;
-
-    private static readonly PropertyInfo WireMemberNameProperty =
-        typeof(DynamoValueReaderWriter).GetProperty(
-            nameof(DynamoValueReaderWriter.WireMemberName))!;
-
-    private static readonly MethodInfo StringConcatMethod = typeof(string).GetMethod(
-        nameof(string.Concat),
-        [typeof(string), typeof(string), typeof(string)])!;
 
     private static readonly ConstantExpression InvariantCultureExpression =
         Constant(CultureInfo.InvariantCulture, typeof(IFormatProvider));
@@ -888,24 +870,11 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
                 typeof(Dictionary<string, AttributeValue>),
                 type);
 
-            // Converter-less scalar mappings emit a direct typed static read, so generated
-            // shapers do not carry a per-property reader delegate. Converter-backed mappings
-            // first try the direct converted path (typed provider read + inlined converter
-            // expression); collections and anything not representable in generated C# keep the
-            // runtime reader fallback.
-            if (generatedTypeMapping.ElementTypeMapping is null
-                && TryCreateConvertedScalarReadExpression(
-                    generatedTypeMapping,
-                    itemParameter,
-                    propertyName,
-                    propertyPath,
-                    type,
-                    required,
-                    out var convertedReadExpression))
-                return convertedReadExpression;
-
+            // Converter-backed mappings use a query-lifetime reader fallback. Only converter-free
+            // scalar mappings use the direct static read path.
             if (generatedTypeMapping.Converter is null
-                && generatedTypeMapping.ElementTypeMapping is null)
+                && generatedTypeMapping.ElementTypeMapping is null
+                && !(Nullable.GetUnderlyingType(type) ?? type).IsEnum)
                 return Call(
                     ReadScalarMethod.MakeGenericMethod(type),
                     itemParameter,
@@ -1014,160 +983,6 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
         Expression CreateThrow(string message)
             => Throw(New(InvalidOperationExceptionCtor, Constant(message)), type);
     }
-
-    /// <summary>
-    ///     Attempts to build a variable-free generated-code expression for a converter-backed
-    ///     scalar property: typed provider read through the codec instance plus the converter's
-    ///     <c>ConvertFromProviderExpression</c> inlined over it.
-    /// </summary>
-    /// <remarks>
-    ///     The expression avoids <c>Expression.Block</c> variables (they do not survive
-    ///     embedding into nested lambdas in generated C#) and contains no non-representable
-    ///     constants, so it is safe to embed anywhere in a generated shaper, including liftable
-    ///     constant resolvers.
-    /// </remarks>
-    private bool TryCreateConvertedScalarReadExpression(
-        DynamoTypeMapping typeMapping,
-        Expression itemParameter,
-        string propertyName,
-        string propertyPath,
-        Type type,
-        bool required,
-        [NotNullWhen(true)] out Expression? readExpression)
-    {
-        readExpression = null;
-
-        var converter = typeMapping.Converter;
-        if (converter is null
-            || typeMapping.ReaderWriter is not IDynamoConvertedValueReaderWriter convertedWrapper)
-            return false;
-
-        var providerType = converter.ProviderClrType;
-        var convertsNulls = convertedWrapper.ConvertsNulls;
-
-        // A ConvertsNulls converter over a non-nullable value-type provider cannot receive a
-        // real null value through the typed inner read; the runtime fallback preserves that
-        // rare shape. Reference-type providers represent null naturally.
-        if (convertsNulls
-            && providerType.IsValueType
-            && Nullable.GetUnderlyingType(providerType) is null)
-            return false;
-
-        var innerReaderWriter = convertedWrapper.InnerReaderWriter;
-        var codecExpression = innerReaderWriter.ConstructorExpression;
-        if (!IsRepresentable(codecExpression))
-            return false;
-
-        var attributeExpression = Call(
-            itemParameter,
-            DictionaryIndexerGetMethod,
-            Constant(propertyName));
-
-        Expression hasValueExpression;
-        if (convertsNulls)
-            // Absent and NULL wire values flow to the converter as null; the nullable inner
-            // codec materializes both as null.
-            hasValueExpression = OrElse(
-                Equal(attributeExpression, Constant(null, typeof(AttributeValue))),
-                OrElse(
-                    Equal(
-                        Property(attributeExpression, AttributeValueNullProperty),
-                        Constant(true, typeof(bool?))),
-                    Call(codecExpression, HasValueMethod, attributeExpression)));
-        else
-            hasValueExpression = AndAlso(
-                NotEqual(attributeExpression, Constant(null, typeof(AttributeValue))),
-                Call(codecExpression, HasValueMethod, attributeExpression));
-
-        var providerReadExpression = innerReaderWriter.CreateReadExpression(
-            attributeExpression,
-            propertyPath,
-            required: false,
-            property: null);
-
-        var modelExpression = ReplacingExpressionVisitor.Replace(
-            converter.ConvertFromProviderExpression.Parameters.Single(),
-            providerReadExpression,
-            converter.ConvertFromProviderExpression.Body);
-        if (modelExpression.Type != type)
-            modelExpression = Convert(modelExpression, type);
-
-        var wireMemberNameExpression = Property(codecExpression, WireMemberNameProperty);
-        var missingValueMessage = Call(
-            StringConcatMethod,
-            Constant(
-                $"Required property '{propertyPath}' did not contain a value for expected "
-                + "DynamoDB wire member '"),
-            wireMemberNameExpression,
-            Constant("'."));
-
-        Expression nullReturnExpression = required
-            ? Throw(New(InvalidOperationExceptionCtor, missingValueMessage), type)
-            : Default(type);
-        Expression missingReturnExpression = required
-            ? Throw(
-                New(
-                    InvalidOperationExceptionCtor,
-                    Constant(
-                        $"Required property '{propertyPath}' was not present in the DynamoDB item.")),
-                type)
-            : Default(type);
-
-        readExpression = Condition(
-            Call(itemParameter, DictionaryContainsKeyMethod, Constant(propertyName)),
-            Condition(hasValueExpression, modelExpression, nullReturnExpression),
-            missingReturnExpression);
-
-        if (!IsRepresentable(readExpression))
-        {
-            readExpression = null;
-            return false;
-        }
-
-        return true;
-    }
-
-    /// <summary>
-    ///     Checks whether an expression can be translated to generated C# by EF's precompiled
-    ///     query code generator: no non-primitive constants (delegates, codecs, model metadata)
-    ///     and only node shapes the C# translator supports.
-    /// </summary>
-    private static bool IsRepresentable(Expression? expression)
-        => expression switch
-        {
-            null => true,
-            ParameterExpression => true,
-            ConstantExpression constant => constant.Value is null
-                || constant.Value is Type
-                || (Nullable.GetUnderlyingType(constant.Type) is { } underlying
-                    && (underlying.IsPrimitive || underlying == typeof(decimal)))
-                || constant.Type == typeof(string)
-                || constant.Type.IsPrimitive
-                || constant.Type == typeof(decimal)
-                || constant.Type.IsEnum,
-            NewExpression newExpression => newExpression.Arguments.All(IsRepresentable),
-            MemberExpression member => IsRepresentable(member.Expression),
-            MethodCallExpression call => IsRepresentable(call.Object)
-                && call.Arguments.All(IsRepresentable),
-            BinaryExpression binary => binary.Conversion is null
-                && IsRepresentable(binary.Left)
-                && IsRepresentable(binary.Right),
-            UnaryExpression unary => IsRepresentable(unary.Operand),
-            ConditionalExpression conditional => IsRepresentable(conditional.Test)
-                && IsRepresentable(conditional.IfTrue)
-                && IsRepresentable(conditional.IfFalse),
-            TypeBinaryExpression => true,
-            DefaultExpression => true,
-            InvocationExpression
-                or LambdaExpression
-                or ListInitExpression
-                or MemberInitExpression
-                or NewArrayExpression
-                or IndexExpression
-                or DynamicExpression
-                or RuntimeVariablesExpression => false,
-            _ => false
-        };
 
     private Expression CreateEmptyValueBufferExpression()
     {

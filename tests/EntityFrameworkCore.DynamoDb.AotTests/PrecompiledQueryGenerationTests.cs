@@ -357,6 +357,7 @@ public class PrecompiledQueryGenerationTests
                               public int? OptionalCount { get; set; }
                               public bool Active { get; set; }
                               public TestStatus Kind { get; set; }
+                              public TestStatus? OptionalKind { get; set; }
                               public TestStatus Status { get; set; }
                               public string Tag { get; set; } = "";
                               public int? Score { get; set; }
@@ -430,6 +431,15 @@ public class PrecompiledQueryGenerationTests
                               return await context.Items
                               .Where(item => item.Pk == "tenant-1")
                               .Select(item => item.Kind)
+                              .ToListAsync();
+                              }
+
+                              public static async Task<List<TestStatus?>> OptionalKindQuery(DbContextOptions options)
+                              {
+                              await using var context = new ScalarContext(options);
+                              return await context.Items
+                              .Where(item => item.Pk == "tenant-1")
+                              .Select(item => item.OptionalKind)
                               .ToListAsync();
                               }
 
@@ -513,16 +523,14 @@ public class PrecompiledQueryGenerationTests
             var generatedCode =
                 string.Join(Environment.NewLine, generatedFiles.Select(file => file.Code));
 
-            // Unconverted scalars read through the typed static ReadScalar path; representable
-            // converter-backed scalars (enum→string, custom string converter, converts-null
-            // nullable converter) read through direct typed codec + inlined converter
-            // expressions. No per-property CreateValueReader delegate remains.
-            generatedCode.Should().NotContain("CreateValueReader<");
+            // Unconverted scalars read through the typed static ReadScalar path. Converter-backed
+            // scalars retain the query-lifetime reader fallback, avoiding per-row codec creation.
+            generatedCode.Should().Contain("CreateValueReader<");
             generatedCode.Should().Contain("DynamoGeneratedQueryRuntime.ReadScalar<");
-            generatedCode.Should().Contain("HasValue(item[");
+            generatedCode.Should().NotContain("HasValue(item[");
 
             // Execute the generated converted-scalar reads against a fake client, including
-            // NULL and missing wire values, to pin runtime parity of the direct path.
+            // NULL and missing wire values, to pin runtime parity of the fallback path.
             var (generatedLoadContext, generatedAssembly) = EmitAndLoad(
                 compilation.AddSyntaxTrees(
                     generatedFiles.Select(file
@@ -536,6 +544,8 @@ public class PrecompiledQueryGenerationTests
                     {
                         ["pk"] = new() { S = "tenant-1" },
                         ["$type"] = new() { S = "ScalarItem" },
+                        ["kind"] = new() { N = "0" },
+                        ["optionalKind"] = new() { N = "0" },
                         ["status"] = new() { S = "Active" },
                         ["tag"] = new() { S = " x " },
                         ["score"] = new() { NULL = true }
@@ -583,6 +593,28 @@ public class PrecompiledQueryGenerationTests
                     .Select(Convert.ToInt32)
                     .ToList();
                 statuses.Should().Equal((int)TestStatus.Active, (int)TestStatus.Active);
+
+                var kind =
+                    ((System.Collections.IEnumerable)(await InvokeQueryAsync(
+                            generatedAssembly,
+                            "KindQuery",
+                            fakeOptions)
+                        ?? throw new InvalidOperationException("KindQuery returned null.")))
+                    .Cast<object>()
+                    .Select(Convert.ToInt32)
+                    .ToList();
+                kind.Should().Equal((int)TestStatus.Active);
+
+                var optionalKind =
+                    ((System.Collections.IEnumerable)(await InvokeQueryAsync(
+                            generatedAssembly,
+                            "OptionalKindQuery",
+                            fakeOptions)
+                        ?? throw new InvalidOperationException("OptionalKindQuery returned null.")))
+                    .Cast<object?>()
+                    .Select(value => value is null ? (int?)null : Convert.ToInt32(value))
+                    .ToList();
+                optionalKind.Should().Equal((int)TestStatus.Active);
             }
             finally
             {

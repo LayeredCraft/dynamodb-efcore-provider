@@ -17,6 +17,8 @@ await using (var context = new SmokeContext())
             Sk = "sk-1",
             Name = "Native",
             Status = SmokeStatus.Active,
+            RawStatus = SmokeStatus.Inactive,
+            OptionalStatus = SmokeStatus.Active,
             Count = 42,
             Enabled = true,
             Payload = [1, 2, 3],
@@ -28,6 +30,8 @@ await using (var context = new SmokeContext())
             Sk = "sk-null",
             Name = "Nullable",
             Status = SmokeStatus.Inactive,
+            RawStatus = SmokeStatus.Inactive,
+            OptionalStatus = null,
             Count = null,
             Enabled = false,
             Payload = [0],
@@ -42,6 +46,8 @@ var expectedItem = new SmokeItem
     Sk = "sk-1",
     Name = "Native",
     Status = SmokeStatus.Active,
+    RawStatus = SmokeStatus.Inactive,
+    OptionalStatus = SmokeStatus.Active,
     Count = 42,
     Enabled = true,
     Payload = [1, 2, 3],
@@ -51,6 +57,16 @@ var expectedItem = new SmokeItem
 var asyncItems = await SmokeQueries.LoadItemsAsync();
 AssertSingleItem(asyncItems, expectedItem);
 Console.WriteLine("NativeAOT generated asynchronous query executed successfully.");
+
+var rawStatuses = await SmokeQueries.ProjectRawStatusAsync();
+if (rawStatuses.Count != 1 || rawStatuses[0] != SmokeStatus.Inactive)
+    throw new InvalidOperationException(
+        "Expected the unconverted enum projection to materialize Inactive.");
+var optionalStatuses = await SmokeQueries.ProjectOptionalStatusAsync();
+if (optionalStatuses.Count != 1 || optionalStatuses[0] != SmokeStatus.Active)
+    throw new InvalidOperationException(
+        "Expected the nullable unconverted enum projection to materialize Active.");
+Console.WriteLine("NativeAOT unconverted enum projections executed successfully.");
 
 var activeItems = await SmokeQueries.LoadActiveItemsAsync();
 AssertSingleItem(activeItems, expectedItem);
@@ -79,6 +95,7 @@ AssertSingleItem(
         Sk = "sk-null",
         Name = "Nullable",
         Status = SmokeStatus.Inactive,
+        RawStatus = SmokeStatus.Inactive,
         Count = null,
         Enabled = false,
         Payload = [0],
@@ -124,6 +141,8 @@ static void AssertSingleItem(List<SmokeItem> items, SmokeItem expected)
         || actual.Sk != expected.Sk
         || actual.Name != expected.Name
         || actual.Status != expected.Status
+        || actual.RawStatus != expected.RawStatus
+        || actual.OptionalStatus != expected.OptionalStatus
         || actual.Count != expected.Count
         || actual.Enabled != expected.Enabled
         || !actual.Payload.SequenceEqual(expected.Payload)
@@ -273,6 +292,26 @@ internal static class SmokeQueries
             .Where(item => item.Pk == partitionKey && item.Count == null)
             .ToListAsync();
     }
+
+    internal static async Task<List<SmokeStatus>> ProjectRawStatusAsync()
+    {
+        await using var context = new SmokeContext();
+        return await context
+            .Items
+            .Where(item => item.Pk == "tenant-1")
+            .Select(item => item.RawStatus)
+            .ToListAsync();
+    }
+
+    internal static async Task<List<SmokeStatus?>> ProjectOptionalStatusAsync()
+    {
+        await using var context = new SmokeContext();
+        return await context
+            .Items
+            .Where(item => item.Pk == "tenant-1")
+            .Select(item => item.OptionalStatus)
+            .ToListAsync();
+    }
 }
 
 public sealed class SmokeItem
@@ -281,6 +320,8 @@ public sealed class SmokeItem
     public string Sk { get; set; } = null!;
     public string Name { get; set; } = null!;
     public SmokeStatus Status { get; set; }
+    public SmokeStatus RawStatus { get; set; }
+    public SmokeStatus? OptionalStatus { get; set; }
     public int? Count { get; set; }
     public bool Enabled { get; set; }
     public byte[] Payload { get; set; } = null!;
