@@ -129,7 +129,7 @@ tasks:
       - dotnet test tests/EntityFrameworkCore.DynamoDb.AotTests/EntityFrameworkCore.DynamoDb.AotTests.csproj --configuration "{{.CONFIG}}" --no-build
 
   test:aot-publish:
-    desc: Publish and run the EF10 NativeAOT smoke app (CONFIG must be a Release EF10 configuration)
+    desc: Publish and run NativeAOT smoke app for CONFIG (default Release EF10)
     silent: true
     dir: testapps/EntityFrameworkCore.DynamoDb.NativeAotSmoke
     vars:
@@ -159,8 +159,13 @@ tasks:
     cmds:
       - dotnet restore EntityFrameworkCore.DynamoDb.NativeAotSmoke.csproj -p:Configuration="{{.CONFIG}}" --runtime {{.RID}}
       - |
-        dotnet publish EntityFrameworkCore.DynamoDb.NativeAotSmoke.csproj --configuration "{{.CONFIG}}" --runtime {{.RID}} --no-restore --output {{.OUTPUT}} 2>&1 | tee {{.OUTPUT}}.log
-        FOUND=$(grep -oE 'warning IL[0-9]+' {{.OUTPUT}}.log | sort -u | awk '{print $2}' | sort)
+        set -o pipefail
+        if ! dotnet publish EntityFrameworkCore.DynamoDb.NativeAotSmoke.csproj --configuration "{{.CONFIG}}" --runtime {{.RID}} --no-restore --output {{.OUTPUT}} 2>&1 | tee {{.OUTPUT}}.log; then
+          echo "NativeAOT publish failed."
+          exit 1
+        fi
+        # Reviewed EF Core/AWS SDK reflection and dynamic-code warnings.
+        FOUND=$(grep -oE 'warning IL[0-9]+' {{.OUTPUT}}.log | sort -u | awk '{print $2}' | sort || true)
         NEW=$(comm -23 <(echo "$FOUND") <(echo "{{.BASELINE}}" | tr ' ' '\n' | sort))
         if [ -n "$NEW" ]; then
           echo "New AOT warning IDs outside the pinned baseline: $NEW"

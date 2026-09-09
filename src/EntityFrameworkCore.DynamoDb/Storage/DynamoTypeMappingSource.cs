@@ -163,6 +163,12 @@ public class DynamoTypeMappingSource(TypeMappingSourceDependencies dependencies)
     /// <summary>Returns the element type when the CLR type is a supported list shape.</summary>
     internal static bool TryGetListElementType(Type clrType, out Type elementType)
     {
+        if (clrType == typeof(byte[]))
+        {
+            elementType = null!;
+            return false;
+        }
+
         if (clrType.IsArray)
         {
             if (clrType.GetArrayRank() != 1)

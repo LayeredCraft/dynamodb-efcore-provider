@@ -553,7 +553,12 @@ public sealed class DynamoQuerySqlGenerator : SqlExpressionVisitor
             FlushTextSegment();
             var segments = _precompiledSegments;
             _precompiledSegments = null;
+            var parameterCount = _parameters.Count;
             Visit(sqlInExpression.Item);
+            if (_parameters.Count != parameterCount)
+                throw new NotSupportedException(
+                    "A precompiled IN expression cannot use a parameterized literal as its item. "
+                    + "Rewrite the query so IN tests a mapped property.");
             var itemSql = _sql.ToString();
             _sql.Clear();
             _precompiledSegments = segments;
