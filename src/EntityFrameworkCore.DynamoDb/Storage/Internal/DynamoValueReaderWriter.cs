@@ -1055,7 +1055,12 @@ internal static class DynamoValueReaderWriterHelpers
         DynamoValueReaderWriter<TValue> valueReaderWriter,
         bool readOnly)
     {
-        var valueRequired = IsRequiredCollectionElement(property, typeof(TValue));
+        // Dictionary element metadata describes KeyValuePair<K, V>, which is never nullable, so
+        // it cannot express value nullability. The write path emits NULL wire entries for
+        // nullable and reference-type values, so the read path must accept them; only
+        // non-nullable value-type values are required.
+        var valueRequired =
+            typeof(TValue).IsValueType && Nullable.GetUnderlyingType(typeof(TValue)) == null;
         var result = new Dictionary<string, TValue>(attributeValue.M.Count, StringComparer.Ordinal);
 
         foreach (var pair in attributeValue.M)
