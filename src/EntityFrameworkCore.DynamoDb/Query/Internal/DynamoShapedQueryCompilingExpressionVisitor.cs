@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Diagnostics;
@@ -66,6 +67,12 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
         // Step 2: Inject EF Core's standard structural type materializers
         // This adds entity construction and property assignment logic
         shaperBody = InjectStructuralTypeMaterializers(shaperBody);
+
+        // Precompiled materializers must not read mapped collection values through backing
+        // fields: the generated field-read accessor is invalid under NativeAOT and crashes at
+        // first query. Fail at generation time instead.
+        if (dynamoQueryCompilationContext.IsPrecompiling)
+            ValidatePrecompiledFieldReads(shaperBody);
 
         // Step 3: Remove projection bindings and replace with actual dictionary access
         // This converts abstract ProjectionBindingExpression to concrete property access
@@ -455,5 +462,49 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
             throw new ArgumentOutOfRangeException("limit", "Limit must be a positive integer.");
 
         return value;
+    }
+
+    private static void ValidatePrecompiledFieldReads(Expression shaperBody)
+    {
+        var visitor = new PrecompiledFieldReadValidatingVisitor();
+        visitor.Visit(shaperBody);
+
+        if (visitor.FieldReads.Count == 0)
+            return;
+
+        throw new NotSupportedException(
+            "Precompiled query materialization reads the mapped collection backing field(s) "
+            + string.Join(", ", visitor.FieldReads.Distinct())
+            + ". Reading collection values through backing fields is not supported under "
+            + "NativeAOT (see the provider limitations documentation). Materialize these "
+            + "collections through public property accessors, for example by configuring "
+            + "UsePropertyAccessMode(PropertyAccessMode.PreferProperty), or remove them from "
+            + "entities returned by precompiled queries.");
+    }
+
+    private sealed class PrecompiledFieldReadValidatingVisitor : ExpressionVisitor
+    {
+        public List<string> FieldReads { get; } = [];
+
+        protected override Expression VisitBinary(BinaryExpression node)
+        {
+            // Assigning a materialized collection to its backing field is a field write, which
+            // is AOT-safe; only field reads go through the AOT-invalid generated accessor.
+            if (node.NodeType == ExpressionType.Assign
+                && node.Left is MemberExpression { Member: FieldInfo })
+                return Visit(node.Right);
+
+            return base.VisitBinary(node);
+        }
+
+        protected override Expression VisitMember(MemberExpression node)
+        {
+            if (node.Member is FieldInfo field
+                && !field.FieldType.IsArray
+                && DynamoTypeMappingSource.IsSupportedPrimitiveCollectionShape(field.FieldType))
+                FieldReads.Add($"{field.DeclaringType?.Name}.{field.Name}");
+
+            return base.VisitMember(node);
+        }
     }
 }

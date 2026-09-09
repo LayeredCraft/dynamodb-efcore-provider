@@ -753,7 +753,8 @@ internal static class DynamoValueReaderWriterFactory
     public static DynamoValueReaderWriter? Create(
         Type clrType,
         DynamoValueReaderWriter? elementReaderWriter = null,
-        bool readOnlyDictionary = false)
+        bool readOnlyDictionary = false,
+        bool allowReflectionFallback = true)
     {
         var nonNullableType = Nullable.GetUnderlyingType(clrType) ?? clrType;
         var isNullableValueType = clrType != nonNullableType && nonNullableType.IsValueType;
@@ -776,26 +777,45 @@ internal static class DynamoValueReaderWriterFactory
 
         // Collection mappings are built from the element/value mapping that EF resolved earlier,
         // so rich shapes inherit the same converter and wire-format behavior as their elements.
-        if (elementReaderWriter != null
-            && DynamoTypeMappingSource.TryGetListElementType(clrType, out var listElementType))
-            return (DynamoValueReaderWriter)CreateListReaderWriterMethod
-                .MakeGenericMethod(clrType, listElementType)
-                .Invoke(null, [elementReaderWriter])!;
-
-        if (elementReaderWriter != null
+        Type listElementType = null!, dictionaryValueType = null!, setElementType = null!;
+        var hasListShape = elementReaderWriter != null
+            && DynamoTypeMappingSource.TryGetListElementType(clrType, out listElementType);
+        var hasDictionaryShape = !hasListShape
+            && elementReaderWriter != null
             && DynamoTypeMappingSource.TryGetDictionaryValueType(
                 clrType,
-                out var dictionaryValueType,
-                out _))
-            return (DynamoValueReaderWriter)CreateDictionaryReaderWriterMethod
-                .MakeGenericMethod(clrType, dictionaryValueType)
-                .Invoke(null, [elementReaderWriter, readOnlyDictionary])!;
+                out dictionaryValueType,
+                out _);
+        var hasSetShape =
+            !hasListShape
+            && !hasDictionaryShape
+            && elementReaderWriter != null
+            && DynamoTypeMappingSource.TryGetSetElementType(clrType, out setElementType);
 
-        if (elementReaderWriter != null
-            && DynamoTypeMappingSource.TryGetSetElementType(clrType, out var setElementType))
+        if (hasListShape || hasDictionaryShape || hasSetShape)
+        {
+            if (!allowReflectionFallback)
+                throw new InvalidOperationException(
+                    $"The DynamoDB collection mapping for '{FormatFriendlyTypeName(clrType)}' was "
+                    + "not primed by a compiled model. Materializing unprimed collection mappings "
+                    + "requires runtime generic instantiation, which fails under NativeAOT. "
+                    + "Generate the compiled model (`dotnet ef dbcontext optimize`) and configure "
+                    + "the context with UseModel so collection codecs are primed statically.");
+
+            if (hasListShape)
+                return (DynamoValueReaderWriter)CreateListReaderWriterMethod
+                    .MakeGenericMethod(clrType, listElementType)
+                    .Invoke(null, [elementReaderWriter])!;
+
+            if (hasDictionaryShape)
+                return (DynamoValueReaderWriter)CreateDictionaryReaderWriterMethod
+                    .MakeGenericMethod(clrType, dictionaryValueType)
+                    .Invoke(null, [elementReaderWriter, readOnlyDictionary])!;
+
             return (DynamoValueReaderWriter)CreateSetReaderWriterMethod
                 .MakeGenericMethod(clrType, setElementType)
                 .Invoke(null, [elementReaderWriter])!;
+        }
 
         return null;
     }
@@ -846,6 +866,13 @@ internal static class DynamoValueReaderWriterFactory
     private static ListDynamoValueReaderWriter<TCollection, TElement>
         CreateListReaderWriter<TCollection, TElement>(DynamoValueReaderWriter elementReaderWriter)
         => new(CoerceReaderWriter<TElement>(elementReaderWriter));
+
+    private static string FormatFriendlyTypeName(Type type)
+        => type.IsGenericType
+            ? $"{type.Name[..type.Name.IndexOf('`')]}<"
+            + string.Join(", ", type.GetGenericArguments().Select(FormatFriendlyTypeName))
+            + ">"
+            : type.Name;
 
     private static DictionaryDynamoValueReaderWriter<TCollection, TValue>
         CreateDictionaryReaderWriter<TCollection, TValue>(

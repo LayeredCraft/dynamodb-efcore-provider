@@ -340,6 +340,110 @@ public class PrecompiledQueryGenerationTests
         }
     }
 
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void Precompiled_generation_fails_when_materialization_reads_collection_backing_fields()
+    {
+        const string source = """
+                              using System.Collections.Generic;
+                              using System.Linq;
+                              using System.Threading.Tasks;
+                              using Microsoft.EntityFrameworkCore;
+
+                              namespace GeneratedQueryTest;
+
+                              public sealed class TestContext(DbContextOptions options) : DbContext(options)
+                              {
+                                  public DbSet<TestItem> Items => Set<TestItem>();
+
+                                  protected override void OnModelCreating(ModelBuilder modelBuilder)
+                              {
+                              modelBuilder.Entity<TestItem>(entity =>
+                              {
+                              entity.HasPartitionKey(item => item.Pk);
+                              });
+                              }
+                              }
+
+                              public sealed class TestItem
+                              {
+                              public string Pk { get; set; } = null!;
+                              public string Name { get; set; } = null!;
+                              public List<string> Tags { get; set; } = [];
+                              }
+
+                              public static class QueryContainer
+                              {
+                              public static async Task<List<TestItem>> ExecuteEntities(DbContextOptions options)
+                              {
+                              await using var context = new TestContext(options);
+                              return await context.Items
+                              .Where(item => item.Pk == "tenant-1")
+                              .ToListAsync();
+                              }
+                              }
+                              """;
+
+        var parseOptions = new CSharpParseOptions().WithFeatures(
+        [
+            new KeyValuePair<string, string>(
+                "InterceptorsNamespaces",
+                "Microsoft.EntityFrameworkCore.GeneratedInterceptors")
+        ]);
+        var compilation = CSharpCompilation.Create(
+            "DynamoGeneratedQueryTest",
+            [CSharpSyntaxTree.ParseText(source, parseOptions, path: "GeneratedQueryTest.cs")],
+            GetMetadataReferences(),
+            new CSharpCompilationOptions(
+                OutputKind.DynamicallyLinkedLibrary,
+                nullableContextOptions: NullableContextOptions.Enable));
+
+        AssertCompilationSucceeded(compilation);
+        var (loadContext, assembly) = EmitAndLoad(compilation);
+
+        try
+        {
+            var options = new DbContextOptionsBuilder().UseDynamo().Options;
+            using var context = (DbContext)Activator.CreateInstance(
+                assembly.GetType("GeneratedQueryTest.TestContext")!,
+                options)!;
+            using var workspace = new AdhocWorkspace();
+            var errors = new List<PrecompiledQueryCodeGenerator.QueryPrecompilationError>();
+            IReadOnlyList<ScaffoldedFile> generatedFiles;
+            try
+            {
+                generatedFiles =
+                [
+                    .. new DynamoPrecompiledQueryCodeGenerator().GeneratePrecompiledQueries(
+                        compilation,
+                        SyntaxGenerator.GetGenerator(workspace, LanguageNames.CSharp),
+                        context,
+                        new Dictionary<MemberInfo, QualifiedName>(),
+                        errors,
+                        new HashSet<string>(),
+                        assembly)
+                ];
+            }
+            catch (NotSupportedException exception)
+            {
+                exception.Message.Should().Contain("backing field");
+                exception.Message.Should().Contain("NativeAOT");
+                return;
+            }
+
+            // EF's generator surfaces provider failures as precompilation errors instead of
+            // exceptions in some paths; both forms must name the field-read problem.
+            errors.Should().NotBeEmpty();
+            errors
+                .Select(error => error.Exception.Message)
+                .Should()
+                .Contain(message => message.Contains("backing field"));
+        }
+        finally
+        {
+            loadContext.Unload();
+        }
+    }
+
     private static IReadOnlyList<MetadataReference> GetMetadataReferences()
         => ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
             .Split(Path.PathSeparator)

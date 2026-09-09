@@ -1,4 +1,5 @@
 using System.Linq.Expressions;
+using System.Runtime.CompilerServices;
 using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.Storage.Internal;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
@@ -176,7 +177,10 @@ public class DynamoTypeMapping : CoreTypeMapping
         var readerWriter = DynamoValueReaderWriterFactory.Create(
             parameters.Converter?.ProviderClrType ?? parameters.ClrType,
             elementReaderWriter,
-            readOnlyDictionary);
+            readOnlyDictionary,
+            // Under NativeAOT an unprimed collection codec would need runtime generic
+            // instantiation; fail fast with compiled-model guidance instead.
+            RuntimeFeature.IsDynamicCodeSupported);
 
         // Apply the converter once after the provider-level reader/writer is known so both read and
         // write paths share the same composed model <-> provider conversion behavior.

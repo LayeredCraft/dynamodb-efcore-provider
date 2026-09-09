@@ -65,9 +65,12 @@ public sealed class DynamoCSharpRuntimeAnnotationCodeGenerator(
         DynamoTypeMapping typeMapping,
         CSharpRuntimeAnnotationCodeGeneratorParameters parameters)
     {
+        // Emitting a collection mapping without its primed codec would leave the runtime codec
+        // construction to reflection, which fails at first query under NativeAOT. Fail compiled
+        // -model generation instead of shipping a silently unprimed mapping.
         var readerWriterType = typeMapping.ReaderWriter?.GetType();
         if (readerWriterType?.IsGenericType != true)
-            return false;
+            return ThrowOrSkipUnprimedCollection(typeMapping);
 
         var genericDefinition = readerWriterType.GetGenericTypeDefinition();
         var primeMethodName =
@@ -80,7 +83,7 @@ public sealed class DynamoCSharpRuntimeAnnotationCodeGenerator(
                         ? nameof(DynamoGeneratedModelRuntime.PrimeSetMapping)
                         : null;
         if (primeMethodName is null || typeMapping.ClrType == typeof(object))
-            return false;
+            return ThrowOrSkipUnprimedCollection(typeMapping);
 
         var genericArguments = readerWriterType.GetGenericArguments();
         var code = Dependencies.CSharpHelper;
@@ -105,6 +108,20 @@ public sealed class DynamoCSharpRuntimeAnnotationCodeGenerator(
         parameters.MainBuilder.Append("))");
 
         return created;
+    }
+
+    private static bool ThrowOrSkipUnprimedCollection(DynamoTypeMapping typeMapping)
+    {
+        if (!DynamoTypeMappingSource.IsSupportedPrimitiveCollectionShape(typeMapping.ClrType))
+            return false;
+
+        throw new NotSupportedException(
+            "Compiled-model generation could not emit a primed collection mapping for '"
+            + $"{typeMapping.ClrType.Name}'. Unprimed collection mappings build their codecs "
+            + "through reflection at runtime, which fails under NativeAOT. Use a supported "
+            + "collection shape (List<T>, HashSet<T>, Dictionary<string, T>, or "
+            + "ReadOnlyDictionary<string, T> of primitive elements), or avoid the compiled model "
+            + "for this context.");
     }
 }
 
