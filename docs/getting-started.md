@@ -164,10 +164,10 @@ context.Products.Remove(product!);
 await context.SaveChangesAsync();
 ```
 
-!!! note "Synchronous reads in precompiled queries"
+!!! note "Query execution is async-only"
 
-    Generated precompiled queries can use synchronous terminals such as `ToList()`. Normal query
-    execution and writes remain asynchronous: use `ToListAsync()` and `SaveChangesAsync()`.
+    Normal and generated precompiled queries are asynchronous only. Use methods such as
+    `ToListAsync()` and `FirstOrDefaultAsync()` for queries and `SaveChangesAsync()` for writes.
 
 ## See Also
 

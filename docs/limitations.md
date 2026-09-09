@@ -19,6 +19,11 @@ NativeAOT publishing can report trimming and dynamic-code warnings from EF Core,
 provider paths outside query execution. The provider's smoke build allows those warnings while AOT
 support remains experimental; a warning-free trimmed application is not yet guaranteed.
 
+CI publishes and runs the NativeAOT smoke application with EF Core 10. EF Core 11 currently has a
+known blocker during EF Core Tasks precompilation, where generated-query compilation can fail to
+resolve application references. Interceptor generation is tested for EF Core 11, but NativeAOT
+publish-and-run support is not yet available.
+
 The tested native path supports scalar entity properties, including nullable numbers, Boolean,
 binary, configured scalar conversions, and one-dimensional arrays with non-nullable elements.
 List, set, and dictionary primitive collections whose elements use their own value converter (for
@@ -35,7 +40,8 @@ Field-only properties can hit the same limitation. Basic scalar properties and a
 by the native smoke test because their materialization uses a field write, not a field read.
 
 Query execution is asynchronous only. Synchronous query operators and enumeration throw
-`NotSupportedException`; use `ToListAsync`, `FirstAsync`, `ToPageAsync`, or `AsAsyncEnumerable`.
+`InvalidOperationException`; use `ToListAsync`, `FirstAsync`, `ToPageAsync`, or
+`AsAsyncEnumerable`.
 
 Two EF Core precompiler restrictions currently fail before provider translation. The provider's
 C# 14 `Limit(n)` extension member cannot currently be resolved by EF Core's precompiler, and
@@ -487,10 +493,9 @@ See [Single-Table Design](modeling/single-table-design.md).
 
 ### Synchronous execution
 
-Normal synchronous query methods throw `InvalidOperationException`. Generated precompiled queries
-can use synchronous terminals by blocking on DynamoDB's asynchronous SDK calls. Synchronous writes
-remain unsupported: use `SaveChangesAsync()`. `Find()` can still return an already-tracked entity
-without querying.
+Normal and generated precompiled synchronous query methods throw `InvalidOperationException`.
+Use async query methods for database access. Synchronous writes remain unsupported; use
+`SaveChangesAsync()`. `Find()` can still return an already-tracked entity without querying.
 
 ### `ToQueryString()` Is Debug-Only
 

@@ -13,9 +13,11 @@ provider to compile them, and writes the interceptors.
 
     Precompiled-query and NativeAOT support relies on EF Core's internal precompilation APIs and
     a version-specific rewrite of EF Core-generated code. It is not yet a production-stability
-    guarantee. Interceptor generation is exercised in CI for every supported EF Core version;
-    NativeAOT publish-and-run execution is exercised for EF Core 10 and EF Core 11. Test it against your
-    model and workload before adopting it in a production deployment.
+    guarantee. CI exercises interceptor generation for every supported EF Core version and
+    NativeAOT publish-and-run execution for EF Core 10. EF Core 11 currently has a known blocker
+    during EF Core Tasks precompilation, where generated-query compilation can fail to resolve
+    application references. Treat NativeAOT as unavailable for EF Core 11 until that publish path
+    passes. Test EF Core 10 against your model and workload before using it in production.
 
 ## Project setup
 
@@ -43,7 +45,7 @@ example uses EF Core 10.0.11.
 Publish for a concrete runtime identifier:
 
 ```bash
-dotnet publish --configuration Release --runtime linux-x64
+dotnet publish --configuration "Release EF10" --runtime linux-x64
 ```
 
 The build generates both the compiled model and query interceptors. No generated files need to be
@@ -106,15 +108,13 @@ task test:aot-generation CONFIG="Debug EF11"
 ```
 
 The provider verifies the generated EF Core 10 and EF Core 11 executor templates in its
-configuration-specific generation tests. Then publish and run the native smoke app with
-`task test:aot-publish CONFIG="Release EF10"` and
-`task test:aot-publish CONFIG="Release EF11"`. Each task restores and publishes with its named
-configuration so it exercises the same build the required CI check gates. The smoke app runs
-a converted-enum parameter query, a numeric
-parameter query, and a `SaveChanges` write against a fake DynamoDB endpoint; it checks the
-generated PartiQL statement, ordered parameters, and materialized values. If interceptor
-generation reports an incompatible EF Core version and expected executor preamble, upgrade the
-provider rewrite and its compatibility tests together; do not bypass the failure.
+configuration-specific generation tests. Publish and run the EF Core 10 native smoke app with
+`task test:aot-publish CONFIG="Release EF10"`. This is the NativeAOT path gated by CI. The smoke app
+runs parameterized and materializing queries plus a `SaveChanges` write against DynamoDB Local. It
+checks the generated PartiQL, parameters, and materialized values. EF Core 11 interceptor
+generation is tested, but its NativeAOT publish-and-run path remains blocked as described above.
+If interceptor generation reports an incompatible EF Core version or executor preamble, update the
+provider rewrite and its compatibility tests together.
 
 For query translation details, see [How Queries Execute](how-queries-execute.md). For all provider
 restrictions, see [Limitations](../limitations.md).

@@ -289,10 +289,10 @@ in the AWS documentation.
 
 ## Query and write APIs
 
-!!! note "Synchronous precompiled queries"
+!!! note "Query execution is async-only"
 
-    The DynamoDB SDK has no synchronous I/O surface. Generated precompiled queries can use
-    synchronous terminals by blocking on SDK calls. Normal queries and writes remain async-only.
+    The DynamoDB SDK has no synchronous I/O API. Normal and generated precompiled queries are
+    asynchronous only. Use async query and write methods.
 
     `SingleAsync` and `SingleOrDefaultAsync` translate for key-condition-only query shapes. For
     non-key filters, scan-like shapes, or other unsupported operators, switch to `AsAsyncEnumerable()`

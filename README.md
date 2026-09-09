@@ -85,7 +85,7 @@ var openOrders = await context.Orders
 
 ## Current Scope
 
-- Async query execution is supported; generated precompiled queries also support synchronous terminals.
+- Query execution is asynchronous only, including generated precompiled queries.
 - Precompiled-query and NativeAOT support are experimental. See
   [the documented restrictions](docs/querying/precompiled-queries.md) before using them in production.
 - `SaveChangesAsync` is implemented for Added/Modified/Deleted root entities.
