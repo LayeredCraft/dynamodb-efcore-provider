@@ -26,7 +26,8 @@ publish-and-run support is not yet available.
 
 The tested native path supports scalar entity properties, including nullable numbers, Boolean,
 binary, configured scalar conversions, and one-dimensional arrays with non-nullable elements.
-List, set, and dictionary primitive collections whose elements use their own value converter (for
+Enums without an explicit converter also materialize directly (stored as their numeric DynamoDB
+value). List, set, and dictionary primitive collections whose elements use their own value converter (for
 example `List<Guid>` or `List<SomeEnum>` with string element conversion) are also supported.
 
 NativeAOT precompiled queries do not currently support entity materialization that requires EF Core

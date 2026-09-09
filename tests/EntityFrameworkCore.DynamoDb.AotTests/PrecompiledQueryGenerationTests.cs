@@ -365,7 +365,7 @@ public class PrecompiledQueryGenerationTests
                               public sealed class TrimConverter : ValueConverter<string, string>
                               {
                               public TrimConverter()
-                              : base(value => value.Trim(), value => value)
+                              : base(value => value, value => value.Trim())
                               {
                               }
                               }
@@ -442,11 +442,12 @@ public class PrecompiledQueryGenerationTests
                               .ToListAsync();
                               }
 
-                              public static async Task<List<string>> TagQuery(DbContextOptions options)
+                              public static async Task<List<string?>> TagQuery(DbContextOptions options)
                               {
                               await using var context = new ScalarContext(options);
+                              string[] keys = ["tenant-1", "tenant-2"];
                               return await context.Items
-                              .Where(item => item.Pk == "tenant-1")
+                              .Where(item => keys.Contains(item.Pk))
                               .Select(item => item.Tag)
                               .ToListAsync();
                               }
@@ -454,9 +455,20 @@ public class PrecompiledQueryGenerationTests
                               public static async Task<List<int?>> ScoreQuery(DbContextOptions options)
                               {
                               await using var context = new ScalarContext(options);
+                              string[] keys = ["tenant-1", "tenant-2"];
                               return await context.Items
-                              .Where(item => item.Pk == "tenant-1")
+                              .Where(item => keys.Contains(item.Pk))
                               .Select(item => item.Score)
+                              .ToListAsync();
+                              }
+
+                              public static async Task<List<TestStatus>> StatusMultiQuery(DbContextOptions options)
+                              {
+                              await using var context = new ScalarContext(options);
+                              string[] keys = ["tenant-1", "tenant-2"];
+                              return await context.Items
+                              .Where(item => keys.Contains(item.Pk))
+                              .Select(item => item.Status)
                               .ToListAsync();
                               }
                               }
@@ -508,6 +520,74 @@ public class PrecompiledQueryGenerationTests
             generatedCode.Should().NotContain("CreateValueReader<");
             generatedCode.Should().Contain("DynamoGeneratedQueryRuntime.ReadScalar<");
             generatedCode.Should().Contain("HasValue(item[");
+
+            // Execute the generated converted-scalar reads against a fake client, including
+            // NULL and missing wire values, to pin runtime parity of the direct path.
+            var (generatedLoadContext, generatedAssembly) = EmitAndLoad(
+                compilation.AddSyntaxTrees(
+                    generatedFiles.Select(file
+                        => CSharpSyntaxTree.ParseText(file.Code, parseOptions, file.Path))));
+            try
+            {
+                var store = new Dictionary<string, Dictionary<string, AttributeValue>>
+                {
+                    // Tag present (converted through the custom converter), Score NULL.
+                    ["tenant-1"] = new()
+                    {
+                        ["pk"] = new() { S = "tenant-1" },
+                        ["$type"] = new() { S = "ScalarItem" },
+                        ["status"] = new() { S = "Active" },
+                        ["tag"] = new() { S = " x " },
+                        ["score"] = new() { NULL = true }
+                    },
+                    // Tag and Score missing entirely, Status present.
+                    ["tenant-2"] = new()
+                    {
+                        ["pk"] = new() { S = "tenant-2" },
+                        ["$type"] = new() { S = "ScalarItem" },
+                        ["status"] = new() { S = "Active" }
+                    }
+                };
+                var fakeOptions = new DbContextOptionsBuilder().UseDynamo(configure
+                        => configure.DynamoDbClient(
+                            CompiledModelExecutionTests.CreateFakeClient(store)))
+                    .Options;
+
+                var tags =
+                    (List<string?>)(await InvokeQueryAsync(
+                            generatedAssembly,
+                            "TagQuery",
+                            fakeOptions)
+                        ?? throw new InvalidOperationException("TagQuery returned null."));
+                tags.Should().Equal("x", null);
+
+                var scores =
+                    (List<int?>)(await InvokeQueryAsync(
+                            generatedAssembly,
+                            "ScoreQuery",
+                            fakeOptions)
+                        ?? throw new InvalidOperationException("ScoreQuery returned null."));
+                scores
+                    .Should()
+                    .BeEquivalentTo(
+                        [default(int?), default(int?)],
+                        options => options.WithStrictOrdering());
+
+                var statuses =
+                    ((System.Collections.IEnumerable)(await InvokeQueryAsync(
+                            generatedAssembly,
+                            "StatusMultiQuery",
+                            fakeOptions)
+                        ?? throw new InvalidOperationException("StatusMultiQuery returned null.")))
+                    .Cast<object>()
+                    .Select(Convert.ToInt32)
+                    .ToList();
+                statuses.Should().Equal((int)TestStatus.Active, (int)TestStatus.Active);
+            }
+            finally
+            {
+                generatedLoadContext.Unload();
+            }
         }
         finally
         {

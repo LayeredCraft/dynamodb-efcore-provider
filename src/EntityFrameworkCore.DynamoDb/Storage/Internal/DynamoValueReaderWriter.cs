@@ -487,7 +487,10 @@ public sealed class NullableDynamoValueReaderWriter<TValue>(
         // DynamoDB NULL is treated as "has a value (null)" rather than "attribute absent".
         // Returning true here lets the base Read() call through to ReadValue, which returns null.
         // This is intentional: NULL = true round-trips as CLR null, not as a missing attribute.
-        => attributeValue.NULL == true || innerReaderWriter.HasValue(attributeValue);
+        // Null-tolerant: generated converted-scalar expressions may evaluate HasValue on a null
+        // AttributeValue when the item dictionary lacks the attribute.
+        => attributeValue is not null
+            && (attributeValue.NULL == true || innerReaderWriter.HasValue(attributeValue));
 
     protected override TValue? ReadValue(
         AttributeValue attributeValue,
@@ -510,7 +513,7 @@ public sealed class StringDynamoValueReaderWriter : DynamoValueReaderWriter<stri
 {
     public override string WireMemberName => nameof(AttributeValue.S);
 
-    public override bool HasValue(AttributeValue attributeValue) => attributeValue.S != null;
+    public override bool HasValue(AttributeValue attributeValue) => attributeValue?.S != null;
 
     protected override string ReadValue(
         AttributeValue attributeValue,
@@ -528,7 +531,7 @@ public sealed class BoolDynamoValueReaderWriter : DynamoValueReaderWriter<bool>
 {
     public override string WireMemberName => nameof(AttributeValue.BOOL);
 
-    public override bool HasValue(AttributeValue attributeValue) => attributeValue.BOOL != null;
+    public override bool HasValue(AttributeValue attributeValue) => attributeValue?.BOOL != null;
 
     protected override bool ReadValue(
         AttributeValue attributeValue,
@@ -547,7 +550,7 @@ public sealed class BinaryDynamoValueReaderWriter : DynamoValueReaderWriter<byte
 
     internal override bool RequiresParameterForPartiQlLiteral => true;
 
-    public override bool HasValue(AttributeValue attributeValue) => attributeValue.B != null;
+    public override bool HasValue(AttributeValue attributeValue) => attributeValue?.B != null;
 
     protected override byte[] ReadValue(
         AttributeValue attributeValue,
@@ -573,7 +576,7 @@ public abstract class NumericDynamoValueReaderWriter<TValue> : DynamoValueReader
 {
     public override string WireMemberName => nameof(AttributeValue.N);
 
-    public override bool HasValue(AttributeValue attributeValue) => attributeValue.N != null;
+    public override bool HasValue(AttributeValue attributeValue) => attributeValue?.N != null;
 
     protected override TValue ReadValue(
         AttributeValue attributeValue,
@@ -889,8 +892,12 @@ internal static class DynamoValueReaderWriterFactory
             return BinaryReaderWriter;
 
         if (nonNullableType.IsEnum)
-            return (DynamoValueReaderWriter)Activator.CreateInstance(
-                typeof(EnumDynamoValueReaderWriter<>).MakeGenericType(nonNullableType))!;
+        {
+            var enumReaderWriter = CreateEnumReaderWriter(nonNullableType, allowReflectionFallback);
+            return isNullableValueType
+                ? CreateNullableReaderWriter(nonNullableType, enumReaderWriter)
+                : enumReaderWriter;
+        }
 
         if (TryCreateNumeric(nonNullableType, out var numericReaderWriter))
             return isNullableValueType
@@ -1067,6 +1074,20 @@ internal static class DynamoValueReaderWriterFactory
 
         throw new InvalidCastException(
             $"Unable to use DynamoDB reader/writer for '{readerWriter.ValueType.Name}' as '{typeof(TValue).Name}'.");
+    }
+
+    private static DynamoValueReaderWriter CreateEnumReaderWriter(
+        Type enumType,
+        bool allowReflectionFallback)
+    {
+        if (!RuntimeFeature.IsDynamicCodeSupported && !allowReflectionFallback)
+            throw new NotSupportedException(
+                $"Enums of type '{enumType.Name}' cannot be materialized under NativeAOT because "
+                + "their reader/writer requires runtime generic instantiation. Prime the mapping "
+                + "through a compiled model or avoid NativeAOT for this context.");
+
+        return (DynamoValueReaderWriter)Activator.CreateInstance(
+            typeof(EnumDynamoValueReaderWriter<>).MakeGenericType(enumType))!;
     }
 
     private static bool TryCreateNumeric(
