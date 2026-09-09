@@ -45,75 +45,9 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ matrix.dotnetVersion }}
-      - name: Start DynamoDB Local
+      - name: Publish, gate, and run NativeAOT smoke
         shell: bash
-        run: |
-          if ! command -v docker >/dev/null 2>&1; then
-            echo "Docker is required for NativeAOT smoke execution but was not found on PATH." >&2
-            exit 1
-          fi
-          if ! docker info >/dev/null 2>&1; then
-            echo "Docker is required for NativeAOT smoke execution but is unavailable or not running." >&2
-            exit 1
-          fi
-          container_id=$(docker run --rm -d --label dynamodb-efcore.nativeaot-smoke=true -p 127.0.0.1::8000 amazon/dynamodb-local:3.3.0)
-          mapped_port=$(docker port "$container_id" 8000/tcp | awk -F: 'NR == 1 {print $NF}') || true
-          if [ -z "$mapped_port" ]; then
-            echo "Could not discover mapped DynamoDB Local port for container $container_id." >&2
-            exit 1
-          fi
-          endpoint="http://127.0.0.1:$mapped_port"
-          ready=false
-          for attempt in $(seq 1 30); do
-            status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
-              --request POST \
-              --header 'Content-Type: application/x-amz-json-1.0' \
-              --header 'X-Amz-Target: DynamoDB_20120810.ListTables' \
-              --data '{"Limit":1}' "$endpoint" || true)
-            if [ "$status" = 200 ] || [ "$status" = 400 ]; then
-              ready=true
-              break
-            fi
-            sleep 1
-          done
-          if [ "$ready" != true ]; then
-            echo "DynamoDB Local did not become ready: $endpoint" >&2
-            exit 1
-          fi
-          echo "DYNAMO_AOT_SMOKE_CONTAINER_ID=$container_id" >> "$GITHUB_ENV"
-          echo "DYNAMO_AOT_SMOKE_URL=$endpoint" >> "$GITHUB_ENV"
-      - name: Publish NativeAOT smoke app and capture warnings
-        shell: bash
-        run: |
-          mkdir -p artifacts
-          set -o pipefail
-          if ! dotnet publish \
-            testapps/EntityFrameworkCore.DynamoDb.NativeAotSmoke/EntityFrameworkCore.DynamoDb.NativeAotSmoke.csproj \
-            --configuration "${{ matrix.configuration }}" \
-            --runtime linux-x64 \
-            --output "artifacts/nativeaot-smoke" 2>&1 | tee "artifacts/nativeaot-smoke-${{ matrix.configuration }}.log"; then
-            echo "NativeAOT publish failed."
-            exit 1
-          fi
-          # Reviewed EF Core/AWS SDK reflection and dynamic-code warnings.
-          baseline='IL2026 IL2055 IL2060 IL2067 IL2070 IL2072 IL2075 IL2091 IL2104 IL3050 IL3053'
-          found=$(grep -oE 'warning IL[0-9]+' "artifacts/nativeaot-smoke-${{ matrix.configuration }}.log" | sort -u | awk '{print $2}' | sort || true)
-          new=$(comm -23 <(printf '%s\n' "$found") <(printf '%s\n' "$baseline" | tr ' ' '\n' | sort))
-          if [[ -n "$new" ]]; then
-            echo "New NativeAOT warning IDs outside reviewed baseline: $new"
-            exit 1
-          fi
-          echo "NativeAOT warning IDs match reviewed baseline: ${found:-none}"
-      - name: Run NativeAOT smoke app
-        run: ./artifacts/nativeaot-smoke/EntityFrameworkCore.DynamoDb.NativeAotSmoke
-      - name: Stop DynamoDB Local
-        if: ${{ always() }}
-        shell: bash
-        run: |
-          if [ -n "${DYNAMO_AOT_SMOKE_CONTAINER_ID:-}" ]; then
-            docker rm -f "$DYNAMO_AOT_SMOKE_CONTAINER_ID" >/dev/null 2>&1 || true
-          fi
-
+        run: scripts/run-nativeaot-smoke.sh "${{ matrix.configuration }}" linux-x64
   aot-generation:
     name: AOT interceptor generation (${{ matrix.configuration }})
     runs-on: ubuntu-latest

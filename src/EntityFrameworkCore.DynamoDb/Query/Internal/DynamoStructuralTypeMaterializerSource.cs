@@ -3,6 +3,7 @@ using System.Reflection;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Query.Internal;
+using System.Diagnostics.CodeAnalysis;
 using static System.Linq.Expressions.Expression;
 
 #pragma warning disable EF1001 // Internal EF Core API: StructuralTypeMaterializerSource
@@ -124,7 +125,8 @@ internal sealed class DynamoStructuralTypeMaterializerSource(
 
         // EF Core keeps this helper internal (System.SharedTypeExtensions), so replicate the
         // minimal lookup needed here.
-        static Type? TryGetEnumerableElementType(Type type)
+        static Type? TryGetEnumerableElementType(
+            [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces)] Type type)
             => type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IEnumerable<>)
                 ? type.GetGenericArguments()[0]
                 : type

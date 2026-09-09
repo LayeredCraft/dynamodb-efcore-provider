@@ -88,6 +88,13 @@ var partiQl = db.Orders
 `ToQueryString()` is for debugging only: it does not run scan warnings, log query execution events,
 or execute `ExecuteStatement`.
 
+## Asynchronous execution
+
+All DynamoDB query execution is async. The AWS SDK exposes no synchronous statement execution, so
+the provider is async-only: attempting to enumerate query results synchronously throws
+`InvalidOperationException` with guidance to use `ToListAsync`, `FirstAsync`, or
+`AsAsyncEnumerable()`. Non-executing APIs such as `ToQueryString()` keep working.
+
 ## Precompiled queries
 
 When EF Core query precompilation is enabled, EF Core generates interceptors for query calls during

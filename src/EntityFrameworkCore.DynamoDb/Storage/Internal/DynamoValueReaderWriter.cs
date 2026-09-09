@@ -1077,6 +1077,7 @@ internal static class DynamoValueReaderWriterFactory
     }
 
     private static DynamoValueReaderWriter CreateEnumReaderWriter(
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)]
         Type enumType,
         bool allowReflectionFallback)
     {

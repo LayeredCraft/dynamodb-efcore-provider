@@ -82,15 +82,18 @@ for local arrays, which EF Core's query precompiler cannot currently translate.
 - The normal provider translation limits still apply. Unsupported LINQ operators fail during the
     build instead of first failing at runtime.
 - A local collection used with `Contains` is limited to DynamoDB's supported PartiQL parameter
-    count. The provider stops reading after the first excess item and throws.
+    count — 50 values when the comparison targets the partition key and 100 otherwise. DynamoDB
+    enforces these limits per `ExecuteStatement`, and the generated interceptor expands the
+    collection into positional parameters at runtime, so the collection shares that budget. The
+    provider stops reading after the first excess item and throws.
 - NativeAOT publishing may emit trim and dynamic-code analysis warnings from EF Core, the AWS SDK,
     and provider features outside precompiled query execution. Reviewed warning IDs are pinned in
     CI with documented rationale; warnings are accepted only when their source is known.
-- Query execution is asynchronous only. Synchronous query operators and enumeration are not
-    supported.
 - EF Core's precompiler currently rejects the provider's C# 14 `Limit(n)` extension member and
-    nullable-coalescing projections before provider translation. These fail during generation;
-    they do not fall back to runtime execution.
+    nullable-coalescing projections before provider translation. This affects precompiled-query
+    generation only (both EF10 and EF11, with or without NativeAOT): the build fails instead of
+    falling back to runtime execution. Queries that are not precompiled translate `Limit(n)` at
+    runtime as usual.
 - The tested NativeAOT path covers entity materialization with string, nullable numeric, Boolean,
     binary, converted scalar, and one-dimensional array properties with non-nullable elements.
     Entity materialization requiring a read from a non-public mapped field is not supported. This
