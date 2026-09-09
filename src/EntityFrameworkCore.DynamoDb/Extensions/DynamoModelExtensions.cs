@@ -9,9 +9,18 @@ internal static class DynamoModelExtensions
     extension(IModel model)
     {
         /// <summary>Gets the canonical runtime DynamoDB table model attached to the EF model.</summary>
+        /// <remarks>
+        ///     The initializer stores the table model behind a <see cref="Lazy{T}" /> so the
+        ///     derived table descriptors are only built on first request. Older models may carry
+        ///     the plain value; both shapes are unwrapped here.
+        /// </remarks>
         internal DynamoRuntimeTableModel? GetDynamoRuntimeTableModel()
-            => model.FindRuntimeAnnotation(DynamoAnnotationNames.RuntimeTableModel)?.Value as
-                DynamoRuntimeTableModel;
+            => model.FindRuntimeAnnotation(DynamoAnnotationNames.RuntimeTableModel)?.Value switch
+            {
+                DynamoRuntimeTableModel runtimeTableModel => runtimeTableModel,
+                Lazy<DynamoRuntimeTableModel> lazyRuntimeTableModel => lazyRuntimeTableModel.Value,
+                _ => null
+            };
     }
 
     extension(IReadOnlyModel model)

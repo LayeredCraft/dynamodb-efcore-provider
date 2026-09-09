@@ -28,6 +28,10 @@ public sealed class DynamoModelRuntimeInitializer(ModelRuntimeInitializerDepende
 
         ApplyTableGroupNameAnnotations(model);
 
+        // Runtime table descriptors are built eagerly here, mirroring EF Core's relational
+        // runtime model pattern: building also validates shared-table/index consistency, so
+        // invalid models must fail during initialization, not at first query. The runtime
+        // table-group name annotations act as a cache for per-entry SaveChanges lookups.
         model.GetOrAddRuntimeAnnotationValue(
             DynamoAnnotationNames.RuntimeTableModel,
             static currentModel => BuildRuntimeTableModel((IReadOnlyModel)currentModel!),

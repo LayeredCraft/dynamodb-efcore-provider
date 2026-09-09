@@ -29,6 +29,18 @@ public sealed class DynamoCSharpRuntimeAnnotationCodeGenerator(
     }
 
     /// <inheritdoc />
+    public override void Generate(
+        IEntityType entityType,
+        CSharpRuntimeAnnotationCodeGeneratorParameters parameters)
+    {
+        // DynamoModelRuntimeInitializer always recomputes effective table-group names at runtime
+        // initialization, so serializing them into compiled models only duplicates generated
+        // metadata and startup work.
+        parameters.Annotations.Remove(DynamoAnnotationNames.TableGroupName);
+        base.Generate(entityType, parameters);
+    }
+
+    /// <inheritdoc />
     public override bool Create(
         CoreTypeMapping typeMapping,
         CSharpRuntimeAnnotationCodeGeneratorParameters parameters,

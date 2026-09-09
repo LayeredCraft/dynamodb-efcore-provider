@@ -60,6 +60,10 @@ public class CompiledModelExecutionTests
             .Contain("PrimeDictionaryMapping<Dictionary<string, decimal>, decimal>(");
         generatedCode.Should().Contain("PrimeListMapping<List<int?>, int?>(");
         generatedCode.Should().Contain("PrimeListMapping<List<Guid>, Guid>(");
+
+        // Runtime table-group names are recomputed by DynamoModelRuntimeInitializer, never
+        // serialized into compiled models.
+        generatedCode.Should().NotContain("TableGroupName");
         generatedCode.Should().Contain("(DynamoTypeMapping)(");
 
         var parseOptions = new CSharpParseOptions(
@@ -100,6 +104,31 @@ public class CompiledModelExecutionTests
 
             await using (var context = new CompiledCollectionContext(options))
             {
+                // Normal and compiled models must resolve equivalent runtime table metadata.
+                var dynamicTableModel = runtimeContext.Model.GetDynamoRuntimeTableModel();
+                var compiledTableModel = context.Model.GetDynamoRuntimeTableModel();
+                dynamicTableModel.Should().NotBeNull();
+                compiledTableModel.Should().NotBeNull();
+                compiledTableModel!
+                    .Tables
+                    .Keys
+                    .Should()
+                    .BeEquivalentTo(dynamicTableModel!.Tables.Keys);
+                foreach (var (tableName, dynamicTable) in dynamicTableModel.Tables)
+                {
+                    var compiledTable = compiledTableModel.Tables[tableName];
+                    compiledTable
+                        .RootEntityTypes
+                        .Select(type => type.Name)
+                        .Should()
+                        .Equal(dynamicTable.RootEntityTypes.Select(type => type.Name));
+                    compiledTable
+                        .SourcesByQueryEntityTypeName
+                        .Keys
+                        .Should()
+                        .BeEquivalentTo(dynamicTable.SourcesByQueryEntityTypeName.Keys);
+                }
+
                 context.Items.Add(expected);
                 await context.SaveChangesAsync();
             }
