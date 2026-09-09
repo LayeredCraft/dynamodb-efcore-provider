@@ -83,6 +83,7 @@ public class PrecompiledQueryGenerationTests
                               using System.Linq;
                               using System.Threading.Tasks;
                               using Microsoft.EntityFrameworkCore;
+                              using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
                               namespace GeneratedQueryTest;
 
@@ -328,6 +329,7 @@ public class PrecompiledQueryGenerationTests
                               using System.Linq;
                               using System.Threading.Tasks;
                               using Microsoft.EntityFrameworkCore;
+                              using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
                               namespace GeneratedQueryTest;
 
@@ -341,6 +343,8 @@ public class PrecompiledQueryGenerationTests
                               {
                               entity.HasPartitionKey(item => item.Pk);
                               entity.Property(item => item.Status).HasConversion<string>();
+                              entity.Property(item => item.Tag).HasConversion(new TrimConverter());
+                              entity.Property(item => item.Score).HasConversion(new NullableScoreConverter());
                               });
                               }
                               }
@@ -354,6 +358,27 @@ public class PrecompiledQueryGenerationTests
                               public bool Active { get; set; }
                               public TestStatus Kind { get; set; }
                               public TestStatus Status { get; set; }
+                              public string Tag { get; set; } = "";
+                              public int? Score { get; set; }
+                              }
+
+                              public sealed class TrimConverter : ValueConverter<string, string>
+                              {
+                              public TrimConverter()
+                              : base(value => value.Trim(), value => value)
+                              {
+                              }
+                              }
+
+                              public sealed class NullableScoreConverter : ValueConverter<int?, string>
+                              {
+                              public NullableScoreConverter()
+                              : base(
+                              value => value.HasValue ? value.Value.ToString() : null,
+                              value => value == null ? null : int.Parse(value),
+                              convertsNulls: true)
+                              {
+                              }
                               }
 
                               public enum TestStatus
@@ -416,6 +441,24 @@ public class PrecompiledQueryGenerationTests
                               .Select(item => item.Status)
                               .ToListAsync();
                               }
+
+                              public static async Task<List<string>> TagQuery(DbContextOptions options)
+                              {
+                              await using var context = new ScalarContext(options);
+                              return await context.Items
+                              .Where(item => item.Pk == "tenant-1")
+                              .Select(item => item.Tag)
+                              .ToListAsync();
+                              }
+
+                              public static async Task<List<int?>> ScoreQuery(DbContextOptions options)
+                              {
+                              await using var context = new ScalarContext(options);
+                              return await context.Items
+                              .Where(item => item.Pk == "tenant-1")
+                              .Select(item => item.Score)
+                              .ToListAsync();
+                              }
                               }
                               """;
 
@@ -458,14 +501,13 @@ public class PrecompiledQueryGenerationTests
             var generatedCode =
                 string.Join(Environment.NewLine, generatedFiles.Select(file => file.Code));
 
-            // Unconverted scalars must read through the typed static ReadScalar path, not a
-            // per-property CreateValueReader delegate.
-            generatedCode.Should().NotContain("CreateValueReader<int");
-            generatedCode.Should().NotContain("CreateValueReader<bool");
-            generatedCode.Should().NotContain("CreateValueReader<string");
-            // Enum properties carry EF's conventional EnumToNumberConverter, so converter-backed
-            // mappings keep the runtime reader fallback.
-            generatedCode.Should().Contain("CreateValueReader<TestStatus>");
+            // Unconverted scalars read through the typed static ReadScalar path; representable
+            // converter-backed scalars (enum→string, custom string converter, converts-null
+            // nullable converter) read through direct typed codec + inlined converter
+            // expressions. No per-property CreateValueReader delegate remains.
+            generatedCode.Should().NotContain("CreateValueReader<");
+            generatedCode.Should().Contain("DynamoGeneratedQueryRuntime.ReadScalar<");
+            generatedCode.Should().Contain("HasValue(item[");
         }
         finally
         {
@@ -481,6 +523,7 @@ public class PrecompiledQueryGenerationTests
                               using System.Linq;
                               using System.Threading.Tasks;
                               using Microsoft.EntityFrameworkCore;
+                              using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
                               namespace GeneratedQueryTest;
 

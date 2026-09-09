@@ -30,11 +30,11 @@ public abstract class DynamoValueReaderWriter
     /// </summary>
     internal abstract Expression ConstructorExpression { get; }
 
-    internal abstract string WireMemberName { get; }
+    public abstract string WireMemberName { get; }
 
     internal virtual bool RequiresParameterForPartiQlLiteral => false;
 
-    internal abstract bool HasValue(AttributeValue attributeValue);
+    public abstract bool HasValue(AttributeValue attributeValue);
 
     /// <summary>
     ///     Serializes a boxed runtime value through this codec without expression-tree
@@ -207,7 +207,7 @@ internal sealed class DynamoConvertedValueReaderWriter<TModel, TProvider>(
             nameof(ToPartiQlLiteral),
             [typeof(TModel)])!;
 
-    internal override string WireMemberName => innerReaderWriter.WireMemberName;
+    public override string WireMemberName => innerReaderWriter.WireMemberName;
 
     internal override bool RequiresParameterForPartiQlLiteral
         => innerReaderWriter.RequiresParameterForPartiQlLiteral;
@@ -217,7 +217,7 @@ internal sealed class DynamoConvertedValueReaderWriter<TModel, TProvider>(
 
     bool IDynamoConvertedValueReaderWriter.ConvertsNulls => converter.ConvertsNulls;
 
-    internal override bool HasValue(AttributeValue attributeValue)
+    public override bool HasValue(AttributeValue attributeValue)
     {
         if (attributeValue is null)
             return converter.ConvertsNulls;
@@ -337,7 +337,7 @@ internal sealed class DynamoAotConvertedValueReaderWriter(
         => throw new NotSupportedException(
             "A NativeAOT converter reader is created by the compiled model.");
 
-    internal override string WireMemberName => innerReaderWriter.WireMemberName;
+    public override string WireMemberName => innerReaderWriter.WireMemberName;
 
     internal override bool RequiresParameterForPartiQlLiteral
         => innerReaderWriter.RequiresParameterForPartiQlLiteral;
@@ -347,7 +347,7 @@ internal sealed class DynamoAotConvertedValueReaderWriter(
 
     bool IDynamoConvertedValueReaderWriter.ConvertsNulls => converter.ConvertsNulls;
 
-    internal override bool HasValue(AttributeValue attributeValue)
+    public override bool HasValue(AttributeValue attributeValue)
         // Mirrors DynamoConvertedValueReaderWriter<TModel, TProvider>.HasValue so converters that
         // intentionally handle nulls behave identically on the NativeAOT path.
         => attributeValue is null
@@ -431,7 +431,7 @@ internal sealed class ConvertedDynamoValueReaderWriter<TValue>(
 
     private readonly bool _convertsNulls = convertedReaderWriter.ConvertsNulls;
 
-    internal override string WireMemberName => _convertedReaderWriter.WireMemberName;
+    public override string WireMemberName => _convertedReaderWriter.WireMemberName;
 
     internal override bool RequiresParameterForPartiQlLiteral
         => _convertedReaderWriter.RequiresParameterForPartiQlLiteral;
@@ -442,7 +442,7 @@ internal sealed class ConvertedDynamoValueReaderWriter<TValue>(
         => throw new NotSupportedException(
             "A NativeAOT converted collection codec is created through CoerceReaderWriter, not expression trees.");
 
-    internal override bool HasValue(AttributeValue attributeValue)
+    public override bool HasValue(AttributeValue attributeValue)
         => _convertedReaderWriter.HasValue(attributeValue);
 
     protected override TValue ReadValue(
@@ -475,7 +475,7 @@ public sealed class NullableDynamoValueReaderWriter<TValue>(
         typeof(NullableDynamoValueReaderWriter<TValue>).GetConstructor(
             [typeof(DynamoValueReaderWriter<TValue>)])!;
 
-    internal override string WireMemberName => innerReaderWriter.WireMemberName;
+    public override string WireMemberName => innerReaderWriter.WireMemberName;
 
     internal override bool RequiresParameterForPartiQlLiteral
         => innerReaderWriter.RequiresParameterForPartiQlLiteral;
@@ -483,7 +483,7 @@ public sealed class NullableDynamoValueReaderWriter<TValue>(
     protected override Expression CreateConstructorExpression()
         => Expression.New(Constructor, innerReaderWriter.ConstructorExpression);
 
-    internal override bool HasValue(AttributeValue attributeValue)
+    public override bool HasValue(AttributeValue attributeValue)
         // DynamoDB NULL is treated as "has a value (null)" rather than "attribute absent".
         // Returning true here lets the base Read() call through to ReadValue, which returns null.
         // This is intentional: NULL = true round-trips as CLR null, not as a missing attribute.
@@ -508,9 +508,9 @@ public sealed class NullableDynamoValueReaderWriter<TValue>(
 
 public sealed class StringDynamoValueReaderWriter : DynamoValueReaderWriter<string>
 {
-    internal override string WireMemberName => nameof(AttributeValue.S);
+    public override string WireMemberName => nameof(AttributeValue.S);
 
-    internal override bool HasValue(AttributeValue attributeValue) => attributeValue.S != null;
+    public override bool HasValue(AttributeValue attributeValue) => attributeValue.S != null;
 
     protected override string ReadValue(
         AttributeValue attributeValue,
@@ -526,9 +526,9 @@ public sealed class StringDynamoValueReaderWriter : DynamoValueReaderWriter<stri
 
 public sealed class BoolDynamoValueReaderWriter : DynamoValueReaderWriter<bool>
 {
-    internal override string WireMemberName => nameof(AttributeValue.BOOL);
+    public override string WireMemberName => nameof(AttributeValue.BOOL);
 
-    internal override bool HasValue(AttributeValue attributeValue) => attributeValue.BOOL != null;
+    public override bool HasValue(AttributeValue attributeValue) => attributeValue.BOOL != null;
 
     protected override bool ReadValue(
         AttributeValue attributeValue,
@@ -543,11 +543,11 @@ public sealed class BoolDynamoValueReaderWriter : DynamoValueReaderWriter<bool>
 
 public sealed class BinaryDynamoValueReaderWriter : DynamoValueReaderWriter<byte[]>
 {
-    internal override string WireMemberName => nameof(AttributeValue.B);
+    public override string WireMemberName => nameof(AttributeValue.B);
 
     internal override bool RequiresParameterForPartiQlLiteral => true;
 
-    internal override bool HasValue(AttributeValue attributeValue) => attributeValue.B != null;
+    public override bool HasValue(AttributeValue attributeValue) => attributeValue.B != null;
 
     protected override byte[] ReadValue(
         AttributeValue attributeValue,
@@ -571,9 +571,9 @@ public sealed class BinaryDynamoValueReaderWriter : DynamoValueReaderWriter<byte
 /// </remarks>
 public abstract class NumericDynamoValueReaderWriter<TValue> : DynamoValueReaderWriter<TValue>
 {
-    internal override string WireMemberName => nameof(AttributeValue.N);
+    public override string WireMemberName => nameof(AttributeValue.N);
 
-    internal override bool HasValue(AttributeValue attributeValue) => attributeValue.N != null;
+    public override bool HasValue(AttributeValue attributeValue) => attributeValue.N != null;
 
     protected override TValue ReadValue(
         AttributeValue attributeValue,
@@ -712,7 +712,7 @@ internal sealed class ListDynamoValueReaderWriter<TCollection, TElement>(
         typeof(ListDynamoValueReaderWriter<TCollection, TElement>).GetConstructor(
             [typeof(DynamoValueReaderWriter<TElement>)])!;
 
-    internal override string WireMemberName => nameof(AttributeValue.L);
+    public override string WireMemberName => nameof(AttributeValue.L);
 
     internal override bool RequiresParameterForPartiQlLiteral
         => elementReaderWriter.RequiresParameterForPartiQlLiteral;
@@ -720,7 +720,7 @@ internal sealed class ListDynamoValueReaderWriter<TCollection, TElement>(
     protected override Expression CreateConstructorExpression()
         => Expression.New(Constructor, elementReaderWriter.ConstructorExpression);
 
-    internal override bool HasValue(AttributeValue attributeValue) => attributeValue.L != null;
+    public override bool HasValue(AttributeValue attributeValue) => attributeValue.L != null;
 
     protected override TCollection ReadValue(
         AttributeValue attributeValue,
@@ -751,7 +751,7 @@ internal sealed class DictionaryDynamoValueReaderWriter<TCollection, TValue>(
         typeof(DictionaryDynamoValueReaderWriter<TCollection, TValue>).GetConstructor(
             [typeof(DynamoValueReaderWriter<TValue>), typeof(bool)])!;
 
-    internal override string WireMemberName => nameof(AttributeValue.M);
+    public override string WireMemberName => nameof(AttributeValue.M);
 
     internal override bool RequiresParameterForPartiQlLiteral
         => valueReaderWriter.RequiresParameterForPartiQlLiteral;
@@ -762,7 +762,7 @@ internal sealed class DictionaryDynamoValueReaderWriter<TCollection, TValue>(
             valueReaderWriter.ConstructorExpression,
             Expression.Constant(readOnly));
 
-    internal override bool HasValue(AttributeValue attributeValue) => attributeValue.M != null;
+    public override bool HasValue(AttributeValue attributeValue) => attributeValue.M != null;
 
     protected override TCollection ReadValue(
         AttributeValue attributeValue,
@@ -795,7 +795,7 @@ internal sealed class SetDynamoValueReaderWriter<TCollection, TElement>(
         typeof(SetDynamoValueReaderWriter<TCollection, TElement>).GetConstructor(
             [typeof(DynamoValueReaderWriter<TElement>)])!;
 
-    internal override string WireMemberName { get; } =
+    public override string WireMemberName { get; } =
         DynamoValueReaderWriterHelpers.GetSetWireMemberName(elementReaderWriter.WireMemberName);
 
     internal override bool RequiresParameterForPartiQlLiteral
@@ -804,7 +804,7 @@ internal sealed class SetDynamoValueReaderWriter<TCollection, TElement>(
     protected override Expression CreateConstructorExpression()
         => Expression.New(Constructor, elementReaderWriter.ConstructorExpression);
 
-    internal override bool HasValue(AttributeValue attributeValue)
+    public override bool HasValue(AttributeValue attributeValue)
         => DynamoValueReaderWriterHelpers.HasSetValue(attributeValue, WireMemberName);
 
     protected override TCollection ReadValue(
