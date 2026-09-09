@@ -149,7 +149,7 @@ tasks:
           echo "Docker is required for NativeAOT smoke execution but is unavailable or not running." >&2
           exit 1
         fi
-        container_id=$(docker run --rm -d -p 127.0.0.1::8000 amazon/dynamodb-local:3.3.0)
+        container_id=$(docker run --rm -d --label dynamodb-efcore.nativeaot-smoke=true -p 127.0.0.1::8000 amazon/dynamodb-local:3.3.0)
         cleanup() { docker rm -f "$container_id" >/dev/null 2>&1 || true; }
         trap cleanup EXIT
         mapped_port=$(docker port "$container_id" 8000/tcp | awk -F: 'NR == 1 {print $NF}') || true
