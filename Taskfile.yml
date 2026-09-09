@@ -140,7 +140,42 @@ tasks:
     cmds:
       - dotnet restore EntityFrameworkCore.DynamoDb.NativeAotSmoke.csproj -p:Configuration="{{.CONFIG}}" --runtime {{.RID}}
       - dotnet publish EntityFrameworkCore.DynamoDb.NativeAotSmoke.csproj --configuration "{{.CONFIG}}" --runtime {{.RID}} --no-restore --output {{.OUTPUT}}
-      - '{{.OUTPUT}}/EntityFrameworkCore.DynamoDb.NativeAotSmoke'
+      - |
+        if ! command -v docker >/dev/null 2>&1; then
+          echo "Docker is required for NativeAOT smoke execution but was not found on PATH." >&2
+          exit 1
+        fi
+        if ! docker info >/dev/null 2>&1; then
+          echo "Docker is required for NativeAOT smoke execution but is unavailable or not running." >&2
+          exit 1
+        fi
+        container_id=$(docker run --rm -d -p 127.0.0.1::8000 amazon/dynamodb-local:3.3.0)
+        cleanup() { docker rm -f "$container_id" >/dev/null 2>&1 || true; }
+        trap cleanup EXIT
+        mapped_port=$(docker port "$container_id" 8000/tcp | awk -F: 'NR == 1 {print $NF}') || true
+        if [ -z "$mapped_port" ]; then
+          echo "Could not discover mapped DynamoDB Local port for container $container_id." >&2
+          exit 1
+        fi
+        export DYNAMO_AOT_SMOKE_URL="http://127.0.0.1:$mapped_port"
+        ready=false
+        for attempt in $(seq 1 30); do
+          status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
+            --request POST \
+            --header 'Content-Type: application/x-amz-json-1.0' \
+            --header 'X-Amz-Target: DynamoDB_20120810.ListTables' \
+            --data '{"Limit":1}' "$DYNAMO_AOT_SMOKE_URL" || true)
+          if [ "$status" = 200 ] || [ "$status" = 400 ]; then
+            ready=true
+            break
+          fi
+          sleep 1
+        done
+        if [ "$ready" != true ]; then
+          echo "DynamoDB Local did not become ready: $DYNAMO_AOT_SMOKE_URL" >&2
+          exit 1
+        fi
+        {{.OUTPUT}}/EntityFrameworkCore.DynamoDb.NativeAotSmoke
 
   test:aot-warnings:
     desc: Fail if the NativeAOT smoke publish reports AOT warning IDs outside the pinned baseline

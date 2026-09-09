@@ -7,6 +7,7 @@
     <Configurations>Debug EF10;Release EF10;Debug EF11;Release EF11</Configurations>
     <PublishAot>true</PublishAot>
     <IlcTreatWarningsAsErrors>false</IlcTreatWarningsAsErrors>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <WarningsNotAsErrors>$(WarningsNotAsErrors);IL2026;IL3050</WarningsNotAsErrors>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
     <InterceptorsNamespaces>$(InterceptorsNamespaces);Microsoft.EntityFrameworkCore.GeneratedInterceptors</InterceptorsNamespaces>
@@ -27,6 +28,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="AWSSDK.DynamoDBv2" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive; compile</IncludeAssets>
+    </PackageReference>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tasks">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
