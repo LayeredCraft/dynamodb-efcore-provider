@@ -70,9 +70,7 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
 
         /// <summary>Provides functionality for this member.</summary>
         public IEnumerator<T> GetEnumerator()
-            => throw new NotSupportedException(
-                "DynamoDB query execution is asynchronous only. Use async enumeration such as "
-                + "ToListAsync or AsAsyncEnumerable instead of synchronous enumeration.");
+            => throw new InvalidOperationException(DynamoStrings.SyncNotSupported);
 
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
@@ -325,9 +323,7 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
             => new AsyncEnumerator(this, cancellationToken);
 
         public IEnumerator<DynamoPage<T>> GetEnumerator()
-            => throw new NotSupportedException(
-                "DynamoDB query execution is asynchronous only. Use async enumeration instead of "
-                + "synchronous enumeration.");
+            => throw new InvalidOperationException(DynamoStrings.SyncNotSupported);
 
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 

@@ -79,6 +79,7 @@ public class DynamoTestHelpers : TestHelpers
     }
 
     private static bool IsExpectedSyncQueryFailure(InvalidOperationException exception)
-        => exception.Message.Contains("Sync enumerating", StringComparison.Ordinal)
-            && exception.Message.Contains("DynamoDB", StringComparison.Ordinal);
+        => exception.Message
+            == "DynamoDB query execution is asynchronous only. Use async enumeration such as "
+            + "ToListAsync or AsAsyncEnumerable instead of synchronous enumeration.";
 }

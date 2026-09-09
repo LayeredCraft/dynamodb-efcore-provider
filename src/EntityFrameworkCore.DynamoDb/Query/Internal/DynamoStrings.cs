@@ -5,6 +5,11 @@ namespace EntityFrameworkCore.DynamoDb.Query.Internal;
 /// <summary>Provider-specific translation messages for unsupported LINQ query shapes.</summary>
 internal static class DynamoStrings
 {
+    /// <summary>Error message for synchronous query execution.</summary>
+    public const string SyncNotSupported =
+        "DynamoDB query execution is asynchronous only. Use async enumeration such as "
+        + "ToListAsync or AsAsyncEnumerable instead of synchronous enumeration.";
+
     /// <summary>Reason fragment appended to aggregate-operator error messages.</summary>
     public const string AggregatesUnavailableReason =
         "DynamoDB PartiQL supports SIZE(path) but does not support query aggregates such as COUNT, SUM, AVG, MIN, or MAX.";
