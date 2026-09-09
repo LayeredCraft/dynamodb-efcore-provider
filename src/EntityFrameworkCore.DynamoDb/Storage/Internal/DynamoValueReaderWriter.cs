@@ -11,12 +11,16 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace EntityFrameworkCore.DynamoDb.Storage.Internal;
 
+// Scalar codec types are public only so precompiled-query generated C# can construct and call
+// them; they are not intended as public API and are not part of the documented surface.
+#pragma warning disable CS1591
+
 /// <summary>Converts a single mapped CLR value to and from DynamoDB wire representations.</summary>
 /// <remarks>
 ///     Mappings own these instances so query materialization, query parameter generation, and
 ///     SaveChanges writes all share the same conversion rules.
 /// </remarks>
-internal abstract class DynamoValueReaderWriter
+public abstract class DynamoValueReaderWriter
 {
     public abstract Type ValueType { get; }
 
@@ -75,12 +79,12 @@ internal abstract class DynamoValueReaderWriter
             Expression.Constant(required),
             Expression.Constant(property, typeof(IProperty)));
 
-    protected string CreateMissingValueMessage(string propertyPath)
+    protected virtual string CreateMissingValueMessage(string propertyPath)
         => $"Required property '{propertyPath}' did not contain a value for expected DynamoDB wire member '{WireMemberName}'.";
 }
 
 /// <summary>Strongly-typed base implementation for a DynamoDB value reader/writer.</summary>
-internal abstract class DynamoValueReaderWriter<TValue> : DynamoValueReaderWriter
+public abstract class DynamoValueReaderWriter<TValue> : DynamoValueReaderWriter
 {
     private static readonly MethodInfo ReadMethod =
         typeof(DynamoValueReaderWriter<TValue>).GetMethod(
@@ -114,7 +118,7 @@ internal abstract class DynamoValueReaderWriter<TValue> : DynamoValueReaderWrite
             ReadMethod,
             CreateConstructorExpression());
 
-    public TValue Read(
+    public virtual TValue Read(
         AttributeValue attributeValue,
         string propertyPath,
         bool required,
@@ -463,7 +467,7 @@ internal sealed class ConvertedDynamoValueReaderWriter<TValue>(
 ///     This is used both for scalar properties and for primitive collection element mappings such
 ///     as <c>List&lt;int?&gt;</c>, where DynamoDB NULL must round-trip as a nullable CLR value.
 /// </remarks>
-internal sealed class NullableDynamoValueReaderWriter<TValue>(
+public sealed class NullableDynamoValueReaderWriter<TValue>(
     DynamoValueReaderWriter<TValue> innerReaderWriter) : DynamoValueReaderWriter<TValue?>
     where TValue : struct
 {
@@ -502,7 +506,7 @@ internal sealed class NullableDynamoValueReaderWriter<TValue>(
         => value.HasValue ? innerReaderWriter.ToPartiQlLiteral(value.Value) : "NULL";
 }
 
-internal sealed class StringDynamoValueReaderWriter : DynamoValueReaderWriter<string>
+public sealed class StringDynamoValueReaderWriter : DynamoValueReaderWriter<string>
 {
     internal override string WireMemberName => nameof(AttributeValue.S);
 
@@ -520,7 +524,7 @@ internal sealed class StringDynamoValueReaderWriter : DynamoValueReaderWriter<st
         => DynamoValueReaderWriterHelpers.FormatStringLiteral(value);
 }
 
-internal sealed class BoolDynamoValueReaderWriter : DynamoValueReaderWriter<bool>
+public sealed class BoolDynamoValueReaderWriter : DynamoValueReaderWriter<bool>
 {
     internal override string WireMemberName => nameof(AttributeValue.BOOL);
 
@@ -537,7 +541,7 @@ internal sealed class BoolDynamoValueReaderWriter : DynamoValueReaderWriter<bool
     public override string ToPartiQlLiteral(bool value) => value ? "TRUE" : "FALSE";
 }
 
-internal sealed class BinaryDynamoValueReaderWriter : DynamoValueReaderWriter<byte[]>
+public sealed class BinaryDynamoValueReaderWriter : DynamoValueReaderWriter<byte[]>
 {
     internal override string WireMemberName => nameof(AttributeValue.B);
 
@@ -559,20 +563,15 @@ internal sealed class BinaryDynamoValueReaderWriter : DynamoValueReaderWriter<by
             "Binary values are not supported for inline PartiQL constant generation.");
 }
 
-internal sealed class NumericDynamoValueReaderWriter<TValue>(
-    Func<string, TValue> parse,
-    Func<TValue, string> format) : DynamoValueReaderWriter<TValue>
+/// <summary>Base numeric codec reading and writing DynamoDB number strings.</summary>
+/// <remarks>
+///     Concrete closed codecs are separate classes so generated (precompiled) code can
+///     reconstruct them with parameterless constructor expressions; delegate-valued constants
+///     are not representable in generated C#.
+/// </remarks>
+public abstract class NumericDynamoValueReaderWriter<TValue> : DynamoValueReaderWriter<TValue>
 {
-    private static readonly ConstructorInfo Constructor =
-        typeof(NumericDynamoValueReaderWriter<TValue>).GetConstructor(
-            [typeof(Func<string, TValue>), typeof(Func<TValue, string>)])!;
-
     internal override string WireMemberName => nameof(AttributeValue.N);
-
-    protected override Expression CreateConstructorExpression()
-        // The numeric codec is defined by its parse/format delegates, so the constructor expression
-        // needs to carry those delegates forward when the codec is recreated in query trees.
-        => Expression.New(Constructor, Expression.Constant(parse), Expression.Constant(format));
 
     internal override bool HasValue(AttributeValue attributeValue) => attributeValue.N != null;
 
@@ -580,11 +579,130 @@ internal sealed class NumericDynamoValueReaderWriter<TValue>(
         AttributeValue attributeValue,
         string propertyPath,
         IProperty? property)
-        => parse(attributeValue.N);
+        => Parse(attributeValue.N);
 
-    public override AttributeValue Write(TValue value) => new() { N = format(value) };
+    public override AttributeValue Write(TValue value) => new() { N = Format(value) };
 
-    public override string ToPartiQlLiteral(TValue value) => format(value);
+    public override string ToPartiQlLiteral(TValue value) => Format(value);
+
+    /// <summary>Parses a DynamoDB number string into the typed CLR value.</summary>
+    protected abstract TValue Parse(string value);
+
+    /// <summary>Formats the typed CLR value as a DynamoDB number string.</summary>
+    protected abstract string Format(TValue value);
+}
+
+public sealed class ByteDynamoValueReaderWriter : NumericDynamoValueReaderWriter<byte>
+{
+    protected override byte Parse(string value)
+        => byte.Parse(value, NumberStyles.Integer, CultureInfo.InvariantCulture);
+
+    protected override string Format(byte value) => value.ToString(CultureInfo.InvariantCulture);
+}
+
+public sealed class SByteDynamoValueReaderWriter : NumericDynamoValueReaderWriter<sbyte>
+{
+    protected override sbyte Parse(string value)
+        => sbyte.Parse(value, NumberStyles.Integer, CultureInfo.InvariantCulture);
+
+    protected override string Format(sbyte value) => value.ToString(CultureInfo.InvariantCulture);
+}
+
+public sealed class ShortDynamoValueReaderWriter : NumericDynamoValueReaderWriter<short>
+{
+    protected override short Parse(string value)
+        => short.Parse(value, NumberStyles.Integer, CultureInfo.InvariantCulture);
+
+    protected override string Format(short value) => value.ToString(CultureInfo.InvariantCulture);
+}
+
+public sealed class UShortDynamoValueReaderWriter : NumericDynamoValueReaderWriter<ushort>
+{
+    protected override ushort Parse(string value)
+        => ushort.Parse(value, NumberStyles.Integer, CultureInfo.InvariantCulture);
+
+    protected override string Format(ushort value) => value.ToString(CultureInfo.InvariantCulture);
+}
+
+public sealed class IntDynamoValueReaderWriter : NumericDynamoValueReaderWriter<int>
+{
+    protected override int Parse(string value)
+        => int.Parse(value, NumberStyles.Integer, CultureInfo.InvariantCulture);
+
+    protected override string Format(int value) => value.ToString(CultureInfo.InvariantCulture);
+}
+
+public sealed class UIntDynamoValueReaderWriter : NumericDynamoValueReaderWriter<uint>
+{
+    protected override uint Parse(string value)
+        => uint.Parse(value, NumberStyles.Integer, CultureInfo.InvariantCulture);
+
+    protected override string Format(uint value) => value.ToString(CultureInfo.InvariantCulture);
+}
+
+public sealed class LongDynamoValueReaderWriter : NumericDynamoValueReaderWriter<long>
+{
+    protected override long Parse(string value)
+        => long.Parse(value, NumberStyles.Integer, CultureInfo.InvariantCulture);
+
+    protected override string Format(long value) => value.ToString(CultureInfo.InvariantCulture);
+}
+
+public sealed class ULongDynamoValueReaderWriter : NumericDynamoValueReaderWriter<ulong>
+{
+    protected override ulong Parse(string value)
+        => ulong.Parse(value, NumberStyles.Integer, CultureInfo.InvariantCulture);
+
+    protected override string Format(ulong value) => value.ToString(CultureInfo.InvariantCulture);
+}
+
+public sealed class FloatDynamoValueReaderWriter : NumericDynamoValueReaderWriter<float>
+{
+    protected override float Parse(string value)
+        => float.Parse(value, NumberStyles.Float, CultureInfo.InvariantCulture);
+
+    protected override string Format(float value)
+        => value.ToString("R", CultureInfo.InvariantCulture);
+}
+
+public sealed class DoubleDynamoValueReaderWriter : NumericDynamoValueReaderWriter<double>
+{
+    protected override double Parse(string value)
+        => double.Parse(value, NumberStyles.Float, CultureInfo.InvariantCulture);
+
+    protected override string Format(double value)
+        => value.ToString("R", CultureInfo.InvariantCulture);
+}
+
+public sealed class DecimalDynamoValueReaderWriter : NumericDynamoValueReaderWriter<decimal>
+{
+    protected override decimal Parse(string value)
+        => decimal.Parse(value, NumberStyles.Float, CultureInfo.InvariantCulture);
+
+    protected override string Format(decimal value) => value.ToString(CultureInfo.InvariantCulture);
+}
+
+/// <summary>Reads and writes enums as their underlying numeric DynamoDB values.</summary>
+/// <remarks>
+///     Wire format matches <see cref="DynamoWireValueConversion.FormatEnum" />; unconverted enum
+///     properties are stored as numbers (N), not strings.
+/// </remarks>
+public sealed class EnumDynamoValueReaderWriter<TEnum> : NumericDynamoValueReaderWriter<TEnum>
+    where TEnum : struct, Enum
+{
+    protected override TEnum Parse(string value)
+        => (TEnum)Enum.ToObject(
+            typeof(TEnum),
+            Convert.ChangeType(
+                value,
+                Enum.GetUnderlyingType(typeof(TEnum)),
+                CultureInfo.InvariantCulture)!);
+
+    protected override string Format(TEnum value)
+        => Convert.ChangeType(
+            value,
+            Enum.GetUnderlyingType(typeof(TEnum)),
+            CultureInfo.InvariantCulture)!.ToString()!;
 }
 
 internal sealed class ListDynamoValueReaderWriter<TCollection, TElement>(
@@ -770,6 +888,10 @@ internal static class DynamoValueReaderWriterFactory
         if (nonNullableType == typeof(byte[]))
             return BinaryReaderWriter;
 
+        if (nonNullableType.IsEnum)
+            return (DynamoValueReaderWriter)Activator.CreateInstance(
+                typeof(EnumDynamoValueReaderWriter<>).MakeGenericType(nonNullableType))!;
+
         if (TryCreateNumeric(nonNullableType, out var numericReaderWriter))
             return isNullableValueType
                 ? CreateNullableReaderWriter(nonNullableType, numericReaderWriter)
@@ -953,61 +1075,17 @@ internal static class DynamoValueReaderWriterFactory
     {
         readerWriter = clrType switch
         {
-            _ when clrType == typeof(byte) => new NumericDynamoValueReaderWriter<byte>(
-                static value
-                    => byte.Parse(value, NumberStyles.Integer, CultureInfo.InvariantCulture),
-                static value => value.ToString(CultureInfo.InvariantCulture)),
-
-            _ when clrType == typeof(sbyte) => new NumericDynamoValueReaderWriter<sbyte>(
-                static value
-                    => sbyte.Parse(value, NumberStyles.Integer, CultureInfo.InvariantCulture),
-                static value => value.ToString(CultureInfo.InvariantCulture)),
-
-            _ when clrType == typeof(short) => new NumericDynamoValueReaderWriter<short>(
-                static value
-                    => short.Parse(value, NumberStyles.Integer, CultureInfo.InvariantCulture),
-                static value => value.ToString(CultureInfo.InvariantCulture)),
-
-            _ when clrType == typeof(ushort) => new NumericDynamoValueReaderWriter<ushort>(
-                static value
-                    => ushort.Parse(value, NumberStyles.Integer, CultureInfo.InvariantCulture),
-                static value => value.ToString(CultureInfo.InvariantCulture)),
-
-            _ when clrType == typeof(int) => new NumericDynamoValueReaderWriter<int>(
-                static value
-                    => int.Parse(value, NumberStyles.Integer, CultureInfo.InvariantCulture),
-                static value => value.ToString(CultureInfo.InvariantCulture)),
-
-            _ when clrType == typeof(uint) => new NumericDynamoValueReaderWriter<uint>(
-                static value
-                    => uint.Parse(value, NumberStyles.Integer, CultureInfo.InvariantCulture),
-                static value => value.ToString(CultureInfo.InvariantCulture)),
-
-            _ when clrType == typeof(long) => new NumericDynamoValueReaderWriter<long>(
-                static value
-                    => long.Parse(value, NumberStyles.Integer, CultureInfo.InvariantCulture),
-                static value => value.ToString(CultureInfo.InvariantCulture)),
-
-            _ when clrType == typeof(ulong) => new NumericDynamoValueReaderWriter<ulong>(
-                static value
-                    => ulong.Parse(value, NumberStyles.Integer, CultureInfo.InvariantCulture),
-                static value => value.ToString(CultureInfo.InvariantCulture)),
-
-            _ when clrType == typeof(float) => new NumericDynamoValueReaderWriter<float>(
-                static value
-                    => float.Parse(value, NumberStyles.Float, CultureInfo.InvariantCulture),
-                static value => value.ToString("R", CultureInfo.InvariantCulture)),
-
-            _ when clrType == typeof(double) => new NumericDynamoValueReaderWriter<double>(
-                static value
-                    => double.Parse(value, NumberStyles.Float, CultureInfo.InvariantCulture),
-                static value => value.ToString("R", CultureInfo.InvariantCulture)),
-
-            _ when clrType == typeof(decimal) => new NumericDynamoValueReaderWriter<decimal>(
-                static value
-                    => decimal.Parse(value, NumberStyles.Float, CultureInfo.InvariantCulture),
-                static value => value.ToString(CultureInfo.InvariantCulture)),
-
+            _ when clrType == typeof(byte) => new ByteDynamoValueReaderWriter(),
+            _ when clrType == typeof(sbyte) => new SByteDynamoValueReaderWriter(),
+            _ when clrType == typeof(short) => new ShortDynamoValueReaderWriter(),
+            _ when clrType == typeof(ushort) => new UShortDynamoValueReaderWriter(),
+            _ when clrType == typeof(int) => new IntDynamoValueReaderWriter(),
+            _ when clrType == typeof(uint) => new UIntDynamoValueReaderWriter(),
+            _ when clrType == typeof(long) => new LongDynamoValueReaderWriter(),
+            _ when clrType == typeof(ulong) => new ULongDynamoValueReaderWriter(),
+            _ when clrType == typeof(float) => new FloatDynamoValueReaderWriter(),
+            _ when clrType == typeof(double) => new DoubleDynamoValueReaderWriter(),
+            _ when clrType == typeof(decimal) => new DecimalDynamoValueReaderWriter(),
             _ => null
         };
 

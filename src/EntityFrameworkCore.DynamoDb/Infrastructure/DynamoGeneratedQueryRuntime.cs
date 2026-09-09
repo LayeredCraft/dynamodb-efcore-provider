@@ -383,26 +383,30 @@ public static class DynamoGeneratedQueryRuntime
     /// </remarks>
     public static DynamoTypeMapping ResolveTypeMapping(
         MaterializerLiftableConstantContext context,
-        Type clrType,
         string declaringTypeName,
         string propertyName,
         int elementTypeMappingDepth = 0)
+        => ResolveTypeMapping(
+            ResolveProperty(context.Dependencies.Model, declaringTypeName, propertyName),
+            elementTypeMappingDepth);
+
+    private static DynamoTypeMapping ResolveTypeMapping(
+        IProperty property,
+        int elementTypeMappingDepth)
     {
-        var property = ResolveProperty(context.Dependencies.Model, declaringTypeName, propertyName);
         var mapping = property.GetTypeMapping() as DynamoTypeMapping;
         for (var index = 0; index < elementTypeMappingDepth && mapping is not null; index++)
             mapping = mapping.ElementTypeMapping as DynamoTypeMapping;
 
         return mapping
             ?? throw new InvalidOperationException(
-                $"Property '{declaringTypeName}.{propertyName}' does not use a DynamoDB type mapping "
+                $"Property '{property.DeclaringType.Name}.{property.Name}' does not use a DynamoDB type mapping "
                 + $"at element depth {elementTypeMappingDepth}.");
     }
 
     /// <summary>Creates a property-specific reader used by a generated row shaper.</summary>
     public static Func<Dictionary<string, AttributeValue>, T> CreateValueReader<T>(
         MaterializerLiftableConstantContext context,
-        Type clrType,
         string declaringTypeName,
         string propertyName,
         int elementTypeMappingDepth,
@@ -411,14 +415,47 @@ public static class DynamoGeneratedQueryRuntime
         bool required)
     {
         var property = ResolveProperty(context.Dependencies.Model, declaringTypeName, propertyName);
-        var typeMapping = ResolveTypeMapping(
-            context,
-            clrType,
-            declaringTypeName,
-            propertyName,
-            elementTypeMappingDepth);
+        var typeMapping = ResolveTypeMapping(property, elementTypeMappingDepth);
 
         return CreateValueReader<T>(typeMapping, property, attributeName, propertyPath, required);
+    }
+
+    /// <summary>Reads a converter-less scalar property directly from a DynamoDB item.</summary>
+    /// <remarks>
+    ///     Generated (precompiled) shapers call this directly for unconverted scalar properties:
+    ///     a static typed call that embeds safely anywhere in generated C#, with no per-property
+    ///     reader delegate and no expression-tree Block variables. Missing and NULL handling
+    ///     matches the generated reader path (<c>CreateValueReader</c>).
+    /// </remarks>
+    public static T ReadScalar<T>(
+        Dictionary<string, AttributeValue> item,
+        string attributeName,
+        string propertyPath,
+        bool required)
+    {
+        if (!item.TryGetValue(attributeName, out var attributeValue))
+        {
+            if (required)
+                throw new InvalidOperationException(
+                    $"Required property '{propertyPath}' was not present in the DynamoDB item.");
+
+            return default!;
+        }
+
+        return DynamoScalarCodecs<T>.Instance.Read(attributeValue, propertyPath, required, null);
+    }
+
+    private static class DynamoScalarCodecs<T>
+    {
+        // Scalar codecs are stateless; one instance per closed generic type replaces per-row
+        // construction and per-property reader delegates.
+        public static readonly DynamoValueReaderWriter<T> Instance = Create();
+
+        private static DynamoValueReaderWriter<T> Create()
+            => DynamoValueReaderWriterFactory.Create(typeof(T)) is DynamoValueReaderWriter<T> codec
+                ? codec
+                : throw new InvalidOperationException(
+                    $"CLR type '{typeof(T).Name}' does not have a DynamoDB scalar codec.");
     }
 
     internal static Func<Dictionary<string, AttributeValue>, T> CreateValueReader<T>(

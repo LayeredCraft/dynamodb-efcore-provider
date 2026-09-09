@@ -320,6 +320,160 @@ public class PrecompiledQueryGenerationTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task
+        Generated_interceptor_inlines_unconverted_scalar_reads_and_keeps_converter_fallback()
+    {
+        const string source = """
+                              using System.Collections.Generic;
+                              using System.Linq;
+                              using System.Threading.Tasks;
+                              using Microsoft.EntityFrameworkCore;
+
+                              namespace GeneratedQueryTest;
+
+                              public sealed class ScalarContext(DbContextOptions options) : DbContext(options)
+                              {
+                                  public DbSet<ScalarItem> Items => Set<ScalarItem>();
+
+                                  protected override void OnModelCreating(ModelBuilder modelBuilder)
+                              {
+                              modelBuilder.Entity<ScalarItem>(entity =>
+                              {
+                              entity.HasPartitionKey(item => item.Pk);
+                              entity.Property(item => item.Status).HasConversion<string>();
+                              });
+                              }
+                              }
+
+                              public sealed class ScalarItem
+                              {
+                              public string Pk { get; set; } = null!;
+                              public string Name { get; set; } = null!;
+                              public int Count { get; set; }
+                              public int? OptionalCount { get; set; }
+                              public bool Active { get; set; }
+                              public TestStatus Kind { get; set; }
+                              public TestStatus Status { get; set; }
+                              }
+
+                              public enum TestStatus
+                              {
+                              Active
+                              }
+
+                              public static class QueryContainer
+                              {
+                              public static async Task<List<string>> NameQuery(DbContextOptions options)
+                              {
+                              await using var context = new ScalarContext(options);
+                              return await context.Items
+                              .Where(item => item.Pk == "tenant-1")
+                              .Select(item => item.Name)
+                              .ToListAsync();
+                              }
+
+                              public static async Task<List<int>> CountQuery(DbContextOptions options)
+                              {
+                              await using var context = new ScalarContext(options);
+                              return await context.Items
+                              .Where(item => item.Pk == "tenant-1")
+                              .Select(item => item.Count)
+                              .ToListAsync();
+                              }
+
+                              public static async Task<List<int?>> OptionalCountQuery(DbContextOptions options)
+                              {
+                              await using var context = new ScalarContext(options);
+                              return await context.Items
+                              .Where(item => item.Pk == "tenant-1")
+                              .Select(item => item.OptionalCount)
+                              .ToListAsync();
+                              }
+
+                              public static async Task<List<bool>> ActiveQuery(DbContextOptions options)
+                              {
+                              await using var context = new ScalarContext(options);
+                              return await context.Items
+                              .Where(item => item.Pk == "tenant-1")
+                              .Select(item => item.Active)
+                              .ToListAsync();
+                              }
+
+                              public static async Task<List<TestStatus>> KindQuery(DbContextOptions options)
+                              {
+                              await using var context = new ScalarContext(options);
+                              return await context.Items
+                              .Where(item => item.Pk == "tenant-1")
+                              .Select(item => item.Kind)
+                              .ToListAsync();
+                              }
+
+                              public static async Task<List<TestStatus>> StatusQuery(DbContextOptions options)
+                              {
+                              await using var context = new ScalarContext(options);
+                              return await context.Items
+                              .Where(item => item.Pk == "tenant-1")
+                              .Select(item => item.Status)
+                              .ToListAsync();
+                              }
+                              }
+                              """;
+
+        var parseOptions = new CSharpParseOptions().WithFeatures(
+        [
+            new KeyValuePair<string, string>(
+                "InterceptorsNamespaces",
+                "Microsoft.EntityFrameworkCore.GeneratedInterceptors")
+        ]);
+        var compilation = CSharpCompilation.Create(
+            "DynamoGeneratedQueryTest",
+            [CSharpSyntaxTree.ParseText(source, parseOptions, path: "GeneratedQueryTest.cs")],
+            GetMetadataReferences(),
+            new CSharpCompilationOptions(
+                OutputKind.DynamicallyLinkedLibrary,
+                nullableContextOptions: NullableContextOptions.Enable));
+
+        AssertCompilationSucceeded(compilation);
+        var (loadContext, assembly) = EmitAndLoad(compilation);
+
+        try
+        {
+            var options = new DbContextOptionsBuilder().UseDynamo().Options;
+            await using var context = (DbContext)Activator.CreateInstance(
+                assembly.GetType("GeneratedQueryTest.ScalarContext")!,
+                options)!;
+            using var workspace = new AdhocWorkspace();
+            var errors = new List<PrecompiledQueryCodeGenerator.QueryPrecompilationError>();
+            var generatedFiles =
+                new DynamoPrecompiledQueryCodeGenerator().GeneratePrecompiledQueries(
+                    compilation,
+                    SyntaxGenerator.GetGenerator(workspace, LanguageNames.CSharp),
+                    context,
+                    new Dictionary<MemberInfo, QualifiedName>(),
+                    errors,
+                    new HashSet<string>(),
+                    assembly);
+
+            errors.Should().BeEmpty();
+            var generatedCode =
+                string.Join(Environment.NewLine, generatedFiles.Select(file => file.Code));
+
+            // Unconverted scalars must read through the typed static ReadScalar path, not a
+            // per-property CreateValueReader delegate.
+            generatedCode.Should().NotContain("CreateValueReader<int");
+            generatedCode.Should().NotContain("CreateValueReader<bool");
+            generatedCode.Should().NotContain("CreateValueReader<string");
+            // Enum properties carry EF's conventional EnumToNumberConverter, so converter-backed
+            // mappings keep the runtime reader fallback.
+            generatedCode.Should().Contain("CreateValueReader<TestStatus>");
+        }
+        finally
+        {
+            loadContext.Unload();
+        }
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void Precompiled_generation_fails_when_materialization_reads_collection_backing_fields()
     {
         const string source = """

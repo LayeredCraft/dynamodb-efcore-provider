@@ -267,7 +267,6 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
             nameof(DynamoGeneratedQueryRuntime.ResolveTypeMapping),
             Type.EmptyTypes,
             context,
-            Constant(typeMapping.ClrType, typeof(Type)),
             Constant(property.DeclaringType.Name, typeof(string)),
             Constant(property.Name, typeof(string)),
             Constant(elementDepth));

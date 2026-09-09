@@ -146,12 +146,12 @@ public sealed partial class DynamoPrecompiledQueryCodeGenerator : PrecompiledQue
     }
 
     [GeneratedRegex(
-        "            var relationalModel = dbContext\\.Model\\.GetRelationalModel\\(\\);\\r?\\n"
-        + "            var relationalTypeMappingSource = dbContext\\.GetService<IRelationalTypeMappingSource>\\(\\);\\r?\\n"
-        + "            var materializerLiftableConstantContext = new RelationalMaterializerLiftableConstantContext\\(\\r?\\n"
-        + "                dbContext\\.GetService<ShapedQueryCompilingExpressionVisitorDependencies>\\(\\),\\r?\\n"
-        + "                dbContext\\.GetService<RelationalShapedQueryCompilingExpressionVisitorDependencies>\\(\\),\\r?\\n"
-        + "                dbContext\\.GetService<RelationalCommandBuilderDependencies>\\(\\)\\);\\r?\\n")]
+        " +var relationalModel = dbContext\\.Model\\.GetRelationalModel\\(\\);\\r?\\n"
+        + " +var relationalTypeMappingSource = dbContext\\.GetService<IRelationalTypeMappingSource>\\(\\);\\r?\\n"
+        + " +var materializerLiftableConstantContext = new RelationalMaterializerLiftableConstantContext\\(\\r?\\n"
+        + " +dbContext\\.GetService<ShapedQueryCompilingExpressionVisitorDependencies>\\(\\),\\r?\\n"
+        + " +dbContext\\.GetService<RelationalShapedQueryCompilingExpressionVisitorDependencies>\\(\\),\\r?\\n"
+        + " +dbContext\\.GetService<RelationalCommandBuilderDependencies>\\(\\)\\);\\r?\\n")]
     private static partial Regex CreateRelationalExecutorPreambleRegex();
 
     [GeneratedRegex(

@@ -77,6 +77,10 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
             .GetMethods(BindingFlags.Static | BindingFlags.NonPublic)
             .Single(method => method.Name == nameof(DynamoGeneratedQueryRuntime.CreateValueReader));
 
+    private static readonly MethodInfo ReadScalarMethod =
+        typeof(DynamoGeneratedQueryRuntime).GetMethod(
+            nameof(DynamoGeneratedQueryRuntime.ReadScalar))!;
+
     private static readonly ConstantExpression InvariantCultureExpression =
         Constant(CultureInfo.InvariantCulture, typeof(IFormatProvider));
 
@@ -864,6 +868,21 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
             var readerType = typeof(Func<,>).MakeGenericType(
                 typeof(Dictionary<string, AttributeValue>),
                 type);
+
+            // Converter-less scalar mappings emit a direct typed static read, so generated
+            // shapers do not carry a per-property reader delegate. Converter-backed mappings and
+            // collections keep the runtime reader fallback (collection reads need property
+            // metadata for element requiredness/comparers; AOT converter wrappers cannot be
+            // constructed from generated code).
+            if (generatedTypeMapping.Converter is null
+                && generatedTypeMapping.ElementTypeMapping is null)
+                return Call(
+                    ReadScalarMethod.MakeGenericMethod(type),
+                    itemParameter,
+                    Constant(propertyName),
+                    Constant(propertyPath),
+                    Constant(required));
+
             var originalReader = CreateOriginalValueReaderMethod
                 .MakeGenericMethod(type)
                 .Invoke(
@@ -875,7 +894,6 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
                     Call(
                         CreateRuntimeValueReaderMethod.MakeGenericMethod(type),
                         context,
-                        Constant(type, typeof(Type)),
                         Constant(property.DeclaringType.Name, typeof(string)),
                         Constant(property.Name, typeof(string)),
                         Constant(elementDepth),
@@ -898,6 +916,30 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
                 $"Property '{propertyPath}' does not have a DynamoTypeMapping. "
                 + $"All mapped properties must resolve to a DynamoTypeMapping; got '{typeMapping?.GetType().Name ?? "null"}'.");
 
+        return BuildInlineGetValueExpression(
+            itemParameter,
+            propertyName,
+            propertyPath,
+            type,
+            dynamoTypeMapping,
+            required,
+            property);
+    }
+
+    /// <summary>
+    ///     Builds the shared inline expression that extracts a typed value from
+    ///     Dictionary&lt;string, AttributeValue&gt; with null handling and typed provider reads.
+    ///     Used by interpreted queries and by generated code for converter-less mappings.
+    /// </summary>
+    private Expression BuildInlineGetValueExpression(
+        Expression itemParameter,
+        string propertyName,
+        string propertyPath,
+        Type type,
+        DynamoTypeMapping dynamoTypeMapping,
+        bool required,
+        IProperty? property)
+    {
         var attributeValueVariable = Variable(typeof(AttributeValue), "attributeValue");
         var tryGetValueExpression = Call(
             itemParameter,
