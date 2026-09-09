@@ -259,38 +259,38 @@ public static class DynamoGeneratedQueryRuntime
                 throw new InvalidOperationException(
                     DynamoStrings.ContainsCollectionParameterMustBeEnumerable);
 
-            var bufferedValues = new List<object?>(segment.MaximumValueCount);
+            // Stream values straight into SQL/parameters: no fixed-capacity buffer, one-shot
+            // enumerables are enumerated exactly once, and the limit check fires on the first
+            // value beyond the allowed count.
+            var count = 0;
+            var segmentStart = sql.Length;
+            sql.Append(segment.Text);
+            sql.Append(" IN [");
             foreach (var value in values)
             {
-                if (bufferedValues.Count == segment.MaximumValueCount)
+                if (count == segment.MaximumValueCount)
                     throw new InvalidOperationException(
                         DynamoStrings.InListTooLarge(
                             segment.MaximumValueCount,
                             segment.MaximumValueCount == 50));
 
-                bufferedValues.Add(value);
-            }
-
-            if (bufferedValues.Count == 0)
-            {
-                sql.Append("1 = 0");
-                return;
-            }
-
-            sql.Append(segment.Text);
-            sql.Append(" IN [");
-            for (var index = 0; index < bufferedValues.Count; index++)
-            {
-                if (index > 0)
+                if (count > 0)
                     sql.Append(", ");
 
-                var value = bufferedValues[index];
                 AppendParameter(
                     sql,
                     parameters,
                     value,
                     value?.GetType() ?? segment.SourceType!,
                     segment.TypeMapping!);
+                count++;
+            }
+
+            if (count == 0)
+            {
+                sql.Length = segmentStart;
+                sql.Append("1 = 0");
+                return;
             }
 
             sql.Append(']');

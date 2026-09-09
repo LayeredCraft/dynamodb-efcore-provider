@@ -120,6 +120,97 @@ public class PrecompiledQueryTemplateTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void Collection_parameter_allows_up_to_50_values_for_partition_keys()
+    {
+        var mapping = new DynamoTypeMapping(typeof(string));
+        var select = CreateSelect(mapping);
+        select.ApplyEffectivePartitionKeyPropertyNames(new HashSet<string> { "pk" });
+        select.ApplyPredicate(
+            new SqlInExpression(
+                new SqlPropertyExpression("pk", typeof(string), mapping, true),
+                null,
+                new SqlParameterExpression("keys", typeof(IEnumerable<string>), mapping),
+                true,
+                new DynamoTypeMapping(typeof(bool))));
+
+        var template = new DynamoQuerySqlGenerator().GeneratePrecompiledTemplate(select);
+
+        var atLimit = template.Render(
+            new Dictionary<string, object?>
+            {
+                ["keys"] = Enumerable.Range(0, 50).Select(static i => i.ToString())
+            });
+        atLimit.Parameters.Should().HaveCount(50);
+        atLimit.Sql.Should().Contain("IN [?, ?, ?, ?, ?, ?, ?, ?, ?, ?");
+
+        var render = () => template.Render(
+            new Dictionary<string, object?>
+            {
+                ["keys"] = Enumerable.Range(0, 51).Select(static i => i.ToString())
+            });
+        render.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void Collection_parameter_allows_up_to_100_values_for_non_partition_keys()
+    {
+        var mapping = new DynamoTypeMapping(typeof(string));
+        var select = CreateSelect(mapping);
+        select.ApplyPredicate(
+            new SqlInExpression(
+                new SqlPropertyExpression("status", typeof(string), mapping, true),
+                null,
+                new SqlParameterExpression("keys", typeof(IEnumerable<string>), mapping),
+                false,
+                new DynamoTypeMapping(typeof(bool))));
+
+        var template = new DynamoQuerySqlGenerator().GeneratePrecompiledTemplate(select);
+
+        var atLimit = template.Render(
+            new Dictionary<string, object?>
+            {
+                ["keys"] = Enumerable.Range(0, 100).Select(static i => i.ToString())
+            });
+        atLimit.Parameters.Should().HaveCount(100);
+
+        var render = () => template.Render(
+            new Dictionary<string, object?>
+            {
+                ["keys"] = Enumerable.Range(0, 101).Select(static i => i.ToString())
+            });
+        render.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void Collection_parameter_enumerates_one_shot_enumerables_exactly_once()
+    {
+        var mapping = new DynamoTypeMapping(typeof(string));
+        var select = CreateSelect(mapping);
+        select.ApplyPredicate(
+            new SqlInExpression(
+                new SqlPropertyExpression("pk", typeof(string), mapping, true),
+                null,
+                new SqlParameterExpression("keys", typeof(IEnumerable<string>), mapping),
+                true,
+                new DynamoTypeMapping(typeof(bool))));
+
+        var template = new DynamoQuerySqlGenerator().GeneratePrecompiledTemplate(select);
+        var enumerations = 0;
+
+        IEnumerable<string> OneShot()
+        {
+            enumerations++;
+            yield return "only";
+        }
+
+        var query = template.Render(new Dictionary<string, object?> { ["keys"] = OneShot() });
+
+        enumerations.Should().Be(1);
+        query.Sql.Should().EndWith("IN [?]");
+        query.Parameters.Select(parameter => parameter.S).Should().Equal("only");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void Execution_metadata_round_trips_without_the_translated_query_tree()
     {
         var mapping = new DynamoTypeMapping(typeof(string));
