@@ -22,11 +22,6 @@ await using (var server = FakeDynamoServer.Start())
         Aliases = ["aot"]
     };
 
-    var items = SmokeQueries.LoadItems();
-    AssertSingleItem(items, expectedItem);
-    Console.WriteLine("NativeAOT generated synchronous query executed successfully.");
-    Console.Out.Flush();
-
     var asyncItems = await SmokeQueries.LoadItemsAsync();
     AssertSingleItem(asyncItems, expectedItem);
     Console.WriteLine("NativeAOT generated asynchronous query executed successfully.");
@@ -123,16 +118,6 @@ public sealed class SmokeContext : DbContext
 
 internal static class SmokeQueries
 {
-    internal static List<SmokeItem> LoadItems()
-    {
-        using var context = new SmokeContext();
-        string[] partitionKeys = ["tenant-1", "tenant-2"];
-        return context
-            .Items
-            .Where(item => ((IEnumerable<string>)partitionKeys).Contains(item.Pk))
-            .ToList();
-    }
-
     internal static async Task<List<SmokeItem>> LoadItemsAsync()
     {
         await using var context = new SmokeContext();

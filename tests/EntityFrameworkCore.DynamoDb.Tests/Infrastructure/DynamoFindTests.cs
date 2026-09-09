@@ -191,7 +191,7 @@ public class DynamoFindTests
 
         var act = () => context.PkItems.Find("P#1");
 
-        act.Should().Throw<InvalidOperationException>().WithMessage("*Sync enumerating*DynamoDB*");
+        act.Should().Throw<NotSupportedException>().WithMessage("*DynamoDB*asynchronous only*");
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
@@ -215,7 +215,7 @@ public class DynamoFindTests
 
         var act = () => context.Find<PkItem>("P#1");
 
-        act.Should().Throw<InvalidOperationException>().WithMessage("*Sync enumerating*DynamoDB*");
+        act.Should().Throw<NotSupportedException>().WithMessage("*DynamoDB*asynchronous only*");
     }
 
     private static (IAmazonDynamoDB client, List<ExecuteStatementRequest> captured)

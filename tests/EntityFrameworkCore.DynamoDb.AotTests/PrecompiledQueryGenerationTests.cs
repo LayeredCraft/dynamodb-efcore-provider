@@ -126,16 +126,6 @@ public class PrecompiledQueryGenerationTests
                               .ToListAsync();
                               }
 
-                              public static List<string> ExecuteSynchronously(DbContextOptions options)
-                               {
-                               using var context = new TestContext(options);
-                               var pk = "tenant-1";
-                               return context.Items
-                               .Where(item => item.Pk == pk)
-                               .Select(item => item.Name)
-                               .ToList();
-                               }
-
                               public static async Task<List<TestItem>> ExecuteEntities(DbContextOptions options)
                               {
                               await using var context = new TestContext(options);
@@ -292,17 +282,6 @@ public class PrecompiledQueryGenerationTests
                     (List<string>)(await InvokeQueryAsync(generatedAssembly, "Execute", fakeOptions)
                         ?? throw new InvalidOperationException("Execute returned null."));
                 names.Should().BeEquivalentTo(["name-1"], options => options.WithStrictOrdering());
-
-                var syncNames =
-                    (List<string>)(InvokeQuery(
-                            generatedAssembly,
-                            "ExecuteSynchronously",
-                            fakeOptions)
-                        ?? throw new InvalidOperationException(
-                            "ExecuteSynchronously returned null."));
-                syncNames
-                    .Should()
-                    .BeEquivalentTo(["name-1"], options => options.WithStrictOrdering());
 
                 var entities =
                     ((System.Collections.IEnumerable)(await InvokeQueryAsync(
@@ -472,14 +451,6 @@ public class PrecompiledQueryGenerationTests
 
         return invoke;
     }
-
-    private static object? InvokeQuery(
-        Assembly assembly,
-        string methodName,
-        DbContextOptions options)
-        => assembly.GetType("GeneratedQueryTest.QueryContainer")!.GetMethod(methodName)!.Invoke(
-            null,
-            [options]);
 
     private static (AssemblyLoadContext LoadContext, Assembly Assembly) EmitAndLoad(
         Compilation compilation)

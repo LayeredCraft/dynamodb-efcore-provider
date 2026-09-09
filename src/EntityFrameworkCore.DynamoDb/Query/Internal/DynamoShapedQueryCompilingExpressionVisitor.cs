@@ -38,6 +38,17 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
     /// <summary>Builds the runtime querying enumerable and shaper for a translated DynamoDB query.</summary>
     protected override Expression VisitShapedQuery(ShapedQueryExpression shapedQueryExpression)
     {
+        // The provider is asynchronous-only: the AWS SDK exposes no synchronous statement
+        // execution, and sync-over-async enumeration risks thread-pool deadlocks. Sync query
+        // interceptors are rejected at generation time; synchronous enumeration of translated
+        // queries is rejected by the enumerable itself, so non-executing APIs such as
+        // ToQueryString keep working.
+        if (dynamoQueryCompilationContext.IsPrecompiling && !dynamoQueryCompilationContext.IsAsync)
+            throw new NotSupportedException(
+                "DynamoDB query execution is asynchronous only. Precompiled query generation "
+                + "requires async operators such as ToListAsync, FirstAsync, or "
+                + "AsAsyncEnumerable; synchronous queries cannot be precompiled.");
+
         var selectExpression = (SelectExpression)shapedQueryExpression.QueryExpression;
         var pagingExpression = shapedQueryExpression.ShaperExpression as DynamoPagingExpression;
         var itemShaperExpression =
@@ -108,9 +119,7 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
         return dynamoQueryCompilationContext.IsPrecompiling
             ? Call(
                 typeof(DynamoGeneratedQueryRuntime),
-                dynamoQueryCompilationContext.IsAsync
-                    ? nameof(DynamoGeneratedQueryRuntime.CreateAsyncQueryingEnumerable)
-                    : nameof(DynamoGeneratedQueryRuntime.CreateQueryingEnumerable),
+                nameof(DynamoGeneratedQueryRuntime.CreateAsyncQueryingEnumerable),
                 [shaperBody.Type],
                 QueryCompilationContext.QueryContextParameter,
                 CreateQueryTemplateConstant(selectExpression),
@@ -141,9 +150,7 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
         => dynamoQueryCompilationContext.IsPrecompiling
             ? Call(
                 typeof(DynamoGeneratedQueryRuntime),
-                dynamoQueryCompilationContext.IsAsync
-                    ? nameof(DynamoGeneratedQueryRuntime.CreateAsyncPagingQueryingEnumerable)
-                    : nameof(DynamoGeneratedQueryRuntime.CreatePagingQueryingEnumerable),
+                nameof(DynamoGeneratedQueryRuntime.CreateAsyncPagingQueryingEnumerable),
                 [shaperType],
                 QueryCompilationContext.QueryContextParameter,
                 CreateQueryTemplateConstant(selectExpression),

@@ -344,20 +344,6 @@ public static class DynamoGeneratedQueryRuntime
             firstTerminal,
             singleTerminal);
 
-    /// <summary>Creates a generated synchronous query enumerable.</summary>
-    public static IEnumerable<T> CreateQueryingEnumerable<T>(
-        QueryContext queryContext,
-        QueryTemplate queryTemplate,
-        Func<QueryContext, Dictionary<string, AttributeValue>, T> shaper,
-        bool standAloneStateManager,
-        bool threadSafetyChecksEnabled)
-        => new DynamoShapedQueryCompilingExpressionVisitor.QueryingEnumerable<T>(
-            (DynamoQueryContext)queryContext,
-            queryTemplate,
-            shaper,
-            standAloneStateManager,
-            threadSafetyChecksEnabled);
-
     /// <summary>Creates a generated asynchronous query enumerable.</summary>
     public static IAsyncEnumerable<T> CreateAsyncQueryingEnumerable<T>(
         QueryContext queryContext,
@@ -374,20 +360,6 @@ public static class DynamoGeneratedQueryRuntime
 
     /// <summary>Creates a generated asynchronous paging enumerable.</summary>
 #pragma warning disable EF9102
-    public static IEnumerable<DynamoPage<T>> CreatePagingQueryingEnumerable<T>(
-        QueryContext queryContext,
-        QueryTemplate queryTemplate,
-        Func<QueryContext, Dictionary<string, AttributeValue>, T> shaper,
-        bool standAloneStateManager,
-        bool threadSafetyChecksEnabled)
-        => new DynamoShapedQueryCompilingExpressionVisitor.PagingQueryingEnumerable<T>(
-            (DynamoQueryContext)queryContext,
-            queryTemplate,
-            shaper,
-            standAloneStateManager,
-            threadSafetyChecksEnabled);
-
-    /// <summary>Creates a generated asynchronous paging enumerable.</summary>
     public static IAsyncEnumerable<DynamoPage<T>> CreateAsyncPagingQueryingEnumerable<T>(
         QueryContext queryContext,
         QueryTemplate queryTemplate,
