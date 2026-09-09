@@ -65,31 +65,33 @@ public sealed class DynamoCSharpRuntimeAnnotationCodeGenerator(
         DynamoTypeMapping typeMapping,
         CSharpRuntimeAnnotationCodeGeneratorParameters parameters)
     {
-        // Emitting a collection mapping without its primed codec would leave the runtime codec
-        // construction to reflection, which fails at first query under NativeAOT. Fail compiled
-        // -model generation instead of shipping a silently unprimed mapping.
-        var readerWriterType = typeMapping.ReaderWriter?.GetType();
-        if (readerWriterType?.IsGenericType != true)
+        // The collection shape and generic arguments come from the mapping CLR type directly, so
+        // generation never touches ReaderWriter — accessing it would lazily construct the dynamic
+        // collection codec through MakeGenericMethod/Invoke, which is exactly the reflection the
+        // primed codec exists to avoid. Unsupported collection shapes fail fast below instead of
+        // shipping a mapping that would build its codec via reflection (and crash under NativeAOT).
+        var clrType = typeMapping.ClrType;
+        string primeMethodName;
+        Type elementType;
+        if (DynamoTypeMappingSource.TryGetListElementType(clrType, out var listElementType))
+            (primeMethodName, elementType) =
+                (nameof(DynamoGeneratedModelRuntime.PrimeListMapping), listElementType);
+        else if (DynamoTypeMappingSource.TryGetDictionaryValueType(
+            clrType,
+            out var dictionaryValueType,
+            out _))
+            (primeMethodName, elementType) =
+                (nameof(DynamoGeneratedModelRuntime.PrimeDictionaryMapping), dictionaryValueType);
+        else if (DynamoTypeMappingSource.TryGetSetElementType(clrType, out var setElementType))
+            (primeMethodName, elementType) =
+                (nameof(DynamoGeneratedModelRuntime.PrimeSetMapping), setElementType);
+        else
             return ThrowOrSkipUnprimedCollection(typeMapping);
 
-        var genericDefinition = readerWriterType.GetGenericTypeDefinition();
-        var primeMethodName =
-            genericDefinition == typeof(ListDynamoValueReaderWriter<,>)
-                ?
-                nameof(DynamoGeneratedModelRuntime.PrimeListMapping)
-                : genericDefinition == typeof(DictionaryDynamoValueReaderWriter<,>)
-                    ? nameof(DynamoGeneratedModelRuntime.PrimeDictionaryMapping)
-                    : genericDefinition == typeof(SetDynamoValueReaderWriter<,>)
-                        ? nameof(DynamoGeneratedModelRuntime.PrimeSetMapping)
-                        : null;
-        if (primeMethodName is null || typeMapping.ClrType == typeof(object))
-            return ThrowOrSkipUnprimedCollection(typeMapping);
-
-        var genericArguments = readerWriterType.GetGenericArguments();
         var code = Dependencies.CSharpHelper;
         AddNamespace(typeof(DynamoGeneratedModelRuntime), parameters.Namespaces);
-        AddNamespace(genericArguments[0], parameters.Namespaces);
-        AddNamespace(genericArguments[1], parameters.Namespaces);
+        AddNamespace(clrType, parameters.Namespaces);
+        AddNamespace(elementType, parameters.Namespaces);
 
         parameters
             .MainBuilder
@@ -97,9 +99,9 @@ public sealed class DynamoCSharpRuntimeAnnotationCodeGenerator(
             .Append('.')
             .Append(primeMethodName)
             .Append('<')
-            .Append(code.Reference(genericArguments[0]))
+            .Append(code.Reference(clrType))
             .Append(", ")
-            .Append(code.Reference(genericArguments[1]))
+            .Append(code.Reference(elementType))
             .Append(">((")
             .Append(code.Reference(typeof(DynamoTypeMapping)))
             .Append(")(");
