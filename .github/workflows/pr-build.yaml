@@ -87,6 +87,7 @@ jobs:
       - name: Publish NativeAOT smoke app and capture warnings
         shell: bash
         run: |
+          mkdir -p artifacts
           set -o pipefail
           if ! dotnet publish \
             testapps/EntityFrameworkCore.DynamoDb.NativeAotSmoke/EntityFrameworkCore.DynamoDb.NativeAotSmoke.csproj \

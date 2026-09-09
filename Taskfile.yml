@@ -193,6 +193,7 @@ tasks:
       BASELINE: 'IL2026 IL2055 IL2060 IL2067 IL2070 IL2072 IL2075 IL2091 IL2104 IL3050 IL3053'
     cmds:
       - dotnet restore EntityFrameworkCore.DynamoDb.NativeAotSmoke.csproj -p:Configuration="{{.CONFIG}}" --runtime {{.RID}}
+      - mkdir -p {{.ROOT_DIR}}/artifacts
       - |
         set -o pipefail
         if ! dotnet publish EntityFrameworkCore.DynamoDb.NativeAotSmoke.csproj --configuration "{{.CONFIG}}" --runtime {{.RID}} --no-restore --output {{.OUTPUT}} 2>&1 | tee {{.OUTPUT}}.log; then
