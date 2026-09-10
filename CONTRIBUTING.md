@@ -104,3 +104,10 @@ If Task is unavailable, run:
 ```sh
 uv run zensical build -f zensical.toml
 ```
+
+## Documentation and Skill Maintenance
+
+Every PR must complete the documentation and provider-skill checks in the PR template. Update
+`docs/` for user-facing behavior, configuration, diagnostics, limits, or setup changes. Update
+`skills/dynamodb-efcore-provider/` when its guidance, file map, or sharp edges change. Explain any
+not-applicable decision in the PR description.
