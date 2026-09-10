@@ -15,8 +15,8 @@
     },
     {
       "id": 3,
-      "prompt": "Add support for a new LINQ operator in this provider. Identify the code path, the right unit and integration tests, the user docs to update, and the skill maintenance required before the PR is ready.",
-      "expected_output": "Traces translation through PartiQL generation and execution, selects both test layers, and includes the docs and unified-skill maintenance checks.",
+      "prompt": "Our order service needs optimistic concurrency and transactional writes. Explain the provider behavior, the DynamoDB limits we need to design for, and why SaveChangesAsync does not replace table provisioning.",
+      "expected_output": "Explains concurrency, transaction limits, asynchronous writes and lifecycle behavior without promising relational database features.",
       "files": []
     }
   ]
