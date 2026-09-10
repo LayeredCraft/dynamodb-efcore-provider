@@ -1,6 +1,6 @@
 ## Documentation and skill maintenance
 
-- [ ] Documentation: updated, or not applicable (explain below).
-- [ ] Provider skill: updated, or not applicable (explain below).
+- [ ] Documentation: updated, or not applicable — explain why.
+- [ ] Provider skill: updated, or not applicable — explain why.
 
-<!-- Explain any not-applicable decision here. -->
+<!-- Put any not-applicable explanation on the same line as its checkbox. -->

@@ -18,8 +18,8 @@ jobs:
           node <<'NODE'
           const body = process.env.PR_BODY ?? "";
           const checks = [
-            ["Documentation", /^- \[[xX]\] Documentation:/m],
-            ["Provider skill", /^- \[[xX]\] Provider skill:/m]
+            ["Documentation", /^- \[[xX]\] Documentation:\s*(?:updated\.?\s*$|not applicable\s*(?:[-—:;]\s*)\S)/mi],
+            ["Provider skill", /^- \[[xX]\] Provider skill:\s*(?:updated\.?\s*$|not applicable\s*(?:[-—:;]\s*)\S)/mi]
           ];
           const missing = checks.filter(([, expression]) => !expression.test(body));
           if (missing.length) {
