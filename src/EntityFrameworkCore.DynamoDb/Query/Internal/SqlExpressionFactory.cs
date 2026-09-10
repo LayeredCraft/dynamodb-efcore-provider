@@ -1,5 +1,6 @@
 using System.Linq.Expressions;
 using EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EntityFrameworkCore.DynamoDb.Query.Internal;
@@ -207,7 +208,8 @@ public sealed class SqlExpressionFactory(ITypeMappingSource typeMappingSource)
         };
     }
 
-    private static Type GetValueOrElementType(Type type)
+    private static Type GetValueOrElementType(
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces)] Type type)
     {
         var nonNullableType = Nullable.GetUnderlyingType(type) ?? type;
         if (nonNullableType.IsArray)

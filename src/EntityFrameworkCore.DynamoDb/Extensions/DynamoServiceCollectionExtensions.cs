@@ -47,7 +47,8 @@ public static class DynamoServiceCollectionExtensions
                     .TryAddScoped<IDynamoClientWrapper, DynamoClientWrapper>()
                     .TryAddSingleton<DynamoEntityItemSerializerSource>(_
                         => new DynamoEntityItemSerializerSource())
-                    .TryAddSingleton<ISqlExpressionFactory, SqlExpressionFactory>()
+                    .TryAddSingleton<Query.Internal.ISqlExpressionFactory,
+                        Query.Internal.SqlExpressionFactory>()
                     .TryAddSingleton<IDynamoQuerySqlGeneratorFactory,
                         DynamoQuerySqlGeneratorFactory>()
                     // Replaceable via ReplaceService<IDynamoIndexSelectionAnalyzer, T>() for

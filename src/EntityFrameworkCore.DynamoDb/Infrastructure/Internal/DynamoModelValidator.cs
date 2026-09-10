@@ -5,6 +5,7 @@ using EntityFrameworkCore.DynamoDb.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.EntityFrameworkCore.Metadata;
 
 namespace EntityFrameworkCore.DynamoDb.Infrastructure.Internal;
@@ -120,7 +121,8 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
     }
 
     /// <summary>Gets the entity CLR type targeted by a possible navigation property.</summary>
-    private static Type? GetEntityNavigationTargetType(Type propertyType)
+    private static Type? GetEntityNavigationTargetType(
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces)] Type propertyType)
     {
         if (propertyType == typeof(string) || propertyType == typeof(byte[]))
             return null;

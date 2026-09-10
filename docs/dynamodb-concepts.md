@@ -287,14 +287,12 @@ use strongly consistent reads.
 See [DynamoDB read consistency](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.ReadConsistency.html)
 in the AWS documentation.
 
-## Async-Only API
+## Query and write APIs
 
-!!! warning "Synchronous I/O is not supported"
+!!! note "Query execution is async-only"
 
-    The DynamoDB SDK has no synchronous I/O surface — every network operation is async-only.
-    All operations in this provider follow the same constraint. Use `ToListAsync`,
-    `FirstOrDefaultAsync`, `SaveChangesAsync`, and other async methods throughout. `ToList()`,
-    `SaveChanges()`, and other synchronous methods are not supported and will throw at runtime.
+    The DynamoDB SDK has no synchronous I/O API. Normal and generated precompiled queries are
+    asynchronous only. Use async query and write methods.
 
     `SingleAsync` and `SingleOrDefaultAsync` translate for key-condition-only query shapes. For
     non-key filters, scan-like shapes, or other unsupported operators, switch to `AsAsyncEnumerable()`

@@ -25,7 +25,7 @@ public static class DynamoEntityTypeBuilderExtensions
         {
             name.NullButNotEmpty();
 
-            entityTypeBuilder.Metadata.SetTableName(name);
+            entityTypeBuilder.Metadata.SetOrRemoveAnnotation(DynamoAnnotationNames.TableName, name);
 
             return entityTypeBuilder;
         }
@@ -194,10 +194,16 @@ public static class DynamoEntityTypeBuilderExtensions
         public IConventionEntityTypeBuilder? ToTable(string? name, bool fromDataAnnotation = false)
         {
             name = name.NullButNotEmpty();
-            if (!entityTypeBuilder.CanSetTable(name, fromDataAnnotation))
+            if (!entityTypeBuilder.CanSetAnnotation(
+                DynamoAnnotationNames.TableName,
+                name,
+                fromDataAnnotation))
                 return null;
 
-            entityTypeBuilder.Metadata.SetTableName(name, fromDataAnnotation);
+            entityTypeBuilder.Metadata.SetOrRemoveAnnotation(
+                DynamoAnnotationNames.TableName,
+                name,
+                fromDataAnnotation);
             return entityTypeBuilder;
         }
 
@@ -224,7 +230,11 @@ public static class DynamoEntityTypeBuilderExtensions
         /// </param>
         /// <returns>The same builder instance so that multiple calls can be chained.</returns>
         public EntityTypeBuilder<TEntity> ToTable(string? name)
-            => (EntityTypeBuilder<TEntity>)((EntityTypeBuilder)entityTypeBuilder).ToTable(name);
+        {
+            name.NullButNotEmpty();
+            entityTypeBuilder.Metadata.SetOrRemoveAnnotation(DynamoAnnotationNames.TableName, name);
+            return entityTypeBuilder;
+        }
 
         /// <summary>
         ///     Configures which property provides the DynamoDB partition key attribute name for this

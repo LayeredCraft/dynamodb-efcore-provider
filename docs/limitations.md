@@ -9,6 +9,75 @@ icon: lucide/triangle-alert
 _The DynamoDB EF Core provider does not support all standard EF Core features. This page is the
 authoritative reference for what is not supported, why, and what workaround (if any) applies._
 
+## NativeAOT and precompiled queries
+
+NativeAOT query support is experimental and follows EF Core's precompiled-query restrictions.
+Queries must be discoverable as static LINQ expressions during the build. Queries assembled at
+runtime from expression trees cannot be intercepted and precompiled.
+
+NativeAOT publishing can report trimming and dynamic-code warnings from EF Core, the AWS SDK, or
+provider paths outside query execution. The provider's smoke build allows those warnings while AOT
+support remains experimental; a warning-free trimmed application is not yet guaranteed.
+
+CI publishes and runs the NativeAOT smoke application with EF Core 10. EF Core 11 currently has a
+known blocker during EF Core Tasks precompilation, where generated-query compilation can fail to
+resolve application references. Interceptor generation is tested for EF Core 11, but NativeAOT
+publish-and-run support is not yet available.
+
+The tested native path supports scalar entity properties, including nullable numbers, Boolean,
+binary, configured scalar conversions, and one-dimensional arrays with non-nullable elements.
+Enums without an explicit converter also materialize directly (stored as their numeric DynamoDB
+value). List, set, and dictionary primitive collections work when their elements are themselves
+primitives or use their own element-level value converter (for example `List<Guid>` or
+`List<SomeEnum>` with string element conversion). Collections of non-primitive, non-convertible
+element types — complex/owned entity types aside from dedicated complex-collection support — and
+property-level value converters composed over the collection itself are rejected at compiled-model
+generation time.
+
+NativeAOT precompiled queries do not currently support entity materialization that requires EF Core
+to read a non-public mapped field. This includes mutable field-backed collection properties such as
+`List<T>`, `HashSet<T>`, and `Dictionary<string, T>`; auto-properties are affected when EF Core
+selects their backing field. The current EF Core generated field-read accessor is invalid in
+NativeAOT. Keep those collection or dictionary values out of entities materialized by precompiled
+NativeAOT queries until EF Core resolves the issue.
+
+Field-only properties can hit the same limitation. Basic scalar properties and arrays are covered
+by the native smoke test because their materialization uses a field write, not a field read.
+
+Query execution is asynchronous only. Synchronous query operators and enumeration throw
+`InvalidOperationException`; use `ToListAsync`, `FirstAsync`, `ToPageAsync`, or
+`AsAsyncEnumerable`.
+
+Two EF Core precompiler restrictions currently fail before provider translation. The provider's
+C# 14 `Limit(n)` extension member cannot currently be resolved by EF Core's precompiler, and
+nullable-coalescing projections such as `Select(x => x.OptionalCount ?? -1)` are rejected by the
+EF Core C#-to-LINQ translator. Use supported query shapes or run these queries without
+precompilation. Both failures are intentional build-time errors, not runtime fallbacks.
+
+Precompiled-query generation upstream of the provider cannot handle complex-type members: a query
+that materializes or filters on a complex property fails during `dotnet publish` with an EF Core
+generated-code error. Avoid complex properties in contexts precompiled for NativeAOT.
+
+Primitive-collection properties materialize their codec from compiled-model generated code under
+NativeAOT. A primitive-collection property that also carries a property-level value converter is
+not supported on that path and fails when the compiled model is generated. Converters on the
+collection *elements* are supported.
+
+Converted values keep one interpreted seam under NativeAOT: value-converter delegate compilation
+falls back to the .NET expression interpreter, matching EF Core's own NativeAOT behavior. Query
+translation, parameter serialization, and materialization codecs themselves use generated or
+hand-written code only.
+
+Precompiled query constants and parameters must bind to a mapped entity property. The generated
+code resolves each value's type mapping through the property that owns it (including element
+mappings of primitive collections, for example `Contains` over a `List<T>` attribute). A query
+value whose type mapping is not associated with any mapped property fails at precompile time with
+an `InvalidOperationException` instead of silently deferring the failure to first query execution,
+where it would use reflection that is not supported under NativeAOT.
+
+See [Precompiled Queries and NativeAOT](querying/precompiled-queries.md) for supported setup and
+verification.
+
 ## Database lifecycle
 
 - `SaveChanges` never creates DynamoDB tables. Call `EnsureCreatedAsync` explicitly or provision
@@ -427,12 +496,11 @@ See [Single-Table Design](modeling/single-table-design.md).
 
 ## Behavioral Differences from Standard EF Core
 
-### Async-Only Execution
+### Synchronous execution
 
-Synchronous query execution throws `InvalidOperationException`. This applies to all query
-enumeration, not just `SaveChanges`. Methods like `ToList()`, `First()`, and `Count()` on a
-`DbSet` will throw. `Find()` can still return an already-tracked entity without querying. Use
-`ToListAsync()`, `FirstAsync()`, `FindAsync()`, `AsAsyncEnumerable()`, etc.
+Normal and generated precompiled synchronous query methods throw `InvalidOperationException`.
+Use async query methods for database access. Synchronous writes remain unsupported; use
+`SaveChangesAsync()`. `Find()` can still return an already-tracked entity without querying.
 
 ### `ToQueryString()` Is Debug-Only
 

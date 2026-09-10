@@ -36,3 +36,37 @@ public static class PrimitiveCollectionsItemTable
             cancellationToken);
     }
 }
+
+public static class MutablePrimitiveCollectionsItemTable
+{
+    public const string TableName = "MutablePrimitiveCollectionsItems";
+
+    public static async Task CreateTable(
+        IAmazonDynamoDB dynamoDb,
+        CancellationToken cancellationToken)
+    {
+        await dynamoDb.CreateTableAsync(
+            new CreateTableRequest
+            {
+                TableName = TableName,
+                AttributeDefinitions =
+                [
+                    new AttributeDefinition
+                    {
+                        AttributeName = "pk", AttributeType = ScalarAttributeType.S
+                    }
+                ],
+                KeySchema =
+                [
+                    new KeySchemaElement { AttributeName = "pk", KeyType = KeyType.HASH }
+                ],
+                BillingMode = BillingMode.PAY_PER_REQUEST
+            },
+            cancellationToken);
+
+        await dynamoDb.SeedItemsAsync(
+            TableName,
+            PrimitiveCollectionsItems.MutableAttributeValues,
+            cancellationToken);
+    }
+}

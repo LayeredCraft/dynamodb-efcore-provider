@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using Amazon.DynamoDBv2.Model;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace EntityFrameworkCore.DynamoDb.Storage;
@@ -735,7 +736,8 @@ internal static class DynamoWriteValueSerializerSource
     }
 
     /// <summary>Finds an enumerable string-key dictionary contract on a provider-shaped value.</summary>
-    private static Type? FindStringKeyValuePairEnumerable(Type type)
+    private static Type? FindStringKeyValuePairEnumerable(
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces)] Type type)
     {
         foreach (var candidate in type.IsInterface
             ? [type, .. type.GetInterfaces()]

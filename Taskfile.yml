@@ -118,78 +118,25 @@ tasks:
         vars: { CONFIG: '{{.CONFIG}}' }
       - dotnet test tests/EntityFrameworkCore.DynamoDb.Tests/EntityFrameworkCore.DynamoDb.Tests.csproj --configuration "{{.CONFIG}}" --no-build
 
-  test:spec:
-    desc: Test specification project for CONFIG (default Debug EF10). Optional FILTER="..."
+  test:aot-generation:
+    desc: Compile generated query interceptors for CONFIG (default Debug EF10)
     silent: true
     vars:
       CONFIG: '{{.CONFIG | default "Debug EF10"}}'
-      FILTER: '{{.FILTER | default ""}}'
     cmds:
-      - task: build
-        vars: { CONFIG: '{{.CONFIG}}' }
-      - echo "🧪 Testing spec {{.CONFIG}}{{if .FILTER}} filter={{.FILTER}}{{end}}"
-      - '{{if .FILTER}}dotnet test tests/EntityFrameworkCore.DynamoDb.SpecificationTests/EntityFrameworkCore.DynamoDb.SpecificationTests.csproj --configuration "{{.CONFIG}}" --no-build --filter "{{.FILTER}}"{{else}}dotnet test tests/EntityFrameworkCore.DynamoDb.SpecificationTests/EntityFrameworkCore.DynamoDb.SpecificationTests.csproj --configuration "{{.CONFIG}}" --no-build{{end}}'
+      - dotnet restore tests/EntityFrameworkCore.DynamoDb.AotTests/EntityFrameworkCore.DynamoDb.AotTests.csproj -p:Configuration="{{.CONFIG}}"
+      - dotnet build tests/EntityFrameworkCore.DynamoDb.AotTests/EntityFrameworkCore.DynamoDb.AotTests.csproj --configuration "{{.CONFIG}}" --no-restore
+      - dotnet test tests/EntityFrameworkCore.DynamoDb.AotTests/EntityFrameworkCore.DynamoDb.AotTests.csproj --configuration "{{.CONFIG}}" --no-build
 
-  test:spec:ef10:
-    desc: Test specification project against Debug EF10. Optional FILTER="..."
-    cmds:
-      - task: test:spec
-        vars: { CONFIG: 'Debug EF10', FILTER: '{{.FILTER | default ""}}' }
-
-  test:spec:ef11:
-    desc: Test specification project against Debug EF11. Optional FILTER="..."
-    cmds:
-      - task: test:spec
-        vars: { CONFIG: 'Debug EF11', FILTER: '{{.FILTER | default ""}}' }
-
-  test:spec:all:
-    desc: Test specification project against Debug EF10 and Debug EF11. Optional FILTER="..."
-    cmds:
-      - task: test:spec:ef10
-        vars: { FILTER: '{{.FILTER | default ""}}' }
-      - task: test:spec:ef11
-        vars: { FILTER: '{{.FILTER | default ""}}' }
-
-  pack:
-    desc: Pack CONFIG (default Release EF10). Example, task pack CONFIG="Release EF11"
+  test:aot-publish:
+    desc: Publish, gate warnings, and run NativeAOT smoke app for CONFIG (default Release EF10)
     silent: true
     vars:
       CONFIG: '{{.CONFIG | default "Release EF10"}}'
+      RID:
+        sh: 'os=$(uname -s); arch=$(uname -m); case "$os" in Darwin) rid="osx";; Linux) rid="linux";; *) echo "Unsupported OS for AOT tasks: $os" >&2; exit 1;; esac; case "$arch" in arm64|aarch64) rid="$rid-arm64";; x86_64) rid="$rid-x64";; *) echo "Unsupported architecture: $arch" >&2; exit 1;; esac; echo "$rid"'
     cmds:
-      - echo "📦 Packing {{.CONFIG}}"
-      - dotnet restore {{.SOLUTION}} -p:Configuration="{{.CONFIG}}"
-      - dotnet pack src/EntityFrameworkCore.DynamoDb/EntityFrameworkCore.DynamoDb.csproj --configuration "{{.CONFIG}}" --no-restore --output ./.nupkg
-      - echo "✅ Packed {{.CONFIG}}"
-
-  pack:ef10:
-    desc: Pack Release EF10
-    cmds:
-      - task: pack
-        vars: { CONFIG: 'Release EF10' }
-
-  pack:ef11:
-    desc: Pack Release EF11
-    cmds:
-      - task: pack
-        vars: { CONFIG: 'Release EF11' }
-
-  publish:
-    desc: Pack EF10/EF11 from a clean package output and publish to NuGet
-    silent: true
-    cmds:
-      - echo "🚀 Publishing"
-      - task: clean:packages
-      - task: pack:ef10
-      - task: pack:ef11
-      - dotnet nuget push ./.nupkg/*.nupkg --source https://api.nuget.org/v3/index.json --api-key $NUGET_API_KEY_LOCAL --skip-duplicate
-      - echo "✨ Published"
-
-  docs:serve:
-    desc: Serve docs locally with Zensical
-    silent: true
-    cmds:
-      - echo "📖 Serving Docs"
-      - uv run zensical serve -f zensical.toml
+      - bash {{.ROOT_DIR}}/scripts/run-nativeaot-smoke.sh "{{.CONFIG}}" "{{.RID}}"
 
   docs:build:
     desc: Build docs site with Zensical

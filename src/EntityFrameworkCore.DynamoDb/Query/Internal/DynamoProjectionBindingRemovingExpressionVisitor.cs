@@ -5,9 +5,11 @@ using System.Globalization;
 using System.Linq.Expressions;
 using System.Reflection;
 using Amazon.DynamoDBv2.Model;
+using EntityFrameworkCore.DynamoDb.Infrastructure;
 using EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using EntityFrameworkCore.DynamoDb.Storage;
+using EntityFrameworkCore.DynamoDb.Storage.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
@@ -16,6 +18,8 @@ using Microsoft.EntityFrameworkCore.Storage;
 using static System.Linq.Expressions.Expression;
 
 namespace EntityFrameworkCore.DynamoDb.Query.Internal;
+
+#pragma warning disable EF9100
 
 /// <summary>
 ///     Replaces EF Core's abstract ProjectionBindingExpression nodes with concrete expression
@@ -32,7 +36,10 @@ namespace EntityFrameworkCore.DynamoDb.Query.Internal;
 /// </remarks>
 public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
     ParameterExpression itemParameter,
-    SelectExpression selectExpression) : ExpressionVisitor
+    SelectExpression selectExpression,
+    bool precompiling,
+    ILiftableConstantFactory liftableConstantFactory,
+    IModel model) : ExpressionVisitor
 {
     // Reflection cache for efficient expression tree construction
     private static readonly PropertyInfo AttributeValueNullProperty =
@@ -59,8 +66,26 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
     private static readonly MethodInfo DictionaryTryGetValueMethod =
         typeof(Dictionary<string, AttributeValue>).GetMethod(nameof(Dictionary<,>.TryGetValue))!;
 
+    private static readonly MethodInfo CreateRuntimeValueReaderMethod =
+        typeof(DynamoGeneratedQueryRuntime)
+            .GetMethods()
+            .Single(method
+                => method.Name == nameof(DynamoGeneratedQueryRuntime.CreateValueReader)
+                && method.IsPublic);
+
+    private static readonly MethodInfo CreateOriginalValueReaderMethod =
+        typeof(DynamoGeneratedQueryRuntime)
+            .GetMethods(BindingFlags.Static | BindingFlags.NonPublic)
+            .Single(method => method.Name == nameof(DynamoGeneratedQueryRuntime.CreateValueReader));
+
+    private static readonly MethodInfo ReadScalarMethod =
+        typeof(DynamoGeneratedQueryRuntime).GetMethod(
+            nameof(DynamoGeneratedQueryRuntime.ReadScalar))!;
+
     private static readonly ConstantExpression InvariantCultureExpression =
         Constant(CultureInfo.InvariantCulture, typeof(IFormatProvider));
+
+    private int _precompiledReaderIndex;
 
     private static readonly ConstantExpression IntegerNumberStylesExpression =
         Constant(NumberStyles.Integer, typeof(NumberStyles));
@@ -102,8 +127,9 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
             && node.Arguments[0] is ProjectionBindingExpression pbe
             && pbe.Type == typeof(ValueBuffer))
         {
-            // new MaterializationContext(ValueBuffer.Empty, ...)
-            List<Expression> newArguments = [Constant(ValueBuffer.Empty)];
+            // The buffer is never read: scalar values come from the DynamoDB item dictionary.
+            // Generated code needs an addressable field to pass the buffer by readonly reference.
+            List<Expression> newArguments = [CreateEmptyValueBufferExpression()];
 
             for (var i = 1; i < node.Arguments.Count; i++)
                 newArguments.Add(Visit(node.Arguments[i]));
@@ -413,6 +439,11 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
         if (ReferenceEquals(node, QueryCompilationContext.NotTranslatedExpression))
             return node;
 
+        // Precompiled queries carry their parameter values as liftable constants. Their resolver
+        // expressions belong to EF Core and must not be rewritten as part of the row shaper.
+        if (node is LiftableConstantExpression)
+            return node;
+
         return base.VisitExtension(node);
     }
 
@@ -661,9 +692,20 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
         {
             var genericMethod = node.Method.GetGenericMethodDefinition();
 
-            if (genericMethod == ExpressionExtensions.ValueBufferTryReadValueMethod)
+            if (genericMethod
+                == Microsoft.EntityFrameworkCore.Infrastructure.ExpressionExtensions
+                    .ValueBufferTryReadValueMethod)
             {
-                var property = (IProperty)((ConstantExpression)node.Arguments[2]).Value!;
+                var property = node.Arguments[2] switch
+                {
+                    ConstantExpression { Value: IProperty value } => value,
+                    LiftableConstantExpression
+                    {
+                        OriginalExpression: ConstantExpression { Value: IProperty value }
+                    } => value,
+                    _ => throw new InvalidOperationException(
+                        "Expected an EF Core property metadata constant while compiling the query shaper.")
+                };
                 var targetType = node.Type == typeof(object) ? property.ClrType : node.Type;
 
                 // Runtime-only properties are not stored in the DynamoDB item dictionary.
@@ -795,59 +837,135 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
         Expression? contextOverride = null)
     {
         var itemParameter = contextOverride ?? _attributeContextStack.Peek();
-        var dynamoTypeMapping = typeMapping as DynamoTypeMapping;
+        var propertyPath = string.IsNullOrWhiteSpace(entityTypeDisplayName)
+            ? propertyName
+            : $"{entityTypeDisplayName}.{propertyName}";
 
+        if (precompiling)
+        {
+            var generatedTypeMapping = typeMapping as DynamoTypeMapping
+                ?? throw new InvalidOperationException(
+                    $"Property '{propertyPath}' does not have a DynamoTypeMapping.");
+            property ??= model
+                .GetEntityTypes()
+                .SelectMany(static entityType => entityType.GetFlattenedProperties())
+                .FirstOrDefault(candidate
+                    => candidate.GetAttributeName() == propertyName
+                    && ReferenceEquals(candidate.GetTypeMapping(), typeMapping));
+
+            // Bind the mapping to an owning property (optionally through an element-mapping
+            // chain) so generated code never resolves through the reflection-based FindMapping
+            // fallback, which is AOT-unsafe at first query execution.
+            int elementDepth;
+            if (property is not null)
+                elementDepth = 0;
+            else
+                (property, elementDepth) = FindOwningPropertyBinding(generatedTypeMapping)
+                    ?? throw new InvalidOperationException(
+                        $"Cannot precompile this query: a projected value uses a type mapping for "
+                        + $"CLR type '{generatedTypeMapping.ClrType.Name}' that is not associated "
+                        + $"with any model property.");
+
+            var readerType = typeof(Func<,>).MakeGenericType(
+                typeof(Dictionary<string, AttributeValue>),
+                type);
+
+            // Converter-backed mappings use a query-lifetime reader fallback. Only converter-free
+            // scalar mappings use the direct static read path.
+            if (generatedTypeMapping.Converter is null
+                && generatedTypeMapping.ElementTypeMapping is null
+                && !(Nullable.GetUnderlyingType(type) ?? type).IsEnum)
+                return Call(
+                    ReadScalarMethod.MakeGenericMethod(type),
+                    itemParameter,
+                    Constant(propertyName),
+                    Constant(propertyPath),
+                    Constant(required));
+
+            var originalReader = CreateOriginalValueReaderMethod
+                .MakeGenericMethod(type)
+                .Invoke(
+                    null,
+                    [generatedTypeMapping, property, propertyName, propertyPath, required]);
+            var context = Parameter(typeof(MaterializerLiftableConstantContext), "context");
+            var resolver = Lambda<Func<MaterializerLiftableConstantContext, object>>(
+                Convert(
+                    Call(
+                        CreateRuntimeValueReaderMethod.MakeGenericMethod(type),
+                        context,
+                        Constant(property.DeclaringType.Name, typeof(string)),
+                        Constant(property.Name, typeof(string)),
+                        Constant(elementDepth),
+                        Constant(propertyName),
+                        Constant(propertyPath),
+                        Constant(required)),
+                    typeof(object)),
+                context);
+            var reader = liftableConstantFactory.CreateLiftableConstant(
+                originalReader,
+                resolver,
+                $"dynamoValueReader{_precompiledReaderIndex++}",
+                readerType);
+
+            return Invoke(reader, itemParameter);
+        }
+
+        var dynamoTypeMapping = typeMapping as DynamoTypeMapping
+            ?? throw new InvalidOperationException(
+                $"Property '{propertyPath}' does not have a DynamoTypeMapping. "
+                + $"All mapped properties must resolve to a DynamoTypeMapping; got '{typeMapping?.GetType().Name ?? "null"}'.");
+
+        return BuildInlineGetValueExpression(
+            itemParameter,
+            propertyName,
+            propertyPath,
+            type,
+            dynamoTypeMapping,
+            required,
+            property);
+    }
+
+    /// <summary>
+    ///     Builds the shared inline expression that extracts a typed value from
+    ///     Dictionary&lt;string, AttributeValue&gt; with null handling and typed provider reads.
+    ///     Used by interpreted queries and by generated code for converter-less mappings.
+    /// </summary>
+    private Expression BuildInlineGetValueExpression(
+        Expression itemParameter,
+        string propertyName,
+        string propertyPath,
+        Type type,
+        DynamoTypeMapping dynamoTypeMapping,
+        bool required,
+        IProperty? property)
+    {
         var attributeValueVariable = Variable(typeof(AttributeValue), "attributeValue");
-
-        // item.TryGetValue("PropertyName", out attributeValue)
         var tryGetValueExpression = Call(
             itemParameter,
             DictionaryTryGetValueMethod,
             Constant(propertyName),
             attributeValueVariable);
 
-        var propertyPath = string.IsNullOrWhiteSpace(entityTypeDisplayName)
-            ? propertyName
-            : $"{entityTypeDisplayName}.{propertyName}";
-
         var missingReturnExpression = required
             ? CreateThrow(
                 $"Required property '{propertyPath}' was not present in the DynamoDB item.")
             : Default(type);
-
         var nullReturnExpression = required
             ? CreateThrow($"Required property '{propertyPath}' was set to DynamoDB NULL.")
             : Default(type);
-
-        // attributeValue is null OR attributeValue.NULL == true
-        var isAttributeValueNullExpression = Equal(
-            attributeValueVariable,
-            Constant(null, typeof(AttributeValue)));
-
-        // Guard: access to .NULL property would throw NullReferenceException if the
-        // AttributeValue itself is null (item absent from projection). Check for null
-        // first so the outer OrElse short-circuits before reading the flag.
-        var isNullFlagExpression = AndAlso(
-            NotEqual(attributeValueVariable, Constant(null, typeof(AttributeValue))),
-            Equal(
-                Property(attributeValueVariable, AttributeValueNullProperty),
-                Constant(true, typeof(bool?))));
-
-        var isDynamoNullExpression = OrElse(isAttributeValueNullExpression, isNullFlagExpression);
-
-        if (dynamoTypeMapping == null)
-            throw new InvalidOperationException(
-                $"Property '{propertyPath}' does not have a DynamoTypeMapping. "
-                + $"All mapped properties must resolve to a DynamoTypeMapping; got '{typeMapping?.GetType().Name ?? "null"}'.");
+        var isDynamoNullExpression = OrElse(
+            Equal(attributeValueVariable, Constant(null, typeof(AttributeValue))),
+            AndAlso(
+                NotEqual(attributeValueVariable, Constant(null, typeof(AttributeValue))),
+                Equal(
+                    Property(attributeValueVariable, AttributeValueNullProperty),
+                    Constant(true, typeof(bool?)))));
 
         var valueExpression = dynamoTypeMapping.CreateReadExpression(
             attributeValueVariable,
             propertyPath,
             required,
             property);
-
-        // Condition branches must agree on the exact CLR type. Mapping-owned readers may return a
-        // nullable-adapted or provider-compatible expression that still needs normalization here.
         if (valueExpression.Type != type)
             valueExpression = Convert(valueExpression, type);
 
@@ -855,17 +973,59 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
             ? valueExpression
             : nullReturnExpression;
 
-        // item.TryGetValue(...) ? (isDynamoNull ? (required?throw:default) : value) :
-        // (required?throw:default)
-        var completeExpression = Condition(
-            tryGetValueExpression,
-            Condition(isDynamoNullExpression, nullValueExpression, valueExpression),
-            missingReturnExpression);
-
-        return Block([attributeValueVariable], completeExpression);
+        return Block(
+            [attributeValueVariable],
+            Condition(
+                tryGetValueExpression,
+                Condition(isDynamoNullExpression, nullValueExpression, valueExpression),
+                missingReturnExpression));
 
         Expression CreateThrow(string message)
             => Throw(New(InvalidOperationExceptionCtor, Constant(message)), type);
+    }
+
+    private Expression CreateEmptyValueBufferExpression()
+    {
+        if (!precompiling)
+            return Default(typeof(ValueBuffer));
+
+        var context = Parameter(typeof(MaterializerLiftableConstantContext), "context");
+        return liftableConstantFactory.CreateLiftableConstant(
+            ValueBuffer.Empty,
+            Lambda<Func<MaterializerLiftableConstantContext, object>>(
+                Convert(Default(typeof(ValueBuffer)), typeof(object)),
+                context),
+            "dynamoEmptyValueBuffer",
+            typeof(ValueBuffer));
+    }
+
+    /// <summary>
+    ///     Finds the model property whose mapping (or one of its element mappings) is the given
+    ///     mapping instance, returning the property and the element depth in its mapping chain.
+    /// </summary>
+    private (IProperty Property, int ElementDepth)? FindOwningPropertyBinding(
+        DynamoTypeMapping typeMapping)
+    {
+        var properties = model
+            .GetEntityTypes()
+            .SelectMany(static entityType => entityType.GetFlattenedProperties())
+            .Distinct<IProperty>(ReferenceEqualityComparer.Instance);
+
+        foreach (var property in properties)
+        {
+            var depth = 0;
+            for (var mapping = property.GetTypeMapping() as DynamoTypeMapping;
+                mapping is not null;
+                mapping = mapping.ElementTypeMapping as DynamoTypeMapping)
+            {
+                if (ReferenceEquals(mapping, typeMapping))
+                    return (property, depth);
+
+                depth++;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -1399,3 +1559,5 @@ public sealed class DynamoProjectionBindingRemovingExpressionVisitor(
         => providerType == typeof(string) ? nameof(AttributeValue.SS) :
             providerType == typeof(byte[]) ? nameof(AttributeValue.BS) : nameof(AttributeValue.NS);
 }
+
+#pragma warning restore EF9100

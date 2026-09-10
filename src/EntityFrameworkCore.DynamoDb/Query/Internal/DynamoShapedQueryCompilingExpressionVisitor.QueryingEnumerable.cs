@@ -5,6 +5,7 @@ using System.Text;
 using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.Diagnostics;
 using EntityFrameworkCore.DynamoDb.Diagnostics.Internal;
+using EntityFrameworkCore.DynamoDb.Infrastructure;
 using EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using EntityFrameworkCore.DynamoDb.Storage;
@@ -15,14 +16,17 @@ using Microsoft.EntityFrameworkCore.Query;
 
 namespace EntityFrameworkCore.DynamoDb.Query.Internal;
 
+#pragma warning disable CS1591
+#pragma warning disable EF9100
+
 /// <summary>Represents the DynamoShapedQueryCompilingExpressionVisitor type.</summary>
 public partial class DynamoShapedQueryCompilingExpressionVisitor
 {
-    private sealed class QueryingEnumerable<T>(
+    internal sealed class QueryingEnumerable<T>(
         DynamoQueryContext queryContext,
         SelectExpression selectExpression,
         IDynamoQuerySqlGeneratorFactory sqlGeneratorFactory,
-        Func<DynamoQueryContext, Dictionary<string, AttributeValue>, T> shaper,
+        Func<QueryContext, Dictionary<string, AttributeValue>, T> shaper,
         bool standAloneStateManager,
         bool threadSafetyChecksEnabled) : IEnumerable<T>, IAsyncEnumerable<T>, IQueryingEnumerable
     {
@@ -38,12 +42,27 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
 
         private readonly SelectExpression _selectExpression = selectExpression;
         private readonly IDynamoQuerySqlGeneratorFactory _sqlGeneratorFactory = sqlGeneratorFactory;
+        private DynamoGeneratedQueryRuntime.QueryTemplate? _precompiledTemplate;
 
-        private readonly Func<DynamoQueryContext, Dictionary<string, AttributeValue>, T> _shaper =
-            shaper;
+        private readonly Func<QueryContext, Dictionary<string, AttributeValue>, T> _shaper = shaper;
 
         private readonly bool _standAloneStateManager = standAloneStateManager;
         private readonly bool _threadSafetyChecksEnabled = threadSafetyChecksEnabled;
+
+        /// <summary>Creates an enumerable backed by a generated PartiQL command template.</summary>
+        internal QueryingEnumerable(
+            DynamoQueryContext queryContext,
+            DynamoGeneratedQueryRuntime.QueryTemplate queryTemplate,
+            Func<QueryContext, Dictionary<string, AttributeValue>, T> shaper,
+            bool standAloneStateManager,
+            bool threadSafetyChecksEnabled) : this(
+            queryContext,
+            queryTemplate.CreateExecutionExpression(),
+            null!,
+            shaper,
+            standAloneStateManager,
+            threadSafetyChecksEnabled)
+            => _precompiledTemplate = queryTemplate;
 
         /// <summary>Provides functionality for this member.</summary>
         public IAsyncEnumerator<T> GetAsyncEnumerator(CancellationToken cancellationToken = default)
@@ -51,8 +70,7 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
 
         /// <summary>Provides functionality for this member.</summary>
         public IEnumerator<T> GetEnumerator()
-            => throw new InvalidOperationException(
-                "Sync enumerating is not supported for DynamoDB.");
+            => throw new InvalidOperationException(DynamoStrings.SyncNotSupported);
 
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
@@ -61,7 +79,19 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
 
         /// <summary>Generates the PartiQL query at runtime with parameter values.</summary>
         private DynamoPartiQlQuery GenerateQuery()
-            => _sqlGeneratorFactory.Create().Generate(_selectExpression, _queryContext.Parameters);
+        {
+            if (_precompiledTemplate is not null)
+                return _precompiledTemplate.Render(_queryContext.Parameters);
+
+            if (_sqlGeneratorFactory is null)
+                throw new InvalidOperationException(
+                    "The precompiled query template cannot be rendered and no SQL generator "
+                    + "factory is available to regenerate the query.");
+
+            return _sqlGeneratorFactory
+                .Create()
+                .Generate(_selectExpression, _queryContext.Parameters);
+        }
 
         private sealed class AsyncEnumerator : IAsyncEnumerator<T>
         {
@@ -70,8 +100,7 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
             private readonly DynamoQueryContext _queryContext;
             private readonly QueryingEnumerable<T> _queryingEnumerable;
 
-            private readonly Func<DynamoQueryContext, Dictionary<string, AttributeValue>, T>
-                _shaper;
+            private readonly Func<QueryContext, Dictionary<string, AttributeValue>, T> _shaper;
 
             private readonly bool _standAloneStateManager;
 
@@ -247,11 +276,11 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
     }
 
 #pragma warning disable EF9102
-    private sealed class PagingQueryingEnumerable<T>(
+    internal sealed class PagingQueryingEnumerable<T>(
         DynamoQueryContext queryContext,
         SelectExpression selectExpression,
         IDynamoQuerySqlGeneratorFactory sqlGeneratorFactory,
-        Func<DynamoQueryContext, Dictionary<string, AttributeValue>, T> shaper,
+        Func<QueryContext, Dictionary<string, AttributeValue>, T> shaper,
         bool standAloneStateManager,
         bool threadSafetyChecksEnabled) : IEnumerable<DynamoPage<T>>,
         IAsyncEnumerable<DynamoPage<T>>,
@@ -265,30 +294,55 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
         private readonly DynamoQueryContext _queryContext = queryContext;
         private readonly SelectExpression _selectExpression = selectExpression;
         private readonly IDynamoQuerySqlGeneratorFactory _sqlGeneratorFactory = sqlGeneratorFactory;
+        private DynamoGeneratedQueryRuntime.QueryTemplate? _precompiledTemplate;
 
         private readonly IDiagnosticsLogger<DbLoggerCategory.Query> _queryLogger =
             queryContext.QueryDiagnosticsLogger;
 
-        private readonly Func<DynamoQueryContext, Dictionary<string, AttributeValue>, T> _shaper =
-            shaper;
+        private readonly Func<QueryContext, Dictionary<string, AttributeValue>, T> _shaper = shaper;
 
         private readonly bool _standAloneStateManager = standAloneStateManager;
         private readonly bool _threadSafetyChecksEnabled = threadSafetyChecksEnabled;
+
+        internal PagingQueryingEnumerable(
+            DynamoQueryContext queryContext,
+            DynamoGeneratedQueryRuntime.QueryTemplate queryTemplate,
+            Func<QueryContext, Dictionary<string, AttributeValue>, T> shaper,
+            bool standAloneStateManager,
+            bool threadSafetyChecksEnabled) : this(
+            queryContext,
+            queryTemplate.CreateExecutionExpression(),
+            null!,
+            shaper,
+            standAloneStateManager,
+            threadSafetyChecksEnabled)
+            => _precompiledTemplate = queryTemplate;
 
         public IAsyncEnumerator<DynamoPage<T>> GetAsyncEnumerator(
             CancellationToken cancellationToken = default)
             => new AsyncEnumerator(this, cancellationToken);
 
         public IEnumerator<DynamoPage<T>> GetEnumerator()
-            => throw new InvalidOperationException(
-                "Sync enumerating is not supported for DynamoDB.");
+            => throw new InvalidOperationException(DynamoStrings.SyncNotSupported);
 
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
         public string ToQueryString() => FormatQueryString(GenerateQuery());
 
         private DynamoPartiQlQuery GenerateQuery()
-            => _sqlGeneratorFactory.Create().Generate(_selectExpression, _queryContext.Parameters);
+        {
+            if (_precompiledTemplate is not null)
+                return _precompiledTemplate.Render(_queryContext.Parameters);
+
+            if (_sqlGeneratorFactory is null)
+                throw new InvalidOperationException(
+                    "The precompiled query template cannot be rendered and no SQL generator "
+                    + "factory is available to regenerate the query.");
+
+            return _sqlGeneratorFactory
+                .Create()
+                .Generate(_selectExpression, _queryContext.Parameters);
+        }
 
         private sealed class AsyncEnumerator : IAsyncEnumerator<DynamoPage<T>>
         {
@@ -620,3 +674,5 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor
     private static string? NormalizeToken(string? token)
         => string.IsNullOrWhiteSpace(token) ? null : token;
 }
+
+#pragma warning restore CS1591

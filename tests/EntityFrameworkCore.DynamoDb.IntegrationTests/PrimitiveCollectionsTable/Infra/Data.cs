@@ -35,9 +35,27 @@ public static class PrimitiveCollectionsItems
             ["only"])
     ];
 
-    public static readonly IReadOnlyList<Dictionary<string, AttributeValue>> AttributeValues =
-        CreateAttributeValues();
+    public static readonly List<MutablePrimitiveCollectionsItem> MutableItems =
+    [
+        new()
+        {
+            Pk = "ITEM#MUTABLE#A",
+            ChargesByTier =
+                new Dictionary<string, decimal> { ["gold"] = 1.25m, ["silver"] = 0.5m },
+            RatingSet = [1, 2, 3],
+            Tags = ["alpha", "beta"],
+            OptionalScores = [7, null, 9]
+        }
+    ];
 
-    private static IReadOnlyList<Dictionary<string, AttributeValue>> CreateAttributeValues()
-        => PrimitiveCollectionsItemMapper.ToItems(Items);
+    public static readonly IReadOnlyList<Dictionary<string, AttributeValue>> AttributeValues =
+        CreateAttributeValues(PrimitiveCollectionsItemMapper.ToItems(Items));
+
+    public static readonly IReadOnlyList<Dictionary<string, AttributeValue>>
+        MutableAttributeValues =
+            CreateAttributeValues(MutablePrimitiveCollectionsItemMapper.ToItems(MutableItems));
+
+    private static IReadOnlyList<Dictionary<string, AttributeValue>> CreateAttributeValues(
+        List<Dictionary<string, AttributeValue>> items)
+        => items;
 }

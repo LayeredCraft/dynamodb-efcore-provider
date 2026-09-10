@@ -88,12 +88,34 @@ var partiQl = db.Orders
 `ToQueryString()` is for debugging only: it does not run scan warnings, log query execution events,
 or execute `ExecuteStatement`.
 
-## Async Execution
+## Asynchronous execution
 
-All DynamoDB query execution is async. Attempting to enumerate results synchronously throws
+All DynamoDB query execution is async. The AWS SDK exposes no synchronous statement execution, so
+the provider is async-only: attempting to enumerate query results synchronously throws
+`InvalidOperationException` with guidance to use `ToListAsync`, `FirstAsync`, or
+`AsAsyncEnumerable()`. Non-executing APIs such as `ToQueryString()` keep working.
+
+## Precompiled queries
+
+When EF Core query precompilation is enabled, EF Core generates interceptors for query calls during
+the build. The provider stores the translated PartiQL as a compact command template in those
+interceptors. At runtime it supplies scalar and collection parameter values, creates DynamoDB
+`AttributeValue` parameters, and executes the same query pipeline used by normal compiled queries.
+
+The generated materializer resolves each projected property through the compiled EF model. This
+preserves property-specific value converters without serializing the provider's internal query
+expression tree into generated source.
+
+See [Precompiled Queries and NativeAOT](precompiled-queries.md) for project setup and current
+restrictions, including the tested NativeAOT model limitations.
+
+## Async execution
+
+All database queries use async methods such as `ToListAsync()` and `FirstOrDefaultAsync()`. This
+also applies to generated precompiled queries. Synchronous query operators and enumeration throw
 `InvalidOperationException`. `Find()` can return an already-tracked entity without executing a
-query; use `FindAsync()`, `ToListAsync()`, `FirstOrDefaultAsync()`, `AsAsyncEnumerable()`, or
-`ToPageAsync()` when DynamoDB I/O is needed.
+query. Use `FindAsync()` for database lookups and `ToPageAsync()` when you need explicit
+continuation-token control.
 
 ## See also
 

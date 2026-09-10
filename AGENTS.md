@@ -53,6 +53,20 @@ execution.
   or inspect `AssertSql` failure messages to see captured statements.
 - Docs: `task docs:build`
 
+## NativeAOT Smoke Test — EF10 ONLY
+
+- The NativeAOT smoke app
+  (`testapps/EntityFrameworkCore.DynamoDb.NativeAotSmoke`) and its CI leg
+  (`.github/workflows/pr-build.yaml` `native-aot` job) run on **EF10
+  configurations only** (`Release EF10`). Do NOT add an EF11 (`Release EF11`)
+  smoke leg to CI.
+- EF11 native publish is broken upstream; full details, including why aligning
+  EF Core to the EF 11 Tasks preview also fails, live in
+  `testapps/EntityFrameworkCore.DynamoDb.NativeAotSmoke/AGENTS.md`. Read it
+  before touching the smoke app or the `native-aot` CI job.
+- `task test:aot-generation` and the full test suites DO run on both EF10 and
+  EF11; only native publish/execution is EF10-only.
+
 ## Change Workflow
 
 - Start with a failing or new test.

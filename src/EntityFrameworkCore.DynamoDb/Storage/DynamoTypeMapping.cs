@@ -1,5 +1,5 @@
-using System.Collections.Concurrent;
 using System.Linq.Expressions;
+using System.Runtime.CompilerServices;
 using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.Storage.Internal;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
@@ -34,24 +34,47 @@ namespace EntityFrameworkCore.DynamoDb.Storage;
 /// </remarks>
 public class DynamoTypeMapping : CoreTypeMapping
 {
-    internal DynamoValueReaderWriter? ReaderWriter { get; }
+    /// <summary>The default mapping instance used by EF Core compiled-model generation.</summary>
+    public static DynamoTypeMapping Default { get; } = new(typeof(object));
 
-    private readonly ConcurrentDictionary<Type, Func<object?, AttributeValue>>
-        _attributeValueSerializers = new();
+    private DynamoValueReaderWriter? _readerWriter;
 
-    private readonly ConcurrentDictionary<Type, Func<object?, string>> _literalSerializers = new();
+    // Used by compiled-model generated code (via DynamoGeneratedModelRuntime) to inject a codec
+    // constructed statically, so NativeAOT apps never build codecs through reflection.
+    internal DynamoTypeMapping WithReaderWriter(DynamoValueReaderWriter readerWriter)
+        => new(Parameters, readerWriter);
+
+    private DynamoTypeMapping(
+        CoreTypeMappingParameters parameters,
+        DynamoValueReaderWriter readerWriter) : base(parameters)
+        => _readerWriter = readerWriter;
+
+    internal DynamoValueReaderWriter? ReaderWriter
+    {
+        get
+        {
+            // Construction is deferred so compiled-model generated code can prime collection
+            // codecs before the reflection-based factory would ever run under NativeAOT.
+            var readerWriter = _readerWriter;
+            if (readerWriter is null)
+            {
+                readerWriter = CreateReaderWriter(Parameters);
+                _readerWriter = readerWriter;
+            }
+
+            return readerWriter;
+        }
+    }
 
     /// <summary>Creates a mapping for the given CLR type.</summary>
     public DynamoTypeMapping(
         Type clrType,
         ValueComparer? comparer = null,
         ValueComparer? keyComparer = null) : base(
-        new CoreTypeMappingParameters(clrType, null, comparer, keyComparer))
-        => ReaderWriter = CreateReaderWriter(Parameters);
+        new CoreTypeMappingParameters(clrType, null, comparer, keyComparer)) { }
 
     /// <summary>Creates a mapping from a fully-specified EF Core mapping parameter set.</summary>
-    protected DynamoTypeMapping(CoreTypeMappingParameters parameters) : base(parameters)
-        => ReaderWriter = CreateReaderWriter(parameters);
+    protected DynamoTypeMapping(CoreTypeMappingParameters parameters) : base(parameters) { }
 
     /// <summary>Clones the mapping with updated parameters.</summary>
     protected override CoreTypeMapping Clone(CoreTypeMappingParameters parameters)
@@ -94,18 +117,14 @@ public class DynamoTypeMapping : CoreTypeMapping
     /// <summary>Serializes a model CLR value to an <see cref="AttributeValue" />.</summary>
     /// <remarks>
     ///     EF exposes runtime query values to mappings as <see cref="object" />. The runtime value
-    ///     serializer is the narrow adapter back into typed expression-based conversion.
+    ///     serializer is the narrow adapter back into mapping-owned typed codecs.
     /// </remarks>
     internal virtual AttributeValue CreateAttributeValue(object? value)
-        => DynamoQueryValueSerializer.CreateAttributeValue(this, _attributeValueSerializers, value);
+        => DynamoQueryValueSerializer.CreateAttributeValue(this, value);
 
     /// <summary>Serializes a value whose runtime/source CLR type is already known.</summary>
     internal virtual AttributeValue CreateAttributeValue(object? value, Type sourceType)
-        => DynamoQueryValueSerializer.CreateAttributeValue(
-            this,
-            _attributeValueSerializers,
-            value,
-            sourceType);
+        => DynamoQueryValueSerializer.CreateAttributeValue(this, value, sourceType);
 
     /// <summary>Builds the typed expression used by cached query/runtime serializers.</summary>
     internal virtual Expression CreateAttributeValueExpression(Expression valueExpression)
@@ -123,7 +142,7 @@ public class DynamoTypeMapping : CoreTypeMapping
 
     /// <summary>Generates a PartiQL literal for a value whose runtime/source CLR type is known.</summary>
     internal virtual string GenerateConstant(object? value, Type sourceType)
-        => DynamoQueryValueSerializer.GenerateLiteral(this, _literalSerializers, value, sourceType);
+        => DynamoQueryValueSerializer.GenerateLiteral(this, value, sourceType);
 
     /// <summary>Builds the typed expression used by cached PartiQL literal serializers.</summary>
     internal virtual Expression CreatePartiQlLiteralExpression(Expression valueExpression)
@@ -137,11 +156,7 @@ public class DynamoTypeMapping : CoreTypeMapping
     ///     The base implementation immediately resumes the typed expression-tree serializer.
     /// </remarks>
     protected virtual string GenerateNonNullConstant(object value)
-        => DynamoQueryValueSerializer.GenerateLiteral(
-            this,
-            _literalSerializers,
-            value,
-            value.GetType());
+        => DynamoQueryValueSerializer.GenerateLiteral(this, value, value.GetType());
 
     private static DynamoValueReaderWriter? CreateReaderWriter(CoreTypeMappingParameters parameters)
     {
@@ -160,9 +175,12 @@ public class DynamoTypeMapping : CoreTypeMapping
             && readOnly;
 
         var readerWriter = DynamoValueReaderWriterFactory.Create(
-            parameters.ClrType,
+            parameters.Converter?.ProviderClrType ?? parameters.ClrType,
             elementReaderWriter,
-            readOnlyDictionary);
+            readOnlyDictionary,
+            // Under NativeAOT an unprimed collection codec would need runtime generic
+            // instantiation; fail fast with compiled-model guidance instead.
+            RuntimeFeature.IsDynamicCodeSupported);
 
         // Apply the converter once after the provider-level reader/writer is known so both read and
         // write paths share the same composed model <-> provider conversion behavior.

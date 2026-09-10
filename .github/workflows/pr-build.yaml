@@ -32,10 +32,48 @@ jobs:
       dotnetVersion: ${{ matrix.dotnetVersion }}
       runCdk: false
 
+  native-aot:
+    name: native AOT smoke (${{ matrix.configuration }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - configuration: "Release EF10"
+            dotnetVersion: "10.0.x"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ matrix.dotnetVersion }}
+      - name: Publish, gate, and run NativeAOT smoke
+        shell: bash
+        run: scripts/run-nativeaot-smoke.sh "${{ matrix.configuration }}" linux-x64
+  aot-generation:
+    name: AOT interceptor generation (${{ matrix.configuration }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - configuration: "Debug EF10"
+            dotnetVersion: "10.0.x"
+          - configuration: "Debug EF11"
+            dotnetVersion: "11.0.x"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ matrix.dotnetVersion }}
+      - run: dotnet restore tests/EntityFrameworkCore.DynamoDb.AotTests/EntityFrameworkCore.DynamoDb.AotTests.csproj -p:Configuration="${{ matrix.configuration }}"
+      - run: dotnet build tests/EntityFrameworkCore.DynamoDb.AotTests/EntityFrameworkCore.DynamoDb.AotTests.csproj --configuration "${{ matrix.configuration }}" --no-restore
+      - run: dotnet test tests/EntityFrameworkCore.DynamoDb.AotTests/EntityFrameworkCore.DynamoDb.AotTests.csproj --configuration "${{ matrix.configuration }}" --no-build
+
   build:
     name: build
-    needs: application-build
+    needs: [application-build, native-aot, aot-generation]
     if: ${{ always() }}
     uses: ./.github/workflows/required-build-check.yaml
     with:
       applicationBuildResult: ${{ needs.application-build.result }}
+      nativeAotResult: ${{ needs.native-aot.result }}
+      aotGenerationResult: ${{ needs.aot-generation.result }}

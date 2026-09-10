@@ -1,13 +1,20 @@
+using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Diagnostics;
 using Amazon.DynamoDBv2.Model;
+using EntityFrameworkCore.DynamoDb.Infrastructure;
 using EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
+using EntityFrameworkCore.DynamoDb.Storage;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Storage;
 using static System.Linq.Expressions.Expression;
 
 namespace EntityFrameworkCore.DynamoDb.Query.Internal;
+
+#pragma warning disable EF9100
 
 /// <summary>Represents the DynamoShapedQueryCompilingExpressionVisitor type.</summary>
 public partial class DynamoShapedQueryCompilingExpressionVisitor(
@@ -31,6 +38,17 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
     /// <summary>Builds the runtime querying enumerable and shaper for a translated DynamoDB query.</summary>
     protected override Expression VisitShapedQuery(ShapedQueryExpression shapedQueryExpression)
     {
+        // The provider is asynchronous-only: the AWS SDK exposes no synchronous statement
+        // execution, and sync-over-async enumeration risks thread-pool deadlocks. Sync query
+        // interceptors are rejected at generation time; synchronous enumeration of translated
+        // queries is rejected by the enumerable itself, so non-executing APIs such as
+        // ToQueryString keep working.
+        if (dynamoQueryCompilationContext.IsPrecompiling && !dynamoQueryCompilationContext.IsAsync)
+            throw new NotSupportedException(
+                "DynamoDB query execution is asynchronous only. Precompiled query generation "
+                + "requires async operators such as ToListAsync, FirstAsync, or "
+                + "AsAsyncEnumerable; synchronous queries cannot be precompiled.");
+
         var selectExpression = (SelectExpression)shapedQueryExpression.QueryExpression;
         var pagingExpression = shapedQueryExpression.ShaperExpression as DynamoPagingExpression;
         var itemShaperExpression =
@@ -61,11 +79,20 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
         // This adds entity construction and property assignment logic
         shaperBody = InjectStructuralTypeMaterializers(shaperBody);
 
+        // Precompiled materializers must not read mapped collection values through backing
+        // fields: the generated field-read accessor is invalid under NativeAOT and crashes at
+        // first query. Fail at generation time instead.
+        if (dynamoQueryCompilationContext.IsPrecompiling)
+            ValidatePrecompiledFieldReads(shaperBody);
+
         // Step 3: Remove projection bindings and replace with actual dictionary access
         // This converts abstract ProjectionBindingExpression to concrete property access
         shaperBody = new DynamoProjectionBindingRemovingExpressionVisitor(
             itemParameter,
-            selectExpression).Visit(shaperBody);
+            selectExpression,
+            dynamoQueryCompilationContext.IsPrecompiling,
+            _dependencies.LiftableConstantFactory,
+            QueryCompilationContext.Model).Visit(shaperBody);
 
         shaperBody = ValueTypeRewriter.Visit(shaperBody);
 
@@ -89,38 +116,192 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
                 shaperLambda,
                 standAloneStateManager);
 
-        return New(
-            typeof(QueryingEnumerable<>)
-                .MakeGenericType(shaperBody.Type)
-                .GetConstructors(
-                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
-                .Single(c => c.GetParameters().Length == 6),
-            queryContextParameter,
-            Constant(selectExpression),
-            Constant(sqlGeneratorFactory),
-            shaperLambda,
-            Constant(standAloneStateManager),
-            Constant(_dependencies.CoreSingletonOptions.AreThreadSafetyChecksEnabled));
+        return dynamoQueryCompilationContext.IsPrecompiling
+            ? Call(
+                typeof(DynamoGeneratedQueryRuntime),
+                nameof(DynamoGeneratedQueryRuntime.CreateAsyncQueryingEnumerable),
+                [shaperBody.Type],
+                QueryCompilationContext.QueryContextParameter,
+                CreateQueryTemplateConstant(selectExpression),
+                shaperLambda,
+                Constant(standAloneStateManager),
+                Constant(_dependencies.CoreSingletonOptions.AreThreadSafetyChecksEnabled))
+            : New(
+                typeof(QueryingEnumerable<>)
+                    .MakeGenericType(shaperBody.Type)
+                    .GetConstructors(
+                        BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+                    .Single(c => c.GetParameters().Length == 6),
+                queryContextParameter,
+                Constant(selectExpression),
+                Constant(sqlGeneratorFactory),
+                shaperLambda,
+                Constant(standAloneStateManager),
+                Constant(_dependencies.CoreSingletonOptions.AreThreadSafetyChecksEnabled));
     }
 
-    private Expression CreatePagingEnumerableExpression(
-        Type shaperType,
-        UnaryExpression queryContextParameter,
-        SelectExpression selectExpression,
-        LambdaExpression shaperLambda,
-        bool standAloneStateManager)
-        => New(
-            typeof(PagingQueryingEnumerable<>)
-                .MakeGenericType(shaperType)
-                .GetConstructors(
-                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
-                .Single(c => c.GetParameters().Length == 6),
-            queryContextParameter,
-            Constant(selectExpression),
-            Constant(sqlGeneratorFactory),
-            shaperLambda,
-            Constant(standAloneStateManager),
-            Constant(_dependencies.CoreSingletonOptions.AreThreadSafetyChecksEnabled));
+    private Expression
+        CreatePagingEnumerableExpression(
+            Type shaperType,
+            UnaryExpression queryContextParameter,
+            SelectExpression selectExpression,
+            LambdaExpression shaperLambda,
+            bool standAloneStateManager)
+        => dynamoQueryCompilationContext.IsPrecompiling
+            ? Call(
+                typeof(DynamoGeneratedQueryRuntime),
+                nameof(DynamoGeneratedQueryRuntime.CreateAsyncPagingQueryingEnumerable),
+                [shaperType],
+                QueryCompilationContext.QueryContextParameter,
+                CreateQueryTemplateConstant(selectExpression),
+                shaperLambda,
+                Constant(standAloneStateManager),
+                Constant(_dependencies.CoreSingletonOptions.AreThreadSafetyChecksEnabled))
+            : New(
+                typeof(PagingQueryingEnumerable<>)
+                    .MakeGenericType(shaperType)
+                    .GetConstructors(
+                        BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+                    .Single(c => c.GetParameters().Length == 6),
+                queryContextParameter,
+                Constant(selectExpression),
+                Constant(sqlGeneratorFactory),
+                shaperLambda,
+                Constant(standAloneStateManager),
+                Constant(_dependencies.CoreSingletonOptions.AreThreadSafetyChecksEnabled));
+
+#pragma warning disable EF9100
+    private Expression CreateQueryTemplateConstant(SelectExpression selectExpression)
+    {
+        var template = sqlGeneratorFactory.Create().GeneratePrecompiledTemplate(selectExpression);
+        var context = Parameter(typeof(MaterializerLiftableConstantContext), "context");
+        var resolver = Lambda<Func<MaterializerLiftableConstantContext, object>>(
+            Convert(CreateQueryTemplateExpression(template, context), typeof(object)),
+            context);
+
+        return _dependencies.LiftableConstantFactory.CreateLiftableConstant(
+            template,
+            resolver,
+            "dynamoQueryTemplate",
+            typeof(DynamoGeneratedQueryRuntime.QueryTemplate));
+    }
+
+    private Expression CreateQueryTemplateExpression(
+        DynamoGeneratedQueryRuntime.QueryTemplate template,
+        ParameterExpression context)
+    {
+        var segments = template.Segments.Select(segment => segment.Kind switch
+        {
+            DynamoGeneratedQueryRuntime.SegmentKind.Text => Call(
+                typeof(DynamoGeneratedQueryRuntime.CommandSegment),
+                nameof(DynamoGeneratedQueryRuntime.CommandSegment.TextSegment),
+                Type.EmptyTypes,
+                Constant(segment.Text!)),
+            DynamoGeneratedQueryRuntime.SegmentKind.Parameter => Call(
+                typeof(DynamoGeneratedQueryRuntime.CommandSegment),
+                nameof(DynamoGeneratedQueryRuntime.CommandSegment.Parameter),
+                Type.EmptyTypes,
+                Constant(segment.ParameterName!),
+                Constant(segment.SourceType!, typeof(Type)),
+                CreateTypeMappingExpression(segment.TypeMapping!, context)),
+            DynamoGeneratedQueryRuntime.SegmentKind.Constant => Call(
+                typeof(DynamoGeneratedQueryRuntime.CommandSegment),
+                nameof(DynamoGeneratedQueryRuntime.CommandSegment.Constant),
+                Type.EmptyTypes,
+                Convert(Constant(segment.ConstantValue, segment.SourceType!), typeof(object)),
+                Constant(segment.SourceType!, typeof(Type)),
+                CreateTypeMappingExpression(segment.TypeMapping!, context)),
+            DynamoGeneratedQueryRuntime.SegmentKind.Collection => Call(
+                typeof(DynamoGeneratedQueryRuntime.CommandSegment),
+                nameof(DynamoGeneratedQueryRuntime.CommandSegment.Collection),
+                Type.EmptyTypes,
+                Constant(segment.Text!),
+                Constant(segment.ParameterName!),
+                Constant(segment.SourceType!, typeof(Type)),
+                CreateTypeMappingExpression(segment.TypeMapping!, context),
+                Constant(segment.MaximumValueCount)),
+            _ => throw new UnreachableException()
+        });
+
+        return Call(
+            typeof(DynamoGeneratedQueryRuntime),
+            nameof(DynamoGeneratedQueryRuntime.CreateQueryTemplate),
+            Type.EmptyTypes,
+            NewArrayInit(typeof(DynamoGeneratedQueryRuntime.CommandSegment), segments),
+            Constant(template.TableName),
+            Constant(template.IndexName, typeof(string)),
+            Constant(template.IsGlobalSecondaryIndex),
+            Constant(template.IsScanLike),
+            Constant(template.ScanMessage, typeof(string)),
+            Constant(template.ScanAllowed),
+            Constant(template.Limit, typeof(int?)),
+            Constant(template.LimitParameterName, typeof(string)),
+            Constant(template.SeedNextToken, typeof(string)),
+            Constant(template.SeedNextTokenParameterName, typeof(string)),
+            Constant(template.ConsistentRead, typeof(bool?)),
+            Constant(template.ConsistentReadParameterName, typeof(string)),
+            Constant(template.HasUserLimit),
+            Constant(template.IsFirstTerminal),
+            Constant(template.IsSingleTerminal));
+    }
+
+    private Expression CreateTypeMappingExpression(
+        DynamoTypeMapping typeMapping,
+        ParameterExpression context)
+    {
+        // Bind the segment mapping to its owning model property so generated code resolves the
+        // mapping through the (compiled-model-primed) property mapping instead of the
+        // reflection-based FindMapping fallback, which crashes under NativeAOT at first query.
+        // Element mappings (e.g. Contains over a native primitive collection) are bound to the
+        // property that owns the collection plus the element depth in its mapping chain.
+        if (FindOwningPropertyBinding(typeMapping) is not { } binding)
+            throw new InvalidOperationException(
+                $"Cannot precompile this query: a query constant or parameter uses a type mapping "
+                + $"for CLR type '{typeMapping.ClrType.Name}' that is not associated with any model "
+                + $"property. Rewrite the query so the value can be compared against a mapped "
+                + $"property, or map the type on an entity property.");
+
+        var (property, elementDepth) = binding;
+        return Call(
+            typeof(DynamoGeneratedQueryRuntime),
+            nameof(DynamoGeneratedQueryRuntime.ResolveTypeMapping),
+            Type.EmptyTypes,
+            context,
+            Constant(property.DeclaringType.Name, typeof(string)),
+            Constant(property.Name, typeof(string)),
+            Constant(elementDepth));
+    }
+
+    /// <summary>
+    ///     Finds the model property whose mapping (or one of its element mappings) is the given
+    ///     mapping instance, returning the property and the element depth in its mapping chain.
+    /// </summary>
+    private (IProperty Property, int ElementDepth)? FindOwningPropertyBinding(
+        DynamoTypeMapping typeMapping)
+    {
+        var properties = QueryCompilationContext
+            .Model
+            .GetEntityTypes()
+            .SelectMany(static entityType => entityType.GetFlattenedProperties())
+            .Distinct<IProperty>(ReferenceEqualityComparer.Instance);
+
+        foreach (var property in properties)
+        {
+            var depth = 0;
+            for (var mapping = property.GetTypeMapping() as DynamoTypeMapping;
+                mapping is not null;
+                mapping = mapping.ElementTypeMapping as DynamoTypeMapping)
+            {
+                if (ReferenceEquals(mapping, typeMapping))
+                    return (property, depth);
+
+                depth++;
+            }
+        }
+
+        return null;
+    }
+#pragma warning restore EF9100
 
     /// <summary>
     ///     Normalizes a parameterized <c>Limit(n)</c> expression for runtime evaluation. Constants
@@ -213,6 +394,46 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
     /// </summary>
     private sealed class ValueTypeMemberAccessRewritingVisitor : ExpressionVisitor
     {
+        protected override Expression VisitConditional(ConditionalExpression node)
+        {
+            if (node.Test is TypeBinaryExpression
+                {
+                    NodeType: ExpressionType.TypeIs, Expression.Type.IsSealed: true
+                } typeTest
+                && !typeTest.TypeOperand.IsAssignableFrom(typeTest.Expression.Type))
+                return Visit(node.IfFalse);
+
+            return base.VisitConditional(node);
+        }
+
+        protected override Expression VisitSwitch(SwitchExpression node)
+        {
+            if (node.Comparison is null)
+                return base.VisitSwitch(node);
+
+            var switchValue = Visit(node.SwitchValue);
+            var switchValueVariable = Variable(switchValue.Type, "switchValue");
+            var defaultBody = Visit(node.DefaultBody) ?? Default(node.Type);
+            var result = defaultBody;
+
+            for (var caseIndex = node.Cases.Count - 1; caseIndex >= 0; caseIndex--)
+            {
+                var @case = node.Cases[caseIndex];
+                var test =
+                    @case
+                        .TestValues
+                        .Select(testValue => Equal(
+                            switchValueVariable,
+                            Visit(testValue),
+                            false,
+                            node.Comparison))
+                        .Aggregate(OrElse);
+                result = Condition(test, Visit(@case.Body), result);
+            }
+
+            return Block([switchValueVariable], Assign(switchValueVariable, switchValue), result);
+        }
+
         protected override Expression VisitMember(MemberExpression node)
         {
             if (node.Expression is not { } instance)
@@ -221,16 +442,16 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
             var visitedInstance = Visit(instance);
             if (RequiresValueTypeInstanceMaterialization(visitedInstance))
             {
-                var instanceVariable = Variable(visitedInstance.Type, $"valueTypeInstance_{node.Member.Name}");
+                var instanceVariable = Variable(
+                    visitedInstance.Type,
+                    $"valueTypeInstance_{node.Member.Name}");
                 return Block(
                     [instanceVariable],
                     Assign(instanceVariable, visitedInstance),
                     MakeMemberAccess(instanceVariable, node.Member));
             }
 
-            return visitedInstance == instance
-                ? node
-                : node.Update(visitedInstance);
+            return visitedInstance == instance ? node : node.Update(visitedInstance);
         }
 
         private static bool RequiresValueTypeInstanceMaterialization(Expression instanceExpression)
@@ -247,5 +468,49 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
             throw new ArgumentOutOfRangeException("limit", "Limit must be a positive integer.");
 
         return value;
+    }
+
+    private static void ValidatePrecompiledFieldReads(Expression shaperBody)
+    {
+        var visitor = new PrecompiledFieldReadValidatingVisitor();
+        visitor.Visit(shaperBody);
+
+        if (visitor.FieldReads.Count == 0)
+            return;
+
+        throw new NotSupportedException(
+            "Precompiled query materialization reads the mapped collection backing field(s) "
+            + string.Join(", ", visitor.FieldReads.Distinct())
+            + ". Reading collection values through backing fields is not supported under "
+            + "NativeAOT (see the provider limitations documentation). Materialize these "
+            + "collections through public property accessors, for example by configuring "
+            + "UsePropertyAccessMode(PropertyAccessMode.PreferProperty), or remove them from "
+            + "entities returned by precompiled queries.");
+    }
+
+    private sealed class PrecompiledFieldReadValidatingVisitor : ExpressionVisitor
+    {
+        public List<string> FieldReads { get; } = [];
+
+        protected override Expression VisitBinary(BinaryExpression node)
+        {
+            // Assigning a materialized collection to its backing field is a field write, which
+            // is AOT-safe; only field reads go through the AOT-invalid generated accessor.
+            if (node.NodeType == ExpressionType.Assign
+                && node.Left is MemberExpression { Member: FieldInfo })
+                return Visit(node.Right);
+
+            return base.VisitBinary(node);
+        }
+
+        protected override Expression VisitMember(MemberExpression node)
+        {
+            if (node.Member is FieldInfo field
+                && !field.FieldType.IsArray
+                && DynamoTypeMappingSource.IsSupportedPrimitiveCollectionShape(field.FieldType))
+                FieldReads.Add($"{field.DeclaringType?.Name}.{field.Name}");
+
+            return base.VisitMember(node);
+        }
     }
 }
