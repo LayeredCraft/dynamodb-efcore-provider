@@ -2,23 +2,23 @@
 
 Use this quick map to decide which docs to update for a behavior change.
 
-- Operator translation changed -> `docs/operators.md`, `docs/limitations.md` (if partially
-    supported)
-- Pagination/result limits/tokens changed -> `docs/pagination.md`, `docs/operators.md` (if
-    operator-specific)
-- Projection/materialization behavior changed -> `docs/projections.md`, `docs/operators.md` (if
-    query-shape specific)
-- Provider configuration/option changed -> `docs/configuration.md`
+- Operator translation changed -> `docs/querying/operators.md`, `docs/limitations.md` (if partially
+  supported)
+- Pagination/result limits/tokens changed -> `docs/querying/pagination.md`, `docs/querying/operators.md` (if
+  operator-specific)
+- Projection/materialization behavior changed -> `docs/querying/projection.md`, `docs/querying/operators.md` (if
+  query-shape specific)
+- Provider configuration/option changed -> `docs/configuration/`
 - New warnings/logs/diagnostics changed -> `docs/diagnostics.md`
 - SDK command interception changed -> `docs/diagnostics.md`; cover registration, lifecycle,
-    ordering, sensitive-data handling, and excluded provider call paths
-- Support/limitations changed -> `docs/limitations.md`, `docs/operators.md`
-- End-to-end query pipeline changed -> `docs/architecture.md`
+  ordering, sensitive-data handling, and excluded provider call paths
+- Support/limitations changed -> `docs/limitations.md`, `docs/querying/operators.md`
+- End-to-end query pipeline changed -> `docs/querying/how-queries-execute.md`
 - Navigation/site structure changed -> `zensical.toml`
 
 ## Operator Entry Template
 
-Use this structure when adding or updating an operator in `docs/operators.md`.
+Use this structure when adding or updating an operator in `docs/querying/operators.md`.
 
 ```
 ### <Operator or LINQ shape>

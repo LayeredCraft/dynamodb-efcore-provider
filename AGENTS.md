@@ -85,6 +85,13 @@ execution.
 - Add AWS references when DynamoDB/PartiQL semantics matter.
 - Docs config is `zensical.toml`; verify with `uv run zensical build` (or `task docs:build`).
 
+## Documentation and Skill Maintenance
+
+- For every PR, complete the documentation and provider-skill checks in the PR template.
+- Update `docs/` when user-facing behavior, configuration, diagnostics, limits, or setup changes.
+- Update `skills/dynamodb-efcore-provider/` when its guidance, file map, or sharp edges change.
+- If either is not applicable, explain why in the PR description. Reviewers verify the decision.
+
 ## Repo Rules
 
 - Keep docs paths repo-relative.

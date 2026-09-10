@@ -1,0 +1,29 @@
+name: PR Maintenance
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require documentation and skill decisions
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          node <<'NODE'
+          const body = process.env.PR_BODY ?? "";
+          const checks = [
+            ["Documentation", /^- \[[xX]\] Documentation:/m],
+            ["Provider skill", /^- \[[xX]\] Provider skill:/m]
+          ];
+          const missing = checks.filter(([, expression]) => !expression.test(body));
+          if (missing.length) {
+            console.error(`Complete the PR maintenance checks: ${missing.map(([name]) => name).join(", ")}.`);
+            process.exit(1);
+          }
+          NODE

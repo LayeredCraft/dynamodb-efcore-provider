@@ -79,8 +79,8 @@ Supported nested shapes include:
 Selection order for a nested member:
 
 1. dot-notation override
-1. nested mapper
-1. inline helper generation
+2. nested mapper
+3. inline helper generation
 
 Use `OmitNullValues` for mapper-level null omission that should also affect nested object and
 nested collection containers. Treat `OmitNullStrings` as legacy compatibility.
