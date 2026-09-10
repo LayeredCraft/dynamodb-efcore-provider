@@ -1,5 +1,6 @@
 using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.Extensions;
+using EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Update;
 
@@ -51,8 +52,13 @@ internal sealed class DynamoSaveChangesPlanner(
                         {
                             if (index.GetSecondaryIndexKind() is null)
                                 continue;
-                            foreach (var property in index.Properties)
+                            foreach (var indexProperty in index.Properties)
                             {
+                                var property = DynamoSecondaryIndexProperties.AsScalar(
+                                    entry.EntityType.DisplayName(),
+                                    index.GetSecondaryIndexName() ?? index.Name ?? "<unnamed>",
+                                    indexProperty,
+                                    "secondary index key");
                                 var attrName = property.GetAttributeName();
                                 if (item.TryGetValue(attrName, out var val) && val.NULL == true)
                                     item.Remove(attrName);

@@ -69,4 +69,20 @@ internal static class DynamoModelValidationErrors
             + string.Join(" -> ", cycleSegments)
             + ". Recursive complex containment is not supported by the DynamoDB provider. "
             + "Complex types must form an acyclic containment tree rooted at an entity.");
+
+    /// <summary>
+    ///     Creates the provider error used when a secondary index references a complex-type member
+    ///     instead of a scalar property. EF Core 11 lets <c>IReadOnlyIndex.Properties</c> traverse
+    ///     complex-type members; DynamoDB secondary-index keys must resolve to scalar attributes.
+    /// </summary>
+    public static InvalidOperationException SecondaryIndexKeyMemberNotScalar(
+        string declaringEntityDisplayName,
+        string indexDisplayName,
+        string memberName,
+        string keyRole)
+        => new(
+            $"Entity type '{declaringEntityDisplayName}' configures secondary index "
+            + $"'{indexDisplayName}' with complex-type member '{memberName}' as DynamoDB "
+            + $"{keyRole}, but DynamoDB secondary-index keys must reference scalar "
+            + "(non-complex-type) properties.");
 }

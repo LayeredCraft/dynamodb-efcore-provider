@@ -359,7 +359,20 @@ internal sealed class DynamoDatabaseCreator(
             foreach (var targetSeed in entityType.GetSeedData())
             {
                 var runtimeEntityType = updateAdapter.Model.FindEntityType(entityType.Name)!;
+#if NET11_0
+                // EF's own seed-data dictionaries may carry keys the DynamoDB provider's model
+                // doesn't expose as a scalar IProperty (e.g. owned/complex-type-shaped entries
+                // from shared upstream specification-test fixtures this provider doesn't map the
+                // same way). The pre-EF11 string-keyed CreateEntry overload tolerated these
+                // silently; skip them here too rather than fail entity creation for them.
+                var propertyKeyedSeed = new Dictionary<IProperty, object?>(targetSeed.Count);
+                foreach (var (propertyName, value) in targetSeed)
+                    if (runtimeEntityType.FindProperty(propertyName) is { } property)
+                        propertyKeyedSeed[property] = value;
+                var entry = updateAdapter.CreateEntry(propertyKeyedSeed, runtimeEntityType);
+#else
                 var entry = updateAdapter.CreateEntry(targetSeed, runtimeEntityType);
+#endif
                 entry.EntityState = EntityState.Added;
             }
         }

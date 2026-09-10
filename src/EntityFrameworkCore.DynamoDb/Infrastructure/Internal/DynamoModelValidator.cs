@@ -720,7 +720,11 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
                 $"Entity type '{declaringEntityDisplayName}' configures global secondary index '{indexName}', "
                 + $"but the GSI metadata contains {index.Properties.Count} key properties. Global secondary indexes must define one partition key and optional sort key.");
 
-        var globalPartitionKeyProperty = index.Properties[0];
+        var globalPartitionKeyProperty = DynamoSecondaryIndexProperties.AsScalar(
+            declaringEntityDisplayName,
+            indexName,
+            index.Properties[0],
+            "global secondary index partition key");
         ValidateSecondaryIndexKeyPropertyType(
             declaringEntityDisplayName,
             index,
@@ -729,7 +733,11 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
 
         if (index.Properties.Count == 2)
         {
-            var globalSortKeyProperty = index.Properties[1];
+            var globalSortKeyProperty = DynamoSecondaryIndexProperties.AsScalar(
+                declaringEntityDisplayName,
+                indexName,
+                index.Properties[1],
+                "global secondary index sort key");
             if (globalSortKeyProperty == globalPartitionKeyProperty)
                 throw new InvalidOperationException(
                     $"Entity type '{declaringEntityDisplayName}' configures global secondary index '{indexName}' using property '{globalSortKeyProperty.Name}' for both partition and sort keys, "
@@ -775,7 +783,11 @@ internal sealed class DynamoModelValidator(ModelValidatorDependencies dependenci
                 $"Entity type '{declaringEntityDisplayName}' configures local secondary index '{indexName}', "
                 + $"but the LSI metadata contains {index.Properties.Count} key properties. Local secondary indexes must define exactly one alternate sort key property.");
 
-        var localSortKeyProperty = index.Properties[0];
+        var localSortKeyProperty = DynamoSecondaryIndexProperties.AsScalar(
+            declaringEntityDisplayName,
+            indexName,
+            index.Properties[0],
+            "local secondary index sort key");
         if (localSortKeyProperty == sortKeyProperty)
             throw new InvalidOperationException(
                 $"Entity type '{declaringEntityDisplayName}' configures local secondary index '{indexName}' using property '{localSortKeyProperty.Name}', "

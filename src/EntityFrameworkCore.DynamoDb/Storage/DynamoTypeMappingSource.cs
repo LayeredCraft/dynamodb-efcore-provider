@@ -1,4 +1,6 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics.CodeAnalysis;
+using System.Reflection;
 using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.ChangeTracking.Internal;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
@@ -34,11 +36,11 @@ public class DynamoTypeMappingSource(TypeMappingSourceDependencies dependencies)
         // value buffer as a shadow property. A no-op mapping prevents a null return here which
         // would cause a model build failure.
         if (clrType == typeof(ExecuteStatementResponse))
-            return new DynamoTypeMapping(clrType);
+            return CreateMapping(clrType);
 
         var nonNullableType = Nullable.GetUnderlyingType(clrType) ?? clrType;
         if (IsPrimitiveType(nonNullableType))
-            return new DynamoTypeMapping(clrType);
+            return CreateMapping(clrType);
 
         if (TryGetDictionaryValueType(clrType, out var dictionaryValueType, out _))
             return FindDictionaryTypeMapping(
@@ -69,7 +71,7 @@ public class DynamoTypeMappingSource(TypeMappingSourceDependencies dependencies)
 
         var comparer = CreateDictionaryComparer(clrType, valueType, valueComparer);
 
-        return new DynamoTypeMapping(clrType, comparer).WithComposedConverter(
+        return CreateMapping(clrType, comparer).WithComposedConverter(
             null,
             comparer,
             elementMapping: valueMapping);
@@ -97,7 +99,7 @@ public class DynamoTypeMappingSource(TypeMappingSourceDependencies dependencies)
 
         var comparer = CreateSetComparer(clrType, elementType, elementComparer);
 
-        return new DynamoTypeMapping(clrType, comparer).WithComposedConverter(
+        return CreateMapping(clrType, comparer).WithComposedConverter(
             null,
             comparer,
             elementMapping: elementMapping);
@@ -118,10 +120,79 @@ public class DynamoTypeMappingSource(TypeMappingSourceDependencies dependencies)
 
         var comparer = CreateListComparer(clrType, elementType, elementComparer);
 
-        return new DynamoTypeMapping(clrType, comparer).WithComposedConverter(
+        return CreateMapping(clrType, comparer).WithComposedConverter(
             null,
             comparer,
             elementMapping: elementMapping);
+    }
+
+    /// <summary>
+    ///     Resolves the correct closed <see cref="DynamoTypeMapping{T}" /> for a runtime CLR type.
+    ///     Mirrors EF Core's own <c>InMemoryTypeMappingSource</c> pattern: direct generic
+    ///     construction for common known types, a reflection-based fallback for arbitrary
+    ///     (including value-converted) types. This reflection only ever runs here — during
+    ///     ordinary (non-compiled-model) runtime resolution or compiled-model generation, both
+    ///     always non-AOT-published processes — never inside NativeAOT compiled-model execution,
+    ///     which bypasses this type entirely.
+    /// </summary>
+    private static DynamoTypeMapping CreateMapping(
+        Type clrType,
+        ValueComparer? comparer = null,
+        ValueComparer? keyComparer = null)
+        => clrType switch
+        {
+            _ when clrType == typeof(string) => Create<string>(comparer, keyComparer),
+            _ when clrType == typeof(bool) => Create<bool>(comparer, keyComparer),
+            _ when clrType == typeof(byte) => Create<byte>(comparer, keyComparer),
+            _ when clrType == typeof(sbyte) => Create<sbyte>(comparer, keyComparer),
+            _ when clrType == typeof(short) => Create<short>(comparer, keyComparer),
+            _ when clrType == typeof(ushort) => Create<ushort>(comparer, keyComparer),
+            _ when clrType == typeof(int) => Create<int>(comparer, keyComparer),
+            _ when clrType == typeof(uint) => Create<uint>(comparer, keyComparer),
+            _ when clrType == typeof(long) => Create<long>(comparer, keyComparer),
+            _ when clrType == typeof(ulong) => Create<ulong>(comparer, keyComparer),
+            _ when clrType == typeof(float) => Create<float>(comparer, keyComparer),
+            _ when clrType == typeof(double) => Create<double>(comparer, keyComparer),
+            _ when clrType == typeof(decimal) => Create<decimal>(comparer, keyComparer),
+            _ when clrType == typeof(byte[]) => Create<byte[]>(comparer, keyComparer),
+            _ => CreateMappingWithReflection(clrType, comparer, keyComparer)
+        };
+
+    private static DynamoTypeMapping Create<
+        [DynamicallyAccessedMembers(
+            DynamicallyAccessedMemberTypes.PublicMethods
+            | DynamicallyAccessedMemberTypes.PublicProperties)]
+        T>(ValueComparer? comparer, ValueComparer? keyComparer)
+        => comparer is null && keyComparer is null
+            ? DynamoTypeMapping<T>.Default
+            : new DynamoTypeMapping<T>(comparer, keyComparer);
+
+    [UnconditionalSuppressMessage(
+        "AOT",
+        "IL3050:Calling members annotated with 'RequiresDynamicCodeAttribute' may break functionality when AOT compiling.",
+        Justification = "The type mapping source is not used at runtime by NativeAOT applications, "
+            + "which use a compiled model instead.")]
+    [UnconditionalSuppressMessage(
+        "Trimming",
+        "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access "
+            + "otherwise can break functionality when trimming application code.",
+        Justification = "The type mapping source is not used at runtime by NativeAOT applications, "
+            + "which use a compiled model instead.")]
+    private static DynamoTypeMapping CreateMappingWithReflection(
+        [DynamicallyAccessedMembers(
+            DynamicallyAccessedMemberTypes.PublicMethods
+            | DynamicallyAccessedMemberTypes.PublicProperties)]
+        Type clrType,
+        ValueComparer? comparer,
+        ValueComparer? keyComparer)
+    {
+        var genericType = typeof(DynamoTypeMapping<>).MakeGenericType(clrType);
+        if (comparer is null && keyComparer is null)
+            return (DynamoTypeMapping)genericType
+                .GetProperty(nameof(DynamoTypeMapping<object>.Default), BindingFlags.Public | BindingFlags.Static)!
+                .GetValue(null)!;
+
+        return (DynamoTypeMapping)Activator.CreateInstance(genericType, comparer, keyComparer)!;
     }
 
     /// <summary>

@@ -41,12 +41,46 @@ public sealed class DynamoCSharpRuntimeAnnotationCodeGenerator(
     }
 
     /// <inheritdoc />
+#if NET11_0
+    public override bool Create(
+        CoreTypeMapping typeMapping,
+        CSharpRuntimeAnnotationCodeGeneratorParameters parameters)
+    {
+        if (TryCreateDynamoMapping(typeMapping, parameters, out var created))
+            return created;
+
+        return base.Create(typeMapping, parameters);
+    }
+#else
     public override bool Create(
         CoreTypeMapping typeMapping,
         CSharpRuntimeAnnotationCodeGeneratorParameters parameters,
         ValueComparer? valueComparer = null,
         ValueComparer? keyValueComparer = null,
         ValueComparer? providerValueComparer = null)
+    {
+        if (TryCreateDynamoMapping(typeMapping, parameters, out var created))
+            return created;
+
+        return base.Create(
+            typeMapping,
+            parameters,
+            valueComparer,
+            keyValueComparer,
+            providerValueComparer);
+    }
+#endif
+
+    /// <summary>
+    ///     Handles DynamoDB-specific compiled-model mapping generation shared by both EF Core
+    ///     10 and 11's <c>Create</c> overload. The three <see cref="ValueComparer" /> parameters
+    ///     EF Core 10's overload accepts are pure passthrough to <c>base.Create</c> on both
+    ///     versions — this provider never reads them — so this shared body needs neither.
+    /// </summary>
+    private bool TryCreateDynamoMapping(
+        CoreTypeMapping typeMapping,
+        CSharpRuntimeAnnotationCodeGeneratorParameters parameters,
+        out bool created)
     {
         if (typeMapping is DynamoTypeMapping dynamoMapping)
         {
@@ -62,15 +96,14 @@ public sealed class DynamoCSharpRuntimeAnnotationCodeGenerator(
                     + "collection elements instead) or avoid the compiled model for this context.");
 
             if (TryEmitPrimedCollectionMapping(dynamoMapping, parameters))
+            {
+                created = true;
                 return true;
+            }
         }
 
-        return base.Create(
-            typeMapping,
-            parameters,
-            valueComparer,
-            keyValueComparer,
-            providerValueComparer);
+        created = false;
+        return false;
     }
 
     private bool TryEmitPrimedCollectionMapping(
