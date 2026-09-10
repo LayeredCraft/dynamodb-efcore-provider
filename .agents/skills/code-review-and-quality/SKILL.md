@@ -331,7 +331,6 @@ Part of code review is dependency review:
 - [ ] Tests pass
 - [ ] Build succeeds
 - [ ] Manual verification done (if applicable)
-- [ ] Documentation and provider skill were updated, or the PR explains why either is not applicable
 
 ### Verdict
 - [ ] **Approve** — Ready to merge
