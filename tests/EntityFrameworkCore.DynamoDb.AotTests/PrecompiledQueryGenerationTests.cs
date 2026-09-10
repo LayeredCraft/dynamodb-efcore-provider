@@ -22,7 +22,7 @@ namespace EntityFrameworkCore.DynamoDb.AotTests;
 
 public class PrecompiledQueryGenerationTests
 {
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void Generated_runtime_resolves_an_inherited_property_once()
     {
         using var context = new InheritanceContext(
@@ -36,7 +36,7 @@ public class PrecompiledQueryGenerationTests
         property.Name.Should().Be(nameof(BaseItem.Status));
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void Generated_runtime_reports_missing_inherited_property()
     {
         using var context = new InheritanceContext(
@@ -50,7 +50,7 @@ public class PrecompiledQueryGenerationTests
             .WithMessage("*BaseItem.Missing*was not found*");
     }
 
-    [Fact]
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public void Generated_runtime_resolves_properties_by_full_type_name_when_short_names_collide()
     {
         using var context = new DuplicateNameContext(

@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq.Expressions;
@@ -13,6 +14,8 @@ namespace EntityFrameworkCore.DynamoDb.Storage.Internal;
 
 // Scalar codec types are public only so precompiled-query generated C# can construct and call
 // them; they are not intended as public API and are not part of the documented surface.
+// EditorBrowsable(Never) on the base types keeps the whole codec hierarchy (including derived
+// scalar codecs) out of hand-authored IntelliSense.
 #pragma warning disable CS1591
 
 /// <summary>Converts a single mapped CLR value to and from DynamoDB wire representations.</summary>
@@ -20,6 +23,7 @@ namespace EntityFrameworkCore.DynamoDb.Storage.Internal;
 ///     Mappings own these instances so query materialization, query parameter generation, and
 ///     SaveChanges writes all share the same conversion rules.
 /// </remarks>
+[EditorBrowsable(EditorBrowsableState.Never)]
 public abstract class DynamoValueReaderWriter
 {
     public abstract Type ValueType { get; }
@@ -84,6 +88,7 @@ public abstract class DynamoValueReaderWriter
 }
 
 /// <summary>Strongly-typed base implementation for a DynamoDB value reader/writer.</summary>
+[EditorBrowsable(EditorBrowsableState.Never)]
 public abstract class DynamoValueReaderWriter<TValue> : DynamoValueReaderWriter
 {
     private static readonly MethodInfo ReadMethod =
@@ -467,6 +472,7 @@ internal sealed class ConvertedDynamoValueReaderWriter<TValue>(
 ///     This is used both for scalar properties and for primitive collection element mappings such
 ///     as <c>List&lt;int?&gt;</c>, where DynamoDB NULL must round-trip as a nullable CLR value.
 /// </remarks>
+[EditorBrowsable(EditorBrowsableState.Never)]
 public sealed class NullableDynamoValueReaderWriter<TValue>(
     DynamoValueReaderWriter<TValue> innerReaderWriter) : DynamoValueReaderWriter<TValue?>
     where TValue : struct

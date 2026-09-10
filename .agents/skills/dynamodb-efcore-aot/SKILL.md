@@ -46,8 +46,11 @@ task test:aot-publish
 ```
 
 The generation test must compile generated interceptors and cover scalar parameters, collection
-parameters, entity materialization, and a property value converter. The publish test must build the
-native executable, execute an intercepted query, and materialize the fake DynamoDB response.
+parameters, entity materialization, and a property value converter. The publish test builds the
+native executable, runs it against DynamoDB Local via `scripts/run-nativeaot-smoke.sh`, and
+validates materialization of the seeded items. Publish/run smoke validation is EF10-only
+(`Release EF10`); EF11 currently has interceptor-generation coverage only, pending the upstream
+EF Core Tasks precompilation blocker (see `testapps/EntityFrameworkCore.DynamoDb.NativeAotSmoke/AGENTS.md`).
 
 Before completion, also run:
 
