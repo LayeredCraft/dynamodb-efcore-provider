@@ -25,7 +25,7 @@ namespace EntityFrameworkCore.DynamoDb.AotTests;
 ///     Compiles the generated compiled-model code (including primed collection mappings) with Roslyn,
 ///     loads it, and executes a real query and SaveChanges against the loaded model.
 /// </summary>
-public class CompiledModelExecutionTests
+public partial class CompiledModelExecutionTests
 {
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task
@@ -342,6 +342,12 @@ public class CompiledModelExecutionTests
         IReadOnlyList<AttributeValue> parameters,
         Dictionary<string, Dictionary<string, AttributeValue>> store)
     {
+        if (statement.StartsWith("UPDATE", StringComparison.OrdinalIgnoreCase))
+        {
+            HandleUpdateStatement(statement, parameters, store);
+            return;
+        }
+
         if (!statement.StartsWith("INSERT", StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException(
                 $"Fake client only supports INSERT write statements, got '{statement}'.");
@@ -359,6 +365,134 @@ public class CompiledModelExecutionTests
         store[item["pk"].S] = item;
     }
 
+    private static void HandleUpdateStatement(
+        string statement,
+        IReadOnlyList<AttributeValue> parameters,
+        Dictionary<string, Dictionary<string, AttributeValue>> store)
+    {
+        var setIndex = statement.IndexOf("SET ", StringComparison.Ordinal);
+        var whereIndex = statement.IndexOf("\nWHERE", StringComparison.Ordinal);
+        var setSection = statement.Substring(setIndex + 4, whereIndex - (setIndex + 4));
+
+        string? ResolveClauseValue(string clause)
+        {
+            var index = statement.IndexOf(clause, StringComparison.Ordinal);
+            if (index < 0)
+                return null;
+
+            var placeholderIndex = statement
+                .Substring(0, index)
+                .Count(character => character == '?');
+            return placeholderIndex < parameters.Count ? parameters[placeholderIndex].S : null;
+        }
+
+        var expectedPk = ResolveClauseValue("\"pk\" = ?")
+            ?? (PkLiteralRegex.Match(statement) is { Success: true } literalMatch
+                ? literalMatch.Groups["pk"].Value.Replace("''", "'")
+                : null);
+        if (expectedPk is null)
+            throw new InvalidOperationException(
+                $"Fake client only supports key-targeted UPDATE statements, got '{statement}'.");
+
+        var expectedSk = ResolveClauseValue("\"sk\" = ?")
+            ?? (SkLiteralRegex.Match(statement) is { Success: true } skMatch
+                ? skMatch.Groups["sk"].Value.Replace("''", "'")
+                : null);
+
+        var target = store.Values.FirstOrDefault(item
+            => item.TryGetValue("pk", out var pk)
+            && pk.S == expectedPk
+            && (expectedSk is null || (item.TryGetValue("sk", out var sk) && sk.S == expectedSk)));
+        if (target is null)
+            throw new ConditionalCheckFailedException("The conditional request failed");
+
+        var parameterIndex = 0;
+
+        foreach (var assignment in setSection.Split(", "))
+        {
+            var separator = assignment.LastIndexOf(" = ", StringComparison.Ordinal);
+            var path = assignment[..separator].Replace("\"", string.Empty);
+            var valueText = assignment[(separator + 3)..];
+
+            var selfReference = SelfReferenceArithmeticRegex().Match(valueText);
+            if (selfReference.Success)
+            {
+                var referencedPath = selfReference.Groups["path"].Value.Replace("\"", string.Empty);
+                if (!string.Equals(referencedPath, path, StringComparison.Ordinal))
+                    throw new InvalidOperationException(
+                        $"Fake client only supports self-referencing arithmetic, got '{assignment}'.");
+
+                ApplySelfReferenceArithmetic(
+                    target,
+                    path,
+                    selfReference.Groups["operator"].Value,
+                    decimal.Parse(selfReference.Groups["value"].Value));
+            }
+            else if (valueText == "?")
+            {
+                ApplyUpdatePath(target, path, parameters[parameterIndex]);
+                parameterIndex++;
+            }
+            else if (valueText == "NULL")
+            {
+                ApplyUpdatePath(target, path, new AttributeValue { NULL = true });
+            }
+        }
+    }
+
+    private static void ApplySelfReferenceArithmetic(
+        Dictionary<string, AttributeValue> item,
+        string path,
+        string @operator,
+        decimal operand)
+    {
+        var segments = path.Split('.');
+        var current = item;
+        for (var index = 0; index < segments.Length - 1; index++)
+        {
+            if (!current.TryGetValue(segments[index], out var nested) || nested.M is null)
+            {
+                nested = new AttributeValue { M = [] };
+                current[segments[index]] = nested;
+            }
+
+            current = nested.M;
+        }
+
+        var leaf = segments[^1];
+        var existing = decimal.Parse(current[leaf].N);
+        var updated = @operator == "+" ? existing + operand : existing - operand;
+        current[leaf] =
+            new AttributeValue
+            {
+                N = updated.ToString(System.Globalization.CultureInfo.InvariantCulture)
+            };
+    }
+
+    [GeneratedRegex("^\"(?<path>[^\"]+)\"\\s*(?<operator>[-+])\\s*(?<value>\\d+)$")]
+    private static partial Regex SelfReferenceArithmeticRegex();
+
+    private static void ApplyUpdatePath(
+        Dictionary<string, AttributeValue> item,
+        string path,
+        AttributeValue value)
+    {
+        var segments = path.Split('.');
+        var current = item;
+        for (var index = 0; index < segments.Length - 1; index++)
+        {
+            if (!current.TryGetValue(segments[index], out var nested) || nested.M is null)
+            {
+                nested = new AttributeValue { M = [] };
+                current[segments[index]] = nested;
+            }
+
+            current = nested.M;
+        }
+
+        current[segments[^1]] = value;
+    }
+
     private static readonly Regex PlaceholderNameRegex =
         new(@"'(?<name>[^']+)'\s*:\s*\?", RegexOptions.Compiled);
 
@@ -367,6 +501,10 @@ public class CompiledModelExecutionTests
 
     private static readonly Regex ExternalIdsLiteralRegex = new(
         "contains\\(\"externalIds\",\\s*'(?<id>[^']*)'\\)",
+        RegexOptions.Compiled);
+
+    private static readonly Regex SkLiteralRegex = new(
+        "\"sk\"\\s*=\\s*'(?<sk>[^']*)'",
         RegexOptions.Compiled);
 
     private static IReadOnlyList<MetadataReference> GetMetadataReferences()

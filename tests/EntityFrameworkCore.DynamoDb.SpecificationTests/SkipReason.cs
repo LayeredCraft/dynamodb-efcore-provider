@@ -112,4 +112,14 @@ public static class SkipReason
 
     public const string PartitionKeyRequiredOnAllEntities =
         "DynamoDB requires every entity type in the model to have a partition key.";
+
+    public const string ExecuteDeleteNotImplemented =
+        "ExecuteDelete is not implemented by the DynamoDB provider; bulk delete support is "
+        + "tracked separately from the ExecuteUpdate feature.";
+
+    public const string BulkUpdateRequiresKeyTargetedSingleton =
+        "DynamoDB ExecuteUpdate is limited to singleton updates that equality-constrain the full "
+        + "primary key; multi-row sources (filters, Skip/Take, set operations, joins, navigations) "
+        + "are not translated, and upstream error-expectation cases therefore surface the "
+        + "key-targeting rejection instead.";
 }

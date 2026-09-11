@@ -56,11 +56,21 @@ public class DynamoApiConsistencyTest(DynamoApiConsistencyTest.DynamoApiConsiste
                 typeof(DynamoSecondaryIndexBuilder),
                 typeof(DynamoSecondaryIndexBuilder<>));
 
+#pragma warning disable EF9100
+        public override HashSet<MethodInfo> NonCancellableAsyncMethods { get; } =
+        [
+            // The generated ExecuteUpdate executor receives its cancellation token from the
+            // DynamoQueryContext, not from a method parameter.
+            typeof(DynamoGeneratedQueryRuntime).GetMethod(
+                nameof(DynamoGeneratedQueryRuntime.CreateUpdateExecutorAsync),
+                BindingFlags.Public | BindingFlags.Static)!
+        ];
+#pragma warning restore EF9100
+
         public override
             Dictionary<Type, (Type ReadonlyExtensions, Type MutableExtensions, Type
                 ConventionExtensions, Type ConventionBuilderExtensions, Type RuntimeExtensions)>
-            MetadataExtensionTypes
-        { get; } = new()
+            MetadataExtensionTypes { get; } = new()
         {
             {
                 typeof(IReadOnlyEntityType),

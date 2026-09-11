@@ -40,8 +40,8 @@ change tracking, concurrency, Find, value converters, interceptors, and more.
 | `ApiConsistencyTestBase`                             |      18 |   ✓    |    ✓    | Provider API surface/naming conventions                                                                                                                                                                                                                                         |
 | `BuiltInDataTypesTestBase`                           |      28 |   ✓    |    ✓    | Scalar type round-trips (bool, int, string, DateTime, etc.); inherited FK/navigation-shaped binary/string key and enum collection cases are skipped, with DynamoDB key/converter behavior covered in integration tests                                                          |
 | `ComplexTypesTrackingTestBase`                       |     128 |   ✓    |    ✗    | Complex type change tracking; three custom async null/default persistence variants remain as provider-specific spec coverage where upstream sync/scan shapes are not directly runnable, while one unsupported inherited null/default row now delegates to a skipped base method |
-| `ConcurrencyDetectorDisabledTestBase`                |       8 |   ✓    |    ✗    | `ConcurrencyDetector` opt-out; supported async `Find`/`SaveChanges`/`Single` variants delegate upstream, sync variants assert async-only limitations, and unsupported `Any`/`First`/`Count`/`Last`/`ToList` variants skip for DynamoDB limitations |
-| `ConcurrencyDetectorEnabledTestBase`                 |       8 |   ✓    |    ✗    | `ConcurrencyDetector` opt-in; supported async `Find`/`SaveChanges`/`Single` variants delegate upstream, sync variants assert async-only limitations, and unsupported `Any`/`First`/`Count`/`Last`/`ToList` variants skip for DynamoDB limitations  |
+| `ConcurrencyDetectorDisabledTestBase`                |       8 |   ✓    |    ✗    | `ConcurrencyDetector` opt-out; supported async `Find`/`SaveChanges`/`Single` variants delegate upstream, sync variants assert async-only limitations, and unsupported `Any`/`First`/`Count`/`Last`/`ToList` variants skip for DynamoDB limitations                              |
+| `ConcurrencyDetectorEnabledTestBase`                 |       8 |   ✓    |    ✗    | `ConcurrencyDetector` opt-in; supported async `Find`/`SaveChanges`/`Single` variants delegate upstream, sync variants assert async-only limitations, and unsupported `Any`/`First`/`Count`/`Last`/`ToList` variants skip for DynamoDB limitations                               |
 | `FindTestBase`                                       |      69 |   ✓    |    ✗    | `Find`/`FindAsync` by primary key                                                                                                                                                                                                                                               |
 | `ComplianceTestBase`                                 |       1 |   ✗    |    ✗    | Compliance marker for implemented provider spec bases plus guardrail for new skipped no-op override drift                                                                                                                                                                       |
 | `OverzealousInitializationTestBase`                  |       1 |   ✓    |    ✗    | Navigation-based fixup test is explicitly skipped                                                                                                                                                                                                                               |
@@ -106,17 +106,46 @@ ______________________________________________________________________
 
 ## BulkUpdates Tests
 
-`ExecuteUpdate` and `ExecuteDelete` are not yet implemented in the provider. All bulk-update tests
-are deferred until those features land.
+The provider supports `ExecuteUpdate` as singleton, key-targeted updates on base tables
+(partition key equality, plus sort key when present). `ExecuteDelete` is not implemented.
+`NorthwindBulkUpdatesDynamoTest` implements the upstream base with the full override guard and a
+gap analysis below; the remaining bulk-update bases stay documented-skip because every inherited
+case needs unsupported query shapes.
 
-| Test Class                              | Methods | Cosmos | MongoDB | Status                                              |
-| --------------------------------------- | ------: | :----: | :-----: | --------------------------------------------------- |
-| `NorthwindBulkUpdatesTestBase`          |      91 |   ✗    |    ✗    | Future — blocked on `ExecuteUpdate`/`ExecuteDelete` |
-| `FiltersInheritanceBulkUpdatesTestBase` |      16 |   ✗    |    ✗    | Future — same blocker                               |
-| `InheritanceBulkUpdatesTestBase`        |      18 |   ✗    |    ✗    | Future — same blocker                               |
-| `NonSharedModelBulkUpdatesTestBase`     |      11 |   ✗    |    ✗    | Future — same blocker                               |
-| `AssociationsBulkUpdateTestBase`        |      33 |   ✗    |    ✗    | Skip — also requires navigations                    |
-| `ComplexPropertiesBulkUpdateTestBase`   |       — |   ✗    |    ✗    | Future — complex types + bulk update                |
+### Gap analysis for `NorthwindBulkUpdatesDynamoTest`
+
+DynamoDB-impossible (durable constraints):
+
+- ExecuteDelete surface (~36 methods): the provider does not implement `ExecuteDelete`; bulk
+    delete semantics are a separate feature.
+- Joins, `SelectMany`, navigations, cross joins, cross/outer apply (~20 methods): DynamoDB PartiQL
+    cannot join tables, so update sources that read other tables or navigations cannot be translated.
+- Set operations (`Union`, `Concat`, `Intersect`, `Except`): not expressible in PartiQL.
+- `GROUP BY` aggregate predicates: not expressible in PartiQL.
+
+Provider-scope (expandable, not architectural):
+
+- Multi-row `ExecuteUpdate` over filtered sources (`StartsWith`, `<`, IN and similar): DynamoDB
+    PartiQL itself supports key-incomplete updates, but the provider's current contract is singleton
+    key-targeted updates returning a 0/1 count. Loosening the key-completeness validation would
+    unlock roughly 30 upstream cases.
+- `Skip`/`Take`/`OrderBy` update sources: same key-targeting scope plus ordered result semantics.
+- Upstream error-expectation tests over multi-row sources: the provider validates key completeness
+    before setter validation, so these cases surface the key-targeting rejection instead.
+- Harness limitation: the upstream bulk-update assertion harness always opens an explicit EF
+    transaction (`TestHelpers.ExecuteWithStrategyInTransactionAsync`), which the DynamoDB provider
+    does not support. This also blocks the otherwise-supported single-item
+    `Update_Where_parameter_set_constant` case; the same shape is covered end-to-end by the
+    integration tests.
+
+| Test Class                              | Methods | Cosmos | MongoDB | Status                                                             |
+| --------------------------------------- | ------: | :----: | :-----: | ------------------------------------------------------------------ |
+| `NorthwindBulkUpdatesTestBase`          |      91 |   ✗    |    ✗    | Implemented (skips dominate; 1 shape supported, harness-gated)     |
+| `FiltersInheritanceBulkUpdatesTestBase` |      16 |   ✗    |    ✗    | Future — all cases need ExecuteDelete/navigations over TPH sources |
+| `InheritanceBulkUpdatesTestBase`        |      18 |   ✗    |    ✗    | Future — same constraints as Northwind bulk updates over TPH       |
+| `NonSharedModelBulkUpdatesTestBase`     |      11 |   ✗    |    ✗    | Future — keyless types and multi-row updates                       |
+| `AssociationsBulkUpdateTestBase`        |      33 |   ✗    |    ✗    | Skip — requires navigations                                        |
+| `ComplexPropertiesBulkUpdateTestBase`   |       — |   ✗    |    ✗    | Future — complex types + bulk update                               |
 
 ______________________________________________________________________
 
@@ -238,21 +267,21 @@ No association specification test classes are currently queued here.
 
 ### Skip — Navigation or Set Operation Dependent
 
-| Test Class                                     | Methods | Reason                                       |
-| ---------------------------------------------- | ------: | -------------------------------------------- |
-| `AssociationsCollectionTestBase`               |      14 | Navigation collection traversal              |
-| `AssociationsMiscellaneousTestBase`            |       3 | Navigation-dependent miscellaneous           |
-| `AssociationsPrimitiveCollectionTestBase`      |       6 | Primitive collections on navigation entities |
-| `AssociationsProjectionTestBase`               |      31 | Navigation projections                       |
-| `AssociationsSetOperationsTestBase`            |       5 | Set operations on navigations                |
-| `AssociationsStructuralEqualityTestBase`       |      15 | Navigation-based equality                    |
-| `AssociationsBulkUpdateTestBase`               |      33 | Navigation + bulk update                     |
-| All `Navigations/*` tests                      |      9+ | Navigation property traversal                |
-| All `OwnedNavigations/*` tests                 |      7+ | Owned entity navigations                     |
-| `ComplexPropertiesCollectionTestBase`          |       — | Complex type collections (not yet supported) |
-| `ComplexPropertiesPrimitiveCollectionTestBase` |       — | Complex type + primitive collections         |
-| `ComplexPropertiesSetOperationsTestBase`       |       — | Set operations; no PartiQL support           |
-| `ComplexPropertiesBulkUpdateTestBase`          |       — | Blocked on `ExecuteUpdate`                   |
+| Test Class                                     | Methods | Reason                                                        |
+| ---------------------------------------------- | ------: | ------------------------------------------------------------- |
+| `AssociationsCollectionTestBase`               |      14 | Navigation collection traversal                               |
+| `AssociationsMiscellaneousTestBase`            |       3 | Navigation-dependent miscellaneous                            |
+| `AssociationsPrimitiveCollectionTestBase`      |       6 | Primitive collections on navigation entities                  |
+| `AssociationsProjectionTestBase`               |      31 | Navigation projections                                        |
+| `AssociationsSetOperationsTestBase`            |       5 | Set operations on navigations                                 |
+| `AssociationsStructuralEqualityTestBase`       |      15 | Navigation-based equality                                     |
+| `AssociationsBulkUpdateTestBase`               |      33 | Navigation + bulk update                                      |
+| All `Navigations/*` tests                      |      9+ | Navigation property traversal                                 |
+| All `OwnedNavigations/*` tests                 |      7+ | Owned entity navigations                                      |
+| `ComplexPropertiesCollectionTestBase`          |       — | Complex type collections (not yet supported)                  |
+| `ComplexPropertiesPrimitiveCollectionTestBase` |       — | Complex type + primitive collections                          |
+| `ComplexPropertiesSetOperationsTestBase`       |       — | Set operations; no PartiQL support                            |
+| `ComplexPropertiesBulkUpdateTestBase`          |       — | Complex types + bulk update (scope limited to scalar setters) |
 
 ______________________________________________________________________
 

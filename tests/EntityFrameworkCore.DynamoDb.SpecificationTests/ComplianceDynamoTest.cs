@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.BulkUpdates;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.Associations.ComplexProperties;
 using Microsoft.EntityFrameworkCore.Query.Translations;
@@ -487,5 +488,6 @@ public sealed class ComplianceDynamoTest : ComplianceTestBase
         yield return typeof(NorthwindQueryTaggingQueryTestBase<>);
         yield return typeof(NorthwindSelectQueryTestBase<>);
         yield return typeof(NorthwindWhereQueryTestBase<>);
+        yield return typeof(NorthwindBulkUpdatesTestBase<>);
     }
 }
