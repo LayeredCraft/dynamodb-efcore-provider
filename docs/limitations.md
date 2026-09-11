@@ -401,9 +401,10 @@ update), and numeric self-referencing arithmetic is limited to addition and subt
 [ExecuteUpdateAsync](saving/add-update-delete.md#executeupdateasync) for the full behavior
 contract.
 
-`ExecuteDeleteAsync()` is not implemented. Bulk deletions must be performed by loading entities,
-removing them from the change tracker, and calling `SaveChangesAsync()` per item (or by issuing a
-key-targeted `DELETE` statement against the client).
+`ExecuteDeleteAsync()` is supported only for a single base-table item whose full primary key is
+equality-constrained. Extra non-key predicates are allowed. It returns `1` for a matching item and
+`0` when DynamoDB Local reports that the key or predicate did not match; the real service may
+report `1` for a non-matching DELETE. Multi-item deletes are not supported.
 
 ### `BatchExecuteStatement` Partial Success
 

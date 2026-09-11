@@ -425,7 +425,7 @@ public static class DynamoGeneratedQueryRuntime
         var dynamoQueryContext = (DynamoQueryContext)queryContext;
         var sqlQuery = updateTemplate.Render(dynamoQueryContext.Parameters);
 
-        return dynamoQueryContext.Client.ExecuteUpdateAsync(
+        return dynamoQueryContext.Client.ExecuteWriteResultAsync(
             sqlQuery.Sql,
             [.. sqlQuery.Parameters],
             updateTemplate.TableName,

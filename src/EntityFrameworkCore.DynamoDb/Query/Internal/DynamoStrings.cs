@@ -201,13 +201,26 @@ internal static class DynamoStrings
     public const string ExecuteUpdateSyncNotSupported =
         "Synchronous ExecuteUpdate is not supported by the DynamoDB provider. Use ExecuteUpdateAsync instead.";
 
+    /// <summary>Error message for synchronous ExecuteDelete, which the provider does not support.</summary>
+    public const string ExecuteDeleteSyncNotSupported =
+        "Synchronous ExecuteDelete is not supported by the DynamoDB provider. Use ExecuteDeleteAsync instead.";
+
     /// <summary>Error message for ExecuteUpdate over a shaper that is not an entity type.</summary>
     public const string ExecuteUpdateInvalidSource =
         "ExecuteUpdate is only supported over entity queries that map to a single DynamoDB table.";
 
+    /// <summary>Error message for ExecuteDelete over a shaper that is not an entity type.</summary>
+    public const string ExecuteDeleteInvalidSource =
+        "ExecuteDelete is only supported over entity queries that map to a single DynamoDB table.";
+
     /// <summary>Formats an error message for ExecuteUpdate over an index-targeted query source.</summary>
     public static string ExecuteUpdateOnIndexNotSupported(string indexName)
         => $"ExecuteUpdate cannot target index '{indexName}'. PartiQL UPDATE always operates on the "
+            + "base table; remove .WithIndex(...) from the query.";
+
+    /// <summary>Formats an error message for ExecuteDelete over an index-targeted query source.</summary>
+    public static string ExecuteDeleteOnIndexNotSupported(string indexName)
+        => $"ExecuteDelete cannot target index '{indexName}'. PartiQL DELETE always operates on the "
             + "base table; remove .WithIndex(...) from the query.";
 
     /// <summary>Formats an error message for an ExecuteUpdate WHERE clause missing key equality.</summary>
@@ -217,7 +230,11 @@ internal static class DynamoStrings
 
     /// <summary>Formats an error message for an ExecuteUpdate WHERE clause with a rejected key shape.</summary>
     public static string ExecuteUpdateInvalidKeyPredicate(string reason)
-        => $"ExecuteUpdate does not support this key predicate shape. {reason}";
+        => ExecuteInvalidKeyPredicate("ExecuteUpdate", reason);
+
+    /// <summary>Formats an error message for a rejected singleton write key shape.</summary>
+    public static string ExecuteInvalidKeyPredicate(string operation, string reason)
+        => $"{operation} does not support this key predicate shape. {reason}";
 
     /// <summary>Formats an error message for an invalid ExecuteUpdate setter.</summary>
     public static string ExecuteUpdateInvalidSetter(string reason)
