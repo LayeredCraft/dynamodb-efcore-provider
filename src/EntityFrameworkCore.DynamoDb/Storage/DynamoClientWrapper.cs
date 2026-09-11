@@ -175,17 +175,17 @@ public class DynamoClientWrapper : IDynamoClientWrapper, IDisposable
     }
 
     /// <summary>
-    ///     Executes an ExecuteUpdate PartiQL statement and returns the affected item count: 1 when
-    ///     the item matched and was updated, 0 when the WHERE clause matched nothing. A
+    ///     Executes a singleton ExecuteUpdate or ExecuteDelete PartiQL statement and returns the
+    ///     affected item count: 1 when the item matched, 0 when the WHERE clause matched nothing. A
     ///     ConditionalCheckFailedException (no matching item) maps to 0 instead of a
     ///     <see cref="DbUpdateConcurrencyException" />.
     /// </summary>
-    /// <param name="statement">The PartiQL UPDATE statement to execute.</param>
+    /// <param name="statement">The PartiQL UPDATE or DELETE statement to execute.</param>
     /// <param name="parameters">Positional parameter values for the statement.</param>
     /// <param name="tableName">The target table name for statement-level diagnostics.</param>
     /// <param name="cancellationToken">Token to observe for cancellation.</param>
-    /// <returns>1 on success, 0 when the conditional update matched no item.</returns>
-    public Task<int> ExecuteUpdateAsync(
+    /// <returns>1 on success, 0 when the conditional write matched no item.</returns>
+    public Task<int> ExecuteWriteResultAsync(
         string statement,
         List<AttributeValue> parameters,
         string tableName,
@@ -256,7 +256,7 @@ public class DynamoClientWrapper : IDynamoClientWrapper, IDisposable
                 }
                 catch (ConditionalCheckFailedException)
                 {
-                    // A key-targeted UPDATE whose WHERE clause matches no item fails the implicit
+                    // A key-targeted write whose WHERE clause matches no item fails the implicit
                     // condition on DynamoDB Local; report 0 affected items instead of surfacing a
                     // concurrency error. The real service may complete a non-matching update
                     // silently and report 1 instead.

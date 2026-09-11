@@ -231,8 +231,29 @@ Key behaviors:
     cannot be assigned; assign the leaf scalar of a complex-property path instead. Key properties
     cannot be mutated.
 
-`ExecuteDeleteAsync` is not implemented. See
-[Bulk update limitations](../limitations.md#ef-core-bulk-operations).
+## ExecuteDeleteAsync
+
+`ExecuteDeleteAsync` deletes one key-targeted item directly, without loading or synchronizing the
+change tracker.
+
+```csharp
+var affected = await db.Orders
+    .Where(o => o.Pk == "CUSTOMER#42" && o.Sk == "ORDER#2026-001")
+    .ExecuteDeleteAsync(cancellationToken);
+```
+
+It generates one PartiQL statement:
+
+```sql
+DELETE FROM "Orders"
+WHERE "pk" = 'CUSTOMER#42' AND "sk" = 'ORDER#2026-001'
+```
+
+The full-primary-key, base-table, async-only restrictions are the same as `ExecuteUpdateAsync`.
+Extra non-key predicates are allowed. The result is `1` when DynamoDB Local deletes a matching
+item and `0` for a missing item or a failed extra predicate; the real service may report `1` for a
+non-matching key-targeted DELETE. It does not create an implicit transaction or update tracked
+entities. See the [AWS PartiQL DELETE reference](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ql-reference.delete.html).
 
 ## Statement Size Limit
 

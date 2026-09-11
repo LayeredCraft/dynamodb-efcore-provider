@@ -41,6 +41,8 @@ against `https://dynamodb-ef-core.layeredcraft.dev/`.
   when the caller needs complete results.
 - `ExecuteUpdateAsync` is a singleton key-targeted update returning 0 or 1 — never present it as a
   bulk/multi-row operation, and do not suggest string concatenation or sync `ExecuteUpdate`.
+- `ExecuteDeleteAsync` is a singleton key-targeted delete returning 0 or 1 — never present it as a
+  bulk/multi-row operation or suggest synchronous `ExecuteDelete`.
 - Do not invent DynamoMapper hook or converter signatures. Read its focused reference first.
 - Do not expose PartiQL, keys, parameters, or returned items through logs, traces, or interceptors.
 
