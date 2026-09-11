@@ -35,6 +35,52 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
             .GetTypeInfo()
             .GetDeclaredMethod(nameof(EnsurePositiveLimit))!;
 
+    private static readonly MethodInfo ExecuteUpdateResultAsyncMethodInfo =
+        typeof(DynamoShapedQueryCompilingExpressionVisitor)
+            .GetTypeInfo()
+            .GetDeclaredMethod(nameof(ExecuteUpdateResultAsync))!;
+
+    /// <summary>Builds the runtime non-query executor for a translated ExecuteUpdate.</summary>
+    /// <remarks>
+    ///     Mirrors the relational <c>GenerateNonQueryShaper</c> pattern: the extension node is
+    ///     replaced by a <c>Task&lt;int&gt;</c>-returning call into the runtime executor. The
+    ///     precompiled (AOT) path is handled by <c>GeneratePrecompiledUpdateExecutor</c>.
+    /// </remarks>
+    protected override Expression VisitExtension(Expression extensionExpression)
+    {
+        if (extensionExpression is DynamoUpdateExpression updateExpression)
+        {
+            if (dynamoQueryCompilationContext.IsPrecompiling)
+                throw new NotSupportedException(
+                    "Precompiled ExecuteUpdate queries are not supported yet. Execute the update "
+                    + "without precompiled query generation.");
+
+            return Call(
+                ExecuteUpdateResultAsyncMethodInfo,
+                Convert(QueryCompilationContext.QueryContextParameter, typeof(DynamoQueryContext)),
+                Constant(updateExpression),
+                Constant(sqlGeneratorFactory));
+        }
+
+        return base.VisitExtension(extensionExpression);
+    }
+
+    /// <summary>Generates the PartiQL UPDATE statement and executes it, returning the count.</summary>
+    internal static Task<int> ExecuteUpdateResultAsync(
+        DynamoQueryContext queryContext,
+        DynamoUpdateExpression updateExpression,
+        IDynamoQuerySqlGeneratorFactory sqlGeneratorFactory)
+    {
+        var sqlQuery = sqlGeneratorFactory
+            .Create()
+            .GenerateUpdate(updateExpression, queryContext.Parameters);
+
+        return queryContext.Client.ExecuteUpdateAsync(
+            sqlQuery.Sql,
+            [.. sqlQuery.Parameters],
+            queryContext.CancellationToken);
+    }
+
     /// <summary>Builds the runtime querying enumerable and shaper for a translated DynamoDB query.</summary>
     protected override Expression VisitShapedQuery(ShapedQueryExpression shapedQueryExpression)
     {

@@ -174,6 +174,94 @@ public class DynamoClientWrapper : IDynamoClientWrapper, IDisposable
             cancellationToken);
     }
 
+    /// <summary>
+    ///     Executes an ExecuteUpdate PartiQL statement and returns the affected item count: 1 when
+    ///     the item matched and was updated, 0 when the WHERE clause matched nothing. A
+    ///     ConditionalCheckFailedException (no matching item) maps to 0 instead of a
+    ///     <see cref="DbUpdateConcurrencyException" />.
+    /// </summary>
+    /// <param name="statement">The PartiQL UPDATE statement to execute.</param>
+    /// <param name="parameters">Positional parameter values for the statement.</param>
+    /// <param name="cancellationToken">Token to observe for cancellation.</param>
+    /// <returns>1 on success, 0 when the conditional update matched no item.</returns>
+    public Task<int> ExecuteUpdateAsync(
+        string statement,
+        List<AttributeValue> parameters,
+        CancellationToken cancellationToken = default)
+    {
+        var attempt = new ExecutionAttempt();
+        return _executionStrategy.ExecuteAsync(
+            (statement, parameters, attempt),
+            async (_, state, ct) =>
+            {
+                var request = new ExecuteStatementRequest
+                {
+                    Statement = state.statement,
+                    Parameters = state.parameters?.Count > 0 ? state.parameters : null,
+                    ReturnConsumedCapacity = _returnConsumedCapacity
+                };
+
+                var commandId = Guid.NewGuid();
+                _commandLogger.ExecutingPartiQlWriteRequest(
+                    DynamoPartiQlWriteOperation.ExecuteStatement,
+                    1,
+                    commandId);
+
+                try
+                {
+                    await ExecuteSdkCallAsync(
+                            request,
+                            DynamoDbCommandOperation.ExecuteStatementWrite,
+                            commandId,
+                            state.attempt.Next(),
+                            null,
+                            token => Client.ExecuteStatementAsync(request, token),
+                            (response, elapsed) =>
+                            {
+                                _commandLogger.ExecutedPartiQlWriteRequest(
+                                    DynamoPartiQlWriteOperation.ExecuteStatement,
+                                    1,
+                                    elapsed,
+                                    commandId,
+                                    response.ResponseMetadata?.RequestId,
+                                    response.ConsumedCapacity is null
+                                        ? null
+                                        : [response.ConsumedCapacity]);
+                                _capacityLogger.ConsumedCapacity(
+                                    commandId,
+                                    response.ConsumedCapacity is null
+                                        ? null
+                                        : [response.ConsumedCapacity]);
+                            },
+                            (exception, elapsed) =>
+                            {
+                                _commandLogger.PartiQlWriteRequestFailed(
+                                    DynamoPartiQlWriteOperation.ExecuteStatement,
+                                    1,
+                                    exception,
+                                    elapsed,
+                                    commandId,
+                                    (exception as AmazonServiceException)?.RequestId);
+                            },
+                            response => response.ConsumedCapacity is null
+                                ? null
+                                : [response.ConsumedCapacity],
+                            ct)
+                        .ConfigureAwait(false);
+
+                    return 1;
+                }
+                catch (ConditionalCheckFailedException)
+                {
+                    // A key-targeted UPDATE whose WHERE clause matches no item fails the implicit
+                    // condition; report 0 affected items instead of surfacing a concurrency error.
+                    return 0;
+                }
+            },
+            null,
+            cancellationToken);
+    }
+
     /// <summary>Executes an atomic write transaction of PartiQL statements.</summary>
     /// <param name="statements">Ordered transaction statements.</param>
     /// <param name="cancellationToken">Token to observe for cancellation.</param>

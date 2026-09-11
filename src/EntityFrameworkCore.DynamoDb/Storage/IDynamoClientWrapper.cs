@@ -38,6 +38,20 @@ public interface IDynamoClientWrapper
         List<AttributeValue> parameters,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    ///     Executes an ExecuteUpdate PartiQL statement and returns the affected item count: 1 when
+    ///     the item matched and was updated, 0 when the WHERE clause matched nothing (the service
+    ///     raises ConditionalCheckFailed for a non-matching key-targeted update).
+    /// </summary>
+    /// <param name="statement">The PartiQL UPDATE statement to execute.</param>
+    /// <param name="parameters">Positional parameter values for the statement.</param>
+    /// <param name="cancellationToken">Token to observe for cancellation.</param>
+    /// <returns>1 on success, 0 when the conditional update matched no item.</returns>
+    Task<int> ExecuteUpdateAsync(
+        string statement,
+        List<AttributeValue> parameters,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Executes an atomic write transaction composed of PartiQL statements.</summary>
     /// <param name="statements">Ordered transactional statements to execute atomically.</param>
     /// <param name="cancellationToken">Token to observe for cancellation.</param>

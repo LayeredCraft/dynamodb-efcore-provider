@@ -9,7 +9,7 @@ public sealed class DynamoUpdateSetter
 {
     /// <summary>Creates a new update setter.</summary>
     public DynamoUpdateSetter(
-        IProperty property,
+        IReadOnlyProperty property,
         string attributeNamePath,
         SqlExpression value,
         bool isSelfReferencing)
@@ -21,7 +21,7 @@ public sealed class DynamoUpdateSetter
     }
 
     /// <summary>The mapped property being assigned.</summary>
-    public IProperty Property { get; }
+    public IReadOnlyProperty Property { get; }
 
     /// <summary>
     ///     The dotted DynamoDB attribute path assigned to. Top-level properties use the attribute
