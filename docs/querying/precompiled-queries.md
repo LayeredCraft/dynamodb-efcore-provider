@@ -104,12 +104,19 @@ for local arrays, which EF Core's query precompiler cannot currently translate.
     which doesn't correspond to a lambda parameter or captured variable`.
 - `ToPageAsync(...)` does not currently precompile: EF Core's precompiler does not recognize it as
     a query root at all (it silently produces no generated interceptor, rather than an error). This
-    also means a query built around `ToPageAsync(...)` cannot run under a true NativeAOT-published
-    binary today — with no generated interceptor for it, and no JIT available, EF Core throws
-    (`Query wasn't precompiled and dynamic code isn't supported with NativeAOT`) rather than falling
-    back to interpreted execution. For a NativeAOT-published pagination flow, use
-    `Limit(pageSize).WithNextToken(nextToken).ToListAsync()` instead. This is a separate, tracked
-    limitation — see [Limitations](../limitations.md).
+    is a **runtime** failure, not a build failure: `dotnet publish` succeeds, and the query only
+    throws (`Query wasn't precompiled and dynamic code isn't supported with NativeAOT`) when a
+    published NativeAOT binary actually executes it, since there is no generated interceptor to run
+    and no JIT available to fall back to.
+    `Limit(pageSize).WithNextToken(nextToken).ToListAsync()` precompiles and *resumes* a page once
+    you already have a `nextToken`, but it does not *produce* one — `ToListAsync()` returns only the
+    materialized items. `ToPageAsync(...)` is the provider's only source of a page's `NextToken`,
+    and it cannot run under NativeAOT at all, so a NativeAOT app currently has no supported,
+    self-contained way to discover the token for the next page (page 1 → get token → page 2). A
+    NativeAOT app that needs full pagination must obtain each `nextToken` out-of-band — for example,
+    a raw AWS SDK `ExecuteStatementAsync` call reading `ExecuteStatementResponse.NextToken`
+    directly, as the NativeAOT smoke app does. This is a separate, tracked limitation — see
+    [Limitations](../limitations.md).
 - EF Core's precompiler currently rejects nullable-coalescing projections before provider
     translation, independent of the above.
 - The tested NativeAOT path covers entity materialization with string, nullable numeric, Boolean,

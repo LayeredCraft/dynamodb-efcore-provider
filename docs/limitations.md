@@ -51,13 +51,22 @@ Query execution is asynchronous only. Synchronous query operators and enumeratio
 `Limit(n)` and `WithNextToken(...)` both precompile normally, including with runtime-varying
 (local-variable) arguments — see [Precompiled Queries and
 NativeAOT](querying/precompiled-queries.md#restrictions) for the local-variable requirement.
-`ToPageAsync(...)` does not: EF Core's precompiler does not recognize it as a query root, and
-(unlike other non-precompiled query shapes) it cannot run at all under a NativeAOT-published
-binary — see the same section for details and the `Limit(...).WithNextToken(...).ToListAsync()`
-alternative. Nullable-coalescing projections such as `Select(x => x.OptionalCount ?? -1)` are also
-rejected by the EF Core C#-to-LINQ translator before provider translation. Use supported query
-shapes or run these queries without precompilation; all are intentional build-time errors, not
-runtime fallbacks.
+
+`ToPageAsync(...)` does not: EF Core's precompiler does not recognize it as a query root, so no
+interceptor is generated for it. Unlike the other restrictions in this section, this is **not** a
+build-time error — `dotnet publish` succeeds, and the query only fails when a NativeAOT binary
+actually executes it (no generated interceptor and no JIT fallback available). A NativeAOT app can
+precompile `Limit(...).WithNextToken(...).ToListAsync()` to *resume* a page from an already-known
+token, but nothing precompilable *produces* that token — `ToPageAsync(...)` is the only source of
+it, and it cannot run under NativeAOT at all. A NativeAOT app that needs full page-to-page
+pagination must obtain each token out-of-band (for example, a raw AWS SDK call reading
+`ExecuteStatementResponse.NextToken` directly). See [Precompiled Queries and
+NativeAOT](querying/precompiled-queries.md#restrictions) for details.
+
+Nullable-coalescing projections such as `Select(x => x.OptionalCount ?? -1)` are rejected by the EF
+Core C#-to-LINQ translator before provider translation — this one *is* an intentional build-time
+error, not a runtime fallback. Use supported query shapes, or run either of these query shapes
+without precompilation.
 
 Precompiled-query generation upstream of the provider cannot handle complex-type members: a query
 that materializes or filters on a complex property fails during `dotnet publish` with an EF Core
