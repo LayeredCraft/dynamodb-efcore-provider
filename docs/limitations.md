@@ -48,11 +48,16 @@ Query execution is asynchronous only. Synchronous query operators and enumeratio
 `InvalidOperationException`; use `ToListAsync`, `FirstAsync`, `ToPageAsync`, or
 `AsAsyncEnumerable`.
 
-Two EF Core precompiler restrictions currently fail before provider translation. The provider's
-C# 14 `Limit(n)` extension member cannot currently be resolved by EF Core's precompiler, and
-nullable-coalescing projections such as `Select(x => x.OptionalCount ?? -1)` are rejected by the
-EF Core C#-to-LINQ translator. Use supported query shapes or run these queries without
-precompilation. Both failures are intentional build-time errors, not runtime fallbacks.
+`Limit(n)` and `WithNextToken(...)` both precompile normally, including with runtime-varying
+(local-variable) arguments — see [Precompiled Queries and
+NativeAOT](querying/precompiled-queries.md#restrictions) for the local-variable requirement.
+`ToPageAsync(...)` does not: EF Core's precompiler does not recognize it as a query root, and
+(unlike other non-precompiled query shapes) it cannot run at all under a NativeAOT-published
+binary — see the same section for details and the `Limit(...).WithNextToken(...).ToListAsync()`
+alternative. Nullable-coalescing projections such as `Select(x => x.OptionalCount ?? -1)` are also
+rejected by the EF Core C#-to-LINQ translator before provider translation. Use supported query
+shapes or run these queries without precompilation; all are intentional build-time errors, not
+runtime fallbacks.
 
 Precompiled-query generation upstream of the provider cannot handle complex-type members: a query
 that materializes or filters on a complex property fails during `dotnet publish` with an EF Core
