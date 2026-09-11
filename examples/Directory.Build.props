@@ -1,4 +1,11 @@
 <Project>
+  <!-- Doesn't chain-import the repo-root Directory.Build.props, so the TargetFrameworkOverride.props
+       hook needs its own copy here too. See Directory.Build.props for the full explanation. -->
+  <Import Project="$(MSBuildThisFileDirectory)..\TargetFrameworkOverride.props"
+          Condition="Exists('$(MSBuildThisFileDirectory)..\TargetFrameworkOverride.props')" />
+  <PropertyGroup Condition="'$(TargetFramework)' == '' and '$(TargetFrameworks)' == ''">
+    <TargetFrameworks>net10.0;net11.0</TargetFrameworks>
+  </PropertyGroup>
   <PropertyGroup>
     <IsPackable>false</IsPackable>
   </PropertyGroup>

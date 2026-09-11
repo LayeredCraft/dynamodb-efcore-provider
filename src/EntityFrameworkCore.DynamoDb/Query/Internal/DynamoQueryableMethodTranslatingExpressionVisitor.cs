@@ -758,6 +758,17 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
         LambdaExpression resultSelector)
         => UnsupportedOperator("RightJoin", DynamoStrings.JoinsNotSupported);
 
+#if NET11_0
+    /// <summary>Provides functionality for this member.</summary>
+    protected override ShapedQueryExpression? TranslateFullJoin(
+        ShapedQueryExpression outer,
+        ShapedQueryExpression inner,
+        LambdaExpression outerKeySelector,
+        LambdaExpression innerKeySelector,
+        LambdaExpression resultSelector)
+        => UnsupportedOperator("FullJoin", DynamoStrings.JoinsNotSupported);
+#endif
+
     /// <summary>Provides functionality for this member.</summary>
     protected override ShapedQueryExpression? TranslateLastOrDefault(
         ShapedQueryExpression source,

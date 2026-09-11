@@ -2,13 +2,16 @@
 # Publishes and runs the NativeAOT smoke app against DynamoDB Local, and fails
 # when the publish reports AOT warning IDs outside the reviewed baseline.
 #
-# Usage: scripts/run-nativeaot-smoke.sh [CONFIG] [RUNTIME_IDENTIFIER]
-#   CONFIG defaults to "Release EF10" (EF11 native publish is broken; see
-#   testapps/EntityFrameworkCore.DynamoDb.NativeAotSmoke/AGENTS.md).
+# Usage: scripts/run-nativeaot-smoke.sh [CONFIG] [RUNTIME_IDENTIFIER] [FRAMEWORK]
+#   CONFIG defaults to "Release".
 #   RUNTIME_IDENTIFIER defaults to the host OS/architecture.
+#   FRAMEWORK (net10.0 or net11.0) defaults to "net10.0". Requires a physical
+#   TargetFrameworkOverride.props (see scripts/write-target-framework-override.sh) to already be
+#   in place so the project evaluates as single-targeted for FRAMEWORK — this script does not
+#   generate or clear that file itself.
 set -euo pipefail
 
-CONFIG="${1:-Release EF10}"
+CONFIG="${1:-Release}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROJECT="$ROOT_DIR/testapps/EntityFrameworkCore.DynamoDb.NativeAotSmoke/EntityFrameworkCore.DynamoDb.NativeAotSmoke.csproj"
 OUTPUT="$ROOT_DIR/artifacts/nativeaot-smoke"
@@ -33,12 +36,13 @@ case "$arch" in
     *) echo "Unsupported architecture for NativeAOT smoke: $arch" >&2; exit 1 ;;
 esac
 RID="${2:-$rid}"
+FRAMEWORK="${3:-net10.0}"
 
 mkdir -p "$ROOT_DIR/artifacts"
 
-dotnet restore "$PROJECT" -p:Configuration="$CONFIG" --runtime "$RID"
+dotnet restore "$PROJECT" -p:TargetFrameworks="$FRAMEWORK" --runtime "$RID"
 
-if ! dotnet publish "$PROJECT" --configuration "$CONFIG" --runtime "$RID" --no-restore --output "$OUTPUT" 2>&1 | tee "$LOG"; then
+if ! dotnet publish "$PROJECT" --configuration "$CONFIG" --framework "$FRAMEWORK" --runtime "$RID" --no-restore --output "$OUTPUT" 2>&1 | tee "$LOG"; then
     echo "NativeAOT publish failed."
     exit 1
 fi

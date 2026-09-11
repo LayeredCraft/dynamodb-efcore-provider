@@ -54,11 +54,21 @@ public sealed class DynamoComplexPropertyDiscoveryConvention(
                 || !DynamoTypeMappingSource.TryGetComplexCollectionElementType(
                     memberType,
                     out elementType)
+#if NET11_0
+                || Dependencies.MemberClassifier.IsCandidatePrimitiveProperty(
+                    memberInfo,
+                    structuralType.Model,
+                    UseAttributes,
+                    out _,
+                    out _,
+                    out _)))
+#else
                 || Dependencies.MemberClassifier.IsCandidatePrimitiveProperty(
                     memberInfo,
                     structuralType.Model,
                     UseAttributes,
                     out _)))
+#endif
         {
             isCollection = false;
             targetClrType = null;

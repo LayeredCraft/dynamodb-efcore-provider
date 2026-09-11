@@ -181,12 +181,26 @@ public sealed class DynamoModelRuntimeInitializer(ModelRuntimeInitializerDepende
             throw new InvalidOperationException(
                 $"Global secondary index '{indexName}' on entity type '{index.DeclaringEntityType.DisplayName()}' must define one or two key properties.");
 
+        var declaringEntityDisplayName = index.DeclaringEntityType.DisplayName();
+        var partitionKeyProperty = DynamoSecondaryIndexProperties.AsScalar(
+            declaringEntityDisplayName,
+            indexName,
+            index.Properties[0],
+            "global secondary index partition key");
+        var sortKeyProperty = index.Properties.Count == 2
+            ? DynamoSecondaryIndexProperties.AsScalar(
+                declaringEntityDisplayName,
+                indexName,
+                index.Properties[1],
+                "global secondary index sort key")
+            : null;
+
         return new DynamoIndexDescriptor(
             indexName,
             DynamoIndexSourceKind.GlobalSecondaryIndex,
             index,
-            index.Properties[0],
-            index.Properties.Count == 2 ? index.Properties[1] : null,
+            partitionKeyProperty,
+            sortKeyProperty,
             index.GetSecondaryIndexProjectionType() ?? DynamoSecondaryIndexProjectionType.All);
     }
 
@@ -200,12 +214,18 @@ public sealed class DynamoModelRuntimeInitializer(ModelRuntimeInitializerDepende
             throw new InvalidOperationException(
                 $"Local secondary index '{indexName}' on entity type '{index.DeclaringEntityType.DisplayName()}' must define exactly one alternate sort-key property.");
 
+        var sortKeyProperty = DynamoSecondaryIndexProperties.AsScalar(
+            index.DeclaringEntityType.DisplayName(),
+            indexName,
+            index.Properties[0],
+            "local secondary index sort key");
+
         return new DynamoIndexDescriptor(
             indexName,
             DynamoIndexSourceKind.LocalSecondaryIndex,
             index,
             partitionKeyProperty,
-            index.Properties[0],
+            sortKeyProperty,
             index.GetSecondaryIndexProjectionType() ?? DynamoSecondaryIndexProjectionType.All);
     }
 

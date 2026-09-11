@@ -40,17 +40,19 @@ generator unless EF Core can no longer represent a required query shape.
 Run the smallest relevant check first:
 
 ```bash
-task test:aot-generation CONFIG="Debug EF10"
-task test:aot-generation CONFIG="Debug EF11"
-task test:aot-publish
+task test:aot-generation FRAMEWORK=net10.0
+task test:aot-generation FRAMEWORK=net11.0
+task test:aot-publish FRAMEWORK=net10.0
+task test:aot-publish FRAMEWORK=net11.0
 ```
 
 The generation test must compile generated interceptors and cover scalar parameters, collection
-parameters, entity materialization, and a property value converter. The publish test builds the
-native executable, runs it against DynamoDB Local via `scripts/run-nativeaot-smoke.sh`, and
-validates materialization of the seeded items. Publish/run smoke validation is EF10-only
-(`Release EF10`); EF11 currently has interceptor-generation coverage only, pending the upstream
-EF Core Tasks precompilation blocker (see `testapps/EntityFrameworkCore.DynamoDb.NativeAotSmoke/AGENTS.md`).
+parameters, entity materialization, and a property value converter. The publish test generates a
+physical `TargetFrameworkOverride.props` (see `scripts/write-target-framework-override.sh`),
+builds the native executable, runs it against DynamoDB Local via
+`scripts/run-nativeaot-smoke.sh`, validates materialization of the seeded items, and clears the
+override afterward. Publish/run smoke validation is CI-gated for **both** EF10 and EF11 (see
+`testapps/EntityFrameworkCore.DynamoDb.NativeAotSmoke/AGENTS.md`).
 
 Before completion, also run:
 

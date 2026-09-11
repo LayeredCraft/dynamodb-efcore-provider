@@ -596,7 +596,16 @@ public class SecondaryIndexMetadataTests
             _ = context.Model;
         };
 
-        act.Should().Throw<InvalidOperationException>().WithMessage("*same name already exists*");
+        // EF Core's own duplicate-index-name message wording changed between EF10 ("...with the
+        // same name already exists...") and EF11 ("...has already been defined on different
+        // properties or with different complex-collection indices...", reflecting EF11's added
+        // complex-collection index support). This asserts the shared, version-stable substance —
+        // EF rejects the duplicate name and names the conflicting index — rather than either
+        // version's exact wording.
+        act.Should()
+            .Throw<InvalidOperationException>()
+            .Where(ex => ex.Message.Contains("ByLookup", StringComparison.Ordinal)
+                && ex.Message.Contains("already", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]

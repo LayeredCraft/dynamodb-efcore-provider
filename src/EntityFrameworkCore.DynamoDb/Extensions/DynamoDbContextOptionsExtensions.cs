@@ -1,6 +1,7 @@
 using EntityFrameworkCore.DynamoDb.Diagnostics;
 using EntityFrameworkCore.DynamoDb.Infrastructure;
 using EntityFrameworkCore.DynamoDb.Infrastructure.Internal;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace Microsoft.EntityFrameworkCore;
@@ -75,6 +76,19 @@ public static class DynamoDbContextOptionsExtensions
             coreOptionsExtension.WarningsConfiguration.TryWithExplicit(
                 DynamoEventId.ScanLikeQueryDetected,
                 WarningBehavior.Throw));
+
+#if NET11_0
+        // The provider's discriminator shadow property is deliberately named "$type" (a
+        // documented, wire-format-significant convention predating this warning; renaming it
+        // would be a breaking change to existing tables). EF Core 11 added
+        // ShadowPropertyNameNotValidIdentifierWarning as part of its NativeAOT compiled-model
+        // work (shadow property names become generated-code identifiers), which otherwise flags
+        // this expected, intentional shape on every model that uses a discriminator.
+        coreOptionsExtension = coreOptionsExtension.WithWarningsConfiguration(
+            coreOptionsExtension.WarningsConfiguration.TryWithExplicit(
+                CoreEventId.ShadowPropertyNameNotValidIdentifierWarning,
+                WarningBehavior.Ignore));
+#endif
 
         ((IDbContextOptionsBuilderInfrastructure)optionsBuilder).AddOrUpdateExtension(
             coreOptionsExtension);
