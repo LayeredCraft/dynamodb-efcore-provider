@@ -299,7 +299,8 @@ var allPageNames = page1.Concat(page2).Concat(page3).ToList();
 var expectedPageNames = new[] { "Page1", "Page2", "Page3", "Page4", "Page5" };
 if (allPageNames.Count != expectedPageNames.Length
     || allPageNames.Distinct().Count() != expectedPageNames.Length
-    || !allPageNames.OrderBy(name => name, StringComparer.Ordinal)
+    || !allPageNames
+        .OrderBy(name => name, StringComparer.Ordinal)
         .SequenceEqual(expectedPageNames.OrderBy(name => name, StringComparer.Ordinal)))
     throw new InvalidOperationException(
         "Expected pagination across three pages to cover all five items exactly once without "
@@ -624,7 +625,8 @@ internal static class SmokeQueries
         var response = await client.ExecuteStatementAsync(
             new ExecuteStatementRequest
             {
-                Statement = $"SELECT \"pk\", \"sk\" FROM \"{SmokeContext.TableName}\" WHERE \"pk\" = ?",
+                Statement =
+                    $"SELECT \"pk\", \"sk\" FROM \"{SmokeContext.TableName}\" WHERE \"pk\" = ?",
                 Parameters = [new AttributeValue { S = partitionKey }],
                 Limit = pageSize,
                 NextToken = seedToken
@@ -654,6 +656,17 @@ internal static class SmokeQueries
             .Where(item => item.Pk == partitionKey && item.Sk == sortKey)
             .ExecuteUpdateAsync(setters
                 => setters.SetProperty(item => item.Count, item => item.Count + 43));
+    }
+
+    internal static async Task<int> ExecuteDeleteAsync()
+    {
+        await using var context = new SmokeContext();
+        string partitionKey = "tenant-null";
+        string sortKey = "sk-null";
+        return await context
+            .Items
+            .Where(item => item.Pk == partitionKey && item.Sk == sortKey)
+            .ExecuteDeleteAsync();
     }
 }
 
