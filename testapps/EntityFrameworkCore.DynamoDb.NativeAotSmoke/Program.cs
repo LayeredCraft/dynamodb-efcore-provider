@@ -215,11 +215,36 @@ Console.WriteLine("NativeAOT null-propagation query executed successfully.");
 // partition-key query below would evaluate and return all four. Asserting exactly 2 proves the
 // DynamoDB evaluation budget was genuinely applied by the precompiled interceptor, not merely
 // that the result set happened to be small.
-var limitedItems = await SmokeQueries.LoadLimitedItemsAsync();
+var (limitedItems, limitedItemsResponseNextToken) = await SmokeQueries.LoadLimitedItemsAsync();
 if (limitedItems.Count != 2)
     throw new InvalidOperationException(
         $"Expected Limit(2) to cap evaluated items at 2 but received {limitedItems.Count}.");
 Console.WriteLine("NativeAOT Limit(n) evaluation-budget query executed successfully.");
+
+// EntityEntry.GetExecuteStatementResponse() is the provider's existing, already-documented way
+// to retrieve a page's ExecuteStatementResponse (including NextToken) for a tracked, non-empty
+// query result WITHOUT ToPageAsync (see docs/querying/pagination.md). This proves it also works
+// for a precompiled query executed by a NativeAOT-published binary: it is not merely non-null,
+// its logical continuation position is compared against the real continuation key DynamoDB
+// produces for the exact same (table, partition, Limit) request, obtained independently via a
+// raw AWS SDK call. DynamoDB Local's opaque NextToken embeds a per-request generation timestamp
+// even for two tokens representing the identical logical position, so the two opaque token
+// strings are compared by decoded continuation key, not raw byte equality.
+if (limitedItemsResponseNextToken is null)
+    throw new InvalidOperationException(
+        "Expected GetExecuteStatementResponse() to expose a non-null NextToken for a tracked, "
+        + "non-empty Limit(...) result under a precompiled NativeAOT query.");
+var expectedLimitedNextToken = await SmokeQueries.BootstrapNextTokenAsync("tenant-limit", 2, null);
+var expectedContinuationKey = ExtractDynamoDbLocalContinuationKey(expectedLimitedNextToken);
+var actualContinuationKey = ExtractDynamoDbLocalContinuationKey(limitedItemsResponseNextToken);
+if (expectedContinuationKey != actualContinuationKey)
+    throw new InvalidOperationException(
+        $"Expected GetExecuteStatementResponse().NextToken's continuation key "
+        + $"('{actualContinuationKey}') to match the real page continuation key "
+        + $"('{expectedContinuationKey}').");
+Console.WriteLine(
+    "NativeAOT tracked-entity GetExecuteStatementResponse().NextToken matched the real page "
+    + "continuation token successfully.");
 
 // Realistic pagination composition across three real pages: `Limit(pageSize).WithNextToken
 // (nextToken).ToListAsync()` is invoked with different runtime pageSize/nextToken values per
@@ -330,6 +355,22 @@ static void AssertSingleItem(List<SmokeItem> items, SmokeItem expected)
         || !actual.Payload.SequenceEqual(expected.Payload)
         || !actual.Aliases.SequenceEqual(expected.Aliases))
         throw new InvalidOperationException("The generated query returned an unexpected result.");
+}
+
+// DynamoDB Local's opaque NextToken is a base64-encoded JSON blob with a per-request generation
+// "creationTime" timestamp, so two tokens representing the identical logical continuation
+// position are not byte-identical. This extracts just the "opIndexToExclusiveNextKey" (the
+// actual continuation key) for a semantically meaningful comparison. Test-only: this format is
+// specific to the DynamoDB Local emulator this smoke app always runs against, not a provider or
+// AWS-documented contract.
+static string? ExtractDynamoDbLocalContinuationKey(string? token)
+{
+    if (token is null)
+        return null;
+
+    var json = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(token));
+    using var document = System.Text.Json.JsonDocument.Parse(json);
+    return document.RootElement.GetProperty("opIndexToExclusiveNextKey").GetRawText();
 }
 
 public sealed class SmokeContext : DbContext
@@ -497,15 +538,27 @@ internal static class SmokeQueries
             .ToListAsync();
     }
 
-    internal static async Task<List<SmokeItem>> LoadLimitedItemsAsync()
+    // Returns the tracked entities alongside the page's ExecuteStatementResponse.NextToken as
+    // exposed through EntityEntry.GetExecuteStatementResponse() — the provider's existing,
+    // already-documented (docs/querying/pagination.md) way to retrieve a page's continuation
+    // token for a tracked, non-empty result without ToPageAsync. The context (and its tracked
+    // entries) must stay open until GetExecuteStatementResponse() is called.
+    internal static async Task<(List<SmokeItem> Items, string? ResponseNextToken)>
+        LoadLimitedItemsAsync()
     {
         await using var context = new SmokeContext();
         string partitionKey = "tenant-limit";
-        return await context
+        var items = await context
             .Items
             .Where(item => item.Pk == partitionKey)
             .Limit(2)
             .ToListAsync();
+
+        var responseNextToken = items.Count > 0
+            ? context.Entry(items[0]).GetExecuteStatementResponse()?.NextToken
+            : null;
+
+        return (items, responseNextToken);
     }
 
     internal static async Task<List<string>> LoadFirstPageAsync(int pageSizeArg)
@@ -551,7 +604,13 @@ internal static class SmokeQueries
     // is a function of table, key condition, Limit, and ExclusiveStartKey — not of the PartiQL
     // projection list — so this key-only statement produces the same continuation position as the
     // precompiled query under test.
-    internal static async Task<string?> BootstrapNextTokenAsync(int pageSize, string? seedToken)
+    internal static Task<string?> BootstrapNextTokenAsync(int pageSize, string? seedToken)
+        => BootstrapNextTokenAsync(PagePartitionKey, pageSize, seedToken);
+
+    internal static async Task<string?> BootstrapNextTokenAsync(
+        string partitionKey,
+        int pageSize,
+        string? seedToken)
     {
         var serviceUrl = Environment.GetEnvironmentVariable("DYNAMO_AOT_SMOKE_URL")
             ?? throw new InvalidOperationException("DYNAMO_AOT_SMOKE_URL is required.");
@@ -566,7 +625,7 @@ internal static class SmokeQueries
             new ExecuteStatementRequest
             {
                 Statement = $"SELECT \"pk\", \"sk\" FROM \"{SmokeContext.TableName}\" WHERE \"pk\" = ?",
-                Parameters = [new AttributeValue { S = PagePartitionKey }],
+                Parameters = [new AttributeValue { S = partitionKey }],
                 Limit = pageSize,
                 NextToken = seedToken
             });

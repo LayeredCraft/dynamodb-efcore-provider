@@ -111,9 +111,12 @@ for local arrays, which EF Core's query precompiler cannot currently translate.
     `ToPageAsync` currently have no way to participate in that discovery, so the call is silently
     skipped (no generated interceptor, no build-time error). `Limit(pageSize).WithNextToken
     (nextToken).ToListAsync()` — a recognized EF terminal — precompiles and NativeAOT-executes
-    correctly, proving the underlying pagination mechanics work; it *resumes* a page from an
-    already-known token, but `ToPageAsync(...)` remains the only API that returns both a page's
-    items and its `NextToken`. Tracked upstream:
+    correctly, proving the underlying pagination mechanics work. For a **tracked, non-empty**
+    result, this is enough for full pagination: the page's `NextToken` is available via
+    `EntityEntry.GetExecuteStatementResponse()` (see [Pagination](pagination.md#accessing-the-raw-response-token)),
+    verified under a precompiled NativeAOT query in this provider's own smoke tests.
+    `ToPageAsync(...)` is still required when there is no tracked entity to read the token from —
+    **projections**, **no-tracking queries**, and **empty pages**. Tracked upstream:
     [dotnet/efcore#38962](https://github.com/dotnet/efcore/issues/38962). See
     [Limitations](../limitations.md).
 - EF Core's precompiler currently rejects nullable-coalescing projections before provider

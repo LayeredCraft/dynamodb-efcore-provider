@@ -60,8 +60,11 @@ provider's normal pipeline outside NativeAOT, but EF Core's precompiler discover
 through a closed, internal mechanism with no registration point for provider-defined terminal
 methods, so the call is silently skipped. `Limit(...).WithNextToken(...).ToListAsync()` — a
 recognized EF terminal — precompiles and executes correctly under NativeAOT, proving the pagination
-mechanics work, but it resumes a page from an already-known token rather than producing one; that
-still requires `ToPageAsync(...)`. Tracked upstream:
+mechanics work. For a tracked, non-empty result this is enough for full pagination:
+`EntityEntry.GetExecuteStatementResponse()` exposes the page's `NextToken` (see
+[Pagination](querying/pagination.md#accessing-the-raw-response-token)), verified against a
+precompiled NativeAOT query. `ToPageAsync(...)` remains necessary for projections, no-tracking
+queries, and empty pages, where there is no tracked entity to read the token from. Tracked upstream:
 [dotnet/efcore#38962](https://github.com/dotnet/efcore/issues/38962). See [Precompiled Queries and
 NativeAOT](querying/precompiled-queries.md#restrictions) for details.
 
