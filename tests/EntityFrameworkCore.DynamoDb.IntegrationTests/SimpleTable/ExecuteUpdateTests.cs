@@ -33,6 +33,17 @@ public class ExecuteUpdateTests(DynamoContainerFixture fixture) : SimpleTableTes
         (await Db.SimpleItems.FindAsync(["ITEM#1"], CancellationToken))!
             .Should()
             .BeEquivalentTo(expected);
+
+        // Tests share the class-seeded table with no per-test reset; restore the seeded values
+        // so test execution order does not affect later assertions.
+        await Db
+            .SimpleItems
+            .Where(item => item.Pk == "ITEM#1")
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(item => item.StringValue, "alpha")
+                    .SetProperty(item => item.IntValue, 100),
+                CancellationToken);
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
@@ -65,6 +76,13 @@ public class ExecuteUpdateTests(DynamoContainerFixture fixture) : SimpleTableTes
             SET "intValue" = "intValue" + 50
             WHERE "pk" = 'ITEM#1'
             """);
+
+        await Db
+            .SimpleItems
+            .Where(item => item.Pk == "ITEM#1")
+            .ExecuteUpdateAsync(
+                setters => setters.SetProperty(item => item.IntValue, 100),
+                CancellationToken);
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
@@ -97,6 +115,13 @@ public class ExecuteUpdateTests(DynamoContainerFixture fixture) : SimpleTableTes
             SET "intValue" = "intValue" - 25
             WHERE "pk" = 'ITEM#2'
             """);
+
+        await Db
+            .SimpleItems
+            .Where(item => item.Pk == "ITEM#2")
+            .ExecuteUpdateAsync(
+                setters => setters.SetProperty(item => item.IntValue, 200000),
+                CancellationToken);
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
@@ -132,5 +157,12 @@ public class ExecuteUpdateTests(DynamoContainerFixture fixture) : SimpleTableTes
             SET "intValue" = "intValue" + ?
             WHERE "pk" = 'ITEM#3'
             """);
+
+        await Db
+            .SimpleItems
+            .Where(item => item.Pk == "ITEM#3")
+            .ExecuteUpdateAsync(
+                setters => setters.SetProperty(item => item.IntValue, 987654),
+                CancellationToken);
     }
 }
