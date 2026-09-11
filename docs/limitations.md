@@ -395,8 +395,9 @@ properties.
 ### EF Core Bulk Operations
 
 `ExecuteUpdateAsync()` is supported as a single-item, key-targeted update: the WHERE clause must
-equality-constrain the full primary key, the result is `0` or `1`, and numeric self-referencing
-arithmetic is limited to addition and subtraction. See
+equality-constrain the full primary key, the result is `1` on success and `0` when the target
+item is missing (verified on DynamoDB Local; the real service may report `1` for a non-matching
+update), and numeric self-referencing arithmetic is limited to addition and subtraction. See
 [ExecuteUpdateAsync](saving/add-update-delete.md#executeupdateasync) for the full behavior
 contract.
 

@@ -268,6 +268,56 @@ public class ExecuteUpdateTranslationTests
         InnermostMessage(exception).Should().Contain("cannot set key property");
     }
 
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task ExecuteUpdateAsync_WithDottedAttributeName_Throws()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        await using var context = DottedAttributeDbContext.Create(client);
+
+        var exception = await Record.ExceptionAsync(() => context
+            .Items
+            .Where(i => i.Pk == "pk1" && i.Sk == "sk1")
+            .ExecuteUpdateAsync(
+                s => s.SetProperty(i => i.Name, "updated"),
+                TestContext.Current.CancellationToken));
+
+        InnermostMessage(exception).Should().Contain("'na.me'").And.Contain("contains a dot");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task ExecuteUpdateAsync_WithComplexRootedAttributeValue_Throws()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        await using var context = ExecuteUpdateDbContext.Create(client);
+
+        var exception = await Record.ExceptionAsync(() => context
+            .Items
+            .Where(i => i.Pk == "pk1" && i.Sk == "sk1")
+            .ExecuteUpdateAsync(
+                s => s.SetProperty(i => i.Profile.City, i => i.Profile.OtherCity),
+                TestContext.Current.CancellationToken));
+
+        InnermostMessage(exception).Should().Contain("Attribute-to-attribute assignment");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task ExecuteUpdateAsync_WithComplexRootedSelfReferenceOnConvertedProperty_Throws()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        await using var context = ExecuteUpdateDbContext.Create(client);
+
+        var exception = await Record.ExceptionAsync(() => context
+            .Items
+            .Where(i => i.Pk == "pk1" && i.Sk == "sk1")
+            .ExecuteUpdateAsync(
+                s => s.SetProperty(
+                    i => i.Profile.ConvertedVisits,
+                    i => i.Profile.ConvertedVisits + 1),
+                TestContext.Current.CancellationToken));
+
+        InnermostMessage(exception).Should().Contain("value converter");
+    }
+
     /// <summary>Unwraps nested exception wrappers down to the innermost non-empty message.</summary>
     private static string InnermostMessage(Exception? exception)
     {
@@ -291,6 +341,17 @@ public class ExecuteUpdateTranslationTests
         public int Count { get; set; }
 
         public int Converted { get; set; }
+
+        public ProfileShape Profile { get; set; } = null!;
+    }
+
+    private sealed record ProfileShape
+    {
+        public string City { get; set; } = null!;
+
+        public string OtherCity { get; set; } = null!;
+
+        public int ConvertedVisits { get; set; }
     }
 
     private sealed class ExecuteUpdateDbContext(DbContextOptions options) : DbContext(options)
@@ -304,11 +365,43 @@ public class ExecuteUpdateTranslationTests
                 builder.HasPartitionKey(x => x.Pk);
                 builder.HasSortKey(x => x.Sk);
                 builder.Property(x => x.Converted).HasConversion(v => v + 100, v => v - 100);
+                builder
+                    .ComplexProperty(x => x.Profile)
+                    .Property(x => x.ConvertedVisits)
+                    .HasConversion(v => v + 100, v => v - 100);
             });
 
         public static ExecuteUpdateDbContext Create(IAmazonDynamoDB client)
             => new(
                 new DbContextOptionsBuilder<ExecuteUpdateDbContext>()
+                    .UseDynamo(options => options.DynamoDbClient(client))
+                    .ConfigureWarnings(w
+                        => w
+                            .Ignore(CoreEventId.ManyServiceProvidersCreatedWarning)
+                            .Ignore(DynamoEventId.ScanLikeQueryDetected))
+                    .Options);
+    }
+
+    /// <summary>
+    ///     Separate context so the dotted attribute name lands in its own cached model instead of
+    ///     mutating the shared ExecuteUpdateDbContext model.
+    /// </summary>
+    private sealed class DottedAttributeDbContext(DbContextOptions options) : DbContext(options)
+    {
+        public DbSet<ExecuteUpdateEntity> Items => Set<ExecuteUpdateEntity>();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+            => modelBuilder.Entity<ExecuteUpdateEntity>(builder =>
+            {
+                builder.ToTable("ExecuteUpdateTestsTable");
+                builder.HasPartitionKey(x => x.Pk);
+                builder.HasSortKey(x => x.Sk);
+                builder.Property(x => x.Name).HasAttributeName("na.me");
+            });
+
+        public static DottedAttributeDbContext Create(IAmazonDynamoDB client)
+            => new(
+                new DbContextOptionsBuilder<DottedAttributeDbContext>()
                     .UseDynamo(options => options.DynamoDbClient(client))
                     .ConfigureWarnings(w
                         => w

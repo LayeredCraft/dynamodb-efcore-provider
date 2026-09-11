@@ -257,7 +257,9 @@ public class DynamoClientWrapper : IDynamoClientWrapper, IDisposable
                 catch (ConditionalCheckFailedException)
                 {
                     // A key-targeted UPDATE whose WHERE clause matches no item fails the implicit
-                    // condition; report 0 affected items instead of surfacing a concurrency error.
+                    // condition on DynamoDB Local; report 0 affected items instead of surfacing a
+                    // concurrency error. The real service may complete a non-matching update
+                    // silently and report 1 instead.
                     return 0;
                 }
             },

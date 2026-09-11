@@ -206,9 +206,11 @@ Key behaviors:
     the entity has a sort key. Filters on other attributes are allowed as additional predicates.
     Queries without key equality (or with `IN`, range comparisons, or OR touching a key) throw at
     translation time.
-- **The result is 0 or 1.** DynamoDB raises a condition failure when a key-targeted `UPDATE`
-    matches no item; the provider maps that to `0` instead of throwing. A successful update
-    returns `1`. There is no multi-row count.
+- **The result is 0 or 1.** A successful update returns `1`. When a key-targeted `UPDATE`
+    matches no item, DynamoDB Local raises a condition failure and the provider maps that to `0`
+    instead of throwing. This behavior is verified against DynamoDB Local; the real service may
+    differ — a non-matching key-targeted `UPDATE` can complete silently, in which case the
+    affected count is `1`. There is no multi-row count.
 - **Nothing touches the change tracker.** Tracked entities are not read or updated. If the
     tracked instance is still in scope, re-query it to observe the new values.
 - **No implicit transaction.** The update is a single statement, so no transaction wrapper is

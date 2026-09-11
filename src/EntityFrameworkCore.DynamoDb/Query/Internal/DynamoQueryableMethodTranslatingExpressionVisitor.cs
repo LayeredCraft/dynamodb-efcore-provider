@@ -1189,8 +1189,9 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
         {
             Dictionary<ParameterExpression, IEntityType> parameterEntityTypes = [];
             foreach (var parameter in valueLambda.Parameters)
-                if (parameter.Type.IsAssignableFrom(entityType.ClrType)
-                    || entityType.ClrType.IsAssignableFrom(parameter.Type))
+                // Only bind parameters whose type can actually receive an entity instance;
+                // two-way assignability would bind unrelated types such as object.
+                if (parameter.Type.IsAssignableFrom(entityType.ClrType))
                     parameterEntityTypes[parameter] = entityType;
 
             value = _sqlTranslator.Translate(
@@ -1245,6 +1246,16 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
         IReadOnlyProperty? leafProperty = null;
         var pathSegments = new List<string>(segments.Count);
 
+        // AppendAttributePath quotes each dot-separated path segment, so a mapped attribute name
+        // containing a literal dot would silently target a different nested path.
+        static string ValidateSegmentName(string attributeName)
+            => attributeName.Contains('.')
+                ? throw new InvalidOperationException(
+                    DynamoStrings.ExecuteUpdateInvalidSetter(
+                        $"Attribute name '{attributeName}' contains a dot, which is ambiguous "
+                        + "on ExecuteUpdate setter paths."))
+                : attributeName;
+
         for (var i = segments.Count - 1; i >= 0; i--)
         {
             var member = segments[i];
@@ -1259,7 +1270,7 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
                             + $"'{currentType.DisplayName()}'; only scalar and complex-property "
                             + "member paths are supported."));
 
-                pathSegments.Add(complexProperty.GetAttributeName());
+                pathSegments.Add(ValidateSegmentName(complexProperty.GetAttributeName()));
                 currentType = complexProperty.ComplexType;
             }
             else
@@ -1272,7 +1283,7 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
                             + "navigations cannot be set with ExecuteUpdate."));
 
                 leafProperty = resolved;
-                pathSegments.Add(leafProperty.GetAttributeName());
+                pathSegments.Add(ValidateSegmentName(leafProperty.GetAttributeName()));
             }
         }
 
@@ -1423,8 +1434,8 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
     }
 
     /// <summary>
-    ///     Resolves the full dotted attribute path of a scalar-access chain (root property plus
-    ///     nested segments).
+    ///     Resolves the full dotted attribute path of a scalar-access chain rooted at either a
+    ///     top-level scalar property or a complex-property access (nested member chains).
     /// </summary>
     private static bool TryResolveAttributePath(
         DynamoScalarAccessExpression scalarAccess,
@@ -1443,6 +1454,13 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
         if (lastAccess?.Parent is SqlPropertyExpression root)
         {
             attributePath = string.Join(".", [root.PropertyName, .. segments]);
+            return true;
+        }
+
+        // Chains produced by TranslateNestedMemberChain root at a complex-property access.
+        if (lastAccess?.Parent is DynamoComplexPropertyAccessExpression complexRoot)
+        {
+            attributePath = string.Join(".", [complexRoot.AttributeName, .. segments]);
             return true;
         }
 
