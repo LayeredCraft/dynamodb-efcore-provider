@@ -2,6 +2,8 @@ using System.Linq.Expressions;
 using System.Reflection;
 using EntityFrameworkCore.DynamoDb.Extensions;
 using EntityFrameworkCore.DynamoDb.Infrastructure;
+using EntityFrameworkCore.DynamoDb.Metadata;
+using EntityFrameworkCore.DynamoDb.Metadata.Internal;
 using EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
@@ -1020,6 +1022,426 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
         selectExpression.ApplyPredicate(translation);
         return source;
     }
+
+    /// <summary>Translates an <c>ExecuteUpdate</c> call into a provider update expression.</summary>
+    /// <remarks>
+    ///     Validates the base-table key-complete singleton shape and parses/validates setters.
+    ///     Index-targeted sources and synchronous execution are rejected; extra non-key predicates
+    ///     are allowed because PartiQL supports them.
+    /// </remarks>
+    protected override Expression TranslateExecuteUpdate(
+        ShapedQueryExpression source,
+        IReadOnlyList<ExecuteUpdateSetter> setters)
+    {
+        if (!QueryCompilationContext.IsAsync)
+            throw new NotSupportedException(DynamoStrings.ExecuteUpdateSyncNotSupported);
+
+        if (source.ShaperExpression is not StructuralTypeShaperExpression
+            {
+                StructuralType: IEntityType entityType
+            })
+            throw new InvalidOperationException(DynamoStrings.ExecuteUpdateInvalidSource);
+
+        var selectExpression = (SelectExpression)source.QueryExpression;
+        var compilationContext = (DynamoQueryCompilationContext)QueryCompilationContext;
+
+        if (selectExpression.IndexName is { } appliedIndex)
+            throw new InvalidOperationException(
+                DynamoStrings.ExecuteUpdateOnIndexNotSupported(appliedIndex));
+
+        if (compilationContext.ExplicitIndexName is { } explicitIndex)
+            throw new InvalidOperationException(
+                DynamoStrings.ExecuteUpdateOnIndexNotSupported(explicitIndex));
+
+        // Finalize the deferred discriminator predicate so the WHERE tree is complete for
+        // validation here and for PartiQL generation later.
+        selectExpression.ApplyDeferredDiscriminatorPredicate();
+
+        var keyEntityType = entityType.ResolveKeyMappedEntityType();
+        var partitionKeyProperty = keyEntityType.GetPartitionKeyProperty()
+            ?? throw new InvalidOperationException(
+                $"Entity type '{entityType.DisplayName()}' does not define a partition key.");
+        var sortKeyProperty = keyEntityType.GetSortKeyProperty();
+
+        ValidateUpdateWhereClause(selectExpression, partitionKeyProperty, sortKeyProperty);
+
+        var updateSetters = new List<DynamoUpdateSetter>(setters.Count);
+        foreach (var setter in setters)
+            updateSetters.Add(
+                TranslateUpdateSetter(
+                    setter,
+                    entityType,
+                    partitionKeyProperty,
+                    sortKeyProperty,
+                    updateSetters));
+
+        return new DynamoUpdateExpression(selectExpression, entityType, updateSetters);
+    }
+
+    /// <summary>
+    ///     Validates that the WHERE clause equality-constrains the full primary key and contains
+    ///     no rejected key shapes (IN, ranges, or OR touching keys). Reuses the query-path
+    ///     constraint extractor with a synthetic base-table descriptor.
+    /// </summary>
+    private static void ValidateUpdateWhereClause(
+        SelectExpression selectExpression,
+        IReadOnlyProperty partitionKeyProperty,
+        IReadOnlyProperty? sortKeyProperty)
+    {
+        var constraints = new DynamoConstraintExtractionVisitor(
+        [
+            new DynamoIndexDescriptor(
+                IndexName: null,
+                Kind: DynamoIndexSourceKind.Table,
+                ModelIndex: null,
+                PartitionKeyProperty: partitionKeyProperty,
+                SortKeyProperty: sortKeyProperty,
+                ProjectionType: DynamoSecondaryIndexProjectionType.All)
+        ]).Extract(selectExpression);
+
+        var partitionKeyAttributeName = partitionKeyProperty.GetAttributeName();
+
+        if (constraints.InConstraints.ContainsKey(partitionKeyAttributeName))
+            throw new InvalidOperationException(
+                DynamoStrings.ExecuteUpdateInvalidKeyPredicate(
+                    "The partition key cannot be constrained with IN; ExecuteUpdate targets a "
+                    + "single item."));
+
+        if (!constraints.EqualityConstraints.ContainsKey(partitionKeyAttributeName))
+            throw new InvalidOperationException(
+                DynamoStrings.ExecuteUpdateRequiresKeyEquality("partition key"));
+
+        var sortKeyAttributeName = sortKeyProperty?.GetAttributeName();
+        if (sortKeyAttributeName is not null)
+        {
+            if (constraints.SkKeyConditions.TryGetValue(sortKeyAttributeName, out var condition)
+                && condition.Operator != SkOperator.Equal)
+                throw new InvalidOperationException(
+                    DynamoStrings.ExecuteUpdateInvalidKeyPredicate(
+                        "The sort key must be equality-constrained; range operators and "
+                        + "begins_with are not supported."));
+
+            if (!constraints.SkKeyConditions.ContainsKey(sortKeyAttributeName))
+                throw new InvalidOperationException(
+                    DynamoStrings.ExecuteUpdateRequiresKeyEquality(
+                        "sort key (range operators, IN, and OR on the sort key are not "
+                        + "supported)"));
+        }
+
+        if (selectExpression.Predicate is not null
+            && DynamoPredicateAnalysis.PredicateHasOrTouchingKey(
+                selectExpression.Predicate,
+                partitionKeyAttributeName,
+                sortKeyAttributeName))
+            throw new InvalidOperationException(
+                DynamoStrings.ExecuteUpdateInvalidKeyPredicate(
+                    "OR predicates must not reference key attributes."));
+    }
+
+    /// <summary>Parses and validates a single ExecuteUpdate setter.</summary>
+    private DynamoUpdateSetter TranslateUpdateSetter(
+        ExecuteUpdateSetter setter,
+        IEntityType entityType,
+        IReadOnlyProperty partitionKeyProperty,
+        IReadOnlyProperty? sortKeyProperty,
+        IReadOnlyList<DynamoUpdateSetter> existingSetters)
+    {
+        var (property, attributePath) = ResolveSetterTarget(setter.PropertySelector, entityType);
+
+        if (existingSetters.Any(s
+            => string.Equals(s.AttributeNamePath, attributePath, StringComparison.Ordinal)))
+            throw new InvalidOperationException(
+                DynamoStrings.ExecuteUpdateDuplicateSetter(attributePath));
+
+        if (property.IsPrimaryKey()
+            || ReferenceEquals(property, partitionKeyProperty)
+            || (sortKeyProperty is not null && ReferenceEquals(property, sortKeyProperty)))
+            throw new InvalidOperationException(
+                DynamoStrings.ExecuteUpdateKeyMutation(property.Name));
+
+        SqlExpression? value;
+        if (setter.ValueExpression is LambdaExpression valueLambda)
+        {
+            Dictionary<ParameterExpression, IEntityType> parameterEntityTypes = [];
+            foreach (var parameter in valueLambda.Parameters)
+                if (parameter.Type.IsAssignableFrom(entityType.ClrType)
+                    || entityType.ClrType.IsAssignableFrom(parameter.Type))
+                    parameterEntityTypes[parameter] = entityType;
+
+            value = _sqlTranslator.Translate(
+                valueLambda.Body,
+                parameterEntityTypes.Count > 0 ? parameterEntityTypes : null);
+        }
+        else
+        {
+            value = _sqlTranslator.Translate(setter.ValueExpression);
+        }
+
+        if (value is null
+            || ReferenceEquals(value, QueryCompilationContext.NotTranslatedExpression))
+            throw new InvalidOperationException(
+                DynamoStrings.ExecuteUpdateInvalidSetter(
+                    "The value expression could not be translated."
+                    + (_sqlTranslator.TranslationErrorDetails is { } details
+                        ? $" {details}"
+                        : string.Empty)));
+
+        var isSelfReferencing = ValidateSetterValue(value, property, attributePath);
+
+        return new DynamoUpdateSetter(property, attributePath, value, isSelfReferencing);
+    }
+
+    /// <summary>
+    ///     Resolves the setter property selector to a scalar property and its dotted DynamoDB
+    ///     attribute path. Only direct member paths over the entity parameter are supported:
+    ///     intermediate members must be complex properties, the leaf must be a scalar property.
+    /// </summary>
+    private static (IProperty Property, string AttributePath) ResolveSetterTarget(
+        LambdaExpression propertySelector,
+        IEntityType entityType)
+    {
+        var segments = new List<MemberInfo>();
+        var body = propertySelector.Body;
+        while (body is MemberExpression member)
+        {
+            segments.Add(member.Member);
+            body = member.Expression!;
+        }
+
+        if (segments.Count == 0 || body != propertySelector.Parameters[0])
+            throw new InvalidOperationException(
+                DynamoStrings.ExecuteUpdateInvalidSetter(
+                    $"The property selector '{propertySelector}' must be a member path over the "
+                    + "entity parameter (for example e => e.Property or e => e.Complex.Property)."));
+
+        // Segments are leaf-first; walk root-to-leaf resolving complex properties and the leaf
+        // scalar property.
+        var currentType = (IReadOnlyTypeBase)entityType;
+        IReadOnlyProperty? leafProperty = null;
+        var pathSegments = new List<string>(segments.Count);
+
+        for (var i = segments.Count - 1; i >= 0; i--)
+        {
+            var member = segments[i];
+
+            if (i > 0)
+            {
+                if (currentType.FindComplexProperty(member) is not IReadOnlyComplexProperty
+                    complexProperty)
+                    throw new InvalidOperationException(
+                        DynamoStrings.ExecuteUpdateInvalidSetter(
+                            $"Member '{member.Name}' is not a complex property of "
+                            + $"'{currentType.DisplayName()}'; only scalar and complex-property "
+                            + "member paths are supported."));
+
+                pathSegments.Add(complexProperty.GetAttributeName());
+                currentType = complexProperty.ComplexType;
+            }
+            else
+            {
+                if (currentType.FindProperty(member) is not IReadOnlyProperty resolved)
+                    throw new InvalidOperationException(
+                        DynamoStrings.ExecuteUpdateInvalidSetter(
+                            $"Member '{member.Name}' is not a mapped scalar property of "
+                            + $"'{currentType.DisplayName()}'. Whole complex properties and "
+                            + "navigations cannot be set with ExecuteUpdate."));
+
+                leafProperty = resolved;
+                pathSegments.Add(leafProperty.GetAttributeName());
+            }
+        }
+
+        return ((IProperty)leafProperty!, string.Join(".", pathSegments));
+    }
+
+    /// <summary>
+    ///     Validates the translated setter value and determines self-referencing. Allowed value
+    ///     shapes: constants, parameters, null, direct self-reference, and numeric
+    ///     <c>+</c>/<c>-</c> arithmetic between the target attribute and a constant or
+    ///     parameter. String concatenation, multiplication/division, and attribute-to-attribute
+    ///     assignment are rejected.
+    /// </summary>
+    private static bool ValidateSetterValue(
+        SqlExpression value,
+        IProperty property,
+        string attributePath)
+    {
+        var referencedPaths = new HashSet<string>(StringComparer.Ordinal);
+        CollectReferencedAttributePaths(value, referencedPaths);
+
+        if (referencedPaths.Count == 0)
+            return false;
+
+        var otherPath = referencedPaths.FirstOrDefault(p
+            => !string.Equals(p, attributePath, StringComparison.Ordinal));
+        if (otherPath is not null)
+            throw new InvalidOperationException(
+                DynamoStrings.ExecuteUpdateUnsupportedValueShape(
+                    $"Attribute-to-attribute assignment ('{otherPath}' -> '{attributePath}') is "
+                    + "not supported; use a constant, a parameter, or the target property itself."));
+
+        if (value.Type == typeof(string)
+            && value is SqlBinaryExpression { OperatorType: ExpressionType.Add })
+            throw new InvalidOperationException(
+                DynamoStrings.ExecuteUpdateUnsupportedValueShape(
+                    "String concatenation is not supported in SET clauses."));
+
+        if (property.GetTypeMapping()?.Converter is not null)
+            throw new InvalidOperationException(
+                DynamoStrings.ExecuteUpdateUnsupportedValueShape(
+                    $"Self-referencing setters on '{attributePath}' are not supported for "
+                    + "properties with a value converter."));
+
+        if (value is SqlBinaryExpression
+            {
+                OperatorType: ExpressionType.Add or ExpressionType.Subtract
+            } arithmetic
+            && (MatchesAttributePath(arithmetic.Left, attributePath)
+                || MatchesAttributePath(arithmetic.Right, attributePath)))
+        {
+            var otherOperand = MatchesAttributePath(arithmetic.Left, attributePath)
+                ? arithmetic.Right
+                : arithmetic.Left;
+            if (otherOperand is SqlConstantExpression or SqlParameterExpression)
+                return true;
+
+            throw new InvalidOperationException(
+                DynamoStrings.ExecuteUpdateUnsupportedValueShape(
+                    $"Self-referencing arithmetic on '{attributePath}' supports constant or "
+                    + "parameter operands only."));
+        }
+
+        if (MatchesAttributePath(value, attributePath))
+            return true;
+
+        if (value is SqlBinaryExpression { OperatorType: var operatorType } binary
+            && (MatchesAttributePath(binary.Left, attributePath)
+                || MatchesAttributePath(binary.Right, attributePath)))
+            throw new InvalidOperationException(
+                DynamoStrings.ExecuteUpdateUnsupportedValueShape(
+                    $"Self-referencing arithmetic on '{attributePath}' supports only addition "
+                    + $"and subtraction; '{operatorType}' is not supported."));
+
+        throw new InvalidOperationException(
+            DynamoStrings.ExecuteUpdateUnsupportedValueShape(
+                $"The value references '{attributePath}' in an unsupported shape; only direct "
+                + "assignment and + / - arithmetic are supported."));
+    }
+
+    /// <summary>Collects the full attribute paths referenced by a SQL expression tree.</summary>
+    private static void CollectReferencedAttributePaths(
+        Expression expression,
+        HashSet<string> paths)
+    {
+        if (expression is not SqlExpression sql)
+            return;
+
+        switch (sql)
+        {
+            case SqlPropertyExpression property:
+                paths.Add(property.PropertyName);
+                break;
+
+            case DynamoScalarAccessExpression scalarAccess:
+                if (TryResolveAttributePath(scalarAccess, out var scalarPath))
+                    paths.Add(scalarPath);
+                break;
+
+            case DynamoComplexPropertyAccessExpression complexAccess:
+                paths.Add(complexAccess.AttributeName);
+                break;
+
+            case DynamoListIndexExpression listIndex:
+                CollectReferencedAttributePaths(listIndex.Source, paths);
+                break;
+
+            case SqlBinaryExpression binary:
+                CollectReferencedAttributePaths(binary.Left, paths);
+                CollectReferencedAttributePaths(binary.Right, paths);
+                break;
+
+            case SqlUnaryExpression unary:
+                CollectReferencedAttributePaths(unary.Operand, paths);
+                break;
+
+            case SqlIsNullExpression isNull:
+                CollectReferencedAttributePaths(isNull.Operand, paths);
+                break;
+
+            case SqlParenthesizedExpression parenthesized:
+                CollectReferencedAttributePaths(parenthesized.Operand, paths);
+                break;
+
+            case SqlBetweenExpression between:
+                CollectReferencedAttributePaths(between.Subject, paths);
+                CollectReferencedAttributePaths(between.Low, paths);
+                CollectReferencedAttributePaths(between.High, paths);
+                break;
+
+            case SqlFunctionExpression function:
+                foreach (var argument in function.Arguments)
+                    CollectReferencedAttributePaths(argument, paths);
+                break;
+
+            case SqlInExpression inExpression:
+                CollectReferencedAttributePaths(inExpression.Item, paths);
+                if (inExpression.Values is { } values)
+                    foreach (var value in values)
+                        CollectReferencedAttributePaths(value, paths);
+                break;
+
+            case SqlDiscriminatorPredicateExpression:
+            case SqlConstantExpression:
+            case SqlParameterExpression:
+                break;
+        }
+    }
+
+    /// <summary>
+    ///     Resolves the full dotted attribute path of a scalar-access chain (root property plus
+    ///     nested segments).
+    /// </summary>
+    private static bool TryResolveAttributePath(
+        DynamoScalarAccessExpression scalarAccess,
+        out string attributePath)
+    {
+        var segments = new Stack<string>();
+        DynamoScalarAccessExpression? lastAccess = null;
+        var current = scalarAccess;
+        while (current is DynamoScalarAccessExpression access)
+        {
+            segments.Push(access.PropertyName);
+            lastAccess = access;
+            current = access.Parent as DynamoScalarAccessExpression;
+        }
+
+        if (lastAccess?.Parent is SqlPropertyExpression root)
+        {
+            attributePath = string.Join(".", [root.PropertyName, .. segments]);
+            return true;
+        }
+
+        attributePath = string.Empty;
+        return false;
+    }
+
+    /// <summary>Returns <c>true</c> when the expression resolves to the given attribute path.</summary>
+    private static bool MatchesAttributePath(Expression expression, string attributePath)
+        => expression switch
+        {
+            SqlPropertyExpression property => string.Equals(
+                property.PropertyName,
+                attributePath,
+                StringComparison.Ordinal),
+            DynamoScalarAccessExpression scalarAccess => TryResolveAttributePath(
+                    scalarAccess,
+                    out var path)
+                && string.Equals(path, attributePath, StringComparison.Ordinal),
+            SqlParenthesizedExpression parenthesized => MatchesAttributePath(
+                parenthesized.Operand,
+                attributePath),
+            _ => false
+        };
 
     /// <summary>
     /// Translates a lambda expression by translating its body.

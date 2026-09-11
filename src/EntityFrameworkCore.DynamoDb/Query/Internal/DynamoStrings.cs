@@ -196,4 +196,43 @@ internal static class DynamoStrings
         => isPartitionKeyComparison
             ? $"Contains translation exceeded DynamoDB IN limit of {maxValues} values for partition key comparisons."
             : $"Contains translation exceeded DynamoDB IN limit of {maxValues} values for non-key comparisons.";
+
+    /// <summary>Error message for synchronous ExecuteUpdate, which the provider does not support.</summary>
+    public const string ExecuteUpdateSyncNotSupported =
+        "Synchronous ExecuteUpdate is not supported by the DynamoDB provider. Use ExecuteUpdateAsync instead.";
+
+    /// <summary>Error message for ExecuteUpdate over a shaper that is not an entity type.</summary>
+    public const string ExecuteUpdateInvalidSource =
+        "ExecuteUpdate is only supported over entity queries that map to a single DynamoDB table.";
+
+    /// <summary>Formats an error message for ExecuteUpdate over an index-targeted query source.</summary>
+    public static string ExecuteUpdateOnIndexNotSupported(string indexName)
+        => $"ExecuteUpdate cannot target index '{indexName}'. PartiQL UPDATE always operates on the "
+            + "base table; remove .WithIndex(...) from the query.";
+
+    /// <summary>Formats an error message for an ExecuteUpdate WHERE clause missing key equality.</summary>
+    public static string ExecuteUpdateRequiresKeyEquality(string keyDescription)
+        => $"ExecuteUpdate requires the WHERE clause to equality-constrain the {keyDescription}. "
+            + "Add a Where(e => e.<Key> == value) predicate so the updated item is fully identified.";
+
+    /// <summary>Formats an error message for an ExecuteUpdate WHERE clause with a rejected key shape.</summary>
+    public static string ExecuteUpdateInvalidKeyPredicate(string reason)
+        => $"ExecuteUpdate does not support this key predicate shape. {reason}";
+
+    /// <summary>Formats an error message for an invalid ExecuteUpdate setter.</summary>
+    public static string ExecuteUpdateInvalidSetter(string reason)
+        => $"ExecuteUpdate setter is not supported. {reason}";
+
+    /// <summary>Formats an error message for an ExecuteUpdate setter value shape that is not supported.</summary>
+    public static string ExecuteUpdateUnsupportedValueShape(string reason)
+        => $"ExecuteUpdate setter value is not supported. {reason}";
+
+    /// <summary>Formats an error message for duplicate ExecuteUpdate setter targets.</summary>
+    public static string ExecuteUpdateDuplicateSetter(string attributePath)
+        => $"ExecuteUpdate contains multiple setters targeting attribute '{attributePath}'.";
+
+    /// <summary>Formats an error message for ExecuteUpdate setters that mutate key properties.</summary>
+    public static string ExecuteUpdateKeyMutation(string propertyName)
+        => $"ExecuteUpdate cannot set key property '{propertyName}'. Key values identify the item "
+            + "being updated and cannot be modified.";
 }
