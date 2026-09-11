@@ -12,7 +12,7 @@
     <PackageVersion Include="Humanizer.Core" Version="3.0.10" />
     <PackageVersion Include="LayeredCraft.DynamoMapper" Version="1.6.6" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Tasks"
-                    Version="11.0.0-rc.1.26425.128"
+                    Version="[11.0.0-rc.1.26425.128, 12.0.0-a)"
                     Condition="'$(TargetFramework)' == 'net11.0'" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Tasks" Version="10.0.12"
                     Condition="'$(TargetFramework)' != 'net11.0'" />
@@ -33,7 +33,7 @@
   </ItemGroup>
   <PropertyGroup Label="EF Core version selection">
     <EFCoreVersion Condition="'$(TargetFramework)' == 'net11.0'">
-      11.0.0-rc.1.26425.128
+      [11.0.0-rc.1.26425.128, 12.0.0-a)
     </EFCoreVersion>
     <EFCoreVersion Condition="'$(EFCoreVersion)' == ''">[10.0.12, 11.0.0)</EFCoreVersion>
   </PropertyGroup>
@@ -68,16 +68,16 @@
   </ItemGroup>
   <ItemGroup Label="Microsoft Extensions net11" Condition="'$(TargetFramework)' == 'net11.0'">
     <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore"
-                    Version="11.0.0-rc.1.26425.128" />
+                    Version="[11.0.0-rc.1.26425.128, 12.0.0-a)" />
     <PackageVersion Include="Microsoft.Extensions.Caching.Abstractions"
-                    Version="11.0.0-rc.1.26425.128" />
+                    Version="[11.0.0-rc.1.26425.128, 12.0.0-a)" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions"
-                    Version="11.0.0-rc.1.26425.128" />
+                    Version="[11.0.0-rc.1.26425.128, 12.0.0-a)" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions"
-                    Version="11.0.0-rc.1.26425.128" />
+                    Version="[11.0.0-rc.1.26425.128, 12.0.0-a)" />
     <PackageVersion Include="Microsoft.Extensions.Options"
-                    Version="11.0.0-rc.1.26425.128" />
+                    Version="[11.0.0-rc.1.26425.128, 12.0.0-a)" />
     <PackageVersion Include="Microsoft.Extensions.Primitives"
-                    Version="11.0.0-rc.1.26425.128" />
+                    Version="[11.0.0-rc.1.26425.128, 12.0.0-a)" />
   </ItemGroup>
 </Project>
