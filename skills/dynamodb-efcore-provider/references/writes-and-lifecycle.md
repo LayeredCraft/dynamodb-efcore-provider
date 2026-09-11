@@ -5,6 +5,30 @@
 Use `Add`, normal tracked updates, `Remove`, and `SaveChangesAsync`. The provider compiles writes
 to DynamoDB PartiQL requests. Keep each item and generated statement within DynamoDB limits.
 
+# Writes, Transactions, and Lifecycle
+
+## Writes
+
+Use `Add`, normal tracked updates, `Remove`, and `SaveChangesAsync`. The provider compiles writes
+to DynamoDB PartiQL requests. Keep each item and generated statement within DynamoDB limits.
+
+## ExecuteUpdateAsync
+
+`ExecuteUpdateAsync` applies a single-item update directly against the table. Its contract is
+narrow — check it before promising bulk-update behavior:
+
+- The WHERE clause must equality-constrain the full primary key (partition key, plus sort key when
+  present). Extra non-key filters are allowed; `IN`, key ranges, and OR over keys are not.
+- The result is `0` (item not found) or `1`. There is no multi-row update or row count.
+- Execution is immediate and does not touch the change tracker; tracked entities must be re-read
+  to observe new values.
+- Numeric self-reference supports `+` and `-` only (`Count + 1`). Multiplication, division, and
+  string concatenation are rejected — DynamoDB PartiQL SET supports numeric add/subtract only.
+- `SetProperty` targets mapped scalar properties or leaf scalars of nested complex-property paths.
+  Navigations, whole complex properties, and key properties cannot be assigned.
+- Synchronous `ExecuteUpdate` throws. `ExecuteDeleteAsync` is not implemented; delete through the
+  change tracker (`Remove` + `SaveChangesAsync`).
+
 ## Concurrency and transactions
 
 - Configure a concurrency token when competing writers must be detected. Application code is

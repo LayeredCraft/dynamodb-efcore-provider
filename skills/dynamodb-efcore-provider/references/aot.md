@@ -8,6 +8,10 @@ properties, some field-backed values, some collection converter shapes, and quer
 Core cannot convert to generated code. Unsupported precompiled shapes fail during build rather than
 falling back at runtime.
 
-Native publish-and-run coverage is currently EF10-only. EF11 interceptor generation is covered, but
-native publish-and-run remains blocked upstream. Treat warnings from trimming or dynamic-code paths
-as part of the experimental support boundary and test the exact deployed query shapes.
+Native publish-and-run is validated for both EF10 and EF11. Treat warnings from trimming or
+dynamic-code paths as part of the experimental support boundary and test the exact deployed query
+shapes.
+
+`ExecuteUpdateAsync` precompiles under the same rules. On EF10 a single precompiled `ExecuteUpdate`
+cannot mix constant and computed (self-referencing) setter values — the build fails with a clear
+error; split such updates into separate calls. EF11 supports the mixed shape.
