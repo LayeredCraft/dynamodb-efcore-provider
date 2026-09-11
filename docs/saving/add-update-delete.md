@@ -175,6 +175,63 @@ If the item exists but its token has changed since the entity was loaded, Dynamo
 conflict and the provider throws `DbUpdateConcurrencyException`. See
 [Optimistic Concurrency](concurrency.md).
 
+## ExecuteUpdateAsync
+
+`ExecuteUpdateAsync` applies a single-item update directly against the table without loading the
+entity into the change tracker. It executes immediately — there is no `SaveChangesAsync` step and
+the change tracker is never consulted or updated.
+
+```csharp
+var affected = await db.Orders
+    .Where(o => o.Pk == "CUSTOMER#42" && o.Sk == "ORDER#2026-001")
+    .ExecuteUpdateAsync(setters
+        => setters
+            .SetProperty(o => o.Status, "shipped")
+            .SetProperty(o => o.ShippedAt, DateTimeOffset.UtcNow),
+        cancellationToken);
+```
+
+The provider generates one PartiQL statement:
+
+```sql
+UPDATE "Orders"
+SET "status" = ?, "shippedAt" = ?
+WHERE "pk" = 'CUSTOMER#42' AND "sk" = 'ORDER#2026-001'
+```
+
+Key behaviors:
+
+- **The WHERE clause must equality-constrain the full primary key.** `ExecuteUpdateAsync` targets
+    one item: the predicate must contain a partition-key equality, plus a sort-key equality when
+    the entity has a sort key. Filters on other attributes are allowed as additional predicates.
+    Queries without key equality (or with `IN`, range comparisons, or OR touching a key) throw at
+    translation time.
+- **The result is 0 or 1.** DynamoDB raises a condition failure when a key-targeted `UPDATE`
+    matches no item; the provider maps that to `0` instead of throwing. A successful update
+    returns `1`. There is no multi-row count.
+- **Nothing touches the change tracker.** Tracked entities are not read or updated. If the
+    tracked instance is still in scope, re-query it to observe the new values.
+- **No implicit transaction.** The update is a single statement, so no transaction wrapper is
+    involved and none can be combined with other writes.
+- **Nested paths are supported.** `SetProperty(o => o.Address.City, "Seattle")` writes the nested
+    attribute path (`SET "address"."city" = ?`).
+- **Numeric self-reference supports `+` and `-` only.** `SetProperty(o => o.Count, o => o.Count + 1)`
+    becomes `SET "count" = "count" + 1`, evaluated server-side against the stored value.
+    Multiplication, division, and string concatenation are rejected: DynamoDB PartiQL SET
+    expressions support numeric addition and subtraction only (see the
+    [AWS PartiQL UPDATE reference](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ql-reference.update.html)).
+- **`null` becomes `SET attr = ?` with a DynamoDB `NULL` parameter.** Clearing an attribute with
+    `SetProperty(o => o.Note, (string?)null)` writes an explicit NULL attribute, matching
+    `SaveChangesAsync` scalar-null behavior.
+- **Synchronous `ExecuteUpdate` is not supported.** DynamoDB execution is asynchronous only; use
+    `ExecuteUpdateAsync`.
+- **Setter targets must be mapped scalar properties.** Navigations and whole complex properties
+    cannot be assigned; assign the leaf scalar of a complex-property path instead. Key properties
+    cannot be mutated.
+
+`ExecuteDeleteAsync` is not implemented. See
+[Bulk update limitations](../limitations.md#ef-core-bulk-operations).
+
 ## Statement Size Limit
 
 Each PartiQL statement has an **8,192-byte** size limit enforced by DynamoDB. The provider

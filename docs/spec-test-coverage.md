@@ -267,21 +267,21 @@ No association specification test classes are currently queued here.
 
 ### Skip — Navigation or Set Operation Dependent
 
-| Test Class                                     | Methods | Reason                                       |
-| ---------------------------------------------- | ------: | -------------------------------------------- |
-| `AssociationsCollectionTestBase`               |      14 | Navigation collection traversal              |
-| `AssociationsMiscellaneousTestBase`            |       3 | Navigation-dependent miscellaneous           |
-| `AssociationsPrimitiveCollectionTestBase`      |       6 | Primitive collections on navigation entities |
-| `AssociationsProjectionTestBase`               |      31 | Navigation projections                       |
-| `AssociationsSetOperationsTestBase`            |       5 | Set operations on navigations                |
-| `AssociationsStructuralEqualityTestBase`       |      15 | Navigation-based equality                    |
-| `AssociationsBulkUpdateTestBase`               |      33 | Navigation + bulk update                     |
-| All `Navigations/*` tests                      |      9+ | Navigation property traversal                |
-| All `OwnedNavigations/*` tests                 |      7+ | Owned entity navigations                     |
-| `ComplexPropertiesCollectionTestBase`          |       — | Complex type collections (not yet supported) |
-| `ComplexPropertiesPrimitiveCollectionTestBase` |       — | Complex type + primitive collections         |
-| `ComplexPropertiesSetOperationsTestBase`       |       — | Set operations; no PartiQL support           |
-| `ComplexPropertiesBulkUpdateTestBase`          |       — | Blocked on `ExecuteUpdate`                   |
+| Test Class                                     | Methods | Reason                                                        |
+| ---------------------------------------------- | ------: | ------------------------------------------------------------- |
+| `AssociationsCollectionTestBase`               |      14 | Navigation collection traversal                               |
+| `AssociationsMiscellaneousTestBase`            |       3 | Navigation-dependent miscellaneous                            |
+| `AssociationsPrimitiveCollectionTestBase`      |       6 | Primitive collections on navigation entities                  |
+| `AssociationsProjectionTestBase`               |      31 | Navigation projections                                        |
+| `AssociationsSetOperationsTestBase`            |       5 | Set operations on navigations                                 |
+| `AssociationsStructuralEqualityTestBase`       |      15 | Navigation-based equality                                     |
+| `AssociationsBulkUpdateTestBase`               |      33 | Navigation + bulk update                                      |
+| All `Navigations/*` tests                      |      9+ | Navigation property traversal                                 |
+| All `OwnedNavigations/*` tests                 |      7+ | Owned entity navigations                                      |
+| `ComplexPropertiesCollectionTestBase`          |       — | Complex type collections (not yet supported)                  |
+| `ComplexPropertiesPrimitiveCollectionTestBase` |       — | Complex type + primitive collections                          |
+| `ComplexPropertiesSetOperationsTestBase`       |       — | Set operations; no PartiQL support                            |
+| `ComplexPropertiesBulkUpdateTestBase`          |       — | Complex types + bulk update (scope limited to scalar setters) |
 
 ______________________________________________________________________
 

@@ -392,11 +392,17 @@ exceeded. This can happen with entities that have a large number of scalar prope
 splitting such entities across multiple `SaveChanges` calls or reducing the number of mapped
 properties.
 
-### EF Core Bulk Operations Not Supported
+### EF Core Bulk Operations
 
-`ExecuteUpdateAsync()` and `ExecuteDeleteAsync()` (EF Core 7+ bulk operations) are not
-implemented. Bulk mutations must be performed by loading entities, modifying them in the change
-tracker, and calling `SaveChangesAsync()`.
+`ExecuteUpdateAsync()` is supported as a single-item, key-targeted update: the WHERE clause must
+equality-constrain the full primary key, the result is `0` or `1`, and numeric self-referencing
+arithmetic is limited to addition and subtraction. See
+[ExecuteUpdateAsync](saving/add-update-delete.md#executeupdateasync) for the full behavior
+contract.
+
+`ExecuteDeleteAsync()` is not implemented. Bulk deletions must be performed by loading entities,
+removing them from the change tracker, and calling `SaveChangesAsync()` per item (or by issuing a
+key-targeted `DELETE` statement against the client).
 
 ### `BatchExecuteStatement` Partial Success
 

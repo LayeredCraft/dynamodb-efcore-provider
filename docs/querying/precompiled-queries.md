@@ -127,6 +127,11 @@ for local arrays, which EF Core's query precompiler cannot currently translate.
     includes mutable field-backed `List<T>`, `HashSet<T>`, and `Dictionary<string, T>` properties,
     and may include auto-properties when EF Core chooses their backing field. See
     [Limitations](../limitations.md) before using NativeAOT with collection-valued entity members.
+- `ExecuteUpdateAsync` is precompilable under the same rules: the setter property selectors must
+    be discoverable statically, and the normal key-targeting restrictions apply. On EF Core 10 a
+    single precompiled `ExecuteUpdate` cannot mix constant and computed (self-referencing) setter
+    values; the build fails with a clear error. Split such updates into separate calls. On EF
+    Core 11 the mixed shape is supported.
 
 ## Verification
 
@@ -138,8 +143,7 @@ task test:aot-generation FRAMEWORK=net11.0
 ```
 
 The provider verifies the generated EF Core 10 and EF Core 11 executor templates in its
-per-framework generation tests. Publish and run the native smoke app with `task test:aot-publish
-FRAMEWORK=net10.0` (or `net11.0`) — this is the NativeAOT path gated by CI for both EF Core
+per-framework generation tests. Publish and run the native smoke app with `task test:aot-publish FRAMEWORK=net10.0` (or `net11.0`) — this is the NativeAOT path gated by CI for both EF Core
 versions. The smoke app runs parameterized and materializing queries plus a `SaveChanges` write
 against DynamoDB Local. It checks NativeAOT execution and materialized values. Generation and
 parity tests separately check generated PartiQL templates and execution behavior.
