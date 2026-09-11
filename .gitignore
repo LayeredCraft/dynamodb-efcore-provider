@@ -29,6 +29,9 @@ project.fragment.lock.json
 artifacts/
 .dotnet/
 
+# Generated single-TFM build override (scripts/write-target-framework-override.sh)
+/TargetFrameworkOverride.props
+
 # ASP.NET Scaffolding
 ScaffoldingReadMe.txt
 

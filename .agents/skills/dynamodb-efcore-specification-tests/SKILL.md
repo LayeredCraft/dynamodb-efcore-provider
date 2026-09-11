@@ -402,13 +402,13 @@ must agree.
 Use the .NET test MCP server when available. CLI fallback focused class/method:
 
 ```bash
-task test:spec CONFIG="Debug EF10" FILTER="FullyQualifiedName~ClassOrMethod"
+task test:spec FRAMEWORK=net10.0 FILTER="FullyQualifiedName~ClassOrMethod"
 ```
 
 Compliance inventory:
 
 ```bash
-task test:spec CONFIG="Debug EF10" FILTER="FullyQualifiedName~ComplianceDynamoTest"
+task test:spec FRAMEWORK=net10.0 FILTER="FullyQualifiedName~ComplianceDynamoTest"
 ```
 
 Full spec project when practical:

@@ -21,23 +21,23 @@ execution.
 
 ## Commands
 
-- This repo uses named EF build configurations, not plain `Debug`/`Release`:
-  - `Debug EF10`, `Release EF10` -> `net10.0`, EF Core 10 packages
-  - `Debug EF11`, `Release EF11` -> `net11.0`, EF Core 11 packages
-- Prefer Taskfile wrappers so restore/build/test use the same configuration:
+- Standard MSBuild `Configuration` (`Debug`/`Release`) and standard
+  `<TargetFrameworks>net10.0;net11.0</TargetFrameworks>` multi-targeting — no custom `EF10`/`EF11`
+  configuration names. `$(TargetFramework)` drives EF-line package selection in
+  `Directory.Packages.props`.
+- Prefer Taskfile wrappers so restore/build/test use the same framework:
   - Build EF10: `task build:ef10`
   - Build EF11: `task build:ef11`
   - Build both debug targets: `task build:all`
-  - Build arbitrary config: `task build CONFIG="Debug EF11"`
-  - Test arbitrary config: `task test CONFIG="Debug EF10"`
-  - Spec tests: `task test:spec CONFIG="Debug EF11"`
-  - Pack releases: `task pack:ef10`, `task pack:ef11`
+  - Build arbitrary config/framework: `task build CONFIG="Debug" FRAMEWORK="net11.0"`
+  - Test arbitrary config/framework: `task test FRAMEWORK="net10.0"`
 - If EF11 fails locally because installed SDK is older than CI, use `task build:ef11:ci-sdk`; it
   installs the current 11.0 SDK into `.dotnet/ef11` and builds with that SDK.
-- Raw CLI equivalent must pass the configuration to restore and build/test:
-  - `dotnet restore EntityFrameworkCore.DynamoDb.slnx -p:Configuration="Debug EF11"`
-  - `dotnet build EntityFrameworkCore.DynamoDb.slnx --configuration "Debug EF11" --no-restore`
-  - `dotnet test <project-or-slnx> --configuration "Debug EF11" --no-build`
+- Raw CLI equivalent — no override needed for ordinary restore/build/test (multi-targets both
+  TFMs by default; filter with `--framework` for one):
+  - `dotnet restore EntityFrameworkCore.DynamoDb.slnx`
+  - `dotnet build EntityFrameworkCore.DynamoDb.slnx --configuration Release --framework net11.0 --no-restore`
+  - `dotnet test <project-or-slnx> --configuration Release --framework net11.0 --no-build`
 - Manage NuGet packages with the `dotnet` CLI (`dotnet add package`, `dotnet package update`,
   `dotnet remove package`, etc.); do not hand-edit package references unless the CLI cannot express
   the needed change.
@@ -53,19 +53,22 @@ execution.
   or inspect `AssertSql` failure messages to see captured statements.
 - Docs: `task docs:build`
 
-## NativeAOT Smoke Test — EF10 ONLY
+## NativeAOT Smoke Test
 
-- The NativeAOT smoke app
-  (`testapps/EntityFrameworkCore.DynamoDb.NativeAotSmoke`) and its CI leg
-  (`.github/workflows/pr-build.yaml` `native-aot` job) run on **EF10
-  configurations only** (`Release EF10`). Do NOT add an EF11 (`Release EF11`)
-  smoke leg to CI.
-- EF11 native publish is broken upstream; full details, including why aligning
-  EF Core to the EF 11 Tasks preview also fails, live in
-  `testapps/EntityFrameworkCore.DynamoDb.NativeAotSmoke/AGENTS.md`. Read it
-  before touching the smoke app or the `native-aot` CI job.
-- `task test:aot-generation` and the full test suites DO run on both EF10 and
-  EF11; only native publish/execution is EF10-only.
+- The NativeAOT smoke app (`testapps/EntityFrameworkCore.DynamoDb.NativeAotSmoke`) and its CI leg
+  (`.github/workflows/pr-build.yaml` `native-aot` job) are CI-validated for **both** EF10
+  (`net10.0`) and EF11 (`net11.0`).
+- NativeAOT publish/query precompilation requires the project to evaluate as genuinely
+  single-targeted, which an externally supplied `-p:TargetFramework` cannot achieve reliably (EF's
+  own NativeAOT tooling loses such external build context internally — see
+  `docs/internal/ef10-ef11-build-configuration-strategy-research.md`). Generate the physical,
+  gitignored override first: `scripts/write-target-framework-override.sh <net10.0|net11.0>`; clear
+  it afterward with `scripts/write-target-framework-override.sh --clear`. `task test:aot-publish
+  FRAMEWORK=net10.0`/`net11.0` does both automatically, including on failure.
+- Full details: `testapps/EntityFrameworkCore.DynamoDb.NativeAotSmoke/AGENTS.md`. Read it before
+  touching the smoke app or the `native-aot` CI job.
+- `task test:aot-generation` and the full test suites run on both EF10 and EF11 without needing
+  the override.
 
 ## Change Workflow
 

@@ -24,38 +24,39 @@ tasks:
       - '[ -d ./.nupkg ] && rm -r ./.nupkg || true'
 
   restore:
-    desc: Restore dependencies for CONFIG (default Debug EF10)
+    desc: Restore dependencies for FRAMEWORK (default net10.0)
     silent: true
     vars:
-      CONFIG: '{{.CONFIG | default "Debug EF10"}}'
+      FRAMEWORK: '{{.FRAMEWORK | default "net10.0"}}'
     cmds:
-      - echo "📥 Restoring {{.CONFIG}}"
-      - dotnet restore {{.SOLUTION}} -p:Configuration="{{.CONFIG}}"
+      - echo "📥 Restoring {{.FRAMEWORK}}"
+      - dotnet restore {{.SOLUTION}} -p:TargetFrameworks="{{.FRAMEWORK}}"
       - echo "✅ Dependencies restored"
 
   build:
-    desc: Build CONFIG (default Debug EF10). Example, task build CONFIG="Debug EF11"
+    desc: 'Build CONFIG/FRAMEWORK (default Debug/net10.0). Example, task build FRAMEWORK=net11.0'
     silent: true
     vars:
-      CONFIG: '{{.CONFIG | default "Debug EF10"}}'
+      CONFIG: '{{.CONFIG | default "Debug"}}'
+      FRAMEWORK: '{{.FRAMEWORK | default "net10.0"}}'
     cmds:
       - task: restore
-        vars: { CONFIG: '{{.CONFIG}}' }
-      - echo "🔨 Building {{.CONFIG}}"
-      - dotnet build {{.SOLUTION}} --configuration "{{.CONFIG}}" --no-restore
-      - echo "✅ {{.CONFIG}} build complete"
+        vars: { FRAMEWORK: '{{.FRAMEWORK}}' }
+      - echo "🔨 Building {{.CONFIG}} {{.FRAMEWORK}}"
+      - dotnet build {{.SOLUTION}} --configuration "{{.CONFIG}}" --framework "{{.FRAMEWORK}}" --no-restore
+      - echo "✅ {{.CONFIG}} {{.FRAMEWORK}} build complete"
 
   build:ef10:
-    desc: Build Debug EF10
+    desc: Build Debug net10.0
     cmds:
       - task: build
-        vars: { CONFIG: 'Debug EF10' }
+        vars: { CONFIG: 'Debug', FRAMEWORK: 'net10.0' }
 
   build:ef11:
-    desc: Build Debug EF11 with installed/default dotnet SDK
+    desc: Build Debug net11.0 with installed/default dotnet SDK
     cmds:
       - task: build
-        vars: { CONFIG: 'Debug EF11' }
+        vars: { CONFIG: 'Debug', FRAMEWORK: 'net11.0' }
 
   sdk:ef11:
     desc: Install CI-matching .NET 11 SDK into .dotnet/ef11
@@ -69,74 +70,97 @@ tasks:
       - echo "✅ .NET 11 SDK ready"
 
   build:ef11:ci-sdk:
-    desc: Build Debug EF11 using .dotnet/ef11 SDK (runs sdk:ef11 first)
+    desc: Build Debug net11.0 using .dotnet/ef11 SDK (runs sdk:ef11 first)
     deps: [ sdk:ef11 ]
     silent: true
     cmds:
-      - echo "📥 Restoring Debug EF11 with CI-matching SDK"
-      - DOTNET_ROOT={{.EF11_DOTNET_DIR}} PATH={{.EF11_DOTNET_DIR}}:$PATH dotnet restore {{.SOLUTION}} -p:Configuration="Debug EF11"
-      - echo "🔨 Building Debug EF11 with CI-matching SDK"
-      - DOTNET_ROOT={{.EF11_DOTNET_DIR}} PATH={{.EF11_DOTNET_DIR}}:$PATH dotnet build {{.SOLUTION}} --configuration "Debug EF11" --no-restore
-      - echo "✅ Debug EF11 build complete"
+      - echo "📥 Restoring Debug net11.0 with CI-matching SDK"
+      - DOTNET_ROOT={{.EF11_DOTNET_DIR}} PATH={{.EF11_DOTNET_DIR}}:$PATH dotnet restore {{.SOLUTION}} -p:TargetFrameworks="net11.0"
+      - echo "🔨 Building Debug net11.0 with CI-matching SDK"
+      - DOTNET_ROOT={{.EF11_DOTNET_DIR}} PATH={{.EF11_DOTNET_DIR}}:$PATH dotnet build {{.SOLUTION}} --configuration "Debug" --framework "net11.0" --no-restore
+      - echo "✅ Debug net11.0 build complete"
 
   build:all:
-    desc: Build Debug EF10 and Debug EF11
+    desc: Build Debug net10.0 and Debug net11.0
     cmds:
       - task: build:ef10
       - task: build:ef11
 
   test:
-    desc: Test solution for CONFIG (default Debug EF10). Example, task test CONFIG="Debug EF11"
+    desc: 'Test solution for CONFIG/FRAMEWORK (default Debug/net10.0). Example, task test FRAMEWORK=net11.0'
     silent: true
     vars:
-      CONFIG: '{{.CONFIG | default "Debug EF10"}}'
+      CONFIG: '{{.CONFIG | default "Debug"}}'
+      FRAMEWORK: '{{.FRAMEWORK | default "net10.0"}}'
     cmds:
       - task: build
-        vars: { CONFIG: '{{.CONFIG}}' }
-      - echo "🧪 Testing {{.CONFIG}}"
-      - dotnet test {{.SOLUTION}} --configuration "{{.CONFIG}}" --no-build
+        vars: { CONFIG: '{{.CONFIG}}', FRAMEWORK: '{{.FRAMEWORK}}' }
+      - echo "🧪 Testing {{.CONFIG}} {{.FRAMEWORK}}"
+      - dotnet test {{.SOLUTION}} --configuration "{{.CONFIG}}" --framework "{{.FRAMEWORK}}" --no-build
 
   test:ef10:
-    desc: Test Debug EF10
+    desc: Test Debug net10.0
     cmds:
       - task: test
-        vars: { CONFIG: 'Debug EF10' }
+        vars: { CONFIG: 'Debug', FRAMEWORK: 'net10.0' }
 
   test:ef11:
-    desc: Test Debug EF11 with installed/default dotnet SDK
+    desc: Test Debug net11.0 with installed/default dotnet SDK
     cmds:
       - task: test
-        vars: { CONFIG: 'Debug EF11' }
+        vars: { CONFIG: 'Debug', FRAMEWORK: 'net11.0' }
 
   test:unit:
-    desc: Test unit project for CONFIG (default Debug EF10)
+    desc: Test unit project for CONFIG/FRAMEWORK (default Debug/net10.0)
     silent: true
     vars:
-      CONFIG: '{{.CONFIG | default "Debug EF10"}}'
+      CONFIG: '{{.CONFIG | default "Debug"}}'
+      FRAMEWORK: '{{.FRAMEWORK | default "net10.0"}}'
     cmds:
       - task: build
-        vars: { CONFIG: '{{.CONFIG}}' }
-      - dotnet test tests/EntityFrameworkCore.DynamoDb.Tests/EntityFrameworkCore.DynamoDb.Tests.csproj --configuration "{{.CONFIG}}" --no-build
+        vars: { CONFIG: '{{.CONFIG}}', FRAMEWORK: '{{.FRAMEWORK}}' }
+      - dotnet test tests/EntityFrameworkCore.DynamoDb.Tests/EntityFrameworkCore.DynamoDb.Tests.csproj --configuration "{{.CONFIG}}" --framework "{{.FRAMEWORK}}" --no-build
 
   test:aot-generation:
-    desc: Compile generated query interceptors for CONFIG (default Debug EF10)
+    desc: Compile generated query interceptors for CONFIG/FRAMEWORK (default Debug/net10.0)
     silent: true
     vars:
-      CONFIG: '{{.CONFIG | default "Debug EF10"}}'
+      CONFIG: '{{.CONFIG | default "Debug"}}'
+      FRAMEWORK: '{{.FRAMEWORK | default "net10.0"}}'
     cmds:
-      - dotnet restore tests/EntityFrameworkCore.DynamoDb.AotTests/EntityFrameworkCore.DynamoDb.AotTests.csproj -p:Configuration="{{.CONFIG}}"
-      - dotnet build tests/EntityFrameworkCore.DynamoDb.AotTests/EntityFrameworkCore.DynamoDb.AotTests.csproj --configuration "{{.CONFIG}}" --no-restore
-      - dotnet test tests/EntityFrameworkCore.DynamoDb.AotTests/EntityFrameworkCore.DynamoDb.AotTests.csproj --configuration "{{.CONFIG}}" --no-build
+      - dotnet restore tests/EntityFrameworkCore.DynamoDb.AotTests/EntityFrameworkCore.DynamoDb.AotTests.csproj -p:TargetFrameworks="{{.FRAMEWORK}}"
+      - dotnet build tests/EntityFrameworkCore.DynamoDb.AotTests/EntityFrameworkCore.DynamoDb.AotTests.csproj --configuration "{{.CONFIG}}" --framework "{{.FRAMEWORK}}" --no-restore
+      - dotnet test tests/EntityFrameworkCore.DynamoDb.AotTests/EntityFrameworkCore.DynamoDb.AotTests.csproj --configuration "{{.CONFIG}}" --framework "{{.FRAMEWORK}}" --no-build
+
+  aot:write-override:
+    desc: Write TargetFrameworkOverride.props for FRAMEWORK (internal helper)
+    internal: true
+    silent: true
+    vars:
+      FRAMEWORK: '{{.FRAMEWORK | default "net10.0"}}'
+    cmds:
+      - bash {{.ROOT_DIR}}/scripts/write-target-framework-override.sh "{{.FRAMEWORK}}"
+
+  aot:clear-override:
+    desc: Remove TargetFrameworkOverride.props if present (internal helper)
+    internal: true
+    silent: true
+    cmds:
+      - bash {{.ROOT_DIR}}/scripts/write-target-framework-override.sh --clear
 
   test:aot-publish:
-    desc: Publish, gate warnings, and run NativeAOT smoke app for CONFIG (default Release EF10)
+    desc: Publish, gate warnings, and run NativeAOT smoke app for CONFIG/FRAMEWORK (default Release/net10.0)
     silent: true
     vars:
-      CONFIG: '{{.CONFIG | default "Release EF10"}}'
+      CONFIG: '{{.CONFIG | default "Release"}}'
+      FRAMEWORK: '{{.FRAMEWORK | default "net10.0"}}'
       RID:
         sh: 'os=$(uname -s); arch=$(uname -m); case "$os" in Darwin) rid="osx";; Linux) rid="linux";; *) echo "Unsupported OS for AOT tasks: $os" >&2; exit 1;; esac; case "$arch" in arm64|aarch64) rid="$rid-arm64";; x86_64) rid="$rid-x64";; *) echo "Unsupported architecture: $arch" >&2; exit 1;; esac; echo "$rid"'
     cmds:
-      - bash {{.ROOT_DIR}}/scripts/run-nativeaot-smoke.sh "{{.CONFIG}}" "{{.RID}}"
+      - defer: { task: aot:clear-override }
+      - task: aot:write-override
+        vars: { FRAMEWORK: '{{.FRAMEWORK}}' }
+      - bash {{.ROOT_DIR}}/scripts/run-nativeaot-smoke.sh "{{.CONFIG}}" "{{.RID}}" "{{.FRAMEWORK}}"
 
   docs:build:
     desc: Build docs site with Zensical

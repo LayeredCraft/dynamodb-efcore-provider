@@ -8,18 +8,74 @@ permissions:
   contents: read
 
 jobs:
-  build:
+  resolve:
+    runs-on: ubuntu-latest
+    outputs:
+      target_framework: ${{ steps.cfg.outputs.target_framework }}
+      dotnet_version: ${{ steps.cfg.outputs.dotnet_version }}
+      version: ${{ steps.cfg.outputs.version }}
+    steps:
+      - name: Resolve EF line from tag
+        id: cfg
+        run: |
+          TAG="${{ github.event.release.tag_name }}"
+          VERSION="${TAG#v}"
+          MAJOR="${VERSION%%.*}"
+          case "$MAJOR" in
+            10) TFM=net10.0 ;;
+            11) TFM=net11.0 ;;
+            *)
+              echo "::error::Unsupported EF major version from tag '$TAG': $MAJOR"
+              exit 1
+              ;;
+          esac
+          echo "target_framework=$TFM" >> "$GITHUB_OUTPUT"
+          echo "dotnet_version=${MAJOR}.0.x" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+  publish:
+    needs: [resolve]
     permissions:
       contents: write
-    uses: LayeredCraft/devops-templates/.github/workflows/publish-release.yml@7d587b6a23afca8815fd94a4a3d246857b3db08d
-    with:
-      solution: EntityFrameworkCore.DynamoDb.slnx
-      dotnetVersion: "10.0.x"   # fallback only — overridden when buildConfiguration=auto
-      buildConfiguration: auto
-      hasTests: true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v6.0.0
+        with:
+          dotnet-version: ${{ needs.resolve.outputs.dotnet_version }}
+
+      - name: Write single-TFM override
+        run: scripts/write-target-framework-override.sh "${{ needs.resolve.outputs.target_framework }}"
+
+      - name: Restore
+        run: dotnet restore EntityFrameworkCore.DynamoDb.slnx
+
+      - name: Build
+        run: dotnet build EntityFrameworkCore.DynamoDb.slnx --configuration Release --no-restore -p:Version=${{ needs.resolve.outputs.version }} -p:InformationalVersion=${{ needs.resolve.outputs.version }}
+
+      - name: Test
+        run: dotnet test EntityFrameworkCore.DynamoDb.slnx --configuration Release --no-build
+
+      - name: NativeAOT smoke validation
+        run: scripts/run-nativeaot-smoke.sh Release linux-x64 "${{ needs.resolve.outputs.target_framework }}"
+
+      - name: Pack
+        run: dotnet pack src/EntityFrameworkCore.DynamoDb/EntityFrameworkCore.DynamoDb.csproj --configuration Release --no-build -o artifacts -p:Version=${{ needs.resolve.outputs.version }} -p:InformationalVersion=${{ needs.resolve.outputs.version }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: nuget-packages
+          path: artifacts/**/*.nupkg
+
+      - name: Clear single-TFM override
+        if: always()
+        run: scripts/write-target-framework-override.sh --clear
 
   push:
-    needs: build
+    needs: [publish]
     runs-on: ubuntu-latest
     permissions:
       id-token: write

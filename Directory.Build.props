@@ -1,4 +1,16 @@
 <Project>
+  <!-- Optional, generated, gitignored: forces single-TFM project evaluation for version-specific
+       NativeAOT/release operations. See docs/internal/ef11-native-aot-implementation-plan.md and
+       scripts/write-target-framework-override.sh. Not present during normal development/PR CI. -->
+  <Import Project="$(MSBuildThisFileDirectory)TargetFrameworkOverride.props"
+          Condition="Exists('$(MSBuildThisFileDirectory)TargetFrameworkOverride.props')" />
+  <!-- Single source of truth for the repo's TFM set. Every project shares it identically (the
+       repo's established 1:1 config->TFM mapping), so it's centralized here rather than repeated
+       in each .csproj. Conditioned on absence so TargetFrameworkOverride.props (imported above)
+       always wins when present. -->
+  <PropertyGroup Condition="'$(TargetFramework)' == '' and '$(TargetFrameworks)' == ''">
+    <TargetFrameworks>net10.0;net11.0</TargetFrameworks>
+  </PropertyGroup>
   <PropertyGroup>
     <VersionPrefix>0.0.2</VersionPrefix>
     <VersionSuffix>alpha</VersionSuffix>

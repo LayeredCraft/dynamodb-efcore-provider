@@ -16,36 +16,85 @@ permissions:
   contents: read
 
 jobs:
-  build:
+  publish:
     permissions:
       contents: write
       pull-requests: write
+    runs-on: ubuntu-latest
     # Multi-version support: add a new matrix entry for the new EF version.
-    # The release tag prefix (vN.*) drives configuration and SDK selection automatically
-    # in publish-release.yaml via buildConfiguration: auto.
-    # See docs/multi-version-ef-strategy.md for the full strategy.
+    # See docs/internal/ef11-native-aot-implementation-plan.md for the full strategy.
     strategy:
+      fail-fast: false
       matrix:
         include:
-          - configuration: "Release EF10"
+          - targetFramework: net10.0
             dotnetVersion: "10.0.x"
             drafterConfig: "release-drafter-ef10.yml"
             artifact_name: "nuget-packages-ef10"
-          - configuration: "Release EF11"
+          - targetFramework: net11.0
             dotnetVersion: "11.0.x"
             drafterConfig: "release-drafter-ef11.yml"
             artifact_name: "nuget-packages-ef11"
-    uses: LayeredCraft/devops-templates/.github/workflows/publish-preview.yml@7d587b6a23afca8815fd94a4a3d246857b3db08d
-    with:
-      solution: EntityFrameworkCore.DynamoDb.slnx
-      buildConfiguration: ${{ matrix.configuration }}
-      dotnetVersion: ${{ matrix.dotnetVersion }}
-      drafterConfig: ${{ matrix.drafterConfig }}
-      hasTests: true
-      artifact_name: ${{ matrix.artifact_name }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Resolve next version via Release Drafter
+        id: release-drafter
+        uses: release-drafter/release-drafter@v7.7.0
+        with:
+          config-name: ${{ matrix.drafterConfig }}
+          dry-run: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve preview version
+        id: version
+        shell: bash
+        run: |
+          resolved="${{ steps.release-drafter.outputs.resolved_version }}"
+          if [[ -z "$resolved" ]]; then
+            echo "::error::Release Drafter returned an empty resolved_version. Ensure .github/${{ matrix.drafterConfig }} is configured correctly."
+            exit 1
+          fi
+          base="${resolved%%-*}"
+          package_version="${base}-preview.${{ github.run_number }}"
+          printf 'package_version=%s\n' "$package_version" | tee -a "$GITHUB_OUTPUT"
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v6.0.0
+        with:
+          dotnet-version: ${{ matrix.dotnetVersion }}
+
+      - name: Write single-TFM override
+        run: scripts/write-target-framework-override.sh "${{ matrix.targetFramework }}"
+
+      - name: Restore
+        run: dotnet restore EntityFrameworkCore.DynamoDb.slnx
+
+      - name: Build
+        run: dotnet build EntityFrameworkCore.DynamoDb.slnx --configuration Release --no-restore -p:Version=${{ steps.version.outputs.package_version }}
+
+      - name: Test
+        run: dotnet test EntityFrameworkCore.DynamoDb.slnx --configuration Release --no-build
+
+      - name: NativeAOT smoke validation
+        run: scripts/run-nativeaot-smoke.sh Release linux-x64 "${{ matrix.targetFramework }}"
+
+      - name: Pack
+        run: dotnet pack src/EntityFrameworkCore.DynamoDb/EntityFrameworkCore.DynamoDb.csproj --configuration Release --no-build -o artifacts -p:Version=${{ steps.version.outputs.package_version }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: artifacts/**/*.nupkg
+
+      - name: Clear single-TFM override
+        if: always()
+        run: scripts/write-target-framework-override.sh --clear
 
   push:
-    needs: build
+    needs: [publish]
     runs-on: ubuntu-latest
     permissions:
       id-token: write
