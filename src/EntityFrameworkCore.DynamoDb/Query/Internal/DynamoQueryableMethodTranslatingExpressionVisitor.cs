@@ -1072,6 +1072,12 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
             throw new InvalidOperationException(
                 DynamoStrings.ExecuteUpdateOnIndexNotSupported(explicitIndex));
 
+        if (selectExpression.Limit is not null || selectExpression.LimitExpression is not null)
+            throw new InvalidOperationException(
+                DynamoStrings.ExecuteUpdateInvalidKeyPredicate(
+                    "Limit(n) cannot be combined with ExecuteUpdate; the WHERE clause must "
+                    + "identify the item without an evaluated-item limit."));
+
         // Finalize the deferred discriminator predicate so the WHERE tree is complete for
         // validation here and for PartiQL generation later.
         selectExpression.ApplyDeferredDiscriminatorPredicate();

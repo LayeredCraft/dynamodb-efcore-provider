@@ -219,6 +219,22 @@ public class ExecuteUpdateTranslationTests
     }
 
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task ExecuteUpdateAsync_WithAttributeToAttributeValue_Throws()
+    {
+        var client = Substitute.For<IAmazonDynamoDB>();
+        await using var context = ExecuteUpdateDbContext.Create(client);
+
+        var exception = await Record.ExceptionAsync(() => context
+            .Items
+            .Where(i => i.Pk == "pk1" && i.Sk == "sk1")
+            .ExecuteUpdateAsync(
+                s => s.SetProperty(i => i.Count, i => i.Converted),
+                TestContext.Current.CancellationToken));
+
+        InnermostMessage(exception).Should().Contain("Attribute-to-attribute assignment");
+    }
+
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task ExecuteUpdateAsync_WithUnmappedProperty_Throws()
     {
         var client = Substitute.For<IAmazonDynamoDB>();
