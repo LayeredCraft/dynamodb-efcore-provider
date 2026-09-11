@@ -288,3 +288,120 @@ gate explicitly excludes from needing an ADR.
   `Release EF10` / `Release EF11`, reusing `run-nativeaot-smoke.sh` as-is (parameterized by
   `CONFIG`), rather than adding a separate parallel job — mirrors how `aot-generation` already
   matrixes EF10/EF11.
+
+## 11. `.Limit(n)` precompiled-query root cause (added in a later pass)
+
+Investigated separately from EF11 enablement. Root cause of the documented `Limit(n)`
+precompiled-query restriction: `DynamoDbQueryableExtensions` declared its entire fluent surface
+(`Limit`, `ToPageAsync`, `WithNextToken`, `WithConsistentRead`, `WithoutIndex`,
+`AsUnsafeFilteredQuery`, `AllowScan`, `WithIndex`) inside a single C# 14 `extension<TEntity>(...)`
+block. EF Core's upstream precompiler cannot resolve a call to any method declared that way —
+reproduced directly via `DynamoPrecompiledQueryCodeGenerator.GeneratePrecompiledQueries`:
+`System.InvalidOperationException: Couldn't find nested type '`1' on containing type
+'DynamoDbQueryableExtensions'`. The failure is identical for every method in the block, not
+`Limit`-specific.
+
+**Fix**: converted the block to conventional `this`-parameter static extension methods. Public API
+shape is unchanged (verified via reflection diff of the compiled assembly before/after — identical
+method names, generics, parameter types/order/defaults/attributes). Constant `Limit(n)` now
+precompiles correctly.
+
+**Two further, separate, provider-owned defects surfaced once the extension-block issue no longer
+masked them — both fixed in a later pass (see below).**
+
+- A **parameterized** `Limit(limit)` failed precompilation. EF's precompiler interprets the
+  query-building method body using a placeholder value (observed: `0`) for locals it treats as
+  candidate compiled-query parameters. `Limit`'s own eager `ArgumentOutOfRangeException` guard
+  fired on that placeholder, surfacing as a precompilation error.
+- `WithNextToken(...)` failed precompilation. Its translation
+  (`DynamoQueryableMethodTranslatingExpressionVisitor.ValidateWithNextToken`) was a *private*
+  method; generated interceptor code that calls it fails to compile once that code lives in a
+  separate compilation referencing the provider only as a metadata reference (`does not contain a
+  definition for 'ValidateWithNextToken'`).
+
+### 11a. Fixes for both (added in a later pass)
+
+**Parameterized `Limit`**: an initial fix added a
+`[CallerArgumentExpression(nameof(limit))] string? limitExpression = null` parameter and derived
+"is this a literal" from the caller's source text. Rejected on review: it changes the method's
+public metadata/arity (confirmed — `DynamoQueryableMethods.Limit`'s existing delegate-cast fails
+to compile against the original 2-parameter delegate type until widened to 3, proving this is a
+real signature change, not merely an invisible optional parameter), and a lexical literal detector
+is not equivalent to actual constant-ness (`.Limit(+0)`, `.Limit((0))`, `.Limit(1 - 1)`,
+`.Limit(0x0)`, `const int Zero = 0; query.Limit(Zero)` all read as non-literal to a text scanner
+despite being genuine compile-time constants).
+
+**Final fix, adopted instead**: `Limit<TEntity>` keeps its original 2-parameter signature. The
+eager `ArgumentOutOfRangeException` now fires only when `source.Provider` is *not* an
+`EntityQueryProvider` — that is the only case with no downstream DynamoDB translation/execution
+path to enforce it (confirmed: for that provider type the method already just returns `source`
+unchanged rather than building an `Expression.Call`). For an `EntityQueryProvider`-backed query,
+the expression is always built unconditionally, and validation is left entirely to the
+**already-existing** pipeline: `DynamoQueryableMethodTranslatingExpressionVisitor.VisitMethodCall`
+rejects an invalid `ConstantExpression` during translation, and
+`QueryingEnumerable.AsyncEnumerator`'s constructor (`if (_limit is <= 0) throw ...`) rejects an
+invalid resolved value (constant or parameterized) during execution — both unchanged, both already
+correct for either case. No new validation code was needed anywhere.
+
+This makes `.Limit(0)` on a real EF-backed query construct successfully and throw
+`ArgumentOutOfRangeException` only once the query is translated/enumerated (e.g. at
+`.ToListAsync()`), rather than synchronously at the `.Limit(0)` statement — confirmed via a
+temporary test before adopting this design. The two pre-existing tests that require a *synchronous*
+throw (`Limit_Zero_ThrowsArgumentOutOfRangeException`, `Limit_Negative_...`) both use a non-EF
+`IQueryable` (`Array.AsQueryable()`), so they are unaffected and needed no changes.
+
+**`WithNextToken`**: moved `ValidateWithNextToken` from a private method on the visitor to
+`public static string DynamoGeneratedQueryRuntime.ValidateWithNextToken(string?)`, matching that
+class's established convention for generated-code-only APIs (`[EditorBrowsable(Never)]` +
+`[Experimental("EF9100")]` on the class; individual members public but hidden from IntelliSense).
+The visitor's cached `MethodInfo` now points there instead.
+
+Both verified via `DynamoPrecompiledQueryCodeGenerator.GeneratePrecompiledQueries` probes (literal
+and variable arguments for each), inspection of the final generated interceptor source (the
+`Limit` wrapper is the plain `(source, limit)` shape — no extra parameter), the full EF10/EF11
+suites (no regressions — both existing `Limit(0)`/`Limit(-5)` tests still pass unchanged), and a
+real NativeAOT publish + execution against DynamoDB Local for both frameworks.
+
+### 11b. A third, general finding while proving the combined `Limit(pageSize).WithNextToken
+(nextToken).ToListAsync()` composition
+
+EF Core's precompiler-time C# → LINQ translator (`CSharpToLinqTranslator`) only recognizes
+**local variables** and lambda parameters when resolving an identifier inside the query-building
+method — not the enclosing method's own formal parameters, and not `const`/static fields. Passing
+a method parameter directly (`public static Task<...> LoadNextPage(int pageSize, ...)` used as
+`.Limit(pageSize)`) fails with `System.Diagnostics.UnreachableException: IdentifierName of type
+ParameterSymbol: pageSize`; referencing a private `const string` field similarly fails with
+`InvalidOperationException: Encountered unknown identifier name '...', which doesn't correspond to
+a lambda parameter or captured variable`. The fix is mechanical and must be applied by every
+precompiled query method that takes a runtime-varying provider-fluent argument: assign the
+parameter/field to a local first (`var pageSize = pageSizeArg;`) before using it in the query. Not
+a defect to fix in the provider — it's an EF Core precompiler constraint to work around at each
+call site; documented in `docs/querying/precompiled-queries.md`.
+
+### 11c. `ToPageAsync(...)` — confirmed out of scope, with a materially stronger finding
+
+`ToPageAsync(...)` is not recognized as a precompilation root by EF Core's upstream precompiler at
+all (`GeneratePrecompiledQueries` returns 0 errors and 0 generated files, silently — not a
+translation error). Separately, the provider already and deliberately forbids combining
+`.Limit(n)` with `.ToPageAsync(...)` on the same query
+(`DynamoQueryableMethodTranslatingExpressionVisitor.cs`: `'ToPageAsync' cannot be combined with
+'Limit'`), since `ToPageAsync(limit, nextToken, ct)` already takes both directly.
+
+Empirically confirmed in the NativeAOT smoke app: a query with **no** generated interceptor at all
+does not fall back to interpreted/JIT execution under a true NativeAOT-published binary the way
+some other non-precompiled paths do (e.g. value-converter delegate compilation, which does fall
+back to the expression interpreter) — it throws immediately:
+`System.InvalidOperationException: Query wasn't precompiled and dynamic code isn't supported with
+NativeAOT`, aborting the process. This means `ToPageAsync(...)` cannot be used **anywhere** in a
+published NativeAOT binary today, not merely "isn't optimally precompiled." Teaching
+`DynamoPrecompiledQueryCodeGenerator` to recognize `ToPageAsync` as a root would be a genuine
+architectural extension to EF Core's upstream root-detection — explicitly out of scope; tracked
+upstream as [dotnet/efcore#38962](https://github.com/dotnet/efcore/issues/38962) rather than
+reimplemented provider-side (that issue's body has the full decompiled root-cause trace of
+`QueryLocator` and the reasons a provider-side workaround was rejected as unsafe). The NativeAOT
+smoke app instead bootstraps a real continuation token via a raw AWS SDK `ExecuteStatementAsync`
+call — a test-only validation technique, not a recommended consumer pattern — mirroring exactly
+what `DynamoClientWrapper` does internally (`ExecuteStatementResponse.NextToken` flows through
+unmodified into `WithNextToken(...)`/`DynamoPage.NextToken`, so this is a faithful bootstrap for
+test purposes, not a workaround of provider behavior) and proves the actual precompiled/NativeAOT
+-critical path via `Limit(pageSize).WithNextToken(nextToken).ToListAsync()`.

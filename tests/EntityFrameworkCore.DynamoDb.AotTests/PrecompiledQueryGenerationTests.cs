@@ -1,5 +1,7 @@
 using System.Reflection;
 using System.Runtime.Loader;
+using System.Text.RegularExpressions;
+using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using EntityFrameworkCore.DynamoDb.Design.Internal;
 using EntityFrameworkCore.DynamoDb.Infrastructure;
@@ -17,6 +19,7 @@ using Microsoft.EntityFrameworkCore.Query.Internal;
 using Microsoft.EntityFrameworkCore.Scaffolding;
 using Microsoft.EntityFrameworkCore.Scaffolding.Internal;
 using Microsoft.EntityFrameworkCore.Storage;
+using NSubstitute;
 
 namespace EntityFrameworkCore.DynamoDb.AotTests;
 
@@ -732,6 +735,517 @@ public class PrecompiledQueryGenerationTests
         }
     }
 
+    // Regression coverage for the C# 14 extension-block precompiler defect: EF Core's upstream
+    // precompiler could not resolve any method declared inside DynamoDbQueryableExtensions'
+    // former `extension<TEntity>(...)` block (reported as "Couldn't find nested type '`1' on
+    // containing type 'DynamoDbQueryableExtensions'"). The extension surface is now declared as
+    // conventional `this`-parameter static extension methods, which resolve correctly. These
+    // tests fail again if the file is ever converted back to an extension block.
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Generated_interceptor_precompiles_constant_limit_and_applies_it_to_the_request()
+    {
+        // This covers only the constant-limit shape. Parameterized `.Limit(limit)` is covered by
+        // Generated_interceptor_precompiles_limit_and_next_token_composition_and_applies_both_to_the_request
+        // below, alongside parameterized WithNextToken.
+        const string source = """
+                              using System.Collections.Generic;
+                              using System.Linq;
+                              using System.Threading.Tasks;
+                              using Microsoft.EntityFrameworkCore;
+
+                              namespace GeneratedQueryTest;
+
+                              public sealed class TestContext(DbContextOptions options) : DbContext(options)
+                              {
+                                  public DbSet<TestItem> Items => Set<TestItem>();
+
+                                  protected override void OnModelCreating(ModelBuilder modelBuilder)
+                              {
+                              modelBuilder.Entity<TestItem>(entity =>
+                              {
+                              entity.HasPartitionKey(item => item.Pk);
+                              });
+                              }
+                              }
+
+                              public sealed class TestItem
+                              {
+                              public string Pk { get; set; } = null!;
+                              public string Name { get; set; } = null!;
+                              }
+
+                              public static class QueryContainer
+                              {
+                              public static async Task<List<string>> ExecuteWithConstantLimit(
+                              DbContextOptions options)
+                              {
+                              await using var context = new TestContext(options);
+                              return await context.Items
+                              .Where(item => item.Pk == "tenant-1")
+                              .Limit(5)
+                              .Select(item => item.Name)
+                              .ToListAsync();
+                              }
+                              }
+                              """;
+
+        var parseOptions = new CSharpParseOptions().WithFeatures(
+        [
+            new KeyValuePair<string, string>(
+                "InterceptorsNamespaces",
+                "Microsoft.EntityFrameworkCore.GeneratedInterceptors")
+        ]);
+        var compilation = CSharpCompilation.Create(
+            "DynamoLimitPrecompilationTest",
+            [CSharpSyntaxTree.ParseText(source, parseOptions, path: "LimitPrecompilationTest.cs")],
+            GetMetadataReferences(),
+            new CSharpCompilationOptions(
+                OutputKind.DynamicallyLinkedLibrary,
+                nullableContextOptions: NullableContextOptions.Enable));
+
+        AssertCompilationSucceeded(compilation);
+        var (loadContext, assembly) = EmitAndLoad(compilation);
+
+        try
+        {
+            var options = new DbContextOptionsBuilder().UseDynamo().Options;
+            await using var context = (DbContext)Activator.CreateInstance(
+                assembly.GetType("GeneratedQueryTest.TestContext")!,
+                options)!;
+            using var workspace = new AdhocWorkspace();
+            var errors = new List<PrecompiledQueryCodeGenerator.QueryPrecompilationError>();
+            var generatedFiles =
+                new DynamoPrecompiledQueryCodeGenerator().GeneratePrecompiledQueries(
+                    compilation,
+                    SyntaxGenerator.GetGenerator(workspace, LanguageNames.CSharp),
+                    context,
+                    new Dictionary<MemberInfo, QualifiedName>(),
+                    errors,
+                    new HashSet<string>(),
+                    assembly);
+
+            // This is the exact assertion that reproduced the original defect: before the
+            // extension-block-to-classic-method conversion, `errors` contained an
+            // InvalidOperationException ("Couldn't find nested type...") and `generatedFiles`
+            // was empty.
+            errors.Should().BeEmpty();
+            generatedFiles.Should().NotBeEmpty();
+            var generatedCode =
+                string.Join(Environment.NewLine, generatedFiles.Select(file => file.Code));
+            generatedCode.Should().Contain("CreateQueryTemplate");
+            generatedCode.Should().NotContain("SelectExpressionJson");
+            generatedCode.Should().NotContain("RelationalMaterializerLiftableConstantContext");
+
+            var generatedCompilation = compilation.AddSyntaxTrees(
+                generatedFiles.Select(file
+                    => CSharpSyntaxTree.ParseText(file.Code, parseOptions, file.Path)));
+            AssertCompilationSucceeded(generatedCompilation);
+            // Interceptor binding failures surface as warnings, not errors: an unbound
+            // interceptor silently falls back to JIT translation and the assertions below would
+            // then pass without the Limit ever having been precompiled.
+            generatedCompilation
+                .GetDiagnostics()
+                .Where(diagnostic
+                    => diagnostic.Severity >= DiagnosticSeverity.Warning
+                    && InterceptorWarningIds.Contains(diagnostic.Id))
+                .Should()
+                .BeEmpty(
+                    string.Join(
+                        Environment.NewLine,
+                        generatedCompilation
+                            .GetDiagnostics()
+                            .Where(diagnostic => diagnostic.Severity >= DiagnosticSeverity.Warning)
+                            .Select(diagnostic => diagnostic.ToString())));
+
+            var (generatedLoadContext, generatedAssembly) = EmitAndLoad(generatedCompilation);
+            try
+            {
+                var store = new Dictionary<string, Dictionary<string, AttributeValue>>
+                {
+                    ["tenant-1"] = new()
+                    {
+                        ["pk"] = new() { S = "tenant-1" }, ["name"] = new() { S = "name-1" }
+                    }
+                };
+
+                ExecuteStatementRequest? capturedRequest = null;
+                var client = Substitute.For<IAmazonDynamoDB>();
+                client
+                    .ExecuteStatementAsync(
+                        Arg.Do<ExecuteStatementRequest>(request => capturedRequest = request),
+                        Arg.Any<CancellationToken>())
+                    .Returns(callInfo =>
+                    {
+                        var request = callInfo.Arg<ExecuteStatementRequest>();
+                        return Task.FromResult(
+                            new ExecuteStatementResponse
+                            {
+                                Items = store.Values.Take(request.Limit ?? int.MaxValue).ToList()
+                            });
+                    });
+                var fakeOptions = new DbContextOptionsBuilder().UseDynamo(configure
+                        => configure.DynamoDbClient(client))
+                    .Options;
+
+                await InvokeQueryAsync(generatedAssembly, "ExecuteWithConstantLimit", fakeOptions);
+                capturedRequest.Should().NotBeNull();
+                // Proves the DynamoDB request actually carries the intended Limit value, not
+                // merely that the LINQ result count happened to be small.
+                capturedRequest!.Limit.Should().Be(5);
+            }
+            finally
+            {
+                generatedLoadContext.Unload();
+            }
+        }
+        finally
+        {
+            loadContext.Unload();
+        }
+    }
+
+    // Covers the fluent surface not already exercised by the Limit/WithNextToken tests above and
+    // below: a parameterless marker (WithConsistentRead), a value-carrying extension (WithIndex),
+    // and another independent parameterless marker (AllowScan). WithNextToken itself is covered by
+    // Generated_interceptor_precompiles_limit_and_next_token_composition_and_applies_both_to_the_request.
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public void Generated_interceptor_precompiles_the_remaining_fluent_extension_surface()
+    {
+        const string source = """
+                              using System.Collections.Generic;
+                              using System.Linq;
+                              using System.Threading.Tasks;
+                              using Microsoft.EntityFrameworkCore;
+
+                              namespace GeneratedQueryTest;
+
+                              public sealed class TestContext(DbContextOptions options) : DbContext(options)
+                              {
+                                  public DbSet<TestItem> Items => Set<TestItem>();
+
+                                  protected override void OnModelCreating(ModelBuilder modelBuilder)
+                              {
+                              modelBuilder.Entity<TestItem>(entity =>
+                              {
+                              entity.HasPartitionKey(item => item.Pk);
+                              entity.HasGlobalSecondaryIndex("ByName", nameof(TestItem.Name));
+                              });
+                              }
+                              }
+
+                              public sealed class TestItem
+                              {
+                              public string Pk { get; set; } = null!;
+                              public string Name { get; set; } = null!;
+                              }
+
+                              public static class QueryContainer
+                              {
+                              // Parameterless fluent marker.
+                              public static async Task<List<string>> ExecuteWithConsistentRead(
+                              DbContextOptions options)
+                              {
+                              await using var context = new TestContext(options);
+                              return await context.Items
+                              .Where(item => item.Pk == "tenant-1")
+                              .WithConsistentRead(true)
+                              .Select(item => item.Name)
+                              .ToListAsync();
+                              }
+
+                              // Fluent extension carrying a value argument.
+                              public static async Task<List<string>> ExecuteWithIndex(
+                              DbContextOptions options)
+                              {
+                              await using var context = new TestContext(options);
+                              return await context.Items
+                              .Where(item => item.Name == "tenant-1")
+                              .WithIndex("ByName")
+                              .Select(item => item.Pk)
+                              .ToListAsync();
+                              }
+
+                              // Another parameterless fluent marker with an independent method
+                              // body (not a delegating overload).
+                              public static async Task<List<string>> ExecuteAllowScan(
+                              DbContextOptions options)
+                              {
+                              await using var context = new TestContext(options);
+                              return await context.Items
+                              .Where(item => item.Name == "tenant-1")
+                              .AllowScan()
+                              .Select(item => item.Pk)
+                              .ToListAsync();
+                              }
+                              }
+                              """;
+
+        var parseOptions = new CSharpParseOptions().WithFeatures(
+        [
+            new KeyValuePair<string, string>(
+                "InterceptorsNamespaces",
+                "Microsoft.EntityFrameworkCore.GeneratedInterceptors")
+        ]);
+        var compilation = CSharpCompilation.Create(
+            "DynamoFluentSurfacePrecompilationTest",
+            [
+                CSharpSyntaxTree.ParseText(
+                    source,
+                    parseOptions,
+                    path: "FluentSurfacePrecompilationTest.cs")
+            ],
+            GetMetadataReferences(),
+            new CSharpCompilationOptions(
+                OutputKind.DynamicallyLinkedLibrary,
+                nullableContextOptions: NullableContextOptions.Enable));
+
+        AssertCompilationSucceeded(compilation);
+        var (loadContext, assembly) = EmitAndLoad(compilation);
+
+        try
+        {
+            var options = new DbContextOptionsBuilder().UseDynamo().Options;
+            using var context = (DbContext)Activator.CreateInstance(
+                assembly.GetType("GeneratedQueryTest.TestContext")!,
+                options)!;
+            using var workspace = new AdhocWorkspace();
+            var errors = new List<PrecompiledQueryCodeGenerator.QueryPrecompilationError>();
+            var generatedFiles =
+                new DynamoPrecompiledQueryCodeGenerator().GeneratePrecompiledQueries(
+                    compilation,
+                    SyntaxGenerator.GetGenerator(workspace, LanguageNames.CSharp),
+                    context,
+                    new Dictionary<MemberInfo, QualifiedName>(),
+                    errors,
+                    new HashSet<string>(),
+                    assembly);
+
+            errors.Should().BeEmpty();
+            generatedFiles.Should().NotBeEmpty();
+            var generatedCode =
+                string.Join(Environment.NewLine, generatedFiles.Select(file => file.Code));
+            // Three query roots (WithConsistentRead, WithIndex, AllowScan) must each produce
+            // a generated executor; a regression that reintroduces the extension-block shape
+            // drops this count to zero.
+            Regex.Matches(generatedCode, "CreateQueryTemplate").Count.Should().BeGreaterThanOrEqualTo(3);
+            generatedCode.Should().NotContain("SelectExpressionJson");
+
+            var generatedCompilation = compilation.AddSyntaxTrees(
+                generatedFiles.Select(file
+                    => CSharpSyntaxTree.ParseText(file.Code, parseOptions, file.Path)));
+            AssertCompilationSucceeded(generatedCompilation);
+            generatedCompilation
+                .GetDiagnostics()
+                .Where(diagnostic
+                    => diagnostic.Severity >= DiagnosticSeverity.Warning
+                    && InterceptorWarningIds.Contains(diagnostic.Id))
+                .Should()
+                .BeEmpty(
+                    string.Join(
+                        Environment.NewLine,
+                        generatedCompilation
+                            .GetDiagnostics()
+                            .Where(diagnostic => diagnostic.Severity >= DiagnosticSeverity.Warning)
+                            .Select(diagnostic => diagnostic.ToString())));
+        }
+        finally
+        {
+            loadContext.Unload();
+        }
+    }
+
+    // Proves the realistic pagination composition precompiles and that the generated interceptor
+    // genuinely parameterizes both the limit and the continuation token — the same generated
+    // executor is invoked twice with different runtime values, and the DynamoDB requests it sends
+    // are captured directly (not inferred from result counts).
+    [Fact(Timeout = TestConfiguration.DefaultTimeout)]
+    public async Task Generated_interceptor_precompiles_limit_and_next_token_composition_and_applies_both_to_the_request()
+    {
+        const string source = """
+                              using System.Collections.Generic;
+                              using System.Linq;
+                              using System.Threading.Tasks;
+                              using Microsoft.EntityFrameworkCore;
+
+                              namespace GeneratedQueryTest;
+
+                              public sealed class TestContext(DbContextOptions options) : DbContext(options)
+                              {
+                                  public DbSet<TestItem> Items => Set<TestItem>();
+
+                                  protected override void OnModelCreating(ModelBuilder modelBuilder)
+                              {
+                              modelBuilder.Entity<TestItem>(entity =>
+                              {
+                              entity.HasPartitionKey(item => item.Pk);
+                              });
+                              }
+                              }
+
+                              public sealed class TestItem
+                              {
+                              public string Pk { get; set; } = null!;
+                              public string Name { get; set; } = null!;
+                              }
+
+                              public static class QueryContainer
+                              {
+                              public static async Task<List<string>> LoadNextPage(
+                              DbContextOptions options,
+                              int pageSizeArg,
+                              string nextTokenArg)
+                              {
+                              await using var context = new TestContext(options);
+                              var pageSize = pageSizeArg;
+                              var nextToken = nextTokenArg;
+                              return await context.Items
+                              .Where(item => item.Pk == "tenant-1")
+                              .Limit(pageSize)
+                              .WithNextToken(nextToken)
+                              .Select(item => item.Name)
+                              .ToListAsync();
+                              }
+                              }
+                              """;
+
+        var parseOptions = new CSharpParseOptions().WithFeatures(
+        [
+            new KeyValuePair<string, string>(
+                "InterceptorsNamespaces",
+                "Microsoft.EntityFrameworkCore.GeneratedInterceptors")
+        ]);
+        var compilation = CSharpCompilation.Create(
+            "DynamoPaginationCompositionTest",
+            [
+                CSharpSyntaxTree.ParseText(
+                    source,
+                    parseOptions,
+                    path: "PaginationCompositionTest.cs")
+            ],
+            GetMetadataReferences(),
+            new CSharpCompilationOptions(
+                OutputKind.DynamicallyLinkedLibrary,
+                nullableContextOptions: NullableContextOptions.Enable));
+
+        AssertCompilationSucceeded(compilation);
+        var (loadContext, assembly) = EmitAndLoad(compilation);
+
+        try
+        {
+            var options = new DbContextOptionsBuilder().UseDynamo().Options;
+            await using var context = (DbContext)Activator.CreateInstance(
+                assembly.GetType("GeneratedQueryTest.TestContext")!,
+                options)!;
+            using var workspace = new AdhocWorkspace();
+            var errors = new List<PrecompiledQueryCodeGenerator.QueryPrecompilationError>();
+            var generatedFiles =
+                new DynamoPrecompiledQueryCodeGenerator().GeneratePrecompiledQueries(
+                    compilation,
+                    SyntaxGenerator.GetGenerator(workspace, LanguageNames.CSharp),
+                    context,
+                    new Dictionary<MemberInfo, QualifiedName>(),
+                    errors,
+                    new HashSet<string>(),
+                    assembly);
+
+            errors.Should().BeEmpty();
+            generatedFiles.Should().NotBeEmpty();
+            var generatedCode =
+                string.Join(Environment.NewLine, generatedFiles.Select(file => file.Code));
+            generatedCode.Should().Contain("CreateQueryTemplate");
+            generatedCode.Should().NotContain("SelectExpressionJson");
+            generatedCode.Should().NotContain("RelationalMaterializerLiftableConstantContext");
+            // The generated Limit/WithNextToken wrapper methods must carry the runtime `limit` and
+            // `nextToken` values as real query parameters (queryContext.Parameters.Add(...)), not
+            // embed a specific value as a PartiQL literal. Generated parameter names are positional
+            // ("p", "p2", ...), not the original source identifiers, so assert on the mechanism
+            // rather than a specific name.
+            generatedCode.Should().Contain("queryContext.Parameters.Add(\"p\", limit)");
+            generatedCode.Should().Contain("DynamoGeneratedQueryRuntime.ValidateWithNextToken");
+            generatedCode.Should().NotContain("\"tenant-1-token-a\"");
+            generatedCode.Should().NotContain("\"tenant-1-token-b\"");
+
+            var generatedCompilation = compilation.AddSyntaxTrees(
+                generatedFiles.Select(file
+                    => CSharpSyntaxTree.ParseText(file.Code, parseOptions, file.Path)));
+            AssertCompilationSucceeded(generatedCompilation);
+            generatedCompilation
+                .GetDiagnostics()
+                .Where(diagnostic
+                    => diagnostic.Severity >= DiagnosticSeverity.Warning
+                    && InterceptorWarningIds.Contains(diagnostic.Id))
+                .Should()
+                .BeEmpty(
+                    string.Join(
+                        Environment.NewLine,
+                        generatedCompilation
+                            .GetDiagnostics()
+                            .Where(diagnostic => diagnostic.Severity >= DiagnosticSeverity.Warning)
+                            .Select(diagnostic => diagnostic.ToString())));
+
+            var (generatedLoadContext, generatedAssembly) = EmitAndLoad(generatedCompilation);
+            try
+            {
+                var store = new Dictionary<string, Dictionary<string, AttributeValue>>
+                {
+                    ["tenant-1"] = new()
+                    {
+                        ["pk"] = new() { S = "tenant-1" }, ["name"] = new() { S = "name-1" }
+                    }
+                };
+
+                var capturedRequests = new List<ExecuteStatementRequest>();
+                var client = Substitute.For<IAmazonDynamoDB>();
+                client
+                    .ExecuteStatementAsync(
+                        Arg.Do<ExecuteStatementRequest>(capturedRequests.Add),
+                        Arg.Any<CancellationToken>())
+                    .Returns(callInfo =>
+                    {
+                        var request = callInfo.Arg<ExecuteStatementRequest>();
+                        return Task.FromResult(
+                            new ExecuteStatementResponse
+                            {
+                                Items = store.Values.Take(request.Limit ?? int.MaxValue).ToList()
+                            });
+                    });
+                var fakeOptions = new DbContextOptionsBuilder().UseDynamo(configure
+                        => configure.DynamoDbClient(client))
+                    .Options;
+
+                // First invocation: pageSize=5, a real (bootstrapped-in-a-real-scenario) token.
+                await InvokeQueryAsync(
+                    generatedAssembly,
+                    "LoadNextPage",
+                    fakeOptions,
+                    [5, "tenant-1-token-a"]);
+                capturedRequests.Should().HaveCount(1);
+                capturedRequests[0].Limit.Should().Be(5);
+                capturedRequests[0].NextToken.Should().Be("tenant-1-token-a");
+
+                // Second invocation of the SAME generated interceptor with different runtime
+                // values: proves the interceptor is reused/parameterized rather than regenerated
+                // or having baked in the first call's values.
+                await InvokeQueryAsync(
+                    generatedAssembly,
+                    "LoadNextPage",
+                    fakeOptions,
+                    [2, "tenant-1-token-b"]);
+                capturedRequests.Should().HaveCount(2);
+                capturedRequests[1].Limit.Should().Be(2);
+                capturedRequests[1].NextToken.Should().Be("tenant-1-token-b");
+            }
+            finally
+            {
+                generatedLoadContext.Unload();
+            }
+        }
+        finally
+        {
+            loadContext.Unload();
+        }
+    }
+
     private static IReadOnlyList<MetadataReference> GetMetadataReferences()
         => ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
             .Split(Path.PathSeparator)
@@ -749,9 +1263,16 @@ public class PrecompiledQueryGenerationTests
         Assembly assembly,
         string methodName,
         DbContextOptions options)
+        => await InvokeQueryAsync(assembly, methodName, options, []);
+
+    private static async Task<object?> InvokeQueryAsync(
+        Assembly assembly,
+        string methodName,
+        DbContextOptions options,
+        object?[] additionalArguments)
     {
         var method = assembly.GetType("GeneratedQueryTest.QueryContainer")!.GetMethod(methodName)!;
-        var invoke = method.Invoke(null, [options]);
+        var invoke = method.Invoke(null, [options, .. additionalArguments]);
         if (invoke is Task task)
         {
             await task;

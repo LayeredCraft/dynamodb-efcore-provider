@@ -90,11 +90,37 @@ for local arrays, which EF Core's query precompiler cannot currently translate.
 - NativeAOT publishing may emit trim and dynamic-code analysis warnings from EF Core, the AWS SDK,
     and provider features outside precompiled query execution. Reviewed warning IDs are pinned in
     CI with documented rationale; warnings are accepted only when their source is known.
-- EF Core's precompiler currently rejects the provider's C# 14 `Limit(n)` extension member and
-    nullable-coalescing projections before provider translation. This affects precompiled-query
-    generation only (both EF10 and EF11, with or without NativeAOT): the build fails instead of
-    falling back to runtime execution. Queries that are not precompiled translate `Limit(n)` at
-    runtime as usual.
+- `Limit(n)` and `WithNextToken(...)` both precompile and participate in NativeAOT, with either a
+    literal or a captured-local (runtime-varying) argument — for example
+    `context.Items.Where(...).Limit(pageSize).WithNextToken(nextToken).ToListAsync()`, where
+    `pageSize` and `nextToken` are ordinary local variables. The generated interceptor is a single,
+    reusable executor: calling it with different `pageSize`/`nextToken` values does not regenerate
+    or re-translate the query.
+- A parameterized argument to a provider fluent method must be a **local variable**, not a bare
+    reference to the enclosing method's own parameter or a field/constant. Assign the value to a
+    local first (`var pageSize = pageSizeArg;`) before using it in the query — EF Core's precompiler
+    only recognizes locals and lambda parameters when re-interpreting the query-building method; a
+    bare method parameter or field reference fails with `Encountered unknown identifier name '...',
+    which doesn't correspond to a lambda parameter or captured variable`.
+- `ToPageAsync(...)` does not currently precompile, and so cannot run in a NativeAOT-published
+    binary (a query with no generated interceptor has no JIT fallback). This is an **upstream EF
+    Core limitation**, not a gap in this provider: `ToPageAsync(...)` already translates and
+    executes correctly through the provider's normal pipeline outside NativeAOT. EF Core's
+    precompiler discovers query roots through a closed, internal mechanism that recognizes only a
+    fixed set of terminal methods declared on EF Core's own types — provider-defined terminals like
+    `ToPageAsync` currently have no way to participate in that discovery, so the call is silently
+    skipped (no generated interceptor, no build-time error). `Limit(pageSize).WithNextToken
+    (nextToken).ToListAsync()` — a recognized EF terminal — precompiles and NativeAOT-executes
+    correctly, proving the underlying pagination mechanics work. For a **tracked, non-empty**
+    result, this is enough for full pagination: the page's `NextToken` is available via
+    `EntityEntry.GetExecuteStatementResponse()` (see [Pagination](pagination.md#accessing-the-raw-response-token)),
+    verified under a precompiled NativeAOT query in this provider's own smoke tests.
+    `ToPageAsync(...)` is still required when there is no tracked entity to read the token from —
+    **projections**, **no-tracking queries**, and **empty pages**. Tracked upstream:
+    [dotnet/efcore#38962](https://github.com/dotnet/efcore/issues/38962). See
+    [Limitations](../limitations.md).
+- EF Core's precompiler currently rejects nullable-coalescing projections before provider
+    translation, independent of the above.
 - The tested NativeAOT path covers entity materialization with string, nullable numeric, Boolean,
     binary, converted scalar, and one-dimensional array properties with non-nullable elements.
     Entity materialization requiring a read from a non-public mapped field is not supported. This

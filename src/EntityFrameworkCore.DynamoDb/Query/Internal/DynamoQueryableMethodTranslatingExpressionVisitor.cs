@@ -1,6 +1,7 @@
 using System.Linq.Expressions;
 using System.Reflection;
 using EntityFrameworkCore.DynamoDb.Extensions;
+using EntityFrameworkCore.DynamoDb.Infrastructure;
 using EntityFrameworkCore.DynamoDb.Query.Internal.Expressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
@@ -24,10 +25,12 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
             nameof(ResolveEffectiveNextToken),
             BindingFlags.Static | BindingFlags.NonPublic)!;
 
+#pragma warning disable EF9100
     private static readonly MethodInfo ValidateWithNextTokenMethodInfo =
-        typeof(DynamoQueryableMethodTranslatingExpressionVisitor).GetMethod(
-            nameof(ValidateWithNextToken),
-            BindingFlags.Static | BindingFlags.NonPublic)!;
+        typeof(DynamoGeneratedQueryRuntime).GetMethod(
+            nameof(DynamoGeneratedQueryRuntime.ValidateWithNextToken),
+            BindingFlags.Static | BindingFlags.Public)!;
+#pragma warning restore EF9100
 
     /// <summary>Provides functionality for this member.</summary>
     public DynamoQueryableMethodTranslatingExpressionVisitor(
@@ -241,17 +244,6 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
                 "Only one non-null pagination token may be specified. Use either WithNextToken(...) or ToPageAsync(..., nextToken: ...), but not both.");
 
         return toPageToken ?? existingToken;
-    }
-
-    private static string ValidateWithNextToken(string? nextToken)
-    {
-        if (nextToken is null)
-            throw new ArgumentNullException("nextToken");
-
-        if (string.IsNullOrWhiteSpace(nextToken))
-            throw new ArgumentException("Next token must not be empty.", "nextToken");
-
-        return nextToken;
     }
 
     private static bool TryGetNormalizedConstantToken(

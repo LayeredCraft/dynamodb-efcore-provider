@@ -48,11 +48,30 @@ Query execution is asynchronous only. Synchronous query operators and enumeratio
 `InvalidOperationException`; use `ToListAsync`, `FirstAsync`, `ToPageAsync`, or
 `AsAsyncEnumerable`.
 
-Two EF Core precompiler restrictions currently fail before provider translation. The provider's
-C# 14 `Limit(n)` extension member cannot currently be resolved by EF Core's precompiler, and
-nullable-coalescing projections such as `Select(x => x.OptionalCount ?? -1)` are rejected by the
-EF Core C#-to-LINQ translator. Use supported query shapes or run these queries without
-precompilation. Both failures are intentional build-time errors, not runtime fallbacks.
+`Limit(n)` and `WithNextToken(...)` both precompile normally, including with runtime-varying
+(local-variable) arguments — see [Precompiled Queries and
+NativeAOT](querying/precompiled-queries.md#restrictions) for the local-variable requirement.
+
+`ToPageAsync(...)` does not, and so cannot run in a NativeAOT-published binary (a query with no
+generated interceptor has no JIT fallback — not a build-time error; `dotnet publish` succeeds and
+the failure only surfaces at execution). This is an **upstream EF Core limitation**, not a gap in
+how this provider translates or executes pagination: `ToPageAsync(...)` works correctly through the
+provider's normal pipeline outside NativeAOT, but EF Core's precompiler discovers query roots
+through a closed, internal mechanism with no registration point for provider-defined terminal
+methods, so the call is silently skipped. `Limit(...).WithNextToken(...).ToListAsync()` — a
+recognized EF terminal — precompiles and executes correctly under NativeAOT, proving the pagination
+mechanics work. For a tracked, non-empty result this is enough for full pagination:
+`EntityEntry.GetExecuteStatementResponse()` exposes the page's `NextToken` (see
+[Pagination](querying/pagination.md#accessing-the-raw-response-token)), verified against a
+precompiled NativeAOT query. `ToPageAsync(...)` remains necessary for projections, no-tracking
+queries, and empty pages, where there is no tracked entity to read the token from. Tracked upstream:
+[dotnet/efcore#38962](https://github.com/dotnet/efcore/issues/38962). See [Precompiled Queries and
+NativeAOT](querying/precompiled-queries.md#restrictions) for details.
+
+Nullable-coalescing projections such as `Select(x => x.OptionalCount ?? -1)` are rejected by the EF
+Core C#-to-LINQ translator before provider translation — this one *is* an intentional build-time
+error, not a runtime fallback. Use supported query shapes, or run either of these query shapes
+without precompilation.
 
 Precompiled-query generation upstream of the provider cannot handle complex-type members: a query
 that materializes or filters on a complex property fails during `dotnet publish` with an EF Core

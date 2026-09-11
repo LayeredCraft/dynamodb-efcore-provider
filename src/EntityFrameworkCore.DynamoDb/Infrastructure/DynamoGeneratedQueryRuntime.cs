@@ -445,6 +445,29 @@ public static class DynamoGeneratedQueryRuntime
         return DynamoScalarCodecs<T>.Instance.Read(attributeValue, propertyPath, required, null);
     }
 
+    /// <summary>Validates a runtime <c>WithNextToken(...)</c> continuation-token value.</summary>
+    /// <remarks>
+    ///     A parameterized <c>WithNextToken(nextToken)</c> call resolves its argument through a
+    ///     generated runtime-parameter extractor rather than a query-time constant, so the
+    ///     resulting generated C# calls this method by name. It therefore needs a public,
+    ///     stable-signature home outside the translation visitor, which generated code cannot
+    ///     otherwise reference.
+    /// </remarks>
+    /// <param name="nextToken">The candidate continuation token.</param>
+    /// <returns><paramref name="nextToken" />, unchanged, once validated.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="nextToken" /> is null.</exception>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="nextToken" /> is empty or whitespace.</exception>
+    public static string ValidateWithNextToken(string? nextToken)
+    {
+        if (nextToken is null)
+            throw new ArgumentNullException(nameof(nextToken));
+
+        if (string.IsNullOrWhiteSpace(nextToken))
+            throw new ArgumentException("Next token must not be empty.", nameof(nextToken));
+
+        return nextToken;
+    }
+
     private static class DynamoScalarCodecs<T>
     {
         // Scalar codecs are stateless; one instance per closed generic type replaces per-row
