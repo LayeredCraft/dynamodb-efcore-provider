@@ -25,7 +25,7 @@ namespace EntityFrameworkCore.DynamoDb.AotTests;
 ///     Compiles the generated compiled-model code (including primed collection mappings) with Roslyn,
 ///     loads it, and executes a real query and SaveChanges against the loaded model.
 /// </summary>
-public class CompiledModelExecutionTests
+public partial class CompiledModelExecutionTests
 {
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
     public async Task
@@ -414,7 +414,21 @@ public class CompiledModelExecutionTests
             var path = assignment[..separator].Replace("\"", string.Empty);
             var valueText = assignment[(separator + 3)..];
 
-            if (valueText == "?")
+            var selfReference = SelfReferenceArithmeticRegex().Match(valueText);
+            if (selfReference.Success)
+            {
+                var referencedPath = selfReference.Groups["path"].Value.Replace("\"", string.Empty);
+                if (!string.Equals(referencedPath, path, StringComparison.Ordinal))
+                    throw new InvalidOperationException(
+                        $"Fake client only supports self-referencing arithmetic, got '{assignment}'.");
+
+                ApplySelfReferenceArithmetic(
+                    target,
+                    path,
+                    selfReference.Groups["operator"].Value,
+                    decimal.Parse(selfReference.Groups["value"].Value));
+            }
+            else if (valueText == "?")
             {
                 ApplyUpdatePath(target, path, parameters[parameterIndex]);
                 parameterIndex++;
@@ -425,6 +439,38 @@ public class CompiledModelExecutionTests
             }
         }
     }
+
+    private static void ApplySelfReferenceArithmetic(
+        Dictionary<string, AttributeValue> item,
+        string path,
+        string @operator,
+        decimal operand)
+    {
+        var segments = path.Split('.');
+        var current = item;
+        for (var index = 0; index < segments.Length - 1; index++)
+        {
+            if (!current.TryGetValue(segments[index], out var nested) || nested.M is null)
+            {
+                nested = new AttributeValue { M = [] };
+                current[segments[index]] = nested;
+            }
+
+            current = nested.M;
+        }
+
+        var leaf = segments[^1];
+        var existing = decimal.Parse(current[leaf].N);
+        var updated = @operator == "+" ? existing + operand : existing - operand;
+        current[leaf] =
+            new AttributeValue
+            {
+                N = updated.ToString(System.Globalization.CultureInfo.InvariantCulture)
+            };
+    }
+
+    [GeneratedRegex("^\"(?<path>[^\"]+)\"\\s*(?<operator>[-+])\\s*(?<value>\\d+)$")]
+    private static partial Regex SelfReferenceArithmeticRegex();
 
     private static void ApplyUpdatePath(
         Dictionary<string, AttributeValue> item,

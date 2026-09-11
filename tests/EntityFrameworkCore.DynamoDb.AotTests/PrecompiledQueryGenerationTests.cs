@@ -111,6 +111,7 @@ public class PrecompiledQueryGenerationTests
                               public string Name { get; set; } = null!;
                               public TestStatus Status { get; set; }
                               public List<System.Guid> ExternalIds { get; set; } = [];
+                              public int Count { get; set; }
                               }
 
                               public enum TestStatus
@@ -167,6 +168,16 @@ public class PrecompiledQueryGenerationTests
                               .Where(item => item.Pk == pk)
                               .ExecuteUpdateAsync(setters
                               => setters.SetProperty(item => item.Name, "updated"));
+                              }
+
+                              public static async Task<int> ExecuteUpdateSelfReference(DbContextOptions options)
+                              {
+                              await using var context = new TestContext(options);
+                              var pk = "tenant-1";
+                              return await context.Items
+                              .Where(item => item.Pk == pk)
+                              .ExecuteUpdateAsync(setters
+                              => setters.SetProperty(item => item.Count, item => item.Count + 1));
                               }
                               }
                               """;
@@ -276,7 +287,8 @@ public class PrecompiledQueryGenerationTests
                         ["name"] = new() { S = name },
                         ["status"] = new() { S = "Active" },
                         ["$type"] = new() { S = "TestItem" },
-                        ["externalIds"] = new() { L = externalIds ?? [] }
+                        ["externalIds"] = new() { L = externalIds ?? [] },
+                        ["count"] = new() { N = "0" }
                     };
 
                 var store = new Dictionary<string, Dictionary<string, AttributeValue>>
@@ -329,6 +341,16 @@ public class PrecompiledQueryGenerationTests
                         ?? throw new InvalidOperationException("ExecuteUpdate returned null."));
                 affected.Should().Be(1);
                 store["tenant-1"]["name"].S.Should().Be("updated");
+
+                var selfReferenceAffected =
+                    (int)(await InvokeQueryAsync(
+                            generatedAssembly,
+                            "ExecuteUpdateSelfReference",
+                            fakeOptions)
+                        ?? throw new InvalidOperationException(
+                            "ExecuteUpdateSelfReference returned null."));
+                selfReferenceAffected.Should().Be(1);
+                store["tenant-1"]["count"].N.Should().Be("1");
             }
             finally
             {

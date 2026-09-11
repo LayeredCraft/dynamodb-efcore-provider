@@ -19,10 +19,7 @@ NativeAOT publishing can report trimming and dynamic-code warnings from EF Core,
 provider paths outside query execution. The provider's smoke build allows those warnings while AOT
 support remains experimental; a warning-free trimmed application is not yet guaranteed.
 
-CI publishes and runs the NativeAOT smoke application with EF Core 10. EF Core 11 currently has a
-known blocker during EF Core Tasks precompilation, where generated-query compilation can fail to
-resolve application references. Interceptor generation is tested for EF Core 11, but NativeAOT
-publish-and-run support is not yet available.
+CI publishes and runs the NativeAOT smoke application for both EF Core 10 and EF Core 11.
 
 The tested native path supports scalar entity properties, including nullable numbers, Boolean,
 binary, configured scalar conversions, and one-dimensional arrays with non-nullable elements.
@@ -86,6 +83,13 @@ Converted values keep one interpreted seam under NativeAOT: value-converter dele
 falls back to the .NET expression interpreter, matching EF Core's own NativeAOT behavior. Query
 translation, parameter serialization, and materialization codecs themselves use generated or
 hand-written code only.
+
+On EF Core 10, precompiled query generation cannot combine constant and computed (self-referencing,
+for example `Count + 1`) setter values in a single `ExecuteUpdate`: EF Core's design-time generator
+misroutes the captured-variable extraction and would silently write the wrong value. The provider
+fails the build with a clear error for that shape; split the update into separate
+`ExecuteUpdateAsync` calls (one for constants, one for computed values). EF Core 11 supports the
+mixed shape.
 
 Precompiled query constants and parameters must bind to a mapped entity property. The generated
 code resolves each value's type mapping through the property that owns it (including element

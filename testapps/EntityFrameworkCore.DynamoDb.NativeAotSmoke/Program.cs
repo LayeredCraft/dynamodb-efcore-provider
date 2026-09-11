@@ -632,6 +632,29 @@ internal static class SmokeQueries
 
         return response.NextToken;
     }
+
+    internal static async Task<int> ExecuteUpdateAsync()
+    {
+        await using var context = new SmokeContext();
+        string partitionKey = "tenant-1";
+        string sortKey = "sk-1";
+        return await context
+            .Items
+            .Where(item => item.Pk == partitionKey && item.Sk == sortKey)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(item => item.Name, "Updated"));
+    }
+
+    internal static async Task<int> ExecuteSelfReferenceUpdateAsync()
+    {
+        await using var context = new SmokeContext();
+        string partitionKey = "tenant-1";
+        string sortKey = "sk-1";
+        return await context
+            .Items
+            .Where(item => item.Pk == partitionKey && item.Sk == sortKey)
+            .ExecuteUpdateAsync(setters
+                => setters.SetProperty(item => item.Count, item => item.Count + 43));
+    }
 }
 
 public sealed class SmokeItem

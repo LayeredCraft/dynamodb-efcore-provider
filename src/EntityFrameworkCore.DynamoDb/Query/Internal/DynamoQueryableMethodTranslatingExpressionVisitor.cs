@@ -1036,6 +1036,25 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
         if (!QueryCompilationContext.IsAsync)
             throw new NotSupportedException(DynamoStrings.ExecuteUpdateSyncNotSupported);
 
+#if !NET11_0
+        // EF Core 10's precompiled-query generator misroutes captured-variable extraction when a
+        // single ExecuteUpdate mixes constant and computed (self-referencing) setter values: the
+        // generated interceptor binds the computed setter's lambda delegate to the parameter the
+        // template expects for the constant value, silently writing the wrong value. Fail fast at
+        // generation time; EF Core 11 handles the mixed shape correctly.
+        if (((DynamoQueryCompilationContext)QueryCompilationContext).IsPrecompiling
+            && setters
+                .Select(static setter => setter.ValueExpression is LambdaExpression)
+                .Distinct()
+                .Count()
+            > 1)
+            throw new NotSupportedException(
+                "EF Core 10 precompiled query generation cannot combine constant and computed "
+                + "(self-referencing) setter values in a single ExecuteUpdate. Split the update "
+                + "into separate ExecuteUpdateAsync calls, or disable precompiled query "
+                + "generation for this query.");
+#endif
+
         if (source.ShaperExpression is not StructuralTypeShaperExpression
             {
                 StructuralType: IEntityType entityType
