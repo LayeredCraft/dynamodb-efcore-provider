@@ -100,7 +100,7 @@ for local arrays, which EF Core's query precompiler cannot currently translate.
     reference to the enclosing method's own parameter or a field/constant. Assign the value to a
     local first (`var pageSize = pageSizeArg;`) before using it in the query — EF Core's precompiler
     only recognizes locals and lambda parameters when re-interpreting the query-building method; a
-    bare method parameter or field reference fails with `Encountered unknown identifier name '...',   which doesn't correspond to a lambda parameter or captured variable`.
+    bare method parameter or field reference fails with `Encountered unknown identifier name '...', which doesn't correspond to a lambda parameter or captured variable`.
 - `ToPageAsync(...)` does not currently precompile, and so cannot run in a NativeAOT-published
     binary (a query with no generated interceptor has no JIT fallback). This is an **upstream EF
     Core limitation**, not a gap in this provider: `ToPageAsync(...)` already translates and
@@ -108,7 +108,7 @@ for local arrays, which EF Core's query precompiler cannot currently translate.
     precompiler discovers query roots through a closed, internal mechanism that recognizes only a
     fixed set of terminal methods declared on EF Core's own types — provider-defined terminals like
     `ToPageAsync` currently have no way to participate in that discovery, so the call is silently
-    skipped (no generated interceptor, no build-time error). `Limit(pageSize).WithNextToken   (nextToken).ToListAsync()` — a recognized EF terminal — precompiles and NativeAOT-executes
+    skipped (no generated interceptor, no build-time error). `Limit(pageSize).WithNextToken(nextToken).ToListAsync()` — a recognized EF terminal — precompiles and NativeAOT-executes
     correctly, proving the underlying pagination mechanics work. For a **tracked, non-empty**
     result, this is enough for full pagination: the page's `NextToken` is available via
     `EntityEntry.GetExecuteStatementResponse()` (see [Pagination](pagination.md#accessing-the-raw-response-token)),

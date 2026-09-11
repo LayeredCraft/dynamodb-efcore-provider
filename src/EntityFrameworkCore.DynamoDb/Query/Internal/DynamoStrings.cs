@@ -223,11 +223,6 @@ internal static class DynamoStrings
         => $"ExecuteDelete cannot target index '{indexName}'. PartiQL DELETE always operates on the "
             + "base table; remove .WithIndex(...) from the query.";
 
-    /// <summary>Formats an error message for an ExecuteUpdate WHERE clause missing key equality.</summary>
-    public static string ExecuteUpdateRequiresKeyEquality(string keyDescription)
-        => $"ExecuteUpdate requires the WHERE clause to equality-constrain the {keyDescription}. "
-            + "Add a Where(e => e.<Key> == value) predicate so the updated item is fully identified.";
-
     /// <summary>Formats an error message for an ExecuteUpdate WHERE clause with a rejected key shape.</summary>
     public static string ExecuteUpdateInvalidKeyPredicate(string reason)
         => ExecuteInvalidKeyPredicate("ExecuteUpdate", reason);
