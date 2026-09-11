@@ -158,6 +158,16 @@ public class PrecompiledQueryGenerationTests
                               .Select(item => item.Status)
                               .FirstAsync();
                               }
+
+                              public static async Task<int> ExecuteUpdate(DbContextOptions options)
+                              {
+                              await using var context = new TestContext(options);
+                              var pk = "tenant-1";
+                              return await context.Items
+                              .Where(item => item.Pk == pk)
+                              .ExecuteUpdateAsync(setters
+                              => setters.SetProperty(item => item.Name, "updated"));
+                              }
                               }
                               """;
 
@@ -219,6 +229,8 @@ public class PrecompiledQueryGenerationTests
             var generatedCode =
                 string.Join(Environment.NewLine, generatedFiles.Select(file => file.Code));
             generatedCode.Should().Contain("CreateQueryTemplate");
+            generatedCode.Should().Contain("CreateUpdateTemplate");
+            generatedCode.Should().Contain("CreateUpdateExecutorAsync");
             generatedCode.Should().Contain("CreateValueReader");
             generatedCode.Should().Contain("InterceptsLocationAttribute(1,");
             // Contains over a native primitive collection must bind the element mapping to the
@@ -311,6 +323,12 @@ public class PrecompiledQueryGenerationTests
                         ?? throw new InvalidOperationException(
                             "ExecuteConvertedProjection returned null."));
                 status.Should().Be((int)TestStatus.Active);
+
+                var affected =
+                    (int)(await InvokeQueryAsync(generatedAssembly, "ExecuteUpdate", fakeOptions)
+                        ?? throw new InvalidOperationException("ExecuteUpdate returned null."));
+                affected.Should().Be(1);
+                store["tenant-1"]["name"].S.Should().Be("updated");
             }
             finally
             {

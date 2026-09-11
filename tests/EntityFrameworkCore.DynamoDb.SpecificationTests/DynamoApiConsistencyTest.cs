@@ -9,6 +9,8 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace EntityFrameworkCore.DynamoDb.SpecificationTests;
 
+#pragma warning disable EF9100
+
 public class DynamoApiConsistencyTest(DynamoApiConsistencyTest.DynamoApiConsistencyFixture fixture)
     : ApiConsistencyTestBase<DynamoApiConsistencyTest.DynamoApiConsistencyFixture>(fixture)
 {
@@ -56,11 +58,19 @@ public class DynamoApiConsistencyTest(DynamoApiConsistencyTest.DynamoApiConsiste
                 typeof(DynamoSecondaryIndexBuilder),
                 typeof(DynamoSecondaryIndexBuilder<>));
 
+        public override HashSet<MethodInfo> NonCancellableAsyncMethods { get; } =
+        [
+            // The generated ExecuteUpdate executor receives its cancellation token from the
+            // DynamoQueryContext, not from a method parameter.
+            typeof(DynamoGeneratedQueryRuntime).GetMethod(
+                nameof(DynamoGeneratedQueryRuntime.CreateUpdateExecutorAsync),
+                BindingFlags.Public | BindingFlags.Static)!
+        ];
+
         public override
             Dictionary<Type, (Type ReadonlyExtensions, Type MutableExtensions, Type
                 ConventionExtensions, Type ConventionBuilderExtensions, Type RuntimeExtensions)>
-            MetadataExtensionTypes
-        { get; } = new()
+            MetadataExtensionTypes { get; } = new()
         {
             {
                 typeof(IReadOnlyEntityType),

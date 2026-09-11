@@ -49,21 +49,53 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
     protected override Expression VisitExtension(Expression extensionExpression)
     {
         if (extensionExpression is DynamoUpdateExpression updateExpression)
-        {
-            if (dynamoQueryCompilationContext.IsPrecompiling)
-                throw new NotSupportedException(
-                    "Precompiled ExecuteUpdate queries are not supported yet. Execute the update "
-                    + "without precompiled query generation.");
-
-            return Call(
-                ExecuteUpdateResultAsyncMethodInfo,
-                Convert(QueryCompilationContext.QueryContextParameter, typeof(DynamoQueryContext)),
-                Constant(updateExpression),
-                Constant(sqlGeneratorFactory));
-        }
+            return dynamoQueryCompilationContext.IsPrecompiling
+                ? Call(
+                    typeof(DynamoGeneratedQueryRuntime),
+                    nameof(DynamoGeneratedQueryRuntime.CreateUpdateExecutorAsync),
+                    Type.EmptyTypes,
+                    QueryCompilationContext.QueryContextParameter,
+                    CreateUpdateTemplateConstant(updateExpression))
+                : Call(
+                    ExecuteUpdateResultAsyncMethodInfo,
+                    Convert(
+                        QueryCompilationContext.QueryContextParameter,
+                        typeof(DynamoQueryContext)),
+                    Constant(updateExpression),
+                    Constant(sqlGeneratorFactory));
 
         return base.VisitExtension(extensionExpression);
     }
+
+    /// <summary>Builds the liftable constant for a generated ExecuteUpdate command template.</summary>
+    private Expression CreateUpdateTemplateConstant(DynamoUpdateExpression updateExpression)
+    {
+        var template = sqlGeneratorFactory
+            .Create()
+            .GenerateUpdatePrecompiledTemplate(updateExpression);
+        var context = Parameter(typeof(MaterializerLiftableConstantContext), "context");
+        var resolver = Lambda<Func<MaterializerLiftableConstantContext, object>>(
+            Convert(CreateUpdateTemplateExpression(template, context), typeof(object)),
+            context);
+
+        return _dependencies.LiftableConstantFactory.CreateLiftableConstant(
+            template,
+            resolver,
+            "dynamoUpdateTemplate",
+            typeof(DynamoGeneratedQueryRuntime.UpdateTemplate));
+    }
+
+    private Expression CreateUpdateTemplateExpression(
+        DynamoGeneratedQueryRuntime.UpdateTemplate template,
+        ParameterExpression context)
+        => Call(
+            typeof(DynamoGeneratedQueryRuntime),
+            nameof(DynamoGeneratedQueryRuntime.CreateUpdateTemplate),
+            Type.EmptyTypes,
+            NewArrayInit(
+                typeof(DynamoGeneratedQueryRuntime.CommandSegment),
+                CreateCommandSegmentExpressions(template.Segments, context)),
+            Constant(template.TableName));
 
     /// <summary>Generates the PartiQL UPDATE statement and executes it, returning the count.</summary>
     internal static Task<int> ExecuteUpdateResultAsync(
@@ -236,7 +268,35 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
         DynamoGeneratedQueryRuntime.QueryTemplate template,
         ParameterExpression context)
     {
-        var segments = template.Segments.Select(segment => segment.Kind switch
+        var segments = CreateCommandSegmentExpressions(template.Segments, context);
+
+        return Call(
+            typeof(DynamoGeneratedQueryRuntime),
+            nameof(DynamoGeneratedQueryRuntime.CreateQueryTemplate),
+            Type.EmptyTypes,
+            NewArrayInit(typeof(DynamoGeneratedQueryRuntime.CommandSegment), segments),
+            Constant(template.TableName),
+            Constant(template.IndexName, typeof(string)),
+            Constant(template.IsGlobalSecondaryIndex),
+            Constant(template.IsScanLike),
+            Constant(template.ScanMessage, typeof(string)),
+            Constant(template.ScanAllowed),
+            Constant(template.Limit, typeof(int?)),
+            Constant(template.LimitParameterName, typeof(string)),
+            Constant(template.SeedNextToken, typeof(string)),
+            Constant(template.SeedNextTokenParameterName, typeof(string)),
+            Constant(template.ConsistentRead, typeof(bool?)),
+            Constant(template.ConsistentReadParameterName, typeof(string)),
+            Constant(template.HasUserLimit),
+            Constant(template.IsFirstTerminal),
+            Constant(template.IsSingleTerminal));
+    }
+
+    /// <summary>Builds generated-code expressions for command segments of any template kind.</summary>
+    private IEnumerable<Expression> CreateCommandSegmentExpressions(
+        IReadOnlyList<DynamoGeneratedQueryRuntime.CommandSegment> segments,
+        ParameterExpression context)
+        => segments.Select(segment => segment.Kind switch
         {
             DynamoGeneratedQueryRuntime.SegmentKind.Text => Call(
                 typeof(DynamoGeneratedQueryRuntime.CommandSegment),
@@ -268,28 +328,6 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
                 Constant(segment.MaximumValueCount)),
             _ => throw new UnreachableException()
         });
-
-        return Call(
-            typeof(DynamoGeneratedQueryRuntime),
-            nameof(DynamoGeneratedQueryRuntime.CreateQueryTemplate),
-            Type.EmptyTypes,
-            NewArrayInit(typeof(DynamoGeneratedQueryRuntime.CommandSegment), segments),
-            Constant(template.TableName),
-            Constant(template.IndexName, typeof(string)),
-            Constant(template.IsGlobalSecondaryIndex),
-            Constant(template.IsScanLike),
-            Constant(template.ScanMessage, typeof(string)),
-            Constant(template.ScanAllowed),
-            Constant(template.Limit, typeof(int?)),
-            Constant(template.LimitParameterName, typeof(string)),
-            Constant(template.SeedNextToken, typeof(string)),
-            Constant(template.SeedNextTokenParameterName, typeof(string)),
-            Constant(template.ConsistentRead, typeof(bool?)),
-            Constant(template.ConsistentReadParameterName, typeof(string)),
-            Constant(template.HasUserLimit),
-            Constant(template.IsFirstTerminal),
-            Constant(template.IsSingleTerminal));
-    }
 
     private Expression CreateTypeMappingExpression(
         DynamoTypeMapping typeMapping,

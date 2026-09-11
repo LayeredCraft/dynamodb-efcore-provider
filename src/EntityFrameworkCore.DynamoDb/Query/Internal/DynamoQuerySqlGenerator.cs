@@ -111,34 +111,7 @@ public sealed class DynamoQuerySqlGenerator : SqlExpressionVisitor
 
         try
         {
-            var selectExpression = updateExpression.SelectExpression;
-
-            _sql.Append("UPDATE ");
-            AppendIdentifier(selectExpression.TableName);
-            _sql.AppendLine();
-
-            if (updateExpression.Setters.Count == 0)
-                throw new InvalidOperationException(
-                    "ExecuteUpdate requires at least one SetProperty call.");
-
-            _sql.Append("SET ");
-            for (var i = 0; i < updateExpression.Setters.Count; i++)
-            {
-                if (i > 0)
-                    _sql.Append(", ");
-
-                AppendAttributePath(updateExpression.Setters[i].AttributeNamePath);
-                _sql.Append(" = ");
-                Visit(updateExpression.Setters[i].Value);
-            }
-
-            if (selectExpression.Predicate is not { } predicate)
-                throw new InvalidOperationException(
-                    "ExecuteUpdate requires a WHERE clause identifying the item by its primary key.");
-
-            _sql.AppendLine();
-            _sql.Append("WHERE ");
-            Visit(predicate);
+            GenerateUpdateStatement(updateExpression);
 
             var statement = _sql.ToString();
             DynamoPartiQlStatementValidator.ValidateStatementLength(statement, "write");
@@ -149,6 +122,61 @@ public sealed class DynamoQuerySqlGenerator : SqlExpressionVisitor
         {
             _parameterValues = null;
         }
+    }
+
+    /// <summary>Creates the command template embedded in a generated ExecuteUpdate interceptor.</summary>
+    internal DynamoGeneratedQueryRuntime.UpdateTemplate GenerateUpdatePrecompiledTemplate(
+        DynamoUpdateExpression updateExpression)
+    {
+        _sql.Clear();
+        _parameters.Clear();
+        _precompiledSegments = [];
+
+        try
+        {
+            GenerateUpdateStatement(updateExpression);
+            FlushTextSegment();
+
+            return DynamoGeneratedQueryRuntime.CreateUpdateTemplate(
+                [.. _precompiledSegments!],
+                updateExpression.SelectExpression.TableName);
+        }
+        finally
+        {
+            _precompiledSegments = null;
+        }
+    }
+
+    private void GenerateUpdateStatement(DynamoUpdateExpression updateExpression)
+    {
+        var selectExpression = updateExpression.SelectExpression;
+
+        _sql.Append("UPDATE ");
+        AppendIdentifier(selectExpression.TableName);
+        _sql.AppendLine();
+
+        if (updateExpression.Setters.Count == 0)
+            throw new InvalidOperationException(
+                "ExecuteUpdate requires at least one SetProperty call.");
+
+        _sql.Append("SET ");
+        for (var i = 0; i < updateExpression.Setters.Count; i++)
+        {
+            if (i > 0)
+                _sql.Append(", ");
+
+            AppendAttributePath(updateExpression.Setters[i].AttributeNamePath);
+            _sql.Append(" = ");
+            Visit(updateExpression.Setters[i].Value);
+        }
+
+        if (selectExpression.Predicate is not { } predicate)
+            throw new InvalidOperationException(
+                "ExecuteUpdate requires a WHERE clause identifying the item by its primary key.");
+
+        _sql.AppendLine();
+        _sql.Append("WHERE ");
+        Visit(predicate);
     }
 
     /// <summary>Appends a quoted dotted attribute path (for example <c>"Profile"."City"</c>).</summary>

@@ -147,42 +147,7 @@ public static class DynamoGeneratedQueryRuntime
             var sql = new StringBuilder();
             var parameters = new List<AttributeValue>();
 
-            foreach (var segment in _segments)
-                switch (segment.Kind)
-                {
-                    case SegmentKind.Text:
-                        sql.Append(segment.Text);
-                        break;
-
-                    case SegmentKind.Parameter:
-                        if (!parameterValues.TryGetValue(segment.ParameterName!, out var value))
-                            throw new InvalidOperationException(
-                                $"Parameter '{segment.ParameterName}' not found in parameter values.");
-
-                        AppendParameter(
-                            sql,
-                            parameters,
-                            value,
-                            segment.SourceType!,
-                            segment.TypeMapping!);
-                        break;
-
-                    case SegmentKind.Constant:
-                        AppendParameter(
-                            sql,
-                            parameters,
-                            segment.ConstantValue,
-                            segment.SourceType!,
-                            segment.TypeMapping!);
-                        break;
-
-                    case SegmentKind.Collection:
-                        AppendCollection(sql, parameters, parameterValues, segment);
-                        break;
-
-                    default:
-                        throw new UnreachableException();
-                }
+            RenderSegments(_segments, parameterValues, sql, parameters);
 
             return new DynamoPartiQlQuery(sql.ToString(), parameters);
         }
@@ -238,74 +203,118 @@ public static class DynamoGeneratedQueryRuntime
 
             return selectExpression;
         }
+    }
 
-        private static void AppendCollection(
-            StringBuilder sql,
-            List<AttributeValue> parameters,
-            IReadOnlyDictionary<string, object?> parameterValues,
-            CommandSegment segment)
+    private static void AppendCollection(
+        StringBuilder sql,
+        List<AttributeValue> parameters,
+        IReadOnlyDictionary<string, object?> parameterValues,
+        CommandSegment segment)
+    {
+        if (!parameterValues.TryGetValue(segment.ParameterName!, out var parameterValue))
+            throw new InvalidOperationException(
+                $"Parameter '{segment.ParameterName}' not found in parameter values.");
+
+        if (parameterValue is null)
         {
-            if (!parameterValues.TryGetValue(segment.ParameterName!, out var parameterValue))
-                throw new InvalidOperationException(
-                    $"Parameter '{segment.ParameterName}' not found in parameter values.");
-
-            if (parameterValue is null)
-            {
-                sql.Append("1 = 0");
-                return;
-            }
-
-            if (parameterValue is string || parameterValue is not IEnumerable values)
-                throw new InvalidOperationException(
-                    DynamoStrings.ContainsCollectionParameterMustBeEnumerable);
-
-            // Stream values straight into SQL/parameters: no fixed-capacity buffer, one-shot
-            // enumerables are enumerated exactly once, and the limit check fires on the first
-            // value beyond the allowed count.
-            var count = 0;
-            var segmentStart = sql.Length;
-            sql.Append(segment.Text);
-            sql.Append(" IN [");
-            foreach (var value in values)
-            {
-                if (count == segment.MaximumValueCount)
-                    throw new InvalidOperationException(
-                        DynamoStrings.InListTooLarge(
-                            segment.MaximumValueCount,
-                            segment.MaximumValueCount == 50));
-
-                if (count > 0)
-                    sql.Append(", ");
-
-                AppendParameter(
-                    sql,
-                    parameters,
-                    value,
-                    value?.GetType() ?? segment.SourceType!,
-                    segment.TypeMapping!);
-                count++;
-            }
-
-            if (count == 0)
-            {
-                sql.Length = segmentStart;
-                sql.Append("1 = 0");
-                return;
-            }
-
-            sql.Append(']');
+            sql.Append("1 = 0");
+            return;
         }
 
-        private static void AppendParameter(
-            StringBuilder sql,
-            List<AttributeValue> parameters,
-            object? value,
-            Type sourceType,
-            DynamoTypeMapping typeMapping)
+        if (parameterValue is string || parameterValue is not IEnumerable values)
+            throw new InvalidOperationException(
+                DynamoStrings.ContainsCollectionParameterMustBeEnumerable);
+
+        // Stream values straight into SQL/parameters: no fixed-capacity buffer, one-shot
+        // enumerables are enumerated exactly once, and the limit check fires on the first
+        // value beyond the allowed count.
+        var count = 0;
+        var segmentStart = sql.Length;
+        sql.Append(segment.Text);
+        sql.Append(" IN [");
+        foreach (var value in values)
         {
-            sql.Append('?');
-            parameters.Add(typeMapping.CreateAttributeValue(value, sourceType));
+            if (count == segment.MaximumValueCount)
+                throw new InvalidOperationException(
+                    DynamoStrings.InListTooLarge(
+                        segment.MaximumValueCount,
+                        segment.MaximumValueCount == 50));
+
+            if (count > 0)
+                sql.Append(", ");
+
+            AppendParameter(
+                sql,
+                parameters,
+                value,
+                value?.GetType() ?? segment.SourceType!,
+                segment.TypeMapping!);
+            count++;
         }
+
+        if (count == 0)
+        {
+            sql.Length = segmentStart;
+            sql.Append("1 = 0");
+            return;
+        }
+
+        sql.Append(']');
+    }
+
+    private static void RenderSegments(
+        CommandSegment[] segments,
+        IReadOnlyDictionary<string, object?> parameterValues,
+        StringBuilder sql,
+        List<AttributeValue> parameters)
+    {
+        foreach (var segment in segments)
+            switch (segment.Kind)
+            {
+                case SegmentKind.Text:
+                    sql.Append(segment.Text);
+                    break;
+
+                case SegmentKind.Parameter:
+                    if (!parameterValues.TryGetValue(segment.ParameterName!, out var value))
+                        throw new InvalidOperationException(
+                            $"Parameter '{segment.ParameterName}' not found in parameter values.");
+
+                    AppendParameter(
+                        sql,
+                        parameters,
+                        value,
+                        segment.SourceType!,
+                        segment.TypeMapping!);
+                    break;
+
+                case SegmentKind.Constant:
+                    AppendParameter(
+                        sql,
+                        parameters,
+                        segment.ConstantValue,
+                        segment.SourceType!,
+                        segment.TypeMapping!);
+                    break;
+
+                case SegmentKind.Collection:
+                    AppendCollection(sql, parameters, parameterValues, segment);
+                    break;
+
+                default:
+                    throw new UnreachableException();
+            }
+    }
+
+    private static void AppendParameter(
+        StringBuilder sql,
+        List<AttributeValue> parameters,
+        object? value,
+        Type sourceType,
+        DynamoTypeMapping typeMapping)
+    {
+        sql.Append('?');
+        parameters.Add(typeMapping.CreateAttributeValue(value, sourceType));
     }
 
     /// <summary>Creates the runtime form of a generated query template.</summary>
@@ -373,6 +382,54 @@ public static class DynamoGeneratedQueryRuntime
             standAloneStateManager,
             threadSafetyChecksEnabled);
 #pragma warning restore EF9102
+
+    /// <summary>Contains a generated ExecuteUpdate command and its target table.</summary>
+    public sealed class UpdateTemplate
+    {
+        private readonly CommandSegment[] _segments;
+
+        internal UpdateTemplate(CommandSegment[] segments, string tableName)
+        {
+            _segments = segments;
+            TableName = tableName;
+        }
+
+        internal string TableName { get; }
+
+        internal IReadOnlyList<CommandSegment> Segments => _segments;
+
+        /// <summary>Renders the generated UPDATE statement and its positional parameters.</summary>
+        public DynamoPartiQlQuery Render(IReadOnlyDictionary<string, object?> parameterValues)
+        {
+            var sql = new StringBuilder();
+            var parameters = new List<AttributeValue>();
+
+            RenderSegments(_segments, parameterValues, sql, parameters);
+
+            var statement = sql.ToString();
+            DynamoPartiQlStatementValidator.ValidateStatementLength(statement, "write");
+
+            return new DynamoPartiQlQuery(statement, parameters);
+        }
+    }
+
+    /// <summary>Creates the runtime form of a generated ExecuteUpdate template.</summary>
+    public static UpdateTemplate CreateUpdateTemplate(CommandSegment[] segments, string tableName)
+        => new(segments, tableName);
+
+    /// <summary>Creates a generated asynchronous ExecuteUpdate executor.</summary>
+    public static Task<int> CreateUpdateExecutorAsync(
+        QueryContext queryContext,
+        UpdateTemplate updateTemplate)
+    {
+        var dynamoQueryContext = (DynamoQueryContext)queryContext;
+        var sqlQuery = updateTemplate.Render(dynamoQueryContext.Parameters);
+
+        return dynamoQueryContext.Client.ExecuteUpdateAsync(
+            sqlQuery.Sql,
+            [.. sqlQuery.Parameters],
+            dynamoQueryContext.CancellationToken);
+    }
 
     /// <summary>Resolves the exact DynamoDB mapping used by generated command parameters.</summary>
     /// <remarks>
