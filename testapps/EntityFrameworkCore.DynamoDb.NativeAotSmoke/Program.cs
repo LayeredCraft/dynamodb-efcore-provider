@@ -224,14 +224,16 @@ Console.WriteLine("NativeAOT Limit(n) evaluation-budget query executed successfu
 // Realistic pagination composition across three real pages: `Limit(pageSize).WithNextToken
 // (nextToken).ToListAsync()` is invoked with different runtime pageSize/nextToken values per
 // page, proving the same generated interceptor is reused (not regenerated) and that continuation
-// genuinely advances rather than restarting. The continuation token itself is bootstrapped via a
-// raw AWS SDK call (see BootstrapNextTokenAsync) rather than the provider's own ToPageAsync API:
-// EF Core's precompiler does not currently recognize ToPageAsync as a query root (a tracked,
-// separate limitation — see docs/limitations.md), and under NativeAOT a query with no generated
-// interceptor at all throws rather than falling back to interpreted execution, so ToPageAsync
-// cannot run in this published binary today. Bootstrapping is not part of what this scenario
-// proves — only LoadFirstPageAsync/LoadNextPageAsync (the precompiled Limit + WithNextToken path)
-// is.
+// genuinely advances rather than restarting. This is the mechanics proof, not a recommended
+// pagination API: `BootstrapNextTokenAsync` below is a validation-only technique (a raw AWS SDK
+// call reading ExecuteStatementResponse.NextToken directly), used here solely to obtain a real
+// token for the test, NOT a suggested application pattern. `ToPageAsync` remains the provider's
+// real pagination API (it returns both items and NextToken together) but cannot run under
+// NativeAOT today: EF Core's precompiler discovers query roots through a closed, upstream
+// mechanism with no registration point for provider-defined terminals like ToPageAsync, so it is
+// silently skipped and no interceptor is generated for it (tracked as an upstream EF Core
+// limitation — see docs/limitations.md). Bootstrapping is not part of what this scenario proves —
+// only LoadFirstPageAsync/LoadNextPageAsync (the precompiled Limit + WithNextToken path) is.
 var page1 = await SmokeQueries.LoadFirstPageAsync(2);
 if (page1.Count != 2)
     throw new InvalidOperationException(
@@ -534,18 +536,21 @@ internal static class SmokeQueries
             .ToListAsync();
     }
 
-    // Not part of the precompiled/AOT-critical path this scenario proves. EF Core's precompiler
-    // does not currently recognize ToPageAsync as a query root (a separate, tracked limitation —
-    // see docs/limitations.md), and unlike other non-precompiled query shapes, a query with no
-    // generated interceptor at all does not fall back to interpreted execution under NativeAOT:
-    // it throws ("Query wasn't precompiled and dynamic code isn't supported with NativeAOT"),
-    // confirmed empirically in this smoke app. This bootstraps a real continuation-token value via
-    // a raw AWS SDK ExecuteStatement call instead — the exact mechanism DynamoClientWrapper itself
-    // uses under the hood (ExecuteStatementResponse.NextToken flows through unmodified into
-    // WithNextToken(...) and DynamoPage.NextToken; see DynamoClientWrapper.cs). DynamoDB's
-    // LastEvaluatedKey/NextToken is a function of table, key condition, Limit, and
-    // ExclusiveStartKey — not of the PartiQL projection list — so this key-only statement
-    // produces the same continuation position as the precompiled query under test.
+    // TEST-ONLY validation helper — not a recommended application pattern. Not part of the
+    // precompiled/AOT-critical path this scenario proves. EF Core's precompiler does not
+    // currently recognize ToPageAsync as a query root: root discovery is a closed, upstream
+    // mechanism with no registration point for provider-defined terminals (a tracked, upstream EF
+    // Core limitation — see docs/limitations.md). Unlike other non-precompiled query shapes, a
+    // query with no generated interceptor at all does not fall back to interpreted execution under
+    // NativeAOT: it throws ("Query wasn't precompiled and dynamic code isn't supported with
+    // NativeAOT"), confirmed empirically in this smoke app. This method bootstraps a real
+    // continuation-token value via a raw AWS SDK ExecuteStatement call purely so the test below can
+    // observe real pagination behavior — the exact mechanism DynamoClientWrapper itself uses under
+    // the hood (ExecuteStatementResponse.NextToken flows through unmodified into WithNextToken(...)
+    // and DynamoPage.NextToken; see DynamoClientWrapper.cs). DynamoDB's LastEvaluatedKey/NextToken
+    // is a function of table, key condition, Limit, and ExclusiveStartKey — not of the PartiQL
+    // projection list — so this key-only statement produces the same continuation position as the
+    // precompiled query under test.
     internal static async Task<string?> BootstrapNextTokenAsync(int pageSize, string? seedToken)
     {
         var serviceUrl = Environment.GetEnvironmentVariable("DYNAMO_AOT_SMOKE_URL")

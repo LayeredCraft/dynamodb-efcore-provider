@@ -52,15 +52,17 @@ Query execution is asynchronous only. Synchronous query operators and enumeratio
 (local-variable) arguments — see [Precompiled Queries and
 NativeAOT](querying/precompiled-queries.md#restrictions) for the local-variable requirement.
 
-`ToPageAsync(...)` does not: EF Core's precompiler does not recognize it as a query root, so no
-interceptor is generated for it. Unlike the other restrictions in this section, this is **not** a
-build-time error — `dotnet publish` succeeds, and the query only fails when a NativeAOT binary
-actually executes it (no generated interceptor and no JIT fallback available). A NativeAOT app can
-precompile `Limit(...).WithNextToken(...).ToListAsync()` to *resume* a page from an already-known
-token, but nothing precompilable *produces* that token — `ToPageAsync(...)` is the only source of
-it, and it cannot run under NativeAOT at all. A NativeAOT app that needs full page-to-page
-pagination must obtain each token out-of-band (for example, a raw AWS SDK call reading
-`ExecuteStatementResponse.NextToken` directly). See [Precompiled Queries and
+`ToPageAsync(...)` does not, and so cannot run in a NativeAOT-published binary (a query with no
+generated interceptor has no JIT fallback — not a build-time error; `dotnet publish` succeeds and
+the failure only surfaces at execution). This is an **upstream EF Core limitation**, not a gap in
+how this provider translates or executes pagination: `ToPageAsync(...)` works correctly through the
+provider's normal pipeline outside NativeAOT, but EF Core's precompiler discovers query roots
+through a closed, internal mechanism with no registration point for provider-defined terminal
+methods, so the call is silently skipped. `Limit(...).WithNextToken(...).ToListAsync()` — a
+recognized EF terminal — precompiles and executes correctly under NativeAOT, proving the pagination
+mechanics work, but it resumes a page from an already-known token rather than producing one; that
+still requires `ToPageAsync(...)`. Tracked upstream:
+[dotnet/efcore#38962](https://github.com/dotnet/efcore/issues/38962). See [Precompiled Queries and
 NativeAOT](querying/precompiled-queries.md#restrictions) for details.
 
 Nullable-coalescing projections such as `Select(x => x.OptionalCount ?? -1)` are rejected by the EF

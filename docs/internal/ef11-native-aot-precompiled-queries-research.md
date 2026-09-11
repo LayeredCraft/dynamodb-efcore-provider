@@ -395,10 +395,13 @@ back to the expression interpreter) — it throws immediately:
 NativeAOT`, aborting the process. This means `ToPageAsync(...)` cannot be used **anywhere** in a
 published NativeAOT binary today, not merely "isn't optimally precompiled." Teaching
 `DynamoPrecompiledQueryCodeGenerator` to recognize `ToPageAsync` as a root would be a genuine
-architectural extension to EF Core's upstream root-detection — explicitly out of scope; tracked as
-a separate follow-up. The NativeAOT smoke app instead bootstraps a real continuation token via a
-raw AWS SDK `ExecuteStatementAsync` call (mirroring exactly what `DynamoClientWrapper` does
-internally — `ExecuteStatementResponse.NextToken` flows through unmodified into
-`WithNextToken(...)`/`DynamoPage.NextToken`, so this is a faithful bootstrap, not a workaround of
-provider behavior) and proves the actual precompiled/NativeAOT-critical path via
-`Limit(pageSize).WithNextToken(nextToken).ToListAsync()`.
+architectural extension to EF Core's upstream root-detection — explicitly out of scope; tracked
+upstream as [dotnet/efcore#38962](https://github.com/dotnet/efcore/issues/38962) rather than
+reimplemented provider-side (that issue's body has the full decompiled root-cause trace of
+`QueryLocator` and the reasons a provider-side workaround was rejected as unsafe). The NativeAOT
+smoke app instead bootstraps a real continuation token via a raw AWS SDK `ExecuteStatementAsync`
+call — a test-only validation technique, not a recommended consumer pattern — mirroring exactly
+what `DynamoClientWrapper` does internally (`ExecuteStatementResponse.NextToken` flows through
+unmodified into `WithNextToken(...)`/`DynamoPage.NextToken`, so this is a faithful bootstrap for
+test purposes, not a workaround of provider behavior) and proves the actual precompiled/NativeAOT
+-critical path via `Limit(pageSize).WithNextToken(nextToken).ToListAsync()`.
