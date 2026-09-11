@@ -45,11 +45,13 @@ public interface IDynamoClientWrapper
     /// </summary>
     /// <param name="statement">The PartiQL UPDATE statement to execute.</param>
     /// <param name="parameters">Positional parameter values for the statement.</param>
+    /// <param name="tableName">The target table name for statement-level diagnostics.</param>
     /// <param name="cancellationToken">Token to observe for cancellation.</param>
     /// <returns>1 on success, 0 when the conditional update matched no item.</returns>
     Task<int> ExecuteUpdateAsync(
         string statement,
         List<AttributeValue> parameters,
+        string tableName,
         CancellationToken cancellationToken = default);
 
     /// <summary>Executes an atomic write transaction composed of PartiQL statements.</summary>

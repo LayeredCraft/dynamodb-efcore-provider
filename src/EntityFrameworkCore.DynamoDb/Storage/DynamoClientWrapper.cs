@@ -182,11 +182,13 @@ public class DynamoClientWrapper : IDynamoClientWrapper, IDisposable
     /// </summary>
     /// <param name="statement">The PartiQL UPDATE statement to execute.</param>
     /// <param name="parameters">Positional parameter values for the statement.</param>
+    /// <param name="tableName">The target table name for statement-level diagnostics.</param>
     /// <param name="cancellationToken">Token to observe for cancellation.</param>
     /// <returns>1 on success, 0 when the conditional update matched no item.</returns>
     public Task<int> ExecuteUpdateAsync(
         string statement,
         List<AttributeValue> parameters,
+        string tableName,
         CancellationToken cancellationToken = default)
     {
         var attempt = new ExecutionAttempt();
@@ -206,6 +208,7 @@ public class DynamoClientWrapper : IDynamoClientWrapper, IDisposable
                     DynamoPartiQlWriteOperation.ExecuteStatement,
                     1,
                     commandId);
+                _commandLogger.ExecutingPartiQlWrite(tableName, state.statement);
 
                 try
                 {

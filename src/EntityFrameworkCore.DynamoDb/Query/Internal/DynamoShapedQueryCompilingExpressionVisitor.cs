@@ -110,6 +110,7 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
         return queryContext.Client.ExecuteUpdateAsync(
             sqlQuery.Sql,
             [.. sqlQuery.Parameters],
+            updateExpression.SelectExpression.TableName,
             queryContext.CancellationToken);
     }
 

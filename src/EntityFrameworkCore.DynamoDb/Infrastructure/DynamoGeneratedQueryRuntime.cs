@@ -428,6 +428,7 @@ public static class DynamoGeneratedQueryRuntime
         return dynamoQueryContext.Client.ExecuteUpdateAsync(
             sqlQuery.Sql,
             [.. sqlQuery.Parameters],
+            updateTemplate.TableName,
             dynamoQueryContext.CancellationToken);
     }
 
