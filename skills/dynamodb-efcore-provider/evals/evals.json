@@ -1,0 +1,23 @@
+{
+  "skill_name": "dynamodb-efcore-provider",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I am adding EntityFrameworkCore.DynamoDb to a new service. Show the smallest useful DbContext and entity mapping for a table with a partition key and sort key, then call out the DynamoDB constraints that differ from a relational EF Core provider.",
+      "expected_output": "Uses the current setup, modeling, and limitations guidance; provides a concrete mapping and does not promise unsupported relational behavior.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "Why can Limit(25) return fewer than 25 matching orders in this DynamoDB EF Core query? Show how to inspect the generated PartiQL and page safely without accidentally recommending synchronous query execution.",
+      "expected_output": "Explains DynamoDB evaluation limits and continuation tokens, uses async APIs, and gives correct generated-PartiQL guidance.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "Our order service needs optimistic concurrency and transactional writes. Explain the provider behavior, the DynamoDB limits we need to design for, and why SaveChangesAsync does not replace table provisioning.",
+      "expected_output": "Explains concurrency, transaction limits, asynchronous writes and lifecycle behavior without promising relational database features.",
+      "files": []
+    }
+  ]
+}
