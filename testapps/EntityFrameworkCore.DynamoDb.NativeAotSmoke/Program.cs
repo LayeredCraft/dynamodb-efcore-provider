@@ -339,6 +339,27 @@ await using (var context = new SmokeContext())
 
 Console.WriteLine("NativeAOT SaveChanges write and read-back executed successfully.");
 
+var deleteCount = await SmokeQueries.ExecuteDeleteAsync();
+if (deleteCount != 1)
+    throw new InvalidOperationException(
+        $"Expected ExecuteDeleteAsync to report 1 affected item but it reported {deleteCount}.");
+await using (var context = new SmokeContext())
+{
+    string deletedPk = "tenant-null";
+    string deletedSk = "sk-null";
+    var deletedItem =
+        await context
+            .Items
+            .Where(item => item.Pk == deletedPk && item.Sk == deletedSk)
+            .SingleOrDefaultAsync();
+    if (deletedItem is not null)
+        throw new InvalidOperationException(
+            "Expected the deleted item to be gone after ExecuteDeleteAsync, but it is still present.");
+}
+
+Console.WriteLine(
+    "NativeAOT generated ExecuteDelete executed successfully; the deleted item is gone.");
+
 static void AssertSingleItem(List<SmokeItem> items, SmokeItem expected)
 {
     if (items.Count != 1)
