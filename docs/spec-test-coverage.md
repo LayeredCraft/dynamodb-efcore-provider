@@ -106,8 +106,8 @@ ______________________________________________________________________
 
 ## BulkUpdates Tests
 
-The provider supports `ExecuteUpdate` as singleton, key-targeted updates on base tables
-(partition key equality, plus sort key when present). `ExecuteDelete` is not implemented.
+The provider supports `ExecuteUpdate` and `ExecuteDelete` as singleton, key-targeted operations on
+base tables (partition key equality, plus sort key when present).
 `NorthwindBulkUpdatesDynamoTest` implements the upstream base with the full override guard and a
 gap analysis below; the remaining bulk-update bases stay documented-skip because every inherited
 case needs unsupported query shapes.
@@ -116,8 +116,8 @@ case needs unsupported query shapes.
 
 DynamoDB-impossible (durable constraints):
 
-- ExecuteDelete surface (~36 methods): the provider does not implement `ExecuteDelete`; bulk
-    delete semantics are a separate feature.
+- ExecuteDelete surface (~36 methods): most cases require multi-item delete semantics or unsupported
+    source shapes; the provider supports only key-targeted singleton deletes.
 - Joins, `SelectMany`, navigations, cross joins, cross/outer apply (~20 methods): DynamoDB PartiQL
     cannot join tables, so update sources that read other tables or navigations cannot be translated.
 - Set operations (`Union`, `Concat`, `Intersect`, `Except`): not expressible in PartiQL.

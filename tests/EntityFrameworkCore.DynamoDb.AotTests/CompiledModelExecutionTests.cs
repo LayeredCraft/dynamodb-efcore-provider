@@ -348,6 +348,15 @@ public partial class CompiledModelExecutionTests
             return;
         }
 
+        if (statement.StartsWith("DELETE", StringComparison.OrdinalIgnoreCase))
+        {
+            var partitionKey = parameters.SingleOrDefault()?.S;
+            if (partitionKey is null || !store.Remove(partitionKey))
+                throw new ConditionalCheckFailedException("The conditional request failed");
+
+            return;
+        }
+
         if (!statement.StartsWith("INSERT", StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException(
                 $"Fake client only supports INSERT write statements, got '{statement}'.");

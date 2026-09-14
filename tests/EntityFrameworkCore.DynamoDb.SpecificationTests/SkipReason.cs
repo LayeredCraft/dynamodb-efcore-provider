@@ -114,8 +114,8 @@ public static class SkipReason
         "DynamoDB requires every entity type in the model to have a partition key.";
 
     public const string ExecuteDeleteNotImplemented =
-        "ExecuteDelete is not implemented by the DynamoDB provider; bulk delete support is "
-        + "tracked separately from the ExecuteUpdate feature.";
+        "DynamoDB ExecuteDelete is limited to singleton deletes that equality-constrain the full "
+        + "primary key; this specification case requires a multi-item or unsupported source shape.";
 
     public const string BulkUpdateRequiresKeyTargetedSingleton =
         "DynamoDB ExecuteUpdate is limited to singleton updates that equality-constrain the full "

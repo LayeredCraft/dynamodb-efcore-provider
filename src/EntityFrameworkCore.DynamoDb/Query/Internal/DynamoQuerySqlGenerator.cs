@@ -124,6 +124,30 @@ public sealed class DynamoQuerySqlGenerator : SqlExpressionVisitor
         }
     }
 
+    /// <summary>Generates a PartiQL DELETE statement for an ExecuteDelete expression.</summary>
+    public DynamoPartiQlQuery GenerateDelete(
+        DynamoDeleteExpression deleteExpression,
+        IReadOnlyDictionary<string, object?> parameterValues)
+    {
+        _sql.Clear();
+        _parameters.Clear();
+        _parameterValues = parameterValues;
+
+        try
+        {
+            GenerateDeleteStatement(deleteExpression);
+
+            var statement = _sql.ToString();
+            DynamoPartiQlStatementValidator.ValidateStatementLength(statement, "write");
+
+            return new DynamoPartiQlQuery(statement, [.. _parameters]);
+        }
+        finally
+        {
+            _parameterValues = null;
+        }
+    }
+
     /// <summary>Creates the command template embedded in a generated ExecuteUpdate interceptor.</summary>
     internal DynamoGeneratedQueryRuntime.UpdateTemplate GenerateUpdatePrecompiledTemplate(
         DynamoUpdateExpression updateExpression)
@@ -140,6 +164,29 @@ public sealed class DynamoQuerySqlGenerator : SqlExpressionVisitor
             return DynamoGeneratedQueryRuntime.CreateUpdateTemplate(
                 [.. _precompiledSegments!],
                 updateExpression.SelectExpression.TableName);
+        }
+        finally
+        {
+            _precompiledSegments = null;
+        }
+    }
+
+    /// <summary>Creates the command template embedded in a generated ExecuteDelete interceptor.</summary>
+    internal DynamoGeneratedQueryRuntime.UpdateTemplate GenerateDeletePrecompiledTemplate(
+        DynamoDeleteExpression deleteExpression)
+    {
+        _sql.Clear();
+        _parameters.Clear();
+        _precompiledSegments = [];
+
+        try
+        {
+            GenerateDeleteStatement(deleteExpression);
+            FlushTextSegment();
+
+            return DynamoGeneratedQueryRuntime.CreateUpdateTemplate(
+                [.. _precompiledSegments!],
+                deleteExpression.SelectExpression.TableName);
         }
         finally
         {
@@ -173,6 +220,22 @@ public sealed class DynamoQuerySqlGenerator : SqlExpressionVisitor
         if (selectExpression.Predicate is not { } predicate)
             throw new InvalidOperationException(
                 "ExecuteUpdate requires a WHERE clause identifying the item by its primary key.");
+
+        _sql.AppendLine();
+        _sql.Append("WHERE ");
+        Visit(predicate);
+    }
+
+    private void GenerateDeleteStatement(DynamoDeleteExpression deleteExpression)
+    {
+        var selectExpression = deleteExpression.SelectExpression;
+
+        _sql.Append("DELETE FROM ");
+        AppendIdentifier(selectExpression.TableName);
+
+        if (selectExpression.Predicate is not { } predicate)
+            throw new InvalidOperationException(
+                "ExecuteDelete requires a WHERE clause identifying the item by its primary key.");
 
         _sql.AppendLine();
         _sql.Append("WHERE ");

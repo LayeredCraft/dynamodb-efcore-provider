@@ -40,6 +40,11 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
             .GetTypeInfo()
             .GetDeclaredMethod(nameof(ExecuteUpdateResultAsync))!;
 
+    private static readonly MethodInfo ExecuteDeleteResultAsyncMethodInfo =
+        typeof(DynamoShapedQueryCompilingExpressionVisitor)
+            .GetTypeInfo()
+            .GetDeclaredMethod(nameof(ExecuteDeleteResultAsync))!;
+
     /// <summary>Builds the runtime non-query executor for a translated ExecuteUpdate.</summary>
     /// <remarks>
     ///     Mirrors the relational <c>GenerateNonQueryShaper</c> pattern: the extension node is
@@ -64,6 +69,22 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
                     Constant(updateExpression),
                     Constant(sqlGeneratorFactory));
 
+        if (extensionExpression is DynamoDeleteExpression deleteExpression)
+            return dynamoQueryCompilationContext.IsPrecompiling
+                ? Call(
+                    typeof(DynamoGeneratedQueryRuntime),
+                    nameof(DynamoGeneratedQueryRuntime.CreateUpdateExecutorAsync),
+                    Type.EmptyTypes,
+                    QueryCompilationContext.QueryContextParameter,
+                    CreateDeleteTemplateConstant(deleteExpression))
+                : Call(
+                    ExecuteDeleteResultAsyncMethodInfo,
+                    Convert(
+                        QueryCompilationContext.QueryContextParameter,
+                        typeof(DynamoQueryContext)),
+                    Constant(deleteExpression),
+                    Constant(sqlGeneratorFactory));
+
         return base.VisitExtension(extensionExpression);
     }
 
@@ -82,6 +103,23 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
             template,
             resolver,
             "dynamoUpdateTemplate",
+            typeof(DynamoGeneratedQueryRuntime.UpdateTemplate));
+    }
+
+    private Expression CreateDeleteTemplateConstant(DynamoDeleteExpression deleteExpression)
+    {
+        var template = sqlGeneratorFactory
+            .Create()
+            .GenerateDeletePrecompiledTemplate(deleteExpression);
+        var context = Parameter(typeof(MaterializerLiftableConstantContext), "context");
+        var resolver = Lambda<Func<MaterializerLiftableConstantContext, object>>(
+            Convert(CreateUpdateTemplateExpression(template, context), typeof(object)),
+            context);
+
+        return _dependencies.LiftableConstantFactory.CreateLiftableConstant(
+            template,
+            resolver,
+            "dynamoDeleteTemplate",
             typeof(DynamoGeneratedQueryRuntime.UpdateTemplate));
     }
 
@@ -107,10 +145,27 @@ public partial class DynamoShapedQueryCompilingExpressionVisitor(
             .Create()
             .GenerateUpdate(updateExpression, queryContext.Parameters);
 
-        return queryContext.Client.ExecuteUpdateAsync(
+        return queryContext.Client.ExecuteWriteResultAsync(
             sqlQuery.Sql,
             [.. sqlQuery.Parameters],
             updateExpression.SelectExpression.TableName,
+            queryContext.CancellationToken);
+    }
+
+    /// <summary>Generates the PartiQL DELETE statement and executes it, returning the count.</summary>
+    internal static Task<int> ExecuteDeleteResultAsync(
+        DynamoQueryContext queryContext,
+        DynamoDeleteExpression deleteExpression,
+        IDynamoQuerySqlGeneratorFactory sqlGeneratorFactory)
+    {
+        var sqlQuery = sqlGeneratorFactory
+            .Create()
+            .GenerateDelete(deleteExpression, queryContext.Parameters);
+
+        return queryContext.Client.ExecuteWriteResultAsync(
+            sqlQuery.Sql,
+            [.. sqlQuery.Parameters],
+            deleteExpression.SelectExpression.TableName,
             queryContext.CancellationToken);
     }
 

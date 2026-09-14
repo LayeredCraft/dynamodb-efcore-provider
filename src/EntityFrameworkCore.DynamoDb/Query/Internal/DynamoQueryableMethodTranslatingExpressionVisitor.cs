@@ -1088,7 +1088,11 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
                 $"Entity type '{entityType.DisplayName()}' does not define a partition key.");
         var sortKeyProperty = keyEntityType.GetSortKeyProperty();
 
-        ValidateUpdateWhereClause(selectExpression, partitionKeyProperty, sortKeyProperty);
+        ValidateExecuteWhereClause(
+            selectExpression,
+            partitionKeyProperty,
+            sortKeyProperty,
+            "ExecuteUpdate");
 
         var updateSetters = new List<DynamoUpdateSetter>(setters.Count);
         foreach (var setter in setters)
@@ -1103,15 +1107,62 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
         return new DynamoUpdateExpression(selectExpression, entityType, updateSetters);
     }
 
+    /// <summary>Translates an <c>ExecuteDelete</c> call into a provider delete expression.</summary>
+    protected override Expression TranslateExecuteDelete(ShapedQueryExpression source)
+    {
+        if (!QueryCompilationContext.IsAsync)
+            throw new NotSupportedException(DynamoStrings.ExecuteDeleteSyncNotSupported);
+
+        if (source.ShaperExpression is not StructuralTypeShaperExpression
+            {
+                StructuralType: IEntityType entityType
+            })
+            throw new InvalidOperationException(DynamoStrings.ExecuteDeleteInvalidSource);
+
+        var selectExpression = (SelectExpression)source.QueryExpression;
+        var compilationContext = (DynamoQueryCompilationContext)QueryCompilationContext;
+
+        if (selectExpression.IndexName is { } appliedIndex)
+            throw new InvalidOperationException(
+                DynamoStrings.ExecuteDeleteOnIndexNotSupported(appliedIndex));
+
+        if (compilationContext.ExplicitIndexName is { } explicitIndex)
+            throw new InvalidOperationException(
+                DynamoStrings.ExecuteDeleteOnIndexNotSupported(explicitIndex));
+
+        if (selectExpression.Limit is not null || selectExpression.LimitExpression is not null)
+            throw new InvalidOperationException(
+                DynamoStrings.ExecuteInvalidKeyPredicate(
+                    "ExecuteDelete",
+                    "Limit(n) cannot be combined with ExecuteDelete; the WHERE clause must "
+                    + "identify the item without an evaluated-item limit."));
+
+        selectExpression.ApplyDeferredDiscriminatorPredicate();
+
+        var keyEntityType = entityType.ResolveKeyMappedEntityType();
+        var partitionKeyProperty = keyEntityType.GetPartitionKeyProperty()
+            ?? throw new InvalidOperationException(
+                $"Entity type '{entityType.DisplayName()}' does not define a partition key.");
+        var sortKeyProperty = keyEntityType.GetSortKeyProperty();
+
+        ValidateExecuteWhereClause(
+            selectExpression,
+            partitionKeyProperty,
+            sortKeyProperty,
+            "ExecuteDelete");
+        return new DynamoDeleteExpression(selectExpression, entityType);
+    }
+
     /// <summary>
     ///     Validates that the WHERE clause equality-constrains the full primary key and contains
     ///     no rejected key shapes (IN, ranges, or OR touching keys). Reuses the query-path
     ///     constraint extractor with a synthetic base-table descriptor.
     /// </summary>
-    private static void ValidateUpdateWhereClause(
+    private static void ValidateExecuteWhereClause(
         SelectExpression selectExpression,
         IReadOnlyProperty partitionKeyProperty,
-        IReadOnlyProperty? sortKeyProperty)
+        IReadOnlyProperty? sortKeyProperty,
+        string operation)
     {
         var constraints = new DynamoConstraintExtractionVisitor(
         [
@@ -1128,13 +1179,15 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
 
         if (constraints.InConstraints.ContainsKey(partitionKeyAttributeName))
             throw new InvalidOperationException(
-                DynamoStrings.ExecuteUpdateInvalidKeyPredicate(
-                    "The partition key cannot be constrained with IN; ExecuteUpdate targets a "
+                DynamoStrings.ExecuteInvalidKeyPredicate(
+                    operation,
+                    $"The partition key cannot be constrained with IN; {operation} targets a "
                     + "single item."));
 
         if (!constraints.EqualityConstraints.ContainsKey(partitionKeyAttributeName))
             throw new InvalidOperationException(
-                DynamoStrings.ExecuteUpdateRequiresKeyEquality("partition key"));
+                $"{operation} requires the WHERE clause to equality-constrain the partition key. "
+                + "Add a Where(e => e.<Key> == value) predicate so the item is fully identified.");
 
         var sortKeyAttributeName = sortKeyProperty?.GetAttributeName();
         if (sortKeyAttributeName is not null)
@@ -1142,15 +1195,16 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
             if (constraints.SkKeyConditions.TryGetValue(sortKeyAttributeName, out var condition)
                 && condition.Operator != SkOperator.Equal)
                 throw new InvalidOperationException(
-                    DynamoStrings.ExecuteUpdateInvalidKeyPredicate(
+                    DynamoStrings.ExecuteInvalidKeyPredicate(
+                        operation,
                         "The sort key must be equality-constrained; range operators and "
                         + "begins_with are not supported."));
 
             if (!constraints.SkKeyConditions.ContainsKey(sortKeyAttributeName))
                 throw new InvalidOperationException(
-                    DynamoStrings.ExecuteUpdateRequiresKeyEquality(
-                        "sort key (range operators, IN, and OR on the sort key are not "
-                        + "supported)"));
+                    $"{operation} requires the WHERE clause to equality-constrain the sort key "
+                    + "(range operators, IN, and OR on the sort key are not supported). Add a "
+                    + "Where(e => e.<Key> == value) predicate so the item is fully identified.");
         }
 
         if (selectExpression.Predicate is not null
@@ -1159,7 +1213,8 @@ public sealed class DynamoQueryableMethodTranslatingExpressionVisitor
                 partitionKeyAttributeName,
                 sortKeyAttributeName))
             throw new InvalidOperationException(
-                DynamoStrings.ExecuteUpdateInvalidKeyPredicate(
+                DynamoStrings.ExecuteInvalidKeyPredicate(
+                    operation,
                     "OR predicates must not reference key attributes."));
     }
 

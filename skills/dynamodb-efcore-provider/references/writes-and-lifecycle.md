@@ -26,8 +26,13 @@ narrow — check it before promising bulk-update behavior:
   string concatenation are rejected — DynamoDB PartiQL SET supports numeric add/subtract only.
 - `SetProperty` targets mapped scalar properties or leaf scalars of nested complex-property paths.
   Navigations, whole complex properties, and key properties cannot be assigned.
-- Synchronous `ExecuteUpdate` throws. `ExecuteDeleteAsync` is not implemented; delete through the
-  change tracker (`Remove` + `SaveChangesAsync`).
+- Synchronous `ExecuteUpdate` throws.
+
+## ExecuteDeleteAsync
+
+`ExecuteDeleteAsync` has the same singleton key-targeting, base-table, async-only, change-tracker,
+and transaction rules as `ExecuteUpdateAsync`, but emits DELETE. Extra non-key filters are allowed.
+It returns `0` or `1`; multi-item deletes are not supported. Synchronous `ExecuteDelete` throws.
 
 ## Concurrency and transactions
 

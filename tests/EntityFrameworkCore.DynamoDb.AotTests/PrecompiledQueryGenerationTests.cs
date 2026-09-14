@@ -179,6 +179,15 @@ public class PrecompiledQueryGenerationTests
                               .ExecuteUpdateAsync(setters
                               => setters.SetProperty(item => item.Count, item => item.Count + 1));
                               }
+
+                              public static async Task<int> ExecuteDelete(DbContextOptions options)
+                              {
+                              await using var context = new TestContext(options);
+                              var pk = "tenant-3";
+                              return await context.Items
+                              .Where(item => item.Pk == pk)
+                              .ExecuteDeleteAsync();
+                              }
                               }
                               """;
 
@@ -351,6 +360,12 @@ public class PrecompiledQueryGenerationTests
                             "ExecuteUpdateSelfReference returned null."));
                 selfReferenceAffected.Should().Be(1);
                 store["tenant-1"]["count"].N.Should().Be("1");
+
+                var deleteAffected =
+                    (int)(await InvokeQueryAsync(generatedAssembly, "ExecuteDelete", fakeOptions)
+                        ?? throw new InvalidOperationException("ExecuteDelete returned null."));
+                deleteAffected.Should().Be(1);
+                store.Should().NotContainKey("tenant-3");
             }
             finally
             {
@@ -782,7 +797,8 @@ public class PrecompiledQueryGenerationTests
     // conventional `this`-parameter static extension methods, which resolve correctly. These
     // tests fail again if the file is ever converted back to an extension block.
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public async Task Generated_interceptor_precompiles_constant_limit_and_applies_it_to_the_request()
+    public async Task
+        Generated_interceptor_precompiles_constant_limit_and_applies_it_to_the_request()
     {
         // This covers only the constant-limit shape. Parameterized `.Limit(limit)` is covered by
         // Generated_interceptor_precompiles_limit_and_next_token_composition_and_applies_both_to_the_request
@@ -1067,7 +1083,11 @@ public class PrecompiledQueryGenerationTests
             // Three query roots (WithConsistentRead, WithIndex, AllowScan) must each produce
             // a generated executor; a regression that reintroduces the extension-block shape
             // drops this count to zero.
-            Regex.Matches(generatedCode, "CreateQueryTemplate").Count.Should().BeGreaterThanOrEqualTo(3);
+            Regex
+                .Matches(generatedCode, "CreateQueryTemplate")
+                .Count
+                .Should()
+                .BeGreaterThanOrEqualTo(3);
             generatedCode.Should().NotContain("SelectExpressionJson");
 
             var generatedCompilation = compilation.AddSyntaxTrees(
@@ -1099,7 +1119,8 @@ public class PrecompiledQueryGenerationTests
     // executor is invoked twice with different runtime values, and the DynamoDB requests it sends
     // are captured directly (not inferred from result counts).
     [Fact(Timeout = TestConfiguration.DefaultTimeout)]
-    public async Task Generated_interceptor_precompiles_limit_and_next_token_composition_and_applies_both_to_the_request()
+    public async Task
+        Generated_interceptor_precompiles_limit_and_next_token_composition_and_applies_both_to_the_request()
     {
         const string source = """
                               using System.Collections.Generic;
