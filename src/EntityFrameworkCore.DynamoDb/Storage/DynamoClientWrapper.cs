@@ -176,15 +176,16 @@ public class DynamoClientWrapper : IDynamoClientWrapper, IDisposable
 
     /// <summary>
     ///     Executes a singleton ExecuteUpdate or ExecuteDelete PartiQL statement and returns the
-    ///     affected item count: 1 when the item matched, 0 when the WHERE clause matched nothing. A
-    ///     ConditionalCheckFailedException (no matching item) maps to 0 instead of a
-    ///     <see cref="DbUpdateConcurrencyException" />.
+    ///     affected item count: 1 when the write reports success, 0 when the service raises
+    ///     ConditionalCheckFailedException (mapped to 0 instead of a
+    ///     <see cref="DbUpdateConcurrencyException" />). The real DynamoDB service may report
+    ///     success for a non-matching key-targeted DELETE or UPDATE, which surfaces as 1.
     /// </summary>
     /// <param name="statement">The PartiQL UPDATE or DELETE statement to execute.</param>
     /// <param name="parameters">Positional parameter values for the statement.</param>
     /// <param name="tableName">The target table name for statement-level diagnostics.</param>
     /// <param name="cancellationToken">Token to observe for cancellation.</param>
-    /// <returns>1 on success, 0 when the conditional write matched no item.</returns>
+    /// <returns>1 on success, 0 when the service raises ConditionalCheckFailedException.</returns>
     public Task<int> ExecuteWriteResultAsync(
         string statement,
         List<AttributeValue> parameters,
