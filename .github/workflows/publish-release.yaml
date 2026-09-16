@@ -59,7 +59,10 @@ jobs:
         run: dotnet test EntityFrameworkCore.DynamoDb.slnx --configuration Release --no-build
 
       - name: NativeAOT test validation
-        run: scripts/run-nativeaot-tests.sh Release linux-x64 "${{ needs.resolve.outputs.target_framework }}"
+        run: |
+          dotnet restore tests/EntityFrameworkCore.DynamoDb.NativeAotTests/EntityFrameworkCore.DynamoDb.NativeAotTests.csproj -p:TargetFrameworks="${{ needs.resolve.outputs.target_framework }}" --runtime linux-x64
+          dotnet publish tests/EntityFrameworkCore.DynamoDb.NativeAotTests/EntityFrameworkCore.DynamoDb.NativeAotTests.csproj --configuration Release --framework "${{ needs.resolve.outputs.target_framework }}" --runtime linux-x64 --no-restore --output artifacts/nativeaot-tests
+          artifacts/nativeaot-tests/EntityFrameworkCore.DynamoDb.NativeAotTests
 
       - name: Pack
         run: dotnet pack src/EntityFrameworkCore.DynamoDb/EntityFrameworkCore.DynamoDb.csproj --configuration Release --no-build -o artifacts -p:Version=${{ needs.resolve.outputs.version }} -p:InformationalVersion=${{ needs.resolve.outputs.version }}

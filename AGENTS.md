@@ -64,7 +64,7 @@ execution.
   `docs/internal/ef10-ef11-build-configuration-strategy-research.md`). Generate the physical,
   gitignored override first: `scripts/write-target-framework-override.sh <net10.0|net11.0>`; clear
   it afterward with `scripts/write-target-framework-override.sh --clear`. `task test:aot-publish FRAMEWORK=net10.0`/`net11.0` does both automatically, including on failure.
-- The published runner is `scripts/run-nativeaot-tests.sh`; it owns publishing and warning gating.
+- `task test:aot-publish` publishes the NativeAOT test executable and runs it directly.
   The xUnit assembly fixture owns DynamoDB Local startup and cleanup.
 - `task test:aot-generation` and the full test suites run on both EF10 and EF11 without needing
   the override.
