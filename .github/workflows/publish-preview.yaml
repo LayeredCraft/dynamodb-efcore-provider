@@ -61,7 +61,7 @@ jobs:
           printf 'package_version=%s\n' "$package_version" | tee -a "$GITHUB_OUTPUT"
 
       - name: Setup .NET SDK
-        uses: actions/setup-dotnet@v6.0.0
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: ${{ matrix.dotnetVersion }}
 
@@ -100,7 +100,7 @@ jobs:
       id-token: write
       contents: read
     steps:
-      - uses: LayeredCraft/devops-templates/.github/actions/nuget-push@7d587b6a23afca8815fd94a4a3d246857b3db08d
+      - uses: LayeredCraft/devops-templates/.github/actions/nuget-push@07d4436f16fd9556b05458c1cddd9b50de24cde4
         with:
           nuget_user: ${{ secrets.NUGET_USER }}
           artifact_name: "nuget-packages-ef*"
